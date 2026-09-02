@@ -13,11 +13,15 @@ with inheritance and `var()` resolved, on a given viewport width and colour
 scheme. A design system defined once on `:root` reaches the whole document,
 which is the thing alo is made of.
 
+Boxes are built, and each one carries what it means — its role, its state and
+what it is called — so an interface can already be read as a tree of what it
+*is*. An agent could find the selected row of a list by asking what the rows
+are, which is the whole argument of `docs/decisions/0002`.
+
 What does not exist: numbers. A computed style holds the text a declaration was
-written with — `16px` is four characters, not a length — because turning it into
-a number belongs with the code that knows which unit it wants (queue item 12).
-Nothing is boxed, laid out or painted, so every target below is still
-`not yet`.
+written with — `16px` is four characters, not a length (queue item 12) — and no
+box has a position or a size (queue item 5). Nothing is painted, so every target
+below is still `not yet`.
 
 This file exists instead of a conformance percentage. A Web Platform Tests score
 would grade us against thirty years of legacy we are deliberately refusing

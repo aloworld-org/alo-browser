@@ -41,6 +41,9 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 ## Layout
 
 - [1] The box model — content, padding, border, margin, and the box's *meaning* alongside its rectangle (ADR 0002)
+- [1] Box generation: `display: none` removes a subtree, `display: contents` removes a box and keeps its children, and a container whose children are a mix of block and inline grows the anonymous boxes that make them one kind
+- [1] A user-agent style sheet — what an element looks like before anybody says otherwise. The modern elements only; no defaults for what we do not lay out
+- [3] A block-level box inside an inline one, split into three the way the specification says. Approximated today, and recorded every time
 - [1] **Flexbox and grid**, on `taffy` behind our own boundary. One file may name it
 - [1] Absolute and relative positioning, `z-index`, stacking
 - [1] Overflow and scrolling regions

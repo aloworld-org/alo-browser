@@ -274,3 +274,79 @@ only its rectangle, and that it cannot be retrofitted.
   which needs lengths as numbers to hand to `taffy`. Doing 12 before 5 is
   probably right; the queue leaves it where it is so that the decision is made
   by whoever reaches it.
+
+---
+
+## 2026-09-02 — iteration 4: the box tree (queue item 4)
+
+**What was built.** `crates/alo-box`, and the engine's own style sheet in
+`alo-style/src/user_agent.rs`.
+
+- `display.rs` — `display` parsed into the three separate questions it actually
+  asks: does this make a box, does it sit in a line, how are its children
+  arranged. The modern two-value syntax is what it parses into, because that is
+  what the single keywords are shorthands for.
+- `role.rs` — what a box is. **Declared, never inferred**: the `role` attribute
+  or what HTML says the element is, and nothing else. A role we do not know is
+  kept as written.
+- `state.rs` — what is true of a box. `aria-*` first because it is the more
+  explicit declaration, then the HTML state, which is asked of
+  `alo_css::state` rather than re-derived — two implementations of "is this
+  disabled" would eventually disagree.
+- `semantics.rs` — role, state and the declared name in one place, on the box.
+- `tree.rs` — box generation, anonymous boxes, and the outline a test asserts.
+
+**Decisions worth knowing about:**
+
+- **The engine's style sheet is CSS text.** It goes through the same parser and
+  the same cascade as an author's, because a user-agent sheet that took a
+  private path would be a second implementation of the cascade, and the second
+  one is the one that is wrong. A test asserts the engine's own sheet contains
+  nothing the engine refuses.
+- **Whitespace is decided about in `arrange`, not when the text box is made.**
+  Whether a space is content depends on what is beside it: between two `<p>`s
+  it is nothing, between two `<a>`s it is the gap between two words. The first
+  draft dropped all whitespace-only text and would have rendered `AllDue`; the
+  integration test caught it.
+- **No geometry.** Not one number in the crate. Where a box ends up is item 5,
+  and mixing the two would make a box's meaning depend on where it landed —
+  which is the failure this whole ordering exists to prevent.
+- **`States` keeps `Option<bool>` where a state may not apply.** `expanded:
+  None` is "this is not a thing that opens", which is not `Some(false)`, "this
+  opens and is closed". An agent told the second can act on it.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 299 tests, no stubs, boundaries held. One `#[expect]` was added, on
+`clippy::struct_excessive_bools` over `States`, with the reason written beside
+it: the lint reads many `bool`s as a state machine wanting an enum, and these
+are independently-true flags — a box can be disabled and required and busy at
+once. That is a pedantic lint above the gate misreading the design, not a real
+finding being silenced.
+
+Still no layout assertion and no reference render, and this is the last item
+that can honestly say so: item 5 is where the first numbers appear.
+
+**The scope cut**, written into the queue as item 13: a block-level box inside
+an inline one is treated as making the inline box a block container, rather
+than splitting it in three the way CSS says. Every tree that meets one records
+`IssueKind::UnsupportedStructure`, so a real page hitting it will say so rather
+than being found by reading. The common case — wrapping runs of inline children
+in anonymous blocks — is done properly.
+
+**What the next iteration should know.** Item 5 is layout, on `taffy`, behind
+our own boundary.
+
+- `BoxTree` is what layout walks. `BoxKind::inside()` says flow, flow-root,
+  flex or grid; `outside()` says block or inline. Every container's children
+  are already all of one kind, which is what the anonymous boxes are for — so
+  layout never has to ask "is this a mix".
+- **One file may name `taffy`**, as `alo-os` does with its runtime, and
+  `scripts/gate.sh` will check it. Add the entry to `BOUNDARIES` in the same
+  change that adds the dependency.
+- **Item 12 first, probably.** `taffy` wants lengths as numbers and a computed
+  style holds `"16px"` as text. Doing 12 before 5 means layout reads numbers
+  instead of parsing strings twice; the queue leaves the order to whoever gets
+  there, but this is the reason to consider it.
+- Text is a box with a string in it and no size. Measuring it is item 6, and
+  `taffy` takes a measure function for exactly that — so item 5 can leave a
+  seam there rather than a stub, and should say which.

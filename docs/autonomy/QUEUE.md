@@ -41,7 +41,7 @@ file is the specification for what "correct" means here.
   a variable defined on `:root` and used four levels down; a cycle refused rather
   than looped.
 
-- [ ] **4. The box tree.** Boxes from styled elements — and **what each box
+- [x] **4. The box tree.** Boxes from styled elements — and **what each box
   means**, not only its rectangle (ADR 0002). Role, state, and the text a person
   would read. A layout pass that keeps only geometry cannot be retrofitted into
   an agent tree, which is the whole reason this item sits before layout.
@@ -87,6 +87,16 @@ file is the specification for what "correct" means here.
   wants a colour from `color`, and a general answer is one that has to be wrong
   somewhere. **Cut from item 3 on the iteration that built it**, so that the
   cascade could be finished whole rather than half of two things.
+
+- [ ] **13. A block inside an inline, split properly.** CSS says an inline box
+  holding a block-level box is cut in three around it. This engine treats the
+  inline box as a block container instead, which is the shape it ends up
+  looking like and is not what the specification says — the difference shows in
+  where backgrounds and borders stop. It is recorded as
+  `IssueKind::UnsupportedStructure` on every tree that meets one, so a real page
+  hitting it will say so rather than being found by reading. **Cut from item 4
+  on the iteration that built it**: the wrapping of inline runs in anonymous
+  boxes is the common case and is done properly, and this is the rare one.
 
 ---
 

@@ -6,6 +6,29 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **There is a box tree**, and every box in it knows what it *is*. ADR 0002
+  says the layout tree is the agent's tree, so a box carries its role, its
+  state and what it is called from the moment it is made — "invoice list,
+  twelve rows, row three selected" is a thing this engine can now answer, on a
+  document, without a screenshot and without a plugin.
+- **Roles are declared, never inferred.** They come from the `role` attribute
+  or from what HTML says the element is; a role this engine does not know is
+  kept as written rather than dropped. There is no third source, and in
+  particular there is no "it has a border and some rows, so it is probably a
+  table".
+- Box generation follows the tree rather than the markup: `display: none`
+  removes a subtree, `display: contents` removes one box and keeps its
+  children, and a container whose children are a mix of block and inline grows
+  the anonymous boxes that make them one kind. The whitespace between two
+  paragraphs makes no box; the space between two links does, because it is the
+  gap between two words.
+- **The engine has its own style sheet** — what an element looks like before
+  anybody says otherwise. It is CSS text that goes through exactly the same
+  parser and cascade as anything an author writes, because a second path
+  through the cascade would be a second cascade to be wrong.
+- Not one number yet. Where a box ends up is the next item, and keeping the two
+  apart is what stops a box's meaning depending on where it landed.
+
 - **The cascade works, and so does `var()`.** For every element of a document:
   which declaration wins — origin, then `!important`, then specificity, then
   order — what a child inherits when nothing wins for it, and what a custom

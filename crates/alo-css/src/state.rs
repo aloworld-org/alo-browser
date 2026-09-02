@@ -188,12 +188,22 @@ pub fn is_optional(element: &Element) -> bool {
 /// `:read-only` is everything else, which is what HTML says and is why there
 /// is only one function here.
 pub fn is_read_write(document: &Document, id: NodeId, element: &Element) -> bool {
-    let is_text_entry = element.name.is_html("textarea")
-        || (element.name.is_html("input") && TEXT_ENTRY_TYPES.contains(&&*input_type(element)));
-    if is_text_entry {
+    if is_text_entry(element) {
         return element.attr("readonly").is_none() && !is_disabled(document, id, element);
     }
     is_editable(document, id)
+}
+
+/// Whether an element is one a person types into: a `<textarea>`, or an
+/// `<input>` of a type that takes text.
+///
+/// `readonly` means nothing on a checkbox, and `:read-only` matching every
+/// checkbox in a document is the bug this predicate exists to prevent. It is
+/// public so that the box tree asks the same question rather than asking its
+/// own — two implementations of "is this a field" would eventually disagree.
+pub fn is_text_entry(element: &Element) -> bool {
+    element.name.is_html("textarea")
+        || (element.name.is_html("input") && TEXT_ENTRY_TYPES.contains(&&*input_type(element)))
 }
 
 /// Whether `contenteditable` is in force on this element.

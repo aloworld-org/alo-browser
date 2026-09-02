@@ -3,6 +3,15 @@
 version = 4
 
 [[package]]
+name = "alo-box"
+version = "0.0.0"
+dependencies = [
+ "alo-css",
+ "alo-dom",
+ "alo-style",
+]
+
+[[package]]
 name = "alo-css"
 version = "0.0.0"
 dependencies = [

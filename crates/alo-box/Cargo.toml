@@ -1,0 +1,17 @@
+[package]
+name = "alo-box"
+description = "The alo browser box tree: what each box is, and what it means."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+alo-css = { path = "../alo-css" }
+alo-dom = { path = "../alo-dom" }
+alo-style = { path = "../alo-style" }
+
+[lints]
+workspace = true

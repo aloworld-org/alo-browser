@@ -44,6 +44,7 @@ pub mod computed;
 pub mod inheritance;
 pub mod keyword;
 pub mod origin;
+pub mod user_agent;
 pub mod variables;
 
 pub use cascade::{Applicable, Contender, SourcedSheet};
@@ -51,4 +52,5 @@ pub use computed::{ComputedStyle, StyleTree, resolve};
 pub use inheritance::inherits;
 pub use keyword::{Resolution, WideKeyword};
 pub use origin::{CascadeLevel, Origin};
+pub use user_agent::USER_AGENT_STYLE_SHEET;
 pub use variables::{Resolved, Variables, referenced_variables, substitute};

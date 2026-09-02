@@ -69,6 +69,15 @@ pub enum IssueKind {
     /// declaration is dropped as though it had said `unset`, which is not the
     /// same as being ignored, and is why it is recorded.
     InvalidAtComputedValueTime,
+    /// A value this engine does not implement, on a property it does. The
+    /// property falls back to its initial value, which is what CSS does with a
+    /// value it cannot parse — and saying which value was refused is the
+    /// difference between a diagnosable render and a mysterious one.
+    UnsupportedValue,
+    /// A tree shape this engine does not build boxes for exactly. It is built
+    /// as near as the engine can and the difference is recorded, because a
+    /// silently approximated box is one nobody can find later.
+    UnsupportedStructure,
 }
 
 impl IssueKind {
@@ -88,6 +97,8 @@ impl IssueKind {
             IssueKind::InvalidAtComputedValueTime => {
                 "var() names a property that is not set and has no fallback"
             }
+            IssueKind::UnsupportedValue => "value not implemented, property left at its initial",
+            IssueKind::UnsupportedStructure => "tree shape not implemented exactly, approximated",
         }
     }
 }
@@ -125,6 +136,8 @@ mod tests {
             IssueKind::UnknownMediaCondition,
             IssueKind::VariableCycle,
             IssueKind::InvalidAtComputedValueTime,
+            IssueKind::UnsupportedValue,
+            IssueKind::UnsupportedStructure,
         ] {
             assert!(!kind.as_str().is_empty());
         }
