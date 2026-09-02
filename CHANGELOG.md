@@ -6,6 +6,27 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The engine works out how wide text is.** Fonts load, `rustybuzz` shapes
+  them, UAX #14 says where a line may break and we decide where it does, and
+  layout's measuring seam is filled — so a paragraph in a narrow window now
+  takes more lines than the same paragraph in a wide one, with numbers that
+  came from a font rather than from a guess.
+- **The awkward scripts work, and they were done first.** Arabic joins and runs
+  right to left; `e` followed by a combining acute is one glyph, not two.
+  Nothing in the pipeline is indexed by character — a glyph names the *byte
+  range* it came from, several glyphs can name the same range, and one glyph
+  can cover several characters. A pipeline that assumed otherwise is one that
+  gets rewritten, so it never assumed it.
+- **A font is asked whether it has a character**, never guessed at from a
+  language tag, and a character no font has takes no room rather than being
+  drawn as something it is not.
+- Breaking is UAX #14 rather than "split on spaces", which would have been
+  wrong for most of the world's writing — Thai has no spaces and a hyphen is a
+  break that is not one. A word wider than its line overflows rather than being
+  cut in half.
+- `rustybuzz` and `unicode-linebreak` each stay behind one file, and the gate
+  checks it.
+
 - **Boxes have positions and sizes.** Block, flexbox and grid, with the box
   model, positioning and overflow — every number a CSS pixel, asserted as a
   number. The whole layout of a small interface is written out in a test, so a

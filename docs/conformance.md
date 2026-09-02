@@ -26,10 +26,14 @@ Boxes are laid out. Block, flexbox and grid all work, with the box model,
 positioning, overflow and percentages, and the whole layout of a small
 interface is asserted as numbers rather than looked at.
 
-What does not exist: text and pixels. How wide a piece of text is has to be
-supplied by the caller, because there is no font yet (queue item 6); nothing
-knows what colour anything is (item 14); and nothing is drawn (item 7). Every
-target below is still `not yet`.
+Text is real. Fonts load, text is shaped — including Arabic, which joins and
+runs right to left — lines break by UAX #14, and a paragraph in a narrow window
+takes more lines than the same paragraph in a wide one.
+
+What does not exist: pixels. Nothing knows what colour anything is (queue item
+14), no glyph has been turned into coverage (item 17), and nothing is drawn
+(item 7). Several inline boxes still cannot share a line properly (item 16).
+Every target below is still `not yet`.
 
 This file exists instead of a conformance percentage. A Web Platform Tests score
 would grade us against thirty years of legacy we are deliberately refusing

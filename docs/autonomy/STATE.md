@@ -491,3 +491,80 @@ font rasterisation.
   `ComputedStyle::metrics()` hands it out. Item 6 should fill in the rest of
   `FontMetrics` from the font it loads rather than adding a second place for
   font facts.
+
+---
+
+## 2026-09-02 — iteration 7: text (queue item 6)
+
+**What was built.** `crates/alo-text`. Layout's measuring seam is filled.
+
+- `font.rs` — a loaded font and the handful of measurements the rest of the
+  engine asks for, in CSS pixels at a size rather than in font units.
+- `database.rs` — which font, and the fallback chain. Ours, because it is a
+  policy question: a font is **asked** whether it has the character.
+- `shape.rs` — **the only file that names `rustybuzz`.**
+- `run.rs` — splitting text into runs of one direction and one font.
+- `linebreak.rs` — **the only file that names `unicode-linebreak`.**
+- `line.rs` — where a line actually breaks, which is ours.
+- `measure.rs` — `alo_layout::MeasureText`, implemented.
+
+**Decisions worth knowing about:**
+
+- **`rustybuzz` rather than HarfBuzz itself.** ADR 0001 says rent the shaper;
+  `rustybuzz` is HarfBuzz ported to Rust, so we rent the algorithm without
+  putting a C library in a process whose second argument is memory safety. Same
+  rented thing, no FFI, no `unsafe` on our side.
+- **Nothing is indexed by character.** A `ShapedGlyph` names the byte *range*
+  it came from. Two of the tests exist to keep that true: Arabic's glyph order
+  runs down the text rather than up, and `e` + combining acute composes to one
+  glyph covering both characters' bytes. `docs/features.md` asks for the
+  awkward scripts first for exactly this reason, and doing them first is what
+  made the shape of the data right rather than a thing to fix later.
+- **The test font comes from the `dejavu` crate** (MIT/Apache-2.0), as a
+  dev-dependency. Nothing binary lands in this repository, the version is
+  pinned, and the tests are the same on every machine. DejaVu covers Latin,
+  Arabic and Hebrew and does not cover Devanagari — which is why the
+  "no font has this character" test uses Devanagari, and why reordering scripts
+  are not yet tested. When a font for one is available, that test belongs
+  beside the Arabic one.
+
+**The bug worth remembering.** The greedy line-breaker took the last break that
+fitted and then moved on to the *next* opportunity — so the opportunity it had
+just rejected was never reconsidered from the new line's start, and lines came
+out wider than the width they were given. Wrapping is a loop that sometimes does
+not advance, and writing it as a `for` made that impossible to express. The test
+that caught it asserts every line fits, which is the assertion to keep.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 492 tests, no stubs, boundaries held including `rustybuzz`'s and
+`unicode-linebreak`'s. No layout assertion beyond item 5's — this item measures
+rather than positions, and the end-to-end test asserts that a narrower window
+takes more lines, which is the number that matters here. No reference render:
+still nothing drawn.
+
+**Two scope cuts**, both written into the queue:
+
+- **16. Inline formatting.** Several inline boxes on one line, with baselines,
+  and breaking *between* them rather than only inside one run. It is layout
+  work that needed a shaper to be possible, and it replaces `engine.rs`'s
+  `needs_a_line_of_its_own`.
+- **17. Glyph rasterisation.** Folded in beside item 7 rather than before it: a
+  glyph bitmap with no canvas to draw into can only be tested against itself,
+  and next to paint it is tested against a picture.
+
+**What the next iteration should know.** Item 14 is colours, and item 7 is
+paint. Doing 14 first is probably right for the same reason 12 came before 5:
+paint will want channels, and building a colour parser inside paint is how the
+value layer grows a second one.
+
+- `alo-value` is where a colour belongs: it is the crate that turns text into
+  numbers, and `cssparser` already exposes `parse_hash_color` and
+  `parse_named_color`, which are the two tables nobody should retype.
+  `cssparser` is already in `alo-value`'s boundary list.
+- **`FontMetrics::estimated` in `alo-value` is now wrong twice over.** `ex` and
+  `ch` are still half the font size and `line-height: normal` is still 1.2,
+  while `alo-text` can now answer all three from the font. Wiring that through
+  means `alo-style` asking a font database for metrics, which means style
+  depending on text — a real design decision, and the reason it was not done in
+  this iteration rather than an oversight. Whoever does it should decide
+  whether the font database belongs above style or beside it.

@@ -15,6 +15,10 @@ html5ever = "0.39"
 cssparser = "0.37"
 selectors = "0.40"
 precomputed-hash = "0.1"
+rustybuzz = "0.20"
+unicode-linebreak = "0.1"
+unicode-script = "0.5"
+dejavu = "2.37"
 taffy = { version = "0.14", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size", "calc"] }
 
 # Law 4 of CLAUDE.md, enforced by the compiler rather than by review: `unsafe`

@@ -62,10 +62,23 @@ file is the specification for what "correct" means here.
   file may name `taffy`, as `alo-os` does with its runtime. Tests are
   **numbers**: assert the computed box, never a screenshot somebody eyeballed.
 
-- [ ] **6. Text.** HarfBuzz shaping and font rasterisation. Do the awkward
+- [x] **6. Text.** HarfBuzz shaping and font rasterisation. Do the awkward
   scripts before the easy ones — a pipeline that assumed left-to-right and one
   glyph per character is one that gets rewritten. Line breaking, and the
   fallback chain when a font lacks a glyph.
+
+- [ ] **16. Inline formatting: a real line box.** Shaping and breaking give a
+  line its glyphs and its width; putting several inline boxes on one line, with
+  baselines, and breaking *between* them rather than only inside one run, is
+  layout work that needed a shaper before it was possible. `engine.rs`'s
+  `needs_a_line_of_its_own` is the stand-in it replaces. **Cut from item 6 on
+  the iteration that built it**, because measurement is the half that unblocks
+  everything and this is the half that needs its own design.
+
+- [ ] **17. Glyph rasterisation.** Turning a shaped glyph into coverage. It is
+  cut from item 6 and folded in beside item 7 rather than before it: a glyph
+  bitmap with no canvas to draw into can only be tested against itself, and
+  next to paint it is tested against a picture. **Cut from item 6.**
 
 - [ ] **7. Paint.** A display list from the box tree, then a software raster to a
   PNG. Deterministic output is the point: it makes every visual change reviewable

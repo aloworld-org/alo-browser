@@ -54,7 +54,8 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 
 ## Text
 
-- [1] Shaping with HarfBuzz, and font rasterisation — rented, as every engine rents them
+- [1] Shaping with HarfBuzz — `rustybuzz`, the Rust port, so there is no C in the process — and font rasterisation. Rented, as every engine rents them
+- [1] The fallback chain: a font is *asked* whether it has the character, never guessed at from a language tag
 - [1] **The awkward scripts before the easy ones.** A pipeline that assumed left-to-right and one glyph per character is a pipeline that gets rewritten
 - [1] Line breaking, and the fallback chain when a font lacks a glyph
 - [1] Web fonts

@@ -1,0 +1,28 @@
+[package]
+name = "alo-text"
+description = "The alo browser text layer: fonts, shaping, line breaking and how wide a line is."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+alo-layout = { path = "../alo-layout" }
+rustybuzz.workspace = true
+unicode-linebreak.workspace = true
+unicode-script.workspace = true
+
+[dev-dependencies]
+# The end-to-end test drives the whole engine, so it reaches for the crates
+# below this one. They are dev-dependencies rather than dependencies: nothing
+# in this crate's own code knows what a document is.
+alo-box = { path = "../alo-box" }
+alo-css = { path = "../alo-css" }
+alo-dom = { path = "../alo-dom" }
+alo-style = { path = "../alo-style" }
+dejavu.workspace = true
+
+[lints]
+workspace = true

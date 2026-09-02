@@ -36,6 +36,8 @@ declare -a BOUNDARIES=(
   "cssparser:crates/alo-css/src/ident.rs,crates/alo-css/src/matching.rs,crates/alo-css/src/media.rs,crates/alo-css/src/parse.rs,crates/alo-css/src/selector.rs,crates/alo-style/src/variables.rs,crates/alo-value/src/parse.rs"
   "selectors:crates/alo-css/src/matching.rs,crates/alo-css/src/parse.rs,crates/alo-css/src/selector.rs"
   "taffy:crates/alo-layout/src/engine.rs"
+  "rustybuzz:crates/alo-text/src/font.rs,crates/alo-text/src/shape.rs"
+  "unicode_linebreak:crates/alo-text/src/linebreak.rs"
 )
 
 step "cargo fmt"
