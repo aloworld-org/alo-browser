@@ -9,6 +9,7 @@
 //! Every number is a CSS pixel.
 
 use crate::geometry::{Edges, Rect, Size};
+use crate::inline::Fragment;
 use alo_box::BoxId;
 use alo_css::StyleIssue;
 use core::fmt;
@@ -62,6 +63,7 @@ impl fmt::Display for BoxGeometry {
 #[derive(Debug, Clone, Default)]
 pub struct LayoutTree {
     geometry: BTreeMap<BoxId, BoxGeometry>,
+    fragments: BTreeMap<BoxId, Vec<Fragment>>,
     issues: Vec<StyleIssue>,
     viewport: Size,
 }
@@ -102,13 +104,31 @@ impl LayoutTree {
         self.geometry.iter().map(|(id, geometry)| (*id, *geometry))
     }
 
+    /// The pieces a box was drawn in.
+    ///
+    /// A box that fits on one line has one. A box that wrapped has one per
+    /// line, and **that is what should be painted**: the union of them covers
+    /// the gap between the lines, so a background drawn from the union would
+    /// paint across it. [`LayoutTree::border_box`] gives the union, which is
+    /// the answer to "where is this" and not to "what do I draw".
+    pub fn fragments(&self, id: BoxId) -> &[Fragment] {
+        self.fragments.get(&id).map_or(&[], Vec::as_slice)
+    }
+
+    /// Whether a box was drawn in more than one piece.
+    pub fn is_fragmented(&self, id: BoxId) -> bool {
+        self.fragments(id).len() > 1
+    }
+
     pub(crate) fn from_parts(
         geometry: BTreeMap<BoxId, BoxGeometry>,
+        fragments: BTreeMap<BoxId, Vec<Fragment>>,
         issues: Vec<StyleIssue>,
         viewport: Size,
     ) -> Self {
         Self {
             geometry,
+            fragments,
             issues,
             viewport,
         }

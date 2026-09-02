@@ -14,15 +14,20 @@
 //! no CSS understanding here — that is [`crate::style`] — and no geometry of
 //! our own — that is [`crate::geometry`].
 //!
-//! # Two seams, named rather than hidden
+//! # Inline formatting is ours
 //!
-//! **Inline formatting.** `taffy` has block, flex and grid, and no inline
-//! layout at all. An anonymous box — which exists precisely to hold a run of
-//! inline content — is laid out here as a **wrapping flex row**, which gets
-//! boxes side by side and wrapping onto new lines. It does not get baselines,
-//! or breaking *inside* a run of text. That is queue item 6, which is where
-//! shaping and line breaking arrive, and it replaces this by giving the
-//! anonymous box a real inline formatting context.
+//! `taffy` has block, flex and grid, and no inline layout at all — so a
+//! container whose children all sit in a line is given to it as a **leaf**,
+//! and [`crate::inline`] lays out what is inside. That is not a workaround:
+//! inline layout is a different algorithm from the other three, and every
+//! engine has its own.
+//!
+//! An atomic inline-level box — an `inline-block`, an image, a button — has a
+//! size only its own layout can give, so this file lays out that subtree on
+//! its own and hands the size to the line box. It is the same code, called
+//! again, one formatting context down.
+//!
+//! # One seam, named rather than hidden
 //!
 //! **`calc()` with a percentage inside it.** `taffy` carries such a value as
 //! an opaque handle that only a tree implementing its own traits can resolve,
@@ -33,6 +38,7 @@
 //! already a plain number by the time it reaches here and works.
 
 use crate::geometry::{Edges, Point, Rect, Size};
+use crate::inline::{self, Fragment, InlineItem, InlineLayout};
 use crate::keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
     Positioning,
@@ -66,73 +72,110 @@ pub fn compute(
 ) -> LayoutTree {
     let mut issues = Vec::new();
     let Some(root) = boxes.root() else {
-        return LayoutTree::from_parts(BTreeMap::new(), issues, viewport);
+        return LayoutTree::from_parts(BTreeMap::new(), BTreeMap::new(), issues, viewport);
     };
-
-    let mut taffy: TaffyTree<Option<String>> = TaffyTree::new();
-    let mut ours_to_theirs: BTreeMap<BoxId, NodeId> = BTreeMap::new();
-    let Some(taffy_root) = build(
-        boxes,
-        styles,
-        root,
-        &mut taffy,
-        &mut ours_to_theirs,
-        &mut issues,
-    ) else {
-        return LayoutTree::from_parts(BTreeMap::new(), issues, viewport);
-    };
-
     let available = TaffySize {
         width: AvailableSpace::Definite(viewport.width),
         height: AvailableSpace::Definite(viewport.height),
     };
+    let Some(laid_out) = lay_out_subtree(boxes, styles, root, available, measure, &mut issues)
+    else {
+        return LayoutTree::from_parts(BTreeMap::new(), BTreeMap::new(), issues, viewport);
+    };
+    LayoutTree::from_parts(laid_out.geometry, laid_out.fragments, issues, viewport)
+}
+
+/// One formatting context, laid out on its own.
+struct LaidOut {
+    size: Size,
+    baseline: f32,
+    geometry: BTreeMap<BoxId, BoxGeometry>,
+    fragments: BTreeMap<BoxId, Vec<Fragment>>,
+}
+
+/// Lay out a subtree as its own formatting context, with its own engine tree.
+///
+/// Called once for the document, and again for each atomic inline-level box —
+/// an `inline-block`, an image, a button — because such a box's size is
+/// whatever its own layout says, and its own layout is this.
+fn lay_out_subtree(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    root: BoxId,
+    available: TaffySize<AvailableSpace>,
+    measure: &impl MeasureText,
+    issues: &mut Vec<StyleIssue>,
+) -> Option<LaidOut> {
+    let mut taffy: TaffyTree<Context> = TaffyTree::new();
+    let mut ours_to_theirs: BTreeMap<BoxId, NodeId> = BTreeMap::new();
+    let taffy_root = build(boxes, styles, root, &mut taffy, &mut ours_to_theirs, issues)?;
+
     let computed =
         taffy.compute_layout_with_measure(taffy_root, available, |input, _node, context, style| {
-            let Some(Some(text)) = context else {
-                return taffy::compute_leaf_layout(
-                    input,
-                    style,
-                    |_, _| 0.0,
-                    |_, _| TaffySize::ZERO,
-                );
-            };
-            let text = text.clone();
-            taffy::compute_leaf_layout(
-                input,
-                style,
-                |_, _| 0.0,
-                |known, available| {
-                    if let (Some(width), Some(height)) = (known.width, known.height) {
-                        return TaffySize { width, height };
-                    }
-                    // `MinContent` and `MaxContent` are the questions "how
-                    // narrow can this be" and "how wide would it like to be";
-                    // both are answered by measuring with no width at all.
-                    let width_to_fit = known.width.or(match available.width {
+            let width_to_fit =
+                |known: TaffySize<Option<f32>>, available: TaffySize<AvailableSpace>| {
+                    // `MinContent` and `MaxContent` are the questions "how narrow
+                    // can this be" and "how wide would it like to be"; both are
+                    // answered by measuring with no width at all.
+                    known.width.or(match available.width {
                         AvailableSpace::Definite(definite) => Some(definite),
                         AvailableSpace::MinContent | AvailableSpace::MaxContent => None,
-                    });
-                    let size = measure.measure(&text, width_to_fit);
-                    TaffySize {
-                        width: size.width,
-                        height: size.height,
-                    }
-                },
-            )
+                    })
+                };
+            match context {
+                Some(Context::Text(text)) => {
+                    let text = text.clone();
+                    taffy::compute_leaf_layout(
+                        input,
+                        style,
+                        |_, _| 0.0,
+                        |known, room| {
+                            if let (Some(width), Some(height)) = (known.width, known.height) {
+                                return TaffySize { width, height };
+                            }
+                            let size = measure.measure(&text, width_to_fit(known, room));
+                            TaffySize {
+                                width: size.width,
+                                height: size.height,
+                            }
+                        },
+                    )
+                }
+                Some(Context::InlineFormatting(id)) => {
+                    let id = *id;
+                    taffy::compute_leaf_layout(
+                        input,
+                        style,
+                        |_, _| 0.0,
+                        |known, room| {
+                            let width = width_to_fit(known, room);
+                            let size = measure_inline(boxes, styles, id, width, measure).size;
+                            TaffySize {
+                                width: known.width.unwrap_or(size.width),
+                                height: known.height.unwrap_or(size.height),
+                            }
+                        },
+                    )
+                }
+                None => {
+                    taffy::compute_leaf_layout(input, style, |_, _| 0.0, |_, _| TaffySize::ZERO)
+                }
+            }
         });
     if computed.is_err() {
-        // The tree was built by this file, so a failure here is this file
-        // being wrong rather than the document. Recorded, and an empty layout
-        // is returned rather than a partial one nobody can trust.
+        // The tree was built by this file, so a failure here is this file being
+        // wrong rather than the document. Recorded, and nothing is returned
+        // rather than a partial layout nobody can trust.
         issues.push(StyleIssue {
             kind: IssueKind::UnsupportedStructure,
             source: "the layout engine could not lay out this tree".to_owned(),
             at: Location { line: 0, column: 0 },
         });
-        return LayoutTree::from_parts(BTreeMap::new(), issues, viewport);
+        return None;
     }
 
     let mut geometry = BTreeMap::new();
+    let mut fragments = BTreeMap::new();
     read_back(
         &taffy,
         &ours_to_theirs,
@@ -141,20 +184,279 @@ pub fn compute(
         Point::ZERO,
         &mut geometry,
     );
-    LayoutTree::from_parts(geometry, issues, viewport)
+    place_inline_content(
+        boxes,
+        styles,
+        root,
+        measure,
+        &mut geometry,
+        &mut fragments,
+        issues,
+    );
+
+    let root_geometry = geometry.get(&root).copied().unwrap_or_default();
+    Some(LaidOut {
+        size: root_geometry.border_box.size,
+        // A box's baseline is the last line inside it, or its bottom edge when
+        // there is no line — which is what CSS says an empty inline-block sits
+        // on.
+        baseline: root_geometry.border_box.size.height,
+        geometry,
+        fragments,
+    })
+}
+
+/// Work out what is on each line of an inline formatting context.
+fn measure_inline(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    id: BoxId,
+    available_width: Option<f32>,
+    measure: &impl MeasureText,
+) -> InlineLayout {
+    let mut issues = Vec::new();
+    let items = collect_inline_items(boxes, styles, id, available_width, measure, &mut issues);
+    inline::lay_out(&items, available_width, measure)
+}
+
+/// The things on the lines of an inline formatting context, in order.
+///
+/// A nested inline box contributes its own children rather than itself, so
+/// that a sentence spread over several `<span>`s is one sentence and breaks
+/// between any two of its words. An atomic inline-level box contributes
+/// itself, at whatever size its own layout gives it.
+fn collect_inline_items(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    id: BoxId,
+    available_width: Option<f32>,
+    measure: &impl MeasureText,
+    issues: &mut Vec<StyleIssue>,
+) -> Vec<InlineItem> {
+    let mut items = Vec::new();
+    let children: Vec<BoxId> = boxes.children(id).collect();
+    for child in children {
+        let Some(node) = boxes.get(child) else {
+            continue;
+        };
+        match &node.kind {
+            BoxKind::Text { text, .. } => items.push(InlineItem::Text {
+                box_id: child,
+                text: text.clone(),
+            }),
+            _ if is_inline_formatting_context(boxes, child) || node.children.is_empty() => {
+                if is_atomic(boxes, child) {
+                    items.push(atomic_item(
+                        boxes,
+                        styles,
+                        child,
+                        available_width,
+                        measure,
+                        issues,
+                    ));
+                } else {
+                    // A nested inline box: its children join this line.
+                    items.extend(collect_inline_items(
+                        boxes,
+                        styles,
+                        child,
+                        available_width,
+                        measure,
+                        issues,
+                    ));
+                }
+            }
+            _ => items.push(atomic_item(
+                boxes,
+                styles,
+                child,
+                available_width,
+                measure,
+                issues,
+            )),
+        }
+    }
+    items
+}
+
+/// Whether an inline-level box is laid out on its own rather than joining the
+/// line around it.
+///
+/// `inline flow` is a box whose content joins the line — a `<span>`, an `<a>`.
+/// Anything else inline-level establishes its own formatting context and is
+/// placed on the line whole: an `inline-block`, an `inline-flex`, an image.
+fn is_atomic(boxes: &BoxTree, id: BoxId) -> bool {
+    boxes
+        .get(id)
+        .is_some_and(|node| !matches!(node.kind.inside(), Inside::Flow))
+}
+
+/// Lay out an atomic inline-level box on its own and turn it into an item.
+fn atomic_item(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    id: BoxId,
+    available_width: Option<f32>,
+    measure: &impl MeasureText,
+    issues: &mut Vec<StyleIssue>,
+) -> InlineItem {
+    let available = TaffySize {
+        width: available_width.map_or(AvailableSpace::MaxContent, AvailableSpace::Definite),
+        height: AvailableSpace::MaxContent,
+    };
+    let laid_out = lay_out_subtree(boxes, styles, id, available, measure, issues);
+    InlineItem::Atomic {
+        box_id: id,
+        size: laid_out.as_ref().map_or(Size::ZERO, |held| held.size),
+        baseline: laid_out.as_ref().map_or(0.0, |held| held.baseline),
+    }
+}
+
+/// Once the engine has placed every block, put the inline content inside the
+/// boxes that hold it.
+fn place_inline_content(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    id: BoxId,
+    measure: &impl MeasureText,
+    geometry: &mut BTreeMap<BoxId, BoxGeometry>,
+    fragments: &mut BTreeMap<BoxId, Vec<Fragment>>,
+    issues: &mut Vec<StyleIssue>,
+) {
+    if is_inline_formatting_context(boxes, id) {
+        let Some(container) = geometry.get(&id).copied() else {
+            return;
+        };
+        let content = container.content_box();
+        let items =
+            collect_inline_items(boxes, styles, id, Some(content.size.width), measure, issues);
+        let layout = inline::lay_out(&items, Some(content.size.width), measure);
+
+        for fragment in layout.fragments() {
+            let placed = Fragment {
+                rect: fragment.rect.translated(content.origin),
+                ..fragment.clone()
+            };
+            fragments
+                .entry(placed.box_id)
+                .or_default()
+                .push(placed.clone());
+        }
+        // Every box inside this context gets a rectangle as well: the union of
+        // the pieces beneath it. That includes a nested inline box such as an
+        // `<em>`, which has no piece of its own — its text does — and would
+        // otherwise have no position at all. What a box *draws* is still its
+        // pieces; the union is the answer to "where is this".
+        for inner in boxes.descendants(id) {
+            if let Some(rect) = union_of_subtree(boxes, inner, fragments) {
+                geometry.entry(inner).or_insert(BoxGeometry {
+                    border_box: rect,
+                    ..BoxGeometry::default()
+                });
+            }
+        }
+        // An atomic box brought a whole layout of its own with it; place it.
+        for item in &items {
+            if let InlineItem::Atomic { box_id, .. } = item
+                && let Some(placed) = fragments.get(box_id).and_then(|pieces| pieces.first())
+            {
+                let offset = placed.rect.origin;
+                if let Some(sub) = lay_out_subtree(
+                    boxes,
+                    styles,
+                    *box_id,
+                    TaffySize {
+                        width: AvailableSpace::Definite(placed.rect.size.width),
+                        height: AvailableSpace::Definite(placed.rect.size.height),
+                    },
+                    measure,
+                    issues,
+                ) {
+                    for (inner, mut held) in sub.geometry {
+                        held.border_box = held.border_box.translated(offset);
+                        geometry.insert(inner, held);
+                    }
+                    for (inner, pieces) in sub.fragments {
+                        let moved: Vec<Fragment> = pieces
+                            .into_iter()
+                            .map(|piece| Fragment {
+                                rect: piece.rect.translated(offset),
+                                ..piece
+                            })
+                            .collect();
+                        fragments.insert(inner, moved);
+                    }
+                }
+            }
+        }
+        return;
+    }
+
+    let children: Vec<BoxId> = boxes.children(id).collect();
+    for child in children {
+        place_inline_content(boxes, styles, child, measure, geometry, fragments, issues);
+    }
+}
+
+/// The rectangle a box and everything under it were drawn in.
+fn union_of_subtree(
+    boxes: &BoxTree,
+    id: BoxId,
+    fragments: &BTreeMap<BoxId, Vec<Fragment>>,
+) -> Option<Rect> {
+    let mut found: Option<Rect> = None;
+    let mut extend = |rect: Rect| {
+        found = Some(match found {
+            None => rect,
+            Some(held) => union_rects(held, rect),
+        });
+    };
+    for piece in fragments.get(&id).into_iter().flatten() {
+        extend(piece.rect);
+    }
+    for descendant in boxes.descendants(id) {
+        for piece in fragments.get(&descendant).into_iter().flatten() {
+            extend(piece.rect);
+        }
+    }
+    found
+}
+
+fn union_rects(left: Rect, right: Rect) -> Rect {
+    let x = left.left().min(right.left());
+    let y = left.top().min(right.top());
+    Rect::new(
+        x,
+        y,
+        left.right().max(right.right()) - x,
+        left.bottom().max(right.bottom()) - y,
+    )
 }
 
 /// Build one box and everything under it.
+///
+/// A box whose children all sit in a line becomes a **leaf**: the engine is
+/// told how big it is and nothing about what is inside, because what is inside
+/// is a line box and that is [`crate::inline`]'s. Its children are therefore
+/// not in the engine's tree at all, and are positioned by this file afterwards.
 fn build(
     boxes: &BoxTree,
     styles: &StyleTree,
     id: BoxId,
-    taffy: &mut TaffyTree<Option<String>>,
+    taffy: &mut TaffyTree<Context>,
     ours_to_theirs: &mut BTreeMap<BoxId, NodeId>,
     issues: &mut Vec<StyleIssue>,
 ) -> Option<NodeId> {
     let node = boxes.get(id)?;
     let style = style_for(boxes, styles, id, issues);
+
+    if is_inline_formatting_context(boxes, id) {
+        let made = taffy
+            .new_leaf_with_context(style, Context::InlineFormatting(id))
+            .ok()?;
+        ours_to_theirs.insert(id, made);
+        return Some(made);
+    }
 
     let children: Vec<NodeId> = node
         .children
@@ -163,12 +465,27 @@ fn build(
         .collect();
 
     let made = match &node.kind {
-        BoxKind::Text { text, .. } => taffy.new_leaf_with_context(style, Some(text.clone())),
+        BoxKind::Text { text, .. } => {
+            taffy.new_leaf_with_context(style, Context::Text(text.clone()))
+        }
         _ => taffy.new_with_children(style, &children),
     }
     .ok()?;
     ours_to_theirs.insert(id, made);
     Some(made)
+}
+
+/// What a leaf in the engine's tree stands for.
+///
+/// A box with no context at all — a block with children, an empty element —
+/// has none of these; the engine hands the measure function [`None`] and there
+/// is nothing to measure.
+#[derive(Debug, Clone)]
+enum Context {
+    /// A text box on its own, outside any line.
+    Text(String),
+    /// A box whose children are a line of inline content.
+    InlineFormatting(BoxId),
 }
 
 /// The `taffy` style for one box.
@@ -242,46 +559,23 @@ fn style_for(
     style.grid_auto_rows = auto_tracks(&ours.grid.auto_rows, ours.metrics, issues);
     style.grid_auto_columns = auto_tracks(&ours.grid.auto_columns, ours.metrics, issues);
 
-    // The seam named in this file's header. A container whose children all sit
-    // in a line *is* an inline formatting context — an anonymous box is one
-    // that the box tree made for a run of them, and a `<p>` holding only text
-    // is one that nobody had to make. Until item 6 brings a real inline
-    // context, both are laid out as a row that wraps: boxes go side by side
-    // and wrap, and text is as wide as it needs rather than as wide as its
-    // parent.
-    if needs_a_line_of_its_own(boxes, id) {
-        style.display = taffy::Display::Flex;
-        style.flex_direction = taffy::FlexDirection::Row;
-        style.flex_wrap = taffy::FlexWrap::Wrap;
-        style.align_items = Some(taffy::AlignItems::START);
-        style.align_content = Some(taffy::AlignContent::START);
-    }
     style
 }
 
-/// Whether this box holds several things that sit in a line, and so needs
-/// them arranged along one.
+/// Whether this box's children all sit in a line, and so form an inline
+/// formatting context of their own.
 ///
-/// The rule, stated because it is a stand-in and not the specification:
-///
-/// - **Several inline children** — `<a>All</a> <a>Due</a>` — become a wrapping
-///   flex row, so they sit beside each other and wrap onto a new line.
-/// - **One text child** — a paragraph, a heading, a label — is left as a block
-///   child, so it fills the container and the measurer is asked to wrap it
-///   inside that width. That is what a paragraph does, and it is the shape
-///   most of an interface is.
-///
-/// Neither gets baselines, and neither breaks a line at the right place
-/// between two different inline boxes. Queue item 6 replaces both with one
-/// real inline formatting context.
-fn needs_a_line_of_its_own(boxes: &BoxTree, id: BoxId) -> bool {
+/// A `<p>` holding text is one; so is the anonymous box the box tree made for
+/// a run of inline children beside a block. Both are handed to the layout
+/// engine as a leaf, and [`crate::inline`] lays out what is inside.
+pub(crate) fn is_inline_formatting_context(boxes: &BoxTree, id: BoxId) -> bool {
     let Some(node) = boxes.get(id) else {
         return false;
     };
     if !matches!(node.kind.inside(), Inside::Flow | Inside::FlowRoot) {
         return false;
     }
-    if node.children.len() < 2 {
+    if node.children.is_empty() {
         return false;
     }
     node.children.iter().all(|child| {
@@ -630,7 +924,7 @@ fn max_track(
 
 /// Walk the tree and turn parent-relative positions into positions on the page.
 fn read_back(
-    taffy: &TaffyTree<Option<String>>,
+    taffy: &TaffyTree<Context>,
     ours_to_theirs: &BTreeMap<BoxId, NodeId>,
     boxes: &BoxTree,
     id: BoxId,

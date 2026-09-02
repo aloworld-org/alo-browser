@@ -13,28 +13,8 @@
 use alo_box::{BoxId, BoxTree, build};
 use alo_css::{MediaContext, parse_stylesheet};
 use alo_dom::parse_document;
-use alo_layout::{LayoutTree, MeasureText, NoText, Rect, Size, compute};
+use alo_layout::{BlockFont, LayoutTree, NoText, Rect, Size, compute};
 use alo_style::{Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET, resolve};
-
-/// Eight pixels a character on one line of sixteen, wrapping when it must.
-///
-/// A fake, and named as one. Real text is queue item 6.
-struct BlockFont;
-
-impl MeasureText for BlockFont {
-    fn measure(&self, text: &str, available_width: Option<f32>) -> Size {
-        let characters = f32::from(u16::try_from(text.chars().count()).unwrap_or(u16::MAX));
-        let widest = characters * 8.0;
-        match available_width {
-            Some(room) if room > 0.0 && widest > room => {
-                let per_line = (room / 8.0).floor().max(1.0);
-                let lines = (characters / per_line).ceil();
-                Size::new(room, lines * 16.0)
-            }
-            _ => Size::new(widest, 16.0),
-        }
-    }
-}
 
 /// Equal to within far less than a pixel. A layout assertion is about the
 /// number, not about whether two floats happen to be bit-identical.
@@ -288,19 +268,29 @@ fn a_relative_box_moves_and_an_absolute_one_leaves_the_flow() {
 }
 
 #[test]
-fn text_is_measured_by_whoever_was_asked_and_wraps_when_it_must() {
-    let html = "<body><div id=a>abcdefgh</div></body>";
-    let (boxes, layout) = lay_out(html, "#a { width: 32px }", Size::new(400.0, 300.0));
+fn text_wraps_where_a_line_may_break_and_nowhere_else() {
+    let html = "<body><div id=a>abcd efgh</div></body>";
+
+    let narrow = lay_out(html, "#a { width: 40px }", Size::new(400.0, 300.0));
     assert_eq!(
-        rect_of(&boxes, &layout, "a", html).size,
-        Size::new(32.0, 32.0),
-        "eight characters at eight pixels, four to a line, two lines of sixteen",
+        rect_of(&narrow.0, &narrow.1, "a", html).size,
+        Size::new(40.0, 32.0),
+        "two words, one to a line, two lines of sixteen",
     );
 
-    let (boxes, layout) = lay_out(html, "#a { width: 200px }", Size::new(400.0, 300.0));
+    let wide = lay_out(html, "#a { width: 200px }", Size::new(400.0, 300.0));
     assert_eq!(
-        rect_of(&boxes, &layout, "a", html).size,
-        Size::new(200.0, 16.0)
+        rect_of(&wide.0, &wide.1, "a", html).size,
+        Size::new(200.0, 16.0),
+    );
+
+    // A word with nowhere to break overflows rather than being cut in half.
+    let unbreakable = "<body><div id=a>abcdefgh</div></body>";
+    let tight = lay_out(unbreakable, "#a { width: 32px }", Size::new(400.0, 300.0));
+    assert_eq!(
+        rect_of(&tight.0, &tight.1, "a", unbreakable).size,
+        Size::new(32.0, 16.0),
+        "one line, and the text sticks out of it",
     );
 }
 
@@ -338,12 +328,12 @@ block flow · document → 200×60 at (0, 0)
   block flow · generic → 200×60 at (0, 0)
     block flow · main → 200×60 at (0, 0)
       block flow · heading [level=1] → 184×24 at (8, 8)
-        text \"Invoices\" → 184×16 at (8, 8)
+        text \"Invoices\" → 64×16 at (8, 8)
       block flex · list → 184×20 at (8, 32)
         block flow list-item · listitem → 60×20 at (8, 32)
-          text \"One\" → 60×16 at (8, 32)
+          text \"One\" → 24×16 at (8, 32)
         block flow list-item · listitem → 60×20 at (72, 32)
-          text \"Two\" → 60×16 at (72, 32)
+          text \"Two\" → 24×16 at (72, 32)
 ";
     assert_eq!(layout.to_outline(&boxes), expected);
 }
@@ -389,4 +379,104 @@ fn a_document_that_generates_no_boxes_lays_out_nothing_and_does_not_mind() {
     assert!(layout.is_empty());
     assert_eq!(layout.viewport(), Size::new(400.0, 300.0));
     assert_eq!(layout.to_outline(&boxes), "");
+}
+
+// --- what a line box does that a row of boxes cannot ------------------------
+
+#[test]
+fn a_sentence_breaks_between_two_inline_boxes_and_not_only_around_them() {
+    let html = "<body><p id=p>the <em id=em>quick brown</em> fox</p></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "#p { width: 80px } p { margin: 0 }",
+        Size::new(400.0, 300.0),
+    );
+
+    let paragraph = rect_of(&boxes, &layout, "p", html);
+    assert!(
+        paragraph.size.height > 16.0,
+        "it wrapped: {}",
+        paragraph.size.height,
+    );
+
+    // The `<em>` is one sentence with what surrounds it, so the break can land
+    // inside it — which a row of three boxes could never do.
+    let em = rect_of(&boxes, &layout, "em", html);
+    assert!(em.size.width <= 80.001, "and it stays inside the paragraph");
+}
+
+#[test]
+fn a_box_that_wraps_is_drawn_in_one_piece_per_line() {
+    let html = "<body><p id=p><a id=link>one two three four</a></p></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "#p { width: 60px } p { margin: 0 }",
+        Size::new(400.0, 300.0),
+    );
+
+    let document = parse_document(html);
+    let node = document
+        .descendants(document.root())
+        .find(|id| {
+            document
+                .element(*id)
+                .is_some_and(|element| element.attr("id") == Some("link"))
+        })
+        .expect("the link");
+    let root = boxes.root().expect("a root");
+    let link = core::iter::once(root)
+        .chain(boxes.descendants(root))
+        .find(|id| boxes.get(*id).and_then(|held| held.kind.node()) == Some(node))
+        .expect("the link's box");
+
+    // The link's text is inside it, and that is what was fragmented.
+    let text_box = boxes
+        .descendants(link)
+        .into_iter()
+        .find(|id| boxes.get(*id).is_some_and(|held| held.text().is_some()))
+        .expect("the link's text");
+
+    assert!(
+        layout.is_fragmented(text_box),
+        "four words in sixty pixels is more than one line",
+    );
+    let pieces = layout.fragments(text_box);
+    assert!(pieces.len() > 1);
+    for pair in pieces.windows(2) {
+        assert!(
+            pair[1].rect.top() >= pair[0].rect.bottom() - 0.001,
+            "and each piece is below the one before it rather than beside it",
+        );
+    }
+
+    let union = layout.border_box(text_box).expect("a union rectangle");
+    assert!(
+        union.size.height > pieces[0].rect.size.height,
+        "the union covers the gap between the lines, which is why paint uses the pieces",
+    );
+}
+
+#[test]
+fn things_of_different_heights_on_one_line_sit_on_one_baseline() {
+    let html = "<body><p id=p>x<img id=tall>y</p></body>";
+    let css = "p { margin: 0; width: 300px } #tall { width: 20px; height: 40px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+
+    let image = rect_of(&boxes, &layout, "tall", html);
+    let paragraph = rect_of(&boxes, &layout, "p", html);
+
+    assert_eq!(
+        image.size,
+        Size::new(20.0, 40.0),
+        "the image keeps its size"
+    );
+    assert!(
+        paragraph.size.height >= 40.0,
+        "and the line grew to hold it rather than clipping it: {}",
+        paragraph.size.height,
+    );
+    assert!(
+        close(image.top(), paragraph.top()),
+        "the tallest thing sets the baseline, so it starts at the top of the line",
+    );
 }

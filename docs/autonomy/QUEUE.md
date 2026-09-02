@@ -67,7 +67,7 @@ file is the specification for what "correct" means here.
   glyph per character is one that gets rewritten. Line breaking, and the
   fallback chain when a font lacks a glyph.
 
-- [ ] **16. Inline formatting: a real line box.** Shaping and breaking give a
+- [x] **16. Inline formatting: a real line box.** Shaping and breaking give a
   line its glyphs and its width; putting several inline boxes on one line, with
   baselines, and breaking *between* them rather than only inside one run, is
   layout work that needed a shaper before it was possible. `engine.rs`'s

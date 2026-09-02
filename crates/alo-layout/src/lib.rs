@@ -34,6 +34,7 @@
 
 pub mod engine;
 pub mod geometry;
+pub mod inline;
 pub mod keyword;
 pub mod measure;
 pub mod placement;
@@ -44,11 +45,12 @@ pub mod tree;
 
 pub use engine::compute;
 pub use geometry::{Edges, Point, Rect, Size};
+pub use inline::{Fragment, InlineItem, InlineLayout, LineBox};
 pub use keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
     Positioning,
 };
-pub use measure::{MeasureText, NoText};
+pub use measure::{BlockFont, MeasureText, NoText};
 pub use placement::{GridLine, GridPlacement};
 pub use sizing::{AutoLength, Sizing};
 pub use style::LayoutStyle;

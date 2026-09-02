@@ -30,10 +30,12 @@ Text is real. Fonts load, text is shaped — including Arabic, which joins and
 runs right to left — lines break by UAX #14, and a paragraph in a narrow window
 takes more lines than the same paragraph in a wide one.
 
+Lines are real too: text wraps between words across inline boxes, everything on
+a line sits on one baseline, and a link broken over two lines is two rectangles.
+
 What does not exist: pixels. Nothing knows what colour anything is (queue item
 14), no glyph has been turned into coverage (item 17), and nothing is drawn
-(item 7). Several inline boxes still cannot share a line properly (item 16).
-Every target below is still `not yet`.
+(item 7). Every target below is still `not yet`.
 
 This file exists instead of a conformance percentage. A Web Platform Tests score
 would grade us against thirty years of legacy we are deliberately refusing

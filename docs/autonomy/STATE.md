@@ -568,3 +568,54 @@ value layer grows a second one.
   depending on text — a real design decision, and the reason it was not done in
   this iteration rather than an oversight. Whoever does it should decide
   whether the font database belongs above style or beside it.
+
+---
+
+## 2026-09-02 — iteration 8: a real line box (queue item 16)
+
+**What was built.** `alo-layout/src/inline.rs`, and the engine rewired around
+it. The wrapping-flex-row stand-in from item 5 is gone.
+
+- An inline formatting context is handed to `taffy` as a **leaf**. `taffy` has
+  block, flex and grid and no inline layout at all, and inline layout is a
+  different algorithm rather than a special case of the others — so it is ours,
+  the way it is in every engine.
+- `MeasureText` grew three methods: where a line may break, and the ascender
+  and descender. A line box needs all three, and each is something layout
+  cannot work out for itself.
+- An atomic inline-level box — an `inline-block`, an image, a button — is laid
+  out by calling the same layout again, one formatting context down, and the
+  line places it whole and on the baseline.
+- `LayoutTree` now reports **fragments**: the pieces a box was drawn in, one
+  per line it is on.
+
+**The three things a row of boxes could not do**, each with a test:
+
+- A sentence breaks *between* two inline boxes, so `the <em>quick brown</em>
+  fox` wraps between any two of its words.
+- Everything on a line sits on one baseline, so a forty-pixel image beside
+  sixteen-pixel text pushes the line down rather than the text up.
+- A box that wraps has one rectangle per line. The union of them is where the
+  box *is*; the pieces are what should be **drawn**, and a background painted
+  from the union would cross the gap between the lines.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 511 tests, no stubs, boundaries held. `tests/numbers.rs` grew three
+assertions in numbers for the three behaviours above, and the whole-interface
+outline changed in a way worth noticing: text boxes are now as wide as their
+text rather than as wide as their parent, which is what an inline box is.
+
+**What the next iteration should know.** Item 17 is glyph rasterisation and item
+7 is paint; item 14, colours, should come before both for the same reason item
+12 came before item 5 — paint wants channels, and a colour parser built inside
+paint is how the value layer grows a second one.
+
+- `alo-value` is where a colour belongs. `cssparser` already exposes
+  `parse_hash_color` and `parse_named_color`, which are the two tables nobody
+  should retype, and `cssparser` is already in `alo-value`'s boundary list.
+- Paint wants `LayoutTree::fragments`, not `border_box`. That distinction is
+  the one thing in this iteration that is easy to get wrong later.
+- **`FontMetrics::estimated` is still guessing** `ex`, `ch` and
+  `line-height: normal` while `alo-text` can now answer all three. Wiring it
+  through means style depending on text, which is a real design decision and
+  the reason it is still not done.

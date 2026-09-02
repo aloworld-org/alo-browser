@@ -56,6 +56,44 @@ impl MeasureText for TextMeasurer<'_> {
         );
         Size::new(paragraph.width(), paragraph.height())
     }
+
+    fn break_opportunities(&self, text: &str) -> Vec<usize> {
+        let mut points: Vec<usize> = crate::linebreak::opportunities(text)
+            .into_iter()
+            .map(|point| point.offset)
+            .collect();
+        // Layout relies on the last opportunity being the end of the text.
+        // UAX #14 gives that for any text with something in it, and this is
+        // what makes the empty case behave the same way.
+        if points.last() != Some(&text.len()) {
+            points.push(text.len());
+        }
+        points
+    }
+
+    fn ascender(&self) -> f32 {
+        self.first_face()
+            .map_or(self.size * 0.8, |metrics| metrics.ascender)
+    }
+
+    fn descender(&self) -> f32 {
+        self.first_face()
+            .map_or(self.size * 0.2, |metrics| metrics.descender)
+    }
+}
+
+impl TextMeasurer<'_> {
+    /// The metrics of the first font this request would use.
+    ///
+    /// A line's baseline comes from the font the text is set in; when a line
+    /// mixes fonts the tallest wins, and that is the line box's business
+    /// rather than this one's.
+    fn first_face(&self) -> Option<crate::font::FaceMetrics> {
+        self.database
+            .chain(&self.request)
+            .first()
+            .map(|font| font.metrics(self.size))
+    }
 }
 
 #[cfg(test)]

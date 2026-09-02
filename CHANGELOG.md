@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Text and boxes share a line properly.** A sentence spread over several
+  `<span>`s is one sentence and wraps between any two of its words, not only
+  around the spans; everything on a line sits on one baseline, so a tall image
+  beside small text pushes the line down rather than the text up; and a link
+  broken across two lines is **two rectangles**, not one covering the gap
+  between them. None of those is expressible as a row of boxes, which is what
+  the stand-in was.
+- An `inline-block`, an image or a button on a line is laid out on its own and
+  placed whole — the same layout code, called again, one formatting context
+  down.
+- Layout now reports the pieces a box was drawn in as well as where it is.
+  Where it *is* is the union of the pieces; what should be **drawn** is the
+  pieces, and a background painted from the union would cross the gap between
+  two lines.
+
 - **The engine works out how wide text is.** Fonts load, `rustybuzz` shapes
   them, UAX #14 says where a line may break and we decide where it does, and
   layout's measuring seam is filled — so a paragraph in a narrow window now
