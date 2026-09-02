@@ -975,3 +975,65 @@ other half of ADR 0002.
   verbs work by name, but item 11's real alo screen will need it, and it is the
   kind of thing that belongs in `alo-style/src/user_agent.rs` rather than
   anywhere clever.
+
+---
+
+## 2026-09-02 — iteration 15: ★ typed verbs (queue item 10)
+
+**The other half of ADR 0002.** An agent can now act on a page it read:
+activate, put text, scroll — each aimed by a **description** rather than a
+position. "The Save button." "The row called Invoice 12." A description
+survives the page moving; a point does not, which is the whole of ADR 0002's
+argument.
+
+**What was built.** `alo-agent/src/verb.rs`.
+
+- `Target` — every form of it is a description: a name, a role, both, or a
+  `BoxId` the caller already read. The last one names rather than describes,
+  and it is safe for ADR 0003's reason: ids are allocated once and never
+  reused, so a stale one names nothing rather than something else. A test
+  asserts exactly that.
+- `Verb` — three of them, which is what `docs/features.md` lists.
+- `Outcome` — a record of what was asked for and what happened, which is the
+  guarantee a screenshot-and-guess agent cannot make.
+- `Refusal` — and this is the half that makes the surface worth having.
+
+**The two refusals worth naming:**
+
+- **Ambiguous.** Two things called the same name is not a reason to pick one.
+  The refusal names both, so the caller can narrow the request — and a test
+  shows narrowing working.
+- **Disabled.** A control that says it cannot be operated is not operated,
+  though nothing physically prevents it. An agent that pressed a disabled
+  button would be doing something a person cannot.
+
+**A verb validates and reports rather than mutating.** Stage 1 has no scripting
+and no DOM mutation — `docs/features.md` puts both in stage 2 — so `Activate` on
+a link comes back with where it goes and `PutText` with the field and the text.
+Applying that is the host's. That is not a stub: it is the whole of what a verb
+contract *is* at this stage, and the record is the part `alo-os` rests on.
+
+**The gate now checks the no-coordinate rule.** It was on the list of things a
+person had to remember; a function in `crates/alo-agent/src` that takes a
+`Point`, or an `x: f32` and a `y: f32`, now fails the run. I verified it bites
+by adding `press_at(x, y)` and watching it fail. What the check still cannot see
+is whether a verb's *meaning* depends on a position, and the gate says so.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 639 tests including fourteen verb paths and every refusal, no stubs,
+boundaries held.
+
+**What the next iteration should know.** Item 11 is a real alo screen — the one
+that turns this from plausible into real, and stage 1's exit gate.
+
+- It needs `alo-os`'s sign-in screen and `alo-workplace`'s
+  `web/src/ds/tokens.css`, both of which are **read-only reference**. Neither
+  is checked out beside this repository today: only `alo-workplace` is present
+  at `~/Documents/GitHub/alo-workplace`, and `alo-os` is not. **That is the one
+  thing that could block the loop**, and it should be checked before starting
+  rather than half-way through.
+- **A form control lays out at 0×0.** `<input>` has no intrinsic size, because
+  the user-agent sheet gives it none. A sign-in screen is mostly form controls,
+  so this is the first thing item 11 will hit. It belongs in
+  `alo-style/src/user_agent.rs`.
+- Items 13, 15, 19 and 20 remain, and none of them blocks item 11.

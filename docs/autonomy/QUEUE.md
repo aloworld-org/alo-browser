@@ -120,7 +120,7 @@ file is the specification for what "correct" means here.
   structure, because two structures eventually disagree and the agent acts on the
   one that is wrong.
 
-- [ ] **10. ★ Typed verbs.** Activate, put text, scroll. **No verb takes a
+- [x] **10. ★ Typed verbs.** Activate, put text, scroll. **No verb takes a
   coordinate**: a coordinate is a guess about a layout that may have changed
   between the reading and the acting. Same shape as `alo-os`'s verb contract.
 

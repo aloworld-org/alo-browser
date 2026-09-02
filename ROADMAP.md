@@ -29,7 +29,7 @@ not before it.
 - [x] **Paint**: a display list, then a software raster to a PNG
 - [x] **Reference renders**: a committed corpus, diffed on every change
 - [x] ★ **The agent tree**: the layout tree read as roles, states and positions
-- [ ] ★ **Typed verbs**: activate, type, scroll — and never a coordinate
+- [x] ★ **Typed verbs**: activate, type, scroll — and never a coordinate
 - [ ] **A real alo screen renders correctly** — the sign-in screen, then Settings
 - [ ] Hardware acceleration, once the software path is right
 - [ ] Embedding: alo OS's shell renders through it

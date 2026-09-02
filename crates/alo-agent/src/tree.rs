@@ -109,6 +109,19 @@ impl<'a> AgentTree<'a> {
         out
     }
 
+    /// Where a link goes, as the author wrote it.
+    ///
+    /// Not resolved against the page's address: resolving is the network
+    /// stack's, which is stage 2, and handing back what was written is what a
+    /// record should say anyway.
+    pub fn href_of(&self, id: BoxId) -> Option<String> {
+        let source = self.boxes.get(id)?.kind.node()?;
+        self.document
+            .element(source)?
+            .attr("href")
+            .map(str::to_owned)
+    }
+
     fn node(&self, id: BoxId) -> AgentNode<'a> {
         AgentNode {
             tree: AgentTree {
@@ -288,6 +301,19 @@ impl<'a> AgentNode<'a> {
     /// read through.
     pub fn children(&self) -> Vec<AgentNode<'a>> {
         self.tree.exposed_within(self.id)
+    }
+
+    /// Whether this has more content than room for it, and so is a thing that
+    /// scrolls.
+    ///
+    /// Asked of the layout rather than of the style: a box with
+    /// `overflow: auto` and nothing spilling out of it does not scroll, and an
+    /// agent told otherwise would ask for a scroll that does nothing.
+    pub fn scrolls(&self) -> bool {
+        self.tree
+            .layout
+            .get(self.id)
+            .is_some_and(alo_layout::BoxGeometry::overflows)
     }
 
     fn node(&self) -> Option<&'a BoxNode> {

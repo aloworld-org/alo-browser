@@ -44,8 +44,9 @@ every run.
 Boxes can be round, and clip what is inside them to their own shape.
 
 **An agent can read a rendered page as a tree of what it is** — roles, names,
-states and positions, with no screenshot involved. Every corpus case pins that
-tree beside its picture.
+states and positions, with no screenshot involved — **and act on it by name**:
+activate, put text, scroll, with no verb taking a coordinate. Every corpus case
+pins that tree beside its picture.
 
 What does not exist: shadows and gradients (queue item 19), transforms and
 opacity (item 20). A box is one flat colour in a shape. The targets below are
@@ -64,7 +65,7 @@ The measure is alo. These are the targets, in order:
 | `alo-os` sign-in screen | not yet |
 | `alo-os` Settings | not yet |
 | `alo-os` agent overlay | not yet |
-| An agent reading Settings as a tree and activating a row by name | reading works on pages we wrote; Settings itself is not yet rendered, and activating is queue item 10 |
+| An agent reading Settings as a tree and activating a row by name | reading and activating both work on pages we wrote; Settings itself is not yet rendered |
 
 Colours are correct when they match `alo-workplace`'s `web/src/ds/tokens.css`,
 which is the specification for what "correct" means here.

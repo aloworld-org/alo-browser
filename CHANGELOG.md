@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **★ An agent can act on the interface, and no verb takes a coordinate.**
+  Activate, put text, scroll — each aimed by a *description* rather than a
+  position: "the Save button", "the row called Invoice 12". A description
+  survives the page moving; a point does not.
+- **Refusing is a result.** Two matter most: two things called the same name is
+  refused rather than guessed at, with both of them named so the caller can
+  narrow the request — acting on the wrong row is worse than acting on none —
+  and a control that says it is disabled is not operated, even though nothing
+  physically prevents it.
+- Every outcome is a record of what was asked for and what happened, which is
+  the guarantee a screenshot-and-guess agent cannot make.
+- **The gate now checks the no-coordinate rule.** It was a rule a person had to
+  remember; a function in the agent surface that takes a point or an `x` and a
+  `y` now fails the run.
+
 - **★ An agent can read the interface as what it is.** "Invoice list, twelve
   rows, row three selected" — the sentence `docs/decisions/0002` opens with —
   is now a question this engine answers about a page it rendered, by role and

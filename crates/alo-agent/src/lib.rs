@@ -50,6 +50,8 @@
 
 pub mod name;
 pub mod tree;
+pub mod verb;
 
 pub use name::accessible_name;
 pub use tree::{AgentNode, AgentTree};
+pub use verb::{Outcome, Refusal, ScrollBy, Target, Verb, perform};

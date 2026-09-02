@@ -112,6 +112,23 @@ for entry in "${BOUNDARIES[@]}"; do
   fi
 done
 
+step "no verb takes a coordinate"
+# ADR 0002: *"No verb takes a coordinate, because a coordinate is a guess about
+# a layout that may have changed between the reading and the acting."* The
+# agent surface is where that rule lives, so it is checkable there: no function
+# in it may take a point, or an `x` and a `y`.
+if [ -d crates/alo-agent/src ]; then
+  if coordinates=$(sed -E 's@^[[:space:]]*(//!|///|//).*$@@' crates/alo-agent/src/*.rs \
+    | grep -nE 'fn [a-z_]+\(.*(\bx: *f(32|64)|\by: *f(32|64)|Point)' ); then
+    echo "$coordinates"
+    bad "a function in the agent surface takes a coordinate (ADR 0002)"
+  else
+    good "the agent surface names things rather than pointing at them"
+  fi
+else
+  good "no agent surface yet"
+fi
+
 step "documentation changed with the code"
 # Only meaningful while there is something uncommitted to judge.
 if [ -n "$(git status --porcelain -- crates 2>/dev/null)" ]; then
@@ -130,6 +147,8 @@ What this cannot check, and a person must:
 
   - One file, one responsibility. A file that gained a second reason to change
     gets split in the change that discovered it.
+  - That a verb's *meaning* does not depend on a position, which the check
+    above cannot see: it only looks at what a function takes.
   - A layout assertion in numbers for anything that positions or sizes.
   - A reference render for anything visual.
   - That an item is in docs/features.md before it is built.
