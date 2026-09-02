@@ -1,0 +1,5 @@
+body { margin: 10px; background: #ffffff; font-family: system-ui; font-size: 13px }
+#nav { width: 150px }
+#doc { color: #1d4ed8; background: #eff6ff;
+       padding-left: 4px; padding-right: 4px }
+#title { font-weight: 700; color: #1e3a8a }

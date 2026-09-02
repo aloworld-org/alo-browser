@@ -1449,3 +1449,84 @@ And the thing this loop cannot do, unchanged: **`alo-os` is not checked out
 beside this repository**, so the screen stage 1's exit gate names has never
 been rendered. `ROADMAP.md`'s line for it is deliberately not ticked.
 
+---
+
+## Iteration 23 — queue item 23: an agent reads a broken link as one link
+
+**What was built.** An inline box broken around a block is now read as **one
+thing**: one node, named by everything the element contains, positioned
+everywhere it was drawn, with the block read *inside* it rather than beside it.
+`<a>Read the<p>manual</p>carefully</a>` is one link called "Read the manual
+carefully", and the paragraph is a child of it.
+
+**It stayed a view, which was the whole question.** ADR 0002 says the agent
+tree is a *view* of the trees that already exist, never a parallel structure —
+so the answer could not be "walk the document instead". It is: the **box tree
+records which boxes belong to which whole**. A later piece already said which
+box it continues; a block now says which inline box it was taken out of. The
+reader follows what is there. Nothing is built and nothing can disagree.
+
+**Three questions had to move from the box tree to the view.** Who holds a box
+— a block taken out of a link is held by the link, not by the paragraph layout
+put it beside. What is inside a box — the children of every piece, with the
+blocks in their places. And where a box is — all of it. Once `view_parent`
+existed, `aria-hidden` on a broken link hid the block inside it for free, which
+it had not before.
+
+**A name got a space, and that was not about breaking at all.** `<a>Read
+the<div>the manual</div></a>` was called "Read thethe manual": a block-level
+box is a line of its own on the screen and a name read out has to sound like
+what a person sees. The corpus caught it immediately in a place nobody was
+looking — alo's own sign-in headline, which had been "Your workspace.Your
+servers.Your rules." and is now the three sentences it is. That is the corpus
+doing exactly what it is for.
+
+**One thing was made faster on purpose, not for speed but for scale.** "Is this
+box broken" is asked of every box a reader walks, and answering it by searching
+would have made reading a page quadratic. It is one field.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 765 tests, no stubs, boundaries held, no verb takes a coordinate.
+Fourteen corpus cases; the new one, `broken-link`, is a link with a block in
+the middle of it, read as one link.
+
+---
+
+# The queue
+
+**Every item in `docs/autonomy/QUEUE.md` is ticked.** Twenty-three items: the
+thirteen the roadmap named for stage 1, and ten more written by the iterations
+that found them. Each was built whole, passed the gate, and was committed and
+pushed on its own.
+
+**What this engine does today.** HTML and CSS in; a DOM; stylesheets; a cascade
+with `var()` and `calc()`; a box tree that knows what each box *means*; layout
+in block, flex, grid and real inline formatting, sub-pixel throughout; text
+shaped with real fonts and broken by UAX #14; a display list; shadows,
+gradients, transforms and opacity; an anti-aliased software raster to a PNG.
+And the thing it exists for: an agent tree that is a *view* of that layout, and
+typed verbs that name things instead of pointing at them.
+
+**Stage 1's exit gate is not met, and the reason is not something this loop can
+fix.** `ROADMAP.md` asks for a real `alo-os` screen rendered correctly on the
+certified machine. **`alo-os` is not checked out beside this repository**, and
+no hardware verification has been done or claimed. `alo-workplace`'s sign-in
+screen is in the corpus and renders; that is a different screen, and
+`docs/conformance.md` says so plainly. The line in `ROADMAP.md` is deliberately
+not ticked.
+
+**What the next person should do first**, in order:
+
+1. Check out `alo-os` beside this repository and add its sign-in screen to the
+   corpus. Everything else is guesswork until a screen somebody actually ships
+   goes through this engine.
+2. Whatever that screen refuses. `docs/conformance.md` lists what is refused
+   rather than approximated, and a real sheet will name the ones that matter.
+   `clamp()` is the most likely first — it is the expression machinery
+   `calc()` already has.
+3. Stage 2's decisions, which are decisions rather than chores and want ADRs:
+   the JavaScript engine (ours, in Rust, a correct interpreter first) and the
+   process model.
+
+LOOP COMPLETE
+

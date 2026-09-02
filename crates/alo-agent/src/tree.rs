@@ -20,6 +20,16 @@
 //!
 //! `aria-hidden` removes a box and everything under it, because that is the
 //! author saying so.
+//!
+//! # One element, one thing to read
+//!
+//! Layout breaks an inline box holding a block-level box into a piece on each
+//! side, with the block a *sibling* of the pieces. That is where layout needs
+//! them and it is not what the document says: the block is still **inside**
+//! the inline box, for a person and for a click. So this reads the pieces and
+//! the blocks between them as **one thing** — the box tree records which boxes
+//! belong to which whole, and this follows it. Still a view: nothing new is
+//! built, and the answer comes from the same trees.
 
 use crate::name::{accessible_name, names_itself_from_content, normalise, text_of};
 use alo_box::{BoxId, BoxNode, BoxTree, KnownRole, Role, States};
@@ -140,16 +150,60 @@ impl<'a> AgentTree<'a> {
         if self.is_exposed(id) {
             out.push(self.node(id));
         }
-        for child in self.boxes.children(id) {
-            self.collect(child, out);
+        for part in self.parts(id) {
+            self.collect(part, out);
         }
+    }
+
+    /// What is inside a box, as the view has it.
+    ///
+    /// Almost always its children. For an inline box broken around a block it
+    /// is the children of **every piece**, with the blocks between them in
+    /// their places — and everywhere else, a box that belongs to somebody
+    /// else's whole is passed over, because it is read there instead.
+    fn parts(&self, id: BoxId) -> Vec<BoxId> {
+        let whole = self.boxes.whole_of(id);
+        if whole.len() == 1 {
+            return self
+                .boxes
+                .children(id)
+                .filter(|child| !self.boxes.belongs_to_another(*child))
+                .collect();
+        }
+        let pieces = self.boxes.pieces_of(id);
+        whole
+            .into_iter()
+            .flat_map(|member| {
+                if pieces.contains(&member) {
+                    self.boxes.children(member).collect::<Vec<_>>()
+                } else {
+                    // A block that was taken out of the inline box: it is read
+                    // where the document put it, which is here.
+                    vec![member]
+                }
+            })
+            .collect()
+    }
+
+    /// Who holds a box, as the view has it.
+    ///
+    /// A block taken out of an inline box is held by that inline box, and
+    /// anything inside a later piece is held by the first piece — because
+    /// those are one thing, and the box tree's parent is where layout needed
+    /// them rather than where the document has them.
+    fn view_parent(&self, id: BoxId) -> Option<BoxId> {
+        if let Some(first) = self.boxes.broke_out_of(id) {
+            return Some(first);
+        }
+        let parent = self.boxes.get(id)?.parent?;
+        Some(self.boxes.first_piece_of(parent))
     }
 
     /// The exposed nodes beneath a box, reading through everything that has
     /// nothing to say.
     fn exposed_within(&self, id: BoxId) -> Vec<AgentNode<'a>> {
         let mut out = Vec::new();
-        for child in self.boxes.children(id) {
+        for child in self.parts(id) {
             if self.is_hidden(child) {
                 continue;
             }
@@ -171,12 +225,12 @@ impl<'a> AgentTree<'a> {
             return false;
         }
         // An inline box broken around a block is several boxes and one thing.
-        // One piece is read; the others are read *through*, so an agent asked
-        // to activate "the link called Docs" finds one link rather than two
-        // with the same name and a refusal between them. The one that is read
-        // is the one with something in it — CSS keeps an empty piece so that
-        // it can draw its border, and a border is not something to read.
-        if self.boxes.is_broken(id) && self.read_through_this_piece(id) {
+        // The **first** piece is the one read, whichever piece happens to hold
+        // something; everything the element contains reaches it through
+        // `whole_of`. So an agent asked to activate "the link called Docs"
+        // finds one link rather than two with the same name and a refusal
+        // between them.
+        if self.boxes.is_continuation(id) {
             return false;
         }
         // Text a person would read is worth reading — unless the thing that
@@ -196,30 +250,10 @@ impl<'a> AgentTree<'a> {
         }
     }
 
-    /// Whether this piece of a broken inline box is one of the ones read
-    /// through.
-    ///
-    /// Exactly one piece is read: the first with anything in it. CSS keeps a
-    /// piece with nothing in it so that it can draw its border, and a border
-    /// is not something to read.
-    fn read_through_this_piece(&self, id: BoxId) -> bool {
-        let pieces = self.boxes.pieces_of(id);
-        let shown = pieces
-            .iter()
-            .copied()
-            .find(|piece| {
-                self.boxes
-                    .get(*piece)
-                    .is_some_and(|node| !node.children.is_empty())
-            })
-            .or_else(|| pieces.first().copied());
-        shown != Some(id)
-    }
-
     /// Whether the nearest thing above this box takes its name from what is
     /// inside it — which is to say, from this.
     fn is_named_by_its_content(&self, id: BoxId) -> bool {
-        let mut current = self.boxes.get(id).and_then(|node| node.parent);
+        let mut current = self.view_parent(id);
         while let Some(ancestor) = current {
             let Some(node) = self.boxes.get(ancestor) else {
                 return false;
@@ -227,7 +261,7 @@ impl<'a> AgentTree<'a> {
             if self.is_exposed(ancestor) {
                 return names_itself_from_content(&node.semantics.role);
             }
-            current = node.parent;
+            current = self.view_parent(ancestor);
         }
         false
     }
@@ -246,7 +280,9 @@ impl<'a> AgentTree<'a> {
             if node.semantics.states.hidden {
                 return true;
             }
-            current = node.parent;
+            // Up the *view*, so a block taken out of a hidden link is hidden
+            // with it rather than left behind by the break.
+            current = self.view_parent(box_id);
         }
         false
     }
@@ -302,13 +338,29 @@ impl<'a> AgentNode<'a> {
     }
 
     /// What a person would read inside it.
+    ///
+    /// Every piece of it: an inline box broken around a block says everything
+    /// the document put inside it, in order, however layout took it apart.
     pub fn text(&self) -> String {
         text_of(self.tree.boxes, self.id)
     }
 
     /// Where it is, on the page.
+    ///
+    /// The whole of it, pieces and all — a broken link is one thing, and where
+    /// it *is* is everywhere it was drawn.
     pub fn rect(&self) -> Rect {
-        self.tree.layout.border_box(self.id).unwrap_or(Rect::ZERO)
+        let mut found: Option<Rect> = None;
+        for member in self.tree.boxes.whole_of(self.id) {
+            let Some(rect) = self.tree.layout.border_box(member) else {
+                continue;
+            };
+            found = Some(match found {
+                None => rect,
+                Some(held) => union_rects(held, rect),
+            });
+        }
+        found.unwrap_or(Rect::ZERO)
     }
 
     /// Whether it is outside the window as the page currently sits.
@@ -363,6 +415,18 @@ impl fmt::Display for AgentNode<'_> {
         }
         Ok(())
     }
+}
+
+/// The smallest rectangle both of these fit inside.
+fn union_rects(left: Rect, right: Rect) -> Rect {
+    let x = left.left().min(right.left());
+    let y = left.top().min(right.top());
+    Rect::new(
+        x,
+        y,
+        left.right().max(right.right()) - x,
+        left.bottom().max(right.bottom()) - y,
+    )
 }
 
 fn write_node(node: &AgentNode<'_>, depth: usize, out: &mut String) {

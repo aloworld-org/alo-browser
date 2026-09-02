@@ -1,0 +1,11 @@
+block flow · document
+  block flow · generic
+    block flow · navigation
+      anonymous block
+        inline flow · link
+          text "Read the"
+      block flow · generic
+        text "alo manual"
+      anonymous block
+        inline flow · link
+          text "before you begin"

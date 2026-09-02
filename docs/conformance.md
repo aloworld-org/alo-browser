@@ -43,6 +43,11 @@ every run.
 
 Boxes can be round, and clip what is inside them to their own shape.
 
+An inline box broken around a block is read by an agent as **one thing**: one
+node, named by everything the element contains, positioned everywhere it was
+drawn, with the block read inside it rather than beside it. Still a view — the
+box tree records which boxes belong to which whole and the reader follows it.
+
 **An agent can read a rendered page as a tree of what it is** — roles, names,
 states and positions, with no screenshot involved — **and act on it by name**:
 activate, put text, scroll, with no verb taking a coordinate. Every corpus case

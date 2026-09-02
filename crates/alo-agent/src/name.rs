@@ -144,17 +144,49 @@ fn label_for(document: &Document, id: NodeId) -> Option<String> {
 }
 
 /// Everything a person would read inside a box, joined.
+///
+/// **Every piece of it.** An inline box broken around a block is several boxes
+/// and one element, and what a person reads inside it is everything the
+/// document put there — the block between the pieces included. Layout took it
+/// apart; a name must not be taken apart with it.
 pub fn text_of(boxes: &BoxTree, id: BoxId) -> String {
     let mut out = String::new();
-    if let Some(text) = boxes.get(id).and_then(alo_box::BoxNode::text) {
-        out.push_str(text);
-    }
-    for descendant in boxes.descendants(id) {
-        if let Some(text) = boxes.get(descendant).and_then(alo_box::BoxNode::text) {
-            out.push_str(text);
-        }
+    for member in boxes.whole_of(id) {
+        gather(boxes, member, &mut out);
     }
     out
+}
+
+/// The text of a box and everything under it, with a space wherever a block
+/// begins or ends.
+///
+/// Without the space, `<a>Read the<div>docs</div></a>` is called "Read thedocs".
+/// A block-level box is a line of its own on the screen, and a name read out
+/// has to sound like what a person sees.
+fn gather(boxes: &BoxTree, id: BoxId, out: &mut String) {
+    let Some(node) = boxes.get(id) else {
+        return;
+    };
+    let is_block = node.kind.outside() == alo_box::Outside::Block;
+    if is_block {
+        separate(out);
+    }
+    if let Some(text) = node.text() {
+        out.push_str(text);
+    }
+    for child in boxes.children(id) {
+        gather(boxes, child, out);
+    }
+    if is_block {
+        separate(out);
+    }
+}
+
+/// A space, unless there is already one or there is nothing yet.
+fn separate(out: &mut String) {
+    if !out.is_empty() && !out.ends_with(char::is_whitespace) {
+        out.push(' ');
+    }
 }
 
 /// Trim and collapse whitespace, and report nothing for nothing.

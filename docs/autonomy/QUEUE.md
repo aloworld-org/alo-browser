@@ -192,15 +192,19 @@ file is the specification for what "correct" means here.
   needs the zero-height line-box rule and this did not, and because a `border`
   on a `<span>` is ordinary CSS that a real page writes.
 
-- [ ] **23. An agent reads a broken inline as one whole thing.** A `<div>`
+- [x] **23. An agent reads a broken inline as one whole thing.** A `<div>`
   inside an `<a>` is still inside the link for a person and for a click, but
   the box tree has broken the link into pieces with the block a sibling of
-  them. The agent tree reads the first piece and reads the later ones through,
-  so nothing is doubled and no verb is made ambiguous — but the name of a
-  broken link comes from its first piece alone, and the block between the
-  pieces is not read as part of it. Doing this properly means the agent tree
-  following the *document's* containment where the box tree has split, which is
-  a change to what a view is. **Cut from item 13.**
+  them. **Cut from item 13.**
+
+  **Done, and it stayed a view.** The box tree records which boxes belong to
+  which whole — a later piece says which box it continues, a block says which
+  inline box it was taken out of — and the reader follows what is already
+  there rather than building anything. One node, named by everything the
+  element contains, positioned everywhere it was drawn, with the block read
+  inside it. Corpus case `broken-link`. It also fixed a name that had nothing
+  to do with breaking: a name now gets a space where a block begins or ends,
+  so alo's own headline reads as three sentences rather than one run-on.
 
 - [x] **15. `calc()` with a percentage in a layout property.** `taffy` carries
   such a value as an opaque handle that only a tree implementing its own traits

@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent reads a broken link as one link, whole.** Layout breaks an inline
+  box holding a block into a piece on each side, with the block a *sibling* of
+  the pieces — that is where layout needs them and it is not what the document
+  says. The agent tree now reads the pieces and the blocks between them as one
+  thing: one node, named by everything the element contains, positioned
+  everywhere it was drawn, with the block read *inside* it rather than beside
+  it.
+- Still a **view**, not a second structure (ADR 0002). The box tree records
+  which boxes belong to which whole — `broke_out_of`, `continued_from` — and
+  the reader follows what is already there.
+- **A name gets a space where a block begins or ends.** `<a>Read the<div>the
+  manual</div></a>` was called "Read thethe manual". A block-level box is a
+  line of its own on the screen, and a name read out has to sound like what a
+  person sees. The sign-in screen's headline changed with it, from "Your
+  workspace.Your servers.Your rules." to the three sentences it is.
+
 - **An empty piece of a broken inline is kept, and draws its border.** CSS says
   an inline box holding a block is broken into a piece on each side "even if
   either side is empty", because an empty inline with a border still draws one.

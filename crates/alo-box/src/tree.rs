@@ -133,6 +133,20 @@ pub struct BoxNode {
     pub children: Vec<BoxId>,
     /// The box that holds it, or [`None`] for the root.
     pub parent: Option<BoxId>,
+    /// The inline box this block-level box was taken out of, when CSS broke
+    /// one around it.
+    ///
+    /// The block is a *sibling* of the pieces in the box tree, because that is
+    /// where layout needs it. It is still **inside** the inline box in the
+    /// document, and for a person and for a click — so a reader that shows one
+    /// thing per element has to be able to find its way back.
+    pub broke_out_of: Option<BoxId>,
+    /// Whether more pieces of this box follow it, because it was broken.
+    ///
+    /// Only the *first* piece carries this. It is here so that "is this box
+    /// broken" is one field rather than a search: a reader asks it of every
+    /// box it walks, and a search would make reading a page quadratic.
+    pub has_more_pieces: bool,
     /// The first fragment of this box, when this one is a continuation of it.
     ///
     /// An inline box holding a block-level box is **broken around it**, into
@@ -273,6 +287,8 @@ impl BoxTree {
             semantics,
             children: Vec::new(),
             parent: None,
+            broke_out_of: None,
+            has_more_pieces: false,
             continued_from: None,
         });
         id
@@ -289,7 +305,59 @@ impl BoxTree {
         if let Some(node) = self.boxes.get_mut(id.0) {
             node.continued_from = Some(first);
         }
+        if let Some(node) = self.boxes.get_mut(first.0) {
+            node.has_more_pieces = true;
+        }
         Some(id)
+    }
+
+    /// The inline box a block-level box was taken out of, if it was.
+    pub fn broke_out_of(&self, id: BoxId) -> Option<BoxId> {
+        self.get(id).and_then(|node| node.broke_out_of)
+    }
+
+    /// Whether a box belongs to another box's whole rather than standing on
+    /// its own: a later piece of a broken inline, or a block taken out of one.
+    ///
+    /// A reader walking the tree meets these where layout put them and should
+    /// pass over them, because they are read as part of the thing they came
+    /// from.
+    pub fn belongs_to_another(&self, id: BoxId) -> bool {
+        self.is_continuation(id) || self.broke_out_of(id).is_some()
+    }
+
+    /// Every box that makes up one thing, in the order a person meets them.
+    ///
+    /// For almost every box that is the box itself. For an inline box broken
+    /// around a block it is every piece **and every block between them** — the
+    /// element as the document has it, which is what a reader has to show and
+    /// what layout deliberately took apart.
+    pub fn whole_of(&self, id: BoxId) -> Vec<BoxId> {
+        if !self.is_broken(id) {
+            return vec![id];
+        }
+        let pieces = self.pieces_of(id);
+        let Some(first) = pieces.first().copied() else {
+            return vec![id];
+        };
+        let wanted: Vec<BoxId> = pieces
+            .into_iter()
+            .chain(
+                (0..self.boxes.len())
+                    .map(BoxId)
+                    .filter(|held| self.broke_out_of(*held) == Some(first)),
+            )
+            .collect();
+        // In tree order rather than in the order they were created: a second
+        // block is built before the first piece that follows it, so creation
+        // order is not document order once there are two of them.
+        let Some(root) = self.root() else {
+            return wanted;
+        };
+        core::iter::once(root)
+            .chain(self.descendants(root))
+            .filter(|held| wanted.contains(held))
+            .collect()
     }
 
     /// Whether a box is a later piece of one that was broken around a block.
@@ -306,11 +374,16 @@ impl BoxTree {
     /// True of every piece, the first included — which is what a reader needs
     /// to know before deciding which one to show.
     pub fn is_broken(&self, id: BoxId) -> bool {
-        self.is_continuation(id)
-            || self
-                .boxes
-                .iter()
-                .any(|node| node.continued_from == Some(id))
+        self.get(id)
+            .is_some_and(|node| node.continued_from.is_some() || node.has_more_pieces)
+    }
+
+    /// The first piece of a box, which is the box itself unless it is a later
+    /// piece of one that was broken.
+    pub fn first_piece_of(&self, id: BoxId) -> BoxId {
+        self.get(id)
+            .and_then(|node| node.continued_from)
+            .unwrap_or(id)
     }
 
     /// Every piece of a box, in order, given any one of them.
@@ -319,10 +392,7 @@ impl BoxTree {
     /// reader ask this question without first asking whether there is anything
     /// to ask about.
     pub fn pieces_of(&self, id: BoxId) -> Vec<BoxId> {
-        let first = self
-            .get(id)
-            .and_then(|node| node.continued_from)
-            .unwrap_or(id);
+        let first = self.first_piece_of(id);
         let mut out = vec![first];
         out.extend((0..self.boxes.len()).map(BoxId).filter(|held| {
             self.get(*held)
@@ -548,6 +618,9 @@ fn split_around_blocks(tree: &mut BoxTree, first: BoxId, children: Vec<BoxId>) -
             continue;
         }
         close_piece(tree, piece, &mut run, &mut out);
+        if let Some(node) = tree.boxes.get_mut(child.0) {
+            node.broke_out_of = Some(first);
+        }
         out.push(child);
         // Every later piece is a continuation of the first, whichever piece it
         // follows: they are all the same element.

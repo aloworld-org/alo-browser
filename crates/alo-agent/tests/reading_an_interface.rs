@@ -260,7 +260,9 @@ fn a_link_broken_around_a_block_is_still_one_link() {
             .first()
             .and_then(alo_agent::AgentNode::name)
             .as_deref(),
-        Some("Read the"),
+        Some("Read the docs"),
+        "the block between the pieces is inside the link, so it is part of what \
+         the link is called",
     );
 }
 
@@ -298,6 +300,94 @@ fn the_empty_piece_of_a_broken_link_is_not_a_second_link() {
             .first()
             .and_then(alo_agent::AgentNode::name)
             .as_deref(),
-        Some("Read the"),
+        Some("docs Read the"),
     );
+}
+
+/// Read a page of its own, rather than the one every other test shares.
+fn read_page(page: &str) -> String {
+    let document = parse_document(page);
+    let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
+    let author = parse_stylesheet(SHEET);
+    let sheets = [
+        SourcedSheet::new(Origin::UserAgent, &agent),
+        SourcedSheet::new(Origin::Author, &author),
+    ];
+    let styles = resolve(&document, &sheets, &MediaContext::default());
+    let boxes = build_boxes(&document, &styles);
+    let database = fonts();
+    let measurer = TextMeasurer::new(&database);
+    let layout = compute(&boxes, &styles, Size::new(240.0, 200.0), &measurer);
+    AgentTree::new(&document, &boxes, &layout).to_outline()
+}
+
+const BROKEN: &str = "<!DOCTYPE html><html><body><section>\
+<a href='/docs' id=link>Read the<p>manual</p>carefully</a>\
+</section></body></html>";
+
+#[test]
+fn the_block_between_two_pieces_is_read_inside_the_link_rather_than_beside_it() {
+    let outline = read_page(BROKEN);
+    let lines: Vec<&str> = outline.lines().collect();
+    let link = lines
+        .iter()
+        .position(|line| line.contains("link"))
+        .expect("a link");
+    let paragraph = lines
+        .iter()
+        .position(|line| line.contains("\"manual\""))
+        .expect("the block");
+    assert!(
+        paragraph > link,
+        "the block comes after the link:\n{outline}"
+    );
+
+    let indent = |line: &str| line.len() - line.trim_start().len();
+    assert!(
+        indent(lines[paragraph]) > indent(lines[link]),
+        "and inside it, not beside it:\n{outline}",
+    );
+}
+
+#[test]
+fn nothing_inside_a_broken_link_is_read_twice() {
+    let outline = read_page(BROKEN);
+    // The link's own text is what the link is *called*, so it is not also a
+    // run of text beside it — which is the rule for any thing named by its
+    // content, and has to keep holding once that content is in two pieces.
+    assert!(!outline.contains("text \"Read the\""), "{outline}");
+    assert!(!outline.contains("text \"carefully\""), "{outline}");
+    assert_eq!(outline.matches("link \"").count(), 1, "{outline}");
+    assert_eq!(outline.matches("paragraph").count(), 1, "{outline}");
+}
+
+#[test]
+fn a_broken_link_is_where_all_of_it_is() {
+    let document = parse_document(BROKEN);
+    let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
+    let author = parse_stylesheet(SHEET);
+    let sheets = [
+        SourcedSheet::new(Origin::UserAgent, &agent),
+        SourcedSheet::new(Origin::Author, &author),
+    ];
+    let styles = resolve(&document, &sheets, &MediaContext::default());
+    let boxes = build_boxes(&document, &styles);
+    let database = fonts();
+    let measurer = TextMeasurer::new(&database);
+    let layout = compute(&boxes, &styles, Size::new(240.0, 200.0), &measurer);
+    let tree = AgentTree::new(&document, &boxes, &layout);
+
+    let link = tree
+        .with_role(&Role::Known(KnownRole::Link))
+        .into_iter()
+        .next()
+        .expect("a link");
+    let rect = link.rect();
+    // Three lines of it: the text before, the block, the text after. A single
+    // piece would be a third as tall.
+    assert!(
+        rect.size.height > 40.0,
+        "the link is everywhere it was drawn: {rect:?}",
+    );
+    assert_eq!(link.name().as_deref(), Some("Read the manual carefully"));
 }
