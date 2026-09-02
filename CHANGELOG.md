@@ -6,6 +6,23 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The engine draws.** A laid-out document becomes a display list, the list
+  becomes pixels, and the pixels become a PNG — and the first reference render
+  is committed: a list of invoices, with a heading, three rows, separators and
+  a selected row highlighted, drawn from HTML and CSS with real fonts.
+- **A picture that changes says what changed.** The display list is compared
+  first, in words — "fill box#8 rgb(228 228 231) at (8, 64) 184×25" — and then
+  the pixels. A failure reads "the row's background moved four pixels" rather
+  than "the image differs", which is the whole reason there is a list in the
+  middle.
+- **Text is now measured at the size it is set in.** It was measured at one
+  size for the whole document, so a heading and a caption were laid out as
+  though they were the same — caught by the first picture, which is what a
+  picture is for.
+- Paint order is decided once, in the display list: backgrounds and borders
+  before content, parents before children, and positioned boxes after
+  everything in the flow, ordered by `z-index` and then by which came first.
+
 - **A letter has a shape.** A font's outlines are read, scaled and turned into
   coverage — how much of each pixel a letter covers, anti-aliased. An `l` is a
   vertical bar, an `H` has a gap at the top and none in the middle, and a space

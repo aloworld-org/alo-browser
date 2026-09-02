@@ -89,9 +89,18 @@ file is the specification for what "correct" means here.
   bitmap with no canvas to draw into can only be tested against itself, and
   next to paint it is tested against a picture. **Cut from item 6.**
 
-- [ ] **7. Paint.** A display list from the box tree, then a software raster to a
+- [x] **7. Paint.** A display list from the box tree, then a software raster to a
   PNG. Deterministic output is the point: it makes every visual change reviewable
   as a diff.
+
+- [ ] **18. What a box looks like beyond a flat colour.** Rounded corners,
+  shadows, gradients, clipping, transforms and opacity — the
+  `docs/features.md` line under Paint that item 7 did not do. Item 7 draws a
+  colour inside a shape, and the shape is always a rectangle; every one of
+  these changes what the shape is or how the colours combine, and each is worth
+  its own reference render. **Cut from item 7 on the iteration that built it**,
+  so that the first picture could be finished whole. Item 11's real alo screen
+  will need at least the rounded corners.
 
 - [ ] **8. Reference renders.** A committed corpus of small cases, each with its
   expected image and **its expected box tree**. A failure that says "row three

@@ -7,51 +7,54 @@
 //! replacing anything.
 
 use crate::database::FontDatabase;
-use crate::font::FontRequest;
+use crate::font::{FontRequest, Slant, Weight};
 use crate::line::lay_out;
-use alo_layout::{MeasureText, Size};
+use alo_layout::{MeasureText, Size, TextStyle};
 
 /// Measures text with real fonts.
 ///
-/// Holds the font database and what the text is being set in — a family, a
-/// weight, a size — because those are what layout does not carry. When
-/// different parts of a document are set differently, each gets one of these;
-/// building one is cheap, and the fonts inside are shared.
-#[derive(Debug, Clone)]
+/// Holds only the font database. **What font a piece of text is set in comes
+/// with the text**, from `alo_layout::TextStyle`, because it is a fact about
+/// the box rather than about the document — a heading and a caption on the
+/// same page are different sizes, and a measurer that answered once for the
+/// whole document laid one of them out wrong.
+#[derive(Debug, Clone, Copy)]
 pub struct TextMeasurer<'a> {
     database: &'a FontDatabase,
-    request: FontRequest,
-    size: f32,
 }
 
 impl<'a> TextMeasurer<'a> {
-    /// A measurer for text set in this font at this size.
-    pub fn new(database: &'a FontDatabase, request: FontRequest, size: f32) -> Self {
-        Self {
-            database,
-            request,
-            size,
-        }
-    }
-
-    /// The size text is being set at, in CSS pixels.
-    pub fn size(&self) -> f32 {
-        self.size
+    /// A measurer drawing from these fonts.
+    pub fn new(database: &'a FontDatabase) -> Self {
+        Self { database }
     }
 
     /// The fonts this measurer draws from.
     pub fn database(&self) -> &FontDatabase {
         self.database
     }
+
+    /// What a `TextStyle` is asking for, in this crate's vocabulary.
+    fn request(style: &TextStyle) -> FontRequest {
+        FontRequest {
+            families: style.families.clone(),
+            weight: Weight::new(style.weight),
+            slant: if style.italic {
+                Slant::Italic
+            } else {
+                Slant::Normal
+            },
+        }
+    }
 }
 
 impl MeasureText for TextMeasurer<'_> {
-    fn measure(&self, text: &str, available_width: Option<f32>) -> Size {
+    fn measure(&self, text: &str, style: &TextStyle, available_width: Option<f32>) -> Size {
         let paragraph = lay_out(
             text,
             self.database,
-            &self.request,
-            self.size,
+            &Self::request(style),
+            style.size,
             available_width,
         );
         Size::new(paragraph.width(), paragraph.height())
@@ -71,28 +74,28 @@ impl MeasureText for TextMeasurer<'_> {
         points
     }
 
-    fn ascender(&self) -> f32 {
-        self.first_face()
-            .map_or(self.size * 0.8, |metrics| metrics.ascender)
+    fn ascender(&self, style: &TextStyle) -> f32 {
+        self.face(style)
+            .map_or(style.size * 0.8, |metrics| metrics.ascender)
     }
 
-    fn descender(&self) -> f32 {
-        self.first_face()
-            .map_or(self.size * 0.2, |metrics| metrics.descender)
+    fn descender(&self, style: &TextStyle) -> f32 {
+        self.face(style)
+            .map_or(style.size * 0.2, |metrics| metrics.descender)
     }
 }
 
 impl TextMeasurer<'_> {
-    /// The metrics of the first font this request would use.
+    /// The metrics of the first font this style would use.
     ///
     /// A line's baseline comes from the font the text is set in; when a line
     /// mixes fonts the tallest wins, and that is the line box's business
     /// rather than this one's.
-    fn first_face(&self) -> Option<crate::font::FaceMetrics> {
+    fn face(self, style: &TextStyle) -> Option<crate::font::FaceMetrics> {
         self.database
-            .chain(&self.request)
+            .chain(&Self::request(style))
             .first()
-            .map(|font| font.metrics(self.size))
+            .map(|font| font.metrics(style.size))
     }
 }
 
@@ -114,30 +117,56 @@ mod tests {
         database
     }
 
+    fn style(size: f32) -> TextStyle {
+        TextStyle {
+            families: vec!["DejaVu Sans".to_owned()],
+            size,
+            ..TextStyle::default()
+        }
+    }
+
     #[test]
     fn nothing_measures_as_nothing() {
         let fonts = database();
-        let measurer = TextMeasurer::new(&fonts, FontRequest::family("DejaVu Sans"), 16.0);
-        assert_eq!(measurer.measure("", None), Size::ZERO);
+        let measurer = TextMeasurer::new(&fonts);
+        assert_eq!(measurer.measure("", &style(16.0), None), Size::ZERO);
     }
 
     #[test]
     fn text_has_a_width_and_a_height_that_come_from_the_font() {
         let fonts = database();
-        let measurer = TextMeasurer::new(&fonts, FontRequest::family("DejaVu Sans"), 16.0);
-        let size = measurer.measure("Invoice 12", None);
+        let measurer = TextMeasurer::new(&fonts);
+        let size = measurer.measure("Invoice 12", &style(16.0), None);
         assert!(size.width > 0.0);
         assert!(size.height > 0.0);
-        assert!((measurer.size() - 16.0).abs() < f32::EPSILON);
         assert_eq!(measurer.database().len(), 1);
+    }
+
+    #[test]
+    fn the_size_comes_with_the_text_rather_than_with_the_measurer() {
+        let fonts = database();
+        let measurer = TextMeasurer::new(&fonts);
+        let small = measurer.measure("Invoices", &style(14.0), None);
+        let large = measurer.measure("Invoices", &style(28.0), None);
+        assert!(
+            (large.width - small.width * 2.0).abs() < 0.01,
+            "one measurer, two sizes: {} against {}",
+            large.width,
+            small.width,
+        );
+        assert!(measurer.ascender(&style(28.0)) > measurer.ascender(&style(14.0)));
     }
 
     #[test]
     fn asking_for_a_width_wraps_and_makes_it_taller() {
         let fonts = database();
-        let measurer = TextMeasurer::new(&fonts, FontRequest::family("DejaVu Sans"), 16.0);
-        let one_line = measurer.measure("the quick brown fox jumps", None);
-        let wrapped = measurer.measure("the quick brown fox jumps", Some(one_line.width / 3.0));
+        let measurer = TextMeasurer::new(&fonts);
+        let one_line = measurer.measure("the quick brown fox jumps", &style(16.0), None);
+        let wrapped = measurer.measure(
+            "the quick brown fox jumps",
+            &style(16.0),
+            Some(one_line.width / 3.0),
+        );
 
         assert!(wrapped.width <= one_line.width);
         assert!(
@@ -149,17 +178,19 @@ mod tests {
     #[test]
     fn a_larger_size_measures_proportionally_larger() {
         let fonts = database();
-        let small = TextMeasurer::new(&fonts, FontRequest::family("DejaVu Sans"), 16.0)
-            .measure("hello", None);
-        let large = TextMeasurer::new(&fonts, FontRequest::family("DejaVu Sans"), 32.0)
-            .measure("hello", None);
+        let measurer = TextMeasurer::new(&fonts);
+        let small = measurer.measure("hello", &style(16.0), None);
+        let large = measurer.measure("hello", &style(32.0), None);
         assert!((large.width - small.width * 2.0).abs() < 0.01);
     }
 
     #[test]
     fn with_no_fonts_at_all_text_takes_no_room_and_nothing_breaks() {
         let empty = FontDatabase::new();
-        let measurer = TextMeasurer::new(&empty, FontRequest::family("Anything"), 16.0);
-        assert_eq!(measurer.measure("hello", Some(100.0)), Size::ZERO);
+        let measurer = TextMeasurer::new(&empty);
+        assert_eq!(
+            measurer.measure("hello", &style(16.0), Some(100.0)),
+            Size::ZERO
+        );
     }
 }

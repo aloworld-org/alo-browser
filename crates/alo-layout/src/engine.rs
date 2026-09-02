@@ -43,7 +43,7 @@ use crate::keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
     Positioning,
 };
-use crate::measure::MeasureText;
+use crate::measure::{MeasureText, TextStyle};
 use crate::placement::{GridLine, GridPlacement};
 use crate::sizing::{AutoLength, Sizing};
 use crate::style::{self, LayoutStyle};
@@ -123,8 +123,9 @@ fn lay_out_subtree(
                     })
                 };
             match context {
-                Some(Context::Text(text)) => {
+                Some(Context::Text(text, text_style)) => {
                     let text = text.clone();
+                    let text_style = text_style.clone();
                     taffy::compute_leaf_layout(
                         input,
                         style,
@@ -133,7 +134,8 @@ fn lay_out_subtree(
                             if let (Some(width), Some(height)) = (known.width, known.height) {
                                 return TaffySize { width, height };
                             }
-                            let size = measure.measure(&text, width_to_fit(known, room));
+                            let size =
+                                measure.measure(&text, &text_style, width_to_fit(known, room));
                             TaffySize {
                                 width: size.width,
                                 height: size.height,
@@ -243,6 +245,7 @@ fn collect_inline_items(
             BoxKind::Text { text, .. } => items.push(InlineItem::Text {
                 box_id: child,
                 text: text.clone(),
+                style: text_style_for(boxes, styles, child),
             }),
             _ if is_inline_formatting_context(boxes, child) || node.children.is_empty() => {
                 if is_atomic(boxes, child) {
@@ -277,6 +280,67 @@ fn collect_inline_items(
         }
     }
     items
+}
+
+/// The font a box's text is set in, from the nearest element that has a style.
+///
+/// A text box came from a text node, which has no style of its own — text
+/// inherits everything from the element that holds it, so that is the element
+/// to ask. Passing this to the measurer per box rather than once per document
+/// is what makes a heading and a caption on the same page different sizes.
+fn text_style_for(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> TextStyle {
+    let mut current = Some(id);
+    while let Some(box_id) = current {
+        if let Some(style) = boxes
+            .get(box_id)
+            .and_then(|node| node.kind.node())
+            .and_then(|source| styles.get(source))
+        {
+            return TextStyle {
+                families: style
+                    .get("font-family")
+                    .map(|value| {
+                        value
+                            .split(',')
+                            .map(|part| {
+                                part.trim()
+                                    .trim_matches(|c| c == '"' || c == '\'')
+                                    .trim()
+                                    .to_owned()
+                            })
+                            .filter(|part| !part.is_empty())
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                size: style.font_size(),
+                weight: weight_of(style),
+                italic: style
+                    .get("font-style")
+                    .is_some_and(|value| !value.eq_ignore_ascii_case("normal")),
+            };
+        }
+        current = boxes.get(box_id).and_then(|node| node.parent);
+    }
+    TextStyle::default()
+}
+
+/// `font-weight` as a number, taking the two keywords that are numbers in
+/// disguise.
+fn weight_of(style: &alo_style::ComputedStyle) -> u16 {
+    if let Some(number) = style.number("font-weight") {
+        let clamped = number.clamp(1.0, 1000.0).round();
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "clamped to one..=1000 and rounded"
+        )]
+        let weight = clamped as u16;
+        return weight;
+    }
+    match style.get("font-weight") {
+        Some(value) if value.eq_ignore_ascii_case("bold") => 700,
+        _ => 400,
+    }
 }
 
 /// Whether an inline-level box is laid out on its own rather than joining the
@@ -465,9 +529,10 @@ fn build(
         .collect();
 
     let made = match &node.kind {
-        BoxKind::Text { text, .. } => {
-            taffy.new_leaf_with_context(style, Context::Text(text.clone()))
-        }
+        BoxKind::Text { text, .. } => taffy.new_leaf_with_context(
+            style,
+            Context::Text(text.clone(), text_style_for(boxes, styles, id)),
+        ),
         _ => taffy.new_with_children(style, &children),
     }
     .ok()?;
@@ -482,8 +547,8 @@ fn build(
 /// is nothing to measure.
 #[derive(Debug, Clone)]
 enum Context {
-    /// A text box on its own, outside any line.
-    Text(String),
+    /// A text box on its own, outside any line, with the font it is set in.
+    Text(String, TextStyle),
     /// A box whose children are a line of inline content.
     InlineFormatting(BoxId),
 }

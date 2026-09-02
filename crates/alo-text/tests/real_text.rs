@@ -62,7 +62,7 @@ fn a_document_is_laid_out_with_widths_that_came_from_a_font() {
     let boxes = build(&document, &styles);
 
     let database = fonts();
-    let measurer = TextMeasurer::new(&database, FontRequest::family("sans-serif"), 16.0);
+    let measurer = TextMeasurer::new(&database);
     let layout = compute(&boxes, &styles, Size::new(800.0, 600.0), &measurer);
 
     let root = boxes.root().expect("a root box");
@@ -166,7 +166,7 @@ fn a_paragraph_wraps_inside_the_box_it_is_given() {
     let boxes = build(&document, &styles);
 
     let database = fonts();
-    let measurer = TextMeasurer::new(&database, FontRequest::family("DejaVu Sans"), 16.0);
+    let measurer = TextMeasurer::new(&database);
 
     let wide = compute(&boxes, &styles, Size::new(800.0, 600.0), &measurer);
     let narrow = compute(&boxes, &styles, Size::new(120.0, 600.0), &measurer);

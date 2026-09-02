@@ -40,6 +40,7 @@ declare -a BOUNDARIES=(
   "unicode_linebreak:crates/alo-text/src/linebreak.rs"
   "ttf_parser:crates/alo-paint/src/glyph.rs,crates/alo-text/src/font.rs"
   "tiny_skia:crates/alo-paint/src/raster.rs"
+  "png:crates/alo-paint/src/encode.rs"
 )
 
 step "cargo fmt"

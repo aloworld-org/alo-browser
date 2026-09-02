@@ -23,7 +23,7 @@
 //! line places it and aligns it on the baseline.
 
 use crate::geometry::{Point, Rect, Size};
-use crate::measure::MeasureText;
+use crate::measure::{MeasureText, TextStyle};
 use alo_box::BoxId;
 use core::ops::Range;
 
@@ -36,6 +36,9 @@ pub enum InlineItem {
         box_id: BoxId,
         /// The text.
         text: String,
+        /// The font it is set in. Per item, because two pieces of text on one
+        /// line can be different sizes and still share a baseline.
+        style: TextStyle,
     },
     /// A box with a size of its own, which is placed whole or not at all.
     Atomic {
@@ -59,6 +62,16 @@ impl InlineItem {
             InlineItem::Text { box_id, .. } | InlineItem::Atomic { box_id, .. } => *box_id,
         }
     }
+}
+
+/// A fragment while its line is still being built.
+///
+/// It carries how far below the baseline the piece reaches, which the line
+/// needs to place it and nobody needs afterwards.
+#[derive(Debug, Clone)]
+struct Pending {
+    fragment: Fragment,
+    below_baseline: f32,
 }
 
 /// A piece of one box, on one line.
@@ -148,7 +161,11 @@ pub fn lay_out(
     let mut builder = Builder::new(available_width, measurer);
     for item in items {
         match item {
-            InlineItem::Text { box_id, text } => builder.add_text(*box_id, text),
+            InlineItem::Text {
+                box_id,
+                text,
+                style,
+            } => builder.add_text(*box_id, text, style),
             InlineItem::Atomic {
                 box_id,
                 size,
@@ -164,7 +181,7 @@ struct Builder<'a, M: MeasureText> {
     available_width: Option<f32>,
     measurer: &'a M,
     lines: Vec<LineBox>,
-    current: Vec<Fragment>,
+    current: Vec<Pending>,
     pen: f32,
     ascent: f32,
     descent: f32,
@@ -195,7 +212,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         }
     }
 
-    fn add_text(&mut self, box_id: BoxId, text: &str) {
+    fn add_text(&mut self, box_id: BoxId, text: &str, style: &TextStyle) {
         let mut start = 0usize;
         for end in self.measurer.break_opportunities(text) {
             if end <= start {
@@ -208,26 +225,36 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             // that has to fit: a line may end in a space, and counting it
             // would break a line one word early.
             let visible = piece.trim_end();
-            let width = self.measurer.measure(visible, None).width;
+            let width = self.measurer.measure(visible, style, None).width;
             if !self.fits(width) {
                 self.end_line();
             }
             if !visible.is_empty() {
-                let placed = self.measurer.measure(piece, None).width;
-                self.place_text(box_id, start..end, width, placed);
+                let placed = self.measurer.measure(piece, style, None).width;
+                self.place_text(box_id, start..end, width, placed, style);
             }
             start = end;
         }
     }
 
-    fn place_text(&mut self, box_id: BoxId, range: Range<usize>, visible: f32, placed: f32) {
-        let ascent = self.measurer.ascender();
-        let descent = self.measurer.descender();
-        self.current.push(Fragment {
-            box_id,
-            rect: Rect::new(self.pen, 0.0, visible, ascent + descent),
-            text: Some(range),
-            line: self.lines.len(),
+    fn place_text(
+        &mut self,
+        box_id: BoxId,
+        range: Range<usize>,
+        visible: f32,
+        placed: f32,
+        style: &TextStyle,
+    ) {
+        let ascent = self.measurer.ascender(style);
+        let descent = self.measurer.descender(style);
+        self.current.push(Pending {
+            fragment: Fragment {
+                box_id,
+                rect: Rect::new(self.pen, 0.0, visible, ascent + descent),
+                text: Some(range),
+                line: self.lines.len(),
+            },
+            below_baseline: descent,
         });
         self.pen += placed;
         self.ascent = self.ascent.max(ascent);
@@ -238,11 +265,15 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         if !self.fits(size.width) {
             self.end_line();
         }
-        self.current.push(Fragment {
-            box_id,
-            rect: Rect::new(self.pen, 0.0, size.width, size.height),
-            text: None,
-            line: self.lines.len(),
+        self.current.push(Pending {
+            fragment: Fragment {
+                box_id,
+                rect: Rect::new(self.pen, 0.0, size.width, size.height),
+                text: None,
+                line: self.lines.len(),
+            },
+            // An atomic box sits with its own baseline on the line's.
+            below_baseline: size.height - baseline,
         });
         self.pen += size.width;
         self.ascent = self.ascent.max(baseline);
@@ -261,25 +292,20 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         let width = self
             .current
             .iter()
-            .map(|fragment| fragment.rect.right())
+            .map(|pending| pending.fragment.rect.right())
             .fold(0.0, f32::max);
 
         let fragments: Vec<Fragment> = merge_adjacent(core::mem::take(&mut self.current))
             .into_iter()
-            .map(|fragment| {
+            .map(|pending| {
                 // This is what a line box is for: everything hangs from one
                 // baseline, so a taller piece pushes the line down rather than
                 // pushing the others up.
-                let above = fragment.rect.size.height
-                    - if fragment.text.is_some() {
-                        self.measurer.descender()
-                    } else {
-                        0.0
-                    };
+                let above = pending.fragment.rect.size.height - pending.below_baseline;
                 let y = top + baseline - above;
                 Fragment {
-                    rect: fragment.rect.translated(Point::new(0.0, y)),
-                    ..fragment
+                    rect: pending.fragment.rect.translated(Point::new(0.0, y)),
+                    ..pending.fragment
                 }
             })
             .collect();
@@ -313,26 +339,32 @@ impl<'a, M: MeasureText> Builder<'a, M> {
 /// two pieces. On the page it is one: **a box gets one rectangle per line it
 /// is on**, and that is the promise paint relies on to draw a background that
 /// stops at the end of each line.
-fn merge_adjacent(fragments: Vec<Fragment>) -> Vec<Fragment> {
-    let mut merged: Vec<Fragment> = Vec::with_capacity(fragments.len());
-    for fragment in fragments {
+fn merge_adjacent(pending: Vec<Pending>) -> Vec<Pending> {
+    let mut merged: Vec<Pending> = Vec::with_capacity(pending.len());
+    for item in pending {
         let joins = merged.last().is_some_and(|last| {
-            last.box_id == fragment.box_id
-                && match (&last.text, &fragment.text) {
+            last.fragment.box_id == item.fragment.box_id
+                && match (&last.fragment.text, &item.fragment.text) {
                     (Some(before), Some(after)) => before.end == after.start,
                     // Two atomic boxes are two boxes even side by side.
                     _ => false,
                 }
         });
         if joins && let Some(last) = merged.last_mut() {
-            last.rect.size.width = fragment.rect.right() - last.rect.left();
-            last.rect.size.height = last.rect.size.height.max(fragment.rect.size.height);
-            if let (Some(before), Some(after)) = (&mut last.text, &fragment.text) {
+            last.fragment.rect.size.width = item.fragment.rect.right() - last.fragment.rect.left();
+            last.fragment.rect.size.height = last
+                .fragment
+                .rect
+                .size
+                .height
+                .max(item.fragment.rect.size.height);
+            last.below_baseline = last.below_baseline.max(item.below_baseline);
+            if let (Some(before), Some(after)) = (&mut last.fragment.text, &item.fragment.text) {
                 before.end = after.end;
             }
             continue;
         }
-        merged.push(fragment);
+        merged.push(item);
     }
     merged
 }
@@ -350,6 +382,7 @@ mod tests {
         InlineItem::Text {
             box_id: box_id(index),
             text: text.to_owned(),
+            style: TextStyle::default(),
         }
     }
 
@@ -483,7 +516,9 @@ mod tests {
             boxed.rect.top(),
         );
         assert!(
-            (written.rect.bottom() - (line.baseline + BlockFont.descender())).abs() < 0.001,
+            (written.rect.bottom() - (line.baseline + BlockFont.descender(&TextStyle::default())))
+                .abs()
+                < 0.001,
             "with its descender hanging below the baseline",
         );
     }

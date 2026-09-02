@@ -205,6 +205,16 @@ impl BoxTree {
         &self.issues
     }
 
+    /// A tree with no boxes at all, for a test that needs one without a
+    /// document.
+    pub fn empty_for_tests() -> Self {
+        Self {
+            boxes: Vec::new(),
+            root: None,
+            issues: Vec::new(),
+        }
+    }
+
     /// The tree as indented lines, one box per line: what it is, what it
     /// means, and where it came from.
     ///

@@ -15,6 +15,14 @@
 //!
 //! `scripts/gate.sh` checks both on every run.
 //!
+//! # A picture, end to end
+//!
+//! [`display::build`] turns a laid-out document into a list of things to draw;
+//! [`render`] draws them onto a [`Canvas`]; [`to_png`] writes it out. The list
+//! in the middle is what makes a picture that came out wrong *diagnosable*: it
+//! says "the row's background moved four pixels", where an image says only
+//! that some bytes differ.
+//!
 //! # Coverage is not colour
 //!
 //! A rasterised shape says **how much of each pixel it covers**, from zero to
@@ -22,10 +30,18 @@
 //! glyph mask serves black text on white and white text on black, and why a
 //! mask can be reused for a shadow rather than rasterised twice.
 
+pub mod canvas;
+pub mod display;
+pub mod encode;
 pub mod glyph;
 pub mod path;
 pub mod raster;
+pub mod render;
 
+pub use canvas::Canvas;
+pub use display::{DisplayItem, DisplayList, PaintContext};
+pub use encode::{PictureError, from_png, to_png};
 pub use glyph::{Glyph, outline};
 pub use path::{Path, Point, Segment};
 pub use raster::{Coverage, fill};
+pub use render::render;

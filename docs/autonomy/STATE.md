@@ -723,3 +723,76 @@ change.
   channels rather than in paint on purpose.
 - A PNG encoder is still needed. `png` is the obvious rental and it should get
   its own boundary file, listed in `scripts/gate.sh` in the same change.
+
+---
+
+## 2026-09-02 — iteration 11: paint (queue item 7)
+
+**The engine draws.** HTML and CSS in, a PNG out. The first reference render is
+committed at `crates/alo-paint/tests/references/invoices.png`: a list of
+invoices with a heading, three rows, separators and a selected row highlighted.
+
+**What was built.** The second half of `crates/alo-paint`.
+
+- `display.rs` — the display list: what to draw, in what order. It earns its
+  place twice: paint order is decided **once**, here, rather than being implied
+  by whichever loop happens to visit boxes; and it is what a failing reference
+  render is diffed against first, in words, so that a difference says *what*
+  changed.
+- `canvas.rs` — pixels, held as floats for the reason colours are: a page draws
+  a background, a border over it and text over that, and three roundings on
+  every pixel is how a flat colour turns into a slightly wrong one.
+- `render.rs` — the list onto the canvas. Deliberately dull: the decisions were
+  made when the list was built.
+- `encode.rs` — **the only file that names `png`.** Both directions, because
+  reading a reference back is half of comparing against one.
+
+**The bug the first picture found**, which is exactly what a picture is for:
+**text was measured at one size for the whole document.** `TextMeasurer` held a
+family and a size, so a twenty-pixel heading and a fourteen-pixel row were laid
+out as though both were sixteen. The fix widened the measuring seam:
+`MeasureText` now takes an `alo_layout::TextStyle` **per piece of text**, and
+the engine derives it from the computed style of the nearest element. That is
+also what makes two sizes share one baseline correctly, so the line box got
+better in the same change.
+
+**Decisions worth knowing about:**
+
+- **`background` the shorthand is read as well as `background-color`.** Stage 1
+  does not expand shorthands in the cascade, and `background: #fff` is how a
+  style sheet actually says this — reading only the longhand drew nothing at
+  all. A `background` that is an image or a gradient is not a colour and is
+  ignored rather than having a colour guessed out of it.
+- **Only `solid` borders are drawn.** `none` and `hidden` draw nothing whatever
+  their width, which is what CSS says; every other style is not implemented,
+  and a dashed border drawn solid would be a wrong pixel that looks nearly
+  right.
+- **`z-index` only means anything on a positioned box.** That is the rule, and
+  it is written where the sorting happens because it is the one people are
+  surprised by.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 589 tests, no stubs, boundaries held including `png`'s. **A reference
+render exists and is diffed** — the gate's requirement for anything visual, met
+for the first time. `ALO_UPDATE_REFERENCES=1` rewrites it; the test says so, and
+says to read the diff before committing.
+
+**The scope cut**, written into the queue as item 18: rounded corners, shadows,
+gradients, clipping, transforms and opacity — the rest of `features.md`'s Paint
+line. Item 7 draws a colour inside a shape and the shape is always a rectangle;
+every one of those changes what the shape is or how colours combine, and each is
+worth its own reference render. Item 11's real alo screen will need at least the
+rounded corners.
+
+**What the next iteration should know.** Item 8 is the reference corpus.
+
+- The machinery is in `crates/alo-paint/tests/reference_renders.rs` and is
+  worth moving somewhere shared rather than copying: `draw`, `compare`, and the
+  `ALO_UPDATE_REFERENCES` escape hatch.
+- Item 8's queue text asks for **each case with its expected image *and* its
+  expected box tree**. Both already exist as assertions — `BoxTree::to_outline`,
+  `LayoutTree::to_outline`, `DisplayList::to_outline` — so a case is four
+  files' worth of expectation, and the corpus is a directory of them rather
+  than new machinery.
+- The one thing missing is a way to run one case by name and see all four
+  differences at once, which is what makes a corpus usable rather than a wall.

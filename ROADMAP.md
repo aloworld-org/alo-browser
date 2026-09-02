@@ -26,7 +26,7 @@ not before it.
 - [x] **The box tree**, and what each box *means* (ADR 0002) rather than only its rectangle
 - [x] **Layout**: flexbox and grid, on `taffy` to begin with, behind our own boundary
 - [x] **Text**: HarfBuzz shaping (via `rustybuzz`), the fallback chain and line breaking, with the awkward scripts working before the easy ones. Rasterisation is queue item 17, beside paint
-- [ ] **Paint**: a display list, then a software raster to a PNG
+- [x] **Paint**: a display list, then a software raster to a PNG
 - [ ] **Reference renders**: a committed corpus, diffed on every change
 - [ ] ★ **The agent tree**: the layout tree read as roles, states and positions
 - [ ] ★ **Typed verbs**: activate, type, scroll — and never a coordinate

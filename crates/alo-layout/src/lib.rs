@@ -50,7 +50,7 @@ pub use keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
     Positioning,
 };
-pub use measure::{BlockFont, MeasureText, NoText};
+pub use measure::{BlockFont, MeasureText, NoText, TextStyle};
 pub use placement::{GridLine, GridPlacement};
 pub use sizing::{AutoLength, Sizing};
 pub use style::LayoutStyle;

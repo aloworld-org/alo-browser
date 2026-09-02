@@ -12,6 +12,39 @@
 
 use crate::geometry::Size;
 
+/// The font a piece of text is set in.
+///
+/// Layout carries this from the computed style to the measurer, because the
+/// measurer has the fonts and layout has the styles and neither has both. It
+/// is per *box*, not per document: a heading and a caption on the same page
+/// are different sizes, and a measurer told only one of them would lay the
+/// other one out wrong — which is exactly the bug this type exists to have
+/// prevented.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextStyle {
+    /// The families to try, in order, as `font-family` lists them.
+    pub families: Vec<String>,
+    /// How big, in CSS pixels.
+    pub size: f32,
+    /// How heavy, on CSS's nine-point scale.
+    pub weight: u16,
+    /// Whether it is slanted.
+    pub italic: bool,
+}
+
+impl Default for TextStyle {
+    /// Sixteen-pixel upright text in whatever the sans-serif is, which is what
+    /// a document gets when nothing says otherwise.
+    fn default() -> Self {
+        Self {
+            families: vec!["sans-serif".to_owned()],
+            size: 16.0,
+            weight: 400,
+            italic: false,
+        }
+    }
+}
+
 /// What layout needs to know about a piece of text.
 pub trait MeasureText {
     /// How big this text is, given how much room it has.
@@ -20,7 +53,7 @@ pub trait MeasureText {
     /// would like to be rather than how tall it would be at a given width —
     /// the max-content question. An implementation that ignores the difference
     /// will lay out correctly and size badly.
-    fn measure(&self, text: &str, available_width: Option<f32>) -> Size;
+    fn measure(&self, text: &str, style: &TextStyle, available_width: Option<f32>) -> Size;
 
     /// The byte offsets after which a line may end, in order, always including
     /// the end of the text.
@@ -36,11 +69,12 @@ pub trait MeasureText {
     ///
     /// Two pieces of text set in different sizes sit on the same baseline, not
     /// on the same top edge, which is the whole reason a line box is not a row
-    /// of boxes.
-    fn ascender(&self) -> f32;
+    /// of boxes — and the reason this takes the style rather than answering
+    /// once for the document.
+    fn ascender(&self, style: &TextStyle) -> f32;
 
     /// How far below the baseline it reaches.
-    fn descender(&self) -> f32;
+    fn descender(&self, style: &TextStyle) -> f32;
 }
 
 /// A measurer for tests and for the cases where text has no size at all.
@@ -52,7 +86,7 @@ pub trait MeasureText {
 pub struct NoText;
 
 impl MeasureText for NoText {
-    fn measure(&self, _text: &str, _available_width: Option<f32>) -> Size {
+    fn measure(&self, _text: &str, _style: &TextStyle, _available_width: Option<f32>) -> Size {
         Size::ZERO
     }
 
@@ -62,11 +96,11 @@ impl MeasureText for NoText {
         vec![text.len()]
     }
 
-    fn ascender(&self) -> f32 {
+    fn ascender(&self, _style: &TextStyle) -> f32 {
         0.0
     }
 
-    fn descender(&self) -> f32 {
+    fn descender(&self, _style: &TextStyle) -> f32 {
         0.0
     }
 }
@@ -80,7 +114,7 @@ impl MeasureText for NoText {
 pub struct BlockFont;
 
 impl MeasureText for BlockFont {
-    fn measure(&self, text: &str, available_width: Option<f32>) -> Size {
+    fn measure(&self, text: &str, _style: &TextStyle, available_width: Option<f32>) -> Size {
         if text.is_empty() {
             return Size::ZERO;
         }
@@ -108,11 +142,11 @@ impl MeasureText for BlockFont {
         points
     }
 
-    fn ascender(&self) -> f32 {
+    fn ascender(&self, _style: &TextStyle) -> f32 {
         12.0
     }
 
-    fn descender(&self) -> f32 {
+    fn descender(&self, _style: &TextStyle) -> f32 {
         4.0
     }
 }
@@ -123,17 +157,25 @@ mod tests {
 
     #[test]
     fn the_test_font_measures_eight_pixels_a_character() {
-        assert_eq!(BlockFont.measure("abc", None), Size::new(24.0, 16.0));
-        assert_eq!(BlockFont.measure("", None), Size::ZERO);
+        let style = TextStyle::default();
+        assert_eq!(
+            BlockFont.measure("abc", &style, None),
+            Size::new(24.0, 16.0)
+        );
+        assert_eq!(BlockFont.measure("", &style, None), Size::ZERO);
     }
 
     #[test]
     fn a_measurer_is_told_whether_there_is_a_width_to_fit_into() {
+        let style = TextStyle::default();
         assert_eq!(
-            BlockFont.measure("abcdefgh", Some(32.0)),
-            Size::new(32.0, 32.0)
+            BlockFont.measure("abcdefgh", &style, Some(32.0)),
+            Size::new(32.0, 32.0),
         );
-        assert_eq!(BlockFont.measure("abcdefgh", None), Size::new(64.0, 16.0));
+        assert_eq!(
+            BlockFont.measure("abcdefgh", &style, None),
+            Size::new(64.0, 16.0),
+        );
     }
 
     #[test]
@@ -146,13 +188,20 @@ mod tests {
 
     #[test]
     fn with_no_font_there_is_no_size_and_no_baseline() {
-        assert_eq!(NoText.measure("anything at all", Some(100.0)), Size::ZERO);
-        assert!((NoText.ascender() - 0.0).abs() < f32::EPSILON);
-        assert!((NoText.descender() - 0.0).abs() < f32::EPSILON);
+        let style = TextStyle::default();
+        assert_eq!(
+            NoText.measure("anything at all", &style, Some(100.0)),
+            Size::ZERO
+        );
+        assert!((NoText.ascender(&style) - 0.0).abs() < f32::EPSILON);
+        assert!((NoText.descender(&style) - 0.0).abs() < f32::EPSILON);
     }
 
     #[test]
     fn a_line_of_the_test_font_is_its_ascender_plus_its_descender() {
-        assert!((BlockFont.ascender() + BlockFont.descender() - 16.0).abs() < f32::EPSILON);
+        let style = TextStyle::default();
+        assert!(
+            (BlockFont.ascender(&style) + BlockFont.descender(&style) - 16.0).abs() < f32::EPSILON,
+        );
     }
 }

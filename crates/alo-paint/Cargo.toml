@@ -9,12 +9,18 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+alo-box = { path = "../alo-box" }
+alo-layout = { path = "../alo-layout" }
+alo-style = { path = "../alo-style" }
 alo-text = { path = "../alo-text" }
 alo-value = { path = "../alo-value" }
+png.workspace = true
 tiny-skia.workspace = true
 ttf-parser.workspace = true
 
 [dev-dependencies]
+alo-css = { path = "../alo-css" }
+alo-dom = { path = "../alo-dom" }
 dejavu.workspace = true
 
 [lints]
