@@ -33,7 +33,7 @@ good() { printf '\033[32mok\033[0m    %s\n' "$1"; }
 # Prose may say the name anywhere — comments are stripped before this looks.
 declare -a BOUNDARIES=(
   "html5ever:crates/alo-dom/src/parse.rs"
-  "cssparser:crates/alo-css/src/ident.rs,crates/alo-css/src/matching.rs,crates/alo-css/src/media.rs,crates/alo-css/src/parse.rs,crates/alo-css/src/selector.rs"
+  "cssparser:crates/alo-css/src/ident.rs,crates/alo-css/src/matching.rs,crates/alo-css/src/media.rs,crates/alo-css/src/parse.rs,crates/alo-css/src/selector.rs,crates/alo-style/src/variables.rs"
   "selectors:crates/alo-css/src/matching.rs,crates/alo-css/src/parse.rs,crates/alo-css/src/selector.rs"
 )
 

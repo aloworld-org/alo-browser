@@ -34,7 +34,7 @@ file is the specification for what "correct" means here.
   An unknown property is kept and ignored rather than dropped, so a later stage
   can implement it without a re-parse.
 
-- [ ] **3. Computed style.** The cascade, inheritance, and **`var()`**.
+- [x] **3. Computed style.** The cascade, inheritance, and **`var()`**.
   `alo-workplace`'s design system is custom properties throughout, so a renderer
   that cannot resolve them renders nothing of alo at all — this is not decoration
   and it is not deferrable. Tests: specificity order; inheritance through a gap;
@@ -75,6 +75,18 @@ file is the specification for what "correct" means here.
 - [ ] **11. A real alo screen.** The sign-in screen from the Figma file, its
   colours from `tokens.css`, rendered and diffed against a reference. This is the
   item that turns the project from plausible into real.
+
+- [ ] **12. Computed values: numbers rather than text.** Item 3 delivers
+  *specified* values as text — `16px` is four characters, and a property nobody
+  set is absent because absence is what "initial" means. Turning that into
+  numbers is this item: lengths resolved against the font size that is in force
+  (which is why `em` needs the cascade to have run), colours into channels,
+  percentages left as percentages because their basis is layout's. It sits here
+  rather than inside item 3 because the code that knows which unit a property
+  wants is the code that asks for it — layout wants a length from `width`, paint
+  wants a colour from `color`, and a general answer is one that has to be wrong
+  somewhere. **Cut from item 3 on the iteration that built it**, so that the
+  cascade could be finished whole rather than half of two things.
 
 ---
 

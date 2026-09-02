@@ -6,6 +6,24 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The cascade works, and so does `var()`.** For every element of a document:
+  which declaration wins — origin, then `!important`, then specificity, then
+  order — what a child inherits when nothing wins for it, and what a custom
+  property actually reads. `docs/decisions/0001` calls this stage 1's first
+  hard requirement rather than decoration, because alo's design system is
+  custom properties throughout: an engine that cannot resolve them renders
+  nothing of alo at all, not badly, nothing.
+- **A variable cycle is refused rather than looped.** `--a: var(--b)` with
+  `--b: var(--a)` makes every property in the ring invalid, which is what CSS
+  says and the only answer that terminates. A `var()` naming something that is
+  not set falls back if it can and is recorded if it cannot.
+- The text around a substitution survives exactly as written, so
+  `calc(var(--gap) * 2)` becomes `calc(8px * 2)` — a value this engine does not
+  yet understand is still one it can pass along intact.
+- `inherit`, `initial`, `unset` and `revert` all work, including the one that
+  is easy to get wrong: `revert` steps a whole origin aside, both its ordinary
+  and its important declarations, rather than taking second place.
+
 - **Style sheets parse into rules we hold.** `cssparser` tokenises and
   `selectors` matches; what a rule is, which selectors exist, and what happens
   to what we do not implement are ours. A sheet in the shape alo's design

@@ -8,9 +8,16 @@ with a record of what had to be repaired. CSS parses into rules we hold, and a
 selector can be matched against the tree — so the engine can say *which rules
 apply to which element*, on a given viewport width and colour scheme.
 
-What does not exist: the cascade. Nothing decides yet which of several matching
-declarations wins, nothing resolves `var()`, and nothing is laid out or
-painted. Every target below is still `not yet`.
+The cascade runs: every element of a document gets the style it should have,
+with inheritance and `var()` resolved, on a given viewport width and colour
+scheme. A design system defined once on `:root` reaches the whole document,
+which is the thing alo is made of.
+
+What does not exist: numbers. A computed style holds the text a declaration was
+written with — `16px` is four characters, not a length — because turning it into
+a number belongs with the code that knows which unit it wants (queue item 12).
+Nothing is boxed, laid out or painted, so every target below is still
+`not yet`.
 
 This file exists instead of a conformance percentage. A Web Platform Tests score
 would grade us against thirty years of legacy we are deliberately refusing

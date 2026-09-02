@@ -28,6 +28,10 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] Selector matching with `selectors` — the modern subset only
 - [1] ★ **The cascade, inheritance and `var()`.** alo's design system is custom properties throughout, so an engine that cannot resolve them renders nothing of alo at all. This is stage 1's first hard requirement, not decoration
 - [1] A variable cycle is refused rather than looped
+- [1] Computed values: the text a declaration was written with, resolved into
+  numbers — lengths against the font size in force, colours into channels. The
+  cascade produces specified values; this is the step after it, and it lives
+  with the code that knows which unit each property wants
 - [1] An unknown property is kept and ignored rather than dropped, so a later stage can implement it without re-parsing
 - [1] Media queries for width, and `prefers-color-scheme` — the light and dark the workspace already ships
 - [2] Animations and transitions

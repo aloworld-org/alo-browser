@@ -59,6 +59,16 @@ pub enum IssueKind {
     /// rules whose condition is unknown is how a dark theme leaks into a light
     /// one.
     UnknownMediaCondition,
+    /// A custom property that refers to itself, directly or around a ring of
+    /// other properties. Every property in the ring is refused — CSS says they
+    /// all become invalid — rather than the cascade looping until it runs out
+    /// of stack.
+    VariableCycle,
+    /// A `var()` naming a custom property that is not set, with no fallback to
+    /// use instead. CSS calls this invalid at computed-value time: the
+    /// declaration is dropped as though it had said `unset`, which is not the
+    /// same as being ignored, and is why it is recorded.
+    InvalidAtComputedValueTime,
 }
 
 impl IssueKind {
@@ -73,6 +83,10 @@ impl IssueKind {
             IssueKind::UnknownAtRule => "at-rule not implemented, kept unparsed",
             IssueKind::UnknownMediaCondition => {
                 "media condition not understood, treated as not matching"
+            }
+            IssueKind::VariableCycle => "custom property refers to itself, refused",
+            IssueKind::InvalidAtComputedValueTime => {
+                "var() names a property that is not set and has no fallback"
             }
         }
     }
@@ -109,6 +123,8 @@ mod tests {
             IssueKind::InvalidDeclaration,
             IssueKind::UnknownAtRule,
             IssueKind::UnknownMediaCondition,
+            IssueKind::VariableCycle,
+            IssueKind::InvalidAtComputedValueTime,
         ] {
             assert!(!kind.as_str().is_empty());
         }

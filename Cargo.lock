@@ -20,6 +20,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "alo-style"
+version = "0.0.0"
+dependencies = [
+ "alo-css",
+ "alo-dom",
+ "cssparser",
+]
+
+[[package]]
 name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

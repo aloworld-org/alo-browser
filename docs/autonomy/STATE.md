@@ -196,3 +196,81 @@ one `docs/decisions/0001` calls stage 1's first hard requirement.
   boundary list in the same change.
 - `DeclarationBlock::get` already answers "the last declaration of this
   property wins within a block". The cascade is what decides between blocks.
+
+---
+
+## 2026-09-02 — iteration 3: computed style (queue item 3)
+
+**What was built.** `crates/alo-style`. The cascade, inheritance and `var()`.
+
+- `origin.rs` — user agent and author, and the level each importance gives
+  them. `!important` reverses the origins, which is the part worth a test:
+  an engine that could be shouted down by a page could not insist on anything.
+- `inheritance.rs` — the table of which properties inherit, because CSS is a
+  table and there is no rule that derives it. A property not in the table does
+  not inherit; a custom property always does.
+- `keyword.rs` — `inherit`, `initial`, `unset`, `revert`, in one place, because
+  handling them per property is how three of the four end up subtly different.
+- `variables.rs` — custom property resolution and `var()` substitution, with
+  cycles refused.
+- `cascade.rs` — which declaration wins, and nothing else.
+- `computed.rs` — the whole document, in document order, because a child's
+  `var(--surface)` resolves against the map its parent ended up with.
+
+**Decisions worth knowing about:**
+
+- **A property's initial value is its absence.** A computed style holds only
+  what was set, and whoever reads it knows the initial value for the property
+  it asked about. CSS says "nobody set this" and "somebody set this to its
+  initial value" are the same state, so this engine carries no table of initial
+  values that would have to be kept right in a second place.
+- **Specified values, as text.** `16px` is four characters. Turning text into
+  numbers is now **queue item 12** — the scope cut this iteration made, written
+  into the queue rather than left implied, and given its line in
+  `docs/features.md` so the thing that promised it exists. It belongs with the
+  code that knows which unit each property wants: layout will parse a length
+  from `width`, paint a colour from `color`, and a general answer is one that
+  has to be wrong somewhere.
+- **Substitution is textual over the token stream**, so the value between
+  `var()` calls comes through exactly as written and `calc(var(--gap) * 2)`
+  becomes `calc(8px * 2)`. A value this engine does not yet understand is one it
+  can still pass along intact.
+- **A cycle refuses the whole ring**, and a property in a ring keeps neither its
+  own value nor the one it inherited — which is what CSS says, and is not what
+  a naive implementation does.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 230 tests (186 unit, 43 integration, one doctest), no stubs, boundaries
+held — `cssparser` is now also named in `alo-style/src/variables.rs`, which is
+in the list. Still no layout assertion and no reference render: nothing here
+positions, sizes or draws. Items 4 and 5 are where the first numbers appear,
+and item 7 the first pixels.
+
+**Two bugs worth remembering**, both found by tests rather than by reading:
+
+- `margin: inherit` did nothing, because the child's style was seeded with only
+  the *inherited* half of its parent's and `margin` is exactly a property that
+  would not be in it. `inherit` needs the parent's **whole** style. The fix is
+  small; the class of bug is not, and item 4 will have the same shape when a box
+  asks its parent something.
+- Substitution lost the whitespace before every `var()`, because a parser's
+  position before `next()` is the token's start only if nothing is skipped —
+  and `next()` skips whitespace. Reading with
+  `next_including_whitespace_and_comments` is what makes the text between
+  substitutions come out as written.
+
+**What the next iteration should know.** Item 4 is the box tree, and ADR 0002
+is the one to read first: it says the box tree keeps what a box *means*, not
+only its rectangle, and that it cannot be retrofitted.
+
+- Everything a box needs is now available per element: `StyleTree::get(id)`
+  gives the computed style, `ComputedStyle::get("display")` the text of a
+  property, and absence means initial.
+- **There is no user-agent style sheet yet**, and item 4 is where one becomes
+  necessary: `display: block` on a `<div>` has to come from somewhere.
+  `Origin::UserAgent` already exists and is already ordered correctly, so that
+  sheet is a string and a `SourcedSheet`, not a mechanism.
+- Item 12 (computed values) is not a prerequisite for item 4. It is for item 5,
+  which needs lengths as numbers to hand to `taffy`. Doing 12 before 5 is
+  probably right; the queue leaves it where it is so that the decision is made
+  by whoever reaches it.
