@@ -177,7 +177,6 @@ const ARC: f32 = 0.552_284_7;
 /// corners over a rounded background, which is what it looked like before this
 /// existed.
 pub fn ring(outer: Rect, corners: Corners, widths: alo_layout::Edges) -> Path {
-    let mut path = rounded_rectangle(outer, corners);
     let inner_rect = outer.shrunk_by(widths);
     // The inner shape's corners are the outer ones less the border, which is
     // what makes a border of even thickness all the way round a curve.
@@ -187,7 +186,20 @@ pub fn ring(outer: Rect, corners: Corners, widths: alo_layout::Edges) -> Path {
         bottom_right: inset(corners.bottom_right, widths.right, widths.bottom),
         bottom_left: inset(corners.bottom_left, widths.left, widths.bottom),
     };
-    for segment in reversed(&rounded_rectangle(inner_rect, inner_corners)).segments() {
+    between(
+        &rounded_rectangle(outer, corners),
+        &rounded_rectangle(inner_rect, inner_corners),
+    )
+}
+
+/// One shape with another cut out of it.
+///
+/// The inner shape is wound the other way, so the non-zero fill rule leaves it
+/// empty. This is what [`ring`] is made of, and it is also how an inset shadow
+/// is drawn: the shadow of a hole is the shape outside it, blurred.
+pub fn between(outer: &Path, inner: &Path) -> Path {
+    let mut path = outer.clone();
+    for segment in reversed(inner).segments() {
         push(&mut path, *segment);
     }
     path

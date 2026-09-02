@@ -10,7 +10,7 @@ use alo_box::build as build_boxes;
 use alo_css::{MediaContext, parse_stylesheet};
 use alo_dom::parse_document;
 use alo_layout::{Size, compute};
-use alo_paint::{Canvas, DisplayList, PaintContext, display, render};
+use alo_paint::{Canvas, DisplayList, PaintContext, build, render};
 use alo_style::{Origin, SourcedSheet, USER_AGENT_STYLE_SHEET, resolve};
 use alo_text::{Font, FontDatabase, Slant, TextMeasurer, Weight};
 use alo_value::Rgba;
@@ -43,7 +43,7 @@ fn draw(html: &str, css: &str, width: f32, height: f32) -> (DisplayList, Canvas)
     let database = fonts();
     let measurer = TextMeasurer::new(&database);
     let layout = compute(&boxes, &styles, Size::new(width, height), &measurer);
-    let list = display::build(&boxes, &layout, &styles, PaintContext { fonts: &database });
+    let list = build::build(&boxes, &layout, &styles, PaintContext { fonts: &database });
 
     let mut canvas = Canvas::new(120, 60, Rgba::WHITE);
     render(&list, &mut canvas);

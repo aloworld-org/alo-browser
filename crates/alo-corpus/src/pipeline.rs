@@ -79,7 +79,7 @@ pub fn render(html: &str, css: &str, size: Size, fonts: &FontDatabase) -> Render
 
     let measurer = TextMeasurer::new(fonts);
     let layout = alo_layout::compute(&boxes, &styles, size, &measurer);
-    let display = alo_paint::display::build(&boxes, &layout, &styles, PaintContext { fonts });
+    let display = alo_paint::build::build(&boxes, &layout, &styles, PaintContext { fonts });
 
     // White, because a page with no background of its own is a white page and
     // a transparent picture is harder to look at in a diff.

@@ -9,76 +9,15 @@
 //!
 //! # Coverage, not colour
 //!
-//! What comes out is **how much of each pixel the shape covers**, from zero to
-//! 255 — not a colour. Colour is applied when the coverage is composited, which
-//! is why the same glyph mask serves black text on white and white text on
-//! black, and why a mask can be reused for a shadow.
+//! What comes out is a [`Coverage`]: **how much of each pixel the shape
+//! covers**, from zero to 255 — not a colour. Colour is applied when the
+//! coverage is composited, which is why the same glyph mask serves black text
+//! on white and white text on black, and why a mask can be reused for a
+//! shadow. The type itself lives in [`crate::coverage`]; this file only makes
+//! them.
 
+use crate::coverage::Coverage;
 use crate::path::{Path, Point, Segment};
-
-/// How much of each pixel a shape covers.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Coverage {
-    width: u32,
-    height: u32,
-    /// The left and top of the covered area, in whole pixels, relative to
-    /// wherever the path's own coordinates were.
-    origin: (i32, i32),
-    data: Vec<u8>,
-}
-
-impl Coverage {
-    /// Nothing covered at all.
-    pub fn empty() -> Self {
-        Self {
-            width: 0,
-            height: 0,
-            origin: (0, 0),
-            data: Vec::new(),
-        }
-    }
-
-    /// How wide the covered area is, in pixels.
-    pub fn width(&self) -> u32 {
-        self.width
-    }
-
-    /// How tall it is.
-    pub fn height(&self) -> u32 {
-        self.height
-    }
-
-    /// Where its top-left corner is, in whole pixels.
-    ///
-    /// A glyph is outlined with the pen at the origin, so this is usually
-    /// negative in `y`: the ink starts above the baseline.
-    pub fn origin(&self) -> (i32, i32) {
-        self.origin
-    }
-
-    /// Whether nothing is covered.
-    pub fn is_empty(&self) -> bool {
-        self.data.is_empty()
-    }
-
-    /// How much of one pixel is covered, from zero to 255.
-    ///
-    /// Coordinates are relative to [`Coverage::origin`]. A pixel outside the
-    /// covered area is covered not at all, which is a real answer rather than
-    /// an error.
-    pub fn at(&self, x: u32, y: u32) -> u8 {
-        if x >= self.width || y >= self.height {
-            return 0;
-        }
-        let index = (y as usize) * (self.width as usize) + (x as usize);
-        self.data.get(index).copied().unwrap_or(0)
-    }
-
-    /// Every pixel's coverage, row by row from the top.
-    pub fn data(&self) -> &[u8] {
-        &self.data
-    }
-}
 
 /// Fill a path and report how much of each pixel it covers.
 ///
@@ -118,12 +57,12 @@ pub fn fill(path: &Path) -> Coverage {
         tiny_skia::Transform::identity(),
     );
 
-    Coverage {
+    Coverage::new(
         width,
         height,
-        origin: (to_whole(x0), to_whole(y0)),
-        data: mask.data().to_vec(),
-    }
+        (to_whole(x0), to_whole(y0)),
+        mask.data().to_vec(),
+    )
 }
 
 fn build(path: &Path) -> Option<tiny_skia::Path> {
@@ -174,6 +113,7 @@ fn to_whole(value: f32) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::path::Point;
 
     #[test]
     fn nothing_covers_nothing() {

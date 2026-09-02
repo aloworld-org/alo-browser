@@ -6,6 +6,28 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A box can cast a shadow and be filled with a gradient.** `box-shadow`
+  (offset, blur, spread, colour, and `inset`), `text-shadow`,
+  `linear-gradient` and `radial-gradient`. A page stops being flat colour in
+  flat shapes.
+- **A shadow is coverage, blurred — not a picture, blurred.** The shape is
+  rasterised to a mask, the mask is softened by three box-blur passes, and the
+  colour arrives afterwards, so what is *behind* the shadow is not blurred
+  along with it. An inset shadow is the same blur run on the shape with a hole
+  in it, which is why there is one blur rather than two.
+- **A run of text casts one shadow, not one per letter.** The whole run is
+  outlined into a single shape before it is blurred: two letters that touch
+  would otherwise be blurred separately and composited, and the overlap would
+  be visibly darker.
+- **Refused rather than approximated**: `conic-gradient`, the repeating
+  gradients, colour interpolation hints, and interpolation in any space but
+  sRGB. Each is a different curve through colour, and drawing one as another is
+  a wrong pixel that looks nearly right.
+- Paint was three files' worth of work in two files. `Coverage` moved out of
+  the rasteriser — more than one thing makes coverage now — and building a
+  display list moved out of the display list itself, because a new CSS property
+  and a new kind of drawing are different reasons to change.
+
 - **alo's sign-in screen renders.** The real markup, the real rules and the
   real design tokens, drawn by this engine and diffed on every run: the
   charcoal brand panel, the headline, the fields, the terracotta button, the

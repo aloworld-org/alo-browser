@@ -97,6 +97,16 @@ impl Path {
         self.segments.push(Segment::Close);
     }
 
+    /// Everything in another path, added to this one.
+    ///
+    /// Two shapes in one path are filled together, which is what makes a run
+    /// of text one shape: a shadow blurred from the whole run is smooth where
+    /// two letters touch, where one blur per letter would have been darker
+    /// there.
+    pub fn extend(&mut self, other: &Path) {
+        self.segments.extend_from_slice(&other.segments);
+    }
+
     /// A rectangle.
     pub fn rectangle(x: f32, y: f32, width: f32, height: f32) -> Self {
         let mut path = Self::new();

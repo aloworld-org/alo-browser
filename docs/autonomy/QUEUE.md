@@ -99,11 +99,17 @@ file is the specification for what "correct" means here.
   what is inside a box to that same shape — one question, asked twice. **Cut
   from item 7**, and item 11's real alo screen needs it.
 
-- [ ] **19. Shadows and gradients.** How a colour *fills* a shape, rather than
+- [x] **19. Shadows and gradients.** How a colour *fills* a shape, rather than
   what the shape is: `box-shadow`, `text-shadow`, `linear-gradient` and
   `radial-gradient`. Each needs a value grammar of its own and a blur, and each
   is worth its own reference render. **Cut from item 18** when that item was
   split, because changing the shape and changing the fill are different work.
+
+  **Done.** A shadow is coverage blurred rather than a picture blurred, so what
+  is behind it survives; an inset shadow is the same blur run on the shape with
+  a hole in it. A run of text is outlined into one shape before it is blurred,
+  because one blur per letter is darker where two letters touch. Corpus case
+  `shadowed-card`.
 
 - [ ] **20. Transforms and opacity.** How a drawn thing is *combined* with what
   is behind it: `transform` moves a shape's points and `opacity` composites a

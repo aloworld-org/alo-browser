@@ -33,14 +33,21 @@
 
 pub mod calc;
 pub mod color;
+pub mod gradient;
 pub mod length;
 pub mod parse;
+pub mod shadow;
 pub mod shorthand;
 pub mod unit;
 
 pub use calc::{CalcNode, Kind};
 pub use color::{Color, Rgba, from_hsl};
+pub use gradient::{Angle, Gradient, Stop};
 pub use length::{FontMetrics, Length, LengthPercentage};
-pub use parse::{is_keyword, parse_color, parse_length, parse_length_percentage, parse_number};
+pub use parse::{
+    is_keyword, parse_box_shadows, parse_color, parse_gradient, parse_length,
+    parse_length_percentage, parse_number, parse_text_shadows,
+};
+pub use shadow::{DrawnShadow, Shadow};
 pub use shorthand::{Border, parse_border};
 pub use unit::Unit;

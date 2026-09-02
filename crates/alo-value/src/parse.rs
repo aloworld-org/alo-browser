@@ -12,7 +12,9 @@
 
 use crate::calc::{CalcNode, Kind};
 use crate::color::{Color, Rgba, from_hsl};
+use crate::gradient::{Angle, Gradient, Stop};
 use crate::length::{Length, LengthPercentage};
+use crate::shadow::Shadow;
 use crate::unit::Unit;
 use cssparser::{Parser as CssParser, ParserInput, Token};
 
@@ -177,6 +179,199 @@ fn alpha_channel(input: &mut CssParser<'_, '_>) -> Option<f32> {
         return Some(percentage);
     }
     input.try_parse(CssParser::expect_number).ok()
+}
+
+/// Read a whole value as a gradient.
+///
+/// [`None`] for anything this engine does not implement: `conic-gradient`, the
+/// repeating forms, interpolation hints, and any colour space but sRGB. Each is
+/// a different curve through colour, and drawing one as another is a wrong
+/// pixel that looks nearly right.
+pub fn parse_gradient(text: &str) -> Option<Gradient> {
+    entirely(text, |input| {
+        let radial = input
+            .try_parse(|input| {
+                let name = input.expect_function()?.clone();
+                if name.eq_ignore_ascii_case("linear-gradient") {
+                    Ok(false)
+                } else if name.eq_ignore_ascii_case("radial-gradient") {
+                    Ok(true)
+                } else {
+                    Err(input.new_basic_unexpected_token_error(Token::Function(name)))
+                }
+            })
+            .ok()?;
+        input
+            .parse_nested_block(
+                |arguments| -> Result<Option<Gradient>, cssparser::ParseError<'_, ()>> {
+                    Ok(gradient_arguments(arguments, radial))
+                },
+            )
+            .ok()?
+    })
+}
+
+/// What is inside the brackets: a direction, then the stops.
+fn gradient_arguments(input: &mut CssParser<'_, '_>, radial: bool) -> Option<Gradient> {
+    let mut angle = Angle::DOWN;
+    if !radial {
+        // A leading angle or `to <side>`; without one the gradient runs down.
+        if let Ok(degrees) =
+            input.try_parse(|input| -> Result<f32, cssparser::ParseError<'_, ()>> {
+                let start = input.position();
+                let degrees = match input.next()? {
+                    Token::Dimension { value, unit, .. } if unit.eq_ignore_ascii_case("deg") => {
+                        *value
+                    }
+                    Token::Ident(_) => {
+                        // `to bottom right` — read the words up to the comma.
+                        while input.try_parse(CssParser::expect_comma).is_err()
+                            && !input.is_exhausted()
+                        {
+                            if input.next().is_err() {
+                                break;
+                            }
+                        }
+                        let phrase = input.slice_from(start);
+                        let phrase = phrase.trim_end_matches(',').trim();
+                        return match Angle::from_sides(phrase) {
+                            Some(angle) => Ok(angle.0),
+                            None => Err(input.new_custom_error(())),
+                        };
+                    }
+                    _ => return Err(input.new_custom_error(())),
+                };
+                input.expect_comma()?;
+                Ok(degrees)
+            })
+        {
+            angle = Angle(degrees);
+        }
+    }
+
+    let mut stops = Vec::new();
+    loop {
+        stops.push(one_stop(input)?);
+        if input.try_parse(CssParser::expect_comma).is_err() {
+            break;
+        }
+    }
+    input.expect_exhausted().ok()?;
+    if stops.len() < 2 {
+        // One stop is a flat colour written the long way round, and CSS calls
+        // it invalid rather than guessing which end it is.
+        return None;
+    }
+    Some(if radial {
+        Gradient::Radial { stops }
+    } else {
+        Gradient::Linear { angle, stops }
+    })
+}
+
+/// One colour, and where it sits if it says.
+fn one_stop(input: &mut CssParser<'_, '_>) -> Option<Stop> {
+    let color = input.try_parse(|input| one_color(input).ok_or(())).ok()?;
+    let position = input
+        .try_parse(CssParser::expect_percentage)
+        .ok()
+        .map(|fraction| fraction.clamp(0.0, 1.0));
+    Some(Stop { color, position })
+}
+
+/// Read a whole `box-shadow`: a comma-separated list, front to back.
+///
+/// `none` is an empty list rather than a refusal — the author said there are
+/// no shadows, which is a different answer from "this could not be read".
+pub fn parse_box_shadows(text: &str) -> Option<Vec<Shadow>> {
+    parse_shadows(text, true)
+}
+
+/// Read a whole `text-shadow`.
+///
+/// The same grammar without `inset` and without a spread: there is no sensible
+/// way to grow a letter before blurring it, and CSS does not offer one.
+pub fn parse_text_shadows(text: &str) -> Option<Vec<Shadow>> {
+    parse_shadows(text, false)
+}
+
+fn parse_shadows(text: &str, boxes: bool) -> Option<Vec<Shadow>> {
+    if text.trim().is_empty() {
+        return None;
+    }
+    if is_keyword(text, "none") {
+        return Some(Vec::new());
+    }
+    entirely(text, |input| {
+        let mut shadows = Vec::new();
+        loop {
+            shadows.push(one_shadow(input, boxes)?);
+            if input.try_parse(CssParser::expect_comma).is_err() {
+                break;
+            }
+        }
+        input.expect_exhausted().ok()?;
+        Some(shadows)
+    })
+}
+
+/// One shadow: two lengths, then a blur, then a spread, in that order, with a
+/// colour and — for a box shadow — the word `inset` anywhere among them.
+fn one_shadow(input: &mut CssParser<'_, '_>, boxes: bool) -> Option<Shadow> {
+    let mut lengths: Vec<Length> = Vec::new();
+    let mut color: Option<Color> = None;
+    let mut inset = false;
+
+    loop {
+        if boxes
+            && !inset
+            && input
+                .try_parse(|input| input.expect_ident_matching("inset"))
+                .is_ok()
+        {
+            inset = true;
+            continue;
+        }
+        if lengths.len() < if boxes { 4 } else { 3 }
+            && let Ok(length) = input.try_parse(|input| one_length(input).ok_or(()))
+        {
+            lengths.push(length);
+            continue;
+        }
+        if color.is_none()
+            && let Ok(read) = input.try_parse(|input| one_color(input).ok_or(()))
+        {
+            color = Some(read);
+            continue;
+        }
+        break;
+    }
+
+    // Two offsets are the whole of what a shadow must say; everything else has
+    // a default, and nothing else can stand in for them.
+    let (Some(x), Some(y)) = (lengths.first().copied(), lengths.get(1).copied()) else {
+        return None;
+    };
+    Some(Shadow {
+        offset: (x, y),
+        blur: lengths.get(2).copied().unwrap_or(Length::ZERO),
+        spread: lengths.get(3).copied().unwrap_or(Length::ZERO),
+        color,
+        inset,
+    })
+}
+
+/// One length from the stream: a dimension, or a bare zero.
+fn one_length(input: &mut CssParser<'_, '_>) -> Option<Length> {
+    match input.next().ok()? {
+        Token::Dimension { value, unit, .. } => Some(Length {
+            value: *value,
+            unit: Unit::parse(unit)?,
+        }),
+        // `0` needs no unit, and is the only number a length may be written as.
+        Token::Number { value, .. } if *value == 0.0 => Some(Length::ZERO),
+        _ => None,
+    }
 }
 
 /// Whether a value is exactly this keyword, whatever its case.
@@ -627,6 +822,170 @@ mod tests {
         ] {
             assert_eq!(parse_color(text), None, "{text:?} should be refused");
         }
+    }
+
+    fn gradient(text: &str) -> Option<crate::Gradient> {
+        parse_gradient(text)
+    }
+
+    fn stop_colours(gradient: &crate::Gradient) -> Vec<(u8, u8, u8, u8)> {
+        gradient
+            .stops()
+            .iter()
+            .map(|stop| stop.color.resolve(crate::Rgba::BLACK).to_rgba8())
+            .collect()
+    }
+
+    #[test]
+    fn the_simplest_gradient_is_two_colours() {
+        let found = gradient("linear-gradient(red, blue)").expect("two stops");
+        assert_eq!(
+            stop_colours(&found),
+            vec![(255, 0, 0, 255), (0, 0, 255, 255)],
+        );
+        match found {
+            crate::Gradient::Linear { angle, .. } => {
+                assert!(
+                    (angle.0 - 180.0).abs() < f32::EPSILON,
+                    "downwards by default"
+                );
+            }
+            other @ crate::Gradient::Radial { .. } => {
+                panic!("expected a linear gradient, got {other}")
+            }
+        }
+    }
+
+    #[test]
+    fn a_direction_may_be_an_angle_or_a_side() {
+        for (text, degrees) in [
+            ("linear-gradient(90deg, red, blue)", 90.0),
+            ("linear-gradient(to right, red, blue)", 90.0),
+            ("linear-gradient(to top left, red, blue)", 315.0),
+            ("linear-gradient(0deg, red, blue)", 0.0),
+        ] {
+            match gradient(text).unwrap_or_else(|| panic!("{text} should parse")) {
+                crate::Gradient::Linear { angle, .. } => {
+                    assert!((angle.0 - degrees).abs() < 0.001, "{text}");
+                }
+                other @ crate::Gradient::Radial { .. } => {
+                    panic!("{text}: expected linear, got {other}")
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_stop_may_say_where_it_sits() {
+        let found = gradient("linear-gradient(red 0%, blue 25%, red 100%)").expect("stops");
+        let positions: Vec<Option<f32>> = found.stops().iter().map(|stop| stop.position).collect();
+        assert_eq!(positions, vec![Some(0.0), Some(0.25), Some(1.0)]);
+    }
+
+    #[test]
+    fn a_radial_gradient_is_read_as_one() {
+        let found = gradient("radial-gradient(white, black)").expect("two stops");
+        assert!(matches!(found, crate::Gradient::Radial { .. }));
+    }
+
+    #[test]
+    fn a_gradient_of_one_colour_is_not_a_gradient() {
+        assert_eq!(gradient("linear-gradient(red)"), None);
+        assert_eq!(gradient("linear-gradient(to right, red)"), None);
+    }
+
+    #[test]
+    fn what_this_engine_does_not_implement_is_refused() {
+        for text in [
+            "conic-gradient(red, blue)",
+            "repeating-linear-gradient(red, blue)",
+            "linear-gradient(in oklab, red, blue)",
+            "linear-gradient(red, 50%, blue)",
+            "linear-gradient()",
+            "red",
+            "",
+        ] {
+            assert_eq!(gradient(text), None, "{text} should be refused");
+        }
+    }
+
+    fn drawn(text: &str) -> Vec<String> {
+        parse_box_shadows(text)
+            .unwrap_or_else(|| panic!("{text} should parse"))
+            .iter()
+            .map(|shadow| {
+                shadow
+                    .drawn(crate::FontMetrics::estimated(16.0, 16.0), Rgba::BLACK)
+                    .to_string()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_shadow_is_two_offsets_and_whatever_else_it_says() {
+        assert_eq!(
+            drawn("0 2px 4px rgba(0, 0, 0, 0.5)"),
+            vec!["0 2 blur 4 spread 0 rgb(0 0 0 / 0.5)"],
+        );
+        assert_eq!(
+            drawn("1px 2px 3px 4px black"),
+            vec!["1 2 blur 3 spread 4 rgb(0 0 0)"],
+        );
+    }
+
+    #[test]
+    fn the_offsets_are_the_only_part_a_shadow_must_say() {
+        assert_eq!(drawn("2px 2px"), vec!["2 2 blur 0 spread 0 rgb(0 0 0)"]);
+        assert_eq!(parse_box_shadows("2px"), None);
+        assert_eq!(parse_box_shadows("red"), None);
+    }
+
+    #[test]
+    fn a_colour_may_come_first_or_last_and_inset_anywhere() {
+        assert_eq!(
+            drawn("white 0 1px 2px"),
+            vec!["0 1 blur 2 spread 0 rgb(255 255 255)"],
+        );
+        assert_eq!(
+            drawn("inset 0 1px 2px black"),
+            vec!["inset 0 1 blur 2 spread 0 rgb(0 0 0)"],
+        );
+        assert_eq!(
+            drawn("0 1px 2px black inset"),
+            vec!["inset 0 1 blur 2 spread 0 rgb(0 0 0)"],
+        );
+    }
+
+    #[test]
+    fn shadows_are_a_list_and_stay_in_the_order_they_were_written() {
+        assert_eq!(
+            drawn("0 1px 1px black, 0 4px 8px white"),
+            vec![
+                "0 1 blur 1 spread 0 rgb(0 0 0)",
+                "0 4 blur 8 spread 0 rgb(255 255 255)",
+            ],
+        );
+    }
+
+    #[test]
+    fn no_shadows_is_an_answer_and_nonsense_is_not() {
+        assert_eq!(parse_box_shadows("none"), Some(Vec::new()));
+        assert_eq!(parse_box_shadows("NONE"), Some(Vec::new()));
+        assert_eq!(parse_box_shadows(""), None);
+        assert_eq!(parse_box_shadows("0 1px 2px black, "), None);
+        assert_eq!(parse_box_shadows("0 1px 2px black extra"), None);
+    }
+
+    #[test]
+    fn a_text_shadow_has_no_spread_and_is_never_inset() {
+        let shadows = parse_text_shadows("0 1px 2px black").expect("one shadow");
+        assert_eq!(shadows.len(), 1);
+        let one = shadows.first().expect("one shadow");
+        assert_eq!(one.spread, Length::ZERO);
+        assert!(!one.inset);
+
+        assert_eq!(parse_text_shadows("inset 0 1px 2px black"), None);
+        assert_eq!(parse_text_shadows("0 1px 2px 3px black"), None);
     }
 
     #[test]

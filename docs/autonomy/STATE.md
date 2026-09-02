@@ -1103,3 +1103,60 @@ five expectations.
 - The sign-in case's stylesheet lists four things the engine does not implement.
   `clamp()` is the one a second real screen is most likely to need, and it is
   the same expression machinery `calc()` already has.
+
+---
+
+## Iteration 17 — queue item 19: shadows and gradients
+
+**What was built.** A box can cast a shadow and be filled with a colour that
+changes across it. `box-shadow` with offset, blur, spread, colour and `inset`;
+`text-shadow`; `linear-gradient` with an angle or a `to <side>` phrase; and
+`radial-gradient`, an ellipse through the farthest corner, which is CSS's
+default and the reason a gradient in a wide box is an oval.
+
+**The one decision worth writing down: a shadow is coverage blurred, not a
+picture blurred.** The shape is rasterised to a mask — how much of each pixel
+it covers — the mask is softened, and the colour arrives afterwards. Blurring
+composited pixels would have blurred whatever was behind the shadow along with
+it. It is also what makes an inset shadow the same code: an inset shadow is the
+shadow of a *hole*, so it is the same blur run on the box with the box cut out
+of it, clipped to the box. One blur, two kinds of shadow.
+
+**And one bug avoided by thinking about it first.** A run of text is outlined
+into a single shape before it is blurred. One blur per letter, composited, is
+visibly darker where two letters touch — and it would have looked like a font
+problem rather than a compositing one.
+
+**Refused rather than approximated**: `conic-gradient`, the repeating forms,
+interpolation hints, and interpolation in any colour space but sRGB. Each is a
+different curve through colour; drawing one as another is a wrong pixel that
+looks nearly right, which is the worst kind.
+
+**Two files were split, because they had gained a second reason to change.**
+`Coverage` left the rasteriser — more than one thing makes coverage now, and
+the type they share should not belong to either of them. Building a display
+list left the display list: a new CSS property changes the builder, a new kind
+of drawing changes the list, and a file with both reasons is a file two changes
+collide in.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 702 tests, no stubs, boundaries held, no verb takes a coordinate. Eight
+corpus cases now. The new one, `shadowed-card`, has all four of the new things
+in it at once, and its four expectation files plus its picture are committed.
+
+**What the next iteration should know.** Two queue items remain: 13
+(block-in-inline) and 20 (transforms and opacity). Item 15 (`calc()` with a
+percentage in a layout property) is the third.
+
+- Item 20 changes paint *order*, not just paint: both `transform` and `opacity`
+  establish stacking contexts, and `opacity` needs a subtree drawn to its own
+  surface and composited once. The renderer has no notion of a surface yet.
+- The blur caps its mask at sixteen million pixels and comes back unblurred
+  past that. Nothing on a real page approaches it; a full-page shadow on a very
+  large window would.
+- A border with four different widths still turns its inner corner squarer than
+  CSS draws it. `docs/conformance.md` says so.
+- The most valuable next thing is still `alo-os` being checked out, so the
+  screen stage 1's exit gate actually names can be rendered. This loop cannot
+  do that.
+

@@ -1,0 +1,11 @@
+fill box#1 rgb(250 250 250) at (12, 12) 146×87.13281
+shadow box#2 rgb(0 0 0 / 0.35) blur 10 at (12, 16) 140×49.132813
+fill box#2 rgb(255 255 255) at (12, 12) 140×49.132813
+clip box#2 to (12, 12) 140×49.132813
+fill box#4 linear-gradient(90deg, rgb(24 24 27), rgb(113 113 122)) at (12, 12) 140×22
+text box#7 "Due today" rgb(255 255 255) 13px at (18, 52.066895) + shadow rgb(0 0 0 / 0.9) blur 2 at (0, 1)
+unclip
+fill box#9 radial-gradient(rgb(255 255 255), rgb(228 228 231)) at (12, 73.13281) 140×26
+clip box#9 to (12, 73.13281) 140×26
+shadow box#9 rgb(0 0 0 / 0.4) blur 5 at (1, 62.132813) 162×48
+unclip

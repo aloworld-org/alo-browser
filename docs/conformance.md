@@ -48,8 +48,13 @@ states and positions, with no screenshot involved — **and act on it by name**:
 activate, put text, scroll, with no verb taking a coordinate. Every corpus case
 pins that tree beside its picture.
 
-What does not exist: shadows and gradients (queue item 19), transforms and
-opacity (item 20). A box is one flat colour in a shape. The targets below are
+A box can cast a shadow — offset, blurred, spread, and `inset` — and be filled
+with a `linear-gradient` or a `radial-gradient`; text casts a shadow too.
+Refused rather than approximated: `conic-gradient`, the repeating gradients,
+interpolation hints, and any colour space but sRGB.
+
+What does not exist: transforms and opacity (queue item 20), and a border with
+four different widths still turns its inner corner squarer than CSS draws it. The targets below are
 still `not yet`, because they are alo's own screens rather than pages we wrote
 to test with.
 

@@ -17,7 +17,7 @@
 //!
 //! # A picture, end to end
 //!
-//! [`display::build`] turns a laid-out document into a list of things to draw;
+//! [`build::build`] turns a laid-out document into a list of things to draw;
 //! [`render`] draws them onto a [`Canvas`]; [`to_png`] writes it out. The list
 //! in the middle is what makes a picture that came out wrong *diagnosable*: it
 //! says "the row's background moved four pixels", where an image says only
@@ -30,20 +30,28 @@
 //! glyph mask serves black text on white and white text on black, and why a
 //! mask can be reused for a shadow rather than rasterised twice.
 
+pub mod blur;
+pub mod build;
 pub mod canvas;
 pub mod corner;
+pub mod coverage;
 pub mod display;
 pub mod encode;
 pub mod glyph;
+pub mod paint;
 pub mod path;
 pub mod raster;
 pub mod render;
 
+pub use blur::blurred;
+pub use build::{PaintContext, build};
 pub use canvas::Canvas;
-pub use corner::{Corners, rounded_rectangle};
-pub use display::{DisplayItem, DisplayList, PaintContext};
+pub use corner::{Corners, between, ring, rounded_rectangle};
+pub use coverage::Coverage;
+pub use display::{DisplayItem, DisplayList, TextShadow};
 pub use encode::{PictureError, from_png, to_png};
 pub use glyph::{Glyph, outline};
+pub use paint::Paint;
 pub use path::{Path, Point, Segment};
-pub use raster::{Coverage, fill};
+pub use raster::fill;
 pub use render::render;
