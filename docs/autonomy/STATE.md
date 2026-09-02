@@ -415,3 +415,79 @@ everything it needs.
   function for exactly that, so item 5 can leave a named seam there rather than
   a stub — and should say in its journal entry which seam, so item 6 knows
   where to arrive.
+
+---
+
+## 2026-09-02 — iteration 6: layout (queue item 5)
+
+**What was built.** `crates/alo-layout`. Every box now has a rectangle.
+
+- `geometry.rs` — `Point`, `Size`, `Rect`, `Edges`, ours rather than the layout
+  engine's, so that replacing `taffy` is not a rewrite of everything that reads
+  a rectangle.
+- `keyword.rs` — the keyword properties, in one macro, because a keyword parsed
+  slightly differently in two places is a bug on the property nobody tested.
+- `sizing.rs`, `track.rs`, `placement.rs` — the value grammars layout needs.
+- `style.rs` — what layout reads from a computed style, in our vocabulary, so
+  the boundary file is a translation and nothing else.
+- `measure.rs` — the text seam.
+- `engine.rs` — **the only file in the repository that names `taffy`**, checked
+  by `scripts/gate.sh`.
+- `tree.rs` — the result, and `to_outline`, which is what the gate's layout
+  assertion is written against.
+
+**Decisions worth knowing about:**
+
+- **Text is measured by the caller.** `MeasureText` has no default
+  implementation on purpose: a built-in eight-pixels-a-character would be a
+  wrong number every layout quietly depended on, and law 3 says a wrong pixel
+  is a bug. Item 6 arrives by implementing the trait rather than by replacing
+  something, and the test in `tests/numbers.rs` uses a measurer named as a fake.
+- **Positions are on the page**, not relative to a parent. A caller nearly
+  always wants the page, and the other direction is a walk up the tree inside a
+  loop.
+- **Inline formatting is a stand-in and the rule is written out.** Several
+  inline children become a wrapping flex row so they sit beside each other; a
+  single text child stays a block child so a paragraph fills its container and
+  wraps. Neither gets baselines or breaks at the right place between two inline
+  boxes. Item 6 replaces both with one real inline formatting context.
+
+**The bug worth remembering.** `AutoLength` derived `Default` as `Auto`, so
+every box in every document got `margin: auto` on all four sides and centred
+itself — grid items collapsed to zero width, flex items spread out as though
+`space-around` had been asked for. Four failing tests, one cause, and the cause
+was a derived default rather than a written one. The initial value of a property
+is part of the specification and is now stated where it is read: margin is zero,
+`top`/`left` are `auto`, and `flex-shrink` is one. **A derived `Default` is a
+guess at CSS.** The next crate that reads properties should assume the same.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 430 tests, no stubs, boundaries held including `taffy`'s.
+`tests/numbers.rs` is the **layout assertion in numbers** the gate asks for, and
+it asserts the whole tree rather than one rectangle. Still no reference render:
+nothing is drawn yet, and item 7 is where the first pixel appears.
+
+**The scope cut**, written into the queue as item 15: a `calc()` mixing
+percentages in a layout property. `taffy` carries such a value as an opaque
+handle only a tree implementing its own traits can resolve, and using
+`taffy`'s ready-made tree is the whole point of renting it. Refused and
+recorded; `calc()` of lengths only — which is what a design system writes — is
+already a plain number by then and works.
+
+**What the next iteration should know.** Item 6 is text: HarfBuzz shaping and
+font rasterisation.
+
+- **The seam is `alo_layout::MeasureText`.** Implement it and layout starts
+  measuring real text; nothing else has to change to get correct widths.
+- The harder half is inline formatting, and it is `engine.rs`'s
+  `needs_a_line_of_its_own` that has to go — a real line box, with baselines
+  and with breaking between inline boxes rather than only inside one text run.
+  That is layout work living in the text item because it needs a shaper to be
+  possible at all.
+- `FontMetrics::estimated` in `alo-value` guesses `ex` and `ch` at half the
+  font size and `line-height: normal` at 1.2. Those are the two numbers a real
+  font replaces, and they are named there for that reason.
+- `alo-style`'s `metrics.rs` is where a resolved font size lives, and
+  `ComputedStyle::metrics()` hands it out. Item 6 should fill in the rest of
+  `FontMetrics` from the font it loads rather than adding a second place for
+  font facts.

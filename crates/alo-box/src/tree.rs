@@ -38,6 +38,17 @@ impl BoxId {
     pub fn as_usize(self) -> usize {
         self.0
     }
+
+    /// An id from a number, for a test that needs to ask about a box that is
+    /// not there.
+    ///
+    /// There is no other way to make one: ids come from building a tree, which
+    /// is what keeps an id from naming a box in a different document. A test
+    /// about "what does an unknown id do" needs one anyway, and this is it —
+    /// named so that using it anywhere else looks wrong.
+    pub fn from_index_for_tests(index: usize) -> Self {
+        Self(index)
+    }
 }
 
 impl fmt::Display for BoxId {

@@ -18,9 +18,10 @@
 use core::fmt;
 
 /// A unit a length can be written in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Unit {
     /// A CSS pixel. Every absolute unit is defined from it.
+    #[default]
     Px,
     /// An inch: 96 CSS pixels, by definition.
     In,

@@ -58,7 +58,7 @@ file is the specification for what "correct" means here.
   and then item 14 would build a second value parser for colours.** One value
   layer, used by layout and by paint.
 
-- [ ] **5. Layout.** Flexbox and grid, on `taffy` behind our own boundary — one
+- [x] **5. Layout.** Flexbox and grid, on `taffy` behind our own boundary — one
   file may name `taffy`, as `alo-os` does with its runtime. Tests are
   **numbers**: assert the computed box, never a screenshot somebody eyeballed.
 
@@ -97,6 +97,15 @@ file is the specification for what "correct" means here.
   hitting it will say so rather than being found by reading. **Cut from item 4
   on the iteration that built it**: the wrapping of inline runs in anonymous
   boxes is the common case and is done properly, and this is the rare one.
+
+- [ ] **15. `calc()` with a percentage in a layout property.** `taffy` carries
+  such a value as an opaque handle that only a tree implementing its own traits
+  can resolve, and this engine uses `taffy`'s ready-made tree — so
+  `width: calc(100% - 2rem)` is refused and recorded rather than becoming
+  something else. Doing it properly means owning the tree traits, which is most
+  of the way to replacing `taffy`, and that is a decision rather than a chore.
+  A `calc()` of lengths only is already a plain number by then and works today.
+  **Cut from item 5 on the iteration that built it.**
 
 - [ ] **14. Colours as channels.** The other half of what item 12 was
   originally written as, split from it when item 12 was built: hex, `rgb()`,

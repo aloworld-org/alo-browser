@@ -35,6 +35,7 @@ declare -a BOUNDARIES=(
   "html5ever:crates/alo-dom/src/parse.rs"
   "cssparser:crates/alo-css/src/ident.rs,crates/alo-css/src/matching.rs,crates/alo-css/src/media.rs,crates/alo-css/src/parse.rs,crates/alo-css/src/selector.rs,crates/alo-style/src/variables.rs,crates/alo-value/src/parse.rs"
   "selectors:crates/alo-css/src/matching.rs,crates/alo-css/src/parse.rs,crates/alo-css/src/selector.rs"
+  "taffy:crates/alo-layout/src/engine.rs"
 )
 
 step "cargo fmt"

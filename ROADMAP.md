@@ -24,7 +24,7 @@ not before it.
 - [x] **Stylesheets**: `cssparser` into rules we hold, selectors matched with `selectors`
 - [x] **Computed style**: the cascade, inheritance, and `var()` — alo's design system is custom properties throughout, so this is not optional decoration
 - [x] **The box tree**, and what each box *means* (ADR 0002) rather than only its rectangle
-- [ ] **Layout**: flexbox and grid, on `taffy` to begin with, behind our own boundary
+- [x] **Layout**: flexbox and grid, on `taffy` to begin with, behind our own boundary
 - [ ] **Text**: HarfBuzz shaping and font rasterisation, with the awkward scripts working before the easy ones
 - [ ] **Paint**: a display list, then a software raster to a PNG
 - [ ] **Reference renders**: a committed corpus, diffed on every change

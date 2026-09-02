@@ -6,6 +6,25 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Boxes have positions and sizes.** Block, flexbox and grid, with the box
+  model, positioning and overflow — every number a CSS pixel, asserted as a
+  number. The whole layout of a small interface is written out in a test, so a
+  change that moves a box says which box and by how much.
+- Layout runs on `taffy`, which ADR 0001 calls a judgement call rather than
+  physics: a real chunk of engine, taken because it gets us laying out sooner
+  and meant to be replaceable. It is named in exactly one file, and the gate
+  checks that on every run.
+- **How wide a piece of text is, is asked rather than assumed.** Layout takes a
+  measurer and there is deliberately no default: a built-in guess would be a
+  wrong number every layout quietly depended on. Real text is the next item.
+- Two limits are named rather than hidden: there is no inline formatting yet
+  (a run of inline boxes is laid out as a wrapping row, which gets them side by
+  side and not their baselines), and a `calc()` mixing percentages in a layout
+  property is refused and recorded rather than becoming something else.
+- **A margin now starts at zero.** It started at `auto` for one draft, which
+  silently centred every box in every document — a layout that looks deliberate
+  and is not.
+
 - **Lengths are numbers.** `16px` was four characters; now it is sixteen. Every
   unit CSS has that does not need a window to answer, `calc()` type-checked
   once and evaluated whenever a caller has a font and a basis, and `em` and

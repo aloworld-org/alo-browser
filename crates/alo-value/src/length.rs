@@ -83,7 +83,7 @@ impl Default for FontMetrics {
 }
 
 /// A length: a number and a unit.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Length {
     /// How many.
     pub value: f32,
@@ -178,6 +178,14 @@ impl LengthPercentage {
             LengthPercentage::Percentage(_) => true,
             LengthPercentage::Calc(node) => node.has_percentage(),
         }
+    }
+}
+
+impl Default for LengthPercentage {
+    /// Zero — which is what a padding, a border width and a gap all are before
+    /// anybody sets them.
+    fn default() -> Self {
+        LengthPercentage::ZERO
     }
 }
 

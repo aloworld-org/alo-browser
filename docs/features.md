@@ -46,6 +46,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] **Flexbox and grid**, on `taffy` behind our own boundary. One file may name it
 - [1] Absolute and relative positioning, `z-index`, stacking
 - [1] Overflow and scrolling regions
+- [1] Inline formatting: a line of text and the boxes in it, with breaking and baselines. Approximated by a wrapping row until text arrives
 - [1] Layout is asserted in **numbers** — the computed box — never by eyeballing an image
 - [2] Writing modes, and layout that is right-to-left rather than mirrored afterwards
 - [2] Multi-column, `position: sticky`

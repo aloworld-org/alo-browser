@@ -22,9 +22,14 @@ Lengths are numbers: `16px` is sixteen, `2em` is twice whatever font is in
 force, and `calc(50% - 10px)` is an expression waiting for a basis that only
 layout can give it.
 
-What does not exist: positions and sizes. No box has been laid out (queue item
-5), nothing knows what colour anything is (item 14), and nothing is painted
-(item 7). Every target below is still `not yet`.
+Boxes are laid out. Block, flexbox and grid all work, with the box model,
+positioning, overflow and percentages, and the whole layout of a small
+interface is asserted as numbers rather than looked at.
+
+What does not exist: text and pixels. How wide a piece of text is has to be
+supplied by the caller, because there is no font yet (queue item 6); nothing
+knows what colour anything is (item 14); and nothing is drawn (item 7). Every
+target below is still `not yet`.
 
 This file exists instead of a conformance percentage. A Web Platform Tests score
 would grade us against thirty years of legacy we are deliberately refusing
