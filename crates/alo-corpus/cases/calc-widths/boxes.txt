@@ -1,0 +1,7 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      block flow · generic
+        text "Full width, less a gutter"
+      block flow · generic
+        text "Half, plus a hair"

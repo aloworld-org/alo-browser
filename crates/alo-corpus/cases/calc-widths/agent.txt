@@ -1,0 +1,3 @@
+document at (0, 0) 240×83.9375
+  text "Full width, less a gutter" at (18, 18) 140.1914×13.96875
+  text "Half, plus a hair" at (64, 51.96875) 94.58203×13.96875

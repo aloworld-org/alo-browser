@@ -187,14 +187,21 @@ file is the specification for what "correct" means here.
   following the *document's* containment where the box tree has split, which is
   a change to what a view is. **Cut from item 13.**
 
-- [ ] **15. `calc()` with a percentage in a layout property.** `taffy` carries
+- [x] **15. `calc()` with a percentage in a layout property.** `taffy` carries
   such a value as an opaque handle that only a tree implementing its own traits
-  can resolve, and this engine uses `taffy`'s ready-made tree — so
-  `width: calc(100% - 2rem)` is refused and recorded rather than becoming
-  something else. Doing it properly means owning the tree traits, which is most
-  of the way to replacing `taffy`, and that is a decision rather than a chore.
-  A `calc()` of lengths only is already a plain number by then and works today.
-  **Cut from item 5 on the iteration that built it.**
+  can resolve, and this engine used `taffy`'s ready-made tree — so
+  `width: calc(100% - 2rem)` was refused and recorded rather than becoming
+  something else. Doing it properly means owning the tree traits, and that is a
+  decision rather than a chore. **Cut from item 5 on the iteration that built
+  it.**
+
+  **Done, and the decision is written down: ADR 0004.** The tree is ours, the
+  algorithms are still `taffy`'s — a list of nodes with styles, a cache and a
+  result is storage rather than physics, and `taffy`'s own trait set exists for
+  exactly this. The handle for an unresolved expression is an index rather than
+  a pointer, so there is no `unsafe` near it. Corpus case `calc-widths`. One
+  thing is still refused and recorded: a `calc()` inside `fit-content()`, which
+  the algorithms have no spelling for.
 
 ---
 

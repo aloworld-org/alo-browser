@@ -10,9 +10,14 @@
 //! Flexbox, grid and block layout come from `taffy`, which ADR 0001 calls a
 //! judgement call rather than physics: a real chunk of engine, taken because
 //! it gets us laying out sooner, and meant to be replaced when we have an
-//! opinion it does not serve. That is only true if it stays behind one file,
-//! so **`engine.rs` is the only file in this repository that names `taffy`**,
-//! and `scripts/gate.sh` checks it on every run.
+//! opinion it does not serve. That is only true if it stays behind as little
+//! as possible, so **`engine.rs` and `arena.rs` are the only files in this
+//! repository that name `taffy`**, and `scripts/gate.sh` checks it every run.
+//!
+//! The **algorithms** are rented; the **tree they walk** is ours (`arena.rs`,
+//! ADR 0004). A list of nodes with styles, children and a cache is storage
+//! rather than physics, and owning it is what lets this engine answer
+//! `calc(100% - 2rem)` instead of refusing it.
 //!
 //! # Assert numbers
 //!
@@ -23,15 +28,14 @@
 //!
 //! # What this does not do yet, named rather than hidden
 //!
-//! - **Inline formatting.** `taffy` has no inline layout, so a run of inline
-//!   content is laid out as a wrapping flex row: boxes go side by side and
-//!   wrap, without baselines or breaking inside a run of text. Queue item 6
-//!   brings shaping and line breaking, and replaces it.
-//! - **`calc()` with a percentage in it**, in a layout property. Refused and
-//!   recorded; queue item 15.
+//! - **Inline formatting is not `taffy`'s.** A box whose children all sit in
+//!   a line is handed to the algorithms as a *leaf* and laid out by
+//!   [`inline`], because inline layout is a different algorithm from the other
+//!   three and every engine has its own.
 //! - **`z-index` and stacking**, which decide what is drawn over what rather
 //!   than where anything is. That belongs with paint, queue item 7.
 
+pub(crate) mod arena;
 pub mod engine;
 pub mod geometry;
 pub mod inline;

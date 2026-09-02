@@ -1280,3 +1280,68 @@ written this iteration.
   screen stage 1's exit gate actually names can be rendered. This loop cannot
   do that.
 
+---
+
+## Iteration 20 — queue item 15: `calc()` with a percentage, and ADR 0004
+
+**What was built.** `width: calc(100% - 2rem)` is a number. So is a `calc()`
+with a percentage in a height, a minimum, a maximum, a margin, a padding, an
+inset, a gap or a grid track. Until this iteration every one of them was
+refused and recorded.
+
+**The queue called this "a decision rather than a chore", and it was right.**
+`taffy` carries a `calc()` as an opaque handle and asks the *tree* to resolve
+it, because the basis is the containing block's size and only the running
+algorithm knows that. Its ready-made `TaffyTree` answers `0.0` and offers no
+hook. So the choice was: refuse the value forever, resolve it in a second pass
+that is exact in block layout and quietly wrong in an auto-sized flex or grid
+container, fork `taffy`, or **own the tree**. ADR 0004 is written and accepted:
+the tree is ours, the algorithms stay rented.
+
+That is not a walk back from ADR 0001. Flexbox, grid and block sizing are the
+physics — thousands of lines of specification with decades of interoperability
+in them, and this repository has no interest in rewriting them. A list of nodes
+with styles, children, a cache and a result is *storage*, `taffy`'s own trait
+set exists for embedders to provide it, and its `TaffyTree` is documented as a
+convenience. The line did not move; the ready-made tree was on the wrong side
+of it.
+
+**No `unsafe`, and nothing to declare.** `taffy` types the handle as
+`*const ()` and documents that it "may be a pointer, index, etc." — it only has
+to be non-null with its low three bits clear. So it is `(index + 1) * 8`.
+Casting an integer to a pointer is safe, casting it back is safe, and nothing
+dereferences it. An index also cannot dangle, survives the `Vec` growing, and a
+handle from another arena resolves to nothing rather than to somebody else's
+expression — the same argument ADR 0003 makes about node identity.
+
+**Two things came out better for free.** Rounding is now *impossible* rather
+than switched off, because `taffy`'s rounding is a pass over a trait
+`arena.rs` does not implement. And the measure function stopped being a closure
+threaded through the call and became a branch in `compute_child_layout`, which
+is where `taffy` expects a leaf to be measured.
+
+**Still refused, still recorded:** a `calc()` inside `fit-content()`. The
+algorithms have no spelling for it, and a fallback that guessed would be a
+wrong pixel.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 750 tests, no stubs, boundaries held — `arena.rs` joined `engine.rs` as
+a file allowed to name `taffy`, and nothing else does. Eleven corpus cases; the
+new one, `calc-widths`, is a panel with a full-width bar less a gutter and a
+half-width bar offset by a quarter.
+
+**Every item in the original queue is now done.** What remains was written by
+the iterations that found it:
+
+- **21.** An empty piece of a broken inline keeps its border. Needs the
+  zero-height line-box rule first.
+- **22.** Borders and padding on an inline box — laid out and drawn. The most
+  likely of the three to be hit by a real page: `border` on a `<span>` is
+  ordinary CSS.
+- **23.** An agent reads a broken inline as one whole thing.
+
+And the thing this loop cannot do, said once more because it is still the most
+valuable: **`alo-os` is not checked out beside this repository**, so the screen
+stage 1's exit gate actually names has never been rendered. `ROADMAP.md`'s line
+for it is deliberately not ticked and `docs/conformance.md` says why.
+

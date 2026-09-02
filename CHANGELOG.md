@@ -6,6 +6,25 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`calc()` with a percentage in it works, in every layout property that takes
+  one.** `width: calc(100% - 2rem)` — the thing a design system writes for a
+  full-width box with a gutter — was refused and recorded. It is now a number:
+  widths and heights, minimums and maximums, margins, padding, insets, gaps and
+  grid tracks.
+- **The layout tree is ours now; the layout algorithms are still rented.**
+  ADR 0004. `taffy` asks the *tree* to resolve a `calc()` against a basis only
+  the running algorithm knows, and its ready-made tree answers zero with no
+  hook to replace it — so this engine keeps its own arena of nodes and
+  implements `taffy`'s tree traits over it. Flexbox, grid and block sizing are
+  untouched: those are the physics ADR 0001 says to rent.
+- The handle `taffy` carries for an unresolved expression is an **index**, not
+  a pointer, so there is no `unsafe` anywhere near it and a handle from another
+  arena resolves to nothing rather than to somebody else's expression.
+- Rounding is now impossible rather than switched off: `taffy`'s rounding is a
+  pass over a trait this tree does not implement.
+- Still refused, and still recorded: a `calc()` **inside `fit-content()`**,
+  which the algorithms have no spelling for.
+
 - **An inline box holding a block is broken around it, the way CSS says.** It
   used to be treated as a block container, which looks nearly the same and is
   not the same: the difference shows in where a background stops. A highlighted

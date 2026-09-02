@@ -35,7 +35,7 @@ declare -a BOUNDARIES=(
   "html5ever:crates/alo-dom/src/parse.rs"
   "cssparser:crates/alo-css/src/ident.rs,crates/alo-css/src/matching.rs,crates/alo-css/src/media.rs,crates/alo-css/src/parse.rs,crates/alo-css/src/selector.rs,crates/alo-style/src/variables.rs,crates/alo-value/src/parse.rs"
   "selectors:crates/alo-css/src/matching.rs,crates/alo-css/src/parse.rs,crates/alo-css/src/selector.rs"
-  "taffy:crates/alo-layout/src/engine.rs"
+  "taffy:crates/alo-layout/src/arena.rs,crates/alo-layout/src/engine.rs"
   "rustybuzz:crates/alo-text/src/font.rs,crates/alo-text/src/shape.rs"
   "unicode_linebreak:crates/alo-text/src/linebreak.rs"
   "ttf_parser:crates/alo-paint/src/glyph.rs,crates/alo-text/src/font.rs"

@@ -27,16 +27,16 @@
 //! its own and hands the size to the line box. It is the same code, called
 //! again, one formatting context down.
 //!
-//! # One seam, named rather than hidden
+//! # The tree is ours, the algorithms are not
 //!
-//! **`calc()` with a percentage inside it.** `taffy` carries such a value as
-//! an opaque handle that only a tree implementing its own traits can resolve,
-//! and this uses `taffy`'s ready-made tree. So `width: calc(100% - 2rem)` is
-//! refused and recorded rather than silently becoming something else, and
-//! queue item 15 is where it is done properly. A `calc()` of lengths only —
-//! `calc(var(--gap) * 2)`, which is what a design system actually writes — is
-//! already a plain number by the time it reaches here and works.
+//! This file builds a [`crate::arena::Arena`] — our own nodes, our own cache,
+//! our own answers — and hands it to `taffy`'s flexbox, grid and block
+//! algorithms. ADR 0004 says why: `taffy` asks the *tree* to resolve a
+//! `calc()` against a basis only the running algorithm knows, and its
+//! ready-made tree answers zero. So `width: calc(100% - 2rem)` used to be
+//! refused; now it is a number.
 
+use crate::arena::{Arena, NodeKind, Unresolved};
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::inline::{self, Fragment, InlineItem, InlineLayout};
 use crate::keyword::{
@@ -57,7 +57,7 @@ use std::collections::BTreeMap;
 use taffy::prelude::*;
 use taffy::{
     AvailableSpace, Dimension, LengthPercentage as TaffyLengthPercentage, LengthPercentageAuto,
-    MaxTrackSizingFunction, MinTrackSizingFunction, Style, TaffyTree, TrackSizingFunction,
+    MaxTrackSizingFunction, MinTrackSizingFunction, Style, TrackSizingFunction,
 };
 
 /// Lay out a box tree for a viewport of this size.
@@ -106,85 +106,19 @@ fn lay_out_subtree(
     measure: &impl MeasureText,
     issues: &mut Vec<StyleIssue>,
 ) -> Option<LaidOut> {
-    let mut taffy: TaffyTree<Context> = TaffyTree::new();
-    // Sub-pixel, like everything else here. The engine rounds once, at the
-    // very end, when coverage becomes pixels — and a box rounded down to 96
-    // while its text measures 96.16 wraps a word early, which is how
-    // "Remember me" became two lines inside a box wide enough for one.
-    taffy.disable_rounding();
-    let mut ours_to_theirs: BTreeMap<BoxId, NodeId> = BTreeMap::new();
-    let taffy_root = build(boxes, styles, root, &mut taffy, &mut ours_to_theirs, issues)?;
-
-    let computed =
-        taffy.compute_layout_with_measure(taffy_root, available, |input, _node, context, style| {
-            let width_to_fit =
-                |known: TaffySize<Option<f32>>, available: TaffySize<AvailableSpace>| {
-                    // `MinContent` and `MaxContent` are the questions "how narrow
-                    // can this be" and "how wide would it like to be"; both are
-                    // answered by measuring with no width at all.
-                    known.width.or(match available.width {
-                        AvailableSpace::Definite(definite) => Some(definite),
-                        AvailableSpace::MinContent | AvailableSpace::MaxContent => None,
-                    })
-                };
-            match context {
-                Some(Context::Text(text, text_style)) => {
-                    let text = text.clone();
-                    let text_style = text_style.clone();
-                    taffy::compute_leaf_layout(
-                        input,
-                        style,
-                        |_, _| 0.0,
-                        |known, room| {
-                            if let (Some(width), Some(height)) = (known.width, known.height) {
-                                return TaffySize { width, height };
-                            }
-                            let size =
-                                measure.measure(&text, &text_style, width_to_fit(known, room));
-                            TaffySize {
-                                width: size.width,
-                                height: size.height,
-                            }
-                        },
-                    )
-                }
-                Some(Context::InlineFormatting(id)) => {
-                    let id = *id;
-                    taffy::compute_leaf_layout(
-                        input,
-                        style,
-                        |_, _| 0.0,
-                        |known, room| {
-                            let width = width_to_fit(known, room);
-                            let size = measure_inline(boxes, styles, id, width, measure).size;
-                            TaffySize {
-                                width: known.width.unwrap_or(size.width),
-                                height: known.height.unwrap_or(size.height),
-                            }
-                        },
-                    )
-                }
-                None => {
-                    taffy::compute_leaf_layout(input, style, |_, _| 0.0, |_, _| TaffySize::ZERO)
-                }
-            }
-        });
-    if computed.is_err() {
-        // The tree was built by this file, so a failure here is this file being
-        // wrong rather than the document. Recorded, and nothing is returned
-        // rather than a partial layout nobody can trust.
-        issues.push(StyleIssue {
-            kind: IssueKind::UnsupportedStructure,
-            source: "the layout engine could not lay out this tree".to_owned(),
-            at: Location { line: 0, column: 0 },
-        });
-        return None;
-    }
+    let mut ours_to_theirs: BTreeMap<BoxId, usize> = BTreeMap::new();
+    let mut arena = Arena::new(boxes, styles, measure);
+    let root_node = build(boxes, styles, root, &mut arena, &mut ours_to_theirs, issues)?;
+    // Sub-pixel throughout: `taffy`'s rounding is a pass over a trait this
+    // engine's tree does not implement, so it cannot happen. A box rounded
+    // down to 96 while its text measures 96.16 wraps a word early, which is
+    // how "Remember me" once became two lines in a box wide enough for one.
+    arena.compute(root_node, available);
 
     let mut geometry = BTreeMap::new();
     let mut fragments = BTreeMap::new();
     read_back(
-        &taffy,
+        &arena,
         &ours_to_theirs,
         boxes,
         root,
@@ -214,7 +148,7 @@ fn lay_out_subtree(
 }
 
 /// Work out what is on each line of an inline formatting context.
-fn measure_inline(
+pub(crate) fn measure_inline(
     boxes: &BoxTree,
     styles: &StyleTree,
     id: BoxId,
@@ -533,54 +467,39 @@ fn union_rects(left: Rect, right: Rect) -> Rect {
 /// told how big it is and nothing about what is inside, because what is inside
 /// is a line box and that is [`crate::inline`]'s. Its children are therefore
 /// not in the engine's tree at all, and are positioned by this file afterwards.
-fn build(
+fn build<M: MeasureText>(
     boxes: &BoxTree,
     styles: &StyleTree,
     id: BoxId,
-    taffy: &mut TaffyTree<Context>,
-    ours_to_theirs: &mut BTreeMap<BoxId, NodeId>,
+    arena: &mut Arena<'_, M>,
+    ours_to_theirs: &mut BTreeMap<BoxId, usize>,
     issues: &mut Vec<StyleIssue>,
-) -> Option<NodeId> {
+) -> Option<usize> {
     let node = boxes.get(id)?;
-    let style = style_for(boxes, styles, id, issues);
+    let style = style_for(boxes, styles, id, arena.unresolved(), issues);
 
     if is_inline_formatting_context(boxes, id) {
-        let made = taffy
-            .new_leaf_with_context(style, Context::InlineFormatting(id))
-            .ok()?;
+        let made = arena.push(style, NodeKind::InlineFormatting(id), Vec::new());
         ours_to_theirs.insert(id, made);
         return Some(made);
     }
 
-    let children: Vec<NodeId> = node
+    let children: Vec<usize> = node
         .children
         .iter()
-        .filter_map(|child| build(boxes, styles, *child, taffy, ours_to_theirs, issues))
+        .filter_map(|child| build(boxes, styles, *child, arena, ours_to_theirs, issues))
         .collect();
 
-    let made = match &node.kind {
-        BoxKind::Text { text, .. } => taffy.new_leaf_with_context(
-            style,
-            Context::Text(text.clone(), text_style_for(boxes, styles, id)),
-        ),
-        _ => taffy.new_with_children(style, &children),
-    }
-    .ok()?;
+    let kind = match &node.kind {
+        BoxKind::Text { text, .. } => {
+            NodeKind::Text(text.clone(), text_style_for(boxes, styles, id))
+        }
+        _ if children.is_empty() => NodeKind::Empty,
+        _ => NodeKind::Container,
+    };
+    let made = arena.push(style, kind, children);
     ours_to_theirs.insert(id, made);
     Some(made)
-}
-
-/// What a leaf in the engine's tree stands for.
-///
-/// A box with no context at all — a block with children, an empty element —
-/// has none of these; the engine hands the measure function [`None`] and there
-/// is nothing to measure.
-#[derive(Debug, Clone)]
-enum Context {
-    /// A text box on its own, outside any line, with the font it is set in.
-    Text(String, TextStyle),
-    /// A box whose children are a line of inline content.
-    InlineFormatting(BoxId),
 }
 
 /// The `taffy` style for one box.
@@ -588,6 +507,7 @@ fn style_for(
     boxes: &BoxTree,
     styles: &StyleTree,
     id: BoxId,
+    unresolved: &mut Unresolved,
     issues: &mut Vec<StyleIssue>,
 ) -> Style {
     let Some(node) = boxes.get(id) else {
@@ -630,7 +550,7 @@ fn style_for(
         },
         flex_grow: ours.flex.grow,
         flex_shrink: ours.flex.shrink,
-        flex_basis: dimension(&ours.flex.basis, ours.metrics, issues),
+        flex_basis: dimension(&ours.flex.basis, ours.metrics, unresolved, issues),
         align_items: alignment(ours.align.align_items),
         align_self: alignment(ours.align.align_self),
         justify_items: alignment(ours.align.justify_items),
@@ -648,11 +568,11 @@ fn style_for(
         ..Style::default()
     };
 
-    box_model_into(&ours, &mut style, issues);
-    style.grid_template_rows = template(&ours.grid.template_rows, ours.metrics, issues);
-    style.grid_template_columns = template(&ours.grid.template_columns, ours.metrics, issues);
-    style.grid_auto_rows = auto_tracks(&ours.grid.auto_rows, ours.metrics, issues);
-    style.grid_auto_columns = auto_tracks(&ours.grid.auto_columns, ours.metrics, issues);
+    box_model_into(&ours, &mut style, unresolved, issues);
+    style.grid_template_rows = template(&ours.grid.template_rows, ours.metrics, unresolved);
+    style.grid_template_columns = template(&ours.grid.template_columns, ours.metrics, unresolved);
+    style.grid_auto_rows = auto_tracks(&ours.grid.auto_rows, ours.metrics, unresolved);
+    style.grid_auto_columns = auto_tracks(&ours.grid.auto_columns, ours.metrics, unresolved);
 
     style
 }
@@ -681,7 +601,12 @@ pub(crate) fn is_inline_formatting_context(boxes: &BoxTree, id: BoxId) -> bool {
 }
 
 /// The sizes, the four edges and the gap — everything measured in lengths.
-fn box_model_into(ours: &LayoutStyle, style: &mut Style, issues: &mut Vec<StyleIssue>) {
+fn box_model_into(
+    ours: &LayoutStyle,
+    style: &mut Style,
+    unresolved: &mut Unresolved,
+    issues: &mut Vec<StyleIssue>,
+) {
     let metrics = ours.metrics;
     style.inset = if ours.position == Positioning::Static {
         // A static box ignores its offsets, which is the whole difference
@@ -689,45 +614,45 @@ fn box_model_into(ours: &LayoutStyle, style: &mut Style, issues: &mut Vec<StyleI
         TaffyRect::auto()
     } else {
         TaffyRect {
-            top: auto_length(&ours.inset.top, metrics, issues),
-            right: auto_length(&ours.inset.right, metrics, issues),
-            bottom: auto_length(&ours.inset.bottom, metrics, issues),
-            left: auto_length(&ours.inset.left, metrics, issues),
+            top: auto_length(&ours.inset.top, metrics, unresolved),
+            right: auto_length(&ours.inset.right, metrics, unresolved),
+            bottom: auto_length(&ours.inset.bottom, metrics, unresolved),
+            left: auto_length(&ours.inset.left, metrics, unresolved),
         }
     };
     style.size = TaffySize {
-        width: dimension(&ours.size.horizontal, metrics, issues),
-        height: dimension(&ours.size.vertical, metrics, issues),
+        width: dimension(&ours.size.horizontal, metrics, unresolved, issues),
+        height: dimension(&ours.size.vertical, metrics, unresolved, issues),
     };
     style.min_size = TaffySize {
-        width: min_max(&ours.min_size.horizontal, metrics, issues),
-        height: min_max(&ours.min_size.vertical, metrics, issues),
+        width: min_max(&ours.min_size.horizontal, metrics, unresolved, issues),
+        height: min_max(&ours.min_size.vertical, metrics, unresolved, issues),
     };
     style.max_size = TaffySize {
-        width: min_max(&ours.max_size.horizontal, metrics, issues),
-        height: min_max(&ours.max_size.vertical, metrics, issues),
+        width: min_max(&ours.max_size.horizontal, metrics, unresolved, issues),
+        height: min_max(&ours.max_size.vertical, metrics, unresolved, issues),
     };
     style.margin = TaffyRect {
-        top: auto_length(&ours.margin.top, metrics, issues),
-        right: auto_length(&ours.margin.right, metrics, issues),
-        bottom: auto_length(&ours.margin.bottom, metrics, issues),
-        left: auto_length(&ours.margin.left, metrics, issues),
+        top: auto_length(&ours.margin.top, metrics, unresolved),
+        right: auto_length(&ours.margin.right, metrics, unresolved),
+        bottom: auto_length(&ours.margin.bottom, metrics, unresolved),
+        left: auto_length(&ours.margin.left, metrics, unresolved),
     };
     style.padding = TaffyRect {
-        top: length(&ours.padding.top, metrics, issues),
-        right: length(&ours.padding.right, metrics, issues),
-        bottom: length(&ours.padding.bottom, metrics, issues),
-        left: length(&ours.padding.left, metrics, issues),
+        top: length(&ours.padding.top, metrics, unresolved),
+        right: length(&ours.padding.right, metrics, unresolved),
+        bottom: length(&ours.padding.bottom, metrics, unresolved),
+        left: length(&ours.padding.left, metrics, unresolved),
     };
     style.border = TaffyRect {
-        top: length(&ours.border.top, metrics, issues),
-        right: length(&ours.border.right, metrics, issues),
-        bottom: length(&ours.border.bottom, metrics, issues),
-        left: length(&ours.border.left, metrics, issues),
+        top: length(&ours.border.top, metrics, unresolved),
+        right: length(&ours.border.right, metrics, unresolved),
+        bottom: length(&ours.border.bottom, metrics, unresolved),
+        left: length(&ours.border.left, metrics, unresolved),
     };
     style.gap = TaffySize {
-        width: length(&ours.gap.horizontal, metrics, issues),
-        height: length(&ours.gap.vertical, metrics, issues),
+        width: length(&ours.gap.horizontal, metrics, unresolved),
+        height: length(&ours.gap.vertical, metrics, unresolved),
     };
 }
 
@@ -800,28 +725,24 @@ fn grid_line(line: GridLine) -> taffy::GridPlacement {
     }
 }
 
-/// A `calc()` with a percentage in it cannot be handed to the layout engine.
-/// Recorded, and the property falls back to its initial value.
-fn refuse_calc(value: &LengthPercentage, issues: &mut Vec<StyleIssue>) -> bool {
-    let is_unexpressible = matches!(value, LengthPercentage::Calc(_)) && value.is_percentage();
-    if is_unexpressible {
-        issues.push(StyleIssue {
-            kind: IssueKind::UnsupportedValue,
-            source: format!("{value} — a calc() mixing percentages, see queue item 15"),
-            at: Location { line: 0, column: 0 },
-        });
-    }
-    is_unexpressible
+/// Whether a value has to wait for a basis only the algorithm knows.
+///
+/// A `calc()` of lengths only is already a plain number by the time it gets
+/// here — `calc(var(--gap) * 2)`, which is what a design system actually
+/// writes. It is the ones with a percentage inside that have to be carried as
+/// a handle and asked about later; see ADR 0004.
+fn needs_a_basis(value: &LengthPercentage) -> bool {
+    matches!(value, LengthPercentage::Calc(_)) && value.is_percentage()
 }
 
 /// A length or percentage, as `taffy` spells it.
 fn length(
     value: &LengthPercentage,
     metrics: FontMetrics,
-    issues: &mut Vec<StyleIssue>,
+    unresolved: &mut Unresolved,
 ) -> TaffyLengthPercentage {
-    if refuse_calc(value, issues) {
-        return TaffyLengthPercentage::length(0.0);
+    if needs_a_basis(value) {
+        return TaffyLengthPercentage::calc(unresolved.handle(value, metrics));
     }
     match value {
         LengthPercentage::Percentage(percent) => TaffyLengthPercentage::percent(percent / 100.0),
@@ -832,13 +753,13 @@ fn length(
 fn auto_length(
     value: &AutoLength,
     metrics: FontMetrics,
-    issues: &mut Vec<StyleIssue>,
+    unresolved: &mut Unresolved,
 ) -> LengthPercentageAuto {
     match value {
         AutoLength::Auto => LengthPercentageAuto::auto(),
         AutoLength::Length(inner) => {
-            if refuse_calc(inner, issues) {
-                return LengthPercentageAuto::auto();
+            if needs_a_basis(inner) {
+                return LengthPercentageAuto::calc(unresolved.handle(inner, metrics));
             }
             match inner {
                 LengthPercentage::Percentage(percent) => {
@@ -850,13 +771,26 @@ fn auto_length(
     }
 }
 
-fn dimension(value: &Sizing, metrics: FontMetrics, issues: &mut Vec<StyleIssue>) -> Dimension {
+fn dimension(
+    value: &Sizing,
+    metrics: FontMetrics,
+    unresolved: &mut Unresolved,
+    issues: &mut Vec<StyleIssue>,
+) -> Dimension {
     match value {
         Sizing::Auto => Dimension::auto(),
         Sizing::MinContent => Dimension::min_content(),
         Sizing::MaxContent => Dimension::max_content(),
         Sizing::FitContent(limit) => {
-            if refuse_calc(limit, issues) {
+            // `fit-content()` takes a percentage or a length, and the layout
+            // algorithms have no `calc()` spelling for its argument — so this
+            // one expression is still refused, and says so.
+            if needs_a_basis(limit) {
+                issues.push(StyleIssue {
+                    kind: IssueKind::UnsupportedValue,
+                    source: format!("fit-content({limit}) — a calc() inside fit-content()"),
+                    at: Location { line: 0, column: 0 },
+                });
                 return Dimension::auto();
             }
             match limit {
@@ -867,8 +801,8 @@ fn dimension(value: &Sizing, metrics: FontMetrics, issues: &mut Vec<StyleIssue>)
             }
         }
         Sizing::Length(inner) => {
-            if refuse_calc(inner, issues) {
-                return Dimension::auto();
+            if needs_a_basis(inner) {
+                return Dimension::calc(unresolved.handle(inner, metrics));
             }
             match inner {
                 LengthPercentage::Percentage(percent) => Dimension::percent(percent / 100.0),
@@ -887,6 +821,7 @@ fn dimension(value: &Sizing, metrics: FontMetrics, issues: &mut Vec<StyleIssue>)
 fn min_max(
     value: &Sizing,
     metrics: FontMetrics,
+    unresolved: &mut Unresolved,
     issues: &mut Vec<StyleIssue>,
 ) -> LengthPercentageAuto {
     match value {
@@ -900,8 +835,8 @@ fn min_max(
             LengthPercentageAuto::auto()
         }
         Sizing::Length(inner) => {
-            if refuse_calc(inner, issues) {
-                return LengthPercentageAuto::auto();
+            if needs_a_basis(inner) {
+                return LengthPercentageAuto::calc(unresolved.handle(inner, metrics));
             }
             match inner {
                 LengthPercentage::Percentage(percent) => {
@@ -916,13 +851,13 @@ fn min_max(
 fn template(
     list: &TrackList,
     metrics: FontMetrics,
-    issues: &mut Vec<StyleIssue>,
+    unresolved: &mut Unresolved,
 ) -> Vec<GridTemplateComponent<String>> {
     list.entries
         .iter()
         .map(|entry| match entry {
             TrackListEntry::Single(track) => {
-                GridTemplateComponent::Single(track_function(track, metrics, issues))
+                GridTemplateComponent::Single(track_function(track, metrics, unresolved))
             }
             TrackListEntry::Repeat { count, tracks } => {
                 GridTemplateComponent::Repeat(taffy::GridTemplateRepetition {
@@ -933,7 +868,7 @@ fn template(
                     },
                     tracks: tracks
                         .iter()
-                        .map(|track| track_function(track, metrics, issues))
+                        .map(|track| track_function(track, metrics, unresolved))
                         .collect(),
                     line_names: Vec::new(),
                 })
@@ -945,12 +880,12 @@ fn template(
 fn auto_tracks(
     list: &TrackList,
     metrics: FontMetrics,
-    issues: &mut Vec<StyleIssue>,
+    unresolved: &mut Unresolved,
 ) -> Vec<TrackSizingFunction> {
     list.entries
         .iter()
         .filter_map(|entry| match entry {
-            TrackListEntry::Single(track) => Some(track_function(track, metrics, issues)),
+            TrackListEntry::Single(track) => Some(track_function(track, metrics, unresolved)),
             // `grid-auto-rows` takes a list of track sizes, not repetitions.
             TrackListEntry::Repeat { .. } => None,
         })
@@ -960,18 +895,18 @@ fn auto_tracks(
 fn track_function(
     track: &Track,
     metrics: FontMetrics,
-    issues: &mut Vec<StyleIssue>,
+    unresolved: &mut Unresolved,
 ) -> TrackSizingFunction {
     TrackSizingFunction {
-        min: min_track(&track.min, metrics, issues),
-        max: max_track(&track.max, metrics, issues),
+        min: min_track(&track.min, metrics, unresolved),
+        max: max_track(&track.max, metrics, unresolved),
     }
 }
 
 fn min_track(
     size: &TrackSize,
     metrics: FontMetrics,
-    issues: &mut Vec<StyleIssue>,
+    unresolved: &mut Unresolved,
 ) -> MinTrackSizingFunction {
     match size {
         // A fraction has no minimum of its own; `auto` is what CSS says a
@@ -980,8 +915,8 @@ fn min_track(
         TrackSize::MinContent => MinTrackSizingFunction::min_content(),
         TrackSize::MaxContent => MinTrackSizingFunction::max_content(),
         TrackSize::Length(value) => {
-            if refuse_calc(value, issues) {
-                return MinTrackSizingFunction::auto();
+            if needs_a_basis(value) {
+                return MinTrackSizingFunction::calc(unresolved.handle(value, metrics));
             }
             match value {
                 LengthPercentage::Percentage(percent) => {
@@ -996,7 +931,7 @@ fn min_track(
 fn max_track(
     size: &TrackSize,
     metrics: FontMetrics,
-    issues: &mut Vec<StyleIssue>,
+    unresolved: &mut Unresolved,
 ) -> MaxTrackSizingFunction {
     match size {
         TrackSize::Auto => MaxTrackSizingFunction::auto(),
@@ -1004,8 +939,8 @@ fn max_track(
         TrackSize::MaxContent => MaxTrackSizingFunction::max_content(),
         TrackSize::Fraction(share) => MaxTrackSizingFunction::fr(*share),
         TrackSize::Length(value) => {
-            if refuse_calc(value, issues) {
-                return MaxTrackSizingFunction::auto();
+            if needs_a_basis(value) {
+                return MaxTrackSizingFunction::calc(unresolved.handle(value, metrics));
             }
             match value {
                 LengthPercentage::Percentage(percent) => {
@@ -1018,9 +953,9 @@ fn max_track(
 }
 
 /// Walk the tree and turn parent-relative positions into positions on the page.
-fn read_back(
-    taffy: &TaffyTree<Context>,
-    ours_to_theirs: &BTreeMap<BoxId, NodeId>,
+fn read_back<M: MeasureText>(
+    arena: &Arena<'_, M>,
+    ours_to_theirs: &BTreeMap<BoxId, usize>,
     boxes: &BoxTree,
     id: BoxId,
     parent_origin: Point,
@@ -1029,7 +964,7 @@ fn read_back(
     let Some(theirs) = ours_to_theirs.get(&id) else {
         return;
     };
-    let Ok(layout) = taffy.layout(*theirs) else {
+    let Some(layout) = arena.layout(*theirs) else {
         return;
     };
     let origin = Point::new(
@@ -1054,7 +989,7 @@ fn read_back(
     );
     let children: Vec<BoxId> = boxes.children(id).collect();
     for child in children {
-        read_back(taffy, ours_to_theirs, boxes, child, origin, out);
+        read_back(arena, ours_to_theirs, boxes, child, origin, out);
     }
 }
 

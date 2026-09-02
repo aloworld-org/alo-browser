@@ -1,0 +1,8 @@
+:root { --gutter: 16px }
+body { margin: 0; background: #fafafa; font-family: system-ui; font-size: 12px }
+#panel { width: 200px; padding: 12px; background: #ffffff }
+#full { width: calc(100% - var(--gutter)); padding: 6px; color: #ffffff;
+        background: #18181b; box-sizing: border-box }
+#half { margin-top: 8px; width: calc(50% + 8px); padding: 6px; color: #18181b;
+        background: #e4e4e7; box-sizing: border-box;
+        margin-left: calc(25% - 4px) }

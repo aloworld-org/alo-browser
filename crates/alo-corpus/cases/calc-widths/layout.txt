@@ -1,0 +1,7 @@
+block flow · document → 240×83.9375 at (0, 0)
+  block flow · generic → 240×83.9375 at (0, 0)
+    block flow · generic → 224×83.9375 at (0, 0)
+      block flow · generic → 184×25.96875 at (12, 12)
+        text "Full width, less a gutter" → 140.1914×13.96875 at (18, 18)
+      block flow · generic → 108×25.96875 at (58, 45.96875)
+        text "Half, plus a hair" → 94.58203×13.96875 at (64, 51.96875)

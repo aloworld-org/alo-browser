@@ -1,0 +1,6 @@
+fill box#1 rgb(250 250 250) at (0, 0) 240×83.9375
+fill box#2 rgb(255 255 255) at (0, 0) 224×83.9375
+fill box#4 rgb(24 24 27) at (12, 12) 184×25.96875
+text box#5 "Full width, less a gutter" rgb(255 255 255) 12px at (18, 29.138672)
+fill box#7 rgb(228 228 231) at (58, 45.96875) 108×25.96875
+text box#8 "Half, plus a hair" rgb(24 24 27) 12px at (64, 63.10742)

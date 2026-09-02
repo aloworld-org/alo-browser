@@ -68,6 +68,13 @@ yet and both are recorded on the tree: a piece with *nothing* in it is dropped
 where CSS keeps it, and an inline box's own border and padding are neither laid
 out nor drawn.
 
+`calc()` resolves everywhere, percentages included:
+`width: calc(100% - 2rem)` is a number rather than a refusal, in widths and
+heights, minimums and maximums, margins, padding, insets, gaps and grid tracks.
+The layout **tree** is ours and the layout **algorithms** are `taffy`'s, which
+is what makes that possible (ADR 0004). A `calc()` inside `fit-content()` is
+still refused and recorded.
+
 What does not exist: any transform with a third dimension in it — `rotate3d`,
 `matrix3d`, `perspective` — which is refused rather than flattened. A border
 with four different widths still turns its inner corner squarer than CSS draws

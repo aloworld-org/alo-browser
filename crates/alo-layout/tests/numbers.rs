@@ -416,7 +416,7 @@ block flow · document → 200×60 at (0, 0)
 }
 
 #[test]
-fn a_calc_of_lengths_works_and_a_calc_of_percentages_is_refused_and_recorded() {
+fn a_calc_of_lengths_is_a_number_before_layout_ever_sees_it() {
     let html = "<body><div id=a></div></body>";
     let (boxes, layout) = lay_out(
         html,
@@ -425,24 +425,61 @@ fn a_calc_of_lengths_works_and_a_calc_of_percentages_is_refused_and_recorded() {
     );
     assert!(close(rect_of(&boxes, &layout, "a", html).size.width, 20.0));
     assert!(layout.issues().is_empty());
+}
 
-    let (_, mixed) = lay_out(
+#[test]
+fn a_calc_with_a_percentage_is_resolved_against_the_containing_block() {
+    // The value ADR 0004 was written for: a full-width thing with a gutter.
+    let html = "<body><div id=w><div id=a></div></div></body>";
+    let (boxes, layout) = lay_out(
         html,
-        "#a { width: calc(100% - 20px); height: 10px }",
-        Size::new(400.0, 300.0),
+        "#w { width: 400px } #a { width: calc(100% - 20px); height: 10px }",
+        Size::new(600.0, 300.0),
     );
     assert!(
-        mixed
-            .issues()
-            .iter()
-            .any(|issue| issue.source.contains("queue item 15")),
-        "refused and said so rather than becoming something else: {:?}",
-        mixed
-            .issues()
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>(),
+        close(rect_of(&boxes, &layout, "a", html).size.width, 380.0),
+        "{:?}",
+        rect_of(&boxes, &layout, "a", html),
     );
+    assert!(layout.issues().is_empty(), "{:?}", layout.issues());
+}
+
+#[test]
+fn a_calc_with_a_percentage_works_in_every_property_that_takes_one() {
+    let html = "<body><div id=w><div id=a></div></div></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "#w { width: 400px; height: 200px }
+         #a { width: calc(50% + 10px); height: 20px;
+              margin-left: calc(25% - 20px);
+              padding-left: calc(10% + 5px);
+              min-width: calc(10% + 1px) }",
+        Size::new(600.0, 300.0),
+    );
+    let rect = rect_of(&boxes, &layout, "a", html);
+    // A content box of half four hundred and ten more, plus a padding of a
+    // tenth and five more: 210 + 45. The margin is a quarter less twenty.
+    assert!(close(rect.size.width, 255.0), "{rect:?}");
+    assert!(close(rect.origin.x, 80.0), "{rect:?}");
+    assert!(layout.issues().is_empty(), "{:?}", layout.issues());
+}
+
+#[test]
+fn a_calc_with_a_percentage_sizes_a_grid_track() {
+    let html = "<body><div id=w><div id=a></div></div></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "#w { display: grid; width: 400px;
+              grid-template-columns: calc(50% - 20px) 1fr }
+         #a { height: 10px }",
+        Size::new(600.0, 300.0),
+    );
+    assert!(
+        close(rect_of(&boxes, &layout, "a", html).size.width, 180.0),
+        "{:?}",
+        rect_of(&boxes, &layout, "a", html),
+    );
+    assert!(layout.issues().is_empty(), "{:?}", layout.issues());
 }
 
 #[test]
