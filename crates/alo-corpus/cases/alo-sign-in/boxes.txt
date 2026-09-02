@@ -1,0 +1,52 @@
+block flow · document
+  block flow · generic
+    block flex · generic
+      block flex · complementary
+        block flex · generic
+          inline flow · generic
+            text "alo"
+        block flex · generic
+          block flow · heading [level=1]
+            block flow · generic
+              text "Your workspace."
+            block flow · generic
+              text "Your servers."
+            block flow · generic
+              text "Your rules."
+          block flow · paragraph
+            text "Mail, calendar, chat, and files — sovereign, AI-native, and hosted in Europe."
+        block flex · generic
+          inline flow · generic [hidden]
+          inline flow · generic
+            text "Hosted on your infrastructure · EU"
+      block flex · main
+        block flex · generic
+          block flow · generic
+            block flow · heading [level=2]
+              text "Sign in"
+            block flow · paragraph
+              text "Welcome back. Enter your credentials to continue."
+          block flex · generic
+            inline flow · generic
+              text "Email"
+            inline flow-root · textbox
+          block flex · generic
+            inline flow · generic
+              text "Password"
+            inline flow-root · generic
+          block flex · generic
+            block flex · generic
+              inline flow-root · checkbox [checked=false]
+              inline flow · generic
+                text "Remember me"
+            inline flow · link
+              text "Forgot password?"
+          inline flex · button
+            text "Sign in"
+          block flex · generic
+            inline flow · generic
+            inline flow · generic
+              text "or"
+            inline flow · generic
+          block flex · button
+            text "Sign in with SSO"

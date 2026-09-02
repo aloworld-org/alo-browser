@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!--
+  alo's sign-in screen.
+
+  The markup React produces for `alo-workplace`'s `web/src/auth/LoginPage.tsx`,
+  written out. The components it renders through (`Field`, `Input`, `Button`)
+  are Tailwind-styled in that repository; what a browser receives is this.
+
+  `alo-workplace` is read-only reference. Nothing here was written back to it.
+-->
+<html lang="en">
+<body>
+<div class="split">
+  <aside class="brand">
+    <div class="brandTop"><span class="logo">alo</span></div>
+    <div class="brandBody">
+      <h1 class="headline"><span>Your workspace.</span><span>Your servers.</span><span>Your rules.</span></h1>
+      <p class="brandSub">Mail, calendar, chat, and files — sovereign, AI-native, and hosted in Europe.</p>
+    </div>
+    <div class="brandFooter">
+      <span class="dot" aria-hidden="true"></span>
+      <span>Hosted on your infrastructure · EU</span>
+    </div>
+  </aside>
+
+  <main class="formPanel">
+    <form class="form">
+      <div class="formHead">
+        <h2 class="heading">Sign in</h2>
+        <p class="subtitle">Welcome back. Enter your credentials to continue.</p>
+      </div>
+
+      <div class="field">
+        <label class="fieldLabel" for="email">Email</label>
+        <input class="input" id="email" type="email" placeholder="you@company.eu">
+      </div>
+
+      <div class="field">
+        <label class="fieldLabel" for="password">Password</label>
+        <input class="input" id="password" type="password">
+      </div>
+
+      <div class="row">
+        <label class="remember"><input type="checkbox"><span>Remember me</span></label>
+        <a class="linkButton" href="/reset">Forgot password?</a>
+      </div>
+
+      <button class="submit" type="submit">Sign in</button>
+
+      <div class="divider">
+        <span class="rule"></span><span class="or">or</span><span class="rule"></span>
+      </div>
+
+      <button class="sso" type="button">Sign in with SSO</button>
+    </form>
+  </main>
+</div>
+</body>
+</html>

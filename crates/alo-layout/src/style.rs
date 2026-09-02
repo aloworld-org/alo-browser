@@ -178,10 +178,10 @@ pub fn read(style: &ComputedStyle, issues: &mut Vec<StyleIssue>) -> LayoutStyle 
             left: reader.shorthand_side("padding", "padding-left", 3),
         },
         border: SideValues {
-            top: reader.value("border-top-width"),
-            right: reader.value("border-right-width"),
-            bottom: reader.value("border-bottom-width"),
-            left: reader.value("border-left-width"),
+            top: reader.border_width("top"),
+            right: reader.border_width("right"),
+            bottom: reader.border_width("bottom"),
+            left: reader.border_width("left"),
         },
         overflow: reader.overflow(),
         gap: reader.gap(),
@@ -343,6 +343,45 @@ impl Reader<'_> {
         T::default()
     }
 
+    /// How thick one border is.
+    ///
+    /// Three places can say it, and CSS's own order decides: the longhand
+    /// beats the per-side shorthand, which beats `border`. A style sheet
+    /// writes `border: 1px solid` and then `border-bottom-width: 2px`, and
+    /// both have to be read for that to mean what it says.
+    ///
+    /// A border with a style of `none` is no border however thick it was
+    /// declared, which is why a width alone never draws one.
+    fn border_width(&mut self, side: &str) -> LengthPercentage {
+        for (property, whole) in [
+            (format!("border-{side}-width"), false),
+            (format!("border-{side}"), true),
+            ("border".to_owned(), true),
+        ] {
+            let Some(text) = self.style.get(&property) else {
+                continue;
+            };
+            let width = if whole {
+                let border = alo_value::parse_border(text);
+                if border.style.as_deref().is_some_and(is_invisible_style) {
+                    return LengthPercentage::ZERO;
+                }
+                border.width
+            } else {
+                parse_length_percentage(text)
+            };
+            match width {
+                Some(width) => return width,
+                None if !whole => {
+                    self.refuse(&property, text);
+                    return LengthPercentage::ZERO;
+                }
+                None => {}
+            }
+        }
+        LengthPercentage::ZERO
+    }
+
     /// `overflow`, `overflow-x` and `overflow-y`.
     fn overflow(&mut self) -> AxisValues<Overflow> {
         let both: Option<Overflow> = self.style.get("overflow").and_then(Overflow::parse);
@@ -431,6 +470,11 @@ impl Reader<'_> {
             at: Location { line: 0, column: 0 },
         });
     }
+}
+
+/// Whether a border style draws nothing whatever its width.
+fn is_invisible_style(style: &str) -> bool {
+    style.eq_ignore_ascii_case("none") || style.eq_ignore_ascii_case("hidden")
 }
 
 /// A keyword property, so that one reader serves all of them.

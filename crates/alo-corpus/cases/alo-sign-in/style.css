@@ -1,0 +1,159 @@
+/*
+ * alo's sign-in screen, styled the way it is styled.
+ *
+ * The rules are `alo-workplace`'s `web/src/auth/LoginPage.module.css`, and the
+ * values are its `web/src/ds/tokens.css` — which `docs/autonomy/QUEUE.md` calls
+ * "the specification for what correct means here". The tokens are declared
+ * below rather than imported because that file lives in another repository,
+ * which this one only ever reads.
+ *
+ * Four substitutions, and each is a thing this engine does not implement yet:
+ *   · the headline's `clamp(2.4rem, 4vw, 3.5rem)` is `2.5rem`, which is what
+ *     that clamp resolves to at the thousand pixels this renders at — the
+ *     engine has neither `clamp` nor viewport units
+ *   · `white-space: pre-line` on the headline is three `<span>`s made blocks
+ *   · `letter-spacing` is dropped, being a text feature this engine has not
+ *     built
+ *   · `transition`, `:hover` and `:focus-visible` are dropped, having nothing
+ *     to animate and no input to respond to
+ */
+
+/* Tailwind's preflight, which the real app loads, puts every box on
+   border-box. Without it a 400-pixel field with padding is 434 wide. */
+* { box-sizing: border-box }
+
+:root {
+  /* ---- tokens: the ones this screen reads ---- */
+  --bg-surface: #fffefc;
+  --bg-raised: #e9e4dc;
+  --bg-rail: #1f2529;
+  --text-primary: #102a43;
+  --text-secondary: #5f554b;
+  --text-tertiary: #7a6f62;
+  --text-on-rail: #f7f3ef;
+  --text-on-rail-muted: #aeb8be;
+  --text-link: #d96247;
+  --border-default: #ded7cd;
+  --accent: #e76f51;
+  --success: #2e8b57;
+
+  --font-ui: Inter, system-ui, sans-serif;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1.0625rem;
+  --text-3xl: 2rem;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --leading-normal: 1.5;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-16: 4rem;
+  --radius-md: 6px;
+  --radius-full: 9999px;
+}
+
+html, body { height: 100%; margin: 0; font-family: var(--font-ui); color: var(--text-primary) }
+
+.split { height: 100%; display: flex }
+
+/* ---- brand panel (charcoal) ---- */
+.brand {
+  width: 42%;
+  background: var(--bg-rail);
+  color: var(--text-on-rail);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--space-16) var(--space-16);
+}
+.brandTop { display: flex }
+.logo { font-size: 1.5rem; font-weight: var(--weight-bold); color: var(--text-on-rail) }
+.brandBody { display: flex; flex-direction: column; gap: var(--space-6) }
+.headline {
+  margin: 0;
+  font-weight: var(--weight-bold);
+  font-size: 2.5rem;
+  line-height: 1.06;
+  color: var(--text-on-rail);
+}
+.headline span { display: block }
+.brandSub {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  color: var(--text-on-rail-muted);
+}
+.brandFooter { display: flex; align-items: center; gap: var(--space-2);
+               font-size: var(--text-sm); color: var(--text-on-rail-muted) }
+.dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--success) }
+
+/* ---- form panel (ivory) ---- */
+.formPanel {
+  flex-grow: 1;
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) var(--space-6);
+}
+.form { width: 400px; display: flex; flex-direction: column; gap: var(--space-4) }
+.formHead { margin-bottom: var(--space-2) }
+.heading { margin: 0; font-size: var(--text-3xl); font-weight: var(--weight-bold);
+           color: var(--text-primary) }
+.subtitle { margin: 0; margin-top: var(--space-1); color: var(--text-secondary);
+            font-size: var(--text-base) }
+
+.field { display: flex; flex-direction: column; gap: var(--space-2) }
+.fieldLabel { font-size: var(--text-base); font-weight: var(--weight-medium);
+              color: var(--text-primary) }
+.input {
+  width: 100%;
+  height: 46px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+}
+
+.row { display: flex; align-items: center; justify-content: space-between }
+.remember { display: flex; align-items: center; gap: var(--space-2);
+            font-size: var(--text-sm); color: var(--text-secondary) }
+.linkButton { color: var(--text-link); font-size: var(--text-sm);
+              font-weight: var(--weight-semibold) }
+
+.submit {
+  width: 100%;
+  height: 46px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+}
+
+.divider { display: flex; align-items: center; gap: var(--space-3) }
+.rule { flex-grow: 1; height: 1px; background: var(--border-default) }
+.or { font-size: var(--text-sm); color: var(--text-tertiary) }
+
+.sso {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+}

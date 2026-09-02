@@ -62,13 +62,26 @@ The measure is alo. These are the targets, in order:
 
 | Target | State |
 |---|---|
-| `alo-os` sign-in screen | not yet |
+| `alo-os` sign-in screen | **not yet** — `alo-os` is not checked out beside this repository, so its markup has never been rendered. `alo-workplace`'s sign-in screen is, and is in the corpus |
 | `alo-os` Settings | not yet |
 | `alo-os` agent overlay | not yet |
 | An agent reading Settings as a tree and activating a row by name | reading and activating both work on pages we wrote; Settings itself is not yet rendered |
 
 Colours are correct when they match `alo-workplace`'s `web/src/ds/tokens.css`,
 which is the specification for what "correct" means here.
+
+## The one screen that is alo's
+
+`crates/alo-corpus/cases/alo-sign-in/` is **alo-workplace's own sign-in
+screen** — its markup, its rules from `web/src/auth/LoginPage.module.css`, and
+its colours from `web/src/ds/tokens.css` — rendered by this engine and diffed on
+every run. Four substitutions are written into the case's own stylesheet, each
+naming a thing this engine does not implement: `clamp()` and viewport units,
+`white-space: pre-line`, `letter-spacing`, and transitions.
+
+It is a real alo screen. It is **not** the screen `ROADMAP.md`'s exit gate
+names, which is `alo-os`'s, and it has never been seen on the certified machine.
+Stage 1's exit gate is not met.
 
 ## The corpus
 

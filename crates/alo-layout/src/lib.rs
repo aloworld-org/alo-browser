@@ -45,7 +45,7 @@ pub mod tree;
 
 pub use engine::compute;
 pub use geometry::{Edges, Point, Rect, Size};
-pub use inline::{Fragment, InlineItem, InlineLayout, LineBox};
+pub use inline::{Fragment, InlineItem, InlineLayout, LineBox, TextAlignment};
 pub use keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
     Positioning,

@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo's sign-in screen renders.** The real markup, the real rules and the
+  real design tokens, drawn by this engine and diffed on every run: the
+  charcoal brand panel, the headline, the fields, the terracotta button, the
+  divider. It is `alo-workplace`'s sign-in screen rather than `alo-os`'s,
+  because that repository is not checked out here — so stage 1's exit gate is
+  **not** met, and `docs/conformance.md` says so.
+- **A real screen found four bugs, which is what real screens are for.** Text
+  that was a flex item was never drawn at all; a box rounded down to 96 pixels
+  wrapped text that measured 96.16, so "Remember me" became two lines in a box
+  wide enough for one; `border: 1px solid` was not read, because only the
+  longhands were; and an empty `<input>` laid out at nothing by nothing.
+- Layout is sub-pixel throughout now. It rounded to whole pixels and measured
+  unrounded, which is a disagreement that shows up as a word on the wrong line.
+- `text-align` works, and a button's label sits in the middle of it.
+
 - **★ An agent can act on the interface, and no verb takes a coordinate.**
   Activate, put text, scroll — each aimed by a *description* rather than a
   position: "the Save button", "the row called Invoice 12". A description

@@ -149,6 +149,45 @@ fn union(left: Rect, right: Rect) -> Rect {
     )
 }
 
+/// Where a line sits in the room it was given.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TextAlignment {
+    /// At the start, which is what a line does when nobody says otherwise.
+    #[default]
+    Start,
+    /// In the middle.
+    Center,
+    /// At the end.
+    End,
+}
+
+impl TextAlignment {
+    /// What `text-align` says, or [`None`] for a value this engine does not
+    /// implement — `justify`, which needs to stretch the spaces between words.
+    pub fn parse(text: &str) -> Option<Self> {
+        let text = text.trim();
+        for (alignment, names) in [
+            (TextAlignment::Start, ["start", "left"]),
+            (TextAlignment::Center, ["center", "center"]),
+            (TextAlignment::End, ["end", "right"]),
+        ] {
+            if names.iter().any(|name| text.eq_ignore_ascii_case(name)) {
+                return Some(alignment);
+            }
+        }
+        None
+    }
+
+    /// How far along the leftover room a line starts.
+    fn share(self) -> f32 {
+        match self {
+            TextAlignment::Start => 0.0,
+            TextAlignment::Center => 0.5,
+            TextAlignment::End => 1.0,
+        }
+    }
+}
+
 /// Lay items into lines no wider than `available_width`.
 ///
 /// `available_width` of [`None`] is the max-content question — how wide it
@@ -158,7 +197,18 @@ pub fn lay_out(
     available_width: Option<f32>,
     measurer: &impl MeasureText,
 ) -> InlineLayout {
+    lay_out_aligned(items, available_width, TextAlignment::Start, measurer)
+}
+
+/// The same, with the lines sitting where `text-align` says.
+pub fn lay_out_aligned(
+    items: &[InlineItem],
+    available_width: Option<f32>,
+    alignment: TextAlignment,
+    measurer: &impl MeasureText,
+) -> InlineLayout {
     let mut builder = Builder::new(available_width, measurer);
+    builder.alignment = alignment;
     for item in items {
         match item {
             InlineItem::Text {
@@ -180,6 +230,7 @@ pub fn lay_out(
 struct Builder<'a, M: MeasureText> {
     available_width: Option<f32>,
     measurer: &'a M,
+    alignment: TextAlignment,
     lines: Vec<LineBox>,
     current: Vec<Pending>,
     pen: f32,
@@ -192,6 +243,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         Self {
             available_width,
             measurer,
+            alignment: TextAlignment::Start,
             lines: Vec::new(),
             current: Vec::new(),
             pen: 0.0,
@@ -305,6 +357,13 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             .map(|pending| pending.fragment.rect.right())
             .fold(0.0, f32::max);
 
+        // Where the line sits in the room it was given. Leftover room only
+        // exists when there is a width to have room in.
+        let leftover = self
+            .available_width
+            .map_or(0.0, |available| (available - width).max(0.0));
+        let start = leftover * self.alignment.share();
+
         let fragments: Vec<Fragment> = merge_adjacent(core::mem::take(&mut self.current))
             .into_iter()
             .map(|pending| {
@@ -314,7 +373,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 let above = pending.fragment.rect.size.height - pending.below_baseline;
                 let y = top + baseline - above;
                 Fragment {
-                    rect: pending.fragment.rect.translated(Point::new(0.0, y)),
+                    rect: pending.fragment.rect.translated(Point::new(start, y)),
                     ..pending.fragment
                 }
             })

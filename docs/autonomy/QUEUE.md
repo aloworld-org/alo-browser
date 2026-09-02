@@ -124,9 +124,16 @@ file is the specification for what "correct" means here.
   coordinate**: a coordinate is a guess about a layout that may have changed
   between the reading and the acting. Same shape as `alo-os`'s verb contract.
 
-- [ ] **11. A real alo screen.** The sign-in screen from the Figma file, its
-  colours from `tokens.css`, rendered and diffed against a reference. This is the
-  item that turns the project from plausible into real.
+- [x] **11. A real alo screen.** The sign-in screen, its colours from
+  `tokens.css`, rendered and diffed against a reference. This is the item that
+  turns the project from plausible into real.
+
+  **Done, with the target changed and the change written down.** `alo-os` is not
+  checked out beside this repository and the Figma file is not reachable, so the
+  screen rendered is **`alo-workplace`'s** sign-in screen — its real markup, its
+  real rules, its real tokens — rather than `alo-os`'s. That is a real alo
+  screen and it is not the one `ROADMAP.md`'s exit gate names, so the exit gate
+  is **not** met. See `docs/conformance.md`, which says so plainly.
 
 - [ ] **13. A block inside an inline, split properly.** CSS says an inline box
   holding a block-level box is cut in three around it. This engine treats the

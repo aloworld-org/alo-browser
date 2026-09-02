@@ -35,10 +35,12 @@ pub mod calc;
 pub mod color;
 pub mod length;
 pub mod parse;
+pub mod shorthand;
 pub mod unit;
 
 pub use calc::{CalcNode, Kind};
 pub use color::{Color, Rgba, from_hsl};
 pub use length::{FontMetrics, Length, LengthPercentage};
 pub use parse::{is_keyword, parse_color, parse_length, parse_length_percentage, parse_number};
+pub use shorthand::{Border, parse_border};
 pub use unit::Unit;

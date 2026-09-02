@@ -107,6 +107,11 @@ fn lay_out_subtree(
     issues: &mut Vec<StyleIssue>,
 ) -> Option<LaidOut> {
     let mut taffy: TaffyTree<Context> = TaffyTree::new();
+    // Sub-pixel, like everything else here. The engine rounds once, at the
+    // very end, when coverage becomes pixels — and a box rounded down to 96
+    // while its text measures 96.16 wraps a word early, which is how
+    // "Remember me" became two lines inside a box wide enough for one.
+    taffy.disable_rounding();
     let mut ours_to_theirs: BTreeMap<BoxId, NodeId> = BTreeMap::new();
     let taffy_root = build(boxes, styles, root, &mut taffy, &mut ours_to_theirs, issues)?;
 
@@ -218,7 +223,27 @@ fn measure_inline(
 ) -> InlineLayout {
     let mut issues = Vec::new();
     let items = collect_inline_items(boxes, styles, id, available_width, measure, &mut issues);
-    inline::lay_out(&items, available_width, measure)
+    inline::lay_out_aligned(
+        &items,
+        available_width,
+        alignment_of(boxes, styles, id),
+        measure,
+    )
+}
+
+/// Where the lines of a formatting context sit in it.
+///
+/// `text-align` inherits, and a box's own value is already the inherited one by
+/// the time it is asked — so this asks the box that holds the lines, which is
+/// the box whose width they are aligned in.
+fn alignment_of(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> inline::TextAlignment {
+    boxes
+        .get(id)
+        .and_then(|node| node.kind.node())
+        .and_then(|source| styles.get(source))
+        .and_then(|style| style.get("text-align"))
+        .and_then(inline::TextAlignment::parse)
+        .unwrap_or_default()
 }
 
 /// The things on the lines of an inline formatting context, in order.
@@ -394,7 +419,12 @@ fn place_inline_content(
         let content = container.content_box();
         let items =
             collect_inline_items(boxes, styles, id, Some(content.size.width), measure, issues);
-        let layout = inline::lay_out(&items, Some(content.size.width), measure);
+        let layout = inline::lay_out_aligned(
+            &items,
+            Some(content.size.width),
+            alignment_of(boxes, styles, id),
+            measure,
+        );
 
         for fragment in layout.fragments() {
             let placed = Fragment {

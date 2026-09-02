@@ -206,22 +206,22 @@ fn something_below_the_window_says_that_it_is_off_screen() {
 fn the_whole_tree_reads_as_what_the_interface_is() {
     read!(document, boxes, layout, tree);
     let expected = "\
-document at (0, 0) 240×180
-  main at (0, 0) 240×180
-    heading \"Invoices\" [level=1] at (8, 8) 224×23
-    navigation \"Filters\" at (8, 31) 224×17
-      link \"All\" at (8, 31) 17.356445×16.296875
-      link \"Due\" at (29.80664, 31) 28.266602×16.296875
-    list at (8, 48) 224×72
-      listitem \"Invoice 11\" at (8, 48) 224×24
-      listitem \"Invoice 12\" [selected=true] at (8, 72) 224×24
-      listitem \"Invoice 13\" at (8, 97) 224×24
-    form \"New invoice\" at (8, 120) 224×20
-      text \"Amount\" at (8, 123.00488) 55.015625×16.296875
-      textbox \"Amount\" [required] at (63.015625, 136) 0×0
-      checkbox \"Recurring\" [checked=true] at (63.015625, 136) 0×0
-      button \"Save\" [disabled] at (63.015625, 120) 34×16
-    text \"a plain div with no meaning\" at (8, 156) 194.50293×16.296875
+document at (0, 0) 240×205.46114
+  main at (0, 0) 240×205.46114
+    heading \"Invoices\" [level=1] at (8, 8) 224×23.28125
+    navigation \"Filters\" at (8, 31.28125) 224×16.296875
+      link \"All\" at (8, 31.28125) 17.356445×16.296875
+      link \"Due\" at (29.80664, 31.28125) 28.266602×16.296875
+    list at (8, 47.578125) 224×72.890625
+      listitem \"Invoice 11\" at (8, 47.578125) 224×24.296875
+      listitem \"Invoice 12\" [selected=true] at (8, 71.875) 224×24.296875
+      listitem \"Invoice 13\" at (8, 96.171875) 224×24.296875
+    form \"New invoice\" at (8, 120.46875) 224×44.398636
+      text \"Amount\" at (8, 128.27364) 55.015625×16.296875
+      textbox \"Amount\" [required] at (63.015625, 120.46875) 146×20.800001
+      checkbox \"Recurring\" [checked=true] at (209.01563, 126.26875) 15×15
+      button \"Save\" [disabled] at (8, 144.57051) 48.364258×20.296875
+    text \"a plain div with no meaning\" at (8, 181.16426) 194.50293×16.296875
 ";
     assert_eq!(tree.to_outline(), expected);
 }

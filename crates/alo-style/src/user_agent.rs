@@ -21,7 +21,7 @@
 /// the same parser, cascade and refusals as anything an author writes. A
 /// user-agent sheet that took a private path would be a second implementation
 /// of the cascade, and the second one is the one that is wrong.
-pub const USER_AGENT_STYLE_SHEET: &str = r"
+pub const USER_AGENT_STYLE_SHEET: &str = r#"
 /* What is in the document but never drawn. */
 head, meta, link, title, script, style, base, template, source, track, param {
   display: none;
@@ -60,6 +60,54 @@ button, input, select, textarea, output, label, optgroup, option, datalist,
 label { display: inline }
 datalist, optgroup, option { display: none }
 
+/* Form controls have a size of their own.
+ *
+ * A bare `<input>` is not empty — it is a box a person types into, and it is
+ * about twenty characters wide before anybody says otherwise. Without this
+ * every control on a page lays out at nothing by nothing, which is invisible
+ * on screen and, worse, gives an agent a target it cannot point at. `ch` is
+ * the width of the font's zero, which is what "twenty characters" means.
+ */
+input, select {
+  width: 20ch;
+  /* A field with nothing typed into it is still one line tall: the height
+     comes from the line the text would sit on, not from the text. Without
+     this an empty input is four pixels of padding and border and nothing
+     else. */
+  height: 1.2em;
+  padding: 1px 2px;
+  border: 1px solid #767676;
+}
+textarea {
+  width: 20ch;
+  height: 3em;
+  padding: 2px;
+  border: 1px solid #767676;
+}
+/* What is written on a button sits in the middle of it, across and down.
+   Browsers do that with an anonymous centring box inside the button; a
+   centring flex container is the same arrangement said in a way this engine
+   already has, and without it a tall button has its label in the corner. */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border: 1px solid #767676;
+  background: #efefef;
+  text-align: center;
+}
+input[type="checkbox"], input[type="radio"] {
+  width: 13px;
+  height: 13px;
+  padding: 0;
+}
+input[type="button"], input[type="submit"], input[type="reset"] {
+  width: auto;
+  padding: 1px 6px;
+  background: #efefef;
+}
+
 /* Text defaults. A person reading this is reading in a direction. */
 html { color: black; direction: ltr; font-family: system-ui, sans-serif }
 b, strong, th { font-weight: bold }
@@ -72,7 +120,7 @@ mark { background: yellow; color: black }
 
 /* An element the author hid is hidden, whatever else the sheet says. */
 [hidden] { display: none }
-";
+"#;
 
 #[cfg(test)]
 mod tests {

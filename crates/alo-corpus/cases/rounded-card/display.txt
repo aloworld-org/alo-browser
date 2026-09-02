@@ -1,7 +1,7 @@
-fill box#1 rgb(244 244 245) at (8, 8) 124×53
-fill box#2 rgb(255 255 255) at (8, 8) 122×53
-fill box#2 rgb(212 212 216) at (8, 8) 122×53
-clip box#2 to (9, 9) 120×51
+fill box#1 rgb(244 244 245) at (8, 8) 124×53.132813
+fill box#2 rgb(255 255 255) at (8, 8) 122×53.132813
+fill box#2 rgb(212 212 216) at (8, 8) 122×53.132813
+clip box#2 to (9, 9) 120×51.132813
 fill box#4 rgb(24 24 27) at (9, 9) 120×24
 text box#7 "Invoice 12" rgb(0 0 0) 13px at (15, 51.066895)
 unclip

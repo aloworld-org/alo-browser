@@ -362,13 +362,9 @@ impl Builder<'_> {
         let drawn: Vec<(&str, f32, Rgba)> = sides
             .into_iter()
             .filter(|(_, width)| *width > 0.0)
-            .filter(|(side, _)| {
-                style
-                    .get(&format!("border-{side}-style"))
-                    .is_some_and(|value| value.eq_ignore_ascii_case("solid"))
-            })
+            .filter(|(side, _)| border_style(style, side).is_some_and(|kind| kind == "solid"))
             .filter_map(|(side, width)| {
-                let color = style.color(&format!("border-{side}-color"))?;
+                let color = border_color(style, side);
                 (!color.is_invisible()).then_some((side, width, color))
             })
             .collect();
@@ -436,13 +432,10 @@ impl Builder<'_> {
         }
         let mut color: Option<Rgba> = None;
         for side in ["top", "right", "bottom", "left"] {
-            let drawn = style
-                .get(&format!("border-{side}-style"))
-                .is_some_and(|value| value.eq_ignore_ascii_case("solid"));
-            if !drawn {
+            if border_style(style, side).as_deref() != Some("solid") {
                 return None;
             }
-            let side_color = style.color(&format!("border-{side}-color"))?;
+            let side_color = border_color(style, side);
             match color {
                 None => color = Some(side_color),
                 Some(held) if held == side_color => {}
@@ -475,7 +468,31 @@ impl Builder<'_> {
         };
         let ascender = font.metrics(size).ascender;
 
-        for fragment in self.layout.fragments(id) {
+        let fragments = self.layout.fragments(id);
+        if fragments.is_empty() {
+            // A text box that is not inside a line — a flex or grid item —
+            // has no fragments, because fragments come from a line box. It is
+            // still text, and it is still drawn, at its own rectangle.
+            let Some(geometry) = self.layout.get(id) else {
+                return;
+            };
+            let trimmed = text.trim_end();
+            if !trimmed.is_empty() {
+                out.push(DisplayItem::Text {
+                    box_id: id,
+                    text: trimmed.to_owned(),
+                    origin: (
+                        geometry.border_box.left(),
+                        geometry.border_box.top() + ascender,
+                    ),
+                    font,
+                    size,
+                    color,
+                });
+            }
+            return;
+        }
+        for fragment in fragments {
             let Some(range) = fragment.text.clone() else {
                 continue;
             };
@@ -551,6 +568,43 @@ impl Builder<'_> {
         }
         None
     }
+}
+
+/// What kind of line one border draws.
+///
+/// The longhand beats the per-side shorthand, which beats `border` — CSS's own
+/// order, and the one a sheet relies on when it writes `border: 1px solid` and
+/// then overrides one side.
+fn border_style(style: &alo_style::ComputedStyle, side: &str) -> Option<String> {
+    if let Some(text) = style.get(&format!("border-{side}-style")) {
+        return Some(text.trim().to_ascii_lowercase());
+    }
+    for property in [format!("border-{side}"), "border".to_owned()] {
+        if let Some(text) = style.get(&property)
+            && let Some(kind) = alo_value::parse_border(text).style
+        {
+            return Some(kind);
+        }
+    }
+    None
+}
+
+/// What colour one border is.
+///
+/// A border with no colour of its own is the colour of the text beside it,
+/// which is what `currentColor` means and what CSS makes the initial value.
+fn border_color(style: &alo_style::ComputedStyle, side: &str) -> Rgba {
+    if let Some(color) = style.color(&format!("border-{side}-color")) {
+        return color;
+    }
+    for property in [format!("border-{side}"), "border".to_owned()] {
+        if let Some(text) = style.get(&property)
+            && let Some(color) = alo_value::parse_border(text).color
+        {
+            return color.resolve(style.current_color());
+        }
+    }
+    style.current_color()
 }
 
 /// The colour a box's background is painted in.

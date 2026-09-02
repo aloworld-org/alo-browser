@@ -1037,3 +1037,69 @@ that turns this from plausible into real, and stage 1's exit gate.
   so this is the first thing item 11 will hit. It belongs in
   `alo-style/src/user_agent.rs`.
 - Items 13, 15, 19 and 20 remain, and none of them blocks item 11.
+
+---
+
+## 2026-09-02 — iteration 16: a real alo screen (queue item 11)
+
+**alo's sign-in screen renders.** The real markup from
+`alo-workplace/web/src/auth/LoginPage.tsx`, the real rules from its CSS module,
+and the real colours from `web/src/ds/tokens.css` — the file
+`docs/autonomy/QUEUE.md` calls "the specification for what correct means here".
+It is `crates/alo-corpus/cases/alo-sign-in/`, and it is diffed on every run.
+
+**The target changed, and this is the honest account of it.** The queue names
+`alo-os`'s sign-in screen, from the Figma file. **`alo-os` is not checked out
+beside this repository** and the Figma file is not reachable from here. What is
+available is `alo-workplace`, which has its own sign-in screen in code — better
+than a Figma file, because it is what ships. So that is what was rendered.
+
+**Stage 1's exit gate is not met**, and `docs/conformance.md` and `ROADMAP.md`
+both say so rather than being ticked. The gate names alo OS's sign-in screen and
+Settings, on the certified machine; none of those three things happened here.
+Both files carry the reason.
+
+`alo-workplace` was **read only**. Nothing was written to it.
+
+**Four bugs, which is what a real screen is for.** Every one of them was
+invisible in six synthetic corpus cases and obvious in one real one:
+
+1. **Text that was a flex item was never drawn.** Fragments come from a line
+   box, and a text box that is a flex or grid item has none — so `draw_text`
+   iterated an empty list and drew nothing. The SSO button was an empty
+   rectangle.
+2. **Rounding.** Layout rounded boxes to whole pixels and measured text
+   unrounded, so a box 96.16 wide became 96 and its 96.16-wide text wrapped:
+   "Remember me" on two lines inside a box wide enough for one. Layout is
+   sub-pixel throughout now, and rounds once, at the end, when coverage becomes
+   pixels.
+3. **`border: 1px solid` was not read.** Only the longhands were, and nobody
+   writes those. Splitting it is in `alo-value/src/shorthand.rs` because
+   `border` splits by *kind* rather than by position — `1px solid red` and `red
+   solid 1px` are the same border — which cannot be done by counting.
+4. **An empty `<input>` laid out at nothing by nothing.** A field with nothing
+   typed into it is still one line tall and about twenty characters wide, and
+   the user-agent sheet had never said so.
+
+**And `text-align`,** which a real screen needs and six synthetic ones did not:
+a button's label sits in the middle of it, which browsers do with an anonymous
+centring box and this engine does with a centring flex container in the
+user-agent sheet.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 647 tests, no stubs, boundaries held. Seven corpus cases now, each with
+five expectations.
+
+**What the next iteration should know.** The queue's remaining items are 13
+(block-in-inline), 15 (`calc()` with a percentage in a layout property), 19
+(shadows and gradients) and 20 (transforms and opacity). None blocks another.
+
+- **The most valuable next thing is probably none of them.** It is `alo-os`
+  being checked out, so that the screen the exit gate actually names can be
+  rendered. That is not something this loop can do.
+- If item 19 is taken, `linear-gradient` is what alo's own screens will want
+  first; `box-shadow` needs a blur, which is a rasteriser question rather than
+  a value one.
+- The sign-in case's stylesheet lists four things the engine does not implement.
+  `clamp()` is the one a second real screen is most likely to need, and it is
+  the same expression machinery `calc()` already has.

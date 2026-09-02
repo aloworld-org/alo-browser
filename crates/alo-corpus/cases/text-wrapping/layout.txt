@@ -1,4 +1,4 @@
-block flow · document → 180×65 at (0, 0)
-  block flow · generic → 180×65 at (0, 0)
-    block flow · paragraph → 176×65 at (0, 0)
+block flow · document → 180×64.890625 at (0, 0)
+  block flow · generic → 180×64.890625 at (0, 0)
+    block flow · paragraph → 176×64.890625 at (0, 0)
       text "The quick brown fox jumps over the lazy dog and keeps going." → 150.5957×48.890625 at (8, 8)

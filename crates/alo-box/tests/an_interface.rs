@@ -80,7 +80,7 @@ block flow · document
           text \"Amount\"
         inline flow-root · textbox [required]
         inline flow-root · checkbox \"Recurring\" [checked=true]
-        inline flow-root · button [disabled]
+        inline flex · button [disabled]
           text \"Save\"
 ";
     assert_eq!(tree.to_outline(), expected);

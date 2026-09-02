@@ -30,7 +30,7 @@ not before it.
 - [x] **Reference renders**: a committed corpus, diffed on every change
 - [x] ★ **The agent tree**: the layout tree read as roles, states and positions
 - [x] ★ **Typed verbs**: activate, type, scroll — and never a coordinate
-- [ ] **A real alo screen renders correctly** — the sign-in screen, then Settings
+- [ ] **A real alo screen renders correctly** — the sign-in screen, then Settings. *`alo-workplace`'s sign-in screen renders and is diffed on every run; `alo-os`'s is not, because that repository is not checked out here. Not ticked: the gate names alo OS's screens.*
 - [ ] Hardware acceleration, once the software path is right
 - [ ] Embedding: alo OS's shell renders through it
 
