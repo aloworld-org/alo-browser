@@ -22,6 +22,12 @@ What changed, in words a person outside this repository can read. Newest first.
   diagnostics rather than thrown away.
 - `unsafe` is now forbidden by the compiler rather than by review, across the
   whole workspace.
+- **The gate is a command that fails**, not a paragraph to remember:
+  `scripts/gate.sh`. It runs the formatter, the linter and the tests, refuses a
+  stub, refuses a crate that has quietly opted out of the ban on `unsafe`, and
+  checks that each rented crate is still named in only the one file that is
+  allowed to name it. What it cannot check, it names, so that a green run is
+  never mistaken for the whole gate.
 - The scope is written down: what gets built, in which stage, and what will not
   be built at all. The engine renders the modern platform and refuses thirty
   years of legacy — no quirks mode, no floats-as-layout, no CSS-table layout —

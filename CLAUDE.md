@@ -76,6 +76,11 @@ Everything here is absolute; everything else is judgment.
 - Documentation in the same change, and a `CHANGELOG.md` line.
 - **No `unsafe` without an ADR.**
 
+`scripts/gate.sh` runs the mechanical half of this and fails if it is not met.
+It also names the half no script can check — one file one responsibility, the
+layout assertions, the reference renders — so that a green run is never read as
+the whole gate.
+
 **And no rushing.** A date never justifies a shortcut. When something
 has to give it is scope — fewer properties, fewer selectors — never
 depth. A renderer that is nearly right is a renderer nobody can debug.
@@ -88,3 +93,4 @@ depth. A renderer that is nearly right is a renderer nobody can debug.
 - `docs/decisions/` — why things are as they are.
 - `docs/autonomy/` — the build loop: `LOOP.md`, `QUEUE.md`, `STATE.md`.
 - `docs/conformance.md` — what renders correctly today, honestly.
+- `scripts/gate.sh` — the gate above, as a command that fails.

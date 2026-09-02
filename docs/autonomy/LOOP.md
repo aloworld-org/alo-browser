@@ -23,9 +23,14 @@ gate in `CLAUDE.md`, or in a halt that says why it could not.
    turning out larger than one iteration, **cut its scope, never its depth**,
    and write the cut into the queue as a new item rather than leaving a
    half-built one.
-4. **Pass the gate**, all of it — including a **layout assertion in numbers** for anything that positions or sizes, and a **reference render** for anything visual. `cargo fmt`, `cargo clippy` with zero warnings
-   *and* zero errors, tests including the refusal paths, documentation in the
-   same change, a `CHANGELOG.md` line.
+4. **Pass the gate**, all of it. `scripts/gate.sh` runs the mechanical half —
+   `cargo fmt`, `cargo clippy` with zero warnings *and* zero errors, the tests,
+   no stubs, no `unsafe` opt-out, every rented crate still behind its one file,
+   a `CHANGELOG.md` line — and prints the half it cannot run. That half is
+   still the gate: a **layout assertion in numbers** for anything that positions
+   or sizes, a **reference render** for anything visual, one responsibility per
+   file, and the item's section in `docs/features.md`. A green script is not a
+   passed gate on its own.
 5. **Commit and push.** One item, one commit, a message that says what changed
    and why somebody would care.
 6. **Update the queue and the journal.** Tick the item. Append to
