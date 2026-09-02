@@ -21,7 +21,7 @@ first one — the display server and hardware acceleration come after correctnes
 not before it.
 
 - [x] **A DOM of our own**, built from `html5ever`'s parse events
-- [ ] **Stylesheets**: `cssparser` into rules we hold, selectors matched with `selectors`
+- [x] **Stylesheets**: `cssparser` into rules we hold, selectors matched with `selectors`
 - [ ] **Computed style**: the cascade, inheritance, and `var()` — alo's design system is custom properties throughout, so this is not optional decoration
 - [ ] **The box tree**, and what each box *means* (ADR 0002) rather than only its rectangle
 - [ ] **Layout**: flexbox and grid, on `taffy` to begin with, behind our own boundary

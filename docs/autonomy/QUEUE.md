@@ -29,7 +29,7 @@ file is the specification for what "correct" means here.
   means rewriting everything that holds a reference. Tests: a document round
   trips; a malformed fragment still produces a usable tree.
 
-- [ ] **2. Stylesheets.** `cssparser` into rules we hold; `selectors` for
+- [x] **2. Stylesheets.** `cssparser` into rules we hold; `selectors` for
   matching. Only the modern subset — no quirks mode, no legacy pseudo-elements.
   An unknown property is kept and ignored rather than dropped, so a later stage
   can implement it without a re-parse.

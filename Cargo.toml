@@ -12,6 +12,9 @@ authors = ["the alo browser authors"]
 
 [workspace.dependencies]
 html5ever = "0.39"
+cssparser = "0.37"
+selectors = "0.40"
+precomputed-hash = "0.1"
 
 # Law 4 of CLAUDE.md, enforced by the compiler rather than by review: `unsafe`
 # is forbidden outside a reviewed, named boundary with an ADR. A crate that ever

@@ -94,3 +94,105 @@ neither has been skipped — there was nothing to skip.
   anything the tree can hold, add the case to `tests/round_trip.rs` in the same
   change, or the next person will find it missing by accident.
 - Nothing renders yet. `docs/conformance.md` is still honest.
+
+---
+
+## 2026-09-02 — the gate, made runnable
+
+Not a queue item; the owner asked that the rules be enforced rather than
+remembered, and `CLAUDE.md` already said what they are.
+
+`scripts/gate.sh` runs the mechanical half of the gate and exits non-zero:
+formatter, linter with zero warnings and zero errors, tests, no stubs, no crate
+that has quietly opted out of the workspace ban on `unsafe`, a `CHANGELOG.md`
+line whenever a crate changed, and — the one that is specific to this
+repository — **every rented crate still named only in the files allowed to name
+it**. That last check strips comment lines first, because explaining a boundary
+is better than not, and it matches a path (`cssparser::`, `use cssparser`)
+rather than a word, so a field called `selectors` is not a violation.
+
+What no script can check, it prints rather than dropping: one file one
+responsibility, a layout assertion in numbers, a reference render, an item's
+section in `docs/features.md`, and that a tick means done. A green run is not a
+passed gate, and the script says so.
+
+---
+
+## 2026-09-02 — iteration 2: stylesheets (queue item 2)
+
+**What was built.** `crates/alo-css`. `cssparser` tokenises, `selectors`
+matches, and the rules are ours.
+
+- `ident.rs` — one string type for names, namespaces, classes and attribute
+  values, with its hash computed once because matching asks for it in its
+  innermost loop.
+- `issue.rs` — what a sheet asked for that we did not do, with the text and the
+  line. The same bargain `alo_dom::ParseIssue` makes for HTML.
+- `declaration.rs` — property name, value **as written**, and importance.
+  Custom properties are their own case because their names are case-sensitive
+  and alo's design system is built from them.
+- `selector.rs` — the `SelectorImpl`: which pseudo-classes and
+  pseudo-elements exist here, and specificity unpacked into the three counts
+  the cascade compares.
+- `state.rs` — what HTML says about an element: `:disabled`, `:checked`,
+  `:required`, `:read-write`. Written out rather than approximated, including a
+  disabled `<fieldset>` reaching its controls but not its first `<legend>`.
+- `matching.rs` — the `selectors::Element` adapter over `alo_dom`. The whole of
+  the coupling between CSS and the DOM, in one file, so that the box tree has
+  one place to be added to.
+- `media.rs` — width and `prefers-color-scheme`, evaluated; anything else
+  recorded as not understood and treated as not matching.
+- `parse.rs` — the rule and declaration parsers.
+- `stylesheet.rs` — the rules, in order, and `style_rules_for(device)` which
+  flattens matching `@media` blocks in where they were written.
+
+**Decisions worth knowing about:**
+
+- **The boundary here is the public API, not one file.** `alo-dom` keeps
+  `html5ever` in one file because an HTML parser is used once. A CSS tokeniser
+  is not: selector text, media conditions and declaration values are read from
+  the same token stream, and faking a single-file boundary would have meant
+  copying strings about to keep something cosmetic. So no `cssparser` or
+  `selectors` type appears in `alo-css`'s public API, and the files allowed to
+  name them are listed in `scripts/gate.sh` and checked on every run.
+- **`:visited` never matches, permanently.** Visitedness is history and a style
+  that depends on it is readable back off the page. Every engine reached this;
+  we start there.
+- **The interaction states parse and never match.** There is no input in stage
+  1. A sheet mentioning `:hover` must not be thrown away, and pretending to
+  answer would be worse than saying nothing.
+- **A pseudo-element selector is kept and never matches**, and the sheet is
+  told at parse time. Stage 1 produces no box for one.
+- **An unknown media condition fails closed.** Applying rules whose condition
+  is unknown is how a dark theme leaks into a light one.
+
+**The gate.** `scripts/gate.sh` green: `cargo fmt` clean, `cargo clippy
+--workspace --all-targets -D warnings` with zero warnings and zero errors, 103
+tests (86 unit, 18 integration across `stylesheet.rs` and
+`against_a_document.rs`, one doctest), no stubs, boundaries held. No layout
+assertion and no reference render: nothing here positions, sizes or draws — the
+first numbers arrive with layout, and the first pixels with paint.
+
+**Three bugs this iteration found by testing rather than by reading**, all in
+the first draft and all fixed: `screen and (min-width: 600px)` did not parse
+because the `and` after a media type was never consumed; `rgb(1, 2, 3)` was
+recorded as the value `rgb(` because stepping over a function token leaves the
+parser's position inside the block rather than after it; and
+`most_specific_match` returned the *least* specific selector. The third is the
+one worth remembering — it passed every unit test in `selector.rs` and was
+caught only by the end-to-end test against a document.
+
+**What the next iteration should know.** Item 3 is the cascade, and it is the
+one `docs/decisions/0001` calls stage 1's first hard requirement.
+
+- Everything it needs is already here: `style_rules_for(device)` gives the
+  rules that apply in document order, `most_specific_match` gives the
+  specificity of the selector that actually matched, and `Importance` is
+  recorded separately from the value.
+- **Declaration values are unparsed source text.** That is deliberate — it is
+  what lets an unknown property be kept — and it means item 3 re-tokenises a
+  value when it resolves `var()`. `cssparser` is already a dependency of
+  `alo-css`; if the cascade lands in its own crate, add it to `scripts/gate.sh`'s
+  boundary list in the same change.
+- `DeclarationBlock::get` already answers "the last declaration of this
+  property wins within a block". The cascade is what decides between blocks.

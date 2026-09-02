@@ -6,6 +6,30 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Style sheets parse into rules we hold.** `cssparser` tokenises and
+  `selectors` matches; what a rule is, which selectors exist, and what happens
+  to what we do not implement are ours. A sheet in the shape alo's design
+  system is written in — custom properties throughout, a light and a dark
+  theme behind `prefers-color-scheme`, a width breakpoint — parses whole, and
+  an engine can now ask which rules apply to which element of a document.
+- **Nothing is dropped in silence.** An unknown property is kept with its
+  value, so a later stage can implement it without re-parsing the sheet; an
+  at-rule we do not implement is kept whole for the same reason; a selector we
+  cannot evaluate takes its rule down, which is what CSS says, and says so.
+  Every one of those is reported with the text that caused it and the line it
+  was on.
+- **Media queries: width and `prefers-color-scheme`.** A condition we do not
+  understand is treated as not matching rather than guessed at — the
+  alternative is a dark theme leaking into a light one, which looks like a
+  rendering bug and is not one.
+- **`:hover` and `:focus` parse and never match**, because nobody is hovering
+  a document being rendered to a file, and **`:visited` never matches at all**:
+  whether a link has been followed is history, and a style that depends on it
+  is readable back off the page. `:disabled`, `:checked`, `:required` and
+  `:read-only` do match, from the markup, including the awkward parts — a
+  disabled `<fieldset>` reaches its controls but not the ones in its first
+  `<legend>`.
+
 - **There is a document tree.** `html5ever` parses HTML and alo browser holds
   the result: nodes, attributes, parents and children, in our own types rather
   than the parser's. A document round trips — parse it, write it back out, and

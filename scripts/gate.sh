@@ -16,15 +16,25 @@ step() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
 bad() { printf '\033[31mFAIL\033[0m  %s\n' "$1"; fail=1; }
 good() { printf '\033[32mok\033[0m    %s\n' "$1"; }
 
-# --- Rented crates, and the one file each may be named in -------------------
+# --- Rented crates, and the files each may be named in ----------------------
 #
 # ADR 0001 rents the physics and writes the engine. A rented crate that leaks
 # past its boundary is how "we hold the tree" turns into "they hold the tree"
-# without anybody deciding to. One file may name it; that file is here.
+# without anybody deciding to. The files allowed to name each one are listed
+# here, separated by commas, and adding to a list is a decision somebody makes
+# in a diff rather than by writing an import.
+#
+# `html5ever` is one file because an HTML parser is used once, at the door. A
+# CSS tokeniser is not: selector text, media conditions and declaration values
+# are all read from the same token stream, so `cssparser` is named wherever CSS
+# text is read, and `selectors` wherever a selector is built or run. What holds
+# for both is that no type of theirs appears in `alo-css`'s public API.
 #
 # Prose may say the name anywhere — comments are stripped before this looks.
 declare -a BOUNDARIES=(
   "html5ever:crates/alo-dom/src/parse.rs"
+  "cssparser:crates/alo-css/src/ident.rs,crates/alo-css/src/matching.rs,crates/alo-css/src/media.rs,crates/alo-css/src/parse.rs,crates/alo-css/src/selector.rs"
+  "selectors:crates/alo-css/src/matching.rs,crates/alo-css/src/parse.rs,crates/alo-css/src/selector.rs"
 )
 
 step "cargo fmt"
@@ -78,9 +88,13 @@ for entry in "${BOUNDARIES[@]}"; do
   allowed="${entry#*:}"
   offenders=""
   while IFS= read -r file; do
-    [ "$file" = "$allowed" ] && continue
+    case ",$allowed," in *",$file,"*) continue ;; esac
     # Strip comment lines: naming a rented crate in prose is fine and good.
-    if sed -E 's@^[[:space:]]*(//!|///|//).*$@@' "$file" | grep -qE "\b${crate}\b"; then
+    # What counts as naming it is a path — `crate::Thing` or `use crate` — and
+    # not a field that happens to share the word, which is why `rule.selectors`
+    # is not a boundary violation.
+    if sed -E 's@^[[:space:]]*(//!|///|//).*$@@' "$file" \
+      | grep -qE "(^|[^A-Za-z0-9_.])${crate}::|^[[:space:]]*use[[:space:]]+${crate}[[:space:]{:;]"; then
       offenders="$offenders $file"
     fi
   done < <(find crates -name '*.rs' -not -path '*/target/*')
@@ -88,7 +102,7 @@ for entry in "${BOUNDARIES[@]}"; do
     echo "  $crate is named in:$offenders"
     bad "$crate may only be named in $allowed (ADR 0001)"
   else
-    good "$crate stays in $allowed"
+    good "$crate stays behind its boundary"
   fi
 done
 
