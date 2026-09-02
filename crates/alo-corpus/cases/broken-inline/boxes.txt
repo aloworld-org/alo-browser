@@ -1,0 +1,13 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      anonymous block
+        text "Read the "
+        inline flow · generic
+          text "note before"
+      block flow · generic
+        text "the aside"
+      anonymous block
+        inline flow · generic
+          text "and after"
+        text " please."

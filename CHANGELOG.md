@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An inline box holding a block is broken around it, the way CSS says.** It
+  used to be treated as a block container, which looks nearly the same and is
+  not the same: the difference shows in where a background stops. A highlighted
+  phrase interrupted by a block now stops before the block and starts again
+  after it, because each piece is a box of its own.
+- The block becomes a **sibling** of the anonymous blocks the pieces sit in —
+  which is why this could not be done by rearranging children in place, and why
+  breaking the inline hands several boxes back to its parent instead of one.
+- **An agent still reads one link.** The pieces of a broken inline come from
+  one element; the agent tree reads the first and reads the later ones through,
+  so a verb is never handed two things with the same name to choose between.
+- Two gaps the change found, both recorded rather than quietly left: an *empty*
+  piece is dropped where CSS keeps it, and an inline box's own border and
+  padding are still neither laid out nor drawn.
+
 - **`transform` and `opacity`.** `translate`, `scale`, `rotate`, `skew` and
   `matrix`, about a `transform-origin` that defaults to the middle of the box;
   `opacity` as a number or a percentage. A rotated box carries everything

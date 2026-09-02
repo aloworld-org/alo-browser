@@ -61,6 +61,13 @@ the layout tree. Paint order follows stacking contexts: a positioned box is
 painted last in the context it belongs to, and a negative `z-index` goes behind
 its parent's content and in front of its background.
 
+An inline box holding a block-level box is **broken around it**, into a piece
+on each side, with the block a sibling of the anonymous blocks those pieces sit
+in. Each piece draws its own background. Two things about that are not right
+yet and both are recorded on the tree: a piece with *nothing* in it is dropped
+where CSS keeps it, and an inline box's own border and padding are neither laid
+out nor drawn.
+
 What does not exist: any transform with a third dimension in it — `rotate3d`,
 `matrix3d`, `perspective` — which is refused rather than flattened. A border
 with four different widths still turns its inner corner squarer than CSS draws

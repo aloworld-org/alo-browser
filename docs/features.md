@@ -42,11 +42,12 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] The box model — content, padding, border, margin, and the box's *meaning* alongside its rectangle (ADR 0002)
 - [1] Box generation: `display: none` removes a subtree, `display: contents` removes a box and keeps its children, and a container whose children are a mix of block and inline grows the anonymous boxes that make them one kind
 - [1] A user-agent style sheet — what an element looks like before anybody says otherwise. The modern elements only; no defaults for what we do not lay out
-- [3] A block-level box inside an inline one, split into three the way the specification says. Approximated today, and recorded every time
+- [1] **A block-level box inside an inline one, broken around it the way the specification says** — a piece on each side, the block a sibling of the anonymous blocks they sit in, so a background stops and starts again rather than running straight through
+- [2] An *empty* piece of such a break keeps its border, and an inline box's own border and padding are laid out and drawn
 - [1] **Flexbox and grid**, on `taffy` behind our own boundary. One file may name it
 - [1] Absolute and relative positioning, `z-index`, stacking
 - [1] Overflow and scrolling regions
-- [1] Inline formatting: a line of text and the boxes in it, with breaking and baselines. Approximated by a wrapping row until text arrives
+- [1] Inline formatting: a line of text and the boxes in it, with breaking and baselines
 - [1] Layout is asserted in **numbers** — the computed box — never by eyeballing an image
 - [2] Writing modes, and layout that is right-to-left rather than mirrored afterwards
 - [2] Multi-column, `position: sticky`

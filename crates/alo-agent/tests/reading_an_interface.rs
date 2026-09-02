@@ -225,3 +225,41 @@ document at (0, 0) 240×205.46114
 ";
     assert_eq!(tree.to_outline(), expected);
 }
+
+#[test]
+fn a_link_broken_around_a_block_is_still_one_link() {
+    // CSS breaks the `<a>` into two boxes around the `<div>`. An agent that
+    // saw two would have to choose between them, and both would answer to the
+    // same name — which is exactly the ambiguity ADR 0002's verbs refuse.
+    let page = "<!DOCTYPE html><html><body><section>\
+<a href='/docs' id=link>Read the<div>docs</div></a>\
+</section></body></html>";
+    let document = parse_document(page);
+    let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
+    let author = parse_stylesheet(SHEET);
+    let sheets = [
+        SourcedSheet::new(Origin::UserAgent, &agent),
+        SourcedSheet::new(Origin::Author, &author),
+    ];
+    let styles = resolve(&document, &sheets, &MediaContext::default());
+    let boxes = build_boxes(&document, &styles);
+    let database = fonts();
+    let measurer = TextMeasurer::new(&database);
+    let layout = compute(&boxes, &styles, Size::new(240.0, 200.0), &measurer);
+    let tree = AgentTree::new(&document, &boxes, &layout);
+
+    let links = tree.with_role(&Role::Known(KnownRole::Link));
+    assert_eq!(
+        links.len(),
+        1,
+        "one link, in two pieces:\n{}",
+        tree.to_outline(),
+    );
+    assert_eq!(
+        links
+            .first()
+            .and_then(alo_agent::AgentNode::name)
+            .as_deref(),
+        Some("Read the"),
+    );
+}

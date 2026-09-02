@@ -1218,3 +1218,65 @@ gradient panel and a negative-`z-index` band under a scaled box.
   screen stage 1's exit gate actually names can be rendered. This loop cannot
   do that.
 
+---
+
+## Iteration 19 — queue item 13: a block inside an inline, split properly
+
+**What was built.** An inline box holding a block-level box is now **broken
+around it**: a piece on each side, each a box of its own, with the block
+between them. The engine used to treat the inline as a block container, which
+looks nearly the same and is not the same — a highlighted phrase interrupted by
+a block ran its background straight through the interruption instead of
+stopping and starting again.
+
+**The part that decided the shape of the code.** The block has to become a
+*sibling* of the anonymous blocks the pieces sit in, one level up. That cannot
+be done by rearranging an element's children in place, so building an inline
+element now hands **several** boxes back to its parent — piece, block, piece —
+and the parent's existing `arrange` wraps each run of pieces in an anonymous
+block without knowing anything about the break. The recursion falls out: an
+inline inside an inline splits too, because the outer one sees a block-level
+child in its own list.
+
+**A tree with a broken box in it is still one thing to an agent.** The pieces
+come from one element and would both answer to the same name, which is exactly
+the ambiguity ADR 0002's verbs refuse. The later pieces carry
+`continued_from`, and the agent tree reads them *through* — one link, in two
+boxes.
+
+**Two gaps this found, both recorded rather than left quiet.**
+
+1. CSS keeps an **empty** piece — "even if either side is empty" — and an empty
+   inline with a border draws that border. This engine drops it, because its
+   inline formatting would give it a line box of the font's height, which is a
+   visible gap where CSS asks for none. `IssueKind::UnsupportedStructure` on
+   every tree that meets one. Queue item 21.
+2. **An inline box's own border and padding are neither laid out nor drawn.**
+   The corpus case asked for a border and got none, which is how this was
+   found. The background *is* drawn, which is why the case still shows the
+   break. Queue item 22.
+
+And one honest limit written down as item 23: the name of a broken link comes
+from its first piece alone, and the block between the pieces is not read as
+part of it. Reading it whole means the agent tree following the *document's*
+containment where the box tree has split, which is a change to what a view is
+and not something to slip into this item.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 743 tests, no stubs, boundaries held, no verb takes a coordinate. Ten
+corpus cases; the new one, `broken-inline`, is a yellow highlight that stops
+before a block and starts again after it.
+
+**What the next iteration should know.** One item from the original queue
+remains — 15, `calc()` with a percentage in a layout property — plus the three
+written this iteration.
+
+- Item 15 is a `taffy` problem rather than a CSS one: `taffy` carries such a
+  value as an opaque handle only a tree implementing its own traits can
+  resolve, and this engine uses `taffy`'s ready-made tree.
+- Item 22 is the one a real page is most likely to hit: `border` and `padding`
+  on a `<span>` is ordinary CSS.
+- The most valuable next thing is still `alo-os` being checked out, so the
+  screen stage 1's exit gate actually names can be rendered. This loop cannot
+  do that.
+

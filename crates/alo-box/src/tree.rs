@@ -133,6 +133,15 @@ pub struct BoxNode {
     pub children: Vec<BoxId>,
     /// The box that holds it, or [`None`] for the root.
     pub parent: Option<BoxId>,
+    /// The first fragment of this box, when this one is a continuation of it.
+    ///
+    /// An inline box holding a block-level box is **broken around it**, into
+    /// one box on each side. Both come from the same element, and both are
+    /// real boxes: each draws its own background and its own border, which is
+    /// exactly what CSS asks for and what makes a split link's underline stop
+    /// and start again. This is what says they are two pieces of one thing
+    /// rather than two things.
+    pub continued_from: Option<BoxId>,
 }
 
 impl BoxNode {
@@ -264,8 +273,42 @@ impl BoxTree {
             semantics,
             children: Vec::new(),
             parent: None,
+            continued_from: None,
         });
         id
+    }
+
+    /// Another piece of a box that was broken around a block.
+    ///
+    /// The same element, the same `display`, the same meaning — a second box,
+    /// because CSS says the inline box is split rather than stretched.
+    fn continue_box(&mut self, first: BoxId) -> Option<BoxId> {
+        let node = self.boxes.get(first.0)?;
+        let (kind, semantics) = (node.kind.clone(), node.semantics.clone());
+        let id = self.push(kind, semantics);
+        if let Some(node) = self.boxes.get_mut(id.0) {
+            node.continued_from = Some(first);
+        }
+        Some(id)
+    }
+
+    /// Whether a box is a later piece of one that was broken around a block.
+    ///
+    /// A reader that shows a thing once — the agent tree — asks this, because
+    /// a link broken in two is one link.
+    pub fn is_continuation(&self, id: BoxId) -> bool {
+        self.get(id)
+            .is_some_and(|node| node.continued_from.is_some())
+    }
+
+    /// Every piece of a box, the first one included, in order.
+    pub fn fragments_of(&self, first: BoxId) -> Vec<BoxId> {
+        let mut out = vec![first];
+        out.extend((0..self.boxes.len()).map(BoxId).filter(|id| {
+            self.get(*id)
+                .is_some_and(|node| node.continued_from == Some(first))
+        }));
+        out
     }
 
     fn adopt(&mut self, parent: BoxId, children: &[BoxId]) {
@@ -369,6 +412,13 @@ fn build_one(
             let semantics = Semantics::of(document, id, element);
             let box_id = tree.push(BoxKind::Element { node: id, display }, semantics);
             let children = build_children(document, styles, id, tree);
+            if display.outside() == Some(Outside::Inline) && holds_a_block(tree, &children) {
+                // CSS breaks an inline box around a block-level one. The
+                // pieces come back as several boxes rather than one, and the
+                // block goes between them — which is what makes it a *sibling*
+                // of the anonymous blocks the pieces end up in, one level up.
+                return split_around_blocks(tree, box_id, children);
+            }
             let arranged = arrange(tree, box_id, children);
             tree.adopt(box_id, &arranged);
             vec![box_id]
@@ -423,22 +473,6 @@ fn arrange(tree: &mut BoxTree, parent: BoxId, children: Vec<BoxId>) -> Vec<BoxId
         return children;
     }
 
-    // A block-level box inside an inline-level one: CSS splits the inline box
-    // in three around it. This engine does not, and treats the inline box as a
-    // block container instead — which is what the shape ends up looking like
-    // and is not what the specification says. Recorded rather than silent, and
-    // queue item 13 is where it gets done properly.
-    if tree
-        .get(parent)
-        .is_some_and(|node| node.kind.outside() == Outside::Inline)
-    {
-        tree.issues.push(StyleIssue {
-            kind: IssueKind::UnsupportedStructure,
-            source: format!("{parent} is inline and holds a block-level box"),
-            at: Location { line: 0, column: 0 },
-        });
-    }
-
     let mut arranged: Vec<BoxId> = Vec::new();
     let mut run: Vec<BoxId> = Vec::new();
     for child in children {
@@ -454,6 +488,76 @@ fn arrange(tree: &mut BoxTree, parent: BoxId, children: Vec<BoxId>) -> Vec<BoxId
     }
     flush_run(tree, &mut run, &mut arranged);
     arranged
+}
+
+/// Whether any of these boxes is block-level.
+fn holds_a_block(tree: &BoxTree, children: &[BoxId]) -> bool {
+    children.iter().any(|child| {
+        tree.get(*child)
+            .is_some_and(|node| node.kind.outside() == Outside::Block)
+    })
+}
+
+/// Break an inline box around every block-level box inside it.
+///
+/// CSS: *"the inline box is broken around the block-level box, splitting the
+/// inline box into two boxes, one on each side"*. So this hands back a flat
+/// run — piece, block, piece, block, piece — and the caller's own `arrange`
+/// wraps each run of pieces in an anonymous block. The block becomes a sibling
+/// of those anonymous blocks, which is exactly where the specification puts
+/// it, and it is why this cannot be done by rearranging children in place.
+///
+/// A piece with nothing in it is dropped rather than kept. CSS keeps it — "even
+/// if either side is empty" — and an empty inline with a border does draw one;
+/// this engine's inline formatting would give it a line box of the font's
+/// height, which is a visible gap where CSS asks for none. Dropping it is the
+/// smaller wrong answer, and queue item 21 is where an empty piece keeps its
+/// border without keeping a line.
+fn split_around_blocks(tree: &mut BoxTree, first: BoxId, children: Vec<BoxId>) -> Vec<BoxId> {
+    let mut out: Vec<BoxId> = Vec::new();
+    let mut piece = first;
+    let mut run: Vec<BoxId> = Vec::new();
+
+    for child in children {
+        let is_block = tree
+            .get(child)
+            .is_some_and(|node| node.kind.outside() == Outside::Block);
+        if !is_block {
+            run.push(child);
+            continue;
+        }
+        close_piece(tree, piece, &mut run, &mut out);
+        out.push(child);
+        // Every later piece is a continuation of the first, whichever piece it
+        // follows: they are all the same element.
+        let Some(next) = tree.continue_box(first) else {
+            return out;
+        };
+        piece = next;
+    }
+    close_piece(tree, piece, &mut run, &mut out);
+    out
+}
+
+/// Finish one piece of a broken inline box, keeping it only if it holds
+/// something.
+fn close_piece(tree: &mut BoxTree, piece: BoxId, run: &mut Vec<BoxId>, out: &mut Vec<BoxId>) {
+    if run.is_empty() {
+        // CSS keeps an empty piece — "even if either side is empty" — and an
+        // empty inline with a border draws one. Recorded rather than silent,
+        // because a page that meets it should say so rather than be found by
+        // somebody reading the source.
+        tree.issues.push(StyleIssue {
+            kind: IssueKind::UnsupportedStructure,
+            source: format!("{piece} is an empty piece of an inline broken around a block"),
+            at: Location { line: 0, column: 0 },
+        });
+        return;
+    }
+    let taken = core::mem::take(run);
+    let arranged = arrange(tree, piece, taken);
+    tree.adopt(piece, &arranged);
+    out.push(piece);
 }
 
 /// Whether a box is a text box holding nothing but whitespace.
@@ -640,13 +744,72 @@ mod tests {
     }
 
     #[test]
-    fn a_block_inside_an_inline_is_approximated_and_says_so() {
-        let tree = boxes("<span id=s>text<p>block</p></span>", "");
+    fn an_inline_holding_a_block_is_broken_around_it() {
+        let tree = boxes("<div><span id=s>before<p>block</p>after</span></div>", "");
+        let outline = tree.to_outline();
+        // Three children of the `<div>`: an anonymous block holding the first
+        // piece of the span, the `<p>`, and an anonymous block holding the
+        // second piece. The block is a *sibling* of the anonymous blocks,
+        // which is what CSS asks for.
+        let lines: Vec<&str> = outline.lines().collect();
+        let spans = lines
+            .iter()
+            .filter(|line| line.contains("inline flow"))
+            .count();
+        assert_eq!(spans, 2, "the span is in two pieces:\n{outline}");
+        assert!(outline.contains("block flow · paragraph"), "{outline}");
+        assert_eq!(
+            tree.issues(),
+            &[],
+            "nothing is approximated any more: {:?}",
+            tree.issues(),
+        );
+    }
+
+    #[test]
+    fn the_pieces_of_a_broken_inline_are_pieces_of_one_thing() {
+        let tree = boxes("<div><span id=s>before<p>block</p>after</span></div>", "");
+        let pieces: Vec<BoxId> = (0..tree.len())
+            .map(BoxId)
+            .filter(|id| {
+                tree.get(*id)
+                    .is_some_and(|node| matches!(node.kind, BoxKind::Element { .. }))
+            })
+            .filter(|id| tree.is_continuation(*id))
+            .collect();
+        assert_eq!(pieces.len(), 1, "one of the two pieces is a continuation");
+
+        let first = tree
+            .get(*pieces.first().expect("a piece"))
+            .and_then(|node| node.continued_from)
+            .expect("it says which box it continues");
+        assert_eq!(
+            tree.fragments_of(first).len(),
+            2,
+            "and asking the first piece finds both",
+        );
+    }
+
+    #[test]
+    fn a_block_at_the_end_of_an_inline_leaves_no_empty_piece_behind() {
+        let tree = boxes("<div><span>text<p>block</p></span></div>", "");
+        let outline = tree.to_outline();
+        assert_eq!(
+            outline
+                .lines()
+                .filter(|line| line.contains("inline flow"))
+                .count(),
+            1,
+            "there is nothing after the block to be a second piece:\n{outline}",
+        );
+        // CSS would have kept that empty piece. Dropping it is recorded, so a
+        // page that depended on its border says so rather than being found by
+        // somebody reading the source.
         assert!(
             tree.issues()
                 .iter()
                 .any(|issue| issue.kind == IssueKind::UnsupportedStructure),
-            "the approximation is recorded: {:?}",
+            "the empty piece is recorded: {:?}",
             tree.issues(),
         );
     }

@@ -170,6 +170,13 @@ impl<'a> AgentTree<'a> {
         if self.is_hidden(id) {
             return false;
         }
+        // An inline box broken around a block is two boxes and one thing. The
+        // first piece is read; the later ones are read *through*, so an agent
+        // asked to activate "the link called Docs" finds one link rather than
+        // two with the same name and a refusal between them.
+        if self.boxes.is_continuation(id) {
+            return false;
+        }
         // Text a person would read is worth reading — unless the thing that
         // holds it is already *called* by it. A button reads as
         // `button "Save"`; reporting `text "Save"` inside it as well would say

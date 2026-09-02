@@ -146,15 +146,46 @@ file is the specification for what "correct" means here.
   screen and it is not the one `ROADMAP.md`'s exit gate names, so the exit gate
   is **not** met. See `docs/conformance.md`, which says so plainly.
 
-- [ ] **13. A block inside an inline, split properly.** CSS says an inline box
-  holding a block-level box is cut in three around it. This engine treats the
+- [x] **13. A block inside an inline, split properly.** CSS says an inline box
+  holding a block-level box is cut in three around it. This engine treated the
   inline box as a block container instead, which is the shape it ends up
   looking like and is not what the specification says — the difference shows in
-  where backgrounds and borders stop. It is recorded as
-  `IssueKind::UnsupportedStructure` on every tree that meets one, so a real page
-  hitting it will say so rather than being found by reading. **Cut from item 4
-  on the iteration that built it**: the wrapping of inline runs in anonymous
-  boxes is the common case and is done properly, and this is the rare one.
+  where backgrounds and borders stop. **Cut from item 4 on the iteration that
+  built it**: the wrapping of inline runs in anonymous boxes is the common case
+  and is done properly, and this is the rare one.
+
+  **Done.** The inline box is broken into a piece on each side of the block,
+  and the block becomes a sibling of the anonymous blocks the pieces sit in —
+  which is why it could not be done by rearranging children in place. Each
+  piece is a box of its own and draws its own background, so the highlight
+  stops before the block and starts again after it. Corpus case
+  `broken-inline`. Two cuts, both written below as items 21 and 22.
+
+- [ ] **21. An empty piece of a broken inline keeps its border.** CSS keeps a
+  piece with nothing in it — *"even if either side is empty"* — and an empty
+  inline with a border draws that border. This engine drops it, because its
+  inline formatting would give it a line box of the font's height and that is a
+  visible gap where CSS asks for none. Recorded as
+  `IssueKind::UnsupportedStructure` on every tree that meets one. **Cut from
+  item 13**: the piece that holds something is the case a page actually has,
+  and the empty one needs the zero-height line-box rule first.
+
+- [ ] **22. Borders and padding on an inline box.** An inline box's own border
+  and padding are not laid out and not drawn: horizontal ones should add to the
+  advance where the box starts and ends, vertical ones should draw without
+  changing the line's height. The background *is* drawn, which is why item 13's
+  corpus case shows the break. **Found by item 13's corpus case**, which asked
+  for a border and got none.
+
+- [ ] **23. An agent reads a broken inline as one whole thing.** A `<div>`
+  inside an `<a>` is still inside the link for a person and for a click, but
+  the box tree has broken the link into pieces with the block a sibling of
+  them. The agent tree reads the first piece and reads the later ones through,
+  so nothing is doubled and no verb is made ambiguous — but the name of a
+  broken link comes from its first piece alone, and the block between the
+  pieces is not read as part of it. Doing this properly means the agent tree
+  following the *document's* containment where the box tree has split, which is
+  a change to what a view is. **Cut from item 13.**
 
 - [ ] **15. `calc()` with a percentage in a layout property.** `taffy` carries
   such a value as an opaque handle that only a tree implementing its own traits

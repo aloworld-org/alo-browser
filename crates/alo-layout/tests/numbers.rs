@@ -294,6 +294,83 @@ fn text_wraps_where_a_line_may_break_and_nowhere_else() {
     );
 }
 
+/// Every rectangle whose element carries this `id`, in tree order.
+///
+/// An inline box broken around a block is two boxes from one element, so
+/// asking for "the" rectangle of one would answer about half of it.
+fn rects_of(boxes: &BoxTree, layout: &LayoutTree, wanted: &str, document_html: &str) -> Vec<Rect> {
+    let document = parse_document(document_html);
+    let Some(node) = document.descendants(document.root()).find(|id| {
+        document
+            .element(*id)
+            .is_some_and(|element| element.attr("id") == Some(wanted))
+    }) else {
+        return Vec::new();
+    };
+    let Some(root) = boxes.root() else {
+        return Vec::new();
+    };
+    core::iter::once(root)
+        .chain(boxes.descendants(root))
+        .filter(|id| boxes.get(*id).and_then(|held| held.kind.node()) == Some(node))
+        .filter_map(|id| layout.border_box(id))
+        .collect()
+}
+
+#[test]
+fn an_inline_broken_around_a_block_lays_out_in_three_bands() {
+    let html = "<body><div id=w><span id=a>xx<p id=b>yy</p>zz</span></div></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "#w { width: 100px } p { margin: 0 }",
+        Size::new(200.0, 200.0),
+    );
+
+    let pieces = rects_of(&boxes, &layout, "a", html);
+    assert_eq!(pieces.len(), 2, "the span is in two pieces: {pieces:?}");
+
+    let first = pieces.first().copied().expect("a first piece");
+    let block = rect_of(&boxes, &layout, "b", html);
+    let second = pieces.get(1).copied().expect("a second piece");
+
+    // Three bands, sixteen pixels each: the text before, the block, the text
+    // after. The block is a *sibling* of the anonymous blocks the pieces sit
+    // in, so it starts at the container's left edge and fills its width.
+    assert!(close(first.origin.y, 0.0), "{first:?}");
+    assert!(close(first.size.height, 16.0), "{first:?}");
+    assert!(close(block.origin.x, 0.0), "{block:?}");
+    assert!(close(block.origin.y, 16.0), "{block:?}");
+    assert!(
+        close(block.size.width, 100.0),
+        "the block fills the width: {block:?}"
+    );
+    assert!(close(second.origin.y, 32.0), "{second:?}");
+
+    // And the whole thing is three lines tall, not one.
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 48.0));
+}
+
+#[test]
+fn a_broken_inline_starts_each_piece_at_the_left_again() {
+    // The point of breaking rather than stretching: the second piece is a box
+    // of its own, so its background starts where its own text does.
+    let html = "<body><div id=w><span id=a>xxxx<p>y</p>zz</span></div></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "#w { width: 100px } p { margin: 0 }",
+        Size::new(200.0, 200.0),
+    );
+    let pieces = rects_of(&boxes, &layout, "a", html);
+    let first = pieces.first().copied().expect("a first piece");
+    let second = pieces.get(1).copied().expect("a second piece");
+    assert!(close(first.origin.x, 0.0), "{first:?}");
+    assert!(close(second.origin.x, 0.0), "{second:?}");
+    assert!(
+        second.size.width < first.size.width,
+        "each piece is as wide as its own text: {first:?} then {second:?}",
+    );
+}
+
 #[test]
 fn with_no_font_text_has_no_size_and_the_boxes_still_lay_out() {
     let document = parse_document("<body><div id=a>text</div></body>");

@@ -1,0 +1,4 @@
+body { margin: 10px; background: #ffffff; font-family: system-ui; font-size: 13px }
+#prose { width: 160px; color: #18181b }
+#note { background: #fef08a }
+#aside { background: #e4e4e7; padding: 4px; color: #3f3f46 }

@@ -1,0 +1,9 @@
+fill box#1 rgb(255 255 255) at (10, 10) 160×53.398438
+text box#3 "Read the" rgb(24 24 27) 13px at (10, 22.066895)
+fill box#4 rgb(254 240 138) at (72.26416, 10) 75.25781×15.1328125
+text box#5 "note before" rgb(24 24 27) 13px at (72.26416, 22.066895)
+fill box#6 rgb(228 228 231) at (10, 25.132813) 160×23.132813
+text box#7 "the aside" rgb(63 63 70) 13px at (14, 41.199707)
+fill box#9 rgb(254 240 138) at (10, 48.265625) 59.34424×15.1328125
+text box#8 "and after" rgb(24 24 27) 13px at (10, 60.33252)
+text box#10 "please." rgb(24 24 27) 13px at (73.47656, 60.33252)
