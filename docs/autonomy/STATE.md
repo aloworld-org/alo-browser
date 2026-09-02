@@ -666,3 +666,60 @@ reference render: this item turns text into numbers and draws nothing.
   gap between the lines.
 - `Rgba::over` is already the source-over compositing paint needs, and it lives
   with the channels rather than in paint on purpose.
+
+---
+
+## 2026-09-02 — iteration 10: glyph rasterisation (queue item 17)
+
+**What was built.** `crates/alo-paint`, the first half of it.
+
+- `path.rs` — one shape type for everything this engine draws. A rectangle is
+  four lines, a rounded corner is an arc, a letter is a few dozen curves; one
+  type means one rasteriser and one set of anti-aliasing rules, which is what
+  stops a glyph and the box behind it disagreeing along their shared edge.
+- `glyph.rs` — **the only file that names `ttf-parser`**, apart from
+  `alo-text/src/font.rs`, which reads a face's metrics through the same parser
+  `rustybuzz` is built on. Both are in the gate's list.
+- `raster.rs` — **the only file that names `tiny-skia`.** A path in, coverage
+  out.
+
+**Decisions worth knowing about:**
+
+- **Coverage is not colour.** A mask says how much of each pixel a shape covers
+  and nothing about what colour it is. That is why the same glyph mask serves
+  black text on white and white text on black, and why a shadow can reuse a
+  mask rather than rasterise the glyph twice.
+- **The Y axis turns over at the boundary and nowhere else.** A font measures
+  up from the baseline; a screen measures down from the top. One minus sign, in
+  `glyph.rs`, so that no later stage has to remember which way a glyph's numbers
+  go.
+- **A blank glyph and an unreadable font are different answers.** A space has no
+  outline and comes back as an empty glyph; a font that cannot be parsed comes
+  back as nothing. A caller that confused them would draw a missing-glyph box
+  for every space.
+- **A shape too large to raster is refused.** A typo should not ask for a
+  terabyte.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 562 tests, no stubs, boundaries held including the two new ones. **No
+reference render, deliberately**: a coverage mask with no canvas to draw onto
+can only be compared against a picture of itself, and the assertions here say
+what *shape* the mask is — an `l` is a vertical bar, an `H` has a gap at the top
+and none in the middle — which is the stronger statement. Item 7 is where a
+picture arrives and where the gate's reference render becomes possible.
+
+**What the next iteration should know.** Item 7 is paint, and it is the first
+item that can produce a picture — so it is the first that owes the gate a
+**reference render**: a small deterministic raster, committed, diffed on every
+change.
+
+- Everything is now reachable: `LayoutTree::fragments` for what to draw and
+  where, `ComputedStyle::color` for what colour, `alo_text::shape` for the
+  glyphs in a text fragment, `alo_paint::outline` for their shapes, and
+  `alo_paint::fill` for their coverage.
+- **Paint wants `fragments`, not `border_box`.** A box that wrapped has one
+  rectangle per line, and a background drawn from the union crosses the gap.
+- `Rgba::over` is the source-over compositing to use; it lives with the
+  channels rather than in paint on purpose.
+- A PNG encoder is still needed. `png` is the obvious rental and it should get
+  its own boundary file, listed in `scripts/gate.sh` in the same change.

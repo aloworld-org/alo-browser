@@ -38,6 +38,8 @@ declare -a BOUNDARIES=(
   "taffy:crates/alo-layout/src/engine.rs"
   "rustybuzz:crates/alo-text/src/font.rs,crates/alo-text/src/shape.rs"
   "unicode_linebreak:crates/alo-text/src/linebreak.rs"
+  "ttf_parser:crates/alo-paint/src/glyph.rs,crates/alo-text/src/font.rs"
+  "tiny_skia:crates/alo-paint/src/raster.rs"
 )
 
 step "cargo fmt"

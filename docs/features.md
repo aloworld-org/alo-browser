@@ -65,6 +65,8 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 
 ## Paint
 
+- [1] Glyph rasterisation: an outline read from the font, scaled, and filled into coverage — how much of each pixel a letter covers
+- [1] One shape type and one rasteriser, so a glyph and the box behind it agree along the edge they share
 - [1] A display list from the box tree
 - [1] **A software rasteriser to a PNG.** Deterministic and diffable, needing no GPU and no window — which is what makes every item testable from the first one
 - [1] Transforms, opacity, clipping, rounded corners, shadows, gradients

@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A letter has a shape.** A font's outlines are read, scaled and turned into
+  coverage — how much of each pixel a letter covers, anti-aliased. An `l` is a
+  vertical bar, an `H` has a gap at the top and none in the middle, and a space
+  covers nothing; those are the assertions, because a mask is better checked by
+  saying what shape it is than by committing a picture of it.
+- Everything this engine draws is one shape type, so a glyph and the box behind
+  it come out of the same rasteriser with the same anti-aliasing — which is
+  what stops them disagreeing along the edge they share.
+- Coverage is not colour. A mask says how much of each pixel is covered and
+  nothing about what colour it is, which is why the same mask serves black text
+  on white and white text on black, and can be reused for a shadow rather than
+  rasterised twice.
+- The Y axis turns over in one place: a font measures up from the baseline and
+  a screen measures down from the top, and the single minus sign that reconciles
+  them lives at the boundary so that it lives nowhere else.
+
 - **Colours are channels.** Hex in every length CSS allows, the named colours,
   `rgb()` and `hsl()` in both the modern and the legacy form, `transparent`,
   and `currentColor` — which is carried as itself until there is an element to

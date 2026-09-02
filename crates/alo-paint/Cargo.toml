@@ -1,0 +1,21 @@
+[package]
+name = "alo-paint"
+description = "The alo browser paint: outlines into coverage, and coverage into pixels."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+alo-text = { path = "../alo-text" }
+alo-value = { path = "../alo-value" }
+tiny-skia.workspace = true
+ttf-parser.workspace = true
+
+[dev-dependencies]
+dejavu.workspace = true
+
+[lints]
+workspace = true

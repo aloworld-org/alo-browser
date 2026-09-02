@@ -84,7 +84,7 @@ file is the specification for what "correct" means here.
   before paint for the same reason item 12 came before layout:** a colour parser
   built inside paint is how the value layer grows a second one.
 
-- [ ] **17. Glyph rasterisation.** Turning a shaped glyph into coverage. It is
+- [x] **17. Glyph rasterisation.** Turning a shaped glyph into coverage. It is
   cut from item 6 and folded in beside item 7 rather than before it: a glyph
   bitmap with no canvas to draw into can only be tested against itself, and
   next to paint it is tested against a picture. **Cut from item 6.**

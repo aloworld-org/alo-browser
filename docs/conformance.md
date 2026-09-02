@@ -36,8 +36,12 @@ a line sits on one baseline, and a link broken over two lines is two rectangles.
 Colours are channels, `currentColor` included, so the engine now knows what
 colour everything is.
 
-What does not exist: pixels. No glyph has been turned into coverage (queue item
-17) and nothing is drawn (item 7). Every target below is still `not yet`.
+A glyph can be turned into coverage: outlines read from the font, scaled, and
+filled with anti-aliasing.
+
+What does not exist: a picture. Nothing composites coverage into pixels and
+nothing writes a PNG (queue item 7), so there is still no reference render to
+diff. Every target below is still `not yet`.
 
 This file exists instead of a conformance percentage. A Web Platform Tests score
 would grade us against thirty years of legacy we are deliberately refusing
