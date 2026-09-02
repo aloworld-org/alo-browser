@@ -18,10 +18,13 @@ what it is called — so an interface can already be read as a tree of what it
 *is*. An agent could find the selected row of a list by asking what the rows
 are, which is the whole argument of `docs/decisions/0002`.
 
-What does not exist: numbers. A computed style holds the text a declaration was
-written with — `16px` is four characters, not a length (queue item 12) — and no
-box has a position or a size (queue item 5). Nothing is painted, so every target
-below is still `not yet`.
+Lengths are numbers: `16px` is sixteen, `2em` is twice whatever font is in
+force, and `calc(50% - 10px)` is an expression waiting for a basis that only
+layout can give it.
+
+What does not exist: positions and sizes. No box has been laid out (queue item
+5), nothing knows what colour anything is (item 14), and nothing is painted
+(item 7). Every target below is still `not yet`.
 
 This file exists instead of a conformance percentage. A Web Platform Tests score
 would grade us against thirty years of legacy we are deliberately refusing

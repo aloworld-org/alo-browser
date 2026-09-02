@@ -46,6 +46,18 @@ file is the specification for what "correct" means here.
   would read. A layout pass that keeps only geometry cannot be retrofitted into
   an agent tree, which is the whole reason this item sits before layout.
 
+- [x] **12. Lengths as numbers.** *(Moved ahead of item 5 while building item
+  4.)* Item 3 delivers *specified* values as text — `16px` is four characters,
+  and a property nobody set is absent because absence is what "initial" means.
+  `taffy` wants a number, and so does every stage after it. This is the layer
+  that gives one: lengths in every unit CSS has, percentages kept as
+  percentages because their basis is layout's, `calc()` evaluated, and `em` and
+  `rem` resolved against the font size actually in force — which is why it
+  needs the cascade to have run and could not have come earlier. **It sits
+  before item 5 because layout would otherwise have to parse lengths itself,
+  and then item 14 would build a second value parser for colours.** One value
+  layer, used by layout and by paint.
+
 - [ ] **5. Layout.** Flexbox and grid, on `taffy` behind our own boundary — one
   file may name `taffy`, as `alo-os` does with its runtime. Tests are
   **numbers**: assert the computed box, never a screenshot somebody eyeballed.
@@ -76,18 +88,6 @@ file is the specification for what "correct" means here.
   colours from `tokens.css`, rendered and diffed against a reference. This is the
   item that turns the project from plausible into real.
 
-- [ ] **12. Computed values: numbers rather than text.** Item 3 delivers
-  *specified* values as text — `16px` is four characters, and a property nobody
-  set is absent because absence is what "initial" means. Turning that into
-  numbers is this item: lengths resolved against the font size that is in force
-  (which is why `em` needs the cascade to have run), colours into channels,
-  percentages left as percentages because their basis is layout's. It sits here
-  rather than inside item 3 because the code that knows which unit a property
-  wants is the code that asks for it — layout wants a length from `width`, paint
-  wants a colour from `color`, and a general answer is one that has to be wrong
-  somewhere. **Cut from item 3 on the iteration that built it**, so that the
-  cascade could be finished whole rather than half of two things.
-
 - [ ] **13. A block inside an inline, split properly.** CSS says an inline box
   holding a block-level box is cut in three around it. This engine treats the
   inline box as a block container instead, which is the shape it ends up
@@ -97,6 +97,12 @@ file is the specification for what "correct" means here.
   hitting it will say so rather than being found by reading. **Cut from item 4
   on the iteration that built it**: the wrapping of inline runs in anonymous
   boxes is the common case and is done properly, and this is the rare one.
+
+- [ ] **14. Colours as channels.** The other half of what item 12 was
+  originally written as, split from it when item 12 was built: hex, `rgb()`,
+  `hsl()`, the named colours, `currentColor` and `transparent`, into channels.
+  It blocks paint rather than layout, which is why it is not item 12's problem
+  — a layout pass has never needed to know what colour anything is.
 
 ---
 

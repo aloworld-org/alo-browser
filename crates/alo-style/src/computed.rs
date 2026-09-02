@@ -12,25 +12,47 @@
 //! and the reader knows what that is for the property it is asking about. That
 //! is not a shortcut: CSS says "nobody set this" and "somebody set this to its
 //! initial value" are the same state, and an engine that carried a table of
-//! initial values would have a second place for them to be wrong. What it does
-//! mean is that this stage produces **specified values as text** — `16px` is
-//! still the four characters `16px`. Turning those into numbers is queue item
-//! 12, and it belongs with the code that knows which unit a property wants.
+//! initial values would have a second place for them to be wrong.
+//!
+//! Values are the text they were written with — `16px` is still four
+//! characters — and [`ComputedStyle::px`] is how a caller gets a number out of
+//! one, using the font this element ended up with.
+//!
+//! **`font-size` and `line-height` are the two exceptions**, and they are
+//! exceptions for a reason rather than by accident: they inherit as *computed*
+//! values. A child that inherited the text `2em` would resolve it again
+//! against its own font, so `2em` inside `2em` would be four times the
+//! grandparent rather than twice the parent. They are therefore always present
+//! and always already resolved, and [`ComputedStyle::metrics`] is the same
+//! answer in the form a length wants.
 
 use crate::cascade::{Applicable, SourcedSheet};
 use crate::inheritance::inherits;
 use crate::keyword::{Resolution, WideKeyword};
+use crate::metrics::{DEFAULT_FONT_SIZE, metrics_for, resolve_font_size, resolve_line_height};
 use crate::origin::Origin;
 use crate::variables::{Resolved, Variables, resolve_variables, substitute};
 use alo_css::{IssueKind, Location, MatchContext, MediaContext, PropertyName, StyleIssue};
 use alo_dom::{Document, NodeId};
+use alo_value::{FontMetrics, LengthPercentage};
 use std::collections::BTreeMap;
 
 /// What one element ended up with.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ComputedStyle {
     properties: BTreeMap<PropertyName, String>,
     variables: Variables,
+    metrics: FontMetrics,
+}
+
+impl Default for ComputedStyle {
+    fn default() -> Self {
+        Self {
+            properties: BTreeMap::new(),
+            variables: Variables::new(),
+            metrics: FontMetrics::default(),
+        }
+    }
 }
 
 impl ComputedStyle {
@@ -70,6 +92,45 @@ impl ComputedStyle {
         self.properties.insert(name.clone(), value);
     }
 
+    /// The font in force on this element, ready to turn a length into a
+    /// number.
+    ///
+    /// This is the answer queue item 12 exists to give: `em` and `rem` cannot
+    /// be numbers until the cascade has said what the font size is, and it is
+    /// resolved here, once, on the way down the tree.
+    pub fn metrics(&self) -> FontMetrics {
+        self.metrics
+    }
+
+    /// This element's font size, in CSS pixels.
+    pub fn font_size(&self) -> f32 {
+        self.metrics.font_size
+    }
+
+    /// This element's line height, in CSS pixels.
+    pub fn line_height(&self) -> f32 {
+        self.metrics.line_height
+    }
+
+    /// A property's value as a length or a percentage, or [`None`] when it is
+    /// absent or is something else — `auto`, a keyword, a value this engine
+    /// cannot read. All of those mean "at its initial value" to a caller.
+    pub fn length(&self, name: &str) -> Option<LengthPercentage> {
+        crate::metrics::length_of(self.get(name))
+    }
+
+    /// A property's value in CSS pixels, given what a percentage in it would
+    /// be a percentage of.
+    pub fn px(&self, name: &str, basis: f32) -> Option<f32> {
+        Some(self.length(name)?.to_px(self.metrics, basis))
+    }
+
+    /// A property's value as a plain number — `line-height: 1.5`,
+    /// `flex-grow: 2`.
+    pub fn number(&self, name: &str) -> Option<f32> {
+        alo_value::parse_number(self.get(name)?)
+    }
+
     fn take_inherited_from(parent: &ComputedStyle) -> Self {
         Self {
             properties: parent
@@ -79,6 +140,10 @@ impl ComputedStyle {
                 .map(|(name, value)| (name.clone(), value.clone()))
                 .collect(),
             variables: parent.variables.clone(),
+            // Replaced once this element's own declarations are known; until
+            // then the parent's is the right answer, because font size
+            // inherits.
+            metrics: parent.metrics,
         }
     }
 }
@@ -127,6 +192,9 @@ pub fn resolve(
     let mut tree = StyleTree::default();
     let mut matcher = MatchContext::new(document);
     let root_style = ComputedStyle::new();
+    // The first element styled is the root, and `rem` is relative to it — so
+    // its own metrics have to be settled before any descendant asks.
+    let mut root_metrics: Option<FontMetrics> = None;
 
     for id in document.descendants(document.root()) {
         if document.element(id).is_none() {
@@ -139,10 +207,71 @@ pub fn resolve(
             .unwrap_or_else(|| root_style.clone());
 
         let applicable = Applicable::gather(sheets, device, &mut matcher, id);
-        let style = compute_one(&applicable, &parent, &mut tree.issues);
+        let mut style = compute_one(&applicable, &parent, &mut tree.issues);
+        style.metrics = resolve_metrics(&style, &parent, root_metrics);
+        record_computed_font(&mut style);
+        if root_metrics.is_none() {
+            root_metrics = Some(style.metrics);
+        }
         tree.styles.insert(id, style);
     }
     tree
+}
+
+/// Work out the font in force on an element, now that its declarations are
+/// known.
+///
+/// The root is the case worth naming: `rem` on the root element is relative to
+/// the root's *own* font size, so it is resolved against the default rather
+/// than against something that does not exist yet.
+fn resolve_metrics(
+    style: &ComputedStyle,
+    parent: &ComputedStyle,
+    root: Option<FontMetrics>,
+) -> FontMetrics {
+    let root_font_size = root.map_or(DEFAULT_FONT_SIZE, |metrics| metrics.font_size);
+    let font_size = resolve_font_size(
+        style.get("font-size"),
+        parent.metrics.font_size,
+        root_font_size,
+    );
+    let line_height = resolve_line_height(style.get("line-height"), font_size, root_font_size);
+    let root_line_height = root.map_or(line_height, |metrics| metrics.line_height);
+    metrics_for(font_size, root_font_size, line_height, root_line_height)
+}
+
+/// Replace the font properties' specified text with what they computed to.
+///
+/// This is not tidying. `font-size` and `line-height` **inherit as computed
+/// values**, and a child that inherited the text `2em` would resolve it again
+/// against its own font — so `2em` inside `2em` would be four times the
+/// grandparent rather than twice the parent. Writing the computed value back
+/// is what makes inheritance mean what CSS says it means.
+///
+/// `line-height` keeps its number when it was written as one, because a number
+/// is what it computes to: a child with a larger font then gets a
+/// proportionally larger line, which is the whole reason to write
+/// `line-height: 1.5` rather than `line-height: 24px`.
+fn record_computed_font(style: &mut ComputedStyle) {
+    let font_size = PropertyName::parse("font-size");
+    style
+        .properties
+        .insert(font_size, format!("{}px", style.metrics.font_size));
+
+    let line_height = PropertyName::parse("line-height");
+    let computed = match style.properties.get(&line_height).map(String::as_str) {
+        Some(text) if alo_value::parse_number(text).is_some_and(|number| number >= 0.0) => {
+            text.trim().to_owned()
+        }
+        Some(text) if !text.trim().is_empty() && !text.eq_ignore_ascii_case("normal") => {
+            format!("{}px", style.metrics.line_height)
+        }
+        // Nothing said anything, so it stays `normal` — which is a computed
+        // value in its own right, and one that means something different at
+        // every font size it is inherited into.
+        _ => "normal".to_owned(),
+    };
+    style.properties.insert(line_height, computed);
 }
 
 /// Turn what applied to one element into what it ends up with.
@@ -319,9 +448,46 @@ mod tests {
         let style = style_of("<p id=x>t</p>", "p { color: red }", "x");
         assert_eq!(style.get("color"), Some("red"));
         assert_eq!(style.get("margin"), None);
-        assert_eq!(style.len(), 1);
         assert!(!style.is_empty());
         assert!(ComputedStyle::new().is_empty());
+    }
+
+    #[test]
+    fn the_font_is_always_there_because_it_inherits_as_a_number() {
+        let style = style_of("<p id=x>t</p>", "p { color: red }", "x");
+        assert_eq!(
+            style.get("font-size"),
+            Some("16px"),
+            "resolved, not the text somebody wrote — see the module docs",
+        );
+        assert_eq!(style.get("line-height"), Some("normal"));
+        assert!((style.font_size() - 16.0).abs() < 0.0001);
+        assert!((style.line_height() - 19.2).abs() < 0.0001);
+    }
+
+    #[test]
+    fn a_line_height_written_as_a_number_stays_a_number_so_it_scales() {
+        let style = style_of(
+            "<div id=parent><p id=child>t</p></div>",
+            "#parent { line-height: 1.5 } #child { font-size: 40px }",
+            "child",
+        );
+        assert_eq!(style.get("line-height"), Some("1.5"));
+        assert!(
+            (style.line_height() - 60.0).abs() < 0.0001,
+            "one and a half of the child's own font, not of the parent's",
+        );
+    }
+
+    #[test]
+    fn a_line_height_written_as_a_length_inherits_as_that_length() {
+        let style = style_of(
+            "<div id=parent><p id=child>t</p></div>",
+            "#parent { line-height: 24px } #child { font-size: 40px }",
+            "child",
+        );
+        assert_eq!(style.get("line-height"), Some("24px"));
+        assert!((style.line_height() - 24.0).abs() < 0.0001);
     }
 
     #[test]
@@ -497,8 +663,12 @@ mod tests {
         assert!(!tree.is_empty());
         assert!(tree.issues().is_empty());
         assert!(
-            tree.styles.values().all(ComputedStyle::is_empty),
-            "and every one of them is at its initial value",
+            tree.styles.values().all(|style| {
+                style
+                    .iter()
+                    .all(|(name, _)| matches!(name.as_str(), "font-size" | "line-height"))
+            }),
+            "and every one of them holds only the font, which is always resolved",
         );
     }
 
@@ -514,7 +684,13 @@ mod tests {
                 .iter()
                 .map(|(name, value)| format!("{name}: {value}"))
                 .collect::<Vec<_>>(),
-            vec!["--gap: 8px", "color: red", "margin: 0"],
+            vec![
+                "--gap: 8px",
+                "color: red",
+                "font-size: 16px",
+                "line-height: normal",
+                "margin: 0",
+            ],
         );
     }
 }

@@ -219,3 +219,81 @@ fn every_element_gets_a_style_and_the_root_is_where_the_system_starts() {
         "a font stack survives the cascade with its commas and spaces intact",
     );
 }
+
+// --- the font in force, and the lengths that depend on it -------------------
+
+#[test]
+fn the_root_font_size_is_sixteen_pixels_until_something_says_otherwise() {
+    let (document, tree) = tree_for(ColorScheme::Light);
+    let style = style(&document, &tree, "main");
+    assert!((style.font_size() - 16.0).abs() < 0.0001);
+    assert!((style.line_height() - 19.2).abs() < 0.0001);
+}
+
+#[test]
+fn em_compounds_down_the_tree_and_rem_does_not() {
+    let document = parse_document(
+        "<html><body><div id=outer><div id=inner><span id=deep>t</span></div></div></body></html>",
+    );
+    let sheet = parse_stylesheet(
+        "html { font-size: 20px } #outer { font-size: 2em } #inner { font-size: 2em } \
+         #deep { width: 1em; height: 1rem }",
+    );
+    let sheets = [SourcedSheet::new(Origin::Author, &sheet)];
+    let tree = resolve(&document, &sheets, &MediaContext::default());
+
+    assert!((style(&document, &tree, "outer").font_size() - 40.0).abs() < 0.0001);
+    assert!(
+        (style(&document, &tree, "inner").font_size() - 80.0).abs() < 0.0001,
+        "em compounds: two of forty",
+    );
+
+    let deep = style(&document, &tree, "deep");
+    assert!(
+        (deep.px("width", 0.0).expect("a width") - 80.0).abs() < 0.0001,
+        "1em is this element's font, which it inherited",
+    );
+    assert!(
+        (deep.px("height", 0.0).expect("a height") - 20.0).abs() < 0.0001,
+        "1rem is the root's, however deep it is",
+    );
+}
+
+#[test]
+fn a_length_built_from_a_variable_becomes_a_number() {
+    let (document, tree) = tree_for(ColorScheme::Light);
+    let panel = style(&document, &tree, "panel");
+    assert_eq!(panel.get("padding"), Some("calc(8px * 2)"));
+    assert!(
+        (panel.px("padding", 0.0).expect("a padding") - 16.0).abs() < 0.0001,
+        "the cascade substituted the variable and the value layer evaluated it",
+    );
+}
+
+#[test]
+fn a_percentage_stays_a_percentage_until_a_basis_is_supplied() {
+    let document = parse_document("<html><body><div id=half>t</div></body></html>");
+    let sheet = parse_stylesheet("#half { width: 50% }");
+    let sheets = [SourcedSheet::new(Origin::Author, &sheet)];
+    let tree = resolve(&document, &sheets, &MediaContext::default());
+    let half = style(&document, &tree, "half");
+
+    let width = half.length("width").expect("a width");
+    assert!(width.is_percentage());
+    assert!((half.px("width", 400.0).expect("a width") - 200.0).abs() < 0.0001);
+    assert!((half.px("width", 800.0).expect("a width") - 400.0).abs() < 0.0001);
+}
+
+#[test]
+fn a_value_the_engine_cannot_read_is_absent_rather_than_guessed_at() {
+    let document = parse_document("<html><body><div id=odd>t</div></body></html>");
+    let sheet = parse_stylesheet("#odd { width: auto; height: 50vw; margin: banana }");
+    let sheets = [SourcedSheet::new(Origin::Author, &sheet)];
+    let tree = resolve(&document, &sheets, &MediaContext::default());
+    let odd = style(&document, &tree, "odd");
+
+    assert_eq!(odd.get("width"), Some("auto"), "the text is still there");
+    assert_eq!(odd.px("width", 400.0), None, "and it is not a length");
+    assert_eq!(odd.px("height", 400.0), None, "nor is a unit we refuse");
+    assert_eq!(odd.px("margin", 400.0), None);
+}

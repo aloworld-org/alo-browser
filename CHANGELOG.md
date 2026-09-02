@@ -6,6 +6,24 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Lengths are numbers.** `16px` was four characters; now it is sixteen. Every
+  unit CSS has that does not need a window to answer, `calc()` type-checked
+  once and evaluated whenever a caller has a font and a basis, and `em` and
+  `rem` resolved against the font size actually in force — which is why this
+  layer had to wait for the cascade rather than come before it.
+- `calc(1px + 2)` is refused when it is read, rather than producing three of
+  something. A length may be added to a length and multiplied by a number;
+  anything else is somebody's mistake and is reported as one.
+- A percentage is carried rather than resolved, because `50%` is half of
+  *something* and which something depends on the property and the containing
+  block. Only layout knows, so only layout is asked.
+- **`font-size` and `line-height` now inherit as computed values**, which is
+  what CSS says and what a first draft got wrong: a child that inherited the
+  text `2em` resolved it again against its own font, so `2em` inside `2em` was
+  four times the grandparent rather than twice the parent. A `line-height`
+  written as a number stays a number, so a child with a larger font still gets
+  a proportionally larger line.
+
 - **There is a box tree**, and every box in it knows what it *is*. ADR 0002
   says the layout tree is the agent's tree, so a box carries its role, its
   state and what it is called from the moment it is made — "invoice list,

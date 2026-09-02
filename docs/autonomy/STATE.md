@@ -350,3 +350,68 @@ our own boundary.
 - Text is a box with a string in it and no size. Measuring it is item 6, and
   `taffy` takes a measure function for exactly that — so item 5 can leave a
   seam there rather than a stub, and should say which.
+
+---
+
+## 2026-09-02 — iteration 5: lengths as numbers (queue item 12)
+
+**The queue was reordered before this item, and the reason is written into it.**
+Item 5 is layout on `taffy`, and `taffy` wants numbers where a computed style
+holds `"16px"`. Building item 5 first would have meant parsing lengths inside
+the layout crate, and then item 14 building a second value parser for colours.
+One value layer, used by layout and by paint, is the shape that avoids that — so
+item 12 moved ahead of item 5, and item 12's own colour half became item 14.
+
+**What was built.** `crates/alo-value`, and the font resolution in
+`alo-style/src/metrics.rs` that gives it something to be relative to.
+
+- `unit.rs` — every unit CSS has that does not need a window. `vw` and `vh` are
+  deliberately absent: they are relative to a viewport, and a viewport belongs
+  to layout.
+- `length.rs` — `Length`, `LengthPercentage` and `FontMetrics`. A percentage is
+  carried rather than resolved, because only the caller knows what it is a
+  percentage of.
+- `calc.rs` — the expression, with the useful half of CSS's type system: a
+  length may be added to a length and multiplied by a number, and anything else
+  is refused. Checked once when parsed, so evaluating later cannot fail.
+- `parse.rs` — text in, values out, and nothing approximated.
+- `alo-style/src/metrics.rs` — font size and line height per element, including
+  the keyword sizes and the rule that `em` in a *font size* means the parent's.
+
+**The bug worth remembering.** `font-size` inherited as the specified text, so
+`2em` inside `2em` compounded to four times the grandparent's font rather than
+twice the parent's. The fix is what CSS actually says: `font-size` and
+`line-height` inherit as **computed** values, so the resolved number is written
+back after each element is styled. A `line-height` written as a number stays a
+number, because that is its computed value and it is why one writes
+`line-height: 1.5` rather than `line-height: 24px`. This is the second time this
+loop has been caught by inheritance semantics — `margin: inherit` was the first
+— and the pattern is the same: *what* inherits is not the same question as
+*what form* it inherits in.
+
+**Two estimates are written down rather than buried**, both in
+`FontMetrics::estimated`: `ex` and `ch` are half the font size, and
+`line-height: normal` is 1.2 times it. The real answers come from a font, and
+queue item 6 is where a font arrives to be asked. They are named here so that
+the day they are wrong, the wrongness is findable.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 361 tests, no stubs, boundaries held — `cssparser` is now also named in
+`alo-value/src/parse.rs`, which is in the list. No layout assertion and no
+reference render: this item resolves numbers, it does not position anything.
+
+**What the next iteration should know.** Item 5 is layout, and it now has
+everything it needs.
+
+- `ComputedStyle::px(name, basis)` gives a number, `length(name)` gives the
+  value if the caller wants to decide about percentages itself, and
+  `number(name)` gives a plain number for `flex-grow` and the like. `None` from
+  any of them means "absent, or something this engine cannot read" — both of
+  which are "use the initial value".
+- `ComputedStyle::metrics()` is the font in force, already resolved.
+- **One file may name `taffy`**, and `scripts/gate.sh` will check it. Add the
+  entry to `BOUNDARIES` in the same change that adds the dependency.
+- Text is a box with a string in it and no size. `taffy` takes a measure
+  function for exactly that, so item 5 can leave a named seam there rather than
+  a stub — and should say in its journal entry which seam, so item 6 knows
+  where to arrive.

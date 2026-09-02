@@ -34,6 +34,14 @@ version = "0.0.0"
 dependencies = [
  "alo-css",
  "alo-dom",
+ "alo-value",
+ "cssparser",
+]
+
+[[package]]
+name = "alo-value"
+version = "0.0.0"
+dependencies = [
  "cssparser",
 ]
 
