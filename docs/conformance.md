@@ -53,8 +53,19 @@ with a `linear-gradient` or a `radial-gradient`; text casts a shadow too.
 Refused rather than approximated: `conic-gradient`, the repeating gradients,
 interpolation hints, and any colour space but sRGB.
 
-What does not exist: transforms and opacity (queue item 20), and a border with
-four different widths still turns its inner corner squarer than CSS draws it. The targets below are
+A box can be moved, scaled, turned and slanted by `transform`, about a
+`transform-origin`, and faded by `opacity` — as a group, drawn once and
+composited once, which is what `opacity` means. A transform changes what is
+*drawn* and not what is laid out, so an agent goes on reading positions out of
+the layout tree. Paint order follows stacking contexts: a positioned box is
+painted last in the context it belongs to, and a negative `z-index` goes behind
+its parent's content and in front of its background.
+
+What does not exist: any transform with a third dimension in it — `rotate3d`,
+`matrix3d`, `perspective` — which is refused rather than flattened. A border
+with four different widths still turns its inner corner squarer than CSS draws
+it. A blur under a non-uniform scale or a skew is softened by the average of
+the two axes, because a blur radius is one number. The targets below are
 still `not yet`, because they are alo's own screens rather than pages we wrote
 to test with.
 

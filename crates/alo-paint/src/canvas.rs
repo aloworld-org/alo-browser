@@ -100,6 +100,42 @@ impl Canvas {
         }
     }
 
+    /// Draw another canvas over this one, at an opacity.
+    ///
+    /// This is what `opacity` means and why it needs a canvas of its own: a
+    /// half-transparent group is drawn **once**, whole, at half strength.
+    /// Drawing each of its boxes at half strength separately would show every
+    /// box through every other one, which is the classic wrong picture.
+    pub fn draw_over(&mut self, other: &Canvas, opacity: f32) {
+        let opacity = opacity.clamp(0.0, 1.0);
+        if opacity <= 0.0 {
+            return;
+        }
+        for y in 0..self.height.min(other.height) {
+            for x in 0..self.width.min(other.width) {
+                let Some(over) = other.at(x, y) else {
+                    continue;
+                };
+                if over.alpha <= 0.0 {
+                    continue;
+                }
+                let Some(index) = self.index(x, y) else {
+                    continue;
+                };
+                let Some(under) = self.pixels.get(index).copied() else {
+                    continue;
+                };
+                let faded = Rgba {
+                    alpha: over.alpha * opacity,
+                    ..over
+                };
+                if let Some(pixel) = self.pixels.get_mut(index) {
+                    *pixel = faded.over(under);
+                }
+            }
+        }
+    }
+
     fn index(&self, x: u32, y: u32) -> Option<usize> {
         if x >= self.width || y >= self.height {
             return None;
@@ -224,5 +260,40 @@ mod tests {
         let mut canvas = Canvas::new(2, 2, Rgba::WHITE);
         canvas.fill_rect(0, 0, 2, 2, Rgba::TRANSPARENT);
         assert_eq!(canvas.at(0, 0), Some(Rgba::WHITE));
+    }
+    #[test]
+    fn a_group_drawn_over_at_half_opacity_is_half_way() {
+        let mut page = Canvas::new(1, 1, Rgba::WHITE);
+        let mut group = Canvas::new(1, 1, Rgba::TRANSPARENT);
+        group.blend(0, 0, Rgba::BLACK, 255);
+        page.draw_over(&group, 0.5);
+        let blended = page.at(0, 0).expect("a pixel");
+        assert!(close(blended, Rgba::new(0.5, 0.5, 0.5, 1.0)), "{blended}");
+    }
+
+    #[test]
+    fn two_boxes_in_one_group_do_not_show_through_each_other() {
+        // The whole point of a group: black over black at half opacity is one
+        // half-black, not two.
+        let mut group = Canvas::new(1, 1, Rgba::TRANSPARENT);
+        group.blend(0, 0, Rgba::BLACK, 255);
+        group.blend(0, 0, Rgba::BLACK, 255);
+        let mut page = Canvas::new(1, 1, Rgba::WHITE);
+        page.draw_over(&group, 0.5);
+        let blended = page.at(0, 0).expect("a pixel");
+        assert!(close(blended, Rgba::new(0.5, 0.5, 0.5, 1.0)), "{blended}");
+    }
+
+    #[test]
+    fn a_group_at_no_opacity_draws_nothing_and_at_full_draws_all_of_it() {
+        let mut group = Canvas::new(1, 1, Rgba::TRANSPARENT);
+        group.blend(0, 0, Rgba::BLACK, 255);
+
+        let mut page = Canvas::new(1, 1, Rgba::WHITE);
+        page.draw_over(&group, 0.0);
+        assert_eq!(page.at(0, 0), Some(Rgba::WHITE));
+
+        page.draw_over(&group, 1.0);
+        assert_eq!(page.at(0, 0), Some(Rgba::BLACK));
     }
 }

@@ -6,6 +6,34 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`transform` and `opacity`.** `translate`, `scale`, `rotate`, `skew` and
+  `matrix`, about a `transform-origin` that defaults to the middle of the box;
+  `opacity` as a number or a percentage. A rotated box carries everything
+  inside it round with it, and a rotated letter is a real outline rather than a
+  stretched picture of one.
+- **`opacity` is a group, not a number applied to each box.** The subtree is
+  drawn on a surface of its own and composited back once. Fading box by box
+  would show every box in a group through every other one — two black squares
+  on top of one another at half opacity would come out three quarters dark
+  instead of a mid grey.
+- **A gradient under a transform asks where the pixel came from.** The pixel is
+  mapped back through the inverse of the transform before the gradient is asked
+  what colour it is, so a turned box's gradient turns with it rather than
+  staying pinned to the page.
+- **Paint order follows stacking contexts now.** A positioned box is painted
+  last in the stacking context it *belongs to*, which may be several ancestors
+  up — so a positioned box inside a transformed one is painted inside that
+  transform rather than over the whole page. A negative `z-index` goes behind
+  its parent's content and in front of its background, which is the part of
+  stacking that surprises people.
+- **A transform moves what is drawn, not what is laid out.** That is what CSS
+  says, and it is what lets an agent keep reading positions out of the layout
+  tree while the page is animating.
+- **Refused rather than approximated**: anything with a third dimension in it —
+  `rotate3d`, `matrix3d`, `perspective`, `translateZ`. A value containing one is
+  refused whole rather than half applied, because half a transform puts a box
+  somewhere nobody asked for.
+
 - **A box can cast a shadow and be filled with a gradient.** `box-shadow`
   (offset, blur, spread, colour, and `inset`), `text-shadow`,
   `linear-gradient` and `radial-gradient`. A page stops being flat colour in

@@ -1,0 +1,10 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      text "New"
+    block flow · generic
+      block flow · paragraph
+        text "Half here"
+    block flow · generic
+      block flow · generic
+      block flow · generic

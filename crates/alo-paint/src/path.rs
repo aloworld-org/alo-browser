@@ -142,6 +142,35 @@ impl Path {
         }
     }
 
+    /// Every point of this path put through a transform.
+    ///
+    /// A curve stays a curve: an affine transform moves control points, and
+    /// the curve through the moved points is the moved curve. That is why
+    /// `transform` needs no new geometry — a rotated letter is the same
+    /// outline with different numbers in it.
+    #[must_use]
+    pub fn transformed(&self, by: alo_value::Matrix) -> Self {
+        let moved = |point: Point| {
+            let (x, y) = by.apply(point.x, point.y);
+            Point::new(x, y)
+        };
+        Self {
+            segments: self
+                .segments
+                .iter()
+                .map(|segment| match *segment {
+                    Segment::MoveTo(to) => Segment::MoveTo(moved(to)),
+                    Segment::LineTo(to) => Segment::LineTo(moved(to)),
+                    Segment::QuadTo(control, to) => Segment::QuadTo(moved(control), moved(to)),
+                    Segment::CubicTo(first, second, to) => {
+                        Segment::CubicTo(moved(first), moved(second), moved(to))
+                    }
+                    Segment::Close => Segment::Close,
+                })
+                .collect(),
+        }
+    }
+
     /// The smallest rectangle every point of this path fits inside, as
     /// `(left, top, right, bottom)`.
     ///
@@ -194,6 +223,38 @@ mod tests {
         assert!(path.is_empty());
         assert!(path.segments().is_empty());
         assert_eq!(path.bounds(), None);
+    }
+
+    #[test]
+    fn a_transform_moves_every_point_and_leaves_the_shape_a_shape() {
+        let path = Path::rectangle(0.0, 0.0, 10.0, 10.0);
+        let moved = path.transformed(alo_value::Matrix::translation(5.0, -5.0));
+        assert_eq!(moved.bounds(), Some((5.0, -5.0, 15.0, 5.0)));
+        assert_eq!(moved.segments().len(), path.segments().len());
+    }
+
+    #[test]
+    fn a_curves_control_points_move_with_it() {
+        let mut path = Path::new();
+        path.move_to(Point::new(0.0, 0.0));
+        path.cubic_to(
+            Point::new(1.0, 0.0),
+            Point::new(2.0, 1.0),
+            Point::new(2.0, 2.0),
+        );
+        let doubled = path.transformed(alo_value::Matrix {
+            a: 2.0,
+            d: 2.0,
+            ..alo_value::Matrix::IDENTITY
+        });
+        assert_eq!(
+            doubled.segments().get(1),
+            Some(&Segment::CubicTo(
+                Point::new(2.0, 0.0),
+                Point::new(4.0, 2.0),
+                Point::new(4.0, 4.0),
+            )),
+        );
     }
 
     #[test]

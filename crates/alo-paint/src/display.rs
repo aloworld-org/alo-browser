@@ -13,7 +13,7 @@
 use crate::paint::Paint;
 use crate::path::Path;
 use alo_box::BoxId;
-use alo_value::Rgba;
+use alo_value::{Matrix, Rgba};
 use core::fmt::Write as _;
 
 /// A shadow cast by a run of text.
@@ -73,6 +73,34 @@ pub enum DisplayItem {
     },
     /// The end of the innermost clip.
     PopClip,
+    /// Everything until the matching [`DisplayItem::PopTransform`] is drawn
+    /// with its points put through this matrix.
+    ///
+    /// A pair, like a clip, and for the same reason: a transform applies to a
+    /// whole subtree, and a box inside a transformed one is transformed by
+    /// both.
+    PushTransform {
+        /// The box that asked for it.
+        box_id: BoxId,
+        /// Where its points go.
+        matrix: Matrix,
+    },
+    /// The end of the innermost transform.
+    PopTransform,
+    /// Everything until the matching [`DisplayItem::PopGroup`] is drawn on a
+    /// surface of its own and composited back at this opacity.
+    ///
+    /// This is what `opacity` *is*. Fading each box separately would show
+    /// every box in a group through every other one; fading them once, as a
+    /// picture, is the answer — and it is why a group needs its own canvas.
+    PushGroup {
+        /// The box that asked for it.
+        box_id: BoxId,
+        /// How much of the group reaches the page, from nothing to one.
+        opacity: f32,
+    },
+    /// The end of the innermost group.
+    PopGroup,
     /// A run of text.
     Text {
         /// The box it belongs to.
@@ -101,8 +129,10 @@ impl DisplayItem {
             DisplayItem::Fill { box_id, .. }
             | DisplayItem::Shadow { box_id, .. }
             | DisplayItem::Text { box_id, .. }
-            | DisplayItem::PushClip { box_id, .. } => Some(*box_id),
-            DisplayItem::PopClip => None,
+            | DisplayItem::PushClip { box_id, .. }
+            | DisplayItem::PushTransform { box_id, .. }
+            | DisplayItem::PushGroup { box_id, .. } => Some(*box_id),
+            DisplayItem::PopClip | DisplayItem::PopTransform | DisplayItem::PopGroup => None,
         }
     }
 }
@@ -212,7 +242,15 @@ impl DisplayList {
                         bottom - top,
                     )
                 }
+                DisplayItem::PushTransform { box_id, matrix } => {
+                    writeln!(out, "transform {box_id} by {matrix}")
+                }
+                DisplayItem::PushGroup { box_id, opacity } => {
+                    writeln!(out, "group {box_id} at opacity {opacity}")
+                }
                 DisplayItem::PopClip => writeln!(out, "unclip"),
+                DisplayItem::PopTransform => writeln!(out, "untransform"),
+                DisplayItem::PopGroup => writeln!(out, "ungroup"),
             };
         }
         out

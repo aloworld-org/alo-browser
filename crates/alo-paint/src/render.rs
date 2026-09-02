@@ -14,17 +14,42 @@ use crate::paint::Paint;
 use crate::path::{Path, Point};
 use crate::raster::fill;
 use alo_text::{Direction, Font, shape};
+use alo_value::{Matrix, Rgba};
 
 /// Draw a display list onto a canvas.
 pub fn render(list: &DisplayList, canvas: &mut Canvas) {
-    // A stack rather than one mask, because clips nest: a rounded card inside
-    // a scrolling panel is clipped by both, and the answer is where they
-    // overlap.
+    // Three stacks, because three things nest. A clip applies to a subtree; a
+    // transform applies to a subtree and composes with the ones outside it; a
+    // group is a subtree drawn somewhere else and composited back.
     let mut clips: Vec<Clip> = Vec::new();
+    let mut transforms: Vec<Matrix> = Vec::new();
+    let mut groups: Vec<(f32, Canvas)> = Vec::new();
+    let (width, height) = (canvas.width(), canvas.height());
+
     for item in list.items() {
+        let current = transforms.last().copied().unwrap_or(Matrix::IDENTITY);
         match item {
+            DisplayItem::PushTransform { matrix, .. } => {
+                // The inner transform happens first, in the coordinates the
+                // outer one has already established.
+                transforms.push(matrix.then(current));
+            }
+            DisplayItem::PopTransform => {
+                transforms.pop();
+            }
+            DisplayItem::PushGroup { opacity, .. } => {
+                // A surface of its own, transparent, the size of the page: the
+                // group is drawn whole and faded once.
+                groups.push((*opacity, Canvas::new(width, height, Rgba::TRANSPARENT)));
+            }
+            DisplayItem::PopGroup => {
+                if let Some((opacity, group)) = groups.pop() {
+                    let target = groups.last_mut().map_or(&mut *canvas, |(_, under)| under);
+                    target.draw_over(&group, opacity);
+                }
+            }
             DisplayItem::PushClip { path, .. } => {
-                let mask = Clip::from(&fill(path));
+                let mask = Clip::from(&fill(&moved(path, current)));
                 clips.push(match clips.last() {
                     Some(outer) => outer.intersected(&mask),
                     None => mask,
@@ -34,15 +59,31 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 clips.pop();
             }
             DisplayItem::Fill { path, paint, .. } => {
-                draw_coverage(canvas, &fill(path), paint, clips.last());
+                let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
+                draw_coverage(
+                    target,
+                    &fill(&moved(path, current)),
+                    paint,
+                    current,
+                    clips.last(),
+                );
             }
             DisplayItem::Shadow {
                 path, blur, color, ..
             } => {
                 // The shape, softened. Coverage rather than colour, so what is
-                // behind the shadow is not blurred along with it.
-                let soft = blurred(&fill(path), *blur);
-                draw_coverage(canvas, &soft, &Paint::Solid(*color), clips.last());
+                // behind the shadow is not blurred along with it. The radius
+                // grows with the transform, because a shadow is blurred in the
+                // box's own coordinates and then moved with it.
+                let soft = blurred(&fill(&moved(path, current)), blur * current.scale_factor());
+                let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
+                draw_coverage(
+                    target,
+                    &soft,
+                    &Paint::Solid(*color),
+                    Matrix::IDENTITY,
+                    clips.last(),
+                );
             }
             DisplayItem::Text {
                 text,
@@ -57,22 +98,45 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 // once for itself: shaping and outlining are the expensive
                 // part, and a shadow is the same letters somewhere else.
                 let outlined = outlined_run(text, font, *size, *origin);
+                let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
                 // Furthest back first, so the first shadow written ends up on
                 // top — which is the order CSS draws them in.
                 for shadow in shadows.iter().rev() {
-                    let moved = outlined.translated(Point::new(shadow.offset.0, shadow.offset.1));
-                    let soft = blurred(&fill(&moved), shadow.blur);
-                    draw_coverage(canvas, &soft, &Paint::Solid(shadow.color), clips.last());
+                    let placed = outlined.translated(Point::new(shadow.offset.0, shadow.offset.1));
+                    let soft = blurred(
+                        &fill(&moved(&placed, current)),
+                        shadow.blur * current.scale_factor(),
+                    );
+                    draw_coverage(
+                        target,
+                        &soft,
+                        &Paint::Solid(shadow.color),
+                        Matrix::IDENTITY,
+                        clips.last(),
+                    );
                 }
                 draw_coverage(
-                    canvas,
-                    &fill(&outlined),
+                    target,
+                    &fill(&moved(&outlined, current)),
                     &Paint::Solid(*color),
+                    current,
                     clips.last(),
                 );
             }
         }
     }
+}
+
+/// A shape where the transform in force puts it.
+///
+/// A path is built in the page's coordinates, so a box with no transform over
+/// it is left exactly alone — which is almost every box, and is why this asks
+/// before it copies.
+fn moved(path: &Path, transform: Matrix) -> Path {
+    if transform.is_identity() {
+        return path.clone();
+    }
+    path.transformed(transform)
 }
 
 /// Every glyph of a run, as one shape, with the pen where the run starts.
@@ -98,11 +162,29 @@ fn outlined_run(text: &str, font: &Font, size: f32, origin: (f32, f32)) -> Path 
 
 /// Put a coverage mask onto the canvas, filled, inside whatever clip is in
 /// force.
-fn draw_coverage(canvas: &mut Canvas, coverage: &Coverage, paint: &Paint, clip: Option<&Clip>) {
+fn draw_coverage(
+    canvas: &mut Canvas,
+    coverage: &Coverage,
+    paint: &Paint,
+    transform: Matrix,
+    clip: Option<&Clip>,
+) {
     if coverage.is_empty() || paint.is_invisible() {
         return;
     }
+    // A gradient is measured in the box's own coordinates, so a transformed
+    // box asks where the pixel *came from* rather than where it is. A
+    // transform that flattens the box onto a line covers nothing, so there is
+    // nothing to ask.
     let flat = paint.solid();
+    let back = if flat.is_some() || transform.is_identity() {
+        Some(Matrix::IDENTITY)
+    } else {
+        transform.inverted()
+    };
+    let Some(back) = back else {
+        return;
+    };
     let (left, top) = coverage.origin();
     for row in 0..coverage.height() {
         for column in 0..coverage.width() {
@@ -115,7 +197,10 @@ fn draw_coverage(canvas: &mut Canvas, coverage: &Coverage, paint: &Paint, clip: 
             };
             // A gradient is asked at the middle of the pixel; a flat fill is
             // not asked at all, which is most boxes.
-            let color = flat.unwrap_or_else(|| paint.at(pixel_centre(x), pixel_centre(y)));
+            let color = flat.unwrap_or_else(|| {
+                let (local_x, local_y) = back.apply(pixel_centre(x), pixel_centre(y));
+                paint.at(local_x, local_y)
+            });
             // A clip multiplies coverage rather than switching it on and off,
             // so the edge of a rounded clip is as smooth as the shape it came
             // from.

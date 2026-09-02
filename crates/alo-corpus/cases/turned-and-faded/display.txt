@@ -1,0 +1,13 @@
+fill box#1 rgb(250 250 250) at (14, 14) 132×123.96875
+transform box#3 by matrix(0.9781476, -0.2079117, 0.2079117, 0.9781476, -4.32045, 8.862434)
+fill box#3 rgb(180 83 9) at (14, 14) 52×21.96875
+text box#4 "New" rgb(255 255 255) 12px at (26.913086, 29.138672)
+untransform
+group box#6 at opacity 0.45
+fill box#6 linear-gradient(90deg, rgb(24 24 27), rgb(82 82 91)) at (14, 59.96875) 120×34
+text box#8 "Half here" rgb(255 255 255) 12px at (22, 79.10742)
+ungroup
+fill box#11 rgb(161 161 170) at (14, 107.96875) 120×30
+transform box#12 by matrix(0.8, 0, 0, 0.8, 8.799999, 24.59375)
+fill box#12 rgb(255 255 255) at (14, 107.96875) 60×30
+untransform

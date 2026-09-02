@@ -1160,3 +1160,61 @@ percentage in a layout property) is the third.
   screen stage 1's exit gate actually names can be rendered. This loop cannot
   do that.
 
+---
+
+## Iteration 18 — queue item 20: transforms and opacity
+
+**What was built.** `transform` — `translate`, `scale`, `rotate`, `skew` and
+`matrix`, about a `transform-origin` that is the middle of the box unless the
+author says otherwise — and `opacity`, as a number or a percentage.
+
+**`opacity` is a group.** The subtree is drawn on a surface of its own and
+composited back once. This is the whole reason it is not simply a multiplier
+on every colour: two black squares exactly on top of one another, in a group at
+half opacity, are one mid grey; faded box by box the second would show through
+the first and come out three quarters dark. The test for that is worth more
+than the picture.
+
+**A gradient under a transform asks where the pixel came from.** The renderer
+maps the pixel back through the inverse of the transform before asking the
+gradient what colour it is, so a turned box's gradient turns with the box
+rather than staying pinned to the page. That is one line of code and the reason
+`Matrix::inverted` exists.
+
+**Paint order stopped being a lie.** It was one flat list of positioned boxes,
+sorted at the end, and a positioned box's *children* were left behind in the
+flow. It is now what CSS describes: a positioned box is painted last in the
+stacking context it belongs to, its subtree with it, and a box that does not
+establish a context passes its positioned descendants up to the one that does.
+A negative `z-index` goes behind its parent's content and in front of its
+background. Nothing in the corpus moved, which is what a restructure should
+look like when the old behaviour happened to be right for small pages.
+
+**Refused rather than approximated:** anything with a third dimension —
+`rotate3d`, `matrix3d`, `perspective`, `translateZ`. A value containing one is
+refused whole rather than half applied, because half a transform puts a box
+somewhere nobody asked for.
+
+**Honest about one approximation.** A blur under a non-uniform scale or a skew
+is softened by the square root of the area the transform multiplies by — the
+average of the two axes — because a blur radius is one number.
+`docs/conformance.md` says so.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 738 tests, no stubs, boundaries held, no verb takes a coordinate. Nine
+corpus cases now; the new one, `turned-and-faded`, has a rotated tag, a faded
+gradient panel and a negative-`z-index` band under a scaled box.
+
+**What the next iteration should know.** Two queue items remain: 13
+(block-in-inline) and 15 (`calc()` with a percentage in a layout property).
+
+- Item 13 is a box-tree question rather than a paint one, and it is the last
+  structurally hard thing in stage 1's inline model.
+- A transform does not affect layout, which is correct, and it means the agent
+  tree reports where a box *is laid out* rather than where it is drawn. That is
+  the right answer under ADR 0002 — a verb names a thing rather than a point —
+  but it is worth knowing before someone reports it as a bug.
+- The most valuable next thing is still `alo-os` being checked out, so the
+  screen stage 1's exit gate actually names can be rendered. This loop cannot
+  do that.
+

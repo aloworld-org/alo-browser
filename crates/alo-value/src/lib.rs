@@ -38,6 +38,7 @@ pub mod length;
 pub mod parse;
 pub mod shadow;
 pub mod shorthand;
+pub mod transform;
 pub mod unit;
 
 pub use calc::{CalcNode, Kind};
@@ -46,8 +47,10 @@ pub use gradient::{Angle, Gradient, Stop};
 pub use length::{FontMetrics, Length, LengthPercentage};
 pub use parse::{
     is_keyword, parse_box_shadows, parse_color, parse_gradient, parse_length,
-    parse_length_percentage, parse_number, parse_text_shadows,
+    parse_length_percentage, parse_number, parse_text_shadows, parse_transform,
+    parse_transform_origin,
 };
 pub use shadow::{DrawnShadow, Shadow};
 pub use shorthand::{Border, parse_border};
+pub use transform::{Function, Matrix, Transform};
 pub use unit::Unit;

@@ -111,11 +111,16 @@ file is the specification for what "correct" means here.
   because one blur per letter is darker where two letters touch. Corpus case
   `shadowed-card`.
 
-- [ ] **20. Transforms and opacity.** How a drawn thing is *combined* with what
+- [x] **20. Transforms and opacity.** How a drawn thing is *combined* with what
   is behind it: `transform` moves a shape's points and `opacity` composites a
   whole subtree as a group, which means drawing it to its own surface first.
   Both establish stacking contexts, so paint order changes with them. **Cut
   from item 18** for the same reason as item 19.
+
+  **Done.** Paint order now follows stacking contexts rather than one flat list
+  of positioned boxes: a positioned box is painted last in the context it
+  *belongs to*, which is what keeps a positioned box inside a transformed one
+  inside that transform. Corpus case `turned-and-faded`.
 
 - [x] **8. Reference renders.** A committed corpus of small cases, each with its
   expected image and **its expected box tree**. A failure that says "row three

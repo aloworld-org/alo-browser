@@ -45,21 +45,14 @@ pub fn build(
         layout,
         styles,
         context,
-        in_flow: Vec::new(),
-        positioned: Vec::new(),
+        next_order: 0,
     };
-    if let Some(root) = boxes.root() {
-        builder.walk(root);
-    }
-    // Positioned boxes go over everything in the flow, in `z-index` order and
-    // then in the order they were written — which is what makes two boxes with
-    // the same `z-index` stack predictably.
-    builder.positioned.sort_by_key(|(z, order, _)| (*z, *order));
-    let mut items = builder.in_flow;
-    for (_, _, item) in builder.positioned {
-        items.push(item);
-    }
-    DisplayList::from_items(items)
+    let Some(root) = boxes.root() else {
+        return DisplayList::default();
+    };
+    // The root always establishes a stacking context, so nothing is left over
+    // to escape past it.
+    DisplayList::from_items(builder.paint(root).items)
 }
 
 struct Builder<'a> {
@@ -67,41 +60,207 @@ struct Builder<'a> {
     layout: &'a LayoutTree,
     styles: &'a StyleTree,
     context: PaintContext<'a>,
-    in_flow: Vec<DisplayItem>,
-    positioned: Vec<(i32, usize, DisplayItem)>,
+    /// Which layer was reached first, so that two with the same `z-index`
+    /// stack in the order they were written.
+    next_order: usize,
+}
+
+/// One positioned box's subtree, waiting for a stacking context to place it.
+struct Layer {
+    z: i32,
+    order: usize,
+    items: Vec<DisplayItem>,
+}
+
+/// What a subtree draws: its own items, and the layers that have not yet found
+/// the stacking context they belong to.
+struct Painted {
+    items: Vec<DisplayItem>,
+    escaped: Vec<Layer>,
 }
 
 impl Builder<'_> {
-    fn walk(&mut self, id: BoxId) {
-        let z_index = self.z_index_of(id);
-        let mut mine = Vec::new();
-        self.draw_box(id, &mut mine);
-
-        match z_index {
-            Some(z) => {
-                for item in mine {
-                    let order = self.positioned.len();
-                    self.positioned.push((z, order, item));
-                }
-            }
-            None => self.in_flow.extend(mine),
-        }
+    /// Everything a box and its descendants draw, in paint order.
+    ///
+    /// A positioned box does not simply go last: it goes last **in the
+    /// stacking context it belongs to**, which may be several ancestors up.
+    /// That is why this returns escaped layers rather than pushing them onto
+    /// one list for the page — a positioned box inside a transformed one is
+    /// painted inside that transform, not over the whole document.
+    fn paint(&mut self, id: BoxId) -> Painted {
+        let mut own = Vec::new();
+        self.draw_box(id, &mut own);
 
         // A box that clips holds its children inside its own shape — which,
         // if it has rounded corners, is a rounded shape. One question asked
         // twice: what shape is this box.
         let clip = self.clip_of(id);
-        if let Some(path) = clip.clone() {
-            self.in_flow
-                .push(DisplayItem::PushClip { box_id: id, path });
-        }
+
+        let mut flow = Vec::new();
+        let mut escaped: Vec<Layer> = Vec::new();
         let children: Vec<BoxId> = self.boxes.children(id).collect();
         for child in children {
-            self.walk(child);
+            let painted = self.paint(child);
+            match self.layer_of(child) {
+                Some(z) => {
+                    let order = self.next_order;
+                    self.next_order += 1;
+                    escaped.push(Layer {
+                        z,
+                        order,
+                        items: painted.items,
+                    });
+                }
+                None => flow.extend(painted.items),
+            }
+            escaped.extend(painted.escaped);
+        }
+
+        let mut items = own;
+        if let Some(path) = clip.clone() {
+            items.push(DisplayItem::PushClip { box_id: id, path });
+        }
+        if self.establishes_stacking_context(id) {
+            // A negative `z-index` is behind the content of the box that holds
+            // it, which is the one part of stacking that surprises people.
+            escaped.sort_by_key(|layer| (layer.z, layer.order));
+            let behind = escaped.iter().position(|layer| layer.z >= 0);
+            let split = behind.unwrap_or(escaped.len());
+            let over = escaped.split_off(split);
+            for layer in escaped {
+                items.extend(layer.items);
+            }
+            items.extend(flow);
+            for layer in over {
+                items.extend(layer.items);
+            }
+            escaped = Vec::new();
+        } else {
+            items.extend(flow);
         }
         if clip.is_some() {
-            self.in_flow.push(DisplayItem::PopClip);
+            items.push(DisplayItem::PopClip);
         }
+
+        // The transform is inside the group: `opacity` fades what the box
+        // actually looks like, transform and all.
+        if let Some(matrix) = self.transform_of(id) {
+            items.insert(0, DisplayItem::PushTransform { box_id: id, matrix });
+            items.push(DisplayItem::PopTransform);
+        }
+        if let Some(opacity) = self.group_opacity_of(id) {
+            items.insert(
+                0,
+                DisplayItem::PushGroup {
+                    box_id: id,
+                    opacity,
+                },
+            );
+            items.push(DisplayItem::PopGroup);
+        }
+        Painted { items, escaped }
+    }
+
+    /// Whether a box gathers the layers below it, rather than passing them up.
+    ///
+    /// The root does; a positioned box with a `z-index` of its own does; and
+    /// anything that is drawn as a unit does, because a group cannot be half
+    /// painted over by something outside it — which is what `opacity` and
+    /// `transform` both are.
+    fn establishes_stacking_context(&self, id: BoxId) -> bool {
+        if self.boxes.get(id).is_none_or(|node| node.parent.is_none()) {
+            return true;
+        }
+        if self.group_opacity_of(id).is_some() || self.transform_of(id).is_some() {
+            return true;
+        }
+        let Some(style) = self.style_of(id) else {
+            return false;
+        };
+        self.is_positioned(id) && style.number("z-index").is_some()
+    }
+
+    /// Whether a box is taken out of the flow's paint order.
+    fn is_positioned(&self, id: BoxId) -> bool {
+        self.style_of(id)
+            .and_then(|style| style.get("position"))
+            .is_some_and(|position| !position.eq_ignore_ascii_case("static"))
+    }
+
+    /// Which layer a box paints in, or [`None`] for one that paints where it
+    /// sits in the flow.
+    ///
+    /// `z-index` only means anything on a positioned box, which is a rule
+    /// people are surprised by often enough that it is worth saying here.
+    fn layer_of(&self, id: BoxId) -> Option<i32> {
+        if !self.is_positioned(id) {
+            return None;
+        }
+        let z = self
+            .style_of(id)
+            .and_then(|style| style.number("z-index"))
+            .unwrap_or(0.0)
+            .clamp(-1.0e6, 1.0e6);
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "clamped to a range i32 represents exactly"
+        )]
+        let whole = z as i32;
+        Some(whole)
+    }
+
+    /// The transform a box is drawn under, if it has one.
+    ///
+    /// [`None`] rather than the identity for a box with no transform, which is
+    /// almost every box: the renderer leaves paths alone when nothing asked
+    /// for them to move.
+    fn transform_of(&self, id: BoxId) -> Option<alo_value::Matrix> {
+        let style = self.style_of(id)?;
+        let transform = alo_value::parse_transform(style.get("transform")?)?;
+        if transform.is_empty() {
+            return None;
+        }
+        let geometry = self.layout.get(id)?;
+        let size = (
+            geometry.border_box.size.width,
+            geometry.border_box.size.height,
+        );
+        // `transform-origin` is a point inside the border box, and the middle
+        // of it unless the author says otherwise — which is what makes
+        // `rotate` turn a box about itself.
+        let (across, down) = style
+            .get("transform-origin")
+            .and_then(alo_value::parse_transform_origin)
+            .unwrap_or((
+                alo_value::LengthPercentage::Percentage(50.0),
+                alo_value::LengthPercentage::Percentage(50.0),
+            ));
+        let metrics = style.metrics();
+        let origin = (
+            geometry.border_box.left() + across.to_px(metrics, size.0),
+            geometry.border_box.top() + down.to_px(metrics, size.1),
+        );
+        let matrix = transform.matrix(metrics, size, origin);
+        (!matrix.is_identity()).then_some(matrix)
+    }
+
+    /// How faded a box and everything in it is, or [`None`] when it is not
+    /// faded at all.
+    ///
+    /// A fully opaque box is not a group: drawing it to its own surface and
+    /// compositing that back would cost a whole page of pixels to change
+    /// nothing.
+    fn group_opacity_of(&self, id: BoxId) -> Option<f32> {
+        let style = self.style_of(id)?;
+        let text = style.get("opacity")?;
+        // `opacity: 50%` and `opacity: 0.5` are the same value written two
+        // ways, and neither reading answers for the other.
+        let opacity = match alo_value::parse_length_percentage(text) {
+            Some(alo_value::LengthPercentage::Percentage(percent)) => percent / 100.0,
+            _ => alo_value::parse_number(text)?,
+        };
+        let opacity = opacity.clamp(0.0, 1.0);
+        (opacity < 1.0).then_some(opacity)
     }
 
     /// The shape a box clips its content to, if it clips at all.
@@ -125,28 +284,6 @@ impl Builder<'_> {
             geometry.padding_box(),
             Corners::of(style),
         ))
-    }
-
-    /// The `z-index` of a positioned box, or [`None`] for one in the flow.
-    ///
-    /// `z-index` only means anything on a positioned box, which is a rule
-    /// people are surprised by often enough that it is worth saying here.
-    fn z_index_of(&self, id: BoxId) -> Option<i32> {
-        let style = self.style_of(id)?;
-        let position = style.get("position")?;
-        if position.eq_ignore_ascii_case("static") {
-            return None;
-        }
-        let z = style
-            .number("z-index")
-            .map_or(0.0, |number| number)
-            .clamp(-1.0e6, 1.0e6);
-        #[expect(
-            clippy::cast_possible_truncation,
-            reason = "clamped to a range i32 represents exactly"
-        )]
-        let whole = z as i32;
-        Some(whole)
     }
 
     fn draw_box(&self, id: BoxId, out: &mut Vec<DisplayItem>) {

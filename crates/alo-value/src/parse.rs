@@ -15,6 +15,7 @@ use crate::color::{Color, Rgba, from_hsl};
 use crate::gradient::{Angle, Gradient, Stop};
 use crate::length::{Length, LengthPercentage};
 use crate::shadow::Shadow;
+use crate::transform::{Function, Matrix, Transform};
 use crate::unit::Unit;
 use cssparser::{Parser as CssParser, ParserInput, Token};
 
@@ -372,6 +373,208 @@ fn one_length(input: &mut CssParser<'_, '_>) -> Option<Length> {
         Token::Number { value, .. } if *value == 0.0 => Some(Length::ZERO),
         _ => None,
     }
+}
+
+/// Read a whole `transform`.
+///
+/// `none` is a transform that moves nothing, rather than a refusal. A value
+/// with a function this engine does not implement — anything with a third
+/// dimension in it — is refused whole, because applying half of a transform
+/// puts a box somewhere the author never asked for.
+pub fn parse_transform(text: &str) -> Option<Transform> {
+    if is_keyword(text, "none") {
+        return Some(Transform::default());
+    }
+    entirely(text, |input| {
+        let mut functions = Vec::new();
+        while !input.is_exhausted() {
+            functions.push(one_transform_function(input)?);
+        }
+        if functions.is_empty() {
+            return None;
+        }
+        Some(Transform { functions })
+    })
+}
+
+/// One `translate(…)`, `scale(…)`, `rotate(…)`, `skew(…)` or `matrix(…)`.
+fn one_transform_function(input: &mut CssParser<'_, '_>) -> Option<Function> {
+    let name = input
+        .try_parse(|input| input.expect_function().cloned())
+        .ok()?
+        .to_ascii_lowercase();
+    input
+        .parse_nested_block(
+            |arguments| -> Result<Option<Function>, cssparser::ParseError<'_, ()>> {
+                Ok(transform_arguments(&name, arguments))
+            },
+        )
+        .ok()?
+}
+
+fn transform_arguments(name: &str, input: &mut CssParser<'_, '_>) -> Option<Function> {
+    let function = match name {
+        "translate" => {
+            let across = one_length_percentage(input)?;
+            let down = second(input, one_length_percentage)
+                .unwrap_or(LengthPercentage::Length(Length::ZERO));
+            Function::Translate(across, down)
+        }
+        "translatex" => Function::Translate(
+            one_length_percentage(input)?,
+            LengthPercentage::Length(Length::ZERO),
+        ),
+        "translatey" => Function::Translate(
+            LengthPercentage::Length(Length::ZERO),
+            one_length_percentage(input)?,
+        ),
+        "scale" => {
+            let across = one_factor(input)?;
+            // `scale(2)` is two in both directions, which is the one place CSS
+            // repeats an argument rather than defaulting it to nothing.
+            let down = second(input, one_factor).unwrap_or(across);
+            Function::Scale(across, down)
+        }
+        "scalex" => Function::Scale(one_factor(input)?, 1.0),
+        "scaley" => Function::Scale(1.0, one_factor(input)?),
+        "rotate" => Function::Rotate(one_angle(input)?),
+        "skew" => {
+            let across = one_angle(input)?;
+            let down = second(input, one_angle).unwrap_or(0.0);
+            Function::Skew(across, down)
+        }
+        "skewx" => Function::Skew(one_angle(input)?, 0.0),
+        "skewy" => Function::Skew(0.0, one_angle(input)?),
+        "matrix" => {
+            let mut numbers = [0.0; 6];
+            for (index, slot) in numbers.iter_mut().enumerate() {
+                if index > 0 {
+                    input.expect_comma().ok()?;
+                }
+                *slot = one_number(input)?;
+            }
+            Function::Matrix(Matrix {
+                a: numbers[0],
+                b: numbers[1],
+                c: numbers[2],
+                d: numbers[3],
+                e: numbers[4],
+                f: numbers[5],
+            })
+        }
+        _ => return None,
+    };
+    input.expect_exhausted().ok()?;
+    Some(function)
+}
+
+/// A second argument, after the comma that introduces it.
+fn second<T>(
+    input: &mut CssParser<'_, '_>,
+    read: impl Fn(&mut CssParser<'_, '_>) -> Option<T>,
+) -> Option<T> {
+    input.expect_comma().ok()?;
+    read(input)
+}
+
+/// A bare number: a scale factor, or one of `matrix()`'s six.
+fn one_number(input: &mut CssParser<'_, '_>) -> Option<f32> {
+    match input.next().ok()? {
+        Token::Number { value, .. } => Some(*value),
+        _ => None,
+    }
+}
+
+/// A scale factor: a number, or a percentage of it.
+fn one_factor(input: &mut CssParser<'_, '_>) -> Option<f32> {
+    match input.next().ok()? {
+        Token::Number { value, .. } => Some(*value),
+        Token::Percentage { unit_value, .. } => Some(*unit_value),
+        _ => None,
+    }
+}
+
+/// An angle, in degrees. Every unit CSS has for one, because a turn and a
+/// radian are the same value written differently.
+fn one_angle(input: &mut CssParser<'_, '_>) -> Option<f32> {
+    match input.next().ok()? {
+        Token::Dimension { value, unit, .. } => match unit.to_ascii_lowercase().as_str() {
+            "deg" => Some(*value),
+            "grad" => Some(value * 0.9),
+            "rad" => Some(value.to_degrees()),
+            "turn" => Some(value * 360.0),
+            _ => None,
+        },
+        // A bare zero is an angle, and only a zero is.
+        Token::Number { value, .. } if *value == 0.0 => Some(0.0),
+        _ => None,
+    }
+}
+
+/// Read a whole `transform-origin`, as a fraction of the box in each
+/// direction and a length beside it.
+///
+/// The initial value is `50% 50%` — the middle — which is why `rotate` turns a
+/// box about itself rather than about the corner of the page.
+pub fn parse_transform_origin(text: &str) -> Option<(LengthPercentage, LengthPercentage)> {
+    entirely(text, |input| {
+        let first = origin_part(input)?;
+        let second = if input.is_exhausted() {
+            Part {
+                value: LengthPercentage::Percentage(50.0),
+                axis: None,
+            }
+        } else {
+            origin_part(input)?
+        };
+        // `top left` says the same thing as `left top`, and CSS allows it when
+        // both halves are words — a word says which axis it belongs to, so
+        // there is nothing to be ambiguous about.
+        let (across, down) = match (first.axis, second.axis) {
+            (Some(Axis::Down), Some(Axis::Across)) => (second, first),
+            (Some(Axis::Down), None) | (None, Some(Axis::Across)) => return None,
+            (Some(Axis::Across), Some(Axis::Across)) | (Some(Axis::Down), Some(Axis::Down)) => {
+                return None;
+            }
+            _ => (first, second),
+        };
+        Some((across.value, down.value))
+    })
+}
+
+/// Which way a `transform-origin` keyword points, when it points at all.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Axis {
+    Across,
+    Down,
+}
+
+/// One half of a `transform-origin`, and which axis it insisted on.
+struct Part {
+    value: LengthPercentage,
+    axis: Option<Axis>,
+}
+
+/// One half of a `transform-origin`: a keyword, or a length or percentage.
+fn origin_part(input: &mut CssParser<'_, '_>) -> Option<Part> {
+    if let Ok(keyword) = input.try_parse(|input| input.expect_ident().cloned()) {
+        let (fraction, axis) = match keyword.to_ascii_lowercase().as_str() {
+            "center" => (50.0, None),
+            "left" => (0.0, Some(Axis::Across)),
+            "right" => (100.0, Some(Axis::Across)),
+            "top" => (0.0, Some(Axis::Down)),
+            "bottom" => (100.0, Some(Axis::Down)),
+            _ => return None,
+        };
+        return Some(Part {
+            value: LengthPercentage::Percentage(fraction),
+            axis,
+        });
+    }
+    Some(Part {
+        value: one_length_percentage(input)?,
+        axis: None,
+    })
 }
 
 /// Whether a value is exactly this keyword, whatever its case.
@@ -986,6 +1189,128 @@ mod tests {
 
         assert_eq!(parse_text_shadows("inset 0 1px 2px black"), None);
         assert_eq!(parse_text_shadows("0 1px 2px 3px black"), None);
+    }
+
+    fn moved(text: &str, x: f32, y: f32) -> (f32, f32) {
+        parse_transform(text)
+            .unwrap_or_else(|| panic!("{text} should parse"))
+            .matrix(
+                crate::FontMetrics::estimated(16.0, 16.0),
+                (100.0, 100.0),
+                (0.0, 0.0),
+            )
+            .apply(x, y)
+    }
+
+    fn near(left: (f32, f32), right: (f32, f32)) -> bool {
+        (left.0 - right.0).abs() < 0.001 && (left.1 - right.1).abs() < 0.001
+    }
+
+    #[test]
+    fn every_transform_this_engine_draws_is_read() {
+        assert!(near(moved("translate(10px, 20px)", 0.0, 0.0), (10.0, 20.0)));
+        assert!(near(moved("translate(10px)", 0.0, 0.0), (10.0, 0.0)));
+        assert!(near(moved("translateX(10px)", 0.0, 0.0), (10.0, 0.0)));
+        assert!(near(moved("translateY(10px)", 0.0, 0.0), (0.0, 10.0)));
+        assert!(near(moved("scale(2)", 3.0, 4.0), (6.0, 8.0)));
+        assert!(near(moved("scale(2, 3)", 1.0, 1.0), (2.0, 3.0)));
+        assert!(near(moved("scaleX(2)", 1.0, 1.0), (2.0, 1.0)));
+        assert!(near(moved("scaleY(2)", 1.0, 1.0), (1.0, 2.0)));
+        assert!(near(moved("rotate(90deg)", 1.0, 0.0), (0.0, 1.0)));
+        assert!(near(moved("skewX(45deg)", 0.0, 1.0), (1.0, 1.0)));
+        assert!(near(moved("skewY(45deg)", 1.0, 0.0), (1.0, 1.0)));
+        assert!(near(
+            moved("matrix(1, 0, 0, 1, 5, 6)", 0.0, 0.0),
+            (5.0, 6.0),
+        ));
+    }
+
+    #[test]
+    fn an_angle_may_be_written_in_any_unit_css_has_for_one() {
+        for text in [
+            "rotate(90deg)",
+            "rotate(100grad)",
+            "rotate(0.25turn)",
+            "rotate(1.5707963rad)",
+        ] {
+            assert!(near(moved(text, 1.0, 0.0), (0.0, 1.0)), "{text}");
+        }
+        assert!(near(moved("rotate(0)", 1.0, 0.0), (1.0, 0.0)));
+    }
+
+    #[test]
+    fn several_functions_apply_in_each_others_coordinates() {
+        // Turned a quarter, then ten along an axis that is now downwards.
+        assert!(near(
+            moved("rotate(90deg) translateX(10px)", 0.0, 0.0),
+            (0.0, 10.0),
+        ));
+    }
+
+    #[test]
+    fn no_transform_is_an_answer_and_half_a_transform_is_not() {
+        assert_eq!(parse_transform("none"), Some(Transform::default()));
+        assert_eq!(parse_transform("NONE"), Some(Transform::default()));
+        // A function with a third dimension in it refuses the whole value
+        // rather than applying the part it understood.
+        assert_eq!(parse_transform("translateX(10px) translateZ(5px)"), None);
+        assert_eq!(parse_transform("rotate3d(1, 1, 1, 45deg)"), None);
+        assert_eq!(parse_transform("perspective(500px)"), None);
+        assert_eq!(parse_transform("rotate(45)"), None, "an angle needs a unit");
+        assert_eq!(parse_transform("translate(10px, 20px, 30px)"), None);
+        assert_eq!(parse_transform("matrix(1, 0, 0, 1, 5)"), None);
+        assert_eq!(parse_transform(""), None);
+        assert_eq!(parse_transform("10px"), None);
+    }
+
+    #[test]
+    fn an_origin_may_be_said_in_words_or_in_numbers() {
+        let middle = (
+            LengthPercentage::Percentage(50.0),
+            LengthPercentage::Percentage(50.0),
+        );
+        assert_eq!(parse_transform_origin("center"), Some(middle.clone()));
+        assert_eq!(
+            parse_transform_origin("center center"),
+            Some(middle.clone())
+        );
+        assert_eq!(parse_transform_origin("50% 50%"), Some(middle));
+        assert_eq!(
+            parse_transform_origin("left top"),
+            Some((
+                LengthPercentage::Percentage(0.0),
+                LengthPercentage::Percentage(0.0),
+            )),
+        );
+        assert_eq!(
+            parse_transform_origin("right bottom"),
+            Some((
+                LengthPercentage::Percentage(100.0),
+                LengthPercentage::Percentage(100.0),
+            )),
+        );
+        assert_eq!(
+            parse_transform_origin("10px"),
+            Some((
+                LengthPercentage::Length(Length::px(10.0)),
+                LengthPercentage::Percentage(50.0),
+            )),
+            "one value leaves the other in the middle",
+        );
+    }
+
+    #[test]
+    fn an_origin_that_names_the_wrong_axis_is_refused() {
+        assert_eq!(
+            parse_transform_origin("top left"),
+            parse_transform_origin("left top"),
+            "two words say which axis each belongs to, so the order is free",
+        );
+        assert_eq!(parse_transform_origin("left left"), None);
+        assert_eq!(parse_transform_origin("top top"), None);
+        assert_eq!(parse_transform_origin("top 10px"), None);
+        assert_eq!(parse_transform_origin("sideways"), None);
+        assert_eq!(parse_transform_origin(""), None);
     }
 
     #[test]
