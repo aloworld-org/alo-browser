@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A box can be round.** `border-radius` changes what shape a box is, and
+  `overflow: hidden` clips what is inside it to that same shape — one question
+  asked twice. A card with rounded corners now clips its banner to them, which
+  is the second reference render.
+- A border of one width and colour all the way round is drawn as a **ring** —
+  the box's shape with the box's shape inside it, wound the other way — so it
+  follows the corners. Four rectangles would have square corners over a rounded
+  background, which is exactly what the first attempt looked like.
+- Radii that ask for more room than an edge has are scaled down together rather
+  than clamped one at a time, which is what CSS says and what keeps a shape's
+  proportions instead of making one side rounder than another.
+
 - **The engine draws.** A laid-out document becomes a display list, the list
   becomes pixels, and the pixels become a PNG — and the first reference render
   is committed: a list of invoices, with a heading, three rows, separators and

@@ -41,10 +41,12 @@ backgrounds, borders, and anti-aliased text. The first reference render is
 committed at `crates/alo-paint/tests/references/invoices.png` and is diffed on
 every run.
 
-What does not exist: rounded corners, shadows, gradients, clipping, transforms
-and opacity (queue item 18) — a box is a rectangle of one flat colour. The
-targets below are still `not yet`, because they are alo's own screens rather
-than a page we wrote to test with.
+Boxes can be round, and clip what is inside them to their own shape.
+
+What does not exist: shadows and gradients (queue item 19), transforms and
+opacity (item 20). A box is one flat colour in a shape. The targets below are
+still `not yet`, because they are alo's own screens rather than pages we wrote
+to test with.
 
 This file exists instead of a conformance percentage. A Web Platform Tests score
 would grade us against thirty years of legacy we are deliberately refusing

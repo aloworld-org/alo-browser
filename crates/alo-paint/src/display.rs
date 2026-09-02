@@ -15,6 +15,7 @@
 //! painting order, which `docs/features.md` reaches for with transforms and
 //! opacity.
 
+use crate::corner::{Corners, ring, rounded_rectangle};
 use crate::path::Path;
 use alo_box::{BoxId, BoxKind, BoxTree};
 use alo_layout::{LayoutTree, Rect};
@@ -35,6 +36,20 @@ pub enum DisplayItem {
         /// What colour.
         color: Rgba,
     },
+    /// Everything until the matching [`DisplayItem::PopClip`] is drawn only
+    /// where this shape covers.
+    ///
+    /// A pair rather than a field on every item: a clip applies to a whole
+    /// subtree, and repeating it on each item would be the same shape stored a
+    /// hundred times and rasterised a hundred times.
+    PushClip {
+        /// The box that asked for it.
+        box_id: BoxId,
+        /// What to clip to.
+        path: Path,
+    },
+    /// The end of the innermost clip.
+    PopClip,
     /// A run of text.
     Text {
         /// The box it belongs to.
@@ -53,10 +68,14 @@ pub enum DisplayItem {
 }
 
 impl DisplayItem {
-    /// The box this came from.
-    pub fn box_id(&self) -> BoxId {
+    /// The box this came from, or [`None`] for the end of a clip, which came
+    /// from wherever the clip did.
+    pub fn box_id(&self) -> Option<BoxId> {
         match self {
-            DisplayItem::Fill { box_id, .. } | DisplayItem::Text { box_id, .. } => *box_id,
+            DisplayItem::Fill { box_id, .. }
+            | DisplayItem::Text { box_id, .. }
+            | DisplayItem::PushClip { box_id, .. } => Some(*box_id),
+            DisplayItem::PopClip => None,
         }
     }
 }
@@ -127,6 +146,16 @@ impl DisplayList {
                     "text {box_id} {text:?} {color} {size}px at ({}, {})",
                     origin.0, origin.1,
                 ),
+                DisplayItem::PushClip { box_id, path } => {
+                    let (left, top, right, bottom) = path.bounds().unwrap_or((0.0, 0.0, 0.0, 0.0));
+                    writeln!(
+                        out,
+                        "clip {box_id} to ({left}, {top}) {}×{}",
+                        right - left,
+                        bottom - top,
+                    )
+                }
+                DisplayItem::PopClip => writeln!(out, "unclip"),
             };
         }
         out
@@ -195,10 +224,44 @@ impl Builder<'_> {
             None => self.in_flow.extend(mine),
         }
 
+        // A box that clips holds its children inside its own shape — which,
+        // if it has rounded corners, is a rounded shape. One question asked
+        // twice: what shape is this box.
+        let clip = self.clip_of(id);
+        if let Some(path) = clip.clone() {
+            self.in_flow
+                .push(DisplayItem::PushClip { box_id: id, path });
+        }
         let children: Vec<BoxId> = self.boxes.children(id).collect();
         for child in children {
             self.walk(child);
         }
+        if clip.is_some() {
+            self.in_flow.push(DisplayItem::PopClip);
+        }
+    }
+
+    /// The shape a box clips its content to, if it clips at all.
+    ///
+    /// `visible` — the initial value — does not clip, which is why content can
+    /// spill out of a box by default. Everything else does.
+    fn clip_of(&self, id: BoxId) -> Option<Path> {
+        let style = self.style_of(id)?;
+        let clips = |name: &str| {
+            style
+                .get(name)
+                .is_some_and(|value| !value.eq_ignore_ascii_case("visible"))
+        };
+        if !clips("overflow") && !clips("overflow-x") && !clips("overflow-y") {
+            return None;
+        }
+        let geometry = self.layout.get(id)?;
+        // Content is clipped to the padding box: a border is drawn over the
+        // content, not clipped by it.
+        Some(rounded_rectangle(
+            geometry.padding_box(),
+            Corners::of(style),
+        ))
     }
 
     /// The `z-index` of a positioned box, or [`None`] for one in the flow.
@@ -232,13 +295,14 @@ impl Builder<'_> {
         };
 
         // A background fills the border box; a border is drawn over it.
+        let corners = self.style_of(id).map_or(Corners::SQUARE, Corners::of);
         if let Some(style) = self.style_of(id)
             && let Some(color) = background_color(style)
             && !color.is_invisible()
         {
             out.push(DisplayItem::Fill {
                 box_id: id,
-                path: rect_path(geometry.border_box),
+                path: rounded_rectangle(geometry.border_box, corners),
                 color,
             });
         }
@@ -249,12 +313,24 @@ impl Builder<'_> {
         }
     }
 
-    /// The four borders, as four rectangles.
+    /// The border.
     ///
-    /// Only `solid` is drawn. `none` and `hidden` draw nothing whatever their
-    /// width, which is what CSS says and is why a width alone never shows a
-    /// border; every other style is not implemented, and drawing a dashed
-    /// border as a solid one would be a wrong pixel that looks nearly right.
+    /// A border of one width and one colour all the way round is drawn as a
+    /// **ring** — the box's shape with the box's shape inside it, wound the
+    /// other way — so that it follows the corners. Four rectangles would have
+    /// square corners over a rounded background.
+    ///
+    /// A border whose sides differ is still four rectangles, clipped to the
+    /// box's shape so that they do not stick out of the corners. The inner
+    /// corner of such a border is squarer than CSS draws it; that shows only
+    /// with a thick border and a large radius, and the alternative is four
+    /// mitred trapezoids, which is queue item 19's kind of work.
+    ///
+    /// Only `solid` is drawn either way. `none` and `hidden` draw nothing
+    /// whatever their width, which is what CSS says and is why a width alone
+    /// never shows a border; every other style is not implemented, and drawing
+    /// a dashed border as a solid one would be a wrong pixel that looks nearly
+    /// right.
     fn draw_borders(&self, id: BoxId, border_box: Rect, out: &mut Vec<DisplayItem>) {
         let Some(geometry) = self.layout.get(id) else {
             return;
@@ -262,6 +338,24 @@ impl Builder<'_> {
         let Some(style) = self.style_of(id) else {
             return;
         };
+        let corners = Corners::of(style);
+
+        // One width and one colour on every side: a ring.
+        if let Some(color) = self.uniform_border(id, style) {
+            out.push(DisplayItem::Fill {
+                box_id: id,
+                path: ring(border_box, corners, geometry.border),
+                color,
+            });
+            return;
+        }
+        let rounded = !corners.fitted_to(border_box.size).are_square();
+        if rounded {
+            out.push(DisplayItem::PushClip {
+                box_id: id,
+                path: rounded_rectangle(border_box, corners),
+            });
+        }
         let sides = [
             ("top", geometry.border.top),
             ("right", geometry.border.right),
@@ -316,6 +410,40 @@ impl Builder<'_> {
                 color,
             });
         }
+        if rounded {
+            out.push(DisplayItem::PopClip);
+        }
+    }
+
+    /// The colour of a border that is the same on all four sides, if it is.
+    fn uniform_border(&self, id: BoxId, style: &alo_style::ComputedStyle) -> Option<Rgba> {
+        let geometry = self.layout.get(id)?;
+        let widths = [
+            geometry.border.top,
+            geometry.border.right,
+            geometry.border.bottom,
+            geometry.border.left,
+        ];
+        let first = widths.first().copied()?;
+        if first <= 0.0 || widths.iter().any(|width| (width - first).abs() > 0.001) {
+            return None;
+        }
+        let mut color: Option<Rgba> = None;
+        for side in ["top", "right", "bottom", "left"] {
+            let drawn = style
+                .get(&format!("border-{side}-style"))
+                .is_some_and(|value| value.eq_ignore_ascii_case("solid"));
+            if !drawn {
+                return None;
+            }
+            let side_color = style.color(&format!("border-{side}-color"))?;
+            match color {
+                None => color = Some(side_color),
+                Some(held) if held == side_color => {}
+                Some(_) => return None,
+            }
+        }
+        color.filter(|color| !color.is_invisible())
     }
 
     /// The pieces of a text box, one per line it is on.

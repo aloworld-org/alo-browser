@@ -796,3 +796,57 @@ rounded corners.
   than new machinery.
 - The one thing missing is a way to run one case by name and see all four
   differences at once, which is what makes a corpus usable rather than a wall.
+
+---
+
+## 2026-09-02 — iteration 12: the shape of a box (queue item 18)
+
+**Item 18 was split before it was built**, into three, because it bundled three
+different kinds of work: what shape a box *is* (this item), how a colour *fills*
+a shape (item 19: shadows and gradients), and how a drawn thing is *combined*
+with what is behind it (item 20: transforms and opacity). Each wants its own
+reference render, and each has its own value grammar.
+
+**What was built.** `alo-paint/src/corner.rs`, and clipping in the display list
+and the renderer.
+
+- `border-radius`, in every form CSS writes it: one to four values, the `/`
+  that splits horizontal radii from vertical, and the four per-corner
+  longhands. The two-value form pairs the *diagonals* where every other
+  box-model shorthand pairs opposite sides, which is written down beside the
+  code that does it.
+- Radii that do not fit are **scaled down together** rather than clamped one at
+  a time. That is CSS's rule and it is the one that keeps a shape's
+  proportions; clamping would make one side rounder than another.
+- `overflow` other than `visible` pushes the box's own shape as a clip around
+  its children, and the renderer keeps a stack of them because clips nest. A
+  clip **multiplies** coverage rather than switching it on and off, so the edge
+  of a rounded clip is as smooth as the shape it came from.
+
+**The thing the picture showed.** The first version drew a uniform border as
+four rectangles, which had square corners sitting over a rounded background — a
+visible seam at every corner. A border of one width and one colour is now a
+**ring**: the box's shape with the box's shape inside it, wound the other way,
+so the non-zero fill rule leaves the middle empty. A border whose sides differ
+is still four rectangles, clipped to the box's shape so they cannot stick out;
+its inner corner is squarer than CSS draws it, which shows only with a thick
+border and a large radius, and that is written where the code is.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 600 tests, no stubs, boundaries held. **A second reference render** —
+`rounded-card.png` — with assertions beside it that say *why* the picture is
+right: the card's corner is the page's background because it was clipped away,
+and the middle of the banner is not.
+
+**What the next iteration should know.** Item 8 is the reference corpus, and it
+is now the right time for it: there are two reference renders and the machinery
+to make more, sitting in one test file that wants to be shared.
+
+- `draw`, `compare` and the `ALO_UPDATE_REFERENCES` escape hatch are the parts
+  to move somewhere a corpus can use.
+- Item 8 asks for each case with its expected image **and** its expected box
+  tree. `BoxTree::to_outline`, `LayoutTree::to_outline` and
+  `DisplayList::to_outline` are all there; a case is four expectations, and the
+  corpus is a directory of them rather than new machinery.
+- The one thing missing is running one case by name and seeing all four
+  differences at once, which is what makes a corpus usable rather than a wall.

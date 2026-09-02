@@ -15,10 +15,24 @@ use alo_value::Rgba;
 
 /// Draw a display list onto a canvas.
 pub fn render(list: &DisplayList, canvas: &mut Canvas) {
+    // A stack rather than one mask, because clips nest: a rounded card inside
+    // a scrolling panel is clipped by both, and the answer is where they
+    // overlap.
+    let mut clips: Vec<Clip> = Vec::new();
     for item in list.items() {
         match item {
+            DisplayItem::PushClip { path, .. } => {
+                let mask = Clip::from(&fill(path));
+                clips.push(match clips.last() {
+                    Some(outer) => outer.intersected(&mask),
+                    None => mask,
+                });
+            }
+            DisplayItem::PopClip => {
+                clips.pop();
+            }
             DisplayItem::Fill { path, color, .. } => {
-                draw_coverage(canvas, &fill(path), *color);
+                draw_coverage(canvas, &fill(path), *color, clips.last());
             }
             DisplayItem::Text {
                 text,
@@ -35,7 +49,7 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                         let placed = shaped
                             .path
                             .translated(Point::new(pen.0 + glyph.offset.0, pen.1 + glyph.offset.1));
-                        draw_coverage(canvas, &fill(&placed), *color);
+                        draw_coverage(canvas, &fill(&placed), *color, clips.last());
                     }
                     pen.0 += glyph.advance;
                 }
@@ -44,8 +58,9 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
     }
 }
 
-/// Put a coverage mask onto the canvas in a colour.
-fn draw_coverage(canvas: &mut Canvas, coverage: &Coverage, color: Rgba) {
+/// Put a coverage mask onto the canvas in a colour, inside whatever clip is in
+/// force.
+fn draw_coverage(canvas: &mut Canvas, coverage: &Coverage, color: Rgba, clip: Option<&Clip>) {
     if coverage.is_empty() || color.is_invisible() {
         return;
     }
@@ -59,9 +74,94 @@ fn draw_coverage(canvas: &mut Canvas, coverage: &Coverage, color: Rgba) {
             let (Some(x), Some(y)) = (place(left, column), place(top, row)) else {
                 continue;
             };
-            canvas.blend(x, y, color, value);
+            // A clip multiplies coverage rather than switching it on and off,
+            // so the edge of a rounded clip is as smooth as the shape it came
+            // from.
+            let inside = clip.map_or(255, |clip| clip.at(x, y));
+            if inside == 0 {
+                continue;
+            }
+            let combined = multiply(value, inside);
+            canvas.blend(x, y, color, combined);
         }
     }
+}
+
+/// A clip, as coverage over the whole page.
+///
+/// Held in page coordinates rather than relative to the clipping box, because
+/// what it is asked is always "is this pixel inside" — and answering that from
+/// a shape with its own origin means an offset at every lookup.
+#[derive(Debug, Clone)]
+struct Clip {
+    left: i32,
+    top: i32,
+    width: u32,
+    height: u32,
+    data: Vec<u8>,
+}
+
+impl Clip {
+    fn from(coverage: &Coverage) -> Self {
+        let (left, top) = coverage.origin();
+        Self {
+            left,
+            top,
+            width: coverage.width(),
+            height: coverage.height(),
+            data: coverage.data().to_vec(),
+        }
+    }
+
+    /// How much of a page pixel this clip lets through.
+    fn at(&self, x: u32, y: u32) -> u8 {
+        let (Some(column), Some(row)) = (back(x, self.left), back(y, self.top)) else {
+            return 0;
+        };
+        if column >= self.width || row >= self.height {
+            return 0;
+        }
+        let index = (row as usize) * (self.width as usize) + (column as usize);
+        self.data.get(index).copied().unwrap_or(0)
+    }
+
+    /// Where this clip and another overlap.
+    fn intersected(&self, inner: &Self) -> Self {
+        let mut data = Vec::with_capacity(inner.data.len());
+        for row in 0..inner.height {
+            for column in 0..inner.width {
+                let value = inner
+                    .data
+                    .get((row as usize) * (inner.width as usize) + (column as usize))
+                    .copied()
+                    .unwrap_or(0);
+                let (Some(x), Some(y)) = (place(inner.left, column), place(inner.top, row)) else {
+                    data.push(0);
+                    continue;
+                };
+                data.push(multiply(value, self.at(x, y)));
+            }
+        }
+        Self {
+            left: inner.left,
+            top: inner.top,
+            width: inner.width,
+            height: inner.height,
+            data,
+        }
+    }
+}
+
+/// Two coverages combined, as a fraction of a fraction.
+fn multiply(left: u8, right: u8) -> u8 {
+    let product = u32::from(left) * u32::from(right);
+    // Rounded rather than truncated, so that full coverage stays full.
+    u8::try_from((product + 127) / 255).unwrap_or(255)
+}
+
+/// A page position back into a mask's own coordinates.
+fn back(position: u32, origin: i32) -> Option<u32> {
+    u32::try_from(i64::from(position) - i64::from(origin)).ok()
 }
 
 /// Where a pixel of the mask lands on the canvas, or [`None`] when it is off

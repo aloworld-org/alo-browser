@@ -69,7 +69,8 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] One shape type and one rasteriser, so a glyph and the box behind it agree along the edge they share
 - [1] A display list from the box tree
 - [1] **A software rasteriser to a PNG.** Deterministic and diffable, needing no GPU and no window — which is what makes every item testable from the first one
-- [1] Transforms, opacity, clipping, rounded corners, shadows, gradients
+- [1] Rounded corners, and clipping to them — one question asked twice: what shape is this box
+- [1] Transforms, opacity, shadows, gradients
 - [1] **Reference renders**: a committed corpus, each with its expected image *and* its expected box tree
 - [1] Hardware acceleration — after the software path is correct, never before
 - [2] Compositing layers, and scrolling that does not repaint the world

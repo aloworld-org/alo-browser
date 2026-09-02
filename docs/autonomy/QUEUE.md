@@ -93,14 +93,23 @@ file is the specification for what "correct" means here.
   PNG. Deterministic output is the point: it makes every visual change reviewable
   as a diff.
 
-- [ ] **18. What a box looks like beyond a flat colour.** Rounded corners,
-  shadows, gradients, clipping, transforms and opacity — the
-  `docs/features.md` line under Paint that item 7 did not do. Item 7 draws a
-  colour inside a shape, and the shape is always a rectangle; every one of
-  these changes what the shape is or how the colours combine, and each is worth
-  its own reference render. **Cut from item 7 on the iteration that built it**,
-  so that the first picture could be finished whole. Item 11's real alo screen
-  will need at least the rounded corners.
+- [x] **18. The shape of a box: rounded corners, and clipping to them.** Item 7
+  draws a colour inside a shape and the shape is always a rectangle.
+  `border-radius` changes what the shape *is*, and `overflow: hidden` clips
+  what is inside a box to that same shape — one question, asked twice. **Cut
+  from item 7**, and item 11's real alo screen needs it.
+
+- [ ] **19. Shadows and gradients.** How a colour *fills* a shape, rather than
+  what the shape is: `box-shadow`, `text-shadow`, `linear-gradient` and
+  `radial-gradient`. Each needs a value grammar of its own and a blur, and each
+  is worth its own reference render. **Cut from item 18** when that item was
+  split, because changing the shape and changing the fill are different work.
+
+- [ ] **20. Transforms and opacity.** How a drawn thing is *combined* with what
+  is behind it: `transform` moves a shape's points and `opacity` composites a
+  whole subtree as a group, which means drawing it to its own surface first.
+  Both establish stacking contexts, so paint order changes with them. **Cut
+  from item 18** for the same reason as item 19.
 
 - [ ] **8. Reference renders.** A committed corpus of small cases, each with its
   expected image and **its expected box tree**. A failure that says "row three

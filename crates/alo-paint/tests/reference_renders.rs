@@ -233,3 +233,76 @@ fn the_same_document_drawn_twice_is_the_same_picture() {
     let second = to_png(&draw(PAGE, SHEET, Size::new(200.0, 120.0)).1).expect("a picture");
     assert_eq!(first, second);
 }
+
+// --- the shape of a box -----------------------------------------------------
+
+const CARD: &str = "<!DOCTYPE html><html><body><div id=card>\
+<div id=banner></div>\
+<p id=label>Invoice 12</p>\
+</div></body></html>";
+
+const CARD_SHEET: &str = "
+body { margin: 8px; background: #f4f4f5; font-family: system-ui; font-size: 13px }
+#card { width: 120px; border-radius: 12px; overflow: hidden;
+        background: #ffffff; border-top-width: 1px; border-right-width: 1px;
+        border-bottom-width: 1px; border-left-width: 1px;
+        border-top-style: solid; border-right-style: solid;
+        border-bottom-style: solid; border-left-style: solid;
+        border-top-color: #d4d4d8; border-right-color: #d4d4d8;
+        border-bottom-color: #d4d4d8; border-left-color: #d4d4d8 }
+#banner { height: 24px; background: #18181b }
+#label { margin: 0; padding: 6px }
+";
+
+#[test]
+fn a_rounded_card_clips_what_is_inside_it() {
+    let (list, canvas) = draw(CARD, CARD_SHEET, Size::new(140.0, 80.0));
+
+    assert!(
+        list.to_outline().contains("clip"),
+        "the card asked to clip its content:\n{}",
+        list.to_outline(),
+    );
+    compare("rounded-card", &canvas).expect("the committed picture of the card");
+
+    // The banner is a black rectangle inside a rounded card, so the card's
+    // top-left corner must be the page's background rather than the banner.
+    let corner = canvas
+        .at(9, 9)
+        .expect("a pixel just inside the card's corner");
+    assert!(
+        corner.red > 0.8,
+        "the corner is clipped away, so it is still the page: {corner}",
+    );
+
+    let middle = canvas
+        .at(70, 20)
+        .expect("a pixel in the middle of the banner");
+    assert!(
+        middle.red < 0.2,
+        "and the middle of the banner is the banner: {middle}",
+    );
+}
+
+#[test]
+fn a_square_card_does_not_clip_its_corner_away() {
+    let square = CARD_SHEET.replace("border-radius: 12px;", "border-radius: 0;");
+    let (_, canvas) = draw(CARD, &square, Size::new(140.0, 80.0));
+    let corner = canvas
+        .at(9, 9)
+        .expect("a pixel just inside the card's corner");
+    assert!(
+        corner.red < 0.2,
+        "with square corners the banner reaches the corner: {corner}",
+    );
+}
+
+#[test]
+fn a_box_that_does_not_clip_lets_its_content_out() {
+    let unclipped = CARD_SHEET.replace("overflow: hidden;", "");
+    let (list, _) = draw(CARD, &unclipped, Size::new(140.0, 80.0));
+    assert!(
+        !list.to_outline().contains("clip"),
+        "`overflow: visible` is the initial value and does not clip",
+    );
+}

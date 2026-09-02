@@ -31,6 +31,7 @@
 //! mask can be reused for a shadow rather than rasterised twice.
 
 pub mod canvas;
+pub mod corner;
 pub mod display;
 pub mod encode;
 pub mod glyph;
@@ -39,6 +40,7 @@ pub mod raster;
 pub mod render;
 
 pub use canvas::Canvas;
+pub use corner::{Corners, rounded_rectangle};
 pub use display::{DisplayItem, DisplayList, PaintContext};
 pub use encode::{PictureError, from_png, to_png};
 pub use glyph::{Glyph, outline};
