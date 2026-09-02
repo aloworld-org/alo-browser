@@ -1,0 +1,11 @@
+# The gate forbids `unwrap()` outside tests. Inside a test, a panic *is* the
+# failure report, so the panic family is permitted there and nowhere else.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true
+allow-dbg-in-tests = false
+
+# Names of standards, spelled the way the standards spell them. `..` keeps
+# clippy's own list rather than replacing it.
+doc-valid-idents = ["..", "MathML", "XLink", "XMLNS", "HarfBuzz"]

@@ -20,7 +20,7 @@ a PNG is deterministic and diffable, which makes every step testable from the
 first one — the display server and hardware acceleration come after correctness,
 not before it.
 
-- [ ] **A DOM of our own**, built from `html5ever`'s parse events
+- [x] **A DOM of our own**, built from `html5ever`'s parse events
 - [ ] **Stylesheets**: `cssparser` into rules we hold, selectors matched with `selectors`
 - [ ] **Computed style**: the cascade, inheritance, and `var()` — alo's design system is custom properties throughout, so this is not optional decoration
 - [ ] **The box tree**, and what each box *means* (ADR 0002) rather than only its rectangle

@@ -23,7 +23,7 @@ file is the specification for what "correct" means here.
 
 ## Ready
 
-- [ ] **1. A DOM of our own.** `html5ever` parses; we hold the tree. Nodes,
+- [x] **1. A DOM of our own.** `html5ever` parses; we hold the tree. Nodes,
   attributes, parent and child links, and a stable id per node — the agent tree
   in ADR 0002 will need to name a node later, and adding identity afterwards
   means rewriting everything that holds a reference. Tests: a document round

@@ -1,0 +1,42 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/aloworld-org/alo-browser"
+authors = ["the alo browser authors"]
+
+[workspace.dependencies]
+html5ever = "0.39"
+
+# Law 4 of CLAUDE.md, enforced by the compiler rather than by review: `unsafe`
+# is forbidden outside a reviewed, named boundary with an ADR. A crate that ever
+# earns such a boundary relaxes this in its own manifest, and the ADR says why.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+# The gate in CLAUDE.md asks for zero clippy warnings and zero errors. These go
+# past it deliberately: `pedantic` because the cost of reading a warning is far
+# below the cost of a wrong pixel, and the panic family because a rendering
+# engine that aborts the shell it draws is worse than one that reports an error.
+# `clippy.toml` permits all of the panic family inside tests, which is exactly
+# where the gate permits them.
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
+dbg_macro = "deny"
+# Style only, and both fire on names this repository chose on purpose.
+must_use_candidate = "allow"
+module_name_repetitions = "allow"

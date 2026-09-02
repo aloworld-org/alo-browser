@@ -2,6 +2,11 @@
 
 Honest state, updated by the loop as items land. **Nothing renders yet.**
 
+What exists: a document tree. HTML parses into it, it round trips back to the
+same text, and malformed input produces a usable tree with a record of what had
+to be repaired. Nothing is styled, laid out or painted, so every target below
+is still `not yet`.
+
 This file exists instead of a conformance percentage. A Web Platform Tests score
 would grade us against thirty years of legacy we are deliberately refusing
 (`docs/decisions/0001`), so it would measure the wrong thing and flatter or
