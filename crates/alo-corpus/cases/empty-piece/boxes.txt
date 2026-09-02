@@ -1,0 +1,10 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      anonymous block
+        inline flow · generic
+      block flow · generic
+        text "An aside"
+      anonymous block
+        inline flow · generic
+          text "after the aside"

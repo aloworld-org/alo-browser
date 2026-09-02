@@ -161,14 +161,20 @@ file is the specification for what "correct" means here.
   stops before the block and starts again after it. Corpus case
   `broken-inline`. Two cuts, both written below as items 21 and 22.
 
-- [ ] **21. An empty piece of a broken inline keeps its border.** CSS keeps a
+- [x] **21. An empty piece of a broken inline keeps its border.** CSS keeps a
   piece with nothing in it — *"even if either side is empty"* — and an empty
-  inline with a border draws that border. This engine drops it, because its
-  inline formatting would give it a line box of the font's height and that is a
-  visible gap where CSS asks for none. Recorded as
-  `IssueKind::UnsupportedStructure` on every tree that meets one. **Cut from
-  item 13**: the piece that holds something is the case a page actually has,
-  and the empty one needs the zero-height line-box rule first.
+  inline with a border draws that border. This engine dropped it, because its
+  inline formatting would have given it a line box of the font's height and
+  that is a visible gap where CSS asks for none. **Cut from item 13**: the
+  piece that holds something is the case a page actually has, and the empty one
+  needs the zero-height line-box rule first.
+
+  **Done, with the rule it was waiting for.** A line box holding no text, no
+  preserved space and no inline box with a margin, padding or border is
+  zero-height and treated as not existing — so the piece is kept, and costs a
+  line only when it has something to draw. Of the pieces of a broken inline the
+  agent reads the first with anything in it, so an empty piece is never a
+  second link. Corpus case `empty-piece`.
 
 - [x] **22. Borders and padding on an inline box.** An inline box's own border
   and padding were not laid out and not drawn: horizontal ones should add to

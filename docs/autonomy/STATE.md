@@ -1401,3 +1401,51 @@ And still the most valuable thing this loop cannot do: **`alo-os` is not
 checked out beside this repository**, so the screen stage 1's exit gate names
 has never been rendered.
 
+---
+
+## Iteration 22 — queue item 21: the empty piece, and the rule it was waiting for
+
+**What was built.** An inline box broken around a block keeps the piece on the
+*empty* side, and that piece draws its border — which is what CSS asks for,
+"even if either side is empty", because an empty inline with a border is still
+a thing a page can see.
+
+**The rule that made it free.** A line box holding no text, no preserved space
+and no inline box with a margin, padding or border is **zero-height and treated
+as not existing**. So the empty piece costs nothing at all when it has no
+border, and costs exactly one line when it has one. The rule belongs in the
+line builder, because that is the only place that knows what a line ended up
+holding — and it is one boolean, set by text, by an atomic box, and by an
+inline box with an edge of its own.
+
+**Item 22 is what made this cheap.** An inline box only arrives at the line as
+an open and a close because of last iteration's work; without that there was
+nothing on the line to say "an inline box with a border was here", and the rule
+could not have been written.
+
+**The agent needed a smaller rule than expected.** Of the pieces of a broken
+inline, the one that is read is the **first with anything in it**; the rest are
+read through. A border is not something to read, so an empty piece is never a
+second link with the same name — which is the ambiguity ADR 0002's verbs
+refuse. `BoxTree::pieces_of` answers for any piece, so nothing has to know
+whether a box was broken before it can ask.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 762 tests, no stubs, boundaries held, no verb takes a coordinate.
+Thirteen corpus cases; the new one, `empty-piece`, is a block at the *start* of
+a bordered `<span>`, so the piece before it holds nothing and is drawn as the
+small mark a browser draws.
+
+**What the next iteration should know.** One item remains:
+
+- **23.** An agent reads a broken inline as one whole thing. What is done so
+  far keeps the reading *unambiguous* — one link, not two — but the name of a
+  broken link still comes from the piece that is read, and the block between
+  the pieces is not read as part of it. Doing it properly means the agent tree
+  following the **document's** containment where the box tree has split, which
+  is a change to what a *view* is and deserves the same care ADR 0002 got.
+
+And the thing this loop cannot do, unchanged: **`alo-os` is not checked out
+beside this repository**, so the screen stage 1's exit gate names has never
+been rendered. `ROADMAP.md`'s line for it is deliberately not ticked.
+

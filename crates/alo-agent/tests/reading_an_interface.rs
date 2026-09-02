@@ -263,3 +263,41 @@ fn a_link_broken_around_a_block_is_still_one_link() {
         Some("Read the"),
     );
 }
+
+#[test]
+fn the_empty_piece_of_a_broken_link_is_not_a_second_link() {
+    // CSS keeps a piece with nothing in it so that it can draw its border. A
+    // border is not something to read, so the agent reads the piece that has
+    // something in it and reads the other through.
+    let page = "<!DOCTYPE html><html><body><section>\
+<a href='/docs' id=link><div>docs</div>Read the</a>\
+</section></body></html>";
+    let document = parse_document(page);
+    let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
+    let author = parse_stylesheet(SHEET);
+    let sheets = [
+        SourcedSheet::new(Origin::UserAgent, &agent),
+        SourcedSheet::new(Origin::Author, &author),
+    ];
+    let styles = resolve(&document, &sheets, &MediaContext::default());
+    let boxes = build_boxes(&document, &styles);
+    let database = fonts();
+    let measurer = TextMeasurer::new(&database);
+    let layout = compute(&boxes, &styles, Size::new(240.0, 200.0), &measurer);
+    let tree = AgentTree::new(&document, &boxes, &layout);
+
+    let links = tree.with_role(&Role::Known(KnownRole::Link));
+    assert_eq!(
+        links.len(),
+        1,
+        "the empty piece before the block is not a link of its own:\n{}",
+        tree.to_outline(),
+    );
+    assert_eq!(
+        links
+            .first()
+            .and_then(alo_agent::AgentNode::name)
+            .as_deref(),
+        Some("Read the"),
+    );
+}

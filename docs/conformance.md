@@ -63,9 +63,10 @@ its parent's content and in front of its background.
 
 An inline box holding a block-level box is **broken around it**, into a piece
 on each side, with the block a sibling of the anonymous blocks those pieces sit
-in. Each piece draws its own background. One thing about that is not right yet
-and it is recorded on the tree: a piece with *nothing* in it is dropped where
-CSS keeps it.
+in. Each piece draws its own background. A piece with **nothing** in it is kept, and draws
+its border — and costs nothing when it has none, because a line box holding
+only empty inline boxes with no border and no padding is zero-height and
+treated as not existing.
 
 **An inline box has a box of its own.** A `<span>`'s border and padding are
 laid out and drawn — horizontal ones take room on the line, vertical ones draw

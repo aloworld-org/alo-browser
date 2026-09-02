@@ -559,6 +559,45 @@ fn an_inline_box_that_wraps_has_one_rectangle_per_line() {
 }
 
 #[test]
+fn an_empty_piece_of_a_broken_inline_costs_no_height_when_it_has_no_border() {
+    // CSS keeps the piece — "even if either side is empty" — and then says a
+    // line box holding only empty inline boxes with no border and no padding
+    // is zero-height and treated as not existing. Both together: the piece is
+    // there, and it costs nothing.
+    let broken = "<body><div id=w><span>abcd<p id=b>e</p></span></div></body>";
+    let plain = "<body><div id=w><span>abcd</span><p id=b>e</p></div></body>";
+    let css = "p { margin: 0 } #w { width: 100px }";
+
+    let with = lay_out(broken, css, Size::new(400.0, 300.0));
+    let without = lay_out(plain, css, Size::new(400.0, 300.0));
+    assert!(close(
+        rect_of(&with.0, &with.1, "w", broken).size.height,
+        rect_of(&without.0, &without.1, "w", plain).size.height,
+    ));
+}
+
+#[test]
+fn an_empty_piece_with_a_border_keeps_its_line_and_draws_it() {
+    let html = "<body><div id=w><span id=s>abcd<p id=b>e</p></span></div></body>";
+    let bare = lay_out(
+        html,
+        "p { margin: 0 } #w { width: 100px }",
+        Size::new(400.0, 300.0),
+    );
+    let bordered = lay_out(
+        html,
+        "p { margin: 0 } #w { width: 100px }
+         #s { border-left-width: 3px; border-left-style: solid }",
+        Size::new(400.0, 300.0),
+    );
+    assert!(
+        rect_of(&bordered.0, &bordered.1, "w", html).size.height
+            > rect_of(&bare.0, &bare.1, "w", html).size.height,
+        "an empty inline with a border is a line, and a line has a height",
+    );
+}
+
+#[test]
 fn a_document_that_generates_no_boxes_lays_out_nothing_and_does_not_mind() {
     let (boxes, layout) = lay_out(
         "<p>t</p>",

@@ -170,11 +170,13 @@ impl<'a> AgentTree<'a> {
         if self.is_hidden(id) {
             return false;
         }
-        // An inline box broken around a block is two boxes and one thing. The
-        // first piece is read; the later ones are read *through*, so an agent
-        // asked to activate "the link called Docs" finds one link rather than
-        // two with the same name and a refusal between them.
-        if self.boxes.is_continuation(id) {
+        // An inline box broken around a block is several boxes and one thing.
+        // One piece is read; the others are read *through*, so an agent asked
+        // to activate "the link called Docs" finds one link rather than two
+        // with the same name and a refusal between them. The one that is read
+        // is the one with something in it — CSS keeps an empty piece so that
+        // it can draw its border, and a border is not something to read.
+        if self.boxes.is_broken(id) && self.read_through_this_piece(id) {
             return false;
         }
         // Text a person would read is worth reading — unless the thing that
@@ -192,6 +194,26 @@ impl<'a> AgentTree<'a> {
             Role::Generic => node.semantics.label.is_some(),
             Role::Known(_) | Role::Declared(_) => true,
         }
+    }
+
+    /// Whether this piece of a broken inline box is one of the ones read
+    /// through.
+    ///
+    /// Exactly one piece is read: the first with anything in it. CSS keeps a
+    /// piece with nothing in it so that it can draw its border, and a border
+    /// is not something to read.
+    fn read_through_this_piece(&self, id: BoxId) -> bool {
+        let pieces = self.boxes.pieces_of(id);
+        let shown = pieces
+            .iter()
+            .copied()
+            .find(|piece| {
+                self.boxes
+                    .get(*piece)
+                    .is_some_and(|node| !node.children.is_empty())
+            })
+            .or_else(|| pieces.first().copied());
+        shown != Some(id)
     }
 
     /// Whether the nearest thing above this box takes its name from what is

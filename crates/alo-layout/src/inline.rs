@@ -284,6 +284,14 @@ struct Builder<'a, M: MeasureText> {
     current: Vec<Pending>,
     /// The inline boxes this line is currently inside, outermost first.
     open: Vec<OpenBox>,
+    /// Whether anything on this line is worth a line box.
+    ///
+    /// CSS: a line box holding no text, no preserved space and no inline box
+    /// with a margin, padding or border is **zero-height and treated as not
+    /// existing**. That rule is why an inline box broken around a block can
+    /// keep its empty piece — the piece draws its border when it has one, and
+    /// costs nothing at all when it does not.
+    content: bool,
     pen: f32,
     ascent: f32,
     descent: f32,
@@ -317,6 +325,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             lines: Vec::new(),
             current: Vec::new(),
             open: Vec::new(),
+            content: false,
             pen: 0.0,
             ascent: 0.0,
             descent: 0.0,
@@ -365,6 +374,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 continue;
             }
             let placed = self.measurer.measure(piece, style, None).width;
+            self.content = true;
             self.place_text(box_id, start..end, width, placed, style);
             start = end;
         }
@@ -407,6 +417,10 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         self.pen += edge;
         self.ascent = self.ascent.max(ascent);
         self.descent = self.descent.max(descent);
+        // An inline box with an edge of its own is content; one without is
+        // only a bracket, and a line made of nothing but brackets is not a
+        // line.
+        self.content = self.content || edge > 0.0 || over > 0.0 || under > 0.0;
         self.open.push(OpenBox {
             box_id,
             start: self.pen - edge,
@@ -420,6 +434,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
 
     /// Finish the innermost nested inline box, and give it its last fragment.
     fn close(&mut self, box_id: BoxId, edge: f32) {
+        self.content = self.content || edge > 0.0;
         let Some(index) = self.open.iter().rposition(|held| held.box_id == box_id) else {
             return;
         };
@@ -466,6 +481,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         if !self.fits(size.width) {
             self.end_line();
         }
+        self.content = true;
         self.current.push(Pending {
             fragment: Fragment {
                 box_id,
@@ -484,9 +500,19 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     /// Finish the line being built: put every fragment on the baseline, and
     /// start a new one.
     fn end_line(&mut self) {
-        if self.current.is_empty() {
-            // Nothing on this line, so there is no line. A box that is open
-            // simply carries on to the next one.
+        if self.current.is_empty() || !self.content {
+            // Either nothing was laid down at all, or what was laid down is
+            // only empty inline boxes with no edges of their own — which CSS
+            // says is a zero-height line box, treated as not existing. Either
+            // way there is no line, and any open box carries on to the next.
+            self.current.clear();
+            self.pen = 0.0;
+            self.ascent = 0.0;
+            self.descent = 0.0;
+            for held in &mut self.open {
+                held.start = 0.0;
+                held.from = 0;
+            }
             return;
         }
         // A box still open when the line ends gets its piece for this line,
@@ -549,6 +575,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         self.pen = 0.0;
         self.ascent = 0.0;
         self.descent = 0.0;
+        self.content = false;
     }
 
     fn finish(mut self) -> InlineLayout {

@@ -1,0 +1,10 @@
+body { margin: 10px; background: #ffffff; font-family: system-ui; font-size: 13px }
+#prose { width: 150px; color: #18181b }
+#mark { background: #fce7f3;
+        border-top-width: 3px; border-right-width: 3px;
+        border-bottom-width: 3px; border-left-width: 3px;
+        border-top-style: solid; border-right-style: solid;
+        border-bottom-style: solid; border-left-style: solid;
+        border-top-color: #be185d; border-right-color: #be185d;
+        border-bottom-color: #be185d; border-left-color: #be185d }
+#aside { background: #f4f4f5; padding: 4px; color: #3f3f46 }

@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An empty piece of a broken inline is kept, and draws its border.** CSS says
+  an inline box holding a block is broken into a piece on each side "even if
+  either side is empty", because an empty inline with a border still draws one.
+  This engine used to drop it.
+- **A line box that holds nothing worth holding does not exist.** CSS's rule:
+  a line with no text, no preserved space and no inline box with a margin,
+  padding or border is zero-height and treated as not existing. That is what
+  makes keeping the empty piece free — it costs a line only when it has
+  something to draw.
+- **An agent still reads one thing.** Of the pieces of a broken inline, the one
+  that is read is the first with anything in it; the rest are read through. A
+  border is not something to read, so an empty piece is never a second link.
+
 - **An inline box has a box of its own.** A `<span>`'s border and padding are
   laid out and drawn: the horizontal ones take room on the line, once at its
   start and once at its end; the vertical ones draw without changing the height

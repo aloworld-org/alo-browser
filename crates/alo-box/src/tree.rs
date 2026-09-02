@@ -301,11 +301,31 @@ impl BoxTree {
             .is_some_and(|node| node.continued_from.is_some())
     }
 
-    /// Every piece of a box, the first one included, in order.
-    pub fn fragments_of(&self, first: BoxId) -> Vec<BoxId> {
+    /// Whether a box is one piece of an inline box broken around a block.
+    ///
+    /// True of every piece, the first included — which is what a reader needs
+    /// to know before deciding which one to show.
+    pub fn is_broken(&self, id: BoxId) -> bool {
+        self.is_continuation(id)
+            || self
+                .boxes
+                .iter()
+                .any(|node| node.continued_from == Some(id))
+    }
+
+    /// Every piece of a box, in order, given any one of them.
+    ///
+    /// A box that was never broken is one piece: itself. That is what lets a
+    /// reader ask this question without first asking whether there is anything
+    /// to ask about.
+    pub fn pieces_of(&self, id: BoxId) -> Vec<BoxId> {
+        let first = self
+            .get(id)
+            .and_then(|node| node.continued_from)
+            .unwrap_or(id);
         let mut out = vec![first];
-        out.extend((0..self.boxes.len()).map(BoxId).filter(|id| {
-            self.get(*id)
+        out.extend((0..self.boxes.len()).map(BoxId).filter(|held| {
+            self.get(*held)
                 .is_some_and(|node| node.continued_from == Some(first))
         }));
         out
@@ -507,12 +527,13 @@ fn holds_a_block(tree: &BoxTree, children: &[BoxId]) -> bool {
 /// of those anonymous blocks, which is exactly where the specification puts
 /// it, and it is why this cannot be done by rearranging children in place.
 ///
-/// A piece with nothing in it is dropped rather than kept. CSS keeps it — "even
-/// if either side is empty" — and an empty inline with a border does draw one;
-/// this engine's inline formatting would give it a line box of the font's
-/// height, which is a visible gap where CSS asks for none. Dropping it is the
-/// smaller wrong answer, and queue item 21 is where an empty piece keeps its
-/// border without keeping a line.
+/// A piece with **nothing in it is kept**, which is what CSS asks for — "even
+/// if either side is empty" — because an empty inline with a border still
+/// draws that border. It costs nothing when the border is not there: a line
+/// box holding only empty inline boxes with no border and no padding is
+/// zero-height and treated as not existing, and `crate` hands that rule to
+/// `alo_layout::inline`, which is where a line is built and is the only place
+/// that can tell.
 fn split_around_blocks(tree: &mut BoxTree, first: BoxId, children: Vec<BoxId>) -> Vec<BoxId> {
     let mut out: Vec<BoxId> = Vec::new();
     let mut piece = first;
@@ -542,21 +563,11 @@ fn split_around_blocks(tree: &mut BoxTree, first: BoxId, children: Vec<BoxId>) -
 /// Finish one piece of a broken inline box, keeping it only if it holds
 /// something.
 fn close_piece(tree: &mut BoxTree, piece: BoxId, run: &mut Vec<BoxId>, out: &mut Vec<BoxId>) {
-    if run.is_empty() {
-        // CSS keeps an empty piece — "even if either side is empty" — and an
-        // empty inline with a border draws one. Recorded rather than silent,
-        // because a page that meets it should say so rather than be found by
-        // somebody reading the source.
-        tree.issues.push(StyleIssue {
-            kind: IssueKind::UnsupportedStructure,
-            source: format!("{piece} is an empty piece of an inline broken around a block"),
-            at: Location { line: 0, column: 0 },
-        });
-        return;
-    }
     let taken = core::mem::take(run);
-    let arranged = arrange(tree, piece, taken);
-    tree.adopt(piece, &arranged);
+    if !taken.is_empty() {
+        let arranged = arrange(tree, piece, taken);
+        tree.adopt(piece, &arranged);
+    }
     out.push(piece);
 }
 
@@ -784,14 +795,18 @@ mod tests {
             .and_then(|node| node.continued_from)
             .expect("it says which box it continues");
         assert_eq!(
-            tree.fragments_of(first).len(),
+            tree.pieces_of(first).len(),
             2,
-            "and asking the first piece finds both",
+            "and asking any piece finds both",
+        );
+        assert_eq!(
+            tree.pieces_of(first),
+            tree.pieces_of(*pieces.first().expect("a piece"))
         );
     }
 
     #[test]
-    fn a_block_at_the_end_of_an_inline_leaves_no_empty_piece_behind() {
+    fn a_block_at_the_end_of_an_inline_leaves_an_empty_piece_after_it() {
         let tree = boxes("<div><span>text<p>block</p></span></div>", "");
         let outline = tree.to_outline();
         assert_eq!(
@@ -799,18 +814,25 @@ mod tests {
                 .lines()
                 .filter(|line| line.contains("inline flow"))
                 .count(),
-            1,
-            "there is nothing after the block to be a second piece:\n{outline}",
+            2,
+            "CSS keeps the empty piece — an empty inline with a border still \
+             draws one, and a line that holds only empty inlines with no \
+             border is dropped where it is built:\n{outline}",
         );
-        // CSS would have kept that empty piece. Dropping it is recorded, so a
-        // page that depended on its border says so rather than being found by
-        // somebody reading the source.
-        assert!(
-            tree.issues()
-                .iter()
-                .any(|issue| issue.kind == IssueKind::UnsupportedStructure),
-            "the empty piece is recorded: {:?}",
-            tree.issues(),
+        assert_eq!(tree.issues(), &[], "and nothing is approximated");
+    }
+
+    #[test]
+    fn a_block_at_the_start_of_an_inline_leaves_an_empty_piece_before_it() {
+        let tree = boxes("<div><span><p>block</p>text</span></div>", "");
+        let outline = tree.to_outline();
+        assert_eq!(
+            outline
+                .lines()
+                .filter(|line| line.contains("inline flow"))
+                .count(),
+            2,
+            "one piece on each side, even though the first holds nothing:\n{outline}",
         );
     }
 
