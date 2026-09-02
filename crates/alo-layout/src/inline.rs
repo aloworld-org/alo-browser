@@ -21,6 +21,17 @@
 //! inline-level box — an `inline-block`, an image, a button — has a size of
 //! its own that only its own layout can give, so the caller supplies it; the
 //! line places it and aligns it on the baseline.
+//!
+//! # An inline box has a box of its own
+//!
+//! A nested inline box is not only a bracket around its text. It has a
+//! background, a border and a padding, and CSS puts them in a particular
+//! place: its **horizontal** border and padding take room on the line, once at
+//! its start and once at its end, and its **vertical** ones draw without
+//! changing the height of the line. That is why an inline box arrives as an
+//! [`InlineItem::Open`] and an [`InlineItem::Close`] around its content rather
+//! than as one item, and why it gets **one fragment per line it is on** like
+//! anything else that wraps.
 
 use crate::geometry::{Point, Rect, Size};
 use crate::measure::{MeasureText, TextStyle};
@@ -39,6 +50,33 @@ pub enum InlineItem {
         /// The font it is set in. Per item, because two pieces of text on one
         /// line can be different sizes and still share a baseline.
         style: TextStyle,
+    },
+    /// The start of a nested inline box: everything until its
+    /// [`InlineItem::Close`] is inside it.
+    Open {
+        /// The box.
+        box_id: BoxId,
+        /// The room its own start border and padding take on the line. Only
+        /// here, and only once: a box broken across two lines has a start edge
+        /// on the first piece and an end edge on the last.
+        edge: f32,
+        /// The font it is set in, which is what the height of its content area
+        /// comes from.
+        style: TextStyle,
+        /// How far its painted area reaches above its content area: its top
+        /// border and padding. It does **not** make the line taller, which is
+        /// what CSS says and what stops a padded `<em>` pushing a paragraph's
+        /// lines apart.
+        over: f32,
+        /// The same below: its bottom border and padding.
+        under: f32,
+    },
+    /// The end of a nested inline box.
+    Close {
+        /// The box.
+        box_id: BoxId,
+        /// The room its own end border and padding take on the line.
+        edge: f32,
     },
     /// A box with a size of its own, which is placed whole or not at all.
     Atomic {
@@ -59,7 +97,10 @@ impl InlineItem {
     /// The box this item belongs to.
     pub fn box_id(&self) -> BoxId {
         match self {
-            InlineItem::Text { box_id, .. } | InlineItem::Atomic { box_id, .. } => *box_id,
+            InlineItem::Text { box_id, .. }
+            | InlineItem::Atomic { box_id, .. }
+            | InlineItem::Open { box_id, .. }
+            | InlineItem::Close { box_id, .. } => *box_id,
         }
     }
 }
@@ -221,6 +262,14 @@ pub fn lay_out_aligned(
                 size,
                 baseline,
             } => builder.add_atomic(*box_id, *size, *baseline),
+            InlineItem::Open {
+                box_id,
+                edge,
+                style,
+                over,
+                under,
+            } => builder.open(*box_id, *edge, style, *over, *under),
+            InlineItem::Close { box_id, edge } => builder.close(*box_id, *edge),
         }
     }
     builder.finish()
@@ -233,9 +282,30 @@ struct Builder<'a, M: MeasureText> {
     alignment: TextAlignment,
     lines: Vec<LineBox>,
     current: Vec<Pending>,
+    /// The inline boxes this line is currently inside, outermost first.
+    open: Vec<OpenBox>,
     pen: f32,
     ascent: f32,
     descent: f32,
+}
+
+/// A nested inline box that has started and not yet finished.
+///
+/// It becomes a fragment when it closes, and another one every time the line
+/// ends before it does — which is what gives a wrapped `<em>` one rectangle
+/// per line instead of one rectangle with a hole in the middle.
+struct OpenBox {
+    box_id: BoxId,
+    /// Where on the current line it began.
+    start: f32,
+    /// The first fragment on this line that is inside it.
+    from: usize,
+    /// How far its content area reaches above and below the baseline.
+    ascent: f32,
+    descent: f32,
+    /// How far its painted area reaches beyond that.
+    over: f32,
+    under: f32,
 }
 
 impl<'a, M: MeasureText> Builder<'a, M> {
@@ -246,6 +316,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             alignment: TextAlignment::Start,
             lines: Vec::new(),
             current: Vec::new(),
+            open: Vec::new(),
             pen: 0.0,
             ascent: 0.0,
             descent: 0.0,
@@ -323,6 +394,74 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         self.descent = self.descent.max(descent);
     }
 
+    /// Start a nested inline box.
+    ///
+    /// Its start border and padding take room on the line here and nowhere
+    /// else. Its **content area** — the font's ascent and descent — counts
+    /// towards the line's height; its top and bottom border and padding do
+    /// not, which is CSS's rule and the reason a padded `<em>` does not push a
+    /// paragraph's lines apart.
+    fn open(&mut self, box_id: BoxId, edge: f32, style: &TextStyle, over: f32, under: f32) {
+        let ascent = self.measurer.ascender(style);
+        let descent = self.measurer.descender(style);
+        self.pen += edge;
+        self.ascent = self.ascent.max(ascent);
+        self.descent = self.descent.max(descent);
+        self.open.push(OpenBox {
+            box_id,
+            start: self.pen - edge,
+            from: self.current.len(),
+            ascent,
+            descent,
+            over,
+            under,
+        });
+    }
+
+    /// Finish the innermost nested inline box, and give it its last fragment.
+    fn close(&mut self, box_id: BoxId, edge: f32) {
+        let Some(index) = self.open.iter().rposition(|held| held.box_id == box_id) else {
+            return;
+        };
+        self.pen += edge;
+        let held = self.open.remove(index);
+        // Mid-line the pen is the right answer: the end edge comes after
+        // whatever the box held, trailing space included, because that space
+        // is inside the box.
+        let right = self.pen;
+        self.piece_for(&held, right);
+    }
+
+    /// How far right the content of an open box actually reaches.
+    ///
+    /// Not the pen: a line that ends in a space has advanced past the last
+    /// glyph, and a background painted to the pen would run out past the end
+    /// of the text. A fragment's rectangle is the visible part, so the
+    /// rightmost of them is where the box really ends.
+    fn content_right(&self, held: &OpenBox) -> f32 {
+        self.current
+            .get(held.from..)
+            .into_iter()
+            .flatten()
+            .map(|pending| pending.fragment.rect.right())
+            .fold(held.start, f32::max)
+    }
+
+    /// One rectangle for an inline box, from where it started on this line to
+    /// where it ends on it.
+    fn piece_for(&mut self, held: &OpenBox, right: f32) {
+        let height = held.ascent + held.descent + held.over + held.under;
+        self.current.push(Pending {
+            fragment: Fragment {
+                box_id: held.box_id,
+                rect: Rect::new(held.start, 0.0, (right - held.start).max(0.0), height),
+                text: None,
+                line: self.lines.len(),
+            },
+            below_baseline: held.descent + held.under,
+        });
+    }
+
     fn add_atomic(&mut self, box_id: BoxId, size: Size, baseline: f32) {
         if !self.fits(size.width) {
             self.end_line();
@@ -346,8 +485,29 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     /// start a new one.
     fn end_line(&mut self) {
         if self.current.is_empty() {
+            // Nothing on this line, so there is no line. A box that is open
+            // simply carries on to the next one.
             return;
         }
+        // A box still open when the line ends gets its piece for this line,
+        // and starts again at the left edge of the next one — with no start
+        // edge, because it has already had one.
+        let open = core::mem::take(&mut self.open);
+        // Every extent is worked out before any piece is pushed, so that a box
+        // inside another does not change where the outer one is measured to.
+        let extents: Vec<f32> = open.iter().map(|held| self.content_right(held)).collect();
+        for (held, right) in open.iter().zip(extents) {
+            self.piece_for(held, right);
+        }
+        self.open = open
+            .into_iter()
+            .map(|held| OpenBox {
+                start: 0.0,
+                from: 0,
+                ..held
+            })
+            .collect();
+
         let top = self.lines.last().map_or(0.0, |line| line.top + line.height);
         let baseline = self.ascent;
         let height = self.ascent + self.descent;
@@ -393,6 +553,9 @@ impl<'a, M: MeasureText> Builder<'a, M> {
 
     fn finish(mut self) -> InlineLayout {
         self.end_line();
+        // Anything still open was never closed, which is the caller's mistake
+        // rather than the line's; it keeps the piece `end_line` gave it.
+        self.open.clear();
         let width = self.lines.iter().map(|line| line.width).fold(0.0, f32::max);
         let height = self.lines.iter().map(|line| line.height).sum();
         InlineLayout {

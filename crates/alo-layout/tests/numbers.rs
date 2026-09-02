@@ -483,6 +483,82 @@ fn a_calc_with_a_percentage_sizes_a_grid_track() {
 }
 
 #[test]
+fn an_inline_boxs_horizontal_border_and_padding_take_room_on_the_line() {
+    let html = "<body><p id=p><span id=s>abcd</span></p></body>";
+    let css = "p { margin: 0; width: 200px }
+               #s { padding-left: 10px; padding-right: 6px;
+                    border-left-width: 2px; border-right-width: 2px;
+                    border-left-style: solid; border-right-style: solid }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+
+    // Four characters of eight, with ten and six of padding and two of border
+    // on each side: 2 + 10 + 32 + 6 + 2.
+    let span = rect_of(&boxes, &layout, "s", html);
+    assert!(close(span.size.width, 52.0), "{span:?}");
+    assert!(close(span.origin.x, 0.0), "{span:?}");
+}
+
+#[test]
+fn an_inline_boxs_vertical_padding_draws_without_changing_the_line() {
+    let html = "<body><p id=p><span id=s>abcd</span></p></body>";
+    let plain = lay_out(
+        html,
+        "p { margin: 0; width: 200px }",
+        Size::new(400.0, 300.0),
+    );
+    let padded = lay_out(
+        html,
+        "p { margin: 0; width: 200px }
+         #s { padding-top: 9px; padding-bottom: 9px }",
+        Size::new(400.0, 300.0),
+    );
+
+    // The paragraph is the same height either way — CSS's rule, and what stops
+    // a padded `<em>` pushing a paragraph's lines apart.
+    assert!(close(
+        rect_of(&plain.0, &plain.1, "p", html).size.height,
+        rect_of(&padded.0, &padded.1, "p", html).size.height,
+    ));
+    // And the span itself is taller by the padding, because it is drawn.
+    let grown = rect_of(&padded.0, &padded.1, "s", html).size.height
+        - rect_of(&plain.0, &plain.1, "s", html).size.height;
+    assert!(close(grown, 18.0), "{grown}");
+}
+
+#[test]
+fn an_inline_box_that_wraps_has_one_rectangle_per_line() {
+    let html = "<body><p id=p><span id=s>abcd efgh</span></p></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "p { margin: 0; width: 40px } #s { padding-left: 4px }",
+        Size::new(400.0, 300.0),
+    );
+    let root = boxes.root().expect("a root");
+    let span = core::iter::once(root)
+        .chain(boxes.descendants(root))
+        .find(|id| {
+            boxes
+                .get(*id)
+                .and_then(|node| node.kind.node())
+                .is_some_and(|source| {
+                    parse_document(html)
+                        .element(source)
+                        .is_some_and(|element| element.attr("id") == Some("s"))
+                })
+        })
+        .expect("the span");
+
+    let pieces = layout.fragments(span);
+    assert_eq!(pieces.len(), 2, "one piece per line: {pieces:?}");
+    // The first piece carries the start padding; the second starts at the
+    // left edge with none, because it has already had it.
+    assert!(close(pieces[0].rect.origin.x, 0.0));
+    assert!(close(pieces[0].rect.size.width, 36.0), "{:?}", pieces[0]);
+    assert!(close(pieces[1].rect.origin.x, 0.0));
+    assert!(close(pieces[1].rect.size.width, 32.0), "{:?}", pieces[1]);
+}
+
+#[test]
 fn a_document_that_generates_no_boxes_lays_out_nothing_and_does_not_mind() {
     let (boxes, layout) = lay_out(
         "<p>t</p>",

@@ -294,6 +294,44 @@ impl Builder<'_> {
             return;
         };
 
+        // **One area per piece.** A box that sits on a line and wrapped has a
+        // rectangle per line it is on, and drawing its background from the
+        // union of them would paint straight across the gap between the lines.
+        // A block box has no pieces and is drawn once, at its border box.
+        let pieces: Vec<Rect> = self
+            .layout
+            .fragments(id)
+            .iter()
+            .map(|fragment| fragment.rect)
+            .collect();
+        let areas: Vec<Rect> = if pieces.is_empty() {
+            vec![geometry.border_box]
+        } else {
+            pieces
+        };
+        let last = areas.len().saturating_sub(1);
+        for (index, area) in areas.iter().enumerate() {
+            // A box broken across lines has its start edge only on its first
+            // piece and its end edge only on its last, which is what CSS says
+            // and what stops a wrapped `<em>` growing a border down the middle
+            // of a paragraph.
+            self.draw_one_area(id, *area, index == 0, index == last, out);
+        }
+
+        if let BoxKind::Text { text, .. } = &node.kind {
+            self.draw_text(id, text, out);
+        }
+    }
+
+    /// The shadows, background and border of one piece of a box.
+    fn draw_one_area(
+        &self,
+        id: BoxId,
+        area: Rect,
+        first: bool,
+        last: bool,
+        out: &mut Vec<DisplayItem>,
+    ) {
         // CSS's own order for one box: the shadows it casts outwards, then
         // its background colour, then its background image over that, then
         // the shadows cast inwards, then the border, then what is inside it.
@@ -302,13 +340,14 @@ impl Builder<'_> {
         for shadow in shadows.iter().rev().filter(|shadow| !shadow.inset) {
             out.push(DisplayItem::Shadow {
                 box_id: id,
-                path: cast(geometry.border_box, corners, *shadow),
+                path: cast(area, corners, *shadow),
                 blur: shadow.blur,
                 color: shadow.color,
             });
         }
+        let border = self.border_of(id);
         if let Some(style) = self.style_of(id) {
-            let shape = rounded_rectangle(geometry.border_box, corners);
+            let shape = rounded_rectangle(area, corners);
             if let Some(color) = background_color(style)
                 && !color.is_invisible()
             {
@@ -326,7 +365,7 @@ impl Builder<'_> {
                     path: shape,
                     paint: Paint::Gradient {
                         gradient,
-                        area: geometry.padding_box(),
+                        area: area.shrunk_by(border),
                         current: style.current_color(),
                     },
                 });
@@ -336,7 +375,7 @@ impl Builder<'_> {
             // An inset shadow is the shadow of a hole: the shape *outside* the
             // box, blurred, and kept inside the box by a clip. That is the
             // same blur as an outset shadow, which is why there is one.
-            let inside = geometry.padding_box();
+            let inside = area.shrunk_by(border);
             out.push(DisplayItem::PushClip {
                 box_id: id,
                 path: rounded_rectangle(inside, corners),
@@ -349,11 +388,17 @@ impl Builder<'_> {
             });
             out.push(DisplayItem::PopClip);
         }
-        self.draw_borders(id, geometry.border_box, out);
+        self.draw_borders(id, area, first, last, out);
+    }
 
-        if let BoxKind::Text { text, .. } = &node.kind {
-            self.draw_text(id, text, out);
-        }
+    /// How thick a box's border is on each side.
+    ///
+    /// From the layout, which worked it out from the style — including for an
+    /// inline box, whose border used to be neither laid out nor drawn.
+    fn border_of(&self, id: BoxId) -> alo_layout::Edges {
+        self.layout
+            .get(id)
+            .map_or(alo_layout::Edges::ZERO, |geometry| geometry.border)
     }
 
     /// The border.
@@ -374,7 +419,14 @@ impl Builder<'_> {
     /// never shows a border; every other style is not implemented, and drawing
     /// a dashed border as a solid one would be a wrong pixel that looks nearly
     /// right.
-    fn draw_borders(&self, id: BoxId, border_box: Rect, out: &mut Vec<DisplayItem>) {
+    fn draw_borders(
+        &self,
+        id: BoxId,
+        border_box: Rect,
+        first: bool,
+        last: bool,
+        out: &mut Vec<DisplayItem>,
+    ) {
         let Some(geometry) = self.layout.get(id) else {
             return;
         };
@@ -383,8 +435,13 @@ impl Builder<'_> {
         };
         let corners = Corners::of(style);
 
-        // One width and one colour on every side: a ring.
-        if let Some(color) = self.uniform_border(id, style) {
+        // One width and one colour on every side: a ring. Only for a box drawn
+        // in one piece — a piece in the middle of a broken box has no start
+        // edge and no end edge, so there is no ring to draw.
+        if first
+            && last
+            && let Some(color) = self.uniform_border(id, style)
+        {
             out.push(DisplayItem::Fill {
                 box_id: id,
                 path: ring(border_box, corners, geometry.border),
@@ -404,6 +461,11 @@ impl Builder<'_> {
         // everything inside the box looks like.
         let drawn: Vec<(&str, f32, Rgba)> = sides
             .into_iter()
+            .filter(|(side, _)| match *side {
+                "left" => first,
+                "right" => last,
+                _ => true,
+            })
             .filter(|(_, width)| *width > 0.0)
             .filter(|(side, _)| border_style(style, side).is_some_and(|kind| kind == "solid"))
             .filter_map(|(side, width)| {

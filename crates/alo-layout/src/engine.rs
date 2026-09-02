@@ -217,7 +217,19 @@ fn collect_inline_items(
                         issues,
                     ));
                 } else {
-                    // A nested inline box: its children join this line.
+                    // A nested inline box: its children join this line, with
+                    // its own edges bracketing them. The brackets are what
+                    // give it a box of its own — a background, a border and a
+                    // padding — rather than only a place where its text sits.
+                    let (border, padding) = inline_edges(boxes, styles, child, issues);
+                    let edges = added(border, padding);
+                    items.push(InlineItem::Open {
+                        box_id: child,
+                        edge: edges.left,
+                        style: text_style_for(boxes, styles, child),
+                        over: edges.top,
+                        under: edges.bottom,
+                    });
                     items.extend(collect_inline_items(
                         boxes,
                         styles,
@@ -226,6 +238,10 @@ fn collect_inline_items(
                         measure,
                         issues,
                     ));
+                    items.push(InlineItem::Close {
+                        box_id: child,
+                        edge: edges.right,
+                    });
                 }
             }
             _ => items.push(atomic_item(
@@ -239,6 +255,67 @@ fn collect_inline_items(
         }
     }
     items
+}
+
+/// An inline box's own border and padding, on each side.
+///
+/// The horizontal ones take room on the line; the vertical ones draw without
+/// changing the line's height. Both come from the same place as a block box's,
+/// so a `border` on a `<span>` and a `border` on a `<div>` mean the same
+/// number.
+fn inline_edges(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    id: BoxId,
+    issues: &mut Vec<StyleIssue>,
+) -> (Edges, Edges) {
+    let Some(ours) = boxes
+        .get(id)
+        .and_then(|node| node.kind.node())
+        .and_then(|source| styles.get(source))
+        .map(|computed| style::read(computed, issues))
+    else {
+        return (Edges::ZERO, Edges::ZERO);
+    };
+    let metrics = ours.metrics;
+    // A percentage padding on an inline box is of the containing block's
+    // *width*, which this file does not have here — and a wrong number is a
+    // wrong pixel, so it is zero and says so.
+    let mut side = |value: &LengthPercentage, name: &str| {
+        if value.is_percentage() {
+            issues.push(StyleIssue {
+                kind: IssueKind::UnsupportedValue,
+                source: format!("{value} on the {name} of an inline box"),
+                at: Location { line: 0, column: 0 },
+            });
+            return 0.0;
+        }
+        value.to_px(metrics, 0.0)
+    };
+    (
+        Edges {
+            top: side(&ours.border.top, "top border"),
+            right: side(&ours.border.right, "right border"),
+            bottom: side(&ours.border.bottom, "bottom border"),
+            left: side(&ours.border.left, "left border"),
+        },
+        Edges {
+            top: side(&ours.padding.top, "top padding"),
+            right: side(&ours.padding.right, "right padding"),
+            bottom: side(&ours.padding.bottom, "bottom padding"),
+            left: side(&ours.padding.left, "left padding"),
+        },
+    )
+}
+
+/// The two sets of edges added together — what actually takes room.
+fn added(left: Edges, right: Edges) -> Edges {
+    Edges {
+        top: left.top + right.top,
+        right: left.right + right.right,
+        bottom: left.bottom + right.bottom,
+        left: left.left + right.left,
+    }
 }
 
 /// The font a box's text is set in, from the nearest element that has a style.
@@ -370,18 +447,26 @@ fn place_inline_content(
                 .or_default()
                 .push(placed.clone());
         }
-        // Every box inside this context gets a rectangle as well: the union of
-        // the pieces beneath it. That includes a nested inline box such as an
-        // `<em>`, which has no piece of its own — its text does — and would
-        // otherwise have no position at all. What a box *draws* is still its
-        // pieces; the union is the answer to "where is this".
+        // Every box inside this context gets a rectangle as well. A nested
+        // inline box has pieces of its own now — one per line, its own edges
+        // included — so its rectangle is the union of those, and it carries
+        // the border and padding that paint needs to draw them. A box with no
+        // pieces at all falls back to the union of what is under it, which is
+        // the answer to "where is this" for something that draws nothing.
         for inner in boxes.descendants(id) {
-            if let Some(rect) = union_of_subtree(boxes, inner, fragments) {
-                geometry.entry(inner).or_insert(BoxGeometry {
-                    border_box: rect,
-                    ..BoxGeometry::default()
-                });
-            }
+            let own = fragments
+                .get(&inner)
+                .and_then(|pieces| pieces.iter().map(|piece| piece.rect).reduce(union_rects));
+            let Some(rect) = own.or_else(|| union_of_subtree(boxes, inner, fragments)) else {
+                continue;
+            };
+            let (border, padding) = inline_edges(boxes, styles, inner, issues);
+            geometry.entry(inner).or_insert(BoxGeometry {
+                border_box: rect,
+                border,
+                padding,
+                ..BoxGeometry::default()
+            });
         }
         // An atomic box brought a whole layout of its own with it; place it.
         for item in &items {

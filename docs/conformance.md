@@ -63,10 +63,16 @@ its parent's content and in front of its background.
 
 An inline box holding a block-level box is **broken around it**, into a piece
 on each side, with the block a sibling of the anonymous blocks those pieces sit
-in. Each piece draws its own background. Two things about that are not right
-yet and both are recorded on the tree: a piece with *nothing* in it is dropped
-where CSS keeps it, and an inline box's own border and padding are neither laid
-out nor drawn.
+in. Each piece draws its own background. One thing about that is not right yet
+and it is recorded on the tree: a piece with *nothing* in it is dropped where
+CSS keeps it.
+
+**An inline box has a box of its own.** A `<span>`'s border and padding are
+laid out and drawn — horizontal ones take room on the line, vertical ones draw
+without changing its height — and a `<span>` that wraps is one rectangle per
+line, with its start border on the first piece and its end border on the last.
+A *percentage* padding on an inline box is refused and recorded: it is of the
+containing block's width, which is not known where a line is built.
 
 `calc()` resolves everywhere, percentages included:
 `width: calc(100% - 2rem)` is a number rather than a refusal, in widths and

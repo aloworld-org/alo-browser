@@ -6,6 +6,24 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An inline box has a box of its own.** A `<span>`'s border and padding are
+  laid out and drawn: the horizontal ones take room on the line, once at its
+  start and once at its end; the vertical ones draw without changing the height
+  of the line, which is CSS's rule and what stops a padded `<em>` pushing a
+  paragraph's lines apart.
+- **A `<span>` that wraps is one rectangle per line**, not one rectangle with
+  the gap between the lines painted over. Its background used to be drawn from
+  the union of its pieces, which ran straight across that gap.
+- **A broken box's border stops and starts.** The start border is drawn only on
+  its first piece and the end border only on its last, the way a browser draws
+  a wrapped `<a>` — a piece in the middle has neither.
+- A piece ends at its **content**, not at the pen: a line that ends in a space
+  has advanced past the last glyph, and a background painted to the pen ran out
+  past the end of the text.
+- Refused rather than guessed at, and recorded: a **percentage** padding on an
+  inline box, which is of the containing block's width and is not known where
+  the line is built.
+
 - **`calc()` with a percentage in it works, in every layout property that takes
   one.** `width: calc(100% - 2rem)` — the thing a design system writes for a
   full-width box with a gutter — was refused and recorded. It is now a number:

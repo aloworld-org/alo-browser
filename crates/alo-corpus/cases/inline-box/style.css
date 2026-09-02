@@ -1,0 +1,11 @@
+body { margin: 10px; background: #ffffff; font-family: system-ui; font-size: 13px }
+#prose { width: 150px; margin: 0; color: #18181b }
+#tag { background: #dbeafe; color: #1e3a8a;
+       padding-left: 5px; padding-right: 5px;
+       padding-top: 2px; padding-bottom: 2px;
+       border-top-width: 2px; border-right-width: 2px;
+       border-bottom-width: 2px; border-left-width: 2px;
+       border-top-style: solid; border-right-style: solid;
+       border-bottom-style: solid; border-left-style: solid;
+       border-top-color: #2563eb; border-right-color: #2563eb;
+       border-bottom-color: #2563eb; border-left-color: #2563eb }

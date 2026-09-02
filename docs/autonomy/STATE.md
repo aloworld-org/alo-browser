@@ -1345,3 +1345,59 @@ valuable: **`alo-os` is not checked out beside this repository**, so the screen
 stage 1's exit gate actually names has never been rendered. `ROADMAP.md`'s line
 for it is deliberately not ticked and `docs/conformance.md` says why.
 
+---
+
+## Iteration 21 — queue item 22: an inline box has a box of its own
+
+**Taken before item 21**, and the reason is written into the queue: 21 needs
+the zero-height line-box rule and this did not, and a `border` on a `<span>` is
+ordinary CSS that a real page writes.
+
+**What was built.** A `<span>`'s own border and padding are laid out and drawn.
+The horizontal ones take room on the line, once at its start and once at its
+end; the vertical ones draw without changing the height of the line, which is
+CSS's rule and what stops a padded `<em>` pushing a paragraph's lines apart.
+
+**The change that made it possible was in the shape of the input.** An inline
+box used to be *flattened*: its children joined the line's item list and the
+box itself was never on the line at all — it got a position afterwards, from
+the union of everything beneath it. It now arrives as an **open** and a
+**close** around its content, so the line builder knows when it is inside one.
+
+**That fixed a second bug nobody had reported.** Because the box's rectangle
+was the union of its pieces, a `<span>` that wrapped across two lines was drawn
+as *one* rectangle — with the gap between the lines painted over. It now gets
+one fragment per line, like everything else that wraps, and paint draws one
+area per fragment.
+
+**And a third, in the same place.** A broken box's start border is drawn only
+on its first piece and its end border only on its last, the way a browser draws
+a wrapped `<a>`. A piece in the middle has neither.
+
+**One detail worth remembering.** A piece ends at its *content*, not at the
+pen. A line that ends in a space has advanced past the last glyph, so a
+background painted to the pen ran out past the end of the text — visible as a
+few pixels of colour hanging off the right of every wrapped line.
+
+**Refused rather than guessed at, and recorded:** a percentage padding on an
+inline box. It is a percentage of the containing block's width, and that is not
+known where a line is built.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 758 tests, no stubs, boundaries held, no verb takes a coordinate.
+Twelve corpus cases; the new one, `inline-box`, is a bordered chip broken
+across two lines, and `broken-inline` has the border it originally asked for.
+
+**What the next iteration should know.** Two items remain, both written by the
+iterations that found them:
+
+- **21.** An empty piece of a broken inline keeps its border. Still needs the
+  zero-height line-box rule: with the open/close items in place an empty inline
+  now *would* make a line, which is exactly the visible gap the cut was made to
+  avoid.
+- **23.** An agent reads a broken inline as one whole thing.
+
+And still the most valuable thing this loop cannot do: **`alo-os` is not
+checked out beside this repository**, so the screen stage 1's exit gate names
+has never been rendered.
+

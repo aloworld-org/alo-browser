@@ -1,0 +1,7 @@
+block flow · document
+  block flow · generic
+    block flow · paragraph
+      text "The "
+      inline flow · generic
+        text "quick brown fox jumps over"
+      text " the lazy dog."

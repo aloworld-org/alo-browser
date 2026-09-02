@@ -1,4 +1,10 @@
 body { margin: 10px; background: #ffffff; font-family: system-ui; font-size: 13px }
 #prose { width: 160px; color: #18181b }
-#note { background: #fef08a }
+#note { background: #fef08a; padding-left: 4px; padding-right: 4px;
+        border-top-width: 2px; border-right-width: 2px;
+        border-bottom-width: 2px; border-left-width: 2px;
+        border-top-style: solid; border-right-style: solid;
+        border-bottom-style: solid; border-left-style: solid;
+        border-top-color: #a16207; border-right-color: #a16207;
+        border-bottom-color: #a16207; border-left-color: #a16207 }
 #aside { background: #e4e4e7; padding: 4px; color: #3f3f46 }

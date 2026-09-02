@@ -170,12 +170,21 @@ file is the specification for what "correct" means here.
   item 13**: the piece that holds something is the case a page actually has,
   and the empty one needs the zero-height line-box rule first.
 
-- [ ] **22. Borders and padding on an inline box.** An inline box's own border
-  and padding are not laid out and not drawn: horizontal ones should add to the
-  advance where the box starts and ends, vertical ones should draw without
-  changing the line's height. The background *is* drawn, which is why item 13's
-  corpus case shows the break. **Found by item 13's corpus case**, which asked
+- [x] **22. Borders and padding on an inline box.** An inline box's own border
+  and padding were not laid out and not drawn: horizontal ones should add to
+  the advance where the box starts and ends, vertical ones should draw without
+  changing the line's height. **Found by item 13's corpus case**, which asked
   for a border and got none.
+
+  **Done, and it took the wrapping bug with it.** An inline box arrives at the
+  line as an *open* and a *close* around its content, so it gets one fragment
+  per line like anything else that wraps — which is what fixed a background
+  that used to be drawn from the union of its pieces and painted straight
+  across the gap between two lines. The start border is drawn only on the first
+  piece and the end border only on the last. Corpus case `inline-box`, and
+  `broken-inline` has its border back. **Taken before item 21** because 21
+  needs the zero-height line-box rule and this did not, and because a `border`
+  on a `<span>` is ordinary CSS that a real page writes.
 
 - [ ] **23. An agent reads a broken inline as one whole thing.** A `<div>`
   inside an `<a>` is still inside the link for a person and for a click, but
