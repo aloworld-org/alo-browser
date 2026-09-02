@@ -6,6 +6,29 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **★ An agent can read the interface as what it is.** "Invoice list, twelve
+  rows, row three selected" — the sentence `docs/decisions/0002` opens with —
+  is now a question this engine answers about a page it rendered, by role and
+  by name, with no screenshot anywhere in the chain and no second tree to
+  disagree with the first.
+- It is a **view**, not a structure. Nothing is built: a node is a box's id and
+  a borrow of the trees that already draw the page, and every question is
+  answered from them when it is asked. If the two could disagree, an agent
+  would eventually act on something that is not on screen.
+- **The same view is the accessibility tree.** A screen reader and an agent
+  want identical facts, and two implementations would guarantee one is wrong.
+- A `<div>` that means nothing is read through, exactly as a screen reader does
+  — a page is mostly `<div>`s, and a tree that showed them would bury the rows
+  an agent is looking for. What the author hid with `aria-hidden` is not read
+  at all.
+- **A node knows whether it is on screen.** That is the thing a DOM cannot say:
+  a scrolled-away row looks identical to a visible one in it.
+- Every corpus case now pins what an agent reads beside what a person sees, so
+  the two cannot drift apart without a test noticing.
+- The agent tree found a layout bug on its first run: a space that was its own
+  text box took no room, so `All` and `Due` touched, and `small and` read
+  `smalland`.
+
 - **There is a reference corpus.** Six cases — an invoice list, a rounded card,
   wrapping prose, a flex row, a grid, and three font sizes on one line — each a
   directory holding what to render and four expectations: the box tree it

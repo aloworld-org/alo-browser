@@ -2,8 +2,11 @@
 //!
 //! `docs/features.md` asks for **a committed corpus, each case with its
 //! expected image *and* its expected box tree**. This is it, and the reason it
-//! is four expectations rather than one is in `CLAUDE.md`: *"A failure that
+//! is five expectations rather than one is in `CLAUDE.md`: *"A failure that
 //! says 'row three moved 4px' is worth ten that say 'the image differs'."*
+//! And ADR 0002 adds the fifth: *"Reference renders can assert the tree, not
+//! just pixels"* — so what an agent reads is pinned beside what a person sees,
+//! and the two cannot drift apart without a test noticing.
 //!
 //! Each case is a directory of files, so a change shows up as a diff a person
 //! can read rather than as a test failure they have to reproduce:
@@ -13,7 +16,8 @@
 //! | `boxes.txt` | what exists, and what each box *means* |
 //! | `layout.txt` | where every box ended up, in numbers |
 //! | `display.txt` | what is drawn, in what order |
-//! | `render.png` | everything the other three cannot describe |
+//! | `agent.txt` | what an agent reads: roles, names, states, positions |
+//! | `render.png` | everything the others cannot describe |
 //!
 //! # Running it
 //!

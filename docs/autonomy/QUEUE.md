@@ -115,7 +115,7 @@ file is the specification for what "correct" means here.
   expected image and **its expected box tree**. A failure that says "row three
   moved 4px" is worth ten that say "the image differs".
 
-- [ ] **9. ★ The agent tree.** The layout tree read as roles, states, positions
+- [x] **9. ★ The agent tree.** The layout tree read as roles, states, positions
   and text (ADR 0002). One tree, two readers — a *view*, never a parallel
   structure, because two structures eventually disagree and the agent acts on the
   one that is wrong.

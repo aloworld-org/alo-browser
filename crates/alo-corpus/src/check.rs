@@ -41,6 +41,14 @@ pub fn check(case: &Case, rendered: &Rendered) -> Vec<Difference> {
         ("boxes.txt", rendered.boxes.to_outline()),
         ("layout.txt", rendered.layout.to_outline(&rendered.boxes)),
         ("display.txt", rendered.display.to_outline()),
+        // ADR 0002: *"Reference renders can assert the tree, not just
+        // pixels."* This is that — what an agent reads, pinned beside what a
+        // person sees, so the two cannot drift apart unnoticed.
+        (
+            "agent.txt",
+            alo_agent::AgentTree::new(&rendered.document, &rendered.boxes, &rendered.layout)
+                .to_outline(),
+        ),
         (
             "issues.txt",
             format!("{}\n", rendered.issues().join("\n"))

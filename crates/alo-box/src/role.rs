@@ -145,6 +145,12 @@ pub enum KnownRole {
     Summary,
     /// A disclosure and its content.
     Details,
+    /// A run of text a person reads.
+    ///
+    /// No element has this role — text is not an element. It is what the agent
+    /// surface calls a text box, and it is here rather than there so that
+    /// there is one list of roles rather than two.
+    Text,
 }
 
 impl KnownRole {
@@ -199,6 +205,7 @@ impl KnownRole {
             KnownRole::Menu => "menu",
             KnownRole::MenuItem => "menuitem",
             KnownRole::Summary => "summary",
+            KnownRole::Text => "text",
             // HTML-AAM maps `<details>` to a group, which is what it is: a
             // thing that holds other things and can be opened.
             KnownRole::Group | KnownRole::Details => "group",

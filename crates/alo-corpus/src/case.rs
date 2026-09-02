@@ -12,14 +12,16 @@
 //!   boxes.txt      the box tree it should build
 //!   layout.txt     where every box should end up
 //!   display.txt    what should be drawn, in order
+//!   agent.txt      what an agent should read
 //!   render.png     what it should look like
 //! ```
 //!
-//! The four expectations are not redundant. `boxes.txt` catches a change in
-//! what exists, `layout.txt` a change in where it is, `display.txt` a change in
-//! what is drawn, and `render.png` everything the other three cannot describe —
-//! anti-aliasing, glyph shapes, compositing. A failure in the first three says
-//! *what* changed; the picture says *that* something did.
+//! None of them is redundant. `boxes.txt` catches a change in what exists,
+//! `layout.txt` a change in where it is, `display.txt` a change in what is
+//! drawn, `agent.txt` a change in what the page *means*, and `render.png`
+//! everything the others cannot describe — anti-aliasing, glyph shapes,
+//! compositing. The first four say *what* changed; the picture says *that*
+//! something did.
 
 use std::path::{Path, PathBuf};
 

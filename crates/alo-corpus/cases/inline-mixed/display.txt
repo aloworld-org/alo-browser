@@ -1,5 +1,5 @@
 text box#3 "Set in" rgb(39 39 42) 13px at (8, 26.564453)
 text box#5 "small" rgb(113 113 122) 10px at (49.46289, 26.564453)
-text box#6 "and" rgb(39 39 42) 13px at (76.09863, 26.564453)
-text box#8 "large" rgb(24 24 27) 20px at (104.68848, 26.564453)
+text box#6 "and" rgb(39 39 42) 13px at (80.23096, 26.564453)
+text box#8 "large" rgb(24 24 27) 20px at (108.8208, 26.564453)
 text box#9 "together." rgb(39 39 42) 13px at (8, 43.348145)

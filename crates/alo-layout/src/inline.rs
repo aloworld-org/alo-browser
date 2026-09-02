@@ -229,10 +229,20 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             if !self.fits(width) {
                 self.end_line();
             }
-            if !visible.is_empty() {
-                let placed = self.measurer.measure(piece, style, None).width;
-                self.place_text(box_id, start..end, width, placed, style);
+            if visible.is_empty() {
+                // Whitespace of its own — the space between two `<a>`s, which
+                // arrives as a text box in its own right. It draws nothing, and
+                // it still takes room: without this, `All` and `Due` touch.
+                // At the start of a line it takes none, because a line does not
+                // begin with a space.
+                if !self.current.is_empty() {
+                    self.pen += self.measurer.measure(piece, style, None).width;
+                }
+                start = end;
+                continue;
             }
+            let placed = self.measurer.measure(piece, style, None).width;
+            self.place_text(box_id, start..end, width, placed, style);
             start = end;
         }
     }

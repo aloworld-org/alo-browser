@@ -908,3 +908,70 @@ than a faster fork of somebody else's.
   belongs, because it needs the finished tree to walk.
 - Item 10's verbs must take a **name or an id, never a coordinate** (ADR 0002),
   and `scripts/gate.sh` cannot check that — a person must.
+
+---
+
+## 2026-09-02 — iteration 14: ★ the agent tree (queue item 9)
+
+**The reason this repository exists.** `docs/decisions/0002` opens with a
+sentence — *"invoice list, twelve rows, row three selected"* — and the engine
+now answers it about a page it rendered, by role and by name, with no screenshot
+anywhere in the chain.
+
+**What was built.** `crates/alo-agent`.
+
+- `tree.rs` — the view. **Nothing is built.** An `AgentNode` is a box's id and a
+  borrow of the trees that already draw the page, and every question is answered
+  from them when it is asked. ADR 0002 is unambiguous about why: if the two
+  could disagree, an agent would eventually act on something that is not on
+  screen. There is nothing here to disagree with.
+- `name.rs` — the accessible name, in ARIA's order and for ARIA's reasons. This
+  is the piece `alo-box` said it could not do, because steps three and four need
+  a finished tree to walk: a `<label>` somewhere else in the document, and a
+  button's own content.
+
+**Decisions worth knowing about:**
+
+- **A box that means nothing is read through**, exactly as a screen reader does.
+  A page is mostly `<div>`s; a tree that showed all of them would bury the
+  twelve rows an agent is looking for.
+- **Text that already names its parent is not reported twice.** A button reads
+  as `button "Save"`, not as a button containing a text node saying the same
+  thing — an agent choosing between two nodes that are the same thing is an
+  agent about to act on the wrong one.
+- **A node says whether it is on screen.** ADR 0002 rejects exposing the DOM
+  partly because *"a scrolled-away row looks identical to a visible one"*; this
+  is the answer that makes it not.
+- **`KnownRole::Text` lives in `alo-box`** rather than in the agent crate, so
+  that there is one list of roles rather than two. No element has that role —
+  text is not an element — and the view is what assigns it.
+
+**The bug the agent tree found on its first run.** A space that arrived as its
+own text box — the one between `<a>All</a>` and `<a>Due</a>` — advanced the pen
+by nothing, so the two links touched and `small and` rendered as `smalland`. I
+had seen it in a corpus thumbnail an hour earlier and talked myself out of it;
+the agent tree made it unmissable because two links with no gap between them is
+obvious in an outline in a way it is not in a picture. **The corpus then caught
+the fix**, named the case and the line, and the new picture reads correctly.
+
+**Every corpus case now pins `agent.txt`** beside its picture. ADR 0002 asked
+for exactly that: *"Reference renders can assert the tree, not just pixels. A
+test can say 'row three is selected and sits at these coordinates', which is a
+far better failure message than an image diff."*
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 619 tests, no stubs, boundaries held.
+
+**What the next iteration should know.** Item 10 is typed verbs, and it is the
+other half of ADR 0002.
+
+- **No verb takes a coordinate.** `scripts/gate.sh` cannot check that; a person
+  must, and the queue says so.
+- A verb names its target the way `AgentTree::named` and `with_role` do, and
+  comes back with what it did — `alo-os`'s verb contract is the shape to
+  follow.
+- **A form control lays out at 0×0** today: `<input>` has no intrinsic size
+  because the user-agent sheet gives it none. It does not block item 10, whose
+  verbs work by name, but item 11's real alo screen will need it, and it is the
+  kind of thing that belongs in `alo-style/src/user_agent.rs` rather than
+  anywhere clever.
