@@ -14,5 +14,8 @@ alo-dom = { path = "../alo-dom" }
 alo-value = { path = "../alo-value" }
 cssparser.workspace = true
 
+[dev-dependencies]
+alo-value = { path = "../alo-value" }
+
 [lints]
 workspace = true

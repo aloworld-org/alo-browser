@@ -11,6 +11,7 @@
 //! bug.
 
 use crate::calc::{CalcNode, Kind};
+use crate::color::{Color, Rgba, from_hsl};
 use crate::length::{Length, LengthPercentage};
 use crate::unit::Unit;
 use cssparser::{Parser as CssParser, ParserInput, Token};
@@ -49,6 +50,133 @@ pub fn parse_number(text: &str) -> Option<f32> {
         }
         Some(node.evaluate(crate::length::FontMetrics::default(), 0.0))
     })
+}
+
+/// Read a whole value as a colour.
+///
+/// [`None`] for anything this engine does not implement — `oklch`, `lab`,
+/// `color()`, `color-mix()`. Those are different colour spaces, and a colour
+/// converted by guesswork is a wrong pixel that looks nearly right, which law
+/// 3 calls a bug rather than a task.
+pub fn parse_color(text: &str) -> Option<Color> {
+    entirely(text, one_color)
+}
+
+fn one_color<'i>(input: &mut CssParser<'i, '_>) -> Option<Color> {
+    let token = input.next().ok()?.clone();
+    match token {
+        // `#101014` and its three-, four- and eight-digit relatives. The table
+        // is `cssparser`'s, because it is a table.
+        Token::Hash(value) | Token::IDHash(value) => {
+            let (red, green, blue, alpha) =
+                cssparser::color::parse_hash_color(value.as_bytes()).ok()?;
+            Some(Color::Rgba(Rgba::from_rgba8(
+                red,
+                green,
+                blue,
+                to_byte(alpha),
+            )))
+        }
+        Token::Ident(name) => {
+            if name.eq_ignore_ascii_case("transparent") {
+                return Some(Color::Rgba(Rgba::TRANSPARENT));
+            }
+            if name.eq_ignore_ascii_case("currentcolor") {
+                return Some(Color::CurrentColor);
+            }
+            let (red, green, blue) =
+                cssparser::color::parse_named_color(&name.to_ascii_lowercase()).ok()?;
+            Some(Color::Rgba(Rgba::from_rgba8(red, green, blue, 255)))
+        }
+        Token::Function(name) => {
+            let name = name.to_ascii_lowercase();
+            input
+                .parse_nested_block(
+                    |arguments| -> Result<Option<Color>, cssparser::ParseError<'i, ()>> {
+                        Ok(color_function(&name, arguments))
+                    },
+                )
+                .ok()?
+        }
+        _ => None,
+    }
+}
+
+/// `rgb()`, `rgba()`, `hsl()` and `hsla()`, in both the modern
+/// space-separated form and the legacy comma-separated one.
+fn color_function(name: &str, input: &mut CssParser<'_, '_>) -> Option<Color> {
+    let is_rgb = name == "rgb" || name == "rgba";
+    let is_hsl = name == "hsl" || name == "hsla";
+    if !is_rgb && !is_hsl {
+        return None;
+    }
+
+    let first = channel(input, is_hsl)?;
+    // The legacy form separates with commas and the modern one with spaces;
+    // both are current CSS, and a sheet written for either has to work.
+    let legacy = input.try_parse(CssParser::expect_comma).is_ok();
+    let second = channel(input, false)?;
+    if legacy {
+        input.expect_comma().ok()?;
+    }
+    let third = channel(input, false)?;
+
+    let alpha = if legacy {
+        if input.try_parse(CssParser::expect_comma).is_ok() {
+            alpha_channel(input)?
+        } else {
+            1.0
+        }
+    } else if input.try_parse(|input| input.expect_delim('/')).is_ok() {
+        alpha_channel(input)?
+    } else {
+        1.0
+    };
+    input.expect_exhausted().ok()?;
+
+    if is_rgb {
+        // `rgb()` takes numbers out of 255 or percentages; both end up here as
+        // a fraction of one.
+        Some(Color::Rgba(Rgba::new(first, second, third, alpha)))
+    } else {
+        Some(Color::Rgba(from_hsl(first, second, third, alpha)))
+    }
+}
+
+/// A fraction from zero to one, as a byte.
+fn to_byte(value: f32) -> u8 {
+    let scaled = (value * 255.0).round().clamp(0.0, 255.0);
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "clamped to zero..255, so it is a whole number in range"
+    )]
+    let byte = scaled as u8;
+    byte
+}
+
+/// One channel: a number, or a percentage.
+///
+/// `as_angle` is for the hue, which is a number of degrees rather than a
+/// fraction of anything — the one channel that is not out of 255 or out of a
+/// hundred.
+fn channel(input: &mut CssParser<'_, '_>, as_angle: bool) -> Option<f32> {
+    if let Ok(percentage) = input.try_parse(CssParser::expect_percentage) {
+        return Some(percentage);
+    }
+    let number = input.try_parse(CssParser::expect_number).ok()?;
+    if as_angle {
+        return Some(number);
+    }
+    Some(number / 255.0)
+}
+
+/// The alpha channel, which is a fraction rather than out of 255.
+fn alpha_channel(input: &mut CssParser<'_, '_>) -> Option<f32> {
+    if let Ok(percentage) = input.try_parse(CssParser::expect_percentage) {
+        return Some(percentage);
+    }
+    input.try_parse(CssParser::expect_number).ok()
 }
 
 /// Whether a value is exactly this keyword, whatever its case.
@@ -407,6 +535,98 @@ mod tests {
         assert!(parse_length("16px").is_some());
         assert_eq!(parse_length("50%"), None);
         assert_eq!(parse_length("calc(50% - 1px)"), None);
+    }
+
+    fn colour(text: &str) -> Option<(u8, u8, u8, u8)> {
+        Some(parse_color(text)?.resolve(crate::Rgba::BLACK).to_rgba8())
+    }
+
+    #[test]
+    fn hex_is_read_in_every_length_css_allows() {
+        assert_eq!(colour("#000"), Some((0, 0, 0, 255)));
+        assert_eq!(colour("#fff"), Some((255, 255, 255, 255)));
+        assert_eq!(colour("#101014"), Some((16, 16, 20, 255)));
+        assert_eq!(colour("#10101480"), Some((16, 16, 20, 128)));
+        assert_eq!(colour("#0000"), Some((0, 0, 0, 0)));
+        assert_eq!(
+            colour("#FFF"),
+            Some((255, 255, 255, 255)),
+            "however written"
+        );
+    }
+
+    #[test]
+    fn the_named_colours_are_the_ones_css_names() {
+        assert_eq!(colour("red"), Some((255, 0, 0, 255)));
+        assert_eq!(colour("rebeccapurple"), Some((102, 51, 153, 255)));
+        assert_eq!(colour("WHITE"), Some((255, 255, 255, 255)));
+        assert_eq!(colour("notacolour"), None);
+    }
+
+    #[test]
+    fn transparent_and_current_colour_are_both_real_values() {
+        assert_eq!(colour("transparent"), Some((0, 0, 0, 0)));
+        assert_eq!(
+            parse_color("currentColor"),
+            Some(crate::Color::CurrentColor),
+            "carried as itself: there is no element here to ask",
+        );
+        assert_eq!(
+            parse_color("currentcolor").map(|c| c.resolve(crate::Rgba::WHITE).to_rgba8()),
+            Some((255, 255, 255, 255)),
+        );
+    }
+
+    #[test]
+    fn rgb_is_read_in_both_the_modern_and_the_legacy_form() {
+        assert_eq!(colour("rgb(255 0 0)"), Some((255, 0, 0, 255)));
+        assert_eq!(colour("rgb(255, 0, 0)"), Some((255, 0, 0, 255)));
+        assert_eq!(colour("rgba(255, 0, 0, 0.5)"), Some((255, 0, 0, 128)));
+        assert_eq!(colour("rgb(255 0 0 / 0.5)"), Some((255, 0, 0, 128)));
+        assert_eq!(colour("rgb(100% 0% 0%)"), Some((255, 0, 0, 255)));
+        assert_eq!(colour("rgb(255 0 0 / 50%)"), Some((255, 0, 0, 128)));
+    }
+
+    #[test]
+    fn hsl_is_read_the_same_two_ways() {
+        assert_eq!(colour("hsl(0 100% 50%)"), Some((255, 0, 0, 255)));
+        assert_eq!(colour("hsl(120, 100%, 50%)"), Some((0, 255, 0, 255)));
+        assert_eq!(colour("hsla(240, 100%, 50%, 0.5)"), Some((0, 0, 255, 128)));
+        assert_eq!(colour("hsl(240 100% 50% / 50%)"), Some((0, 0, 255, 128)));
+    }
+
+    #[test]
+    fn a_channel_outside_its_range_is_brought_back_into_it() {
+        assert_eq!(colour("rgb(300 -20 0)"), Some((255, 0, 0, 255)));
+        assert_eq!(colour("rgb(0 0 0 / 2)"), Some((0, 0, 0, 255)));
+    }
+
+    #[test]
+    fn a_colour_space_this_engine_does_not_have_is_refused_rather_than_guessed_at() {
+        for text in [
+            "oklch(70% 0.1 200)",
+            "lab(50% 20 -30)",
+            "color(display-p3 1 0 0)",
+            "color-mix(in oklab, red 50%, blue)",
+            "hwb(0 0% 0%)",
+        ] {
+            assert_eq!(parse_color(text), None, "{text} should be refused");
+        }
+    }
+
+    #[test]
+    fn something_that_is_not_a_colour_at_all_is_not_a_colour() {
+        for text in [
+            "",
+            "  ",
+            "16px",
+            "rgb(1 2)",
+            "rgb(1 2 3 4)",
+            "red blue",
+            "#12345",
+        ] {
+            assert_eq!(parse_color(text), None, "{text:?} should be refused");
+        }
     }
 
     #[test]

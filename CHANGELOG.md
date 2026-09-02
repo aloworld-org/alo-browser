@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Colours are channels.** Hex in every length CSS allows, the named colours,
+  `rgb()` and `hsl()` in both the modern and the legacy form, `transparent`,
+  and `currentColor` — which is carried as itself until there is an element to
+  ask, because it is the initial value of every border and folding it into
+  black at parse time would draw them all wrong.
+- Channels are floats rather than bytes, because compositing multiplies and
+  adds them and doing that in eight bits loses a little every time — which
+  shows up as banding in exactly the gradients a design system uses. Bytes come
+  back at the very end.
+- `oklch`, `lab`, `color()` and `color-mix()` are refused rather than
+  approximated: they are a different colour space, and a colour converted by
+  guesswork is a wrong pixel that looks nearly right.
+
 - **Text and boxes share a line properly.** A sentence spread over several
   `<span>`s is one sentence and wraps between any two of its words, not only
   around the spans; everything on a line sits on one baseline, so a tall image

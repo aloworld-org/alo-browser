@@ -297,3 +297,63 @@ fn a_value_the_engine_cannot_read_is_absent_rather_than_guessed_at() {
     assert_eq!(odd.px("height", 400.0), None, "nor is a unit we refuse");
     assert_eq!(odd.px("margin", 400.0), None);
 }
+
+// --- colours ----------------------------------------------------------------
+
+#[test]
+fn a_colour_from_a_variable_arrives_as_channels() {
+    let (document, tree) = tree_for(ColorScheme::Light);
+    let main = style(&document, &tree, "main");
+    assert_eq!(
+        main.current_color().to_rgba8(),
+        (16, 16, 20, 255),
+        "the `--ink` the sheet set, resolved and inherited",
+    );
+
+    let (document, dark) = tree_for(ColorScheme::Dark);
+    assert_eq!(
+        style(&document, &dark, "main").current_color().to_rgba8(),
+        (244, 244, 245, 255),
+        "and the dark theme's, from the same variable",
+    );
+}
+
+#[test]
+fn current_colour_is_whatever_colour_is_on_that_element() {
+    let document =
+        parse_document("<html><body><div id=outer><div id=inner>t</div></div></body></html>");
+    let sheet = parse_stylesheet(
+        "#outer { color: #ff0000; border-top-color: currentColor } \
+         #inner { border-top-color: currentColor }",
+    );
+    let sheets = [SourcedSheet::new(Origin::Author, &sheet)];
+    let tree = resolve(&document, &sheets, &MediaContext::default());
+
+    assert_eq!(
+        style(&document, &tree, "outer")
+            .color("border-top-color")
+            .map(alo_value::Rgba::to_rgba8),
+        Some((255, 0, 0, 255)),
+    );
+    assert_eq!(
+        style(&document, &tree, "inner")
+            .color("border-top-color")
+            .map(alo_value::Rgba::to_rgba8),
+        Some((255, 0, 0, 255)),
+        "the child inherited the colour, so its currentColor is the same",
+    );
+}
+
+#[test]
+fn a_colour_this_engine_cannot_read_leaves_the_one_that_was_inherited() {
+    let document = parse_document("<html><body><p id=odd>t</p></body></html>");
+    let sheet = parse_stylesheet("html { color: #112233 } #odd { color: oklch(70% 0.1 200) }");
+    let sheets = [SourcedSheet::new(Origin::Author, &sheet)];
+    let tree = resolve(&document, &sheets, &MediaContext::default());
+
+    assert_eq!(
+        style(&document, &tree, "odd").current_color().to_rgba8(),
+        (17, 34, 51, 255),
+        "a colour space we do not have is an invalid declaration, not black",
+    );
+}

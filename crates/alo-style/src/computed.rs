@@ -34,7 +34,7 @@ use crate::origin::Origin;
 use crate::variables::{Resolved, Variables, resolve_variables, substitute};
 use alo_css::{IssueKind, Location, MatchContext, MediaContext, PropertyName, StyleIssue};
 use alo_dom::{Document, NodeId};
-use alo_value::{FontMetrics, LengthPercentage};
+use alo_value::{FontMetrics, LengthPercentage, Rgba};
 use std::collections::BTreeMap;
 
 /// What one element ended up with.
@@ -43,6 +43,7 @@ pub struct ComputedStyle {
     properties: BTreeMap<PropertyName, String>,
     variables: Variables,
     metrics: FontMetrics,
+    current_color: Rgba,
 }
 
 impl Default for ComputedStyle {
@@ -51,6 +52,9 @@ impl Default for ComputedStyle {
             properties: BTreeMap::new(),
             variables: Variables::new(),
             metrics: FontMetrics::default(),
+            // The initial `color`. Every `currentColor` on an element nobody
+            // has coloured resolves to this.
+            current_color: Rgba::BLACK,
         }
     }
 }
@@ -131,6 +135,20 @@ impl ComputedStyle {
         alo_value::parse_number(self.get(name)?)
     }
 
+    /// A property's value as a colour, with `currentColor` already resolved.
+    ///
+    /// Resolving it here is what makes `border-color: currentColor` — the
+    /// initial value of every border — the same colour as the text beside it
+    /// without every caller having to remember to ask.
+    pub fn color(&self, name: &str) -> Option<Rgba> {
+        Some(alo_value::parse_color(self.get(name)?)?.resolve(self.current_color))
+    }
+
+    /// This element's `color`, which is what `currentColor` means on it.
+    pub fn current_color(&self) -> Rgba {
+        self.current_color
+    }
+
     fn take_inherited_from(parent: &ComputedStyle) -> Self {
         Self {
             properties: parent
@@ -140,10 +158,11 @@ impl ComputedStyle {
                 .map(|(name, value)| (name.clone(), value.clone()))
                 .collect(),
             variables: parent.variables.clone(),
-            // Replaced once this element's own declarations are known; until
-            // then the parent's is the right answer, because font size
-            // inherits.
+            // Both are replaced once this element's own declarations are
+            // known; until then the parent's is the right answer, because font
+            // size and colour both inherit.
             metrics: parent.metrics,
+            current_color: parent.current_color,
         }
     }
 }
@@ -210,6 +229,7 @@ pub fn resolve(
         let mut style = compute_one(&applicable, &parent, &mut tree.issues);
         style.metrics = resolve_metrics(&style, &parent, root_metrics);
         record_computed_font(&mut style);
+        style.current_color = resolve_color(&style, &parent);
         if root_metrics.is_none() {
             root_metrics = Some(style.metrics);
         }
@@ -272,6 +292,30 @@ fn record_computed_font(style: &mut ComputedStyle) {
         _ => "normal".to_owned(),
     };
     style.properties.insert(line_height, computed);
+}
+
+/// Work out what `color` is on an element.
+///
+/// `color: currentColor` means the parent's, which is the one case where a
+/// colour resolves against something other than itself. Everything else
+/// resolves against this element's own answer, which is why this runs first
+/// and once.
+///
+/// Unlike the font, the specified text is **not** written back. `font-size`
+/// had to be, because a child inheriting the text `2em` would resolve it again
+/// against its own font and compound; a child inheriting the text
+/// `currentColor` resolves it against its parent and gets the same answer its
+/// parent got. Same rule, and it happens to need nothing here.
+fn resolve_color(style: &ComputedStyle, parent: &ComputedStyle) -> Rgba {
+    let Some(text) = style.get("color") else {
+        return parent.current_color;
+    };
+    match alo_value::parse_color(text) {
+        Some(color) => color.resolve(parent.current_color),
+        // A colour this engine cannot read leaves the inherited one, which is
+        // what an invalid declaration means.
+        None => parent.current_color,
+    }
 }
 
 /// Turn what applied to one element into what it ends up with.

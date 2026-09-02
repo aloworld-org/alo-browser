@@ -619,3 +619,50 @@ paint is how the value layer grows a second one.
   `line-height: normal` while `alo-text` can now answer all three. Wiring it
   through means style depending on text, which is a real design decision and
   the reason it is still not done.
+
+---
+
+## 2026-09-02 — iteration 9: colours (queue item 14)
+
+**Moved ahead of items 17 and 7, and the queue says why.** Paint wants channels,
+and a colour parser built inside paint is how the value layer grows a second
+one — the same reasoning that moved item 12 ahead of item 5.
+
+**What was built.** `alo-value/src/color.rs` and colour parsing in
+`alo-value/src/parse.rs`, plus `ComputedStyle::color` and
+`ComputedStyle::current_color` so the cascade hands out resolved colours.
+
+**Decisions worth knowing about:**
+
+- **`currentColor` is carried, not folded.** It is the initial value of every
+  border colour, and it means "whatever `color` is on this element" — which is
+  not knowable until there is an element. An engine that resolved it at parse
+  time would draw every default border black.
+- **Channels are floats from zero to one.** Compositing multiplies and adds
+  them, and eight bits loses a little each time, which shows up as banding in
+  exactly the gradients a design system uses. `Rgba::to_rgba8` rounds rather
+  than truncates, for the same reason.
+- **`color` does not need writing back**, and it is worth knowing why, because
+  `font-size` did. A child inheriting the text `2em` resolves it again against
+  its own font and compounds; a child inheriting the text `currentColor`
+  resolves it against its parent and gets the same answer its parent got. Same
+  rule about computed values, and this one happens to need nothing.
+- **Other colour spaces are refused.** `oklch`, `lab`, `color()`,
+  `color-mix()`: a different space, and a colour converted by guesswork is a
+  wrong pixel that looks nearly right.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 534 tests, no stubs, boundaries held. No layout assertion and no
+reference render: this item turns text into numbers and draws nothing.
+
+**What the next iteration should know.** Item 17 is glyph rasterisation and item
+7 is paint, and they are the two halves of the first picture.
+
+- Everything paint needs is now reachable: `LayoutTree::fragments` for what to
+  draw and where, `ComputedStyle::color` for what colour, and
+  `alo_text::shape` for the glyphs in a fragment.
+- **Paint wants `fragments`, not `border_box`.** A box that wrapped has one
+  rectangle per line, and a background drawn from the union of them crosses the
+  gap between the lines.
+- `Rgba::over` is already the source-over compositing paint needs, and it lives
+  with the channels rather than in paint on purpose.

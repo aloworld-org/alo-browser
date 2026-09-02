@@ -75,6 +75,15 @@ file is the specification for what "correct" means here.
   the iteration that built it**, because measurement is the half that unblocks
   everything and this is the half that needs its own design.
 
+- [x] **14. Colours as channels.** *(Moved ahead of items 17 and 7 after item
+  16.)* The other half of what item 12 was originally written as, split from it
+  when item 12 was built: hex, `rgb()`,
+  `hsl()`, the named colours, `currentColor` and `transparent`, into channels.
+  It blocks paint rather than layout, which is why it was not item 12's problem —
+  a layout pass has never needed to know what colour anything is. **It comes
+  before paint for the same reason item 12 came before layout:** a colour parser
+  built inside paint is how the value layer grows a second one.
+
 - [ ] **17. Glyph rasterisation.** Turning a shaped glyph into coverage. It is
   cut from item 6 and folded in beside item 7 rather than before it: a glyph
   bitmap with no canvas to draw into can only be tested against itself, and
@@ -119,12 +128,6 @@ file is the specification for what "correct" means here.
   of the way to replacing `taffy`, and that is a decision rather than a chore.
   A `calc()` of lengths only is already a plain number by then and works today.
   **Cut from item 5 on the iteration that built it.**
-
-- [ ] **14. Colours as channels.** The other half of what item 12 was
-  originally written as, split from it when item 12 was built: hex, `rgb()`,
-  `hsl()`, the named colours, `currentColor` and `transparent`, into channels.
-  It blocks paint rather than layout, which is why it is not item 12's problem
-  — a layout pass has never needed to know what colour anything is.
 
 ---
 

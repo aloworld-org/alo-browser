@@ -32,11 +32,13 @@
 //! says a wrong pixel is a bug rather than a task.
 
 pub mod calc;
+pub mod color;
 pub mod length;
 pub mod parse;
 pub mod unit;
 
 pub use calc::{CalcNode, Kind};
+pub use color::{Color, Rgba, from_hsl};
 pub use length::{FontMetrics, Length, LengthPercentage};
-pub use parse::{is_keyword, parse_length, parse_length_percentage, parse_number};
+pub use parse::{is_keyword, parse_color, parse_length, parse_length_percentage, parse_number};
 pub use unit::Unit;

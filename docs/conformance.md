@@ -33,9 +33,11 @@ takes more lines than the same paragraph in a wide one.
 Lines are real too: text wraps between words across inline boxes, everything on
 a line sits on one baseline, and a link broken over two lines is two rectangles.
 
-What does not exist: pixels. Nothing knows what colour anything is (queue item
-14), no glyph has been turned into coverage (item 17), and nothing is drawn
-(item 7). Every target below is still `not yet`.
+Colours are channels, `currentColor` included, so the engine now knows what
+colour everything is.
+
+What does not exist: pixels. No glyph has been turned into coverage (queue item
+17) and nothing is drawn (item 7). Every target below is still `not yet`.
 
 This file exists instead of a conformance percentage. A Web Platform Tests score
 would grade us against thirty years of legacy we are deliberately refusing
