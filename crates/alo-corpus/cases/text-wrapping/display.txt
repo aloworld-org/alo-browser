@@ -1,0 +1,3 @@
+text box#3 "The quick brown fox" rgb(24 24 27) 14px at (8, 20.995117)
+text box#3 "jumps over the lazy" rgb(24 24 27) 14px at (8, 37.291992)
+text box#3 "dog and keeps going." rgb(24 24 27) 14px at (8, 53.588867)

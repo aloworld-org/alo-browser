@@ -1,0 +1,25 @@
+[package]
+name = "alo-corpus"
+description = "The alo browser reference corpus: small cases with their expected trees and pictures."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+alo-box = { path = "../alo-box" }
+alo-css = { path = "../alo-css" }
+alo-dom = { path = "../alo-dom" }
+alo-layout = { path = "../alo-layout" }
+alo-paint = { path = "../alo-paint" }
+alo-style = { path = "../alo-style" }
+alo-text = { path = "../alo-text" }
+alo-value = { path = "../alo-value" }
+# The fonts the corpus renders with are a dependency rather than a file, so
+# that every machine draws the same pixels.
+dejavu.workspace = true
+
+[lints]
+workspace = true

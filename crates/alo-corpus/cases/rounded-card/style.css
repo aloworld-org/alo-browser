@@ -1,0 +1,11 @@
+body { margin: 8px; background: #f4f4f5; font-family: system-ui; font-size: 13px }
+#card { width: 120px; border-radius: 12px; overflow: hidden;
+        background: #ffffff;
+        border-top-width: 1px; border-right-width: 1px;
+        border-bottom-width: 1px; border-left-width: 1px;
+        border-top-style: solid; border-right-style: solid;
+        border-bottom-style: solid; border-left-style: solid;
+        border-top-color: #d4d4d8; border-right-color: #d4d4d8;
+        border-bottom-color: #d4d4d8; border-left-color: #d4d4d8 }
+#banner { height: 24px; background: #18181b }
+#label { margin: 0; padding: 6px }

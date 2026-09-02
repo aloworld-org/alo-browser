@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **There is a reference corpus.** Six cases — an invoice list, a rounded card,
+  wrapping prose, a flex row, a grid, and three font sizes on one line — each a
+  directory holding what to render and four expectations: the box tree it
+  builds, where every box ends up, what is drawn, and what it looks like. A
+  fifth file records everything the engine refused, so a case that renders
+  oddly says why.
+- **A failure names the case, the expectation and the line.** The corpus
+  reports every case that differs and every expectation inside it, all at once,
+  rather than the first one and then stopping — because a change usually shows
+  up in more than one of them and finding that out should not take four runs.
+- The expectations are **files**, so a change is a diff a person reads rather
+  than a failure they have to reproduce.
+- The corpus found its first bug on the day it was written: a box with rounded
+  corners and no border was pushing a clip for the border it did not have.
+
 - **A box can be round.** `border-radius` changes what shape a box is, and
   `overflow: hidden` clips what is inside it to that same shape — one question
   asked twice. A card with rounded corners now clips its banner to them, which

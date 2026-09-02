@@ -850,3 +850,61 @@ to make more, sitting in one test file that wants to be shared.
   corpus is a directory of them rather than new machinery.
 - The one thing missing is running one case by name and seeing all four
   differences at once, which is what makes a corpus usable rather than a wall.
+
+---
+
+## 2026-09-02 — iteration 13: the reference corpus (queue item 8)
+
+**What was built.** `crates/alo-corpus`: six cases, each a directory, each with
+four expectations beside it.
+
+- `case.rs` — a case is a **directory of files**. That is the decision the rest
+  follows from: an expectation that lives in a file shows up in a diff, and a
+  reviewer reads "row three moved four pixels" out of the diff rather than
+  reproducing a test failure to find out.
+- `pipeline.rs` — every stage in one call. It existed three times already, in
+  three test files, and three copies of the pipeline is three places for it to
+  be assembled differently. It is **not** an embedding surface and says so.
+- `check.rs` — **all differences at once**. A case that changed usually changed
+  in more than one way — a box moved, so the display list moved, so the picture
+  moved — and reporting the first and stopping means four runs to find out what
+  happened.
+
+**Four expectations, and why none is redundant:** `boxes.txt` catches a change
+in what exists, `layout.txt` in where it is, `display.txt` in what is drawn, and
+`render.png` everything the other three cannot describe — anti-aliasing, glyph
+shapes, compositing. A fifth, `issues.txt`, records what the engine refused, so
+a case that renders oddly says why rather than being investigated.
+
+**The corpus found a bug the day it was written**, which is the argument for it.
+Removing a stray clip from the paint code changed `grid-of-three`, and the
+report named the case, the expectation and the line: `was: clip box#4 to (8, 8)
+184×30`. A box with rounded corners and **no border** had been pushing a clip
+for the border it did not have.
+
+**Two things moved to where they belong.** The two reference pictures that lived
+in `alo-paint/tests` are now cases in the corpus — one place, one runner, one
+way to update them. What stayed in `alo-paint` is `tests/clipping.rs`: the half
+a picture cannot say, which is *why* the picture is right. A card's corner is
+the page's background **because it was clipped away**, and an assertion says
+that where an image can only differ.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 608 tests, no stubs, boundaries held. The corpus is the gate's reference
+render requirement, now general rather than one picture.
+
+**What the next iteration should know.** Items 9 and 10 are next, and they are
+the ★ ones — the reason `docs/decisions/0002` says this engine exists rather
+than a faster fork of somebody else's.
+
+- **Everything item 9 needs is already on the boxes.** `BoxNode::semantics`
+  carries the role, the states and the declared name, put there when the box
+  was made; `LayoutTree` says where each box is and `fragments` says what it
+  was drawn as. The agent tree is a **view** over those, and ADR 0002 is
+  explicit that a second structure is the failure mode.
+- The one thing not built is the **accessible name** algorithm — the full one,
+  which falls back to a box's own text and to a `<label>` pointing at a field.
+  `alo-box/src/semantics.rs` says so where it stops, and item 9 is where it
+  belongs, because it needs the finished tree to walk.
+- Item 10's verbs must take a **name or an id, never a coordinate** (ADR 0002),
+  and `scripts/gate.sh` cannot check that — a person must.

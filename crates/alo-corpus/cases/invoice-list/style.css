@@ -1,0 +1,9 @@
+:root { --ink: #101014; --surface: #ffffff; --line: #d4d4d8; --chosen: #e4e4e7 }
+body { margin: 0; background: var(--surface); color: var(--ink);
+       font-family: system-ui; font-size: 14px }
+main { padding: 8px }
+h1 { font-size: 20px; margin: 0 }
+ul { margin: 8px 0 0 0; padding: 0 }
+li { padding: 4px; border-bottom-width: 1px; border-bottom-style: solid;
+     border-bottom-color: var(--line) }
+#selected { background: var(--chosen) }

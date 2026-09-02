@@ -349,6 +349,33 @@ impl Builder<'_> {
             });
             return;
         }
+        let sides = [
+            ("top", geometry.border.top),
+            ("right", geometry.border.right),
+            ("bottom", geometry.border.bottom),
+            ("left", geometry.border.left),
+        ];
+        // Which sides are actually drawn, worked out before anything is
+        // pushed: a box with no border at all must not push a clip for it,
+        // which is what the first version did — and a stray clip changes what
+        // everything inside the box looks like.
+        let drawn: Vec<(&str, f32, Rgba)> = sides
+            .into_iter()
+            .filter(|(_, width)| *width > 0.0)
+            .filter(|(side, _)| {
+                style
+                    .get(&format!("border-{side}-style"))
+                    .is_some_and(|value| value.eq_ignore_ascii_case("solid"))
+            })
+            .filter_map(|(side, width)| {
+                let color = style.color(&format!("border-{side}-color"))?;
+                (!color.is_invisible()).then_some((side, width, color))
+            })
+            .collect();
+        if drawn.is_empty() {
+            return;
+        }
+
         let rounded = !corners.fitted_to(border_box.size).are_square();
         if rounded {
             out.push(DisplayItem::PushClip {
@@ -356,28 +383,7 @@ impl Builder<'_> {
                 path: rounded_rectangle(border_box, corners),
             });
         }
-        let sides = [
-            ("top", geometry.border.top),
-            ("right", geometry.border.right),
-            ("bottom", geometry.border.bottom),
-            ("left", geometry.border.left),
-        ];
-        for (side, width) in sides {
-            if width <= 0.0 {
-                continue;
-            }
-            let drawn = style
-                .get(&format!("border-{side}-style"))
-                .is_some_and(|value| value.eq_ignore_ascii_case("solid"));
-            if !drawn {
-                continue;
-            }
-            let Some(color) = style.color(&format!("border-{side}-color")) else {
-                continue;
-            };
-            if color.is_invisible() {
-                continue;
-            }
+        for (side, width, color) in drawn {
             let rect = match side {
                 "top" => Rect::new(
                     border_box.left(),

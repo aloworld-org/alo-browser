@@ -1,0 +1,4 @@
+body { margin: 0; background: #ffffff }
+#grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px }
+#grid > div { height: 30px; background: #a1a1aa; border-radius: 4px }
+#wide { grid-column: 1 / span 3; background: #52525b }

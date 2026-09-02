@@ -1,0 +1,6 @@
+block flow · document → 140×69 at (0, 0)
+  block flow · generic → 124×53 at (8, 8)
+    block flow · generic → 122×53 at (8, 8)
+      block flow · generic → 120×24 at (9, 9)
+      block flow · paragraph → 120×27 at (9, 33)
+        text "Invoice 12" → 67.151855×15.1328125 at (15, 39)

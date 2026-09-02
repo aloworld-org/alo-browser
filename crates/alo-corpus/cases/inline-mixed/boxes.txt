@@ -1,0 +1,10 @@
+block flow · document
+  block flow · generic
+    block flow · paragraph
+      text "Set in "
+      inline flow · generic
+        text "small"
+      text " and "
+      inline flow · generic
+        text "large"
+      text " together."

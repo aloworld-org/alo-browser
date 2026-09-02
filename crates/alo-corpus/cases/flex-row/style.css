@@ -1,0 +1,6 @@
+body { margin: 0; background: #ffffff }
+#row { display: flex; gap: 8px; padding: 8px }
+#row > div { height: 40px }
+#a { flex-grow: 1; background: #ef4444 }
+#b { flex-grow: 2; background: #22c55e }
+#c { width: 30px; background: #3b82f6 }

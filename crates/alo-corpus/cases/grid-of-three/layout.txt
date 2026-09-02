@@ -1,0 +1,7 @@
+block flow · document → 200×82 at (0, 0)
+  block flow · generic → 200×82 at (0, 0)
+    block grid · generic → 200×82 at (0, 0)
+      block flow · generic → 184×30 at (8, 8)
+      block flow · generic → 57×30 at (8, 44)
+      block flow · generic → 58×30 at (71, 44)
+      block flow · generic → 57×30 at (135, 44)

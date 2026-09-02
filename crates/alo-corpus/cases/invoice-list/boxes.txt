@@ -1,0 +1,12 @@
+block flow · document
+  block flow · generic
+    block flow · main
+      block flow · heading [level=1]
+        text "Invoices"
+      block flow · list
+        block flow list-item · listitem
+          text "Invoice 11"
+        block flow list-item · listitem
+          text "Invoice 12"
+        block flow list-item · listitem
+          text "Invoice 13"

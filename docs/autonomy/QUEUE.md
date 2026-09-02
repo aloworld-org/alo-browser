@@ -111,7 +111,7 @@ file is the specification for what "correct" means here.
   Both establish stacking contexts, so paint order changes with them. **Cut
   from item 18** for the same reason as item 19.
 
-- [ ] **8. Reference renders.** A committed corpus of small cases, each with its
+- [x] **8. Reference renders.** A committed corpus of small cases, each with its
   expected image and **its expected box tree**. A failure that says "row three
   moved 4px" is worth ten that say "the image differs".
 

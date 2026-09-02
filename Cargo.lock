@@ -18,6 +18,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "alo-corpus"
+version = "0.0.0"
+dependencies = [
+ "alo-box",
+ "alo-css",
+ "alo-dom",
+ "alo-layout",
+ "alo-paint",
+ "alo-style",
+ "alo-text",
+ "alo-value",
+ "dejavu",
+]
+
+[[package]]
 name = "alo-css"
 version = "0.0.0"
 dependencies = [

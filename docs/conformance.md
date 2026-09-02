@@ -65,6 +65,16 @@ The measure is alo. These are the targets, in order:
 Colours are correct when they match `alo-workplace`'s `web/src/ds/tokens.css`,
 which is the specification for what "correct" means here.
 
+## The corpus
+
+`crates/alo-corpus/cases/` holds the small cases this engine is checked against
+on every run — six of them today. Each is a directory with what to render and
+four expectations beside it, so a change that moves a box says which box, in
+which case, on which line.
+
+That is not the same as the table above. The corpus is pages we wrote to test
+with; the table is alo's own screens, which is the measure that matters.
+
 ## How a target becomes correct
 
 A reference render is committed alongside its expected box tree. A target is
