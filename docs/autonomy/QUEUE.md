@@ -1,4 +1,4 @@
-# Queue — stage 1
+# Queue
 
 Worked in order by `LOOP.md`. Every item names what it implements so an
 iteration can read the reasoning rather than guess at it.
@@ -224,11 +224,128 @@ file is the specification for what "correct" means here.
 
 ---
 
-## After stage 1's ready items
+## Stage 1's three unticked roadmap lines, and why they are not here
 
-Hardware acceleration, a display server surface, and embedding into `alo-os`'s
-shell. All three want the software path correct first — accelerating something
-whose behaviour is unsettled buys speed nobody can then change.
+`ROADMAP.md` still has three lines unticked, and none of them is work this queue
+can take:
+
+- **A real alo screen renders correctly.** The gate names `alo-os`'s screens.
+  That repository is not checked out beside this one, so its markup has never
+  reached the engine. `alo-workplace`'s sign-in screen is in the corpus and
+  renders. **Blocked on something outside this repository.**
+- **Hardware acceleration** and **embedding into alo OS's shell.** Both are
+  explicitly *after* the software path is right, and both want a display server
+  and a machine. Accelerating something whose behaviour is unsettled buys speed
+  nobody can then change.
+
+Nothing in the engine needs a GPU, a window or a network to be built or
+checked — the software raster is the whole point. What needs a machine is the
+*verification* the exit gate asks for, and that is not a thing a loop may claim.
+
+Stage 2 is not blocked by any of it, so the queue continues.
+
+---
+
+# Queue — stage 2
+
+`ROADMAP.md`: **it renders the modern web.** The order below is the roadmap's,
+and the roadmap's own reason is at the top of it — the process model is first
+because it is the one thing that cannot be added later.
+
+**Staged by what it renders**, still. An item earns its place by a page that
+fails without it, not by a specification that lists it.
+
+## Ready
+
+- [ ] **24. ADR 0005 — the process and sandbox model.** The decision, written
+  before any code depends on it. What runs where, what a renderer is allowed to
+  touch, what crosses the boundary and in which direction, and what happens when
+  a renderer dies. `ROADMAP.md` is blunt: *"Every browser that retrofitted this
+  suffered for years, and it is the one thing here that cannot be added later."*
+  An ADR rather than an item of code because the expensive part is the shape,
+  and the shape is a decision.
+
+- [ ] **25. The engine behind a message boundary.** The renderer becomes a thing
+  that is *sent* work and *returns* results — a typed protocol, no ambient
+  state, no synchronous call back into whoever asked. In one process to begin
+  with, because what is expensive to retrofit is the **shape**, not the
+  `fork`. Every later item is written against this boundary, which is what makes
+  item 29 a change of transport rather than a rewrite.
+
+- [ ] **26. A URL, and loading what needs no network.** A URL we hold and can
+  resolve against a base; a request, a response, a content type, and a decode to
+  text with the encoding sniffed the way HTML says. `file:` and `data:` only.
+  This is the loading pipeline with the network left out, so that the network is
+  one implementation of something already tested.
+
+- [ ] **27. HTTP, and TLS we rent.** `rustls` for TLS — ADR 0001's rule, and
+  nobody writes their own — behind our own boundary like every other rented
+  crate. Redirects, status codes, and a body that arrives in pieces.
+
+- [ ] **28. A cache, and cookies with sane defaults.** Sane means: `SameSite`
+  by default, no third-party cookies, and a cache that obeys what a server
+  actually said rather than what it meant.
+
+- [ ] **29. The process split, and the sandbox.** One process per site,
+  renderers with almost no privilege. Item 25 made this a change of transport;
+  this is where it becomes real, with the platform's own sandbox rather than a
+  hopeful one of ours.
+
+- [ ] **30. ADR 0006 — our own JavaScript engine.** What it is and, more
+  importantly, what it is not: a **correct interpreter first**, a JIT much later
+  or never (`CLAUDE.md`, law 4 and the standing rules). Taking somebody else's
+  C++ engine would spend the memory-safety argument this project is built on,
+  which is exactly why it needs to be written down rather than assumed.
+
+- [ ] **31. JavaScript: source to a syntax tree.** A lexer and a parser for the
+  language a modern page actually ships, with automatic semicolon insertion and
+  the awkward grammar — regular expressions against division, arrow functions
+  against parenthesised expressions — settled at parse time rather than guessed
+  at later.
+
+- [ ] **32. JavaScript: values, and an interpreter that walks the tree.**
+  Numbers, strings, `undefined` and `null`, the abstract operations that convert
+  between them, scopes, and calls. Correct before fast: a tree walk is the thing
+  whose behaviour can be checked against the specification line by line.
+
+- [ ] **33. JavaScript: objects, prototypes, closures, `this` and exceptions.**
+  The half of the language a page actually depends on, and the half that is
+  hardest to add afterwards because everything else is written assuming it.
+
+- [ ] **34. The event loop, tasks and microtasks.** A page is not a program that
+  runs and stops; it is a queue. Ordering here is observable to every script on
+  every page, and getting it wrong is a class of bug that looks like a race.
+
+- [ ] **35. The DOM, from JavaScript.** The bindings: a document a script can
+  read and change, and changes that reach style, layout and paint through the
+  boundary item 25 built rather than around it.
+
+- [ ] **36. The DOM APIs a modern page actually uses.** *Driven by pages that
+  fail* — the roadmap's words. Each one arrives because a real page needed it,
+  and the page goes in the corpus with it.
+
+- [ ] **37. Images.** Decoding is rented (ADR 0001: nobody writes their own
+  JPEG); `<img>` laid out with its intrinsic size and aspect ratio, and drawn.
+
+- [ ] **38. Canvas.** A drawing surface a script owns. The rasteriser already
+  exists; this is the API over it and the compositing rules around it.
+
+- [ ] **39. Media.** Audio and video, codecs rented, with the parts that are
+  ours being the element, its states, and how a frame reaches the display list.
+
+- [ ] **40. Chrome: tabs, address bar, history, downloads.** The browser as a
+  thing a person uses, which is what stage 2's exit gate measures.
+
+- [ ] **41. ★ The agent on ordinary web pages.** The same tree and the same
+  typed verbs, on pages nobody wrote for us. ADR 0002 holds or it does not, and
+  this is where it is found out.
+
+**Exit gate** (`ROADMAP.md`): a person uses it as their browser for a week and
+reaches for another one only for a site they can name.
+
+---
+
+## After stage 2
 
 ## Never in this queue
 
