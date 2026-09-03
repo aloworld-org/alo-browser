@@ -6,6 +6,38 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The same-origin policy, CORS and preflight.** The policy is not that a page
+  may not *send* a request elsewhere — it may, and the web depends on it. It is
+  that a page may not **read the answer** without the other site agreeing. An
+  image from another site draws, a form posts, a script runs, and none of them
+  hand the page anything readable.
+- **A wildcard does not hand over a page fetched with cookies.** `*` means
+  "anyone may read this, and it contains nothing personal", and a request
+  carrying credentials contradicts that by existing. Without this rule, every
+  server that ever wrote `*` for a public file would be giving away its
+  logged-in pages too.
+- A scheme or a port is enough to make it somebody else, and **two opaque
+  origins are not the same origin as each other** — a comparison on the
+  serialised string would make every `file:` page and every sandboxed frame one
+  origin, all reading each other.
+- **A page cannot read a `Set-Cookie` it was never given.** A cross-origin
+  response's headers are filtered to the ones the server exposed plus the ones a
+  form could already have revealed; a wildcard exposure still does not reach
+  `Set-Cookie`, which is not the page's to read under any arrangement.
+- **Preflight asks a question that does nothing.** The `OPTIONS` carries no
+  credentials of its own, because "may I do this" must not itself act on
+  somebody's behalf. And the rule for *when* to ask is not "is it dangerous" but
+  **could a plain HTML form have done this already** — if it could, asking first
+  would make the web slower and protect nothing. A `DELETE` that arrived and was
+  then refused is a `DELETE` that happened.
+- A wildcard in `Access-Control-Allow-Headers` **never covers
+  `Authorization`**. `*` is written by people who mean "my public API", and a
+  credential is never that.
+- A test found a real bug on the way: `Cookie` is set by the browser and never
+  by the page, and counting it as an author header got two things wrong at once
+  — every credentialled request would have been preflighted, and the preflight
+  would have told the server the page asked for something it cannot ask for.
+
 - **HTTP/2 is negotiated and spoken.** ALPN advertises `h2` then `http/1.1` in
   the TLS handshake, so **the protocol is known before the first byte of a
   request goes out**. That is the whole reason ALPN exists rather than a version

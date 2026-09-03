@@ -3250,3 +3250,73 @@ before starting: *"a cross-origin read that should fail does, in a test that
 names the attack rather than the header."* That is asking for tests written from
 the attacker's side, not the specification's.
 
+---
+
+## Iteration 52 — queue item 61: the same-origin policy and CORS
+
+**The queue's closing condition was a instruction about how to write the tests,
+and it was worth following.** *"A cross-origin read that should fail does, in a
+test that names the attack rather than the header."* So every test is named for
+what somebody is trying to do —
+`a_wildcard_does_not_hand_over_a_page_that_was_fetched_with_cookies`,
+`a_page_cannot_read_a_set_cookie_it_was_never_given` — and the header is a detail
+inside it.
+
+**That naming rule found a real bug**, which is the argument for it. A file of
+`allow_origin_header_is_checked` tests would have passed against what I first
+wrote. `the_question_carries_no_credentials_of_its_own` did not: it showed
+`Access-Control-Request-Headers: authorization, cookie`. `Cookie` is set by the
+**browser**, never by the page, so counting it as an author header got two
+things wrong at once — every credentialled request would have been preflighted,
+and the preflight would have told the server the page asked for something it
+cannot ask for, inviting it to allow something it cannot grant. There is a list
+of browser-set headers now, and a test named after that too.
+
+**The thing most explanations get backwards, written into the module doc:** a
+page may **send** a request almost anywhere. What it may not do is **read the
+answer**. An image from another site draws, a form posts, a script runs — none
+of them hand the page anything readable. Refusing to send breaks the web;
+allowing a read without agreement is how one site reads your bank statement.
+
+**Why preflight exists, in one rule:** the question is not "is this dangerous",
+it is **could a plain HTML form have done this already**. If it could, there is
+nothing to protect and asking first would only make the web slower. If it could
+not, ask — because a `DELETE` that arrived and was then refused is a `DELETE`
+that happened. That is why the safelist is a list of what a form can do rather
+than of what seems harmless, and the module says so where somebody would
+otherwise add to it.
+
+**Three refusals that are the whole point:**
+
+- `*` does not cover a request that carried credentials. `*` means "anyone may
+  read this, and it contains nothing personal", and cookies contradict that by
+  existing. Without the rule, every server that ever wrote `*` for a public file
+  would be giving away its logged-in pages.
+- A wildcard in `Access-Control-Allow-Headers` never covers `Authorization`.
+  `*` is written by people who mean "my public API", and a credential is never
+  that.
+- Two **opaque** origins are not the same origin as each other. A comparison on
+  the serialised string — both are `null` — would make every `file:` page and
+  every sandboxed frame one origin, all reading each other.
+
+**One case handled literally and deliberately, with a test to say so.** A server
+that writes `Access-Control-Allow-Origin: null` is not opening a door to one
+page; it is opening one to every sandboxed frame and local file on earth. The
+specification says to match it literally and this engine does — and the test
+exists so that is a decision rather than an accident. It is still never enough
+for credentials.
+
+**Cut to the queue:** item 164, the preflight cache. Without it a cross-origin
+request is two round trips every time.
+
+**The gate.** Green: fmt, clippy zero and zero, 1134 tests. Nothing here
+positions, sizes or paints.
+
+**What the next iteration should know.** Item 62 — CSP, referrer policy, HSTS
+and mixed-content blocking. Four things that share a shape: each is a *policy a
+site states about itself*, which is the opposite direction from CORS, where a
+site states what others may do. The one to be careful with is CSP, because its
+grammar is large and getting a directive wrong quietly weakens a page's own
+protection — so the rule should be that a directive we cannot parse makes the
+policy **more** restrictive, never less.
+

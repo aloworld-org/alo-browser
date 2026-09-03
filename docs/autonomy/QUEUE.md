@@ -606,9 +606,21 @@ first. Nothing here needs JavaScript.
 ADR 0005's four reasons, made real. Three of these are code we write and can get
 wrong, which is the argument for the fourth.
 
-- [ ] **61. The same-origin policy, CORS and preflight.**
+- [x] **61. The same-origin policy, CORS and preflight.**
   *Depends on 50, 53. Closes when:* a cross-origin read that should fail does,
   in a test that names the attack rather than the header.
+
+  **Done, and the naming rule earned its place.** Writing the tests from the
+  attacker's side found a real bug: `Cookie` is set by the browser and never by
+  the page, and treating it as an author header would have preflighted every
+  credentialled request *and* named `cookie` in `Access-Control-Request-Headers`.
+  A file of `allow_origin_header_is_checked` tests would have passed throughout.
+
+- [ ] **164. The preflight cache.** `Access-Control-Max-Age`, so a cross-origin
+  request is not two round trips every time.
+  *Depends on 61, 56. Closes when:* a second request of the same shape sends no
+  `OPTIONS`, one of a *different* shape still does, and an entry expires on the
+  clock the caller passes in rather than one the cache reads.
 
 - [ ] **62. Content Security Policy, referrer policy, HSTS, mixed-content
   blocking.**

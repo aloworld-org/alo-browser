@@ -205,7 +205,11 @@ unreachable without it.
       argues it — who it protects, and what it costs. There is no way to ask for
       cookies without a partition · Owed: the escape hatch a person grants
       per-site (queue item 157) and the public suffix list (queue item 156)
-- [ ] The same-origin policy, CORS and preflight — code we write and can get wrong, which is one of ADR 0005's four reasons for the sandbox
+- [x] The same-origin policy, CORS and preflight (queue item 61) — code we write
+      and can get wrong, which is one of ADR 0005's four reasons for the
+      sandbox. A page may send almost anywhere and read almost nowhere; a
+      wildcard never covers a request that carried credentials; a `Set-Cookie`
+      is honoured and unreadable · Owed: the preflight cache, queue item 164
 - [ ] Content Security Policy, referrer policy, HSTS, mixed-content blocking
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
 - [ ] WebSocket

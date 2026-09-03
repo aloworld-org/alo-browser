@@ -126,6 +126,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A truncated body is an **error**, not a short page
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
+- [2] **The same-origin policy, CORS and preflight** — a page may send almost
+  anywhere and may read almost nowhere, and a wildcard never covers a request
+  that carried credentials
 - [2] **HTTP/2, negotiated by ALPN and spoken** — the protocol chosen during the
   handshake, so no request is ever sent twice to find out which one it is
 - [2] **HTTP/2 streams and flow control**, with the CONTINUATION flood refused
