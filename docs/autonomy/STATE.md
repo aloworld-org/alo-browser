@@ -2844,3 +2844,70 @@ the same reason 57 was: encrypted DNS means a different server sees every name
 you look up, and choosing which one is a decision about who to trust rather than
 a protocol detail. The ADR is its own iteration.
 
+---
+
+## Iteration 46 — ADR 0008: DNS is the machine's choice
+
+Item 58 is marked *needs ADR*, so this iteration is the decision and nothing
+else, the way ADR 0007 came before item 57's code.
+
+**Why it is a decision at all.** DNS is the one place where every site somebody
+visits appears in a single stream, in order, with timestamps. Not the pages, but
+the names — usually enough. It is the most complete record of a person's
+browsing that exists anywhere, and it is produced whether or not anybody asked
+for it. So "which resolver" is a question about **who holds that record**, and
+answering it silently is what this ADR exists to prevent.
+
+**The thing I had to think hardest about, and got wrong on the first pass:**
+encrypted DNS is not straightforwardly better. It does not make the record go
+away — it **moves** it. Plain DNS scatters your browsing across whoever runs the
+network you happen to be on. Encrypted DNS concentrates it at one resolver,
+globally, tied to your IP, across every network you ever join. That is a smaller
+number of watchers holding a much better record, and which is safer depends on
+who the person is and where they are. A browser knows neither. Firefox learned
+this in public in 2019: the objection to defaulting a country's DNS to one
+company was not that the company was untrustworthy, it was that nobody had been
+asked.
+
+**And a default resolver is a business.** Same object as the allowlist ADR 0007
+refused: a slot with enormous value that somebody would eventually offer to pay
+for. The way not to be corrupted by that is not to have the slot.
+
+**Why not override the machine either.** The system resolver is where five
+things the person already chose live: a VPN, a corporate network's internal
+names, a Pi-hole, `/etc/hosts`, and the operating system's own encrypted DNS —
+which, when present, means they have already made this decision and we should
+not make it again. A browser that resolves its own way breaks all five,
+invisibly.
+
+**Two rules the code must carry**, and they are why the ADR exists before it:
+
+- **DNS is never trusted for a security decision.** Any resolver can lie about
+  an address; TLS is what stops that mattering, because a wrong address produces
+  a certificate error rather than a wrong page. This bounds plain DNS to a
+  *privacy* problem rather than an authentication one — and it is why "we use
+  encrypted DNS" must never be sold as a security feature.
+- **A public name that resolves to a private address is refused.** DNS rebinding
+  turns a browser into a way to reach things behind somebody's own firewall.
+  Loopback, private, link-local and unspecified ranges are not valid answers for
+  a name that came from the public web.
+
+**And what it costs**, said rather than skipped: plain DNS on a hostile network
+stays plain for everybody who never opens the setting, which is nearly everybody
+— and that falls on exactly the person ADR 0007 was written about. The answer is
+to make the choice easy and legible, not to make it silently; if the setting
+turns out to be one nobody finds, the fix is in the interface.
+
+**How we would know it was wrong:** if almost nobody ever changes it, the
+setting is a decoration rather than a choice. The answer then is a prompt that
+asks once, naming the trade — not a default that picks a company and says
+nothing.
+
+**The gate.** Green. Documentation only.
+
+**What the next iteration should know.** Item 58's code. Resolution through the
+system resolver is what `std::net::ToSocketAddrs` already does, so the work is
+mostly the two rules above plus a cache that honours TTL — and the rebinding
+rule is the one to write a test for first, because it is the one with an
+attacker behind it.
+

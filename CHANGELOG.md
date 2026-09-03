@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **ADR 0008: DNS is the machine's choice until somebody changes it.** This
+  browser uses the resolver the machine is configured to use and never silently
+  replaces it. Encrypted DNS is offered, named, and chosen — and the name of the
+  company that would see every site you visit is in the sentence where you
+  choose it.
+- The ADR says why "encrypted by default" is not the obvious win it looks like:
+  it does not make the record go away, it **moves** it — from whoever runs the
+  network you happen to be on, to one resolver, globally, tied to your IP,
+  across every network you ever join. And a default resolver slot is a business
+  we decline to be in, for the same reason ADR 0007 refused to ship an
+  allowlist.
+- Two rules that hold whichever resolver is used: **DNS is never trusted for
+  anything security decides** — a wrong address produces a certificate error,
+  not a wrong page — and **a public name that resolves to a private address is
+  refused**, which is DNS rebinding.
+
 - **Cookies, partitioned by default** — ADR 0007, in code. A cookie is keyed by
   the site that set it *and* the top-level site it was set inside, so one
   embedded server cannot tell that the person on `news.example` is the person on

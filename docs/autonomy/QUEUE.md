@@ -516,8 +516,11 @@ first. Nothing here needs JavaScript.
 
 - [ ] **58. DNS, and encrypted DNS as a choice somebody made** rather than a
   default nobody was told about.
-  *Depends on 53. Needs ADR* — the same argument as 57, about a different
-  server seeing every name you look up.
+  *Depends on 53. **ADR 0008 is written and accepted** — the same argument as
+  57, about a different server seeing every name you look up. The code is what
+  remains, and the ADR names two rules it must carry: DNS is never trusted for a
+  security decision, and a public name resolving to a private address is
+  refused.*
 
 - [ ] **59. HTTP/2**, once 1.1 is correct.
   *Depends on 53.*
