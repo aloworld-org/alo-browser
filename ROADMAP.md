@@ -168,7 +168,12 @@ unreachable without it.
       arrives is tried again, and a request that must not happen twice never is
       · Owed: queue item 59, HTTP/2
 - [ ] HTTP/3 and QUIC, once those two are correct
-- [ ] DNS, and encrypted DNS as a choice somebody made rather than a default nobody was told about
+- [ ] DNS, and encrypted DNS as a choice somebody made rather than a default
+      nobody was told about · Built: ADR 0008 and resolution through the
+      machine's own resolver (queue item 58), with DNS rebinding refused — the
+      rule turns on who asked, so a person reaches their intranet and a page on
+      the web does not · Owed: the encrypted-DNS setting itself, queue item 158,
+      which needs an interface to choose in
 - [x] Content encodings: gzip, brotli, zstd (queue item 152) — and `deflate` in
       both the spelling the specification asks for and the one servers send.
       All three rented and all three pure Rust, because a decompressor is where

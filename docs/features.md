@@ -126,6 +126,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A truncated body is an **error**, not a short page
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
+- [2] **Names resolved by the machine's own resolver** (ADR 0008), with DNS
+  rebinding refused — a page on the public web cannot be made to reach a private
+  address
 - [2] **Cookies, partitioned by default** (ADR 0007) — keyed by the setter *and*
   the top-level site, `SameSite=Lax` when a site says nothing, and the
   `__Host-`/`__Secure-` prefixes enforced rather than parsed

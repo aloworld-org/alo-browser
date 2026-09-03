@@ -514,13 +514,27 @@ first. Nothing here needs JavaScript.
   told who is asking and inside what, and answers for that pair.
   *Depends on 57. Blocked: needs an interface to ask in.*
 
-- [ ] **58. DNS, and encrypted DNS as a choice somebody made** rather than a
+- [x] **58. DNS, and encrypted DNS as a choice somebody made** rather than a
   default nobody was told about.
   *Depends on 53. **ADR 0008 is written and accepted** — the same argument as
   57, about a different server seeing every name you look up. The code is what
   remains, and the ADR names two rules it must carry: DNS is never trusted for a
   security decision, and a public name resolving to a private address is
   refused.*
+
+  **Done, except the setting.** Resolution goes through the machine's resolver,
+  and the rebinding rule turns on **who asked** rather than on the address
+  alone — which is the only way to let a person reach their own intranet while
+  refusing a public page the same address. Connecting takes addresses rather
+  than a name, because resolving twice is how the second answer differs from the
+  first. The setting went to item 158.
+
+- [ ] **158. The encrypted-DNS setting.** ADR 0008 says it must name the company
+  that would see every site you visit, in the sentence where it is chosen, and
+  that no provider is preselected and the order is not for sale. Falling back to
+  plain DNS is a failure that says so, never a silence.
+  *Depends on 58. Blocked: needs an interface to choose in — the same block as
+  item 157.*
 
 - [ ] **59. HTTP/2**, once 1.1 is correct.
   *Depends on 53.*

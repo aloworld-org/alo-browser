@@ -23,7 +23,7 @@ use crate::request::Request;
 use crate::response::Response;
 use crate::tls::{self, Secured, Trust};
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 /// How long to wait for a server that has stopped answering.
@@ -94,12 +94,19 @@ impl Connection {
     /// [`crate::certificate`] built for telling a person about it.
     pub fn open(
         host: &str,
-        port: u16,
         secure: bool,
         trust: &Trust,
         patience: Duration,
+        where_to: &[SocketAddr],
     ) -> Result<Self, String> {
-        let socket = TcpStream::connect((host, port))
+        // No `port` parameter: an address carries one, and two places to say
+        // which port would be two places to disagree about it.
+        // Addresses rather than a name, because the rule in `crate::resolve`
+        // has already been applied to them. `TcpStream::connect((host, port))`
+        // would resolve the name a second time, inside the standard library,
+        // where nothing could refuse a private answer — and a name that
+        // answered differently the second time is exactly the attack.
+        let socket = connect_to_one_of(where_to, patience)
             .map_err(|why| format!("could not reach {host}: {why}"))?;
         socket
             .set_read_timeout(Some(patience))
@@ -221,6 +228,22 @@ pub fn exchange(connection: &mut Connection, request: &Request) -> Result<Exchan
             body,
         },
     })
+}
+
+/// Try each address in turn, and give up when none answered.
+///
+/// A name usually resolves to several. Trying only the first means a host whose
+/// IPv6 address is unreachable from this network is a host this browser cannot
+/// load, on a machine where every other browser can.
+fn connect_to_one_of(where_to: &[SocketAddr], patience: Duration) -> std::io::Result<TcpStream> {
+    let mut last = std::io::Error::other("there were no addresses to try");
+    for address in where_to {
+        match TcpStream::connect_timeout(address, patience) {
+            Ok(socket) => return Ok(socket),
+            Err(why) => last = why,
+        }
+    }
+    Err(last)
 }
 
 /// Whether a connection may carry another request after this response.

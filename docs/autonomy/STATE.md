@@ -2911,3 +2911,68 @@ mostly the two rules above plus a cache that honours TTL — and the rebinding
 rule is the one to write a test for first, because it is the one with an
 attacker behind it.
 
+---
+
+## Iteration 47 — queue item 58: names becoming addresses
+
+ADR 0008's code, the iteration after its decision.
+
+**The rule with an attacker behind it turns on who asked, not on the address.**
+This is the thing that took the thinking. "Refuse private addresses" sounds like
+a property of an address, and written that way it breaks every corporate
+intranet and every developer with a name pointed at `127.0.0.1`. The actual rule
+is about **causation**: a person typing an intranet name should reach it; a page
+on the public web that causes a request to `192.168.1.1` should not. Those two
+are indistinguishable if you only look at where the name resolved. So `Reach` is
+derived from the request's *initiator* — nobody asking means the person did.
+
+**A page that is itself local may reach anywhere**, because it is already inside
+whatever it would be reaching into. And an **opaque** origin — `file:`, `data:`,
+anything we cannot judge — gets the restrictive answer, because "we cannot tell
+who this is" reads that way or it reads wrong.
+
+**The check that a naive version misses.** `::ffff:127.0.0.1` is not v6
+loopback, and nothing in the v6 branch looks at the v4 address inside it. Without
+the mapped-address case it walks straight past every rule in the file. There is
+a test named after it, and the same for the ranges people forget: `169.254.169.254`
+(every cloud's metadata service), `100.64/10` (carrier-grade NAT), `198.18/15`,
+`240/4`.
+
+**Connecting takes addresses rather than a name**, and that is a security change
+rather than a refactor. `TcpStream::connect((host, port))` resolves the name a
+*second* time, inside the standard library, where nothing can refuse a private
+answer — and a name that answers differently the second time is exactly the
+attack this rule exists to stop. So `Connection::open` lost its `port` parameter
+too: an address carries one, and two places to say which port are two places to
+disagree.
+
+**A cached answer never carries a permission it was granted earlier.** The
+lookup is shared between reaches; the rule is applied afterwards, every time.
+There is a test that resolves `localhost` successfully as the person and then
+fails as a public page, and asserts it was only looked up once.
+
+**Something written down rather than claimed.** Answers are reused for half a
+minute and **that is a guess**. The platform resolver does not return the
+record's TTL, so there is nothing truthful to use — a cache that honours real
+TTLs needs a DNS client of our own, which is precisely the thing ADR 0008
+decided not to build. Saying "30 seconds, and here is why it is not the TTL" is
+the honest version.
+
+**One kindness that was also a bug fix:** every resolved address is tried, not
+only the first. A host whose IPv6 address is unreachable from this network was a
+host this browser could not load on a machine where every other browser could.
+
+**Cut to the queue:** item 158, the encrypted-DNS setting, blocked on there
+being an interface to choose in — the same block as item 157's storage-access
+grant. Two items now wait on the same missing thing, which is worth noticing.
+
+**The gate.** Green: fmt, clippy zero and zero, 1037 tests. Nothing here
+positions, sizes or paints.
+
+**What the next iteration should know.** Item 59, HTTP/2. It is the first item
+in a while that is a protocol rather than a policy: HPACK, streams, flow
+control, and the thing to get right early is that a stream's state machine is
+where a peer that misbehaves gets to allocate memory on our side. `MOST_HEADERS`
+and the other bounds in `http.rs` have counterparts there and they should be
+found before the happy path is, not after.
+

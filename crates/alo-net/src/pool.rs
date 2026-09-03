@@ -79,6 +79,10 @@ pub struct Pool {
     /// open. For a test, and for anybody wondering whether the pool is doing
     /// anything.
     reused: usize,
+    /// Names turned into addresses, remembered briefly. Here rather than
+    /// global because a pool is what a session holds, and forgetting every name
+    /// is what changing network has to mean.
+    resolver: crate::resolve::Resolver,
     /// What has been kept, so a second load of the same thing need not ask.
     ///
     /// The pool owns it because the pool is what a caller holds for the life of
@@ -105,6 +109,7 @@ impl Pool {
             patience: PATIENCE,
             reused: 0,
             cache: Cache::new(),
+            resolver: crate::resolve::Resolver::new(),
         }
     }
 
@@ -158,13 +163,18 @@ impl Pool {
             }
         }
 
-        let mut fresh = Connection::open(
-            &server.host,
-            server.port,
-            secure,
-            &self.trust,
-            self.patience,
-        )?;
+        // Resolve before connecting, so `crate::resolve`'s rebinding rule is
+        // applied by us rather than by the standard library, which has no rule.
+        let where_to = self
+            .resolver
+            .resolve(
+                &server.host,
+                server.port,
+                crate::resolve::reach_for(request.initiator.as_ref()),
+            )
+            .map_err(|why| why.to_string())?;
+        let mut fresh =
+            Connection::open(&server.host, secure, &self.trust, self.patience, &where_to)?;
         let done = exchange(&mut fresh, request).map_err(|why| why.to_string())?;
         if done.reusable {
             self.put(&server, fresh);

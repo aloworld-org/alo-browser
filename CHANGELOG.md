@@ -16,6 +16,30 @@ What changed, in words a person outside this repository can read. Newest first.
   chose the same licence for the same reason. Done now because every commit here
   has a single author, and relicensing after outside contributors arrive needs
   every one of them to agree.
+- **Names become addresses through the machine's own resolver** (ADR 0008).
+  Nothing speaks DNS; we call what the operating system was configured to call,
+  which is where a VPN, a corporate network's internal names, a Pi-hole,
+  `/etc/hosts` and the machine's own encrypted DNS already live.
+- **A public page can no longer be made to reach a private address.** That is
+  DNS rebinding, and the rule turns on **who asked**: a person typing an
+  intranet name reaches it; a page on the web that resolves to `192.168.1.1`,
+  `127.0.0.1` or `169.254.169.254` does not. Loopback, private, link-local,
+  carrier-grade NAT, benchmarking, reserved and broadcast ranges are all
+  refused, in v4 and v6 — **including a v4 address wearing a v6 hat**, which is
+  how `::ffff:127.0.0.1` walks past a check that only knows `::1`.
+- A name resolving to both a public and a private address is still reachable, at
+  the public one. Refusing outright would break real hosts whose resolver hands
+  back an internal address alongside an external one.
+- **Connecting takes addresses, not a name.** `TcpStream::connect((host, port))`
+  would resolve a second time inside the standard library, where nothing could
+  refuse a private answer — and a name that answers differently the second time
+  is precisely the attack.
+- Every address is tried, not only the first: a host whose IPv6 address is
+  unreachable from this network was a host this browser could not load.
+- Answers are reused for half a minute — and that is **a guess, named as one**.
+  The platform resolver does not hand back the record's TTL, so there is nothing
+  truthful to use. A cached answer never carries a permission it was granted
+  earlier: the lookup is shared, the rebinding rule is applied every time.
 
 - **ADR 0008: DNS is the machine's choice until somebody changes it.** This
   browser uses the resolver the machine is configured to use and never silently
