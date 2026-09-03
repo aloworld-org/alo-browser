@@ -6,6 +6,27 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The build loop has a supervisor of its own**, `scripts/loop.sh`, for macOS
+  (ADR 0006). It used to borrow one from `alo-workplace` — a repository this
+  loop may not edit, which meant the command documented for it had been wrong
+  since the day it was written and could not be fixed from here.
+- Two defects found by running the thing rather than reading it. The documented
+  command passed `--repo`, which the borrowed script has never parsed, so the
+  flag became the repository path and the checkout became a track name.
+- And the one that mattered: **a stale stop marker would have halted the loop
+  immediately.** The journal has `LOOP COMPLETE` at line 1531 of 2500-odd —
+  stage 1 finished, said so, and stage 2 was started underneath it. Any
+  supervisor that searched the file for those words would have stopped on its
+  first tick and reported the queue complete with ninety-nine items open. A
+  marker is now live only while no iteration entry follows it.
+- The supervisor **refuses to start on a tree where the gate does not pass**,
+  takes a lock so two of them cannot edit one checkout, and presumes a worker
+  hung when it goes *silent* rather than when it takes a long time — an honest
+  long item keeps writing to its transcript and a hung one does not.
+- `--self-test` asserts the stop rule against seven journals, and
+  `scripts/gate.sh` runs it. Getting that rule wrong is the failure that looks
+  exactly like the work being done, so it is not left to rot.
+
 - **Bodies that arrive compressed are undone**: gzip, brotli, zstd, and
   `deflate` — which is two formats sharing one name, so both the zlib-wrapped
   one the specification asks for and the raw one a great many servers send.

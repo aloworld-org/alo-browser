@@ -2510,3 +2510,70 @@ The security half is the one to get right and it is not the loop bound: it is
 be a refusal rather than a silent stop. `Accept-Encoding: identity` on a ranged
 request is already handled — that is why the caller's choice is respected.
 
+---
+
+## Iteration 41 — the supervisor moved into this repository (ADR 0006)
+
+Not a queue item. The owner said the supervisor should be ours and for this
+machine rather than `alo-workplace`'s, which overturns a written decision, so
+the ADR came first and in its own commit.
+
+**Why the borrowed one had to go, in one sentence:** a dependency that cannot
+be maintained by the people depending on it. `LOOP.md` forbids editing
+`alo-workplace`, and rightly — so when the command documented here turned out
+to be wrong, the only place to fix it was somewhere the loop may not go. It had
+been wrong since the file was written: it passed `--repo`, which that script has
+never parsed, so the flag became the repository path and this checkout became a
+track name. The premise for keeping it away — *"so this repository stays
+Rust"* — was already false, because `scripts/gate.sh` is six and a half
+thousand bytes of bash sitting next to it.
+
+**And then running it found the defect that mattered.** The journal has
+`LOOP COMPLETE` on line 1531 of 2500-odd. Stage 1 finished, said so, and a
+person started stage 2 underneath it. Any supervisor that searches the file for
+those words — the borrowed one included — stops on its first tick and reports
+the queue complete **with ninety-nine items open**. That is the failure that
+looks exactly like the work being done, and it would have happened the first
+time anybody ran the command I had just handed them.
+
+The rule now: a marker is live only when **no iteration entry follows it**. An
+entry written afterwards means a person deliberately resumed, so the marker is
+history rather than an instruction — which also means resuming a halted loop is
+done by appending, never by editing an old entry.
+
+**What was carried over from the borrowed script**, because its comments are
+scar tissue and reading a sibling repository to learn what correct means is
+what `LOOP.md` asks for: the anchored marker match, the idle-based hang guard
+(a duration-only one once killed ninety minutes of honest work), the
+machine-wide lock against detached wrappers spawning rival workers, and backing
+off on a non-zero exit rather than spinning into a rate limit.
+
+**What is new:** it refuses to start when `scripts/gate.sh` does not pass, since
+an iteration opening on somebody else's red tree will either work around the
+failure or spend itself diagnosing it. It has `--once`, `--dry-run` and
+`--self-test`, so it can be understood without being let loose. And it stops at
+a `LOOP COMPLETE` by *saying what a person now has to decide* rather than
+treating the marker as a transient failure.
+
+**What was dropped:** tracks, which belong to `alo-workplace`'s several parallel
+queues and were a second concept to understand and then ignore here; and the
+GNU `stat -c` fallback, which cannot apply on macOS and which poisoned that
+script's age check on Git Bash.
+
+**The gate.** Green, and it gained a step: `scripts/loop.sh --self-test` asserts
+the stop rule against seven journals — a plain marker, a heading, a bold one, a
+marker quoted mid-sentence, a retired one, two markers where the last wins, and
+none at all. The gate runs it, because a rule whose failure mode is *reporting
+success* is exactly the rule that must not be allowed to rot. Nothing here
+positions, sizes or paints, so no layout assertion and no reference render.
+
+**What this did not do:** a full unattended run. That spawns workers with
+`--dangerously-skip-permissions`, which is the owner's call rather than mine.
+Argument handling, the stop rule, the lock, the gate refusal and both help paths
+were exercised; the spawn loop was read, not run.
+
+**Next iteration** takes queue item 55, redirects and byte ranges. The half to
+get right is not the loop bound — it is what a redirect *drops*: `Authorization`
+must not cross an origin, and a redirect to a scheme this engine does not fetch
+has to be a refusal rather than a silent stop.
+

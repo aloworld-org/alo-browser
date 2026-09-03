@@ -225,35 +225,22 @@ stop.
 
 ## Running it
 
-The supervisor lives in `alo-workplace`, and takes a repository path — so this
-repository stays Rust. There is one for each kind of machine:
+The supervisor is `scripts/loop.sh`, in this repository, for macOS (ADR 0006).
 
 ```sh
-cd <this checkout>
-bash <alo-workplace>/scripts/run-loop.sh "$PWD"
+scripts/loop.sh              # run until the journal says to stop
+scripts/loop.sh --once       # one iteration, then exit
+scripts/loop.sh --dry-run    # say what it would do, start nothing
+scripts/loop.sh --self-test  # check the stop rule, start nothing
 ```
 
-```powershell
-powershell -ExecutionPolicy Bypass -File <alo-workplace>/scripts/run-loop.ps1 -RepoPath "<this checkout>"
-```
-
-Two things about the shell one, both learned by running it:
-
-- **The repository is a positional argument, not `--repo`.** This file said
-  `--repo` for as long as it has existed, and the script has never parsed it: it
-  takes `$1` as the path, so `--repo` became the path and the checkout became
-  the *track*. It exits 2 with a message about a track that does not exist,
-  which reads like a configuration mistake rather than a wrong command line.
-- **Run it from inside this checkout.** It looks for `docs/autonomy/STATE.md`
-  before it changes directory, so from anywhere else it cannot find the journal
-  it is about to read. The PowerShell one sets its location first and does not
-  have either problem.
-
-The script is `alo-workplace`'s, and its `--track` argument belongs to that
-repository's several parallel queues. This repository has one queue, so the
-default track is the right one and the prompt's mention of it is noise. **Do not
-fix that here** — the script is not ours to edit (see *What the loop may never
-do*), and the correct command is the one above.
+It refuses to begin on a tree where `scripts/gate.sh` does not pass, because an
+iteration that opens on somebody else's failure will either work around it or
+spend itself diagnosing it. It takes a lock, so a second supervisor on the same
+machine is refused rather than left to edit the same files. A worker that goes
+silent for twenty minutes is presumed hung and killed, and the item it was
+building is redone next time — silence rather than elapsed time, because an
+honest long item keeps writing and a hung one does not.
 
 Stop it any time. Every finished item was committed and pushed by the iteration
 that built it, so nothing is lost by interrupting one.
@@ -261,3 +248,27 @@ that built it, so nothing is lost by interrupting one.
 **It stops on its own at a boundary a person has to cross** — see the section
 above. A supervisor that restarted the loop past a `LOOP COMPLETE` would be
 answering a question that was asked of somebody else.
+
+### Writing a marker so the supervisor can see it
+
+Write `LOOP COMPLETE` or `LOOP HALT` **as its own line, at the end of the
+journal**, optionally as a heading or in bold. Quoting either one mid-sentence
+is safe: the supervisor only matches a line that starts with it.
+
+And a marker is **only live while it is the last thing in the journal**. This
+file's own journal has `LOOP COMPLETE` at line 1531 of 2500-odd — stage 1
+finished, said so, and a person started stage 2 underneath it. A supervisor
+that simply searched for the words would find that one, stop on its first tick,
+and report the queue complete with ninety-nine items open: the failure that
+looks exactly like the work being done. So an iteration entry written after a
+marker retires it, which means **resuming a halted loop is done by appending,
+not by editing history**.
+
+### The one that came before
+
+Until ADR 0006 this was `alo-workplace/scripts/run-loop.sh`, kept there so this
+repository would "stay Rust" — a premise `scripts/gate.sh` had already made
+false. It is left alone now, and it should be: a script belonging to a
+repository this loop may not edit is a dependency nobody here can maintain,
+which is how the command documented in this very file came to be wrong (it
+passed `--repo`, which that script has never parsed) and stayed wrong.

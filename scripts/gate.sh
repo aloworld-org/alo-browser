@@ -135,6 +135,23 @@ else
   good "no agent surface yet"
 fi
 
+step "the supervisor's stop rule holds"
+# The one piece of logic in `scripts/loop.sh` (ADR 0006): whether the journal is
+# telling the loop to stop *now*. Getting it wrong is the failure that looks
+# exactly like success — a supervisor that reads a stale marker stops on its
+# first tick and reports the queue complete with ninety-nine items open, which
+# is what the journal's own `LOOP COMPLETE` from the end of stage 1 caused.
+if [ -x scripts/loop.sh ]; then
+  if ./scripts/loop.sh --self-test >/tmp/alo-gate-loop.log 2>&1; then
+    good "a stale marker is history and a live one stops the loop"
+  else
+    cat /tmp/alo-gate-loop.log
+    bad "the supervisor would start or stop at the wrong time"
+  fi
+else
+  bad "scripts/loop.sh is missing or not executable"
+fi
+
 step "documentation changed with the code"
 # Only meaningful while there is something uncommitted to judge.
 if [ -n "$(git status --porcelain -- crates 2>/dev/null)" ]; then
