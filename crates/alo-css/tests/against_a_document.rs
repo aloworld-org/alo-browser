@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! A style sheet and a document, end to end.
 //!
 //! Item 1 gave us a tree; item 2 gives us rules and a way to ask which of them

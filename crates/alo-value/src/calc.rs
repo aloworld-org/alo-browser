@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! `calc()`, as an expression that is checked once and evaluated later.
 //!
 //! `calc(var(--gap) * 2)` is what alo's design system is built out of, so this

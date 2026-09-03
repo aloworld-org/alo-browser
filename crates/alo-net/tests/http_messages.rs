@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! HTTP/1.1 responses, read from byte streams that never came over a socket.
 //!
 //! Queue item 53's closing condition — *"a frozen page's own byte stream

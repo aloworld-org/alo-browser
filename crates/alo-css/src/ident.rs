@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! A CSS identifier: a name or a string that appears inside a selector.
 //!
 //! One type serves for element names, namespace URIs, class and id names, and

@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! The cache, over a socket, as a load actually uses it.
 //!
 //! `what_the_cache_serves.rs` asserts the decisions with a clock it controls.

@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! The agent tree: the layout tree, read.
 //!
 //! **It is a view, not a structure.** ADR 0002 is unambiguous about why:

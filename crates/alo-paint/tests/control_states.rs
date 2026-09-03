@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! What a control draws for its own state, asserted rather than pictured.
 //!
 //! The committed picture is `alo-corpus`'s `control-states` case, which is

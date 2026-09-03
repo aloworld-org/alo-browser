@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! The same-origin policy, written from the attacker's side.
 //!
 //! The queue asked for *"a cross-origin read that should fail, in a test that

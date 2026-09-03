@@ -5213,3 +5213,88 @@ revisiting — a header is a `grep`, not a calendar, so shell is right there.
 
 And item 183, the fieldset border, is still the one iterations 70 and 72 to 77
 each named and nobody has taken.
+
+---
+
+## Iteration 79 — queue item 159: every file says what licence it is under
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 159 was the
+first *ready* item in file order — 157 and 158 are both blocked on an interface
+to ask in, which the iteration before this one had already worked out and
+written down. It depends on nothing.
+
+**What it is.** Two things: the notice on 198 files, and a step in
+`scripts/gate.sh` that fails on a file without it.
+
+The notice is copied from this repository's own `LICENSE`, Exhibit A, **word for
+word** — including the `http://mozilla.org/MPL/2.0/` the licence text uses rather
+than the `https://` a modern eye reaches for. That is deliberate: the point of
+the notice is that a recipient can compare it against the licence distributed
+beside it, and a tidied version is one they have to reason about instead. It sits
+above the `//!` module documentation, which every file in this repository already
+opens with, followed by a blank line.
+
+**Why it is worth doing at all**, since ADR 0009 already said the root `LICENSE`
+satisfies the licence and called this tidiness. MPL is copyleft **per file**, so
+which licence a file is under is a property of the file rather than of the
+repository — and the person who most needs to know is the one holding a single
+file out of an archive, a search result or a vendored copy, who has no root to
+look in. That is the whole difference between MPL and a repository-level licence,
+and until this commit the engine was not answering it.
+
+**The check compares the first three lines against the exact text**, so a
+*reworded* header fails as loudly as a missing one. That is not pedantry: a
+notice that drifts is a notice a lawyer has to read rather than diff, and the
+version that drifts first is the one somebody retyped from memory. Both
+directions were **run rather than reasoned about** — the step was extracted and
+driven against a tree with one file stripped of its header and one file's URL
+changed to `https://`, and it named both files and printed the three lines to
+paste. Then the tree was restored and it went green again.
+
+**Shell rather than a Rust test, which is the opposite of what iteration 78
+chose**, and the reason is the one that iteration's own journal predicted: *"a
+header is a `grep`, not a calendar, so shell is right there."* Item 186 went to
+Rust because date arithmetic in shell is not portable between macOS and Linux and
+the check would have been least trustworthy on the machine it was not written
+on. Nothing here is arithmetic. `head -n 3` and a string comparison behave the
+same everywhere, and the check has to run over files that are not part of any
+crate's compilation unit, which a Rust test would have to go looking for on the
+filesystem anyway.
+
+**The gate.** `scripts/gate.sh` green: fmt (the notice survives `cargo fmt`
+untouched, which was checked before the other 197 files were written), clippy
+zero warnings and zero errors, **1365 tests** — the same count as the iteration
+before, and that is the honest number: this item adds no Rust test because it
+adds no Rust behaviour. Its test is the gate step, verified by hand in both
+directions as above. No stubs, no `unsafe`, boundaries held, and a
+`CHANGELOG.md` line. No layout assertion and no reference render: nothing here
+positions, sizes or draws. `LOOP.md`'s hostile-input clause has nothing to bite
+on — no bytes from outside reach a comment.
+
+**`ROADMAP.md` was not moved, and this is the answer step 6 asks for rather than
+a silence.** There is no line for this item to move. `ROADMAP.md` is a list of
+what the browser *does*, in four stages, and a licence notice is not something it
+does — it is a property of the repository, decided in ADR 0009 and recorded
+there. `docs/features.md` is skipped for the same reason and it is worth being
+explicit, because the gate names it: that file's rule is *nothing gets built that
+isn't listed here*, and every entry in it carries a tier from [1] to [4] naming
+which stage of rendering it belongs to. This has no tier, and inventing one would
+start turning a feature inventory into a list of repository chores. **ADR 0009 is
+where it is recorded**, and its consequence bullet is updated in this commit from
+*"owed"* to attached-and-checked, so the ADR no longer describes a debt that is
+paid.
+
+**What the next iteration should know.** The first unticked items in file order
+are **157** and **158**, both blocked on an interface to choose in, and neither
+is unblocked by this. So the next ready item is **163** — a request with a body
+over HTTP/2 — whose dependency (162) is done, and which is the `Owed:` clause on
+the roadmap's HTTP line: today every request goes out with `END_STREAM` on its
+`HEADERS`, which is truthful and means no `POST` over HTTP/2.
+
+One consequence to expect and not be alarmed by: **every future diff that adds a
+file adds three lines nobody wrote**, and the gate will now stop a commit that
+forgets them with a message that contains the exact text to paste. That is the
+intended cost.
+
+And item 183, the fieldset border, is still the one iterations 70 and 72 to 78
+each named and nobody has taken.

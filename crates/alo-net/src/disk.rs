@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! The directory a cache lives in: what may go into it, and what comes back.
 //!
 //! ADR 0011 is the decision this implements. [`crate::record`] is the bytes one

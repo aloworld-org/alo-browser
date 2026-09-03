@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! Turning a name into an address, and refusing the answers that are attacks.
 //!
 //! ADR 0008 is the decision behind this file. Two of its rules are code:

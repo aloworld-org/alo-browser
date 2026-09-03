@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! Rendering a case, all the way through.
 //!
 //! Every stage of the engine in one call: parse, cascade, box, lay out, draw.

@@ -96,6 +96,28 @@ else
   good "unsafe is forbidden everywhere"
 fi
 
+step "every source file carries the licence notice"
+# ADR 0009 relicensed this engine to MPL-2.0, which is copyleft *per file* — so
+# which licence a file is under is a property of the file, and a recipient who
+# has only that file must be able to read it there. The root `LICENSE` is the
+# fallback the licence permits; the notice is the answer.
+#
+# It is checked rather than remembered because a header nobody checks is a
+# header that stops being true: 198 files got it in one commit and the
+# one-hundred-and-ninety-ninth is written by somebody who never saw that commit.
+notice=$'/* This Source Code Form is subject to the terms of the Mozilla Public\n * License, v. 2.0. If a copy of the MPL was not distributed with this\n * file, You can obtain one at http://mozilla.org/MPL/2.0/. */'
+bare=""
+while IFS= read -r file; do
+  [ "$(head -n 3 "$file")" = "$notice" ] || bare="$bare $file"
+done < <(find crates -name '*.rs' -not -path '*/target/*')
+if [ -n "$bare" ]; then
+  for file in $bare; do echo "  $file"; done
+  printf 'Put these three lines at the top of each, followed by a blank line:\n\n%s\n\n' "$notice"
+  bad "a source file does not say what licence it is under (ADR 0009)"
+else
+  good "every source file carries Exhibit A"
+fi
+
 step "rented crates stay behind their boundary"
 for entry in "${BOUNDARIES[@]}"; do
   crate="${entry%%:*}"

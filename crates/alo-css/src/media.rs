@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! Media queries: the two things `docs/features.md` asks for in stage 1.
 //!
 //! **Width, and `prefers-color-scheme`.** The workspace already ships a light

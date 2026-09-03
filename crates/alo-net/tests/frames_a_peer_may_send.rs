@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! HTTP/2 framing, and the frames a peer sends when it is not being friendly.
 //!
 //! The happy path is a few lines. What this file mostly asserts is the

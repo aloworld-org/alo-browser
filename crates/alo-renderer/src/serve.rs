@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! The renderer side of the boundary: read work, do it, answer.
 //!
 //! This is what runs in the child process. It is deliberately tiny — a loop, a

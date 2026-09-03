@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! The fonts the browser process finds, so a renderer never has to look.
 //!
 //! ADR 0010 confines renderers, and this is the side of that decision nobody

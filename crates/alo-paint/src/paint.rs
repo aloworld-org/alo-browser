@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! How a shape is filled: one colour, or a colour that changes across it.
 //!
 //! A fill used to be an `Rgba` and nothing else. A gradient is a *function of

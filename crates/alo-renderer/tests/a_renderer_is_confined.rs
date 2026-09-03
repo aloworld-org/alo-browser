@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! ADR 0010, watched rather than trusted.
 //!
 //! *"A test that watches a renderer fail to open a file, not a flag saying a

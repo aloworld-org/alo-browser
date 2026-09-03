@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! The three date formats HTTP has, and the one it is allowed to write.
 //!
 //! A cache is arithmetic on times, so a cache that cannot read a `Date` header

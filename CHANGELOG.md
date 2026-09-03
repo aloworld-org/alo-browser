@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Every source file now says what licence it is under.** The engine is
+  MPL-2.0, which is copyleft *per file* — so somebody who ends up holding one
+  file of it, out of an archive or a search result or a vendored copy, needs to
+  be able to read its terms from that file. Until now they could not: the terms
+  were in the `LICENSE` at the root and nowhere else. All 198 files carry the
+  notice, and the build fails on one that does not, which is the difference
+  between a rule and an intention.
+
 - **The list that decides where one site ends now says how old it is.** The
   public suffix list is compiled into the browser rather than fetched, which is
   what makes the boundary work with no network and impossible to move under a

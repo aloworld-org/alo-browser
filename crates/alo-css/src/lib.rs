@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! Style sheets for the alo browser.
 //!
 //! `cssparser` tokenises and `selectors` matches; the rules are ours. That is

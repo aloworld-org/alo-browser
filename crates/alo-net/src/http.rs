@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! HTTP/1.1 messages: a request out, a response's head in.
 //!
 //! **Ours, not rented.** The syntax is a few lines of ASCII and the difficulty

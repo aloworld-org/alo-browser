@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! A whole fetch, over a socket that never leaves this machine.
 //!
 //! The server is thirty lines in this file rather than a dependency, and it

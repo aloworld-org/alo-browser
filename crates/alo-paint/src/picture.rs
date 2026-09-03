@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! Reading a picture a page sent, in whatever format it turns out to be.
 //!
 //! **This is the only file that names `jpeg_decoder`.** PNG lives in

@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! An inline box has a box of its own, and it is one box per line.
 //!
 //! CSS puts a `<span>`'s border and padding in a particular place: the

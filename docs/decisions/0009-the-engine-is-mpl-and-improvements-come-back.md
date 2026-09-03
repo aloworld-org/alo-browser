@@ -82,11 +82,14 @@ asks to buy an exception.
 
 - `LICENSE` is the MPL-2.0 text, and `Cargo.toml`'s workspace `license` field
   reads `MPL-2.0`; every crate inherits it through `license.workspace = true`.
-- **Per-file Exhibit A headers are owed.** MPL asks for its notice in each file,
-  and permits a `LICENSE` in a location a recipient would look when that is not
-  practical. The root `LICENSE` satisfies the licence today; the headers are a
-  tidy-up worth doing when the build loop is idle, since touching every source
-  file while it is running would collide with real work.
+- **Per-file Exhibit A headers were owed, and are attached** (queue item 159).
+  MPL asks for its notice in each file, and permits a `LICENSE` in a location a
+  recipient would look when that is not practical. The root `LICENSE` satisfied
+  the licence meanwhile; the headers are the answer to the question a recipient
+  who has only one file cannot otherwise ask, which is what *file-level*
+  copyleft makes worth answering. `scripts/gate.sh` fails on a source file
+  without one, because a header nothing checks is a header that stops being
+  true the first time somebody adds a file.
 - **The trademark is separate and still worth taking.** No open licence lets
   somebody call their fork "alo browser". Chromium is to Chrome as this is to
   whatever a fork would have to call itself.

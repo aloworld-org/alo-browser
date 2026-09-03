@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! Grid tracks: the rows and columns a grid is made of.
 //!
 //! `grid-template-columns: repeat(3, minmax(0, 1fr))` is one value with three

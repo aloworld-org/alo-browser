@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! The renderer: everything that touches a page, behind one boundary.
 //!
 //! ADR 0005 decides the shape of a browser before there is a hostile page to

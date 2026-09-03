@@ -635,7 +635,7 @@ first. Nothing here needs JavaScript.
   than a name, because resolving twice is how the second answer differs from the
   first. The setting went to item 158.
 
-- [ ] **159. MPL Exhibit A headers on every source file.** ADR 0009 relicensed
+- [x] **159. MPL Exhibit A headers on every source file.** ADR 0009 relicensed
   the engine and says the per-file headers are **owed** — left out deliberately,
   because touching 147 files while the loop is working would collide with real
   work. The root `LICENSE` satisfies MPL meanwhile, so this is tidiness rather
@@ -644,6 +644,16 @@ first. Nothing here needs JavaScript.
   *Depends on nothing. Closes when:* every `.rs` file carries the header and
   `scripts/gate.sh` fails on one that does not — a header nothing checks is a
   header that stops being true.
+
+  **Done, on 198 files rather than the 147 the item remembered.** The notice is
+  copied from this repository's own `LICENSE`, Exhibit A, verbatim — including
+  the `http://` the licence text uses, because the notice a recipient checks
+  should be the one distributed beside it rather than a tidied version of it.
+  The gate compares the first three lines of each file against that exact text,
+  so a *reworded* header fails as loudly as a missing one; both directions were
+  run rather than reasoned about. It served no `ROADMAP.md` line and it is not
+  in `docs/features.md`, for the reason written in `STATE.md`: it is not
+  something the browser does.
 
 - [ ] **158. The encrypted-DNS setting.** ADR 0008 says it must name the company
   that would see every site you visit, in the sentence where it is chosen, and

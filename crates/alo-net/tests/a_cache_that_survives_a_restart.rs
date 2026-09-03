@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! What a disk cache keeps, and what it must never be asked to keep.
 //!
 //! Queue item 155 closes when *"a cache survives a restart, and a response that

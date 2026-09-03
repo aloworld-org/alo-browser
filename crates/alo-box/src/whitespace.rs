@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! What happens to the spaces, tabs and newlines a document is written with.
 //!
 //! Markup is written for people, so it is full of whitespace nobody meant to
