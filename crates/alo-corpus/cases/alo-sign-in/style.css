@@ -7,13 +7,13 @@
  * below rather than imported because that file lives in another repository,
  * which this one only ever reads.
  *
- * One substitution remains: `transition`, `:hover` and `:focus-visible` are
- * dropped, having nothing to animate and no input to respond to.
+ * **No substitutions.** This is the screen's own stylesheet, rule for rule.
  *
- * Three are gone. The headline's `clamp(2.4rem, 4vw, 3.5rem)` is the screen's
- * own value now; so is its `white-space: pre-line`, so the markup is one
- * string with newlines in it as `alo-workplace` writes it; and so is its
- * `letter-spacing`.
+ * Its `transition`s and its `:hover` and `:focus-visible` rules are here and
+ * change nothing, which is the correct answer rather than a missing one: a
+ * still picture of a settled page is what a transition has finished doing, and
+ * nothing is hovered or focused because there is no pointer and no keyboard.
+ * They are read, they match nothing, and they are not recorded as refusals.
  */
 
 /* Tailwind's preflight, which the real app loads, puts every box on
@@ -22,6 +22,9 @@
 
 :root {
   /* ---- tokens: the ones this screen reads ---- */
+  --duration-fast: 150ms;
+  --ease-standard: ease;
+  --transition-fast: var(--duration-fast) var(--ease-standard);
   --bg-surface: #fffefc;
   --bg-raised: #e9e4dc;
   --bg-rail: #1f2529;
@@ -125,6 +128,7 @@ html, body { height: 100%; margin: 0; font-family: var(--font-ui); color: var(--
 .row { display: flex; align-items: center; justify-content: space-between }
 .remember { display: flex; align-items: center; gap: var(--space-2);
             font-size: var(--text-sm); color: var(--text-secondary) }
+.linkButton:hover { text-decoration: underline }
 .linkButton { color: var(--text-link); font-size: var(--text-sm);
               font-weight: var(--weight-semibold) }
 
@@ -155,4 +159,8 @@ html, body { height: 100%; margin: 0; font-family: var(--font-ui); color: var(--
   color: var(--text-primary);
   font-size: var(--text-base);
   font-weight: var(--weight-medium);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
 }
+.sso:hover { background: var(--bg-raised); border-color: var(--border-strong) }

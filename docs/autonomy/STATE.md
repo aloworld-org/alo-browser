@@ -1853,3 +1853,45 @@ rules without recording a refusal and to make `:hover` and `:focus-visible`
 match nothing rather than drop the whole rule. Nothing there claims animation;
 that needs a clock.
 
+---
+
+## Iteration 30 — queue item 49: the last substitution
+
+**It needed no new code, and that is the point of the item.** The engine
+already read `transition` — an unknown property is kept rather than refused,
+which queue item 2 decided — and `:hover` and `:focus-visible` already parsed
+and already matched nothing, which `alo-css/src/matching.rs` has said in a
+comment since it was written. What was owed was **finding that out and putting
+the rules back**.
+
+A substitution nobody re-checks outlives the reason for it. Three of these four
+were real gaps; the fourth had stopped being one and nothing told anybody.
+
+**alo's sign-in screen now renders from its own stylesheet, rule for rule, with
+no substitutions.** What the corpus diffs on every run is alo's screen rather
+than a modified one.
+
+**Two things about the case are transcriptions rather than substitutions**, and
+both are written in its own stylesheet: the design tokens are declared inline
+because `tokens.css` lives in a repository this one only reads, and Tailwind's
+preflight is the one `box-sizing` rule that matters rather than the whole of
+it. `docs/conformance.md` now says so, because "no substitutions" would
+otherwise be read as more than it is.
+
+**That the rules change nothing is correct rather than missing**, and two tests
+pin it: a still picture of a settled page is what a transition has finished
+doing, and nothing is hovered because there is no pointer. If a later change
+started dropping those rules, the tests would say so.
+
+**The roadmap line this item served** is stage 1's *A real alo screen renders
+correctly*. Its Built clause now says the case carries no substitutions; its
+Owed clause is down to Settings (item 45) and an agent reading it (item 46).
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 825 tests, no stubs, boundaries held, no verb takes a coordinate.
+
+**What the next iteration should know.** Item 45: alo's Settings screen in the
+corpus. It is the second screen the exit gate names and it is not rendered at
+all. `alo-workplace` is checked out beside this repository — the screen's
+markup and rules are there to be read, the way the sign-in case was built.
+

@@ -153,12 +153,16 @@ which is the specification for what "correct" means here.
 `crates/alo-corpus/cases/alo-sign-in/` is **alo-workplace's own sign-in
 screen** — its markup, its rules from `web/src/auth/LoginPage.module.css`, and
 its colours from `web/src/ds/tokens.css` — rendered by this engine and diffed on
-every run. **One** substitution is written into the case's own stylesheet: `transition`,
-`:hover` and `:focus-visible`, dropped because there is nothing to animate and
-no input to respond to. Three are gone — the headline's
-`clamp(2.4rem, 4vw, 3.5rem)`, its `white-space: pre-line` (so the markup is one
-string with newlines in it as `alo-workplace` writes it), and its
-`letter-spacing`.
+every run. **No substitutions.** It is the screen's own stylesheet, rule for rule. Its
+`transition`s and its `:hover` and `:focus-visible` rules are there and change
+nothing, which is correct rather than missing: a still picture of a settled page
+is what a transition has finished doing, and nothing is hovered because there is
+no pointer.
+
+Two things about the case are still transcriptions rather than substitutions,
+and both are noted in its own stylesheet: the design tokens are declared inline
+because `tokens.css` lives in another repository this one only reads, and
+Tailwind's preflight is one `box-sizing` rule rather than the whole of it.
 
 The headline still wraps one line more than the real screen does, and that is a
 **font** difference rather than an engine one: the corpus renders in DejaVu

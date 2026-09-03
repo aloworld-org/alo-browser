@@ -277,7 +277,7 @@ one number is a reference that quietly points at the wrong thing.*
   corpus renders in DejaVu Sans and the app loads Inter, which is narrower.
   Web fonts are stage 2.
 
-- [ ] **49. `transition`, `:hover` and `:focus-visible`, accepted rather than
+- [x] **49. `transition`, `:hover` and `:focus-visible`, accepted rather than
   dropped.** The case deletes them. On a static render of a settled page they
   change nothing — a transition has run, and nothing is hovered or focused
   because there is no pointer and no focus. So what is owed is that the engine
@@ -285,6 +285,12 @@ one number is a reference that quietly points at the wrong thing.*
   `:focus-visible` match nothing rather than being an unparseable selector that
   drops the whole rule. Nothing here claims animation; that needs a clock, and a
   clock is not stage 1's. Cut from item 44.
+
+  **Done, and it needed no new code.** The engine already read all three and
+  already made an interaction state match nothing; what was owed was finding
+  that out and putting the rules back. That is the case for the item existing:
+  a substitution nobody re-checks outlives the reason for it. **alo's sign-in
+  screen now renders from its own stylesheet with no substitutions at all.**
 
 - [ ] **45. alo's Settings screen in the corpus.** The second screen the gate
   names, and it is not rendered at all. Same shape as the sign-in case: its own

@@ -76,10 +76,11 @@ correctness, not before it.
       diffed on every run, with the headline's own
       `clamp(2.4rem, 4vw, 3.5rem)` resolving (queue item 44) and its
       `white-space: pre-line` keeping the headline one string (item 47) and its
-      `letter-spacing` (item 48) · Owed: **one** substitution still standing in
-      that case — `transition`, `:hover` and `:focus-visible`, queue item 49 —
-      so what is diffed is still a *modified* screen; and queue item 45,
-      Settings, which is not rendered at all. *The old reason for not ticking —
+      `letter-spacing` (item 48), and its `transition`, `:hover` and
+      `:focus-visible` rules read and inert (item 49) — **the sign-in case now
+      carries no substitutions, so what is diffed is alo's own screen**
+      · Owed: queue item 45, Settings, which is not rendered at all, and queue
+      item 46, an agent reading it and activating a row by name. *The old reason for not ticking —
       that the gate named alo OS's screens — was a fact about repository layout
       rather than about this engine, and is gone.*
 

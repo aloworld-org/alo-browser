@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo's sign-in screen renders from its own stylesheet, with no
+  substitutions.** The last of the four was `transition`, `:hover` and
+  `:focus-visible`, and removing it needed no new code — the engine already
+  read all three and already made an interaction state match nothing. What was
+  owed was finding that out and putting the rules back, which is why the item
+  existed: a substitution nobody re-checks outlives the reason for it.
+- That the rules change nothing is the **correct** answer rather than a missing
+  one. A still picture of a settled page is what a transition has finished
+  doing, and nothing is hovered or focused because there is no pointer and no
+  keyboard. Two tests now pin it, so a later change that started dropping those
+  rules would say so.
+
 - **`letter-spacing`.** The third of the four substitutions in alo's own
   sign-in case is gone: the headline's `-0.02em` is the screen's own value now,
   and with it "Your servers." stops wrapping — four lines instead of five.

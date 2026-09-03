@@ -418,3 +418,53 @@ fn a_viewport_unit_in_an_ordinary_property_is_of_the_window() {
     assert_eq!(box_style.px("height", 0.0), Some(150.0));
     assert_eq!(box_style.px("padding", 0.0), Some(6.0), "the shorter side");
 }
+
+#[test]
+fn a_hover_rule_is_kept_and_never_applies() {
+    // The correct answer rather than a missing one: nothing is hovered on a
+    // page being rendered to a still picture. What matters is that the rule
+    // *parses* — a selector this engine could not read would drop the whole
+    // rule, and a sheet that lost rules would render a different screen.
+    let document = parse_document("<html><body><a id=l href='/x'>Link</a></body></html>");
+    let sheet = parse_stylesheet(
+        "#l { color: #111111 }
+         #l:hover { color: #ff0000 }
+         #l:focus-visible { outline: 2px solid #00ff00 }",
+    );
+    assert_eq!(
+        sheet.issues(),
+        &[],
+        "no rule was dropped: {:?}",
+        sheet.issues()
+    );
+
+    let sheets = [SourcedSheet::new(Origin::Author, &sheet)];
+    let tree = resolve(&document, &sheets, &MediaContext::default());
+    let link = style(&document, &tree, "l");
+    assert_eq!(link.get("color"), Some("#111111"), "the resting colour");
+    assert_eq!(link.get("outline"), None, "and nothing from the focus rule");
+}
+
+#[test]
+fn a_transition_is_read_and_changes_nothing() {
+    // A still picture of a settled page is what a transition has finished
+    // doing. Reading it without complaining is the whole of what is owed;
+    // animating it needs a clock, which is not this stage's.
+    let document = parse_document("<html><body><button id=b>Go</button></body></html>");
+    let sheet = parse_stylesheet(
+        ":root { --duration-fast: 150ms; --ease-standard: ease }
+         #b { background: #ffffff;
+              transition: background-color var(--duration-fast) var(--ease-standard) }",
+    );
+    let sheets = [SourcedSheet::new(Origin::Author, &sheet)];
+    let tree = resolve(&document, &sheets, &MediaContext::default());
+    let issues: Vec<String> = tree.issues().iter().map(ToString::to_string).collect();
+    assert!(
+        !issues.iter().any(|issue| issue.contains("transition")),
+        "a transition is not a refusal: {issues:?}",
+    );
+    assert_eq!(
+        style(&document, &tree, "b").get("background"),
+        Some("#ffffff")
+    );
+}
