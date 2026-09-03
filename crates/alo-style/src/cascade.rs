@@ -335,14 +335,25 @@ mod tests {
         let mut matcher = MatchContext::new(&fixture.document);
         let applicable = Applicable::gather(&sheets, &MediaContext::default(), &mut matcher, id);
 
-        assert_eq!(applicable.len(), 3);
+        // Seven, not three: a `margin` shorthand is written down as its four
+        // longhands as well, so that an author's shorthand and a user agent's
+        // longhand compete as the same property (see `alo_css`'s expansion).
+        assert_eq!(applicable.len(), 7);
         assert!(!applicable.is_empty());
         assert_eq!(
             applicable
                 .properties()
                 .map(ToString::to_string)
                 .collect::<Vec<_>>(),
-            vec!["--gap", "color", "margin"],
+            vec![
+                "--gap",
+                "color",
+                "margin",
+                "margin-bottom",
+                "margin-left",
+                "margin-right",
+                "margin-top"
+            ],
         );
     }
 

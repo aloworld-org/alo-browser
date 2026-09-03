@@ -108,6 +108,109 @@ impl fmt::Display for Declaration {
     }
 }
 
+/// The shorthands this expands, and the longhands each becomes.
+///
+/// Only the box shorthands, because they are the ones a user-agent sheet sets
+/// and an author overrides. `border`, `background` and `font` have the same
+/// shape of problem and are not here — the engine does not yet set any of them
+/// in the user-agent sheet, so nothing collides, and expanding them correctly
+/// means parsing values rather than splitting on spaces.
+const SIDED: [(&str, [&str; 4]); 2] = [
+    (
+        "margin",
+        ["margin-top", "margin-right", "margin-bottom", "margin-left"],
+    ),
+    (
+        "padding",
+        [
+            "padding-top",
+            "padding-right",
+            "padding-bottom",
+            "padding-left",
+        ],
+    ),
+];
+
+/// A shorthand's longhands, with the value each side takes.
+///
+/// Empty for anything that is not one of [`SIDED`], or for a value whose shape
+/// this engine cannot split.
+///
+/// # `var()` is split too, and it took a wrong turn to learn why
+///
+/// The first version of this refused to expand a value containing `var()`, on
+/// the reasoning that a custom property may hold several values and so which
+/// side each part belongs to is not knowable until substitution. That is true
+/// and it made things **worse**: an author's `padding: var(--a) var(--b)` was
+/// then the only shorthand left unexpanded, so it lost to the user agent's
+/// expanded `padding-left`, and every control on every alo screen lost its
+/// padding. A picture showed it.
+///
+/// So a `var()` is one part like any other function, and splitting respects
+/// parentheses. A custom property holding several values is still not handled —
+/// but it is now a rare wrong answer rather than a common one.
+fn expand(declaration: &Declaration) -> Vec<(String, String)> {
+    let name = declaration.name.as_str();
+    let Some((_, longhands)) = SIDED.iter().find(|(shorthand, _)| *shorthand == name) else {
+        return Vec::new();
+    };
+    let value = declaration.value.trim();
+    if value.is_empty() {
+        return Vec::new();
+    }
+    let parts = top_level_parts(value);
+    let parts: Vec<&str> = parts.iter().map(String::as_str).collect();
+    // One value is every side; two are vertical then horizontal; three add a
+    // separate bottom; four are top, right, bottom, left. Anything else is not
+    // a shorthand this engine can split, and is left whole to be refused where
+    // it is read.
+    let sides: [&str; 4] = match parts.as_slice() {
+        [all] => [all, all, all, all],
+        [vertical, horizontal] => [vertical, horizontal, vertical, horizontal],
+        [top, horizontal, bottom] => [top, horizontal, bottom, horizontal],
+        [top, right, bottom, left] => [top, right, bottom, left],
+        _ => return Vec::new(),
+    };
+    longhands
+        .iter()
+        .zip(sides)
+        .map(|(longhand, side)| ((*longhand).to_owned(), side.to_owned()))
+        .collect()
+}
+
+/// Split on the spaces between values, not the ones inside them.
+///
+/// `1px calc(2px + 3px) var(--a, 4px 5px)` is three values, and a split on
+/// whitespace makes it six — which would put `calc(2px` on one side and
+/// `+ 3px)` on another.
+fn top_level_parts(value: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut depth = 0usize;
+    let mut current = String::new();
+    for letter in value.chars() {
+        match letter {
+            '(' => {
+                depth += 1;
+                current.push(letter);
+            }
+            ')' => {
+                depth = depth.saturating_sub(1);
+                current.push(letter);
+            }
+            letter if letter.is_ascii_whitespace() && depth == 0 => {
+                if !current.is_empty() {
+                    parts.push(std::mem::take(&mut current));
+                }
+            }
+            letter => current.push(letter),
+        }
+    }
+    if !current.is_empty() {
+        parts.push(current);
+    }
+    parts
+}
+
 /// The declarations inside one pair of braces, in the order they were written.
 ///
 /// Order is kept because the cascade needs it: two declarations of the same
@@ -126,6 +229,29 @@ impl DeclarationBlock {
 
     /// Add a declaration to the end of the block.
     pub fn push(&mut self, declaration: Declaration) {
+        // A shorthand becomes its longhands as well, here, at the moment it is
+        // written down.
+        //
+        // # Why this has to happen before the cascade rather than after
+        //
+        // The cascade competes declarations **by property name**. So a
+        // `padding-left` from one sheet and a `padding` from another never meet
+        // — they are different keys — and whichever the reader happens to
+        // consult first wins, regardless of origin or specificity.
+        //
+        // That was invisible for as long as the user-agent sheet set no box
+        // longhands. The moment it did, an author writing `ul { padding: 0 }`
+        // was silently overridden by the user agent, which is the cascade
+        // upside down. Expanding here makes the two compete as the same
+        // property, which is what they are.
+        //
+        // The longhands are inserted *at the shorthand's position*, so
+        // `padding: 1em; padding-left: 0` still ends with a left of zero: the
+        // explicit one is written after and the cascade's order rule decides.
+        for (name, value) in expand(&declaration) {
+            self.declarations
+                .push(Declaration::new(&name, &value, declaration.importance));
+        }
         self.declarations.push(declaration);
     }
 
@@ -224,7 +350,11 @@ mod tests {
         block.push(Declaration::new("margin", "0", Importance::Normal));
         block.push(Declaration::new("color", "blue", Importance::Normal));
 
-        assert_eq!(block.len(), 3, "both are kept; order decides the winner");
+        assert_eq!(
+            block.len(),
+            7,
+            "both colours are kept and the margin brought its four longhands"
+        );
         assert_eq!(
             block
                 .get(&PropertyName::parse("color"))
@@ -255,5 +385,115 @@ mod tests {
         block.push(Declaration::new("--gap", "8px", Importance::Important));
         assert_eq!(block.to_string(), "color: red; --gap: 8px !important;");
         assert_eq!(DeclarationBlock::new().to_string(), "");
+    }
+}
+
+#[cfg(test)]
+mod expansion_tests {
+    use super::*;
+
+    fn sides(value: &str) -> Vec<(String, String)> {
+        expand(&Declaration::new("margin", value, Importance::Normal))
+    }
+
+    /// One value is every side; two are vertical then horizontal; three add a
+    /// separate bottom; four are top, right, bottom, left.
+    #[test]
+    fn a_shorthand_becomes_the_four_sides_it_means() {
+        assert_eq!(
+            sides("1px")
+                .iter()
+                .map(|(_, value)| value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["1px", "1px", "1px", "1px"]
+        );
+        assert_eq!(
+            sides("1px 2px")
+                .iter()
+                .map(|(_, value)| value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["1px", "2px", "1px", "2px"]
+        );
+        assert_eq!(
+            sides("1px 2px 3px")
+                .iter()
+                .map(|(_, value)| value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["1px", "2px", "3px", "2px"]
+        );
+        assert_eq!(
+            sides("1px 2px 3px 4px")
+                .iter()
+                .map(|(_, value)| value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["1px", "2px", "3px", "4px"]
+        );
+    }
+
+    #[test]
+    fn the_longhands_are_named_for_their_sides() {
+        assert_eq!(
+            sides("0")
+                .iter()
+                .map(|(name, _)| name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["margin-top", "margin-right", "margin-bottom", "margin-left"]
+        );
+    }
+
+    /// A `var()` is one part like any other function. The first version of
+    /// this refused to expand them, which left an author's
+    /// `padding: var(--a) var(--b)` as the only unexpanded shorthand — so it
+    /// lost to the user agent's expanded `padding-left`, and every control on
+    /// every alo screen lost its padding.
+    #[test]
+    fn a_shorthand_holding_a_variable_is_still_split_by_side() {
+        assert_eq!(
+            sides("var(--gap) 2px")
+                .iter()
+                .map(|(_, value)| value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["var(--gap)", "2px", "var(--gap)", "2px"]
+        );
+    }
+
+    /// A split on whitespace would make three values into six, putting
+    /// `calc(2px` on one side and `+ 3px)` on another.
+    #[test]
+    fn the_spaces_inside_a_value_are_not_the_spaces_between_them() {
+        assert_eq!(
+            sides("1px calc(2px + 3px) var(--a, 4px 5px)")
+                .iter()
+                .map(|(_, value)| value.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "1px",
+                "calc(2px + 3px)",
+                "var(--a, 4px 5px)",
+                "calc(2px + 3px)"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_shorthand_of_no_shape_this_engine_knows_is_left_whole() {
+        assert!(sides("1px 2px 3px 4px 5px").is_empty());
+        assert!(sides("").is_empty());
+    }
+
+    /// Only the box shorthands. `border` and `background` have the same shape
+    /// of problem and are not expanded, because nothing sets them in the
+    /// user-agent sheet and so nothing collides.
+    #[test]
+    fn only_the_shorthands_this_engine_expands_are_expanded() {
+        assert!(
+            expand(&Declaration::new(
+                "border",
+                "1px solid red",
+                Importance::Normal
+            ))
+            .is_empty()
+        );
+        assert!(expand(&Declaration::new("color", "red", Importance::Normal)).is_empty());
     }
 }

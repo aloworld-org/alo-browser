@@ -3796,3 +3796,71 @@ specification. The queue now has three items that came from one page; a second
 page will produce more, and that is the loop LOOP.md described and which had
 stopped happening.
 
+---
+
+## Iteration 60 — queue item 171: what a page looks like before anybody styles it
+
+The first item scheduled by a page rather than by a specification, and it went
+somewhere I did not expect twice.
+
+**The item as written was "block margins".** It became the whole of the
+specification's typographic defaults, because a heading at 16px is the same
+defect as a heading with no margin: the sheet said what elements *are* and
+nothing about what they look like. Splitting those would have meant two
+iterations each leaving the sheet half-right.
+
+**It could not ship without fixing a cascade bug it exposed**, and that is the
+finding. The cascade competed declarations **by property name**, so a
+`padding-left` from one sheet and a `padding` from another never met — different
+keys, and whichever the reader consulted first won, regardless of origin or
+specificity. That was invisible for as long as the user-agent sheet set no box
+longhands. The moment it did, an author writing `ul { padding: 0 }` was silently
+overridden **by the user agent**, which is the cascade upside down.
+
+The fix is to expand `margin` and `padding` into longhands where they are
+written, so the two compete as the same property. Inserted at the shorthand's
+position, so `padding: 1em; padding-left: 0` still ends with a left of zero.
+
+**Then I made it worse, and a picture caught it.** My first expansion refused
+values containing `var()`, on the reasoning that a custom property may hold
+several values so the sides are not knowable until substitution. True, and
+exactly wrong: it left an author's `padding: var(--a) var(--b)` as the *only*
+unexpanded shorthand, so it lost to the user agent's longhand — and every
+control on every alo screen lost its padding. The layout numbers had moved by
+plausible amounts and I nearly accepted them. Rendering the settings screen and
+looking at it beside the old one is what said no: the nav items were cramped and
+the Save button had become a small pill.
+
+That is the reference-render half of the gate doing precisely the job it is
+there for, and it is worth writing down that **I had already read the numeric
+diff and not seen it.** A twenty-eight pixel change in a dialog's height reads as
+a margin arriving. It read as one to me.
+
+The corrected split treats `var()` as one part like any other function and
+respects parentheses, so `1px calc(2px + 3px)` is two values rather than four.
+
+**The review the item asked for, answered the other way.** Its closing condition
+said every other case's render should move, and that a change moving none of
+them would mean they were all setting their own margins. **None moved** — every
+existing case is byte-identical. That is the true branch, and it is confirmed by
+reading the sheets: `body { margin: 0 }`, `h2, h3, p { margin: 0 }`,
+`ul { padding: 0 }`. The one case that moved is the one that did not ask.
+
+**Three other expectations moved, each for a reason worth keeping.** An
+`aria-hidden` paragraph in an agent test now takes a paragraph's room — hidden
+from the tree and still on the page, which is a useful distinction to have a
+test for. And the layout-number tests now start from `body { margin: 0 }`,
+stated once in their helper: every one of them is about where flex, grid and
+`calc` put a box, and eight pixels of body margin would move all of them equally
+while saying nothing. The margin is asserted in the corpus, against a page that
+did not ask for it, which is where it belongs.
+
+**The gate.** Green: fmt, clippy zero and zero, 1191 tests.
+
+**What the next iteration should know.** Another page. The queue now has items
+170 (fonts by name) and 156 (the public suffix list) waiting, but the thing this
+iteration proved is that a page we did not write finds defects nothing else
+does — two of them, one of which was in the cascade and had been wrong since the
+cascade existed. A second page will find more, and it should be a harder one:
+something with a linked stylesheet, an image, and a form.
+

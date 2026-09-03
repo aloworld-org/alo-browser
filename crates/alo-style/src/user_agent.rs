@@ -36,6 +36,41 @@ summary, fieldset, legend, form, hr, pre {
 
 h1, h2, h3, h4, h5, h6 { display: block; font-weight: bold }
 
+/* What a page looks like before anybody styles it.
+ *
+ * Until the first page we had not written arrived (queue item 68), this sheet
+ * said what elements *are* and nothing about what they look like — no margins,
+ * no heading sizes, no list indent. Every case in the corpus set its own
+ * spacing, because every case was ours, so a heading sat directly against the
+ * paragraph under it and nothing looked wrong.
+ *
+ * These are the HTML specification's own rendering defaults. They are not
+ * decoration: a page that says nothing about spacing is relying on them, which
+ * is most pages, and getting them wrong is a page that is subtly wrong
+ * everywhere rather than obviously wrong somewhere.
+ */
+body { margin: 8px }
+
+h1 { font-size: 2em;    margin: 0.67em 0 }
+h2 { font-size: 1.5em;  margin: 0.83em 0 }
+h3 { font-size: 1.17em; margin: 1em 0 }
+h4 { font-size: 1em;    margin: 1.33em 0 }
+h5 { font-size: 0.83em; margin: 1.67em 0 }
+h6 { font-size: 0.67em; margin: 2.33em 0 }
+
+p { margin: 1em 0 }
+pre { margin: 1em 0 }
+hr { margin: 0.5em 0 }
+
+/* Forty pixels, and it is forty rather than an em on purpose: it is what every
+ * browser uses, it does not shrink with the text, and a list that indented by
+ * its own font size would step raggedly when a nested list had a different one.
+ */
+blockquote, figure { margin: 1em 40px }
+ul, ol, menu { margin: 1em 0; padding-left: 40px }
+dl { margin: 1em 0 }
+dd { margin-left: 40px }
+
 ul, ol, menu { display: block; list-style-type: disc }
 ol { list-style-type: decimal }
 li { display: list-item }

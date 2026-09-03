@@ -25,7 +25,13 @@ fn close(left: f32, right: f32) -> bool {
 fn lay_out(html: &str, css: &str, viewport: Size) -> (BoxTree, LayoutTree) {
     let document = parse_document(html);
     let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
-    let author = parse_stylesheet(css);
+    // Every test here is about where flex, grid and `calc` put a box, and the
+    // user-agent sheet's `body { margin: 8px }` would move every one of them by
+    // the same eight pixels — which would say nothing about flex and would hide
+    // the number that does. So these tests start from a page with no margin,
+    // deliberately and in one place. The margin itself is asserted in the
+    // corpus, where it belongs, against a page that did not ask for it.
+    let author = parse_stylesheet(&format!("body {{ margin: 0 }}\n{css}"));
     let sheets = [
         SourcedSheet::new(Origin::UserAgent, &agent),
         SourcedSheet::new(Origin::Author, &author),

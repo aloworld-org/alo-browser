@@ -735,12 +735,20 @@ mod tests {
                 .iter()
                 .map(|(name, value)| format!("{name}: {value}"))
                 .collect::<Vec<_>>(),
+            // The `margin` shorthand is here *and* its four sides: expanding it
+            // where it is written is what lets an author's shorthand beat a
+            // user agent's longhand, which the cascade could not do while the
+            // two were different property names.
             vec![
                 "--gap: 8px",
                 "color: red",
                 "font-size: 16px",
                 "line-height: normal",
                 "margin: 0",
+                "margin-bottom: 0",
+                "margin-left: 0",
+                "margin-right: 0",
+                "margin-top: 0",
             ],
         );
     }

@@ -6,6 +6,35 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The user-agent sheet has typographic defaults now** — the HTML
+  specification's own: `body { margin: 8px }`, headings sized `2em` down to
+  `0.67em` with their margins, `p`, `pre`, `hr`, and lists indented 40px. Until
+  the first page we had not written arrived, the sheet said what elements *are*
+  and nothing about what they look like, and no case noticed because every case
+  set its own spacing.
+- **And it could not ship without fixing a cascade bug it exposed.** The cascade
+  competed declarations **by property name**, so a `padding-left` from one sheet
+  and a `padding` from another never met — they were different keys, and
+  whichever the reader consulted first won regardless of origin. Invisible while
+  the user-agent sheet set no box longhands; the moment it did, an author's
+  `ul { padding: 0 }` was silently overridden **by the user agent**, which is the
+  cascade upside down.
+- The fix is to expand `margin` and `padding` into their longhands **where they
+  are written**, so the two compete as the same property. The longhands go in at
+  the shorthand's position, so `padding: 1em; padding-left: 0` still ends with a
+  left of zero.
+- **A wrong turn on the way, caught by a picture.** The first version refused to
+  expand a value containing `var()`, reasoning that a custom property may hold
+  several values. That made things worse: an author's
+  `padding: var(--a) var(--b)` was then the only shorthand left unexpanded, so
+  it lost to the user agent's longhand, and every control on every alo screen
+  lost its padding. `var()` is now one part like any other function, and the
+  split respects parentheses — `1px calc(2px + 3px)` is two values, not four.
+- **Every existing corpus case is byte-identical**, which is the review the item
+  asked for and a specific answer: alo's own screens set all their own spacing,
+  so correct defaults change nothing for them. The one case that moved is the
+  one that did not ask.
+
 - **The first page in the corpus that we did not write.** `example.com`, frozen
   as the server sent it, with where it came from and when beside it. Everything
   before it was markup written to exercise something just built — a good way to

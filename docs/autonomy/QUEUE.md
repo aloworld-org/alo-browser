@@ -750,7 +750,7 @@ wrong, which is the argument for the fourth.
   `cases/web-example-com/origin.txt`, which records what it found *and* what it
   did not — the second being as much the point as the first.
 
-- [ ] **171. Block margins in the user-agent sheet.** Headings and paragraphs
+- [x] **171. Block margins in the user-agent sheet.** Headings and paragraphs
   get `display: block` and no margin, so every real page renders visibly tighter
   than it should. Found by item 68's first case; invisible before it, because
   alo's own sheets set their own spacing.
@@ -759,6 +759,14 @@ wrong, which is the argument for the fourth.
   same commit**, which is the review: a UA change that did not move them would
   mean they were all setting their own margins, and a change that moved one
   wrongly is a diff somebody can see.
+
+  **Done, and the review answered the other way.** *No* existing case moved,
+  which the closing condition named as the alternative and which is the true
+  one: alo's own screens set all their own spacing. Getting there needed a
+  cascade fix the defaults exposed — shorthands and longhands competed as
+  different property names, so a user agent's `padding-left` beat an author's
+  `padding: 0`. Heading font sizes went in with the margins, because a heading
+  at 16px is the same defect.
 
 ## D. JavaScript, ours, in Rust
 

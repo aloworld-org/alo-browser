@@ -383,7 +383,17 @@ mod tests {
     #[test]
     fn a_declaration_keeps_the_value_it_was_written_with() {
         let block = only_declarations("a { padding: 4px  8px; color: rgb(1, 2, 3) }");
-        assert_eq!(block.len(), 2);
+        // Six, not two: the `padding` shorthand is written down as its four
+        // longhands as well, so that an author's `padding` and a user agent's
+        // `padding-left` compete as the same property rather than as two.
+        assert_eq!(block.len(), 6);
+        assert_eq!(
+            block
+                .get(&PropertyName::parse("padding-left"))
+                .map(|d| &*d.value),
+            Some("8px"),
+            "the shorthand's horizontal value should be the left one"
+        );
         assert_eq!(
             block
                 .get(&PropertyName::parse("padding"))
@@ -418,7 +428,11 @@ mod tests {
     #[test]
     fn an_unknown_property_is_kept_rather_than_dropped() {
         let block = only_declarations("a { color: red; -alo-nonexistent: 3 fish; margin: 0 }");
-        assert_eq!(block.len(), 3, "the property we do not implement is here");
+        assert_eq!(
+            block.len(),
+            7,
+            "the property we do not implement is here, and the margin brought its four sides"
+        );
         assert_eq!(
             block
                 .get(&PropertyName::parse("-alo-nonexistent"))
