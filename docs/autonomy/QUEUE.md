@@ -713,7 +713,7 @@ wrong, which is the argument for the fourth.
   not — items 173 and 174.
   *Depends on 68.*
 
-- [ ] **173. Paint `text-decoration`.** It has been in the user-agent sheet all
+- [x] **173. Paint `text-decoration`.** It has been in the user-agent sheet all
   along — `underline` on every link — and produces no paint operation at all.
   Nothing in the alo cases underlines anything, so nothing noticed until a page
   made of links arrived.
@@ -721,6 +721,13 @@ wrong, which is the argument for the fourth.
   its committed render, a decoration stops at the end of an inline rather than
   running to the edge of its line, and `line-through` and `overline` work too —
   they are the same machinery and leaving them out would mean doing this twice.
+
+  **Done, and the hard rule fell out of the shape rather than needing a special
+  case.** A decoration is drawn per *fragment*, and a fragment is one piece of
+  one inline on one line — so "stops at the end of the inline" is what drawing
+  per fragment already means. The propagation is a walk up the ancestors rather
+  than the property being made inheritable, because a descendant cannot turn a
+  decoration off and an inherited property could be.
 
 - [ ] **174. A wrapped inline is more than one rectangle.** `link "Frequently
   Asked Questions"` comes back from the agent tree as 778×37 starting at the

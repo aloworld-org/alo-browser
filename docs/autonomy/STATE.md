@@ -3928,3 +3928,54 @@ twice. The harder half is that a decoration has to stop at the end of an inline
 rather than running to the edge of the line it is on, which is what
 `alo_box`'s split-inline note in `tree.rs` is already about.
 
+---
+
+## Iteration 62 — queue item 173: painting `text-decoration`
+
+Scheduled by a page, which is the third iteration running that has been true.
+
+**The hard rule fell out of the shape rather than needing a special case.** The
+item's closing condition asked that a decoration stop at the end of an inline
+rather than running to the edge of the line it sits on — the thing that is
+awkward in a renderer that thinks in lines. It is not awkward here, because
+paint already walks **fragments**, and a fragment is one piece of one inline on
+one line. Drawing one rectangle per fragment *is* the rule. The `broken-link`
+case, which exists for a link split around a block, came out right without a
+line of code aimed at it.
+
+**Propagation is not inheritance, and the difference is why this walks
+ancestors.** `text-decoration` does not inherit — it propagates, and the
+consequence is that a descendant **cannot turn it off**: `text-decoration: none`
+on a child of an underlined element removes nothing, in every browser, and that
+is specified rather than a quirk. Adding the property to the inherited list
+would have been one line and would have been close and wrong in a way somebody
+would eventually hit. Walking up from the text box is what the propagation
+actually is.
+
+**The colour comes from the element that declared the decoration**, which is a
+rule that is invisible until it is wrong. My first version of the test case
+could not have told: the outer span and the inner child were both black. Rewrote
+it so the declaring span is red and the child is black — the child now paints as
+black text with a red line under it, and a wrong implementation would produce a
+black line and pass the old case.
+
+**The face decides where the line goes.** `FaceMetrics` gained the underline
+offset and thickness, taken from the font rather than guessed, because how far a
+face's letters descend is what decides where a line can go without cutting
+through them. A face that reports nothing gets a fallback that is visible at
+every size rather than a line of zero height.
+
+**Four cases moved and one is new.** `broken-link` and the two web pages gained
+their underlines; `alo-sign-in` did too, because it has a link in it. The new
+`text-decorations` case is the only one that exercises `overline`, `line-through`
+and two lines at once — which the item asked for in the same change, because
+they are the same machinery and splitting them means building it twice.
+
+**The gate.** Green: fmt, clippy zero and zero, 1191 tests.
+
+**What the next iteration should know.** Item 174 — a wrapped inline reports one
+rectangle covering all its lines — is the remaining finding from the first web
+page, and it is now *more* visible rather than less: the decoration code proves
+the fragments are there and correct, so the agent tree reporting their union is
+a choice rather than a limitation. That makes it a smaller job than it looked.
+

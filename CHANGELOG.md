@@ -6,6 +6,30 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`text-decoration` is painted.** It had been in the user-agent sheet all
+  along — `underline` on every link — and produced no paint operation at all,
+  which the first web page made obvious by being almost nothing but links.
+  `underline`, `overline` and `line-through` all work, and all in one change
+  because they are the same machinery.
+- **A decoration stops at the end of the inline, not at the edge of the line.**
+  One line per *fragment*, and a fragment is one piece of one inline on one
+  line — so that rule is the whole of the implementation rather than a special
+  case in it. A link wrapping across two lines gets two underlines, each its own
+  width.
+- **The line goes where the face says.** An underline's distance below the
+  baseline and its thickness come from the font, because how far letters descend
+  decides where a line can go without cutting through them.
+- **It propagates rather than inherits**, which is a real difference: an
+  underlined `<a>` underlines everything inside it, and a descendant **cannot
+  turn that off** — `text-decoration: none` on a child removes nothing, in every
+  browser, and that is specified rather than a quirk. So the paint walks
+  ancestors instead of the property being made inheritable, which would have
+  been close and wrong in a way somebody would eventually hit.
+- The colour comes from the element that **declared** the decoration, not from
+  the text — so a black `<span>` inside a red underlined one is black text with
+  a red line under it. There is a case that would look identical if this were
+  wrong, and it is now written so that it does not.
+
 - **A second page we did not write: the first web page.** CERN's restored 1991
   original, and the purest possible test of what item 171 had just finished —
   **it has no style sheet at all**, so every pixel of it comes from the

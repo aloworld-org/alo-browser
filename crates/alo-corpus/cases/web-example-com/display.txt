@@ -4,4 +4,5 @@ text box#4 "Example Domain" rgb(0 0 0) 24px at (160, 112.27734)
 text box#6 "This domain is for use in documentation examples without" rgb(0 0 0) 16px at (160, 148.86906)
 text box#6 "needing permission. Avoid use in operations." rgb(0 0 0) 16px at (160, 167.49406)
 text box#9 "Learn more" rgb(51 68 136) 16px at (160, 202.11906)
+fill box#9 rgb(51 68 136) at (160, 203.13469) 91.25×1
 ungroup

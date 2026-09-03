@@ -109,6 +109,14 @@ pub struct FaceMetrics {
     pub x_height: f32,
     /// The width of a `0`, for the `ch` unit.
     pub zero_width: f32,
+    /// How far **below** the baseline an underline sits, as a positive number.
+    ///
+    /// The face's own figure, because where a line goes depends on how far the
+    /// letters descend — a font with long descenders puts its underline lower
+    /// so the line does not cut through them.
+    pub underline_offset: f32,
+    /// How thick that line is.
+    pub underline_thickness: f32,
 }
 
 impl FaceMetrics {
@@ -197,6 +205,8 @@ impl Font {
                 line_gap: 0.0,
                 x_height: size * 0.5,
                 zero_width: size * 0.5,
+                underline_offset: size * 0.1,
+                underline_thickness: size * 0.06,
             };
         };
         let units = f32::from(face.units_per_em());
@@ -212,6 +222,20 @@ impl Font {
                 .glyph_index('0')
                 .and_then(|glyph| face.glyph_hor_advance(glyph))
                 .map_or(size * 0.5, |advance| f32::from(advance) * scale),
+            // The face reports the position as a signed offset from the
+            // baseline, negative for below it, which is where an underline
+            // goes. Kept as a positive distance downwards, so that everything
+            // reading it does not have to remember the sign.
+            underline_offset: face
+                .underline_metrics()
+                .map_or(size * 0.1, |line| -f32::from(line.position) * scale),
+            underline_thickness: face
+                .underline_metrics()
+                .map(|line| f32::from(line.thickness) * scale)
+                // A face that reports no thickness, or a nonsensical one, gets
+                // a line that is visible at every size rather than none at all.
+                .filter(|thickness| *thickness > 0.0)
+                .unwrap_or(size * 0.06),
         }
     }
 

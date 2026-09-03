@@ -1,0 +1,13 @@
+body { margin: 0; font-family: 'DejaVu Sans'; font-size: 14px }
+p { margin: 6px 0 }
+.under { text-decoration: underline }
+.over { text-decoration: overline }
+.through { text-decoration: line-through }
+.both { text-decoration: underline line-through }
+.colour { color: #cc0000 }
+/* The last line is the one that discriminates: the span that *declares* the
+   underline is red, and the child inside it is black. A black underline under
+   the black child would mean the colour follows the text rather than the
+   element that asked for the decoration. */
+.inherited .under { color: #cc0000 }
+.black { color: #000000 }

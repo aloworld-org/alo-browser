@@ -31,6 +31,39 @@ pub struct TextShadow {
     pub color: Rgba,
 }
 
+/// A line drawn under, over or through text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecorationLine {
+    /// Below the baseline, where the face says.
+    Underline,
+    /// Along the top of the letters.
+    Overline,
+    /// Half way up an `x`.
+    LineThrough,
+}
+
+/// The decoration lines named in a value.
+///
+/// `text-decoration` is a shorthand that may also carry a style, a colour and a
+/// thickness; this takes the line keywords and leaves the rest, because a value
+/// this engine only half understands should still produce the part it does.
+/// `none` produces nothing, which is what it means.
+pub fn lines_in(value: &str) -> Vec<DecorationLine> {
+    let mut found = Vec::new();
+    for word in value.split_ascii_whitespace() {
+        let line = match word.to_ascii_lowercase().as_str() {
+            "underline" => DecorationLine::Underline,
+            "overline" => DecorationLine::Overline,
+            "line-through" => DecorationLine::LineThrough,
+            _ => continue,
+        };
+        if !found.contains(&line) {
+            found.push(line);
+        }
+    }
+    found
+}
+
 /// One thing to draw.
 #[derive(Debug, Clone)]
 pub enum DisplayItem {

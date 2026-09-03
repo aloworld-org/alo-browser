@@ -16,7 +16,7 @@
 //! transforms and opacity.
 
 use crate::corner::{Corners, between, ring, rounded_rectangle};
-use crate::display::{DisplayItem, DisplayList, TextShadow};
+use crate::display::{DecorationLine, DisplayItem, DisplayList, TextShadow, lines_in};
 use crate::paint::Paint;
 use crate::path::Path;
 use alo_box::{BoxId, BoxKind, BoxTree};
@@ -579,6 +579,7 @@ impl Builder<'_> {
             .and_then(|_| style.px("letter-spacing", 0.0))
             .unwrap_or(0.0);
 
+        let decorations = self.decorations_of(id);
         let fragments = self.layout.fragments(id);
         if fragments.is_empty() {
             // A text box that is not inside a line — a flex or grid item —
@@ -589,19 +590,28 @@ impl Builder<'_> {
             };
             let trimmed = text.trim_end();
             if !trimmed.is_empty() {
+                let baseline = geometry.border_box.top() + ascender;
                 out.push(DisplayItem::Text {
                     box_id: id,
                     text: trimmed.to_owned(),
-                    origin: (
-                        geometry.border_box.left(),
-                        geometry.border_box.top() + ascender,
-                    ),
-                    font,
+                    origin: (geometry.border_box.left(), baseline),
+                    font: font.clone(),
                     size,
                     letter_spacing,
                     color,
                     shadows,
                 });
+                for (line, colour) in &decorations {
+                    out.push(Self::decoration_at(
+                        id,
+                        *line,
+                        *colour,
+                        geometry.border_box.left(),
+                        geometry.border_box.right() - geometry.border_box.left(),
+                        baseline,
+                        font.metrics(size),
+                    ));
+                }
             }
             return;
         }
@@ -616,19 +626,77 @@ impl Builder<'_> {
             if trimmed.is_empty() {
                 continue;
             }
+            let baseline = fragment.rect.top() + ascender;
             out.push(DisplayItem::Text {
                 box_id: id,
                 text: trimmed.to_owned(),
                 // The pen sits on the baseline, which is the ascender below
                 // the top of the piece.
-                origin: (fragment.rect.left(), fragment.rect.top() + ascender),
+                origin: (fragment.rect.left(), baseline),
                 font: font.clone(),
                 size,
                 letter_spacing,
                 color,
                 shadows: shadows.clone(),
             });
+            // One line per **fragment**, which is what makes a decoration stop
+            // at the end of the inline rather than running to the edge of the
+            // line it sits on. A fragment is one piece of one inline on one
+            // line, so drawing per fragment is the whole of that rule.
+            for (line, colour) in &decorations {
+                out.push(Self::decoration_at(
+                    id,
+                    *line,
+                    *colour,
+                    fragment.rect.left(),
+                    fragment.rect.right() - fragment.rect.left(),
+                    baseline,
+                    font.metrics(size),
+                ));
+            }
         }
+    }
+
+    /// Which decoration lines cover this text, and in what colour.
+    ///
+    /// # Why this walks up rather than reading the text box's own style
+    ///
+    /// `text-decoration` does **not inherit**. It *propagates*: an underlined
+    /// `<a>` underlines everything inside it, and a descendant cannot turn that
+    /// off — `text-decoration: none` on a child of an underlined element
+    /// removes nothing, in every browser, and that is the specified behaviour
+    /// rather than a quirk.
+    ///
+    /// So making it an inherited property would be close and wrong in a way
+    /// somebody would eventually hit. Walking the ancestors is what the
+    /// propagation actually is.
+    ///
+    /// The colour comes from the element that **declared** the decoration
+    /// rather than from the text, which is why a black `<span>` inside a blue
+    /// link is still underlined in blue.
+    fn decorations_of(&self, id: BoxId) -> Vec<(DecorationLine, Rgba)> {
+        let mut found = Vec::new();
+        let mut walking = Some(id);
+        while let Some(at) = walking {
+            if let Some(style) = self.style_of(at) {
+                let written = style
+                    .get("text-decoration-line")
+                    .or_else(|| style.get("text-decoration"));
+                if let Some(written) = written {
+                    let colour = style
+                        .color("text-decoration-color")
+                        .or_else(|| style.color("color"))
+                        .unwrap_or(style.current_color());
+                    for line in lines_in(written) {
+                        if !found.iter().any(|(already, _)| *already == line) {
+                            found.push((line, colour));
+                        }
+                    }
+                }
+            }
+            walking = self.boxes.get(at).and_then(|node| node.parent);
+        }
+        found
     }
 
     /// The shadows a box casts, front to back as they were written.
@@ -650,6 +718,40 @@ impl Builder<'_> {
             .map(|shadow| shadow.drawn(style.metrics(), style.current_color()))
             .filter(|shadow| !shadow.is_invisible())
             .collect()
+    }
+
+    /// One decoration line under, over or through a piece of text.
+    ///
+    /// `at` is the baseline, which is where every one of these is measured
+    /// from — the face says how far below it an underline goes, and the other
+    /// two are placed against the same ascent the letters use.
+    fn decoration_at(
+        id: BoxId,
+        line: DecorationLine,
+        colour: Rgba,
+        left: f32,
+        width: f32,
+        baseline: f32,
+        metrics: alo_text::FaceMetrics,
+    ) -> DisplayItem {
+        let thickness = metrics.underline_thickness.max(1.0);
+        let top = match line {
+            DecorationLine::Underline => baseline + metrics.underline_offset,
+            // Along the top of the letters rather than the top of the line
+            // box, which is where a reader expects it and which keeps it clear
+            // of the line above.
+            DecorationLine::Overline => baseline - metrics.ascender,
+            // Half way up an `x`, which is what "through" means for lowercase
+            // text and which is where every implementation puts it.
+            DecorationLine::LineThrough => baseline - metrics.x_height / 2.0 - thickness / 2.0,
+        };
+        DisplayItem::Fill {
+            box_id: id,
+            // A plain rectangle: a decoration has no corners of its own, so
+            // the rounding machinery would only be a way to get it wrong.
+            path: rounded_rectangle(Rect::new(left, top, width, thickness), Corners::default()),
+            paint: Paint::Solid(colour),
+        }
     }
 
     /// The shadows a run of text casts.

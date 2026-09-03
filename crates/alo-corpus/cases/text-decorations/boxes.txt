@@ -1,0 +1,23 @@
+block flow · document
+  block flow · generic
+    block flow · paragraph
+      text "a line below"
+    block flow · paragraph
+      text "a line above"
+    block flow · paragraph
+      text "a line through"
+    block flow · paragraph
+      text "below and through at once"
+    block flow · paragraph
+      inline flow · generic
+        text "a decorated inline that is long enough to wrap onto a second line"
+      text " and plain text after it"
+    block flow · paragraph
+      inline flow · generic
+        text "the colour comes from the element that declared it, not from the text"
+    block flow · paragraph
+      inline flow · generic
+        text "an underlined span with "
+        inline flow · generic
+          text "a black child"
+        text " inside it"

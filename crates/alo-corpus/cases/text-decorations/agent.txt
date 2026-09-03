@@ -1,0 +1,18 @@
+document at (0, 0) 300×227.26563
+  paragraph at (0, 6) 300×16.296875
+    text "a line below" at (0, 6) 84.15039×16.296875
+  paragraph at (0, 28.296875) 300×16.296875
+    text "a line above" at (0, 28.296875) 85.674805×16.296875
+  paragraph at (0, 50.59375) 300×16.296875
+    text "a line through" at (0, 50.59375) 97.75391×16.296875
+  paragraph at (0, 72.890625) 300×16.296875
+    text "below and through at once" at (0, 72.890625) 188.3711×16.296875
+  paragraph at (0, 95.1875) 300×48.890625
+    text "a decorated inline that is long enough to wrap onto a second line" at (0, 95.1875) 285.41406×32.59375
+    text "and plain text after it" at (0, 111.484375) 269.1787×32.59375
+  paragraph at (0, 150.07813) 300×32.59375
+    text "the colour comes from the element that declared it, not from the text" at (0, 150.07813) 280.54688×32.59375
+  paragraph at (0, 188.67188) 300×32.59375
+    text "an underlined span with" at (0, 188.67188) 169.29199×16.296875
+    text "a black child" at (173.74219, 188.67188) 87.87598×16.296875
+    text "inside it" at (0, 204.96875) 55.27539×16.296875
