@@ -36,6 +36,7 @@ pub mod directives;
 pub mod encoding;
 pub mod fetch;
 pub mod freshness;
+pub mod h2;
 pub mod headers;
 pub mod http;
 pub mod httpdate;

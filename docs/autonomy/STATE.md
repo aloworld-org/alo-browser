@@ -2984,3 +2984,68 @@ control, and the thing to get right early is that a stream's state machine is
 where a peer that misbehaves gets to allocate memory on our side. `MOST_HEADERS`
 and the other bounds in `http.rs` have counterparts there and they should be
 found before the happy path is, not after.
+
+---
+
+## Iteration 48 — queue item 59: HTTP/2 framing
+
+**Scope cut on starting.** "HTTP/2" is four items, not one: framing, HPACK,
+streams and flow control, and negotiating the protocol at all. They went in as
+160, 161 and 162 before a line was written, because deciding that halfway
+through is how a half-built state machine gets committed. Framing first —
+everything else is carried inside it, and it is where a peer chooses how much
+memory we allocate.
+
+**The rule the whole file is built around:** a length is checked before anything
+is reserved. HTTP/1.1 had two numbers a stranger chose — `Content-Length` and a
+chunk size. This has one per frame, several thousand times a page. There is a
+test that announces sixteen megabytes, sends nothing, and asserts the refusal
+comes before the allocation.
+
+**The classic parser bug, refused by name.** A padded frame's first byte says
+how much of the rest is padding, and nothing stops it saying more than there is.
+Subtracting without checking underflows; in a language where that is not caught
+it reads whatever was next in memory. Rust would panic rather than leak, which
+in a renderer is a denial of service — so it is a refusal, not a panic.
+
+**And a test found my own comment wrong, which is the useful kind of failure.**
+I had written that padding equal to what remains is "still wrong" because the
+length byte is not padding. That is not what the specification says: the
+comparison is against the *whole* payload, its own length byte included, so a
+frame that is **nothing but padding** is legal and carries an empty body —
+servers send them to disguise how large a response is. A check written one off
+refuses real traffic. Both sides of that boundary now have a test, and the
+comment says what is actually true.
+
+**Two decisions about being generous rather than strict**, and both are the
+protocol asking for it:
+
+- An **unknown frame type is ignored**, not refused. Extensibility is on
+  purpose, and a peer using an extension we have not heard of is not
+  misbehaving. Its length is still checked and its bytes still consumed exactly
+  — an "ignore" that lost the stream's place would be worse than a refusal, and
+  there is a test that reads an unknown frame and then the real one after it.
+- The **reserved top bit of a stream identifier is masked off**, not rejected. A
+  reader that forgets sees stream numbers near two billion.
+
+**One error that is not always fatal**, and the type carries the difference: a
+`WINDOW_UPDATE` offering no more room kills the connection when it is on stream
+zero and only the stream when it is not. Room for nothing is not room, and
+unchecked it is a peer that can make this end wait forever.
+
+**Clippy improved the structure again.** A 151-line `match` tripped
+`too_many_lines`, and it was right — one function per frame type reads far
+better and matches "one file, one responsibility" at the function level. Not
+silenced.
+
+**The gate.** Green: fmt, clippy zero and zero, 1055 tests. Nothing here
+positions, sizes or paints.
+
+**What the next iteration should know.** Item 160, HPACK, and one thing about it
+is already written into the queue because it is the mistake to avoid: **a
+decoding failure is fatal to the connection, never to one stream.** The dynamic
+table carries state from one block to the next, so a block nobody could decode
+leaves the table in a condition nobody can reason about — resetting just that
+stream and continuing would mean decoding every later block against a table that
+is quietly wrong.
+

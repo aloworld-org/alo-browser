@@ -165,8 +165,11 @@ unreachable without it.
       two things about where it ends refused by name. `http:` and `https:`
       fetch over a socket. **Pooling and keep-alive** (queue item 54), with the
       retry that has to come with them: a reuse that fails before a byte
-      arrives is tried again, and a request that must not happen twice never is
-      · Owed: queue item 59, HTTP/2
+      arrives is tried again, and a request that must not happen twice never is.
+      **HTTP/2 framing** (queue item 59) — every length checked before anything
+      is reserved, and the padding underflow that is the classic parser bug
+      refused by name · Owed: HPACK (160), streams and flow control (161), and
+      negotiating h2 at all (162)
 - [ ] HTTP/3 and QUIC, once those two are correct
 - [ ] DNS, and encrypted DNS as a choice somebody made rather than a default
       nobody was told about · Built: ADR 0008 and resolution through the

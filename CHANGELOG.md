@@ -6,6 +6,36 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **HTTP/2 framing**: nine bytes of header, a payload, and every rule about what
+  makes one unreadable. The rest of HTTP/2 — HPACK, streams and flow control,
+  and negotiating the protocol at all — is queued as items 160, 161 and 162.
+  Framing first, because everything else is carried inside it and because it is
+  where a peer chooses how much memory we allocate.
+- **A length is checked before anything is reserved.** HTTP/1.1 had two numbers
+  a stranger chose — `Content-Length` and a chunk size. This has one per frame,
+  several thousand times a page.
+- **Padding is subtracted before it is trusted.** A frame's first byte may say
+  how much of the rest is padding, and nothing stops it saying more than there
+  is; subtracting without checking underflows, and in a language where that is
+  not caught it reads whatever was next in memory. It is the classic HTTP/2
+  parser bug and it is refused by name.
+- A frame that is **entirely padding** is legal and carries nothing — servers
+  send them to disguise how large a response is, and a bounds check written one
+  off would refuse them. There is a test for that boundary on both sides.
+- **An unknown frame type is ignored, not refused** — the protocol is extensible
+  on purpose — but its length is still checked and its bytes still consumed
+  exactly, because an "ignore" that lost the stream's place is worse than a
+  refusal.
+- The reserved top bit of a stream identifier is **ignored rather than
+  rejected**; a reader that fails to mask it sees stream numbers near two
+  billion.
+- A `WINDOW_UPDATE` offering no more room is refused — room for nothing is not
+  room, and left unchecked it is a peer that can make this end wait forever. It
+  is fatal on the connection and survivable on a stream, which is the difference
+  the error type carries.
+- An error code this engine cannot name is **carried as sent** rather than
+  flattened to "an error": a peer sending one is telling us something.
+
 - **The engine is MPL-2.0 now, not Apache-2.0** (ADR 0009). Anyone may still
   embed alo browser in a closed product — that was the point of being permissive
   and it has not changed. What is no longer allowed is taking this engine,

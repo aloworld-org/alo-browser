@@ -546,8 +546,38 @@ first. Nothing here needs JavaScript.
   *Depends on 58. Blocked: needs an interface to choose in — the same block as
   item 157.*
 
-- [ ] **59. HTTP/2**, once 1.1 is correct.
+- [x] **59. HTTP/2 framing**, once 1.1 is correct. *Scope cut on starting: the
+  protocol is four items, not one. HPACK, streams and negotiation are 160, 161
+  and 162.*
   *Depends on 53.*
+
+  **Done.** Framing first because everything else is carried inside it, and
+  because it is where a peer gets to choose how much memory we allocate. The
+  padding underflow is refused by name; a frame that is *entirely* padding is
+  legal and tested, because a check written one off would refuse the frames
+  servers send to disguise a response's size.
+
+- [ ] **160. HPACK.** The header compression HTTP/2 carries in its `HEADERS` and
+  `CONTINUATION` blocks: static table, dynamic table, Huffman.
+  *Depends on 59. Closes when:* the specification's own request and response
+  examples round-trip, and a block that would grow the dynamic table past what
+  was agreed is a `COMPRESSION_ERROR` rather than an allocation. **A decoding
+  failure is fatal to the connection, never to one stream** — the table carries
+  state between blocks, so a block nobody could decode leaves it in a condition
+  nobody can reason about.
+
+- [ ] **161. Streams, flow control, and the connection state machine.**
+  *Depends on 59, 160. Closes when:* a stream that is finished refuses further
+  frames, a window that would go negative is a `FLOW_CONTROL_ERROR`, and a peer
+  opening more streams than it was allowed is refused rather than accommodated.
+  The bounds go in before the happy path: this is where a misbehaving peer
+  allocates memory on our side.
+
+- [ ] **162. Negotiating HTTP/2 at all** — ALPN in the TLS handshake, and
+  choosing 1.1 when the server does not offer h2.
+  *Depends on 59, 160, 161, 52. Closes when:* a server offering `h2` is spoken
+  to in HTTP/2 and one offering nothing is spoken to in HTTP/1.1, with no
+  request sent twice while finding out.
 
 - [ ] **60. HTTP/3 and QUIC**, once both of those are.
   *Depends on 59.*
