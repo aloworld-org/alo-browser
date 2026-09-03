@@ -6,6 +6,37 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A download that stops half way asks for the rest of itself.** A page that
+  arrives half way is an error and stays one — half a page is not a page. A
+  *file* that arrives half way is a hundred megabytes somebody already waited
+  for, and `Pool::download` now asks for the bytes after the ones it holds
+  rather than starting again.
+- **Where a byte goes is decided by a pure function**, in `alo-net`'s new
+  `download` module, so every rule about it is asserted without a socket. The
+  four rules, and each is protecting against a file of exactly the right length
+  that is not the thing: a `206` must begin **exactly** where the download
+  stopped; a `200` answering a range request is byte zero onwards and is never
+  appended, so the download starts again and says out loud that it did; nothing
+  encoded is ever spliced, which is why a download asks for `identity` from its
+  **first** request; and a resume needs an `ETag` or a `Last-Modified` to put in
+  `If-Range`, because without one nothing could tell us the file changed between
+  the two asks. A weak `ETag` is not taken — it says two representations are
+  good enough to swap for one another, which is a different claim from "these
+  are the same bytes".
+- **`Content-Range` has a parser of its own**, and it is strict for a reason no
+  other header is: its three numbers decide *where in a file the bytes that
+  follow are written*. A unit that is not `bytes`, the `bytes */1234` form a
+  `416` carries, a first byte after the last one, a last byte past the end, a
+  sign, two `Content-Range` headers in one response — each refused by name.
+- **A body that stops early keeps the bytes that arrived.** They used to be
+  thrown away with the error. Only a download may see them, and it never shows
+  them: it asks for the rest and checks, byte position by byte position, that
+  what comes back belongs where it is put.
+- A body that stopped early also has its **codings left on**, deliberately: half
+  a gzip is not half a page, and a prefix produced by decompressing one is a
+  thing nobody could tell from a whole page. The connection it arrived on is not
+  kept either, because there is nothing left on it anybody can find the start of.
+
 - **A body compressed for one hop arrives as a page.**
   `Transfer-Encoding: gzip, chunked` says the content was gzipped and then the
   gzip was cut into chunks — a legal response this engine refused outright,

@@ -27,7 +27,8 @@
 //! closed rather than gambled on.
 
 use crate::cache::{self, Answer, Cache};
-use crate::connection::{Connection, Exchanged, PATIENCE, Protocol, exchange};
+use crate::connection::{Connection, Exchanged, PATIENCE, Protocol, exchange_however_it_ends};
+use crate::download::{Download, Step};
 use crate::freshness;
 use crate::redirect::{self, Next, Trail};
 use crate::request::Request;
@@ -150,6 +151,17 @@ impl Pool {
     /// A sentence, for anything from "there is no such host" to "the
     /// certificate was refused".
     pub fn fetch(&mut self, request: &Request) -> Result<Response, String> {
+        let done = self.fetch_however_it_ends(request)?;
+        match done.short {
+            Some(why) => Err(why.to_string()),
+            None => Ok(done.response),
+        }
+    }
+
+    /// One exchange, handing up a body that stopped short rather than refusing
+    /// it. Only [`Pool::download`] wants that; see
+    /// [`crate::connection::exchange_however_it_ends`].
+    fn fetch_however_it_ends(&mut self, request: &Request) -> Result<Exchanged, String> {
         let server = server_of(request)?;
         let secure = server.scheme == "https";
 
@@ -160,7 +172,7 @@ impl Pool {
                     if done.reusable {
                         self.put(&server, kept, speaking);
                     }
-                    return Ok(done.response);
+                    return Ok(done);
                 }
                 Err(why) => {
                     // The bet, lost. All three conditions, or it is a failure.
@@ -189,7 +201,70 @@ impl Pool {
         if done.reusable {
             self.put(&server, fresh, speaking);
         }
-        Ok(done.response)
+        Ok(done)
+    }
+
+    /// Fetch the whole of something, asking again for the rest when it stops
+    /// short.
+    ///
+    /// This is what a *file* is, as against a page: [`Pool::follow`] refuses a
+    /// body that stopped early, because half a page is not a page. Half a file
+    /// is the first half of a file, and the second half can be asked for.
+    ///
+    /// The deciding is all in [`crate::download`] and none of it is here —
+    /// which is why every rule about where a byte goes is tested without a
+    /// socket. What this adds is the loop, the redirects, and the refusal to
+    /// range-request something it would not be safe to ask for twice.
+    ///
+    /// **Nothing here goes through the cache**, and that is deliberate rather
+    /// than missing: half a response must never be stored, and a cache that
+    /// holds whole responses in memory is the wrong place for a file large
+    /// enough to be worth resuming. Item 155 is where a cache gets a disk, and
+    /// is where the question becomes worth asking again.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Pool::fetch`] fails with, a [`crate::redirect::Refusal`] when
+    /// the chain points somewhere this engine will not go, and a
+    /// [`crate::download::Unusable`] when an answer cannot be placed.
+    pub fn download(&mut self, request: &Request) -> Result<Response, String> {
+        // A range request is sent more than once by definition, so a download
+        // is only ever of something that may be asked for twice. A `POST` that
+        // stopped half way is not resumed: it is a thing that has happened.
+        if !is_safe_to_repeat(&request.method) {
+            return Err(format!(
+                "a {} cannot be downloaded, because a download asks more than once",
+                request.method
+            ));
+        }
+        let mut download = Download::new();
+        let mut trail = Trail::from(&request.url);
+        let mut target = request.clone();
+        loop {
+            let asking = download.asking(&target);
+            let done = self.fetch_however_it_ends(&asking)?;
+            match redirect::next(&asking, &done.response).map_err(|why| why.to_string())? {
+                Next::Follow(hop) => {
+                    trail.and_then(&hop.url).map_err(|why| why.to_string())?;
+                    // A redirect arriving part way through means the thing moved
+                    // while it was being fetched, so what is held is half of
+                    // something that is no longer at this address. Beginning
+                    // again at the new one is the only reading that is not a
+                    // guess about whether the two are the same file.
+                    download = Download::new();
+                    target = *hop;
+                    continue;
+                }
+                Next::Keep => {}
+            }
+            match download
+                .take(&done.response, done.short.is_some())
+                .map_err(|why| why.to_string())?
+            {
+                Step::Done => return Ok(download.into_response(done.response.url)),
+                Step::More => {}
+            }
+        }
     }
 
     /// Fetch, following redirects to wherever they end.
@@ -324,7 +399,9 @@ fn speak(
     request: &Request,
 ) -> Result<Exchanged, String> {
     match connection.protocol() {
-        Protocol::Http11 => exchange(connection, request).map_err(|why| why.to_string()),
+        Protocol::Http11 => {
+            exchange_however_it_ends(connection, request).map_err(|why| why.to_string())
+        }
         Protocol::Http2 => {
             let held = speaking.get_or_insert_with(|| Box::new(crate::h2::client::Speaking::new()));
             let response = crate::h2::client::exchange(connection, held, request)
@@ -334,6 +411,12 @@ fn speak(
                 // HTTP/2 connections are meant to be kept. A `GOAWAY` is the
                 // only thing that says otherwise, and the session remembers it.
                 reusable: !held.session.is_going_away(),
+                // Never short: the HTTP/2 client either produced a whole
+                // response or failed. A stream that ends early is an error
+                // there rather than a body with a reason beside it, so a
+                // download over HTTP/2 starts again where one over HTTP/1.1
+                // resumes. That is a real difference and it is queue item 185.
+                short: None,
             })
         }
     }

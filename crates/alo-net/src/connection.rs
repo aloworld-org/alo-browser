@@ -207,6 +207,13 @@ pub struct Exchanged {
     pub response: Response,
     /// Whether this connection may carry another request.
     pub reusable: bool,
+    /// Why the body stopped before its framing said it would, when it did.
+    ///
+    /// [`exchange`] turns this into an error, which is what queue item 53
+    /// promised and what every ordinary load wants: half a page is not a page.
+    /// A download keeps the bytes and asks for the rest (queue item 154), and
+    /// [`exchange_however_it_ends`] is the door it comes in by.
+    pub short: Option<Malformed>,
 }
 
 /// Send a request down a connection and read the answer.
@@ -216,6 +223,32 @@ pub struct Exchanged {
 /// [`Malformed`] when what comes back is not HTTP this engine will read, or
 /// when it stops before it said it would.
 pub fn exchange(connection: &mut Connection, request: &Request) -> Result<Exchanged, Malformed> {
+    let done = exchange_however_it_ends(connection, request)?;
+    match done.short {
+        Some(why) => Err(why),
+        None => Ok(done),
+    }
+}
+
+/// The same exchange, handing up a body that stopped short rather than
+/// refusing it.
+///
+/// **Nothing but a download should call this.** A short body is a wrong page
+/// everywhere else, and the whole argument of queue item 53 is that it must be
+/// an error rather than a silently shorter document. What makes it usable here
+/// is that a download does not *show* the bytes — it asks for the rest of them
+/// and checks, byte position by byte position, that what comes back belongs
+/// where it is put.
+///
+/// # Errors
+///
+/// [`Malformed`] when what comes back is not HTTP this engine will read. A
+/// body that merely stops early is [`Exchanged::short`] rather than an error,
+/// which is the whole difference between this and [`exchange`].
+pub fn exchange_however_it_ends(
+    connection: &mut Connection,
+    request: &Request,
+) -> Result<Exchanged, Malformed> {
     connection.begin();
     connection
         .write_all(&http::write_request(request))
@@ -228,22 +261,37 @@ pub fn exchange(connection: &mut Connection, request: &Request) -> Result<Exchan
 
     let head = http::read_head(connection)?;
     let framing = Framing::of(head.status, &head.headers)?;
-    let body = body::read(connection, framing)?;
-    // The chunking has come off; whatever was under it comes off next. A
-    // transfer coding describes **this hop** and does not survive it, so it is
-    // undone before anything looks at the message — and before
-    // `Content-Encoding`, which describes the representation underneath.
-    let transfer = crate::transfer::of(&head.headers)?;
-    let body = crate::transfer::undo(body, &transfer)?;
-    // Last, and after framing on purpose: `Content-Length` counts the bytes on
-    // the wire, which are the compressed ones. A body decompressed before it
-    // was framed would be a body framed against a length describing something
-    // else.
-    let applied = crate::decompress::what_was_applied(&head.headers)?;
-    let body = crate::decompress::undo(body, &applied)?;
+    let (body, short) = body::read_what_arrived(connection, framing);
+    // **The codings come off only when the body is whole.** Half a gzip is not
+    // half a page: undoing a coding on a truncated body either fails or yields
+    // a prefix nothing could tell from a finished one, and the second is worse.
+    // So a short body is handed up exactly as it arrived, with its headers
+    // still saying what was applied — and `crate::download` refuses to join
+    // such a piece to anything, because it cannot know where in the coded
+    // stream it ends.
+    let body = if short.is_some() {
+        body
+    } else {
+        // The chunking has come off; whatever was under it comes off next. A
+        // transfer coding describes **this hop** and does not survive it, so it
+        // is undone before anything looks at the message — and before
+        // `Content-Encoding`, which describes the representation underneath.
+        let transfer = crate::transfer::of(&head.headers)?;
+        let body = crate::transfer::undo(body, &transfer)?;
+        // Last, and after framing on purpose: `Content-Length` counts the bytes
+        // on the wire, which are the compressed ones. A body decompressed
+        // before it was framed would be a body framed against a length
+        // describing something else.
+        let applied = crate::decompress::what_was_applied(&head.headers)?;
+        crate::decompress::undo(body, &applied)?
+    };
 
     Ok(Exchanged {
-        reusable: may_reuse(head.version, &head.headers, framing),
+        // A connection whose body stopped early has nothing left on it that
+        // anybody can find the start of. Keeping it would hand the next request
+        // a socket sitting in the middle of somebody else's message.
+        reusable: short.is_none() && may_reuse(head.version, &head.headers, framing),
+        short,
         response: Response {
             url: request.url.clone(),
             status: head.status,

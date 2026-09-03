@@ -4593,3 +4593,138 @@ stream is a range of bytes nobody can reassemble.
 Item 183, the fieldset border, is still the one iteration 70 named and is still
 worth taking: `corner.rs`'s `between` draws one shape with another cut out of
 it, which is what a legend breaking a border is.
+
+---
+
+## Iteration 73 — queue item 154: byte ranges, and downloads that resume
+
+**The tree was not clean when this started, and that is the first thing to
+record.** `crates/alo-net/src/range.rs` was sitting untracked: 353 lines, not in
+`lib.rs`, with a doc comment referring to a `crate::download` that did not
+exist. Nothing in the journal mentions it. It is what `LOOP.md` describes when
+it says a worker gone silent is killed and *"the item it was building is redone
+next time"* — an earlier attempt at this same item, stopped part way. So the
+gate was failing on entry, with exactly one `FAIL`: **crates changed and
+CHANGELOG.md did not**, which is that file and nothing else. Not a halt: it is
+this item's own unfinished half, and finishing it is what clears it.
+
+I read it rather than trusting it. It is good work and it is kept — the grammar,
+the refusals and their reasons. What it did not have is everything the item is
+actually about, which is the conversation.
+
+**What was built.**
+
+- `range.rs`, from the abandoned draft: `Content-Range` read as three numbers
+  and `Accept-Ranges` read as a refusal only when it says `none`. Strict for a
+  reason no other header has: those three numbers decide **where in a file the
+  bytes that follow are written**, so a generous parser here does not render
+  something wrong, it splices the middle of a download into the wrong offset and
+  hands up a file of the right length that is not the thing.
+- `download.rs`, and it is a **pure function** — the shape item 55 used, chosen
+  again for the same reason. Every rule here is a rule about placing bytes at an
+  offset, and a rule like that is asserted honestly only when nothing else is
+  moving. `Download::asking` says what to ask for next, `Download::take` says
+  what an answer means, and both are driven from a table in the crate's own
+  tests with no socket anywhere.
+- `Pool::download`, which is the loop, and is short because none of the deciding
+  is in it.
+
+**The four rules, and what each is protecting.**
+
+- **A `206` must begin exactly where the download stopped.** `Content-Range` is
+  checked against the length held rather than trusted to be the answer to what
+  was asked. One byte off is one byte missing from the middle of a file.
+- **A `200` answering a range request is never appended.** It is byte zero
+  onwards whatever was asked for, and a server ignoring `Range` is common rather
+  than misbehaviour. So the bytes are dropped and it starts again — and
+  `Download::restarts` counts it, because *noticed* has to mean more than *not
+  believed*: somebody has to be able to see that it happened, and a server that
+  does it every time has to run out of attempts rather than loop.
+- **Nothing coded is spliced.** A download asks `identity` from its **first**
+  request, not from the resumed one — `write_request` has left a caller's
+  `Accept-Encoding` alone since item 152, with a comment naming this day. A
+  `206` carrying a `Content-Encoding` is refused outright: its offsets are into
+  the *coded* representation and the bytes already held are not.
+- **A resume needs a validator.** This is the one worth reading twice. Without
+  an `ETag` or a `Last-Modified` to put in `If-Range` there is nothing that
+  could tell us the file changed between the two asks, so such a download starts
+  again rather than resuming. Slower, and the only reading that cannot be
+  silently wrong. A **weak** `ETag` is not taken either: it says two
+  representations are good enough to swap for one another, which is a different
+  claim from "these are the same bytes" and is exactly the wrong claim to splice
+  on.
+
+**What had to change underneath, and it is the interesting half.** A body that
+stopped early was an error and its bytes were thrown away with it — which is
+right for a page and is the whole point of item 53. So `body::read_what_arrived`
+now hands back both, `read` is that with the short answer turned into an error,
+and `connection::exchange_however_it_ends` is the door a download comes in by
+while `exchange` keeps item 53's promise unchanged.
+
+Two things fell out of that and both are corrections rather than features. A
+short body **keeps its codings on**: `crate::connection` undoes them only for a
+body that arrived whole, because half a gzip decompressed is a prefix nothing
+could tell from a whole page. And the connection it arrived on is **not kept**,
+because there is nothing left on it that anybody can find the start of — that
+was previously true by accident, since a truncated body errored before anything
+could keep it.
+
+**Two things the item did not say and the code found.**
+
+- `Framing::UntilClose` cannot tell a finished body from a truncated one, so it
+  never reports one short. A download can do better, because a `Content-Length`
+  or a `Content-Range` is a length somebody stated: an answer whose framing was
+  satisfied is still `Step::More` when it is shorter than the length it claims.
+- A `Content-Length` on a response that **was** compressed counts the coded
+  bytes, and the body has since been undone. A download that believed it would
+  ask for a range past the end of something it already has all of. So a coded
+  answer contributes no length at all.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, 1301 tests, no stubs, boundaries held — neither new file names a rented
+crate. `LOOP.md`'s hostile-input clause is met twice: a table of sixteen
+`Content-Range` values that could be placed wrongly, each refused by name, and a
+sweep over nine answers a server can give a range request asserting that
+whatever comes back is a **prefix of the real file** — which a spliced body
+could not be, and which is a stronger thing to assert than "it did not panic".
+No layout assertion and no reference render: this reads bytes and positions
+nothing.
+
+**The evidence, and it is the closing condition run rather than reasoned about.**
+`a_download_that_stops_half_way.rs` puts a server on loopback that promises the
+whole file and hangs up in the middle of it, and asserts the resumed bytes equal
+those from a second server that never stopped — two sockets, one for each half.
+A second server ignores `Range` entirely and the download comes back as the file
+rather than as its first twenty-five bytes twice over.
+
+**One thing that is deliberately absent.** A download does not go through the
+cache. Half a response must never be stored, and a cache that holds whole
+responses in memory is the wrong place for a file large enough to be worth
+resuming. Item 155 is where a cache gets a disk and where that becomes worth
+asking again; the reason is written where `Pool::download` is.
+
+**`ROADMAP.md`.** The line moved is *"Redirects, byte ranges, and downloads that
+resume"*, whose Built clause gains this half. It stays an empty box, and the
+Owed clause names why: item 185.
+
+**The cut, written into the queue as item 185.** A download over HTTP/2 starts
+again where one over HTTP/1.1 resumes, because the HTTP/2 client turns a stream
+that ends early into an error rather than a body with a reason beside it. That
+is correct and slower than it needs to be, it is named in `pool.rs` where the
+`short: None` is written, and item 163's `DATA` handling is the code that has to
+learn the same distinction.
+
+**What the next iteration should know.** Item 155 is next in the file and is
+marked *needs ADR* — what may be written to a disk other programs can read is a
+different question from what may be reused, and it has a different answer for a
+page behind a password. `LOOP.md` is explicit that such an item gets the ADR as
+its **own iteration**, before any code depends on it.
+
+If a chore is wanted instead, item 156 (the public suffix list, rented) is ready
+and its dependency is done: the site boundary is the host today, which is
+stricter than the registrable domain and is wrong — `a.example.com` and
+`b.example.com` should be one site.
+
+And item 183, the fieldset border, is still the one iterations 70 and 72 both
+named and still unclaimed. `corner.rs`'s `between` draws one shape with another
+cut out of it, which is what a legend breaking a border is.

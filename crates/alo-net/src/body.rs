@@ -87,44 +87,83 @@ impl Framing {
 /// **including when it simply stops**, which is the difference between an
 /// error and a short page.
 pub fn read(source: &mut impl Read, framing: Framing) -> Result<Vec<u8>, Malformed> {
+    match read_what_arrived(source, framing) {
+        (body, None) => Ok(body),
+        (_, Some(why)) => Err(why),
+    }
+}
+
+/// Read a body, **keeping what arrived** when it stops before it said it would.
+///
+/// [`read`] is this with the short answer turned into an error, which is what
+/// every ordinary load wants: half a page is not a page. A download wants the
+/// bytes, because they are the first half of a file and asking for the second
+/// half is cheaper than asking for the whole thing again — queue item 154, and
+/// [`crate::download`].
+///
+/// The bytes and the reason are both returned rather than one or the other,
+/// because a caller that has to choose gets to decide *knowing what it has*.
+pub fn read_what_arrived(source: &mut impl Read, framing: Framing) -> (Vec<u8>, Option<Malformed>) {
     match framing {
-        Framing::Empty => Ok(Vec::new()),
+        Framing::Empty => (Vec::new(), None),
         Framing::Exactly(length) => read_exactly(source, length),
         Framing::Chunked => read_chunked(source),
         Framing::UntilClose => {
             let mut out = Vec::new();
-            source
+            // Never short: this framing cannot tell a finished body from a
+            // truncated one, which is why it is last in [`Framing`]. A caller
+            // that knows a length from somewhere else — a `Content-Range`, say
+            // — is the one that can notice, and does.
+            let why = source
                 .take(LARGEST_BODY)
                 .read_to_end(&mut out)
-                .map_err(|why| Malformed {
+                .err()
+                .map(|why| Malformed {
                     why: why.to_string(),
-                })?;
-            Ok(out)
+                });
+            (out, why)
         }
     }
 }
 
-/// Exactly this many bytes, and a truncated body is an error rather than a
-/// short page.
-fn read_exactly(source: &mut impl Read, length: u64) -> Result<Vec<u8>, Malformed> {
+/// Exactly this many bytes, and a truncated body is reported rather than
+/// passed off as a short page.
+fn read_exactly(source: &mut impl Read, length: u64) -> (Vec<u8>, Option<Malformed>) {
     let mut out = Vec::new();
-    let read = source
-        .take(length)
-        .read_to_end(&mut out)
-        .map_err(|why| Malformed {
-            why: why.to_string(),
-        })?;
-    if read as u64 != length {
-        return Err(Malformed {
-            why: format!("the body stopped after {read} bytes of the {length} it said it would be"),
-        });
+    // `read_to_end` appends as it goes, so `out` holds what arrived either way.
+    match source.take(length).read_to_end(&mut out) {
+        Err(why) => (
+            out,
+            Some(Malformed {
+                why: why.to_string(),
+            }),
+        ),
+        Ok(read) if read as u64 != length => (
+            out,
+            Some(Malformed {
+                why: format!(
+                    "the body stopped after {read} bytes of the {length} it said it would be"
+                ),
+            }),
+        ),
+        Ok(_) => (out, None),
     }
-    Ok(out)
 }
 
 /// Chunks, each announcing its own length.
-fn read_chunked(source: &mut impl Read) -> Result<Vec<u8>, Malformed> {
+fn read_chunked(source: &mut impl Read) -> (Vec<u8>, Option<Malformed>) {
     let mut out: Vec<u8> = Vec::new();
+    match chunks_into(source, &mut out) {
+        Ok(()) => (out, None),
+        Err(why) => (out, Some(why)),
+    }
+}
+
+/// The chunks, appended to `out` as each one arrives.
+///
+/// Appending as it goes rather than at the end is what lets a body that stops
+/// half way keep the chunks that did arrive.
+fn chunks_into(source: &mut impl Read, out: &mut Vec<u8>) -> Result<(), Malformed> {
     loop {
         let line = read_chunk_line(source)?;
         // A chunk line may carry extensions after a semicolon; nothing reads
@@ -148,17 +187,19 @@ fn read_chunked(source: &mut impl Read) -> Result<Vec<u8>, Malformed> {
             // and dropped, because nothing here acts on one and leaving them
             // in the stream would leave the connection unusable.
             while !read_chunk_line(source)?.is_empty() {}
-            return Ok(out);
+            return Ok(());
         }
         if out.len() as u64 + size > LARGEST_BODY {
             return Err(Malformed {
                 why: "the chunks add up to more than this engine holds".to_owned(),
             });
         }
-        let mut chunk = Vec::new();
+        // Straight into `out`, so that a chunk which stops half way leaves the
+        // bytes that did arrive where a resume can count them. They are body
+        // bytes: what failed is the framing after them, not them.
         let read = source
             .take(size)
-            .read_to_end(&mut chunk)
+            .read_to_end(out)
             .map_err(|why| Malformed {
                 why: why.to_string(),
             })?;
@@ -167,7 +208,6 @@ fn read_chunked(source: &mut impl Read) -> Result<Vec<u8>, Malformed> {
                 why: format!("a chunk stopped after {read} bytes of {size}"),
             });
         }
-        out.append(&mut chunk);
         // The blank line after each chunk.
         if !read_chunk_line(source)?.is_empty() {
             return Err(Malformed {

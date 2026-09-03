@@ -473,13 +473,32 @@ first. Nothing here needs JavaScript.
   because a server that could send a load into `file:///` would be reading the
   disk of whoever opened the page.
 
-- [ ] **154. Byte ranges, and downloads that resume.** Cut from 55. A range
+- [x] **154. Byte ranges, and downloads that resume.** Cut from 55. A range
   request that resumes has to ask for `identity` — a byte range of a compressed
   stream is a range nobody can decompress — which is why item 152 left the
   caller's `Accept-Encoding` alone.
   *Depends on 55, 152. Closes when:* a download interrupted halfway resumes and
   the bytes are the same as an uninterrupted one, and a server that answers a
   range request with the whole thing is noticed rather than believed.
+
+  **Done, both clauses, and the deciding is a pure function** — the shape item
+  55 used, for the same reason: every rule here is a rule about *placing bytes
+  at an offset*, and such a rule is asserted honestly only when nothing else is
+  moving. `alo-net/src/download.rs` decides and `Pool::download` is the loop.
+  The rule worth reading twice is that **a resume needs a validator**: without
+  an `ETag` or a `Last-Modified` to put in `If-Range` there is nothing that
+  could tell us the file changed between the two asks, so such a download starts
+  again rather than splicing. Item 185 is the cut.
+
+- [ ] **185. A download that stops over HTTP/2 resumes rather than restarting.**
+  Cut from 154. The HTTP/1.1 client hands up a body that stopped early with the
+  reason beside it (`Exchanged::short`); the HTTP/2 client turns a stream that
+  ends early into an error, so the bytes are gone and the download begins again
+  at zero. Correct, and slower than it needs to be — and item 163's `DATA`
+  handling is the code that has to learn the same distinction.
+  *Depends on 161, 154. Closes when:* a download over HTTP/2 interrupted halfway
+  opens one range request rather than starting again, in the same shape of test
+  as `a_download_that_stops_half_way.rs`.
 
 - [x] **56. The HTTP cache, with real semantics** — freshness, revalidation,
   `Vary`. `ROADMAP.md`: *"subtly wrong here is invisible for months and then

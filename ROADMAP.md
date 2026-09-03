@@ -210,8 +210,14 @@ unreachable without it.
 - [ ] Redirects, byte ranges, and downloads that resume · Built: redirects
       (queue item 55) — bounded, loop-detecting, `Authorization` dropped at an
       origin boundary, a redirected `POST` demoted to `GET` on 301/302/303 and
-      preserved on 307/308, and `file:`/`data:` refused as destinations
-      · Owed: queue item 154, byte ranges and downloads that resume
+      preserved on 307/308, and `file:`/`data:` refused as destinations; and
+      byte ranges with downloads that resume (queue item 154) — a body that
+      stops early keeps its bytes and the rest of them are asked for, with a
+      `206` required to begin **exactly** where the download stopped, a `200`
+      answering a range request never appended, and nothing encoded ever
+      spliced · Owed: queue item 185, the same over HTTP/2, where a stream that
+      ends early is an error rather than a body with a reason beside it — so a
+      download there starts again where one over HTTP/1.1 resumes
 - [x] **The HTTP cache, with real semantics** — freshness, revalidation, `Vary`
       (queue item 56). Nothing in it reads the clock, because the answers that
       matter are the ones only wrong an hour later. `Age` is counted, so a
