@@ -6,6 +6,32 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A download that stops over HTTP/2 resumes too.** It used to start again at
+  zero: the HTTP/2 client turned a stream that ended early into an error, so
+  the bytes were gone before anything could ask for the rest of them. It hands
+  them up with the reason beside them now, exactly as the HTTP/1.1 client has,
+  and a download interrupted half way opens one range request rather than
+  beginning again.
+- **A connection that ended is not a peer that misbehaved**, and HTTP/2's frame
+  reader can now say which it was. The two used to be one error. They are
+  different facts: bytes delivered by a connection that then ended were framed
+  properly and are worth keeping, and bytes delivered by a peer breaking the
+  protocol are not. A reset counts as an ending, because a server hanging up
+  part way through a body resets rather than closes tidily — we are still
+  sending it window updates for what it just sent us.
+- **Two ways an HTTP/2 stream ends early, and only two**: the connection ends,
+  and the server gives up on the stream with a `RST_STREAM`. Everything else —
+  a header block that will not decode, a window overrun, a frame where none may
+  be — stays an error and takes the bytes with it.
+- **The download loop is protocol-blind, and now says so.** It moved out of
+  `Pool::download` into `alo_net::whole_of`, which takes the exchange as an
+  argument and never learns what carried it — which is why resuming over
+  HTTP/2 was a change to the HTTP/2 client and to nothing else. It is also what
+  makes the loop testable against a server a test started, which matters here
+  because this engine speaks HTTP/2 only over TLS and a test may not start one.
+- Half a page is still not a page. `client::exchange` refuses a stream that
+  ended early exactly as it did, and has a test of its own saying so.
+
 - **A download that stops half way asks for the rest of itself.** A page that
   arrives half way is an error and stays one — half a page is not a page. A
   *file* that arrives half way is a hundred megabytes somebody already waited

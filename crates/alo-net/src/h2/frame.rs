@@ -221,19 +221,44 @@ fn broken(why: impl Into<String>, error: ErrorCode) -> Broken {
     }
 }
 
-/// Read one frame.
+/// What came off the wire when a frame was asked for.
 ///
-/// `largest` is what this end has told the peer it will accept — the value of
-/// its own `SETTINGS_MAX_FRAME_SIZE`, which is why it is a parameter rather than
-/// a constant.
+/// The two are different things and collapsing them is what queue item 185 was
+/// about: **a connection that ended is not a peer that misbehaved.** A caller
+/// waiting for a response has to tell them apart, because bytes already
+/// delivered by a connection that then ended are bytes worth keeping, and bytes
+/// delivered by a peer breaking the protocol are not.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Arrived {
+    /// A frame, read whole.
+    Frame(Frame),
+    /// Nothing more is coming, because the connection ended.
+    ///
+    /// The [`Broken`] says which way it ended — cleanly between frames, or in
+    /// the middle of one. Both mean the same to somebody waiting for a response
+    /// and only one of them is a server behaving properly, so the distinction is
+    /// carried rather than flattened.
+    Ended(Broken),
+}
+
+/// Read one frame, saying plainly when the connection simply ended.
+///
+/// [`read`] cannot say it: there, the end of a connection and a peer sending
+/// something unreadable are both [`Broken`], and a caller that could not tell
+/// them apart would treat a download's connection dropping as a violation and
+/// throw away the bytes it already had.
 ///
 /// # Errors
 ///
-/// [`Broken`], carrying the error code to send back and whether the connection
-/// can survive it.
-pub fn read(source: &mut impl Read, largest: u32) -> Result<Frame, Broken> {
+/// [`Broken`], for a peer that sent something this engine will not read. The
+/// connection ending is [`Arrived::Ended`] rather than an error, which is the
+/// whole difference between this and [`read`].
+pub fn read_however_it_ends(source: &mut impl Read, largest: u32) -> Result<Arrived, Broken> {
     let mut head = [0u8; HEADER_BYTES];
-    read_exactly(source, &mut head)?;
+    match fill(source, &mut head)? {
+        Filled::Whole => {}
+        Filled::EndedAfter(bytes) => return Ok(Arrived::Ended(ended_after(bytes))),
+    }
     let length = u32::from(head[0]) << 16 | u32::from(head[1]) << 8 | u32::from(head[2]);
     let kind = head[3];
     let flags = head[4];
@@ -249,8 +274,31 @@ pub fn read(source: &mut impl Read, largest: u32) -> Result<Frame, Broken> {
     }
 
     let mut payload = vec![0u8; length as usize];
-    read_exactly(source, &mut payload)?;
-    interpret(kind, flags, stream, payload)
+    match fill(source, &mut payload)? {
+        Filled::Whole => {}
+        // Past the header, so however few bytes arrived it was mid-frame.
+        Filled::EndedAfter(bytes) => {
+            return Ok(Arrived::Ended(ended_after(HEADER_BYTES + bytes)));
+        }
+    }
+    interpret(kind, flags, stream, payload).map(Arrived::Frame)
+}
+
+/// Read one frame.
+///
+/// `largest` is what this end has told the peer it will accept — the value of
+/// its own `SETTINGS_MAX_FRAME_SIZE`, which is why it is a parameter rather than
+/// a constant.
+///
+/// # Errors
+///
+/// [`Broken`], carrying the error code to send back and whether the connection
+/// can survive it.
+pub fn read(source: &mut impl Read, largest: u32) -> Result<Frame, Broken> {
+    match read_however_it_ends(source, largest)? {
+        Arrived::Frame(frame) => Ok(frame),
+        Arrived::Ended(why) => Err(why),
+    }
 }
 
 /// What a payload means, once it has been read.
@@ -532,22 +580,68 @@ fn on_the_connection(stream: u32, what: &str) -> Result<(), Broken> {
     Ok(())
 }
 
-fn read_exactly(source: &mut impl Read, into: &mut [u8]) -> Result<(), Broken> {
+/// How far a read got before it ran out of connection.
+enum Filled {
+    /// Every byte asked for.
+    Whole,
+    /// The connection ended after this many of them — zero when it ended
+    /// before the read had taken anything at all, which is a server hanging up
+    /// tidily between frames.
+    EndedAfter(usize),
+}
+
+/// Fill a buffer, saying how far it got when the connection ended under it.
+///
+/// A connection that ends is not a connection that fails, and the difference is
+/// worth the four lines: the first is what every server does eventually, and
+/// the second is a peer that has gone quiet without going away.
+fn fill(source: &mut impl Read, into: &mut [u8]) -> Result<Filled, Broken> {
     let mut filled = 0;
     while filled < into.len() {
         let room = into.get_mut(filled..).unwrap_or_default();
         match source.read(room) {
-            Ok(0) => {
-                return Err(broken(
-                    "the connection ended in the middle of a frame",
-                    ErrorCode::ProtocolError,
-                ));
-            }
+            Ok(0) => return Ok(Filled::EndedAfter(filled)),
             Ok(got) => filled += got,
+            Err(why) if is_the_connection_going(&why) => {
+                return Ok(Filled::EndedAfter(filled));
+            }
             Err(why) => return Err(broken(why.to_string(), ErrorCode::InternalError)),
         }
     }
-    Ok(())
+    Ok(Filled::Whole)
+}
+
+/// Whether a failed read is the peer being gone rather than being slow.
+///
+/// A reset arrives instead of an orderly end whenever the peer closes with
+/// something of ours still unread — which is exactly what a server hanging up
+/// part way through a body does, since we are still sending it window updates.
+/// So this is the same event as the end of a connection and is read as one.
+///
+/// A timeout is **not** here, and that is the point of the list being explicit:
+/// a peer that has gone quiet may still be there, and treating a stall as an
+/// ending would turn every slow server into a half-finished download.
+fn is_the_connection_going(why: &std::io::Error) -> bool {
+    matches!(
+        why.kind(),
+        std::io::ErrorKind::ConnectionReset
+            | std::io::ErrorKind::ConnectionAborted
+            | std::io::ErrorKind::BrokenPipe
+            // What a TLS connection closed without a `close_notify` looks
+            // like, which is how most of the web ends a connection.
+            | std::io::ErrorKind::UnexpectedEof
+    )
+}
+
+/// The connection ending, said the way the two ways of ending differ.
+fn ended_after(bytes: usize) -> Broken {
+    if bytes == 0 {
+        return broken("the connection ended", ErrorCode::NoError);
+    }
+    broken(
+        "the connection ended in the middle of a frame",
+        ErrorCode::ProtocolError,
+    )
 }
 
 /// Write one frame.

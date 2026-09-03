@@ -104,16 +104,62 @@ pub fn begin(wire: &mut impl Write, speaking: &mut Speaking) -> Result<(), Broke
     Ok(())
 }
 
+/// A response, and why its stream ended before its body did — when it did.
+///
+/// The same shape [`crate::connection::Exchanged`] has, for the same reason:
+/// half a page is not a page, and half a file is the first half of a file.
+#[derive(Debug)]
+pub struct Ended {
+    /// The response, carrying whatever body arrived.
+    pub response: Response,
+    /// Why the stream ended without `END_STREAM`, when it did.
+    pub short: Option<Broken>,
+}
+
 /// Do one request and read its response.
 ///
 /// # Errors
 ///
-/// [`Broken`], carrying whether the connection survives it.
+/// [`Broken`], carrying whether the connection survives it — including a
+/// stream that ended before its body did, which is what makes this the strict
+/// half of [`exchange_however_it_ends`].
 pub fn exchange(
     wire: &mut (impl Read + Write),
     speaking: &mut Speaking,
     request: &Request,
 ) -> Result<Response, Broken> {
+    let ended = exchange_however_it_ends(wire, speaking, request)?;
+    match ended.short {
+        Some(why) => Err(why),
+        None => Ok(ended.response),
+    }
+}
+
+/// The same exchange, handing up a stream that ended early rather than
+/// refusing it.
+///
+/// **Nothing but a download should call this**, for the reason
+/// [`crate::connection::exchange_however_it_ends`] gives on the HTTP/1.1 side:
+/// a body that stopped is a wrong page everywhere else. A download does not
+/// show the bytes — it asks for the rest of them and checks, byte position by
+/// byte position, that what comes back belongs where it is put.
+///
+/// **Two ways a stream ends early, and only two.** The connection ends, and the
+/// server resets the stream. Everything else — a header block that will not
+/// decode, a window overrun, a frame where none may be — stays an error and
+/// takes the bytes with it, because bytes delivered by a peer that is breaking
+/// the protocol are not bytes to build a file out of.
+///
+/// # Errors
+///
+/// [`Broken`], for a peer that misbehaved rather than a stream that stopped —
+/// and for a stream that stopped **before any response headers arrived**, since
+/// there is then no response to hand up and no byte to resume from.
+pub fn exchange_however_it_ends(
+    wire: &mut (impl Read + Write),
+    speaking: &mut Speaking,
+    request: &Request,
+) -> Result<Ended, Broken> {
     begin(wire, speaking)?;
     let stream = speaking.session.open()?;
     let block = hpack::encode(&fields_for(request), &mut speaking.writing);
@@ -133,12 +179,47 @@ pub fn exchange(
     let mut headers = Headers::new();
     let mut status = None;
     let mut body = Vec::new();
+    let mut short = None;
 
     loop {
-        let frame = frame::read(wire, frame::LARGEST_BY_DEFAULT)?;
-        answer_what_must_be_answered(wire, &frame)?;
+        let frame = match frame::read_however_it_ends(wire, frame::LARGEST_BY_DEFAULT)? {
+            frame::Arrived::Frame(frame) => frame,
+            frame::Arrived::Ended(why) => {
+                short = Some(why);
+                break;
+            }
+        };
+        // Every write from here down is an answer to something already read, so
+        // a connection that will not take one is a connection nothing more will
+        // arrive on. That ends the response rather than failing it: the frames
+        // that did arrive were read whole and checked, and throwing them away
+        // because the socket closed while we were being polite is exactly what
+        // queue item 185 is about.
+        if let Err(why) = answer_what_must_be_answered(wire, &frame) {
+            short = Some(why);
+            break;
+        }
 
-        let Some(delivered) = speaking.session.arrived(frame)? else {
+        // Read before the session takes the frame, and acted on after: the
+        // session's bookkeeping for a reset stream still has to happen, and it
+        // is the session that owns what a closed stream means.
+        let reset = match &frame {
+            Frame::ResetStream { stream: on, error } if *on == stream => Some(*error),
+            _ => None,
+        };
+        let delivered = speaking.session.arrived(frame)?;
+        if let Some(error) = reset {
+            short = Some(Broken {
+                why: format!("the server gave up on the stream: {error}"),
+                error,
+                // One stream ending is not the connection ending. Whether this
+                // one is kept is decided above, by whoever holds the pool.
+                fatal: false,
+            });
+            break;
+        }
+
+        let Some(delivered) = delivered else {
             continue;
         };
         match delivered {
@@ -169,25 +250,40 @@ pub fn exchange(
                 // Room made back as the body is taken, or the window closes and
                 // the server stops sending half way through a large page.
                 let widen = u32::try_from(data.len()).unwrap_or(0);
-                make_room_back(wire, stream, widen)?;
+                let room = make_room_back(wire, stream, widen);
                 speaking.session.receiving_widened(widen);
                 if end_stream {
+                    // The response is whole, so a window that could not be
+                    // widened cannot make it less so. What it does mean is a
+                    // connection that is probably dead — which is the race
+                    // `crate::pool` is written around rather than something
+                    // this exchange can do anything about.
+                    break;
+                }
+                if let Err(why) = room {
+                    short = Some(why);
                     break;
                 }
             }
         }
     }
 
-    let status = status.ok_or_else(|| Broken {
-        why: "a response with no :status, which is not a response".to_owned(),
-        error: ErrorCode::ProtocolError,
-        fatal: false,
-    })?;
-    Ok(Response {
-        url: request.url.clone(),
-        status,
-        headers,
-        body,
+    let Some(status) = status else {
+        // A stream that stopped before its headers is not a short response, it
+        // is no response: there is nothing to say what arrived, and no byte to
+        // ask for the rest from. It is also what the pool's retry is for —
+        // nothing arrived, so asking again is not guessing.
+        return Err(short
+            .unwrap_or_else(|| malformed("a response with no :status, which is not a response")));
+    };
+    Ok(Ended {
+        response: Response {
+            url: request.url.clone(),
+            status,
+            headers,
+            body,
+        },
+        short,
     })
 }
 

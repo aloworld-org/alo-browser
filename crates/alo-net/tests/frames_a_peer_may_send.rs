@@ -7,7 +7,7 @@
 
 use alo_net::h2::ErrorCode;
 use alo_net::h2::frame::{
-    self, Frame, LARGEST_ALLOWED, LARGEST_BY_DEFAULT, PREFACE, Priority, Setting,
+    self, Arrived, Frame, LARGEST_ALLOWED, LARGEST_BY_DEFAULT, PREFACE, Priority, Setting,
 };
 
 /// Build the nine-byte header and a payload, the way a peer would.
@@ -371,4 +371,57 @@ fn an_unknown_frame_type_is_ignored_without_losing_the_stream() {
         panic!("the frame after the unknown one was lost");
     };
     assert_eq!(data, b"the frame after it");
+}
+
+// --- A connection that ends is not a peer that misbehaved --------------------
+
+/// Queue item 185: a caller that could not tell these apart would throw away
+/// the bytes of a download whose connection dropped, and start again at zero.
+#[test]
+fn a_connection_that_ends_between_frames_is_an_ending_rather_than_a_refusal() {
+    let stream = wire(0x0, 0x1, 1, b"a whole frame");
+    let mut source = &stream[..];
+
+    let Ok(Arrived::Frame(Frame::Data { data, .. })) =
+        frame::read_however_it_ends(&mut source, LARGEST_BY_DEFAULT)
+    else {
+        panic!("the frame before the end was lost");
+    };
+    assert_eq!(data, b"a whole frame");
+
+    let Ok(Arrived::Ended(why)) = frame::read_however_it_ends(&mut source, LARGEST_BY_DEFAULT)
+    else {
+        panic!("a connection ending tidily was read as a peer misbehaving");
+    };
+    assert_eq!(
+        why.error,
+        ErrorCode::NoError,
+        "there is nothing to blame a server for: {}",
+        why.why
+    );
+}
+
+#[test]
+fn a_connection_that_ends_in_the_middle_of_a_frame_says_which_way_it_ended() {
+    let whole = wire(0x0, 0, 1, b"a body that is cut off");
+    let half = whole.get(..whole.len() / 2).unwrap_or_default();
+    let Ok(Arrived::Ended(why)) = frame::read_however_it_ends(&mut &half[..], LARGEST_BY_DEFAULT)
+    else {
+        panic!("half a frame was read as a whole one");
+    };
+    assert!(why.why.contains("middle of a frame"), "{}", why.why);
+    assert_eq!(
+        why.error,
+        ErrorCode::ProtocolError,
+        "cutting a frame in half is not a tidy way to go"
+    );
+}
+
+/// The strict reader keeps saying no, which is what every ordinary load wants:
+/// a page whose connection ended is a page that is missing its end.
+#[test]
+fn the_strict_reader_still_refuses_a_connection_that_ended() {
+    assert!(read(&[]).is_err(), "nothing at all was read as a frame");
+    let whole = wire(0x0, 0, 1, b"a body that is cut off");
+    assert!(read(whole.get(..5).unwrap_or_default()).is_err());
 }

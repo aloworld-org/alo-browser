@@ -490,7 +490,7 @@ first. Nothing here needs JavaScript.
   could tell us the file changed between the two asks, so such a download starts
   again rather than splicing. Item 185 is the cut.
 
-- [ ] **185. A download that stops over HTTP/2 resumes rather than restarting.**
+- [x] **185. A download that stops over HTTP/2 resumes rather than restarting.**
   Cut from 154. The HTTP/1.1 client hands up a body that stopped early with the
   reason beside it (`Exchanged::short`); the HTTP/2 client turns a stream that
   ends early into an error, so the bytes are gone and the download begins again
@@ -499,6 +499,21 @@ first. Nothing here needs JavaScript.
   *Depends on 161, 154. Closes when:* a download over HTTP/2 interrupted halfway
   opens one range request rather than starting again, in the same shape of test
   as `a_download_that_stops_half_way.rs`.
+
+  **Done, and the distinction it needed is in the frame reader.** A connection
+  that ends and a peer that misbehaves were one `Broken`; they are
+  `frame::Arrived::Ended` and an error now, because bytes delivered by a
+  connection that then ended were framed properly and bytes delivered by a peer
+  breaking the protocol were not. **A reset counts as an ending** — a server
+  hanging up part way through a body resets rather than closes tidily, since we
+  are still writing it window updates for what it just sent. Two ways a stream
+  ends early and only two: the connection ends, and the server gives up on the
+  stream. The **loop moved** out of `Pool::download` into `download::whole_of`,
+  which takes the exchange as an argument — protocol-blind, which is why this
+  was a change to the HTTP/2 client and to nothing else, and which is what let
+  the closing condition be run rather than reasoned about: this engine speaks
+  HTTP/2 only over TLS and a test may not name `rustls` (ADR 0001), so the test
+  drives the real loop over a plain-socket HTTP/2 server of its own.
 
 - [x] **56. The HTTP cache, with real semantics** — freshness, revalidation,
   `Vary`. `ROADMAP.md`: *"subtly wrong here is invisible for months and then

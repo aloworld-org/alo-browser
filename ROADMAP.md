@@ -193,8 +193,10 @@ unreachable without it.
       list it is** (queue item 153) — `gzip, chunked` is chunks holding a gzip
       stream and decodes as one; `chunked` anywhere but last, a coding we
       cannot undo, and a compressed body the connection closing is the only end
-      of are each refused by name · Owed: a request with a body over HTTP/2,
-      queue item 163
+      of are each refused by name. **A connection that ended told apart from a
+      peer that misbehaved** (queue item 185), so a stream the server gave up
+      on keeps the bytes that arrived on it · Owed: a request with a body over
+      HTTP/2, queue item 163
 - [ ] HTTP/3 and QUIC, once those two are correct
 - [ ] DNS, and encrypted DNS as a choice somebody made rather than a default
       nobody was told about · Built: ADR 0008 and resolution through the
@@ -207,17 +209,18 @@ unreachable without it.
       All three rented and all three pure Rust, because a decompressor is where
       a memory bug is most directly a remote code execution. The bound is on
       what comes **out**: a bomb is small on the wire by definition
-- [ ] Redirects, byte ranges, and downloads that resume · Built: redirects
+- [x] Redirects, byte ranges, and downloads that resume · Built: redirects
       (queue item 55) — bounded, loop-detecting, `Authorization` dropped at an
       origin boundary, a redirected `POST` demoted to `GET` on 301/302/303 and
-      preserved on 307/308, and `file:`/`data:` refused as destinations; and
-      byte ranges with downloads that resume (queue item 154) — a body that
+      preserved on 307/308, and `file:`/`data:` refused as destinations; byte
+      ranges with downloads that resume (queue item 154) — a body that
       stops early keeps its bytes and the rest of them are asked for, with a
       `206` required to begin **exactly** where the download stopped, a `200`
       answering a range request never appended, and nothing encoded ever
-      spliced · Owed: queue item 185, the same over HTTP/2, where a stream that
-      ends early is an error rather than a body with a reason beside it — so a
-      download there starts again where one over HTTP/1.1 resumes
+      spliced; and **the same over HTTP/2** (queue item 185), where a stream
+      that ended early used to be an error that took the bytes with it. The
+      loop is protocol-blind and lives in `download::whole_of`, which is why
+      that was a change to the HTTP/2 client and to nothing else
 - [x] **The HTTP cache, with real semantics** — freshness, revalidation, `Vary`
       (queue item 56). Nothing in it reads the clock, because the answers that
       matter are the ones only wrong an hour later. `Age` is counted, so a

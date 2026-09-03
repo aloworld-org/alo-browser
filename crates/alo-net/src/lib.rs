@@ -65,7 +65,7 @@ pub use cookie::{Cookie, Partition, SameSite};
 pub use cors::{Credentials, Mode};
 pub use decompress::{Encoding, undo, undo_within, what_was_applied};
 pub use directives::{Directives, Flag};
-pub use download::{Download, Step, Unusable};
+pub use download::{Answered, Download, Step, Unusable, whole_of};
 pub use encoding::{Decoded, decode, sniff};
 pub use fetch::{FetchError, fetch};
 pub use freshness::{Stored, Verdict};

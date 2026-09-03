@@ -188,6 +188,13 @@ The reason this exists rather than a faster fork of somebody else's engine.
   reader's page
 - [2] **Redirects**, bounded and loop-detecting, with `Authorization` dropped
   at an origin boundary and `file:`/`data:` refused as destinations
+- [2] **A download that stops asks for the rest of itself**, over HTTP/1.1 and
+  over HTTP/2 — with a `206` required to begin exactly where it stopped, a
+  `200` answering a range request never appended, and nothing encoded ever
+  spliced
+- [2] **A connection that ended is told apart from a peer that misbehaved**, in
+  HTTP/2, so bytes that arrived on a stream the server gave up on are kept
+  rather than thrown away with an error
 - [2] **A decompression bomb is refused** — the bound is on what comes out,
   because every other bound in a loader watches what comes in
 - [2] **Connections kept between requests**, with the retry that has to come with them: a reuse that fails before a byte arrives is tried again, and a request that must not happen twice never is

@@ -4728,3 +4728,108 @@ stricter than the registrable domain and is wrong — `a.example.com` and
 And item 183, the fieldset border, is still the one iterations 70 and 72 both
 named and still unclaimed. `corner.rs`'s `between` draws one shape with another
 cut out of it, which is what a legend breaking a border is.
+
+---
+
+## Iteration 74 — queue item 185: a download that stops over HTTP/2 resumes
+
+**The tree was clean on entry and `scripts/gate.sh` was green**, unlike last
+time. Item 185 was the first unticked item in the file and both its
+dependencies (161, 154) were done, so it was taken in file order.
+
+**What the item said, and the one thing it did not.** The HTTP/2 client turned
+a stream that ends early into an error, so a download over it began again at
+zero where one over HTTP/1.1 resumed. True, and the fix needed a distinction
+one layer further down that the item did not name: **a connection that ends is
+not a peer that misbehaved**, and `frame::read` had exactly one way of saying
+both. Everything else follows from having that.
+
+**What was built.**
+
+- `frame::read_however_it_ends`, returning `Arrived::Frame` or `Arrived::Ended`.
+  `read` is now that with an ending turned back into an error, which is the same
+  pair `body::read`/`read_what_arrived` and `connection::exchange`/
+  `exchange_however_it_ends` already are. The bytes of a frame that arrived
+  whole were framed and checked; the bytes of a peer breaking the protocol were
+  not, and only the first are worth keeping.
+- **A reset read counts as an ending**, and that is the line worth reading
+  twice. A server hanging up part way through a body sends a reset rather than
+  closing tidily, *because we are still writing it window updates for what it
+  just sent us* — so a check that only looked for `Ok(0)` would have found the
+  tidy case in a test and the wrong one in the world. A timeout is deliberately
+  not on the list: a peer that has gone quiet may still be there, and reading a
+  stall as an ending would turn every slow server into a half-finished
+  download.
+- `client::exchange_however_it_ends`, handing up the response with whatever
+  body arrived and the reason beside it. **Two ways a stream ends early and only
+  two**: the connection ends, and the server gives up on the stream with a
+  `RST_STREAM`. A header block that will not decode, a window overrun, a frame
+  where none may be — each still an error, taking the bytes with it, because
+  bytes from a peer breaking the protocol are not bytes to build a file out of.
+- A stream that stops **before its headers** is an error rather than a short
+  response: there is no response to hand up and no byte to resume from, and it
+  is what the pool's retry is for.
+- Every write in the read loop is now an answer to something already read, so a
+  connection that will not take one ends the response rather than failing it —
+  except on the last frame, where a window that could not be widened cannot
+  make a finished response unfinished.
+
+**The refactor, and why it is not scope creep.** `Pool::download`'s loop moved
+to `download::whole_of`, which takes the exchange as an argument. It is the
+same loop; what changed is that it is now *visibly* protocol-blind, which is
+the design claim item 185 rests on — the client under it changed and the loop
+resumed without knowing. It is also what let the closing condition be **run**
+rather than reasoned about: this engine speaks HTTP/2 only over TLS (item 162:
+no request may be sent twice to find out), starting a TLS server needs
+`rustls`, and ADR 0001 allows that name in `alo-net/src/tls.rs` and nowhere
+else — a test included. So the test speaks HTTP/2 on a plain socket and drives
+the real loop, with the pool's kept connection swapped for a fresh one per
+exchange, which is what the pool does anyway after a body that stopped short.
+`is_safe_to_repeat` moved with it, to `Request::may_be_repeated`: two callers
+now need that list and two spellings of it is one of them being wrong about a
+payment.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, 1310 tests (1301 before), no stubs, boundaries held. Nine new tests.
+`LOOP.md`'s hostile-input clause is met by a sweep over seven points at which a
+server can stop — including in the middle of a frame whose length it has
+already declared — asserting that whatever comes back is a **prefix of the real
+file**, which a spliced body could not be. No layout assertion and no reference
+render: this reads bytes and positions nothing.
+
+**The evidence, and it is the closing condition run.**
+`a_download_that_stops_over_http_2.rs` puts an HTTP/2 server on loopback that
+promises the whole file and stops sending in the middle of it without ever
+setting `END_STREAM`; the download comes back as the file, in **two** exchanges
+rather than three, and the second ask carries `range: bytes=25-` and
+`if-range: "v1"`. A second server ends the stream with `RST_STREAM` instead and
+is resumed from the same way. I checked the tests fail without the change
+rather than assuming it: with `client::exchange` put back in the test's
+exchange, three of the six fail with *"the connection ended"* and *"the server
+gave up on the stream"* — which is the defect, in the words the new code uses
+for it.
+
+**`ROADMAP.md`.** The line moved is *"Redirects, byte ranges, and downloads that
+resume"*, and it is **ticked**: its Owed clause named item 185 and nothing else,
+items 55, 154 and 185 are all done, and no other queue item points at it. The
+tick is earned rather than used to discharge the obligation — which `LOOP.md`
+warns about, and which is why this paragraph says who checked. The
+HTTP/1.1-then-HTTP/2 line gains a clause and stays an empty box: item 163, a
+request with a body over HTTP/2, is still owed.
+
+**What the next iteration should know.** Item 163 is the one this touched
+without doing: sending a body in `DATA` frames sized to the window. Its reading
+half now has the distinction it needs — a stream that ends early is a fact
+rather than an error — and the queue entry's note about it learning the same
+thing is discharged by `frame::read_however_it_ends` rather than by anything in
+`client::exchange`'s writing half.
+
+Item 155 is still next in the file and still marked *needs ADR*: what may be
+written to a disk other programs can read is a different question from what may
+be reused, and `LOOP.md` is explicit that such an item gets the ADR as its own
+iteration. Item 156 (the public suffix list, rented) is a ready chore whose
+dependency is done.
+
+And item 183, the fieldset border, is still the one iterations 70, 72 and 73
+each named and nobody has taken. `corner.rs`'s `between` draws one shape with
+another cut out of it, which is what a legend breaking a border is.

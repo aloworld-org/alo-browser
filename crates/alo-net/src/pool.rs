@@ -28,8 +28,9 @@
 
 use crate::cache::{self, Answer, Cache};
 use crate::connection::{Connection, Exchanged, PATIENCE, Protocol, exchange_however_it_ends};
-use crate::download::{Download, Step};
+use crate::download::{self, Answered};
 use crate::freshness;
+use crate::http::Malformed;
 use crate::redirect::{self, Next, Trail};
 use crate::request::Request;
 use crate::response::Response;
@@ -176,7 +177,7 @@ impl Pool {
                 }
                 Err(why) => {
                     // The bet, lost. All three conditions, or it is a failure.
-                    if kept.anything_arrived() || !is_safe_to_repeat(&request.method) {
+                    if kept.anything_arrived() || !request.may_be_repeated() {
                         return Err(why);
                     }
                     // Fall through and try once on a new connection.
@@ -211,10 +212,11 @@ impl Pool {
     /// body that stopped early, because half a page is not a page. Half a file
     /// is the first half of a file, and the second half can be asked for.
     ///
-    /// The deciding is all in [`crate::download`] and none of it is here —
-    /// which is why every rule about where a byte goes is tested without a
-    /// socket. What this adds is the loop, the redirects, and the refusal to
-    /// range-request something it would not be safe to ask for twice.
+    /// Neither the deciding nor the loop is here. [`crate::download::whole_of`]
+    /// is the loop and it is **protocol-blind on purpose** — it sees one
+    /// exchange at a time and never which protocol carried it, which is what
+    /// made HTTP/2 resuming a change to the HTTP/2 client alone (queue item
+    /// 185). What this adds is the exchange, over a kept connection.
     ///
     /// **Nothing here goes through the cache**, and that is deliberate rather
     /// than missing: half a response must never be stored, and a cache that
@@ -228,43 +230,13 @@ impl Pool {
     /// the chain points somewhere this engine will not go, and a
     /// [`crate::download::Unusable`] when an answer cannot be placed.
     pub fn download(&mut self, request: &Request) -> Result<Response, String> {
-        // A range request is sent more than once by definition, so a download
-        // is only ever of something that may be asked for twice. A `POST` that
-        // stopped half way is not resumed: it is a thing that has happened.
-        if !is_safe_to_repeat(&request.method) {
-            return Err(format!(
-                "a {} cannot be downloaded, because a download asks more than once",
-                request.method
-            ));
-        }
-        let mut download = Download::new();
-        let mut trail = Trail::from(&request.url);
-        let mut target = request.clone();
-        loop {
-            let asking = download.asking(&target);
-            let done = self.fetch_however_it_ends(&asking)?;
-            match redirect::next(&asking, &done.response).map_err(|why| why.to_string())? {
-                Next::Follow(hop) => {
-                    trail.and_then(&hop.url).map_err(|why| why.to_string())?;
-                    // A redirect arriving part way through means the thing moved
-                    // while it was being fetched, so what is held is half of
-                    // something that is no longer at this address. Beginning
-                    // again at the new one is the only reading that is not a
-                    // guess about whether the two are the same file.
-                    download = Download::new();
-                    target = *hop;
-                    continue;
-                }
-                Next::Keep => {}
-            }
-            match download
-                .take(&done.response, done.short.is_some())
-                .map_err(|why| why.to_string())?
-            {
-                Step::Done => return Ok(download.into_response(done.response.url)),
-                Step::More => {}
-            }
-        }
+        download::whole_of(request, |asking| {
+            let done = self.fetch_however_it_ends(asking)?;
+            Ok(Answered {
+                response: done.response,
+                short: done.short.is_some(),
+            })
+        })
     }
 
     /// Fetch, following redirects to wherever they end.
@@ -404,35 +376,24 @@ fn speak(
         }
         Protocol::Http2 => {
             let held = speaking.get_or_insert_with(|| Box::new(crate::h2::client::Speaking::new()));
-            let response = crate::h2::client::exchange(connection, held, request)
+            let ended = crate::h2::client::exchange_however_it_ends(connection, held, request)
                 .map_err(|why| why.why.clone())?;
             Ok(Exchanged {
-                response,
+                response: ended.response,
                 // HTTP/2 connections are meant to be kept. A `GOAWAY` is the
                 // only thing that says otherwise, and the session remembers it.
-                reusable: !held.session.is_going_away(),
-                // Never short: the HTTP/2 client either produced a whole
-                // response or failed. A stream that ends early is an error
-                // there rather than a body with a reason beside it, so a
-                // download over HTTP/2 starts again where one over HTTP/1.1
-                // resumes. That is a real difference and it is queue item 185.
-                short: None,
+                //
+                // A stream that ended early is the second: the connection may
+                // well have survived a `RST_STREAM`, and telling that apart
+                // from a connection that hung up would be reasoning about a
+                // socket from the outside. The HTTP/1.1 side drops a short
+                // exchange's connection for the same reason, and the cost is
+                // one handshake on a resume rather than a socket that hangs.
+                reusable: ended.short.is_none() && !held.session.is_going_away(),
+                short: ended.short.map(|why| Malformed { why: why.why }),
             })
         }
     }
-}
-
-/// Whether doing this twice is the same as doing it once.
-///
-/// The standard's word is *idempotent*, and the list is the standard's. It is
-/// deliberately not "anything that looks read-only": a `POST` that failed after
-/// the server received it is a payment that has happened, and sending it again
-/// is a payment that has happened twice.
-fn is_safe_to_repeat(method: &str) -> bool {
-    matches!(
-        method,
-        "GET" | "HEAD" | "OPTIONS" | "TRACE" | "PUT" | "DELETE"
-    )
 }
 
 /// Which server a request goes to.

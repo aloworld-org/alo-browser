@@ -41,9 +41,24 @@
 //!   nobody can decompress. A `206` carrying a `Content-Encoding` is refused
 //!   outright: its offsets are offsets into the *coded* representation, and the
 //!   bytes we already hold are not.
+//!
+//! # The loop is protocol-blind, and that is the design
+//!
+//! [`whole_of`] is the loop, and it takes the exchange as an argument rather
+//! than a socket: it says what to ask for, is handed what came back, and never
+//! learns what carried it. [`crate::Pool::download`] passes its own kept
+//! connection; a test passes a server it started.
+//!
+//! That is why resuming over HTTP/2 (queue item 185) was a change to the
+//! HTTP/2 *client* and to nothing here. The client used to turn a stream that
+//! ended early into an error, so the bytes were gone before this file saw
+//! them; it hands them up with the reason beside them now, exactly as the
+//! HTTP/1.1 side has since item 154, and the loop resumed without knowing the
+//! difference.
 
 use crate::headers::Headers;
 use crate::range::{self, Sent};
+use crate::redirect::{self, Next, Trail};
 use crate::request::Request;
 use crate::response::{Response, Status};
 use alo_url::Url;
@@ -64,6 +79,73 @@ const MOST_ANSWERS: usize = 8;
 /// counted across the whole download rather than per answer, which is the point:
 /// eight answers of the per-answer bound would be eight times the bound.
 pub const LARGEST: u64 = crate::body::LARGEST_BODY;
+
+/// One exchange, however it ended.
+///
+/// [`crate::connection::Exchanged`] without the connection: the loop below has
+/// no opinion about whether a socket may be reused, and no way to have one.
+#[derive(Debug, Clone)]
+pub struct Answered {
+    /// What came back.
+    pub response: Response,
+    /// Whether the body stopped before its framing said it would.
+    pub short: bool,
+}
+
+/// Fetch the whole of something, asking again for the rest when it stops short.
+///
+/// `exchange` does one request and hands back what came of it — over a pooled
+/// connection, over a socket a test started, over anything. Everything this
+/// adds is the loop and the redirects; every rule about *where a byte goes* is
+/// in [`Download`] and is asserted with nothing moving.
+///
+/// # Errors
+///
+/// Whatever `exchange` fails with, a [`crate::redirect::Refusal`] when the
+/// chain points somewhere this engine will not go, and an [`Unusable`] when an
+/// answer cannot be placed.
+pub fn whole_of(
+    request: &Request,
+    mut exchange: impl FnMut(&Request) -> Result<Answered, String>,
+) -> Result<Response, String> {
+    // A range request is sent more than once by definition, so a download is
+    // only ever of something that may be asked for twice. A `POST` that stopped
+    // half way is not resumed: it is a thing that has happened.
+    if !request.may_be_repeated() {
+        return Err(format!(
+            "a {} cannot be downloaded, because a download asks more than once",
+            request.method
+        ));
+    }
+    let mut download = Download::new();
+    let mut trail = Trail::from(&request.url);
+    let mut target = request.clone();
+    loop {
+        let asking = download.asking(&target);
+        let done = exchange(&asking)?;
+        match redirect::next(&asking, &done.response).map_err(|why| why.to_string())? {
+            Next::Follow(hop) => {
+                trail.and_then(&hop.url).map_err(|why| why.to_string())?;
+                // A redirect arriving part way through means the thing moved
+                // while it was being fetched, so what is held is half of
+                // something that is no longer at this address. Beginning again
+                // at the new one is the only reading that is not a guess about
+                // whether the two are the same file.
+                download = Download::new();
+                target = *hop;
+                continue;
+            }
+            Next::Keep => {}
+        }
+        match download
+            .take(&done.response, done.short)
+            .map_err(|why| why.to_string())?
+        {
+            Step::Done => return Ok(download.into_response(done.response.url)),
+            Step::More => {}
+        }
+    }
+}
 
 /// What to do after an answer has been folded in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

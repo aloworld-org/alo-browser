@@ -87,6 +87,25 @@ impl Request {
         self.initiator = Some(initiator);
         self
     }
+
+    /// Whether sending this twice is the same as sending it once.
+    ///
+    /// The standard's word is *idempotent*, and the list is the standard's. It
+    /// is deliberately not "anything that looks read-only": a `POST` that
+    /// failed after the server received it is a payment that has happened, and
+    /// sending it again is a payment that has happened twice.
+    ///
+    /// Here rather than in [`crate::pool`] because two things need it and they
+    /// need it to agree — the pool's retry of a connection that was closed
+    /// while idle, and [`crate::download::whole_of`], which asks more than once
+    /// by definition. Two spellings of this list is one of them being wrong
+    /// about a payment.
+    pub fn may_be_repeated(&self) -> bool {
+        matches!(
+            self.method.as_str(),
+            "GET" | "HEAD" | "OPTIONS" | "TRACE" | "PUT" | "DELETE"
+        )
+    }
 }
 
 impl fmt::Display for Request {
