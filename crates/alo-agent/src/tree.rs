@@ -398,10 +398,47 @@ impl<'a> AgentNode<'a> {
         text_of(self.tree.boxes, self.id)
     }
 
-    /// Where it is, on the page.
+    /// Every rectangle this actually occupies, in the order they were laid out.
     ///
-    /// The whole of it, pieces and all — a broken link is one thing, and where
-    /// it *is* is everywhere it was drawn.
+    /// # Why one rectangle is not enough
+    ///
+    /// A link that wraps across two lines occupies two rectangles: the end of
+    /// one line and the start of the next. Their union is a box covering most
+    /// of the paragraph, including the text on the line between them that
+    /// belongs to somebody else.
+    ///
+    /// That union is fine as an answer to *roughly where is this* and wrong as
+    /// an answer to *is any of this on screen*. The first web page made it
+    /// visible: `link "Frequently Asked Questions"` came back as 778 pixels
+    /// wide, starting at the left margin, which is not where it is.
+    ///
+    /// Nothing **acts** on these — ADR 0002 means no verb takes a coordinate —
+    /// so this is for deciding what is visible and for a person reading the
+    /// tree, which are the two things a wrong rectangle quietly spoils.
+    pub fn rects(&self) -> Vec<Rect> {
+        let mut found = Vec::new();
+        for member in self.tree.boxes.whole_of(self.id) {
+            let fragments = self.tree.layout.fragments(member);
+            if fragments.is_empty() {
+                if let Some(rect) = self.tree.layout.border_box(member) {
+                    found.push(rect);
+                }
+                continue;
+            }
+            // A box that was laid out into a line has one rectangle per line it
+            // reaches. `border_box` is already their union, which is the thing
+            // being avoided here.
+            found.extend(fragments.iter().map(|fragment| fragment.rect));
+        }
+        found
+    }
+
+    /// Where it is, on the page: the whole of it, pieces and all.
+    ///
+    /// The union of [`AgentNode::rects`], and useful for *roughly where is
+    /// this*. For anything that has to be right about a wrapped inline — what
+    /// is on screen, what to draw a highlight around — ask for the rectangles
+    /// themselves.
     pub fn rect(&self) -> Rect {
         let mut found: Option<Rect> = None;
         for member in self.tree.boxes.whole_of(self.id) {
@@ -424,11 +461,21 @@ impl<'a> AgentNode<'a> {
     /// screen.
     pub fn is_offscreen(&self) -> bool {
         let viewport = self.tree.layout.viewport();
-        let rect = self.rect();
-        rect.right() <= 0.0
-            || rect.bottom() <= 0.0
-            || rect.left() >= viewport.width
-            || rect.top() >= viewport.height
+        let mut rects = self.rects().into_iter().peekable();
+        if rects.peek().is_none() {
+            // Nothing was laid out, so there is nothing on screen.
+            return true;
+        }
+        // Offscreen only when **every** piece is, which is the whole of the
+        // change: a link whose first line has scrolled away is still on screen
+        // if its second line has not, and answering from the union would have
+        // called it visible whenever the space *between* its pieces was.
+        rects.all(|rect| {
+            rect.right() <= 0.0
+                || rect.bottom() <= 0.0
+                || rect.left() >= viewport.width
+                || rect.top() >= viewport.height
+        })
     }
 
     /// The things inside it worth reading, with everything that says nothing
@@ -487,10 +534,19 @@ fn write_node(node: &AgentNode<'_>, depth: usize, out: &mut String) {
         out.push_str("  ");
     }
     let rect = node.rect();
+    // The union, and then how many pieces it is made of when it is more than
+    // one — so the outline says "this box is a union" rather than implying the
+    // thing is a rectangle when it is not.
+    let pieces = node.rects().len();
+    let in_pieces = if pieces > 1 {
+        format!(" in {pieces} pieces")
+    } else {
+        String::new()
+    };
     // Writing to a `String` cannot fail.
     let _ = writeln!(
         out,
-        "{node} at ({}, {}) {}×{}",
+        "{node} at ({}, {}) {}×{}{in_pieces}",
         rect.left(),
         rect.top(),
         rect.size.width,

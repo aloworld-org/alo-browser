@@ -127,6 +127,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
 - [2] **A page's own `<style>` elements**, in document order
+- [2] **A wrapped inline is more than one rectangle** — and offscreen only when
+  every piece of it is
 - [2] **`text-decoration`**: underline, overline and line-through, stopping at
   the end of the inline rather than the edge of the line
 - [2] **Links that look like links**, with no visited colour — `:visited` never

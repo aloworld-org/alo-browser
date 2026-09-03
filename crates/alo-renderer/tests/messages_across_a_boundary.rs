@@ -56,6 +56,9 @@ fn a_node(children: Vec<SnapshotNode>) -> SnapshotNode {
             takes_text: true,
         },
         rect: a_rect(),
+        // Two pieces, so the round trip carries a wrapped inline rather than
+        // only the easy case of one rectangle.
+        rects: vec![a_rect(), a_rect()],
         offscreen: true,
         scrolls: false,
         children,

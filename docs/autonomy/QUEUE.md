@@ -729,7 +729,7 @@ wrong, which is the argument for the fourth.
   than the property being made inheritable, because a descendant cannot turn a
   decoration off and an inherited property could be.
 
-- [ ] **174. A wrapped inline is more than one rectangle.** `link "Frequently
+- [x] **174. A wrapped inline is more than one rectangle.** `link "Frequently
   Asked Questions"` comes back from the agent tree as 778×37 starting at the
   left margin, because it wraps and the tree reports the union of its fragments.
   No verb takes a coordinate (ADR 0002) so nothing acts on it — but it decides
@@ -738,6 +738,11 @@ wrong, which is the argument for the fourth.
   *Depends on 172. Closes when:* a link split across two lines reports the boxes
   it actually occupies, and a node is offscreen only when **none** of them is on
   screen.
+
+  **Done.** Item 173 had already proved the fragments were there and correct, so
+  this was a choice rather than a limitation — as that iteration's journal
+  predicted. The outline says `in 2 pieces` rather than listing them, which
+  keeps it readable while no longer implying a wrapped link is a rectangle.
 
 - [ ] **170. Fonts a page asks for by name.** *Item 68's first case is the
   evidence: it asks for `system-ui, sans-serif`, gets DejaVu Sans, and nothing

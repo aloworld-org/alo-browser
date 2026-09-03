@@ -6,6 +6,23 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A wrapped inline reports the boxes it actually occupies.** A link crossing
+  two lines is in two places — the end of one line and the start of the next —
+  and their union covers the text between them, which belongs to somebody else.
+  The first web page made it visible: `link "Frequently Asked Questions"` came
+  back 778 pixels wide starting at the left margin, which is not where it is.
+- **A thing is offscreen only when *every* piece of it is.** That is the
+  behaviour the union got wrong in both directions: a link whose first line has
+  scrolled away is still visible if its second has not, and a union straddling
+  the viewport edge looks visible when neither piece is inside it.
+- The union is still there and still useful for *roughly where is this* — it is
+  simply no longer the answer to *is any of this on screen*. The agent outline
+  now says `in 2 pieces` where a node is more than one rectangle, so a reader is
+  told the box is a union rather than being left to assume it is not.
+- The rectangles cross the process boundary, because the browser process is
+  where "what is visible" and "what to draw a highlight around" both happen, and
+  a union is not something it could take apart again.
+
 - **`text-decoration` is painted.** It had been in the user-agent sheet all
   along — `underline` on every link — and produced no paint operation at all,
   which the first web page made obvious by being almost nothing but links.

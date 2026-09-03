@@ -3,10 +3,10 @@ document at (0, 0) 800×575.13
   heading "World Wide Web" [level=1] at (8, 21.44) 784×37.25
   text "The WorldWideWeb (W3) is a wide-area" at (8, 80.130005) 315.89063×18.625
   link "hypermedia" at (323.89063, 80.130005) 100.828125×18.625
-  text "information retrieval initiative aiming to give universal access to a large universe of documents." at (8, 80.130005) 780.64844×37.25
+  text "information retrieval initiative aiming to give universal access to a large universe of documents." at (8, 80.130005) 780.64844×37.25 in 2 pieces
   paragraph at (8, 133.38) 784×55.875
     text "Everything there is online about W3 is linked directly or indirectly to this document, including an" at (8, 133.38) 773.64844×18.625
-    link "executive summary" at (8, 133.38) 778.7344×37.25
+    link "executive summary" at (8, 133.38) 778.7344×37.25 in 2 pieces
     text "of the project," at (171.02344, 152.005) 112.46875×18.625
     link "Mailing lists" at (288.57813, 152.005) 94.16406×18.625
     text "," at (382.7422, 152.005) 10.171875×18.625
@@ -14,7 +14,7 @@ document at (0, 0) 800×575.13
     text ", November's" at (444.02344, 152.005) 111.22656×18.625
     link "W3 news" at (560.33594, 152.005) 72.49219×18.625
     text "," at (632.8281, 152.005) 10.171875×18.625
-    link "Frequently Asked Questions" at (8, 152.005) 777.72656×37.25
+    link "Frequently Asked Questions" at (8, 152.005) 777.72656×37.25 in 2 pieces
     text "." at (87.89844, 170.63) 10.171875×18.625
   link "What's out there?" at (8, 205.255) 141.96875×18.625
   text "Pointers to the world's online information," at (48, 223.88) 335.2578×18.625
@@ -30,7 +30,7 @@ document at (0, 0) 800×575.13
   text ",X11" at (623.35156, 298.38) 41.492188×18.625
   link "Viola" at (669.9297, 298.38) 39.078125×18.625
   text "," at (709.0078, 298.38) 10.171875×18.625
-  link "NeXTStep" at (48, 298.38) 676.2656×37.25
+  link "NeXTStep" at (48, 298.38) 676.2656×37.25 in 2 pieces
   text "," at (126.69531, 317.005) 10.171875×18.625
   link "Servers" at (141.95313, 317.005) 60.804688×18.625
   text "," at (202.75781, 317.005) 10.171875×18.625

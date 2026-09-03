@@ -215,6 +215,10 @@ impl Writer {
         self.maybe_text(node.name.as_deref());
         self.states(&node.states);
         self.rect(node.rect);
+        self.number(node.rects.len() as u64);
+        for rect in &node.rects {
+            self.rect(*rect);
+        }
         self.bool(node.offscreen);
         self.bool(node.scrolls);
         self.number(node.children.len() as u64);
@@ -692,6 +696,11 @@ impl<'a> Reader<'a> {
         let name = self.maybe_text()?;
         let states = self.states()?;
         let rect = self.rect()?;
+        let how_many = self.count()?;
+        let mut rects = Vec::new();
+        for _ in 0..how_many {
+            rects.push(self.rect()?);
+        }
         let offscreen = self.bool()?;
         let scrolls = self.bool()?;
         let how_many = self.count()?;
@@ -706,6 +715,7 @@ impl<'a> Reader<'a> {
             name,
             states,
             rect,
+            rects,
             offscreen,
             scrolls,
             children,

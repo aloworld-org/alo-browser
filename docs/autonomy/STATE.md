@@ -3979,3 +3979,59 @@ page, and it is now *more* visible rather than less: the decoration code proves
 the fragments are there and correct, so the agent tree reporting their union is
 a choice rather than a limitation. That makes it a smaller job than it looked.
 
+---
+
+## Iteration 63 — queue item 174: where a wrapped thing actually is
+
+The last of the three findings from the first web page, and the previous
+iteration's journal was right that item 173 had made it smaller: painting
+decorations per fragment proved the fragments were there and correct, so
+reporting their union in the agent tree was a **choice** rather than a
+limitation.
+
+**What was wrong.** A link crossing two lines is in two places — the end of one
+line and the start of the next — and their union covers the text between them,
+which belongs to somebody else. `link "Frequently Asked Questions"` came back
+778 pixels wide starting at the left margin.
+
+**Nothing acts on a rectangle**, because ADR 0002 means no verb takes a
+coordinate, so the cost was never a misclick. It was two other things: "is this
+on screen" answered from a box the thing does not occupy, and a person reading
+the tree told something untrue about where a link is.
+
+**The offscreen rule was wrong in both directions**, which is worth stating
+because only one of them is obvious. A link whose first line has scrolled away
+is still visible if its second has not — that one is easy to see. The other is
+that a **union straddling the viewport edge looks visible when neither piece is
+inside it**, which is the case a naive fix would leave in place. Both have
+tests, and writing the second one is what caught my first attempt.
+
+**And my first attempt at that test was wrong in a way worth recording.** I used
+a one-pixel viewport, reasoning that nothing could be inside it. But with
+`body { margin: 0 }` the link's first line starts at y=0, so it *was* inside —
+the test failed and the code was right. The page needed a spacer so the link
+begins below any window short enough to exclude it. A test that cannot produce
+the situation it is named after is worse than no test, because it looks like
+coverage.
+
+**The union stays.** It is still the answer to *roughly where is this*, and the
+outline still prints it — with `in 2 pieces` appended where a node is more than
+one rectangle. Listing every rectangle would have been more honest and much
+less readable; saying "this box is a union of two" is honest and costs four
+words.
+
+**They cross the boundary.** The browser process is where "what is visible" and
+"what to draw a highlight around" both happen, and a union is not something it
+could take apart again — so `SnapshotNode` carries the rectangles and the wire
+format encodes them.
+
+**The gate.** Green: fmt, clippy zero and zero, 1196 tests.
+
+**What the next iteration should know.** All three findings from the first web
+page are closed, and the corpus has two pages nobody here wrote. The pattern
+that has held for five iterations is: take a page, let it find things, fix them,
+take another. The next page should be harder than either — one with a **linked**
+stylesheet, an image and a form — and the first thing it will need is corpus
+machinery for a case with more than one file, which does not exist yet. That is
+worth doing as its own item rather than smuggling into the page's.
+

@@ -34,8 +34,21 @@ pub struct SnapshotNode {
     pub name: Option<String>,
     /// What is true of it.
     pub states: States,
-    /// Where it is on the page.
+    /// Where it is on the page: the union of [`SnapshotNode::rects`].
+    ///
+    /// Useful for *roughly where is this*, and wrong for anything that has to
+    /// be right about a wrapped inline — see the field below.
     pub rect: Rect,
+    /// Every rectangle it actually occupies.
+    ///
+    /// A link wrapping across two lines occupies two: the end of one line and
+    /// the start of the next. Their union covers the text between them, which
+    /// belongs to somebody else — so this is what decides whether any of it is
+    /// on screen, and what a highlight would have to be drawn around.
+    ///
+    /// It crosses the boundary because the browser process is where both of
+    /// those happen, and a union is not something it could take apart again.
+    pub rects: Vec<Rect>,
     /// Whether it is outside the window as the page currently sits.
     pub offscreen: bool,
     /// Whether it has more content than room for it.
@@ -100,6 +113,7 @@ fn describe(node: &alo_agent::AgentNode<'_>) -> SnapshotNode {
         role: node.role(),
         name: node.name(),
         states: node.states(),
+        rects: node.rects(),
         rect: node.rect(),
         offscreen: node.is_offscreen(),
         scrolls: node.scrolls(),
@@ -112,9 +126,14 @@ fn write_node(node: &SnapshotNode, depth: usize, out: &mut String) {
         out.push_str("  ");
     }
     // Writing to a `String` cannot fail.
+    let in_pieces = if node.rects.len() > 1 {
+        format!(" in {} pieces", node.rects.len())
+    } else {
+        String::new()
+    };
     let _ = writeln!(
         out,
-        "{node} at ({}, {}) {}×{}",
+        "{node} at ({}, {}) {}×{}{in_pieces}",
         node.rect.left(),
         node.rect.top(),
         node.rect.size.width,
