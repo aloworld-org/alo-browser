@@ -128,8 +128,8 @@ Stage 1's exit gate is not met.
 ## The corpus
 
 `crates/alo-corpus/cases/` holds the small cases this engine is checked against
-on every run — six of them today. Each is a directory with what to render and
-four expectations beside it, so a change that moves a box says which box, in
+on every run — fourteen of them today. Each is a directory with what to render
+and five expectations beside it, so a change that moves a box says which box, in
 which case, on which line.
 
 That is not the same as the table above. The corpus is pages we wrote to test
