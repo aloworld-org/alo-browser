@@ -2268,3 +2268,49 @@ into a denial of service, and `LOOP.md`'s hostile-bytes rule is aimed straight
 at it. Connection pooling and keep-alive come with it, and `secure` is already
 the right shape to put a socket through.
 
+---
+
+## Iteration 37 — the loop, to the end of the roadmap
+
+**This served no roadmap line**, and `LOOP.md` step 6 asks me to say so rather
+than tick something. It is the loop's own scaffolding: the queue now covers all
+four stages, and the rules for crossing between them are written down. No
+roadmap line describes that, and ticking one to discharge the obligation is the
+exact failure step 6 forbids.
+
+**What changed my mind about writing stages 3 and 4 now.** The stage 2 queue
+said they would get one "when stage 2 is close enough that the order matters",
+because writing them early is planning work whose shape two years decides. That
+reasoning was about *ordering*, and it still holds — which is why almost every
+item below stage 2 is written `blocked` rather than ordered. What the queue was
+missing is not an order. It is the ability to **say what is next at every
+point**, including at the two points where what is next is a person.
+
+**The two boundaries a loop must not cross.**
+
+- **Stage 2's exit gate is a judgement**: *a person uses it as their browser for
+  a week and reaches for another one only for a site they can name.* No
+  iteration can certify that. So when stage 2's queue empties, the loop writes
+  `LOOP COMPLETE`, names what a person has to do, and stops. That is the honest
+  answer to a gate about somebody's experience, not a failure to find work.
+- **Stage 3 is opened by pages, not by the queue.** Every item is `blocked: no
+  page yet` and that is its actual state. A loop taking one because it is the
+  next unticked line would be building the legacy tail for its own sake, and
+  refusing to do that is what made stages 1 and 2 survivable.
+
+**`LOOP COMPLETE` now means something precise**: every remaining item is
+blocked, the blocks are real, and the two kinds are listed separately — pages
+nobody has hit, and a judgement nobody has made.
+
+**One accuracy fix.** `LOOP.md`'s "Running it" section named only the PowerShell
+supervisor when `run-loop.sh` sits beside it in `alo-workplace`. Both are named
+now. The supervisor itself was not touched: it lives in that repository by
+decision, and this one only ever reads it.
+
+**The gate.** `scripts/gate.sh` green. No crate changed — this is the plan
+rather than the work — so the tests are the 895 that were already passing.
+
+**What the next iteration should know.** Item 53, HTTP/1.1, unchanged. Nothing
+about this iteration moves the work along; it means the loop never has to guess
+what comes after the work it is doing.
+

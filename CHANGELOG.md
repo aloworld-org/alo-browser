@@ -6,6 +6,24 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The queue covers all four stages**, so the loop can always say what is next.
+  Stage 3 (the legacy tail) and stage 4 (the product) are written out as items
+  with what each depends on — and, more usefully, with what each is *blocked
+  on*, because almost all of them are.
+- **Every stage 3 item is `blocked: no page yet`, and that is its real state.**
+  `ROADMAP.md` says to let a broken render schedule that work, so an item is
+  opened by a corpus case failing because of it and by nothing else. A loop that
+  started one to have something to do would be building the legacy tail for its
+  own sake, and refusing to do that is what made stages 1 and 2 survivable.
+- **Every stage 4 item is `blocked: stage 2's exit gate`** — which is *"a person
+  uses it as their browser for a week"*. That is a judgement a person makes, and
+  `LOOP.md` now says plainly that a loop must never certify it on their behalf:
+  when stage 2's queue empties, it writes `LOOP COMPLETE`, names what a person
+  has to do, and stops.
+- So `LOOP COMPLETE` has a precise meaning now rather than an approximate one:
+  every remaining item is blocked, the blocks are real, and the two kinds are
+  named separately — pages nobody has hit yet, and a judgement nobody has made.
+
 - **TLS** (`rustls`, rented behind one file — ADR 0001 names it among the
   physics, and ADR 0005 names it first among the rented code whose `unsafe` is
   not ours to remove). `ring` rather than the default provider: both carry C,

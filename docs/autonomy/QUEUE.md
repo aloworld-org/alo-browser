@@ -769,16 +769,121 @@ and what it changed.
 
 ---
 
-## After stage 2
+---
 
-**Stage 3, the legacy tail**, and **stage 4, the product** — both in
-`ROADMAP.md`, neither in this queue yet. Stage 4 is gated: nothing in it starts
-until stage 2's exit gate is met. Stage 3 is scheduled by a **broken render on a
-site somebody uses**, never by a specification listing a feature, so its items
-arrive one at a time with the page that asked for them.
+# Queue — stage 3
 
-They get a queue when stage 2 is close enough that the order matters. Writing it
-now would be planning work whose shape the intervening two years decides.
+`ROADMAP.md`: **the legacy tail.** *"Deliberately last, and possibly never
+finished — a choice, not a failure. Refusing this list is what made stages 1 and
+2 survivable."*
+
+**Nothing here is taken because it is next.** Every item below is opened by a
+**page in the corpus that fails because of it**, and by nothing else — not by a
+specification listing a feature, not by a queue position, and not by a loop
+looking for something to do. `ROADMAP.md` says it plainly: *let a broken render
+schedule the work.* `LOOP.md`'s stage-boundary rules say what that means for an
+iteration.
+
+So every item here is written `blocked: no page yet`, and stays that way until
+somebody adds the page. That is not a placeholder — it is the state the item is
+actually in, and a loop that started one anyway would be building stage 3 for
+its own sake, which is the thing this stage exists to refuse.
+
+- [ ] **135. Quirks mode.** `alo-dom` already records the doctype signal and
+  refuses to honour it (law 1). This is where a page that needs it gets it.
+  *blocked: no page yet. Needs ADR* — law 1 refuses quirks mode outright, so
+  implementing it is a change to the constitution rather than an item.
+
+- [ ] **136. Floats as layout, and CSS table layout.** The two that most often
+  turn an old page into a column of rubble.
+  *blocked: no page yet. Cut before starting*; they are two items and probably
+  more.
+
+- [ ] **137. `document.write`, live `HTMLCollection`s, and the DOM as it was
+  before it was a specification.** *blocked: no page yet. Depends on 80.*
+
+- [ ] **138. Legacy character encodings, and detecting them.** The tables are
+  already rented (queue item 51 brought `encoding_rs` for the declared ones);
+  what is owed is **detection** — guessing from the shape of the bytes when
+  nobody has said. This engine does not guess today, and that is stated in
+  `alo-net::encoding`.
+  *blocked: no page yet.*
+
+- [ ] **139. XML, XHTML and XSLT.** *blocked: no page yet. Cut before
+  starting.*
+
+- [ ] **140. `frameset`.** *blocked: no page yet. Depends on 86.*
+
+- [ ] **141. Vendor prefixes, and anything that exists only for a page written
+  before 2015.** *blocked: no page yet.*
+
+- [ ] **142. The sloppy-mode corners of JavaScript that only old code reaches.**
+  *blocked: no page yet. Depends on 72.*
+
+**There is no exit gate**, and that is the design. Stage 3 is a standing offer
+rather than a milestone: it is finished when nobody is finding broken pages any
+more, which is not a state anybody declares.
+
+---
+
+# Queue — stage 4
+
+`ROADMAP.md`: **a browser somebody chooses.** Product work, and **gated:
+nothing here starts until stage 2's exit gate is met.**
+
+**A loop cannot open this stage.** Stage 2's gate is *"a person uses it as their
+browser for a week and reaches for another one only for a site they can name"* —
+which is a judgement a person makes and a loop must never make on their behalf.
+When stage 2's queue empties, the loop writes `LOOP COMPLETE` and stops; a
+person unblocks this stage or does not.
+
+- [ ] **143. ADR 0008 — what an extension is.** WebExtensions, or something
+  narrower we can actually secure. *Needs ADR, and it is the first item here*:
+  every other browser's extension API is a privilege surface bolted to the
+  side, and adopting one without deciding is how a sovereignty product acquires
+  somebody else's threat model.
+  *blocked: stage 2's exit gate.*
+
+- [ ] **144. Extensions.** *Depends on 143. blocked: stage 2's exit gate.*
+
+- [ ] **145. Sync, self-hosted.** Bookmarks, history, tabs and passwords,
+  end-to-end encrypted, on the customer's own server. *Depends on 90, 126.
+  Needs ADR* — end-to-end encrypted against whom, and what the server can see.
+  *blocked: stage 2's exit gate.*
+
+- [ ] **146. Updates that are signed, staged and reversible.**
+  *blocked: stage 2's exit gate.*
+
+- [ ] **147. Crash handling that helps us fix it without becoming telemetry.**
+  `ROADMAP.md` refuses telemetry outright, so the interesting half is what a
+  crash report may contain and who decides to send it. *Needs ADR.*
+  *blocked: stage 2's exit gate.*
+
+- [ ] **148. ★ Translation on the machine.** alo already runs models locally; a
+  page translated without sending it anywhere is the sovereign version of a
+  feature every other browser sends to a server. *Depends on 133 for the record
+  of what was read. blocked: stage 2's exit gate.*
+
+- [ ] **149. ★ Reading and summarising a page locally**, under the same grants
+  and the same record. *Depends on 133, 148. blocked: stage 2's exit gate.*
+
+- [ ] **150. Enterprise: policy, managed configuration, and an update mirror an
+  organisation hosts.** *Depends on 146. blocked: stage 2's exit gate.*
+
+- [ ] **151. A mobile port.** Last, and it is a port rather than a feature: what
+  it needs is everything above it to be finished. *blocked: stage 2's exit
+  gate.*
+
+**Exit gate** (`ROADMAP.md`): somebody outside alo chooses this browser, on a
+machine we did not set up, and stays.
+
+---
+
+## After stage 4
+
+Nothing. `ROADMAP.md` names four stages and this queue now covers all of them,
+which means **the loop can always say what is next** — and, at the two places
+where only a person can decide, can say that instead.
 
 ## Never in this queue
 

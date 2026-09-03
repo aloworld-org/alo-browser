@@ -166,6 +166,52 @@ it.** `ROADMAP.md` says so at the top of stage 2. A loop that reports progress
 by the number of items ticked will tick the small ones; the honest report is
 which roadmap lines moved, which is what step 6 already asks for.
 
+## Crossing from one stage to the next
+
+The queue covers all four stages, so the loop can always say what is next. At
+two places what is next is **a person**, and saying so is the answer rather
+than a failure to find work.
+
+### When a stage's queue empties
+
+Do not move to the next stage. Check that stage's exit gate, in `ROADMAP.md`,
+and write what you found into `STATE.md`. Only stage 1's gate was a thing a
+machine could check — two screens diffed against committed files — and it was
+met that way. The rest are not.
+
+### Stage 2 ends where a loop cannot follow
+
+Its exit gate is *"a person uses it as their browser for a week and reaches for
+another one only for a site they can name"*, and *"an agent completes a real
+task on a site nobody wrote for us"*. **A loop must never certify that on
+somebody's behalf.** When stage 2's queue is empty, write `LOOP COMPLETE`,
+name what a person now has to do, and stop.
+
+This is not the loop giving up. It is the one honest answer to a gate that is
+about somebody's experience rather than about a file.
+
+### Stage 3 is opened by pages, not by the queue
+
+Every stage 3 item is `blocked: no page yet`, and that is its real state.
+**Take one only when a corpus case fails because of it** — never because it is
+the next unticked line. `ROADMAP.md`: *let a broken render schedule the work.*
+
+A loop that started stage 3 items to have something to do would be building the
+legacy tail for its own sake — and refusing to do that is what made stages 1
+and 2 survivable in the first place.
+
+### Stage 4 does not start until a person says so
+
+Every item is `blocked: stage 2's exit gate`. That block is lifted by a person,
+in a commit, and never by an iteration deciding the gate looks met.
+
+### So when is `LOOP COMPLETE` actually right?
+
+When every remaining item is blocked and the blocks are real — which, after
+stage 2, means: stage 3 waiting on pages nobody has hit yet, and stage 4
+waiting on a judgement only a person makes. List both, say which is which, and
+stop.
+
 ## Where things are
 
 | | |
@@ -180,11 +226,16 @@ which roadmap lines moved, which is what step 6 already asks for.
 ## Running it
 
 The supervisor lives in `alo-workplace`, and takes a repository path — so this
-repository stays Rust:
+repository stays Rust. There is one for each kind of machine:
 
 ```
+sh <alo-workplace>/scripts/run-loop.sh --repo "<this checkout>"
 powershell -ExecutionPolicy Bypass -File <alo-workplace>/scripts/run-loop.ps1 -RepoPath "<this checkout>"
 ```
 
 Stop it any time. Every finished item was committed and pushed by the iteration
 that built it, so nothing is lost by interrupting one.
+
+**It stops on its own at a boundary a person has to cross** — see the section
+above. A supervisor that restarted the loop past a `LOOP COMPLETE` would be
+answering a question that was asked of somebody else.
