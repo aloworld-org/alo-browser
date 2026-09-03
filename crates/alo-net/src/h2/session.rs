@@ -23,7 +23,7 @@
 
 use super::ErrorCode;
 use super::flow::{self, Window};
-use super::frame::{Frame, Setting};
+use super::frame::{self, Frame, Setting};
 use super::stream::{State, Stream};
 use std::collections::HashMap;
 
@@ -69,6 +69,10 @@ pub struct Session {
     their_initial_window: i64,
     /// What we told the peer ours start with.
     our_initial_window: i64,
+    /// The most the peer will accept in one frame. Ours to obey when sending,
+    /// and nothing to do with what we will accept, which is
+    /// [`super::frame::LARGEST_BY_DEFAULT`].
+    their_largest_frame: usize,
     /// How many the peer said we may open. Not a bound on *them*; that is
     /// [`MOST_OPEN`], which is ours to enforce.
     they_allow_us: usize,
@@ -96,6 +100,7 @@ impl Session {
             receiving: Window::new(),
             their_initial_window: flow::AT_FIRST,
             our_initial_window: flow::AT_FIRST,
+            their_largest_frame: frame::LARGEST_BY_DEFAULT as usize,
             they_allow_us: MOST_OPEN,
             closed_recently: Vec::new(),
             going_away: None,
@@ -137,6 +142,55 @@ impl Session {
         let going = known.sending.take(can);
         self.sending.take(going);
         going
+    }
+
+    /// The most bytes that may go in one `DATA` frame, as the peer asked.
+    ///
+    /// A body is cut to this rather than to what it happens to be: a frame
+    /// larger than a peer said it would accept is a `FRAME_SIZE_ERROR`, and one
+    /// on a `DATA` frame ends the connection rather than the stream.
+    pub fn most_in_one_frame(&self) -> usize {
+        self.their_largest_frame
+    }
+
+    /// This end has finished sending on a stream.
+    ///
+    /// Called when the request goes out with `END_STREAM` — with its headers
+    /// when there is no body, and with its last `DATA` frame when there is. A
+    /// stream left [`State::Open`] in our own bookkeeping is one this engine
+    /// would count against the peer's concurrency limit for ever.
+    pub fn finished_sending(&mut self, stream: u32) {
+        if let Some(known) = self.streams.get_mut(&stream) {
+            known.finished_sending();
+            if known.state == State::Closed {
+                self.forget_the_oldest_closed(stream);
+            }
+        }
+    }
+
+    /// The header block that just arrived on a stream was interim.
+    ///
+    /// Passed down rather than worked out here, for the reason
+    /// [`Stream::headers_were_interim`] gives: nothing below the HPACK decoder
+    /// can tell a `103` from a `200`.
+    pub fn headers_were_interim(&mut self, stream: u32) {
+        if let Some(known) = self.streams.get_mut(&stream) {
+            known.headers_were_interim();
+        }
+    }
+
+    /// We are not sending the rest of what we started.
+    ///
+    /// A server may answer before it has read the request body — a `413`, or a
+    /// redirect — and then the body is bytes nobody wants. The stream is over
+    /// on both sides once this is said, and saying it is what stops a request
+    /// this engine abandoned from holding a stream open until the connection
+    /// ends.
+    pub fn gave_up_on(&mut self, stream: u32) {
+        if let Some(known) = self.streams.get_mut(&stream) {
+            known.reset(ErrorCode::Cancel);
+            self.forget_the_oldest_closed(stream);
+        }
     }
 
     /// Room made back, because bytes that were held have been taken away.
@@ -403,6 +457,27 @@ impl Session {
                 }
                 Setting::MAX_CONCURRENT_STREAMS => {
                     self.they_allow_us = usize::try_from(*value).unwrap_or(MOST_OPEN);
+                }
+                Setting::MAX_FRAME_SIZE => {
+                    // The protocol's own range, and refused rather than clamped
+                    // at both ends. Below the floor is a peer asking us to
+                    // fragment a body into frames whose headers cost more than
+                    // their payloads; above the ceiling is a number that cannot
+                    // be written in a frame header's three bytes at all, so
+                    // believing it would mean sending something unreadable.
+                    if !(frame::LARGEST_BY_DEFAULT..=frame::LARGEST_ALLOWED).contains(value) {
+                        return Err(fatal(
+                            &format!(
+                                "a maximum frame size of {value}, outside the {}..={} the protocol allows",
+                                frame::LARGEST_BY_DEFAULT,
+                                frame::LARGEST_ALLOWED
+                            ),
+                            ErrorCode::ProtocolError,
+                        ));
+                    }
+                    self.their_largest_frame = usize::try_from(*value)
+                        .unwrap_or(frame::LARGEST_BY_DEFAULT as usize)
+                        .max(frame::LARGEST_BY_DEFAULT as usize);
                 }
                 Setting::ENABLE_PUSH if *value > 1 => {
                     return Err(fatal(

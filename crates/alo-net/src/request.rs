@@ -64,6 +64,14 @@ pub struct Request {
     pub initiator: Option<Origin>,
     /// The headers to send.
     pub headers: Headers,
+    /// The bytes to send with it. Empty for everything a page merely reads.
+    ///
+    /// Held whole rather than as a stream, and that is a bound as much as a
+    /// simplification: a request body is something *this* engine composed — a
+    /// form, a `fetch()` — so its size is ours already. A body that is a file
+    /// on a disk is item 82's problem, and it will want a reader here rather
+    /// than a `Vec`.
+    pub body: Vec<u8>,
 }
 
 impl Request {
@@ -75,6 +83,21 @@ impl Request {
             purpose: Purpose::Document,
             initiator: None,
             headers: Headers::new(),
+            body: Vec::new(),
+        }
+    }
+
+    /// A request that sends something: a form, or what a script handed to
+    /// `fetch()`.
+    ///
+    /// The content type is the caller's to add as a header, because only the
+    /// caller knows what the bytes are. The **length** is not: see
+    /// [`Request::declared_length`].
+    pub fn sending(url: Url, method: &str, body: Vec<u8>) -> Self {
+        Self {
+            method: method.to_owned(),
+            body,
+            ..Self::get(url)
         }
     }
 
@@ -109,6 +132,49 @@ impl Request {
             self.method.as_str(),
             "GET" | "HEAD" | "OPTIONS" | "TRACE" | "PUT" | "DELETE"
         )
+    }
+
+    /// The length this request states about itself, when it states one.
+    ///
+    /// **A caller never sets this**, in either protocol: a `Content-Length`
+    /// that disagrees with the bytes is the request half of the message that
+    /// says two things about where it ends, and that is what request smuggling
+    /// is made of. Both `crate::http::write_request` and the HTTP/2 client drop
+    /// a caller's and write this instead — here rather than in each of them,
+    /// for the reason [`Request::may_be_repeated`] gives: two spellings of a
+    /// framing rule is one of them being wrong.
+    ///
+    /// A method that *anticipates* content says `0` rather than nothing, so
+    /// that a `POST` with an empty body is a `POST` sending nothing rather than
+    /// a `POST` a server is still waiting on.
+    pub fn declared_length(&self) -> Option<usize> {
+        if self.body.is_empty() && !matches!(self.method.as_str(), "POST" | "PUT" | "PATCH") {
+            return None;
+        }
+        Some(self.body.len())
+    }
+
+    /// An `Expect` this engine will not pretend to honour, said in words.
+    ///
+    /// **This engine implements no expectation, and refuses rather than
+    /// ignores.** An `Expect` is a promise that the sender will *wait*, and the
+    /// only bound available for the waiting here is the caller's own socket
+    /// timeout — thirty seconds, which would turn every upload to a server that
+    /// has never heard of `100-continue` into half a minute of nothing. Sending
+    /// the header and then not waiting is worse than either: it tells a server
+    /// that does honour it to hold the stream open for a go-ahead we have
+    /// already stopped listening for.
+    ///
+    /// Nothing on the web can reach this. `Expect` is a forbidden request
+    /// header in Fetch, so no page and no script may set it; only this engine's
+    /// own code could, and this is what it is told when it does. Honouring it
+    /// properly needs a bounded wait, which is queue item 187.
+    pub fn unmet_expectation(&self) -> Option<String> {
+        let asked = self.headers.get("Expect")?;
+        Some(format!(
+            "an Expect of {asked:?}, which this engine will not claim to honour: \
+             an expectation is a promise to wait, and nothing here can bound the waiting"
+        ))
     }
 }
 
@@ -147,5 +213,49 @@ mod tests {
         assert_eq!(request.initiator, Some(page));
         assert!(request.to_string().contains("style"));
         assert!(request.to_string().contains("https://example.com"));
+    }
+
+    #[test]
+    fn what_a_page_reads_carries_nothing_and_declares_nothing() {
+        let request = Request::get(url("https://example.com/"));
+        assert!(request.body.is_empty());
+        assert_eq!(request.declared_length(), None, "a GET said it had a body");
+    }
+
+    #[test]
+    fn a_request_that_sends_something_declares_what_it_actually_sends() {
+        let request = Request::sending(url("https://example.com/"), "POST", b"name=x".to_vec());
+        assert_eq!(request.method, "POST");
+        assert_eq!(request.declared_length(), Some(6));
+        assert!(!request.may_be_repeated(), "a POST is not repeatable");
+    }
+
+    /// The difference between a `POST` that sends nothing and a `POST` a server
+    /// is still waiting on.
+    #[test]
+    fn a_method_that_anticipates_content_says_zero_rather_than_nothing() {
+        let empty = Request::sending(url("https://example.com/"), "POST", Vec::new());
+        assert_eq!(empty.declared_length(), Some(0));
+    }
+
+    /// A caller's length is never the one sent. A body and a header disagreeing
+    /// about where a message ends is the request half of request smuggling.
+    #[test]
+    fn a_length_is_the_bodys_rather_than_whatever_a_caller_wrote() {
+        let mut request = Request::sending(url("https://example.com/"), "POST", b"1234".to_vec());
+        request.headers.add("Content-Length", "99999");
+        assert_eq!(request.declared_length(), Some(4));
+    }
+
+    #[test]
+    fn an_expectation_is_refused_by_name_rather_than_ignored() {
+        let plain = Request::sending(url("https://example.com/"), "POST", b"x".to_vec());
+        assert_eq!(plain.unmet_expectation(), None);
+
+        let mut expecting = plain.clone();
+        expecting.headers.add("expect", "100-continue");
+        let why = expecting.unmet_expectation().unwrap_or_default();
+        assert!(why.contains("100-continue"), "{why:?}");
+        assert!(why.contains("Expect"), "{why:?}");
     }
 }

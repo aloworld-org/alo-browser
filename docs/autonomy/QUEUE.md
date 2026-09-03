@@ -708,11 +708,39 @@ first. Nothing here needs JavaScript.
   response carrying a request's pseudo-header, or an ordinary header before
   `:status`, is refused.
 
-- [ ] **163. A request with a body over HTTP/2.** Today every request goes out
+- [x] **163. A request with a body over HTTP/2.** Today every request goes out
   with `END_STREAM` on its `HEADERS`, which is truthful and means no `POST`.
   *Depends on 162. Closes when:* a body goes out in `DATA` frames sized to the
   window, a window that closes mid-body is waited on rather than overrun, and a
   `100-continue` is either honoured or refused by name.
+
+  **Done, and it was never only HTTP/2's.** A `Request` had nowhere to put a
+  body at all, so HTTP/1.1 had no `POST` either and would have silently dropped
+  one — the item's scope was HTTP/2 and its depth was both, which is why both
+  send a body now. The two framing rules live on `Request` rather than in each
+  client, for the reason `may_be_repeated` already gives: **the length a request
+  states is the length of its bytes**, never a header a caller wrote, and an
+  `Expect` is **refused by name** on both. The window clause is asserted by a
+  server that goes quiet: a hundred-kilobyte body, and exactly sixty-four
+  kilobytes have arrived when the client stops of its own accord — under it is a
+  stall and over it is an overrun, so the number is asserted rather than
+  bounded. Two things came out of it: item 187, and interim responses, which
+  were being taken for the answer on both protocols and are read past now.
+
+- [ ] **187. `Expect: 100-continue`, honoured rather than refused.** Cut from
+  163, which refuses it — the item allowed either, and refusing is what an
+  engine that cannot *bound* the waiting should do. An expectation is a promise
+  to wait for a go-ahead, and the only clock reachable from either client is the
+  caller's socket timeout at thirty seconds, which would turn every upload to a
+  server that has never heard of the header into half a minute of nothing.
+  Honouring it means a short bounded wait and then sending anyway, which means a
+  clock crossing the boundary that `exchange` takes an `impl Read + Write` over.
+  **Nothing on the web can reach the refusal**: `Expect` is a forbidden request
+  header in Fetch, so no page and no script may set one — which is why this is
+  worth doing when an upload wants it rather than before.
+  *Depends on 163. Closes when:* a server that answers `100` is sent the body
+  after it, a server that answers a final status is not sent the body at all,
+  and a server that says nothing is sent the body after a bound a test can name.
 
 - [ ] **60. HTTP/3 and QUIC**, once both of those are.
   *Depends on 59.*

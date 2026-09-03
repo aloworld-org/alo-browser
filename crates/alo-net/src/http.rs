@@ -95,12 +95,13 @@ pub struct Head {
     pub headers: Headers,
 }
 
-/// A request, as the bytes to send.
+/// A request, as the bytes to send — head, blank line, and body.
 ///
 /// `Host` is written from the URL rather than from whatever a caller put in the
 /// headers: it decides which site a shared server thinks it is talking to, and
 /// letting two sources disagree about it is the same class of bug as two
-/// `Content-Length`s.
+/// `Content-Length`s. `Content-Length` itself is written the same way, from the
+/// body rather than from a header, for exactly that reason.
 pub fn write_request(request: &Request) -> Vec<u8> {
     let url = &request.url;
     let mut target = if url.path.is_empty() {
@@ -133,6 +134,12 @@ pub fn write_request(request: &Request) -> Vec<u8> {
             crate::decompress::Encoding::ASKED_FOR
         );
     }
+    // Where the body ends, from the body rather than from a header: see
+    // `Request::declared_length`, which both protocols ask so that they cannot
+    // answer differently.
+    if let Some(length) = request.declared_length() {
+        let _ = write!(out, "Content-Length: {length}\r\n");
+    }
     for header in request.headers.iter() {
         // The ones this function decides are not the caller's to set, for the
         // reason in this function's own note.
@@ -149,7 +156,11 @@ pub fn write_request(request: &Request) -> Vec<u8> {
     // `crate::pool`. Saying `close` here is what queue item 53 did while there
     // was nothing to reuse it with.
     out.push_str("\r\n");
-    out.into_bytes()
+    let mut out = out.into_bytes();
+    // The body goes straight after the blank line, unencoded and unchunked:
+    // this engine states a length, so there is nothing for a chunk to be for.
+    out.extend_from_slice(&request.body);
+    out
 }
 
 /// Read a response's head from a byte source.

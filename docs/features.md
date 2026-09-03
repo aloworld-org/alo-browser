@@ -169,6 +169,18 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **The same-origin policy, CORS and preflight** — a page may send almost
   anywhere and may read almost nowhere, and a wildcard never covers a request
   that carried credentials
+- [2] **A request that sends something**, over both protocols — a body written
+  after the blank line in HTTP/1.1 and in `DATA` frames in HTTP/2, cut to the
+  frame size the server said it would read, with a window that closes part way
+  through **waited on** rather than overrun, and the stream closed rather than
+  left open when a server answers before it has finished reading. The length a
+  request states is always the length of its bytes, never a header a caller
+  wrote
+- [2] **An interim response is not the answer** — `103 Early Hints` and its
+  kind are read past on both protocols, whether or not anything asked for one,
+  and a server that only ever says something first is refused. An `Expect` is
+  refused by name, because an expectation is a promise to wait and nothing here
+  can bound the waiting
 - [2] **HTTP/2, negotiated by ALPN and spoken** — the protocol chosen during the
   handshake, so no request is ever sent twice to find out which one it is
 - [2] **HTTP/2 streams and flow control**, with the CONTINUATION flood refused

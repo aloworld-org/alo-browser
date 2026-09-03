@@ -6,6 +6,39 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A request can send something now.** Until this change every request this
+  engine made was a request for something and nothing more: there was nowhere to
+  put a body, so there was no `POST`, no form, and no upload — over either
+  protocol. A request carries its bytes now, HTTP/1.1 writes them after the
+  blank line, and HTTP/2 sends them in `DATA` frames cut to the size the server
+  said it would read.
+
+  The half that only shows up on a large upload is flow control. A server states
+  how much it is willing to hold, and this engine sends exactly that much and
+  then **waits** — it does not overrun the window and it does not stall, which
+  is a distinction a test here makes by watching a server go quiet. When a
+  server answers before it has finished reading — a file too large, a redirect —
+  the rest of the body is dropped and the stream is closed rather than left open
+  for the life of the connection.
+
+  Two rules go with it. The **length a request states is the length of its
+  bytes**, never a header a caller wrote: a body and a header disagreeing about
+  where a message ends is the request half of request smuggling. And a redirect
+  that turns a `POST` into a `GET` now drops the body along with the headers
+  that described it, where before there was no body to drop.
+
+- **An interim response is no longer mistaken for the answer.** A server may say
+  something before it answers — `103 Early Hints` is sent by a great many of
+  them, unprompted — and this engine took the first thing it heard for the
+  response. That is a blank page for every such server. Both protocols read past
+  them now, and refuse a server that only ever says something first.
+
+- **`Expect` is refused by name rather than sent and not honoured.** An
+  expectation is a promise that the sender will wait for a go-ahead, and nothing
+  here can bound the waiting; sending the header anyway would ask a server to
+  hold a stream open for a signal we had stopped listening for. Nothing on the
+  web can reach this — the header is one no page or script may set.
+
 - **Every source file now says what licence it is under.** The engine is
   MPL-2.0, which is copyleft *per file* — so somebody who ends up holding one
   file of it, out of an archive or a search result or a vendored copy, needs to

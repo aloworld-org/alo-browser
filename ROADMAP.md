@@ -201,8 +201,15 @@ unreachable without it.
       cannot undo, and a compressed body the connection closing is the only end
       of are each refused by name. **A connection that ended told apart from a
       peer that misbehaved** (queue item 185), so a stream the server gave up
-      on keeps the bytes that arrived on it · Owed: a request with a body over
-      HTTP/2, queue item 163
+      on keeps the bytes that arrived on it. **A request that sends something**
+      (queue item 163) — a body after the blank line in HTTP/1.1 and in `DATA`
+      frames in HTTP/2, cut to the frame size the peer allows, with a window
+      that closes part way through waited on rather than overrun and the stream
+      closed rather than left open when a server answers early; the length a
+      request states is always its bytes rather than a header a caller wrote,
+      and an interim response is read past rather than taken for the answer ·
+      Owed: an `Expect` is refused by name rather than honoured, which needs a
+      bounded wait — queue item 187
 - [ ] HTTP/3 and QUIC, once those two are correct
 - [ ] DNS, and encrypted DNS as a choice somebody made rather than a default
       nobody was told about · Built: ADR 0008 and resolution through the

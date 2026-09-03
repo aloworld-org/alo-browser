@@ -139,8 +139,11 @@ fn another_port_on_the_same_host_is_another_origin() {
 #[test]
 fn a_post_redirected_by_301_or_302_or_303_becomes_a_get() {
     for status in [301, 302, 303] {
-        let mut sent = Request::get(url("https://example.com/pay"));
-        sent.method = "POST".to_owned();
+        let mut sent = Request::sending(
+            url("https://example.com/pay"),
+            "POST",
+            b"amount=100".to_vec(),
+        );
         sent.headers
             .add("Content-Type", "application/x-www-form-urlencoded");
         sent.headers.add("Accept", "text/html");
@@ -161,6 +164,10 @@ fn a_post_redirected_by_301_or_302_or_303_becomes_a_get() {
             Some("text/html"),
             "a {status} dropped a header that had nothing to do with the body"
         );
+        assert!(
+            away.body.is_empty(),
+            "a {status} carried the body into a GET, where its length no longer describes it"
+        );
     }
 }
 
@@ -169,8 +176,11 @@ fn a_post_redirected_by_301_or_302_or_303_becomes_a_get() {
 #[test]
 fn a_post_redirected_by_307_or_308_stays_a_post() {
     for status in [307, 308] {
-        let mut sent = Request::get(url("https://example.com/pay"));
-        sent.method = "POST".to_owned();
+        let mut sent = Request::sending(
+            url("https://example.com/pay"),
+            "POST",
+            br#"{"amount":100}"#.to_vec(),
+        );
         sent.headers.add("Content-Type", "application/json");
 
         let away = hop(
@@ -183,6 +193,10 @@ fn a_post_redirected_by_307_or_308_stays_a_post() {
             away.headers.get("Content-Type"),
             Some("application/json"),
             "a {status} dropped a header describing a body it kept"
+        );
+        assert_eq!(
+            away.body, br#"{"amount":100}"#,
+            "a {status} kept the method and lost the body, which is not the same request"
         );
     }
 }

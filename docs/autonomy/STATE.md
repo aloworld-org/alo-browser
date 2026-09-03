@@ -5298,3 +5298,129 @@ intended cost.
 
 And item 183, the fieldset border, is still the one iterations 70 and 72 to 78
 each named and nobody has taken.
+
+---
+
+## Iteration 80 — queue item 163: a request that sends something
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 163 was
+what iteration 79's journal named as next: 157 and 158 are blocked on an
+interface to choose in, and 163's dependency (162, ALPN) was done.
+
+**The item said HTTP/2 and the work was both protocols**, and that is scope
+against depth rather than scope creep. `Request` had **nowhere to put a body at
+all** — `http::write_request` wrote a head and a blank line and stopped — so
+adding a body to the type and teaching only the HTTP/2 client to send it would
+have left every `POST` over HTTP/1.1 silently bodiless, which is a worse defect
+than the one being fixed. `LOOP.md` says cut scope, never depth. The scope cut
+is item 187; the depth is that both clients send a body and both obey the same
+two rules.
+
+**The two rules live on `Request`, not in the clients**, for the reason
+`may_be_repeated`'s own doc comment gives about a payment: two spellings of a
+framing rule is one of them being wrong.
+
+- `declared_length` — **the length a request states is the length of its
+  bytes.** A caller's `Content-Length` is dropped in both protocols. A body and
+  a header disagreeing about where a message ends is the request half of request
+  smuggling, and item 53 spent a whole iteration refusing the response half of
+  exactly that. A method that anticipates content says `0` rather than nothing,
+  which is the difference between a `POST` that sends nothing and a `POST` a
+  server is still waiting on.
+- `unmet_expectation` — an `Expect` is **refused by name**, which is the branch
+  the item offered as an alternative to honouring it. The reason is written into
+  the doc comment rather than left as a shrug: an expectation is a promise to
+  *wait*, the only clock either client can reach is the caller's socket timeout
+  at thirty seconds, and sending the header while not waiting is worse than
+  either — it asks a server that does honour it to hold a stream open for a
+  go-ahead we have stopped listening for. **Nothing on the web can reach it**:
+  `Expect` is a forbidden request header in Fetch, so no page and no script may
+  set one. That is what makes refusing affordable, and it is why item 187 waits
+  for an upload that wants it.
+
+**The window is the half only a large body reaches.** Both windows start at
+sixty-four kilobytes, so an ordinary form goes out in one breath and nothing
+about flow control is exercised by it. `push_body` sends the smaller of what is
+left, what both windows allow, and the peer's `SETTINGS_MAX_FRAME_SIZE`; when
+that is zero it returns, and the read loop calls it again after every frame,
+because a `WINDOW_UPDATE` is body that may now go.
+
+The test asserts the number rather than a bound. A hundred-kilobyte body, and a
+server that sets a read timeout on its own socket and treats a timeout as *the
+client has stopped of its own accord*: **exactly 65,535 bytes have arrived at
+that moment.** Under it is a client that stalled; over it is one that overran;
+only the exact number is the behaviour asked for. Run rather than reasoned
+about — `room_to_send` was doctored out and the test failed with `0 bytes had
+arrived`, which is what a client that ignores the window looks like from the
+outside.
+
+**A server may answer before it has read the request**, and then the rest of the
+body is bytes nobody wants. The stream is reset with `CANCEL` rather than simply
+abandoned: a stream this engine stopped writing to would stay open until the
+connection ended, counting against the peer's concurrency limit for ever. The
+write is allowed to fail without spoiling the response, because the response is
+whole and a connection that will not take a reset is one the pool finds out
+about on its next use.
+
+**`SETTINGS_MAX_FRAME_SIZE` is now read, and refused rather than clamped at both
+ends.** Below the floor is a peer asking us to cut a body into frames whose
+headers cost more than their payloads; above the ceiling is a number that cannot
+be written into a frame header's three bytes, so believing it would mean sending
+something unreadable.
+
+**What the item did not ask for and the work found: interim responses.** A `103
+Early Hints` is sent unprompted by a great many servers, and **both protocols
+were taking the first head they saw for the answer** — a blank page, on a
+perfectly ordinary server. HTTP/2 was worse than that: the stream state machine
+refused the *real* response as a second header block that does not end the
+stream. Both read past them now, bounded at eight because a head with no body
+costs a server almost nothing to send.
+
+The HTTP/2 half needed one thing worth reading twice. `Stream` tells a response
+from its **trailers** by whether a block has already arrived, and an interim
+response is neither — so `headers_were_interim` is **told** rather than worked
+out, because a `103` and a `200` are the same frame and only the decoded
+`:status` tells them apart, three layers above where the rule lives.
+
+**A redirect that demotes a `POST` now drops the body**, by exactly the
+condition that already dropped `Content-Length` and `Content-Type`. It has to be
+the same condition: a `GET` carrying a body its headers no longer describe is a
+message the next server frames by guessing. `307` and `308` keep both, which is
+what they exist for.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero errors
+— it caught the real thing, refusing `exchange_however_it_ends` at 151 lines,
+which is how `send_request` and `Assembling` came to be separate from the
+exchange loop rather than inside it — **1391 tests** (up from 1365), no stubs,
+no `unsafe`, boundaries held, the licence notice on the new file, and a
+`CHANGELOG.md` line. No layout assertion and no reference render: nothing here
+positions, sizes or draws.
+
+**`LOOP.md`'s hostile-input clause bites here and is answered by name**, because
+every new reading surface is bytes a stranger sent: an interim response that
+ends the stream, more interim responses than anybody could mean, a trailer block
+carrying a pseudo-header, a `DATA` frame before any headers said what message it
+belongs to, and a `MAX_FRAME_SIZE` outside the protocol's range. Each is refused
+with a reason rather than believed, and each has a test named after it.
+
+**`ROADMAP.md`.** The line moved is *"HTTP/1.1, then HTTP/2"*. Its `Owed:` half
+said *"a request with a body over HTTP/2, queue item 163"* and now says what was
+built; the new `Owed:` is item 187, the expectation. It stays an empty box:
+HTTP/3 and QUIC are on their own line, and this line is not finished while a
+request with a body cannot make a promise it keeps. `docs/features.md` gains two
+lines, the second of which is the interim-response finding — it was not in that
+file because nobody knew it was missing.
+
+**What the next iteration should know.** The first unticked items in file order
+are still **157** and **158**, both blocked on an interface to choose in.
+**Item 187** is ready in the sense that it is unblocked, and it should not be
+taken next: the refusal it replaces is unreachable from any page, and the item
+says in itself to wait for an upload that wants it. So the next ready item is
+**164, the preflight cache** (depends on 61 and 56, both done), or **165,
+Content Security Policy**, which is the larger and the more owed of the two —
+`ROADMAP.md`'s security line names it and the rule that matters most in it is
+already written down: a directive this engine cannot parse must make a policy
+*more* restrictive, never less.
+
+And item 183, the fieldset border, is still the one iterations 70 and 72 to 79
+each named and nobody has taken.

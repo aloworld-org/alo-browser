@@ -12,7 +12,7 @@
 
 use alo_net::h2::ErrorCode;
 use alo_net::h2::flow::{CEILING, Window};
-use alo_net::h2::frame::{Frame, Setting};
+use alo_net::h2::frame::{Frame, LARGEST_ALLOWED, LARGEST_BY_DEFAULT, Setting};
 use alo_net::h2::session::{Delivered, LONGEST_HEADER_BLOCK, MOST_OPEN, Session};
 use alo_net::h2::stream::State;
 
@@ -437,5 +437,113 @@ fn what_the_peer_allows_us_is_not_what_we_allow_the_peer() {
     assert!(
         session.open().is_err(),
         "we opened a third stream when the server allowed two"
+    );
+}
+
+// ---- how large a frame this end may send ----
+
+/// The peer's number, and ours to obey when sending — nothing to do with what
+/// this end will *accept*, which is its own setting and is never raised here.
+#[test]
+fn the_peer_decides_how_large_a_frame_it_will_read() {
+    let mut session = Session::new();
+    assert_eq!(
+        session.most_in_one_frame(),
+        LARGEST_BY_DEFAULT as usize,
+        "a session that has heard nothing should use the protocol's own default"
+    );
+    let told = session.arrived(Frame::Settings {
+        ack: false,
+        values: vec![(Setting::MAX_FRAME_SIZE, 32_768)],
+    });
+    assert!(told.is_ok(), "{told:?}");
+    assert_eq!(session.most_in_one_frame(), 32_768);
+}
+
+/// Refused rather than clamped, at both ends of the range. Below the floor is a
+/// peer asking us to cut a body into frames whose headers cost more than their
+/// payloads; above the ceiling is a number that cannot be written into a frame
+/// header's three bytes at all, so believing it would mean sending something
+/// unreadable.
+#[test]
+fn a_frame_size_outside_what_the_protocol_allows_is_refused() {
+    for outside in [0, 1, LARGEST_BY_DEFAULT - 1, LARGEST_ALLOWED + 1, u32::MAX] {
+        let mut session = Session::new();
+        let told = session.arrived(Frame::Settings {
+            ack: false,
+            values: vec![(Setting::MAX_FRAME_SIZE, outside)],
+        });
+        assert_eq!(
+            told.err().map(|why| why.error),
+            Some(ErrorCode::ProtocolError),
+            "a maximum frame size of {outside} was believed"
+        );
+        assert_eq!(
+            session.most_in_one_frame(),
+            LARGEST_BY_DEFAULT as usize,
+            "a refused setting was applied anyway"
+        );
+    }
+}
+
+// ---- when this end has finished with a stream ----
+
+/// A request that is fully sent is *half-closed locally*, which is the normal
+/// state of every request a browser makes. A stream left open in our own
+/// bookkeeping is one this engine would count against the peer's concurrency
+/// limit for ever.
+#[test]
+fn a_request_that_is_fully_sent_leaves_the_stream_half_closed_rather_than_open() {
+    let mut session = Session::new();
+    let id = session.open().unwrap_or(1);
+    assert_eq!(session.stream(id).map(|s| s.state), Some(State::Open));
+    session.finished_sending(id);
+    assert_eq!(
+        session.stream(id).map(|s| s.state),
+        Some(State::HalfClosedLocal)
+    );
+    assert_eq!(
+        session.open_streams(),
+        1,
+        "it is not over until both ends are"
+    );
+
+    // The answer arrives and ends it, and then it is over on both sides.
+    let _ = session.arrived(headers(id, true, true, b"a block"));
+    assert_eq!(session.stream(id).map(|s| s.state), Some(State::Closed));
+    assert_eq!(session.open_streams(), 0);
+}
+
+/// A server may answer before it has read the request. The rest of the body is
+/// then bytes nobody wants, and the stream is over on both sides once we say so.
+#[test]
+fn a_request_this_end_gave_up_on_stops_counting_as_open() {
+    let mut session = Session::new();
+    let id = session.open().unwrap_or(1);
+    session.gave_up_on(id);
+    assert_eq!(session.stream(id).map(|s| s.state), Some(State::Closed));
+    assert_eq!(session.open_streams(), 0);
+    assert_eq!(
+        session.stream(id).and_then(|s| s.ended_by),
+        Some(ErrorCode::Cancel),
+        "a stream we abandoned should say why"
+    );
+}
+
+/// An interim response is not the response, so the block after it is not
+/// trailers. Nothing below the HPACK decoder can tell a `103` from a `200`,
+/// which is why the session is told rather than working it out.
+#[test]
+fn a_block_after_an_interim_one_is_still_the_answer_rather_than_trailers() {
+    let mut session = Session::new();
+    let id = session.open().unwrap_or(1);
+    // The `103`.
+    let _ = session.arrived(headers(id, false, true, b"a block"));
+    session.headers_were_interim(id);
+    // The `200`, which does not end the stream because a body follows it.
+    let answer = session.arrived(headers(id, false, true, b"a block"));
+    assert!(
+        answer.is_ok(),
+        "the answer after an early hint was refused as trailers: {answer:?}"
     );
 }

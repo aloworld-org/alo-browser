@@ -24,7 +24,7 @@ use crate::body::{self, Framing};
 use crate::headers::Headers;
 use crate::http::{self, Malformed, Version};
 use crate::request::Request;
-use crate::response::Response;
+use crate::response::{Response, Status};
 use crate::tls::{self, Secured, Trust};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
@@ -253,6 +253,9 @@ pub fn exchange_however_it_ends(
     connection: &mut Connection,
     request: &Request,
 ) -> Result<Exchanged, Malformed> {
+    if let Some(why) = request.unmet_expectation() {
+        return Err(Malformed { why });
+    }
     connection.begin();
     connection
         .write_all(&http::write_request(request))
@@ -263,7 +266,7 @@ pub fn exchange_however_it_ends(
         why: format!("could not send the request: {why}"),
     })?;
 
-    let head = http::read_head(connection)?;
+    let head = read_past_anything_interim(connection)?;
     let framing = Framing::of(head.status, &head.headers)?;
     let (body, short) = body::read_what_arrived(connection, framing);
     // **The codings come off only when the body is whole.** Half a gzip is not
@@ -303,6 +306,31 @@ pub fn exchange_however_it_ends(
             body,
         },
     })
+}
+
+/// Read heads until one of them is the answer.
+///
+/// **Every client has to do this whether or not it asked for anything.** A
+/// server may send `103 Early Hints` unprompted, and a client that took the
+/// first head it saw would show a blank page for one — the informational
+/// response is not the response, carries no body and does not end the message.
+fn read_past_anything_interim(connection: &mut Connection) -> Result<http::Head, Malformed> {
+    let mut so_far = 0;
+    loop {
+        let head = http::read_head(connection)?;
+        if !head.status.is_interim() {
+            return Ok(head);
+        }
+        so_far += 1;
+        if so_far > Status::MOST_INTERIM {
+            return Err(Malformed {
+                why: format!(
+                    "more than {} interim responses before the answer",
+                    Status::MOST_INTERIM
+                ),
+            });
+        }
+    }
 }
 
 /// Which protocol a connection is speaking.

@@ -140,6 +140,20 @@ impl Stream {
         Ok(())
     }
 
+    /// The header block that just arrived was **interim** — something said
+    /// before the answer rather than the answer.
+    ///
+    /// **Told rather than known.** A `103` and a `200` are the same frame here;
+    /// what tells them apart is the decoded `:status`, and decoding happens
+    /// above this file. It matters because [`Stream::headers_arrived`] uses
+    /// "has a block already arrived" to tell a response from its trailers, and
+    /// an interim response is neither: another block always follows it, and
+    /// refusing that one would mean refusing every server that sends `103 Early
+    /// Hints`.
+    pub fn headers_were_interim(&mut self) {
+        self.already_had_headers = false;
+    }
+
     /// This end has finished sending.
     pub fn finished_sending(&mut self) {
         self.state = match self.state {

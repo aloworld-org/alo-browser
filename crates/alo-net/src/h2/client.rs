@@ -164,25 +164,8 @@ pub fn exchange_however_it_ends(
     speaking: &mut Speaking,
     request: &Request,
 ) -> Result<Ended, Broken> {
-    begin(wire, speaking)?;
-    let stream = speaking.session.open()?;
-    let block = hpack::encode(&fields_for(request), &mut speaking.writing);
-    write_all(
-        wire,
-        &frame::write(&Frame::Headers {
-            stream,
-            block,
-            // No body yet: a `POST` with one is queue item 163, and sending
-            // `END_STREAM` here is what says truthfully that there is none.
-            end_stream: true,
-            end_headers: true,
-            priority: None,
-        }),
-    )?;
-
-    let mut headers = Headers::new();
-    let mut status = None;
-    let mut body = Vec::new();
+    let (stream, mut unsent) = send_request(wire, speaking, request)?;
+    let mut answer = Assembling::new();
     let mut short = None;
 
     loop {
@@ -223,6 +206,14 @@ pub fn exchange_however_it_ends(
             break;
         }
 
+        // A window that has just widened is body that may now go. This is the
+        // whole of "waited on rather than overrun": nothing is sent that the
+        // peer did not make room for, and what could not go stays here until it
+        // says so.
+        if !unsent.is_empty() {
+            push_body(wire, speaking, stream, &mut unsent)?;
+        }
+
         let Some(delivered) = delivered else {
             continue;
         };
@@ -235,11 +226,14 @@ pub fn exchange_however_it_ends(
                 if on != stream {
                     continue;
                 }
-                for field in hpack::decode(&block, &mut speaking.reading)? {
-                    read_one(&field, &mut status, &mut headers)?;
-                }
-                if end_stream {
-                    break;
+                let fields = hpack::decode(&block, &mut speaking.reading)?;
+                match answer.took_a_header_block(&fields, end_stream)? {
+                    // The session has to be told, because nothing below the
+                    // decoder can tell a `103` from a `200` — and it is the
+                    // session that decides whether the *next* block is legal.
+                    Block::Interim => speaking.session.headers_were_interim(stream),
+                    Block::More => {}
+                    Block::Whole => break,
                 }
             }
             Delivered::Data {
@@ -250,7 +244,7 @@ pub fn exchange_however_it_ends(
                 if on != stream {
                     continue;
                 }
-                body.extend_from_slice(&data);
+                answer.took_body(&data)?;
                 // Room made back as the body is taken, or the window closes and
                 // the server stops sending half way through a large page.
                 let widen = u32::try_from(data.len()).unwrap_or(0);
@@ -272,7 +266,26 @@ pub fn exchange_however_it_ends(
         }
     }
 
-    let Some(status) = status else {
+    if !unsent.is_empty() {
+        // The answer came before the request finished — a `413`, a redirect, a
+        // server that had made its mind up. The rest of the body is bytes
+        // nobody wants, and a stream we simply stopped writing to would stay
+        // open until the connection ended, counting against how many this
+        // engine may have. The write itself is allowed to fail without
+        // spoiling the response: the response is whole, and a connection that
+        // will not take a reset is one the pool finds out about on its next
+        // use rather than one this exchange can mend.
+        let _ = write_all(
+            wire,
+            &frame::write(&Frame::ResetStream {
+                stream,
+                error: ErrorCode::Cancel,
+            }),
+        );
+        speaking.session.gave_up_on(stream);
+    }
+
+    let Some(status) = answer.status else {
         // A stream that stopped before its headers is not a short response, it
         // is no response: there is nothing to say what arrived, and no byte to
         // ask for the rest from. It is also what the pool's retry is for —
@@ -284,11 +297,211 @@ pub fn exchange_however_it_ends(
         response: Response {
             url: request.url.clone(),
             status,
-            headers,
-            body,
+            headers: answer.headers,
+            body: answer.body,
         },
         short,
     })
+}
+
+/// What a header block turned out to be.
+///
+/// Three things arrive looking identical on the wire, and only the decoded
+/// `:status` and what came before tell them apart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Block {
+    /// Something said before the answer, which is not the answer.
+    Interim,
+    /// Part of the message, which is not finished.
+    More,
+    /// The message, finished.
+    Whole,
+}
+
+/// A response being put together out of what arrives on its stream.
+///
+/// Separate from the exchange because it is a different question: the exchange
+/// asks what is on the wire, and this asks what the message *is* — which block
+/// is the answer, which is something said before it, and which is the trailers.
+#[derive(Debug)]
+struct Assembling {
+    status: Option<Status>,
+    headers: Headers,
+    body: Vec<u8>,
+    /// How many interim responses have arrived, so that a server cannot spend
+    /// this tab's afternoon saying nothing.
+    interim_so_far: usize,
+}
+
+impl Assembling {
+    fn new() -> Self {
+        Self {
+            status: None,
+            headers: Headers::new(),
+            body: Vec::new(),
+            interim_so_far: 0,
+        }
+    }
+
+    /// Take one decoded header block, and say what it turned out to be.
+    ///
+    /// # Errors
+    ///
+    /// [`Broken`] for a block that is not one this message may have here.
+    fn took_a_header_block(&mut self, fields: &[Field], end_stream: bool) -> Result<Block, Broken> {
+        // A block before the answer has to carry a `:status`; one after it is
+        // trailers, and must carry no pseudo-header at all.
+        let (arrived, said) = read_block(fields, self.status.is_none())?;
+        match arrived {
+            Some(before) if before.is_interim() => {
+                if end_stream {
+                    return Err(malformed(
+                        "an interim response that ends the stream, when it is not the response",
+                    ));
+                }
+                self.interim_so_far += 1;
+                if self.interim_so_far > Status::MOST_INTERIM {
+                    return Err(malformed(&format!(
+                        "more than {} interim responses before the answer",
+                        Status::MOST_INTERIM
+                    )));
+                }
+                // Its headers are read and dropped: `103 Early Hints` is a list
+                // of things to fetch early, and fetching early is queue item
+                // 113's business rather than this file's. Dropping them is a
+                // decision, not an oversight.
+                return Ok(Block::Interim);
+            }
+            // The answer, or a trailer block, which carries no status.
+            Some(answer) => self.status = Some(answer),
+            None => {}
+        }
+        for header in said.iter() {
+            self.headers.add(header.name.clone(), header.value.clone());
+        }
+        Ok(if end_stream {
+            Block::Whole
+        } else {
+            Block::More
+        })
+    }
+
+    /// Take body bytes.
+    ///
+    /// # Errors
+    ///
+    /// [`Broken`] when they arrived before anything said what message they
+    /// belong to.
+    fn took_body(&mut self, data: &[u8]) -> Result<(), Broken> {
+        if self.status.is_none() {
+            return Err(malformed(
+                "a DATA frame before the response's headers, which is a body belonging to no \
+                 message",
+            ));
+        }
+        self.body.extend_from_slice(data);
+        Ok(())
+    }
+}
+
+/// Say hello if this is the first exchange, open a stream, and send the
+/// request — its head, and as much of its body as the peer has made room for.
+///
+/// Returns the stream it went out on, and whatever of the body has not gone
+/// yet, which is empty in the ordinary case: both windows start at sixty-four
+/// kilobytes, which is more than any form.
+///
+/// # Errors
+///
+/// [`Broken`] when the connection could not be written to, when no stream may
+/// be opened, or when the request asks for something this engine will not
+/// promise — see [`Request::unmet_expectation`].
+fn send_request<'a>(
+    wire: &mut impl Write,
+    speaking: &mut Speaking,
+    request: &'a Request,
+) -> Result<(u32, &'a [u8]), Broken> {
+    // Refused before the connection is touched, so nothing has been written
+    // and the connection is exactly as it was.
+    if let Some(why) = request.unmet_expectation() {
+        return Err(Broken {
+            why,
+            error: ErrorCode::InternalError,
+            fatal: false,
+        });
+    }
+    begin(wire, speaking)?;
+    let stream = speaking.session.open()?;
+    let block = hpack::encode(&fields_for(request), &mut speaking.writing);
+    let mut unsent: &[u8] = &request.body;
+    write_all(
+        wire,
+        &frame::write(&Frame::Headers {
+            stream,
+            block,
+            // `END_STREAM` here says truthfully that there is nothing more,
+            // which is the whole of what a request without a body is. With one,
+            // the flag goes on the last `DATA` frame instead.
+            end_stream: unsent.is_empty(),
+            end_headers: true,
+            priority: None,
+        }),
+    )?;
+    if unsent.is_empty() {
+        speaking.session.finished_sending(stream);
+    } else {
+        push_body(wire, speaking, stream, &mut unsent)?;
+    }
+    Ok((stream, unsent))
+}
+
+/// Send as much of the body as the peer has made room for, and no more.
+///
+/// **This is where a body meets flow control.** Three numbers bound every frame
+/// that goes out and all three are the peer's: the stream's window, the
+/// connection's window, and the largest frame it said it would read. When they
+/// leave no room this returns having sent what it could, and the caller reads
+/// until a `WINDOW_UPDATE` arrives and calls it again — which is the difference
+/// between waiting on a window and overrunning it.
+///
+/// # Errors
+///
+/// [`Broken`] when the connection could not be written to.
+fn push_body(
+    wire: &mut impl Write,
+    speaking: &mut Speaking,
+    stream: u32,
+    unsent: &mut &[u8],
+) -> Result<(), Broken> {
+    let most = speaking.session.most_in_one_frame();
+    while !unsent.is_empty() {
+        let wanted = unsent.len().min(most);
+        let going = speaking.session.room_to_send(stream, wanted);
+        if going == 0 {
+            // The window is shut. Nothing to do but read until it opens.
+            return Ok(());
+        }
+        let (Some(now), Some(rest)) = (unsent.get(..going), unsent.get(going..)) else {
+            // `room_to_send` never hands back more than it was asked for, so
+            // this is arithmetic that cannot happen rather than a case; leaving
+            // the bytes unsent is the answer that cannot make anything worse.
+            return Ok(());
+        };
+        let last = rest.is_empty();
+        write_all(
+            wire,
+            &frame::write(&Frame::Data {
+                stream,
+                data: now.to_vec(),
+                end_stream: last,
+            }),
+        )?;
+        *unsent = rest;
+        if last {
+            speaking.session.finished_sending(stream);
+        }
+    }
+    Ok(())
 }
 
 /// Reply to the frames a peer waits for before it will send anything more.
@@ -337,51 +550,67 @@ fn make_room_back(wire: &mut impl Write, stream: u32, by: u32) -> Result<(), Bro
     )
 }
 
-/// One header out of a decoded block.
-fn read_one(
-    field: &Field,
-    status: &mut Option<Status>,
-    headers: &mut Headers,
-) -> Result<(), Broken> {
-    if let Some(name) = field.name.strip_prefix(':') {
-        if name != "status" {
+/// One decoded header block: its status, when it is a block that has one, and
+/// its ordinary headers.
+///
+/// `carries_status` is what tells a **response** from its **trailers**, which
+/// are the same thing on the wire and are told apart only by which came first.
+/// A trailer block carrying a `:status` would be a second response smuggled
+/// into the end of the first one.
+fn read_block(fields: &[Field], carries_status: bool) -> Result<(Option<Status>, Headers), Broken> {
+    let mut status = None;
+    let mut headers = Headers::new();
+    for field in fields {
+        if let Some(name) = field.name.strip_prefix(':') {
+            if !carries_status {
+                return Err(malformed(&format!(
+                    "a trailer block carrying :{name}, where no pseudo-header may be"
+                )));
+            }
+            if name != "status" {
+                return Err(malformed(&format!(
+                    "a response carrying :{name}, which only a request may have"
+                )));
+            }
+            if status.is_some() {
+                return Err(malformed("a response with two :status headers"));
+            }
+            status = Some(Status(field.value.parse::<u16>().map_err(|_| {
+                malformed(&format!(
+                    "a :status of {:?}, which is not a number",
+                    field.value
+                ))
+            })?));
+            continue;
+        }
+        // A pseudo-header after an ordinary one is how a message is smuggled
+        // past something that only reads the first few headers.
+        if carries_status && status.is_none() {
+            return Err(malformed("a header before :status"));
+        }
+        if ABOUT_THE_HOP
+            .iter()
+            .any(|forbidden| field.name.eq_ignore_ascii_case(forbidden))
+        {
             return Err(malformed(&format!(
-                "a response carrying :{name}, which only a request may have"
+                "a response carrying {}, which HTTP/2 forbids",
+                field.name
             )));
         }
-        if status.is_some() {
-            return Err(malformed("a response with two :status headers"));
+        if field.name.chars().any(|letter| letter.is_ascii_uppercase()) {
+            return Err(malformed(&format!(
+                "a header named {:?}, when HTTP/2 names are lowercase",
+                field.name
+            )));
         }
-        *status = Some(Status(field.value.parse::<u16>().map_err(|_| {
-            malformed(&format!(
-                "a :status of {:?}, which is not a number",
-                field.value
-            ))
-        })?));
-        return Ok(());
+        headers.add(field.name.clone(), field.value.clone());
     }
-    // A pseudo-header after an ordinary one is how a message is smuggled past
-    // something that only reads the first few headers.
-    if status.is_none() {
-        return Err(malformed("a header before :status"));
+    if carries_status && status.is_none() {
+        return Err(malformed(
+            "a header block with no :status, which is not a response",
+        ));
     }
-    if ABOUT_THE_HOP
-        .iter()
-        .any(|forbidden| field.name.eq_ignore_ascii_case(forbidden))
-    {
-        return Err(malformed(&format!(
-            "a response carrying {}, which HTTP/2 forbids",
-            field.name
-        )));
-    }
-    if field.name.chars().any(|letter| letter.is_ascii_uppercase()) {
-        return Err(malformed(&format!(
-            "a header named {:?}, when HTTP/2 names are lowercase",
-            field.name
-        )));
-    }
-    headers.add(field.name.clone(), field.value.clone());
-    Ok(())
+    Ok((status, headers))
 }
 
 /// A request as HTTP/2 carries it: the four pseudo-headers first, then the
@@ -409,11 +638,18 @@ fn fields_for(request: &Request) -> Vec<Field> {
         Field::new(":authority", authority),
         Field::new(":path", target),
     ];
+    // Optional in HTTP/2, where `END_STREAM` is what actually frames a body —
+    // and, when it is there, it must agree with the bytes or the message is
+    // malformed. So it is written from the body, exactly as HTTP/1.1 writes it,
+    // and a caller's is dropped below.
+    if let Some(length) = request.declared_length() {
+        fields.push(Field::new("content-length", length.to_string()));
+    }
     for header in request.headers.iter() {
         let name = header.name.to_ascii_lowercase();
         // `Host` is `:authority` here, and the rest describe a hop that HTTP/2
         // has its own way of saying. Sending one makes the message malformed.
-        if ABOUT_THE_HOP.contains(&name.as_str()) {
+        if ABOUT_THE_HOP.contains(&name.as_str()) || name == "content-length" {
             continue;
         }
         let mut field = Field::new(name, header.value.clone());

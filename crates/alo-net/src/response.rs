@@ -30,6 +30,27 @@ impl Status {
         (200..300).contains(&self.0)
     }
 
+    /// How many interim responses this engine will read before the real one.
+    ///
+    /// A bound rather than a limit somebody hit: an interim response is a head
+    /// with no body, so a server can send them for ever at almost no cost to
+    /// itself, and a client that read them for ever would be a tab that never
+    /// finishes loading. One number, read by both protocols, because a bound
+    /// that differed between them would be one of them being wrong.
+    pub const MOST_INTERIM: usize = 8;
+
+    /// Whether this is something said *before* the answer — the one hundreds.
+    ///
+    /// An interim response is not the response. It carries no body, it does not
+    /// end the message, and another one may follow it. A client that treated
+    /// one as the answer would show a blank page for every server that sends
+    /// `103 Early Hints`, which is a great many of them — and every client has
+    /// to read them whether or not it asked for one, because a server may send
+    /// one unprompted.
+    pub fn is_interim(self) -> bool {
+        (100..200).contains(&self.0)
+    }
+
     /// Whether this points somewhere else.
     pub fn is_redirect(self) -> bool {
         matches!(self.0, 301 | 302 | 303 | 307 | 308)

@@ -186,6 +186,16 @@ pub fn next(sent: &Request, got: &Response) -> Result<Next, Refusal> {
         // be able to launder a request into looking self-inflicted.
         initiator: sent.initiator.clone(),
         headers,
+        // The same condition that drops `Content-Length` and `Content-Type`
+        // drops the bytes they described, and it has to be the same one: a
+        // `GET` carrying a body that its headers no longer describe is a
+        // message the next server frames by guessing. `307` and `308` keep the
+        // method, so they keep the body — which is the whole reason they exist.
+        body: if lost_its_body {
+            Vec::new()
+        } else {
+            sent.body.clone()
+        },
     })))
 }
 

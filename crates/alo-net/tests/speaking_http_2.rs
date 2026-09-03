@@ -38,6 +38,40 @@ fn exactly(socket: &mut TcpStream, how_many: usize) -> Option<Vec<u8>> {
     Some(got)
 }
 
+/// Say hello and read one request: the preface, the settings dance, and the
+/// `HEADERS` that follows.
+///
+/// Returns what was asked, on which stream, and the table to encode the answer
+/// against — the part every server below needs and none of them differs in.
+fn greet(socket: &mut TcpStream) -> Option<(Vec<Field>, u32, Table)> {
+    if exactly(socket, frame::PREFACE.len()).as_deref() != Some(frame::PREFACE) {
+        return None;
+    }
+    let mut reading = Table::new(4096);
+    loop {
+        let got = frame::read(socket, frame::LARGEST_BY_DEFAULT).ok()?;
+        match got {
+            Frame::Settings { ack: false, .. } => {
+                let _ = socket.write_all(&frame::write(&Frame::Settings {
+                    ack: false,
+                    values: vec![(Setting::MAX_CONCURRENT_STREAMS, 100)],
+                }));
+                let _ = socket.write_all(&frame::write(&Frame::Settings {
+                    ack: true,
+                    values: Vec::new(),
+                }));
+            }
+            Frame::Headers {
+                stream: on, block, ..
+            } => {
+                let fields = hpack::decode(&block, &mut reading).ok()?;
+                return Some((fields, on, Table::new(4096)));
+            }
+            _ => {}
+        }
+    }
+}
+
 /// A server that answers one request, and hands back what the client sent it.
 ///
 /// `answer` builds the response headers and body from the request's fields, so
@@ -58,44 +92,9 @@ fn serve(
         let Some(Ok(mut socket)) = listener.incoming().next() else {
             return;
         };
-        // The preface, then whatever frames arrive until a HEADERS.
-        if exactly(&mut socket, frame::PREFACE.len()).as_deref() != Some(frame::PREFACE) {
+        let Some((asked, stream, mut writing)) = greet(&mut socket) else {
             return;
-        }
-        let mut reading = Table::new(4096);
-        let mut writing = Table::new(4096);
-        // Set by the HEADERS that ends the loop; there is no sensible value
-        // before one arrives, which is what the `Option` says.
-        let asked;
-        let stream;
-        loop {
-            let Ok(got) = frame::read(&mut socket, frame::LARGEST_BY_DEFAULT) else {
-                return;
-            };
-            match got {
-                Frame::Settings { ack: false, .. } => {
-                    let _ = socket.write_all(&frame::write(&Frame::Settings {
-                        ack: false,
-                        values: vec![(Setting::MAX_CONCURRENT_STREAMS, 100)],
-                    }));
-                    let _ = socket.write_all(&frame::write(&Frame::Settings {
-                        ack: true,
-                        values: Vec::new(),
-                    }));
-                }
-                Frame::Headers {
-                    stream: on, block, ..
-                } => {
-                    let Ok(fields) = hpack::decode(&block, &mut reading) else {
-                        return;
-                    };
-                    asked = fields;
-                    stream = on;
-                    break;
-                }
-                _ => {}
-            }
-        }
+        };
         let _ = say.send(asked.clone());
 
         let (headers, body) = answer(&asked);
@@ -119,6 +118,68 @@ fn serve(
         std::thread::sleep(std::time::Duration::from_millis(200));
     });
     (port, heard)
+}
+
+/// A server that says one or more things *before* it answers.
+///
+/// `interim` is how many `103 Early Hints` go out first, and `ending` puts
+/// `END_STREAM` on each of them — which no interim response may have, since it
+/// is not the end of anything.
+fn serve_after_saying(interim: usize, ending: bool) -> u16 {
+    let Ok(listener) = TcpListener::bind("127.0.0.1:0") else {
+        return 0;
+    };
+    let Ok(address) = listener.local_addr() else {
+        return 0;
+    };
+    let port = address.port();
+
+    std::thread::spawn(move || {
+        let Some(Ok(mut socket)) = listener.incoming().next() else {
+            return;
+        };
+        let Some((_, stream, mut writing)) = greet(&mut socket) else {
+            return;
+        };
+        for _ in 0..interim {
+            let block = hpack::encode(
+                &[
+                    Field::new(":status", "103"),
+                    Field::new("link", "</a.css>; rel=preload"),
+                ],
+                &mut writing,
+            );
+            let _ = socket.write_all(&frame::write(&Frame::Headers {
+                stream,
+                block,
+                end_stream: ending,
+                end_headers: true,
+                priority: None,
+            }));
+        }
+        let block = hpack::encode(
+            &[
+                Field::new(":status", "200"),
+                Field::new("content-type", "text/html"),
+            ],
+            &mut writing,
+        );
+        let _ = socket.write_all(&frame::write(&Frame::Headers {
+            stream,
+            block,
+            end_stream: false,
+            end_headers: true,
+            priority: None,
+        }));
+        let _ = socket.write_all(&frame::write(&Frame::Data {
+            stream,
+            data: b"<p>the answer</p>".to_vec(),
+            end_stream: true,
+        }));
+        let _ = socket.flush();
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    });
+    port
 }
 
 fn ok_with(body: &'static str) -> impl Fn(&[Field]) -> (Vec<Field>, Vec<u8>) + Send + 'static {
@@ -365,6 +426,65 @@ fn a_status_that_is_not_a_number_is_refused() {
     .err()
     .unwrap_or_default();
     assert!(why.contains("not a number"), "{why:?}");
+}
+
+// --- What is said before the answer ------------------------------------------
+
+/// An interim response is not the response. Every client has to read one
+/// whether or not it asked for anything — a server may send `103 Early Hints`
+/// unprompted, and a client that took the first header block it saw would show
+/// a blank page for one.
+#[test]
+fn an_interim_response_is_read_past_rather_than_taken_for_the_answer() {
+    let port = serve_after_saying(1, false);
+    assert!(port != 0, "no server");
+    let response = ask(
+        port,
+        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+    )
+    .unwrap_or_else(|why| panic!("the exchange failed: {why}"));
+
+    assert_eq!(
+        response.status,
+        Status(200),
+        "an early hint became the page"
+    );
+    assert_eq!(response.body, b"<p>the answer</p>");
+    assert_eq!(
+        response.headers.get("link"),
+        None,
+        "an interim response's headers became the answer's"
+    );
+}
+
+/// A head with no body costs a server almost nothing to send, so a client that
+/// read them for ever would be a tab that never finishes loading.
+#[test]
+fn a_server_that_only_ever_says_something_first_is_refused() {
+    let port = serve_after_saying(Status::MOST_INTERIM + 1, false);
+    assert!(port != 0, "no server");
+    let why = ask(
+        port,
+        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+    )
+    .err()
+    .unwrap_or_default();
+    assert!(why.contains("interim"), "{why:?}");
+}
+
+/// It is not the end of anything: another one may follow it, and the answer
+/// certainly does.
+#[test]
+fn an_interim_response_that_ends_the_stream_is_refused() {
+    let port = serve_after_saying(1, true);
+    assert!(port != 0, "no server");
+    let why = ask(
+        port,
+        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+    )
+    .err()
+    .unwrap_or_default();
+    assert!(why.contains("ends the stream"), "{why:?}");
 }
 
 // --- The error codes are the protocol's own ---------------------------------
