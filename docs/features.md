@@ -1,8 +1,14 @@
 # alo browser — features.md
 
-Feature inventory. Three tiers, matching the stages in `ROADMAP.md`:
+Feature inventory. Four tiers, matching the stages in `ROADMAP.md`:
 **[1]** = renders alo · **[2]** = renders the modern web · **[3]** = the legacy
-tail. **★** marks the things no other engine offers.
+tail · **[4]** = a browser somebody chooses. **★** marks the things no other
+engine offers.
+
+**[4] was added when the roadmap gained a fourth stage.** The product work —
+extensions, sync, a mobile port — used to sit under "not scheduled", which had
+begun doing the work of "not thought about". It is gated behind stage 2's exit
+gate exactly as before; it is now *named*.
 
 Rule of the file: **nothing gets built that isn't listed here, and nothing gets
 listed without a tier.** Additions go through the scope gate — this file, the
@@ -32,11 +38,12 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] **`clamp()`, `min()` and `max()`**, one family with `calc()` and nesting in each other, type-checked once at parse time
 - [1] **Viewport units** — `vw`, `vh`, `vmin`, `vmax` — which need a window, and answer zero rather than a plausible number when there is none
 - [1] Colours as channels — hex, `rgb()`, `hsl()`, the named colours. Blocks paint rather than layout
-- [2] Viewport units. They are relative to a window, and until there is one there is nothing true to say
 - [1] An unknown property is kept and ignored rather than dropped, so a later stage can implement it without re-parsing
 - [1] Media queries for width, and `prefers-color-scheme` — the light and dark the workspace already ships
 - [2] Animations and transitions
-- [2] Container queries, `:has()`, cascade layers
+- [2] Container queries, `:has()`, cascade layers, `@property`
+- [2] Filters, `backdrop-filter`, blend modes, masks and `clip-path`
+- [2] Paged media and print styles
 - [3] Vendor prefixes, and anything that exists only for a page written before 2015
 
 ## Layout
@@ -53,7 +60,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] Inline formatting: a line of text and the boxes in it, with breaking and baselines
 - [1] Layout is asserted in **numbers** — the computed box — never by eyeballing an image
 - [2] Writing modes, and layout that is right-to-left rather than mirrored afterwards
-- [2] Multi-column, `position: sticky`
+- [2] Multi-column, `position: sticky`, scroll snap and overscroll behaviour
 - [3] **Floats as layout, CSS-table layout, quirks mode.** Deliberately last, and possibly never: refusing these is what makes the scope survivable
 
 ## Text
@@ -63,6 +70,9 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] **The awkward scripts before the easy ones.** A pipeline that assumed left-to-right and one glyph per character is a pipeline that gets rewritten
 - [1] Line breaking, and the fallback chain when a font lacks a glyph
 - [1] Web fonts
+- [2] Web fonts as pages actually ship them: WOFF2, variable fonts, and loading that does not flash
+- [2] **Input methods.** A browser that cannot take Japanese or Chinese input is not a browser in those countries
+- [2] `contenteditable`, which every rich text box on the web is built on
 - [2] Bidirectional text end to end
 - [2] Selection, carets, and text input
 - [2] Hyphenation, `text-wrap: balance`
@@ -103,15 +113,123 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A surface alo OS's shell can render into — **retiered from [1]**: it is the one embedding item needing a compositor that does not exist, and tiering it [1] is what put an unreachable dependency inside stage 1
 - [2] Several documents at once, the shape tabs need
 
-## Networking, scripting and safety — stage 2
+## The process model — stage 2
 
 - [2] **The process and sandbox model, designed before the first hostile page is ever loaded** (ADR 0005). One process per site, renderers with almost no privilege, the platform's own sandbox rather than one of ours, and work crossing as typed messages in one direction. Memory safety does not make this optional: Spectre is a hardware property, and the codecs we rent are not ours to make safe
-- [2] A renderer that dies costs one tab and never the browser
-- [2] HTTP with `rustls`, caching, and cookies with defaults that are not hostile
-- [2] ★ **A JavaScript engine, ours, in Rust** — a correct interpreter first, a JIT much later or never. Stage 1 needs none at all, which is what removes the largest component of a browser from the critical path
-- [2] Images and media, through rented codecs
-- [2] Canvas
-- [2] Chrome: tabs, address bar, history, downloads
+- [2] A renderer that dies costs one tab and never the browser, and says so rather than leaving a blank rectangle
+- [2] The transport, and the lifecycle that starts, reuses and reaps renderers
+- [2] Where one site ends and another begins — the origin, the site, and which of them gets a process
+
+## The network — stage 2
+
+- [2] **URLs, properly**: WHATWG parsing, origins, IDNA and punycode. Every security decision below is made against the origin this produces, which is why it comes first
+- [2] TLS with `rustls`, and certificate errors a person can act on rather than click through
+- [2] HTTP/1.1 and HTTP/2, with connection pooling and keep-alive
+- [2] HTTP/3 and QUIC, after those are correct
+- [2] DNS, with encrypted DNS as a choice somebody made rather than a default nobody was told about
+- [2] Content encodings: gzip, brotli, zstd
+- [2] Redirects, byte ranges, and downloads that resume
+- [2] **The HTTP cache with real semantics** — freshness, revalidation, `Vary`. Subtly wrong here is invisible for months and then serves somebody a stale bank page
+- [2] **Cookies**: `SameSite`, `Secure`, `HttpOnly`, partitioned by default — the default is a product decision, not a parser detail
+- [2] The same-origin policy, CORS and preflight
+- [2] Content Security Policy, referrer policy, HSTS, mixed-content blocking
+- [2] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
+- [2] WebSocket
+- [2] ★ **Every request attributable** — which page, and which agent action, caused it. No other engine has needed to answer that, and an agent-driven browser that cannot is one nobody should trust
+
+## JavaScript — stage 2
+
+- [2] ★ **A JavaScript engine, ours, in Rust.** Stage 1 needs none at all, which is what removes the largest component of a browser from the critical path
+- [2] Lexer and parser to an AST — the current language, not ES5
+- [2] A bytecode compiler and an interpreter: correct first
+- [2] A garbage collector, and the object model underneath it
+- [2] The ECMAScript standard library, in the order real pages need it
+- [2] Regular expressions, with the syntax the language actually has
+- [2] Promises, the microtask queue, `async`/`await`, generators and iterators
+- [2] Modules: ESM, dynamic `import()`, and the loader that fetches them
+- [2] **The event loop** — tasks, microtasks, the rendering steps, `requestAnimationFrame`
+- [2] Errors and stack traces good enough to debug somebody else's minified page
+- [2] Internationalisation (`Intl`), rented rather than written
+- [3] A JIT — refused until there is a measured reason and an ADR weighing it against the attack surface it adds
+
+## The DOM as pages use it — stage 2
+
+- [2] Mutation from script, and the invalidation that has to follow it
+- [2] **Events**: capture and bubble, listeners, default actions
+- [2] **Forms**: the controls, constraint validation, submission, file inputs
+- [2] **Navigation and session history**: `pushState`, back and forward, and what survives each
+- [2] `iframe`s and the sandbox attribute
+- [2] Shadow DOM and custom elements — component frameworks are not optional on the modern web
+- [2] Selection and ranges
+- [2] CSSOM — styles readable and writable from script
+- [2] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them
+- [2] Workers: dedicated, shared, and service workers with their fetch interception
+- [2] Timers, clipboard, drag and drop
+- [2] ★ **Permissions as capabilities** — camera, microphone, location, notifications, in the shape of `alo-os` ADR 0001: enumerated, visible, revocable, expiring, recorded. A browser is where most people meet a permission prompt, and every other one is a dialogue nobody can audit afterwards
+
+## Pictures and media — stage 2
+
+- [2] Image codecs, rented: PNG, JPEG, GIF, WebP, AVIF
+- [2] **SVG** — a second rendering model inside the first, and far larger than one line suggests
+- [2] Canvas 2D
+- [2] Audio and video playback through rented decoders
+- [2] Media Source Extensions, without which most video sites do not play at all
+- [2] Web Audio
+- [2] WebGL, then WebGPU — both large, both late, and neither before the software path is right
+
+## Speed, where slow means unusable — stage 2
+
+- [2] **Incremental style and layout** — recompute what changed, not the document. The largest single difference between an engine that renders a page and one somebody can use
+- [2] Compositing layers, and scrolling that does not repaint the world
+- [2] Off-main-thread scrolling and animation
+- [2] A performance budget somebody can hold us to: named pages, measured, in CI
+
+## The browser itself — stage 2
+
+- [2] A window, tabs, and a tab strip
+- [2] The address bar: what somebody typed, what it means, and a search that phones nobody by default
+- [2] History, bookmarks, downloads
+- [2] Find in page, zoom, and per-site settings that stick
+- [2] Context menus, and keyboard operation of every one of them
+- [2] Printing, print preview, export to PDF
+- [2] Viewing a PDF, or saying plainly that we hand it to something else
+- [2] Private browsing, and profiles that are genuinely separate
+- [2] Autofill, and credentials held where the operating system holds secrets rather than in a file of ours
+- [2] Security surfaces: certificate detail, permission state, what this page has stored — reachable, none of it buried
+- [2] Settings
+- [2] **Developer tools**: inspector, console, network, performance. A browser nobody can debug a site with is not one a developer keeps
+- [2] **Accessibility on the shell**: keyboard operation of everything, focus always visible, and the EN 301 549 conformance the workspace is already held to
+
+## The legacy tail — stage 3
+
+Deliberately last, and possibly never finished. Refusing this list is what made
+stages 1 and 2 survivable; a broken render schedules the work, not a
+specification.
+
+- [3] Quirks mode
+- [3] **Floats as layout**, and CSS table layout — the two that most often turn an old page into a column of rubble
+- [3] `document.write`, live `HTMLCollection`s, and the DOM as it was before it was a specification
+- [3] Legacy character encodings, and detecting them
+- [3] XML, XHTML and XSLT
+- [3] `frameset`
+- [3] Vendor prefixes, and anything that exists only for a page written before 2015
+- [3] The sloppy-mode corners of JavaScript that only old code reaches
+
+## A browser somebody chooses — stage 4
+
+**[4]** is a tier this file did not have. It was added when the roadmap gained a
+fourth stage: product work, gated behind stage 2's exit gate, listed rather than
+left unnamed because "not scheduled" had begun doing the work of "not thought
+about".
+
+- [4] Extensions — and the decision, in an ADR, whether that means the WebExtensions API or something narrower we can actually secure
+- [4] Sync, self-hosted: bookmarks, history, tabs and passwords, end-to-end encrypted, on the customer's own server
+- [4] Updates that are signed, staged and reversible
+- [4] A mobile port
+- [4] Crash handling that helps us fix it without becoming telemetry
+- [4] ★ **Translation on the machine** — alo already runs models locally; a page translated without sending it anywhere is the sovereign version of a feature every other browser sends to a server
+- [4] ★ **Reading and summarising a page locally**, under the same grants and the same record
+- [4] Enterprise: policy, managed configuration, and an update mirror an organisation hosts
 
 ## Non-goals
 
@@ -120,8 +238,13 @@ physics, as Chromium, Firefox, Servo and Ladybird all do, and not out of
 timidity. **No fork** of Chromium or Ladybird. **No `unsafe`** outside a
 reviewed, named boundary with an ADR. **No conformance-percentage target** — the
 measure is whether alo renders correctly, because a Web Platform Tests score
-grades us against the legacy we are deliberately refusing. **No extensions, no
-sync, no mobile port** until stage 2's exit gate is met; they are product
-features with a good story attached. **No plugin-shaped agent** bolted on
-afterwards — that is what every other AI browser already is, and ADR 0002 exists
-to prevent it.
+grades us against the legacy we are deliberately refusing. **No plugin-shaped
+agent** bolted on afterwards — that is what every other AI browser already is,
+and ADR 0002 exists to prevent it.
+
+And four that no later stage may quietly adopt:
+
+- **No DRM, and no Encrypted Media Extensions.** A proprietary binary with privileges inside a sovereignty product is a contradiction. Sites requiring it will not play, and we say so rather than shipping a black box.
+- **No proprietary codecs** we cannot ship freely.
+- **No telemetry.** Not "anonymised telemetry". None — the rule alo OS already holds.
+- **No search deal.** The address bar's default is decided for the person using it, not sold.

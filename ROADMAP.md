@@ -109,7 +109,24 @@ repository. They are kept out of the list above so they cannot block it.
 
 ---
 
+
 ## Stage 2 — it renders the modern web
+
+The stage that turns an engine into a browser. It is the largest of the three by
+a wide margin: stage 1 refused scripting, hostile pages and compatibility, and
+this is where all three arrive at once.
+
+**An honest word about the size.** What follows is years of work, and naming it
+completely is the point — a list that stops at the interesting parts is how a
+project discovers the boring half after it has promised a date. The order inside
+each group is ours, and the trigger for most items is a real page that fails,
+never a specification listing a method.
+
+**Two things gate the rest** and are already under way: the process model,
+because it cannot be retrofitted, and JavaScript, because most of this list is
+unreachable without it.
+
+### The process model
 
 - [ ] **The process and sandbox model — designed before the first hostile page is loaded.** One process per site, renderers with almost no privilege. Every browser that retrofitted this suffered for years, and it is the one thing here that cannot be added later
       · Built: ADR 0005, and `alo-renderer` — the engine behind a message
@@ -119,28 +136,169 @@ repository. They are kept out of the list above so they cannot block it.
       cannot be retrofitted · Owed: queue item 29 — the actual split into a
       process per site, and the platform's own sandbox rather than a hopeful one
       of ours. Item 25 made that a change of transport rather than a redesign
-- [ ] Network: HTTP, `rustls`, caching, cookies with sane defaults
-- [ ] **A JavaScript engine, ours, in Rust** — a correct interpreter first; a JIT much later or never
-- [ ] The DOM APIs a modern page actually uses, driven by pages that fail
-- [ ] Images, media, canvas
-- [ ] Chrome: tabs, address bar, history, downloads
-- [ ] ★ The agent reads and acts on ordinary web pages, through the same tree
+- [ ] A renderer that dies takes its tab and nothing else — and says so, rather than leaving a blank rectangle
+- [ ] The transport, and the lifecycle that starts, reuses and reaps renderers
+- [ ] Where one site ends and another begins — the origin, the site, and which of them gets a process
+
+### The network
+
+- [ ] **URLs, properly**: WHATWG parsing, origins, IDNA and punycode. Every security decision below is made against the origin this produces, which is why it is first
+- [ ] TLS with `rustls`, and certificate errors a person can act on rather than click through
+- [ ] HTTP/1.1, then HTTP/2 — connection pooling and keep-alive with them
+- [ ] HTTP/3 and QUIC, once those two are correct
+- [ ] DNS, and encrypted DNS as a choice somebody made rather than a default nobody was told about
+- [ ] Content encodings: gzip, brotli, zstd
+- [ ] Redirects, byte ranges, and downloads that resume
+- [ ] **The HTTP cache, with real semantics** — freshness, revalidation, `Vary`. Subtly wrong here is invisible for months and then serves somebody a stale bank page
+- [ ] **Cookies**: `SameSite`, `Secure`, `HttpOnly`, partitioned by default. The default is a product decision, not a parser detail
+- [ ] The same-origin policy, CORS and preflight — code we write and can get wrong, which is one of ADR 0005's four reasons for the sandbox
+- [ ] Content Security Policy, referrer policy, HSTS, mixed-content blocking
+- [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
+- [ ] WebSocket
+- [ ] ★ **Every request attributable** — which page, and which agent action, caused it. No other engine has needed to answer that, and an agent-driven browser that cannot is one nobody should trust
+
+### JavaScript, ours, in Rust
+
+- [ ] Lexer and parser to an AST — the current language, not ES5
+- [ ] A bytecode compiler and an interpreter. **Correct first; a JIT much later or never**
+- [ ] A garbage collector, and the object model underneath it
+- [ ] The standard library: the ECMAScript builtins, in the order real pages need them
+- [ ] Regular expressions, with the syntax the language actually has
+- [ ] Promises, the microtask queue, `async`/`await`, generators and iterators
+- [ ] Modules: ESM, dynamic `import()`, and the loader that fetches them
+- [ ] **The event loop** — tasks, microtasks, the rendering steps, `requestAnimationFrame`. Where "it works, but the animation stutters" is decided
+- [ ] Errors and stack traces good enough to debug somebody else's minified page
+- [ ] Internationalisation (`Intl`), rented rather than written
+- [ ] Refused for now and recorded: a JIT, until there is a measured reason and an ADR weighing it against the attack surface it adds
+
+### The DOM, and the pages that use it
+
+- [ ] Mutation from script — create, append, remove, replace — and the invalidation that has to follow it
+- [ ] **Events**: capture and bubble, listeners, default actions
+- [ ] **Forms**: the controls, constraint validation, submission, file inputs
+- [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
+- [ ] `iframe`s and the sandbox attribute — a document inside a document, where a great many security bugs live
+- [ ] Shadow DOM and custom elements; component frameworks are not optional on the modern web
+- [ ] Selection and ranges
+- [ ] CSSOM — styles readable and writable from script
+- [ ] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them
+- [ ] Workers: dedicated, shared, and service workers with their fetch interception
+- [ ] Timers, clipboard, drag and drop
+- [ ] ★ **Permissions as capabilities** — camera, microphone, location, notifications, in the shape of `alo-os` ADR 0001: enumerated, visible, revocable, expiring, recorded. A browser is where most people meet a permission prompt, and every other one is a dialogue nobody can audit afterwards
+
+### CSS beyond what alo needed
+
+- [ ] Animations and transitions
+- [ ] Container queries, `:has()`, cascade layers, `@property`
+- [ ] Filters, `backdrop-filter`, blend modes, masks, `clip-path`
+- [ ] `position: sticky`, multi-column, scroll snap, overscroll behaviour
+- [ ] Writing modes, and layout that is right-to-left rather than mirrored afterwards
+- [ ] Paged media and print styles
+
+### Text, properly
+
+- [ ] Bidirectional text end to end — stage 1 shapes it; this makes selection, caret movement and editing behave
+- [ ] Selection, carets and text input inside the page
+- [ ] **Input methods.** A browser that cannot take Japanese or Chinese input is not a browser in those countries
+- [ ] `contenteditable`, which every rich text box on the web is built on
+- [ ] Hyphenation, `text-wrap: balance`
+- [ ] Web fonts as pages ship them: WOFF2, variable fonts, and loading that does not flash
+
+### Pictures, and things that move
+
+- [ ] Image codecs, rented: PNG, JPEG, GIF, WebP, AVIF
+- [ ] **SVG** — a second rendering model inside the first, and far larger than its one line here suggests
+- [ ] Canvas 2D
+- [ ] Audio and video playback through rented decoders
+- [ ] Media Source Extensions, without which most video sites do not play at all
+- [ ] Web Audio
+- [ ] WebGL, then WebGPU — both large, both late, and neither before the software path is right
+
+### Making it fast enough to use
+
+Correctness before speed is the rule everywhere else in this file. These are the
+items where being right and being unusable are the same outcome.
+
+- [ ] **Incremental style and layout** — recompute what changed, not the document. The largest single difference between an engine that renders a page and one somebody can use
+- [ ] Compositing layers, and scrolling that does not repaint the world
+- [ ] Off-main-thread scrolling and animation
+- [ ] Hardware acceleration for paint, once the software path is correct
+- [ ] A performance budget somebody can hold us to: named pages, measured, in CI
+
+### The browser itself
+
+- [ ] A window, tabs, and a tab strip
+- [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
+- [ ] History, bookmarks, downloads
+- [ ] Find in page, zoom, and per-site settings that stick
+- [ ] Context menus, and keyboard operation of every one of them
+- [ ] Printing, print preview, export to PDF
+- [ ] Viewing a PDF — or saying plainly that we hand it to something else
+- [ ] Private browsing, and profiles that are genuinely separate
+- [ ] Autofill, and credentials held where the operating system holds secrets rather than in a file of ours
+- [ ] Security surfaces: certificate detail, permission state, what this page has stored — reachable, none of it buried
+- [ ] Settings
+- [ ] **Developer tools**: inspector, console, network, performance. A browser nobody can debug a site with is not one a developer keeps
+- [ ] **Accessibility**: AT-SPI over the same tree the agent reads (ADR 0002), keyboard operation of everything, focus always visible, and the EN 301 549 conformance the workspace is already held to
+
+### ★ The agent, on somebody else's pages
+
+- [ ] The agent reads and acts on ordinary web pages through the same tree — no screenshot, no scraping, no coordinates
+- [ ] Across frames, without becoming a way around the same-origin policy
+- [ ] Under grants, and recorded: what it read, what it did, on whose approval — `alo-os` ADR 0001's model reaching the web
+- [ ] Agent-driven navigation, and a page that changes underneath an agent mid-action
 
 **Exit gate.** A person uses it as their browser for a week and reaches for
-another one only for a site they can name.
+another one only for a site they can name. An agent completes a real task on a
+site nobody wrote for us, and the record afterwards says what it read and what
+it changed.
 
 ---
 
-## Stage 3 — the rest
+## Stage 3 — the legacy tail
 
-The legacy tail, and it is deliberately last. Keep a corpus of sites people
-actually use; let a broken render schedule the work. Nothing here is built
-because a specification lists it.
+Deliberately last, and possibly never finished — a choice, not a failure.
+Refusing this list is what made stages 1 and 2 survivable. Keep a corpus of
+sites people actually use and let a broken render schedule the work.
+
+- [ ] Quirks mode
+- [ ] **Floats as layout**, and CSS table layout — the two that most often turn an old page into a column of rubble
+- [ ] `document.write`, live `HTMLCollection`s, and the DOM as it was before it was a specification
+- [ ] Legacy character encodings, and detecting them
+- [ ] XML, XHTML and XSLT
+- [ ] `frameset`
+- [ ] Vendor prefixes, and anything that exists only for a page written before 2015
+- [ ] The sloppy-mode corners of JavaScript that only old code reaches
 
 ---
 
-## Not scheduled
+## Stage 4 — a browser somebody chooses
 
-Extensions. Sync. A mobile port. Anything that is a browser *product* feature
-rather than a rendering one — until stage 2's exit gate is met, they are
-distractions with a good story attached.
+Product work, and gated: **nothing here starts until stage 2's exit gate is
+met.** It is listed rather than left unnamed because "not scheduled" had begun
+doing the work of "not thought about", and these decide whether anybody switches.
+
+- [ ] Extensions — and the decision, in an ADR, whether that means the WebExtensions API or something narrower we can actually secure
+- [ ] Sync, self-hosted: bookmarks, history, tabs and passwords, end-to-end encrypted, on the customer's own server
+- [ ] Updates that are signed, staged and reversible
+- [ ] A mobile port
+- [ ] Crash handling that helps us fix it without becoming telemetry
+- [ ] ★ **Translation on the machine.** alo already runs models locally; a page translated without sending it anywhere is the sovereign version of a feature every other browser sends to a server
+- [ ] ★ **Reading and summarising a page locally**, under the same grants and the same record
+- [ ] Enterprise: policy, managed configuration, and an update mirror an organisation hosts
+
+**Exit gate.** Somebody outside alo chooses this browser, on a machine we did not
+set up, and stays.
+
+---
+
+## Not built, and not by accident
+
+Stated here so that no later stage quietly adopts them:
+
+- **DRM and Encrypted Media Extensions.** A proprietary binary with privileges inside a sovereignty product is a contradiction. Sites that require it will not play, and we say so rather than shipping a black box.
+- **Proprietary codecs** we cannot ship freely.
+- **Telemetry.** Not "anonymised telemetry". None — the rule alo OS already holds.
+- **A search deal.** The address bar's default is decided for the person using it, not sold.
+- **Our own shaper, codec or TLS stack.** We rent the physics, as every engine does.
+- **A conformance percentage as a target.** The measure is alo, then real pages that fail.
