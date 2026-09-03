@@ -15,9 +15,10 @@ item is testable from the first one, and the display server arrives after
 correctness rather than before it.
 
 **The measure is alo, not a conformance score.** The target that ends stage 1 is
-`alo-os`'s own sign-in screen and Settings, rendering correctly. Those designs
-exist in Figma and their colours come from `alo-workplace`'s `tokens.css` — that
-file is the specification for what "correct" means here.
+**alo's** own sign-in screen and Settings, rendering correctly — an alo screen
+is alo's whichever repository it lives in, and `alo-workplace`'s are checked out
+beside this one. Their colours come from `alo-workplace`'s `tokens.css`, and
+that file is the specification for what "correct" means here.
 
 ---
 
@@ -237,7 +238,11 @@ whichever repository it lives in. `alo-workplace`'s are checked out beside this
 one. So what remains is ordinary engine work, it belongs here, and **stage 1 is
 finished before stage 2 is continued.**
 
-- [ ] **20. The four substitutions, removed.** `crates/alo-corpus/cases/alo-sign-in/`
+*Numbered 44 to 46 rather than 20 to 22: those numbers are already taken by
+finished items, and `ROADMAP.md` refers to queue items by number. Two items with
+one number is a reference that quietly points at the wrong thing.*
+
+- [ ] **44. The four substitutions, removed.** `crates/alo-corpus/cases/alo-sign-in/`
   carries four rewrites in its own stylesheet, each naming something this engine
   does not implement: `clamp()` and viewport units, `white-space: pre-line`,
   `letter-spacing`, and transitions. While they are there, what is diffed is a
@@ -246,17 +251,17 @@ finished before stage 2 is continued.**
   into separate items if it is more than one iteration — never by leaving a
   substitution in place.
 
-- [ ] **21. alo's Settings screen in the corpus.** The second screen the gate
+- [ ] **45. alo's Settings screen in the corpus.** The second screen the gate
   names, and it is not rendered at all. Same shape as the sign-in case: its own
   markup, its own rules, colours from `tokens.css`, a committed reference render
   and an expected box tree.
 
-- [ ] **22. An agent reads Settings and activates a row by name.** The last
+- [ ] **46. An agent reads Settings and activates a row by name.** The last
   clause of the exit gate. Reading works on pages we wrote, and a verb finds its
   target and reports what it decided — but it does not yet write back to the
-  document, which is item 42. So this item **depends on 42**: until a verb
-  changes the page, "activates a row" is not a thing that can be asserted. What
-  this adds beyond 42 is asserting it against a real alo screen, which is where
+  document, which was item 42. **Item 42 is done**, so this one is unblocked: a
+  verb changes the page now. What this adds beyond 42 is asserting it against a
+  real alo screen, which is where
   a role declared wrongly actually shows up.
 
 **Still genuinely not this queue's**, and now recorded in `ROADMAP.md` outside
