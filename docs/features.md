@@ -184,9 +184,25 @@ The reason this exists rather than a faster fork of somebody else's engine.
   to the header cannot widen a policy, and two policies are an intersection
 - [2] **A policy a site is only watching blocks nothing** —
   `Content-Security-Policy-Report-Only` is read as what it is, and what it
-  objected to is available rather than acted on
+  objected to is reported rather than acted on
 - [2] **A directive this engine does not act on is named** rather than assumed
   to be protecting the page
+- [2] **A violation is reported to whoever the policy named** — `report-uri`
+  and `report-to`, in the two documents collectors read, from an enforced
+  policy and a watched one alike. A group name is resolved against the page's
+  own `Reporting-Endpoints` header, and one nobody defined is said in words
+  rather than dropped
+- [2] **A report says a cross-origin URL as its origin and nothing more.** A
+  report is posted to a server the page chose, so a full URL in one would be a
+  way for a page to read a URL it was refused — a capability token in
+  somebody else's query, where a redirect ended. A `data:` URL is reported as
+  its scheme alone, and the page's own URLs lose their fragment and any
+  credentials written into them
+- [2] **A report that cannot be sent is not a load that fails.** A collector
+  that is down, that answers an error, or that a public page pointed at this
+  machine is a delivery that did not happen and is named as one — silence
+  would make a policy reporting nowhere look exactly like a policy nothing
+  violated
 - [2] **The preflight cache** — a second request of the same shape sends no
   `OPTIONS`, and one of a different shape still does. Partitioned by top-level
   site, keyed by the asking origin as well, expiring on the caller's clock and

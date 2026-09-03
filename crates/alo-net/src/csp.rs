@@ -36,17 +36,19 @@
 //! reflected value, a misconfigured proxy — can otherwise widen a policy by
 //! restating one of its directives. First wins, so appending achieves nothing.
 //!
+//! # Where the reporting is
+//!
+//! **[`crate::csp_report`]**, which is what a violation *is* and where it goes.
+//! This file decides; that one tells the author. [`Policies::violations`] is
+//! the join between them, and it is the only thing that builds a
+//! [`crate::csp_report::Violation`] — a violation nobody's policy objected to
+//! is not a thing.
+//!
 //! # What is here and what is cut
 //!
 //! Cut on starting, per `LOOP.md`, and each is a queue item rather than a
 //! remark:
 //!
-//! - **Reporting** — `report-uri`, `report-to`, and sending a violation
-//!   anywhere — is **queue item 188**. What is here is [`Disposition`], so that
-//!   a `Content-Security-Policy-Report-Only` header can never be *enforced* by
-//!   a caller that did not notice which header it came from, and
-//!   [`Policies::objections`], which is the list such a report would be made
-//!   from.
 //! - **Computing a hash** is **queue item 189**. A hash source is read, its
 //!   presence correctly disables `'unsafe-inline'`, and a refusal says in words
 //!   that the policy would have allowed the content by hash — a named
@@ -64,6 +66,7 @@
 //! stated instead, and queue item 86 is where a nested document becomes a thing
 //! with a name.
 
+use crate::csp_report::{Blocked, Told, Violation};
 use crate::csp_source::Source;
 use crate::headers::Headers;
 use crate::request::{Purpose, Request};
@@ -80,6 +83,16 @@ pub enum Disposition {
     /// watches for a week before it enforces — so treating one as enforced
     /// would break the sites being most careful.
     Report,
+}
+
+impl fmt::Display for Disposition {
+    /// The specification's own two words, which are what a report carries.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Disposition::Enforce => "enforce",
+            Disposition::Report => "report",
+        })
+    }
 }
 
 /// Which kind of inline content is being asked about.
@@ -113,6 +126,11 @@ enum Name {
     Image,
     /// `connect-src`.
     Connect,
+    /// `report-uri`: where to post a violation. Governs no load of its own.
+    ReportUri,
+    /// `report-to`: which group to post a violation to. Governs no load of its
+    /// own.
+    ReportTo,
     /// A directive this engine does not act on. Held rather than discarded, so
     /// that [`Policies::not_enforced`] can name it.
     Other,
@@ -127,21 +145,45 @@ impl Name {
             "style-src" => Name::Style,
             "img-src" => Name::Image,
             "connect-src" => Name::Connect,
+            "report-uri" => Name::ReportUri,
+            "report-to" => Name::ReportTo,
             _ => Name::Other,
+        }
+    }
+
+    /// The canonical spelling, which is what a report calls the directive it
+    /// names — never the author's casing, since a collector matching on that
+    /// field would then have to fold case for us.
+    fn written(&self) -> &'static str {
+        match self {
+            Name::Default => "default-src",
+            Name::Script => "script-src",
+            Name::Style => "style-src",
+            Name::Image => "img-src",
+            Name::Connect => "connect-src",
+            Name::ReportUri => "report-uri",
+            Name::ReportTo => "report-to",
+            // Never reached from a report: a directive nobody acts on never
+            // governs anything, so nothing is ever refused by one.
+            Name::Other => "",
         }
     }
 
     /// Which directive governs a request, when one does.
     ///
     /// [`None`] for a document, and this module's header says why that is a
-    /// decision rather than an omission.
+    /// decision rather than an omission. [`None`] for a violation report too,
+    /// and that is the specification's rule rather than ours: a report is not a
+    /// load the page asked for, and a policy that governed its own reporting
+    /// would silence itself exactly when it had something to say —
+    /// `connect-src 'none'` is a sentence sites write.
     fn governing(purpose: &Purpose) -> Option<Self> {
         match purpose {
             Purpose::Script => Some(Name::Script),
             Purpose::Style => Some(Name::Style),
             Purpose::Image => Some(Name::Image),
             Purpose::Fetch => Some(Name::Connect),
-            Purpose::Document => None,
+            Purpose::Document | Purpose::Report => None,
         }
     }
 }
@@ -244,6 +286,13 @@ struct Policy {
     disposition: Disposition,
     /// Its directives, in order, first of each name.
     directives: Vec<Directive>,
+    /// The whole policy as its author wrote it, which a report carries as
+    /// `original-policy`. Kept rather than reassembled from the directives: an
+    /// author reading a report should see the sentence they wrote, including
+    /// the words this engine did not understand.
+    original: String,
+    /// Where this policy asked to be told about a violation.
+    told: Told,
 }
 
 impl Policy {
@@ -264,6 +313,7 @@ impl Policy {
     /// One policy: directives separated by `;`, each a name and its sources.
     fn one(text: &str, disposition: Disposition) -> Self {
         let mut directives: Vec<Directive> = Vec::new();
+        let mut told = Told::default();
         for piece in text.split(';') {
             let mut words = piece.split_ascii_whitespace();
             let Some(name) = words.next() else {
@@ -275,15 +325,39 @@ impl Policy {
                 // who can append to the header can widen the policy.
                 continue;
             }
+            let name = Name::of(&written);
+            let rest: Vec<&str> = words.collect();
+            // A reporting directive's values are URL references and a group
+            // name rather than source expressions, so they are taken as
+            // written. They still become a `Directive` as well, which is what
+            // puts them under the first-wins rule above: a second `report-to`
+            // must not be able to send somebody else's violations elsewhere.
+            match name {
+                Name::ReportUri => {
+                    told.uris = rest.iter().map(|word| (*word).to_owned()).collect();
+                }
+                // One group name. Two is a sentence from a specification this
+                // engine has not read, and taking the first would be a guess
+                // about where somebody's reports go.
+                Name::ReportTo if rest.len() == 1 => {
+                    told.group = rest.first().map(|word| (*word).to_owned());
+                }
+                _ => {}
+            }
             directives.push(Directive {
-                name: Name::of(&written),
+                name,
                 written,
-                sources: words.map(Source::parse).collect(),
+                sources: rest.into_iter().map(Source::parse).collect(),
             });
         }
         Self {
             disposition,
             directives,
+            // Whitespace collapsed, content untouched: `;` is not whitespace,
+            // so what comes out is the author's own sentence tidied rather than
+            // reassembled from what we understood of it.
+            original: text.split_ascii_whitespace().collect::<Vec<_>>().join(" "),
+            told,
         }
     }
 
@@ -300,6 +374,37 @@ impl Policy {
             })
     }
 
+    /// What this policy objects to about a request, when it objects.
+    ///
+    /// The one place a load is decided, and it hands back the **effective
+    /// directive** beside the refusal: `script-src` for a script, whichever
+    /// directive actually decided. A report names that rather than the deciding
+    /// one, so the two answers are produced together — computing the effective
+    /// directive a second time in [`Policies::violations`] is how the report
+    /// and the message come to disagree.
+    fn objects_to(&self, request: &Request, nonce: Option<&str>) -> Option<(Name, Refusal)> {
+        // A load nobody's page asked for is not governed by anybody's policy:
+        // this is the person going somewhere, and a policy is a thing a page
+        // says about its own contents.
+        let page = request.initiator.as_ref()?;
+        let wanted = Name::governing(&request.purpose)?;
+        let strict = wanted == Name::Script;
+        let directive = self.deciding(&wanted)?;
+        if directive.permits(&request.url, page, nonce, strict) {
+            return None;
+        }
+        Some((
+            wanted,
+            Refusal::Fetch {
+                purpose: request.purpose.to_string(),
+                url: request.url.to_string(),
+                directive: directive.written.clone(),
+                allows: directive.as_written(),
+                unreadable: directive.unreadable(),
+            },
+        ))
+    }
+
     /// Whether this policy permits a request.
     ///
     /// # Errors
@@ -307,29 +412,41 @@ impl Policy {
     /// [`Refusal::Fetch`], naming the directive that decided and what it does
     /// allow.
     fn allows(&self, request: &Request, nonce: Option<&str>) -> Result<(), Refusal> {
-        // A load nobody's page asked for is not governed by anybody's policy:
-        // this is the person going somewhere, and a policy is a thing a page
-        // says about its own contents.
-        let Some(page) = &request.initiator else {
-            return Ok(());
-        };
-        let Some(wanted) = Name::governing(&request.purpose) else {
-            return Ok(());
-        };
-        let strict = wanted == Name::Script;
-        let Some(directive) = self.deciding(&wanted) else {
-            return Ok(());
-        };
-        if directive.permits(&request.url, page, nonce, strict) {
-            return Ok(());
+        match self.objects_to(request, nonce) {
+            Some((_, refusal)) => Err(refusal),
+            None => Ok(()),
         }
-        Err(Refusal::Fetch {
-            purpose: request.purpose.to_string(),
-            url: request.url.to_string(),
-            directive: directive.written.clone(),
-            allows: directive.as_written(),
-            unreadable: directive.unreadable(),
-        })
+    }
+
+    /// What this policy objects to about inline content, when it objects.
+    fn objects_to_inline(&self, kind: Inline, nonce: Option<&str>) -> Option<(Name, Refusal)> {
+        let wanted = match kind {
+            Inline::Script => Name::Script,
+            Inline::Style => Name::Style,
+        };
+        let strict = matches!(kind, Inline::Script);
+        let directive = self.deciding(&wanted)?;
+        if nonce.is_some_and(|nonce| directive.names_nonce(nonce)) {
+            return None;
+        }
+        if directive.says_unsafe_inline()
+            && !directive.names_a_secret()
+            && !(strict && directive.is_strict())
+        {
+            return None;
+        }
+        Some((
+            wanted,
+            Refusal::Inline {
+                kind,
+                directive: directive.written.clone(),
+                allows: directive.as_written(),
+                only_by_hash: directive
+                    .sources
+                    .iter()
+                    .any(|source| matches!(source, Source::Hash { .. })),
+            },
+        ))
     }
 
     /// Whether this policy permits inline content.
@@ -338,32 +455,22 @@ impl Policy {
     ///
     /// [`Refusal::Inline`], saying whether a hash would have allowed it.
     fn allows_inline(&self, kind: Inline, nonce: Option<&str>) -> Result<(), Refusal> {
-        let wanted = match kind {
-            Inline::Script => Name::Script,
-            Inline::Style => Name::Style,
-        };
-        let strict = matches!(kind, Inline::Script);
-        let Some(directive) = self.deciding(&wanted) else {
-            return Ok(());
-        };
-        if nonce.is_some_and(|nonce| directive.names_nonce(nonce)) {
-            return Ok(());
+        match self.objects_to_inline(kind, nonce) {
+            Some((_, refusal)) => Err(refusal),
+            None => Ok(()),
         }
-        if directive.says_unsafe_inline()
-            && !directive.names_a_secret()
-            && !(strict && directive.is_strict())
-        {
-            return Ok(());
+    }
+
+    /// This policy's objection, as the thing a report is made from.
+    fn violation(&self, effective: &Name, refusal: Refusal, blocked: Blocked) -> Violation {
+        Violation {
+            disposition: self.disposition,
+            policy: self.original.clone(),
+            directive: effective.written().to_owned(),
+            blocked,
+            told: self.told.clone(),
+            refusal,
         }
-        Err(Refusal::Inline {
-            kind,
-            directive: directive.written.clone(),
-            allows: directive.as_written(),
-            only_by_hash: directive
-                .sources
-                .iter()
-                .any(|source| matches!(source, Source::Hash { .. })),
-        })
     }
 }
 
@@ -434,16 +541,33 @@ impl Policies {
         Ok(())
     }
 
-    /// What **every** policy objected to, the report-only ones included.
+    /// What **every** policy objected to about a load, the report-only ones
+    /// included.
     ///
-    /// This is the list a violation report would be made from, and it is here
-    /// rather than in item 188 because it is what gives [`Disposition::Report`]
-    /// a meaning today: a report-only policy that objects to something is
-    /// visible, and it still does not block it.
-    pub fn objections(&self, request: &Request, nonce: Option<&str>) -> Vec<Refusal> {
+    /// This is what a violation report is made from, and it is deliberately not
+    /// the same question as [`Policies::allows`]: that one stops at the first
+    /// enforced refusal, because a person is shown one message. A report goes
+    /// to the author, who wrote all of the policies and needs to know which of
+    /// them objected — including the one that was only watching, which is the
+    /// whole of what [`Disposition::Report`] means.
+    pub fn violations(&self, request: &Request, nonce: Option<&str>) -> Vec<Violation> {
         self.held
             .iter()
-            .filter_map(|policy| policy.allows(request, nonce).err())
+            .filter_map(|policy| {
+                let (effective, refusal) = policy.objects_to(request, nonce)?;
+                Some(policy.violation(&effective, refusal, Blocked::At(request.url.clone())))
+            })
+            .collect()
+    }
+
+    /// The same, for inline content.
+    pub fn inline_violations(&self, kind: Inline, nonce: Option<&str>) -> Vec<Violation> {
+        self.held
+            .iter()
+            .filter_map(|policy| {
+                let (effective, refusal) = policy.objects_to_inline(kind, nonce)?;
+                Some(policy.violation(&effective, refusal, Blocked::Inline))
+            })
             .collect()
     }
 
@@ -718,11 +842,98 @@ mod tests {
             policies.allows(&request, None).is_ok(),
             "a policy being watched was enforced, which breaks careful sites",
         );
+        let objected = policies.violations(&request, None);
         assert_eq!(
-            policies.objections(&request, None).len(),
+            objected.len(),
             1,
-            "and it objected, which is what item 188 will report",
+            "and it objected, which is what gets reported",
         );
+        let one = objected.first().expect("an objection");
+        assert_eq!(one.disposition, Disposition::Report);
+        assert!(one.to_string().contains("nothing was blocked"), "{one}");
+    }
+
+    #[test]
+    fn a_violation_names_the_governing_directive_rather_than_the_deciding_one() {
+        let policies = enforcing("default-src 'none'; report-uri /csp");
+        let violations =
+            policies.violations(&asking("https://evil.test/x.js", Purpose::Script), None);
+        let one = violations.first().expect("a violation");
+        assert_eq!(one.directive, "script-src", "default-src decided it");
+        assert_eq!(one.policy, "default-src 'none'; report-uri /csp");
+        assert_eq!(one.told.uris, vec!["/csp".to_owned()]);
+        assert!(
+            one.refusal.to_string().contains("default-src"),
+            "and the message still says which sentence decided",
+        );
+    }
+
+    #[test]
+    fn a_report_only_and_an_enforced_policy_both_produce_a_violation() {
+        let mut headers = Headers::new();
+        headers.add(
+            "Content-Security-Policy",
+            "script-src 'self'; report-uri /a",
+        );
+        headers.add(
+            "Content-Security-Policy-Report-Only",
+            "script-src 'none'; report-to watched",
+        );
+        let policies = Policies::stated_by(&headers);
+        let violations =
+            policies.violations(&asking("https://evil.test/x.js", Purpose::Script), None);
+        assert_eq!(violations.len(), 2);
+        let dispositions: Vec<Disposition> = violations.iter().map(|one| one.disposition).collect();
+        assert_eq!(
+            dispositions,
+            vec![Disposition::Enforce, Disposition::Report]
+        );
+    }
+
+    #[test]
+    fn inline_content_a_policy_refused_is_a_violation_with_no_url() {
+        let policies = enforcing("script-src 'self'; report-uri /csp");
+        let violations = policies.inline_violations(Inline::Script, None);
+        let one = violations.first().expect("a violation");
+        assert_eq!(one.blocked, Blocked::Inline);
+        assert_eq!(one.directive, "script-src");
+    }
+
+    /// A report is not a load the page asked for, and a policy that governed
+    /// its own reporting would silence itself exactly when it had something to
+    /// say.
+    #[test]
+    fn a_policy_never_blocks_its_own_violation_report() {
+        let policies = enforcing("default-src 'none'; connect-src 'none'");
+        let post = Request::sending(url("https://collector.test/r"), "POST", b"{}".to_vec())
+            .for_purpose(Purpose::Report)
+            .asked_by(Origin::of(&url("https://example.com/page")));
+        assert!(policies.allows(&post, None).is_ok());
+        assert!(policies.violations(&post, None).is_empty());
+    }
+
+    /// A second `report-to` must not be able to send somebody else's
+    /// violations elsewhere, which is the first-wins rule doing its other job.
+    #[test]
+    fn a_repeated_reporting_directive_keeps_the_first() {
+        let policies = enforcing("script-src 'self'; report-to mine; report-to theirs");
+        let violations =
+            policies.violations(&asking("https://evil.test/x.js", Purpose::Script), None);
+        let one = violations.first().expect("a violation");
+        assert_eq!(one.told.group.as_deref(), Some("mine"));
+    }
+
+    /// `report-to` takes one group name. Two is a sentence from a
+    /// specification this engine has not read, and taking the first would be a
+    /// guess about where somebody's reports go.
+    #[test]
+    fn a_report_to_with_two_names_names_nobody() {
+        let policies = enforcing("script-src 'self'; report-to one two");
+        let violations =
+            policies.violations(&asking("https://evil.test/x.js", Purpose::Script), None);
+        let one = violations.first().expect("a violation");
+        assert_eq!(one.told.group, None);
+        assert!(one.told.is_silent());
     }
 
     #[test]
@@ -818,7 +1029,8 @@ mod tests {
         let policies = enforcing("default-src 'self'; frame-ancestors 'none'; report-uri /r");
         assert_eq!(
             policies.not_enforced(),
-            vec!["frame-ancestors".to_owned(), "report-uri".to_owned()],
+            vec!["frame-ancestors".to_owned()],
+            "report-uri is acted on now, and frame-ancestors still is not",
         );
     }
 

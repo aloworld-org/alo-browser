@@ -33,6 +33,15 @@ pub enum Purpose {
     Script,
     /// A fetch a script made.
     Fetch,
+    /// A violation report, which the *engine* sends on a page's behalf rather
+    /// than the page asking for it.
+    ///
+    /// Its own purpose rather than a [`Purpose::Fetch`], and the reason is a
+    /// rule instead of a label: a policy governs what the page loads and
+    /// deliberately does not govern its own reporting, so a report made with
+    /// `Fetch` on a page saying `connect-src 'none'` would be blocked by the
+    /// very policy it was about. See [`crate::csp`].
+    Report,
 }
 
 impl fmt::Display for Purpose {
@@ -43,6 +52,7 @@ impl fmt::Display for Purpose {
             Purpose::Image => "image",
             Purpose::Script => "script",
             Purpose::Fetch => "fetch",
+            Purpose::Report => "violation report",
         })
     }
 }

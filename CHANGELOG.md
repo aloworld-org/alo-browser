@@ -6,6 +6,42 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A policy that was violated says so.** Content Security Policy has always
+  been two halves: the sentence a site writes, and the reports that tell its
+  author what the sentence would stop. Until now this engine had only the
+  first, which made `Content-Security-Policy-Report-Only` a header with no
+  effect at all — and that header is how a large site actually turns a policy
+  on. You send it for a week, read what it *would* have blocked, find the four
+  scripts your own marketing department added through a tag manager, and only
+  then enforce. So both dispositions report now: an enforced policy and a
+  watched one alike, through `report-uri` and through `report-to`, in the two
+  documents collectors read.
+
+  **A report says a cross-origin URL as its origin and nothing more.** That is
+  the rule the whole feature is shaped around, because a report is posted to a
+  server the *page* chose — so a report naming a blocked URL in full would be a
+  way for a page to read a URL it was refused. Where a redirect ended, the
+  capability token in somebody else's query: both are things a page cannot
+  otherwise see, and a narrow policy plus its own report log would hand it
+  either. A `data:` URL is reported as its scheme alone, since the body of one
+  *is* the content. The page's own URLs keep their path and query and lose
+  their fragment and any credentials written into them — `user:password@` in a
+  URL is a password, and a log collector is not where it goes.
+
+  **A report that cannot be sent is not a load that fails, and it is not a
+  silence either.** A collector that is down, one that answers an error, and a
+  `report-to` naming a group nobody defined are each said in words. The
+  alternative is worse than it sounds: a policy reporting nowhere looks exactly
+  like a policy nothing violated, which is the wrong way round to be wrong
+  about whether a site is protected.
+
+  A violation report is its own kind of request rather than an ordinary fetch,
+  and that is a rule rather than a label — a policy governs what its page
+  loads and deliberately does not govern its own reporting, so a report sent as
+  a fetch would be blocked by `connect-src 'none'`, which is a sentence sites
+  write. It is refused over plain HTTP from a secure page for the opposite
+  reason: it carries the URLs that page was refused.
+
 - **A group of controls looks like a group.** A `<fieldset>` draws a border
   now, and its `<legend>` sits **in** that border rather than above it: the
   line runs through the middle of the legend's words and stops either side of

@@ -826,7 +826,7 @@ wrong, which is the argument for the fourth.
   *nested* document and not a top-level navigation and nothing here can yet tell
   a link click from an `<iframe>` — item 86.
 
-- [ ] **188. A policy that was violated says so.** Cut from 165, which enforces
+- [x] **188. A policy that was violated says so.** Cut from 165, which enforces
   and does not report. `report-uri`, `report-to`, the violation report's own
   shape, and posting it. `Policies::objections` is already the list such a
   report would be made from, and `Disposition` already keeps a report-only
@@ -836,6 +836,33 @@ wrong, which is the argument for the fourth.
   saying more than the specification allows (a cross-origin URL is stripped, or
   the report is a way to read one), and a report that cannot be sent is not a
   load that fails.
+
+  **Done, all three clauses, and the deciding is a pure function** — the shape
+  items 55 and 154 already use, for the same reason: what a report may say is a
+  rule about a *stranger's URL*, and such a rule is asserted honestly only when
+  nothing is moving. `csp_report.rs` builds the posts and `Pool::report` is the
+  loop that sends them. `Policies::objections` became `Policies::violations`,
+  which is the join between the two files and the only thing that can build a
+  `Violation` — a violation nobody's policy objected to is not a thing.
+
+  Three rules are worth reading twice. A report names the **effective**
+  directive rather than the deciding one, so `default-src 'none'` refusing a
+  script reports `script-src`; both answers come out of one function, because
+  computing it twice is how the report and the message come to disagree.
+  `report-to` **wins over `report-uri` when it resolves** and reports nowhere
+  when its group was never defined, since falling back would be this engine
+  deciding an author who wrote a group name meant something else. And a report
+  is its own `Purpose`, not a fetch — a policy does not govern its own
+  reporting, so a report sent as a fetch would be silenced by `connect-src
+  'none'` exactly when it had something to say.
+
+  The fields this engine cannot honestly fill — `line-number`, `column-number`,
+  `source-file`, `script-sample` — are **omitted rather than zeroed**, and a
+  test asserts their absence: a `"line-number": 0` is a wrong answer that reads
+  like a right one. Two cuts are recorded rather than taken: the `Report-To`
+  JSON header is not read (deprecated, and two spellings of where somebody's
+  reports go is two chances to disagree), and nothing here queues, batches or
+  rate-limits a report.
 
 - [ ] **189. A content hash, computed.** Cut from 165, which reads
   `'sha256-…'`, lets its presence correctly disable `'unsafe-inline'`, and

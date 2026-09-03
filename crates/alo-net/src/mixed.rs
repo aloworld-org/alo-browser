@@ -89,10 +89,15 @@ pub fn what_to_do(request: &Request) -> Verdict {
         return Verdict::Fine;
     }
     match request.purpose {
-        // Replaced in transit, these *are* the page.
-        Purpose::Script | Purpose::Style | Purpose::Fetch | Purpose::Document => Verdict::Refused {
-            what: request.purpose.to_string(),
-        },
+        // Replaced in transit, these *are* the page. A violation report is
+        // refused for the other reason: it carries the URLs a secure page was
+        // refused, and sending that in clear would hand it to exactly the
+        // attacker the policy was written about.
+        Purpose::Script | Purpose::Style | Purpose::Fetch | Purpose::Document | Purpose::Report => {
+            Verdict::Refused {
+                what: request.purpose.to_string(),
+            }
+        }
         // Replaced in transit, this is a wrong picture.
         Purpose::Image => match secured(&request.url) {
             Some(instead) => Verdict::TryItSecurely { instead },

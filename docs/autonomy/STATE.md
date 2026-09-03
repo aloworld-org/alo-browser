@@ -5798,3 +5798,101 @@ answers a rounded corner with a hole in one side properly is item 19's kind of
 work, and drawing an approximation would have been a wrong pixel on the one
 element this code exists for. It is written into `alo_paint`'s own doc comment
 where somebody would otherwise add it, and into item 183 in the queue.
+
+---
+
+## Iteration 84 — queue item 188: a policy that was violated says so
+
+**The tree was not clean on entry, and that is the first thing to record.** The
+working tree held an interrupted iteration's work on this item — `csp_report.rs`
+and `a_violation_a_page_reports.rs` written, `csp.rs`, `pool.rs`, `request.rs`,
+`mixed.rs`, `lib.rs` changed, `ROADMAP.md` and `docs/features.md` already moved
+— staged and never committed. `scripts/gate.sh` failed on exactly one clause:
+*crates changed and CHANGELOG.md did not*. So the worker stopped between the
+code and the commit, which is where `LOOP.md` says a hung one is presumed to
+have stopped, and its item is redone.
+
+**It was finished rather than discarded, and it was read before it was
+believed.** Every file was read in full and the gate was run whole before
+anything was added to it; the three clauses the item closes on were checked
+against the tests that claim them rather than against the fact that the suite is
+green. What this iteration wrote is the `CHANGELOG.md` entry, the queue's
+`Done` paragraph, and this journal — the three things the gate and step 6 ask
+for and the interrupted worker never reached.
+
+**All three of the item's clauses are closed.** An enforced policy and a watched
+one both report (`a_policy_being_enforced_and_one_being_watched_both_report`,
+and two posts come out, one per policy). A report says which directive and which
+URL without saying more than it may
+(`a_cross_origin_url_reaches_a_collector_as_an_origin_and_nothing_more`, which
+asserts the *absence* of the token, the path and the fragment rather than the
+presence of the origin). And a report that cannot be sent is not a load that
+fails (`a_report_that_cannot_be_sent_is_not_a_load_that_fails`, against a port
+nothing listens on, ending by asserting the load's own answer is what it was
+before anybody tried).
+
+**The deciding is a pure function and the sending is a loop**, which is the
+shape items 55 and 154 already use and is here for the same reason: what a
+report may say is a rule about a *stranger's URL*, and such a rule is asserted
+honestly only when nothing is moving. `csp_report.rs` builds the posts;
+`Pool::report` is the only part that touches a socket, and it returns what
+failed rather than an error anybody's page sees.
+
+**Three decisions in it are worth reading twice.**
+
+- A report names the **effective** directive rather than the deciding one, so
+  `default-src 'none'` refusing a script reports `script-src`. Both come out of
+  one function (`Policy::objects_to`), because computing the effective
+  directive a second time in the reporting path is how the report and the
+  message a person reads come to disagree.
+- **`report-to` wins over `report-uri` when it resolves**, and reports nowhere
+  when its group was never defined — named in `Posting::unusable` rather than
+  falling back, since falling back would be this engine deciding that an author
+  who wrote a group name meant something else.
+- A report is its own **`Purpose::Report`** rather than a fetch, and that is a
+  rule instead of a label: a policy governs what its page loads and
+  deliberately does not govern its own reporting, so a report sent as a
+  `Fetch` would be silenced by `connect-src 'none'` exactly when it had
+  something to say. `mixed.rs` refuses it over plain HTTP for the opposite
+  reason — it carries the URLs a secure page was refused.
+
+**The fields nothing here can honestly fill are omitted rather than zeroed**,
+and a test asserts their absence: `line-number`, `column-number`,
+`source-file`, `script-sample`. A `"line-number": 0` is a wrong answer that
+reads like a right one, and a field nobody sent is one an author can see is
+missing.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1505 tests** (up from 1475), no stubs, no `unsafe`, boundaries held —
+nothing was rented, which is still what item 189 exists to do properly — the
+licence notice on both new files, and a `CHANGELOG.md` line. The half no script
+can check: no layout assertion and no reference render, because nothing here
+positions, sizes or draws; one responsibility per file — `csp.rs` decides and
+`csp_report.rs` tells, which are different reasons to change; and the item is in
+`docs/features.md`.
+
+**`ROADMAP.md`.** The line moved is *"Content Security Policy, referrer policy,
+HSTS, mixed-content blocking"*, whose `· Built:` clause gains reporting and
+whose `· Owed:` clause loses it, leaving the two things actually outstanding: a
+computed content hash (189) and a nested document (86). **It is still not
+ticked**, and it should not be until those two are.
+
+**What the next iteration should know.** Nothing calls `Policies` or
+`Pool::report` from a page load yet — the same sentence iterations 81 and 82
+wrote about `Preflights` and `Policies`, and true for the same reason: every
+piece of page-level security in `alo-net` is a decision function waiting for a
+fetch pipeline, which is **item 83**, behind the whole of section D. This is
+now three built-and-uncalled security surfaces, and it is worth saying plainly
+that the number is growing: they are each individually correct and none of them
+protects anybody until something calls them.
+
+Item **189** is now the only cut left from 165 that is not blocked on section D
+or E, and it is the first item in stage 2's file order that is ready: it needs
+a digest, which means **renting one** (ADR 0001) with an entry in
+`scripts/gate.sh`'s boundary list — the first rented crate since `jpeg_decoder`.
+Its one caveat is written into item 189 itself: there is inline *style* to hash
+today and inline script needs item 72, so the item closes on `<style>` and says
+so. After that the ready items in file order are **170** (fonts a page asks for
+by name), **64** and **65** (the renderer lifecycle), **66** (much of which
+`alo_url::site` already answers), and **190** (the two-tone border styles, small,
+depends on nothing, and closes with a picture).

@@ -37,6 +37,7 @@ pub mod connection;
 pub mod cookie;
 pub mod cors;
 pub mod csp;
+pub mod csp_report;
 pub mod csp_source;
 pub mod decompress;
 pub mod directives;
@@ -76,6 +77,10 @@ pub use cors::{Credentials, Mode};
 // one name is how a caller comes to catch the wrong one. `csp::Refusal` says
 // which it is.
 pub use csp::Policies;
+// Not `Violation`, `Page` or `Blocked`: each is a word this crate uses for
+// something else somewhere, and `csp_report::` at the call site says which
+// kind of report is meant.
+pub use csp_report::Endpoints;
 pub use decompress::{Encoding, undo, undo_within, what_was_applied};
 pub use directives::{Directives, Flag};
 pub use disk::Disk;

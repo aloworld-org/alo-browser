@@ -278,12 +278,15 @@ unreachable without it.
       word this engine cannot read is kept and matches nothing rather than
       taking its directive down with it. A repeated directive keeps the first
       and two policies are an intersection, so nobody widens a policy by
-      appending to it · Owed: **reporting** — `report-uri`, `report-to` and
-      sending a violation (queue item 188); **computing a content hash**, so a
-      policy that allows inline content only by hash refuses it and says so
-      (queue item 189); and **a nested document**, which is what `frame-src`
-      needs and which nothing here can yet tell from a link click (queue item
-      86)
+      appending to it. **A violation is reported** (queue item 188):
+      `report-uri` and `report-to` both, an enforced policy and a watched one
+      alike, in the two documents collectors read — and a report says a
+      cross-origin URL as its origin and nothing more, because a report is
+      posted to a server the page chose and would otherwise be a way to read
+      one · Owed: **computing a content hash**, so a policy that allows inline
+      content only by hash refuses it and says so (queue item 189); and **a
+      nested document**, which is what `frame-src` needs and which nothing here
+      can yet tell from a link click (queue item 86)
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action, caused it. No other engine has needed to answer that, and an agent-driven browser that cannot is one nobody should trust

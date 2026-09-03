@@ -161,9 +161,9 @@ fn a_policy_a_site_is_only_watching_blocks_nothing() {
 
     assert!(policies.allows(&request, None).is_ok());
     assert_eq!(
-        policies.objections(&request, None).len(),
+        policies.violations(&request, None).len(),
         1,
-        "and it noticed, which is what queue item 188 reports",
+        "and it noticed, which is what gets reported",
     );
 }
 
@@ -313,7 +313,6 @@ fn a_page_protected_in_four_respects_and_not_a_fifth_says_which() {
             "base-uri".to_owned(),
             "form-action".to_owned(),
             "frame-ancestors".to_owned(),
-            "report-uri".to_owned(),
         ],
         "a gap nobody prints is a false sense of security",
     );

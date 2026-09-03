@@ -339,6 +339,43 @@ impl Pool {
         Ok(response)
     }
 
+    /// Post violation reports, and never fail a load with one.
+    ///
+    /// The loop [`crate::csp_report`] is the deciding half of, in the same
+    /// shape as [`Pool::download`] and [`crate::download::whole_of`]: what to
+    /// send and where is a pure function, and this is the part that touches a
+    /// socket.
+    ///
+    /// **A report that cannot be sent changes nothing.** The page has already
+    /// loaded or already been refused by the time one is made, so a collector
+    /// that is down, that answers `500`, or that has been taken off the
+    /// internet entirely must not turn into an error anybody sees. What comes
+    /// back is what failed, in words, for whoever is keeping the record —
+    /// silence would make a policy that reports nowhere look exactly like a
+    /// policy nothing violated.
+    ///
+    /// Each report is posted **once**. A redirect is not followed: a report is
+    /// fire and forget, and a collector that could redirect one would be able
+    /// to point a page's own reports at somebody else and double the traffic
+    /// while doing it.
+    pub fn report(&mut self, posts: &[Request]) -> Vec<String> {
+        let mut failed = Vec::new();
+        for post in posts {
+            match self.fetch(post) {
+                Ok(response) if response.status.is_ok() => {}
+                Ok(response) => failed.push(format!(
+                    "the collector at {} answered {} to a violation report",
+                    post.url, response.status
+                )),
+                Err(why) => failed.push(format!(
+                    "a violation report could not be posted to {}: {why}",
+                    post.url
+                )),
+            }
+        }
+        failed
+    }
+
     /// What is kept, for a caller that wants to look.
     pub fn cache(&self) -> &Cache {
         &self.cache
