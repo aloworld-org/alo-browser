@@ -2202,3 +2202,69 @@ is wrong and what trusting it would mean, and must not be bypassable by
 default. That is a design decision inside an item, and it is the part to get
 right.
 
+---
+
+## Iteration 36 — queue item 52: TLS, and what a person is told when it fails
+
+**The handshake is rented and took an afternoon. The sentence took the
+thought.**
+
+`rustls` behind one file, `ring` as the provider — both providers carry C,
+`ring` is the smaller and more widely audited, and that C is precisely what
+ADR 0005's second reason for the sandbox is about. Which is also why a renderer
+never speaks TLS: the handshake is the browser process's, and the renderer is
+handed bytes.
+
+**What is ours is the refusal.** Every browser has arrived at the same place: a
+full-page interstitial saying *your connection is not private*, and a button
+that goes on anyway. People press the button — because the page tells them
+neither **what is wrong** nor **what pressing it would mean**, so the only
+information they have is that they wanted to see the page.
+
+So `Refused` carries three things and a caller cannot show one without having
+the others: what is wrong, in a sentence; what trusting it anyway would mean,
+in a sentence; and whether the fault has an innocent explanation at all. An
+expired certificate, a wrong clock and an organisation's own authority all do —
+they happen constantly and none is an attack. A wrong host does not: it is what
+an interception looks like, and no amount of a person's confidence changes what
+the bytes say.
+
+**Not bypassable *at all*, which is more than the item asked for.** The item
+said "not bypassable by default". There is no flag, no constructor and no
+feature: `rustls` makes an accept-everything verifier possible and this file
+does not do it and does not expose the seam. And the closest thing the API can
+express goes the safe way — `Trust::of(&[])` trusts *nothing* rather than
+everything, and there is a test that says so.
+
+**Trust is the operating system's.** Not a bundle compiled into us: an
+organisation running its own certificate authority has already told the OS
+about it, and a browser that ignored that is one nobody in an organisation can
+use. A bundle we shipped would also go stale the day after.
+
+**The boundary check caught something again, and again it was right.** The
+tests were written in `tests/`, where they had to name `rustls` to start a TLS
+*server* — and the gate refused. So they live in `tls.rs` now, which is the
+honest place: the file that may name the crate is the file that tests it.
+That is twice in three iterations the boundary has found something, which is a
+good sign about the rule rather than about my typing.
+
+**No network anywhere.** A certificate authority is made at test time, a server
+runs on `127.0.0.1` with an ephemeral port, and the client trusts exactly that
+authority. It is a real handshake down a real socket with real validation, and
+it works on an aeroplane.
+
+**The roadmap line this item served** is stage 2's TLS line, now ticked with
+both items that built it.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 895 tests, no stubs, boundaries held — `rustls` joined the list — and no
+verb takes a coordinate.
+
+**What the next iteration should know.** Item 53, HTTP/1.1. The parsing is
+ours and it is the most hostile input in the crate so far: a status line, a
+header block and a body whose length a stranger declares. Every one of those is
+a place where a length that overflows or a header count that is unbounded turns
+into a denial of service, and `LOOP.md`'s hostile-bytes rule is aimed straight
+at it. Connection pooling and keep-alive come with it, and `secure` is already
+the right shape to put a socket through.
+

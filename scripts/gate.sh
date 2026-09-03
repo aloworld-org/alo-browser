@@ -43,6 +43,7 @@ declare -a BOUNDARIES=(
   "png:crates/alo-paint/src/encode.rs"
   "url:crates/alo-url/src/parse.rs"
   "encoding_rs:crates/alo-net/src/encoding.rs"
+  "rustls:crates/alo-net/src/tls.rs"
 )
 
 step "cargo fmt"

@@ -21,6 +21,13 @@ tiny-skia = "0.12"
 png = "0.18"
 url = "2.5"
 encoding_rs = "0.8"
+# TLS, rented (ADR 0001, and ADR 0005 names it among the physics whose `unsafe`
+# is not ours to remove). `ring` rather than the default `aws-lc-rs`: both carry
+# C, and `ring` is the smaller and more widely audited of the two.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+rustls-native-certs = "0.8"
+rustls-pki-types = "1"
+rcgen = "0.13"
 unicode-linebreak = "0.1"
 unicode-script = "0.5"
 dejavu = "2.37"

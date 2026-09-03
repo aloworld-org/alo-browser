@@ -6,6 +6,30 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **TLS** (`rustls`, rented behind one file — ADR 0001 names it among the
+  physics, and ADR 0005 names it first among the rented code whose `unsafe` is
+  not ours to remove). `ring` rather than the default provider: both carry C,
+  and `ring` is the smaller and more widely audited of the two.
+- **The part that is ours is what a person is told.** Every other browser has
+  arrived at the same interstitial — *your connection is not private* — and a
+  button that goes on anyway. People press it, because the page says neither
+  what is wrong nor what pressing it would mean. So a refusal here is a **type**
+  carrying three things a caller cannot show one of without the others: what is
+  wrong, in a sentence; what trusting it anyway would mean, in a sentence; and
+  whether the fault has an innocent explanation at all.
+- An expired certificate, a clock that is wrong, and an organisation's own
+  authority **could** be trusted — all three happen constantly and none is an
+  attack. A wrong host **could not**: it is what an interception looks like, and
+  no amount of a person's confidence changes what the bytes say.
+- **Nothing is bypassable.** There is no flag, no constructor and no feature
+  that turns verification off. `rustls` makes it possible; this does not do it
+  and does not expose the seam. Trusting nobody trusts *nothing* — an empty list
+  of authorities refuses everything rather than accepting everything.
+- Trust comes from **the operating system's own store** rather than a bundle
+  compiled in: an organisation that runs its own certificate authority has
+  already told the OS about it, and a bundle we shipped would go stale the day
+  after we shipped it.
+
 - **Loading** (`alo-net`): a request, a response, a status, headers, a media
   type and a body — with `data:` and `file:` as the only schemes and **no
   network in it at all**. That is on purpose: the shape is the same whether the

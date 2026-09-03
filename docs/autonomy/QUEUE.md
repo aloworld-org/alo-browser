@@ -382,12 +382,19 @@ first. Nothing here needs JavaScript.
   Encoding tables rented (`encoding_rs`), the algorithm ours, and a page that
   decoded badly says so rather than showing question marks nobody can explain.
 
-- [ ] **52. TLS with `rustls`.** Rented (ADR 0001), behind its own file like
+- [x] **52. TLS with `rustls`.** Rented (ADR 0001), behind its own file like
   every other rented crate. A certificate error is a **decision a person makes**,
   not a dialogue they click through: the error says what is wrong and what
   trusting it would mean.
   *Depends on 51. Closes when:* a good certificate connects, a bad one is
   refused with a reason in words, and the refusal is not bypassable by default.
+
+  **Done.** Tested with a certificate authority made at test time and a server
+  on loopback, so a real handshake and real validation run with no network
+  anywhere. Not bypassable **at all**, rather than by default: there is no flag,
+  no constructor and no feature, and trusting nobody trusts nothing. The
+  refusal is a type carrying what is wrong, what trusting it would mean, and
+  whether the fault has an innocent explanation.
 
 - [ ] **53. HTTP/1.1**, with connection pooling and keep-alive. A response body
   that arrives in pieces, and a request that can be cancelled.

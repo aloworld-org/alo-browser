@@ -11,6 +11,14 @@ authors.workspace = true
 [dependencies]
 alo-url = { path = "../alo-url" }
 encoding_rs.workspace = true
+rustls.workspace = true
+rustls-native-certs.workspace = true
+rustls-pki-types.workspace = true
+
+[dev-dependencies]
+rcgen.workspace = true
+rustls.workspace = true
+rustls-pki-types.workspace = true
 
 [lints]
 workspace = true
