@@ -331,148 +331,449 @@ claim about speed (measured on hardware, or not made).
 
 # Queue — stage 2
 
-`ROADMAP.md`: **it renders the modern web.** The order below is the roadmap's,
-and the roadmap's own reason is at the top of it — the process model is first
-because it is the one thing that cannot be added later.
+`ROADMAP.md`: **it renders the modern web.** That file names the whole of it in
+about ninety lines and is blunt about the size — *"years of work, and naming it
+completely is the point"*. This is the same list as items a loop can take, in
+the order dependencies allow.
 
-**Staged by what it renders**, still. An item earns its place by a page that
-fails without it, not by a specification that lists it.
+**Read `docs/autonomy/LOOP.md`'s stage 2 section before the first one.** Four
+things are different from stage 1 and none of them is optional: a real page
+decides and the page is **frozen**; the bytes are **hostile** now, so anything
+that parses them gets a malformed-input test and must return an error rather
+than panic; order follows **dependencies** rather than the file; and a decision
+gets an **ADR as its own iteration**.
 
-## Ready
+**Numbering starts at 50.** Stage 2 was first sketched as sixteen coarse items
+numbered 26 to 41, before `ROADMAP.md` grew the real list. Those numbers are
+retired rather than reused: `STATE.md` refers to some of them, and two items
+with one number is how a reference quietly starts pointing at the wrong work.
 
-- [x] **24. ADR 0005 — the process and sandbox model.** The decision, written
-  before any code depends on it. What runs where, what a renderer is allowed to
-  touch, what crosses the boundary and in which direction, and what happens when
-  a renderer dies. `ROADMAP.md` is blunt: *"Every browser that retrofitted this
-  suffered for years, and it is the one thing here that cannot be added later."*
-  An ADR rather than an item of code because the expensive part is the shape,
-  and the shape is a decision.
+**What closes an item** is written into it. An item that cannot say what closes
+it is not ready — mark it `needs design` and take the next one.
 
-  **Done: `docs/decisions/0005-one-process-per-site-and-a-sandbox-we-rent.md`.**
-  It answers the question this project has to answer before it copies anybody's
-  process model — why a memory-safe engine still needs one. Spectre is a
-  hardware property no language prevents; the codecs and TLS we rent are not
-  ours to make safe; the same-origin policy is code we write; and a page must
-  not be able to end the session.
+---
 
-- [x] **25. The engine behind a message boundary.** The renderer becomes a thing
-  that is *sent* work and *returns* results — a typed protocol, no ambient
-  state, no synchronous call back into whoever asked. In one process to begin
-  with, because what is expensive to retrofit is the **shape**, not the
-  `fork`. Every later item is written against this boundary, which is what makes
-  item 29 a change of transport rather than a rewrite.
+## A. The network
 
-  **Done: the `alo-renderer` crate.** `Renderer::handle` takes work and returns
-  a result — no callback in the signature, nowhere to wait. Every message is
-  owned, `Clone` and `Send + 'static`, asserted by a test, because a message
-  holding a borrow compiles today and cannot be sent tomorrow. The pipeline
-  moved out of the corpus so there is one of it. **It found item 42** by trying
-  to use the boundary end to end.
+The origin is what every security decision below is made against, so URLs come
+first. Nothing here needs JavaScript.
 
-- [ ] **26. A URL, and loading what needs no network.** A URL we hold and can
-  resolve against a base; a request, a response, a content type, and a decode to
-  text with the encoding sniffed the way HTML says. `file:` and `data:` only.
-  This is the loading pipeline with the network left out, so that the network is
-  one implementation of something already tested.
+- [ ] **50. URLs, properly.** WHATWG parsing, resolution against a base, and the
+  **origin** as a value other code compares. IDNA and punycode with it, because
+  a look-alike domain is a security bug rather than a display one.
+  *Closes when:* a table of the WHATWG URL test cases parses to the same
+  answers, and an origin compares equal only when it should.
 
-- [ ] **27. HTTP, and TLS we rent.** `rustls` for TLS — ADR 0001's rule, and
-  nobody writes their own — behind our own boundary like every other rented
-  crate. Redirects, status codes, and a body that arrives in pieces.
+- [ ] **51. Fetching what needs no network.** The shape of a load — a request, a
+  response, a status, headers, a content type, a body — with `file:` and `data:`
+  as the only schemes. Encoding sniffed the way HTML says rather than assumed to
+  be UTF-8.
+  *Depends on 50. Closes when:* the renderer loads a page from a path rather
+  than from a string handed to it, and a mislabelled encoding still reads.
 
-- [ ] **28. A cache, and cookies with sane defaults.** Sane means: `SameSite`
-  by default, no third-party cookies, and a cache that obeys what a server
-  actually said rather than what it meant.
+- [ ] **52. TLS with `rustls`.** Rented (ADR 0001), behind its own file like
+  every other rented crate. A certificate error is a **decision a person makes**,
+  not a dialogue they click through: the error says what is wrong and what
+  trusting it would mean.
+  *Depends on 51. Closes when:* a good certificate connects, a bad one is
+  refused with a reason in words, and the refusal is not bypassable by default.
 
-- [ ] **29. The process split, and the sandbox.** One process per site,
-  renderers with almost no privilege. Item 25 made this a change of transport;
-  this is where it becomes real, with the platform's own sandbox rather than a
-  hopeful one of ours.
+- [ ] **53. HTTP/1.1**, with connection pooling and keep-alive. A response body
+  that arrives in pieces, and a request that can be cancelled.
+  *Depends on 52. Closes when:* a frozen page's own byte stream replays through
+  it identically, and a truncated response is an error rather than a short page.
 
-- [ ] **30. ADR 0006 — our own JavaScript engine.** What it is and, more
-  importantly, what it is not: a **correct interpreter first**, a JIT much later
-  or never (`CLAUDE.md`, law 4 and the standing rules). Taking somebody else's
-  C++ engine would spend the memory-safety argument this project is built on,
-  which is exactly why it needs to be written down rather than assumed.
+- [ ] **54. Content encodings**: gzip, brotli, zstd, rented.
+  *Depends on 53. Closes when:* each round-trips, and a corrupt stream is
+  refused rather than decoded into rubbish.
 
-- [ ] **31. JavaScript: source to a syntax tree.** A lexer and a parser for the
-  language a modern page actually ships, with automatic semicolon insertion and
-  the awkward grammar — regular expressions against division, arrow functions
-  against parenthesised expressions — settled at parse time rather than guessed
-  at later.
+- [ ] **55. Redirects, byte ranges, and downloads that resume.** Redirect loops
+  bounded, cross-origin redirects losing what they should.
+  *Depends on 53.*
 
-- [ ] **32. JavaScript: values, and an interpreter that walks the tree.**
-  Numbers, strings, `undefined` and `null`, the abstract operations that convert
-  between them, scopes, and calls. Correct before fast: a tree walk is the thing
-  whose behaviour can be checked against the specification line by line.
+- [ ] **56. The HTTP cache, with real semantics** — freshness, revalidation,
+  `Vary`. `ROADMAP.md`: *"subtly wrong here is invisible for months and then
+  serves somebody a stale bank page."*
+  *Depends on 53. Closes when:* a table of responses and clocks produces the
+  right hit, miss and revalidate for each, including the ones that are only
+  wrong an hour later.
 
-- [ ] **33. JavaScript: objects, prototypes, closures, `this` and exceptions.**
-  The half of the language a page actually depends on, and the half that is
-  hardest to add afterwards because everything else is written assuming it.
+- [ ] **57. Cookies, partitioned by default.** `SameSite`, `Secure`,
+  `HttpOnly`. **The default is a product decision** rather than a parser detail,
+  so it is written down where a person can argue with it.
+  *Depends on 50, 53. Needs ADR* — what a default costs and who it protects.
 
-- [ ] **34. The event loop, tasks and microtasks.** A page is not a program that
-  runs and stops; it is a queue. Ordering here is observable to every script on
-  every page, and getting it wrong is a class of bug that looks like a race.
+- [ ] **58. DNS, and encrypted DNS as a choice somebody made** rather than a
+  default nobody was told about.
+  *Depends on 53. Needs ADR* — the same argument as 57, about a different
+  server seeing every name you look up.
 
-- [ ] **35. The DOM, from JavaScript.** The bindings: a document a script can
-  read and change, and changes that reach style, layout and paint through the
-  boundary item 25 built rather than around it.
+- [ ] **59. HTTP/2**, once 1.1 is correct.
+  *Depends on 53.*
 
-- [ ] **36. The DOM APIs a modern page actually uses.** *Driven by pages that
-  fail* — the roadmap's words. Each one arrives because a real page needed it,
-  and the page goes in the corpus with it.
+- [ ] **60. HTTP/3 and QUIC**, once both of those are.
+  *Depends on 59.*
 
-- [ ] **37. Images.** Decoding is rented (ADR 0001: nobody writes their own
-  JPEG); `<img>` laid out with its intrinsic size and aspect ratio, and drawn.
+## B. Origins, and the model that keeps sites apart
 
-- [ ] **38. Canvas.** A drawing surface a script owns. The rasteriser already
-  exists; this is the API over it and the compositing rules around it.
+ADR 0005's four reasons, made real. Three of these are code we write and can get
+wrong, which is the argument for the fourth.
 
-- [ ] **39. Media.** Audio and video, codecs rented, with the parts that are
-  ours being the element, its states, and how a frame reaches the display list.
+- [ ] **61. The same-origin policy, CORS and preflight.**
+  *Depends on 50, 53. Closes when:* a cross-origin read that should fail does,
+  in a test that names the attack rather than the header.
 
-- [ ] **40. Chrome: tabs, address bar, history, downloads.** The browser as a
-  thing a person uses, which is what stage 2's exit gate measures.
+- [ ] **62. Content Security Policy, referrer policy, HSTS, mixed-content
+  blocking.**
+  *Depends on 61.*
 
-- [ ] **41. ★ The agent on ordinary web pages.** The same tree and the same
-  typed verbs, on pages nobody wrote for us. ADR 0002 holds or it does not, and
-  this is where it is found out.
+- [ ] **63. The process split, and the sandbox.** One process per site,
+  renderers with almost no privilege, the platform's own sandbox rather than a
+  hopeful one of ours — seccomp-bpf and user namespaces on Linux, Seatbelt on
+  macOS. ADR 0005 decided it; `alo-renderer` made it a change of **transport**
+  rather than a redesign.
+  *Depends on 51 — a sandboxed renderer cannot fetch, so the browser process
+  must be able to. Closes when:* two sites are two processes, a renderer cannot
+  open a file, and killing one leaves the other running.
+  *This is the roadmap's "queue item 29", renumbered with the rest.*
 
-- [x] **42. ★ A verb changes the page.** `perform` finds its target, refuses
-  what cannot be operated, and reports what it decided — and then nothing
-  happens: the document is never written back to, so a field that was "typed
-  into" reads the same afterwards. **Found by item 25**, which tried to use the
-  boundary end to end and discovered that the second half of a verb does not
-  exist. It needs a document that can be changed and a pipeline that runs
-  again, and it is the difference between an agent that can *drive* an
-  interface and one that can only describe what it would do.
+- [ ] **64. The transport, and the lifecycle** that starts, reuses and reaps
+  renderers, with a bound on how many exist.
+  *Depends on 63.*
 
-  **Done, and taken before item 26** because it is a correctness gap in the ★
-  agent surface, which `CLAUDE.md` calls the reason this project exists rather
-  than a faster fork of somebody else's engine. Deciding and changing are two
-  steps and the types say so: the decision is made against the tree the agent
-  read, `alo_agent::apply` changes the document, and the page is rendered again
-  **from the same document** so that ADR 0003's promise survives. It found three
-  more things, all fixed: a `<label>`'s words were read twice and made every
-  labelled field ambiguous; a password field was in no tree at all; and a field
-  did not show what it held. Corpus case `a-filled-form`.
+- [ ] **65. A renderer that dies takes its tab and nothing else** — and says so,
+  rather than leaving a blank rectangle.
+  *Depends on 63. Closes when:* a renderer is killed from outside and the tab
+  says what happened while every other tab keeps working.
 
-- [ ] **43. A form control draws its state.** A checked checkbox draws the same
-  box as an unchecked one — no tick, no focus ring, no radio dot. The state is
-  right in the tree and wrong on the screen, which is the worse way round: an
-  agent is correct and a person looking at the same page is misled. **Found by
-  item 42**, which made checking possible and then had nothing to show for it.
+- [ ] **66. Where one site ends and another begins.** The origin, the site, the
+  registrable domain, and which of them gets a process.
+  *Depends on 50, 63.*
+
+- [ ] **67. ★ Every request attributable** — which page, and **which agent
+  action**, caused it. `ROADMAP.md`: *"no other engine has needed to answer
+  that, and an agent-driven browser that cannot is one nobody should trust."*
+  *Depends on 53. Needs ADR* — what is recorded, for how long, and who may read
+  it, in the shape of `alo-os` ADR 0001.
+
+## C. Pages that are not ours
+
+- [ ] **68. The web corpus.** A second kind of case beside the alo ones: a page
+  from the web, **frozen** — its bytes as they were, with where they came from
+  and when, and its own expected trees and render. Never fetched at test time,
+  for the reasons `LOOP.md` gives.
+  *Depends on 51. Closes when:* one real page renders, is diffed on every run,
+  and the suite still passes with the network unplugged.
+
+## D. JavaScript, ours, in Rust
+
+The long pole, and the thing most of section E is unreachable without.
+
+- [ ] **69. ADR 0006 — our own JavaScript engine.** *Needs ADR, and it is the
+  first item here.* What it is: a bytecode compiler and an interpreter,
+  **correct first**. What it is not: a JIT, until there is a measured reason and
+  an ADR weighing the speed against the attack surface. Why it is ours at all:
+  taking somebody else's C++ engine spends the memory-safety argument this
+  project is built on (ADR 0001), and spending it quietly is worse than not
+  having made it.
+
+- [ ] **70. Lexer and parser to a syntax tree** — the language pages actually
+  ship, not ES5. Automatic semicolon insertion, and the grammar that needs a
+  decision rather than a guess: a regular expression against division, an arrow
+  function against a parenthesised expression.
+  *Depends on 69. Closes when:* a frozen page's own script parses, and every
+  ambiguity above is settled at parse time rather than later.
+
+- [ ] **71. The object model, and a garbage collector.** Objects, properties,
+  prototypes, and something that reclaims them.
+  *Depends on 69. Needs ADR* — a collector is a decision about pauses.
+
+- [ ] **72. A bytecode compiler and an interpreter.** Values, scopes, calls,
+  `this`, closures, exceptions.
+  *Depends on 70, 71. Closes when:* a suite of small programs produces the
+  values the specification says, run as a table rather than as prose.
+
+- [ ] **73. The ECMAScript builtins**, in the order real pages need them rather
+  than the order the specification lists them.
+  *Depends on 72.*
+
+- [ ] **74. Regular expressions**, with the syntax the language actually has.
+  *Depends on 72. Closes when:* a hostile pattern is refused or bounded rather
+  than running for ever — a catastrophic backtrack in a renderer is a denial of
+  service.
+
+- [ ] **75. Promises, `async`/`await`, generators and iterators.**
+  *Depends on 72, 76.*
+
+- [ ] **76. The event loop** — tasks, microtasks, the rendering steps,
+  `requestAnimationFrame`. `ROADMAP.md`: *"where 'it works, but the animation
+  stutters' is decided."*
+  *Depends on 72. Closes when:* the order of a table of interleaved tasks and
+  microtasks is what the specification says, because that order is observable to
+  every script on every page.
+
+- [ ] **77. Modules**: ESM, dynamic `import()`, and the loader that fetches them.
+  *Depends on 53, 72.*
+
+- [ ] **78. Errors and stack traces** good enough to debug somebody else's
+  minified page.
+  *Depends on 72.*
+
+- [ ] **79. `Intl`, rented** rather than written.
+  *Depends on 73.*
+
+## E. The DOM, and the pages that use it
+
+- [ ] **80. Mutation from script**, and the invalidation that has to follow it.
+  Adding and removing nodes is still the parser's alone today (`alo-dom` says
+  so); this is where that stops being true.
+  *Depends on 72. Closes when:* a script changes a document and the next render
+  shows it, with node identity surviving (ADR 0003).
+
+- [ ] **81. Events**: capture and bubble, listeners, default actions. **This is
+  what makes a button do something**, which every agent verb has been honest
+  about not doing since stage 1.
+  *Depends on 80. Closes when:* `alo-renderer`'s test that a nav row changes
+  nothing fails, and is rewritten to assert what it now does.
+
+- [ ] **82. Forms**: the controls, constraint validation, submission, file
+  inputs.
+  *Depends on 81.*
+
+- [ ] **83. `fetch()` and `XMLHttpRequest`**, over the same stack as everything
+  else rather than beside it.
+  *Depends on 61, 72.*
+
+- [ ] **84. WebSocket.**
+  *Depends on 53, 76.*
+
+- [ ] **85. Navigation and session history**: `pushState`, back and forward, and
+  what survives each.
+  *Depends on 80.*
+
+- [ ] **86. `iframe`s and the sandbox attribute** — a document inside a
+  document, *"where a great many security bugs live"*.
+  *Depends on 61, 63.*
+
+- [ ] **87. Shadow DOM and custom elements.** Component frameworks are not
+  optional on the modern web.
+  *Depends on 80.*
+
+- [ ] **88. Selection and ranges.**
+  *Depends on 80.*
+
+- [ ] **89. CSSOM** — styles readable and writable from script.
+  *Depends on 80.*
+
+- [ ] **90. Storage**: `localStorage`, `sessionStorage`, IndexedDB, the Cache
+  API, and **one quota policy over all of them**.
+  *Depends on 72, 66. Needs ADR* — a quota is a policy about somebody's disk.
+
+- [ ] **91. Workers**: dedicated, shared, and service workers with their fetch
+  interception.
+  *Depends on 76, 83.*
+
+- [ ] **92. Timers, clipboard, drag and drop.**
+  *Depends on 76, 81.*
+
+- [ ] **93. ★ Permissions as capabilities** — camera, microphone, location,
+  notifications, in the shape of `alo-os` ADR 0001: enumerated, visible,
+  revocable, expiring, recorded. *"A browser is where most people meet a
+  permission prompt, and every other one is a dialogue nobody can audit
+  afterwards."*
+  *Depends on 63, 67. Needs ADR.*
+
+## F. CSS beyond what alo needed
+
+- [ ] **43. A form control draws its state.** *(Kept at its own number: it was
+  found in stage 1 and is referenced from `docs/conformance.md`.)* A checked
+  checkbox draws the same box as an unchecked one — no tick, no radio dot, no
+  focus ring. The state is right in the tree and wrong on the screen, which is
+  the worse way round.
+  *Closes when:* a corpus case shows a ticked box, a chosen radio and a focused
+  field, each differing from its resting state.
+
+- [ ] **94. Animations and transitions.** Stage 1 reads them and they change
+  nothing, which is correct for a still picture; this is the clock.
+  *Depends on 76.*
+
+- [ ] **95. Container queries, `:has()`, cascade layers, `@property`.**
+
+- [ ] **96. Filters, `backdrop-filter`, blend modes, masks, `clip-path`.**
+
+- [ ] **97. `position: sticky`, multi-column, scroll snap, overscroll
+  behaviour.**
+
+- [ ] **98. Writing modes, and layout that is right-to-left** rather than
+  mirrored afterwards.
+
+- [ ] **99. Paged media and print styles.**
+  *Depends on 98 for anything that is not left-to-right.*
+
+## G. Text, properly
+
+- [ ] **100. Bidirectional text end to end.** Stage 1 shapes it; this makes
+  selection, caret movement and editing behave.
+  *Depends on 88.*
+
+- [ ] **101. Selection, carets and text input inside the page.**
+  *Depends on 81, 88.*
+
+- [ ] **102. Input methods.** *"A browser that cannot take Japanese or Chinese
+  input is not a browser in those countries."*
+  *Depends on 101.*
+
+- [ ] **103. `contenteditable`**, which every rich text box on the web is built
+  on.
+  *Depends on 80, 101.*
+
+- [ ] **104. Hyphenation, `text-wrap: balance`.**
+
+- [ ] **105. Web fonts as pages ship them**: WOFF2, variable fonts, and loading
+  that does not flash. **This is also what closes the last honest gap in stage
+  1's screens** — the corpus renders in DejaVu Sans and alo loads Inter, so its
+  headline wraps one line more here.
+  *Depends on 53.*
+
+## H. Pictures, and things that move
+
+- [ ] **106. Image codecs, rented**: PNG, JPEG, GIF, WebP, AVIF. ADR 0005's
+  second reason for the sandbox is that these have `unsafe` in them and are not
+  ours to make safe, so **untrusted bytes are decoded in the least privileged
+  process that can do it**.
+  *Depends on 63 for where they run. Closes when:* `<img>` lays out with its
+  intrinsic size and aspect ratio and draws, and a fuzzed file is refused rather
+  than decoded.
+
+- [ ] **107. SVG** — *"a second rendering model inside the first, and far larger
+  than its one line here suggests."* **Cut this before starting it**; it is
+  several iterations and nobody should discover that halfway through.
+
+- [ ] **108. Canvas 2D.** The rasteriser exists; this is the API over it and the
+  compositing rules around it.
+  *Depends on 72.*
+
+- [ ] **109. Audio and video playback through rented decoders.**
+  *Depends on 63, 106. Needs ADR* — which decoders, on whose licence, and where
+  they run. `ROADMAP.md` refuses DRM and proprietary codecs outright.
+
+- [ ] **110. Media Source Extensions**, without which most video sites do not
+  play at all.
+  *Depends on 109.*
+
+- [ ] **111. Web Audio.**
+  *Depends on 72.*
+
+- [ ] **112. WebGL, then WebGPU.** Both large, both late, and neither before the
+  software path is right. **Needs hardware to verify**, and says so.
+  *Depends on 116.*
+
+## I. Making it fast enough to use
+
+Correctness before speed is the rule everywhere else. These are the items where
+being right and being unusable are the same outcome — and **every one of them is
+a claim measured on hardware or not made**.
+
+- [ ] **113. Incremental style and layout** — recompute what changed, not the
+  document. *"The largest single difference between an engine that renders a
+  page and one somebody can use."*
+  *Depends on 80. Closes when:* a changed attribute restyles a subtree rather
+  than a document, shown by a count rather than by a stopwatch.
+
+- [ ] **114. Compositing layers, and scrolling that does not repaint the world.**
+  *Depends on 113.*
+
+- [ ] **115. Off-main-thread scrolling and animation.**
+  *Depends on 114.*
+
+- [ ] **116. Hardware acceleration for paint**, once the software path is
+  correct. **Needs a GPU to verify.**
+  *Depends on 114.*
+
+- [ ] **117. A performance budget somebody can hold us to**: named pages,
+  measured, in CI. **Needs hardware**, and until it exists no item in this
+  section may claim a speed.
+  *Depends on 68.*
+
+## J. The browser itself
+
+What stage 2's exit gate actually measures: a person using it.
+
+- [ ] **118. A window, tabs, and a tab strip.** *Depends on 63, 64.*
+- [ ] **119. The address bar**: what somebody typed, what it means, and a search
+  that **phones nobody by default**. *Depends on 50, 118.*
+- [ ] **120. History, bookmarks, downloads.** *Depends on 118.*
+- [ ] **121. Find in page, zoom, and per-site settings that stick.**
+- [ ] **122. Context menus, and keyboard operation of every one of them.**
+- [ ] **123. Printing, print preview, export to PDF.** *Depends on 99.*
+- [ ] **124. Viewing a PDF** — or saying plainly that we hand it to something
+  else. *Needs ADR* — it is a decision, not an omission.
+- [ ] **125. Private browsing, and profiles that are genuinely separate.**
+  *Depends on 90.*
+- [ ] **126. Autofill, and credentials held where the operating system holds
+  secrets** rather than in a file of ours. *Depends on 82. Needs ADR.*
+- [ ] **127. Security surfaces**: certificate detail, permission state, what this
+  page has stored — reachable, none of it buried. *Depends on 62, 90, 93.*
+- [ ] **128. Settings.**
+- [ ] **129. Developer tools**: inspector, console, network, performance. *"A
+  browser nobody can debug a site with is not one a developer keeps."* **Cut
+  before starting**; it is four products.
+- [ ] **130. Accessibility**: AT-SPI over **the same tree the agent reads**
+  (ADR 0002), keyboard operation of everything, focus always visible, and the
+  EN 301 549 conformance the workspace is already held to. *Depends on 122.*
+
+## K. ★ The agent, on somebody else's pages
+
+The reason this exists rather than a faster fork. ADR 0002 holds here or it does
+not, and this is where it is found out.
+
+- [ ] **131. The agent reads and acts on ordinary web pages** through the same
+  tree — no screenshot, no scraping, no coordinates.
+  *Depends on 68, 81. Closes when:* a frozen real page is read and driven by
+  name, with the same verbs and the same refusals.
+
+- [ ] **132. Across frames**, without becoming a way around the same-origin
+  policy. *Depends on 86, 131. Needs ADR* — this is a security boundary an agent
+  could be used to cross.
+
+- [ ] **133. Under grants, and recorded**: what it read, what it did, on whose
+  approval — `alo-os` ADR 0001's model reaching the web.
+  *Depends on 67, 93, 131.*
+
+- [ ] **134. Agent-driven navigation, and a page that changes underneath an
+  agent mid-action.** The failure ADR 0003 was written for, on a page nobody
+  wrote for us. *Depends on 85, 131.*
 
 **Exit gate** (`ROADMAP.md`): a person uses it as their browser for a week and
-reaches for another one only for a site they can name.
+reaches for another one only for a site they can name. An agent completes a real
+task on a site nobody wrote for us, and the record afterwards says what it read
+and what it changed.
 
 ---
 
 ## After stage 2
 
+**Stage 3, the legacy tail**, and **stage 4, the product** — both in
+`ROADMAP.md`, neither in this queue yet. Stage 4 is gated: nothing in it starts
+until stage 2's exit gate is met. Stage 3 is scheduled by a **broken render on a
+site somebody uses**, never by a specification listing a feature, so its items
+arrive one at a time with the page that asked for them.
+
+They get a queue when stage 2 is close enough that the order matters. Writing it
+now would be planning work whose shape the intervening two years decides.
+
 ## Never in this queue
 
-- **A JavaScript engine.** Stage 2, and only when a page we need requires it.
-- **Legacy compatibility.** Quirks mode, floats-as-layout, CSS-table layout, the
-  old DOM surface. Refusing these is what makes the scope survivable.
+- **Legacy compatibility, before stage 3.** Quirks mode, floats-as-layout,
+  CSS-table layout, the old DOM surface. Refusing these is what makes the scope
+  survivable, and stage 3 takes them only when a real page forces one.
 - **`unsafe`**, without an ADR.
-- **Anything measured against a conformance percentage** rather than against alo.
+- **Anything measured against a conformance percentage** rather than against alo
+  and then against real pages that fail.
+- **Anything in `ROADMAP.md`'s "Not built, and not by accident"**: DRM and EME,
+  proprietary codecs, telemetry of any kind, a search deal, and our own shaper,
+  codec or TLS stack. A later stage adopting one of these quietly is exactly
+  what that section exists to prevent.
+
+*(The JavaScript engine used to be on this list, with "stage 2, and only when a
+page we need requires it" beside it. Stage 2 is here, so it is item 69.)*

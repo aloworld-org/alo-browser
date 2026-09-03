@@ -141,7 +141,7 @@ unreachable without it.
       boundary, sent work and returning results, every message owned and
       `Send + 'static`, with a frame and an agent-tree snapshot as the only
       things that cross. That is the expensive half, and it is the half that
-      cannot be retrofitted · Owed: queue item 29 — the actual split into a
+      cannot be retrofitted · Owed: queue item 63 — the actual split into a
       process per site, and the platform's own sandbox rather than a hopeful one
       of ours. Item 25 made that a change of transport rather than a redesign
 - [ ] A renderer that dies takes its tab and nothing else — and says so, rather than leaving a blank rectangle

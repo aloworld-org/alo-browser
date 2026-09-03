@@ -6,6 +6,24 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The loop has rules for stage 2, and stage 2 has a queue.** Stage 1 asked one
+  question — *does alo render?* — and answered it with a committed PNG and a
+  committed box tree. Stage 2 has neither, so `docs/autonomy/LOOP.md` says what
+  replaces them: **a real page decides, and the page is frozen** (a suite that
+  fetched would be flaky, would fail on an aeroplane, and would let any site's
+  owner break our build); **the bytes are hostile now**, so anything that parses
+  them gets a malformed-input test and must return an error rather than panic;
+  **order follows dependencies** rather than the file; and **a decision gets an
+  ADR as its own iteration**.
+- `docs/autonomy/QUEUE.md` gains stage 2 as **86 items** in ten groups, from the
+  roadmap's own ninety lines — each with what it depends on and what closes it.
+  Eleven are marked as needing an ADR before any code depends on them, and the
+  handful that genuinely need hardware to verify say so rather than being
+  discovered later.
+- Numbering starts at 50. The sixteen coarse items sketched as 26 to 41, before
+  the roadmap grew the real list, are **retired rather than reused**: two items
+  with one number is how a reference quietly starts pointing at the wrong work.
+
 - **An agent reads alo's Settings screen and acts on it by name** — the last
   clause of stage 1's exit gate. It finds the sections as buttons called what a
   person would call them, knows which one is open, activates one by name with no

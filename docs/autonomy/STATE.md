@@ -2012,3 +2012,77 @@ part built: ADR 0005 decided the process model and `alo-renderer` is the
 boundary it needs, so what item 29 owes is the transport and the sandbox rather
 than a redesign.
 
+---
+
+## Iteration 33 — the loop for stage 2
+
+**This served no roadmap line, and here is why.** `LOOP.md` step 6 requires
+either a line moved or a reason. This iteration wrote the loop's own rules and
+the queue that drives it; it built nothing a roadmap line describes, and ticking
+one would have been the exact failure step 6 forbids. `ROADMAP.md` changed in
+one place only — the process-model line's Owed clause, because the item it
+names by number was renumbered.
+
+**What stage 2 needed that stage 1 did not.** Stage 1 had one question and one
+answer: does alo render, and here is the committed PNG. That measure does not
+exist here, and a loop with no measure marks things done because they compile.
+So `LOOP.md` gains four rules:
+
+1. **A real page decides, and the page is frozen.** The roadmap already says the
+   trigger is a page that fails; what it did not say is that the page must be a
+   *copy*. A suite that fetched would be flaky, would fail on an aeroplane, and
+   would hand every site's owner the ability to break our build. And freezing is
+   not licence to scrape: take the smallest thing that fails, from a site whose
+   terms allow it, and write down where it came from.
+2. **The bytes are hostile now.** Stage 1 rendered markup we wrote. The lints
+   already forbid `unwrap`, `panic` and indexing; what they do not catch is
+   arithmetic that overflows on a hostile length, and a rented crate that panics
+   on input we passed straight through. So the gate gains a clause: anything
+   reading bytes from outside gets a malformed-input test and returns an error.
+   In a renderer, a crash is a denial of service.
+3. **Order follows dependencies.** Ninety items with real ordering constraints
+   cannot be worked top to bottom. Each item names what it depends on, and the
+   loop takes the first whose dependencies are done — which is not always the
+   first in the file.
+4. **A decision is its own iteration.** Eleven items are marked *needs ADR*: the
+   JavaScript engine, the garbage collector, cookie and DNS defaults, request
+   attribution, permissions, the quota policy, which codecs we rent, PDF,
+   credentials, and an agent crossing frames. ADR 0005 came before
+   `alo-renderer` and that is the shape to keep — a decision made inside a
+   commit that was mostly code is a decision nobody reviewed.
+
+**The queue.** Eighty-six items in ten groups, from the roadmap's ninety lines.
+The network first, because every security decision is made against the origin
+and nothing there needs JavaScript. Then origins and the process split — placed
+after `file:` and `data:` loading, because a sandboxed renderer cannot fetch and
+the browser process has to be able to. Then a frozen page. Then JavaScript, the
+long pole. Then the DOM, CSS, text, pictures, speed, the browser itself, and the
+agent on somebody else's pages.
+
+**Numbering starts at 50, and 26 to 41 are retired.** Those were a sixteen-item
+sketch written before the roadmap grew the real list. Reusing them was tried
+once already this session and produced two items numbered 20 — a reference that
+points at the wrong work and says nothing about it.
+
+**Two things the queue says out loud** so a later iteration does not discover
+them:
+
+- **Item 81, events, is what makes a button do something.** Every agent verb has
+  been honest since stage 1 that pressing a nav row changes nothing. The item
+  says its closing condition is that `alo-renderer`'s test asserting exactly
+  that *fails* and has to be rewritten.
+- **Item 105, web fonts, closes the last honest gap in stage 1's screens** — the
+  corpus renders in DejaVu Sans and alo loads Inter, so its headline wraps one
+  line more here.
+
+**Items 107 (SVG) and 129 (developer tools) are marked "cut before starting".**
+Each is several products, and discovering that halfway through an iteration is
+how a half-built thing gets committed.
+
+**The gate.** `scripts/gate.sh` green. No crate changed — this iteration is the
+plan rather than the work — so the tests are the 836 that were already passing.
+
+**What the next iteration should know.** Item 50, URLs. Nothing depends on
+nothing else, everything in section A depends on it, and the WHATWG test suite
+is a table it can be checked against on this machine.
+
