@@ -6,6 +6,24 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The supervisor takes a number of iterations, keeps a log, and says what it
+  did.** Three things that were missing, and all three are about being willing
+  to start it rather than about what it does once running.
+- `--items 5` runs five iterations and stops. "Run until the queue is empty" is
+  a large thing to agree to on faith; it is the same loop either way and only
+  the number differs, so somebody deciding whether to trust it at all can buy
+  five rather than five hundred.
+- Everything goes to `docs/autonomy/loop.log` as well as the terminal, because a
+  terminal is the one place a record does not survive closing a window.
+- And it ends by saying what **closed** and what was **committed** rather than
+  how many iterations it managed — an iteration that halts honestly is worth
+  more than one that invented a way past a problem, so counting iterations would
+  be counting the wrong thing. A run that closed nothing and committed nothing
+  says so, loudly.
+- `--self-test` now covers the arguments as well as the stop rule, and the gate
+  runs it: a supervisor that read `--items abc` as five hundred, or a typo as a
+  request to run forever, is one nobody should trust with an unattended run.
+
 - **JPEG**, rented and pure Rust for ADR 0010's reason — a decoder is where a
   memory bug is most directly a remote code execution, because the attacker
   chooses every byte the allocator sees.

@@ -229,10 +229,23 @@ The supervisor is `scripts/loop.sh`, in this repository, for macOS (ADR 0006).
 
 ```sh
 scripts/loop.sh              # run until the journal says to stop
+scripts/loop.sh --items 5    # five iterations, then exit
 scripts/loop.sh --once       # one iteration, then exit
 scripts/loop.sh --dry-run    # say what it would do, start nothing
-scripts/loop.sh --self-test  # check the stop rule, start nothing
+scripts/loop.sh --self-test  # check the stop rule and the arguments
 ```
+
+**Start with `--items 5`.** "Run until the queue is empty" is a large thing to
+agree to on faith, and it is the same loop either way — only the number differs.
+Five iterations is enough to see what it does to the repository and to read the
+five commits it makes.
+
+Everything goes to `docs/autonomy/loop.log` as well as to the terminal, because
+a terminal is the one place a record does not survive closing a window. At the
+end it says what **closed** and what was **committed** rather than how many
+iterations it managed: an iteration that halts honestly is worth more than one
+that invented a way past a problem, so counting iterations would be counting the
+wrong thing. A run that closed nothing and committed nothing says so, loudly.
 
 It refuses to begin on a tree where `scripts/gate.sh` does not pass, because an
 iteration that opens on somebody else's failure will either work around it or

@@ -4251,3 +4251,53 @@ Nothing has looked at forms outside the alo cases, and `alo-box`'s control
 handling has only ever seen markup we wrote. A page with a `<form>` is the next
 one to freeze.
 
+---
+
+## Iteration 68 — the supervisor, made startable
+
+The owner asked to recreate the loop. It was not broken — `--self-test` green,
+`--dry-run` reporting a clean tree and 103 open items — and recreating it
+byte-for-byte would have produced the same file, which is not an answer to
+anything.
+
+**What the check did turn up: it has never been run.** No lock, no log, nothing.
+Four requests for a loop against a supervisor nobody has started once. So the
+thing missing is not the loop; it is whatever makes somebody willing to start
+it, and that is a different problem with three parts.
+
+**`--items 5`.** "Run until the queue is empty" is a large thing to agree to on
+faith. It is the same loop either way and only the number differs, so somebody
+deciding whether to trust it at all can buy five iterations and read the five
+commits. Offering only "all of it" was asking for a leap nobody needs to make.
+
+**A log.** Everything goes to `docs/autonomy/loop.log` as well as the terminal,
+because a terminal is the one place a record does not survive closing a window —
+and an unattended run is by definition one nobody is watching. Gitignored: it is
+a record of runs on one machine rather than source.
+
+**A closing summary that counts the right thing.** It says what **closed** and
+what was **committed**, not how many iterations it managed. An iteration that
+halts honestly is worth more than one that invented a way past a problem, so
+iterations were never the measure. And a run that closed nothing and committed
+nothing now says so loudly, which is the outcome somebody most needs told.
+
+**`--self-test` covers the arguments now**, and the gate runs it. A supervisor
+that read `--items abc` as five hundred, or a typo as a request to run forever,
+is one nobody should trust unattended — so the argument handling is checked the
+same way the stop rule is, by asserting the exit code of eight actual
+invocations.
+
+**What I did not do, and will not.** Start it. I tried once and the environment
+refused, correctly: the supervisor spawns workers with
+`--dangerously-skip-permissions`, which is not a thing an agent should be able
+to launch on its own behalf. That guard is doing its job and routing around it
+would be the wrong kind of helpful.
+
+**The gate.** Green.
+
+**What the next iteration should know.** The queue is unchanged at 103 open, so
+nothing here closed an item — this was tooling, and the journal should say so
+rather than dress it up. The next *item* is a page with a `<form>`: nothing has
+looked at forms outside the alo cases, and `alo-box`'s control handling has only
+ever seen markup we wrote.
+

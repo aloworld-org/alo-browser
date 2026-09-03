@@ -7,8 +7,12 @@
 #
 #   scripts/loop.sh                 # run until the journal says stop
 #   scripts/loop.sh --once          # a single iteration, then exit
+#   scripts/loop.sh --items 5       # five iterations, then exit
 #   scripts/loop.sh --dry-run       # say what it would do, start nothing
 #   scripts/loop.sh --self-test     # check the stop-marker rule, start nothing
+#
+# Everything it does is written to docs/autonomy/loop.log as well as to the
+# terminal, so a run you walked away from is a run you can still read.
 #
 # Ctrl+C is always safe. Every finished item was committed and pushed by the
 # iteration that built it, so interrupting one loses at most the item in
@@ -31,21 +35,55 @@ CEILING_MIN="${CEILING_MIN:-240}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-500}"
 BACKOFF_MIN="${BACKOFF_MIN:-15}"
 
+LOG="docs/autonomy/loop.log"
+
+# Everything to the terminal *and* to a file. A run somebody walked away from is
+# a run they should still be able to read, and a terminal is the one place that
+# does not survive closing a window. Appended rather than replaced, so two runs
+# are two records instead of one overwriting the other.
+note() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >>"$LOG" 2>/dev/null || true; }
+say() { printf '\033[1m[loop]\033[0m %s\n' "$1"; note "$1"; }
+bad() { printf '\033[31m[loop]\033[0m %s\n' "$1"; note "FAILED: $1"; }
+
 once=0
 dry=0
 selftest=0
-for arg in "$@"; do
-  case "$arg" in
+# How many iterations to run before stopping of its own accord.
+#
+# `--items N` exists because "run until the queue is empty" is a large thing to
+# agree to on faith, and somebody deciding whether to trust this at all should
+# be able to buy five iterations rather than five hundred. It is the same loop
+# either way; only the number differs.
+wanted="$MAX_ITERATIONS"
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
     --once) once=1 ;;
     --dry-run) dry=1 ;;
     --self-test) selftest=1 ;;
-    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "loop: unknown argument $arg — try --help"; exit 2 ;;
+    --items)
+      shift
+      wanted="${1:-}"
+      [ -n "$wanted" ] || { bad "--items wants a number after it"; exit 2; }
+      ;;
+    --items=*) wanted="${1#--items=}" ;;
+    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) bad "unknown argument $1 — try --help"; exit 2 ;;
   esac
+  shift
 done
 
-say()  { printf '\033[1m[loop]\033[0m %s\n' "$1"; }
-bad()  { printf '\033[31m[loop]\033[0m %s\n' "$1"; }
+case "$wanted" in
+  ''|*[!0-9]*)
+    bad "--items wants a number, and got ${wanted:-nothing}"
+    exit 2
+    ;;
+esac
+if [ "$wanted" -lt 1 ]; then
+  bad "--items wants at least one"
+  exit 2
+fi
+[ "$once" -eq 1 ] && wanted=1
 
 # --- Before anything: is this a tree an iteration should open on? ------------
 
@@ -85,6 +123,28 @@ stop_marker() {
 
 open_items() { grep -c '^- \[ \]' "$QUEUE" 2>/dev/null || echo 0; }
 
+# What the run has actually done, said once at the end.
+#
+# Iterations are not the measure and never were: an iteration that halts
+# honestly is worth more than one that invented a way past a problem. What a
+# person who walked away wants to know is what **closed** and what was
+# **committed**, so those are what this counts — against where the run started,
+# which is why the two variables below are read before the first iteration.
+finished() {
+  local ran="$1"
+  local closed=$(( started_open - $(open_items) ))
+  local commits
+  commits=$(git rev-list --count "$started_at..HEAD" 2>/dev/null || echo 0)
+  echo
+  say "done after $ran iteration(s)."
+  say "  queue:   $closed item(s) closed, $(open_items) still open"
+  say "  commits: $commits"
+  if [ "$closed" -eq 0 ] && [ "$commits" -eq 0 ]; then
+    bad "  nothing closed and nothing committed — read $LOG and $JOURNAL before running it again."
+  fi
+  say "  log:     $LOG"
+}
+
 # --- The stop-marker rule, as assertions -------------------------------------
 #
 # The gate asks for unit tests for logic, and marker detection is the only
@@ -92,6 +152,7 @@ open_items() { grep -c '^- \[ \]' "$QUEUE" 2>/dev/null || echo 0; }
 # clock. This is what a test looks like in bash: fixtures in, decision out.
 if [ "${selftest:-0}" -eq 1 ]; then
   failures=0
+  journal_was="$JOURNAL"
   check() {
     local name="$1" want="$2" body="$3" got
     JOURNAL="$(mktemp)"; printf '%s\n' "$body" > "$JOURNAL"
@@ -147,7 +208,36 @@ LOOP HALT"
   check "no marker at all runs" "" "## Iteration 1
 nothing to report"
 
-  [ "$failures" -eq 0 ] && printf '\n\033[32m[loop]\033[0m the stop-marker rule holds.\n'
+  # The other logic worth a test: what the arguments mean. A supervisor that
+  # accepted `--items abc` as five hundred, or treated a typo as a request to
+  # run forever, would be one nobody should trust with an unattended run.
+  args() {
+    JOURNAL="$journal_was"
+    ( "$0" "$@" --dry-run >/dev/null 2>&1 )
+    echo "$?"
+  }
+  expect() {
+    local name="$1" want="$2"
+    shift 2
+    local got
+    got="$(args "$@")"
+    if [ "$got" = "$want" ]; then
+      printf '\033[32mok\033[0m    %s\n' "$name"
+    else
+      printf '\033[31mFAIL\033[0m  %s — wanted exit %s, got %s\n' "$name" "$want" "$got"
+      failures=1
+    fi
+  }
+  expect "a number of items is accepted" 0 --items 5
+  expect "the same, written with an equals sign" 0 --items=5
+  expect "no arguments at all is accepted" 0
+  expect "--once is accepted" 0 --once
+  expect "a number that is not one is refused" 2 --items abc
+  expect "zero items is refused" 2 --items 0
+  expect "--items with nothing after it is refused" 2 --items
+  expect "a typo is refused rather than ignored" 2 --run-forever
+
+  [ "$failures" -eq 0 ] && printf '\n\033[32m[loop]\033[0m the stop rule and the arguments hold.\n'
   exit "$failures"
 fi
 
@@ -156,7 +246,9 @@ if [ "$dry" -eq 1 ]; then
   marker="$(stop_marker)"
   say "journal:    $JOURNAL  (stop marker: ${marker:-none})"
   say "queue:      $(open_items) items still open"
-  say "guards:     silent for ${IDLE_KILL_MIN}m, or ${CEILING_MIN}m total; ${MAX_ITERATIONS} iterations at most"
+  say "guards:     silent for ${IDLE_KILL_MIN}m, or ${CEILING_MIN}m total"
+  say "iterations:  $wanted at most"
+  say "log:         $LOG"
   exit 0
 fi
 
@@ -186,10 +278,15 @@ if [ -f "$LOCK" ]; then
   say "stale lock from dead PID $owner — taking over."
 fi
 
-echo $$ > "$LOCK"
-trap 'rm -f "$LOCK"; say "stopped."' EXIT
+# Where the run started, so the summary at the end can say what it changed
+# rather than how long it took.
+started_open="$(open_items)"
+started_at="$(git rev-parse HEAD 2>/dev/null || echo HEAD)"
 
-for (( i = 1; i <= MAX_ITERATIONS; i++ )); do
+echo $$ > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
+
+for (( i = 1; i <= wanted; i++ )); do
   case "$(stop_marker)" in
     COMPLETE)
       echo
@@ -246,7 +343,10 @@ for (( i = 1; i <= MAX_ITERATIONS; i++ )); do
 
   if [ -z "$code" ]; then wait "$worker"; code=$?; else wait "$worker" 2>/dev/null || true; fi
 
-  if [ "$once" -eq 1 ]; then say "--once: one iteration, done."; exit 0; fi
+  if [ "$i" -ge "$wanted" ]; then
+    finished "$wanted"
+    exit 0
+  fi
 
   if [ "$code" -eq 124 ]; then
     say "the hang already cost time — going again in 30 seconds."
@@ -259,6 +359,5 @@ for (( i = 1; i <= MAX_ITERATIONS; i++ )); do
   fi
 done
 
-bad "stopped after $MAX_ITERATIONS iterations without the journal saying to."
-bad "that is a backstop, not a result — read $JOURNAL before restarting."
-exit 6
+finished "$wanted"
+exit 0

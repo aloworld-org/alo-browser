@@ -1,2 +1,6 @@
 /target
 .DS_Store
+
+# The supervisor's own log. A record of runs on one machine, not source: two
+# people running the loop would otherwise conflict on it every time.
+docs/autonomy/loop.log
