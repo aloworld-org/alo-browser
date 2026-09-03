@@ -47,6 +47,7 @@ use crate::keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
     Positioning,
 };
+use crate::legend;
 use crate::measure::{MeasureText, TextStyle};
 use crate::placement::{GridLine, GridPlacement};
 use crate::sizing::{AutoLength, Sizing};
@@ -129,6 +130,11 @@ fn lay_out_subtree(
         Point::ZERO,
         &mut geometry,
     );
+    // Before anything is placed inside a box, and after every box has a
+    // rectangle: a fieldset's legend sits in its block-start border rather
+    // than under it, and the lines of text in it have to be laid out against
+    // where it ends up. See `crate::legend`.
+    legend::raise(boxes, styles, &mut geometry, issues);
     place_inline_content(
         boxes,
         styles,
@@ -771,6 +777,15 @@ fn style_for(
     };
 
     box_model_into(&ours, &mut style, unresolved, issues);
+    if boxes.rendered_legend(id).is_some() {
+        // A fieldset showing a legend has a **band** where its block-start
+        // border would be, as tall as the legend and with the border drawn
+        // through the middle of it — so the border itself takes no room here,
+        // or the fieldset would be that much taller than a browser's.
+        // `crate::legend` puts the legend in the band afterwards and records
+        // the border that belongs there.
+        style.border.top = TaffyLengthPercentage::length(0.0);
+    }
     style.grid_template_rows = template(&ours.grid.template_rows, ours.metrics, unresolved);
     style.grid_template_columns = template(&ours.grid.template_columns, ours.metrics, unresolved);
     style.grid_auto_rows = auto_tracks(&ours.grid.auto_rows, ours.metrics, unresolved);
@@ -1187,6 +1202,9 @@ fn read_back<M: MeasureText>(
                 layout.scrollable_overflow_rect.right - layout.scrollable_overflow_rect.left,
                 layout.scrollable_overflow_rect.bottom - layout.scrollable_overflow_rect.top,
             ),
+            // Written by `crate::legend`, once every box has a rectangle: a
+            // band is where a legend ended up, and nothing here knows that yet.
+            band: None,
         },
     );
     let children: Vec<BoxId> = boxes.children(id).collect();

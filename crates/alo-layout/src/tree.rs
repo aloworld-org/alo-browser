@@ -37,6 +37,14 @@ pub struct BoxGeometry {
     /// How big the content inside is, including whatever spills out of the box
     /// — what a scrollbar would be sized against.
     pub scrollable: Size,
+    /// The band this box's block-start border is drawn in, when something sits
+    /// in that border rather than under it.
+    ///
+    /// [`None`] for every box but a `<fieldset>` showing a legend, which is
+    /// the one thing in CSS that breaks a border. See [`crate::legend`], which
+    /// is where it is worked out and what it means; [`BoxGeometry::border`]'s
+    /// top is **zero** whenever this is set, because the band is the border.
+    pub band: Option<crate::legend::Band>,
 }
 
 impl BoxGeometry {
@@ -197,6 +205,7 @@ mod tests {
             padding: Edges::all(8.0),
             margin: Edges::all(4.0),
             scrollable: Size::new(80.0, 40.0),
+            band: None,
         }
     }
 

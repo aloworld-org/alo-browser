@@ -1,0 +1,13 @@
+block flow · document
+  block flow · generic
+    block flow · group "Pizza size"
+      block flow · generic
+        text "Pizza size"
+      block flow · generic
+        inline flow · generic
+          inline flow-root · radio [checked=true]
+          text " Small"
+      block flow · generic
+        inline flow · generic
+          inline flow-root · radio [checked=false]
+          text " Large"

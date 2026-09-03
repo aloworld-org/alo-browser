@@ -242,6 +242,19 @@ pub struct BoxTree {
     /// `alo-layout` and `alo-layout` is built on top of this. A width and a
     /// height are a width and a height.
     natural: BTreeMap<BoxId, (f32, f32)>,
+    /// Which box a `<fieldset>` shows in its block-start band, by fieldset.
+    ///
+    /// A fieldset's first `<legend>` is not laid out where it was written: it
+    /// sits **in** the fieldset's block-start border rather than under it, and
+    /// the border is not drawn behind it. Layout cannot work that out on its
+    /// own — it has the boxes and their styles and no document — so the tree
+    /// that does have the document says which box it is.
+    ///
+    /// A side map for the same reason [`BoxTree::natural`] is one: almost no
+    /// box is a fieldset. It is a relation between two boxes of this tree
+    /// rather than a second structure, so there is nothing here that can
+    /// disagree with the tree.
+    legends: BTreeMap<BoxId, BoxId>,
 }
 
 impl BoxTree {
@@ -272,6 +285,24 @@ impl BoxTree {
     /// The size a box has of its own, if it has one.
     pub fn natural_size(&self, id: BoxId) -> Option<(f32, f32)> {
         self.natural.get(&id).copied()
+    }
+
+    /// The legend a `<fieldset>` shows in its block-start band, if it has one.
+    ///
+    /// The box is a child of the fieldset like any other and is **first**
+    /// among them, wherever the `<legend>` was written: a fieldset renders its
+    /// first legend at the top whatever else comes before it in the document.
+    /// What makes it the legend rather than an ordinary first child is this
+    /// answer, and layout asks it to know where to put the border.
+    pub fn rendered_legend(&self, id: BoxId) -> Option<BoxId> {
+        self.legends.get(&id).copied()
+    }
+
+    /// Every fieldset that shows a legend, with the legend it shows.
+    pub fn legends(&self) -> impl Iterator<Item = (BoxId, BoxId)> + '_ {
+        self.legends
+            .iter()
+            .map(|(fieldset, legend)| (*fieldset, *legend))
     }
 
     /// One box.
@@ -324,6 +355,7 @@ impl BoxTree {
     pub fn empty_for_tests() -> Self {
         Self {
             natural: BTreeMap::new(),
+            legends: BTreeMap::new(),
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -513,6 +545,7 @@ impl BoxTree {
 pub fn build(document: &Document, styles: &StyleTree) -> BoxTree {
     let mut tree = BoxTree {
         natural: BTreeMap::new(),
+        legends: BTreeMap::new(),
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),
@@ -659,7 +692,15 @@ fn build_one(
                 // of the anonymous blocks the pieces end up in, one level up.
                 return split_around_blocks(tree, box_id, children);
             }
-            let arranged = arrange(tree, box_id, children);
+            let mut arranged = arrange(tree, box_id, children);
+            // A fieldset shows its legend in its block-start border rather
+            // than under it, so the legend goes first among the children
+            // whatever came before it in the document.
+            if let Some(legend) = legend_of(document, element, display, tree, &arranged) {
+                arranged.retain(|child| *child != legend);
+                arranged.insert(0, legend);
+                tree.legends.insert(box_id, legend);
+            }
             tree.adopt(box_id, &arranged);
             vec![box_id]
         }
@@ -728,6 +769,46 @@ fn arrange(tree: &mut BoxTree, parent: BoxId, children: Vec<BoxId>) -> Vec<BoxId
     }
     flush_run(tree, &mut run, &mut arranged);
     arranged
+}
+
+/// The box a `<fieldset>` shows in its block-start band, out of the children
+/// it ended up with.
+///
+/// **The first `<legend>` among them**, which is what HTML calls the fieldset's
+/// rendered legend — the one whose words name the group, and the one the
+/// fieldset's border is broken around. Every other legend inside a fieldset is
+/// an ordinary block.
+///
+/// Three things are deliberately not one:
+///
+/// - A fieldset the author made a **flex or grid container** has no rendered
+///   legend here. Its children are items in an arrangement of the author's,
+///   and lifting one of them into the border would be this engine overruling a
+///   layout somebody wrote.
+/// - An **inline-level** legend is not one either: it is in a run with the text
+///   beside it by the time this is asked, which is why this looks at the
+///   arranged children rather than at the raw ones. A band holds a block.
+/// - A legend that generated **no box** — `display: none`, or `contents` —
+///   cannot be found here, which is the right answer rather than a missing
+///   case: there is nothing to put in the band.
+fn legend_of(
+    document: &Document,
+    element: &alo_dom::Element,
+    display: Display,
+    tree: &BoxTree,
+    children: &[BoxId],
+) -> Option<BoxId> {
+    if !element.name.is_html("fieldset")
+        || !matches!(display.inside(), Some(Inside::Flow | Inside::FlowRoot))
+    {
+        return None;
+    }
+    children.iter().copied().find(|child| {
+        tree.get(*child)
+            .and_then(|node| node.kind.node())
+            .and_then(|node| document.element(node))
+            .is_some_and(|element| element.name.is_html("legend"))
+    })
 }
 
 /// Whether an element is a form control that holds what it shows in a box of
@@ -1106,6 +1187,92 @@ mod tests {
             2,
             "one piece on each side, even though the first holds nothing:\n{outline}",
         );
+    }
+
+    /// The box a `<fieldset>` made, found by what it means.
+    fn fieldset_of(tree: &BoxTree) -> BoxId {
+        let root = tree.root().expect("a root");
+        core::iter::once(root)
+            .chain(tree.descendants(root))
+            .find(|id| {
+                tree.get(*id)
+                    .is_some_and(|node| node.semantics.role.to_string().starts_with("group"))
+            })
+            .expect("a fieldset")
+    }
+
+    #[test]
+    fn a_fieldset_says_which_legend_it_shows_in_its_border() {
+        let tree = boxes("<fieldset><legend>Size</legend><p>one</p></fieldset>", "");
+        let fieldset = fieldset_of(&tree);
+        let legend = tree.rendered_legend(fieldset).expect("a rendered legend");
+        assert_eq!(
+            tree.children(fieldset).next(),
+            Some(legend),
+            "and it is the first child, which is where it is drawn",
+        );
+        assert_eq!(
+            tree.get(legend).and_then(BoxNode::text),
+            None,
+            "the legend's box, not its text",
+        );
+    }
+
+    #[test]
+    fn a_legend_written_after_something_else_is_still_shown_first() {
+        // HTML renders a fieldset's *first legend* at the top whatever comes
+        // before it in the document, which is why hoisting it is the box
+        // tree's job rather than something layout could infer.
+        let tree = boxes(
+            "<fieldset><p>one</p><legend>Size</legend><p>two</p></fieldset>",
+            "",
+        );
+        let fieldset = fieldset_of(&tree);
+        let legend = tree.rendered_legend(fieldset).expect("a rendered legend");
+        assert_eq!(tree.children(fieldset).next(), Some(legend));
+        assert_eq!(
+            tree.children(fieldset).count(),
+            3,
+            "and nothing else moved: the two paragraphs are still there",
+        );
+    }
+
+    #[test]
+    fn only_the_first_legend_of_a_fieldset_is_the_one_it_shows() {
+        let tree = boxes(
+            "<fieldset><legend>Size</legend><legend>Again</legend></fieldset>",
+            "",
+        );
+        let fieldset = fieldset_of(&tree);
+        let legend = tree.rendered_legend(fieldset).expect("a rendered legend");
+        assert_eq!(
+            tree.children(fieldset).next(),
+            Some(legend),
+            "the second legend is an ordinary block",
+        );
+        assert_eq!(tree.legends().count(), 1);
+    }
+
+    #[test]
+    fn a_fieldset_the_author_arranged_has_no_legend_in_its_border() {
+        // An author who made the fieldset a flex container arranged its
+        // children themselves, and lifting one of them into the border would
+        // be this engine overruling a layout somebody wrote.
+        let tree = boxes(
+            "<fieldset id=f><legend>Size</legend><p>one</p></fieldset>",
+            "#f { display: flex }",
+        );
+        assert_eq!(tree.legends().count(), 0);
+        assert_eq!(tree.rendered_legend(fieldset_of(&tree)), None);
+    }
+
+    #[test]
+    fn a_legend_that_generates_no_box_leaves_the_border_whole() {
+        let tree = boxes(
+            "<fieldset><legend>Size</legend><p>one</p></fieldset>",
+            "legend { display: none }",
+        );
+        assert_eq!(tree.rendered_legend(fieldset_of(&tree)), None);
     }
 
     #[test]

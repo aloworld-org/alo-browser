@@ -5688,3 +5688,113 @@ reference render, it depends on nothing, and the reason it keeps being skipped
 is that every iteration finds something with a security argument attached
 instead. That is worth one iteration deciding on purpose rather than deferring
 again.
+
+---
+
+## Iteration 83 — queue item 183: a fieldset looks like a group
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** This is the
+item iterations 70 to 82 each named and nobody took — twelve now — and
+iteration 82's own journal said out loud that it was "worth one iteration
+deciding on purpose rather than deferring again". So it was taken on purpose.
+It is not the first item in the file: 187 says in itself to wait for an upload
+that wants it, 60 is HTTP/3, and 188 and 189 are CSP's channel and a rented
+digest. This one depends on nothing, is opened by a page in the corpus, and
+closes with a picture.
+
+**The interesting part is not the border, it is the band.** A `<fieldset>` with
+no border was the symptom — three radio buttons under "Pizza Size" looked
+exactly like three radio buttons, which is the one thing a fieldset is *for*
+being the one thing invisible — but the border alone is four lines of the
+user-agent sheet. What the item is really about is that a legend sits **in**
+the block-start border rather than above it, and CSS has nothing else shaped
+like that: every other border in the language goes all the way round.
+
+So `alo_layout::legend` states it as one rule and the rest of the engine knows
+nothing about fieldsets: **a fieldset showing a legend has a band where its
+block-start border would be**, as tall as the legend, with the border drawn
+through the middle of it and not drawn behind the legend at all. The layout run
+is given *no* block-start border — the band stands in for it — and the band is
+recorded afterwards, carrying the stroke the style asked for and the gap the
+legend leaves.
+
+**The band replaces the border rather than adding to it, and that is the whole
+difference between right and nearly right.** Laying the legend out as an
+ordinary first child and then raising it would have left the fieldset the
+border's own thickness taller than a browser draws it: two pixels, on every
+fieldset, forever, and invisible until somebody put this engine beside another
+one. Asserted in numbers rather than reasoned about — a fieldset holding one
+line is 49.6 tall and one with no legend is 35.6, which is the same box with
+its sixteen pixels of legend swapped for its two of border.
+
+**Three decisions in the box tree, each of which could have gone the other
+way.**
+
+- The legend is **hoisted to the front**, because HTML draws a fieldset's
+  *first legend* at the top whatever comes before it in the document. That
+  cannot be inferred in layout, which has boxes and styles and no document, so
+  the tree that does have the document records it — a side map, the same shape
+  and the same argument as `natural`: almost no box is a fieldset.
+- A fieldset the author made a **flex or grid container** has no rendered
+  legend. Its children are items in an arrangement somebody wrote, and lifting
+  one of them into the border would be this engine overruling them.
+- An **inline-level** legend is not one either. The check runs over the
+  *arranged* children, so a legend that ended up in a run with the text beside
+  it is simply not found — the rule falls out of the shape rather than needing
+  a case.
+
+**There is no anonymous "fieldset content" box**, which the HTML specification
+does describe. It was not needed: with the legend hoisted and the block-start
+border zeroed, the padding lands where a browser puts it and the fieldset comes
+out the right height. Adding a box nothing needs would have changed every
+fieldset's agent tree for a structure no assertion could see.
+
+**`solid` where every other browser draws a `groove`, and it is written into
+the sheet.** This engine draws only solid borders and says why — a style drawn
+as a different style is a wrong pixel that looks nearly right — so the fieldset
+gets the colour a groove is made of, drawn the one way we can draw it honestly.
+That is a substitution, and a substitution nobody writes down is one nobody
+re-checks (queue items 47 and 49 are both about exactly that going wrong), so
+it is named in `user_agent.rs`, in `docs/conformance.md`, in the changelog, and
+as **queue item 190**.
+
+**Two doctorings, run rather than reasoned about.** Drawing the block-start
+border whole rather than in two pieces: the two paint tests failed and both
+corpus cases failed with it. Letting the band add to the border rather than
+replace it: the two layout assertions failed and the no-legend one stayed
+green, which is what says they are testing the band and not the border.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1475 tests** (up from 1461), no stubs, no `unsafe`, boundaries held —
+nothing was rented — the licence notice on both new files, and a `CHANGELOG.md`
+line. The half no script can check: a **layout assertion in numbers**
+(`numbers.rs`, three tests, every number written out), a **reference render**
+(corpus case `fieldset-group`, and `web-a-form`'s two groups have their borders
+now), one responsibility per file — the band is its own file rather than more
+of `engine.rs` — and the item is in `docs/features.md`. Clippy's `float_cmp`
+fired three times on assertions I had written with `assert_eq!`, and it was
+right each time.
+
+**`ROADMAP.md`.** The line moved is *"Forms: the controls, constraint
+validation, submission, file inputs"*, whose `· Built:` clause gains the
+fieldset beside item 182's control states. **It is not ticked**, and the
+`Owed:` clause says why in its own words: everything a control *does* needs
+events, and the focus ring needs something to have focus.
+
+**What the next iteration should know.** `docs/conformance.md`'s controls
+section is now accurate again, and the one remaining hole in it is still the
+focus ring — item 43, blocked on item 81, and genuinely blocked rather than
+skipped. The ready items in file order are **170** (fonts a page asks for by
+name, which item 68's corpus case is the standing evidence for), **64** and
+**65** (the renderer lifecycle), and **66** (where one site ends and another
+begins — `alo_url::site` already answers much of it since item 156, so read it
+before building it). **190** is new, small, depends on nothing, and is the same
+kind of item this one was: a visible thing a real page asks for, with a
+reference render as its answer.
+
+One thing this iteration did *not* do and should be said plainly: a fieldset
+with a `border-radius` and a legend draws square corners. The shape that
+answers a rounded corner with a hole in one side properly is item 19's kind of
+work, and drawing an approximation would have been a wrong pixel on the one
+element this code exists for. It is written into `alo_paint`'s own doc comment
+where somebody would otherwise add it, and into item 183 in the queue.

@@ -6,6 +6,25 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A group of controls looks like a group.** A `<fieldset>` draws a border
+  now, and its `<legend>` sits **in** that border rather than above it: the
+  line runs through the middle of the legend's words and stops either side of
+  them, which is how a browser writes a group's name into the box around it.
+  Until now a fieldset drew nothing at all, so three radio buttons under "Pizza
+  Size" looked exactly like three radio buttons — the one thing a fieldset is
+  *for* was the one thing that was invisible.
+
+  The band the legend sits in **replaces** the block-start border rather than
+  adding to it, which is why a fieldset here is exactly as tall as one a
+  browser draws, and why two of them stacked line up. A legend written after
+  something else is still drawn first, because that is what HTML says a
+  fieldset does with its first legend.
+
+  The border is `solid` where every other browser draws a `groove`. This engine
+  draws only solid borders and says so: a style drawn as a different style is a
+  wrong pixel that looks nearly right, and the two-tone ones are their own
+  piece of work rather than an approximation slipped in here.
+
 - **A page can say what it is willing to load, and be believed.** Content
   Security Policy: a site writes `script-src 'self'`, and if a script from
   anywhere else ever appears in one of its pages — because its escaping failed

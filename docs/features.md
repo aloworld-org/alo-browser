@@ -146,6 +146,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   the end of the inline rather than the edge of the line
 - [2] **Forms**: labels that wrap their control, fieldsets named by their
   legend, and a radio you can tell from a checkbox
+- [2] **A fieldset's border, broken by its legend** — the legend sits *in* the
+  block-start border rather than above it, and the border is drawn in the two
+  pieces it leaves. The band it sits in replaces that border rather than adding
+  to it, so the fieldset is as tall as a browser draws one
 - [2] **`border-radius` in per cent**, resolved against the box
 - [2] **Links that look like links**, with no visited colour — `:visited` never
   matches, so history is not readable from a page

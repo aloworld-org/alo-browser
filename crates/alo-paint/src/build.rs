@@ -453,6 +453,10 @@ impl Builder<'_> {
         let Some(style) = self.style_of(id) else {
             return;
         };
+        if let Some(band) = geometry.band {
+            self.draw_banded_border(id, border_box, band, style, out);
+            return;
+        }
         let corners = Corners::of(style, Self::extent_of(geometry.border_box));
 
         // One width and one colour on every side: a ring. Only for a box drawn
@@ -540,6 +544,95 @@ impl Builder<'_> {
         if rounded {
             out.push(DisplayItem::PopClip);
         }
+    }
+
+    /// The border of a box whose block-start border has something sitting in
+    /// it: a `<fieldset>` showing a legend, which is the only such box in CSS.
+    ///
+    /// The border is drawn **through** the band rather than above it, so the
+    /// three ordinary sides start at the line the block-start border is on
+    /// rather than at the top of the border box — the box above that line is
+    /// the legend's, and a border either side of it would box the legend in.
+    ///
+    /// And the block-start border is drawn in the **two pieces the legend
+    /// leaves**, which is the whole point of the exercise: a group of controls
+    /// with its name written into the line around them. Either piece can be
+    /// nothing — a legend wide enough leaves no border at all, and one at the
+    /// very edge leaves only the piece on the other side.
+    ///
+    /// **A radius is ignored here**, where every other border follows one. A
+    /// rounded corner is a curve between two sides, and one of these sides has
+    /// a hole in it; the shape that answers that properly is queue item 19's
+    /// kind of work, and drawing an approximation of it would be a wrong pixel
+    /// on the one element this code exists for.
+    fn draw_banded_border(
+        &self,
+        id: BoxId,
+        border_box: Rect,
+        band: alo_layout::Band,
+        style: &alo_style::ComputedStyle,
+        out: &mut Vec<DisplayItem>,
+    ) {
+        let inset = band.inset();
+        let area = Rect::new(
+            border_box.left(),
+            border_box.top() + inset,
+            border_box.size.width,
+            (border_box.size.height - inset).max(0.0),
+        );
+        let border = self.border_of(id);
+        let mut fill = |rect: Rect, color: Rgba| {
+            if rect.size.width > 0.0 && rect.size.height > 0.0 {
+                out.push(DisplayItem::Fill {
+                    box_id: id,
+                    path: rect_path(rect),
+                    paint: Paint::Solid(color),
+                });
+            }
+        };
+        for (side, width) in [
+            ("right", border.right),
+            ("bottom", border.bottom),
+            ("left", border.left),
+        ] {
+            let color = border_color(style, side);
+            if width <= 0.0
+                || border_style(style, side).is_none_or(|kind| kind != "solid")
+                || color.is_invisible()
+            {
+                continue;
+            }
+            let rect = match side {
+                "right" => Rect::new(area.right() - width, area.top(), width, area.size.height),
+                "bottom" => Rect::new(area.left(), area.bottom() - width, area.size.width, width),
+                _ => Rect::new(area.left(), area.top(), width, area.size.height),
+            };
+            fill(rect, color);
+        }
+
+        let color = border_color(style, "top");
+        if band.stroke <= 0.0
+            || border_style(style, "top").is_none_or(|kind| kind != "solid")
+            || color.is_invisible()
+        {
+            return;
+        }
+        let (gap_starts, gap_ends) = band.gap;
+        let before = Rect::new(
+            area.left(),
+            area.top(),
+            gap_starts.clamp(0.0, area.size.width),
+            band.stroke,
+        );
+        let after_starts = area.left() + gap_ends.clamp(0.0, area.size.width);
+        let after = Rect::new(
+            after_starts,
+            area.top(),
+            (area.right() - after_starts).max(0.0),
+            band.stroke,
+        );
+        fill(before, color);
+        fill(after, color);
     }
 
     /// The colour of a border that is the same on all four sides, if it is.

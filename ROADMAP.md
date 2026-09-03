@@ -311,7 +311,11 @@ unreachable without it.
       checked box, a dot in a chosen radio, a dash in one that is neither, in
       `accent-color` if the page names one; and a control nobody can operate
       says so *while still saying what state it is in*. Corpus case
-      `control-states` · Owed: everything a control **does**, which needs events
+      `control-states`. **A group of controls looks like a group** (queue item
+      183) — a fieldset draws its border, and its legend sits *in* that border
+      rather than above it, so the border is drawn in the two pieces the legend
+      leaves. Corpus case `fieldset-group` · Owed: everything a control **does**,
+      which needs events
       (queue item 81) — constraint validation, submission, file inputs — and the
       focus ring, which needs something to have focus (queue item 43)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each

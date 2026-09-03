@@ -167,6 +167,39 @@ input[type="button"], input[type="submit"], input[type="reset"] {
   background: #efefef;
 }
 
+/* A group of controls looks like a group.
+ *
+ * A `<fieldset>` had no border at all until now, which made the one thing it
+ * is *for* invisible: three radio buttons under "Pizza Size" looked exactly
+ * like three radio buttons. The border and the padding here are the HTML
+ * specification's own, and the legend is what makes them interesting — it sits
+ * **in** the border rather than above it, which is `alo_layout::legend`.
+ *
+ * `solid` rather than the `groove` every other browser uses. A groove is two
+ * tones of one colour, a light edge and a dark one, and this engine draws only
+ * solid borders — `alo_paint` says so, and says why: a style drawn as a
+ * different style is a wrong pixel that looks nearly right. So the border is
+ * the colour a groove is made of, drawn the one way we can draw it honestly,
+ * and `groove` is queue item 190.
+ *
+ * The legend's width is `fit-content(100%)` rather than the bare `fit-content`
+ * the specification writes, which is the same thing for a block in flow — as
+ * wide as its words, and never wider than the fieldset. It matters more than
+ * it looks: a legend stretched to the full width would leave a gap in the
+ * border with no border either side of it, which is to say no border at all.
+ */
+fieldset {
+  margin-left: 2px;
+  margin-right: 2px;
+  padding: 0.35em 0.75em 0.625em;
+  border: 2px solid #c0c0c0;
+}
+legend {
+  padding-left: 2px;
+  padding-right: 2px;
+  width: fit-content(100%);
+}
+
 /* A control nobody can operate says so.
  *
  * "You cannot change this" and "this is off" are different things to be told,

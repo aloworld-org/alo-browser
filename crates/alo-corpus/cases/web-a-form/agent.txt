@@ -1,31 +1,31 @@
-document at (0, 0) 600×613.5313
+document at (0, 0) 600×664.73126
   paragraph at (8, 16) 584×26.973438
     textbox "Customer name:" at (146.65625, 16) 166×23.2
   paragraph at (8, 58.97344) 584×26.973438
     textbox "Telephone:" at (99.734375, 58.97344) 166×23.2
   paragraph at (8, 101.94688) 584×26.973438
     textbox "E-mail address:" at (136.58594, 101.94688) 166×23.2
-  group "Pizza Size" at (8, 144.92032) 584×122.94531
-    text "Pizza Size" at (8, 144.92032) 78.27344×18.625
-    paragraph at (8, 179.54532) 584×18.773438
-      radio "Small" [checked=false] at (8, 179.54532) 15×15
-    paragraph at (8, 214.31876) 584×18.773438
-      radio "Medium" [checked=false] at (8, 214.31876) 15×15
-    paragraph at (8, 249.0922) 584×18.773438
-      radio "Large" [checked=false] at (8, 249.0922) 15×15
-  group "Pizza Toppings" at (8, 283.86563) 584×157.71875
-    text "Pizza Toppings" at (8, 283.86563) 115.66406×18.625
-    paragraph at (8, 318.49063) 584×18.773438
-      checkbox "Bacon" [checked=false] at (8, 318.49063) 15×15
-    paragraph at (8, 353.26407) 584×18.773438
-      checkbox "Extra Cheese" [checked=false] at (8, 353.26407) 15×15
-    paragraph at (8, 388.0375) 584×18.773438
-      checkbox "Onion" [checked=false] at (8, 388.0375) 15×15
-    paragraph at (8, 422.81094) 584×18.773438
-      checkbox "Mushroom" [checked=false] at (8, 422.81094) 15×15
-  paragraph at (8, 457.58438) 584×26.973438
-    generic "Preferred delivery time:" at (202.48438, 457.58438) 166×23.2
-  paragraph at (8, 500.55783) 584×57.773438
-    textbox "Delivery instructions:" at (183.67188, 500.55783) 166×54
-  paragraph at (8, 574.3313) 584×23.2
-    button "Submit order" at (8, 574.3313) 118.50781×23.2
+  group "Pizza Size" at (10, 144.92032) 580×156.54532
+    text "Pizza Size" at (26, 144.92032) 78.27344×18.625
+    paragraph at (24, 185.14532) 552×18.773438
+      radio "Small" [checked=false] at (24, 185.14532) 15×15
+    paragraph at (24, 219.91876) 552×18.773438
+      radio "Medium" [checked=false] at (24, 219.91876) 15×15
+    paragraph at (24, 254.6922) 552×18.773438
+      radio "Large" [checked=false] at (24, 254.6922) 15×15
+  group "Pizza Toppings" at (10, 301.46564) 580×191.31876
+    text "Pizza Toppings" at (26, 301.46564) 115.66406×18.625
+    paragraph at (24, 341.69064) 552×18.773438
+      checkbox "Bacon" [checked=false] at (24, 341.69064) 15×15
+    paragraph at (24, 376.46408) 552×18.773438
+      checkbox "Extra Cheese" [checked=false] at (24, 376.46408) 15×15
+    paragraph at (24, 411.23752) 552×18.773438
+      checkbox "Onion" [checked=false] at (24, 411.23752) 15×15
+    paragraph at (24, 446.01096) 552×18.773438
+      checkbox "Mushroom" [checked=false] at (24, 446.01096) 15×15
+  paragraph at (8, 508.7844) 584×26.973438
+    generic "Preferred delivery time:" at (202.48438, 508.7844) 166×23.2
+  paragraph at (8, 551.7578) 584×57.773438
+    textbox "Delivery instructions:" at (183.67188, 551.7578) 166×54
+  paragraph at (8, 625.53125) 584×23.2
+    button "Submit order" at (8, 625.53125) 118.50781×23.2

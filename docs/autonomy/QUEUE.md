@@ -1174,6 +1174,17 @@ The long pole, and the thing most of section E is unreachable without.
   **Done.** No corpus case moved except the one the disabled rule was written
   for, which is the evidence that nothing was relying on the old behaviour.
 
+- [ ] **190. The border styles that are two tones**: `groove`, `ridge`, `inset`
+  and `outset`. Cut from 183, which draws a fieldset's border `solid` where
+  every other browser draws a `groove` — and says so in the user-agent sheet,
+  because a substitution nobody wrote down is one nobody re-checks. Each is the
+  same shape drawn in two colours, a lighter and a darker derived from the
+  border's own, and which side gets which is what makes it look raised or sunk.
+  `dashed`, `dotted` and `double` are the same file's work and belong with them.
+  *Depends on nothing. Closes when:* each draws in a reference render and none
+  of them is another one — a `groove` and a `ridge` that came out identical
+  would be a test passing on a picture nobody looked at.
+
 - [ ] **94. Animations and transitions.** Stage 1 reads them and they change
   nothing, which is correct for a still picture; this is the clock.
   *Depends on 76.*
@@ -1297,12 +1308,26 @@ The long pole, and the thing most of section E is unreachable without.
   Setting `border-color` on a disabled control needed item 184, which was taken
   with it because the code had already written down the day it would be needed.
 
-- [ ] **183. A fieldset looks like a group.** No border, so the thing that makes
+- [x] **183. A fieldset looks like a group.** No border, so the thing that makes
   a fieldset worth using is invisible. Real browsers draw a groove the legend
   breaks through, which is the interesting part: the legend sits *in* the top
   border rather than above it.
   *Depends on 181. Closes when:* a fieldset draws a border with its legend
   breaking it, in a reference render.
+
+  **Done: corpus case `fieldset-group`, and `web-a-form` has its two groups
+  back.** The interesting part is a **band**: a fieldset showing a legend gets
+  no block-start border for the layout run and a band as tall as the legend
+  instead, with the border recorded beside it and drawn through the middle
+  afterwards. The band *replaces* that border rather than adding to it, which
+  is the difference between a fieldset as tall as a browser's and one two
+  pixels taller — `alo_layout::legend` is the whole rule, and it is the only
+  place in the engine that knows a fieldset from any other block. The box tree
+  hoists the legend to the front, because HTML draws a fieldset's **first**
+  legend at the top whatever comes before it; a flex or grid fieldset is left
+  alone, because lifting an item out of a layout somebody wrote is this engine
+  overruling them. Two things went to the queue: 190, and the note that a
+  fieldset with a `border-radius` and a legend has square corners.
 
 - [ ] **180. GIF, WebP and AVIF.** Rented. The same bound and the same refusals
   as PNG and JPEG, added to the one list the tests already walk.

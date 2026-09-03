@@ -78,6 +78,25 @@ fn rect_of(boxes: &BoxTree, layout: &LayoutTree, wanted: &str, document_html: &s
         .unwrap_or(NOT_FOUND)
 }
 
+/// Everything about where a box ended up, rather than only its rectangle —
+/// for the assertions that are about a border or a band rather than a size.
+fn geometry_of(
+    boxes: &BoxTree,
+    layout: &LayoutTree,
+    wanted: &str,
+    document_html: &str,
+) -> alo_layout::BoxGeometry {
+    let rect = rect_of(boxes, layout, wanted, document_html);
+    let Some(root) = boxes.root() else {
+        return alo_layout::BoxGeometry::default();
+    };
+    core::iter::once(root)
+        .chain(boxes.descendants(root))
+        .filter_map(|id| layout.get(id))
+        .find(|geometry| geometry.border_box == rect)
+        .unwrap_or_default()
+}
+
 #[test]
 fn three_blocks_stack_and_fill_the_width() {
     let html = "<body><div id=a></div><div id=b></div><div id=c></div></body>";
@@ -934,5 +953,84 @@ fn things_of_different_heights_on_one_line_sit_on_one_baseline() {
     assert!(
         close(image.top(), paragraph.top()),
         "the tallest thing sets the baseline, so it starts at the top of the line",
+    );
+}
+
+#[test]
+fn a_fieldsets_legend_sits_in_its_border_rather_than_under_it() {
+    // The user-agent sheet's own numbers: a 2px border, 0.35em of padding
+    // above and 0.625em below, 0.75em either side, and a legend as wide as its
+    // words. "Size" is four characters of the eight-pixel font, and the
+    // legend's own padding adds two either side.
+    let html = "<body><fieldset id=f><legend id=l>Size</legend><p id=p>one</p></fieldset></body>";
+    let (boxes, layout) = lay_out(html, "p { margin: 0 }", Size::new(400.0, 300.0));
+
+    let legend = rect_of(&boxes, &layout, "l", html);
+    let fieldset = rect_of(&boxes, &layout, "f", html);
+    assert!(
+        close(legend.top(), fieldset.top()),
+        "the legend is *in* the border rather than under it, so it starts \
+         where the fieldset starts: {legend:?} against {fieldset:?}",
+    );
+    assert_eq!(legend, Rect::new(16.0, 0.0, 36.0, 16.0));
+
+    assert!(
+        close(rect_of(&boxes, &layout, "p", html).top(), 21.6),
+        "and what the fieldset holds starts below the legend, then the \
+         padding: {:?}",
+        rect_of(&boxes, &layout, "p", html),
+    );
+    assert!(
+        close(fieldset.size.height, 49.6),
+        "the band **replaces** the block-start border rather than adding to \
+         it — sixteen of legend, 0.35em of padding, a line, 0.625em, and the \
+         2px border along the bottom: {fieldset:?}",
+    );
+}
+
+#[test]
+fn a_fieldsets_band_says_where_its_border_is_drawn_and_where_it_is_not() {
+    let html = "<body><fieldset id=f><legend id=l>Size</legend><p id=p>one</p></fieldset></body>";
+    let (boxes, layout) = lay_out(html, "p { margin: 0 }", Size::new(400.0, 300.0));
+    let band = geometry_of(&boxes, &layout, "f", html)
+        .band
+        .expect("a fieldset showing a legend has a band");
+
+    assert!(close(band.height, 16.0), "as tall as the legend: {band:?}");
+    assert!(
+        close(band.stroke, 2.0),
+        "the border the style asked for, which the layout run was not given: {band:?}",
+    );
+    assert!(
+        close(band.inset(), 7.0),
+        "drawn through the middle: {band:?}"
+    );
+    // The legend's margin box, as distances from the fieldset's left edge:
+    // it starts 12px of padding and 2px of border in, and is 36 wide.
+    assert!(
+        close(band.gap.0, 14.0) && close(band.gap.1, 50.0),
+        "the gap is exactly the legend: {band:?}",
+    );
+    assert!(
+        close(geometry_of(&boxes, &layout, "f", html).border.top, 0.0),
+        "and the border itself takes no room, because the band is the border",
+    );
+}
+
+#[test]
+fn a_fieldset_with_no_legend_has_an_ordinary_border() {
+    let html = "<body><fieldset id=f><p id=p>one</p></fieldset></body>";
+    let (boxes, layout) = lay_out(html, "p { margin: 0 }", Size::new(400.0, 300.0));
+    let fieldset = geometry_of(&boxes, &layout, "f", html);
+    assert_eq!(fieldset.band, None);
+    assert!(close(fieldset.border.top, 2.0));
+    assert!(
+        close(rect_of(&boxes, &layout, "p", html).top(), 7.6),
+        "the border, and then the padding",
+    );
+    assert!(
+        close(fieldset.border_box.size.height, 35.6),
+        "which is the same fieldset without a legend's sixteen pixels, and \
+         with its border back: {fieldset:?}",
     );
 }

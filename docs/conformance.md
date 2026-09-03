@@ -86,6 +86,16 @@ pales — so on, off, on-and-locked and off-and-locked are four different
 pictures. That much is ordinary colour and does live in the user-agent sheet,
 where a page can override it.
 
+**A group of controls looks like a group.** A `<fieldset>` draws a border, and
+its `<legend>` sits **in** that border rather than above it: the block-start
+border is drawn in the two pieces the legend leaves, which is what writes the
+group's name into the line around it. The band the legend sits in *replaces* the
+block-start border rather than adding to it, so a fieldset is exactly as tall as
+a browser draws one. The border is `solid` where every other browser draws a
+`groove`, because this engine draws only solid borders and a style drawn as a
+different style is a wrong pixel that looks nearly right; `groove`, `ridge`,
+`inset` and `outset` are queue item 190.
+
 **There is still no focus ring**, which is the rest of queue item 43: a focused
 field looks exactly like an unfocused one. Nothing in this stage has focus to
 draw, and the day something does, this is what it needs.
