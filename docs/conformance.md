@@ -98,22 +98,27 @@ What does not exist: any transform with a third dimension in it — `rotate3d`,
 `matrix3d`, `perspective` — which is refused rather than flattened. A border
 with four different widths still turns its inner corner squarer than CSS draws
 it. A blur under a non-uniform scale or a skew is softened by the average of
-the two axes, because a blur radius is one number. The targets below are
-still `not yet`, because they are alo's own screens rather than pages we wrote
-to test with.
+the two axes, because a blur radius is one number. Most targets below are still
+`not yet`, because they are alo's own screens rather than pages we wrote to test
+with — and the sign-in screen, which is alo's, is *nearly* rather than done: the
+four substitutions in its case are four things this engine has yet to implement.
 
 This file exists instead of a conformance percentage. A Web Platform Tests score
 would grade us against thirty years of legacy we are deliberately refusing
 (`docs/decisions/0001`), so it would measure the wrong thing and flatter or
 punish us for the wrong reasons.
 
-The measure is alo. These are the targets, in order:
+The measure is alo. These are the targets, in order — and each is **markup and
+CSS that exists today**, not a screen waiting on a compositor. A target is the
+document, not the operating system that will eventually show it, so every row
+here can move on an ordinary laptop. An alo screen is alo's whichever repository
+it lives in.
 
 | Target | State |
 |---|---|
-| `alo-os` sign-in screen | **not yet** — `alo-os` is not checked out beside this repository, so its markup has never been rendered. `alo-workplace`'s sign-in screen is, and is in the corpus |
-| `alo-os` Settings | not yet |
-| `alo-os` agent overlay | not yet |
+| alo sign-in screen | **nearly** — `alo-workplace`'s renders and is diffed on every run, with four substitutions still in the case (see below). Not correct until those are gone |
+| alo Settings | not yet — not rendered at all |
+| alo agent overlay | not yet |
 | An agent reading Settings as a tree and activating a row by name | reading and activating both work on pages we wrote; Settings itself is not yet rendered |
 
 Colours are correct when they match `alo-workplace`'s `web/src/ds/tokens.css`,
@@ -128,9 +133,14 @@ every run. Four substitutions are written into the case's own stylesheet, each
 naming a thing this engine does not implement: `clamp()` and viewport units,
 `white-space: pre-line`, `letter-spacing`, and transitions.
 
-It is a real alo screen. It is **not** the screen `ROADMAP.md`'s exit gate
-names, which is `alo-os`'s, and it has never been seen on the certified machine.
-Stage 1's exit gate is not met.
+It is a real alo screen, and it is one of the screens `ROADMAP.md`'s exit gate
+names — the gate used to name `alo-os`'s specifically, which was a fact about
+repository layout rather than about this engine, and it has been corrected.
+
+**Stage 1's exit gate is still not met**, for two reasons that are about the
+engine: those four substitutions mean what is diffed is a modified screen, and
+Settings is not rendered at all. Neither reason is hardware, and neither is
+another repository — so both are this loop's to close.
 
 ## The corpus
 

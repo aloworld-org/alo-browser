@@ -63,9 +63,21 @@ more than one that invents a way past a problem nobody has looked at.
   rule would erode first.
 - **Never add `unsafe`** without an ADR (law 4), and never a verb that takes
   a coordinate (ADR 0002).
-- **Never claim hardware verification it did not do.** Most of v0.01 ends on a
-  certified machine that this loop does not have. Code that is built and unit
-  tested is *built and unit tested*, and the item says so.
+- **Never accept "it needs hardware" as a reason something is unverified.** That
+  rule was inherited from `alo-os`, where it is true and where most of a release
+  really does end on a certified machine. Here it is false — and it still named
+  `alo-os`'s `v0.01` rather than this repository's stages, which is how the copy
+  was spotted. **Stage 1 produces files: a PNG and a box tree.** Anything in it
+  can be verified on the machine the loop is already running on, so an item left
+  unverified is an item left *unfinished*, and the honest word for that is halt.
+
+  What genuinely cannot be verified here is short, and none of it is in stage 1:
+  hardware acceleration, embedding into a compositor that does not exist, and
+  any claim about speed. A performance claim is measured on hardware or not made.
+- **Never let another repository's absence block an item.** `alo-os` not being
+  checked out is a fact about this machine, not about the engine. It once held a
+  finished item open and put "not met" into three documents. If an item seems
+  blocked on a sibling repository, the gate is wrong — halt and say so.
 - **Never touch another repository.** `alo-os` and `alo-workplace` are read-only
   reference here — read them to know what "correct" means, never edit them.
 

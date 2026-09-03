@@ -41,6 +41,12 @@ Two things follow that no existing engine offers:
   their own text shaper, and not out of timidity.
 - **Not a dependency of alo OS.** Its ADR 0002 makes the shell native whether or
   not this is ever finished.
+- **And alo OS is not a dependency of this.** The independence runs both ways —
+  easy to write down once and then quietly lose, which is what happened to the
+  stage 1 exit gate until it was corrected. Stage 1 needs no compositor, no
+  certified machine, no GPU and no network: HTML and CSS in, a PNG and a box
+  tree out, both files. Anybody who clones this repository can build *and verify*
+  all of it on an ordinary laptop — which is how most of it was built.
 
 ## The stages
 

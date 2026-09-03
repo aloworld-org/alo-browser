@@ -224,25 +224,45 @@ file is the specification for what "correct" means here.
 
 ---
 
-## Stage 1's three unticked roadmap lines, and why they are not here
+## Stage 1's last line is this queue's work after all
 
-`ROADMAP.md` still has three lines unticked, and none of them is work this queue
-can take:
+This section used to say stage 1's remaining work was **"blocked on something
+outside this repository"**, because the exit gate named `alo-os`'s screens and
+`alo-os` is not checked out here. That was a fact about where a repository sits
+on a disk, not about the engine — and acting on it sent the loop into stage 2
+with stage 1 unfinished.
 
-- **A real alo screen renders correctly.** The gate names `alo-os`'s screens.
-  That repository is not checked out beside this one, so its markup has never
-  reached the engine. `alo-workplace`'s sign-in screen is in the corpus and
-  renders. **Blocked on something outside this repository.**
-- **Hardware acceleration** and **embedding into alo OS's shell.** Both are
-  explicitly *after* the software path is right, and both want a display server
-  and a machine. Accelerating something whose behaviour is unsettled buys speed
-  nobody can then change.
+The gate is corrected: it names **alo's** screens, and an alo screen is alo's
+whichever repository it lives in. `alo-workplace`'s are checked out beside this
+one. So what remains is ordinary engine work, it belongs here, and **stage 1 is
+finished before stage 2 is continued.**
 
-Nothing in the engine needs a GPU, a window or a network to be built or
-checked — the software raster is the whole point. What needs a machine is the
-*verification* the exit gate asks for, and that is not a thing a loop may claim.
+- [ ] **20. The four substitutions, removed.** `crates/alo-corpus/cases/alo-sign-in/`
+  carries four rewrites in its own stylesheet, each naming something this engine
+  does not implement: `clamp()` and viewport units, `white-space: pre-line`,
+  `letter-spacing`, and transitions. While they are there, what is diffed is a
+  modified screen rather than alo's. Implement them and delete the
+  substitutions, so the case's stylesheet becomes the screen's own. Cut this
+  into separate items if it is more than one iteration — never by leaving a
+  substitution in place.
 
-Stage 2 is not blocked by any of it, so the queue continues.
+- [ ] **21. alo's Settings screen in the corpus.** The second screen the gate
+  names, and it is not rendered at all. Same shape as the sign-in case: its own
+  markup, its own rules, colours from `tokens.css`, a committed reference render
+  and an expected box tree.
+
+- [ ] **22. An agent reads Settings and activates a row by name.** The last
+  clause of the exit gate. Reading works on pages we wrote, and a verb finds its
+  target and reports what it decided — but it does not yet write back to the
+  document, which is item 42. So this item **depends on 42**: until a verb
+  changes the page, "activates a row" is not a thing that can be asserted. What
+  this adds beyond 42 is asserting it against a real alo screen, which is where
+  a role declared wrongly actually shows up.
+
+**Still genuinely not this queue's**, and now recorded in `ROADMAP.md` outside
+the stage 1 list so they cannot block it: hardware acceleration (needs a GPU),
+embedding into alo OS's shell (needs a compositor that does not exist), and any
+claim about speed (measured on hardware, or not made).
 
 ---
 

@@ -94,8 +94,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
 
 ## Embedding
 
-- [1] A surface alo OS's shell can render into
-- [1] alo's sign-in screen, then Settings, rendering correctly — the exit gate of stage 1
+- [1] alo's sign-in screen, then Settings, rendering correctly from their own markup and `tokens.css`, matched against a committed reference render **and** an expected box tree — the exit gate of stage 1, and reachable on any laptop
+- [1] A rendering surface with no operating system behind it: HTML and CSS in, a PNG and a box tree out, both files. Everything in stage 1 is verified through it, which is what makes the stage buildable by anybody who clones this
+- [2] A surface alo OS's shell can render into — **retiered from [1]**: it is the one embedding item needing a compositor that does not exist, and tiering it [1] is what put an unreachable dependency inside stage 1
 - [2] Several documents at once, the shape tabs need
 
 ## Networking, scripting and safety — stage 2

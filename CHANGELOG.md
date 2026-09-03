@@ -29,6 +29,23 @@ What changed, in words a person outside this repository can read. Newest first.
   written back to. Trying to use the boundary end to end is what found it. The
   docs now say so and queue item 42 is where it stops being true.
 
+- **Stage 1 needs no hardware and no operating system, and the roadmap now says
+  so.** The exit gate asked for alo OS's screens to render *on the certified
+  machine, without stutter* — a compositor that does not exist, hardware nobody
+  has, and a speed claim measurable on neither. It had already begun doing
+  damage: a finished capability was held open, three documents recorded "not
+  met" for a reason that was about where a repository sits on a disk, and the
+  build had moved on to stage 2 with stage 1 unfinished. The gate now names
+  **alo's** screens — an alo screen is alo's whichever repository it lives in,
+  and alo's are checked out here — and asks only for what this repository can
+  produce and check on any laptop: a reference image and an expected box tree,
+  so "correctly" is a diff rather than an opinion. Hardware acceleration,
+  embedding into alo OS's shell and rendering without stutter are still real
+  work, moved out of the stage 1 list into a section that cannot block it.
+  Stage 1's genuine remainder is back in the queue as engine work: four
+  substitutions still standing in for things the engine does not implement, the
+  Settings screen, and an agent reading it by name.
+
 - **ADR 0005: one process per site, and a sandbox we rent.** Stage 2's first
   roadmap item is a decision rather than code, and this is it — what runs where,
   which way the boundary points, and what happens when a renderer dies.
