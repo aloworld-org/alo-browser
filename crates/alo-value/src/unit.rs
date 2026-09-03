@@ -47,6 +47,14 @@ pub enum Unit {
     Lh,
     /// The root element's line height.
     Rlh,
+    /// A hundredth of the viewport's width.
+    Vw,
+    /// A hundredth of the viewport's height.
+    Vh,
+    /// A hundredth of the viewport's shorter side.
+    Vmin,
+    /// A hundredth of the viewport's longer side.
+    Vmax,
 }
 
 impl Unit {
@@ -66,6 +74,10 @@ impl Unit {
             Unit::Ch,
             Unit::Lh,
             Unit::Rlh,
+            Unit::Vw,
+            Unit::Vh,
+            Unit::Vmin,
+            Unit::Vmax,
         ];
         ALL.iter()
             .copied()
@@ -88,6 +100,10 @@ impl Unit {
             Unit::Ch => "ch",
             Unit::Lh => "lh",
             Unit::Rlh => "rlh",
+            Unit::Vw => "vw",
+            Unit::Vh => "vh",
+            Unit::Vmin => "vmin",
+            Unit::Vmax => "vmax",
         }
     }
 
@@ -104,13 +120,33 @@ impl Unit {
             Unit::Q => 96.0 / 25.4 / 4.0,
             Unit::Pt => 96.0 / 72.0,
             Unit::Pc => 96.0 / 6.0,
-            Unit::Em | Unit::Rem | Unit::Ex | Unit::Ch | Unit::Lh | Unit::Rlh => return None,
+            Unit::Em
+            | Unit::Rem
+            | Unit::Ex
+            | Unit::Ch
+            | Unit::Lh
+            | Unit::Rlh
+            | Unit::Vw
+            | Unit::Vh
+            | Unit::Vmin
+            | Unit::Vmax => return None,
         })
     }
 
     /// Whether this unit needs a font in force to mean anything.
     pub fn is_font_relative(self) -> bool {
-        self.absolute_pixels().is_none()
+        self.absolute_pixels().is_none() && !self.is_viewport_relative()
+    }
+
+    /// Whether this unit needs a window to mean anything.
+    ///
+    /// The reason these were left out for so long: a viewport is not a
+    /// property of a value, and a value layer that quietly assumed one would
+    /// answer `4vw` with a number in a document nobody had given a size.
+    /// [`crate::FontMetrics`] now carries the viewport when there is one, and
+    /// says so when there is not.
+    pub fn is_viewport_relative(self) -> bool {
+        matches!(self, Unit::Vw | Unit::Vh | Unit::Vmin | Unit::Vmax)
     }
 }
 
@@ -152,10 +188,23 @@ mod tests {
 
     #[test]
     fn a_unit_this_engine_does_not_have_is_refused() {
-        for suffix in [
-            "vw", "vh", "vmin", "dvh", "cqw", "fr", "s", "deg", "", "pxx",
-        ] {
+        for suffix in ["dvh", "svh", "lvh", "cqw", "fr", "s", "deg", "", "pxx"] {
             assert_eq!(Unit::parse(suffix), None, "{suffix} should be refused");
+        }
+    }
+
+    #[test]
+    fn the_viewport_units_are_read_and_need_a_window() {
+        for (suffix, unit) in [
+            ("vw", Unit::Vw),
+            ("vh", Unit::Vh),
+            ("vmin", Unit::Vmin),
+            ("VMAX", Unit::Vmax),
+        ] {
+            assert_eq!(Unit::parse(suffix), Some(unit));
+            assert!(unit.is_viewport_relative(), "{suffix}");
+            assert!(!unit.is_font_relative(), "a window is not a font");
+            assert_eq!(unit.absolute_pixels(), None);
         }
     }
 

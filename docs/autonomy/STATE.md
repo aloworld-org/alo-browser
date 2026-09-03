@@ -1714,3 +1714,61 @@ visible. `alo-renderer/tests/signing_in.rs` is now the closest thing this
 repository has to the thing it is for: an agent reading alo's sign-in screen,
 filling it in by name, and reading back what it did.
 
+---
+
+## Iteration 27 — queue item 44: `clamp()`, `min()`, `max()` and the viewport units
+
+**Stage 1 first.** The gate correction says stage 1 finishes before stage 2
+continues, so the queue's stage 1 remainder is what gets worked — not item 26.
+
+**What was built.** The four math functions as one family, and the four
+viewport units. `font-size: clamp(2.4rem, 4vw, 3.5rem)` — alo's own headline —
+resolves.
+
+**The best evidence is the thing that did not happen.** The committed reference
+render for `alo-sign-in` is **unchanged**. Somebody had worked out by hand that
+the clamp comes to `2.5rem` at the thousand pixels the case renders at, written
+that in, and said so in a comment. Replacing the hand-worked value with the
+screen's own produced the same 40 pixels and the same picture. That is what a
+faithful substitution looks like when it is finally paid off, and it is why the
+corpus was worth building.
+
+**One design decision worth keeping.** A viewport unit needs a window, and
+sometimes there is not one — a test, a measurement taken before a page has a
+size. `FontMetrics` therefore carries `Option<Viewport>`, and a viewport unit
+resolved without one is **zero** rather than a plausible number. A plausible
+number is the kind of wrongness nobody traces; a zero is visible immediately.
+
+**Where it had to reach that nobody would guess.** `font-size` is resolved by
+its own code path, which built its own `FontMetrics` from the parent and root
+sizes — with no window. So the clamp took its floor and the headline came out
+38.4 instead of 40, and the only sign was one wrong number in a diff. Resolving
+a font size is exactly where a design system writes `clamp(…, 4vw, …)`, so that
+path needed the window too.
+
+**Parsed as one family, so they nest.** `clamp(1rem, min(4vw, 30px), 5rem)` is
+a value. Each is type-checked once, at parse time — the smaller of a length and
+a number has no answer, and is refused rather than guessed at, which is the
+rule `calc()` already had. And `clamp(a, b, c)` is `max(a, min(b, c))`, so when
+the bounds cross the **lower** one wins: CSS's rule, and not Rust's `clamp`,
+which refuses a reversed range.
+
+**The item was cut, as its own instruction said to be.** The original item 44
+asked for all four substitutions and told the loop to cut it rather than leave
+one in place. The other three are now items 47 (`white-space: pre-line`), 48
+(`letter-spacing`) and 49 (`transition`, `:hover`, `:focus-visible` — accepted
+rather than dropped, since on a static render of a settled page they change
+nothing and the honest work is reading them without refusing them).
+
+**The roadmap line this item served** is stage 1's *A real alo screen renders
+correctly*, and its `· Built: … · Owed: …` clause moved: the headline's clamp is
+now in Built, and Owed names three substitutions instead of four.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 809 tests, no stubs, boundaries held, no verb takes a coordinate.
+
+**What the next iteration should know.** Item 47, `white-space: pre-line`. It
+is a rule in the inline formatter rather than a new box, and the headline it
+unblocks is three lines of one string — so the box tree for that case should
+get *smaller*, which is a diff worth reading carefully.
+

@@ -8,7 +8,7 @@
 //! It lives beside the cascade rather than in `alo-value` because it needs the
 //! parent's answer, and the parent's answer is something only a tree walk has.
 
-use alo_value::{FontMetrics, LengthPercentage, parse_length_percentage, parse_number};
+use alo_value::{FontMetrics, LengthPercentage, Viewport, parse_length_percentage, parse_number};
 
 /// The font size a document has when nothing says otherwise.
 ///
@@ -47,7 +47,12 @@ const NORMAL_LINE_HEIGHT: f32 = 1.2;
 /// **parent's** font size, not to its own — which is the one rule here that
 /// surprises people, and the reason this cannot be folded into the generic
 /// length resolution.
-pub fn resolve_font_size(specified: Option<&str>, parent: f32, root: f32) -> f32 {
+pub fn resolve_font_size(
+    specified: Option<&str>,
+    parent: f32,
+    root: f32,
+    viewport: Option<Viewport>,
+) -> f32 {
     let Some(text) = specified else {
         // Nothing said anything, so it is whatever was inherited.
         return parent;
@@ -68,7 +73,10 @@ pub fn resolve_font_size(specified: Option<&str>, parent: f32, root: f32) -> f32
 
     // Relative lengths in a font size resolve against the parent's font, so
     // that is the font handed to the resolver.
-    let against_parent = FontMetrics::estimated(parent, root);
+    // The window as well as the font: `font-size: clamp(2.4rem, 4vw, 3.5rem)`
+    // is a real thing a design system writes, and a font size resolved without
+    // a window would silently take the smaller bound.
+    let against_parent = with_window(FontMetrics::estimated(parent, root), viewport);
     match parse_length_percentage(text) {
         // A negative font size is not a font size.
         Some(value) => {
@@ -90,7 +98,12 @@ pub fn resolve_font_size(specified: Option<&str>, parent: f32, root: f32) -> f32
 /// different font size gets a proportional line height. A length or a
 /// percentage inherits as the computed length instead. The difference is real
 /// and is why this takes the specified text rather than a number.
-pub fn resolve_line_height(specified: Option<&str>, font_size: f32, root: f32) -> f32 {
+pub fn resolve_line_height(
+    specified: Option<&str>,
+    font_size: f32,
+    root: f32,
+    viewport: Option<Viewport>,
+) -> f32 {
     let Some(text) = specified else {
         return font_size * NORMAL_LINE_HEIGHT;
     };
@@ -103,7 +116,7 @@ pub fn resolve_line_height(specified: Option<&str>, font_size: f32, root: f32) -
     {
         return font_size * multiple;
     }
-    let metrics = FontMetrics::estimated(font_size, root);
+    let metrics = with_window(FontMetrics::estimated(font_size, root), viewport);
     match parse_length_percentage(text) {
         Some(value) => {
             // A percentage line height is a percentage of the font size.
@@ -134,6 +147,21 @@ pub fn metrics_for(
         zero_width: font_size * 0.5,
         line_height,
         root_line_height,
+        // The window is not the font's business, so it is added by whoever
+        // knows one — see `resolve_metrics`.
+        viewport: None,
+    }
+}
+
+/// The same metrics, in a window when there is one.
+///
+/// [`None`] rather than a default size: a viewport unit resolved against a
+/// window nobody supplied is a guess, and `alo_value::FontMetrics` says so by
+/// answering zero rather than a plausible number.
+fn with_window(metrics: FontMetrics, viewport: Option<Viewport>) -> FontMetrics {
+    match viewport {
+        Some(viewport) => metrics.in_viewport(viewport),
+        None => metrics,
     }
 }
 
@@ -155,48 +183,75 @@ mod tests {
 
     #[test]
     fn nothing_said_means_whatever_was_inherited() {
-        assert!(close(resolve_font_size(None, 20.0, 16.0), 20.0));
-        assert!(close(resolve_font_size(Some("  "), 20.0, 16.0), 20.0));
+        assert!(close(resolve_font_size(None, 20.0, 16.0, None), 20.0));
+        assert!(close(resolve_font_size(Some("  "), 20.0, 16.0, None), 20.0));
     }
 
     #[test]
     fn an_absolute_length_is_itself() {
-        assert!(close(resolve_font_size(Some("24px"), 16.0, 16.0), 24.0));
-        assert!(close(resolve_font_size(Some("12pt"), 16.0, 16.0), 16.0));
+        assert!(close(
+            resolve_font_size(Some("24px"), 16.0, 16.0, None),
+            24.0
+        ));
+        assert!(close(
+            resolve_font_size(Some("12pt"), 16.0, 16.0, None),
+            16.0
+        ));
     }
 
     #[test]
     fn em_and_a_percentage_in_a_font_size_are_of_the_parents() {
         assert!(
-            close(resolve_font_size(Some("2em"), 20.0, 16.0), 40.0),
+            close(resolve_font_size(Some("2em"), 20.0, 16.0, None), 40.0),
             "two of the parent's, not two of its own",
         );
-        assert!(close(resolve_font_size(Some("150%"), 20.0, 16.0), 30.0));
-        assert!(close(resolve_font_size(Some("2rem"), 20.0, 16.0), 32.0));
+        assert!(close(
+            resolve_font_size(Some("150%"), 20.0, 16.0, None),
+            30.0
+        ));
+        assert!(close(
+            resolve_font_size(Some("2rem"), 20.0, 16.0, None),
+            32.0
+        ));
     }
 
     #[test]
     fn the_keyword_sizes_are_ratios_of_sixteen_pixels() {
-        assert!(close(resolve_font_size(Some("medium"), 99.0, 16.0), 16.0));
-        assert!(close(resolve_font_size(Some("large"), 99.0, 16.0), 19.2));
-        assert!(close(resolve_font_size(Some("xx-large"), 99.0, 16.0), 32.0));
+        assert!(close(
+            resolve_font_size(Some("medium"), 99.0, 16.0, None),
+            16.0
+        ));
+        assert!(close(
+            resolve_font_size(Some("large"), 99.0, 16.0, None),
+            19.2
+        ));
+        assert!(close(
+            resolve_font_size(Some("xx-large"), 99.0, 16.0, None),
+            32.0
+        ));
         assert!(
-            close(resolve_font_size(Some("MEDIUM"), 99.0, 16.0), 16.0),
+            close(resolve_font_size(Some("MEDIUM"), 99.0, 16.0, None), 16.0),
             "however it is capitalised",
         );
     }
 
     #[test]
     fn smaller_and_larger_step_from_the_parent() {
-        assert!(close(resolve_font_size(Some("larger"), 20.0, 16.0), 24.0));
-        assert!(close(resolve_font_size(Some("smaller"), 24.0, 16.0), 20.0));
+        assert!(close(
+            resolve_font_size(Some("larger"), 20.0, 16.0, None),
+            24.0
+        ));
+        assert!(close(
+            resolve_font_size(Some("smaller"), 24.0, 16.0, None),
+            20.0
+        ));
     }
 
     #[test]
     fn a_font_size_this_engine_cannot_read_leaves_the_inherited_one() {
-        for text in ["auto", "banana", "50vw", "calc(1px + 2)"] {
+        for text in ["auto", "banana", "50dvh", "calc(1px + 2)"] {
             assert!(
-                close(resolve_font_size(Some(text), 20.0, 16.0), 20.0),
+                close(resolve_font_size(Some(text), 20.0, 16.0, None), 20.0),
                 "{text} should have changed nothing",
             );
         }
@@ -204,9 +259,12 @@ mod tests {
 
     #[test]
     fn a_negative_font_size_is_not_a_font_size() {
-        assert!(close(resolve_font_size(Some("-4px"), 20.0, 16.0), 20.0));
         assert!(close(
-            resolve_font_size(Some("calc(4px - 8px)"), 20.0, 16.0),
+            resolve_font_size(Some("-4px"), 20.0, 16.0, None),
+            20.0
+        ));
+        assert!(close(
+            resolve_font_size(Some("calc(4px - 8px)"), 20.0, 16.0, None),
             20.0
         ));
     }
@@ -214,33 +272,54 @@ mod tests {
     #[test]
     fn a_calc_font_size_is_resolved_against_the_parents() {
         assert!(close(
-            resolve_font_size(Some("calc(1em + 4px)"), 20.0, 16.0),
+            resolve_font_size(Some("calc(1em + 4px)"), 20.0, 16.0, None),
             24.0,
         ));
     }
 
     #[test]
     fn a_line_height_number_is_a_multiple_of_this_elements_font_size() {
-        assert!(close(resolve_line_height(Some("1.5"), 20.0, 16.0), 30.0));
-        assert!(close(resolve_line_height(Some("2"), 10.0, 16.0), 20.0));
+        assert!(close(
+            resolve_line_height(Some("1.5"), 20.0, 16.0, None),
+            30.0
+        ));
+        assert!(close(
+            resolve_line_height(Some("2"), 10.0, 16.0, None),
+            20.0
+        ));
     }
 
     #[test]
     fn a_line_height_length_is_itself_and_a_percentage_is_of_the_font_size() {
-        assert!(close(resolve_line_height(Some("24px"), 20.0, 16.0), 24.0));
-        assert!(close(resolve_line_height(Some("150%"), 20.0, 16.0), 30.0));
-        assert!(close(resolve_line_height(Some("1.5em"), 20.0, 16.0), 30.0));
+        assert!(close(
+            resolve_line_height(Some("24px"), 20.0, 16.0, None),
+            24.0
+        ));
+        assert!(close(
+            resolve_line_height(Some("150%"), 20.0, 16.0, None),
+            30.0
+        ));
+        assert!(close(
+            resolve_line_height(Some("1.5em"), 20.0, 16.0, None),
+            30.0
+        ));
     }
 
     #[test]
     fn normal_and_nothing_are_the_same_ratio_until_there_is_a_font_to_ask() {
-        assert!(close(resolve_line_height(None, 20.0, 16.0), 24.0));
-        assert!(close(resolve_line_height(Some("normal"), 20.0, 16.0), 24.0));
+        assert!(close(resolve_line_height(None, 20.0, 16.0, None), 24.0));
         assert!(close(
-            resolve_line_height(Some("nonsense"), 20.0, 16.0),
+            resolve_line_height(Some("normal"), 20.0, 16.0, None),
             24.0
         ));
-        assert!(close(resolve_line_height(Some("-2"), 20.0, 16.0), 24.0));
+        assert!(close(
+            resolve_line_height(Some("nonsense"), 20.0, 16.0, None),
+            24.0
+        ));
+        assert!(close(
+            resolve_line_height(Some("-2"), 20.0, 16.0, None),
+            24.0
+        ));
     }
 
     #[test]

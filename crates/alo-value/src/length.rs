@@ -35,6 +35,31 @@ pub struct FontMetrics {
     pub line_height: f32,
     /// The root element's line height, for `rlh`.
     pub root_line_height: f32,
+    /// The window, for `vw`, `vh`, `vmin` and `vmax`, or [`None`] when this
+    /// value is being resolved without one.
+    ///
+    /// An [`Option`] on purpose. A viewport is not a property of a value, and
+    /// somewhere — a test, a measurement taken before there is a window —
+    /// there is no window to ask. Answering `4vw` with a number in that case
+    /// would be a guess; answering it with zero is at least a number nobody
+    /// can mistake for a measurement.
+    pub viewport: Option<Viewport>,
+}
+
+/// How big the window is, in CSS pixels.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Viewport {
+    /// Across.
+    pub width: f32,
+    /// Down.
+    pub height: f32,
+}
+
+impl Viewport {
+    /// A window of this size.
+    pub fn new(width: f32, height: f32) -> Self {
+        Self { width, height }
+    }
 }
 
 impl FontMetrics {
@@ -53,6 +78,16 @@ impl FontMetrics {
             zero_width: font_size * 0.5,
             line_height: font_size * 1.2,
             root_line_height: root_font_size * 1.2,
+            viewport: None,
+        }
+    }
+
+    /// The same metrics, in a window of this size.
+    #[must_use]
+    pub fn in_viewport(self, viewport: Viewport) -> Self {
+        Self {
+            viewport: Some(viewport),
+            ..self
         }
     }
 
@@ -60,6 +95,18 @@ impl FontMetrics {
     fn pixels_per(self, unit: Unit) -> f32 {
         if let Some(absolute) = unit.absolute_pixels() {
             return absolute;
+        }
+        if unit.is_viewport_relative() {
+            let Some(viewport) = self.viewport else {
+                // Said rather than guessed: see the field's own documentation.
+                return 0.0;
+            };
+            return match unit {
+                Unit::Vw => viewport.width / 100.0,
+                Unit::Vh => viewport.height / 100.0,
+                Unit::Vmin => viewport.width.min(viewport.height) / 100.0,
+                _ => viewport.width.max(viewport.height) / 100.0,
+            };
         }
         match unit {
             Unit::Em => self.font_size,

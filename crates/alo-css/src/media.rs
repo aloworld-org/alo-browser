@@ -50,6 +50,12 @@ impl fmt::Display for ColorScheme {
 pub struct MediaContext {
     /// The viewport width, in CSS pixels.
     pub width: f32,
+    /// The viewport height, in CSS pixels.
+    ///
+    /// Not asked by any media query this engine evaluates yet — it is here
+    /// because `vh` needs it, and a window with a width and no height is not
+    /// a window.
+    pub height: f32,
     /// The theme being asked for.
     pub color_scheme: ColorScheme,
 }
@@ -59,6 +65,19 @@ impl MediaContext {
     pub fn new(width: f32, color_scheme: ColorScheme) -> Self {
         Self {
             width,
+            // The proportion an ordinary window has, so that `vh` means
+            // something for a caller that only said how wide the page is.
+            height: width * 0.625,
+            color_scheme,
+        }
+    }
+
+    /// A window of both dimensions.
+    #[must_use]
+    pub fn sized(width: f32, height: f32, color_scheme: ColorScheme) -> Self {
+        Self {
+            width,
+            height,
             color_scheme,
         }
     }
@@ -457,10 +476,12 @@ mod tests {
 
     const NARROW_LIGHT: MediaContext = MediaContext {
         width: 400.0,
+        height: 800.0,
         color_scheme: ColorScheme::Light,
     };
     const WIDE_DARK: MediaContext = MediaContext {
         width: 1600.0,
+        height: 800.0,
         color_scheme: ColorScheme::Dark,
     };
 

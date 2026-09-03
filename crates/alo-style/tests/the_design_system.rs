@@ -287,7 +287,7 @@ fn a_percentage_stays_a_percentage_until_a_basis_is_supplied() {
 #[test]
 fn a_value_the_engine_cannot_read_is_absent_rather_than_guessed_at() {
     let document = parse_document("<html><body><div id=odd>t</div></body></html>");
-    let sheet = parse_stylesheet("#odd { width: auto; height: 50vw; margin: banana }");
+    let sheet = parse_stylesheet("#odd { width: auto; height: 50dvh; margin: banana }");
     let sheets = [SourcedSheet::new(Origin::Author, &sheet)];
     let tree = resolve(&document, &sheets, &MediaContext::default());
     let odd = style(&document, &tree, "odd");
@@ -356,4 +356,65 @@ fn a_colour_this_engine_cannot_read_leaves_the_one_that_was_inherited() {
         (17, 34, 51, 255),
         "a colour space we do not have is an invalid declaration, not black",
     );
+}
+
+#[test]
+fn a_font_size_that_clamps_against_the_window_resolves_to_a_number() {
+    // alo's own headline: `clamp(2.4rem, 4vw, 3.5rem)`. In a thousand-pixel
+    // window `4vw` is 40, between a floor of 38.4 and a ceiling of 56, so 40
+    // is the answer — and the corpus case that used to write `2.5rem` by hand
+    // renders identically now that the screen's own value resolves.
+    let document = parse_document("<html><body><h1 id=h>Your workspace.</h1></body></html>");
+    let sheet = parse_stylesheet("#h { font-size: clamp(2.4rem, 4vw, 3.5rem) }");
+    let sheets = [SourcedSheet::new(Origin::Author, &sheet)];
+    let tree = resolve(
+        &document,
+        &sheets,
+        &MediaContext::sized(1000.0, 640.0, ColorScheme::Light),
+    );
+    let heading = style(&document, &tree, "h");
+    assert!(
+        (heading.font_size() - 40.0).abs() < 0.001,
+        "{}",
+        heading.font_size()
+    );
+}
+
+#[test]
+fn the_same_headline_takes_its_floor_in_a_narrow_window() {
+    let document = parse_document("<html><body><h1 id=h>Your workspace.</h1></body></html>");
+    let sheet = parse_stylesheet("#h { font-size: clamp(2.4rem, 4vw, 3.5rem) }");
+    let sheets = [SourcedSheet::new(Origin::Author, &sheet)];
+
+    let narrow = resolve(
+        &document,
+        &sheets,
+        &MediaContext::sized(400.0, 800.0, ColorScheme::Light),
+    );
+    // 4vw is 16, below the 38.4 floor.
+    assert!((style(&document, &narrow, "h").font_size() - 38.4).abs() < 0.001);
+
+    let wide = resolve(
+        &document,
+        &sheets,
+        &MediaContext::sized(2000.0, 1200.0, ColorScheme::Light),
+    );
+    // 4vw is 80, above the 56 ceiling.
+    assert!((style(&document, &wide, "h").font_size() - 56.0).abs() < 0.001);
+}
+
+#[test]
+fn a_viewport_unit_in_an_ordinary_property_is_of_the_window() {
+    let document = parse_document("<html><body><div id=d>t</div></body></html>");
+    let sheet = parse_stylesheet("#d { width: 50vw; height: 25vh; padding: 1vmin }");
+    let sheets = [SourcedSheet::new(Origin::Author, &sheet)];
+    let tree = resolve(
+        &document,
+        &sheets,
+        &MediaContext::sized(1000.0, 600.0, ColorScheme::Light),
+    );
+    let box_style = style(&document, &tree, "d");
+    assert_eq!(box_style.px("width", 0.0), Some(500.0));
+    assert_eq!(box_style.px("height", 0.0), Some(150.0));
+    assert_eq!(box_style.px("padding", 0.0), Some(6.0), "the shorter side");
 }

@@ -29,6 +29,8 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] ★ **The cascade, inheritance and `var()`.** alo's design system is custom properties throughout, so an engine that cannot resolve them renders nothing of alo at all. This is stage 1's first hard requirement, not decoration
 - [1] A variable cycle is refused rather than looped
 - [1] Lengths as numbers: every unit CSS has that does not need a window, `calc()` type-checked and evaluated, and `em` and `rem` against the font size actually in force. A percentage is carried rather than resolved, because what it is a percentage *of* is layout's to say — and `calc(100% - 2rem)` reaches layout as an expression and is resolved there, against the basis the running algorithm knows (ADR 0004)
+- [1] **`clamp()`, `min()` and `max()`**, one family with `calc()` and nesting in each other, type-checked once at parse time
+- [1] **Viewport units** — `vw`, `vh`, `vmin`, `vmax` — which need a window, and answer zero rather than a plausible number when there is none
 - [1] Colours as channels — hex, `rgb()`, `hsl()`, the named colours. Blocks paint rather than layout
 - [2] Viewport units. They are relative to a window, and until there is one there is nothing true to say
 - [1] An unknown property is kept and ignored rather than dropped, so a later stage can implement it without re-parsing

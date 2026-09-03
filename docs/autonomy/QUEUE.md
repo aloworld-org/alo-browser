@@ -242,14 +242,37 @@ finished before stage 2 is continued.**
 finished items, and `ROADMAP.md` refers to queue items by number. Two items with
 one number is a reference that quietly points at the wrong thing.*
 
-- [ ] **44. The four substitutions, removed.** `crates/alo-corpus/cases/alo-sign-in/`
-  carries four rewrites in its own stylesheet, each naming something this engine
-  does not implement: `clamp()` and viewport units, `white-space: pre-line`,
-  `letter-spacing`, and transitions. While they are there, what is diffed is a
-  modified screen rather than alo's. Implement them and delete the
-  substitutions, so the case's stylesheet becomes the screen's own. Cut this
-  into separate items if it is more than one iteration — never by leaving a
-  substitution in place.
+- [x] **44. `clamp()`, `min()`, `max()` and the viewport units.** The first of
+  the four substitutions in `crates/alo-corpus/cases/alo-sign-in/`: the
+  headline's `font-size: clamp(2.4rem, 4vw, 3.5rem)` was written out by hand as
+  `2.5rem`, because the engine had neither piece.
+
+  **Done.** The four math functions are one family and parse as one, so they
+  nest; a viewport unit needs a window and answers zero rather than a plausible
+  number when there is none. **The committed reference render did not change**,
+  which is the best evidence the substitution was faithful. *Cut from the
+  original item 44, which asked for all four substitutions at once — the queue's
+  own instruction was to cut it rather than leave one in place.* The other three
+  are items 47, 48 and 49.
+
+- [ ] **47. `white-space: pre-line`.** The sign-in headline is one string with
+  newlines in it; the case substitutes three `<span>`s made blocks. `pre-line`
+  collapses runs of spaces the way `normal` does and **keeps the newlines**,
+  which is a rule in the inline formatter rather than a new box. Cut from item
+  44.
+
+- [ ] **48. `letter-spacing`.** Extra space after every character, which changes
+  what a run of text measures and therefore where every line breaks. It reaches
+  `alo-text`'s shaping and measuring rather than only paint. Cut from item 44.
+
+- [ ] **49. `transition`, `:hover` and `:focus-visible`, accepted rather than
+  dropped.** The case deletes them. On a static render of a settled page they
+  change nothing — a transition has run, and nothing is hovered or focused
+  because there is no pointer and no focus. So what is owed is that the engine
+  **reads** them without recording a refusal, and that `:hover` and
+  `:focus-visible` match nothing rather than being an unparseable selector that
+  drops the whole rule. Nothing here claims animation; that needs a clock, and a
+  clock is not stage 1's. Cut from item 44.
 
 - [ ] **45. alo's Settings screen in the corpus.** The second screen the gate
   names, and it is not rendered at all. Same shape as the sign-in case: its own

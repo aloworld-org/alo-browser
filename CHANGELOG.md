@@ -6,6 +6,27 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`clamp()`, `min()`, `max()` and the viewport units.** One of the four
+  substitutions standing in alo's own sign-in case is gone: the headline's
+  `font-size: clamp(2.4rem, 4vw, 3.5rem)` is the screen's own value now instead
+  of the `2.5rem` somebody worked out by hand. **The committed reference render
+  did not change**, which is the best evidence the substitution was faithful and
+  the implementation is right.
+- The four are one family and are parsed as one, so they nest:
+  `clamp(1rem, min(4vw, 30px), 5rem)` is a value. Each is type-checked once,
+  when it is parsed — the smaller of a length and a number has no answer, and is
+  refused rather than guessed at, exactly as `calc()` already was.
+- `clamp(a, b, c)` is `max(a, min(b, c))`, so **when the bounds cross the lower
+  one wins**. That is CSS's rule and not Rust's `clamp`, which refuses a
+  reversed range.
+- **A viewport unit needs a window, and says so when there is none.**
+  `FontMetrics` carries an `Option<Viewport>`; without one, `4vw` is zero rather
+  than a plausible-looking number nobody could trace. The cascade supplies it
+  from the media context, including while resolving `font-size` itself — which
+  is where the headline needed it.
+- `MediaContext` has a height. No media query this engine evaluates asks for it
+  yet; `vh` does, and a window with a width and no height is not a window.
+
 - **A verb changes the page.** Putting text into a field puts it there; ticking
   a checkbox ticks it; choosing a radio un-chooses the rest of its group. Until
   now a verb decided, reported, and changed nothing — the half of "typed verbs"

@@ -366,7 +366,7 @@ mod tests {
             "subgrid",
             "1fr banana",
             "repeat(2, 1fr) [line]",
-            "50vw",
+            "50dvh",
         ] {
             assert_eq!(
                 TrackList::parse(text),

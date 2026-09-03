@@ -87,7 +87,9 @@ pub fn render_document(
         SourcedSheet::new(Origin::UserAgent, &agent),
         SourcedSheet::new(Origin::Author, &author),
     ];
-    let device = MediaContext::new(size.width, ColorScheme::Light);
+    // Both dimensions, because `vh` is as real as `vw` and the window is the
+    // one thing here that actually knows them.
+    let device = MediaContext::sized(size.width, size.height, ColorScheme::Light);
     let sheet_issues: Vec<String> = agent
         .issues()
         .iter()
@@ -179,7 +181,7 @@ mod tests {
         // width — so one box could not raise both refusals.
         let rendered = render(
             "<!DOCTYPE html><html><body><div id=a>text</div><div id=b>text</div></body></html>",
-            "div:has(b) { color: red } #a { display: table } #b { width: 50vw }",
+            "div:has(b) { color: red } #a { display: table } #b { width: 50dvh }",
             Size::new(40.0, 20.0),
             &no_fonts(),
         );
@@ -193,7 +195,7 @@ mod tests {
             "the box tree's: {issues:?}",
         );
         assert!(
-            issues.iter().any(|issue| issue.contains("50vw")),
+            issues.iter().any(|issue| issue.contains("50dvh")),
             "and layout's: {issues:?}",
         );
     }

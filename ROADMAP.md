@@ -73,11 +73,12 @@ correctness, not before it.
 - [ ] **A real alo screen renders correctly** — the sign-in screen, then
       Settings
       · Built: `alo-workplace`'s sign-in screen, in `alo-corpus`, rendered and
-      diffed on every run · Owed: queue item 44 — the four substitutions in that
-      case (`clamp()` and viewport units, `white-space: pre-line`,
-      `letter-spacing`, transitions), each naming something this engine does not
-      implement, so what is diffed is a *modified* screen; and queue item 45,
-      Settings, which is not rendered at all. *The old reason for not ticking —
+      diffed on every run, with the headline's own
+      `clamp(2.4rem, 4vw, 3.5rem)` resolving rather than substituted (queue
+      item 44) · Owed: **three** substitutions still standing in that case —
+      `white-space: pre-line`, `letter-spacing` and transitions, queue items 47,
+      48 and 49 — so what is diffed is still a *modified* screen; and queue item
+      45, Settings, which is not rendered at all. *The old reason for not ticking —
       that the gate named alo OS's screens — was a fact about repository layout
       rather than about this engine, and is gone.*
 

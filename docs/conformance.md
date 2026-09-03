@@ -97,6 +97,12 @@ line, with its start border on the first piece and its end border on the last.
 A *percentage* padding on an inline box is refused and recorded: it is of the
 containing block's width, which is not known where a line is built.
 
+`clamp()`, `min()` and `max()` are read, nest in each other and in `calc()`,
+and are type-checked once when they are parsed. The **viewport units** `vw`,
+`vh`, `vmin` and `vmax` resolve against the window the page is being rendered
+at — and answer zero, rather than a plausible number, when a value is resolved
+without one.
+
 `calc()` resolves everywhere, percentages included:
 `width: calc(100% - 2rem)` is a number rather than a refusal, in widths and
 heights, minimums and maximums, margins, padding, insets, gaps and grid tracks.
@@ -139,9 +145,11 @@ which is the specification for what "correct" means here.
 `crates/alo-corpus/cases/alo-sign-in/` is **alo-workplace's own sign-in
 screen** — its markup, its rules from `web/src/auth/LoginPage.module.css`, and
 its colours from `web/src/ds/tokens.css` — rendered by this engine and diffed on
-every run. Four substitutions are written into the case's own stylesheet, each
-naming a thing this engine does not implement: `clamp()` and viewport units,
-`white-space: pre-line`, `letter-spacing`, and transitions.
+every run. **Three** substitutions are written into the case's own stylesheet, each naming
+a thing this engine does not implement: `white-space: pre-line`,
+`letter-spacing`, and transitions. The fourth is gone — the headline's
+`clamp(2.4rem, 4vw, 3.5rem)` is the screen's own value now, and the committed
+reference render did not change when it replaced the hand-written `2.5rem`.
 
 It is a real alo screen, and it is one of the screens `ROADMAP.md`'s exit gate
 names — the gate used to name `alo-os`'s specifically, which was a fact about

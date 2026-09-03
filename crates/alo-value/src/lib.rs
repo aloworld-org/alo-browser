@@ -44,7 +44,7 @@ pub mod unit;
 pub use calc::{CalcNode, Kind};
 pub use color::{Color, Rgba, from_hsl};
 pub use gradient::{Angle, Gradient, Stop};
-pub use length::{FontMetrics, Length, LengthPercentage};
+pub use length::{FontMetrics, Length, LengthPercentage, Viewport};
 pub use parse::{
     is_keyword, parse_box_shadows, parse_color, parse_gradient, parse_length,
     parse_length_percentage, parse_number, parse_text_shadows, parse_transform,

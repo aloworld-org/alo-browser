@@ -49,6 +49,7 @@ li:hover { background: #fafafa }
 /// test about selectors is not quietly also a test about media queries.
 const NARROW_LIGHT: MediaContext = MediaContext {
     width: 600.0,
+    height: 800.0,
     color_scheme: ColorScheme::Light,
 };
 

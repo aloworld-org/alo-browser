@@ -50,6 +50,16 @@ pub enum CalcNode {
     /// One divided by what is inside. Only ever wrapped around a number, which
     /// [`CalcNode::kind`] is what enforces.
     Invert(Box<CalcNode>),
+    /// The smallest of them.
+    Min(Vec<CalcNode>),
+    /// The largest of them.
+    Max(Vec<CalcNode>),
+    /// The middle one, held between the other two: `clamp(min, value, max)`.
+    ///
+    /// Its own node rather than `max(min, min(value, max))` because that is
+    /// what CSS calls it, and because the wrong nesting of that rewrite is a
+    /// mistake nobody would find by reading.
+    Clamp(Box<CalcNode>, Box<CalcNode>, Box<CalcNode>),
 }
 
 impl CalcNode {
@@ -68,19 +78,18 @@ impl CalcNode {
                 Kind::Number => Some(Kind::Number),
                 Kind::Length => None,
             },
-            CalcNode::Sum(terms) => {
-                let mut kind = None;
-                for term in terms {
-                    let term_kind = term.kind()?;
-                    match kind {
-                        None => kind = Some(term_kind),
-                        // Adding a length to a number is the mistake this
-                        // check exists to catch.
-                        Some(held) if held != term_kind => return None,
-                        Some(_) => {}
-                    }
+            // Adding a length to a number is the mistake this check exists to
+            // catch, and the smaller of a length and a number is the same
+            // mistake spelled differently.
+            CalcNode::Sum(terms) | CalcNode::Min(terms) | CalcNode::Max(terms) => {
+                one_kind_throughout(terms)
+            }
+            CalcNode::Clamp(low, middle, high) => {
+                let kind = low.kind()?;
+                if middle.kind()? != kind || high.kind()? != kind {
+                    return None;
                 }
-                kind
+                Some(kind)
             }
             CalcNode::Product(factors) => {
                 let mut lengths = 0;
@@ -111,6 +120,23 @@ impl CalcNode {
             CalcNode::Percentage(percent) => percent / 100.0 * basis,
             CalcNode::Number(number) => *number,
             CalcNode::Negate(inner) => -inner.evaluate(metrics, basis),
+            CalcNode::Min(terms) => terms
+                .iter()
+                .map(|term| term.evaluate(metrics, basis))
+                .fold(f32::INFINITY, f32::min),
+            CalcNode::Max(terms) => terms
+                .iter()
+                .map(|term| term.evaluate(metrics, basis))
+                .fold(f32::NEG_INFINITY, f32::max),
+            CalcNode::Clamp(low, middle, high) => {
+                let low = low.evaluate(metrics, basis);
+                let high = high.evaluate(metrics, basis);
+                let middle = middle.evaluate(metrics, basis);
+                // CSS: `clamp(a, b, c)` is `max(a, min(b, c))`, so when the
+                // bounds cross, the lower one wins. Not `clamp` in the Rust
+                // sense, which panics on a reversed range.
+                middle.min(high).max(low)
+            }
             CalcNode::Invert(inner) => {
                 let divisor = inner.evaluate(metrics, basis);
                 // Division by zero in CSS makes the whole expression invalid.
@@ -133,8 +159,12 @@ impl CalcNode {
             CalcNode::Percentage(_) => true,
             CalcNode::Length(_) | CalcNode::Number(_) => false,
             CalcNode::Negate(inner) | CalcNode::Invert(inner) => inner.has_percentage(),
-            CalcNode::Sum(nodes) | CalcNode::Product(nodes) => {
-                nodes.iter().any(CalcNode::has_percentage)
+            CalcNode::Sum(nodes)
+            | CalcNode::Product(nodes)
+            | CalcNode::Min(nodes)
+            | CalcNode::Max(nodes) => nodes.iter().any(CalcNode::has_percentage),
+            CalcNode::Clamp(low, middle, high) => {
+                low.has_percentage() || middle.has_percentage() || high.has_percentage()
             }
         }
     }
@@ -152,8 +182,38 @@ impl fmt::Display for CalcNode {
             CalcNode::Invert(inner) => write!(f, "1/{inner}"),
             CalcNode::Sum(terms) => write_joined(f, terms, " + "),
             CalcNode::Product(factors) => write_joined(f, factors, " * "),
+            CalcNode::Min(terms) => write_call(f, "min", terms),
+            CalcNode::Max(terms) => write_call(f, "max", terms),
+            CalcNode::Clamp(low, middle, high) => {
+                write!(f, "clamp({low}, {middle}, {high})")
+            }
         }
     }
+}
+
+/// The one kind every one of these is, or [`None`] if they are not all one.
+fn one_kind_throughout(nodes: &[CalcNode]) -> Option<Kind> {
+    let mut kind = None;
+    for node in nodes {
+        let node_kind = node.kind()?;
+        match kind {
+            None => kind = Some(node_kind),
+            Some(held) if held != node_kind => return None,
+            Some(_) => {}
+        }
+    }
+    kind
+}
+
+fn write_call(f: &mut fmt::Formatter<'_>, name: &str, nodes: &[CalcNode]) -> fmt::Result {
+    write!(f, "{name}(")?;
+    for (index, node) in nodes.iter().enumerate() {
+        if index > 0 {
+            f.write_str(", ")?;
+        }
+        write!(f, "{node}")?;
+    }
+    f.write_str(")")
 }
 
 fn write_joined(f: &mut fmt::Formatter<'_>, nodes: &[CalcNode], separator: &str) -> fmt::Result {

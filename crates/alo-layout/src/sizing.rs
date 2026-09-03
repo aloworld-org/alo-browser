@@ -174,7 +174,7 @@ mod tests {
     fn a_value_this_engine_does_not_implement_is_refused_and_not_called_auto() {
         for text in [
             "stretch",
-            "50vw",
+            "50dvh",
             "banana",
             "",
             "fit-content",

@@ -635,30 +635,72 @@ fn one_dimension(input: &mut CssParser<'_, '_>) -> Option<LengthPercentage> {
 
 /// A `calc()` function, parsed and type-checked.
 fn one_calc(input: &mut CssParser<'_, '_>) -> Option<CalcNode> {
-    input
-        .try_parse(|input| {
-            let name = input.expect_function()?.clone();
-            if name.eq_ignore_ascii_case("calc") {
-                Ok(())
-            } else {
-                Err(input.new_basic_unexpected_token_error(Token::Function(name)))
-            }
-        })
-        .ok()?;
-    let node = input
-        .parse_nested_block(
-            |arguments| -> Result<Option<CalcNode>, cssparser::ParseError<'_, ()>> {
-                let node = sum(arguments, 0);
-                if node.is_some() && arguments.expect_exhausted().is_err() {
-                    return Ok(None);
-                }
-                Ok(node)
-            },
-        )
-        .ok()??;
+    let node = math_function(input, 0)?;
     // Type-check once, here, so that evaluating later cannot fail.
     node.kind()?;
     Some(node)
+}
+
+/// `calc()`, `min()`, `max()` or `clamp()` — the four that are one family.
+///
+/// They are the same thing spelled four ways: an expression that has to be
+/// worked out before it means anything. Parsing them together is what stops
+/// `clamp(1rem, 4vw, min(3rem, 5vw))` from being three special cases that do
+/// not nest.
+fn math_function(input: &mut CssParser<'_, '_>, depth: u8) -> Option<CalcNode> {
+    if depth > 16 {
+        // A depth nobody writes, and a bound so that a pathological value is
+        // refused rather than running out of stack.
+        return None;
+    }
+    let name = input
+        .try_parse(|input| input.expect_function().cloned())
+        .ok()?
+        .to_ascii_lowercase();
+    input
+        .parse_nested_block(
+            |arguments| -> Result<Option<CalcNode>, cssparser::ParseError<'_, ()>> {
+                Ok(math_arguments(&name, arguments, depth))
+            },
+        )
+        .ok()?
+}
+
+/// What is inside a math function's brackets.
+fn math_arguments(name: &str, input: &mut CssParser<'_, '_>, depth: u8) -> Option<CalcNode> {
+    let node = match name {
+        "calc" => sum(input, depth)?,
+        "min" | "max" => {
+            let terms = comma_separated(input, depth)?;
+            if terms.is_empty() {
+                return None;
+            }
+            if name == "min" {
+                CalcNode::Min(terms)
+            } else {
+                CalcNode::Max(terms)
+            }
+        }
+        "clamp" => {
+            let terms = comma_separated(input, depth)?;
+            let [low, middle, high] = <[CalcNode; 3]>::try_from(terms).ok()?;
+            CalcNode::Clamp(Box::new(low), Box::new(middle), Box::new(high))
+        }
+        _ => return None,
+    };
+    input.expect_exhausted().ok()?;
+    Some(node)
+}
+
+/// One or more expressions, separated by commas.
+fn comma_separated(input: &mut CssParser<'_, '_>, depth: u8) -> Option<Vec<CalcNode>> {
+    let mut out = Vec::new();
+    loop {
+        out.push(sum(input, depth + 1)?);
+        if input.try_parse(CssParser::expect_comma).is_err() {
+            return Some(out);
+        }
+    }
 }
 
 /// How deep `calc(calc(calc(…)))` may nest.
@@ -754,17 +796,22 @@ fn value(input: &mut CssParser<'_, '_>, depth: u8) -> Option<CalcNode> {
     if let Ok(number) = input.try_parse(CssParser::expect_number) {
         return Some(CalcNode::Number(number));
     }
-    // `(` opens a sub-expression, and a nested `calc(` is the same thing with
-    // a name in front of it.
-    let opened = input.try_parse(|input| {
-        let token = input.next()?.clone();
-        match token {
-            Token::ParenthesisBlock => Ok(()),
-            Token::Function(ref name) if name.eq_ignore_ascii_case("calc") => Ok(()),
-            other => Err(input.new_basic_unexpected_token_error(other)),
-        }
-    });
-    opened.ok()?;
+    // A math function nested inside another one — which is how
+    // `clamp(2.4rem, 4vw, 3.5rem)` is written in a real sheet, and how
+    // `min()` ends up inside a `calc()`.
+    if let Ok(nested) = input.try_parse(|input| math_function(input, depth + 1).ok_or(())) {
+        return Some(nested);
+    }
+    // `(` opens a sub-expression.
+    input
+        .try_parse(|input| {
+            let token = input.next()?.clone();
+            match token {
+                Token::ParenthesisBlock => Ok(()),
+                other => Err(input.new_basic_unexpected_token_error(other)),
+            }
+        })
+        .ok()?;
     input
         .parse_nested_block(
             |inner| -> Result<Option<CalcNode>, cssparser::ParseError<'_, ()>> {
@@ -826,7 +873,7 @@ mod tests {
 
     #[test]
     fn a_unit_this_engine_does_not_have_is_refused_rather_than_guessed_at() {
-        for text in ["50vw", "10vh", "3fr", "1cqw", "2s", "45deg"] {
+        for text in ["3fr", "1cqw", "2s", "45deg", "10dvh"] {
             assert_eq!(px(text), None, "{text} should be refused");
         }
     }
@@ -1311,6 +1358,75 @@ mod tests {
         assert_eq!(parse_transform_origin("top 10px"), None);
         assert_eq!(parse_transform_origin("sideways"), None);
         assert_eq!(parse_transform_origin(""), None);
+    }
+
+    /// A length resolved in a thousand-pixel-wide window.
+    fn in_a_window(text: &str) -> Option<f32> {
+        let metrics = crate::FontMetrics::estimated(16.0, 16.0)
+            .in_viewport(crate::Viewport::new(1000.0, 800.0));
+        Some(parse_length_percentage(text)?.to_px(metrics, 0.0))
+    }
+
+    #[test]
+    fn a_viewport_unit_is_a_hundredth_of_the_window() {
+        assert_eq!(in_a_window("4vw"), Some(40.0));
+        assert_eq!(in_a_window("50vh"), Some(400.0));
+        assert_eq!(in_a_window("10vmin"), Some(80.0), "the shorter side");
+        assert_eq!(in_a_window("10vmax"), Some(100.0), "the longer side");
+    }
+
+    #[test]
+    fn a_viewport_unit_with_no_window_is_nothing_rather_than_a_guess() {
+        let metrics = crate::FontMetrics::estimated(16.0, 16.0);
+        let length = parse_length_percentage("4vw").expect("a length");
+        assert!(length.to_px(metrics, 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn the_headline_on_alos_sign_in_screen_resolves() {
+        // `clamp(2.4rem, 4vw, 3.5rem)` at the thousand pixels the corpus case
+        // renders at. This is the value that stood substituted in that case
+        // for as long as the engine had neither piece.
+        assert_eq!(in_a_window("clamp(2.4rem, 4vw, 3.5rem)"), Some(40.0));
+    }
+
+    #[test]
+    fn clamp_holds_a_value_between_its_bounds() {
+        assert_eq!(in_a_window("clamp(10px, 4vw, 30px)"), Some(30.0), "capped");
+        assert_eq!(in_a_window("clamp(60px, 4vw, 90px)"), Some(60.0), "floored");
+        assert_eq!(in_a_window("clamp(10px, 4vw, 90px)"), Some(40.0), "between");
+    }
+
+    #[test]
+    fn when_the_bounds_cross_the_lower_one_wins() {
+        // CSS defines `clamp(a, b, c)` as `max(a, min(b, c))`, so a minimum
+        // above the maximum is the answer. Not Rust's `clamp`, which refuses.
+        assert_eq!(in_a_window("clamp(80px, 10px, 20px)"), Some(80.0));
+    }
+
+    #[test]
+    fn min_and_max_take_as_many_arguments_as_they_are_given() {
+        assert_eq!(in_a_window("min(10px, 4vw, 2rem)"), Some(10.0));
+        assert_eq!(in_a_window("max(10px, 4vw, 2rem)"), Some(40.0));
+        assert_eq!(in_a_window("min(5rem)"), Some(80.0), "one is a minimum too");
+    }
+
+    #[test]
+    fn the_family_nests_in_itself_and_in_calc() {
+        assert_eq!(in_a_window("calc(min(10px, 4vw) * 2)"), Some(20.0));
+        assert_eq!(in_a_window("clamp(1rem, min(4vw, 30px), 5rem)"), Some(30.0));
+        assert_eq!(in_a_window("max(calc(1rem + 2px), 4px)"), Some(18.0));
+    }
+
+    #[test]
+    fn a_math_function_that_does_not_type_check_is_refused() {
+        // The same rule `calc()` already had: there is no answer to the
+        // smaller of a length and a number.
+        assert_eq!(parse_length_percentage("min(10px, 4)"), None);
+        assert_eq!(parse_length_percentage("clamp(1px, 2, 3px)"), None);
+        assert_eq!(parse_length_percentage("clamp(1px, 2px)"), None);
+        assert_eq!(parse_length_percentage("clamp(1px, 2px, 3px, 4px)"), None);
+        assert_eq!(parse_length_percentage("min()"), None);
     }
 
     #[test]

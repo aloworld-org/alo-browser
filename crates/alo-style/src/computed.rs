@@ -34,7 +34,7 @@ use crate::origin::Origin;
 use crate::variables::{Resolved, Variables, resolve_variables, substitute};
 use alo_css::{IssueKind, Location, MatchContext, MediaContext, PropertyName, StyleIssue};
 use alo_dom::{Document, NodeId};
-use alo_value::{FontMetrics, LengthPercentage, Rgba};
+use alo_value::{FontMetrics, LengthPercentage, Rgba, Viewport};
 use std::collections::BTreeMap;
 
 /// What one element ended up with.
@@ -227,7 +227,7 @@ pub fn resolve(
 
         let applicable = Applicable::gather(sheets, device, &mut matcher, id);
         let mut style = compute_one(&applicable, &parent, &mut tree.issues);
-        style.metrics = resolve_metrics(&style, &parent, root_metrics);
+        style.metrics = resolve_metrics(&style, &parent, root_metrics, device);
         record_computed_font(&mut style);
         style.current_color = resolve_color(&style, &parent);
         if root_metrics.is_none() {
@@ -248,16 +248,23 @@ fn resolve_metrics(
     style: &ComputedStyle,
     parent: &ComputedStyle,
     root: Option<FontMetrics>,
+    device: &MediaContext,
 ) -> FontMetrics {
     let root_font_size = root.map_or(DEFAULT_FONT_SIZE, |metrics| metrics.font_size);
+    let window = Some(Viewport::new(device.width, device.height));
     let font_size = resolve_font_size(
         style.get("font-size"),
         parent.metrics.font_size,
         root_font_size,
+        window,
     );
-    let line_height = resolve_line_height(style.get("line-height"), font_size, root_font_size);
+    let line_height =
+        resolve_line_height(style.get("line-height"), font_size, root_font_size, window);
     let root_line_height = root.map_or(line_height, |metrics| metrics.line_height);
+    // The window comes from the device rather than from the font, because
+    // `vw` is a fact about the page and `em` is a fact about the text.
     metrics_for(font_size, root_font_size, line_height, root_line_height)
+        .in_viewport(Viewport::new(device.width, device.height))
 }
 
 /// Replace the font properties' specified text with what they computed to.

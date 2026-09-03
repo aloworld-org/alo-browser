@@ -653,7 +653,7 @@ mod tests {
 
     #[test]
     fn a_value_this_engine_cannot_read_is_recorded_and_then_ignored() {
-        let (style, issues) = read_style("position: sticky; width: 50vw; flex-grow: banana");
+        let (style, issues) = read_style("position: sticky; width: 50dvh; flex-grow: banana");
         assert_eq!(style.position, Positioning::Static, "back to the initial");
         assert_eq!(style.size.horizontal, Sizing::Auto);
         assert!(close(style.flex.grow, 0.0));
