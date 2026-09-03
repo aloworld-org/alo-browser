@@ -4141,3 +4141,64 @@ works, so the shape is probably a second measurer rather than a new field. Worth
 checking that before writing anything, because a field on `BoxNode` is the
 obvious answer and might be the wrong one.
 
+---
+
+## Iteration 66 — queue item 176: a picture that actually appears
+
+The last journal entry said to check the measure hook before reaching for a
+field on `BoxNode`, and that was the right instinct for the wrong reason: the
+answer was neither. `NodeKind` in the layout arena already has a variant per
+kind of leaf — text, an inline formatting context, a container, nothing — so a
+box sized by its content is **another variant**, which is where the existing
+design was already pointing.
+
+The natural size itself does live on the box tree, as a side map filled in after
+the tree is built. `alo-box` knows nothing about pictures and should not start,
+so it holds a width and a height and no opinion about where they came from.
+
+**Two things the corpus case caught that I had wrong.**
+
+An `<img>` is `inline-block`, so it goes through the **inline** path and not
+taffy's leaf layout at all. My first version sized only block-level images; the
+case showed 4×3 where it should have shown 80×60 and that is what pointed at it.
+
+And the ratio cannot be computed in the leaf's measure, which was my first
+attempt. `width: 80px` came out 80×**3**, because the measure is asked *before*
+the style width is applied — taffy asks how big the thing wants to be, then
+applies the style, and never asks again with the width known. The right answer
+is a `taffy` aspect ratio, which is precisely what resolves one definite
+dimension against the other. Fighting the measure protocol was the wrong
+instinct and the ratio was sitting there the whole time.
+
+**A picture that did not arrive keeps its box**, and the fact is recorded. An
+empty box of the right shape is what a browser shows for a broken image; a
+collapsed page is what happens if the box goes away, and it makes every other
+thing on the page move for a reason nobody can see.
+
+**Two gaps named in the code rather than left to be found**, both because the
+alternative was silence. The picture is drawn **nearest-neighbour** — exact at
+one-to-one, which is what an `<img>` with no width does and most of what a page
+has, and coarse anywhere else (item 179). And a **rotated** picture draws
+upright inside the right area, because only the rectangle's corners are
+transformed (item 178). Drawing nothing under a rotation would have been wrong
+and *invisible*, which is worse.
+
+**One thing I did and then undid.** I reached for `BoxId::from_index_for_tests`
+to walk every box — a constructor whose own documentation says using it
+elsewhere should look wrong. It did look wrong. `BoxTree::ids()` exists now, for
+asking a question *of a kind of box* rather than following the tree's shape,
+which is a different thing and one a walk answers badly.
+
+**The gate.** Green: fmt, clippy zero and zero, 1204 tests. The new case has a
+reference render, which is what the gate asks for of anything visual, and its
+stripes are three different colours on purpose: a wrong row order or a flipped
+picture is obvious rather than plausible.
+
+**What the next iteration should know.** The corpus can now hold a page with a
+linked stylesheet *and* pictures, which is what the last four iterations were
+building towards — so the next page can be a hard one. The remaining known gaps
+for such a page are the other codecs (item 177: JPEG is the one that matters,
+since most photographs on the web are one) and forms, which nothing has looked
+at. A page with a `<form>` would find things in `alo-box`'s control handling
+that only the alo cases have exercised so far.
+

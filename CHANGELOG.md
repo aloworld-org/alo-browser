@@ -6,6 +6,36 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`<img>` lays out and draws.** A picture arrives as bytes, is decoded, and the
+  box it belongs to is told how big it is — so an `<img>` with no width lays out
+  at the picture's own size, and one with a width **keeps the picture's ratio**
+  rather than coming out squashed.
+- The work was **intrinsic sizing**, not pictures. Nothing in `alo-box` or
+  `alo-layout` had a notion of a box sized by its content, so a replaced box is
+  a new kind of leaf: `NodeKind::Replaced`, beside the text and container kinds
+  that were already there.
+- A picture that **did not arrive** keeps the box its style asked for and the
+  fact is recorded — an empty box of the right shape rather than a collapsed
+  page, which is what a browser shows for a broken image.
+- **The ratio is a `taffy` aspect ratio rather than a measurement**, and finding
+  out why took a wrong turn worth recording: computing the missing dimension
+  inside the leaf's measure gave `width: 80px` a height of 3, because the
+  measure is asked **before** the style width is applied. A ratio is what
+  resolves one definite dimension against the other, which is what a ratio is
+  for.
+- An `<img>` is `inline-block`, so it goes through the **inline** path rather
+  than taffy's leaf layout — which is why the first version sized only
+  block-level images and the case caught it.
+- Two things named rather than left to be found: the picture is drawn
+  **nearest-neighbour**, which is exact at one-to-one and coarse anywhere else;
+  and a **rotated** picture draws upright inside the right area rather than
+  rotated, because only the rectangle's corners are transformed. Both are
+  written into the code and the second is queue item 178. Drawing nothing would
+  have been wrong and invisible.
+- Corpus cases can hold pictures, listed in the same `linked.txt` as the style
+  sheets — because from a case's point of view they are the same thing:
+  something the page named, and something frozen next to it.
+
 - **A picture from a page is untrusted bytes, and is now read as such.** The
   PNG reader that existed was written for reference renders — files this engine
   wrote moments earlier, in one format — and being strict there is a feature. A

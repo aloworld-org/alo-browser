@@ -1001,13 +1001,32 @@ The long pole, and the thing most of section E is unreachable without.
   sixty-four megapixels **before** the allocation, because a hundred-byte file
   that parses perfectly can declare seventeen gigabytes.
 
-- [ ] **176. `<img>` lays out and draws.** A decoded picture has an intrinsic
+- [x] **176. `<img>` lays out and draws.** A decoded picture has an intrinsic
   size and nothing uses it: there is no intrinsic sizing anywhere in `alo-box`
   or `alo-layout`, which is the actual work here rather than the decoding.
   *Depends on 106, 175 — a case needs to hold the picture beside the page.*
   *Closes when:* an `<img>` with no width or height lays out at the picture's own
   size and aspect ratio, one with a width keeps the ratio, and a picture that
   was refused leaves a box of the size the page asked for rather than nothing.
+
+  **Done**, and the journal was right that the work was intrinsic sizing rather
+  than pictures. Two things the case caught: an `<img>` is `inline-block` and so
+  goes through the inline path rather than taffy's leaf layout, and the ratio has
+  to be a `taffy` aspect ratio because a leaf's measure is asked *before* the
+  style width is applied.
+
+- [ ] **178. A rotated picture is drawn rotated.** Today only the rectangle's
+  corners are transformed, so a picture under a `rotate()` draws upright inside
+  the right area. Wrong and visible, which is why it was preferred to drawing
+  nothing.
+  *Depends on 176. Closes when:* a picture under a rotation is drawn rotated, and
+  a reference render says so.
+
+- [ ] **179. Sampling a picture that is not at its own size.** Nearest-neighbour
+  today: exact at one-to-one, coarse anywhere else.
+  *Depends on 176. Closes when:* a picture drawn at half its size is not
+  visibly speckled, in a reference render — and law 3 applies, so this waits
+  for a page that needs it rather than being guessed at.
 
 - [ ] **177. The other image codecs**: JPEG, GIF, WebP, AVIF. Rented.
   *Depends on 106. Closes when:* each lays out and draws from a frozen file, and

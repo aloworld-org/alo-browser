@@ -45,6 +45,12 @@ pub(crate) enum NodeKind {
     /// in this tree at all: what is inside a line is `crate::inline`'s, and
     /// this tree is told only how big the result is.
     InlineFormatting(BoxId),
+    /// A **replaced** box: one sized by its content rather than by its style.
+    ///
+    /// An image, and later a video. Nothing in CSS says how big the content is,
+    /// so the size arrives from whoever decoded it — see
+    /// `BoxTree::set_natural_size`.
+    Replaced(TaffySize<f32>),
     /// A box with nothing to measure — an empty element, or a container
     /// whose children all turned out to be nothing.
     Empty,
@@ -272,6 +278,38 @@ impl<M: MeasureText> Arena<'_, M> {
                     TaffySize {
                         width: size.width,
                         height: size.height,
+                    }
+                })
+            }
+            Some(NodeKind::Replaced(natural)) => {
+                let natural = *natural;
+                compute_leaf_layout(inputs, style, resolve, |known, _room| {
+                    // The three cases, and the third is the one that makes an
+                    // image on a page behave: a width given and no height means
+                    // the height follows from the picture's own ratio, so a
+                    // photograph in a column is the right shape rather than
+                    // squashed. Taffy would do this from `aspect_ratio`, and
+                    // saying it here keeps the ratio next to the size it came
+                    // from.
+                    match (known.width, known.height) {
+                        (Some(width), Some(height)) => TaffySize { width, height },
+                        (Some(width), None) => TaffySize {
+                            width,
+                            height: if natural.width > 0.0 {
+                                width * natural.height / natural.width
+                            } else {
+                                natural.height
+                            },
+                        },
+                        (None, Some(height)) => TaffySize {
+                            width: if natural.height > 0.0 {
+                                height * natural.width / natural.height
+                            } else {
+                                natural.width
+                            },
+                            height,
+                        },
+                        (None, None) => natural,
                     }
                 })
             }

@@ -1,0 +1,10 @@
+body { margin: 0; font-family: 'DejaVu Sans'; font-size: 12px }
+p { margin: 4px 0 }
+/* A width and no height: the height has to follow the picture's own ratio, or a
+   photograph in a column comes out squashed. */
+.wide { width: 80px }
+/* A height and no width, which is the same rule the other way round. */
+.tall { height: 30px }
+/* A picture that did not arrive keeps the box its style asked for — an empty
+   box of the right shape rather than a collapsed page. */
+.missing { width: 40px; height: 20px }

@@ -52,6 +52,13 @@ pub struct Case {
     /// went to the network would be flaky, would fail on an aeroplane, and
     /// would hand every site's owner the ability to break our build.
     pub linked: Vec<(String, String)>,
+    /// The pictures the page asks for, frozen beside it.
+    ///
+    /// A `src` exactly as the page wrote it, and the bytes behind it. Listed in
+    /// the same `linked.txt` as the style sheets, because from a case's point of
+    /// view they are the same thing: something the page named and something
+    /// frozen next to it.
+    pub resources: Vec<(String, Vec<u8>)>,
 }
 
 impl Case {
@@ -75,6 +82,7 @@ impl Case {
             css,
             size,
             linked: linked_sheets(directory),
+            resources: linked_resources(directory),
         })
     }
 
@@ -104,6 +112,32 @@ impl Case {
 fn parse_size(text: &str) -> Option<(f32, f32)> {
     let (width, height) = text.trim().split_once(['x', '×'])?;
     Some((width.trim().parse().ok()?, height.trim().parse().ok()?))
+}
+
+/// The frozen pictures beside a case, from the same `linked.txt`.
+///
+/// Read as **bytes** rather than text, and read by the same list, because a
+/// case has one place where it says "this is what that name means" — two lists
+/// would be two places to forget.
+fn linked_resources(directory: &Path) -> Vec<(String, Vec<u8>)> {
+    let Ok(list) = std::fs::read_to_string(directory.join("linked.txt")) else {
+        return Vec::new();
+    };
+    let mut found = Vec::new();
+    for line in list.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some((name, file)) = line.split_once(char::is_whitespace) else {
+            continue;
+        };
+        let Ok(bytes) = std::fs::read(directory.join(file.trim())) else {
+            continue;
+        };
+        found.push((name.trim().to_owned(), bytes));
+    }
+    found
 }
 
 /// The frozen sub-resources beside a case, from its `linked.txt`.

@@ -1,0 +1,10 @@
+block flow · document
+  block flow · generic
+    block flow · paragraph
+      inline flow-root · image
+    block flow · paragraph
+      inline flow-root · image
+    block flow · paragraph
+      inline flow-root · image
+    block flow · paragraph
+      inline flow-root · image

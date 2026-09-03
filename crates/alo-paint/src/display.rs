@@ -13,6 +13,7 @@
 use crate::paint::Paint;
 use crate::path::Path;
 use alo_box::BoxId;
+use alo_layout::Rect;
 use alo_value::{Matrix, Rgba};
 use core::fmt::Write as _;
 
@@ -65,6 +66,11 @@ pub fn lines_in(value: &str) -> Vec<DecorationLine> {
 }
 
 /// One thing to draw.
+///
+/// A picture is one of these rather than a `Fill` with an image paint, because
+/// it is scaled to a box rather than tiled into a shape — and because the thing
+/// being drawn is somebody else's bytes, which is worth being able to find in a
+/// display list.
 #[derive(Debug, Clone)]
 pub enum DisplayItem {
     /// A shape, filled.
@@ -135,6 +141,16 @@ pub enum DisplayItem {
     /// The end of the innermost group.
     PopGroup,
     /// A run of text.
+    /// A decoded picture, drawn into a rectangle.
+    Picture {
+        /// The box it belongs to.
+        box_id: BoxId,
+        /// Where it goes, in page coordinates.
+        rect: Rect,
+        /// The pixels, at their own size — scaled to `rect` when drawn.
+        picture: std::sync::Arc<crate::canvas::Canvas>,
+    },
+    /// A run of text, on its baseline.
     Text {
         /// The box it belongs to.
         box_id: BoxId,
@@ -164,6 +180,7 @@ impl DisplayItem {
         match self {
             DisplayItem::Fill { box_id, .. }
             | DisplayItem::Shadow { box_id, .. }
+            | DisplayItem::Picture { box_id, .. }
             | DisplayItem::Text { box_id, .. }
             | DisplayItem::PushClip { box_id, .. }
             | DisplayItem::PushTransform { box_id, .. }
@@ -220,6 +237,20 @@ impl DisplayList {
         for item in &self.items {
             // Writing to a `String` cannot fail.
             let _ = match item {
+                DisplayItem::Picture {
+                    box_id,
+                    rect,
+                    picture,
+                } => writeln!(
+                    out,
+                    "picture {box_id} {}×{} at ({}, {}) {}×{}",
+                    picture.width(),
+                    picture.height(),
+                    rect.left(),
+                    rect.top(),
+                    rect.right() - rect.left(),
+                    rect.bottom() - rect.top(),
+                ),
                 DisplayItem::Fill {
                     box_id,
                     path,

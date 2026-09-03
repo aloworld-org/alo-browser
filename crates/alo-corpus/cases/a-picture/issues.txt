@@ -1,0 +1,2 @@
+line 1: Unexpected token
+no picture was loaded for "/never-arrived.png"

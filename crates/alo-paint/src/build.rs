@@ -15,6 +15,7 @@
 //! the full painting order, which `docs/features.md` reaches for with
 //! transforms and opacity.
 
+use crate::canvas::Canvas;
 use crate::corner::{Corners, between, ring, rounded_rectangle};
 use crate::display::{DecorationLine, DisplayItem, DisplayList, TextShadow, lines_in};
 use crate::paint::Paint;
@@ -31,6 +32,12 @@ use alo_value::{DrawnShadow, Gradient, Rgba};
 pub struct PaintContext<'a> {
     /// The fonts to draw text with.
     pub fonts: &'a FontDatabase,
+    /// The pictures a box has, by box.
+    ///
+    /// Decoded elsewhere and handed in, because decoding is `alo_paint::encode`
+    /// and deciding *which* picture belongs to which box needs a document,
+    /// which this crate does not have.
+    pub pictures: &'a std::collections::BTreeMap<BoxId, std::sync::Arc<Canvas>>,
 }
 
 /// Build the display list for a laid-out document.
@@ -317,6 +324,10 @@ impl Builder<'_> {
             // of a paragraph.
             self.draw_one_area(id, *area, index == 0, index == last, out);
         }
+
+        // After the background and border, before the text: a picture is
+        // content, and content sits on top of what the box painted for itself.
+        self.picture_of(id, out);
 
         if let BoxKind::Text { text, .. } = &node.kind {
             self.draw_text(id, text, out);
@@ -655,6 +666,26 @@ impl Builder<'_> {
                 ));
             }
         }
+    }
+
+    /// The picture a box holds, drawn into its content box.
+    ///
+    /// Into the *content* box rather than the border box, because a picture
+    /// sits inside its own padding and border like any other content — an
+    /// `<img>` with a border draws the border around the picture rather than
+    /// over it.
+    fn picture_of(&self, id: BoxId, out: &mut Vec<DisplayItem>) {
+        let Some(picture) = self.context.pictures.get(&id) else {
+            return;
+        };
+        let Some(geometry) = self.layout.get(id) else {
+            return;
+        };
+        out.push(DisplayItem::Picture {
+            box_id: id,
+            rect: geometry.content_box(),
+            picture: std::sync::Arc::clone(picture),
+        });
     }
 
     /// Which decoration lines cover this text, and in what colour.

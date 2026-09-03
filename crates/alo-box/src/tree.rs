@@ -24,6 +24,7 @@ use alo_dom::{Document, NodeId};
 use alo_style::{ComputedStyle, StyleTree};
 use core::fmt;
 use core::fmt::Write as _;
+use std::collections::BTreeMap;
 
 /// The identity of a box within one [`BoxTree`].
 ///
@@ -220,6 +221,23 @@ pub struct BoxTree {
     boxes: Vec<BoxNode>,
     root: Option<BoxId>,
     issues: Vec<StyleIssue>,
+    /// The boxes that have a size of their own, and what it is.
+    ///
+    /// A **replaced** box — an image, and later a video or a plugin — is sized
+    /// by its content rather than by its style: an `<img>` with no width lays
+    /// out at the picture's own width, and one with a width keeps the picture's
+    /// ratio. Nothing in CSS says what that size is, so somebody has to put it
+    /// here.
+    ///
+    /// A side map rather than a field on every box, because almost no box has
+    /// one — and because it is filled in *after* the tree is built, by whoever
+    /// decoded the content. This crate knows nothing about pictures and should
+    /// not start.
+    ///
+    /// A pair rather than a `Size`, because the type that has one lives in
+    /// `alo-layout` and `alo-layout` is built on top of this. A width and a
+    /// height are a width and a height.
+    natural: BTreeMap<BoxId, (f32, f32)>,
 }
 
 impl BoxTree {
@@ -227,6 +245,29 @@ impl BoxTree {
     /// which a document whose root is `display: none` does.
     pub fn root(&self) -> Option<BoxId> {
         self.root
+    }
+
+    /// Every box in the tree, in the order they were built.
+    ///
+    /// For asking a question *of a kind of box* rather than following the
+    /// tree's shape — which is a different thing and one a walk answers badly,
+    /// because a broken inline's pieces are siblings here rather than nested.
+    pub fn ids(&self) -> impl Iterator<Item = BoxId> + '_ {
+        (0..self.boxes.len()).map(BoxId)
+    }
+
+    /// Say that a box has a size of its own.
+    ///
+    /// Called after the tree is built, by whoever decoded the content — a
+    /// picture, and later a video. Setting it twice is the later one winning,
+    /// which is what happens when a picture is replaced.
+    pub fn set_natural_size(&mut self, id: BoxId, size: (f32, f32)) {
+        self.natural.insert(id, size);
+    }
+
+    /// The size a box has of its own, if it has one.
+    pub fn natural_size(&self, id: BoxId) -> Option<(f32, f32)> {
+        self.natural.get(&id).copied()
     }
 
     /// One box.
@@ -278,6 +319,7 @@ impl BoxTree {
     /// document.
     pub fn empty_for_tests() -> Self {
         Self {
+            natural: BTreeMap::new(),
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -466,6 +508,7 @@ impl BoxTree {
 /// everything else generates one box that then gets its children.
 pub fn build(document: &Document, styles: &StyleTree) -> BoxTree {
     let mut tree = BoxTree {
+        natural: BTreeMap::new(),
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),

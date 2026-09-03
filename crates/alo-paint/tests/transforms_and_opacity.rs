@@ -47,7 +47,15 @@ fn draw(html: &str, css: &str) -> (DisplayList, Canvas) {
     let database = fonts();
     let measurer = TextMeasurer::new(&database);
     let layout = compute(&boxes, &styles, Size::new(120.0, 120.0), &measurer);
-    let list = build::build(&boxes, &layout, &styles, PaintContext { fonts: &database });
+    let list = build::build(
+        &boxes,
+        &layout,
+        &styles,
+        PaintContext {
+            fonts: &database,
+            pictures: &std::collections::BTreeMap::new(),
+        },
+    );
 
     let mut canvas = Canvas::new(WIDTH, HEIGHT, Rgba::WHITE);
     render(&list, &mut canvas);

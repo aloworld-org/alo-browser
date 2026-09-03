@@ -667,6 +667,13 @@ fn build<M: MeasureText>(
         BoxKind::Text { text, .. } => {
             NodeKind::Text(text.clone(), text_style_for(boxes, styles, id))
         }
+        // Before the empty case, deliberately: a replaced box has no children
+        // and would otherwise be measured as nothing — which is what an `<img>`
+        // did until it had a size of its own.
+        _ if boxes.natural_size(id).is_some() => {
+            let (width, height) = boxes.natural_size(id).unwrap_or((0.0, 0.0));
+            NodeKind::Replaced(taffy::Size { width, height })
+        }
         _ if children.is_empty() => NodeKind::Empty,
         _ => NodeKind::Container,
     };
@@ -716,7 +723,18 @@ fn style_for(
             x: overflow_for(ours.overflow.horizontal),
             y: overflow_for(ours.overflow.vertical),
         },
-        aspect_ratio: ours.aspect_ratio,
+        // A replaced box's own ratio, unless the style states one. This is
+        // what makes `<img width=80>` come out the picture's shape rather than
+        // eighty by whatever the picture's height happened to be: `taffy`
+        // resolves one definite dimension against a ratio, and that is what a
+        // ratio is for. Doing it in the leaf measure instead does not work,
+        // because the measure is asked before the style width is applied.
+        aspect_ratio: ours.aspect_ratio.or_else(|| {
+            boxes
+                .natural_size(id)
+                .filter(|(width, height)| *width > 0.0 && *height > 0.0)
+                .map(|(width, height)| width / height)
+        }),
         flex_direction: match ours.flex.direction {
             FlexDirection::Row => taffy::FlexDirection::Row,
             FlexDirection::RowReverse => taffy::FlexDirection::RowReverse,
