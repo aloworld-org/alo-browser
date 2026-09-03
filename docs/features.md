@@ -185,6 +185,15 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **A policy a site is only watching blocks nothing** —
   `Content-Security-Policy-Report-Only` is read as what it is, and what it
   objected to is reported rather than acted on
+- [2] **Inline content allowed by its hash** — `'sha256-…'`, `'sha384-…'` and
+  `'sha512-…'` computed over the content and compared with what the policy
+  named, in either base64 alphabet. A digest that mixes the two alphabets, sets
+  bits that stand for no byte, or is the wrong length for the algorithm it names
+  allows nothing: a hash source is a permission, and every laxness in reading one
+  is a policy wider than its author wrote. Content with no element of its own — a
+  `style` attribute, an event handler — is not hashed at all, because matching
+  those by hash is what `'unsafe-hashes'` enables and this engine does not act on
+  that keyword
 - [2] **A directive this engine does not act on is named** rather than assumed
   to be protecting the page
 - [2] **A violation is reported to whoever the policy named** — `report-uri`

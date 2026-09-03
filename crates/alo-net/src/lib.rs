@@ -40,6 +40,7 @@ pub mod csp;
 pub mod csp_report;
 pub mod csp_source;
 pub mod decompress;
+pub mod digest;
 pub mod directives;
 pub mod disk;
 pub mod download;

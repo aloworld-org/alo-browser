@@ -180,7 +180,9 @@ fn enforcing_one_policy_while_watching_a_stricter_one() {
     let policies = Policies::stated_by(&headers);
 
     assert!(
-        policies.allows_inline(Inline::Script, None).is_ok(),
+        policies
+            .allows_inline(Inline::Script, None, Some("go()"))
+            .is_ok(),
         "the enforced policy still allows what it allows",
     );
     assert_eq!(policies.len(), 2);
@@ -214,12 +216,14 @@ fn the_backwards_compatible_keyword_does_not_undo_the_nonce_beside_it() {
     let policies = enforcing("script-src 'unsafe-inline' 'nonce-Kj9fL2mQ'");
 
     assert!(
-        policies.allows_inline(Inline::Script, None).is_err(),
+        policies
+            .allows_inline(Inline::Script, None, Some("steal()"))
+            .is_err(),
         "an injected inline script ran",
     );
     assert!(
         policies
-            .allows_inline(Inline::Script, Some("Kj9fL2mQ"))
+            .allows_inline(Inline::Script, Some("Kj9fL2mQ"), Some("go()"))
             .is_ok(),
         "and the page's own inline script still runs",
     );
@@ -390,6 +394,6 @@ fn a_policy_no_server_should_have_sent_is_read_rather_than_believed() {
             );
         }
         let _ = policies.not_enforced();
-        let _ = policies.allows_inline(Inline::Style, None);
+        let _ = policies.allows_inline(Inline::Style, None, Some("a { color: red }"));
     }
 }

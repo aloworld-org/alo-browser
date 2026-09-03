@@ -5896,3 +5896,93 @@ so. After that the ready items in file order are **170** (fonts a page asks for
 by name), **64** and **65** (the renderer lifecycle), **66** (much of which
 `alo_url::site` already answers), and **190** (the two-tone border styles, small,
 depends on nothing, and closes with a picture).
+
+---
+
+## Iteration 85 — queue item 189: a content hash, computed
+
+**What was built.** A Content Security Policy may allow inline content by
+naming its digest — `style-src 'sha256-…'` — and this engine has read that
+sentence since item 165 without being able to act on it: the hash source was
+parsed, its presence correctly disabled `'unsafe-inline'`, and the content was
+refused with a message saying a hash would have allowed it. It computes one
+now. `crates/alo-net/src/digest.rs` is the new file, `sha2` is the rented
+digest behind it (ADR 0001 — a hash function is physics), and
+`scripts/gate.sh`'s boundary list has the entry that keeps it there.
+
+**All three of the item's clauses are closed**, in
+`crates/alo-net/tests/a_hash_a_policy_named.rs`: an inline `<style>` whose
+digest a policy names applies, one whose digest it does not is refused
+(including the same rule one space longer, which is the case an injection
+actually produces), and both alphabets are read.
+
+**The work was not the hash. It was reading the value an author wrote**, and
+that is why `digest.rs` holds the base64 as well and why every rule in it is
+written down rather than implied. A hash source is a *permission*, so a decoder
+that is lax in any direction is a policy quietly wider than its author wrote —
+which is the same argument item 165 was built around, one layer further down.
+So: the two alphabets are never mixed in one value, a value whose last group
+holds bits standing for no byte is refused as a second spelling of one
+permission, nothing is trimmed and no whitespace is skipped. Both of those
+strictness rules were **doctored out and the test named for each failed**, in
+the unit tests and in the integration table alike; the table's mixed-alphabet
+row had to be rewritten to a SHA-512 to test the rule it claimed to, because the
+first draft was the wrong *length* and was being refused a row earlier.
+
+Two decisions in it are worth reading twice. A value of the wrong length for the
+algorithm it names is a **non-match rather than an error**: `'sha256-YWJj'` is
+an author's mistake, and the honest way for them to see it is content that does
+not run. And the comparison is over **bytes** rather than text, which is what
+makes one digest of ours enough — comparing spellings would mean producing our
+own digest in both alphabets and with and without padding, and comparing against
+each.
+
+**Nothing here is constant-time, deliberately**, and `digest.rs` says so: both
+sides are public. The content is the page's own and the expected value is in a
+header anybody can read.
+
+**What it found while it was there.** `Source::matches` was refusing a hash for
+a URL for the reason "nothing computes one", which was about to become false. It
+still refuses, and the reason is now the right one and is written down: a policy
+is checked *before* anything is fetched, so a `<script src>` is allowed by where
+it comes from and never by the digest of what arrives.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1525 tests** (up from 1505), no stubs, no `unsafe`, boundaries held
+with `sha2` behind its new one, the licence notice on both new files, and a
+`CHANGELOG.md` line. The half no script can check: no layout assertion and no
+reference render, because nothing here positions, sizes or draws; one file one
+responsibility — `digest.rs` answers *is this content the digest an author
+named*, which is one question, and `csp_source.rs` and `csp.rs` keep the grammar
+and the policy they already had; and the item is in `docs/features.md`.
+
+**`ROADMAP.md`.** The line moved is *"Content Security Policy, referrer policy,
+HSTS, mixed-content blocking"*, whose `· Built:` clause gains the computed hash
+and whose `· Owed:` clause loses it. **It is still not ticked**: what remains
+owed is a nested document (item 86) and `'unsafe-hashes'` (item 191, new).
+
+**One cut, and it is item 191.** `Policies::allows_inline` now takes the
+content, and takes `None` for content that has no element of its own — a `style`
+attribute, an event handler. Hashing those is what `'unsafe-hashes'` enables,
+this engine reads that keyword without acting on it, and deciding it silently
+either way would be guessing about a permission. So the refusal names it:
+`ByHash` is three answers rather than a bool, because "no hash was involved",
+"your digest does not match this content" and "this is content we will not hash"
+send an author to three different places.
+
+**What the next iteration should know.** The signature change is the thing to
+notice: `Policies::allows_inline` and `Policies::inline_violations` both take
+the content now, and they must always be passed the *same* content — a report
+saying a policy objected to something the policy allowed sends an author looking
+for a bug in a page that works. There are still no callers: this is the fourth
+built-and-uncalled security surface in `alo-net`, after `Preflights`,
+`Policies` and `Pool::report`, and the number is still growing for the same
+reason — every one of them is waiting on a fetch pipeline, which is **item 83**,
+behind the whole of section D.
+
+The ready items in stage 2's file order are now **170** (fonts a page asks for
+by name, which item 68's corpus case is the standing evidence for), **64** and
+**65** (the renderer lifecycle), **66** (where one site ends and another begins,
+much of which `alo_url::site` already answers since item 156), **190** (the
+two-tone border styles — small, depends on nothing, and closes with a picture),
+and **191** above, which is small and whose second half waits on item 81.

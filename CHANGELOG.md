@@ -6,6 +6,30 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can allow one exact stylesheet, and nothing else.** A Content
+  Security Policy may permit inline content by naming its digest —
+  `style-src 'sha256-…'` — and until now this engine read that sentence,
+  understood it, and refused the content anyway, because nothing here computed
+  a hash. It computes one now, so a policy written the way the specification
+  recommends works: inline content the page shipped applies, and inline content
+  an injection added does not, with no `'unsafe-inline'` anywhere.
+
+  A hash is the stronger of the two ways past `'unsafe-inline'` for content
+  that does not change, because it needs nothing minted per response — a site
+  serving the same HTML from a cache to a million people cannot use a nonce and
+  can use this. Both alphabets a digest may be written in are read, since a
+  digest is usually copied out of a browser's console and browsers print both.
+
+  **The reading of a digest is strict, in the direction of allowing less.** A
+  hash source is a permission, so every laxness would be a policy quietly wider
+  than its author wrote: a value mixing the two alphabets is refused, so is one
+  whose spare bits hold anything, and so is one of the wrong length for the
+  algorithm it names. And what will *not* be hashed is content with no element
+  of its own — a `style` attribute, an event handler — because matching those
+  by hash is what `'unsafe-hashes'` is for and this engine reads that keyword
+  without acting on it. A refusal says which of the three it is, so an author
+  whose page stopped working is not left comparing digests by eye.
+
 - **A policy that was violated says so.** Content Security Policy has always
   been two halves: the sentence a site writes, and the reports that tell its
   author what the sentence would stop. Until now this engine had only the

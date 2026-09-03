@@ -49,6 +49,12 @@ ruzstd = "0.8"
 # Servo and `image` use, and it forbids `unsafe` outside an optional SIMD
 # feature this does not enable.
 jpeg-decoder = { version = "0.3", default-features = false }
+# A digest, rented (ADR 0001): a hash function is physics, and one somebody
+# wrote themselves is the kind of code that is wrong in a way nothing notices
+# until a policy allows content it should not. `sha2` is the RustCrypto one —
+# pure Rust, with the CPU's own SHA instructions used through `cpufeatures`
+# where there are any.
+sha2 = "0.10"
 unicode-linebreak = "0.1"
 unicode-script = "0.5"
 dejavu = "2.37"

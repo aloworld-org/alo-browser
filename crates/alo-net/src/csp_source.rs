@@ -36,38 +36,19 @@
 //!   one, and inventing a spelling here would be inventing a rule about a
 //!   security boundary.
 //!
-//! # And one thing that is not implemented, and is not silent about it
+//! # A hash source matches content rather than a URL
 //!
-//! A hash source (`'sha256-…'`) is **read** — its digest and its value are
-//! held, and its presence correctly disables `'unsafe-inline'` — and it matches
-//! nothing, because nothing here computes a digest. That is queue item 189, and
-//! [`crate::csp::Refusal`] says so in words rather than reporting a bare block.
+//! A hash source (`'sha256-…'`) says *this exact inline content*, so it is the
+//! one source expression that has nothing to do with where anything came from:
+//! [`Source::matches`] refuses it and [`Source::matches_content`] is where it is
+//! answered, against the bytes of a `<style>` or a `<script>`. The digest itself
+//! is [`crate::digest`], which is the one file allowed to name the crate that
+//! computes one.
 
+use crate::digest::Digest;
 use alo_url::parts::default_port;
 use alo_url::{Origin, Url};
 use core::fmt;
-
-/// Which digest a hash source names.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Digest {
-    /// SHA-256.
-    Sha256,
-    /// SHA-384.
-    Sha384,
-    /// SHA-512.
-    Sha512,
-}
-
-impl Digest {
-    /// The name a policy writes it as.
-    pub const fn name(self) -> &'static str {
-        match self {
-            Digest::Sha256 => "sha256",
-            Digest::Sha384 => "sha384",
-            Digest::Sha512 => "sha512",
-        }
-    }
-}
 
 /// Which hosts a host-source names.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -228,8 +209,8 @@ pub enum Source {
     /// `'nonce-…'`. The value keeps the case it was written in, because it is
     /// compared with an attribute byte for byte.
     Nonce(String),
-    /// `'sha256-…'` and its two larger relatives. Read, and not yet computed —
-    /// see this module's header, and queue item 189.
+    /// `'sha256-…'` and its two larger relatives. Answered against content
+    /// rather than against a URL — see [`Source::matches_content`].
     Hash {
         /// Which digest was named.
         digest: Digest,
@@ -274,13 +255,27 @@ impl Source {
     ///
     /// Everything that is not about *where content came from* permits no URL:
     /// `'none'` by definition, the inline keywords because they are about the
-    /// content itself, the hashes because nothing here computes one, and the
+    /// content itself, the hashes because they are about content too — a
+    /// `<script src>` is allowed by its URL and never by the digest of what
+    /// arrives, since the policy is checked before anything is fetched — and the
     /// unreadable ones because that is the whole point of keeping them.
     pub fn matches(&self, url: &Url, page: &Origin) -> bool {
         match self {
             Source::SameOrigin => is_the_pages_own(url, page),
             Source::Scheme(scheme) => scheme_reaches(scheme, &url.scheme),
             Source::Host(host) => host.matches(url, page),
+            _ => false,
+        }
+    }
+
+    /// Whether this permits some inline content, by its digest.
+    ///
+    /// Only a hash source ever does. The content is the element's own text,
+    /// exactly as the document holds it — see [`Digest::of`], which says why
+    /// nothing here trims it.
+    pub fn matches_content(&self, content: &[u8]) -> bool {
+        match self {
+            Source::Hash { digest, expected } => digest.names(expected, content),
             _ => false,
         }
     }
@@ -551,7 +546,7 @@ mod tests {
     }
 
     #[test]
-    fn a_hash_is_read_even_though_nothing_computes_one() {
+    fn a_hash_is_read_as_the_digest_it_names() {
         assert_eq!(
             Source::parse("'sha384-YWJj'"),
             Source::Hash {
@@ -559,6 +554,32 @@ mod tests {
                 expected: "YWJj".to_owned(),
             },
         );
+    }
+
+    #[test]
+    fn a_hash_matches_content_and_never_a_url() {
+        let source = Source::parse("'sha256-ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0='");
+        assert!(source.matches_content(b"abc"));
+        assert!(!source.matches_content(b"abc "));
+        assert!(
+            !source.matches(
+                &url("https://example.com/x.js"),
+                &page("https://example.com/")
+            ),
+            "a hash said something about a URL, and a policy is checked before anything is fetched",
+        );
+        assert!(
+            !Source::parse("'self'").matches_content(b"abc"),
+            "and nothing but a hash ever permits content",
+        );
+    }
+
+    /// A hash the author wrote wrongly — three bytes where a SHA-256 is
+    /// thirty-two — is content that does not run, rather than a policy this
+    /// engine refused to read.
+    #[test]
+    fn a_hash_of_the_wrong_length_permits_nothing() {
+        assert!(!Source::parse("'sha256-YWJj'").matches_content(b"abc"));
     }
 
     #[test]
@@ -728,6 +749,7 @@ mod tests {
                 &url("https://example.com/x.js"),
                 &page("https://example.com/"),
             );
+            let _ = source.matches_content(b"abc");
             let _ = format!("{source}");
         }
     }

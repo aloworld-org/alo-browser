@@ -44,15 +44,21 @@
 //! [`crate::csp_report::Violation`] — a violation nobody's policy objected to
 //! is not a thing.
 //!
-//! # What is here and what is cut
+//! # Inline content, and the hash that allows it
 //!
-//! Cut on starting, per `LOOP.md`, and each is a queue item rather than a
-//! remark:
+//! `'unsafe-inline'` is the keyword whose name is a warning, and the two ways
+//! past it are a **nonce** — a secret the page put on the element and in the
+//! header — and a **hash** of the content itself. The hash is the stronger of
+//! the two for content that never changes, because it needs nothing generated
+//! per response: an injection into a page whose policy names one digest cannot
+//! produce a second sentence that hashes to it.
 //!
-//! - **Computing a hash** is **queue item 189**. A hash source is read, its
-//!   presence correctly disables `'unsafe-inline'`, and a refusal says in words
-//!   that the policy would have allowed the content by hash — a named
-//!   substitution rather than a silent block.
+//! [`Policies::allows_inline`] takes the content for exactly that, and the
+//! digest is computed in [`crate::digest`]. What it will **not** hash is content
+//! with no element of its own — a `style` attribute, an event handler — because
+//! matching those by hash is what `'unsafe-hashes'` exists to enable, and this
+//! engine holds that keyword as inert. Passing [`None`] for the content is how a
+//! caller says so, and [`ByHash::NothingToHash`] is what a refusal then says.
 //!
 //! # And one gap that is a design decision rather than a cut
 //!
@@ -238,6 +244,20 @@ impl Directive {
             .any(|source| matches!(source, Source::UnsafeInline))
     }
 
+    /// Whether any source here is a hash at all, whatever it is of.
+    fn names_a_hash(&self) -> bool {
+        self.sources
+            .iter()
+            .any(|source| matches!(source, Source::Hash { .. }))
+    }
+
+    /// Whether one of the hashes here is the digest of this content.
+    fn names_the_hash_of(&self, content: &str) -> bool {
+        self.sources
+            .iter()
+            .any(|source| source.matches_content(content.as_bytes()))
+    }
+
     /// Whether this permits a load, given the nonce on whatever asked.
     ///
     /// `strict` is whether `'strict-dynamic'` applies, which is true only for
@@ -419,7 +439,12 @@ impl Policy {
     }
 
     /// What this policy objects to about inline content, when it objects.
-    fn objects_to_inline(&self, kind: Inline, nonce: Option<&str>) -> Option<(Name, Refusal)> {
+    fn objects_to_inline(
+        &self,
+        kind: Inline,
+        nonce: Option<&str>,
+        content: Option<&str>,
+    ) -> Option<(Name, Refusal)> {
         let wanted = match kind {
             Inline::Script => Name::Script,
             Inline::Style => Name::Style,
@@ -427,6 +452,12 @@ impl Policy {
         let strict = matches!(kind, Inline::Script);
         let directive = self.deciding(&wanted)?;
         if nonce.is_some_and(|nonce| directive.names_nonce(nonce)) {
+            return None;
+        }
+        // A hash is checked before `'unsafe-inline'` and separately from
+        // `'strict-dynamic'`: the keyword says to ignore every host and scheme
+        // in the directive, and a hash is neither.
+        if content.is_some_and(|content| directive.names_the_hash_of(content)) {
             return None;
         }
         if directive.says_unsafe_inline()
@@ -441,10 +472,7 @@ impl Policy {
                 kind,
                 directive: directive.written.clone(),
                 allows: directive.as_written(),
-                only_by_hash: directive
-                    .sources
-                    .iter()
-                    .any(|source| matches!(source, Source::Hash { .. })),
+                by_hash: ByHash::of(directive.names_a_hash(), content.is_some()),
             },
         ))
     }
@@ -453,9 +481,14 @@ impl Policy {
     ///
     /// # Errors
     ///
-    /// [`Refusal::Inline`], saying whether a hash would have allowed it.
-    fn allows_inline(&self, kind: Inline, nonce: Option<&str>) -> Result<(), Refusal> {
-        match self.objects_to_inline(kind, nonce) {
+    /// [`Refusal::Inline`], saying what a hash in the deciding directive did.
+    fn allows_inline(
+        &self,
+        kind: Inline,
+        nonce: Option<&str>,
+        content: Option<&str>,
+    ) -> Result<(), Refusal> {
+        match self.objects_to_inline(kind, nonce, content) {
             Some((_, refusal)) => Err(refusal),
             None => Ok(()),
         }
@@ -529,13 +562,24 @@ impl Policies {
 
     /// Whether every enforced policy permits this inline content.
     ///
+    /// `content` is the element's own text, exactly as the document holds it —
+    /// what is between `<style>` and `</style>`, untrimmed — because that is
+    /// what a hash in the policy is the digest of. [`None`] is for content that
+    /// has no element of its own, a `style` attribute or an event handler, which
+    /// this module's header says why nothing here hashes.
+    ///
     /// # Errors
     ///
     /// The first [`Refusal`].
-    pub fn allows_inline(&self, kind: Inline, nonce: Option<&str>) -> Result<(), Refusal> {
+    pub fn allows_inline(
+        &self,
+        kind: Inline,
+        nonce: Option<&str>,
+        content: Option<&str>,
+    ) -> Result<(), Refusal> {
         for policy in &self.held {
             if policy.disposition == Disposition::Enforce {
-                policy.allows_inline(kind, nonce)?;
+                policy.allows_inline(kind, nonce, content)?;
             }
         }
         Ok(())
@@ -561,11 +605,21 @@ impl Policies {
     }
 
     /// The same, for inline content.
-    pub fn inline_violations(&self, kind: Inline, nonce: Option<&str>) -> Vec<Violation> {
+    ///
+    /// It takes the content for the reason [`Policies::allows_inline`] does, and
+    /// it has to take the *same* content: a report saying a policy objected to
+    /// something the policy allowed by hash would send an author looking for a
+    /// bug in a page that is working.
+    pub fn inline_violations(
+        &self,
+        kind: Inline,
+        nonce: Option<&str>,
+        content: Option<&str>,
+    ) -> Vec<Violation> {
         self.held
             .iter()
             .filter_map(|policy| {
-                let (effective, refusal) = policy.objects_to_inline(kind, nonce)?;
+                let (effective, refusal) = policy.objects_to_inline(kind, nonce, content)?;
                 Some(policy.violation(&effective, refusal, Blocked::Inline))
             })
             .collect()
@@ -631,12 +685,39 @@ pub enum Refusal {
         directive: String,
         /// What that directive does allow, as written.
         allows: Vec<String>,
-        /// Whether a hash in that directive might have allowed it. This engine
-        /// computes none yet (queue item 189), so a policy that allows inline
-        /// content only by hash blocks it here — and says so rather than
-        /// reporting a bare refusal.
-        only_by_hash: bool,
+        /// What a hash in that directive had to do with the refusal.
+        by_hash: ByHash,
     },
+}
+
+/// What a hash in the deciding directive had to do with a refusal.
+///
+/// It is three answers rather than a bool because they send an author to three
+/// different places: nothing to do with hashes, a digest that did not match, and
+/// content this engine will not hash at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ByHash {
+    /// No hash in that directive. Hashes are not why this was refused.
+    NotNamed,
+    /// The directive names hashes, and this content's digest is not one of
+    /// them — the ordinary answer when a page's inline content has changed and
+    /// its policy has not.
+    NotThisContent,
+    /// The directive names hashes and nothing was offered to hash: content with
+    /// no element of its own, which the specification matches by hash only under
+    /// `'unsafe-hashes'`.
+    NothingToHash,
+}
+
+impl ByHash {
+    /// Which of the three this refusal is.
+    fn of(names_a_hash: bool, was_hashed: bool) -> Self {
+        match (names_a_hash, was_hashed) {
+            (false, _) => ByHash::NotNamed,
+            (true, true) => ByHash::NotThisContent,
+            (true, false) => ByHash::NothingToHash,
+        }
+    }
 }
 
 impl fmt::Display for Refusal {
@@ -674,7 +755,7 @@ impl fmt::Display for Refusal {
                 kind,
                 directive,
                 allows,
-                only_by_hash,
+                by_hash,
             } => {
                 write!(
                     f,
@@ -686,11 +767,21 @@ impl fmt::Display for Refusal {
                         allows.join(" ")
                     }
                 )?;
-                if *only_by_hash {
-                    f.write_str(
-                        ". That directive would allow it by hash, and this engine does not \
-                         compute one yet (queue item 189), so it is refused rather than run",
-                    )?;
+                match by_hash {
+                    ByHash::NotNamed => {}
+                    ByHash::NotThisContent => f.write_str(
+                        ". That directive allows content by hash and this content's digest is \
+                         not one of the ones it names — a hash is over the content byte for \
+                         byte, so a policy written for an earlier version of it will not allow \
+                         this one",
+                    )?,
+                    ByHash::NothingToHash => f.write_str(
+                        ". That directive allows content by hash, and this is content with no \
+                         element of its own — a style attribute or an event handler. Matching \
+                         one of those by hash is what 'unsafe-hashes' is for, and this engine \
+                         reads that keyword without acting on it, so it is refused rather than \
+                         allowed on a guess",
+                    )?,
                 }
                 Ok(())
             }
@@ -893,7 +984,7 @@ mod tests {
     #[test]
     fn inline_content_a_policy_refused_is_a_violation_with_no_url() {
         let policies = enforcing("script-src 'self'; report-uri /csp");
-        let violations = policies.inline_violations(Inline::Script, None);
+        let violations = policies.inline_violations(Inline::Script, None, Some("alert(1)"));
         let one = violations.first().expect("a violation");
         assert_eq!(one.blocked, Blocked::Inline);
         assert_eq!(one.directive, "script-src");
@@ -987,39 +1078,94 @@ mod tests {
         let with_only_the_keyword = enforcing("script-src 'unsafe-inline'");
         assert!(
             with_only_the_keyword
-                .allows_inline(Inline::Script, None)
+                .allows_inline(Inline::Script, None, Some("alert(1)"))
                 .is_ok()
         );
 
         let with_a_nonce = enforcing("script-src 'unsafe-inline' 'nonce-abc'");
         assert!(
-            with_a_nonce.allows_inline(Inline::Script, None).is_err(),
+            with_a_nonce
+                .allows_inline(Inline::Script, None, Some("alert(1)"))
+                .is_err(),
             "the keyword is left in for old browsers and must not undo the nonce",
         );
         assert!(
             with_a_nonce
-                .allows_inline(Inline::Script, Some("abc"))
+                .allows_inline(Inline::Script, Some("abc"), Some("alert(1)"))
                 .is_ok()
         );
     }
 
+    /// The digest of `alert(1)`, from `python3` rather than from the crate that
+    /// computes it here.
+    const ALERT: &str = "'sha256-bhHHL3z2vDgxUt0W3dWQOrprscmda2Y5pLsLg4GF+pI='";
+
     #[test]
-    fn inline_content_a_hash_would_have_allowed_says_so() {
-        let policies = enforcing("script-src 'sha256-YWJj'");
+    fn inline_content_whose_hash_a_policy_names_runs() {
+        let policies = enforcing(&format!("script-src {ALERT}"));
+        assert!(
+            policies
+                .allows_inline(Inline::Script, None, Some("alert(1)"))
+                .is_ok()
+        );
+        assert!(
+            policies
+                .inline_violations(Inline::Script, None, Some("alert(1)"))
+                .is_empty(),
+            "it was allowed and reported, which sends an author looking for a bug in a page \
+             that works",
+        );
+    }
+
+    #[test]
+    fn inline_content_whose_hash_a_policy_does_not_name_says_which_of_the_two_it_is() {
+        let policies = enforcing(&format!("script-src {ALERT}"));
         let refused = policies
-            .allows_inline(Inline::Script, None)
-            .expect_err("a hash was computed, which nothing here does");
+            .allows_inline(Inline::Script, None, Some("alert(2)"))
+            .expect_err("one digest allowed another script");
         let said = refused.to_string();
-        assert!(said.contains("hash"), "{said}");
-        assert!(said.contains("189"), "{said}");
+        assert!(said.contains("byte for byte"), "{said}");
+
+        let attribute = policies
+            .allows_inline(Inline::Script, None, None)
+            .expect_err("content nobody hashed was allowed by a hash");
+        let said = attribute.to_string();
+        assert!(said.contains("'unsafe-hashes'"), "{said}");
+    }
+
+    /// The keyword says to ignore every host and scheme in the directive. A
+    /// hash is neither, and a policy of `'strict-dynamic'` plus hashes is the
+    /// shape the specification recommends.
+    #[test]
+    fn strict_dynamic_does_not_ignore_a_hash() {
+        let policies = enforcing(&format!(
+            "script-src 'strict-dynamic' 'unsafe-inline' {ALERT}"
+        ));
+        assert!(
+            policies
+                .allows_inline(Inline::Script, None, Some("alert(1)"))
+                .is_ok()
+        );
+        assert!(
+            policies
+                .allows_inline(Inline::Script, None, Some("alert(2)"))
+                .is_err(),
+            "'unsafe-inline' is undone by the hash, as it is by a nonce",
+        );
     }
 
     #[test]
     fn a_style_directive_governs_inline_style_and_a_script_one_does_not() {
         let policies = enforcing("script-src 'unsafe-inline'; style-src 'self'");
-        assert!(policies.allows_inline(Inline::Script, None).is_ok());
         assert!(
-            policies.allows_inline(Inline::Style, None).is_err(),
+            policies
+                .allows_inline(Inline::Script, None, Some("alert(1)"))
+                .is_ok()
+        );
+        assert!(
+            policies
+                .allows_inline(Inline::Style, None, Some("a { color: red }"))
+                .is_err(),
             "'self' does not allow inline style",
         );
     }
@@ -1065,7 +1211,11 @@ mod tests {
                 .allows(&asking("https://evil.test/x.js", Purpose::Script), None)
                 .is_ok()
         );
-        assert!(policies.allows_inline(Inline::Script, None).is_ok());
+        assert!(
+            policies
+                .allows_inline(Inline::Script, None, Some("alert(1)"))
+                .is_ok()
+        );
     }
 
     /// Whatever a server sends, a policy is read and nothing panics.
@@ -1088,10 +1238,15 @@ mod tests {
             "default-src 'none'; ; ; default-src *",
             "script-src *",
             "script-src * 'unsafe-inline'",
+            "script-src 'sha256-'",
+            "script-src 'sha256-YWJj'",
+            "script-src 'sha999-YWJj'",
+            "style-src 'sha512-\u{0}'",
         ] {
             let policies = enforcing(value);
             let _ = policies.allows(&asking("https://evil.test/x.js", Purpose::Script), None);
-            let _ = policies.allows_inline(Inline::Script, None);
+            let _ = policies.allows_inline(Inline::Script, None, Some("alert(1)"));
+            let _ = policies.allows_inline(Inline::Script, None, None);
             let _ = policies.not_enforced();
         }
     }

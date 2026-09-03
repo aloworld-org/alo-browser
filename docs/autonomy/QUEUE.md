@@ -864,7 +864,7 @@ wrong, which is the argument for the fourth.
   reports go is two chances to disagree), and nothing here queues, batches or
   rate-limits a report.
 
-- [ ] **189. A content hash, computed.** Cut from 165, which reads
+- [x] **189. A content hash, computed.** Cut from 165, which reads
   `'sha256-…'`, lets its presence correctly disable `'unsafe-inline'`, and
   matches nothing — so a policy that allows inline content only by hash refuses
   it and says so in words. Closing this needs a digest, which means **renting
@@ -874,6 +874,38 @@ wrong, which is the argument for the fourth.
   today, inline script needs item 72. Closes when:* an inline `<style>` whose
   digest a policy names is allowed and one whose digest it does not is refused,
   and both alphabets a policy may write the digest in are read.
+
+  **Done, all three clauses: `crates/alo-net/tests/a_hash_a_policy_named.rs`.**
+  `sha2` is the rented digest and `alo-net/src/digest.rs` is its boundary. What
+  took the thinking was not the hash — it is one call — but **reading the value
+  an author wrote**, which is why the file also holds the base64 and why every
+  rule in it is written down: a hash source is a *permission*, so a decoder that
+  is lax in any direction is a policy quietly wider than its author wrote. So
+  the two alphabets are never mixed, a value whose last group has bits standing
+  for no byte is refused as a second spelling of one permission, and nothing is
+  trimmed. A value of the wrong length for the algorithm it names is a
+  **non-match rather than an error**, because `'sha256-YWJj'` is an author's
+  mistake that should show up as content that does not run.
+  `Digest::names` compares **bytes**, so there is one spelling of our own digest
+  to compare against rather than four of the author's.
+
+  It also settled where a hash *is not* the answer: `Source::matches` refuses a
+  hash for a URL, since a policy is checked before anything is fetched and a
+  `<script src>` is allowed by where it comes from. The cut is item 191.
+
+- [ ] **191. `'unsafe-hashes'`, so a `style` attribute can be allowed by its
+  digest.** Cut from 189, which hashes content that has an element of its own
+  and refuses to hash anything else — a `style` attribute, an event handler.
+  Matching one of those by hash is exactly what `'unsafe-hashes'` enables, and
+  this engine reads that keyword as inert, so `Policies::allows_inline` takes
+  `None` for such content and says so in the refusal
+  ([`csp::ByHash::NothingToHash`]). Deciding it silently either way would be
+  guessing about a permission.
+  *Depends on 189. Closes when:* a `style` attribute whose digest a policy names
+  applies **only** where that policy also says `'unsafe-hashes'`, and the same
+  policy without the keyword refuses it — the second half being the one that
+  matters, since the keyword exists to make the permission deliberate. The event
+  handler half waits for item 81, which is where a handler is a thing at all.
 
 - [x] **63. The boundary's wire format.** *Scope cut on starting: the split is
   three items, and this is the one that has to be right before anything is

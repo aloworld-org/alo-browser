@@ -679,7 +679,7 @@ mod tests {
                 kind: crate::csp::Inline::Script,
                 directive: "script-src".to_owned(),
                 allows: vec!["'self'".to_owned()],
-                only_by_hash: false,
+                by_hash: crate::csp::ByHash::NotNamed,
             },
         }
     }

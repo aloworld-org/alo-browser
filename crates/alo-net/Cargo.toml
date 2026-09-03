@@ -17,6 +17,7 @@ ruzstd.workspace = true
 rustls.workspace = true
 rustls-native-certs.workspace = true
 rustls-pki-types.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 rcgen.workspace = true

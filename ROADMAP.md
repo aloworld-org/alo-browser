@@ -283,10 +283,15 @@ unreachable without it.
       alike, in the two documents collectors read — and a report says a
       cross-origin URL as its origin and nothing more, because a report is
       posted to a server the page chose and would otherwise be a way to read
-      one · Owed: **computing a content hash**, so a policy that allows inline
-      content only by hash refuses it and says so (queue item 189); and **a
-      nested document**, which is what `frame-src` needs and which nothing here
-      can yet tell from a link click (queue item 86)
+      one. **A content hash is computed** (queue item 189): a policy that names
+      the digest of its own inline stylesheet allows that stylesheet and refuses
+      every other one, in either base64 alphabet, with a value that mixes the
+      alphabets or is the wrong length allowing nothing — a hash source is a
+      permission, so reading one loosely is a policy wider than its author wrote
+      · Owed: **a nested document**, which is what `frame-src` needs and which
+      nothing here can yet tell from a link click (queue item 86); and
+      `'unsafe-hashes'`, so that a `style` attribute can be allowed by its
+      digest — read and not acted on today, and named as such in a refusal
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action, caused it. No other engine has needed to answer that, and an agent-driven browser that cannot is one nobody should trust
