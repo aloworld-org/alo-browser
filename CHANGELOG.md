@@ -6,6 +6,30 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A picture from a page is untrusted bytes, and is now read as such.** The
+  PNG reader that existed was written for reference renders — files this engine
+  wrote moments earlier, in one format — and being strict there is a feature. A
+  page's picture needs the opposite on both counts, so there are two readers and
+  the difference between them is written down.
+- **Tolerant about what a PNG may be**: palette, greyscale and sixteen-bit are
+  normalised to eight-bit RGBA rather than refused, because a page's picture is
+  usually one of those and refusing them would be refusing the web.
+- **Unforgiving about every number that decides an allocation.** A PNG's
+  *header* declares its dimensions, and a decoder that believed one would
+  reserve four bytes per declared pixel before reading a single row. A file of a
+  hundred-odd bytes that parses perfectly can ask for seventeen gigabytes; the
+  bound is sixty-four megapixels and it is checked **before** anything is
+  reserved. ADR 0005 names image codecs as a reason for the sandbox; this is the
+  half no sandbox would have caught.
+- Two tests taught me something I had assumed wrong. A **header alone** is
+  refused for having no image data behind it, which says nothing about whether
+  the size was checked — so the bomb is a *valid* picture whose header has been
+  rewritten and whose checksum mended. And **not every truncation is refused**:
+  a file missing only its end marker has all of its image data, and refusing it
+  would refuse a picture whose last four bytes were lost in transit, which
+  browsers show. What must never happen is a canvas of a size nobody declared,
+  and that is what the test asserts.
+
 - **A page's linked style sheets are applied**, and `<link>` and `<style>` are
   collected into **one list in document order** — because a later sheet
   overrides an earlier one and the order is the meaning. A page that links a

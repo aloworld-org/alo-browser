@@ -128,6 +128,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   spelling the specification asks for and the one servers actually send
 - [2] **A page's own style sheets** — `<style>` and `<link>` together, in
   document order, with an alternate sheet left alone and a missing one recorded
+- [2] **PNG pictures from a page**, read tolerantly and bounded before anything
+  is allocated — a hundred-byte file cannot ask for seventeen gigabytes
 - [2] **A wrapped inline is more than one rectangle** — and offscreen only when
   every piece of it is
 - [2] **`text-decoration`**: underline, overline and line-through, stopping at

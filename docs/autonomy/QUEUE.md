@@ -987,13 +987,32 @@ The long pole, and the thing most of section E is unreachable without.
 
 ## H. Pictures, and things that move
 
-- [ ] **106. Image codecs, rented**: PNG, JPEG, GIF, WebP, AVIF. ADR 0005's
-  second reason for the sandbox is that these have `unsafe` in them and are not
-  ours to make safe, so **untrusted bytes are decoded in the least privileged
-  process that can do it**.
-  *Depends on 63 for where they run. Closes when:* `<img>` lays out with its
-  intrinsic size and aspect ratio and draws, and a fuzzed file is refused rather
-  than decoded.
+- [x] **106. Reading a picture a stranger sent.** ADR 0005's second reason for
+  the sandbox is that image codecs have `unsafe` in them and are not ours to
+  make safe, so **untrusted bytes are decoded in the least privileged process
+  that can do it** — which the renderer already is.
+  *Scope cut on starting: five codecs and a whole layout mode is not one item.
+  This is the untrusted-bytes half, for PNG — the half ADR 0005 names, and the
+  half no sandbox would catch, since a renderer that allocated seventeen
+  gigabytes because a header said so is doing nothing a sandbox forbids. Laying
+  out and drawing is item 176; the other codecs are 177.*
+
+  **Done.** Tolerant of every colour type a PNG may have, and bounded at
+  sixty-four megapixels **before** the allocation, because a hundred-byte file
+  that parses perfectly can declare seventeen gigabytes.
+
+- [ ] **176. `<img>` lays out and draws.** A decoded picture has an intrinsic
+  size and nothing uses it: there is no intrinsic sizing anywhere in `alo-box`
+  or `alo-layout`, which is the actual work here rather than the decoding.
+  *Depends on 106, 175 — a case needs to hold the picture beside the page.*
+  *Closes when:* an `<img>` with no width or height lays out at the picture's own
+  size and aspect ratio, one with a width keeps the ratio, and a picture that
+  was refused leaves a box of the size the page asked for rather than nothing.
+
+- [ ] **177. The other image codecs**: JPEG, GIF, WebP, AVIF. Rented.
+  *Depends on 106. Closes when:* each lays out and draws from a frozen file, and
+  each has the same bound and the same refusals as PNG — which is the reason
+  they are one item rather than four.
 
 - [ ] **107. SVG** — *"a second rendering model inside the first, and far larger
   than its one line here suggests."* **Cut this before starting it**; it is

@@ -4084,3 +4084,60 @@ open items — so a page with pictures will render their space and not their
 content. That is worth knowing **before** freezing such a page, so the case is
 taken with the gap understood rather than discovered as a failure.
 
+---
+
+## Iteration 65 — queue item 106: reading a picture a stranger sent
+
+**Scope cut on starting, and it needed cutting twice over.** Item 106 asked for
+five codecs *and* `<img>` laying out and drawing. Investigating it first turned
+up the reason that is two items and not one: there is **no intrinsic sizing
+anywhere** in `alo-box` or `alo-layout`, so "an image draws at its own size" is
+a layout feature that happens to involve pictures. That went to item 176; the
+other four codecs to 177.
+
+What is left is the half ADR 0005 names by itself, and the half no sandbox
+catches: a renderer that allocates seventeen gigabytes because a header said so
+is doing nothing a sandbox forbids.
+
+**There were already two jobs in one function.** `from_png` reads a *reference
+render* — a file this engine wrote moments earlier, in one format — and being
+strict there is a feature, because a reference render that is not eight-bit RGBA
+means something is wrong. A page's picture needs the opposite on both counts, so
+there are two readers now and the doc comment on each says which job it has.
+Tolerant about what a PNG may be; unforgiving about every number that decides an
+allocation.
+
+**Two tests taught me something I had assumed, and both are worth keeping.**
+
+I built the bomb as a *header alone*, reasoning that nothing else was needed to
+make a decoder reserve memory. It was refused — with "unexpected end of file",
+because the decoder never reached the size at all. A header on its own proves
+nothing about a size check. So the bomb is now a **valid** picture whose header
+has been rewritten to claim sixty-five thousand square, with the chunk's
+checksum mended so the decoder is happy right up to the moment the bound stops
+it. That is the actual attack: a hundred-odd bytes that parse perfectly.
+
+And I asserted that **every** truncation is refused. It is not, and should not
+be: at 87 bytes of 91 the file has lost only its end marker, and every byte of
+its image data is there. Refusing that would refuse a picture whose last four
+bytes were lost in transit — which browsers show, because showing what arrived
+is most of the point of an image on a page. The test now asserts the thing that
+would be dangerous: a prefix must never produce a canvas of a **size nobody
+declared**, since that is the shape of reading past the end of what arrived.
+
+**And a queue defect I made and fixed in the same iteration.** Cutting item 106
+left the original text behind as a "106b" — the same duplicate-number defect as
+the two 54s several iterations ago. Removed, with the one sentence worth keeping
+(ADR 0005's reason) moved onto the item that survived. A queue with two items
+for one piece of work is a queue that will have one of them done twice.
+
+**The gate.** Green: fmt, clippy zero and zero, 1204 tests.
+
+**What the next iteration should know.** Item 176, `<img>` laying out and
+drawing, and the work is **intrinsic sizing** rather than pictures. Nothing in
+`alo-box` or `alo-layout` has a notion of a box with a size of its own; taffy
+supports it through a measure function, which is how `MeasureText` already
+works, so the shape is probably a second measurer rather than a new field. Worth
+checking that before writing anything, because a field on `BoxNode` is the
+obvious answer and might be the wrong one.
+
