@@ -25,10 +25,12 @@ block flow · document
             inline flow · generic
               text "Email"
             inline flow-root · textbox
+              anonymous block
           block flex · generic
             inline flow · generic
               text "Password"
             inline flow-root · generic
+              anonymous block
           block flex · generic
             block flex · generic
               inline flow-root · checkbox [checked=false]
@@ -36,8 +38,9 @@ block flow · document
                 text "Remember me"
             inline flow · link
               text "Forgot password?"
-          inline flex · button
-            text "Sign in"
+          inline flow-root · button
+            anonymous block
+              text "Sign in"
           block flex · generic
             inline flow · generic
             inline flow · generic

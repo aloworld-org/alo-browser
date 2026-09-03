@@ -1,0 +1,58 @@
+block flow · document
+  block flow · generic
+    block flex · generic
+      block flex · dialog "Mail settings"
+        block flex · generic
+          block flow · heading [level=2]
+            text "Mail settings"
+        block flex · generic
+          block flex · navigation "Mail settings"
+            block flex · button
+              inline flow · generic
+                text "General"
+            block flex · button
+              inline flow · generic
+                text "Filters & rules"
+            block flex · button
+              inline flow · generic
+                text "Sharing"
+            block flex · button
+              inline flow · generic
+                text "Notifications"
+            block flex · button
+              inline flow · generic
+                text "App passwords"
+          block flow · generic
+            block flex · generic
+              block flow · heading [level=3]
+                text "Your signature"
+              block flow · paragraph
+                text "Added to the bottom of messages you send…"
+              block flow · generic
+                block flow · generic
+                  text "Kind regards,"
+            block flex · generic
+              block flow · heading [level=3]
+                text "Out of office"
+              block flex · generic
+                block flex · generic
+                  inline flow-root · checkbox "Send automatic replies" [checked=false]
+                  inline flow · generic
+                    text "Send automatic replies"
+                block flow · paragraph
+                  text "Automatically reply once to anyone who emails you while you're away."
+                block flex · generic
+                  inline flow-root · textbox "First day away"
+                    anonymous block
+                      text "12 May"
+                  inline flow-root · textbox "Last day away"
+                    anonymous block
+                      text "19 May"
+        block flex · generic
+          inline flow · generic
+          inline flow-root · button
+            anonymous block
+              text "Cancel"
+          inline flow-root · button
+            anonymous block
+              text "Save"

@@ -65,6 +65,13 @@ link reports where it goes; navigating is the browser process's.
 never what. The dots are not in the agent tree at all — assistive technology
 never reads a password back and neither does this.
 
+**A form control holds what it shows in a box of its own**, the way browsers
+do: a tall button's label sits in the middle of it, and an empty field is still
+one line tall. It is a box in the tree rather than a rule in the user-agent
+sheet, and it has to be — a rule that centred a button's label would also
+centre the children of a button an author had made a flex container, and an
+author cannot override a rule they cannot see.
+
 **A form control does not draw its state.** A checkbox that is checked draws
 the same box as one that is not; there is no tick and no focus ring. The state
 is right in the tree and wrong on the screen, which is the worst way round —
@@ -148,7 +155,7 @@ it lives in.
 Colours are correct when they match `alo-workplace`'s `web/src/ds/tokens.css`,
 which is the specification for what "correct" means here.
 
-## The one screen that is alo's
+## The two screens that are alo's
 
 `crates/alo-corpus/cases/alo-sign-in/` is **alo-workplace's own sign-in
 screen** — its markup, its rules from `web/src/auth/LoginPage.module.css`, and
@@ -168,7 +175,20 @@ The headline still wraps one line more than the real screen does, and that is a
 **font** difference rather than an engine one: the corpus renders in DejaVu
 Sans, which is wider than the Inter the app loads. Web fonts are stage 2.
 
-It is a real alo screen, and it is one of the screens `ROADMAP.md`'s exit gate
+`crates/alo-corpus/cases/alo-settings/` is **alo-workplace's own Settings
+screen** — its markup, its rules from `web/src/shell/SettingsModal.module.css`
+and the `ds/Modal` shell it sits in, and its colours from the same `tokens.css`.
+**No substitutions** there either: its `transition`s, its `:hover` and
+`:focus-within` rules and its narrow-screen `@media` block are all present, the
+last of them evaluated rather than assumed. The same two transcriptions apply —
+the tokens are declared inline, and `ds/Modal`'s Tailwind utilities are written
+out as the plain rules they generate.
+
+Building it found two engine defects, both now fixed and both the same root: a
+form control needs a box of its own to hold what it shows. See the paragraph
+above.
+
+They are real alo screens, and they are the screens `ROADMAP.md`'s exit gate
 names — the gate used to name `alo-os`'s specifically, which was a fact about
 repository layout rather than about this engine, and it has been corrected.
 

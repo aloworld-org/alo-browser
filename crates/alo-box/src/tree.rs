@@ -83,9 +83,37 @@ pub enum BoxKind {
     /// that; without it, "lay out these children in lines" and "lay out these
     /// children as blocks" would be the same list.
     Anonymous {
-        /// How it sits among its siblings — always block-level today, since
-        /// that is the only anonymous box this engine makes.
+        /// How it sits among its siblings.
         outside: Outside,
+        /// Why it exists, which decides how it is laid out.
+        purpose: Purpose,
+    },
+}
+
+/// Why an anonymous box exists.
+///
+/// Two boxes nobody wrote look the same in a tree and are laid out completely
+/// differently, so the tree says which is which rather than leaving layout to
+/// guess from its surroundings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Purpose {
+    /// A run of inline-level boxes, wrapped so that a container's children are
+    /// all of one kind.
+    #[default]
+    Run,
+    /// The inside of a form control.
+    ///
+    /// Browsers give a `<button>` and an `<input>` an internal box that holds
+    /// what they display, and it is why a tall button's label sits in the
+    /// middle of it and why an empty field is still one line tall. It is **not**
+    /// expressible in the user-agent style sheet: a rule that centred a
+    /// button's label would also centre the children of a button an author had
+    /// made a flex container, and an author cannot override a rule they cannot
+    /// see.
+    Control {
+        /// Whether what is inside sits in the middle, which a button does and
+        /// a text field does not.
+        centred: bool,
     },
 }
 
@@ -104,7 +132,7 @@ impl BoxKind {
             BoxKind::Element { display, .. } => display.outside().unwrap_or(Outside::Inline),
             // Text always sits in a line; that is what makes it text.
             BoxKind::Text { .. } => Outside::Inline,
-            BoxKind::Anonymous { outside } => *outside,
+            BoxKind::Anonymous { outside, .. } => *outside,
         }
     }
 
@@ -266,7 +294,7 @@ impl BoxTree {
                 write!(out, "{display} · {}", node.semantics)?;
             }
             BoxKind::Text { text, .. } => write!(out, "text {text:?}")?,
-            BoxKind::Anonymous { outside } => {
+            BoxKind::Anonymous { outside, .. } => {
                 let outside = match outside {
                     Outside::Block => "block",
                     Outside::Inline => "inline",
@@ -437,6 +465,7 @@ pub fn build(document: &Document, styles: &StyleTree) -> BoxTree {
             let anonymous = tree.push(
                 BoxKind::Anonymous {
                     outside: Outside::Block,
+                    purpose: Purpose::Run,
                 },
                 Semantics::anonymous(),
             );
@@ -541,6 +570,24 @@ fn build_one(
             let semantics = Semantics::of(document, id, element);
             let box_id = tree.push(BoxKind::Element { node: id, display }, semantics);
             let children = build_children(document, styles, id, tree);
+            // A form control holds what it displays in a box nobody wrote —
+            // only while the author has left it a flow container, because
+            // making it a flex or grid container replaces that arrangement
+            // with one of their own.
+            if matches!(display.inside(), Some(Inside::Flow | Inside::FlowRoot))
+                && let Some(centred) = control_content(element)
+            {
+                let inner = tree.push(
+                    BoxKind::Anonymous {
+                        outside: Outside::Block,
+                        purpose: Purpose::Control { centred },
+                    },
+                    Semantics::anonymous(),
+                );
+                tree.adopt(inner, &children);
+                tree.adopt(box_id, &[inner]);
+                return vec![box_id];
+            }
             if display.outside() == Some(Outside::Inline) && holds_a_block(tree, &children) {
                 // CSS breaks an inline box around a block-level one. The
                 // pieces come back as several boxes rather than one, and the
@@ -617,6 +664,34 @@ fn arrange(tree: &mut BoxTree, parent: BoxId, children: Vec<BoxId>) -> Vec<BoxId
     }
     flush_run(tree, &mut run, &mut arranged);
     arranged
+}
+
+/// Whether an element is a form control that holds what it shows in a box of
+/// its own, and whether that box centres what is in it.
+///
+/// A button's label sits in the middle of it; a field's text sits at the start
+/// and one line down. Both are things browsers do with an internal box rather
+/// than with a style sheet rule, which is exactly why they are here.
+fn control_content(element: &alo_dom::Element) -> Option<bool> {
+    if element.name.is_html("button") {
+        return Some(true);
+    }
+    if element.name.is_html("textarea") {
+        return Some(false);
+    }
+    if !element.name.is_html("input") {
+        return None;
+    }
+    let kind = element
+        .attr("type")
+        .map_or_else(|| "text".to_owned(), str::to_ascii_lowercase);
+    match kind.as_str() {
+        "button" | "submit" | "reset" => Some(true),
+        // A checkbox and a radio draw themselves; there is nothing inside them
+        // to hold, and a box would only make them taller.
+        "checkbox" | "radio" | "hidden" | "image" | "range" | "color" => None,
+        _ => Some(false),
+    }
 }
 
 /// How the whitespace around a text node is treated.
@@ -726,6 +801,7 @@ fn flush_run(tree: &mut BoxTree, run: &mut Vec<BoxId>, arranged: &mut Vec<BoxId>
     let anonymous = tree.push(
         BoxKind::Anonymous {
             outside: Outside::Block,
+            purpose: Purpose::Run,
         },
         Semantics::anonymous(),
     );

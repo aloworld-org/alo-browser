@@ -292,10 +292,18 @@ one number is a reference that quietly points at the wrong thing.*
   a substitution nobody re-checks outlives the reason for it. **alo's sign-in
   screen now renders from its own stylesheet with no substitutions at all.**
 
-- [ ] **45. alo's Settings screen in the corpus.** The second screen the gate
-  names, and it is not rendered at all. Same shape as the sign-in case: its own
+- [x] **45. alo's Settings screen in the corpus.** The second screen the gate
+  names, and it was not rendered at all. Same shape as the sign-in case: its own
   markup, its own rules, colours from `tokens.css`, a committed reference render
   and an expected box tree.
+
+  **Done, with no substitutions**, and it found two engine defects on the way —
+  both the same root, and both now fixed: a form control needs a **box of its
+  own** to hold what it shows. The user-agent sheet had been centring a button's
+  label with `justify-content`, which an author who made a button a flex
+  container could not override (alo's settings nav is exactly that), and giving
+  every `<input>` a fixed height, which became too *short* once a field showed
+  its value.
 
 - [ ] **46. An agent reads Settings and activates a row by name.** The last
   clause of the exit gate. Reading works on pages we wrote, and a verb finds its

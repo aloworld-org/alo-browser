@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <div class="overlay">
+    <div class="panel" role="dialog" aria-label="Mail settings">
+      <div class="head"><h2 class="title">Mail settings</h2></div>
+
+      <div class="body">
+        <nav class="nav" aria-label="Mail settings">
+          <button type="button" class="navItem navItemOn" aria-current="true"><span>General</span></button>
+          <button type="button" class="navItem"><span>Filters &amp; rules</span></button>
+          <button type="button" class="navItem"><span>Sharing</span></button>
+          <button type="button" class="navItem"><span>Notifications</span></button>
+          <button type="button" class="navItem"><span>App passwords</span></button>
+        </nav>
+
+        <div class="content">
+          <section class="section">
+            <h3 class="sectionTitle">Your signature</h3>
+            <p class="sectionDesc">Added to the bottom of messages you send…</p>
+            <div class="editorCard"><div class="editorBody">Kind regards,</div></div>
+          </section>
+
+          <section class="section">
+            <h3 class="sectionTitle">Out of office</h3>
+            <div class="oooCard">
+              <div class="oooRow">
+                <input type="checkbox" id="ooo" aria-label="Send automatic replies">
+                <label class="oooLabel" for="ooo">Send automatic replies</label>
+              </div>
+              <p class="sectionDesc">Automatically reply once to anyone who emails you while you're away.</p>
+              <div class="oooDates">
+                <input class="input" type="text" aria-label="First day away" value="12 May">
+                <input class="input" type="text" aria-label="Last day away" value="19 May">
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="foot">
+        <span class="footMsg"></span>
+        <button type="button" class="ghost">Cancel</button>
+        <button type="button" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

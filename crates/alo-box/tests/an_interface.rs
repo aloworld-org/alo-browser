@@ -79,9 +79,11 @@ block flow · document
         inline flow · generic
           text \"Amount\"
         inline flow-root · textbox [required]
+          anonymous block
         inline flow-root · checkbox \"Recurring\" [checked=true]
-        inline flex · button [disabled]
-          text \"Save\"
+        inline flow-root · button [disabled]
+          anonymous block
+            text \"Save\"
 ";
     assert_eq!(tree.to_outline(), expected);
 }
@@ -167,11 +169,20 @@ fn every_box_can_be_traced_back_to_what_asked_for_it() {
             ),
         }
     }
-    assert!(
-        !tree.to_outline().contains("anonymous"),
-        "and this interface needs none: every container's children are all of \
-         one kind already",
-    );
+    // Every container's children are already all of one kind, so no run needs
+    // wrapping. The anonymous boxes this interface *does* have are the ones a
+    // form control holds its content in — a different reason, and the box tree
+    // records which is which.
+    for id in tree.descendants(root) {
+        if let Some(alo_box::BoxKind::Anonymous { purpose, .. }) =
+            tree.get(id).map(|node| &node.kind)
+        {
+            assert!(
+                matches!(purpose, alo_box::Purpose::Control { .. }),
+                "{id} is a run wrapper, and nothing here needs one",
+            );
+        }
+    }
 }
 
 #[test]

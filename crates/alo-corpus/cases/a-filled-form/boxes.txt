@@ -4,11 +4,13 @@ block flow · document
       block flow · generic
         text "Email"
       block flow · textbox
-        text "someone@alo.build"
+        anonymous block
+          text "someone@alo.build"
       block flow · generic
         text "Password"
       block flow · generic
-        text "••••••••"
+        anonymous block
+          text "••••••••"
       anonymous block
         text " "
         inline flow-root · checkbox [checked=true]

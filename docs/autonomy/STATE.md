@@ -1895,3 +1895,60 @@ corpus. It is the second screen the exit gate names and it is not rendered at
 all. `alo-workplace` is checked out beside this repository — the screen's
 markup and rules are there to be read, the way the sign-in case was built.
 
+---
+
+## Iteration 31 — queue item 45: alo's Settings screen
+
+**What was built.** `crates/alo-corpus/cases/alo-settings/`:
+`alo-workplace`'s own Settings screen — its markup, its rules from
+`SettingsModal.module.css` and the `ds/Modal` shell it sits in, its colours
+from `tokens.css` — rendered and diffed on every run. **No substitutions**, and
+that includes the narrow-screen `@media` block, which is evaluated at this
+width rather than assumed away.
+
+**It found two engine defects before it rendered right, and they were the same
+defect.** A form control needs a **box of its own** to hold what it shows.
+
+1. **A button's label was centred by `justify-content` in the user-agent
+   sheet.** alo's settings nav makes each item `display: flex` with
+   `text-align: left`, and every one came out centred — because the user-agent
+   sheet's `justify-content: center` was still in force and **an author cannot
+   override a rule they cannot see**. The apology for that rule had been sitting
+   in the sheet since item 11 ("a centring flex container is the same
+   arrangement said in a way this engine already has"). It is not the same
+   arrangement, and a real screen is what showed the difference.
+2. **Every `<input>` had a fixed `height: 1.2em`**, added so an empty field
+   would not be a hairline. Once item 42 made a field show its value, that
+   fixed height was too *short* for it and the text hung out of the box. A
+   *minimum* is right either way, and a minimum is what a content box gives.
+
+**The fix is what browsers do**: `alo_box::Purpose::Control` — an anonymous box
+inside a control, made only while the author has left the control a flow
+container. Make it a flex container and the box is not generated, so the
+author's own alignment is the only alignment. It fills the control, is one line
+tall at least, and centres what is in it for a button and not for a field.
+
+Three places had to agree on that: `alo-box` builds the box, `alo-layout` gives
+it a style with no element to read one from, and the inline formatter centres
+its lines. The box tree's own word for *why the box exists* is what each of them
+reads — which is the same shape as `Purpose::Run` and the reason the enum has
+two variants rather than a boolean somewhere.
+
+**Both screens the exit gate names now render**, from their own stylesheets,
+diffed on every run.
+
+**The roadmap line this item served** is stage 1's *A real alo screen renders
+correctly*. Its Built clause now names both screens; its Owed clause is down to
+one item.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 829 tests, no stubs, boundaries held, no verb takes a coordinate.
+Sixteen corpus cases.
+
+**What the next iteration should know.** Item 46 is the last of stage 1: an
+agent reads Settings as a tree and activates a row by name. Everything it needs
+exists — the agent tree, the verbs, and now the screen. What it adds is
+asserting it against a real alo screen, which is where a role declared wrongly
+actually shows up. The settings nav is `<button>`s inside a `<nav>`, so what an
+agent should find is buttons named "General", "Filters & rules" and so on.
+

@@ -70,11 +70,11 @@ datalist, optgroup, option { display: none }
  */
 input, select {
   width: 20ch;
-  /* A field with nothing typed into it is still one line tall: the height
-     comes from the line the text would sit on, not from the text. Without
-     this an empty input is four pixels of padding and border and nothing
-     else. */
-  height: 1.2em;
+  /* No height. A field with nothing typed into it is still one line tall,
+     and that comes from the box the control holds its text in
+     (`alo_box::Purpose::Control`) rather than from a rule here. A rule would
+     have been a *fixed* height, so a field with something in it would be too
+     short for it — which is exactly what happened. */
   padding: 1px 2px;
   border: 1px solid #767676;
 }
@@ -84,14 +84,13 @@ textarea {
   padding: 2px;
   border: 1px solid #767676;
 }
-/* What is written on a button sits in the middle of it, across and down.
-   Browsers do that with an anonymous centring box inside the button; a
-   centring flex container is the same arrangement said in a way this engine
-   already has, and without it a tall button has its label in the corner. */
+/* What is written on a button sits in the middle of it, across and down —
+   and that is *not* here, because it cannot be. A rule that centred a
+   button's label would also centre the children of a button an author had
+   made a flex container, and an author cannot override a rule they cannot
+   see. Browsers hold a control's content in an internal box instead, and so
+   does this engine: `alo_box::Purpose::Control`. */
 button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   padding: 1px 6px;
   border: 1px solid #767676;
   background: #efefef;

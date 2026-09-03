@@ -726,6 +726,95 @@ fn letter_spacing_of_normal_is_no_spacing_at_all() {
 }
 
 #[test]
+fn an_empty_field_is_still_one_line_tall() {
+    // Not from a height in the user-agent sheet — a fixed height would be too
+    // short for a field with something in it, which is exactly what happened.
+    // It comes from the box the control holds its text in.
+    let html = "<body><input id=a></body>";
+    let (boxes, layout) = lay_out(html, "", Size::new(400.0, 300.0));
+    let field = rect_of(&boxes, &layout, "a", html);
+    // A line is 19.2 — one and a fifth of the sixteen-pixel default font —
+    // plus a pixel of padding and a pixel of border on each side.
+    assert!(close(field.size.height, 23.2), "{field:?}");
+}
+
+#[test]
+fn a_field_with_something_in_it_is_tall_enough_for_it() {
+    let html = "<body><input id=a value='typed'></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "#a { padding: 8px; border-top-width: 1px; border-right-width: 1px;
+              border-bottom-width: 1px; border-left-width: 1px;
+              border-top-style: solid; border-right-style: solid;
+              border-bottom-style: solid; border-left-style: solid }",
+        Size::new(400.0, 300.0),
+    );
+    let field = rect_of(&boxes, &layout, "a", html);
+    // A line of 19.2, sixteen of padding, two of border. The line rather than
+    // the text: a line box is as tall as its line height, which is what stops
+    // a field's own text touching its border.
+    assert!(close(field.size.height, 37.2), "{field:?}");
+}
+
+#[test]
+fn a_tall_buttons_label_sits_in_the_middle_of_it() {
+    let html = "<body><button id=a>Save</button></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "#a { width: 100px; height: 46px; padding: 0; border: 0 }",
+        Size::new(400.0, 300.0),
+    );
+    let root = boxes.root().expect("a root");
+    let label = boxes
+        .descendants(root)
+        .into_iter()
+        .find(|id| {
+            boxes
+                .get(*id)
+                .and_then(|node| node.text().map(str::to_owned))
+                .is_some_and(|text| text.trim() == "Save")
+        })
+        .expect("the label");
+    let piece = layout.border_box(label).expect("a rectangle");
+
+    let button = rect_of(&boxes, &layout, "a", html);
+    // Four characters of eight, centred across a hundred; sixteen of line,
+    // centred down forty-six.
+    assert!(close(piece.origin.x, button.origin.x + 34.0), "{piece:?}");
+    assert!(close(piece.origin.y, button.origin.y + 15.0), "{piece:?}");
+}
+
+#[test]
+fn a_button_an_author_made_a_flex_container_is_theirs_to_align() {
+    // The reason a button's label is centred by a box in the tree rather than
+    // by a rule in the user-agent sheet: a rule would centre this too, and an
+    // author cannot override a rule they cannot see.
+    let html = "<body><button id=a><span>Left</span></button></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "#a { display: flex; width: 100px; padding: 0; border: 0 }",
+        Size::new(400.0, 300.0),
+    );
+    let root = boxes.root().expect("a root");
+    let span = boxes
+        .descendants(root)
+        .into_iter()
+        .find(|id| {
+            boxes
+                .get(*id)
+                .and_then(|node| node.text().map(str::to_owned))
+                .is_some_and(|text| text.trim() == "Left")
+        })
+        .expect("the label");
+    let piece = layout.border_box(span).expect("a rectangle");
+    let button = rect_of(&boxes, &layout, "a", html);
+    assert!(
+        close(piece.origin.x, button.origin.x),
+        "a flex container starts its items at the start: {piece:?}",
+    );
+}
+
+#[test]
 fn a_document_that_generates_no_boxes_lays_out_nothing_and_does_not_mind() {
     let (boxes, layout) = lay_out(
         "<p>t</p>",

@@ -77,10 +77,11 @@ correctness, not before it.
       `clamp(2.4rem, 4vw, 3.5rem)` resolving (queue item 44) and its
       `white-space: pre-line` keeping the headline one string (item 47) and its
       `letter-spacing` (item 48), and its `transition`, `:hover` and
-      `:focus-visible` rules read and inert (item 49) — **the sign-in case now
-      carries no substitutions, so what is diffed is alo's own screen**
-      · Owed: queue item 45, Settings, which is not rendered at all, and queue
-      item 46, an agent reading it and activating a row by name. *The old reason for not ticking —
+      `:focus-visible` rules read and inert (item 49); and **alo's Settings
+      screen** (item 45), its own markup and rules, likewise with no
+      substitutions. **Both screens the gate names now render and are diffed on
+      every run** · Owed: queue item 46 — an agent reading Settings as a tree
+      and activating a row by name, which is the gate's last clause. *The old reason for not ticking —
       that the gate named alo OS's screens — was a fact about repository layout
       rather than about this engine, and is gone.*
 

@@ -171,6 +171,16 @@ pub(crate) fn measure_inline(
 /// the time it is asked — so this asks the box that holds the lines, which is
 /// the box whose width they are aligned in.
 fn alignment_of(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> inline::TextAlignment {
+    // A button's label sits in the middle of it. The box it sits in is
+    // anonymous and has no style to read `text-align` from, so the box tree's
+    // own word for why it exists is the answer.
+    if let Some(BoxKind::Anonymous {
+        purpose: alo_box::Purpose::Control { centred: true },
+        ..
+    }) = boxes.get(id).map(|node| &node.kind)
+    {
+        return inline::TextAlignment::Center;
+    }
     boxes
         .get(id)
         .and_then(|node| node.kind.node())
@@ -255,6 +265,45 @@ fn collect_inline_items(
         }
     }
     items
+}
+
+/// The style of the box a form control holds what it shows in.
+///
+/// It fills the control and is **one line tall at least**, which is why an
+/// empty field is still a field rather than a hairline. A button's label sits
+/// in the middle of it; a field's sits at the start.
+///
+/// None of this is in the user-agent style sheet, and it cannot be: a rule
+/// that centred a button's label would also centre the children of a button an
+/// author had made a flex container, and an author cannot override a rule they
+/// cannot see.
+fn control_content_style(boxes: &BoxTree, styles: &StyleTree, id: BoxId, centred: bool) -> Style {
+    let line = boxes
+        .get(id)
+        .and_then(|node| node.parent)
+        .and_then(|parent| boxes.get(parent))
+        .and_then(|parent| parent.kind.node())
+        .and_then(|source| styles.get(source))
+        .map_or(0.0, alo_style::ComputedStyle::line_height);
+    Style {
+        display: taffy::Display::Flex,
+        flex_grow: 1.0,
+        // It **fills** the control, which is what puts a tall button's label
+        // in the middle rather than at the top. Against a control whose own
+        // height is `auto` this resolves to `auto` too, and the minimum below
+        // is then what makes an empty field one line tall.
+        size: TaffySize {
+            width: Dimension::percent(1.0),
+            height: Dimension::percent(1.0),
+        },
+        min_size: TaffySize {
+            width: LengthPercentageAuto::auto(),
+            height: LengthPercentageAuto::length(line),
+        },
+        align_items: Some(taffy::AlignItems::CENTER),
+        justify_content: centred.then_some(taffy::JustifyContent::CENTER),
+        ..Style::default()
+    }
 }
 
 /// An inline box's own border and padding, on each side.
@@ -452,9 +501,18 @@ fn place_inline_content(
             measure,
         );
 
+        // A control's content box centres what is in it, down as well as
+        // across — which is what puts a tall button's label in the middle
+        // rather than along its top edge. Everything else starts at the top.
+        let centred_by = if centres_its_lines(boxes, id) {
+            ((content.size.height - layout.size.height) / 2.0).max(0.0)
+        } else {
+            0.0
+        };
+        let origin = Point::new(content.origin.x, content.origin.y + centred_by);
         for fragment in layout.fragments() {
             let placed = Fragment {
-                rect: fragment.rect.translated(content.origin),
+                rect: fragment.rect.translated(origin),
                 ..fragment.clone()
             };
             fragments
@@ -524,6 +582,21 @@ fn place_inline_content(
     for child in children {
         place_inline_content(boxes, styles, child, measure, geometry, fragments, issues);
     }
+}
+
+/// Whether this box holds its lines in the middle of itself.
+///
+/// True of exactly one thing: the box a button holds its label in. It is
+/// anonymous and has no style, so the box tree's own word for why it exists is
+/// what answers.
+fn centres_its_lines(boxes: &BoxTree, id: BoxId) -> bool {
+    matches!(
+        boxes.get(id).map(|node| &node.kind),
+        Some(BoxKind::Anonymous {
+            purpose: alo_box::Purpose::Control { centred: true },
+            ..
+        })
+    )
 }
 
 /// The rectangle a box and everything under it were drawn in.
@@ -613,6 +686,13 @@ fn style_for(
     let Some(node) = boxes.get(id) else {
         return Style::default();
     };
+    if let BoxKind::Anonymous {
+        purpose: alo_box::Purpose::Control { centred },
+        ..
+    } = node.kind
+    {
+        return control_content_style(boxes, styles, id, centred);
+    }
     let ours = node
         .kind
         .node()

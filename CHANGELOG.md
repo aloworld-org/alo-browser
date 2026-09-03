@@ -6,6 +6,23 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo's Settings screen renders**, from its own markup and its own rules, with
+  no substitutions — the second of the two screens stage 1's exit gate names.
+  Corpus case `alo-settings`.
+- **A form control holds what it shows in a box of its own**, the way browsers
+  do. That is why a tall button's label sits in the middle of it and why an
+  empty field is still one line tall — and it replaces two approximations in the
+  user-agent style sheet that the Settings screen walked straight into:
+  - The sheet centred a button's label with `justify-content`. An author who
+    made a button a flex container — which alo's settings nav does — could not
+    override a rule they could not see, so every nav item was centred. **An
+    author cannot override the user-agent sheet's flex alignment**, which is why
+    this could never have been a rule.
+  - The sheet gave every `<input>` a fixed `height: 1.2em`, so that an empty one
+    was not a hairline. Once a field showed its value that height was too
+    *short* for it, and the text hung out of the box. A minimum, from the box
+    the control holds its text in, is right either way.
+
 - **alo's sign-in screen renders from its own stylesheet, with no
   substitutions.** The last of the four was `transition`, `:hover` and
   `:focus-visible`, and removing it needed no new code — the engine already

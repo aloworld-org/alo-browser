@@ -49,6 +49,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 ## Layout
 
 - [1] The box model — content, padding, border, margin, and the box's *meaning* alongside its rectangle (ADR 0002)
+- [1] **A form control holds what it shows in a box of its own** — a tall button's label in the middle of it, an empty field still one line tall. A box in the tree rather than a rule in the user-agent sheet, because a rule would also catch a control an author had made a flex container
 - [1] Box generation: `display: none` removes a subtree, `display: contents` removes a box and keeps its children, and a container whose children are a mix of block and inline grows the anonymous boxes that make them one kind
 - [1] A user-agent style sheet — what an element looks like before anybody says otherwise. The modern elements only; no defaults for what we do not lay out
 - [1] **A block-level box inside an inline one, broken around it the way the specification says** — a piece on each side, the block a sibling of the anonymous blocks they sit in, so a background stops and starts again rather than running straight through
