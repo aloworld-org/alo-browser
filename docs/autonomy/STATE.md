@@ -1772,3 +1772,44 @@ is a rule in the inline formatter rather than a new box, and the headline it
 unblocks is three lines of one string — so the box tree for that case should
 get *smaller*, which is a diff worth reading carefully.
 
+---
+
+## Iteration 28 — queue item 47: `white-space`
+
+**The item was one substitution; the work underneath it was a property nobody
+had implemented at all.** `pre-line` only means something if there is
+whitespace processing to be an exception to, and there was none: the engine
+shaped whatever bytes the parser handed over. `one   two` was three spaces on
+the screen. An indented paragraph was drawn with its indentation in it. Nobody
+had noticed because the corpus's markup is written without stray whitespace
+inside its text — which is a good reminder that a corpus tests what it contains.
+
+**What was built.** All five values. Runs of whitespace collapse to one space;
+`pre-line` keeps the newlines; `pre` and `pre-wrap` keep everything; `pre` and
+`nowrap` refuse to wrap. And `<pre>` preserves its whitespace for the first
+time — `user_agent.rs` has said `pre { white-space: pre }` since it was
+written, and nothing had ever read it.
+
+**Two questions, answered in two places on purpose.** *What survives* is a fact
+about the text, so it is settled when the box is built and layout, paint and
+the agent tree all read the same string. *Where a line may break* is a fact
+about the line, so it stays in the line builder: a kept newline is a break that
+**must** happen, and `nowrap` forbids the ones that may. Collapsing in two
+places would eventually disagree, which is ADR 0002's argument about two trees
+in a smaller form.
+
+**The substitution is gone.** `alo-sign-in`'s headline is now one string with
+newlines in it, the way `alo-workplace` writes it, with `white-space: pre-line`
+in the case's own stylesheet. The rendered screen is the same shape it was.
+
+**The roadmap line this item served** is stage 1's *A real alo screen renders
+correctly*; its Owed clause names two substitutions now instead of three.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 819 tests, no stubs, boundaries held, no verb takes a coordinate.
+
+**What the next iteration should know.** Item 48, `letter-spacing`. It reaches
+`alo-text` — it changes what a run measures, so it changes where every line
+breaks, and the sign-in headline's `-0.02em` may well stop it wrapping. That
+would move the reference render, and the diff is the review.
+

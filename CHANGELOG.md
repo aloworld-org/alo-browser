@@ -6,6 +6,23 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`white-space`, and the whitespace processing that was never done at all.**
+  Markup is written for people, so it is full of whitespace nobody meant to see
+  — and until now the engine shaped whatever bytes the parser handed over, so
+  `one   two` was three spaces on the screen and an indented paragraph was drawn
+  with its indentation in it. Runs of whitespace now become one space.
+- **`pre-line` keeps the newlines**, which removes the second of the four
+  substitutions in alo's own sign-in case: the headline is one string with
+  newlines in it, the way `alo-workplace` writes it, instead of three `<span>`s
+  made blocks.
+- `pre`, `pre-wrap` and `nowrap` too — and `<pre>` actually preserves its
+  whitespace now. The user-agent sheet had said `pre { white-space: pre }` since
+  it was written and nothing had ever read it.
+- Collapsing happens **when the box is built**, so layout, paint and the agent
+  tree all read the same text. Where a line may *break* stays the line builder's
+  — a kept newline is a break that must happen, and `nowrap` forbids the ones
+  that may. Two questions, and they are answered in two places on purpose.
+
 - **`clamp()`, `min()`, `max()` and the viewport units.** One of the four
   substitutions standing in alo's own sign-in case is gone: the headline's
   `font-size: clamp(2.4rem, 4vw, 3.5rem)` is the screen's own value now instead

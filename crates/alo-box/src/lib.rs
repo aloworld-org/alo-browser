@@ -30,9 +30,11 @@ pub mod role;
 pub mod semantics;
 pub mod state;
 pub mod tree;
+pub mod whitespace;
 
 pub use display::{Display, Inside, Outside};
 pub use role::{KnownRole, Role};
 pub use semantics::Semantics;
 pub use state::{Checked, States};
 pub use tree::{BoxId, BoxKind, BoxNode, BoxTree, build};
+pub use whitespace::WhiteSpace;

@@ -10,7 +10,7 @@ block flow · document → 210×119.598434 at (0, 0)
       block flow · generic → 196×19.6 at (10, 59.865623)
         text "••••••••" → 61.34375×15.1328125 at (13, 61.865623)
       anonymous → 190×15 at (10, 79.46562)
-        text "\n" → not laid out
+        text " " → not laid out
         inline flow-root · checkbox [checked=true] → 15×15 at (10, 79.46562)
       block flow · generic → 190×15.1328125 at (10, 94.46562)
         text "Remember me" → 96.160645×15.1328125 at (10, 94.46562)

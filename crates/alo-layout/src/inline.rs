@@ -344,7 +344,52 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         }
     }
 
+    /// Whether a line may break here at all.
+    ///
+    /// `pre` and `nowrap` say no, and a line then overflows rather than
+    /// wrapping — which is what the author asked for by writing them.
+    fn may_wrap(style: &TextStyle) -> bool {
+        style.white_space.wraps()
+    }
+
     fn add_text(&mut self, box_id: BoxId, text: &str, style: &TextStyle) {
+        if style.white_space.keeps_newlines() && text.contains('\n') {
+            // A kept newline is a break that **must** happen, so the text is
+            // laid down one line's worth at a time. The byte offsets are the
+            // original string's throughout, because a fragment names a range
+            // of the box's own text and the newline is still in it.
+            let mut at = 0usize;
+            for (index, piece) in text.split('\n').enumerate() {
+                if index > 0 {
+                    self.break_line();
+                    at += 1;
+                }
+                self.add_run(box_id, text, at..at + piece.len(), style);
+                at += piece.len();
+            }
+            return;
+        }
+        self.add_run(box_id, text, 0..text.len(), style);
+    }
+
+    /// End this line because the text said to, rather than because it is full.
+    ///
+    /// A forced break makes a line even when there is nothing on it: two
+    /// newlines in a row are a blank line, and a page that quietly dropped it
+    /// would be a page missing a paragraph's worth of space.
+    fn break_line(&mut self) {
+        if self.current.is_empty() {
+            self.content = true;
+        }
+        self.end_line();
+    }
+
+    /// One stretch of text with no forced break in it.
+    fn add_run(&mut self, box_id: BoxId, whole: &str, range: Range<usize>, style: &TextStyle) {
+        let Some(text) = whole.get(range.clone()) else {
+            return;
+        };
+        let offset = range.start;
         let mut start = 0usize;
         for end in self.measurer.break_opportunities(text) {
             if end <= start {
@@ -358,7 +403,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             // would break a line one word early.
             let visible = piece.trim_end();
             let width = self.measurer.measure(visible, style, None).width;
-            if !self.fits(width) {
+            if Self::may_wrap(style) && !self.fits(width) {
                 self.end_line();
             }
             if visible.is_empty() {
@@ -375,7 +420,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             }
             let placed = self.measurer.measure(piece, style, None).width;
             self.content = true;
-            self.place_text(box_id, start..end, width, placed, style);
+            self.place_text(box_id, offset + start..offset + end, width, placed, style);
             start = end;
         }
     }

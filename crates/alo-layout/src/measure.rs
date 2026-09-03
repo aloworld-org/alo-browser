@@ -30,6 +30,13 @@ pub struct TextStyle {
     pub weight: u16,
     /// Whether it is slanted.
     pub italic: bool,
+    /// How the whitespace in it is treated.
+    ///
+    /// Collapsing has already happened by the time a measurer sees the text
+    /// (`alo_box::WhiteSpace`); what is left for the line to know is whether a
+    /// newline is a break it **must** take, and whether it may break anywhere
+    /// at all.
+    pub white_space: alo_box::WhiteSpace,
 }
 
 impl Default for TextStyle {
@@ -41,6 +48,7 @@ impl Default for TextStyle {
             size: 16.0,
             weight: 400,
             italic: false,
+            white_space: alo_box::WhiteSpace::Normal,
         }
     }
 }

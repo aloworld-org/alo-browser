@@ -74,11 +74,12 @@ correctness, not before it.
       Settings
       · Built: `alo-workplace`'s sign-in screen, in `alo-corpus`, rendered and
       diffed on every run, with the headline's own
-      `clamp(2.4rem, 4vw, 3.5rem)` resolving rather than substituted (queue
-      item 44) · Owed: **three** substitutions still standing in that case —
-      `white-space: pre-line`, `letter-spacing` and transitions, queue items 47,
-      48 and 49 — so what is diffed is still a *modified* screen; and queue item
-      45, Settings, which is not rendered at all. *The old reason for not ticking —
+      `clamp(2.4rem, 4vw, 3.5rem)` resolving (queue item 44) and its
+      `white-space: pre-line` keeping the headline one string (item 47)
+      · Owed: **two** substitutions still standing in that case —
+      `letter-spacing` and transitions, queue items 48 and 49 — so what is
+      diffed is still a *modified* screen; and queue item 45, Settings, which
+      is not rendered at all. *The old reason for not ticking —
       that the gate named alo OS's screens — was a fact about repository layout
       rather than about this engine, and is gone.*
 

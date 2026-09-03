@@ -18,6 +18,7 @@
 
 use crate::display::{Display, Inside, Outside};
 use crate::semantics::Semantics;
+use crate::whitespace::WhiteSpace;
 use alo_css::{IssueKind, Location, StyleIssue};
 use alo_dom::{Document, NodeId};
 use alo_style::{ComputedStyle, StyleTree};
@@ -508,16 +509,18 @@ fn build_one(
     if let Some(node) = document.get(id)
         && let Some(text) = node.text()
     {
-        // Whitespace is kept here and decided about in `arrange`, because
-        // whether it is content depends on what is beside it: the space in
-        // `<a>All</a> <a>Due</a>` is the gap between two words, and the
-        // newline between two `<p>`s is nothing at all. Dropping it here would
-        // have rendered "AllDue".
+        // Whitespace is **collapsed** here and *decided about* in `arrange`,
+        // because they are different questions. Collapsing is a fact about the
+        // text: `one   two` is one space wherever it appears. Whether what is
+        // left counts as content depends on what is beside it — the space in
+        // `<a>All</a> <a>Due</a>` is the gap between two words, and the newline
+        // between two `<p>`s is nothing at all. Dropping it here would have
+        // rendered "AllDue".
         let semantics = Semantics::anonymous();
         return vec![tree.push(
             BoxKind::Text {
                 node: id,
-                text: text.to_owned(),
+                text: white_space_of(document, styles, id).apply(text),
             },
             semantics,
         )];
@@ -614,6 +617,26 @@ fn arrange(tree: &mut BoxTree, parent: BoxId, children: Vec<BoxId>) -> Vec<BoxId
     }
     flush_run(tree, &mut run, &mut arranged);
     arranged
+}
+
+/// How the whitespace around a text node is treated.
+///
+/// `white-space` inherits and a text node has no style of its own, so the
+/// answer comes from the element holding it — the same walk a text box's font
+/// takes, and for the same reason.
+fn white_space_of(document: &Document, styles: &StyleTree, id: NodeId) -> WhiteSpace {
+    let mut current = document.parent(id);
+    while let Some(ancestor) = current {
+        if let Some(style) = styles.get(ancestor)
+            && let Some(text) = style.get("white-space")
+        {
+            // A value this engine does not implement leaves the initial one,
+            // which is what CSS does with any value it cannot parse.
+            return WhiteSpace::parse(text).unwrap_or_default();
+        }
+        current = document.parent(ancestor);
+    }
+    WhiteSpace::default()
 }
 
 /// Whether any of these boxes is block-level.

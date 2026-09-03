@@ -10,7 +10,7 @@ block flow · document
       block flow · generic
         text "••••••••"
       anonymous block
-        text "\n"
+        text " "
         inline flow-root · checkbox [checked=true]
       block flow · generic
         text "Remember me"

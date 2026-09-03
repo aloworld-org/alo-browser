@@ -255,11 +255,16 @@ one number is a reference that quietly points at the wrong thing.*
   own instruction was to cut it rather than leave one in place.* The other three
   are items 47, 48 and 49.
 
-- [ ] **47. `white-space: pre-line`.** The sign-in headline is one string with
-  newlines in it; the case substitutes three `<span>`s made blocks. `pre-line`
-  collapses runs of spaces the way `normal` does and **keeps the newlines**,
-  which is a rule in the inline formatter rather than a new box. Cut from item
-  44.
+- [x] **47. `white-space`.** The sign-in headline is one string with newlines
+  in it; the case substituted three `<span>`s made blocks. Cut from item 44.
+
+  **Done, and it was larger than the item said.** `pre-line` needs whitespace
+  *processing*, and the engine did none: it shaped whatever bytes the parser
+  handed over, so `one   two` was three spaces and an indented paragraph was
+  drawn with its indentation. All five values are implemented, `<pre>` preserves
+  its whitespace for the first time — the user-agent sheet had said so since it
+  was written and nothing read it — and collapsing happens when the box is built
+  so that layout, paint and the agent tree read the same text.
 
 - [ ] **48. `letter-spacing`.** Extra space after every character, which changes
   what a run of text measures and therefore where every line breaks. It reaches

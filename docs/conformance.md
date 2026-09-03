@@ -97,6 +97,11 @@ line, with its start border on the first piece and its end border on the last.
 A *percentage* padding on an inline box is refused and recorded: it is of the
 containing block's width, which is not known where a line is built.
 
+**`white-space` is processed**: runs of whitespace collapse to one space when
+a box is built, `pre-line` keeps the newlines, `pre` and `pre-wrap` keep
+everything, and `pre` and `nowrap` refuse to wrap. Before this the engine did
+none of it and drew markup's own indentation.
+
 `clamp()`, `min()` and `max()` are read, nest in each other and in `calc()`,
 and are type-checked once when they are parsed. The **viewport units** `vw`,
 `vh`, `vmin` and `vmax` resolve against the window the page is being rendered
@@ -145,11 +150,11 @@ which is the specification for what "correct" means here.
 `crates/alo-corpus/cases/alo-sign-in/` is **alo-workplace's own sign-in
 screen** — its markup, its rules from `web/src/auth/LoginPage.module.css`, and
 its colours from `web/src/ds/tokens.css` — rendered by this engine and diffed on
-every run. **Three** substitutions are written into the case's own stylesheet, each naming
-a thing this engine does not implement: `white-space: pre-line`,
-`letter-spacing`, and transitions. The fourth is gone — the headline's
-`clamp(2.4rem, 4vw, 3.5rem)` is the screen's own value now, and the committed
-reference render did not change when it replaced the hand-written `2.5rem`.
+every run. **Two** substitutions are written into the case's own stylesheet, each naming a
+thing this engine does not implement: `letter-spacing`, and transitions. Two are
+gone — the headline's `clamp(2.4rem, 4vw, 3.5rem)` is the screen's own value
+now, and so is its `white-space: pre-line`, so the markup is one string with
+newlines in it as `alo-workplace` writes it.
 
 It is a real alo screen, and it is one of the screens `ROADMAP.md`'s exit gate
 names — the gate used to name `alo-os`'s specifically, which was a fact about

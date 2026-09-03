@@ -598,6 +598,74 @@ fn an_empty_piece_with_a_border_keeps_its_line_and_draws_it() {
 }
 
 #[test]
+fn whitespace_a_person_did_not_mean_to_write_is_collapsed() {
+    // Markup is indented for people. Before this, an indented paragraph was
+    // drawn with its indentation in it, because the shaper was handed whatever
+    // bytes the parser produced.
+    let html = "<body><div id=a>one   two</div></body>";
+    let (boxes, layout) = lay_out(html, "#a { width: 200px }", Size::new(400.0, 300.0));
+    // Eight characters and one space at eight pixels each.
+    assert!(close(rect_of(&boxes, &layout, "a", html).size.height, 16.0,));
+
+    let spread = "<body><div id=a>one\n\n   two</div></body>";
+    let (boxes, layout) = lay_out(spread, "#a { width: 200px }", Size::new(400.0, 300.0));
+    assert!(
+        close(rect_of(&boxes, &layout, "a", spread).size.height, 16.0),
+        "a newline in the source is a space, not a line",
+    );
+}
+
+#[test]
+fn pre_line_keeps_the_newlines_and_makes_a_line_of_each() {
+    // alo's own headline is one string with newlines in it. Three lines, and
+    // the box is three lines tall.
+    let html = "<body><div id=a>Your workspace.\nYour servers.\nYour rules.</div></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "#a { width: 400px; white-space: pre-line }",
+        Size::new(400.0, 300.0),
+    );
+    assert!(
+        close(rect_of(&boxes, &layout, "a", html).size.height, 48.0),
+        "three lines of sixteen: {:?}",
+        rect_of(&boxes, &layout, "a", html),
+    );
+
+    // The same string without the rule is one line, because a newline is a
+    // space.
+    let (boxes, layout) = lay_out(html, "#a { width: 400px }", Size::new(400.0, 300.0));
+    assert!(close(rect_of(&boxes, &layout, "a", html).size.height, 16.0));
+}
+
+#[test]
+fn a_line_that_may_not_wrap_overflows_instead() {
+    let html = "<body><div id=a>one two three four five</div></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "#a { width: 40px; white-space: nowrap }",
+        Size::new(400.0, 300.0),
+    );
+    assert!(
+        close(rect_of(&boxes, &layout, "a", html).size.height, 16.0),
+        "nowrap is one line however long it is: {:?}",
+        rect_of(&boxes, &layout, "a", html),
+    );
+}
+
+#[test]
+fn pre_keeps_every_space_and_every_line() {
+    let html = "<body><pre id=a>one   two\nthree</pre></body>";
+    let (boxes, layout) = lay_out(html, "#a { margin: 0 }", Size::new(400.0, 300.0));
+    // Two lines, from the user-agent sheet's own `pre { white-space: pre }` —
+    // which was there before anything read it.
+    assert!(
+        close(rect_of(&boxes, &layout, "a", html).size.height, 32.0),
+        "{:?}",
+        rect_of(&boxes, &layout, "a", html),
+    );
+}
+
+#[test]
 fn a_document_that_generates_no_boxes_lays_out_nothing_and_does_not_mind() {
     let (boxes, layout) = lay_out(
         "<p>t</p>",

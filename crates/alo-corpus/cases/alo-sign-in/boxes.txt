@@ -7,12 +7,7 @@ block flow · document
             text "alo"
         block flex · generic
           block flow · heading [level=1]
-            block flow · generic
-              text "Your workspace."
-            block flow · generic
-              text "Your servers."
-            block flow · generic
-              text "Your rules."
+            text "Your workspace.\nYour servers.\nYour rules."
           block flow · paragraph
             text "Mail, calendar, chat, and files — sovereign, AI-native, and hosted in Europe."
         block flex · generic

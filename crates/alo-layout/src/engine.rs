@@ -353,6 +353,10 @@ fn text_style_for(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> TextStyle {
                 italic: style
                     .get("font-style")
                     .is_some_and(|value| !value.eq_ignore_ascii_case("normal")),
+                white_space: style
+                    .get("white-space")
+                    .and_then(alo_box::WhiteSpace::parse)
+                    .unwrap_or_default(),
             };
         }
         current = boxes.get(box_id).and_then(|node| node.parent);
