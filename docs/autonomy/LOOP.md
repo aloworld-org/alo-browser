@@ -228,10 +228,32 @@ stop.
 The supervisor lives in `alo-workplace`, and takes a repository path — so this
 repository stays Rust. There is one for each kind of machine:
 
+```sh
+cd <this checkout>
+bash <alo-workplace>/scripts/run-loop.sh "$PWD"
 ```
-sh <alo-workplace>/scripts/run-loop.sh --repo "<this checkout>"
+
+```powershell
 powershell -ExecutionPolicy Bypass -File <alo-workplace>/scripts/run-loop.ps1 -RepoPath "<this checkout>"
 ```
+
+Two things about the shell one, both learned by running it:
+
+- **The repository is a positional argument, not `--repo`.** This file said
+  `--repo` for as long as it has existed, and the script has never parsed it: it
+  takes `$1` as the path, so `--repo` became the path and the checkout became
+  the *track*. It exits 2 with a message about a track that does not exist,
+  which reads like a configuration mistake rather than a wrong command line.
+- **Run it from inside this checkout.** It looks for `docs/autonomy/STATE.md`
+  before it changes directory, so from anywhere else it cannot find the journal
+  it is about to read. The PowerShell one sets its location first and does not
+  have either problem.
+
+The script is `alo-workplace`'s, and its `--track` argument belongs to that
+repository's several parallel queues. This repository has one queue, so the
+default track is the right one and the prompt's mention of it is noise. **Do not
+fix that here** — the script is not ours to edit (see *What the loop may never
+do*), and the correct command is the one above.
 
 Stop it any time. Every finished item was committed and pushed by the iteration
 that built it, so nothing is lost by interrupting one.
