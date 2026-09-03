@@ -2784,3 +2784,63 @@ rather than stored under a different name, because the whole value of a prefix
 is that a server can trust the name. `redirect.rs` already drops `Cookie` at an
 origin boundary, so that rule is in place rather than remembered.
 
+---
+
+## Iteration 45 — queue item 57: cookies, partitioned by default
+
+ADR 0007's code, the iteration after its decision.
+
+**The promise is kept by the shape, not by memory.** Every lookup on the jar
+takes a partition, and **there is no function that returns the unpartitioned
+set**. A caller cannot accidentally get one, because there is nothing to call.
+That is the difference between a decision that survives a year of changes and
+one that survives until somebody is in a hurry.
+
+**The test that would catch the whole ADR being undone** is the first in the
+file: one embedded server, two top-level sites, and no way to tell the person is
+the same person. It sets `id=aaa` inside `news.example` and `id=bbb` inside
+`shop.example`, and asserts each is invisible from the other.
+
+**`SameSite=Lax` by default, and the middle case is the valuable one.** A `Lax`
+cookie rides a **navigation** from another site — clicking a link to your bank —
+but not anything a page *embedded*, which is exactly what an attacker's form
+post or image request is. That one line removes a class of CSRF, and it is the
+highest-value default in the ADR measured in bugs that stop existing.
+
+**The prefixes are enforced rather than parsed.** A `__Host-` cookie that is not
+`Secure`, or carries a `Domain`, or whose `Path` is not `/`, is **rejected** —
+never stored with the prefix quietly relaxed. The whole value of a prefix is
+that a server reading the name back can trust what it implies, and a browser
+that stored it anyway would have removed that value without telling anybody.
+
+**One small thing that is a real bug in other people's code.** Domain matching
+requires the dot: `evil-example.com` is not a subdomain of `example.com`, though
+a comparison by string suffix alone says it is. There is a test named after it.
+
+**Something partitioning makes possible rather than merely safer.** "Clear this
+site's data" now means every cookie anybody set *inside* that site, not only the
+ones it set itself. Unpartitioned, that second set was unreachable — you could
+not have offered the feature.
+
+**Two things written down rather than assumed.** The site boundary is the
+**host** today, which is stricter than the registrable domain a public suffix
+list would give: `a.example.com` and `b.example.com` are separate sites where
+they should be one. Stricter is the safe direction to be wrong in, and it *is*
+wrong — queue item 156. And the escape hatch is item 157, blocked on there being
+an interface to ask a person in.
+
+**The gate.** Green: fmt, clippy zero and zero, 1025 tests. Nothing here
+positions, sizes or paints.
+
+**On the loop.** The owner asked for the supervisor to be started; the launch was
+refused by this environment's permission classifier, which is the right refusal —
+`scripts/loop.sh` spawns workers with `--dangerously-skip-permissions`, and that
+is not a thing an agent should be able to start on its own behalf. It has to be
+run from a terminal. Nothing about the loop is broken; it was checked with
+`--dry-run` immediately before, and reported a clean tree and no stop marker.
+
+**What the next iteration should know.** Item 58, DNS, and it is *needs ADR* for
+the same reason 57 was: encrypted DNS means a different server sees every name
+you look up, and choosing which one is a decision about who to trust rather than
+a protocol detail. The ADR is its own iteration.
+

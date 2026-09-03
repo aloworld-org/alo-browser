@@ -489,11 +489,30 @@ first. Nothing here needs JavaScript.
   answer for a page behind a password. *Closes when:* a cache survives a restart,
   and a response that must not outlive the session does not.
 
-- [ ] **57. Cookies, partitioned by default.** `SameSite`, `Secure`,
+- [x] **57. Cookies, partitioned by default.** `SameSite`, `Secure`,
   `HttpOnly`. **The default is a product decision** rather than a parser detail,
   so it is written down where a person can argue with it.
   *Depends on 50, 53. **ADR 0007 is written and accepted** — what the default
-  costs and who it protects. The code is what remains.*
+  costs and who it protects.*
+
+  **Done.** The promise is kept by the shape rather than by memory: every lookup
+  takes a partition and no function returns the unpartitioned set. The prefixes
+  are enforced rather than parsed — a `__Host-` cookie that does not qualify is
+  rejected, because the value of a prefix is that a server can trust the name.
+  Two things the ADR asks for went to the queue: 156 and 157.
+
+- [ ] **156. The public suffix list, rented.** Today the site boundary is the
+  **host**, which is stricter than the registrable domain — `a.example.com` and
+  `b.example.com` are separate sites, where they should be one. Stricter is the
+  safe direction, and it is wrong.
+  *Depends on 57. Closes when:* `bbc.co.uk` and `gov.co.uk` are different sites
+  and `www.example.com` and `example.com` are the same one, in a test that names
+  both.
+
+- [ ] **157. The storage-access grant.** ADR 0007 specifies it mostly by what it
+  must not be: never a global toggle, never an allowlist we ship. A person is
+  told who is asking and inside what, and answers for that pair.
+  *Depends on 57. Blocked: needs an interface to ask in.*
 
 - [ ] **58. DNS, and encrypted DNS as a choice somebody made** rather than a
   default nobody was told about.

@@ -6,6 +6,37 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Cookies, partitioned by default** — ADR 0007, in code. A cookie is keyed by
+  the site that set it *and* the top-level site it was set inside, so one
+  embedded server cannot tell that the person on `news.example` is the person on
+  `shop.example`. It may still remember something about each; it cannot join
+  them.
+- **There is no way to ask for cookies without a partition.** Every lookup takes
+  the top-level site, and no function returns the unpartitioned set — the
+  promise is kept by the shape of the code rather than by everybody remembering.
+- **`SameSite=Lax` when a site does not say.** The historical default was
+  `None`; a cookie with no `SameSite` is one whose author did not think about
+  cross-site use, and the safe reading of that is not "send it everywhere". The
+  case this removes: a `Lax` cookie rides a *navigation* from another site —
+  clicking a link to your bank — but not anything a page **embedded**, which is
+  what an attacker's form post is.
+- **The prefixes are enforced, not parsed.** A `__Host-` cookie that is not
+  `Secure`, or has a `Domain`, or whose `Path` is not `/`, is **rejected** —
+  never stored with the prefix quietly relaxed. The whole value of a prefix is
+  that a server can trust the name.
+- `SameSite=None` without `Secure` is refused; a `Domain` the page is not part
+  of is refused; a single-label `Domain` is refused. Domain matching requires
+  the dot, so `evil-example.com` is not a subdomain of `example.com`.
+- Bounds: 4 KiB a cookie, 400 days however far off the expiry says, 180 per site
+  and 10,000 in all — and one site filling its own jar cannot evict another
+  site's cookies.
+- **Clearing a site now means everything set inside it**, not only what it set
+  itself. Unpartitioned, that second set was unreachable; this is something
+  partitioning makes possible rather than merely safer.
+- Written down rather than assumed: the site boundary is the **host** today,
+  which is stricter than the registrable domain a public suffix list would give.
+  Stricter is the safe direction to be wrong in, and the list is queue item 156.
+
 - **ADR 0007: cookies are partitioned by default** — stored under the site that
   set them *and* the top-level site they were set inside, so one embedded third
   party cannot tell that the person on one site is the person on another. With

@@ -186,7 +186,11 @@ unreachable without it.
       so a French page is never served to a German reader; `Vary: *` is not
       stored at all · Owed: persistence to disk, queue item 155 — a separate
       question, with a different answer for a page behind a password
-- [ ] **Cookies**: `SameSite`, `Secure`, `HttpOnly`, partitioned by default. The default is a product decision, not a parser detail
+- [x] **Cookies**: `SameSite`, `Secure`, `HttpOnly`, partitioned by default
+      (ADR 0007, queue item 57). The default is a product decision and the ADR
+      argues it — who it protects, and what it costs. There is no way to ask for
+      cookies without a partition · Owed: the escape hatch a person grants
+      per-site (queue item 157) and the public suffix list (queue item 156)
 - [ ] The same-origin policy, CORS and preflight — code we write and can get wrong, which is one of ADR 0005's four reasons for the sandbox
 - [ ] Content Security Policy, referrer policy, HSTS, mixed-content blocking
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
