@@ -126,6 +126,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A truncated body is an **error**, not a short page
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
+- [2] **A wire format for the renderer boundary**, where a message from a
+  renderer is untrusted because a renderer is the process that parsed the page
 - [2] **HSTS**, ignored over plain HTTP so it cannot be used as a weapon
 - [2] **Mixed-content blocking** — a script refused outright, an image tried
   over TLS first, and `http://localhost` treated as secure because it is

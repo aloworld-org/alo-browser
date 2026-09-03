@@ -45,6 +45,7 @@ pub mod page;
 pub mod pipeline;
 pub mod renderer;
 pub mod snapshot;
+pub mod wire;
 
 pub use frame::Frame;
 pub use message::{Failure, FromRenderer, ToRenderer};

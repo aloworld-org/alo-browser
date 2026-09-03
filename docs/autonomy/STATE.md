@@ -3390,3 +3390,74 @@ it should not be put off further just because the network items were easier to
 take. Read ADR 0005 before starting: the four reasons a memory-safe engine still
 needs a sandbox are the design, not the justification.
 
+---
+
+## Iteration 54 — queue item 63: the boundary's wire format
+
+**Scope cut on starting, and the ADR asked for it.** The item named three
+things — a process per site, a sandbox, and the encoding that makes either
+possible. ADR 0005's own consequences say the sandbox *"needs its own ADR at
+that time, naming the boundary and the reason. This ADR does not pre-authorise
+any of it."* So: encoding here, spawning as item 166, sandbox as item 167 and
+marked **needs ADR**. Taking the sandbox inside this iteration would have been
+exactly the thing LOOP.md forbids — a decision made inside a commit that was
+mostly code.
+
+**Which direction is untrusted, and the answer people get wrong.** Both, but the
+one that matters is the message coming **back**. The browser process holds the
+network, the disk and the profile; a renderer is the process that parsed a
+hostile page. If that page found a way to steer it, everything the renderer says
+afterwards is the page talking. So every length in a message from a renderer is
+a number a stranger chose, and it is checked against what is actually left
+before anything is reserved.
+
+**The refusal I am most glad is there:** a tree deeper than 512 is refused
+rather than recursed into. A snapshot arrives as a recursive structure, and a
+decoder that recursed as far as it was told would run out of stack — a crash in
+the **browser** process, caused by the renderer, which is the single thing ADR
+0005 exists to prevent. There is a test that builds a tree 562 deep and asserts
+the refusal.
+
+**Three smaller ones, each a real class of bug.** A frame whose size and pixels
+disagree is a frame something above would read past the end of. A `NaN` is
+refused because every comparison against one answers false, which turns a bounds
+check into a thing that passes. And anything left over after a message is
+refused, because trailing bytes mean the two ends disagree and ignoring them
+lets a sender append something a later version would read.
+
+**`BoxId::from_wire`, and why it needed a paragraph.** The only other
+constructor is `from_index_for_tests`, "named so that using it anywhere else
+looks wrong" — deliberately, because an id from a number could name a box in a
+different document. But a snapshot that crosses a boundary must arrive with its
+ids intact or an agent cannot act on what it just read. So there is a second
+constructor, and its documentation says the thing that makes it safe: **an id in
+a message is a claim, not a fact.** ADR 0003's "allocated once, never reused" is
+a promise the *allocating* process makes, and a process on the other side of a
+pipe is not obliged to keep it.
+
+**Roles cross by name rather than by number**, so adding one never renumbers the
+others and the wire stays readable. That needed the reverse of `KnownRole::as_str`,
+which did not exist — so `KnownRole::named` and `KnownRole::ALL` went in
+together, with a round-trip test over all fifty. The two are written in separate
+places and this is what stops them drifting; a role that went out as one thing
+and came back as another would be a box an agent could no longer find.
+
+**Why the encoding is written out rather than derived.** Deriving would mean a
+serialisation crate reaching into `alo-box`, `alo-agent`, `alo-layout` and
+`alo-paint` — four crates gaining a dependency and a set of derives for one
+boundary. ADR 0005 says the protocol has to be **coarse**, and a coarse protocol
+is small enough to write down. Writing it down also makes the wire format
+something a person can read, which matters for a boundary that is a security
+boundary.
+
+**The gate.** Green: fmt, clippy zero and zero, 1168 tests. Nothing here
+positions, sizes or paints.
+
+**What the next iteration should know.** Item 166, the spawn. The shape is a
+re-exec of this binary with a flag, a pipe each way, and a registry keyed by
+*site* — scheme plus registrable domain, which is the thing item 156's public
+suffix list is for and which today would have to be the host. Say that out loud
+in the code rather than quietly using the host: two sites sharing a process
+because we could not tell them apart is exactly the failure this whole structure
+exists to prevent.
+

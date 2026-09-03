@@ -141,9 +141,12 @@ unreachable without it.
       boundary, sent work and returning results, every message owned and
       `Send + 'static`, with a frame and an agent-tree snapshot as the only
       things that cross. That is the expensive half, and it is the half that
-      cannot be retrofitted · Owed: queue item 63 — the actual split into a
-      process per site, and the platform's own sandbox rather than a hopeful one
-      of ours. Item 25 made that a change of transport rather than a redesign
+      cannot be retrofitted. **The wire format** (queue item 63): both
+      directions, every variant, and a message from a renderer treated as bytes
+      a stranger chose — because a renderer is the process that parsed the page
+      · Owed: the split itself (queue item 166) and the sandbox (queue item
+      167, which needs an ADR of its own — ADR 0005 says it does not
+      pre-authorise the `unsafe` one may need)
 - [ ] A renderer that dies takes its tab and nothing else — and says so, rather than leaving a blank rectangle
 - [ ] The transport, and the lifecycle that starts, reuses and reaps renderers
 - [ ] Where one site ends and another begins — the origin, the site, and which of them gets a process

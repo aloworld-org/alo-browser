@@ -154,6 +154,128 @@ pub enum KnownRole {
 }
 
 impl KnownRole {
+    /// Every role this engine knows, so that anything which has to handle all
+    /// of them can be checked against all of them.
+    ///
+    /// It exists for the round-trip test below: a name and its role are written
+    /// in two places, and this is what stops the two drifting apart silently.
+    pub const ALL: [KnownRole; 50] = [
+        KnownRole::Document,
+        KnownRole::Banner,
+        KnownRole::Navigation,
+        KnownRole::Main,
+        KnownRole::Complementary,
+        KnownRole::ContentInfo,
+        KnownRole::Region,
+        KnownRole::Form,
+        KnownRole::Search,
+        KnownRole::Article,
+        KnownRole::Heading,
+        KnownRole::Paragraph,
+        KnownRole::List,
+        KnownRole::ListItem,
+        KnownRole::Separator,
+        KnownRole::Blockquote,
+        KnownRole::Figure,
+        KnownRole::Image,
+        KnownRole::Button,
+        KnownRole::Link,
+        KnownRole::TextBox,
+        KnownRole::SearchBox,
+        KnownRole::CheckBox,
+        KnownRole::Radio,
+        KnownRole::RadioGroup,
+        KnownRole::Switch,
+        KnownRole::ComboBox,
+        KnownRole::ListBox,
+        KnownRole::Option,
+        KnownRole::Slider,
+        KnownRole::SpinButton,
+        KnownRole::ProgressBar,
+        KnownRole::Meter,
+        KnownRole::Dialog,
+        KnownRole::Status,
+        KnownRole::Grid,
+        KnownRole::Row,
+        KnownRole::Cell,
+        KnownRole::RowGroup,
+        KnownRole::ColumnHeader,
+        KnownRole::RowHeader,
+        KnownRole::Table,
+        KnownRole::Tab,
+        KnownRole::TabList,
+        KnownRole::TabPanel,
+        KnownRole::Menu,
+        KnownRole::MenuItem,
+        KnownRole::Summary,
+        KnownRole::Text,
+        KnownRole::Details,
+    ];
+}
+
+impl KnownRole {
+    /// The role with this name, if this engine knows one.
+    ///
+    /// The reverse of [`KnownRole::as_str`], and the two are kept together so
+    /// that adding a role means adding it once. A name outside the list is not
+    /// an error — it becomes [`Role::Declared`], which is how a role this
+    /// engine has never heard of still reaches an agent intact.
+    pub fn named(name: &str) -> Option<Self> {
+        match name {
+            "document" => Some(KnownRole::Document),
+            "banner" => Some(KnownRole::Banner),
+            "navigation" => Some(KnownRole::Navigation),
+            "main" => Some(KnownRole::Main),
+            "complementary" => Some(KnownRole::Complementary),
+            "contentinfo" => Some(KnownRole::ContentInfo),
+            "region" => Some(KnownRole::Region),
+            "form" => Some(KnownRole::Form),
+            "search" => Some(KnownRole::Search),
+            "article" => Some(KnownRole::Article),
+            "heading" => Some(KnownRole::Heading),
+            "paragraph" => Some(KnownRole::Paragraph),
+            "list" => Some(KnownRole::List),
+            "listitem" => Some(KnownRole::ListItem),
+            "separator" => Some(KnownRole::Separator),
+            "blockquote" => Some(KnownRole::Blockquote),
+            "figure" => Some(KnownRole::Figure),
+            "image" => Some(KnownRole::Image),
+            "button" => Some(KnownRole::Button),
+            "link" => Some(KnownRole::Link),
+            "textbox" => Some(KnownRole::TextBox),
+            "searchbox" => Some(KnownRole::SearchBox),
+            "checkbox" => Some(KnownRole::CheckBox),
+            "radio" => Some(KnownRole::Radio),
+            "radiogroup" => Some(KnownRole::RadioGroup),
+            "switch" => Some(KnownRole::Switch),
+            "combobox" => Some(KnownRole::ComboBox),
+            "listbox" => Some(KnownRole::ListBox),
+            "option" => Some(KnownRole::Option),
+            "slider" => Some(KnownRole::Slider),
+            "spinbutton" => Some(KnownRole::SpinButton),
+            "progressbar" => Some(KnownRole::ProgressBar),
+            "meter" => Some(KnownRole::Meter),
+            "dialog" => Some(KnownRole::Dialog),
+            "status" => Some(KnownRole::Status),
+            "grid" => Some(KnownRole::Grid),
+            "row" => Some(KnownRole::Row),
+            "cell" => Some(KnownRole::Cell),
+            "rowgroup" => Some(KnownRole::RowGroup),
+            "columnheader" => Some(KnownRole::ColumnHeader),
+            "rowheader" => Some(KnownRole::RowHeader),
+            "table" => Some(KnownRole::Table),
+            "tab" => Some(KnownRole::Tab),
+            "tablist" => Some(KnownRole::TabList),
+            "tabpanel" => Some(KnownRole::TabPanel),
+            "menu" => Some(KnownRole::Menu),
+            "menuitem" => Some(KnownRole::MenuItem),
+            "summary" => Some(KnownRole::Summary),
+            "text" => Some(KnownRole::Text),
+            "group" => Some(KnownRole::Details),
+            _ => None,
+        }
+    }
+
     /// The ARIA name for this role.
     pub fn as_str(self) -> &'static str {
         match self {
@@ -627,5 +749,41 @@ mod tests {
     fn generic_says_that_it_is_generic() {
         assert!(Role::Generic.is_generic());
         assert!(!Role::Known(KnownRole::Button).is_generic());
+    }
+}
+
+#[cfg(test)]
+mod name_tests {
+    use super::*;
+
+    /// A role's name and its parse are written in two places, and a role that
+    /// went out as one thing and came back as another would be a box an agent
+    /// could no longer find.
+    #[test]
+    fn every_role_survives_being_written_down_and_read_back() {
+        for role in KnownRole::ALL {
+            assert_eq!(
+                KnownRole::named(role.as_str()),
+                Some(role),
+                "{role:?} did not come back from {:?}",
+                role.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn no_two_roles_share_a_name() {
+        let mut seen: Vec<&str> = KnownRole::ALL.iter().map(|role| role.as_str()).collect();
+        let before = seen.len();
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(seen.len(), before, "two roles have the same name");
+    }
+
+    /// A name outside the list is not an error — it becomes a declared role,
+    /// which is how one this engine has never heard of still reaches an agent.
+    #[test]
+    fn a_name_this_engine_does_not_know_is_not_a_known_role() {
+        assert_eq!(KnownRole::named("invented-last-tuesday"), None);
     }
 }

@@ -640,7 +640,11 @@ wrong, which is the argument for the fourth.
   less.** A page that asked for a protection must not lose it to our not
   understanding the sentence it asked in.
 
-- [ ] **63. The process split, and the sandbox.** One process per site,
+- [x] **63. The boundary's wire format.** *Scope cut on starting: the split is
+  three items, and this is the one that has to be right before anything is
+  spawned. Spawning is 166; the sandbox is 167 and needs an ADR, because ADR
+  0005 says explicitly that it does not pre-authorise the `unsafe` a sandbox may
+  require.* Originally: one process per site,
   renderers with almost no privilege, the platform's own sandbox rather than a
   hopeful one of ours — seccomp-bpf and user namespaces on Linux, Seatbelt on
   macOS. ADR 0005 decided it; `alo-renderer` made it a change of **transport**
@@ -649,6 +653,24 @@ wrong, which is the argument for the fourth.
   must be able to. Closes when:* two sites are two processes, a renderer cannot
   open a file, and killing one leaves the other running.
   *This is the roadmap's "queue item 29", renumbered with the rest.*
+
+  **Done, for the encoding.** Both directions, every variant, with the hostile
+  half being the messages coming *back*: a renderer is the process that parsed
+  the page. A tree deeper than 512 is refused rather than recursed into, because
+  a decoder that recursed as far as it was told would crash the **browser**
+  process on a message — which is the one thing ADR 0005 says must never happen.
+
+- [ ] **166. One process per site.** Spawn a renderer, talk to it over a pipe,
+  key them by site, bound how many exist, and reuse the ones there are.
+  *Depends on 63. Closes when:* two sites are two processes, and killing one
+  leaves the other running and its tab showing the last frame it painted.
+
+- [ ] **167. The sandbox.** Seccomp-bpf and user namespaces on Linux, Seatbelt
+  on macOS. **Needs ADR** — ADR 0005 says in its own consequences that it does
+  not pre-authorise any `unsafe` a sandbox needs, and that such a thing wants
+  its own decision naming the boundary and the reason.
+  *Depends on 166. Closes when:* a renderer cannot open a file, and the test
+  that says so watches it fail rather than trusting a flag.
 
 - [ ] **64. The transport, and the lifecycle** that starts, reuses and reaps
   renderers, with a bound on how many exist.

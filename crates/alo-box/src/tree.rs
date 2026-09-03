@@ -50,6 +50,23 @@ impl BoxId {
     pub fn from_index_for_tests(index: usize) -> Self {
         Self(index)
     }
+
+    /// An id read off the wire from another process.
+    ///
+    /// The only other way to make one, and it exists because a snapshot that
+    /// crossed a process boundary has to arrive with its ids intact or an agent
+    /// cannot act on what it just read.
+    ///
+    /// **An id in a message is a claim, not a fact.** It came from the renderer,
+    /// which is the process that parsed a hostile page, and it is meaningful
+    /// only against the snapshot it arrived with — never against a different
+    /// document, and never as an index into anything the browser process holds.
+    /// ADR 0003 says an id is allocated once and never reused; that is a promise
+    /// the *allocating* process makes, and a process on the other side of a pipe
+    /// is not obliged to keep it.
+    pub fn from_wire(index: usize) -> Self {
+        Self(index)
+    }
 }
 
 impl fmt::Display for BoxId {

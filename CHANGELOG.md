@@ -6,6 +6,37 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The renderer boundary has a wire format.** ADR 0005 built the boundary as a
+  *type* so the process split would be a change of **transport** rather than a
+  redesign; this is that transport's encoding, and it had to be right before
+  anything is spawned. Spawning is queue item 166 and the sandbox is 167 — which
+  needs an ADR of its own, because ADR 0005 says it does not pre-authorise the
+  `unsafe` a sandbox may require.
+- **A message from a renderer is treated as bytes a stranger chose**, because a
+  renderer is the process that parsed a hostile page — if that page found a way
+  to steer it, everything it says afterwards is the page talking. Every length is
+  checked against what is actually left before anything is reserved; a count of
+  a billion in a message with no room for them is refused rather than allocated.
+- **A tree deeper than 512 is refused rather than recursed into.** A decoder
+  that recursed as far as it was told would run out of stack — a crash in the
+  *browser* process, caused by the renderer, which is the one thing ADR 0005
+  says must never happen.
+- A frame whose size and pixels disagree is refused; so is a `NaN` or an
+  infinity, because every comparison against one answers false and that turns a
+  bounds check into a thing that passes. Anything left over after a message is
+  refused too — trailing bytes mean the two ends disagree, and ignoring them
+  lets a sender append something a later version would read.
+- **An id in a message is a claim, not a fact.** `BoxId::from_wire` exists so a
+  snapshot can cross with its ids intact, and it says in its own documentation
+  that an id is meaningful only against the snapshot it arrived with. ADR 0003's
+  "allocated once, never reused" is a promise the *allocating* process makes,
+  and a process on the other side of a pipe is not obliged to keep it.
+- Roles cross **by name**, so adding one never renumbers the others, and a name
+  this engine does not know becomes a declared role rather than an error — which
+  is how a role we have never heard of still reaches an agent. `KnownRole` gained
+  `named` and `ALL`, with a round-trip test so the name and the parse cannot
+  drift apart.
+
 - **HSTS, mixed-content blocking and referrer policy** — three things a site
   says about *itself*, which is the opposite direction from CORS. CSP is queued
   separately as item 165: its grammar is a whole item on its own, and doing it
