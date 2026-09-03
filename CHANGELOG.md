@@ -6,6 +6,33 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page with a form**, frozen — the HTML specification's own example, which
+  contains almost every part of a form at once and has no style sheet. It found
+  four things, all now fixed.
+- **A `<fieldset>` was laid out inline.** The user-agent sheet declared
+  `fieldset` and `legend` as `display: block` and then, forty lines later, as
+  `inline-block` — and a duplicate in one sheet is the later rule winning. A
+  fieldset was an inline box, its contents came out as seven "pieces" of a
+  broken inline, and the page was ninety-six pixels too tall. No alo screen uses
+  a fieldset: the corpus had every control and not one group of them.
+- **A `<fieldset>` is named by its `<legend>`** now, which is the same shape as
+  a `<label>` naming the control it wraps. Without it an agent asked to tick
+  "Large" under "Pizza Size" had no way to tell which group was which.
+- **A radio button is round.** The tree told a radio from a checkbox from the
+  first commit; a person looking at the page could not, because both drew as a
+  bordered square. A radio group and a checkbox group mean different things —
+  one answer or several — and somebody who cannot see which they are looking at
+  is being asked a question without being told its shape.
+- **`border-radius` in per cent works**, which making the radio round is how we
+  found out it did not. It resolved against zero, because the code computing the
+  radii was never given the box — a limitation written down in `corner.rs` and
+  never revisited. A percentage radius is a percentage *of the box*:
+  horizontally of its width, vertically of its height.
+- Two things it found that are **not** fixed and are now queued: a checked
+  checkbox looks exactly like an unchecked one (item 182 — true since controls
+  were built, with an example sitting in the alo corpus the whole time), and a
+  fieldset has no border (item 183).
+
 - **The supervisor takes a number of iterations, keeps a log, and says what it
   did.** Three things that were missing, and all three are about being willing
   to start it rather than about what it does once running.

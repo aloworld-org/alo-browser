@@ -17,7 +17,7 @@
 
 use crate::path::{Path, Point};
 use alo_layout::Rect;
-use alo_value::{FontMetrics, LengthPercentage, parse_length_percentage};
+use alo_value::{FontMetrics, parse_length_percentage};
 
 /// How round each corner of a box is, in CSS pixels.
 ///
@@ -103,21 +103,38 @@ impl Corners {
     /// The shorthand takes one to four values in the same order as every other
     /// box-model shorthand, and an optional `/` splits the horizontal radii
     /// from the vertical ones.
-    pub fn of(style: &alo_style::ComputedStyle) -> Self {
+    /// `size` is the box the radii are for, because a percentage radius is a
+    /// percentage **of the box** — horizontally of its width and vertically of
+    /// its height. It used to resolve against nothing and come out as zero,
+    /// which was written down as a limitation and was the reason a
+    /// `border-radius: 50%` did nothing at all. Found when the user-agent sheet
+    /// tried to make a radio button round.
+    pub fn of(style: &alo_style::ComputedStyle, size: (f32, f32)) -> Self {
         let metrics = style.metrics();
+        let (wide, tall) = size;
         let shorthand = style.get("border-radius").unwrap_or("");
         let (across, down) = if let Some((across, down)) = shorthand.split_once('/') {
-            (lengths(across, metrics), lengths(down, metrics))
+            (lengths(across, metrics, wide), lengths(down, metrics, tall))
         } else {
-            let both = lengths(shorthand, metrics);
-            (both.clone(), both)
+            (
+                lengths(shorthand, metrics, wide),
+                lengths(shorthand, metrics, tall),
+            )
         };
         let corner = |index: usize, longhand: &str| -> (f32, f32) {
             if let Some(text) = style.get(longhand) {
-                let pair = lengths(text, metrics);
+                // A longhand takes one or two values: the horizontal radius and
+                // then the vertical one, so each resolves against its own
+                // dimension.
+                let pair = lengths(text, metrics, wide);
+                let vertical = lengths(text, metrics, tall);
                 return (
                     pair.first().copied().unwrap_or(0.0),
-                    pair.get(1).or_else(|| pair.first()).copied().unwrap_or(0.0),
+                    vertical
+                        .get(1)
+                        .or_else(|| vertical.first())
+                        .copied()
+                        .unwrap_or(0.0),
                 );
             }
             (side(&across, index), side(&down, index))
@@ -133,16 +150,12 @@ impl Corners {
 
 /// The lengths in a value, as pixels.
 ///
-/// A percentage radius is a percentage of the box, which the box knows and
-/// this does not — so it resolves against nothing here and comes out as zero.
-/// That is a limitation rather than a decision, and it is written down.
-fn lengths(text: &str, metrics: FontMetrics) -> Vec<f32> {
+/// `against` is what a percentage is a percentage *of*: the box's width for a
+/// horizontal radius and its height for a vertical one.
+fn lengths(text: &str, metrics: FontMetrics, against: f32) -> Vec<f32> {
     text.split_ascii_whitespace()
         .filter_map(parse_length_percentage)
-        .map(|value| match value {
-            LengthPercentage::Percentage(_) => 0.0,
-            other => other.to_px(metrics, 0.0).max(0.0),
-        })
+        .map(|value| value.to_px(metrics, against).max(0.0))
         .collect()
 }
 

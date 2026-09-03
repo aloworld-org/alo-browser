@@ -1,0 +1,51 @@
+https://httpbin.org/forms/post
+
+Taken 2026-09-03 with `curl`. HTTP/2 200; the bytes here are the body exactly
+as it sent them, unedited.
+
+Why this page. It is the HTML specification's own example form — httpbin serves
+it as a test endpoint and says so in a comment in the markup — so freezing it
+needs nobody's leave and anybody can re-derive it. It is 1397 bytes and it
+contains almost every part of a form at once: labels **wrapping** their
+controls, two fieldsets with legends, radio buttons, checkboxes, a textarea, a
+button, and three input types nothing here had seen (`tel`, `email`, `time`).
+
+And it has no style sheet, which by now is a pattern: the pages that find the
+most are the ones that rely entirely on the user-agent sheet.
+
+## What it found
+
+**A `<fieldset>` was laid out inline.** The user-agent sheet declared `fieldset`
+and `legend` as `display: block` and then, forty lines later, as
+`inline-block` — and a duplicate in one sheet is the later rule winning. So a
+fieldset was an inline box, its contents came out as seven "pieces" of a broken
+inline, and the page was ninety-six pixels taller than it should be. Nothing had
+noticed because no alo screen uses a fieldset: the corpus had every control and
+not one group of them.
+
+**A `<fieldset>` had no name.** Its accessible name is its `<legend>`, which is
+the same shape as a `<label>` naming the control it wraps — an element named by
+something it contains. Without it the tree said `group` with the legend's words
+sitting beside it as loose text, so an agent asked to tick "Large" under "Pizza
+Size" had no way to tell which group was which.
+
+**A radio button was drawn as a square.** The tree told a radio from a checkbox
+from the first commit; a person looking at the page could not. Making it round
+then found the next thing:
+
+**`border-radius` in per cent did nothing.** It resolved against zero and came
+out square — written down in `corner.rs` as a known limitation, and the reason
+was that the code computing the radii was never given the box. A percentage
+radius is a percentage *of the box*: horizontally of its width, vertically of
+its height. That is fixed, and `border-radius: 50%` is what makes the radio
+round.
+
+## What it found that is still open
+
+**A checked checkbox looks exactly like an unchecked one.** The tree says
+`[checked=true]` and the display list holds one fill: the border. This has been
+true since controls were built and the alo corpus contains an example of it
+(`a-filled-form`) — it took a page with radios *and* checkboxes side by side to
+make anybody look. Queue item 182.
+
+**A fieldset has no border**, so a group does not look like one. Queue item 183.

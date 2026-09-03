@@ -4301,3 +4301,67 @@ rather than dress it up. The next *item* is a page with a `<form>`: nothing has
 looked at forms outside the alo cases, and `alo-box`'s control handling has only
 ever seen markup we wrote.
 
+---
+
+## Iteration 69 — queue item 181: a page with a form
+
+The HTML specification's own example form, served by httpbin as a test
+endpoint. 1397 bytes, no style sheet, and almost every part of a form at once:
+labels **wrapping** their controls, two fieldsets with legends, radios,
+checkboxes, a textarea, and three input types nothing here had seen.
+
+By now this is a pattern worth naming: **the pages that find the most are the
+ones with no CSS of their own.** Three of the four cases we did not write have
+been like that, and each has found something in the user-agent sheet that no
+alo screen could, because every alo screen states its own opinion about
+everything.
+
+**The first finding is the one I would not have found by reading.** A
+`<fieldset>` was laid out **inline**, because the user-agent sheet declares
+`fieldset` and `legend` as `display: block` and then, forty lines later, as
+`inline-block`. A duplicate in one sheet is the later rule winning. So a
+fieldset was an inline box, its contents came out as seven "pieces" of a broken
+inline, and the page was ninety-six pixels too tall. The sheet had been wrong
+since it was written and no case could show it: the corpus had every control and
+not one *group* of them.
+
+**A fieldset is named by its legend** now — the same shape as a `<label>` naming
+the control it wraps, an element named by something it contains. Without it the
+tree said `group` with the legend's words beside it as loose text, so an agent
+asked to tick "Large" under "Pizza Size" had nothing to tell the two groups
+apart by.
+
+**A radio was drawn as a square**, which is the recurring shape of these
+findings: the agent tree has told a radio from a checkbox since the first
+commit, and a person looking at the page could not. A radio group and a checkbox
+group ask different questions — one answer or several — so somebody who cannot
+see which they are looking at is being asked a question without being told its
+shape.
+
+**And making it round found the next thing.** `border-radius: 50%` did nothing:
+percentages resolved against zero, because the code computing the radii was
+never given the box. That was written down in `corner.rs` as "a limitation
+rather than a decision" and left. It is fixed — a percentage radius is a
+percentage of the box, horizontally of its width and vertically of its height —
+and the honest lesson is that a limitation written down is still a limitation.
+Writing it down made it *legible*, not *acceptable*, and nothing was going to
+find it except something that needed it.
+
+**Two findings left open, and one of them is uncomfortable.** A checked checkbox
+draws exactly one thing: its border. `[checked=true]` in the tree, nothing in
+the picture. That has been true since controls were built, and there is an
+example of it **sitting in the alo corpus** — `a-filled-form` has a checked box
+and its committed render shows an empty square. Nobody looked until a page put
+radios and checkboxes side by side. Item 182, and its closing condition asks for
+the indeterminate and disabled cases too, because "you cannot change this" and
+"this is off" are different things to be told. A fieldset also has no border,
+which is item 183.
+
+**The gate.** Green: fmt, clippy zero and zero, 1211 tests.
+
+**What the next iteration should know.** Item 182 is the one to take, and not
+because it is next: it is a state a person cannot see, it has been wrong the
+whole time, and the corpus has been quietly committing a picture of it. The
+paint work is a tick path and a dot — small — and the reference renders it moves
+are the ones that prove it.
+

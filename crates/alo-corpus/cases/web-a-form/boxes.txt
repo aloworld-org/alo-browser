@@ -1,0 +1,73 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      block flow · paragraph
+        inline flow · generic
+          text "Customer name: "
+          inline flow-root · textbox
+            anonymous block
+      block flow · paragraph
+        inline flow · generic
+          text "Telephone: "
+          inline flow-root · textbox
+            anonymous block
+      block flow · paragraph
+        inline flow · generic
+          text "E-mail address: "
+          inline flow-root · textbox
+            anonymous block
+      block flow · group "Pizza Size"
+        block flow · generic
+          text " Pizza Size "
+        block flow · paragraph
+          inline flow · generic
+            text " "
+            inline flow-root · radio [checked=false]
+            text " Small "
+        block flow · paragraph
+          inline flow · generic
+            text " "
+            inline flow-root · radio [checked=false]
+            text " Medium "
+        block flow · paragraph
+          inline flow · generic
+            text " "
+            inline flow-root · radio [checked=false]
+            text " Large "
+      block flow · group "Pizza Toppings"
+        block flow · generic
+          text " Pizza Toppings "
+        block flow · paragraph
+          inline flow · generic
+            text " "
+            inline flow-root · checkbox [checked=false]
+            text " Bacon "
+        block flow · paragraph
+          inline flow · generic
+            text " "
+            inline flow-root · checkbox [checked=false]
+            text " Extra Cheese "
+        block flow · paragraph
+          inline flow · generic
+            text " "
+            inline flow-root · checkbox [checked=false]
+            text " Onion "
+        block flow · paragraph
+          inline flow · generic
+            text " "
+            inline flow-root · checkbox [checked=false]
+            text " Mushroom "
+      block flow · paragraph
+        inline flow · generic
+          text "Preferred delivery time: "
+          inline flow-root · generic
+            anonymous block
+      block flow · paragraph
+        inline flow · generic
+          text "Delivery instructions: "
+          inline flow-root · textbox
+            anonymous block
+      block flow · paragraph
+        inline flow-root · button
+          anonymous block
+            text "Submit order"

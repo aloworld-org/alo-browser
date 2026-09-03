@@ -1040,6 +1040,30 @@ The long pole, and the thing most of section E is unreachable without.
   Every refusal test runs against both formats from one list, so adding a third
   means adding it to the list rather than remembering to.
 
+- [x] **181. A page with a form.** The HTML specification's own example form,
+  frozen. Found four things — a `<fieldset>` laid out inline because the
+  user-agent sheet declared it twice, a fieldset with no name, a radio drawn as
+  a square, and `border-radius` in per cent resolving against nothing — and all
+  four are fixed. Two more are 182 and 183.
+  *Depends on 68.*
+
+- [ ] **182. A checked control looks checked.** `[checked=true]` in the tree and
+  one fill in the display list: the border. True since controls were built, and
+  the alo corpus has an example of it — it took a page with radios and
+  checkboxes side by side to make anybody look.
+  *Depends on 181. Closes when:* a checked checkbox and a checked radio are
+  visibly different from unchecked ones in a reference render, an indeterminate
+  checkbox is different from both, and a disabled one still shows its state —
+  because "you cannot change this" and "this is off" are different things to be
+  told.
+
+- [ ] **183. A fieldset looks like a group.** No border, so the thing that makes
+  a fieldset worth using is invisible. Real browsers draw a groove the legend
+  breaks through, which is the interesting part: the legend sits *in* the top
+  border rather than above it.
+  *Depends on 181. Closes when:* a fieldset draws a border with its legend
+  breaking it, in a reference render.
+
 - [ ] **180. GIF, WebP and AVIF.** Rented. The same bound and the same refusals
   as PNG and JPEG, added to the one list the tests already walk.
   *Depends on 177. Closes when:* each decodes a frozen file and each is refused

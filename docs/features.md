@@ -138,6 +138,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
   every piece of it is
 - [2] **`text-decoration`**: underline, overline and line-through, stopping at
   the end of the inline rather than the edge of the line
+- [2] **Forms**: labels that wrap their control, fieldsets named by their
+  legend, and a radio you can tell from a checkbox
+- [2] **`border-radius` in per cent**, resolved against the box
 - [2] **Links that look like links**, with no visited colour — `:visited` never
   matches, so history is not readable from a page
 - [2] **The user-agent sheet's typographic defaults** — what a page looks like

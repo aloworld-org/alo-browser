@@ -287,9 +287,10 @@ impl Builder<'_> {
         let geometry = self.layout.get(id)?;
         // Content is clipped to the padding box: a border is drawn over the
         // content, not clipped by it.
+        let padding_box = geometry.padding_box();
         Some(rounded_rectangle(
-            geometry.padding_box(),
-            Corners::of(style),
+            padding_box,
+            Corners::of(style, Self::extent_of(padding_box)),
         ))
     }
 
@@ -346,7 +347,9 @@ impl Builder<'_> {
         // CSS's own order for one box: the shadows it casts outwards, then
         // its background colour, then its background image over that, then
         // the shadows cast inwards, then the border, then what is inside it.
-        let corners = self.style_of(id).map_or(Corners::SQUARE, Corners::of);
+        let corners = self.style_of(id).map_or(Corners::SQUARE, |style| {
+            Corners::of(style, Self::extent_of(area))
+        });
         let shadows = self.shadows_of(id);
         for shadow in shadows.iter().rev().filter(|shadow| !shadow.inset) {
             out.push(DisplayItem::Shadow {
@@ -444,7 +447,7 @@ impl Builder<'_> {
         let Some(style) = self.style_of(id) else {
             return;
         };
-        let corners = Corners::of(style);
+        let corners = Corners::of(style, Self::extent_of(geometry.border_box));
 
         // One width and one colour on every side: a ring. Only for a box drawn
         // in one piece — a piece in the middle of a broken box has no start
@@ -728,6 +731,12 @@ impl Builder<'_> {
             walking = self.boxes.get(at).and_then(|node| node.parent);
         }
         found
+    }
+
+    /// A rectangle's width and height, which is what a percentage radius is a
+    /// percentage of.
+    fn extent_of(rect: alo_layout::Rect) -> (f32, f32) {
+        (rect.right() - rect.left(), rect.bottom() - rect.top())
     }
 
     /// The shadows a box casts, front to back as they were written.

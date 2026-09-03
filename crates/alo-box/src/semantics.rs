@@ -40,7 +40,7 @@ impl Semantics {
         Self {
             role: Role::of(document, id, element),
             states: States::of(document, id, element),
-            label: declared_label(document, element),
+            label: declared_label(document, id, element),
         }
     }
 
@@ -70,7 +70,7 @@ impl fmt::Display for Semantics {
 }
 
 /// The name the author gave an element outright, in the order ARIA asks.
-fn declared_label(document: &Document, element: &Element) -> Option<String> {
+fn declared_label(document: &Document, id: NodeId, element: &Element) -> Option<String> {
     // `aria-labelledby` first: pointing at the text that names a thing is more
     // reliable than repeating it, and it is what ARIA prefers.
     if let Some(references) = element.attr("aria-labelledby") {
@@ -85,6 +85,40 @@ fn declared_label(document: &Document, element: &Element) -> Option<String> {
             if !trimmed.is_empty() {
                 return Some(trimmed.to_owned());
             }
+        }
+    }
+    // A `<fieldset>` is named by its `<legend>`, which is the same shape as a
+    // `<label>` naming the control it wraps: an element named by something it
+    // contains rather than by an attribute.
+    //
+    // Found by the first page with a form (queue item 181). Without it a
+    // fieldset comes back as an unnamed `group` with the legend's words sitting
+    // beside it as loose text — so an agent asked to tick "Large" under "Pizza
+    // Size" has no way to tell which group is which, and neither does anybody
+    // reading the tree.
+    if element.name.local.eq_ignore_ascii_case("fieldset") {
+        return legend_of(document, id);
+    }
+    None
+}
+
+/// The text of a `<fieldset>`'s first `<legend>`.
+///
+/// The *first*, because a fieldset with two legends is a page that has already
+/// gone wrong and the first is what every browser uses. Direct children only: a
+/// legend belonging to a nested fieldset names that one, not this one.
+fn legend_of(document: &Document, id: NodeId) -> Option<String> {
+    for child in document.children(id) {
+        let Some(element) = document.element(child) else {
+            continue;
+        };
+        if !element.name.local.eq_ignore_ascii_case("legend") {
+            continue;
+        }
+        let text = document.text_content(child);
+        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        if !text.is_empty() {
+            return Some(text);
         }
     }
     None

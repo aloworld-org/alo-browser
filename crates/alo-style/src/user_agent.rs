@@ -88,8 +88,15 @@ img, svg, video, audio, canvas, iframe, object, embed, math, progress, meter {
   display: inline-block;
 }
 
-button, input, select, textarea, output, label, optgroup, option, datalist,
-  legend, fieldset, textarea {
+/* The controls, which sit in a line and have a size of their own.
+ *
+ * `fieldset`, `legend` and a second `textarea` used to be in this list as well
+ * as in the block list above — and a duplicate in one sheet is the later rule
+ * winning, so a `<fieldset>` laid out **inline**. Nothing noticed until a page
+ * with a form arrived, because no alo screen uses one: the corpus had every
+ * control and not one fieldset.
+ */
+button, input, select, textarea, output, optgroup, option, datalist {
   display: inline-block;
 }
 label { display: inline }
@@ -135,6 +142,20 @@ input[type="checkbox"], input[type="radio"] {
   width: 13px;
   height: 13px;
   padding: 0;
+}
+/* A radio is round and a checkbox is square, and that is not decoration.
+ *
+ * The agent tree told them apart from the first commit — `radio "Small"` and
+ * `checkbox "Bacon"` — while a person looking at the page could not, because
+ * both drew as a bordered square. Found by the first page with a form: the alo
+ * screens have checkboxes and no radios, so nothing had ever put the two side
+ * by side.
+ *
+ * A radio group and a checkbox group mean different things: one answer or
+ * several. Somebody who cannot see which they are looking at is being asked a
+ * question without being told its shape. */
+input[type="radio"] {
+  border-radius: 50%;
 }
 input[type="button"], input[type="submit"], input[type="reset"] {
   width: auto;
