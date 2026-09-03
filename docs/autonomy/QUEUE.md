@@ -257,13 +257,20 @@ fails without it, not by a specification that lists it.
 
 ## Ready
 
-- [ ] **24. ADR 0005 — the process and sandbox model.** The decision, written
+- [x] **24. ADR 0005 — the process and sandbox model.** The decision, written
   before any code depends on it. What runs where, what a renderer is allowed to
   touch, what crosses the boundary and in which direction, and what happens when
   a renderer dies. `ROADMAP.md` is blunt: *"Every browser that retrofitted this
   suffered for years, and it is the one thing here that cannot be added later."*
   An ADR rather than an item of code because the expensive part is the shape,
   and the shape is a decision.
+
+  **Done: `docs/decisions/0005-one-process-per-site-and-a-sandbox-we-rent.md`.**
+  It answers the question this project has to answer before it copies anybody's
+  process model — why a memory-safe engine still needs one. Spectre is a
+  hardware property no language prevents; the codecs and TLS we rent are not
+  ours to make safe; the same-origin policy is code we write; and a page must
+  not be able to end the session.
 
 - [ ] **25. The engine behind a message boundary.** The renderer becomes a thing
   that is *sent* work and *returns* results — a typed protocol, no ambient

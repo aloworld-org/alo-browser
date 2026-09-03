@@ -99,7 +99,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
 
 ## Networking, scripting and safety — stage 2
 
-- [2] **The process and sandbox model, designed before the first hostile page is ever loaded.** One process per site, renderers with almost no privilege. Every browser that retrofitted this suffered for years, and it is the one item here that genuinely cannot be added later
+- [2] **The process and sandbox model, designed before the first hostile page is ever loaded** (ADR 0005). One process per site, renderers with almost no privilege, the platform's own sandbox rather than one of ours, and work crossing as typed messages in one direction. Memory safety does not make this optional: Spectre is a hardware property, and the codecs we rent are not ours to make safe
+- [2] A renderer that dies costs one tab and never the browser
 - [2] HTTP with `rustls`, caching, and cookies with defaults that are not hostile
 - [2] ★ **A JavaScript engine, ours, in Rust** — a correct interpreter first, a JIT much later or never. Stage 1 needs none at all, which is what removes the largest component of a browser from the critical path
 - [2] Images and media, through rented codecs

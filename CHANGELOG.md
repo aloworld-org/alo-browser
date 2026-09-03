@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **ADR 0005: one process per site, and a sandbox we rent.** Stage 2's first
+  roadmap item is a decision rather than code, and this is it — what runs where,
+  which way the boundary points, and what happens when a renderer dies.
+- It answers the question a memory-safe engine has to answer first: **why does
+  Rust not make this unnecessary?** Spectre is a hardware property that no
+  language prevents and only site isolation mitigates; the codecs and the TLS we
+  rent have `unsafe` in them and are not ours to make safe; the same-origin
+  policy is code we write and can get wrong; and a page must not be able to end
+  the session. Three of those four would apply to a perfect engine.
+- The expensive half is the **shape**, not the `fork`: a renderer never calls
+  back synchronously, nothing is shared but a read-only frame, and every message
+  is typed. So the boundary gets built while everything is still one process
+  (queue item 25) and the split is a change of transport (item 29).
+
 - **An agent reads a broken link as one link, whole.** Layout breaks an inline
   box holding a block into a piece on each side, with the block a *sibling* of
   the pieces — that is where layout needs them and it is not what the document

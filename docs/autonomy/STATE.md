@@ -1530,3 +1530,64 @@ not ticked.
 
 LOOP COMPLETE
 
+---
+
+# Stage 2
+
+`ROADMAP.md`'s stage 1 queue is finished. Its three unticked roadmap lines are
+not work this loop can take — `alo-os` is not checked out beside this
+repository, and hardware acceleration and embedding are explicitly after the
+software path is right and want a machine. Nothing in the engine needs a GPU, a
+window or a network to be *built or checked*; what needs a machine is the
+verification the exit gate asks for, and that is not a thing a loop may claim.
+
+So the queue was refilled from stage 2, in the roadmap's own order: eighteen
+items, beginning where the roadmap begins.
+
+## Iteration 24 — queue item 24: ADR 0005, the process and sandbox model
+
+**What was decided.** A privileged browser process owns the network, the disk,
+the display and the user; a renderer process per site owns everything that
+touches a page, with almost no privilege and the platform's own sandbox around
+it; work crosses as typed messages in one direction; a renderer that dies takes
+nothing with it.
+
+**The question this project had to answer first.** Chromium's process model
+exists in large part because a C++ renderer is assumed to be exploitable, and
+ours is not — so the obvious reading of ADR 0001 is that we do not need one.
+Four reasons say otherwise and three of them survive a *perfect* engine:
+
+1. **Spectre** is a hardware property. No language prevents it, and site
+   isolation is the only mitigation that works. This decides the ADR on its own.
+2. **The physics we rent has `unsafe` in it** — TLS, image and media codecs,
+   shaping. Forbidding `unsafe` in our crates does not reach inside a
+   dependency, and codecs are historically the worst surface in any browser.
+3. **Logic bugs are not memory bugs.** The same-origin policy is code we will
+   write and can get wrong; a process boundary is a second answer enforced by
+   something that is not us.
+4. **A page must not be able to end the session.**
+
+**The expensive half is the shape, not the `fork`.** An engine written against
+a synchronous, ambient, reach-anywhere API cannot be pulled apart afterwards
+without rewriting everything that used it. So the boundary gets built while
+everything is still one process (item 25) and the split is a change of
+transport (item 29). That also keeps the corpus deterministic and
+single-process, which is what keeps a reference render diffable.
+
+**ADR 0003 paid for itself here.** A borrowed reference cannot cross a process,
+so what crosses is a *message describing the agent tree at one instant* — a
+copy, unavoidably. It carries node identity, ids are never reused, and a verb
+sent back naming a node either finds the same node or finds nothing. That is
+the same property ADR 0002 refuses coordinates for.
+
+**Nothing was pre-authorised.** The sandbox will need syscalls; if a platform
+crate does not cover something and we must write `unsafe` ourselves, that needs
+its own ADR at that time. Law 4 is untouched.
+
+**The gate.** `scripts/gate.sh` green. No crate changed — this item is a
+decision — so the tests are the 765 that were already passing.
+
+**What the next iteration should know.** Item 25 is the one that matters most
+and is the easiest to get subtly wrong: the boundary has to be a *type*, and
+every later item has to be written against it even where it is not needed yet.
+
