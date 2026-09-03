@@ -566,12 +566,19 @@ first. Nothing here needs JavaScript.
   state between blocks, so a block nobody could decode leaves it in a condition
   nobody can reason about.
 
-- [ ] **161. Streams, flow control, and the connection state machine.**
+- [x] **161. Streams, flow control, and the connection state machine.**
   *Depends on 59, 160. Closes when:* a stream that is finished refuses further
   frames, a window that would go negative is a `FLOW_CONTROL_ERROR`, and a peer
   opening more streams than it was allowed is refused rather than accommodated.
   The bounds go in before the happy path: this is where a misbehaving peer
   allocates memory on our side.
+
+  **Done, and they did go in first.** The CONTINUATION flood needed a bound on
+  the whole block across frames rather than on each frame, which is why it is
+  counted by the session. A window may legitimately be **negative** — lowering
+  the initial size applies retroactively to streams that already exist — and a
+  test I wrote expecting otherwise was wrong about the protocol rather than the
+  code.
 
 - [ ] **162. Negotiating HTTP/2 at all** — ALPN in the TLS handshake, and
   choosing 1.1 when the server does not offer h2.

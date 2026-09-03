@@ -6,6 +6,39 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **HTTP/2 streams, flow control and the connection state machine.** The bounds
+  went in before the happy path, because every way a peer spends our memory over
+  HTTP/2 is a **count** rather than one oversized thing.
+- **The CONTINUATION flood is refused.** A header block may be spread across any
+  number of `CONTINUATION` frames; each one is inside the frame-size limit and
+  nothing limits how many there are. So the bound is on the **total across
+  frames**, which is why it is counted by the session rather than the frame
+  reader. A `CONTINUATION` sequence is also uninterruptible: a frame for another
+  stream in the middle of one would let a peer make two header blocks into one.
+- **A stream is not open or closed.** It is open in each direction separately,
+  and a request fully sent while its response is still arriving — the normal
+  state of every request a browser makes — is *half-closed locally*. Collapsing
+  that into a boolean is how a `DATA` frame arriving after a response finished
+  becomes a body silently appended to a page instead of a `STREAM_CLOSED`.
+- **A window may legitimately be negative**, and that is the one that surprises
+  people. Lowering `SETTINGS_INITIAL_WINDOW_SIZE` applies as a difference to
+  every stream that already exists, so data already in flight can leave a window
+  below zero — a peer doing that has done nothing wrong, and refusing it would
+  break them. What *is* refused is a window widened past the protocol's ceiling,
+  and it is refused rather than saturated: saturating leaves the two ends
+  disagreeing about how much may be sent.
+- Bounded: how many streams a peer may have open at once, how many closed ones
+  are remembered (so opening and resetting forever leaves nothing behind), and
+  what a peer allows *us* kept separate from what we allow *them* — mixing those
+  up means either refusing our own requests or accepting an unbounded number of
+  theirs.
+- **`PUSH_PROMISE` is refused.** This engine sends `ENABLE_PUSH: 0`, so a server
+  that pushes has ignored what it was told, and honouring it would be accepting
+  a response to a request nobody made.
+- A `WINDOW_UPDATE` for a stream that is already gone is **ignored, not
+  refused**: the peer sent it before it knew, and ending a connection over a
+  race nobody lost would be worse than the race.
+
 - **HPACK**, the header compression HTTP/2 carries — integers, strings, the
   static table, the dynamic table, and Huffman. Checked against the
   specification's own worked examples: the exact bytes it prints, and the exact

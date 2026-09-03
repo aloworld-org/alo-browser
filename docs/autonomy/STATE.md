@@ -3114,3 +3114,71 @@ frames that never end. The last of those has a name — CONTINUATION flood — a
 it should be refused by a bound on the total header block across frames, not by
 a bound on each frame.
 
+---
+
+## Iteration 50 — queue item 161: streams and flow control
+
+The queue said the bounds go in before the happy path. They did, and the file
+reads that way: three files, and most of what is in them is refusals.
+
+**Every way a peer spends our memory over HTTP/2 is a count, not one oversized
+thing.** That is the shape of the whole item. A single frame is bounded by the
+frame reader; what is not bounded there is *how many*. Three counts, three
+bounds: streams open at once, closed streams remembered, and the total size of a
+header block across `CONTINUATION` frames.
+
+**The CONTINUATION flood is the one worth naming.** Each frame is individually
+legal and inside the frame-size limit, and nothing in the protocol limits how
+many there are. A bound per frame does nothing; the bound has to be on the
+**total across frames**, which is why it is counted by the session rather than
+by the frame reader. And a `CONTINUATION` sequence is uninterruptible — a peer
+that could interleave a frame for another stream could make two header blocks
+into one.
+
+**A stream is not open or closed.** It is open in each direction separately, and
+the two stop at different times. A request fully sent while its response is
+still arriving is *half-closed locally*, and that is the normal state of every
+request a browser makes. Collapsing it into a boolean is how a `DATA` frame
+after a finished response becomes a body silently appended to a page instead of
+a `STREAM_CLOSED` — there is a test named after exactly that.
+
+**A test I wrote was wrong about the protocol, and finding out was the useful
+part.** I asserted that lowering `SETTINGS_INITIAL_WINDOW_SIZE` puts an existing
+stream's window at `new - old`, i.e. negative. It does not: the change applies
+as a **difference**, so a stream that has spent none of its window simply lands
+on the new size. A window goes below zero only when data was already in flight
+against the old size — 535 left, minus 65,435, is −64,900. The code was right
+and the test was wrong, and the corrected test now demonstrates the case that
+actually matters rather than one that cannot happen. Refusing a negative window
+would break a peer that did nothing wrong; the protocol allows it and this
+engine has to as well.
+
+**What is refused rather than saturated:** a window widened past the ceiling.
+Saturating would leave the two ends disagreeing about how much may be sent,
+which is worse than stopping.
+
+**What is ignored rather than refused:** a `WINDOW_UPDATE` for a stream that is
+already gone. The peer sent it before it knew, and the two crossed. Ending a
+connection over a race nobody lost would be worse than the race.
+
+**Two numbers that must not be confused:** what the peer allows us, and what we
+allow the peer. Mixing them up means either refusing our own requests or
+accepting an unbounded number of theirs. They are separate fields and there is a
+test for each direction.
+
+**Push is refused, not handled.** This engine sends `ENABLE_PUSH: 0`; a server
+that pushes has ignored what it was told, and honouring it would be accepting a
+response to a request nobody made.
+
+**The gate.** Green: fmt, clippy zero and zero, 1100 tests. Nothing here
+positions, sizes or paints.
+
+**What the next iteration should know.** Item 162, negotiating HTTP/2 at all —
+ALPN in the TLS handshake, and choosing 1.1 when the server does not offer h2.
+`tls.rs` is the boundary file for `rustls` and ALPN is set on its client config,
+so the change is there rather than in the h2 module. The closing condition names
+the thing to get right: **no request sent twice while finding out** which
+protocol is in use. Negotiation happens during the handshake, so the answer is
+known before the first byte of a request — a client that discovered it later and
+retried would be a client that sent a `POST` twice.
+

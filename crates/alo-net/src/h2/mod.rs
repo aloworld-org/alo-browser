@@ -21,9 +21,12 @@
 //! opinions about connections, bodies and errors, and the seam between those
 //! opinions and ours is where the bugs would live.
 
+pub mod flow;
 pub mod frame;
 pub mod hpack;
 pub mod huffman;
+pub mod session;
+pub mod stream;
 
 /// Why a connection or a stream was ended.
 ///

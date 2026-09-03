@@ -170,8 +170,10 @@ unreachable without it.
       is reserved, and the padding underflow that is the classic parser bug
       refused by name. **HPACK** (queue item 160), checked against the
       specification's own worked examples, with the Huffman codes derived from
-      the canonical structure rather than transcribed · Owed: streams and flow
-      control (161), and negotiating h2 at all (162)
+      the canonical structure rather than transcribed. **Streams, flow control
+      and the connection state machine** (queue item 161), with the CONTINUATION
+      flood refused by a bound on the whole block · Owed: negotiating h2 at all,
+      queue item 162
 - [ ] HTTP/3 and QUIC, once those two are correct
 - [ ] DNS, and encrypted DNS as a choice somebody made rather than a default
       nobody was told about · Built: ADR 0008 and resolution through the
