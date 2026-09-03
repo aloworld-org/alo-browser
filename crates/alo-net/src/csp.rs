@@ -54,11 +54,24 @@
 //! produce a second sentence that hashes to it.
 //!
 //! [`Policies::allows_inline`] takes the content for exactly that, and the
-//! digest is computed in [`crate::digest`]. What it will **not** hash is content
-//! with no element of its own — a `style` attribute, an event handler — because
-//! matching those by hash is what `'unsafe-hashes'` exists to enable, and this
-//! engine holds that keyword as inert. Passing [`None`] for the content is how a
-//! caller says so, and [`ByHash::NothingToHash`] is what a refusal then says.
+//! digest is computed in [`crate::digest`].
+//!
+//! # And the keyword that lets a hash reach a `style` attribute
+//!
+//! Content with no element of its own — a `style` attribute, an event handler —
+//! is matched by hash **only** where the deciding directive also says
+//! `'unsafe-hashes'`. That is the specification's rule and it is not a
+//! formality: a page's `<style>` element is something its author wrote once,
+//! and a `style` attribute is the shape an injection most often takes, so
+//! allowing one by digest is a permission that should be asked for in words
+//! rather than inherited from a hash beside it. [`Content`] is how a caller says
+//! which it has, and a policy naming a hash without the keyword refuses an
+//! attribute with [`ByHash::NotWithoutTheKeyword`] — *no* digest allows it here,
+//! which is a different thing to be told than *your digest does not match*.
+//!
+//! An event handler is the same rule and needs no case of its own: it is
+//! [`Inline::Script`] with [`Content::attribute`], and queue item 81 is where a
+//! handler becomes a thing there is one of.
 //!
 //! # And one gap that is a design decision rather than a cut
 //!
@@ -101,21 +114,73 @@ impl fmt::Display for Disposition {
     }
 }
 
-/// Which kind of inline content is being asked about.
+/// Which kind of inline content is being asked about: which directive governs
+/// it, `script-src` or `style-src`.
+///
+/// *Where* it was written is [`Placement`], and the two are separate because
+/// they answer different questions — this one picks the directive, that one
+/// decides whether a hash in it may apply.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Inline {
-    /// A `<script>` with its code in the page.
+    /// Script: a `<script>` with its code in the page, or an event handler.
     Script,
-    /// A `<style>` element, or a `style` attribute.
+    /// Style: a `<style>` element, or a `style` attribute.
     Style,
 }
 
-impl fmt::Display for Inline {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Inline::Script => "inline script",
-            Inline::Style => "inline style",
-        })
+/// Where inline content was written: in an element of its own, or in an
+/// attribute.
+///
+/// The distinction exists for one rule — a hash matches attribute content only
+/// under `'unsafe-hashes'` — and it is a type rather than a `bool` because a
+/// caller that got a `bool` backwards would widen a policy silently.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Placement {
+    /// A `<script>` or `<style>` element's own text.
+    Element,
+    /// A `style` attribute's value, or an event handler's body.
+    Attribute,
+}
+
+/// What a message calls one of the four things this is asked about.
+fn what(kind: Inline, placement: Placement) -> &'static str {
+    match (kind, placement) {
+        (Inline::Script, Placement::Element) => "inline script",
+        (Inline::Style, Placement::Element) => "inline style",
+        (Inline::Script, Placement::Attribute) => "an event handler",
+        (Inline::Style, Placement::Attribute) => "a style attribute",
+    }
+}
+
+/// Inline content, and where it was written.
+///
+/// The text is the content **exactly as the document holds it**, untrimmed,
+/// because that is what a hash in the policy is the digest of — [`crate::digest`]
+/// says why nothing anywhere tidies it first.
+#[derive(Debug, Clone, Copy)]
+pub struct Content<'a> {
+    /// The content itself.
+    text: &'a str,
+    /// Where it was written, which decides whether a hash may match it.
+    placement: Placement,
+}
+
+impl<'a> Content<'a> {
+    /// A `<style>` or `<script>` element's own text, which a hash may match.
+    pub fn element(text: &'a str) -> Self {
+        Self {
+            text,
+            placement: Placement::Element,
+        }
+    }
+
+    /// A `style` attribute's value, or an event handler's body — which a hash
+    /// may match only under `'unsafe-hashes'`.
+    pub fn attribute(text: &'a str) -> Self {
+        Self {
+            text,
+            placement: Placement::Attribute,
+        }
     }
 }
 
@@ -242,6 +307,19 @@ impl Directive {
         self.sources
             .iter()
             .any(|source| matches!(source, Source::UnsafeInline))
+    }
+
+    /// Whether `'unsafe-hashes'` is in this directive.
+    ///
+    /// In **this** directive rather than anywhere in the policy: the keyword is
+    /// a source expression, so the list that decides is the deciding
+    /// directive's own. A `'unsafe-hashes'` written into `default-src` while
+    /// `style-src` decides is not this policy saying it, and reading it as
+    /// though it were would let a keyword in one sentence widen another.
+    fn says_unsafe_hashes(&self) -> bool {
+        self.sources
+            .iter()
+            .any(|source| matches!(source, Source::UnsafeHashes))
     }
 
     /// Whether any source here is a hash at all, whatever it is of.
@@ -443,7 +521,7 @@ impl Policy {
         &self,
         kind: Inline,
         nonce: Option<&str>,
-        content: Option<&str>,
+        content: Content<'_>,
     ) -> Option<(Name, Refusal)> {
         let wanted = match kind {
             Inline::Script => Name::Script,
@@ -454,10 +532,17 @@ impl Policy {
         if nonce.is_some_and(|nonce| directive.names_nonce(nonce)) {
             return None;
         }
+        // Whether a hash in this directive may match this content at all.
+        // Content in an element of its own: always. Content in an attribute:
+        // only where the author asked for it in words.
+        let hashes_apply = match content.placement {
+            Placement::Element => true,
+            Placement::Attribute => directive.says_unsafe_hashes(),
+        };
         // A hash is checked before `'unsafe-inline'` and separately from
         // `'strict-dynamic'`: the keyword says to ignore every host and scheme
         // in the directive, and a hash is neither.
-        if content.is_some_and(|content| directive.names_the_hash_of(content)) {
+        if hashes_apply && directive.names_the_hash_of(content.text) {
             return None;
         }
         if directive.says_unsafe_inline()
@@ -470,9 +555,10 @@ impl Policy {
             wanted,
             Refusal::Inline {
                 kind,
+                placement: content.placement,
                 directive: directive.written.clone(),
                 allows: directive.as_written(),
-                by_hash: ByHash::of(directive.names_a_hash(), content.is_some()),
+                by_hash: ByHash::of(directive.names_a_hash(), hashes_apply),
             },
         ))
     }
@@ -486,7 +572,7 @@ impl Policy {
         &self,
         kind: Inline,
         nonce: Option<&str>,
-        content: Option<&str>,
+        content: Content<'_>,
     ) -> Result<(), Refusal> {
         match self.objects_to_inline(kind, nonce, content) {
             Some((_, refusal)) => Err(refusal),
@@ -562,11 +648,10 @@ impl Policies {
 
     /// Whether every enforced policy permits this inline content.
     ///
-    /// `content` is the element's own text, exactly as the document holds it —
-    /// what is between `<style>` and `</style>`, untrimmed — because that is
-    /// what a hash in the policy is the digest of. [`None`] is for content that
-    /// has no element of its own, a `style` attribute or an event handler, which
-    /// this module's header says why nothing here hashes.
+    /// `content` is what was written and where — [`Content::element`] for what
+    /// is between `<style>` and `</style>`, untrimmed, and
+    /// [`Content::attribute`] for a `style` attribute or an event handler, which
+    /// a hash matches only under `'unsafe-hashes'`.
     ///
     /// # Errors
     ///
@@ -575,7 +660,7 @@ impl Policies {
         &self,
         kind: Inline,
         nonce: Option<&str>,
-        content: Option<&str>,
+        content: Content<'_>,
     ) -> Result<(), Refusal> {
         for policy in &self.held {
             if policy.disposition == Disposition::Enforce {
@@ -614,7 +699,7 @@ impl Policies {
         &self,
         kind: Inline,
         nonce: Option<&str>,
-        content: Option<&str>,
+        content: Content<'_>,
     ) -> Vec<Violation> {
         self.held
             .iter()
@@ -679,8 +764,12 @@ pub enum Refusal {
     },
     /// Inline content the policy does not permit.
     Inline {
-        /// Which kind.
+        /// Which kind: script or style.
         kind: Inline,
+        /// Where it was written, which is half of what a message calls it — an
+        /// author looking for a refused `<style>` should not be shown a message
+        /// about their `style` attribute, or the other way round.
+        placement: Placement,
         /// The directive that decided, as written.
         directive: String,
         /// What that directive does allow, as written.
@@ -703,19 +792,25 @@ pub enum ByHash {
     /// them — the ordinary answer when a page's inline content has changed and
     /// its policy has not.
     NotThisContent,
-    /// The directive names hashes and nothing was offered to hash: content with
-    /// no element of its own, which the specification matches by hash only under
-    /// `'unsafe-hashes'`.
-    NothingToHash,
+    /// The directive names hashes, this is content with no element of its own,
+    /// and the directive does not say `'unsafe-hashes'` — so **no** digest
+    /// allows this content here, whatever it is of. A different thing to be
+    /// told than [`ByHash::NotThisContent`], and a different thing to do about
+    /// it.
+    NotWithoutTheKeyword,
 }
 
 impl ByHash {
     /// Which of the three this refusal is.
-    fn of(names_a_hash: bool, was_hashed: bool) -> Self {
-        match (names_a_hash, was_hashed) {
+    ///
+    /// `hashes_apply` is whether a hash in the directive could have matched
+    /// this content at all — which is where the keyword is already accounted
+    /// for, so this never asks the question twice.
+    fn of(names_a_hash: bool, hashes_apply: bool) -> Self {
+        match (names_a_hash, hashes_apply) {
             (false, _) => ByHash::NotNamed,
             (true, true) => ByHash::NotThisContent,
-            (true, false) => ByHash::NothingToHash,
+            (true, false) => ByHash::NotWithoutTheKeyword,
         }
     }
 }
@@ -753,14 +848,16 @@ impl fmt::Display for Refusal {
             }
             Refusal::Inline {
                 kind,
+                placement,
                 directive,
                 allows,
                 by_hash,
             } => {
                 write!(
                     f,
-                    "this page's content security policy does not allow {kind}: {directive} \
+                    "this page's content security policy does not allow {}: {directive} \
                      allows {}",
+                    what(*kind, *placement),
                     if allows.is_empty() {
                         "nothing".to_owned()
                     } else {
@@ -775,12 +872,13 @@ impl fmt::Display for Refusal {
                          byte, so a policy written for an earlier version of it will not allow \
                          this one",
                     )?,
-                    ByHash::NothingToHash => f.write_str(
+                    ByHash::NotWithoutTheKeyword => f.write_str(
                         ". That directive allows content by hash, and this is content with no \
-                         element of its own — a style attribute or an event handler. Matching \
-                         one of those by hash is what 'unsafe-hashes' is for, and this engine \
-                         reads that keyword without acting on it, so it is refused rather than \
-                         allowed on a guess",
+                         element of its own — a style attribute or an event handler — which a \
+                         hash matches only where the same directive also says 'unsafe-hashes'. \
+                         So no digest allows this, whatever it is of: add that keyword beside \
+                         the hash if allowing it is what you meant, because it is a permission \
+                         worth writing down",
                     )?,
                 }
                 Ok(())
@@ -984,7 +1082,8 @@ mod tests {
     #[test]
     fn inline_content_a_policy_refused_is_a_violation_with_no_url() {
         let policies = enforcing("script-src 'self'; report-uri /csp");
-        let violations = policies.inline_violations(Inline::Script, None, Some("alert(1)"));
+        let violations =
+            policies.inline_violations(Inline::Script, None, Content::element("alert(1)"));
         let one = violations.first().expect("a violation");
         assert_eq!(one.blocked, Blocked::Inline);
         assert_eq!(one.directive, "script-src");
@@ -1078,20 +1177,20 @@ mod tests {
         let with_only_the_keyword = enforcing("script-src 'unsafe-inline'");
         assert!(
             with_only_the_keyword
-                .allows_inline(Inline::Script, None, Some("alert(1)"))
+                .allows_inline(Inline::Script, None, Content::element("alert(1)"))
                 .is_ok()
         );
 
         let with_a_nonce = enforcing("script-src 'unsafe-inline' 'nonce-abc'");
         assert!(
             with_a_nonce
-                .allows_inline(Inline::Script, None, Some("alert(1)"))
+                .allows_inline(Inline::Script, None, Content::element("alert(1)"))
                 .is_err(),
             "the keyword is left in for old browsers and must not undo the nonce",
         );
         assert!(
             with_a_nonce
-                .allows_inline(Inline::Script, Some("abc"), Some("alert(1)"))
+                .allows_inline(Inline::Script, Some("abc"), Content::element("alert(1)"))
                 .is_ok()
         );
     }
@@ -1105,12 +1204,12 @@ mod tests {
         let policies = enforcing(&format!("script-src {ALERT}"));
         assert!(
             policies
-                .allows_inline(Inline::Script, None, Some("alert(1)"))
+                .allows_inline(Inline::Script, None, Content::element("alert(1)"))
                 .is_ok()
         );
         assert!(
             policies
-                .inline_violations(Inline::Script, None, Some("alert(1)"))
+                .inline_violations(Inline::Script, None, Content::element("alert(1)"))
                 .is_empty(),
             "it was allowed and reported, which sends an author looking for a bug in a page \
              that works",
@@ -1121,16 +1220,20 @@ mod tests {
     fn inline_content_whose_hash_a_policy_does_not_name_says_which_of_the_two_it_is() {
         let policies = enforcing(&format!("script-src {ALERT}"));
         let refused = policies
-            .allows_inline(Inline::Script, None, Some("alert(2)"))
+            .allows_inline(Inline::Script, None, Content::element("alert(2)"))
             .expect_err("one digest allowed another script");
         let said = refused.to_string();
         assert!(said.contains("byte for byte"), "{said}");
 
+        // The same content, in an attribute, under the same policy: the digest
+        // matches and it is still refused, because no digest reaches an
+        // attribute without `'unsafe-hashes'`.
         let attribute = policies
-            .allows_inline(Inline::Script, None, None)
-            .expect_err("content nobody hashed was allowed by a hash");
+            .allows_inline(Inline::Script, None, Content::attribute("alert(1)"))
+            .expect_err("a hash reached an attribute without the keyword that allows it");
         let said = attribute.to_string();
         assert!(said.contains("'unsafe-hashes'"), "{said}");
+        assert!(said.contains("an event handler"), "{said}");
     }
 
     /// The keyword says to ignore every host and scheme in the directive. A
@@ -1143,12 +1246,12 @@ mod tests {
         ));
         assert!(
             policies
-                .allows_inline(Inline::Script, None, Some("alert(1)"))
+                .allows_inline(Inline::Script, None, Content::element("alert(1)"))
                 .is_ok()
         );
         assert!(
             policies
-                .allows_inline(Inline::Script, None, Some("alert(2)"))
+                .allows_inline(Inline::Script, None, Content::element("alert(2)"))
                 .is_err(),
             "'unsafe-inline' is undone by the hash, as it is by a nonce",
         );
@@ -1159,12 +1262,12 @@ mod tests {
         let policies = enforcing("script-src 'unsafe-inline'; style-src 'self'");
         assert!(
             policies
-                .allows_inline(Inline::Script, None, Some("alert(1)"))
+                .allows_inline(Inline::Script, None, Content::element("alert(1)"))
                 .is_ok()
         );
         assert!(
             policies
-                .allows_inline(Inline::Style, None, Some("a { color: red }"))
+                .allows_inline(Inline::Style, None, Content::element("a { color: red }"))
                 .is_err(),
             "'self' does not allow inline style",
         );
@@ -1213,7 +1316,7 @@ mod tests {
         );
         assert!(
             policies
-                .allows_inline(Inline::Script, None, Some("alert(1)"))
+                .allows_inline(Inline::Script, None, Content::element("alert(1)"))
                 .is_ok()
         );
     }
@@ -1242,11 +1345,14 @@ mod tests {
             "script-src 'sha256-YWJj'",
             "script-src 'sha999-YWJj'",
             "style-src 'sha512-\u{0}'",
+            "style-src 'unsafe-hashes'",
+            "style-src 'unsafe-hashes' 'sha256-'",
+            "script-src 'unsafe-hashes' 'unsafe-hashes'",
         ] {
             let policies = enforcing(value);
             let _ = policies.allows(&asking("https://evil.test/x.js", Purpose::Script), None);
-            let _ = policies.allows_inline(Inline::Script, None, Some("alert(1)"));
-            let _ = policies.allows_inline(Inline::Script, None, None);
+            let _ = policies.allows_inline(Inline::Script, None, Content::element("alert(1)"));
+            let _ = policies.allows_inline(Inline::Script, None, Content::attribute("alert(1)"));
             let _ = policies.not_enforced();
         }
     }

@@ -893,7 +893,7 @@ wrong, which is the argument for the fourth.
   hash for a URL, since a policy is checked before anything is fetched and a
   `<script src>` is allowed by where it comes from. The cut is item 191.
 
-- [ ] **191. `'unsafe-hashes'`, so a `style` attribute can be allowed by its
+- [x] **191. `'unsafe-hashes'`, so a `style` attribute can be allowed by its
   digest.** Cut from 189, which hashes content that has an element of its own
   and refuses to hash anything else — a `style` attribute, an event handler.
   Matching one of those by hash is exactly what `'unsafe-hashes'` enables, and
@@ -906,6 +906,24 @@ wrong, which is the argument for the fourth.
   policy without the keyword refuses it — the second half being the one that
   matters, since the keyword exists to make the permission deliberate. The event
   handler half waits for item 81, which is where a handler is a thing at all.
+
+  **Done, and the shape is what to read rather than the keyword.** *Where*
+  content was written became a type of its own — `csp::Content::element` and
+  `csp::Content::attribute` — beside the kind that picks the directive, because
+  they answer different questions: the kind chooses `script-src` or
+  `style-src`, and the placement decides whether a hash in it may apply. That
+  is why **the event handler half needed no code and no case**: it is
+  `Inline::Script` with `Content::attribute`, and item 81 will pass it without
+  changing anything here. What is genuinely owed to 81 is a handler to pass.
+
+  Three rules went in with it, each because the alternative widens somebody's
+  policy: the keyword grants **nothing on its own**, so a directive holding it
+  and no digest allows no attribute; it is read from the **deciding directive**
+  rather than from anywhere in the policy, so one in `default-src` does not
+  reach a `style-src` that decided; and two policies stay an intersection, so a
+  second header cannot add the keyword to the first one's hash.
+  `ByHash::NothingToHash` became `ByHash::NotWithoutTheKeyword`, which is the
+  honest sentence now: the digest may well match, and no digest applies here.
 
 - [x] **63. The boundary's wire format.** *Scope cut on starting: the split is
   three items, and this is the one that has to be right before anything is

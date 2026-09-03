@@ -11,7 +11,7 @@
 //! the one thing a policy must never do, because the page that wrote it is
 //! usually protecting itself from a bug it has not found yet.
 
-use alo_net::csp::{Inline, Policies};
+use alo_net::csp::{Content, Inline, Policies};
 use alo_net::{Headers, Purpose, Request};
 use alo_url::Origin;
 
@@ -181,7 +181,7 @@ fn enforcing_one_policy_while_watching_a_stricter_one() {
 
     assert!(
         policies
-            .allows_inline(Inline::Script, None, Some("go()"))
+            .allows_inline(Inline::Script, None, Content::element("go()"))
             .is_ok(),
         "the enforced policy still allows what it allows",
     );
@@ -217,13 +217,13 @@ fn the_backwards_compatible_keyword_does_not_undo_the_nonce_beside_it() {
 
     assert!(
         policies
-            .allows_inline(Inline::Script, None, Some("steal()"))
+            .allows_inline(Inline::Script, None, Content::element("steal()"))
             .is_err(),
         "an injected inline script ran",
     );
     assert!(
         policies
-            .allows_inline(Inline::Script, Some("Kj9fL2mQ"), Some("go()"))
+            .allows_inline(Inline::Script, Some("Kj9fL2mQ"), Content::element("go()"))
             .is_ok(),
         "and the page's own inline script still runs",
     );
@@ -394,6 +394,6 @@ fn a_policy_no_server_should_have_sent_is_read_rather_than_believed() {
             );
         }
         let _ = policies.not_enforced();
-        let _ = policies.allows_inline(Inline::Style, None, Some("a { color: red }"));
+        let _ = policies.allows_inline(Inline::Style, None, Content::element("a { color: red }"));
     }
 }

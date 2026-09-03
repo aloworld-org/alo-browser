@@ -14,7 +14,7 @@
 //! dependency, for the reason `fetching_over_http.rs` gives: nothing here
 //! reaches the network, and a suite that did would fail on an aeroplane.
 
-use alo_net::csp::{Disposition, Policies};
+use alo_net::csp::{Content, Disposition, Policies};
 use alo_net::csp_report::{Blocked, Endpoints, Page, Violation};
 use alo_net::{Headers, Purpose, Request, Trust};
 use alo_url::Origin;
@@ -106,8 +106,11 @@ fn a_policy_being_enforced_and_one_being_watched_both_report() {
 #[test]
 fn inline_content_a_policy_refused_is_reported_as_inline() {
     let policies = policies(&["script-src 'self'; report-uri /csp"], &[]);
-    let violations =
-        policies.inline_violations(alo_net::csp::Inline::Script, None, Some("steal()"));
+    let violations = policies.inline_violations(
+        alo_net::csp::Inline::Script,
+        None,
+        Content::element("steal()"),
+    );
     let one = violations.first().expect("a violation");
     assert_eq!(one.blocked, Blocked::Inline);
     let posting = one.posts(&about());

@@ -44,6 +44,12 @@
 //! answered, against the bytes of a `<style>` or a `<script>`. The digest itself
 //! is [`crate::digest`], which is the one file allowed to name the crate that
 //! computes one.
+//!
+//! **Whether a hash is allowed to apply at all is not this file's question.**
+//! [`Source::UnsafeHashes`] is read here and acted on in [`crate::csp`], because
+//! the keyword says nothing about any one source expression: it says that in
+//! *this directive*, a hash may match content with no element of its own. That
+//! is a fact about the list rather than about an entry in it.
 
 use crate::digest::Digest;
 use alo_url::parts::default_port;
@@ -220,6 +226,11 @@ pub enum Source {
     /// `'strict-dynamic'`. Turns a script directive into nonces and hashes
     /// only, ignoring every host and scheme in it.
     StrictDynamic,
+    /// `'unsafe-hashes'`. Permits no URL and is the digest of nothing: it says
+    /// that the hashes *beside* it in this directive may match content with no
+    /// element of its own — a `style` attribute, an event handler. Read here
+    /// and acted on in [`crate::csp::Policies::allows_inline`].
+    UnsafeHashes,
     /// A keyword this engine reads and does not act on — `'unsafe-eval'` and
     /// its relatives, which are about running code rather than fetching it.
     ///
@@ -293,6 +304,7 @@ impl fmt::Display for Source {
             Source::Nonce(value) => write!(f, "'nonce-{value}'"),
             Source::Hash { digest, expected } => write!(f, "'{}-{expected}'", digest.name()),
             Source::StrictDynamic => f.write_str("'strict-dynamic'"),
+            Source::UnsafeHashes => f.write_str("'unsafe-hashes'"),
             Source::Inert(name) => write!(f, "'{name}'"),
             Source::Unreadable(token) => f.write_str(token),
         }
@@ -353,11 +365,10 @@ fn keyword(inside: &str, whole: &str) -> Source {
         "self" => return Source::SameOrigin,
         "unsafe-inline" => return Source::UnsafeInline,
         "strict-dynamic" => return Source::StrictDynamic,
-        "unsafe-eval"
-        | "wasm-unsafe-eval"
-        | "unsafe-hashes"
-        | "report-sample"
-        | "inline-speculation-rules" => return Source::Inert(folded),
+        "unsafe-hashes" => return Source::UnsafeHashes,
+        "unsafe-eval" | "wasm-unsafe-eval" | "report-sample" | "inline-speculation-rules" => {
+            return Source::Inert(folded);
+        }
         _ => {}
     }
     if let Some(value) = after_prefix(inside, "nonce-") {
@@ -525,6 +536,31 @@ mod tests {
             Source::parse("'WASM-Unsafe-Eval'"),
             Source::Inert("wasm-unsafe-eval".to_owned()),
             "a keyword folds case",
+        );
+    }
+
+    /// It was inert until queue item 191 and is a source of its own now, so the
+    /// two spellings are asserted here rather than left to the directive that
+    /// reads it: a policy whose `'UNSAFE-HASHES'` came back unreadable would
+    /// refuse a `style` attribute its author deliberately allowed.
+    #[test]
+    fn the_keyword_that_lets_a_hash_reach_an_attribute_is_read() {
+        assert_eq!(Source::parse("'unsafe-hashes'"), Source::UnsafeHashes);
+        assert_eq!(Source::parse("'UNSAFE-HASHES'"), Source::UnsafeHashes);
+        assert_eq!(
+            Source::parse("'unsafe-hashes'").to_string(),
+            "'unsafe-hashes'",
+        );
+        assert!(
+            !Source::UnsafeHashes.matches(
+                &url("https://example.com/x.css"),
+                &page("https://example.com/")
+            ),
+            "the keyword permitted a URL: it is a permission to hash, not a place",
+        );
+        assert!(
+            !Source::UnsafeHashes.matches_content(b".banner { display: none }"),
+            "the keyword permitted content on its own, without a digest beside it",
         );
     }
 

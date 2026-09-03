@@ -190,10 +190,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   named, in either base64 alphabet. A digest that mixes the two alphabets, sets
   bits that stand for no byte, or is the wrong length for the algorithm it names
   allows nothing: a hash source is a permission, and every laxness in reading one
-  is a policy wider than its author wrote. Content with no element of its own — a
-  `style` attribute, an event handler — is not hashed at all, because matching
-  those by hash is what `'unsafe-hashes'` enables and this engine does not act on
-  that keyword
+  is a policy wider than its author wrote
+- [2] **A `style` attribute allowed by its digest, and only where the page said
+  `'unsafe-hashes'`** — content with no element of its own is the shape an
+  injection most often takes, so a hash written for a `<style>` element never
+  reaches one on its own. The keyword has to be in the directive that decides,
+  it allows nothing by itself, and a refusal that names it says *no digest
+  applies here*, which is a different thing to be told than *your digest does
+  not match*
 - [2] **A directive this engine does not act on is named** rather than assumed
   to be protecting the page
 - [2] **A violation is reported to whoever the policy named** — `report-uri`

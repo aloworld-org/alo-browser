@@ -6,6 +6,25 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A `style` attribute can be allowed by its digest, where the page asked for
+  that in words.** A Content Security Policy that names a hash now reaches
+  content with no element of its own — a `style` attribute today, an event
+  handler when there are events — but only where the same directive also says
+  `'unsafe-hashes'`. That is the specification's rule, and the reason for it is
+  worth the extra keyword: a `<style>` element is something an author wrote
+  once, and a `style` attribute is the shape an injection most often takes, so
+  the permission is one to ask for rather than one to inherit from a hash
+  written for something else.
+
+  The keyword grants nothing on its own — it says that the hashes beside it may
+  apply, so a policy with the keyword and no digest allows no attribute at all.
+  It has to be in the **directive that decides**: one written into `default-src`
+  while `style-src` decides is not this page allowing an attribute, and a second
+  policy in a second header cannot add it to the first one's hash. And a refusal
+  now says which of three things went wrong, the new one being *no digest allows
+  this here*, which sends an author to a different place than *your digest does
+  not match*.
+
 - **A page can allow one exact stylesheet, and nothing else.** A Content
   Security Policy may permit inline content by naming its digest —
   `style-src 'sha256-…'` — and until now this engine read that sentence,

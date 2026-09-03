@@ -677,6 +677,7 @@ mod tests {
             told,
             refusal: Refusal::Inline {
                 kind: crate::csp::Inline::Script,
+                placement: crate::csp::Placement::Element,
                 directive: "script-src".to_owned(),
                 allows: vec!["'self'".to_owned()],
                 by_hash: crate::csp::ByHash::NotNamed,

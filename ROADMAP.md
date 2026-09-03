@@ -287,11 +287,17 @@ unreachable without it.
       the digest of its own inline stylesheet allows that stylesheet and refuses
       every other one, in either base64 alphabet, with a value that mixes the
       alphabets or is the wrong length allowing nothing — a hash source is a
-      permission, so reading one loosely is a policy wider than its author wrote
+      permission, so reading one loosely is a policy wider than its author wrote.
+      **A `style` attribute can be allowed by its digest** (queue item 191),
+      where the deciding directive also says `'unsafe-hashes'` — the keyword
+      grants nothing on its own, does not reach out of the directive it was
+      written in, and a policy without it refuses an attribute whose digest it
+      names, because content with no element of its own is the shape an
+      injection takes
       · Owed: **a nested document**, which is what `frame-src` needs and which
-      nothing here can yet tell from a link click (queue item 86); and
-      `'unsafe-hashes'`, so that a `style` attribute can be allowed by its
-      digest — read and not acted on today, and named as such in a refusal
+      nothing here can yet tell from a link click (queue item 86); and an
+      **event handler** matched by its hash, which is the same rule as the
+      `style` attribute and waits only for there to be handlers (queue item 81)
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action, caused it. No other engine has needed to answer that, and an agent-driven browser that cannot is one nobody should trust

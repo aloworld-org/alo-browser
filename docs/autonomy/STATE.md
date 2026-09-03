@@ -5986,3 +5986,100 @@ by name, which item 68's corpus case is the standing evidence for), **64** and
 much of which `alo_url::site` already answers since item 156), **190** (the
 two-tone border styles — small, depends on nothing, and closes with a picture),
 and **191** above, which is small and whose second half waits on item 81.
+
+---
+
+## Iteration 86 — queue item 191: `'unsafe-hashes'`
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** This item was
+the first ready one in stage 2's file order, and the previous iteration named it
+as such: 157 and 158 need an interface to choose in, 169 says in itself that it
+must be run on Linux, 187 says in itself to wait for an upload that wants it,
+and 60 is HTTP/3.
+
+**What was built.** Item 189 taught this engine to compute a content hash, and
+left one thing it would not hash: content with no element of its own — a `style`
+attribute, an event handler. Matching one of those by digest is exactly what
+`'unsafe-hashes'` enables, the keyword was read and inert, and so
+`Policies::allows_inline` took `None` for such content and refused it by name.
+It matches one now, and only where the page asked for it in words. The item's
+condition is closed in `crates/alo-net/tests/a_hash_a_policy_named.rs`:
+`a_style_attribute_needs_the_keyword_as_well_as_the_digest` runs the same
+digest under two policies, and the keyword is the whole difference between them.
+
+**The shape is the thing worth reading rather than the keyword.** *Where*
+content was written became a type of its own — `csp::Placement`, reached through
+`csp::Content::element` and `csp::Content::attribute` — beside the `Inline` kind
+that was already there. They are separate because they answer different
+questions: the kind chooses `script-src` or `style-src`, and the placement
+decides whether a hash in that directive may apply at all. Folding them into one
+four-member enum, the way the specification names its own type ("script",
+"style", "script attribute", "style attribute"), would have meant adding a
+member nothing can construct until item 81.
+
+So **the event handler half needed no code and no case**, which was the right
+answer to a half the item told this iteration to leave alone: an event handler
+is `Inline::Script` with `Content::attribute`, item 81 will pass it without
+changing anything here, and what is genuinely owed to 81 is a handler to pass
+rather than a rule to write. The message already says "an event handler" for
+that pair, and a unit test asserts it, because a total function over four cases
+is cheaper to test than to leave for later.
+
+**Three rules went in with it, each because the alternative widens somebody's
+policy**, and each has a test named for it:
+
+- The keyword **grants nothing on its own**. It is a permission to *hash*, not a
+  permission, so `style-src 'unsafe-hashes'` with no digest beside it allows no
+  attribute at all — which is what stops it being `'unsafe-inline'` spelt
+  differently.
+- It is read from the **deciding directive** rather than from anywhere in the
+  policy. `default-src 'unsafe-hashes'; style-src 'sha256-…'` does not allow the
+  attribute that `style-src` decided about: the keyword is a source expression,
+  so the list that decides is the deciding directive's own, and reading it
+  otherwise would let a keyword in one sentence widen another.
+- Two policies stay an **intersection**, so a second header cannot add the
+  keyword to the first one's hash.
+
+**`ByHash::NothingToHash` became `ByHash::NotWithoutTheKeyword`**, and that is a
+correction rather than a rename. The old name was true when nothing was hashed;
+now there is always something to hash and the honest sentence is *no digest
+applies here* — the digest may well match, and the test asserts exactly that
+case: the same content refused as an attribute while its digest is in the
+policy, with the message not saying "byte for byte", because sending an author
+to recompute a digest that is already right is worse than saying nothing.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1530 tests** (up from 1525), no stubs, no `unsafe`, boundaries held —
+nothing was rented — the licence notice, and a `CHANGELOG.md` line. The half no
+script can check: no layout assertion and no reference render, because nothing
+here positions, sizes or draws; one file one responsibility — `csp_source.rs`
+reads `'unsafe-hashes'` as a source and `csp.rs` acts on it, which is the split
+those two files already had, because the keyword says nothing about any one
+source expression and everything about the list it is in; and the item is in
+`docs/features.md`.
+
+**`ROADMAP.md`.** The line moved is *"Content Security Policy, referrer policy,
+HSTS, mixed-content blocking"*, whose `· Built:` clause gains the `style`
+attribute and whose `· Owed:` clause loses `'unsafe-hashes'`. **It is still not
+ticked**: what remains owed is a nested document (item 86) and an event handler
+matched by its hash, which is now waiting on item 81 rather than on this rule.
+
+**What the next iteration should know.** The signature changed again, in the
+same place as last time: `Policies::allows_inline` and
+`Policies::inline_violations` take a `Content` rather than an `Option<&str>`,
+and choosing the wrong constructor is the way to widen a policy silently — which
+is why it is two named constructors rather than a `bool`. There are still **no
+callers**: this remains the fourth built-and-uncalled security surface in
+`alo-net`, after `Preflights`, `Policies` and `Pool::report`, all four waiting on
+a fetch pipeline, which is **item 83**, behind the whole of section D.
+
+Section B now has nothing ready in it. Every unticked item there is blocked or
+deferred for a reason written into the item: 157 and 158 need an interface to
+choose in, 169 must be run on Linux, 187 waits for an upload that wants it, 60
+is HTTP/3, and 67 needs an ADR. So the ready items in stage 2's file order are
+**170** (fonts a page asks for by name, which item 68's corpus case is the
+standing evidence for), **64** and **65** (the renderer lifecycle, both
+depending on 63 which is done), **66** (where one site ends and another begins —
+much of which `alo_url::site` already answers since item 156, so it should be
+read before it is built), and **190** (the two-tone border styles: small,
+depends on nothing, and closes with a picture).
