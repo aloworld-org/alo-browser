@@ -44,7 +44,7 @@ declare -a BOUNDARIES=(
   "jpeg_decoder:crates/alo-paint/src/picture.rs"
   "url:crates/alo-url/src/parse.rs"
   "psl:crates/alo-url/src/site.rs"
-  "encoding_rs:crates/alo-net/src/encoding.rs"
+  "encoding_rs:crates/alo-net/src/encoding.rs,crates/alo-text/src/macintosh.rs"
   "rustls:crates/alo-net/src/tls.rs"
   "flate2:crates/alo-net/src/decompress.rs"
   "brotli_decompressor:crates/alo-net/src/decompress.rs"

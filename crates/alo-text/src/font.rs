@@ -283,35 +283,94 @@ use rustybuzz::ttf_parser;
 /// [`None`] for bytes that are not a font, and for one whose names are all
 /// unreadable — both real answers about a file, and neither a reason to fail.
 ///
-/// **Unreadable is more common than it sounds**, and the direction it fails in
-/// is the safe one. A font carrying its name only in an old platform-specific
-/// encoding — several of the ones macOS ships do — answers [`None`] here, so a
-/// page asking for it by name is told the machine does not have it and gets a
-/// substitution it can see. The alternative, falling back to the filename,
-/// would put the guess back inside the one answer that must be a fact.
+/// # A name written before Unicode
+///
+/// A `name` table holds the same name once per platform that was ever expected
+/// to read it, and a font that carries **only** the Macintosh records — several
+/// of the ones macOS ships do — used to answer [`None`] here. The machine had
+/// the font, the engine said it did not, and a page asking for it by name got a
+/// substitution nobody could explain. [`crate::macintosh`] reads those records
+/// now, for the two encodings a rented table defines exactly and no others.
+///
+/// **A Unicode name still wins wherever a font has one**, which is what keeps
+/// this from changing the answer for any font that already had a readable name:
+/// a Macintosh record comes first in a well-formed table, and Mac OS Roman
+/// cannot spell every family that UTF-16 can.
+///
+/// The alternative to all of this — falling back to the filename — was refused
+/// deliberately. It would put a guess back inside the one answer that must be a
+/// fact.
+///
+/// # A name is text a person could type
+///
+/// The bytes were written by somebody else, so two rules apply to every record
+/// whatever it is encoded in: a name longer than [`LONGEST_NAME`] is not a
+/// family name, and neither is one carrying a control character. Both are
+/// skipped rather than trimmed into shape — a name half-cleaned is a name that
+/// matches something by accident.
 pub fn family_in(data: &[u8]) -> Option<String> {
     let face = ttf_parser::Face::parse(data, 0).ok()?;
-    let mut typographic: Option<String> = None;
-    let mut family: Option<String> = None;
+    let mut stated = Stated::default();
     for name in face.names() {
-        let held = match name.name_id {
-            ttf_parser::name_id::TYPOGRAPHIC_FAMILY => &mut typographic,
-            ttf_parser::name_id::FAMILY => &mut family,
-            _ => continue,
-        };
-        if held.is_some() {
+        if name.name.len() > LONGEST_NAME {
             continue;
         }
-        // A name in an encoding this parser cannot read is skipped rather than
-        // fatal: a font commonly carries the same name several times over, and
-        // one unreadable copy says nothing about the next.
-        if let Some(text) = name.to_string()
-            && !text.trim().is_empty()
-        {
-            *held = Some(text.trim().to_owned());
+        // A name in an encoding nobody here reads is skipped rather than fatal:
+        // a font commonly carries the same name several times over, and one
+        // unreadable copy says nothing about the next.
+        let (text, unicode) = match name.to_string() {
+            Some(text) => (text, true),
+            None => match name.platform_id {
+                ttf_parser::PlatformId::Macintosh => {
+                    match crate::macintosh::text(name.encoding_id, name.name) {
+                        Some(text) => (text, false),
+                        None => continue,
+                    }
+                }
+                _ => continue,
+            },
+        };
+        let text = text.trim();
+        if text.is_empty() || text.chars().any(char::is_control) {
+            continue;
+        }
+        let held = match (name.name_id, unicode) {
+            (ttf_parser::name_id::TYPOGRAPHIC_FAMILY, true) => &mut stated.typographic,
+            (ttf_parser::name_id::TYPOGRAPHIC_FAMILY, false) => &mut stated.typographic_legacy,
+            (ttf_parser::name_id::FAMILY, true) => &mut stated.family,
+            (ttf_parser::name_id::FAMILY, false) => &mut stated.family_legacy,
+            _ => continue,
+        };
+        if held.is_none() {
+            *held = Some(text.to_owned());
         }
     }
-    typographic.or(family)
+    stated
+        .typographic
+        .or(stated.typographic_legacy)
+        .or(stated.family)
+        .or(stated.family_legacy)
+}
+
+/// The most bytes a name record may be and still be a family name.
+///
+/// "Helvetica Neue" is fourteen and the longest family anybody ships is a small
+/// multiple of that. This is room for all of them in UTF-16, and a bound
+/// because the number is otherwise chosen by whoever wrote the font file.
+pub const LONGEST_NAME: usize = 512;
+
+/// What a font said about itself, before the order below is applied to it.
+///
+/// Four slots rather than two, because *which* name and *how readable* it is
+/// are separate questions and each has its own answer. The typographic name
+/// wins because it is the family CSS means; a Unicode record wins within each
+/// because it can spell names the older encodings cannot.
+#[derive(Default)]
+struct Stated {
+    typographic: Option<String>,
+    typographic_legacy: Option<String>,
+    family: Option<String>,
+    family_legacy: Option<String>,
 }
 
 #[cfg(test)]

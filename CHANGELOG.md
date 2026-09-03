@@ -6,6 +6,27 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A font is called what it says it is called, in every encoding it may say it
+  in.** A font file states its family in its own `name` table, once per platform
+  that was ever expected to read it. Nearly every font carries a Windows record
+  in Unicode; several of the ones macOS ships — Apple Braille among them — carry
+  only the older Macintosh records, which are not Unicode. Those were unreadable
+  here, so a page asking for such a family by name was told the machine did not
+  have it, and drawn in something else, on a machine that had it.
+
+  Mac OS Roman and Mac OS Cyrillic are read now. The other twenty Macintosh
+  encodings are still not, and deliberately: Mac OS Japanese is close to Shift
+  JIS and is not Shift JIS, and a family read wrongly is worse than one not read
+  — it is a name a page can match by accident. A Unicode name still wins
+  wherever a font has one, so no font that already had a readable name changed
+  its answer.
+
+  With that, **nothing anywhere takes a font's family from its filename**. The
+  browser process used to, for the short list it hands each renderer at startup,
+  on the argument that opening every font on the machine to ask would be slow —
+  and it already reads every one of those files, so asking costs a table rather
+  than an open.
+
 - **A page that asks for a font by name is either given it or told it was not.**
   A renderer is confined and cannot open a font file, so it starts with whatever
   short list the browser process found and hands over. Until now a page asking

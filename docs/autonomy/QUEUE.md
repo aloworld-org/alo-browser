@@ -1076,7 +1076,7 @@ wrong, which is the argument for the fourth.
   `system-ui`, fell off the end of the chain, and said nothing. Two cuts: items
   192 and 193.
 
-- [ ] **192. A font whose name is only in a legacy platform encoding.** Cut
+- [x] **192. A font whose name is only in a legacy platform encoding.** Cut
   from 170. `alo_text::family_in` reads the `name` table and answers [`None`]
   for a font that carries its name only in an old Macintosh encoding — several
   that macOS ships do, Apple Braille among them. Such a family cannot be found
@@ -1088,6 +1088,57 @@ wrong, which is the argument for the fourth.
   *Depends on 170. Closes when:* a font naming itself only in a legacy encoding
   is found by the name a person would type, in a test that names the encoding
   — and nothing anywhere returns a filename as a font's family.
+
+  **Done, both clauses, and the rule that decided the scope is
+  `alo-text/src/macintosh.rs`'s whole reason to exist: read the encodings
+  somebody else's table defines exactly, and guess at none of them.** Mac OS
+  Roman and Mac OS Cyrillic are `macintosh` and `x-mac-cyrillic` in the WHATWG
+  standard, so `encoding_rs` — already rented for a page's bytes, now rented for
+  a font's name — holds Apple's own tables for those two. The other twenty
+  Macintosh encodings have no such table: Mac OS Japanese is close to Shift JIS
+  and is not Shift JIS, and a family read *wrongly* is worse than one not read,
+  because it is a name a page can match by accident. They answer nothing, which
+  is what every Macintosh record did before.
+
+  **A Unicode name wins wherever a font has one**, which is what keeps this from
+  changing the answer for any font that already had a readable one: a Macintosh
+  record comes first in a well-formed table, so reading in file order would have
+  quietly demoted every font that carries both. Two rules went in beside it,
+  applied to every record whatever its encoding, because the bytes were written
+  by somebody else: a name longer than `LONGEST_NAME` is not a family name, and
+  neither is one carrying a control character.
+
+  The tests build their fonts rather than looking for one, in
+  `crates/alo-text/tests/a_font_that_names_itself_in_an_old_encoding.rs`: a real
+  font with its `name` table replaced byte by byte, so the encoding is named in
+  the bytes — `0xD5` is a right single quote in Mac OS Roman and `Õ` in Latin-1,
+  and a test written in ASCII would have passed either way. A table lying about
+  its own lengths, every truncation of one, and every single flipped bit of one
+  are answers rather than crashes.
+
+  **The second clause was the cheaper half and the more surprising one.**
+  `fonts::from_file` named a face after its *file*, on the argument that a
+  startup database is only a guess about what to look at and that opening every
+  font to ask would be most of a second — and it already reads every one of
+  those files, because ADR 0010 makes a face bytes rather than a path. So the
+  cost was a `name` table rather than an open, and the argument had been wrong
+  since the day the sandbox landed. The cut is item 194.
+
+- [ ] **194. A face's weight and slant, from the font rather than from its
+  filename.** Cut from 192, which took the *family* off the filename and put it
+  back where it belongs. The other two fields of a `Face` are still guessed at
+  by looking for `bold` and `italic` in the file's name, which is wrong for
+  every file somebody named by another convention — `Helvetica-Oblique`,
+  `InterDisplay-SemiBold`, a variable font with a weight axis and no word for
+  it. It is a smaller wrong than the family was: a face filed under the wrong
+  weight is still drawn in the right family, because `FontDatabase` chooses
+  among the faces of the family it has, where a face filed under the wrong
+  family is not drawn at all. The `OS/2` table states both properly, and
+  `alo-text/src/font.rs` already parses that face.
+  *Depends on 192. Closes when:* a font stating a weight and a slant is filed
+  under them whatever its file is called, in a test that names a file wrongly on
+  purpose — and a font that states neither is still a face rather than nothing,
+  since a family of one unlabelled face is most of the fonts on a machine.
 
 - [ ] **193. What a generic family means on this machine.** Cut from 170, and
   it is the gap that item made visible. `FontDatabase::map_generic` exists and

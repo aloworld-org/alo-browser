@@ -154,8 +154,15 @@ unreachable without it.
       families it wanted and did not have, the browser process finds each on the
       machine by the name the font gives itself, and a family that is genuinely
       not there is a substitution said in words rather than a silence
-      · Owed: the Linux sandbox, queue item 169; and what a *generic* family
-      means on this machine, which nothing tells a renderer — queue item 193
+      **And the name the font gives itself is read in the encodings older than
+      Unicode** (queue item 192): the Macintosh records several of the fonts
+      macOS ships carry *instead* of a Unicode one, so a machine that has Apple
+      Braille no longer says it does not — and with it, no family anywhere comes
+      from a filename
+      · Owed: the Linux sandbox, queue item 169; what a *generic* family means
+      on this machine, which nothing tells a renderer — queue item 193; and a
+      face's weight and slant, which are still read off its filename — queue
+      item 194
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
       than leaving a blank rectangle (queue item 166). It is not restarted
       silently, because that hides a bug somebody needs to see

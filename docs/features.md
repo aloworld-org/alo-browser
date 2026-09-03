@@ -165,6 +165,12 @@ The reason this exists rather than a faster fork of somebody else's engine.
   its file, and sends over what it finds. A family that genuinely is not on the
   machine comes back named, and the page says in words what it was drawn in
   instead — never a stable render nobody can explain
+- [2] **A font's own name, read in the encodings older than Unicode** — the
+  Macintosh `name` records several of the fonts macOS ships carry *instead* of a
+  Unicode one, in Mac OS Roman and Mac OS Cyrillic. The other Macintosh
+  encodings are read by nobody here rather than guessed at as their near
+  relatives, and a Unicode name wins wherever a font has one. No family anywhere
+  comes from a filename
 - [2] **Renderers confined by the platform's own sandbox** (macOS) — no file
   read, no write, no socket, each watched failing rather than assumed
 - [2] **One renderer process per site** — two sites are two processes, and

@@ -163,6 +163,7 @@ dependencies = [
  "alo-layout",
  "alo-style",
  "dejavu",
+ "encoding_rs",
  "rustybuzz",
  "unicode-linebreak",
  "unicode-script",

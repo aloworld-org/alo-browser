@@ -198,6 +198,38 @@ fn the_browser_process_finds_fonts_on_this_machine() {
     );
 }
 
+/// A face is named by the font rather than by the file it came out of.
+///
+/// Queue item 192's second half. `from_file` took the family from the filename
+/// until this test, on the argument that a database is a guess about what to
+/// look at — but a guess about *what a font is called* is what decides whether
+/// a page is drawn as its author wrote it, and the bytes are already in hand by
+/// the time the question is asked.
+#[test]
+fn a_font_is_named_by_itself_and_never_by_its_filename() {
+    let place = std::env::temp_dir().join(format!("alo-named-{}", std::process::id()));
+    std::fs::create_dir_all(&place).expect("a temporary directory");
+    let path = place.join("Definitely-Not-The-Family-Name.ttf");
+    std::fs::write(&path, dejavu::sans::regular()).expect("a font written to it");
+
+    let face = fonts::from_file(&path).expect("a real font read back");
+    assert_eq!(
+        face.family, "DejaVu Sans",
+        "the face was named after the file rather than after the font",
+    );
+
+    // A file that is not a font is not a face, rather than a face called
+    // whatever the file was called.
+    let rubbish = place.join("Helvetica.ttf");
+    std::fs::write(&rubbish, b"this is not a font").expect("some bytes written");
+    assert!(
+        fonts::from_file(&rubbish).is_none(),
+        "a file with a font's name on it was taken for a font",
+    );
+
+    std::fs::remove_dir_all(&place).ok();
+}
+
 /// A machine's own fonts, through the boundary, drawing a page. If the family
 /// naming or the byte carrying were wrong anywhere, this is where it would
 /// show.

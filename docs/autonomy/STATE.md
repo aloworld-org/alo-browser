@@ -6200,3 +6200,119 @@ exist in `host.rs`, so they should be read before they are built), **66** (where
 one site ends and another begins, much of which `alo_url::site` answers since
 item 156), **190** (the two-tone border styles: small, depends on nothing, and
 closes with a picture), and the two cut above, **192** and **193**.
+
+---
+
+## Iteration 88 — queue item 192: a font whose name is only in an old encoding
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** This item is
+the first ready one in stage 2's file order — it and 193 are the cuts the
+previous iteration wrote in, and they sit above 64 in the file. 187 waits for an
+upload that wants it, 157 and 158 need an interface, 169 must be run on Linux.
+
+**What was built.** A font states its family in its own `name` table, once per
+platform that was ever expected to read it. Nearly every font carries a Windows
+record in UTF-16, which is Unicode; several of the ones macOS ships — Apple
+Braille among them — carry **only** the Macintosh records, which are not. Those
+were unreadable here, so `family_in` answered `None`, the browser process
+reported the family as absent, and a machine that had the font said it did not.
+
+**The rule that decided the scope is the new file's whole reason to exist: read
+the encodings somebody else's table defines exactly, and guess at none of
+them.** Mac OS Roman and Mac OS Cyrillic are `macintosh` and `x-mac-cyrillic` in
+the WHATWG standard, so `encoding_rs` holds Apple's own tables for those two —
+the same crate `alo-net` already rents for a page's bytes, rented one layer away
+for a font's name, and `crates/alo-text/src/macintosh.rs` is its second
+boundary file in `scripts/gate.sh`. The other twenty Macintosh encodings have no
+such table. Mac OS Japanese is close to Shift JIS and is not Shift JIS, and
+decoding one as the other would put a character Apple never wrote into somebody's
+font name: **a family read wrongly is worse than a family not read**, because it
+is a name a page can match by accident. They answer nothing, which is exactly
+what every Macintosh record did before this iteration — so the direction the
+engine fails in has not changed, only how often it fails.
+
+**A Unicode name wins wherever a font has one.** This is the rule that keeps the
+change from touching any font that already had a readable name, and it is not
+the obvious implementation: a Macintosh record comes **first** in a well-formed
+table, so reading in file order would have quietly demoted every font carrying
+both — and Mac OS Roman cannot spell a family that UTF-16 can, so the demotion
+would have been a worse name rather than a different one. `Stated` holds four
+slots rather than two because *which* name and *how readable* it is are separate
+questions: the typographic name wins because it is the family CSS means, and a
+Unicode record wins within each because it can spell more.
+
+**Two rules went in beside it, applied to every record whatever its encoding**,
+because a font file was written by somebody else: a name longer than
+`LONGEST_NAME` is not a family name, and neither is one carrying a control
+character. Both skip rather than trim — a name half-cleaned is a name that
+matches something by accident, which is the same sentence as the paragraph
+above and is why they are here rather than in a later item.
+
+**The tests build their fonts rather than looking for one.** A test that went
+hunting for Apple Braille would pass on one machine, skip on every other, and
+say nothing about *which* encoding was read. So each case takes a real font and
+replaces its `name` table byte by byte, and the encoding is named in the bytes:
+`0xD5` is a right single quote in Mac OS Roman and `Õ` in Latin-1, so a decoder
+that had quietly fallen back to Latin-1 fails, where a test written in ASCII
+would have passed either way. The hostile half is the other reason to build the
+tables: a table lying about its own lengths, every truncation of one, and every
+single flipped bit of one are answers rather than crashes — and the same sound
+table still reads at the end, which is what stops that test passing because
+nothing was looked at.
+
+**The second clause was the cheaper half and the more surprising one.**
+`fonts::from_file` named a face after its **file**, and the argument written
+beside it was that a startup database is only a guess about what to look at and
+that opening every font on the machine to ask would be most of a second before
+the first page. The second half of that was wrong, and had been since ADR 0010:
+`from_file` reads the whole file already, because a confined renderer cannot
+open one and a face is therefore bytes rather than a path. So asking the font
+costs a `name` table parse rather than an open. Nothing anywhere returns a
+filename as a family now, `named` compares one name rather than deriving a
+second, and a font stating no readable family is skipped — a real answer about a
+file, since nothing could ever ask for it by name.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1573 tests** (up from 1558), no stubs, no `unsafe`, boundaries held —
+`encoding_rs` gained `crates/alo-text/src/macintosh.rs` and is named in no other
+new place — the licence notice, and a `CHANGELOG.md` line. The half no script
+can check: no layout assertion and no reference render, because **nothing here
+positions, sizes or draws** — this item changes which name a font is filed
+under, and the strongest evidence of that is the twenty-four committed renders
+that did not move; one file one responsibility — `macintosh.rs` holds only the
+question of what a byte means in an encoding older than Unicode, and `font.rs`
+keeps the question of which of a font's names is its family; and the item is in
+`docs/features.md`.
+
+One thing worth knowing about the lints: the panic family is permitted **in test
+functions**, which clippy decides by the `#[test]` attribute, so a helper in a
+`tests/` file is held to exactly what `src` is. The fixture builders here read
+with `get` and convert with `unwrap_or`, and the honest note is in their own
+documentation: a table too large to write down would fail the test's own
+assertion, which is a better report than a helper's panic.
+
+**`ROADMAP.md`.** The line moved is the process-and-sandbox one again, whose
+`· Built:` clause gains item 192 beside 168 and 170 — the browser process finds
+a font by the name the font gives itself, and now reads that name whatever
+encoding it is in. **It is still not ticked**, and its `· Owed:` clause gained
+item 194 beside the Linux sandbox and item 193.
+
+**What the next iteration should know.** One cut, and it is deliberately small:
+
+- **Item 194.** A `Face`'s weight and slant are still guessed from the filename,
+  by looking for `bold` and `italic` in it. That is wrong for every file named
+  by another convention, and it is a *smaller* wrong than the family was: a face
+  filed under the wrong weight is still drawn in the right family, because
+  `FontDatabase` chooses among the faces of the family it holds. The `OS/2`
+  table states both, and `font.rs` already parses that face — so this is an
+  hour's work whenever somebody's page is drawn in the wrong weight.
+
+The ready items in stage 2's file order are now **193** (what a generic family
+means on this machine — the gap item 170 made audible, and the one of these that
+a real page hits every time, since the user-agent sheet's own `font-family:
+system-ui, sans-serif` reaches every page as two families nobody has), **194**
+(cut above), **64** and **65** (the renderer lifecycle, both depending on 63
+which is done — and much of both may already exist in `host.rs`, so they should
+be read before they are built), **66** (where one site ends and another begins,
+much of which `alo_url::site` answers since item 156), and **190** (the two-tone
+border styles: small, depends on nothing, and closes with a picture).

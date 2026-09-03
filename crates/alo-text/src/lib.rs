@@ -25,6 +25,10 @@
 //! - **Shaping** is `rustybuzz`, and [`shape`] is the only file that names it.
 //! - **Where a line may break** is `unicode-linebreak` — UAX #14, a table —
 //!   and [`linebreak`] is the only file that names it.
+//! - **Which byte is which character in an encoding older than Unicode** is
+//!   `encoding_rs`, and `macintosh` is the only file that names it. It exists
+//!   because a font may state its own name in one of those encodings, and a
+//!   font whose name nobody can read is a font no page can ask for.
 //! - **Which font, and what to do when it lacks the character**, is ours:
 //!   [`database`]. That is a policy question rather than a physics one.
 //! - **Where a line does break** is ours: [`line`]. Take the last opportunity
@@ -49,12 +53,13 @@ pub mod database;
 pub mod font;
 pub mod line;
 pub mod linebreak;
+mod macintosh;
 pub mod measure;
 pub mod run;
 pub mod shape;
 
 pub use database::{Absent, FontDatabase, Instead};
-pub use font::{FaceMetrics, Font, FontRequest, Slant, Weight, family_in};
+pub use font::{FaceMetrics, Font, FontRequest, LONGEST_NAME, Slant, Weight, family_in};
 pub use line::{Line, Paragraph, lay_out, measure_unwrapped};
 pub use linebreak::{BreakPoint, opportunities};
 pub use measure::TextMeasurer;

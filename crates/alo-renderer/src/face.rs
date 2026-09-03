@@ -35,11 +35,15 @@ pub const MOST_FONTS: usize = 24;
 /// One font, as bytes and what to file them under.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Face {
-    /// The family the browser process believes this is.
+    /// The family this font states about itself.
     ///
-    /// A belief rather than a fact — it usually comes from a filename — which
-    /// is why [`crate::message::FromRenderer::UsingFont`] says what the family
-    /// turned out to be rather than echoing this back.
+    /// `crate::fonts` fills it from the font's own `name` table rather than
+    /// from the name of the file, because a filename is somebody's convention
+    /// and a page asks by the name the font carries. It stopped being a belief
+    /// with queue item 192; [`crate::message::FromRenderer::UsingFont`] still
+    /// says what a renderer drew with rather than echoing this back, because a
+    /// renderer chooses among the faces it was given and the choice is the
+    /// interesting half.
     pub family: String,
     /// How heavy.
     pub weight: u16,
