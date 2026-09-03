@@ -6,6 +6,26 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A font that holds many weights is drawn at the one a page asked for.** A
+  variable font is a single file covering a range — most of what macOS ships is
+  one, its system font included — and this engine read only the single weight
+  such a file states in its `OS/2` table. So `SFCompact.ttf` was filed as the
+  blackest face CSS can name because it says 1000, and `SFNSMono.ttf` had no
+  bold at all because it says 295.
+
+  The `wght` axis is read now, as the range it covers. One file answers a
+  request for 400 and a request for 700; the weight it is set to reaches the
+  shaper, the measuring and the outlines together, so text is drawn in the face
+  it was measured in. A page asking for something past either end of the axis
+  gets the end rather than a refusal.
+
+  One axis, deliberately: width, slant and optical size are separate CSS
+  properties with grammars of their own, and a font is not narrower because this
+  engine assumed an axis it had not looked at. And an axis that is not written
+  in CSS's scale is left alone — this machine's `Skia.ttf` runs from 1 to 3,
+  which predates `wght` having a shared meaning, and reading it as CSS numbers
+  would draw every page of ordinary text in the blackest thing that file has.
+
 - **A font is filed under the name a page would ask for it by, not the first
   name in its file.** A font states its family once per language: macOS's system
   font states it thirty-five times, in Catalan, Japanese, Russian and thirty-two

@@ -172,9 +172,13 @@ unreachable without it.
       table states the same family once per language, so the unlocalised record
       wins where there is one and English wins over every translation — four of
       this machine's fonts were filed under Chinese names until it did
-      · Owed: the Linux sandbox, queue item 169; and a variable font read as the
-      range of weights it really holds rather than the one instance it names —
-      queue item 196
+      **And a font that is many weights rather than one** (queue item 196): the
+      `wght` axis is read as the range it covers, so one file answers a request
+      for 400 and a request for 700 and is shaped, measured and outlined at the
+      weight it was set to — twenty-eight of this machine's fonts are such a
+      file, its system font among them
+      · Owed: the Linux sandbox, queue item 169; and the axes that are not
+      weight — width, slant and optical size — which are queue item 197
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
       than leaving a blank rectangle (queue item 166). It is not restarted
       silently, because that hides a bug somebody needs to see

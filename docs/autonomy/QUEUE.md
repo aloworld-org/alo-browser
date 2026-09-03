@@ -1166,7 +1166,7 @@ wrong, which is the argument for the fourth.
   1000 for its compact one, and `.SF NS Mono` had been filed at 400. The cut is
   item 196.
 
-- [ ] **196. A variable font is one file and many weights.** Found by 194,
+- [x] **196. A variable font is one file and many weights.** Found by 194,
   which reads a face's weight out of `OS/2` and thereby reads *one* weight out
   of a file that holds a continuum. macOS's `SFCompact.ttf` has a `wght` axis
   and states 1000, so this engine files the whole family as the heaviest thing
@@ -1180,6 +1180,50 @@ wrong, which is the argument for the fourth.
   two different widths of text, in a layout assertion — and a font with a `wght`
   axis reports the range it covers rather than the one instance its `OS/2`
   names.
+
+  **Done, both clauses, and the decision the item was waiting for is what a
+  weight *is*.** It stopped being a label and became an instruction: a
+  [`Font`]'s weight is the instance every face parsed out of its bytes is set
+  to, and `FontDatabase::chain` hands back fonts **set to the weight asked for**
+  rather than references to the ones it holds. That is why the return type
+  changed — the font a request gets from a variable file is not something the
+  database has. Distance is measured to what a face *can be* rather than to what
+  it is, which is the one rule the whole item turns on.
+
+  **It reaches three parsers of the same bytes and all three had to agree.**
+  Advances come from `HVAR`, outlines from `gvar`, and each is applied only once
+  the face has been told which instance it is — so a font measured at 700 and
+  drawn at 400 would put light letters at heavy spacing, which no width
+  assertion would have caught. `Font::face` and `Font::shaper` are both in
+  `font.rs` for that reason; `alo-paint` gets the number and the tag as plain
+  values, because the parser is rented behind one file in each crate.
+
+  **The fonts are built rather than found**, in both halves: a machine either
+  has a variable font or does not. `alo-text`'s case writes an `fvar` and an
+  `HVAR` into a real font and asserts what it measures; `alo-paint`'s writes an
+  `fvar` and a `gvar` and asserts that a letter's first point moves by exactly
+  the delta the file states. Two fonts rather than one on purpose — either half
+  would otherwise pass on the other's evidence.
+
+  **A survey of this machine is the review**: 28 of 370 readable fonts declare a
+  weight axis, the system font among them. One of them decided a rule.
+  `Skia.ttf` runs from **1 to 3** — an Apple axis older than `wght` having a
+  shared meaning, with `OS/2` stating 5 — and read as CSS numbers every request
+  would land on its heaviest end and ordinary text would come out black. An axis
+  ending below the lightest weight CSS has a word for is left alone, which is
+  the same refusal item 194 made one table earlier. The cut is item 197.
+
+- [ ] **197. The axes that are not weight**: `wdth`, `slnt`, `ital` and `opsz`.
+  Cut from 196, which reads `wght` and reads past the rest. Each is a separate
+  CSS property — `font-stretch`, `font-style: oblique <angle>`,
+  `font-optical-sizing` — with a grammar of its own, and guessing at one would
+  draw a page narrower or slanted because this engine assumed an axis nobody had
+  looked at. The machinery is in place: `Font::at_weight` and the tag crossing
+  to `alo-paint` as a value are the shape each of these takes.
+  *Depends on 196, and on the property it implements existing in `alo-style`.
+  Closes when:* `font-stretch: condensed` on a family with a `wdth` axis is
+  narrower text in a layout assertion, and a font whose axis is not in the
+  property's scale is left alone the way `Skia.ttf`'s is.
 
 - [x] **193. What a generic family means on this machine.** Cut from 170, and
   it is the gap that item made visible. `FontDatabase::map_generic` exists and

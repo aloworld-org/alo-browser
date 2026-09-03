@@ -6645,3 +6645,122 @@ item 156), **190** (the two-tone border styles: small, depends on nothing, and
 closes with a picture), and **196** (a variable font is one file and many
 weights, which is the one that needs a decision about what a face *is* before it
 needs code).
+
+---
+
+## Iteration 92 — queue item 196: a variable font is one file and many weights
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 196 is the
+first unticked item whose dependency is done — 194, which found it — and the
+previous entry named it as the one that needed a decision about what a face *is*
+before it needed code. That is the right description and this is the decision:
+**a weight stopped being a label and became an instruction.**
+
+A `Font`'s weight is now the instance every face parsed out of its bytes is set
+to. So `FontDatabase::chain` hands back fonts **set to the weight asked for**
+rather than references to the ones it holds, and the return type changed to say
+so: the font a request gets from a variable file is not something the database
+has. `Font::at_weight` is the one place that decides, and it is a clone of a
+shared `Arc` — for the ordinary one-weight face it is a clone and nothing else.
+
+**The rule the whole item turns on is one line in `best_match`**: a face's
+distance from a request is to what it *can be*, not to what it is. That is what
+makes one file a candidate at every weight in its range, and it is what item 196
+was really complaining about — `SFCompact.ttf` states 1000 in `OS/2`, so this
+engine had the whole family down as the blackest thing CSS can name.
+
+**It reaches three parsers of the same bytes and all three had to agree.**
+Advances come from a font's `HVAR` table, outlines from its `gvar`, and each is
+applied by the parser only once the face has been told which instance it is. A
+font measured at 700 and drawn at 400 puts light letters at heavy spacing —
+every word visibly loose, and no width assertion would have caught it. So
+`Font::face` and `Font::shaper` both live in `font.rs`, which is the file that
+knows which instance a font is; `alo-paint` gets the coordinate and the tag as
+**plain values** (`alo_text::WEIGHT_AXIS`), because the parser is rented behind
+one file in each crate and a tag written out twice is two chances to write it
+differently.
+
+**Two fonts were built, and building both was the point.** A machine either has
+a variable font or does not, so neither case looks for one.
+`alo-text/tests/a_font_that_is_many_weights.rs` writes an `fvar` and an `HVAR`
+into a real font and asserts what it *measures*;
+`alo-paint/tests/a_letter_at_a_weight.rs` writes an `fvar` and a `gvar` and
+asserts that a letter's first point moves by exactly the delta the file states.
+Deliberately two different fonts varying two different things: one fixture
+carrying both tables would let either half pass on the other's evidence. Both
+retag entries the font does not need — `FFTM` and `MATH` — so no offset in the
+file moves and neither test is secretly about rewriting a font.
+
+**The survey found the rule this item did not know it needed.** A throwaway test
+read every font in `/System/Library/Fonts`, `/System/Library/Fonts/Supplemental`
+and `/Library/Fonts` and printed what `style_in` made of each: **29 of 370
+readable fonts declared a weight axis**, the system font among them. One of them
+was wrong. **`Skia.ttf` runs from 1 to 3** — an Apple axis from before `wght`
+had a shared meaning, with `OS/2` stating 5 — and read as CSS numbers the whole
+axis is hairline, so every request would land on its heaviest end and a page of
+ordinary text would come out black. An axis ending below the lightest weight CSS
+has a *word* for is left alone, which is the same refusal item 194 made one
+table earlier for the same reason. Re-run afterwards: **28 of 370. One line
+moved and 28 did not.**
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1630 tests** (up from 1615), no stubs, no `unsafe`, boundaries held,
+the licence notice, and a `CHANGELOG.md` line. The half no script can check: the
+**layout assertion in numbers** is
+`two_weights_of_one_variable_family_are_two_widths_of_text` — four weights, four
+widths, strictly ordered, with the two ends asserted to the pixel because at the
+end of an axis the delta is the whole of what the font states and nothing is
+interpolated. The arithmetic is exact rather than nearly so: every advance is an
+integer number of font units and the scale is 16/2048, a power of two. **A
+reference render** would have been the answer for the corpus and the corpus did
+not move — every case there declares its own static faces, so none of them goes
+through this path — so the visual assertion is the one in `alo-paint`, in the
+shape of the one `a_letter.rs` already uses: a glyph asserted as a shape rather
+than as a committed picture. One file one responsibility: the reading stayed in
+`font.rs`, which is the file about what a font says about itself and the only
+file in the crate that may name `ttf_parser`; a new file for it would have
+widened a rented crate's boundary to say one sentence. The item is in
+`docs/features.md`, as its own `[2]` line.
+
+**All three directions were doctored, and each failed the tests written for
+it.** With `chain` handing back the fonts it holds rather than fonts set to the
+weight, 4 of 13 fail and the widths collapse to one number. With the axis never
+read, 8 of 13 fail. With the distance measured to what a face *is* rather than
+to what it can be, **exactly one** fails — the case written for that rule and no
+others, which is the run worth having. And with the outline half's three lines
+removed, `alo-paint`'s case reports that the letter should have moved 14.65
+pixels and moved 0.
+
+**Hostile input.** Both tables are somebody else's bytes. Every truncation of an
+`fvar` and every single flipped bit of one is an answer rather than a crash, and
+each surviving font is then *shaped* rather than merely parsed, because a table
+that parses and then divides by zero is still a tab that disappears. An `HVAR`
+claiming fewer rows than the font has glyphs is a line with a finite width. One
+guard was **removed** rather than added: `fvar` writes an axis bound as 16.16
+fixed point, which is four bytes read as an integer and divided, so no file can
+hold a NaN there — a check against one would have been a branch no font could
+reach and no test could reach either.
+
+**`ROADMAP.md`.** The process-and-sandbox line again, whose `· Built:` clause
+gains item 196 beside 168, 170, 192, 193, 194 and 195. **It is still not
+ticked**; its `· Owed:` clause drops 196 and now reads the Linux sandbox (169)
+and item 197.
+
+**What the next iteration should know.** One cut, written into the queue as item
+197: the axes that are **not** weight — `wdth`, `slnt`, `ital`, `opsz`. Each is
+a separate CSS property with a grammar of its own, and guessing at one would
+draw a page narrower or slanted because this engine assumed an axis nobody had
+looked at. The machinery is in place and 197 says what shape it takes. Two
+things were noticed and are not cuts, because neither is wrong: `fonts::from_file`
+still skips `.ttc` collections, so four of this machine's variable fonts are not
+reachable by the browser process at all — that is item-worthy the day a page
+fails on one; and CSS's own `font-variation-settings` and `font-optical-sizing`
+do not exist here, which is item 197's dependency rather than a defect.
+
+The ready items in stage 2's file order are now **64** and **65** (the renderer
+lifecycle, both depending on 63 which is done — and much of both may already
+exist in `host.rs`, so they should be read before they are built), **66** (where
+one site ends and another begins, much of which `alo_url::site` answers since
+item 156), **190** (the two-tone border styles: small, depends on nothing, and
+closes with a picture), and **197** above, which is blocked in practice until
+`alo-style` has the properties it implements.

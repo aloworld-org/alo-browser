@@ -97,23 +97,40 @@ impl FontDatabase {
     /// a character no requested family has can still be drawn by something.
     /// That is the fallback chain: the requested fonts first, then everything
     /// else, and a character nobody has is a character nobody has.
-    pub fn chain(&self, request: &FontRequest) -> Vec<&Font> {
-        let mut chain: Vec<&Font> = Vec::new();
+    ///
+    /// # Why these are fonts rather than references to them
+    ///
+    /// A variable font is one file holding a continuum, and the font a request
+    /// gets from such a file is that file **set to the weight asked for**. So
+    /// what comes back is not always something this database holds, and saying
+    /// so in the type is what keeps the setting from having to be remembered by
+    /// every caller. A [`Font`] is cheap to clone — the bytes are shared — and
+    /// for the ordinary one-weight face this is a clone and nothing else.
+    ///
+    /// The fallback fonts are set too, not only the family that matched: a page
+    /// asking for bold and falling through to a variable font for one character
+    /// should get that character bold.
+    pub fn chain(&self, request: &FontRequest) -> Vec<Font> {
+        let mut order: Vec<usize> = Vec::new();
         for family in &request.families {
             for name in self.resolve_generic(family) {
-                if let Some(font) = self.best_match(&name, request.weight, request.slant) {
-                    if !chain.iter().any(|held| core::ptr::eq(*held, font)) {
-                        chain.push(font);
-                    }
+                if let Some(index) = self.best_match(&name, request.weight, request.slant)
+                    && !order.contains(&index)
+                {
+                    order.push(index);
                 }
             }
         }
-        for font in &self.fonts {
-            if !chain.iter().any(|held| core::ptr::eq(*held, font)) {
-                chain.push(font);
+        for index in 0..self.fonts.len() {
+            if !order.contains(&index) {
+                order.push(index);
             }
         }
-        chain
+        order
+            .iter()
+            .filter_map(|index| self.fonts.get(*index))
+            .map(|font| font.at_weight(request.weight))
+            .collect()
     }
 
     /// Whether this database has any face filed under a family.
@@ -167,7 +184,7 @@ impl FontDatabase {
         // per-character fallback can reach further down for a rare glyph, and
         // the family ordinary text came out in is what a person would recognise
         // as "it is not in the font I asked for".
-        let instead = match self.chain(request).first() {
+        let instead = match self.chain(request).into_iter().next() {
             Some(font) => Instead::Ours(font.family().to_owned()),
             None => Instead::Nothing,
         };
@@ -178,7 +195,7 @@ impl FontDatabase {
     ///
     /// [`None`] means no font this engine has can draw it, which is a real
     /// answer: the caller shows the missing-glyph box rather than pretending.
-    pub fn font_for(&self, request: &FontRequest, character: char) -> Option<&Font> {
+    pub fn font_for(&self, request: &FontRequest, character: char) -> Option<Font> {
         self.chain(request)
             .into_iter()
             .find(|font| font.has_glyph(character))
@@ -201,22 +218,36 @@ impl FontDatabase {
         }
     }
 
-    /// The face of a family that best matches a weight and a slant.
+    /// Which face of a family best matches a weight and a slant, by position in
+    /// the database.
     ///
-    /// The rule is CSS's own, simplified to what a stage 1 database holds:
-    /// prefer the right slant, then the nearest weight. A family with one face
-    /// gets that face, which is the case nearly every design system is.
-    fn best_match(&self, family: &str, weight: Weight, slant: Slant) -> Option<&Font> {
+    /// The rule is CSS's own, simplified to what this database holds: prefer
+    /// the right slant, then the nearest weight. A family with one face gets
+    /// that face, which is the case nearly every design system is.
+    ///
+    /// **Nearest to what the face can be**, rather than to what it is. For an
+    /// ordinary face those are the same number. For a variable one the distance
+    /// is nothing wherever its axis reaches the weight asked for, which is what
+    /// makes one file answer a request for 400 and a request for 700 — and what
+    /// stopped a font whose `OS/2` states 1000 from being the only black face
+    /// this machine could offer.
+    ///
+    /// An index rather than a reference, so that the caller can hand back a
+    /// font *set to* the weight rather than one this database holds.
+    fn best_match(&self, family: &str, weight: Weight, slant: Slant) -> Option<usize> {
         self.fonts
             .iter()
-            .filter(|font| font.family().eq_ignore_ascii_case(family))
-            .min_by_key(|font| {
+            .enumerate()
+            .filter(|(_, font)| font.family().eq_ignore_ascii_case(family))
+            .min_by_key(|(_, font)| {
                 let wrong_slant = u32::from(font.slant() != slant);
-                let weight_distance = u32::from(font.weight().value().abs_diff(weight.value()));
+                let distance =
+                    u32::from(font.nearest_weight(weight).value().abs_diff(weight.value()));
                 // Slant first, then weight: an upright face at the wrong
                 // weight reads better than a slanted one at the right weight.
-                (wrong_slant, weight_distance)
+                (wrong_slant, distance)
             })
+            .map(|(index, _)| index)
     }
 }
 
@@ -259,7 +290,7 @@ mod tests {
         database
     }
 
-    fn names(fonts: &[&Font]) -> Vec<String> {
+    fn names(fonts: &[Font]) -> Vec<String> {
         fonts
             .iter()
             .map(|font| format!("{} {}", font.family(), font.weight()))
@@ -329,7 +360,7 @@ mod tests {
             slant: Slant::Italic,
         };
         let chosen = database.chain(&italic);
-        assert_eq!(chosen.first().map(|font| font.slant()), Some(Slant::Italic));
+        assert_eq!(chosen.first().map(Font::slant), Some(Slant::Italic));
     }
 
     #[test]
@@ -389,12 +420,12 @@ mod tests {
         let request = FontRequest::family("DejaVu Sans Mono");
 
         assert_eq!(
-            database.font_for(&request, 'a').map(Font::family),
+            database.font_for(&request, 'a').as_ref().map(Font::family),
             Some("DejaVu Sans Mono"),
             "a character the first font has stays with the first font",
         );
         assert_eq!(
-            database.font_for(&request, 'א').map(Font::family),
+            database.font_for(&request, 'א').as_ref().map(Font::family),
             Some("DejaVu Sans"),
             "and one it lacks moves down the chain",
         );

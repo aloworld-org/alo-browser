@@ -73,7 +73,8 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] **The awkward scripts before the easy ones.** A pipeline that assumed left-to-right and one glyph per character is a pipeline that gets rewritten
 - [1] Line breaking, and the fallback chain when a font lacks a glyph
 - [1] Web fonts
-- [2] Web fonts as pages actually ship them: WOFF2, variable fonts, and loading that does not flash
+- [2] **A variable font is one file and many weights**: the `wght` axis read as the range it covers rather than the one instance `OS/2` names, so one file answers a request for 400 and one for 700 — and is shaped, measured and outlined at the weight it was set to
+- [2] Web fonts as pages actually ship them: WOFF2, the rest of a variable font's axes, and loading that does not flash
 - [2] **Input methods.** A browser that cannot take Japanese or Chinese input is not a browser in those countries
 - [2] `contenteditable`, which every rich text box on the web is built on
 - [2] Bidirectional text end to end

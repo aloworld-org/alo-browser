@@ -18,7 +18,7 @@
 //! way a glyph's numbers go.
 
 use crate::path::{Path, Point};
-use alo_text::Font;
+use alo_text::{Font, WEIGHT_AXIS};
 
 /// The shape of one glyph, at one size, with the pen at the origin.
 ///
@@ -45,7 +45,15 @@ impl Glyph {
 /// draw" and "could not be read" are different answers and a caller that
 /// confused them would draw a missing-glyph box for every space.
 pub fn outline(font: &Font, glyph_id: u16, size: f32) -> Option<Glyph> {
-    let face = ttf_parser::Face::parse(font.data(), font.index()).ok()?;
+    let mut face = ttf_parser::Face::parse(font.data(), font.index()).ok()?;
+    // A variable font is one file holding a continuum, and the weight it was
+    // set to decides what its outlines *are*. The tag and the coordinate come
+    // from `alo-text` as plain values rather than as a face parsed there,
+    // because the parser is rented behind this file (ADR 0001) and behind that
+    // crate's own — one tag, written once, read by both.
+    if let Some(value) = font.variable_weight() {
+        let _ = face.set_variation(ttf_parser::Tag::from_bytes(&WEIGHT_AXIS), value);
+    }
     let units = f32::from(face.units_per_em());
     if units <= 0.0 {
         return None;

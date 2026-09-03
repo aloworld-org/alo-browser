@@ -52,7 +52,7 @@ pub fn split<'a>(
 
     for (offset, character) in text.char_indices() {
         let direction = direction_of(character);
-        let font = database.font_for(request, character).cloned();
+        let font = database.font_for(request, character);
         let wanted = (direction, font);
 
         match &current {

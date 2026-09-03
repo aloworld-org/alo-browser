@@ -99,7 +99,8 @@ impl TextMeasurer<'_> {
     fn face(self, style: &TextStyle) -> Option<crate::font::FaceMetrics> {
         self.database
             .chain(&Self::request(style))
-            .first()
+            .into_iter()
+            .next()
             .map(|font| font.metrics(style.size))
     }
 }

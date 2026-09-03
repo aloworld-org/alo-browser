@@ -151,7 +151,10 @@ pub fn shape(text: &str, font: &Font, size: f32, direction: Direction) -> Shaped
     if text.is_empty() {
         return ShapedRun::empty();
     }
-    let Some(face) = rustybuzz::Face::from_slice(font.data(), font.index()) else {
+    // The font's own face, which for a variable font is the *instance* it was
+    // set to rather than the one its `OS/2` names. Built there rather than here
+    // so that measuring and shaping cannot disagree about which weight this is.
+    let Some(face) = font.shaper() else {
         return ShapedRun::empty();
     };
     let metrics = font.metrics(size);

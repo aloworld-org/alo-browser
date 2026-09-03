@@ -60,6 +60,64 @@ pub enum Slant {
     Italic,
 }
 
+/// The four bytes OpenType files a weight axis under.
+///
+/// Ours as a **value** rather than as a rented type, because two crates need
+/// it: this one shapes with it and `alo-paint` outlines with it, and each
+/// parses a face with the parser it is allowed to name (ADR 0001). A tag
+/// written out in two places is two chances to write it differently.
+pub const WEIGHT_AXIS: [u8; 4] = *b"wght";
+
+/// The weights a variable font can be set to.
+///
+/// A variable font is one file holding a continuum rather than a face, and
+/// `OS/2` still states a single weight in it: the instance the outlines are
+/// when nobody has said otherwise. Reading only that number files the whole
+/// family under it. macOS's `SFCompact.ttf` states 1000, so this engine had it
+/// down as the heaviest thing CSS can name and every page asking for anything
+/// lighter got black; `SFNSMono.ttf` states 295, so nothing could ask for its
+/// bold. Neither number is *wrong* about the default instance and both are
+/// wrong about the font.
+///
+/// The numbers here are CSS's own. The OpenType specification defines `wght` in
+/// the same 1..=1000 scale `font-weight` uses, which is why there is no
+/// conversion in this file and why there must not be one: a translation between
+/// two scales that are already the same is somewhere for an off-by-one to live.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WeightAxis {
+    lightest: Weight,
+    heaviest: Weight,
+}
+
+impl WeightAxis {
+    /// The lightest weight this font can be set to.
+    pub fn lightest(self) -> Weight {
+        self.lightest
+    }
+
+    /// The heaviest.
+    pub fn heaviest(self) -> Weight {
+        self.heaviest
+    }
+
+    /// Whether this axis reaches a weight.
+    pub fn covers(self, weight: Weight) -> bool {
+        weight >= self.lightest && weight <= self.heaviest
+    }
+
+    /// The weight on this axis nearest the one asked for: the weight itself
+    /// wherever the axis reaches it, and the end it is nearest otherwise.
+    pub fn nearest(self, weight: Weight) -> Weight {
+        weight.clamp(self.lightest, self.heaviest)
+    }
+}
+
+impl fmt::Display for WeightAxis {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}..{}", self.lightest, self.heaviest)
+    }
+}
+
 /// The weight and the slant a font states about **itself**.
 ///
 /// The pair rather than either alone, because they are written side by side in
@@ -68,9 +126,20 @@ pub enum Slant {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Style {
     /// How heavy, on CSS's scale.
+    ///
+    /// One number, and for a variable font it is the **default instance**
+    /// rather than the whole answer — see `axis`.
     pub weight: Weight,
     /// Upright or slanted.
     pub slant: Slant,
+    /// The weights this font can be set to, when it is a variable one.
+    ///
+    /// [`None`] for the ordinary face that is one weight, which is most fonts.
+    /// It joins the pair above rather than being a question of its own for that
+    /// pair's reason: `fvar` is read out of the same face `OS/2` is, and a
+    /// caller asking separately would parse the file twice to learn two halves
+    /// of one sentence about how heavy this font is.
+    pub axis: Option<WeightAxis>,
 }
 
 /// What a caller is asking for when it asks for a font.
@@ -156,6 +225,7 @@ pub struct Font {
     slant: Slant,
     data: Arc<Vec<u8>>,
     index: u32,
+    axis: Option<WeightAxis>,
 }
 
 impl Font {
@@ -164,17 +234,25 @@ impl Font {
     /// Returns [`None`] if the bytes are not a font this engine can read —
     /// which is a real answer, not an error to be swallowed: a font that will
     /// not parse should be skipped and the next one tried.
+    ///
+    /// The weight axis is read here rather than taken from the caller, even
+    /// though the caller supplies the weight and the slant. Those two are what
+    /// a face is **filed under**, and a database may be told them; the axis
+    /// decides what the bytes are *set to* when they are shaped, and a caller
+    /// able to supply that could supply one the file does not have.
     pub fn load(family: &str, weight: Weight, slant: Slant, data: Vec<u8>) -> Option<Self> {
-        let font = Self {
+        let data = Arc::new(data);
+        let index = 0;
+        // Parsing once here means every later use can assume it parses.
+        let axis = weight_axis_of(&ttf_parser::Face::parse(&data, index).ok()?);
+        Some(Self {
             family: family.into(),
             weight,
             slant,
-            data: Arc::new(data),
-            index: 0,
-        };
-        // Parsing once here means every later use can assume it parses.
-        font.face()?;
-        Some(font)
+            data,
+            index,
+            axis,
+        })
     }
 
     /// The family this font belongs to.
@@ -183,8 +261,49 @@ impl Font {
     }
 
     /// How heavy it is.
+    ///
+    /// For a variable font this is not a label but an **instruction**: it is
+    /// the instance every face parsed out of these bytes is set to, which is
+    /// what [`Font::at_weight`] changes.
     pub fn weight(&self) -> Weight {
         self.weight
+    }
+
+    /// The weights this font can be set to, when it is a variable one.
+    pub fn weight_axis(&self) -> Option<WeightAxis> {
+        self.axis
+    }
+
+    /// The weight this font can actually be set to, nearest the one asked for.
+    ///
+    /// For an ordinary face that is the weight it is, whatever was asked: a
+    /// face has one, and a page asking for another is given it rather than
+    /// nothing. For a variable one it is the weight itself wherever the axis
+    /// reaches it — which is what makes such a font a candidate at every weight
+    /// in its range rather than at the single one `OS/2` names.
+    pub fn nearest_weight(&self, wanted: Weight) -> Weight {
+        self.axis.map_or(self.weight, |axis| axis.nearest(wanted))
+    }
+
+    /// This font, set to the weight nearest the one asked for.
+    ///
+    /// Cheap: the bytes are shared, and for an ordinary face this is a clone
+    /// and nothing else.
+    #[must_use]
+    pub fn at_weight(&self, wanted: Weight) -> Self {
+        Self {
+            weight: self.nearest_weight(wanted),
+            ..self.clone()
+        }
+    }
+
+    /// The coordinate this font's weight axis is set to, when it has one.
+    ///
+    /// `alo-paint` reads outlines with the parser **it** is allowed to name, so
+    /// what crosses the crate boundary is this number and [`WEIGHT_AXIS`]
+    /// rather than a face parsed here.
+    pub fn variable_weight(&self) -> Option<f32> {
+        self.axis.map(|_| f32::from(self.weight.value()))
     }
 
     /// Whether it is slanted.
@@ -256,16 +375,53 @@ impl Font {
         }
     }
 
+    /// The parsed face, **at this font's instance**.
+    ///
+    /// Every measurement in this file goes through here, so a variable font is
+    /// measured at the weight it was set to rather than at the one its `OS/2`
+    /// names. That matters even where no outline has moved: `HVAR` varies the
+    /// advance of a glyph, so a `ch` unit is a different number at 700 than at
+    /// 400.
     fn face(&self) -> Option<ttf_parser::Face<'_>> {
-        ttf_parser::Face::parse(&self.data, self.index).ok()
+        let mut face = ttf_parser::Face::parse(&self.data, self.index).ok()?;
+        if let Some(value) = self.variable_weight() {
+            // A font that declared the axis and will not be set to it is a
+            // broken file rather than an error here: what comes back is the
+            // default instance, which is what a font with no axis gives.
+            let _ = face.set_variation(ttf_parser::Tag::from_bytes(&WEIGHT_AXIS), value);
+        }
+        Some(face)
+    }
+
+    /// The shaper's face, at this font's instance.
+    ///
+    /// In this file rather than in [`crate::shape`] because it is the same
+    /// sentence as [`Font::face`]: *which instance of these bytes this font
+    /// is*. Two files parsing the same bytes and setting the axis separately is
+    /// how a line comes to be measured at one weight and drawn at another.
+    pub(crate) fn shaper(&self) -> Option<rustybuzz::Face<'_>> {
+        let mut face = rustybuzz::Face::from_slice(&self.data, self.index)?;
+        if let Some(value) = self.variable_weight() {
+            face.set_variations(&[rustybuzz::Variation {
+                tag: ttf_parser::Tag::from_bytes(&WEIGHT_AXIS),
+                value,
+            }]);
+        }
+        Some(face)
     }
 }
 
 impl fmt::Debug for Font {
     /// The name and the weight — never the bytes, which are a megabyte of
-    /// glyphs nobody wants in a test failure.
+    /// glyphs nobody wants in a test failure. A variable font names the range
+    /// it covers as well, because "700" alone does not say whether that was a
+    /// face or an instance.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Font({} {} {:?})", self.family, self.weight, self.slant)
+        write!(f, "Font({} {} {:?}", self.family, self.weight, self.slant)?;
+        if let Some(axis) = self.axis {
+            write!(f, " of {axis}")?;
+        }
+        f.write_str(")")
     }
 }
 
@@ -547,10 +703,20 @@ const ENGLISH: &str = "English";
 ///   today 9 is very nearly invisible. The two are the same bytes, nothing in
 ///   the file says which was meant, and a guess would draw somebody's page in a
 ///   face nobody chose.
+///
+/// # A font may be many weights
+///
+/// `OS/2` states one, and a variable font is one file holding a continuum. The
+/// number above is still read and is still right — it is the **default
+/// instance**, what the outlines are when nobody has set the axis — and
+/// [`Style::axis`] is the rest of the answer. Reading only the number files
+/// such a font under it and hides every other weight it has, which is what this
+/// engine did to macOS's `SFCompact` (stated 1000) and `SFNSMono` (stated 295).
 pub fn style_in(data: &[u8]) -> Option<Style> {
     let face = ttf_parser::Face::parse(data, 0).ok()?;
     let stated = face.weight().to_number();
     Some(Style {
+        axis: weight_axis_of(&face),
         weight: if stated == 0 {
             if face.is_bold() {
                 Weight::BOLD
@@ -570,6 +736,85 @@ pub fn style_in(data: &[u8]) -> Option<Style> {
             Slant::Normal
         },
     })
+}
+
+/// The weight axis a font declares, if it declares one this engine can use.
+///
+/// `fvar` lists the axes a variable font varies along and `wght` is the one CSS
+/// asks about by number. The others — `wdth`, `slnt`, `opsz` — are read past
+/// here rather than guessed at: each is a separate CSS property with its own
+/// grammar, and a font is not narrower because this engine assumed an axis it
+/// did not look at.
+///
+/// [`None`] in three cases, and each of them means *treat this as the one face
+/// `OS/2` describes*, which is the answer that cannot draw a page in a weight
+/// nobody asked for:
+///
+/// - **No `wght` axis.** Most fonts, including every variable font that only
+///   varies its width.
+/// - **An axis of no width**, where the two ends land on the same weight. Such
+///   a font is a static face spelt at greater length, and calling it variable
+///   would make it a candidate for every request while it can only ever draw
+///   the one thing.
+/// - **An axis that ends below [`THINNEST_CSS_NAMES`]**, which is not written
+///   in CSS's scale at all — see below.
+///
+/// # An axis older than the scale it is supposed to be in
+///
+/// `wght` got its shared meaning when OpenType took variations on in 2016.
+/// Apple's own earlier fonts had axes before that and wrote them in scales of
+/// their own: this machine's `Skia.ttf` runs from **1 to 3**, and its `OS/2`
+/// states 5, which is the very thing [`style_in`] already refuses to guess at
+/// one table earlier.
+///
+/// Read as CSS numbers, such an axis is entirely hairline, so *every* request
+/// lands on its heaviest end and a page of ordinary text is drawn in the
+/// blackest thing the file has. Refusing it leaves the font exactly as it was
+/// before this engine could read an axis at all, which is the safe direction
+/// and the same one item 194 chose for the same reason.
+///
+/// The line is drawn at the lightest weight CSS has a *word* for. Nothing that
+/// means the shared scale ends below `thin`; everything that ends below it
+/// means something else.
+fn weight_axis_of(face: &ttf_parser::Face<'_>) -> Option<WeightAxis> {
+    let wanted = ttf_parser::Tag::from_bytes(&WEIGHT_AXIS);
+    let axis = face
+        .variation_axes()
+        .into_iter()
+        .find(|axis| axis.tag == wanted)?;
+    let lightest = on_the_scale(axis.min_value);
+    let heaviest = on_the_scale(axis.max_value);
+    if heaviest < Weight::new(THINNEST_CSS_NAMES) {
+        return None;
+    }
+    (lightest < heaviest).then_some(WeightAxis { lightest, heaviest })
+}
+
+/// The lightest weight CSS has a name for: `font-weight: thin`.
+///
+/// A bound on what counts as an axis written in CSS's scale, and not a bound on
+/// what a page may ask for — [`Weight`] goes down to 1, because `font-weight:
+/// 50` is a number an author may write and a font may answer.
+pub const THINNEST_CSS_NAMES: u16 = 100;
+
+/// A number out of somebody else's file, as a weight CSS can name.
+///
+/// The scale is shared — `wght` is defined in `font-weight`'s own numbers — so
+/// this rounds and bounds rather than converting.
+///
+/// There is no case for "not a number": `fvar` writes an axis bound as 16.16
+/// fixed point, which is four bytes read as an integer and divided, so every
+/// value a file can hold is finite. A guard against a NaN here would be a
+/// branch no font could reach and no test could reach either.
+fn on_the_scale(value: f32) -> Weight {
+    let bounded = value.clamp(1.0, 1000.0).round();
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "bounded to 1..=1000 on the line above, so it fits and is positive"
+    )]
+    let number = bounded as u16;
+    Weight::new(number)
 }
 
 #[cfg(test)]

@@ -675,13 +675,7 @@ impl Builder<'_> {
         let color = style.color("color").unwrap_or(style.current_color());
         let size = style.font_size();
         let request = self.font_request(id);
-        let Some(font) = self
-            .context
-            .fonts
-            .chain(&request)
-            .first()
-            .map(|font| (*font).clone())
-        else {
+        let Some(font) = self.context.fonts.chain(&request).into_iter().next() else {
             return;
         };
         let ascender = font.metrics(size).ascender;

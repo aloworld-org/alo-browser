@@ -279,7 +279,7 @@ fn shape_line(
     // An empty line is still a line, and it is as tall as the font would have
     // been — which is what keeps a blank line in a paragraph from vanishing.
     if runs.is_empty()
-        && let Some(font) = database.chain(request).first()
+        && let Some(font) = database.chain(request).into_iter().next()
     {
         let metrics = font.metrics(size);
         ascender = metrics.ascender;

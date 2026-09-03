@@ -60,7 +60,8 @@ pub mod shape;
 
 pub use database::{Absent, FontDatabase, Instead};
 pub use font::{
-    FaceMetrics, Font, FontRequest, LONGEST_NAME, Slant, Style, Weight, family_in, style_in,
+    FaceMetrics, Font, FontRequest, LONGEST_NAME, Slant, Style, THINNEST_CSS_NAMES, WEIGHT_AXIS,
+    Weight, WeightAxis, family_in, style_in,
 };
 pub use line::{Line, Paragraph, lay_out, measure_unwrapped};
 pub use linebreak::{BreakPoint, opportunities};

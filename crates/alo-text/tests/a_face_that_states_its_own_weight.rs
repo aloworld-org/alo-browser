@@ -172,7 +172,11 @@ fn a_real_font_states_what_its_filename_only_hints_at() {
     ] {
         assert_eq!(
             style_in(data),
-            Some(alo_text::Style { weight, slant }),
+            Some(alo_text::Style {
+                weight,
+                slant,
+                axis: None,
+            }),
             "{called} states something else about itself",
         );
     }
@@ -320,6 +324,7 @@ fn a_font_that_states_nothing_is_a_face_rather_than_no_face() {
         Some(alo_text::Style {
             weight: Weight::NORMAL,
             slant: Slant::Normal,
+            axis: None,
         }),
     );
     assert_eq!(
