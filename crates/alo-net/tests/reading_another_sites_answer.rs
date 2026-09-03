@@ -356,6 +356,65 @@ fn the_question_carries_no_credentials_of_its_own() {
     );
 }
 
+/// `Content-Type` is on the safelist by name and `application/json` is not on
+/// it by value — a form can produce three media types and that is not one of
+/// them. So the `OPTIONS` has to name it and the server has to allow it.
+///
+/// Found while building the preflight cache (queue item 164), which needs one
+/// answer to *what shape is this request*: [`needs_asking_first`] applied the
+/// value rule and the other two applied only the name rule, so a JSON post was
+/// preflighted — correctly — with a question that never mentioned the header it
+/// was being preflighted for, and was then allowed by an answer that had said
+/// nothing about it.
+#[test]
+fn a_content_type_a_form_could_not_have_meant_is_named_and_has_to_be_allowed() {
+    let mut json = asked_by("https://app.example/", "https://api.example/thing");
+    json.method = "POST".to_owned();
+    json.headers.add("Content-Type", "application/json");
+
+    let question = asking_first(&json);
+    assert_eq!(
+        question.headers.get("Access-Control-Request-Headers"),
+        Some("content-type"),
+        "the header the request is unsafe by was not the one asked about"
+    );
+
+    let silent = answered(
+        "https://api.example/thing",
+        &[
+            ("Access-Control-Allow-Origin", "https://app.example"),
+            ("Access-Control-Allow-Methods", "POST"),
+        ],
+    );
+    assert!(
+        asking_first_allowed(&json, Credentials::Omit, &silent).is_err(),
+        "a JSON post went out on an answer that never mentioned Content-Type"
+    );
+
+    let allowing = answered(
+        "https://api.example/thing",
+        &[
+            ("Access-Control-Allow-Origin", "https://app.example"),
+            ("Access-Control-Allow-Methods", "POST"),
+            ("Access-Control-Allow-Headers", "Content-Type"),
+        ],
+    );
+    assert!(asking_first_allowed(&json, Credentials::Omit, &allowing).is_ok());
+
+    // And a content type a form *could* have meant is not asked about at all.
+    let mut form = asked_by("https://app.example/", "https://api.example/thing");
+    form.method = "POST".to_owned();
+    form.headers
+        .add("Content-Type", "text/plain; charset=utf-8");
+    assert!(!needs_asking_first(&form));
+    assert_eq!(
+        asking_first(&form)
+            .headers
+            .get("Access-Control-Request-Headers"),
+        None
+    );
+}
+
 /// A `Cookie` is set by the browser, never by the page. Counting it as an
 /// author header gets two things wrong at once: every credentialled request
 /// would be preflighted, and the preflight would tell the server the page had

@@ -28,6 +28,13 @@
 //! That is the whole reason preflight exists, and it is why the safelist is a
 //! list of *what a form can already do* rather than a list of what seems
 //! harmless.
+//!
+//! # What is not here
+//!
+//! Asking first costs a round trip, and a server may say how long its answer
+//! holds. Remembering one is [`crate::preflight`] — a separate file because
+//! this one answers *may this be done* and that one answers *have we already
+//! asked*, which are different questions with different ways of being wrong.
 
 use crate::headers::Headers;
 use crate::media_type::MediaType;
@@ -233,6 +240,52 @@ pub fn is_same_origin(asker: Option<&Origin>, target: &Response) -> bool {
     !asker.is_opaque() && *asker == Origin::of(&target.url)
 }
 
+/// Whether one header, with this value, is one a plain HTML form could have
+/// sent.
+///
+/// **The value matters and not only the name.** `content-type` is on the
+/// safelist, and `Content-Type: application/json` is not on it: a form can
+/// produce three media types and that is not one of them. Deciding by name
+/// alone reads a JSON post as something a form could already have done, which
+/// is the permissive direction to be wrong in.
+fn a_form_could_have_sent(name: &str, value: &str) -> bool {
+    if !A_FORM_COULD_HAVE_SENT.contains(&name) {
+        return false;
+    }
+    if name != "content-type" {
+        return true;
+    }
+    let kind = MediaType::parse(value)
+        .map(|kind| kind.essence())
+        .unwrap_or_default();
+    A_FORM_COULD_HAVE_MEANT.contains(&kind.as_str())
+}
+
+/// The names on this request that a plain HTML form could not have sent.
+///
+/// Lowercased, sorted and deduplicated. This is the **shape** of a request as
+/// far as CORS is concerned, and three things ask for it: whether to preflight
+/// at all, what the `OPTIONS` names, and — since queue item 164 — whether a
+/// remembered answer covers a later request. One list, because three spellings
+/// of it would be a cache answering a question the preflight never asked.
+///
+/// Headers the browser sets are not here. They are nobody's to ask about: see
+/// [`THE_BROWSER_SETS_THESE`].
+pub fn names_a_form_could_not_have_sent(request: &Request) -> Vec<String> {
+    let mut names: Vec<String> = request
+        .headers
+        .iter()
+        .map(|header| (header.name.to_ascii_lowercase(), &header.value))
+        .filter(|(name, value)| {
+            !THE_BROWSER_SETS_THESE.contains(&name.as_str()) && !a_form_could_have_sent(name, value)
+        })
+        .map(|(name, _)| name)
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
 /// Whether this request has to be asked about before it is sent.
 ///
 /// The rule is not "is it dangerous". It is **could a plain HTML form have done
@@ -245,24 +298,7 @@ pub fn needs_asking_first(request: &Request) -> bool {
     ) {
         return true;
     }
-    for header in request.headers.iter() {
-        let name = header.name.to_ascii_lowercase();
-        if THE_BROWSER_SETS_THESE.contains(&name.as_str()) {
-            continue;
-        }
-        if !A_FORM_COULD_HAVE_SENT.contains(&name.as_str()) {
-            return true;
-        }
-        if name == "content-type" {
-            let kind = MediaType::parse(&header.value)
-                .map(|kind| kind.essence())
-                .unwrap_or_default();
-            if !A_FORM_COULD_HAVE_MEANT.contains(&kind.as_str()) {
-                return true;
-            }
-        }
-    }
-    false
+    !names_a_form_could_not_have_sent(request).is_empty()
 }
 
 /// The `OPTIONS` request that asks whether the real one is allowed.
@@ -278,17 +314,7 @@ pub fn asking_first(request: &Request) -> Request {
         "Access-Control-Request-Method",
         request.method.to_ascii_uppercase(),
     );
-    let mut names: Vec<String> = request
-        .headers
-        .iter()
-        .map(|header| header.name.to_ascii_lowercase())
-        .filter(|name| {
-            !A_FORM_COULD_HAVE_SENT.contains(&name.as_str())
-                && !THE_BROWSER_SETS_THESE.contains(&name.as_str())
-        })
-        .collect();
-    names.sort();
-    names.dedup();
+    let names = names_a_form_could_not_have_sent(request);
     if !names.is_empty() {
         asking
             .headers
@@ -328,13 +354,7 @@ pub fn asking_first_allowed(
 
     let permitted: Vec<String> = list(&answer.headers, "Access-Control-Allow-Headers");
     let any_header = permitted.iter().any(|one| one == "*");
-    for header in request.headers.iter() {
-        let name = header.name.to_ascii_lowercase();
-        if A_FORM_COULD_HAVE_SENT.contains(&name.as_str())
-            || THE_BROWSER_SETS_THESE.contains(&name.as_str())
-        {
-            continue;
-        }
+    for name in names_a_form_could_not_have_sent(request) {
         // A wildcard never covers `Authorization`. It is the one header a
         // server has to name, because `*` is written by people who mean "my
         // public API" and a credential is never that.
@@ -441,7 +461,12 @@ pub fn made_opaque(response: &Response) -> Response {
 }
 
 /// A comma-separated header, as a list of lowercase entries.
-fn list(headers: &Headers, name: &str) -> Vec<String> {
+///
+/// `pub(crate)` for [`crate::preflight`], which reads the same two headers and
+/// must read them the same way: a cache that split `Access-Control-Allow-Methods`
+/// differently from the check that allowed the request would remember a
+/// permission that was never granted.
+pub(crate) fn list(headers: &Headers, name: &str) -> Vec<String> {
     headers
         .all(name)
         .flat_map(|value| value.split(','))

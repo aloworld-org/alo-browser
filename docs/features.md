@@ -168,7 +168,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   all across a downgrade
 - [2] **The same-origin policy, CORS and preflight** — a page may send almost
   anywhere and may read almost nowhere, and a wildcard never covers a request
-  that carried credentials
+  that carried credentials. A request is unsafe by the *value* of its
+  `Content-Type` as well as by the name, so a JSON post is asked about with the
+  header it is unsafe by named in the question
+- [2] **The preflight cache** — a second request of the same shape sends no
+  `OPTIONS`, and one of a different shape still does. Partitioned by top-level
+  site, keyed by the asking origin as well, expiring on the caller's clock and
+  capped at two hours however long a server asked for. A `*` is remembered as
+  the method and headers it allowed rather than as a standing permission
 - [2] **A request that sends something**, over both protocols — a body written
   after the blank line in HTTP/1.1 and in `DATA` frames in HTTP/2, cut to the
   frame size the server said it would read, with a window that closes part way

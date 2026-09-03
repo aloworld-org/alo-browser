@@ -6,6 +6,35 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A cross-origin request is not asked about twice.** Before a page may send a
+  `DELETE`, or anything else a plain HTML form could not have sent, this engine
+  asks the server first with an `OPTIONS` — which is a whole round trip before
+  the real one. A server may say how long its answer holds, and now that answer
+  is remembered: a second request of the same shape goes straight out, and one
+  of a different shape asks again.
+
+  What is remembered is deliberately narrow, because a cache of permissions is
+  a way of obtaining one nobody granted. A `*` is recorded as the method and
+  the headers it actually allowed rather than as a standing offer, so a page
+  that was allowed a `PUT` still has to ask about a `DELETE`. An answer given
+  to a request without cookies does not cover one carrying them. Nothing is
+  remembered from an answer that refused. And a server cannot ask to be
+  remembered for ever: two hours is the cap, because a permission nobody can
+  revoke is not one.
+
+  It is **partitioned by top-level site**, like cookies and like the HTTP
+  cache: an entry that made one site's request faster because another site had
+  already asked would answer *have you been there* to anybody who timed a load,
+  and would survive clearing cookies.
+
+- **A JSON post is asked about with the right question.** `Content-Type` is on
+  the list of headers a plain form could have set, but `application/json` is not
+  one of the three values a form can produce. This engine knew that when
+  deciding *whether* to ask the server, and forgot it when writing the question
+  and when reading the answer — so a JSON post was preflighted with a question
+  that never mentioned `Content-Type`, and was then allowed by a server that had
+  said nothing about it. One rule now, used in all three places.
+
 - **A request can send something now.** Until this change every request this
   engine made was a request for something and nothing more: there was nowhere to
   put a body, so there was no `POST`, no form, and no upload — over either

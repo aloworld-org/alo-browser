@@ -760,11 +760,35 @@ wrong, which is the argument for the fourth.
   credentialled request *and* named `cookie` in `Access-Control-Request-Headers`.
   A file of `allow_origin_header_is_checked` tests would have passed throughout.
 
-- [ ] **164. The preflight cache.** `Access-Control-Max-Age`, so a cross-origin
+- [x] **164. The preflight cache.** `Access-Control-Max-Age`, so a cross-origin
   request is not two round trips every time.
   *Depends on 61, 56. Closes when:* a second request of the same shape sends no
   `OPTIONS`, one of a *different* shape still does, and an entry expires on the
   clock the caller passes in rather than one the cache reads.
+
+  **Done: `alo-net/src/preflight.rs`**, all three clauses, and the dependency on
+  56 turned out to be a dependency on its *shape* rather than on its code — the
+  clock is the caller's and the key carries the [`Partition`] here for exactly
+  ADR 0011 section 1's reason. The rule the whole file is one application of:
+  **what is remembered is what a server said about a request that was actually
+  made**, never anything wider. So a `*` is stored as the method and headers it
+  allowed rather than as a wildcard, which is what makes the rule that `*` never
+  covers `Authorization` need no restatement here; an answer given without
+  credentials does not cover a request carrying them; an opaque origin is never
+  a key, because every one of them serialises to `null`; and there is one way
+  in, `Preflights::allowed`, which checks before it stores so that remembering
+  a refused permission is not a thing a caller can do by getting an order
+  wrong. Two hours is the cap, because a permission nobody can revoke is not
+  one.
+
+  **It found one thing and fixed it rather than cutting it**, because the cache
+  could not have been built correctly around it: the safelist was applied by
+  header *name* in two of the three places that ask what shape a request is, and
+  it is a rule about the value too. So `Content-Type: application/json` was
+  correctly preflighted and then asked about with a question that never named
+  `Content-Type`, and allowed by a server that had said nothing about it. One
+  function answers it now — `cors::names_a_form_could_not_have_sent` — and this
+  cache matches against the same one.
 
 - [x] **62. Referrer policy, HSTS, mixed-content blocking.** *Scope cut on
   starting: CSP is a whole item on its own — see 165 — and its grammar is where

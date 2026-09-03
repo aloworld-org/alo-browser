@@ -258,7 +258,15 @@ unreachable without it.
       and can get wrong, which is one of ADR 0005's four reasons for the
       sandbox. A page may send almost anywhere and read almost nowhere; a
       wildcard never covers a request that carried credentials; a `Set-Cookie`
-      is honoured and unreadable · Owed: the preflight cache, queue item 164
+      is honoured and unreadable. **The preflight cache** (queue item 164): a
+      second request of the same shape sends no `OPTIONS` and one of a different
+      shape still does, partitioned by top-level site, expiring on the caller's
+      clock and capped at two hours however long a server asked for — because a
+      permission nobody can revoke is not one. A `*` is remembered as what it
+      allowed rather than as a standing offer. Building it found the safelist
+      being applied by header *name* where it is a rule about the value too, so
+      a JSON post was preflighted with a question that never named
+      `Content-Type`
 - [ ] Content Security Policy, referrer policy, HSTS, mixed-content blocking
       · Built: HSTS, mixed content and referrer policy (queue item 62) — a
       `Strict-Transport-Security` over plain HTTP ignored so it cannot be used

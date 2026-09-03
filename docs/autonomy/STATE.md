@@ -5424,3 +5424,134 @@ already written down: a directive this engine cannot parse must make a policy
 
 And item 183, the fieldset border, is still the one iterations 70 and 72 to 79
 each named and nobody has taken.
+
+---
+
+## Iteration 81 — queue item 164: the preflight cache
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 164 was
+one of the two iteration 80's journal named as next. It was taken over 165
+(Content Security Policy) for the reason `LOOP.md` gives about size: 165 is a
+grammar, a source-expression language and a reporting channel, and the rule that
+matters most in it — an unparseable directive making a policy *more* restrictive
+— is worth an iteration that is not also building three other things. 164 is one
+question, and 187 says in itself to wait for an upload that wants it.
+
+**The whole file is one rule applied four times**, and it is written at the top
+of `preflight.rs` in those words: *what is remembered is what a server actually
+said about a request that was actually made.* A preflight cache is a store of
+**permissions**, so the only interesting way it can be wrong is by handing out
+one nobody granted, and every design decision here is that rule again:
+
+- A `*` in `Access-Control-Allow-Methods` or `Access-Control-Allow-Headers` is
+  remembered as **the method and the headers this request asked for**. `*` is
+  "and anything else you care to ask", which is a sentence about the request in
+  front of the server rather than a standing offer — so a page allowed a `PUT`
+  still asks about a `DELETE`. The nice consequence is that item 61's rule that
+  a wildcard never covers `Authorization` **needs no restatement here**: a
+  header is in the entry only because a server named it.
+- An answer given to a request **without** credentials does not cover one with
+  them; the server was never shown the harder question. The other direction
+  does, and that is not symmetry for its own sake: a server that agreed to be
+  read by this origin *with* cookies has agreed to the stricter case.
+- **`Preflights::allowed` is the only way in**, and it calls
+  `cors::asking_first_allowed` before it stores. Remembering a permission the
+  server refused is then not a thing a caller can do by calling two functions in
+  the wrong order.
+- **`must_ask` is the only way out**, and it asks `cors::needs_asking_first`
+  itself. A caller that consulted the cache first would skip a preflight for a
+  request that needed one whenever some earlier request to the same URL had
+  happened to need one and been allowed.
+
+**The key is the site, the origin and the URL, and the opaque case is `None`.**
+The site is ADR 0011 section 1 and ADR 0007's argument, unchanged by the fact
+that this holds permissions rather than pages: an entry that made one site's
+request faster because another site had already asked answers *have you been
+there* to anybody who times a load, and survives clearing cookies. The origin is
+finer than the site and is also required — an answer names an origin. And an
+**opaque origin is never a key**, because every one of them serialises to
+`null`: a key containing one would be shared between pages that are by
+definition not each other, which is the rule `alo_url` states as a type.
+
+**Nothing here reads a clock**, which is item 56's shape and was the real
+content of the stated dependency on it. Every expiry in the tests is a named
+moment and the pairs either side of one are the assertions — `59s: reuse`,
+`60s: ask`, `61s: ask` — because a single moment in the middle passes against a
+cache that never expires anything.
+
+**Two hours is the cap, and the reason is written down.** A preflight answer is
+a permission, and a permission nobody can revoke is not one: a server that wrote
+`Access-Control-Max-Age: 31536000` once should not have to wait a year out to
+change its mind about who may `DELETE`. Same argument as `cookie::LONGEST_LIFE`,
+on a much shorter scale, because nothing here is a preference anybody chose.
+
+**`LOOP.md`'s hostile-input clause bites on one header and is answered as a
+table.** `Access-Control-Max-Age` is a number a server chose, which means it is
+not necessarily a number, and the twelve rows say what each reading is worth
+rather than only that it did not crash — which matters because *not remembered*
+and *remembered for the default five seconds* are different outcomes and my
+first draft of that table conflated them. Zero and negative are a server
+declining. Unreadable is a server saying nothing, which Fetch gives five
+seconds. Anything above `i64` is enormously above the cap and so is the cap —
+reading `10000000000000000000` as five seconds would be defensible and would
+surprise the only kind of person who writes it. And a clock so near the end of
+representable time that two hours does not fit in it is refused rather than
+overflowed; finding the end of time portably took six lines in the test, because
+a test that panicked while building its own argument would have proved nothing.
+
+**Three rules were doctored out and the named test failed each time**: the
+credentials guard, the wildcard collapse, and the opaque-origin key. Run rather
+than reasoned about, per the iterations before this one.
+
+**What the item did not ask for and the work found: the safelist is a rule about
+a value, and two of the three places that ask it used only the name.**
+`Content-Type` is safelisted and `application/json` is not one of the three
+values a form can produce. `needs_asking_first` knew that; `asking_first` and
+`asking_first_allowed` did not — so a JSON post was **correctly preflighted with
+a question that never named `Content-Type`**, and then allowed by a server that
+had said nothing about it. That is the permissive direction, and it is one of
+the most ordinary requests on the modern web.
+
+It was fixed rather than cut, because the cache could not have been built
+correctly around it: a cache's whole job is deciding whether two requests are
+the same *shape*, and it would have inherited whichever answer it was given.
+There is one function now — `cors::names_a_form_could_not_have_sent` — and all
+three callers plus the cache take it. `needs_asking_first` became two lines as a
+result, which is the usual sign the rule was in the wrong place.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1410 tests** (up from 1391), no stubs, no `unsafe`, boundaries held,
+the licence notice on the new file, and a `CHANGELOG.md` line. No layout
+assertion and no reference render: nothing here positions, sizes or draws. One
+file one responsibility — `preflight.rs` answers *have we already asked*, which
+is a different question from `cors.rs`'s *may this be done*, and the two are
+joined by one function rather than by shared state.
+
+**`ROADMAP.md`.** The line moved is *"The same-origin policy, CORS and preflight
+(queue item 61)"*, which was ticked with `· Owed: the preflight cache, queue
+item 164`. **The Owed clause is discharged rather than a box being ticked** —
+the line was already `[x]` under the third state, *done with any remainder
+stated*, and what changed is that there is no remainder. `docs/features.md`
+gains two lines: the cache, and the `Content-Type` finding, which was not in that
+file because nobody knew it was missing.
+
+**What the next iteration should know.** Nothing calls `Preflights` yet, and
+that is not an omission of this item: nothing calls `cors` either, because there
+is no fetch pipeline to call it from. That is **queue item 83** (`fetch()` and
+`XMLHttpRequest`, over the same stack as everything else), which depends on 72 —
+the interpreter — and is therefore behind the whole of section D. Every piece of
+CORS in this crate is a decision function waiting for a caller, and this one was
+built in the same shape deliberately.
+
+The first unticked items in file order are still **157** and **158**, both
+blocked on an interface to choose in. **187** is unblocked and says in itself to
+wait. So the next ready item is **165, Content Security Policy** — the larger
+and the more owed of what remains in section B, and the last `Owed:` clause on
+`ROADMAP.md`'s security line. It should be scope-cut on starting: the directive
+grammar and the source expressions are one thing and reporting is another, and
+the rule that must survive whatever is cut is already written into the item —
+**a directive this engine cannot parse makes the policy more restrictive, never
+less.**
+
+And item 183, the fieldset border, is still the one iterations 70 and 72 to 80
+each named and nobody has taken.
