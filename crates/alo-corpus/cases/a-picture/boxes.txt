@@ -8,3 +8,7 @@ block flow · document
       inline flow-root · image
     block flow · paragraph
       inline flow-root · image
+    block flow · paragraph
+      inline flow-root · image
+    block flow · paragraph
+      inline flow-root · image

@@ -36,6 +36,12 @@ rcgen = "0.13"
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 brotli-decompressor = { version = "5", default-features = false, features = ["std"] }
 ruzstd = "0.8"
+# JPEG, rented (ADR 0001), and pure Rust for ADR 0010's reason: a decoder is
+# where a memory bug is most directly a remote code execution, because the
+# attacker chooses every byte the allocator sees. `jpeg-decoder` is the one
+# Servo and `image` use, and it forbids `unsafe` outside an optional SIMD
+# feature this does not enable.
+jpeg-decoder = { version = "0.3", default-features = false }
 unicode-linebreak = "0.1"
 unicode-script = "0.5"
 dejavu = "2.37"

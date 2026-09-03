@@ -1,2 +1,8 @@
 # What the page named, and the file beside this case holding it.
+#
+# `/lying-name.png` is a JPEG. The name on the page proves nothing about what a
+# server sent, so the format is decided by what the bytes begin with — and this
+# line is how the case says so.
 /stripes.png stripes.png
+/stripes.jpg stripes.jpg
+/lying-name.png stripes.jpg

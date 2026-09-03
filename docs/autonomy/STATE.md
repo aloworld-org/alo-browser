@@ -4202,3 +4202,52 @@ since most photographs on the web are one) and forms, which nothing has looked
 at. A page with a `<form>` would find things in `alo-box`'s control handling
 that only the alo cases have exercised so far.
 
+---
+
+## Iteration 67 — queue item 177: JPEG
+
+Cut on starting: four codecs is not one item, and JPEG is the one that matters
+because most photographs on the web are one. GIF, WebP and AVIF are item 180.
+
+**A different rented crate is a different file.** `png` belongs to
+`encode.rs`, which rented it for reference renders, so `jpeg_decoder` gets
+`picture.rs` — which also owns the thing that had nowhere to live before:
+deciding **which** format a run of bytes is.
+
+**The format comes from the bytes, not from the name**, and this is the part
+worth having built. A `src` ending in `.png` is a string on a page; the server
+that answered may have sent something else, by mistake or on purpose. So the
+corpus case serves a JPEG as `/lying-name.png`, and it decodes — because what a
+thing *is* cannot be lied about without also being true. A decoder handed the
+wrong format either fails confusingly or, worse, finds something in it.
+
+**The same bounds either way, from one list.** That is the reason JPEG and PNG
+are one item: a second decoder with its own limits, or none, is a second way in.
+Every refusal test walks both formats from a single list, so adding a third
+means adding it to the list rather than remembering to. A JPEG's dimensions are
+in its frame header, so the size is knowable without decoding — and there is a
+test that rewrites that header to claim four billion pixels.
+
+**What I got wrong, and it was about the test rather than the code.** The
+picture was four by three with three one-row stripes, which is a lovely test for
+PNG and a meaningless one for JPEG: a picture that small is a single DCT block,
+and chroma subsampling returns it as mud. The green stripe came back
+`(130, 123, 115)`. The picture is twenty-four square with eight-row stripes now,
+and the test asks which channel is **largest** rather than for a colour —
+because asking a lossy format for exact bytes is a test about the format rather
+than about the code.
+
+**A colour space this engine does not convert is refused by name.** Sixteen-bit
+greyscale and CMYK exist and are rare on the web; a wrong conversion is a
+picture in the wrong colours, and nobody looking at it would know which of the
+two had happened.
+
+**The gate.** Green: fmt, clippy zero and zero, 1211 tests, and the new rented
+crate is behind its own file.
+
+**What the next iteration should know.** The corpus can hold a page with a
+linked stylesheet, PNG and JPEG — everything a real page needs except a form.
+Nothing has looked at forms outside the alo cases, and `alo-box`'s control
+handling has only ever seen markup we wrote. A page with a `<form>` is the next
+one to freeze.
+

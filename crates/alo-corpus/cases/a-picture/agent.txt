@@ -1,9 +1,13 @@
-document at (0, 0) 200×133
-  paragraph at (0, 4) 200×3
-    image at (0, 4) 4×3
-  paragraph at (0, 11) 200×60
-    image at (0, 11) 80×60
-  paragraph at (0, 75) 200×30
-    image at (0, 75) 40×30
-  paragraph at (0, 109) 200×20
-    image at (0, 109) 40×20
+document at (0, 0) 200×342
+  paragraph at (0, 4) 200×24
+    image at (0, 4) 24×24
+  paragraph at (0, 32) 200×80
+    image at (0, 32) 80×80
+  paragraph at (0, 116) 200×30
+    image at (0, 116) 30×30
+  paragraph at (0, 150) 200×20
+    image at (0, 150) 40×20
+  paragraph at (0, 174) 200×80
+    image at (0, 174) 80×80
+  paragraph at (0, 258) 200×80
+    image at (0, 258) 80×80

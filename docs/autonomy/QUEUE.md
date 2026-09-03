@@ -1028,10 +1028,24 @@ The long pole, and the thing most of section E is unreachable without.
   visibly speckled, in a reference render — and law 3 applies, so this waits
   for a page that needs it rather than being guessed at.
 
-- [ ] **177. The other image codecs**: JPEG, GIF, WebP, AVIF. Rented.
+- [x] **177. JPEG.** Rented, pure Rust. *Scope cut on starting: GIF, WebP and
+  AVIF went to item 180 — JPEG is the one that matters, because most
+  photographs on the web are one.*
   *Depends on 106. Closes when:* each lays out and draws from a frozen file, and
   each has the same bound and the same refusals as PNG — which is the reason
   they are one item rather than four.
+
+  **Done for JPEG.** The format is decided by the bytes rather than by the
+  `src`, and the corpus case has a JPEG served under a `.png` name to say so.
+  Every refusal test runs against both formats from one list, so adding a third
+  means adding it to the list rather than remembering to.
+
+- [ ] **180. GIF, WebP and AVIF.** Rented. The same bound and the same refusals
+  as PNG and JPEG, added to the one list the tests already walk.
+  *Depends on 177. Closes when:* each decodes a frozen file and each is refused
+  the same way — and an animated GIF shows its first frame rather than nothing,
+  because a still picture is a better answer than a gap while item 109 is
+  outstanding.
 
 - [ ] **107. SVG** — *"a second rendering model inside the first, and far larger
   than its one line here suggests."* **Cut this before starting it**; it is

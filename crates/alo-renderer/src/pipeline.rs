@@ -273,7 +273,9 @@ fn pictures_for(
             issues.push(format!("no picture was loaded for {src:?}"));
             continue;
         };
-        match alo_paint::encode::picture_from_png(bytes) {
+        // By what the bytes are rather than what the `src` ends in: a name on a
+        // page proves nothing about what a server sent.
+        match alo_paint::picture::read(bytes) {
             Ok(canvas) => {
                 let (width, height) = (canvas.width(), canvas.height());
                 boxes.set_natural_size(

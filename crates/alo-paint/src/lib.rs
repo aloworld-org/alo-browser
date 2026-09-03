@@ -40,6 +40,7 @@ pub mod encode;
 pub mod glyph;
 pub mod paint;
 pub mod path;
+pub mod picture;
 pub mod raster;
 pub mod render;
 

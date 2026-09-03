@@ -6,6 +6,30 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **JPEG**, rented and pure Rust for ADR 0010's reason — a decoder is where a
+  memory bug is most directly a remote code execution, because the attacker
+  chooses every byte the allocator sees.
+- **The format comes from the bytes, not from the name.** A `src` ending in
+  `.png` proves nothing: it is a string on a page, and the server that answered
+  may have sent something else, by mistake or on purpose. The corpus case has a
+  JPEG served as `/lying-name.png` and it decodes, because what a thing is
+  cannot be lied about without also being true.
+- **The same bounds either way**, which is why JPEG and PNG are one item rather
+  than two: a second decoder with its own limits, or none, would be a second way
+  in. Both refuse a picture larger than sixty-four megapixels, both refuse one
+  of no size, and both check **before** the allocation. A JPEG's dimensions are
+  in its frame header, so the size is knowable without decoding — and there is a
+  test that rewrites that header to claim four billion pixels.
+- A colour space this engine does not convert — sixteen-bit greyscale, CMYK — is
+  **refused by name** rather than approximated, because a wrong conversion is a
+  picture in the wrong colours and nobody would know which of the two it was.
+- The test picture is twenty-four pixels square with stripes eight rows tall,
+  and both of those are for JPEG's sake. The first version was three rows in a
+  four-by-three picture — a single DCT block, which chroma subsampling returns
+  as mud: the green stripe came back `(130, 123, 115)`. A test that asks a lossy
+  format for an exact colour is a test about the format rather than the code, so
+  it asks which channel is largest.
+
 - **`<img>` lays out and draws.** A picture arrives as bytes, is decoded, and the
   box it belongs to is told how big it is — so an `<img>` with no width lays out
   at the picture's own size, and one with a width **keeps the picture's ratio**

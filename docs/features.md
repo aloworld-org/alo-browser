@@ -130,6 +130,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   document order, with an alternate sheet left alone and a missing one recorded
 - [2] **`<img>` lays out at the picture's own size** and keeps its ratio when
   given one dimension
+- [2] **PNG and JPEG from a page**, with the format taken from the bytes rather
+  than the name, and the same bounds either way
 - [2] **PNG pictures from a page**, read tolerantly and bounded before anything
   is allocated — a hundred-byte file cannot ask for seventeen gigabytes
 - [2] **A wrapped inline is more than one rectangle** — and offscreen only when
