@@ -127,6 +127,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
 - [2] **A page's own `<style>` elements**, in document order
+- [2] **Links that look like links**, with no visited colour — `:visited` never
+  matches, so history is not readable from a page
 - [2] **The user-agent sheet's typographic defaults** — what a page looks like
   before anybody styles it
 - [2] **Shorthands compete with longhands in the cascade**, so an author's

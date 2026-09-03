@@ -3864,3 +3864,67 @@ does — two of them, one of which was in the cascade and had been wrong since t
 cascade existed. A second page will find more, and it should be a harder one:
 something with a linked stylesheet, an image, and a form.
 
+---
+
+## Iteration 61 — queue item 172: the first web page
+
+The second page we did not write, chosen for a specific reason: **it has no
+style sheet at all.** Every pixel comes from the user-agent sheet, which item
+171 had just rewritten and which had no real coverage whatsoever. A page that
+brings its own CSS would have hidden most of that work behind its own opinions.
+
+**It is also 1991 markup**, which is a second thing to test entirely: uppercase
+tags, an unclosed `<P>`, `<DT>` and `<DD>` closed by the next one starting, and
+a `<HEADER>` element that meant `<HEAD>` and no longer does.
+
+**What it found: links had no colour.** The sheet said
+`text-decoration: underline` and nothing else. On a page that is almost entirely
+links — this one — that renders as an undifferentiated wall of black text with
+no way to see what can be followed. It is the same class of defect item 171
+fixed: the sheet said what elements *are* and nothing about what they look like,
+and no case noticed because every case set its own.
+
+`a:any-link` rather than `a`, because an `<a>` without an `href` is an anchor
+rather than a link, and this page is full of them.
+
+**And a decision that was already made, now visible.** There are no purple
+visited links, because `:visited` never matches in this engine — a privacy
+decision taken when the selector list was written, since whether a link has been
+visited is history and a style that depends on it is readable from the page. The
+consequence is a page that looks slightly wrong to anybody expecting purple. I
+wrote that into the sheet where somebody would otherwise add the rule, rather
+than leaving it to look like an omission.
+
+**Two findings filed rather than fixed**, because each is its own item and
+neither is small. `text-decoration: underline` has been in the sheet all along
+and **paints nothing** — it is parsed, it is inherited, and no paint operation
+comes out. Nothing in the alo cases underlines anything, so nothing noticed
+(item 173). And a wrapped inline reports **one** rectangle covering all of its
+lines, so `link "Frequently Asked Questions"` comes back as 778×37 from the left
+margin (item 174). Nothing acts on that — no verb takes a coordinate — but it
+decides whether a node is offscreen and it is what a person reading the tree
+sees.
+
+**What it did not find is the point of running it.** The `<DL>` indents by forty
+pixels, the `<H1>` is 2em with its margins, the paragraph has its own, and all
+four things the parser could not make sense of are in `issues.txt` rather than
+silently dropped. Item 171's work is now checked against a page that asked for
+none of it.
+
+**And one thing that is just pleasing.** `<HEADER>`, written in 1991 to mean
+`<HEAD>`, is parsed as the HTML5 `<header>` element and comes back as a `banner`
+landmark of zero height. That is the correct modern reading of markup written
+before either existed, and it is the sort of thing you can only see once the
+agent tree is a thing you can read.
+
+**The gate.** Green: fmt, clippy zero and zero, 1191 tests. Two pages in the
+corpus that nobody here wrote, and five queue items that came from them.
+
+**What the next iteration should know.** Item 173, painting `text-decoration`,
+and this page is its test — it is the only case in the corpus with an underline
+in it. Its closing condition asks for `line-through` and `overline` in the same
+change, because they are the same machinery and splitting them means building it
+twice. The harder half is that a decoration has to stop at the end of an inline
+rather than running to the edge of the line it is on, which is what
+`alo_box`'s split-inline note in `tree.rs` is already about.
+

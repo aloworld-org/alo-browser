@@ -1,0 +1,44 @@
+http://info.cern.ch/hypertext/WWW/TheProject.html
+
+Taken 2026-09-03 with `curl`. The server answered HTTP/1.1 200; the bytes here
+are the body exactly as it sent them, unedited.
+
+Why this page. It is the first web page, restored and published by CERN as a
+historical record, so freezing it needs nobody's leave and anybody can re-derive
+it. And it is the purest possible test of the work queue item 171 had just
+finished: **it has no style sheet at all.** Every pixel of it comes from the
+user-agent sheet, which until item 171 said what elements are and nothing about
+what they look like.
+
+It is also 1991 markup, which is a second thing to test entirely: uppercase tag
+names, an unclosed `<P>`, `<DT>` and `<DD>` closed by the next one starting, and
+a `<HEADER>` element that meant `<HEAD>` and no longer does.
+
+## What it found
+
+**Links had no colour.** The sheet said `text-decoration: underline` and nothing
+else, so on a page that is almost nothing but links — this one — the whole thing
+rendered as an undifferentiated wall of black text with no way to see what could
+be followed. `a:any-link` has a colour now. It is `:any-link` rather than `a`
+because an `<a>` without an `href` is an anchor, not a link, and this page is
+full of them.
+
+**`text-decoration: underline` is declared and never painted.** It has been in
+the user-agent sheet all along and produces no paint operation at all. Nothing
+in the alo cases underlines anything, so nothing noticed. Queue item 173.
+
+**A wrapped inline reports one rectangle covering all of its lines.** `link
+"Frequently Asked Questions"` comes back as 778×37 starting at the left margin,
+because it wraps and the tree reports the union of its fragments. Nothing acts
+on that — ADR 0002 means no verb takes a coordinate — but it decides whether a
+node counts as offscreen, and it is what a person reading the tree sees. Queue
+item 174.
+
+## What it did not find, which is the point of running it
+
+The `<DL>` indents by forty pixels, the `<H1>` is 2em with its margins, the
+paragraph has its own, and the four things the parser could not make sense of
+are all in `issues.txt` rather than silently dropped. `<HEADER>` is parsed as
+the HTML5 `<header>` element and comes back as a `banner` landmark of zero
+height — which is the correct modern reading of markup written before either
+existed, and is the kind of thing that is only funny once you can see it.

@@ -707,6 +707,31 @@ wrong, which is the argument for the fourth.
   the one asserting a renderer given no fonts really has none and is still
   confined.
 
+- [x] **172. A second page we did not write.** The first web page, which has no
+  style sheet at all and is therefore the only real test of the user-agent
+  sheet. Found that links had no colour, which is fixed, and two things that are
+  not — items 173 and 174.
+  *Depends on 68.*
+
+- [ ] **173. Paint `text-decoration`.** It has been in the user-agent sheet all
+  along — `underline` on every link — and produces no paint operation at all.
+  Nothing in the alo cases underlines anything, so nothing noticed until a page
+  made of links arrived.
+  *Depends on 172. Closes when:* the first web page's links are underlined in
+  its committed render, a decoration stops at the end of an inline rather than
+  running to the edge of its line, and `line-through` and `overline` work too —
+  they are the same machinery and leaving them out would mean doing this twice.
+
+- [ ] **174. A wrapped inline is more than one rectangle.** `link "Frequently
+  Asked Questions"` comes back from the agent tree as 778×37 starting at the
+  left margin, because it wraps and the tree reports the union of its fragments.
+  No verb takes a coordinate (ADR 0002) so nothing acts on it — but it decides
+  whether a node counts as offscreen, and it is what a person reading the tree
+  sees.
+  *Depends on 172. Closes when:* a link split across two lines reports the boxes
+  it actually occupies, and a node is offscreen only when **none** of them is on
+  screen.
+
 - [ ] **170. Fonts a page asks for by name.** *Item 68's first case is the
   evidence: it asks for `system-ui, sans-serif`, gets DejaVu Sans, and nothing
   says so.* Today every renderer is given the

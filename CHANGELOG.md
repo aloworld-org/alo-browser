@@ -6,6 +6,32 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A second page we did not write: the first web page.** CERN's restored 1991
+  original, and the purest possible test of what item 171 had just finished —
+  **it has no style sheet at all**, so every pixel of it comes from the
+  user-agent sheet.
+- **It found that links had no colour.** The sheet said
+  `text-decoration: underline` and nothing else, so a page that is almost
+  entirely links rendered as an undifferentiated wall of black text with no way
+  to see what could be followed. `a:any-link` has one now — `:any-link` rather
+  than `a`, because an `<a>` without an `href` is an anchor and 1991 pages are
+  full of them.
+- **There are no purple visited links, deliberately.** `:visited` never matches
+  in this engine — whether a link has been visited is history, and a style that
+  depends on it is readable from the page. That is a privacy decision with a
+  visible cost, and it is now written where somebody would otherwise add the
+  rule.
+- Two more findings filed rather than fixed: `text-decoration: underline` has
+  been in the sheet all along and **paints nothing** (queue item 173, and
+  nothing in the alo cases underlines anything, so nothing noticed); and a
+  wrapped inline reports one rectangle covering all of its lines (item 174).
+- What it did *not* find is the point of running it: the `<DL>` indents by forty
+  pixels, the `<H1>` is 2em with its margins, and the four things the parser
+  could not make sense of are all in `issues.txt` rather than silently dropped.
+  `<HEADER>` — 1991 for `<HEAD>` — is read as the HTML5 `<header>` and comes
+  back as a `banner` landmark, which is the correct modern reading of markup
+  written before either existed.
+
 - **The user-agent sheet has typographic defaults now** — the HTML
   specification's own: `body { margin: 8px }`, headings sized `2em` down to
   `0.67em` with their margins, `p`, `pre`, `hr`, and lists indented 40px. Until

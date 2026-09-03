@@ -1,0 +1,116 @@
+block flow · document
+  block flow · generic
+    block flow · banner
+      text " "
+      text " "
+      inline flow · generic
+        text " "
+    block flow · heading [level=1]
+      text "World Wide Web"
+    anonymous block
+      text "The WorldWideWeb (W3) is a wide-area"
+      inline flow · link
+        text " hypermedia"
+      text " information retrieval initiative aiming to give universal access to a large universe of documents."
+    block flow · paragraph
+      text " Everything there is online about W3 is linked directly or indirectly to this document, including an "
+      inline flow · link
+        text "executive summary"
+      text " of the project, "
+      inline flow · link
+        text "Mailing lists"
+      text " , "
+      inline flow · link
+        text "Policy"
+      text " , November's "
+      inline flow · link
+        text "W3 news"
+      text " , "
+      inline flow · link
+        text "Frequently Asked Questions"
+      text " . "
+    block flow · generic
+      block flow · generic
+        inline flow · link
+          text "What's out there?"
+        text " "
+      block flow · generic
+        text " Pointers to the world's online information,"
+        inline flow · link
+          text " subjects"
+        text " , "
+        inline flow · link
+          text "W3 servers"
+        text ", etc. "
+      block flow · generic
+        inline flow · link
+          text "Help"
+        text " "
+      block flow · generic
+        text " on the browser you are using "
+      block flow · generic
+        inline flow · link
+          text "Software Products"
+        text " "
+      block flow · generic
+        text " A list of W3 project components and their current state. (e.g. "
+        inline flow · link
+          text "Line Mode"
+        text " ,X11 "
+        inline flow · link
+          text "Viola"
+        text " , "
+        inline flow · link
+          text "NeXTStep"
+        text " , "
+        inline flow · link
+          text "Servers"
+        text " , "
+        inline flow · link
+          text "Tools"
+        text " ,"
+        inline flow · link
+          text " Mail robot"
+        text " ,"
+        inline flow · link
+          text " Library"
+        text " ) "
+      block flow · generic
+        inline flow · link
+          text "Technical"
+        text " "
+      block flow · generic
+        text " Details of protocols, formats, program internals etc "
+      block flow · generic
+        inline flow · link
+          text "Bibliography"
+        text " "
+      block flow · generic
+        text " Paper documentation on W3 and references. "
+      block flow · generic
+        inline flow · link
+          text "People"
+        text " "
+      block flow · generic
+        text " A list of some people involved in the project. "
+      block flow · generic
+        inline flow · link
+          text "History"
+        text " "
+      block flow · generic
+        text " A summary of the history of the project. "
+      block flow · generic
+        inline flow · link
+          text "How can I help"
+        text " ? "
+      block flow · generic
+        text " If you would like to support the web.. "
+      block flow · generic
+        inline flow · link
+          text "Getting code"
+        text " "
+      block flow · generic
+        text " Getting the code by"
+        inline flow · link
+          text " anonymous FTP"
+        text " , etc. "

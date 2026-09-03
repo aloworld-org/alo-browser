@@ -148,7 +148,24 @@ b, strong, th { font-weight: bold }
 i, em, cite, var, address, dfn { font-style: italic }
 code, kbd, samp, pre { font-family: monospace }
 pre { white-space: pre }
-a { text-decoration: underline }
+/* A link looks like a link.
+ *
+ * Found by the first web page (queue item 172), which is almost nothing but
+ * links and which rendered as an undifferentiated wall of black text. The
+ * sheet had `text-decoration: underline` and no colour at all, so on a page
+ * with no style of its own there was no way to see what could be followed.
+ *
+ * `:any-link` rather than `a`, because an `<a>` without an `href` is not a
+ * link — it is an anchor, and 1991 pages are full of them.
+ *
+ * **There is no visited colour, and that is deliberate.** `:visited` never
+ * matches in this engine (see `alo_css::PseudoClass::Visited`): whether a link
+ * has been visited is history, and a style that depends on it is readable from
+ * the page. So there are no purple links here, and that is a privacy decision
+ * with a visible cost rather than an oversight — which is why it is written
+ * where somebody would otherwise add the rule.
+ */
+a:any-link { color: #0000ee; text-decoration: underline }
 small { font-size: smaller }
 mark { background: yellow; color: black }
 
