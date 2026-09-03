@@ -251,12 +251,29 @@ fn there_is_a_ceiling_on_how_many_renderers_exist() {
 #[test]
 fn a_scheme_is_enough_to_make_it_a_different_site() {
     assert_ne!(site("http://example.com/"), site("https://example.com/"));
-    assert_ne!(
+    assert_eq!(
+        site("https://example.com/one"),
+        site("https://example.com/two")
+    );
+}
+
+/// The host is not the site, and this test asserted that it was until queue
+/// item 156 rented the public suffix list. ADR 0005 says a site is the scheme
+/// and the **registrable domain**: two subdomains of one organisation share a
+/// process, and two organisations under one public suffix never do — which no
+/// comparison of host strings could have decided.
+#[test]
+fn two_subdomains_are_one_site_and_two_organisations_are_not() {
+    assert_eq!(
         site("https://a.example.com/"),
         site("https://b.example.com/")
     );
     assert_eq!(
-        site("https://example.com/one"),
-        site("https://example.com/two")
+        site("https://www.example.com/"),
+        site("https://example.com/")
+    );
+    assert_ne!(
+        site("https://www.bbc.co.uk/"),
+        site("https://www.gov.co.uk/")
     );
 }

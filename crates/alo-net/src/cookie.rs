@@ -14,7 +14,7 @@
 //!   system rather than by everybody remembering.
 
 use crate::httpdate;
-use alo_url::Url;
+use alo_url::{Host, Url};
 use core::fmt;
 use std::time::{Duration, SystemTime};
 
@@ -70,17 +70,17 @@ pub struct Partition(String);
 impl Partition {
     /// The partition a page at this URL creates for everything inside it.
     ///
-    /// The **host**, which is stricter than the specification's registrable
-    /// domain: it makes `a.example.com` and `b.example.com` separate
-    /// partitions where a browser with a public suffix list would treat them as
-    /// one. Stricter is the safe direction to be wrong in while queue item 156
-    /// is outstanding, and it is written here rather than assumed.
+    /// The **registrable domain**, which `alo_url::site` decides against the
+    /// public suffix list: `a.example.com` and `b.example.com` are one site, and
+    /// `bbc.co.uk` and `gov.co.uk` are two. Until queue item 156 this was the
+    /// host, which was stricter and was wrong — a person signed in at
+    /// `example.com` was a stranger at `www.example.com`.
     pub fn of(top_level: &Url) -> Self {
         Self(
             top_level
                 .host
                 .as_ref()
-                .map_or_else(|| "opaque".to_owned(), ToString::to_string),
+                .map_or_else(|| "opaque".to_owned(), alo_url::site::of),
         )
     }
 
@@ -156,6 +156,10 @@ impl Cookie {
             .as_ref()
             .map(ToString::to_string)
             .ok_or_else(|| refuse("a cookie from a URL with no host"))?;
+        // Whether the page is at a name or at an address, which decides what a
+        // `Domain` attribute may say. Kept here because the string above has
+        // already forgotten it.
+        let from_a_name = matches!(from.host, Some(Host::Domain(_)));
 
         let (pair, attributes) = match header.split_once(';') {
             Some((pair, rest)) => (pair, rest),
@@ -213,21 +217,10 @@ impl Cookie {
                 "httponly" => found.http_only = true,
                 "path" if argument.starts_with('/') => argument.clone_into(&mut found.path),
                 "domain" if !argument.is_empty() => {
-                    let asked = argument.trim_start_matches('.').to_ascii_lowercase();
-                    if !covers(&asked, &host) {
-                        return Err(refuse(
-                            "a cookie for a domain the page it came from is not part of",
-                        ));
+                    if let Some(domain) = domain_asked_for(argument, &host, from_a_name)? {
+                        found.domain = domain;
+                        found.covers_subdomains = true;
                     }
-                    // A single label is a public suffix in every arrangement
-                    // that matters — `Domain=com` would be a cookie for the
-                    // whole internet. The general case wants the public suffix
-                    // list, which is queue item 156.
-                    if !asked.contains('.') {
-                        return Err(refuse("a cookie for a domain that is a public suffix"));
-                    }
-                    found.domain = asked;
-                    found.covers_subdomains = true;
                 }
                 "max-age" => max_age = argument.parse::<i64>().ok(),
                 "expires" => expires_at = httpdate::parse(argument),
@@ -320,6 +313,60 @@ fn check_the_prefix(cookie: &Cookie, host: &str) -> Result<(), Rejected> {
         });
     }
     Ok(())
+}
+
+/// What a `Domain` attribute may actually ask for.
+///
+/// [`Some`] is a domain the cookie covers, subdomains included; [`None`] is
+/// "keep the host you already had", which is what a page gets when it asks for
+/// the only thing it is allowed to ask for and that thing is its own host.
+///
+/// The two refusals are the same mistake made about different things: a name
+/// wider than the asker owns. `Domain=co.uk` is a cookie for every organisation
+/// in the country and no rule of syntax refuses it, so the public suffix list is
+/// what knows (`alo_url::site`, queue item 156). `Domain=0.1` from a page at
+/// `127.0.0.1` is a cookie shared by every machine on an address ending that
+/// way, and the only reason it gets that far is that [`covers`] reads a host as
+/// a name — an address has no subdomains and cannot say otherwise.
+///
+/// # Errors
+///
+/// [`Rejected`], in words, when the attribute asks for more than the page holds.
+fn domain_asked_for(
+    argument: &str,
+    host: &str,
+    from_a_name: bool,
+) -> Result<Option<String>, Rejected> {
+    let refuse = |why: &str| Rejected {
+        why: why.to_owned(),
+    };
+    let asked = argument.trim_start_matches('.').to_ascii_lowercase();
+    if !covers(&asked, host) {
+        return Err(refuse(
+            "a cookie for a domain the page it came from is not part of",
+        ));
+    }
+    if !from_a_name {
+        return if asked == host {
+            Ok(None)
+        } else {
+            Err(refuse(
+                "a cookie for a domain, from a page at an address rather than a name",
+            ))
+        };
+    }
+    if alo_url::site::is_a_public_suffix(&asked) {
+        // The exception is a page whose whole host is a suffix, `localhost`
+        // being the one anybody meets: it is asking for the cookie it would have
+        // had anyway, so it gets that rather than a refusal it could do nothing
+        // about.
+        return if asked == host {
+            Ok(None)
+        } else {
+            Err(refuse("a cookie for a domain that is a public suffix"))
+        };
+    }
+    Ok(Some(asked))
 }
 
 /// Whether `domain` covers `host` — the same host, or a parent of it.

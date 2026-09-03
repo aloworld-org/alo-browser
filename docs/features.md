@@ -183,6 +183,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **Cookies, partitioned by default** (ADR 0007) — keyed by the setter *and*
   the top-level site, `SameSite=Lax` when a site says nothing, and the
   `__Host-`/`__Secure-` prefixes enforced rather than parsed
+- [2] **The site is the registrable domain**, decided against the public suffix
+  list — so two subdomains of one organisation are one site and share what a
+  site is given, and two organisations under one suffix are two sites however
+  alike their names look. One answer, used by the cookie jar, the cache and the
+  process split
+- [2] **A cookie for a whole public suffix is refused** — `Domain=co.uk` is a
+  cookie for every school and council in the country, and nothing about the
+  shape of the string says so
 - [2] **An HTTP cache**: freshness, `Age`, revalidation with `ETag` and
   `Last-Modified`, and `Vary` as a contract so one reader never gets another
   reader's page
@@ -222,7 +230,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **The process and sandbox model, designed before the first hostile page is ever loaded** (ADR 0005). One process per site, renderers with almost no privilege, the platform's own sandbox rather than one of ours, and work crossing as typed messages in one direction. Memory safety does not make this optional: Spectre is a hardware property, and the codecs we rent are not ours to make safe
 - [2] A renderer that dies costs one tab and never the browser, and says so rather than leaving a blank rectangle
 - [2] The transport, and the lifecycle that starts, reuses and reaps renderers
-- [2] Where one site ends and another begins — the origin, the site, and which of them gets a process
+- [2] Where one site ends and another begins — the origin, the site, and which of them gets a process. The site is answered: scheme plus registrable domain, as ADR 0005 defines it. Which of the three gets a process, in every case a real page produces, is not
 
 ## The network — stage 2
 

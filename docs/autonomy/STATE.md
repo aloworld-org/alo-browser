@@ -5014,3 +5014,104 @@ measurement ADR 0011 asks for; nothing has run it on real use yet.
 
 And item 183, the fieldset border, is still the one iterations 70, 72, 73, 74
 and 75 each named and nobody has taken.
+
+---
+
+## Iteration 77 — queue item 156: the public suffix list
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 156 was
+the first unticked item in the file, its one dependency (57) is done, and the
+two iterations before it each named it as the ready chore worth most — so it was
+taken in file order.
+
+**Where it went, which was not where the item implied.** The queue entry is
+written about the cookie partition, so `alo-net` is where it reads as belonging.
+It is in **`alo-url`**, because a site is a property of a host and *three*
+unrelated things were each answering it with the host on their own: the cookie
+partition (ADR 0007), the cache key (ADR 0011), and the renderer process
+(ADR 0005) — whose own module comment named this item as the thing that would
+correct it. Putting the answer in `alo-net` would have left the process model
+with a second one, and this item exists precisely because there should be one.
+
+**What was built.** `alo-url/src/site.rs`, the only file that may name `psl`
+(the gate's boundary list gained the line), with two functions:
+
+- `of(&Host) -> String` — the registrable domain, or the host itself when there
+  is none. It takes a **`Host` and not a string**, and that is the design rather
+  than a convenience: `127.0.0.1` read as a name has the registrable domain
+  `0.1`, which would put every machine on an address ending that way into one
+  site. The type has already decided which it is; a string has not.
+- `is_a_public_suffix(&str)` — for a cookie's `Domain` attribute, which is a
+  string and cannot be anything else.
+
+Both lowercase what they are given rather than documenting that they need it.
+The list is matched byte for byte, so `bbc.CO.UK` matches no rule, falls to the
+rule of last resort and comes back with `CO.UK` as its registrable domain —
+a wrong answer in the unsafe direction, made unreachable rather than noted.
+
+**The hole it found, which was not in the item.** `Domain=co.uk` was **accepted**:
+the only rule was that a domain contain a dot, which is exactly the rule the
+comment there said was standing in until this item. That cookie is one for every
+school, council and company in the country. Two smaller ones went with it, both
+the same mistake about different things — `Domain=0.1` from a page at
+`127.0.0.1`, which `covers` allows because it reads a host as a name; and
+`Domain=localhost` at `localhost`, refused outright where the specification makes
+it host-only, which is a refusal the page could do nothing about. The attribute's
+rules are now one function, `domain_asked_for`, which is also what kept
+`Cookie::parse` under the line limit clippy enforces.
+
+**The direction this moved, said plainly.** Every previous note about this called
+the host *stricter*, and it was. This makes the boundary **looser** — two
+subdomains of one organisation are one site now, share a cookie jar, share a
+cache entry and share a renderer process. That is ADR 0005's definition and
+ADR 0007's, and the thing that makes it safe is the half a host comparison could
+never do: `bbc.co.uk` and `gov.co.uk` are two sites, and no rule of syntax says
+so. Where the list has nothing to say — an address, a host that is itself a
+suffix, a name under a suffix nobody has registered — the answer is the host,
+which is the strict direction.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1357 tests** (up from 1340), no stubs, no `unsafe`, boundaries held —
+`psl` among them now — and a `CHANGELOG.md` line. No layout assertion and no
+reference render: nothing here positions, sizes or draws. `LOOP.md`'s
+hostile-input clause is met by feeding a host thirteen shapes of rubbish and a
+name of ten thousand labels, each asserted to come back as part of the name it
+was given rather than as a panic — a host arrives from a stranger's page, and a
+crash in the code that decides where a cookie lives is a denial of service in
+the browser process.
+
+**The evidence, and it is the closing condition run rather than reasoned about.**
+The item's two halves are one test naming both: `bbc.co.uk` and `gov.co.uk` are
+different sites and `www.example.com` and `example.com` are the same one. Then
+the consequence in each of the three places, because a unit test on a function
+nobody had wired up would prove nothing: cookies
+(`two_subdomains_of_one_site_are_one_partition`, and the boundary that must not
+be lost with it), the cache
+(`the_boundary_is_the_registrable_domain_rather_than_the_host`), and the process
+split — where `a_scheme_is_enough_to_make_it_a_different_site` had been asserting
+that two subdomains are two sites, which is the stand-in and not the rule, so it
+was rewritten rather than deleted. I checked all of them fail without the change
+rather than assuming it: with `of` put back to the host, the cache and process
+tests fail; with `is_a_public_suffix` put back to "does it contain a dot", the
+`Domain=co.uk` test fails.
+
+**`ROADMAP.md`.** Two lines moved. *"Where one site ends and another begins"* had
+this item as its whole `Owed:` clause; the clause is discharged and the line now
+says what is built (the site, as ADR 0005 defines it) and what is not — **which**
+of the origin, the site and the registrable domain a page gets, case by case,
+which is item 66. It stays an empty box: item 66 is not done and a tick would be
+the exact move `LOOP.md` warns about. The **Cookies** line was already ticked;
+its `Owed:` clause loses item 156 and keeps item 157.
+
+**What the next iteration should know.** Item 186 is the cut, and it is small:
+the list is a snapshot, a snapshot ages, and a suffix delegated after ours was
+taken reads as an ordinary registrable domain — two organisations in one site,
+which is the direction that costs. Nothing prompts anybody to bump it.
+
+One thing noticed and deliberately not taken, because it predates this item and
+belongs to whoever takes item 66: `Partition::of` answers `"opaque"` for a URL
+with **no host**, so every host-less top-level page shares one partition. Nothing
+can navigate to one yet, which is why it is a note rather than an item.
+
+And item 183, the fieldset border, is still the one iterations 70 and 72 to 76
+each named and nobody has taken.

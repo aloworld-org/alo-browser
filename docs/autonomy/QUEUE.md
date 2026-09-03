@@ -572,13 +572,35 @@ first. Nothing here needs JavaScript.
   rejected, because the value of a prefix is that a server can trust the name.
   Two things the ADR asks for went to the queue: 156 and 157.
 
-- [ ] **156. The public suffix list, rented.** Today the site boundary is the
+- [x] **156. The public suffix list, rented.** Today the site boundary is the
   **host**, which is stricter than the registrable domain — `a.example.com` and
   `b.example.com` are separate sites, where they should be one. Stricter is the
   safe direction, and it is wrong.
   *Depends on 57. Closes when:* `bbc.co.uk` and `gov.co.uk` are different sites
   and `www.example.com` and `example.com` are the same one, in a test that names
   both.
+
+  **Done, and it went in `alo-url` rather than `alo-net`** — the site is a
+  property of a host, and three unrelated things were each answering it with the
+  host on their own: the cookie partition (ADR 0007), the cache key (ADR 0011)
+  and the renderer process (ADR 0005). `alo_url::site::of` is the one answer all
+  three take now, and it takes a **`Host` rather than a string**, because
+  `127.0.0.1` read as a name has the registrable domain `0.1` and the type is
+  what already knows it is an address. It found a hole while it was there:
+  `Domain=co.uk` was accepted, since the only rule was that a domain contain a
+  dot. The cut is item 186: the list is a snapshot, and nothing says when it has
+  aged.
+
+- [ ] **186. The public suffix list has a date, and nothing reads it.** Cut from
+  156. `psl` compiles a snapshot of the list in, which is right — a security
+  boundary that arrived over the network would exist only when the network did —
+  but a snapshot ages, and a suffix delegated after ours was taken is read as an
+  ordinary registrable domain. That is two organisations sharing one site, which
+  is the direction that costs rather than the direction that annoys. Updating it
+  is a version bump somebody has to think of, and nobody is prompted to.
+  *Depends on 156. Closes when:* something a person sees names the snapshot's
+  age — the gate, or a test that fails when it is older than a stated number of
+  months — so that an out-of-date boundary is a message rather than a silence.
 
 - [ ] **157. The storage-access grant.** ADR 0007 specifies it mostly by what it
   must not be: never a global toggle, never an allowlist we ship. A person is

@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A site is an organisation now, rather than a host.** Until this change every
+  subdomain was its own site: signing in at `example.com` left you a stranger at
+  `www.example.com`, and the two could not share so much as a cached style
+  sheet. The browser reads Mozilla's public suffix list now — the list of names
+  anybody may register under — so the site is the name somebody actually holds.
+  Two subdomains of one organisation are one site; `bbc.co.uk` and `gov.co.uk`
+  are two, which no comparison of the names themselves could have told. One
+  answer, and the cookie jar, the cache and the process split all use it.
+
+  It closes a real hole on the way: `Domain=co.uk` was accepted, and the cookie
+  it set was one for every school, council and company in the country. The only
+  rule refusing anything before was that a domain had to contain a dot.
+
 - **The cache is on a disk now, and it is partitioned.** What was loaded before
   a restart is served after one, under exactly the freshness and `Vary` rules it
   would have been served under from memory — and the key carries the top-level

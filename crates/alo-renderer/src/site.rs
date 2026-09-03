@@ -1,26 +1,27 @@
 //! Which site a page belongs to, and therefore which process renders it.
 //!
-//! # The one thing to be honest about here
+//! ADR 0005: a site is *"the scheme and the registrable domain, so two tabs on
+//! the same site share a process and two sites never do."* Both halves are here
+//! now — the registrable domain is `alo_url::site`'s answer, decided against the
+//! public suffix list (queue item 156), and the scheme is kept beside it because
+//! `http://example.com` and `https://example.com` are two sites however alike
+//! the host is.
 //!
-//! ADR 0005 says a site is *"the scheme and the registrable domain, so two tabs
-//! on the same site share a process and two sites never do."* The registrable
-//! domain needs a public suffix list, which this engine does not have yet —
-//! queue item 156.
+//! # What changed when the list arrived, and which direction it moved
 //!
-//! So today a site is the scheme and the **host**. That is **stricter**, which
-//! is the safe direction: `a.example.com` and `b.example.com` get separate
-//! processes where they should share one. It costs memory and it never puts two
-//! sites together.
-//!
-//! It is said out loud here rather than quietly using the host, because the
-//! failure in the other direction — two sites sharing a process because we
-//! could not tell them apart — is precisely what this whole structure exists to
-//! prevent, and somebody adding the public suffix list needs to find this note
-//! rather than discover the assumption.
+//! Until item 156 a site was the scheme and the **host**, which was stricter:
+//! `a.example.com` and `b.example.com` got separate processes where they should
+//! share one, which cost memory and never put two sites together. It is looser
+//! now, and deliberately — one process for one registrable domain is what
+//! ADR 0005 decided and what the isolation is sized for. The failure in the
+//! other direction, two *sites* sharing a process because we could not tell
+//! them apart, is what the list makes impossible rather than unlikely:
+//! `bbc.co.uk` and `gov.co.uk` share a suffix and are not one site, and no
+//! comparison of host strings could have said so.
 
 use core::fmt;
 
-/// A site, as this engine can currently tell them apart.
+/// A site: the scheme and the registrable domain.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Site {
     scheme: String,
@@ -39,7 +40,7 @@ impl Site {
             host: url
                 .host
                 .as_ref()
-                .map_or_else(String::new, |host| host.to_string().to_ascii_lowercase()),
+                .map_or_else(String::new, alo_url::site::of),
         }
     }
 
@@ -48,8 +49,8 @@ impl Site {
         &self.scheme
     }
 
-    /// The host, which is standing in for the registrable domain until item
-    /// 156.
+    /// The registrable domain, or the host itself where there is none — an
+    /// address, or a name that is a public suffix.
     pub fn host(&self) -> &str {
         &self.host
     }

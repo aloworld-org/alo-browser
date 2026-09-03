@@ -9,6 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+psl.workspace = true
 url.workspace = true
 
 [lints]

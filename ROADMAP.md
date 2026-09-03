@@ -158,10 +158,12 @@ unreachable without it.
       (queue items 63 and 166) — length-prefixed messages over pipes, a ceiling
       of sixteen processes, and the least recently used evicted
 - [ ] Where one site ends and another begins — the origin, the site, and which
-      of them gets a process · Built: the site as scheme plus host, which is
-      stricter than scheme plus registrable domain and said out loud as such
-      · Owed: the public suffix list, queue item 156, which is what makes the
-      registrable domain knowable
+      of them gets a process · Built: the site, as ADR 0005 defines it — scheme
+      plus **registrable domain**, decided against the public suffix list
+      (`alo-url`'s `site`, queue item 156), and the one answer the cookie jar,
+      the cache and the process split all use · Owed: **which** of the origin,
+      the site and the registrable domain a page is given, case by case — queue
+      item 66, whose dependencies are done
 
 ### The network
 
@@ -237,8 +239,10 @@ unreachable without it.
 - [x] **Cookies**: `SameSite`, `Secure`, `HttpOnly`, partitioned by default
       (ADR 0007, queue item 57). The default is a product decision and the ADR
       argues it — who it protects, and what it costs. There is no way to ask for
-      cookies without a partition · Owed: the escape hatch a person grants
-      per-site (queue item 157) and the public suffix list (queue item 156)
+      cookies without a partition. The partition is the **registrable domain**
+      since queue item 156, so a person signed in at `example.com` is signed in
+      at `www.example.com` and `Domain=co.uk` is refused · Owed: the escape
+      hatch a person grants per-site (queue item 157)
 - [x] The same-origin policy, CORS and preflight (queue item 61) — code we write
       and can get wrong, which is one of ADR 0005's four reasons for the
       sandbox. A page may send almost anywhere and read almost nowhere; a

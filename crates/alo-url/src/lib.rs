@@ -16,6 +16,12 @@
 //! table. Writing either would be spending effort on the part of a browser
 //! nobody would notice us doing well.
 //!
+//! **The public suffix list is `psl`'s**, and [`site`] is the only file that
+//! names it. It is data rather than an algorithm — which names anybody may
+//! register under, decided by registries and not derivable from any rule of
+//! syntax — and it is what turns a host into the *site* that cookies, the cache
+//! and a renderer process are each divided by.
+//!
 //! **The types are ours.** `url::Url` is a string with indices into it; our
 //! [`Url`] is the parts, and our [`Origin`] is a value other code compares. The
 //! rented crate parses; we hold what came out — the same shape as
@@ -32,6 +38,7 @@
 pub mod origin;
 pub mod parse;
 pub mod parts;
+pub mod site;
 
 pub use origin::{Opaque, Origin};
 pub use parse::{ParseError, join, parse};

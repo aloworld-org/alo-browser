@@ -43,6 +43,7 @@ declare -a BOUNDARIES=(
   "png:crates/alo-paint/src/encode.rs"
   "jpeg_decoder:crates/alo-paint/src/picture.rs"
   "url:crates/alo-url/src/parse.rs"
+  "psl:crates/alo-url/src/site.rs"
   "encoding_rs:crates/alo-net/src/encoding.rs"
   "rustls:crates/alo-net/src/tls.rs"
   "flate2:crates/alo-net/src/decompress.rs"

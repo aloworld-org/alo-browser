@@ -330,6 +330,133 @@ fn a_cookie_for_a_domain_the_page_is_not_part_of_is_refused() {
     );
 }
 
+/// `Domain=com` is refused by counting labels; `Domain=co.uk` is not, and the
+/// cookie it would set is one for every school, council and company in the
+/// country. Queue item 156 rented the list that knows the difference.
+#[test]
+fn a_cookie_for_a_public_suffix_with_a_dot_in_it_is_refused() {
+    for (header, from) in [
+        ("a=b; Domain=co.uk", "https://www.bbc.co.uk/"),
+        ("a=b; Domain=github.io", "https://alo.github.io/"),
+        ("a=b; Domain=com.au", "https://shop.example.com.au/"),
+    ] {
+        assert!(
+            set(header, from, from).is_err(),
+            "{from} set a cookie for a whole public suffix with {header}"
+        );
+    }
+    // And the site itself is still allowed, which is what makes the refusals
+    // above a boundary rather than a ban.
+    assert!(
+        set(
+            "a=b; Domain=bbc.co.uk",
+            "https://www.bbc.co.uk/",
+            "https://www.bbc.co.uk/"
+        )
+        .is_ok()
+    );
+    assert!(
+        set(
+            "a=b; Domain=example.com.au",
+            "https://shop.example.com.au/",
+            "https://shop.example.com.au/"
+        )
+        .is_ok()
+    );
+}
+
+/// A page whose whole host is a public suffix is asking for the cookie it would
+/// have had anyway. `localhost` is the one anybody meets, and refusing it would
+/// be refusing something the page could do nothing about — so it is accepted and
+/// kept host-only rather than covering everything under the suffix.
+#[test]
+fn a_page_at_a_host_that_is_a_suffix_gets_a_host_only_cookie() {
+    let cookie = set(
+        "a=b; Domain=localhost",
+        "http://localhost/",
+        "http://localhost/",
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(cookie.domain, "localhost");
+    assert!(
+        !cookie.covers_subdomains,
+        "a cookie at a public suffix covered everything under it"
+    );
+}
+
+/// `covers` reads a host as a name, and an address is not one: `127.0.0.1` ends
+/// with `.0.1` the way `www.example.com` ends with `.example.com`. A cookie for
+/// `0.1` would be shared by every machine on an address ending that way.
+#[test]
+fn a_page_at_an_address_cannot_set_a_cookie_for_part_of_the_address() {
+    assert!(
+        set("a=b; Domain=0.1", "http://127.0.0.1/", "http://127.0.0.1/").is_err(),
+        "an address was read as a name and gave up part of itself"
+    );
+    let itself = set(
+        "a=b; Domain=127.0.0.1",
+        "http://127.0.0.1/",
+        "http://127.0.0.1/",
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(itself.domain, "127.0.0.1");
+    assert!(!itself.covers_subdomains, "an address grew subdomains");
+}
+
+// --- Where the partition's boundary is -------------------------------------------
+
+/// The other half of item 156, and the one a person notices: two subdomains of
+/// one organisation are one top-level site, so an embedded service keeps what it
+/// was given when the person moves between them. Before the list, `www.` and the
+/// bare name were two sites and a sign-in did not survive the difference.
+#[test]
+fn two_subdomains_of_one_site_are_one_partition() {
+    let mut jar = Jar::new();
+    let set_on_www = set(
+        "id=aaa; Secure; SameSite=None",
+        "https://ads.example/p",
+        "https://www.news.example/",
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+    jar.keep(set_on_www, now());
+
+    assert_eq!(
+        sent_to(
+            &jar,
+            "https://ads.example/p",
+            "https://shop.news.example/",
+            How::Embedded
+        ),
+        "id=aaa",
+        "one organisation's two subdomains were two sites"
+    );
+}
+
+/// And the boundary the same change must not lose: two organisations under one
+/// public suffix are two sites, which no comparison of host strings could say.
+#[test]
+fn two_organisations_under_one_suffix_are_two_partitions() {
+    let mut jar = Jar::new();
+    let on_the_bbc = set(
+        "id=aaa; Secure; SameSite=None",
+        "https://ads.example/p",
+        "https://www.bbc.co.uk/",
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+    jar.keep(on_the_bbc, now());
+
+    assert_eq!(
+        sent_to(
+            &jar,
+            "https://ads.example/p",
+            "https://www.gov.co.uk/",
+            How::Embedded
+        ),
+        "",
+        "a suffix two organisations share was read as one site"
+    );
+}
+
 /// Without a `Domain`, a cookie is for exactly the host that set it.
 #[test]
 fn a_cookie_with_no_domain_does_not_reach_a_subdomain() {

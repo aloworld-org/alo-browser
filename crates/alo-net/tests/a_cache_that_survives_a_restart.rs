@@ -239,6 +239,37 @@ fn an_entry_stored_inside_one_site_is_not_served_inside_another() {
     let _ = fs::remove_dir_all(&place);
 }
 
+/// Where that boundary actually is, since queue item 156: the registrable
+/// domain. Two subdomains of one organisation share the cache — a shared library
+/// fetched at `www.` is not fetched again at the bare name — and two
+/// organisations under one public suffix do not, which is the half a comparison
+/// of host strings would have got wrong.
+#[test]
+fn the_boundary_is_the_registrable_domain_rather_than_the_host() {
+    let place = somewhere("registrable");
+    let request = asking("https://cdn.example/library.js");
+
+    let mut cache = cache_on(&place).expect("a cache directory");
+    assert!(cache.keep(
+        &request,
+        &inside("https://www.bbc.co.uk/"),
+        &answered("https://cdn.example/library.js", &[]),
+        at(START),
+        at(START)
+    ));
+    assert!(
+        is_hit(&cache.answer(&request, &inside("https://bbc.co.uk/"), at(START + 60))),
+        "one organisation's two subdomains were two sites"
+    );
+    assert_eq!(
+        cache.answer(&request, &inside("https://www.gov.co.uk/"), at(START + 60)),
+        Answer::Fetch,
+        "a suffix two organisations share was read as one site"
+    );
+    drop(cache);
+    let _ = fs::remove_dir_all(&place);
+}
+
 // --- What must not outlive the session -----------------------------------------
 
 /// ADR 0011 section 2, one case per line. Each of these is reusable from memory

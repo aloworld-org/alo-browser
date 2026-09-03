@@ -20,6 +20,13 @@ ttf-parser = "0.25"
 tiny-skia = "0.12"
 png = "0.18"
 url = "2.5"
+# The public suffix list, rented (ADR 0001). It is data rather than physics —
+# Mozilla's list of the names anybody may register under, which nobody can
+# derive and which changes when a registry does. `psl` compiles a snapshot of it
+# in, so the answer needs no network and no file: a browser that had to fetch its
+# own security boundary would have one only when the fetch worked. Updating the
+# list is a version bump here, in a diff somebody reads.
+psl = "2.1"
 encoding_rs = "0.8"
 # TLS, rented (ADR 0001, and ADR 0005 names it among the physics whose `unsafe`
 # is not ours to remove). `ring` rather than the default `aws-lc-rs`: both carry
