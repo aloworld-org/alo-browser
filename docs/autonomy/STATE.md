@@ -5555,3 +5555,136 @@ less.**
 
 And item 183, the fieldset border, is still the one iterations 70 and 72 to 80
 each named and nobody has taken.
+
+---
+
+## Iteration 82 — queue item 165: Content Security Policy
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 165 was
+the one iterations 80 and 81 both named as next, and the last `Owed:` clause on
+`ROADMAP.md`'s security line. **Scope cut on starting**, per `LOOP.md`, and the
+cuts are items 188 and 189 rather than remarks: reporting is a channel and a
+report format, and computing a hash means renting a digest, and neither is the
+thing that closes this item.
+
+**This is the first rule in the crate that protects a site from itself.** Every
+other one — CORS, HSTS, mixed content, cookies, the cache — is the browser
+protecting a person from a site. `script-src 'self'` is a *site* saying *if a
+script from anywhere else ever appears in me, something has gone wrong and you
+should refuse it*, and the whole value of that sentence is that it holds on the
+day the page is wrong about its own escaping. That is why the closing condition
+is an injected script and not a parsed header.
+
+**The rule that matters more than any single directive is three holes, not
+one.** The item states it once — *a directive this engine cannot parse makes the
+policy more restrictive, never less* — and writing the code found three separate
+ways to violate it, each of which had to be closed on its own:
+
+- A **source expression** we cannot read is kept and matches nothing
+  (`Source::Unreadable`), rather than being dropped from its list.
+- The **directive holding it** is kept whole. Discarding it would send its
+  requests to `default-src`, or to nothing at all, and either is wider than what
+  the author wrote. This is the one that is easy to get wrong, because throwing
+  away a value you could not parse feels like the careful thing to do.
+- A **directive name** we do not act on grants nothing — and is *named*, by
+  `Policies::not_enforced`. That third one is not restrictiveness, it is
+  honesty: `frame-ancestors 'none'` in a policy this engine does not enforce is
+  a gap, and a gap nobody prints is a false sense of security.
+
+Two more rules turned out to have the same shape and went in with it. **A
+repeated directive keeps the first**, which the specification asks for and which
+has a security reason worth writing down: anybody who can *append* to the header
+— a reflected value, a careless proxy — could otherwise widen a policy by
+restating one of its directives. And **two policies are an intersection**, so
+adding a policy can only ever narrow what an existing one allowed.
+
+**Two files, because a new source form and a newly enforced directive are
+different reasons to change.** `csp_source.rs` is the grammar and the matching
+algorithm — one question, *does this URL match what the author wrote* — and
+`csp.rs` is the directives, the fallback to `default-src`, the intersection and
+the refusal. Same split as `cors.rs` and `preflight.rs`, for the same reason.
+
+**`Policy` is deliberately not public.** No caller may check one policy on its
+own: checking one is how a report-only policy comes to block something, and how
+the second of two policies comes to be forgotten. `Policies` is the only way to
+ask, and it is what makes the intersection and the disposition rules
+unbypassable rather than remembered.
+
+**Eight rules were doctored out and the test named for each failed** — run
+rather than reasoned about, as the last several iterations have done. Dropping
+an unreadable source; discarding the whole directive; keeping the *last*
+repeated directive; enforcing a report-only policy; letting `'unsafe-inline'`
+win over a nonce beside it; `https` reaching `http`; ignoring
+`'strict-dynamic'` and honouring the hosts anyway; a source with no port
+matching any port. The one worth recording is the *third*: my first doctoring of
+"a repeated directive keeps the first" changed nothing, because the dedup at
+parse time and the find-first at lookup time are two guards of one rule and
+either alone holds it. Breaking it needed both. A doctoring that passes is not
+evidence the rule is safe — it can just as easily mean the doctoring missed.
+
+**`LOOP.md`'s hostile-input clause bites hard here and is answered as two
+tables.** A policy is a sentence a stranger's server wrote, and the ways to be
+wrong about it are not exotic: an unterminated quote, `://` with nothing either
+side, a port of `99999`, a host in Unicode this engine could never compare with
+anything, four hundred sources in one directive, the largest header
+`crate::http` will read. Nothing allocates on a number a server chose — the
+8 KB header bound and the 200-header bound are already `http.rs`'s, which is why
+there is no third bound here — and every token becomes a source, so there is no
+path where a value is silently absent.
+
+**Two things are narrower than a browser, on purpose, and say so.** A host
+written in Unicode is unreadable rather than never-matching, because every host
+this engine holds is already in ASCII and a silent never-match is a page that
+stopped working for no stated reason. An IPv6 literal is unreadable, because
+CSP's host grammar has no spelling for one and inventing a spelling would be
+inventing a rule about a security boundary.
+
+**One gap is a design decision rather than a cut, and it is written into the
+module.** A **document load is not governed**. CSP governs a *nested* document
+and deliberately does not govern a top-level navigation — clicking a link off a
+site with `default-src 'self'` must still work — and this engine cannot tell one
+from the other: `Purpose::Document` with an initiator is a link click and an
+`<iframe>` alike. Guessing either way is bad in a way somebody would notice:
+governing it breaks every link on a protected page, and the alternative protects
+nothing. So `frame-src` is in `not_enforced()`, and item 86 is where a nested
+document becomes a thing with a name.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1461 tests** (up from 1410), no stubs, no `unsafe`, boundaries held —
+no crate was rented, which is what item 189 exists to do properly — the licence
+notice on both new files, and a `CHANGELOG.md` line. No layout assertion and no
+reference render: nothing here positions, sizes or draws. Clippy's
+`match_same_arms` fired twice and both were real — one of them turned a
+three-arm match into a clearer two-line `or`.
+
+**`ROADMAP.md`.** The line moved is *"Content Security Policy, referrer policy,
+HSTS, mixed-content blocking"*, which stays `- [ ]` with its `· Built:` clause
+extended and its `· Owed:` clause rewritten from *"CSP, queue item 165"* to the
+three things actually outstanding: reporting (188), a computed hash (189), and a
+nested document (86). **It is not ticked**, because it is not done — the
+temptation to tick after building the largest word in the line is exactly what
+`ROADMAP.md`'s three states exist to refuse. `docs/features.md` gains three
+lines.
+
+**What the next iteration should know.** Nothing calls `Policies` yet, which is
+the same sentence iteration 81 wrote about `Preflights` and is true for the same
+reason: every piece of page-level security in this crate is a decision function
+waiting for a fetch pipeline, and that is **item 83**, behind the whole of
+section D. This one was built in that shape deliberately.
+
+Section B now has three unticked items and each is genuinely blocked or
+deferred: **157** and **158** need an interface to choose in, and **169** (the
+Linux sandbox) says in itself that it must be run on Linux. **187** is unblocked
+and says in itself to wait for an upload that wants it. So the next ready items
+in file order are **170** (fonts a page asks for by name, which item 68's own
+corpus case is the evidence for), **64** and **65** (the renderer lifecycle,
+both depending on 63 which is done), and **66** (where one site ends and
+another begins — much of which `alo_url::site` already answers since item 156,
+so it should be read before it is built).
+
+And item **183**, the fieldset border, is still the one iterations 70 and 72 to
+81 each named and nobody has taken. Eleven now. It is a small item with a
+reference render, it depends on nothing, and the reason it keeps being skipped
+is that every iteration finds something with a security argument attached
+instead. That is worth one iteration deciding on purpose rather than deferring
+again.

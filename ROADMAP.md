@@ -271,8 +271,19 @@ unreachable without it.
       · Built: HSTS, mixed content and referrer policy (queue item 62) — a
       `Strict-Transport-Security` over plain HTTP ignored so it cannot be used
       as a weapon, a script refused outright where an image is retried over TLS,
-      and a referrer that never survives a downgrade · Owed: CSP, queue item
-      165
+      and a referrer that never survives a downgrade. **CSP is enforced** (queue
+      item 165): `default-src`, `script-src`, `style-src`, `img-src` and
+      `connect-src`, the source expressions pages use, nonces and
+      `'strict-dynamic'` — and the rule the whole thing is built around, that a
+      word this engine cannot read is kept and matches nothing rather than
+      taking its directive down with it. A repeated directive keeps the first
+      and two policies are an intersection, so nobody widens a policy by
+      appending to it · Owed: **reporting** — `report-uri`, `report-to` and
+      sending a violation (queue item 188); **computing a content hash**, so a
+      policy that allows inline content only by hash refuses it and says so
+      (queue item 189); and **a nested document**, which is what `frame-src`
+      needs and which nothing here can yet tell from a link click (queue item
+      86)
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action, caused it. No other engine has needed to answer that, and an agent-driven browser that cannot is one nobody should trust

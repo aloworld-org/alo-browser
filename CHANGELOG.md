@@ -6,6 +6,38 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can say what it is willing to load, and be believed.** Content
+  Security Policy: a site writes `script-src 'self'`, and if a script from
+  anywhere else ever appears in one of its pages — because its escaping failed
+  somewhere, which is what the sentence is for — this engine refuses to load it.
+  `default-src`, `script-src`, `style-src`, `img-src` and `connect-src` are
+  enforced, along with the source expressions pages actually use: `'self'`,
+  `'none'`, whole schemes, hosts with wildcards, ports and paths, nonces, and
+  `'strict-dynamic'`.
+
+  **A word we cannot read never widens a policy.** That is the rule the whole
+  feature is built around, because the alternative is a page losing a protection
+  it asked for to our not understanding the sentence it asked in. A source
+  expression from a version of the specification this engine has not read is
+  kept and matches nothing, rather than being dropped; the directive holding it
+  is kept whole, rather than falling back to something wider; and a refusal
+  names the word, so an author whose page stopped working is told which one.
+
+  Two smaller rules with the same shape. A repeated directive keeps the
+  **first**, so anybody who can append to the header — a reflected value, a
+  careless proxy — cannot widen a policy by restating one of its directives.
+  And two policies are an **intersection**, never a union, so adding one can
+  only ever narrow what the first allowed.
+
+  A `Content-Security-Policy-Report-Only` header blocks nothing, which is how
+  every policy is deployed: a site watches for a week before it enforces, and a
+  browser that enforced the watching header would break the sites being most
+  careful. Sending the report is not built yet, and neither is computing a
+  content hash — a policy that permits inline content only by hash refuses it
+  here and **says so in words** rather than reporting a bare block. A directive
+  this engine does not act on is listed rather than assumed, so "this page is
+  protected in four respects and not in a fifth" is something a person can read.
+
 - **A cross-origin request is not asked about twice.** Before a page may send a
   `DELETE`, or anything else a plain HTML form could not have sent, this engine
   asks the server first with an `OPTIONS` — which is a whole round trip before

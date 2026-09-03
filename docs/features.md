@@ -171,6 +171,18 @@ The reason this exists rather than a faster fork of somebody else's engine.
   that carried credentials. A request is unsafe by the *value* of its
   `Content-Type` as well as by the name, so a JSON post is asked about with the
   header it is unsafe by named in the question
+- [2] **Content Security Policy** — `default-src`, `script-src`, `style-src`,
+  `img-src` and `connect-src` enforced, with `'self'`, `'none'`, schemes, hosts
+  with wildcards, ports and paths, nonces and `'strict-dynamic'`. A source
+  expression this engine cannot read is kept and matches nothing, and the
+  directive holding it is kept whole — a policy is never widened by our not
+  understanding a word of it. A repeated directive keeps the first, so appending
+  to the header cannot widen a policy, and two policies are an intersection
+- [2] **A policy a site is only watching blocks nothing** —
+  `Content-Security-Policy-Report-Only` is read as what it is, and what it
+  objected to is available rather than acted on
+- [2] **A directive this engine does not act on is named** rather than assumed
+  to be protecting the page
 - [2] **The preflight cache** — a second request of the same shape sends no
   `OPTIONS`, and one of a different shape still does. Partitioned by top-level
   site, keyed by the asking origin as well, expiring on the caller's clock and

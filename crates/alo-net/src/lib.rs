@@ -36,6 +36,8 @@ pub mod certificate;
 pub mod connection;
 pub mod cookie;
 pub mod cors;
+pub mod csp;
+pub mod csp_source;
 pub mod decompress;
 pub mod directives;
 pub mod disk;
@@ -70,6 +72,10 @@ pub use certificate::{Fault, Refused};
 pub use connection::{Connection, Exchanged, Protocol, exchange};
 pub use cookie::{Cookie, Partition, SameSite};
 pub use cors::{Credentials, Mode};
+// Not `Refusal`: `redirect`'s is already at the root, and two refusals under
+// one name is how a caller comes to catch the wrong one. `csp::Refusal` says
+// which it is.
+pub use csp::Policies;
 pub use decompress::{Encoding, undo, undo_within, what_was_applied};
 pub use directives::{Directives, Flag};
 pub use disk::Disk;

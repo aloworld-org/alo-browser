@@ -800,13 +800,53 @@ wrong, which is the argument for the fourth.
   named after them: a header over plain HTTP is ignored, and an address cannot
   pin itself.
 
-- [ ] **165. Content Security Policy.** The directives, the source expressions,
-  and reporting.
+- [x] **165. Content Security Policy.** The directives, the source expressions,
+  and reporting. *Scope cut on starting: reporting is item 188 and computing a
+  content hash is item 189.*
   *Depends on 62. Closes when:* a policy that would block an injected script
   does, and — the rule that matters more than any single directive — **a
   directive this engine cannot parse makes the policy more restrictive, never
   less.** A page that asked for a protection must not lose it to our not
   understanding the sentence it asked in.
+
+  **Done, both clauses, and the second one is three separate holes rather than
+  one.** A source expression we cannot read is *kept* and matches nothing; the
+  directive holding it is *kept whole*, because discarding it would send its
+  requests to `default-src` or to nothing; and a directive name we do not act on
+  grants nothing and is **named** by `Policies::not_enforced`, because the
+  honest answer to "is this page protected" is sometimes "in four respects and
+  not in a fifth". Two more rules of the same shape went in with it: a repeated
+  directive keeps the **first**, so anybody who can append to the header cannot
+  widen a policy by restating a directive, and two policies are an
+  **intersection**. `csp_source.rs` is the grammar and the matching,
+  `csp.rs` the directives and the decision — two files because a new source form
+  and a newly enforced directive are different reasons to change. Eight rules
+  were doctored out and the test named for each failed. **One gap is a decision
+  rather than a cut**: a document load is not governed, because CSP governs a
+  *nested* document and not a top-level navigation and nothing here can yet tell
+  a link click from an `<iframe>` — item 86.
+
+- [ ] **188. A policy that was violated says so.** Cut from 165, which enforces
+  and does not report. `report-uri`, `report-to`, the violation report's own
+  shape, and posting it. `Policies::objections` is already the list such a
+  report would be made from, and `Disposition` already keeps a report-only
+  policy from being enforced — what is missing is the channel.
+  *Depends on 165. Closes when:* an enforced violation and a report-only one
+  both produce a report, the report says which directive and which URL without
+  saying more than the specification allows (a cross-origin URL is stripped, or
+  the report is a way to read one), and a report that cannot be sent is not a
+  load that fails.
+
+- [ ] **189. A content hash, computed.** Cut from 165, which reads
+  `'sha256-…'`, lets its presence correctly disable `'unsafe-inline'`, and
+  matches nothing — so a policy that allows inline content only by hash refuses
+  it and says so in words. Closing this needs a digest, which means **renting
+  one** (ADR 0001 — a hash function is physics) with an entry in
+  `scripts/gate.sh`'s boundary list.
+  *Depends on 165, and on there being content to hash — inline style exists
+  today, inline script needs item 72. Closes when:* an inline `<style>` whose
+  digest a policy names is allowed and one whose digest it does not is refused,
+  and both alphabets a policy may write the digest in are read.
 
 - [x] **63. The boundary's wire format.** *Scope cut on starting: the split is
   three items, and this is the one that has to be right before anything is
