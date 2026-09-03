@@ -6,6 +6,29 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The first page in the corpus that we did not write.** `example.com`, frozen
+  as the server sent it, with where it came from and when beside it. Everything
+  before it was markup written to exercise something just built — a good way to
+  check a thing works and a bad way to find out what is missing.
+- It found three things on its first run, which is the argument for having it.
+- **A page's style sheet is inside the page**, and nothing collected it. Every
+  case until now kept its CSS in a file beside the markup, which is how alo's
+  own screens are built — so the gap was not in anything anybody had considered
+  and refused. It was in the shape of the corpus, and it was invisible for as
+  long as the corpus was ours. `alo_dom::sheets` exists because of this page.
+- **A font nobody has is substituted silently.** The page asks for
+  `system-ui, sans-serif`; the corpus has DejaVu Sans and nothing else; the text
+  was measured and drawn in a family the page did not ask for, and nothing said
+  so. The render is stable and diffable and it is not what the page looks like
+  anywhere else.
+- **The user-agent sheet gives headings and paragraphs no margins**, so a real
+  page renders visibly tighter than it should. Invisible until now because alo's
+  own sheets set their own spacing.
+- What it did *not* find is worth recording, because it was the part being
+  tested: `width:60vw` and `margin:15vh auto` resolve exactly, `opacity:0.8`
+  groups and ungroups, `a:link` gives `rgb(51 68 136)`, and `font-size:1.5em` is
+  24px — none of which had ever been asked of a page we did not write.
+
 - **A renderer draws with a font it was handed, never one it went looking for.**
   ADR 0010 confines renderers, and the consequence people underestimate is that
   a confined renderer cannot open a font file. There were two ways out and the

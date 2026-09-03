@@ -707,7 +707,9 @@ wrong, which is the argument for the fourth.
   the one asserting a renderer given no fonts really has none and is still
   confined.
 
-- [ ] **170. Fonts a page asks for by name.** Today every renderer is given the
+- [ ] **170. Fonts a page asks for by name.** *Item 68's first case is the
+  evidence: it asks for `system-ui, sans-serif`, gets DejaVu Sans, and nothing
+  says so.* Today every renderer is given the
   same short list at startup. A page asking for a family nobody sent gets a
   fallback, silently.
   *Depends on 168. Closes when:* a renderer can say which family it wanted and
@@ -736,12 +738,27 @@ wrong, which is the argument for the fourth.
 
 ## C. Pages that are not ours
 
-- [ ] **68. The web corpus.** A second kind of case beside the alo ones: a page
+- [x] **68. The web corpus.** A second kind of case beside the alo ones: a page
   from the web, **frozen** — its bytes as they were, with where they came from
   and when, and its own expected trees and render. Never fetched at test time,
   for the reasons `LOOP.md` gives.
   *Depends on 51. Closes when:* one real page renders, is diffed on every run,
   and the suite still passes with the network unplugged.
+
+  **Done**, and it earned its place immediately: three findings on the first
+  run, one of which had to be fixed before the page would render at all. See
+  `cases/web-example-com/origin.txt`, which records what it found *and* what it
+  did not — the second being as much the point as the first.
+
+- [ ] **171. Block margins in the user-agent sheet.** Headings and paragraphs
+  get `display: block` and no margin, so every real page renders visibly tighter
+  than it should. Found by item 68's first case; invisible before it, because
+  alo's own sheets set their own spacing.
+  *Depends on 68. Closes when:* the committed render of `web-example-com` has
+  the spacing a browser gives it — **and every other case's render moves in the
+  same commit**, which is the review: a UA change that did not move them would
+  mean they were all setting their own margins, and a change that moved one
+  wrongly is a diff somebody can see.
 
 ## D. JavaScript, ours, in Rust
 

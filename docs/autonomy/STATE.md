@@ -3732,3 +3732,67 @@ cannot. Item 169, the Linux sandbox, is the other open one and it needs a Linux
 machine to be checked on, which this loop does not have; that is a real
 constraint rather than an excuse, and the queue says so.
 
+---
+
+## Iteration 59 — queue item 68: the first page we did not write
+
+Taken out of order, deliberately, and the reason is worth recording because it
+is a criticism of the fifteen iterations before it.
+
+**LOOP.md's stage-2 rule says the trigger for most items is a real page that
+fails, never a specification listing a method.** Iterations 44 to 58 were
+HPACK, CORS, HSTS, frame padding, the sandbox — all correct, none of it
+scheduled by anything failing. Meanwhile section C had exactly one item, and it
+was the one that would say whether any of this renders a page. Sixteen corpus
+cases, every one of them markup we wrote to exercise something we had just
+built. That is a good way to check a thing works and a bad way to find out what
+is missing.
+
+**`example.com`, 559 bytes, frozen.** IANA publishes it for exactly this
+purpose, so freezing it needs nobody's leave, and it is small enough that the
+whole input to a failure can be read at once. It is nonetheless a real page: it
+carries its style inside itself, sizes itself in viewport units, asks for
+`system-ui`, sets an opacity, uses `:link`. Not one of those appears anywhere in
+the alo cases.
+
+**Three findings on the first run.**
+
+**One had to be fixed before the page would render at all.** A page's style
+sheet is *inside the page*, and nothing collected `<style>` elements — because
+every case until now kept its CSS in a file beside the markup, which is how
+alo's screens are built. This is the shape of the finding I want to remember:
+the gap was not in anything anybody had considered and refused. It was in the
+shape of the corpus, and it was invisible for as long as the corpus was ours.
+
+**One is a silent substitution.** The page asks for `system-ui, sans-serif`; the
+corpus has DejaVu Sans; the text was measured and drawn in a family the page did
+not ask for, and `issues.txt` is **empty**. The render is stable and diffable and
+it is not what the page looks like anywhere else. That is item 170, which was
+cut a few iterations ago on a hunch and now has evidence.
+
+**One is visible in the picture.** The user-agent sheet gives headings
+`display: block; font-weight: bold` and no margin, and paragraphs none either,
+so the heading and the paragraph butt together. Every real page will render
+tighter than it should. Item 171, and its closing condition says the review is
+that **every other case's render moves in the same commit** — a UA change that
+moved none of them would mean they were all setting their own margins anyway.
+
+**And what it did not find, which is as much the point.** `width:60vw` and
+`margin:15vh auto` resolve exactly — 480 and 90 at 800×600. `opacity:0.8` groups
+and ungroups. `a:link` gives `rgb(51 68 136)`. `font-size:1.5em` is 24px. Text
+wraps where it should. None of that had ever been asked of a page we did not
+write, and it all worked. A case that only reported failures would have made the
+engine look worse than it is.
+
+**The gate.** Green: fmt, clippy zero and zero, 1185 tests, and the suite still
+passes with nothing plugged in — the case is bytes on disk and the test reads
+files.
+
+**What the next iteration should know.** Item 171, the block margins, and it is
+the right next one: it is small, it is visible, and its diff touches every
+committed render, which makes it the best possible check that the reference
+machinery does what it claims. After that, **more pages** rather than more
+specification. The queue now has three items that came from one page; a second
+page will produce more, and that is the loop LOOP.md described and which had
+stopped happening.
+

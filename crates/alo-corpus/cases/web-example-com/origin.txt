@@ -1,0 +1,41 @@
+https://example.com/
+
+Taken 2026-09-03, with `curl -sS https://example.com/ -o page.html`. The server
+answered HTTP/2 with `content-type: text/html`; the bytes here are the body
+exactly as it sent them, unedited.
+
+Why this page. IANA publishes it for exactly this purpose — its own text says
+"this domain is for use in documentation examples without needing permission" —
+so freezing it needs nobody's leave. It is 559 bytes, which means the whole
+input to a failure can be read at once, and it is nonetheless a *real* page: it
+carries its style inside itself, sizes itself in viewport units, asks for
+`system-ui`, sets an opacity, and uses `:link`/`:visited`. Not one of those
+appears anywhere in the alo cases.
+
+It is the first case in this corpus that we did not write. Everything before it
+was markup written to exercise something we had just built, which is a good way
+to check a thing works and a bad way to find out what is missing.
+
+## What this case already showed
+
+It found two things on its first run, which is the argument for having it.
+
+**A page's style sheet is inside the page.** Nothing in this engine collected
+`<style>` elements, because every case before this one kept its CSS in a file
+beside the markup — which is how `alo`'s own screens are built. The gap was not
+in anything anybody had considered and refused; it was in the shape of the
+corpus, and it was invisible for as long as the corpus was ours.
+`alo_dom::sheets` exists because of this page.
+
+**A font nobody has is substituted silently.** This page asks for
+`system-ui, sans-serif`. The corpus has DejaVu Sans and nothing else, so the
+text below was measured and drawn in a family the page did not ask for — and
+`issues.txt` is empty, so nothing said so. The render is stable and diffable,
+and it is not what this page looks like anywhere else. That is queue item 170,
+and this case is the evidence for it.
+
+What it did *not* find is worth recording too, because it was the thing being
+tested: `width:60vw` and `margin:15vh auto` resolve exactly (480 and 90 at
+800×600), `opacity:0.8` groups and ungroups, `a:link` gives `rgb(51 68 136)`,
+and `font-size:1.5em` is 24px. None of those had ever been asked of a page we
+did not write.

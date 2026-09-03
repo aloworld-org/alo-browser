@@ -1,0 +1,10 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      block flow · heading [level=1]
+        text "Example Domain"
+      block flow · paragraph
+        text "This domain is for use in documentation examples without needing permission. Avoid use in operations."
+      block flow · paragraph
+        inline flow · link
+          text "Learn more"

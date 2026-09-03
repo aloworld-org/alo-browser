@@ -57,6 +57,7 @@ pub mod name;
 pub mod node;
 pub mod parse;
 pub mod serialize;
+pub mod sheets;
 
 pub use document::{Children, Descendants, Document, QuirksSignal};
 pub use name::{Namespace, QualifiedName};

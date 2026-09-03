@@ -82,18 +82,33 @@ pub fn render_document(
     fonts: &FontDatabase,
 ) -> Rendered {
     let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
-    let author = parse_stylesheet(css);
-    let sheets = [
-        SourcedSheet::new(Origin::UserAgent, &agent),
-        SourcedSheet::new(Origin::Author, &author),
-    ];
+    // A page's own `<style>` elements, then whatever the caller supplied. In
+    // that order because a later sheet overrides an earlier one, and a caller
+    // handing a sheet in is saying something *about* the page — a corpus case's
+    // expectations, or a user sheet — which has to be able to win.
+    //
+    // This was missing until the first page taken off the web arrived carrying
+    // its whole style sheet inside itself, which is what pages do and which the
+    // corpus never showed because the corpus was ours.
+    let written_in = alo_dom::sheets::written_into(&document);
+    let mut parsed: Vec<_> = written_in
+        .iter()
+        .map(|text| parse_stylesheet(text))
+        .collect();
+    parsed.push(parse_stylesheet(css));
+    let mut sheets = vec![SourcedSheet::new(Origin::UserAgent, &agent)];
+    sheets.extend(
+        parsed
+            .iter()
+            .map(|sheet| SourcedSheet::new(Origin::Author, sheet)),
+    );
     // Both dimensions, because `vh` is as real as `vw` and the window is the
     // one thing here that actually knows them.
     let device = MediaContext::sized(size.width, size.height, ColorScheme::Light);
     let sheet_issues: Vec<String> = agent
         .issues()
         .iter()
-        .chain(author.issues())
+        .chain(parsed.iter().flat_map(alo_css::Stylesheet::issues))
         .map(ToString::to_string)
         .collect();
     let styles = alo_style::resolve(&document, &sheets, &device);

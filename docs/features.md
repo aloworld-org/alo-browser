@@ -126,6 +126,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A truncated body is an **error**, not a short page
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
+- [2] **A page's own `<style>` elements**, in document order
 - [2] **Fonts handed across the boundary** — the browser process opens the
   files, the renderer opens nothing
 - [2] **Renderers confined by the platform's own sandbox** (macOS) — no file
