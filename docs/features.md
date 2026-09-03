@@ -117,6 +117,11 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A surface alo OS's shell can render into — **retiered from [1]**: it is the one embedding item needing a compositor that does not exist, and tiering it [1] is what put an unreachable dependency inside stage 1
 - [2] Several documents at once, the shape tabs need
 
+## The network — stage 2
+
+- [2] **URLs**: WHATWG parsing, resolution against a base, IDNA and punycode — rented, because whether two spellings are one host is a security question with a Unicode table for an answer
+- [2] **The origin as a value other code compares**, with an opaque origin that is the same as itself and nothing else — a `data:` URL, a local file, and any scheme nobody registered
+
 ## The process model — stage 2
 
 - [2] **The process and sandbox model, designed before the first hostile page is ever loaded** (ADR 0005). One process per site, renderers with almost no privilege, the platform's own sandbox rather than one of ours, and work crossing as typed messages in one direction. Memory safety does not make this optional: Spectre is a hardware property, and the codecs we rent are not ours to make safe

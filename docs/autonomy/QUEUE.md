@@ -358,11 +358,17 @@ it is not ready — mark it `needs design` and take the next one.
 The origin is what every security decision below is made against, so URLs come
 first. Nothing here needs JavaScript.
 
-- [ ] **50. URLs, properly.** WHATWG parsing, resolution against a base, and the
+- [x] **50. URLs, properly.** WHATWG parsing, resolution against a base, and the
   **origin** as a value other code compares. IDNA and punycode with it, because
   a look-alike domain is a security bug rather than a display one.
   *Closes when:* a table of the WHATWG URL test cases parses to the same
   answers, and an origin compares equal only when it should.
+
+  **Done: `alo-url`.** Parsing rented behind `parse.rs`; the types are ours. The
+  table is written in `tests/the_standard.rs` rather than fetched, per
+  `LOOP.md`. The rule worth reading twice is a type: an **opaque origin is the
+  same as itself and nothing else**, which `file:` and every unregistered
+  scheme get, because unknown must never mean "probably fine".
 
 - [ ] **51. Fetching what needs no network.** The shape of a load — a request, a
   response, a status, headers, a content type, a body — with `file:` and `data:`

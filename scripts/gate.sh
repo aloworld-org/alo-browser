@@ -41,6 +41,7 @@ declare -a BOUNDARIES=(
   "ttf_parser:crates/alo-paint/src/glyph.rs,crates/alo-text/src/font.rs"
   "tiny_skia:crates/alo-paint/src/raster.rs"
   "png:crates/alo-paint/src/encode.rs"
+  "url:crates/alo-url/src/parse.rs"
 )
 
 step "cargo fmt"

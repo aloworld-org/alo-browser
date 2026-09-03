@@ -6,6 +6,28 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **URLs and origins** (`alo-url`), the first item of stage 2. Every security
+  decision a browser makes — the same-origin policy, CORS, cookies, CSP, which
+  site gets which process — asks *which origin is this?*, and all of them are
+  wrong if the answer is. That is why it is first.
+- **Parsing is rented** (`url`, behind one file, ADR 0001), and it drags IDNA in
+  with it: whether `аpple.com` written in Cyrillic is the same host as
+  `apple.com` is a security question whose answer is a Unicode table. The types
+  are ours — a URL in parts, and an origin other code compares.
+- **An opaque origin is the same as itself and nothing else.** A `data:` URL, a
+  local file, a scheme nobody registered: each gets its own identity, and two of
+  them are never the same origin however alike they look. Getting that backwards
+  is a same-origin bypass, so it is a type with an identity in it rather than a
+  convention somebody has to remember. `file:` is opaque for the same reason
+  every modern browser made it so — one local file reading every other one is
+  the oldest exfiltration bug there is.
+- **Unknown means opaque, never "probably fine".** A scheme this engine has not
+  been told about inherits nobody's privileges.
+- The first item under stage 2's new hostile-input rule: a test feeds the parser
+  empty strings, hundred-thousand-character hosts, a thousand colons inside
+  IPv6 brackets, right-to-left overrides and null bytes, and requires an answer
+  rather than a panic. In a renderer a crash is a denial of service.
+
 - **The loop has rules for stage 2, and stage 2 has a queue.** Stage 1 asked one
   question — *does alo render?* — and answered it with a committed PNG and a
   committed box tree. Stage 2 has neither, so `docs/autonomy/LOOP.md` says what

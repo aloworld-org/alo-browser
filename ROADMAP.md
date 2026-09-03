@@ -150,7 +150,9 @@ unreachable without it.
 
 ### The network
 
-- [ ] **URLs, properly**: WHATWG parsing, origins, IDNA and punycode. Every security decision below is made against the origin this produces, which is why it is first
+- [x] **URLs, properly**: WHATWG parsing, origins, IDNA and punycode. Every security decision below is made against the origin this produces, which is why it is first
+      · `alo-url`: parsing rented behind one file, the types ours, and an
+      opaque origin that is the same as itself and nothing else
 - [ ] TLS with `rustls`, and certificate errors a person can act on rather than click through
 - [ ] HTTP/1.1, then HTTP/2 — connection pooling and keep-alive with them
 - [ ] HTTP/3 and QUIC, once those two are correct

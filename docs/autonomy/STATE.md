@@ -2086,3 +2086,60 @@ plan rather than the work — so the tests are the 836 that were already passing
 nothing else, everything in section A depends on it, and the WHATWG test suite
 is a table it can be checked against on this machine.
 
+---
+
+## Iteration 34 — queue item 50: URLs and origins
+
+**Stage 2 begins.** `alo-url`: URLs in parts, and the origin every security
+decision is made against.
+
+**Rented, and the reason is worth stating.** Parsing is `url`'s, behind one
+file, which the gate now checks like every other rented crate. It drags IDNA in
+with it — the Unicode specification deciding whether `аpple.com` written in
+Cyrillic is the same host as `apple.com`. That is a **security** question whose
+answer is a table, and writing our own would be effort spent on the part of a
+browser nobody notices us doing well and everybody notices us doing badly.
+ADR 0001's own words for `html5ever` and `cssparser`, applied unchanged.
+
+**The one thing that is a type rather than a convention.** An **opaque origin
+is the same as itself and nothing else**. Two `data:` URLs with identical bytes
+are two origins; if they were one, every `data:` frame on a page could read
+every other one. So `Origin::Opaque` carries an identity minted once and never
+reused — the same argument ADR 0003 makes about nodes, for the same reason: a
+value that could be recreated could be impersonated.
+
+`file:` is opaque too, and every scheme this engine has not been told about.
+One local file reading every other one is the oldest exfiltration bug there is,
+and **unknown must never mean "probably fine"**.
+
+**The boundary check caught something worth keeping.** Our own module was called
+`url`, so `crate::url::` matched the rented crate's name and the gate refused
+it. That is the check working: a module that shadows a rented crate's name is
+exactly how a boundary stops being checkable. Renamed to `parts` — which is
+what the file's own first line already called it.
+
+**First item under the new hostile-input rule.** The test feeds the parser empty
+strings, hundred-thousand-character hosts, a thousand colons inside IPv6
+brackets, right-to-left overrides, null bytes and ten thousand percent signs,
+and requires an *answer* rather than a panic. In a renderer a crash is a denial
+of service, and a URL is the first thing a stranger controls.
+
+**The table is ours and written down**, not fetched — `LOOP.md`'s frozen rule.
+Every row is a case from the URL Standard's own text, small enough that a person
+can check it by eye. It is not the whole of `web-platform-tests`, and the test
+file says so.
+
+**The roadmap line this item served** is stage 2's *URLs, properly*, now ticked
+with what built it.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 851 tests, no stubs, boundaries held — `url` joined the nine crates
+already checked — and no verb takes a coordinate.
+
+**What the next iteration should know.** Item 51: fetching what needs no
+network. It is the *shape* of a load — request, response, status, headers,
+content type, body — with `file:` and `data:` as the only schemes, so that the
+network in item 53 is one implementation of something already tested. The
+encoding sniffing matters more than it sounds: a mislabelled page is common,
+and the rule is HTML's rather than "assume UTF-8".
+
