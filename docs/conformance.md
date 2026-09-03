@@ -49,9 +49,16 @@ drawn, with the block read inside it rather than beside it. Still a view — the
 box tree records which boxes belong to which whole and the reader follows it.
 
 **An agent can read a rendered page as a tree of what it is** — roles, names,
-states and positions, with no screenshot involved — **and act on it by name**:
-activate, put text, scroll, with no verb taking a coordinate. Every corpus case
-pins that tree beside its picture.
+states and positions, with no screenshot involved — **and aim a verb at it by
+name**: activate, put text, scroll, with no verb taking a coordinate. Every
+corpus case pins that tree beside its picture.
+
+**A verb decides and reports; it does not yet change the page.** It finds its
+target, refuses when the target is ambiguous or cannot be operated, and says
+what it would do and to which node. Carrying that into the document — a field
+that holds what was typed, a checkbox that is now checked — is queue item 42.
+The name "typed verbs" promises more than the engine does until then, and this
+paragraph exists so that nobody has to find that out by trying it.
 
 A box can cast a shadow — offset, blurred, spread, and `inset` — and be filled
 with a `linear-gradient` or a `radial-gradient`; text casts a shadow too.

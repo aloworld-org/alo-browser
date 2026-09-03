@@ -5,10 +5,15 @@
 //! their own copy of it, and three copies of the pipeline is three places for
 //! the pipeline to be assembled differently.
 //!
-//! It is **not** an embedding surface. `docs/features.md` promises alo OS a
-//! surface to render into and this is not it: there is no incremental update,
-//! no window, and no way to hand fonts in beyond what a corpus needs. It is
-//! the corpus's own glue, and it is honest about that.
+//! It is **not** the boundary. ADR 0005's boundary is [`crate::renderer`], and
+//! what crosses it is a frame and a snapshot — never a display list, which is
+//! not a thing a browser process asks for. This is what happens *inside* a
+//! renderer, and it produces every intermediate tree because the corpus
+//! asserts on them.
+//!
+//! It is not an embedding surface either: no incremental update, no window,
+//! and fonts arrive whole. `docs/features.md` promises alo OS a surface to
+//! render into, and that is queue item 40's.
 
 use alo_box::BoxTree;
 use alo_css::{ColorScheme, MediaContext, parse_stylesheet};

@@ -7,8 +7,8 @@
 //! everything that differs is reported together.
 
 use crate::case::Case;
-use crate::pipeline::Rendered;
 use alo_paint::{Canvas, from_png, to_png};
+use alo_renderer::Rendered;
 use core::fmt;
 
 /// One expectation that did not hold.

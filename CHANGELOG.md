@@ -6,6 +6,29 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The engine is behind a message boundary** (`alo-renderer`, ADR 0005). A
+  renderer is *sent* work and *returns* results: one direction, no callback in
+  the signature, nowhere to wait, and nothing ambient — everything it needs
+  arrives in a message or in its constructor.
+- Every message is **owned, `Clone` and `Send + 'static`**, asserted by a test.
+  That is the property that makes a transport possible later without changing a
+  caller; choosing the transport is queue item 29's, and inventing a wire format
+  before there is a process to send it to would be inventing.
+- What crosses is a **frame** (finished bytes, the one thing ADR 0005 lets
+  processes share) and a **snapshot** of the agent tree. A borrow cannot cross a
+  process, so a snapshot is a copy — and it is safe to act on a moment later
+  because it carries node identity, which ADR 0003 never reuses. A test pins
+  that the snapshot reads *exactly* as the tree it came from, because a
+  description that drifted would be the second structure ADR 0002 forbids.
+- The pipeline moved out of the corpus and into the renderer, so there is one of
+  it. The corpus still reaches inside for the trees it asserts on: it is a test
+  of the engine's insides, and ADR 0005 says tests stay single-process.
+- **A claim was corrected.** `docs/conformance.md` said an agent can "act on"
+  a page. A verb finds its target, refuses what cannot be operated, and reports
+  what it decided — and then nothing happens, because the document is never
+  written back to. Trying to use the boundary end to end is what found it. The
+  docs now say so and queue item 42 is where it stops being true.
+
 - **ADR 0005: one process per site, and a sandbox we rent.** Stage 2's first
   roadmap item is a decision rather than code, and this is it — what runs where,
   which way the boundary points, and what happens when a renderer dies.

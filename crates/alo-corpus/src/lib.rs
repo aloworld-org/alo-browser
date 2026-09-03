@@ -27,11 +27,10 @@
 
 pub mod case;
 pub mod check;
-pub mod pipeline;
 
+pub use alo_renderer::pipeline::{Rendered, render};
 pub use case::Case;
 pub use check::{Difference, check};
-pub use pipeline::{Rendered, render};
 
 use std::path::PathBuf;
 

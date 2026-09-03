@@ -1,6 +1,6 @@
 [package]
-name = "alo-corpus"
-description = "The alo browser reference corpus: small cases with their expected trees and pictures."
+name = "alo-renderer"
+description = "The alo browser renderer: the engine behind the message boundary ADR 0005 draws."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -15,12 +15,11 @@ alo-css = { path = "../alo-css" }
 alo-dom = { path = "../alo-dom" }
 alo-layout = { path = "../alo-layout" }
 alo-paint = { path = "../alo-paint" }
-alo-renderer = { path = "../alo-renderer" }
 alo-style = { path = "../alo-style" }
 alo-text = { path = "../alo-text" }
 alo-value = { path = "../alo-value" }
-# The fonts the corpus renders with are a dependency rather than a file, so
-# that every machine draws the same pixels.
+
+[dev-dependencies]
 dejavu.workspace = true
 
 [lints]

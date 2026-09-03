@@ -272,12 +272,19 @@ fails without it, not by a specification that lists it.
   ours to make safe; the same-origin policy is code we write; and a page must
   not be able to end the session.
 
-- [ ] **25. The engine behind a message boundary.** The renderer becomes a thing
+- [x] **25. The engine behind a message boundary.** The renderer becomes a thing
   that is *sent* work and *returns* results — a typed protocol, no ambient
   state, no synchronous call back into whoever asked. In one process to begin
   with, because what is expensive to retrofit is the **shape**, not the
   `fork`. Every later item is written against this boundary, which is what makes
   item 29 a change of transport rather than a rewrite.
+
+  **Done: the `alo-renderer` crate.** `Renderer::handle` takes work and returns
+  a result — no callback in the signature, nowhere to wait. Every message is
+  owned, `Clone` and `Send + 'static`, asserted by a test, because a message
+  holding a borrow compiles today and cannot be sent tomorrow. The pipeline
+  moved out of the corpus so there is one of it. **It found item 42** by trying
+  to use the boundary end to end.
 
 - [ ] **26. A URL, and loading what needs no network.** A URL we hold and can
   resolve against a base; a request, a response, a content type, and a decode to
@@ -346,6 +353,15 @@ fails without it, not by a specification that lists it.
 - [ ] **41. ★ The agent on ordinary web pages.** The same tree and the same
   typed verbs, on pages nobody wrote for us. ADR 0002 holds or it does not, and
   this is where it is found out.
+
+- [ ] **42. ★ A verb changes the page.** `perform` finds its target, refuses
+  what cannot be operated, and reports what it decided — and then nothing
+  happens: the document is never written back to, so a field that was "typed
+  into" reads the same afterwards. **Found by item 25**, which tried to use the
+  boundary end to end and discovered that the second half of a verb does not
+  exist. It needs a document that can be changed and a pipeline that runs
+  again, and it is the difference between an agent that can *drive* an
+  interface and one that can only describe what it would do.
 
 **Exit gate** (`ROADMAP.md`): a person uses it as their browser for a week and
 reaches for another one only for a site they can name.

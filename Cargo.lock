@@ -40,6 +40,7 @@ dependencies = [
  "alo-dom",
  "alo-layout",
  "alo-paint",
+ "alo-renderer",
  "alo-style",
  "alo-text",
  "alo-value",
@@ -90,6 +91,22 @@ dependencies = [
  "png",
  "tiny-skia",
  "ttf-parser",
+]
+
+[[package]]
+name = "alo-renderer"
+version = "0.0.0"
+dependencies = [
+ "alo-agent",
+ "alo-box",
+ "alo-css",
+ "alo-dom",
+ "alo-layout",
+ "alo-paint",
+ "alo-style",
+ "alo-text",
+ "alo-value",
+ "dejavu",
 ]
 
 [[package]]

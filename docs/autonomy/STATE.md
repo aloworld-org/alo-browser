@@ -1591,3 +1591,55 @@ decision — so the tests are the 765 that were already passing.
 and is the easiest to get subtly wrong: the boundary has to be a *type*, and
 every later item has to be written against it even where it is not needed yet.
 
+---
+
+## Iteration 25 — queue item 25: the engine behind a message boundary
+
+**What was built.** `alo-renderer`: the renderer's side of ADR 0005.
+`Renderer::handle` takes a `ToRenderer` and returns a `FromRenderer`, and that
+is the whole surface — no callback in the signature, no handle to call back
+through, nowhere to wait. Everything it needs arrives in a message or in
+`Renderer::new`. Fonts are a constructor argument for a reason and not for
+tidiness: a sandboxed renderer cannot open a font file, so in the split the
+browser process hands them over.
+
+**The test that matters most is four lines long.** `could_be_sent::<T>()`
+requires every message type to be `Send + Clone + 'static`. A message holding a
+borrow, or a handle, or anything tied to this process compiles perfectly well
+today and cannot be sent tomorrow — and by then everything is written against
+it. That is ADR 0005's "the shape is the expensive part", made mechanical.
+
+**A snapshot is a copy, and saying so is not a retreat from ADR 0002.** A
+borrow cannot cross a process, so what crosses is a description of the agent
+tree at one instant. It is safe to act on a moment later for exactly the reason
+ADR 0002 refuses coordinates: it carries node identity, ADR 0003 never reuses
+one, and a verb naming a node finds the same node or nothing. A test pins that
+the snapshot's outline is *character for character* the tree's — if those ever
+differ, one of them is the second structure ADR 0002 forbids.
+
+**The pipeline moved out of the corpus.** There is one of it now, inside the
+renderer, which is where it will be when there are processes. The corpus still
+reaches in for the box tree, the layout and the display list, and that is
+correct: it is a test of the engine's insides and ADR 0005 says tests stay
+single-process.
+
+**And it caught an overclaim, which is the best thing it did.**
+`docs/conformance.md` said an agent can *"act on"* a rendered page. Trying to
+use the boundary end to end — put text into a field, then read the tree back —
+showed that nothing happens. `perform` finds its target, refuses what cannot be
+operated, and reports what it decided; it never writes back into the document.
+The verbs have been like that since they were built and no test had ever asked
+the second question. The docs now say what is true, the test pins what is true
+rather than what the name suggests, and **queue item 42** is where it stops
+being true.
+
+That is worth naming plainly: *"typed verbs"* promises an agent that can drive
+an interface, and today it is an agent that can describe what it would do.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 786 tests, no stubs, boundaries held, no verb takes a coordinate.
+
+**What the next iteration should know.** Item 26 is a URL and loading what
+needs no network, and it is the first item written *against* the boundary
+rather than beside it. Item 42 is now the most valuable ★ item in the queue.
+
