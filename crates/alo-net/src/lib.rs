@@ -27,13 +27,17 @@
 //! wrong shows up as mojibake on somebody's news site.
 
 pub mod body;
+pub mod cache;
 pub mod certificate;
 pub mod connection;
 pub mod decompress;
+pub mod directives;
 pub mod encoding;
 pub mod fetch;
+pub mod freshness;
 pub mod headers;
 pub mod http;
+pub mod httpdate;
 pub mod media_type;
 pub mod pool;
 pub mod redirect;
@@ -43,11 +47,14 @@ pub mod schemes;
 pub mod tls;
 
 pub use body::Framing;
+pub use cache::{Answer, Cache};
 pub use certificate::{Fault, Refused};
 pub use connection::{Connection, Exchanged, exchange};
 pub use decompress::{Encoding, undo, undo_within, what_was_applied};
+pub use directives::{Directives, Flag};
 pub use encoding::{Decoded, decode, sniff};
 pub use fetch::{FetchError, fetch};
+pub use freshness::{Stored, Verdict};
 pub use headers::Headers;
 pub use http::{Head, Malformed, read_head, write_request};
 pub use media_type::MediaType;

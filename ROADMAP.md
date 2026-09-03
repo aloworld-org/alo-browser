@@ -179,7 +179,13 @@ unreachable without it.
       origin boundary, a redirected `POST` demoted to `GET` on 301/302/303 and
       preserved on 307/308, and `file:`/`data:` refused as destinations
       · Owed: queue item 154, byte ranges and downloads that resume
-- [ ] **The HTTP cache, with real semantics** — freshness, revalidation, `Vary`. Subtly wrong here is invisible for months and then serves somebody a stale bank page
+- [x] **The HTTP cache, with real semantics** — freshness, revalidation, `Vary`
+      (queue item 56). Nothing in it reads the clock, because the answers that
+      matter are the ones only wrong an hour later. `Age` is counted, so a
+      response that arrives old expires early; `Vary` is stored as a contract,
+      so a French page is never served to a German reader; `Vary: *` is not
+      stored at all · Owed: persistence to disk, queue item 155 — a separate
+      question, with a different answer for a page behind a password
 - [ ] **Cookies**: `SameSite`, `Secure`, `HttpOnly`, partitioned by default. The default is a product decision, not a parser detail
 - [ ] The same-origin policy, CORS and preflight — code we write and can get wrong, which is one of ADR 0005's four reasons for the sandbox
 - [ ] Content Security Policy, referrer policy, HSTS, mixed-content blocking

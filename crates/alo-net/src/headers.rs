@@ -41,6 +41,34 @@ impl Headers {
         });
     }
 
+    /// Replace every value with this name by one, keeping its position.
+    ///
+    /// Position is kept because this list is ordered and the order is
+    /// observable; appending instead would quietly reorder a message every time
+    /// a `304` refreshed it. Every later repeat is removed, because a header
+    /// updated to two different values is worse than either.
+    ///
+    /// Only for the small number of places that are *correcting* a message —
+    /// a `304` bringing a new `Date`, a redirect rewriting its own. Adding is
+    /// what everything else does.
+    pub fn replace(&mut self, name: &str, value: &str) {
+        let mut seen = false;
+        self.held.retain_mut(|header| {
+            if !header.name.eq_ignore_ascii_case(name) {
+                return true;
+            }
+            if seen {
+                return false;
+            }
+            seen = true;
+            value.trim().clone_into(&mut header.value);
+            true
+        });
+        if !seen {
+            self.add(name.to_owned(), value.to_owned());
+        }
+    }
+
     /// The first value with this name, ignoring case.
     pub fn get(&self, name: &str) -> Option<&str> {
         self.held

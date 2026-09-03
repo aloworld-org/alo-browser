@@ -6,6 +6,43 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An HTTP cache, with the semantics that make one safe.** `ROADMAP.md` says of
+  this: *"subtly wrong here is invisible for months and then serves somebody a
+  stale bank page."* So **nothing in it reads the clock** — every function takes
+  `now` — because the answers that matter are the ones that are only wrong an
+  hour later, and those are the ones nobody finds by using the browser.
+- **Age is not how long we have had it.** A response can arrive already old, and
+  say so in an `Age` header. A cache that counted from arrival would grant it a
+  second full lifetime, which is how one `max-age=3600` becomes six hours of
+  staleness across a chain of caches. Time spent in transit counts too.
+- **`Vary` is a contract, not a header.** What is stored is the response
+  *together with the request header values it was chosen by*, so a page fetched
+  with `Accept-Language: fr` is never served to a request asking for `de`. An
+  absent header and an empty one are different. `Vary: *` is never stored at
+  all — there is no key that would be right.
+- `no-cache` and `no-store` are different things, and now they behave that way:
+  the first is stored and always revalidated, the second is never written down.
+- A `304` **refreshes the headers and keeps the body** — and a `Content-Length`
+  on a `304` describes a body it did not send, so it is ignored rather than
+  believed.
+- Freshness from `max-age`, from `Expires` against the response's own `Date`,
+  and **guessed** from `Last-Modified` when nothing was said — a tenth of the
+  age, capped at a day, so a page nobody configured is never a week out of date.
+  A date nobody can parse is expired, never permission.
+- Request directives are honoured: `no-cache` on a reload, `min-fresh`,
+  `max-stale` — the last of which does **not** override a server's
+  `must-revalidate`.
+- All three HTTP date formats are read, including the two obsolete ones, because
+  refusing them would make a real `Expires` unparseable and an unparseable
+  `Expires` means already stale. Being strict there makes a browser slower, not
+  safer. Written dates use the one format anything may send.
+- `Cache-Control` is parsed once for both ends, because the mistakes are in the
+  syntax: `no-cache="Set-Cookie, X-Thing"` is one directive with a comma in it,
+  and a `max-age` that is not a number is absent rather than zero — zero would
+  mean "always revalidate", a decision the server did not make.
+- Loads go through it. `Pool` owns the cache, so a second load of a fresh thing
+  never reaches the server, and a write to a URL forgets what was stored for it.
+
 - **Redirects are followed**, and the deciding is a pure function — a request
   and a response in, what to do next out, with no socket near it. Following is
   three lines of loop; what to *carry across* one is where every bug is, and

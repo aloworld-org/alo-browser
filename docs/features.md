@@ -126,6 +126,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A truncated body is an **error**, not a short page
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
+- [2] **An HTTP cache**: freshness, `Age`, revalidation with `ETag` and
+  `Last-Modified`, and `Vary` as a contract so one reader never gets another
+  reader's page
 - [2] **Redirects**, bounded and loop-detecting, with `Authorization` dropped
   at an origin boundary and `file:`/`data:` refused as destinations
 - [2] **A decompression bomb is refused** — the bound is on what comes out,

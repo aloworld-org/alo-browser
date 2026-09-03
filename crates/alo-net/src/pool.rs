@@ -26,13 +26,15 @@
 //! A cap per host, a cap overall, and an age past which an idle connection is
 //! closed rather than gambled on.
 
+use crate::cache::{self, Answer, Cache};
 use crate::connection::{Connection, PATIENCE, exchange};
+use crate::freshness;
 use crate::redirect::{self, Next, Trail};
 use crate::request::Request;
 use crate::response::Response;
 use crate::tls::Trust;
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 /// How many idle connections to keep to one host.
 ///
@@ -77,6 +79,12 @@ pub struct Pool {
     /// open. For a test, and for anybody wondering whether the pool is doing
     /// anything.
     reused: usize,
+    /// What has been kept, so a second load of the same thing need not ask.
+    ///
+    /// The pool owns it because the pool is what a caller holds for the life of
+    /// a session, and a cache that did not outlive one request would be a cache
+    /// that never hit.
+    cache: Cache,
 }
 
 impl Pool {
@@ -96,6 +104,7 @@ impl Pool {
             trust,
             patience: PATIENCE,
             reused: 0,
+            cache: Cache::new(),
         }
     }
 
@@ -177,7 +186,7 @@ impl Pool {
         let mut trail = Trail::from(&request.url);
         let mut asking = request.clone();
         loop {
-            let response = self.fetch(&asking)?;
+            let response = self.fetch_perhaps_from_the_cache(&asking)?;
             match redirect::next(&asking, &response).map_err(|refusal| refusal.to_string())? {
                 Next::Keep => return Ok(response),
                 Next::Follow(hop) => {
@@ -188,6 +197,58 @@ impl Pool {
                 }
             }
         }
+    }
+
+    /// One exchange, answered from the cache where the cache can answer it.
+    ///
+    /// Between [`Pool::follow`] and [`Pool::fetch`] rather than inside either:
+    /// `fetch` is one exchange over a socket and stays that way, and a redirect
+    /// is cacheable like anything else, so this has to sit on the inside of the
+    /// redirect loop rather than around it.
+    fn fetch_perhaps_from_the_cache(&mut self, request: &Request) -> Result<Response, String> {
+        let sent_at = SystemTime::now();
+        let asking = match self.cache.answer(request, sent_at) {
+            Answer::Stored(response) => return Ok(*response),
+            Answer::Fetch => request.clone(),
+            Answer::Revalidate { conditions } => {
+                cache::asking_whether_it_changed(request, &conditions)
+            }
+        };
+
+        let mut response = self.fetch(&asking)?;
+        let arrived_at = SystemTime::now();
+        // A response with no `Date` is treated as having arrived now. Without
+        // this every age calculation on such a response starts at zero, which
+        // reads as "brand new" — the optimistic direction to be wrong in.
+        cache::dated(&mut response, arrived_at);
+
+        if freshness::is_not_modified(response.status) {
+            // The server said what is stored is still good. If nothing is
+            // stored, nobody could have asked — so the `304` is unusable and
+            // saying so beats handing up an empty body as though it were a page.
+            return self
+                .cache
+                .refresh(request, &response, arrived_at)
+                .ok_or_else(|| {
+                    "the server said nothing had changed about something we do not have".to_owned()
+                });
+        }
+
+        // A write makes what is stored a lie, whatever the response says.
+        if !matches!(
+            request.method.to_ascii_uppercase().as_str(),
+            "GET" | "HEAD" | "OPTIONS" | "TRACE"
+        ) {
+            self.cache.forget(request);
+        } else if !cache::nobody_wants_this_kept(request, &response) {
+            self.cache.keep(request, &response, sent_at, arrived_at);
+        }
+        Ok(response)
+    }
+
+    /// What is kept, for a caller that wants to look.
+    pub fn cache(&self) -> &Cache {
+        &self.cache
     }
 
     /// A kept connection to this server, if there is one worth having.

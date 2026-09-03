@@ -2644,3 +2644,71 @@ revalidate for each, **including the ones that are only wrong an hour later**.
 Freshness is arithmetic and testable; `Vary` is the part that quietly serves one
 user another user's page.
 
+---
+
+## Iteration 43 — queue item 56: the HTTP cache
+
+The roadmap singles this one out: *"subtly wrong here is invisible for months
+and then serves somebody a stale bank page."* Two design decisions come straight
+out of that sentence.
+
+**Nothing in the cache reads the clock.** Every function takes `now`. A cache
+that called `SystemTime::now()` internally can only be tested at the moment the
+test runs, and the answers that matter are the ones that are **only wrong an
+hour later** — which is exactly the class nobody finds by using the browser. The
+table in `tests/what_the_cache_serves.rs` asserts pairs either side of an
+expiry: fresh at 3599 seconds, not fresh at 3601.
+
+**Age is not "how long we have had it".** A response can arrive already old and
+say so in an `Age` header. A cache that counted from arrival grants it a second
+full lifetime — which is how one `max-age=3600` becomes six hours of staleness
+across a chain of caches. Time in transit counts too: a `max-age=5` that took
+two seconds to arrive is fresh for three.
+
+**`Vary` is a contract rather than a header.** What is stored is the response
+together with **the request header values it was chosen by**. A later request
+matches only if it would have produced the same choice, so a page fetched with
+`Accept-Language: fr` is never served to one asking for `de`. An absent header
+and an empty one are different, and are tested as different, because a server
+may well answer them differently. `Vary: *` is not stored at all: the server is
+saying it cannot promise the response answers anything else, and there is no key
+that would be right.
+
+**Four files, because they are four responsibilities.** `httpdate.rs` reads all
+three date formats and writes the one anything may send — refusing the obsolete
+two would make a real `Expires` unparseable, and an unparseable `Expires` means
+*already stale*, so strictness there makes a browser slower and never safer.
+`directives.rs` parses `Cache-Control` for both ends, because the mistakes are
+in the syntax and solving them twice is solving them differently.
+`freshness.rs` is the arithmetic and the verdict. `cache.rs` is the store and
+the `Vary` key.
+
+**Clippy found a real design improvement.** `Directives` began as seven
+booleans and `struct_excessive_bools` refused it. It was right: they are a
+**set**, not seven fields, and writing them as fields is what invites the bug
+where somebody reads `no_cache` and means `no_store`. They are a `Flag` enum and
+a bitset now, and every caller asks in the same words. The lint was not silenced.
+
+**Wired in, not just built.** `Pool` owns the cache, so a load actually uses it:
+a second `follow` of a fresh thing does not reach the server, a `304` refreshes
+the headers and hands back the stored body, and a write to a URL forgets what
+was kept for it. Four socket tests assert that end to end.
+
+**A `304` for something we do not have is an error rather than an empty page.**
+Nobody could have sent that conditional request, so handing up the `304`'s empty
+body as though it were a page would be a blank screen with no reason in it.
+
+**Cut into the queue:** item 155, the cache on disk, and it *needs an ADR*. What
+may be written to a disk other programs can read is a different question from
+what may be reused, and it has a different answer for a page behind a password.
+
+**The gate.** Green: fmt, clippy zero and zero, 1004 tests. Nothing here
+positions, sizes or paints, so no layout assertion and no reference render.
+
+**What the next iteration should know.** Item 57, cookies, and the queue already
+marks it *needs ADR* — partitioned by default is a **product decision** about
+who is protected and what it costs, not a parser detail, and it belongs
+somewhere a person can argue with it. The ADR is its own iteration, before any
+code depends on it. `redirect.rs` already drops `Cookie` at an origin boundary,
+so the day cookies exist that rule is in place rather than remembered.
+

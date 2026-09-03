@@ -469,12 +469,25 @@ first. Nothing here needs JavaScript.
   the bytes are the same as an uninterrupted one, and a server that answers a
   range request with the whole thing is noticed rather than believed.
 
-- [ ] **56. The HTTP cache, with real semantics** — freshness, revalidation,
+- [x] **56. The HTTP cache, with real semantics** — freshness, revalidation,
   `Vary`. `ROADMAP.md`: *"subtly wrong here is invisible for months and then
   serves somebody a stale bank page."*
   *Depends on 53. Closes when:* a table of responses and clocks produces the
   right hit, miss and revalidate for each, including the ones that are only
   wrong an hour later.
+
+  **Done.** The table is `tests/what_the_cache_serves.rs`, and the pairs either
+  side of an expiry are the point — nothing in the cache reads the clock, so
+  every case names a moment. `Age` is counted, which is what stops a chain of
+  caches each granting one response a fresh lifetime. `Vary` is stored as the
+  request values a response was chosen by, so a French page is never handed to a
+  German reader, and `Vary: *` is not stored at all. Disk went to item 155.
+
+- [ ] **155. The cache on disk.** Cut from 56, which is memory only.
+  *Depends on 56. Needs ADR* — what may be written to a disk other programs can
+  read is a different question from what may be reused, and it has a different
+  answer for a page behind a password. *Closes when:* a cache survives a restart,
+  and a response that must not outlive the session does not.
 
 - [ ] **57. Cookies, partitioned by default.** `SameSite`, `Secure`,
   `HttpOnly`. **The default is a product decision** rather than a parser detail,
