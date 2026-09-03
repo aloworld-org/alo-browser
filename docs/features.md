@@ -126,6 +126,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A truncated body is an **error**, not a short page
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
+- [2] **HTTP/2, negotiated by ALPN and spoken** — the protocol chosen during the
+  handshake, so no request is ever sent twice to find out which one it is
 - [2] **HTTP/2 streams and flow control**, with the CONTINUATION flood refused
   by a bound on the whole header block rather than on each frame
 - [2] **HPACK**, against the specification's own worked examples — with the

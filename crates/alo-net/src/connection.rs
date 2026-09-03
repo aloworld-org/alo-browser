@@ -130,6 +130,23 @@ impl Connection {
         })
     }
 
+    /// Which protocol this connection speaks.
+    ///
+    /// Known from the handshake, so it is known **before a request is
+    /// written** — which is what stops a client discovering the protocol
+    /// afterwards and having to send the request again.
+    pub fn protocol(&self) -> Protocol {
+        match &self.wire {
+            Wire::Plain(_) => Protocol::Http11,
+            Wire::Secure(secured) => match secured.agreed_protocol().as_deref() {
+                Some(b"h2") => Protocol::Http2,
+                // `http/1.1`, or a server that said nothing about ALPN — which
+                // is what an older one does, and which means HTTP/1.1.
+                _ => Protocol::Http11,
+            },
+        }
+    }
+
     /// Start counting again, before an exchange.
     pub fn begin(&mut self) {
         self.arrived = false;
@@ -228,6 +245,29 @@ pub fn exchange(connection: &mut Connection, request: &Request) -> Result<Exchan
             body,
         },
     })
+}
+
+/// Which protocol a connection is speaking.
+///
+/// Decided during the TLS handshake and never afterwards. A plain connection is
+/// always HTTP/1.1: reaching HTTP/2 without TLS needs either prior knowledge or
+/// an `Upgrade`, and this engine does neither — prior knowledge is guessing, and
+/// `Upgrade` means sending a request that may have to be sent again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Protocol {
+    /// HTTP/1.1.
+    Http11,
+    /// HTTP/2.
+    Http2,
+}
+
+impl core::fmt::Display for Protocol {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            Protocol::Http11 => "HTTP/1.1",
+            Protocol::Http2 => "HTTP/2",
+        })
+    }
 }
 
 /// Try each address in turn, and give up when none answered.

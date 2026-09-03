@@ -27,7 +27,7 @@
 //! closed rather than gambled on.
 
 use crate::cache::{self, Answer, Cache};
-use crate::connection::{Connection, PATIENCE, exchange};
+use crate::connection::{Connection, Exchanged, PATIENCE, Protocol, exchange};
 use crate::freshness;
 use crate::redirect::{self, Next, Trail};
 use crate::request::Request;
@@ -66,6 +66,15 @@ struct Server {
 
 struct Idle {
     connection: Connection,
+    /// What HTTP/2 needs remembered between exchanges — the two HPACK tables
+    /// and the stream bookkeeping.
+    ///
+    /// It belongs to the *connection*, not to the exchange. Losing it between
+    /// requests would mean the second request on a connection could not be
+    /// decoded at all, which is the same class of mistake as throwing away a
+    /// read-ahead buffer (queue item 54) and has the same shape of symptom:
+    /// everything works once.
+    speaking: Option<Box<crate::h2::client::Speaking>>,
     since: Instant,
 }
 
@@ -144,19 +153,19 @@ impl Pool {
         let server = server_of(request)?;
         let secure = server.scheme == "https";
 
-        if let Some(mut kept) = self.take(&server) {
+        if let Some((mut kept, mut speaking)) = self.take(&server) {
             self.reused += 1;
-            match exchange(&mut kept, request) {
+            match speak(&mut kept, &mut speaking, request) {
                 Ok(done) => {
                     if done.reusable {
-                        self.put(&server, kept);
+                        self.put(&server, kept, speaking);
                     }
                     return Ok(done.response);
                 }
                 Err(why) => {
                     // The bet, lost. All three conditions, or it is a failure.
                     if kept.anything_arrived() || !is_safe_to_repeat(&request.method) {
-                        return Err(why.to_string());
+                        return Err(why);
                     }
                     // Fall through and try once on a new connection.
                 }
@@ -175,9 +184,10 @@ impl Pool {
             .map_err(|why| why.to_string())?;
         let mut fresh =
             Connection::open(&server.host, secure, &self.trust, self.patience, &where_to)?;
-        let done = exchange(&mut fresh, request).map_err(|why| why.to_string())?;
+        let mut speaking = None;
+        let done = speak(&mut fresh, &mut speaking, request)?;
         if done.reusable {
-            self.put(&server, fresh);
+            self.put(&server, fresh, speaking);
         }
         Ok(done.response)
     }
@@ -262,7 +272,10 @@ impl Pool {
     }
 
     /// A kept connection to this server, if there is one worth having.
-    fn take(&mut self, server: &Server) -> Option<Connection> {
+    fn take(
+        &mut self,
+        server: &Server,
+    ) -> Option<(Connection, Option<Box<crate::h2::client::Speaking>>)> {
         let waiting = self.idle.get_mut(server)?;
         while let Some(kept) = waiting.pop() {
             if kept.since.elapsed() > KEEP_IDLE_FOR {
@@ -274,13 +287,18 @@ impl Pool {
                 // is, it is not the answer to the next request.
                 continue;
             }
-            return Some(kept.connection);
+            return Some((kept.connection, kept.speaking));
         }
         None
     }
 
     /// Keep a connection, within the bounds.
-    fn put(&mut self, server: &Server, connection: Connection) {
+    fn put(
+        &mut self,
+        server: &Server,
+        connection: Connection,
+        speaking: Option<Box<crate::h2::client::Speaking>>,
+    ) {
         if self.idle() >= MOST_IN_ALL {
             return;
         }
@@ -290,8 +308,34 @@ impl Pool {
         }
         waiting.push(Idle {
             connection,
+            speaking,
             since: Instant::now(),
         });
+    }
+}
+
+/// One exchange, in whichever protocol the handshake settled on.
+///
+/// The choice was made during TLS, before a byte of the request went out, so
+/// nothing here can discover it late and have to send the request again.
+fn speak(
+    connection: &mut Connection,
+    speaking: &mut Option<Box<crate::h2::client::Speaking>>,
+    request: &Request,
+) -> Result<Exchanged, String> {
+    match connection.protocol() {
+        Protocol::Http11 => exchange(connection, request).map_err(|why| why.to_string()),
+        Protocol::Http2 => {
+            let held = speaking.get_or_insert_with(|| Box::new(crate::h2::client::Speaking::new()));
+            let response = crate::h2::client::exchange(connection, held, request)
+                .map_err(|why| why.why.clone())?;
+            Ok(Exchanged {
+                response,
+                // HTTP/2 connections are meant to be kept. A `GOAWAY` is the
+                // only thing that says otherwise, and the session remembers it.
+                reusable: !held.session.is_going_away(),
+            })
+        }
     }
 }
 

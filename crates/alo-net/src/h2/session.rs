@@ -135,6 +135,16 @@ impl Session {
         going
     }
 
+    /// Room made back, because bytes that were held have been taken away.
+    ///
+    /// The other half of `arrived`: a window that only ever shrank would stop a
+    /// large page half way through, and every client that has ever done this
+    /// wrong has done it by forgetting this call rather than by getting the
+    /// arithmetic wrong.
+    pub fn receiving_widened(&mut self, by: u32) {
+        let _ = self.receiving.widen(by, false);
+    }
+
     /// One stream, if it is still remembered.
     pub fn stream(&self, id: u32) -> Option<&Stream> {
         self.streams.get(&id)

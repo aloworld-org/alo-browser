@@ -100,13 +100,20 @@ impl Trust {
 
     fn with(anchors: rustls::RootCertStore) -> Self {
         let count = anchors.len();
-        let config = rustls::ClientConfig::builder_with_provider(Arc::new(
+        let mut config = rustls::ClientConfig::builder_with_provider(Arc::new(
             rustls::crypto::ring::default_provider(),
         ))
         .with_safe_default_protocol_versions()
         .unwrap_or_else(|_| unreachable_default())
         .with_root_certificates(anchors)
         .with_no_client_auth();
+        // Which protocols this end speaks, best first — the server picks one
+        // during the handshake, so the answer is known **before the first byte
+        // of a request goes out**. That is the whole reason ALPN exists rather
+        // than a version header: discovering the protocol afterwards would mean
+        // sending a request and then sending it again, and a `POST` sent twice
+        // is a payment made twice.
+        config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
         Self {
             config: Arc::new(config),
             anchors: count,
@@ -188,6 +195,15 @@ impl<S: Read + Write> Secured<S> {
         self.connection
             .peer_certificates()
             .is_some_and(|held| !held.is_empty())
+    }
+
+    /// Which protocol the two ends agreed on during the handshake.
+    ///
+    /// [`None`] when the server said nothing about ALPN, which is what an older
+    /// server does and which means HTTP/1.1 — the protocol everybody speaks
+    /// without having to say so.
+    pub fn agreed_protocol(&self) -> Option<Vec<u8>> {
+        self.connection.alpn_protocol().map(<[u8]>::to_vec)
     }
 }
 
@@ -385,6 +401,12 @@ mod tests {
     ///
     /// Returns the port it is listening on. The thread ends with the connection.
     fn serve(issued: &Issued, says: &'static str) -> u16 {
+        serve_offering(issued, says, &[])
+    }
+
+    /// The same, offering these protocols by ALPN.
+    fn serve_offering(issued: &Issued, says: &'static str, offers: &[&str]) -> u16 {
+        let offered: Vec<Vec<u8>> = offers.iter().map(|name| name.as_bytes().to_vec()).collect();
         let certificate = vec![rustls_pki_types::CertificateDer::from(
             issued.certificate.clone(),
         )];
@@ -397,6 +419,8 @@ mod tests {
         .with_no_client_auth()
         .with_single_cert(certificate, key)
         .expect("a server");
+        let mut config = config;
+        config.alpn_protocols = offered;
 
         let listener = TcpListener::bind("127.0.0.1:0").expect("a port");
         let port = listener.local_addr().expect("an address").port();
@@ -419,6 +443,50 @@ mod tests {
 
     fn connect(port: u16) -> TcpStream {
         TcpStream::connect(("127.0.0.1", port)).expect("the loopback server")
+    }
+
+    /// The whole point of ALPN, and the reason it is in the handshake rather
+    /// than in a header: the answer is known **before the first byte of a
+    /// request goes out**. A client that discovered the protocol afterwards
+    /// would have to send the request again, and a `POST` sent twice is a
+    /// payment made twice.
+    #[test]
+    fn a_server_offering_http_2_is_agreed_with_before_anything_is_sent() {
+        let issued = issue("alo.test", true);
+        let port = serve_offering(&issued, "", &["h2", "http/1.1"]);
+        let trust = Trust::of(std::slice::from_ref(&issued.authority)).expect("an authority");
+        let secured = secure(&trust, "alo.test", connect(port)).expect("a handshake");
+        assert_eq!(
+            secured.agreed_protocol().as_deref(),
+            Some(&b"h2"[..]),
+            "the server offered h2 first and it was not taken"
+        );
+    }
+
+    /// A server that offers only HTTP/1.1 gets HTTP/1.1, without a request
+    /// being sent to find out.
+    #[test]
+    fn a_server_offering_only_http_1_1_is_agreed_with_as_such() {
+        let issued = issue("alo.test", true);
+        let port = serve_offering(&issued, "", &["http/1.1"]);
+        let trust = Trust::of(std::slice::from_ref(&issued.authority)).expect("an authority");
+        let secured = secure(&trust, "alo.test", connect(port)).expect("a handshake");
+        assert_eq!(secured.agreed_protocol().as_deref(), Some(&b"http/1.1"[..]));
+    }
+
+    /// An older server says nothing about ALPN at all, and that means HTTP/1.1
+    /// — the protocol everybody speaks without having to say so.
+    #[test]
+    fn a_server_that_says_nothing_about_alpn_means_http_1_1() {
+        let issued = issue("alo.test", true);
+        let port = serve_offering(&issued, "", &[]);
+        let trust = Trust::of(std::slice::from_ref(&issued.authority)).expect("an authority");
+        let secured = secure(&trust, "alo.test", connect(port)).expect("a handshake");
+        assert_eq!(
+            secured.agreed_protocol(),
+            None,
+            "a server that said nothing was read as having said something"
+        );
     }
 
     #[test]

@@ -6,6 +6,40 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **HTTP/2 is negotiated and spoken.** ALPN advertises `h2` then `http/1.1` in
+  the TLS handshake, so **the protocol is known before the first byte of a
+  request goes out**. That is the whole reason ALPN exists rather than a version
+  header: a client that discovered the protocol afterwards would have to send
+  the request again, and a `POST` sent twice is a payment made twice.
+- A server that says nothing about ALPN gets HTTP/1.1 — the protocol everybody
+  speaks without having to say so. A plain connection is always HTTP/1.1:
+  reaching HTTP/2 without TLS needs prior knowledge (guessing) or an `Upgrade`
+  (sending a request that may have to be sent again), and this engine does
+  neither.
+- **A request becomes four pseudo-headers and then the rest.** There is no
+  request line in HTTP/2; the method, scheme, path and authority are headers
+  whose names begin with a colon — a character no ordinary header name may
+  contain, which is what makes them impossible to forge from an ordinary one.
+  They go first, and a *response* carrying one, or an ordinary header before
+  `:status`, is refused: a pseudo-header after an ordinary one is how a message
+  gets smuggled past something that only reads the first few headers.
+- `Connection`, `Host`, `Transfer-Encoding` and the rest of the hop-by-hop
+  headers are **not sent**. HTTP/2 has its own way of saying all of it, and a
+  server receiving one must treat the message as malformed — so sending one is
+  not a compatibility gesture, it is a broken request. Names go out lowercase,
+  which is a requirement rather than a convention.
+- **A credential is marked never-indexed**, so `Authorization` and `Cookie` are
+  never put in a compression table — ours or any relay's. The same rule ADR 0007
+  applies to cookies, applied to compression.
+- The HPACK tables and stream bookkeeping belong to the **connection**, not the
+  exchange. Losing them between requests would mean the second request on a
+  connection could not be decoded at all — the same class of mistake as throwing
+  away a read-ahead buffer, with the same symptom: everything works once.
+- `SETTINGS` and `PING` are answered as they arrive rather than at the end. A
+  peer waiting for an acknowledgement stops sending, so a client that replied
+  only once it had a whole response would deadlock waiting for a response the
+  server is waiting to be allowed to send.
+
 - **HTTP/2 streams, flow control and the connection state machine.** The bounds
   went in before the happy path, because every way a peer spends our memory over
   HTTP/2 is a **count** rather than one oversized thing.

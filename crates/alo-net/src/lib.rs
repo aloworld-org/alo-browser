@@ -53,7 +53,7 @@ pub mod tls;
 pub use body::Framing;
 pub use cache::{Answer, Cache};
 pub use certificate::{Fault, Refused};
-pub use connection::{Connection, Exchanged, exchange};
+pub use connection::{Connection, Exchanged, Protocol, exchange};
 pub use cookie::{Cookie, Partition, SameSite};
 pub use decompress::{Encoding, undo, undo_within, what_was_applied};
 pub use directives::{Directives, Flag};

@@ -3182,3 +3182,71 @@ protocol is in use. Negotiation happens during the handshake, so the answer is
 known before the first byte of a request — a client that discovered it later and
 retried would be a client that sent a `POST` twice.
 
+---
+
+## Iteration 51 — queue item 162: negotiating HTTP/2, and speaking it
+
+**The closing condition was the design.** *"No request sent twice while finding
+out."* Nothing in this change can send one twice, and not because of care —
+because the answer comes out of the **TLS handshake**, before a byte of any
+request exists. That is what ALPN is *for*, and why the protocol version is not
+a header: a client that discovered it afterwards would have to send the request
+again, and a `POST` sent twice is a payment made twice.
+
+So the change starts in `tls.rs`, which is the `rustls` boundary, and the ALPN
+tests live there too — the same rule that moved item 52's tests, for the same
+reason.
+
+**A plain connection is always HTTP/1.1, and that is a decision rather than a
+gap.** Reaching HTTP/2 without TLS needs prior knowledge — which is guessing —
+or an `Upgrade`, which means sending a request that may have to be sent again.
+This engine does neither, and the reason is written where somebody would
+otherwise add it.
+
+**There is no request line in HTTP/2.** The method, scheme, path and authority
+are headers whose names begin with a colon, and a colon is a character no
+ordinary header name may contain — which is exactly what makes them impossible
+to forge from an ordinary one. They go first, and the rules are enforced in both
+directions: a *response* carrying a request's pseudo-header is refused, and so is
+an ordinary header arriving before `:status`. That second one matters more than
+it looks: a pseudo-header after an ordinary one is how a message gets smuggled
+past something that only reads the first few headers.
+
+**The hop-by-hop headers are dropped, and that is not tidiness.** A server
+receiving `Connection` or `Transfer-Encoding` over HTTP/2 must treat the message
+as malformed. Sending one is not a compatibility gesture; it is a broken
+request. `Host` becomes `:authority`, and a caller who set `Host` does not get to
+choose the authority — the same rule `http.rs` already applies for the same
+reason.
+
+**Credentials are marked never-indexed on the way out.** `Authorization`,
+`Cookie` and `Proxy-Authorization` are never put in a compression table, ours or
+any relay's. It is ADR 0007's rule about cookies, pointed at compression.
+
+**Where the state lives was the one structural decision.** The two HPACK tables
+and the stream bookkeeping belong to the **connection**, so `Idle` in the pool
+now carries them. Losing them between requests would mean the second request on
+a connection could not be decoded at all — the same class of mistake as throwing
+away a read-ahead buffer in item 54, and with the same symptom: everything works
+exactly once.
+
+**One deadlock avoided by ordering.** `SETTINGS` and `PING` are answered as they
+arrive, not after the response is assembled. A peer waiting for an
+acknowledgement stops sending, so a client that replied at the end would be
+waiting for a response the server was waiting to be allowed to send.
+
+**Cut to the queue:** item 163, a request with a body. Every request today goes
+out with `END_STREAM` on its `HEADERS`, which is truthful and means no `POST` —
+a body needs `DATA` frames sized to the window, and a window that closes
+mid-body has to be waited on rather than overrun.
+
+**The gate.** Green: fmt, clippy zero and zero, 1114 tests. Nothing here
+positions, sizes or paints.
+
+**What the next iteration should know.** Section A of the queue is finished
+except items 60 (HTTP/3) and 163. The next unblocked item by dependency is 61,
+the same-origin policy and CORS — and its closing condition is worth reading
+before starting: *"a cross-origin read that should fail does, in a test that
+names the attack rather than the header."* That is asking for tests written from
+the attacker's side, not the specification's.
+

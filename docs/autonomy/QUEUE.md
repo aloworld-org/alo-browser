@@ -580,11 +580,23 @@ first. Nothing here needs JavaScript.
   test I wrote expecting otherwise was wrong about the protocol rather than the
   code.
 
-- [ ] **162. Negotiating HTTP/2 at all** — ALPN in the TLS handshake, and
+- [x] **162. Negotiating HTTP/2 at all** — ALPN in the TLS handshake, and
   choosing 1.1 when the server does not offer h2.
   *Depends on 59, 160, 161, 52. Closes when:* a server offering `h2` is spoken
   to in HTTP/2 and one offering nothing is spoken to in HTTP/1.1, with no
   request sent twice while finding out.
+
+  **Done.** Nothing can send a request twice to find out, because the answer
+  comes out of the handshake — which is what ALPN is *for*, and why it is not a
+  header. The pseudo-header rules went in with it, on both directions: a
+  response carrying a request's pseudo-header, or an ordinary header before
+  `:status`, is refused.
+
+- [ ] **163. A request with a body over HTTP/2.** Today every request goes out
+  with `END_STREAM` on its `HEADERS`, which is truthful and means no `POST`.
+  *Depends on 162. Closes when:* a body goes out in `DATA` frames sized to the
+  window, a window that closes mid-body is waited on rather than overrun, and a
+  `100-continue` is either honoured or refused by name.
 
 - [ ] **60. HTTP/3 and QUIC**, once both of those are.
   *Depends on 59.*

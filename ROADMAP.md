@@ -172,8 +172,10 @@ unreachable without it.
       specification's own worked examples, with the Huffman codes derived from
       the canonical structure rather than transcribed. **Streams, flow control
       and the connection state machine** (queue item 161), with the CONTINUATION
-      flood refused by a bound on the whole block · Owed: negotiating h2 at all,
-      queue item 162
+      flood refused by a bound on the whole block. **Negotiated by ALPN and
+      spoken** (queue item 162) — chosen during the handshake, so no request is
+      sent twice to find out which protocol it is · Owed: a request with a body
+      over HTTP/2, queue item 163
 - [ ] HTTP/3 and QUIC, once those two are correct
 - [ ] DNS, and encrypted DNS as a choice somebody made rather than a default
       nobody was told about · Built: ADR 0008 and resolution through the
