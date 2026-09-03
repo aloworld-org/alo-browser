@@ -22,6 +22,8 @@
 //! opinions and ours is where the bugs would live.
 
 pub mod frame;
+pub mod hpack;
+pub mod huffman;
 
 /// Why a connection or a stream was ended.
 ///

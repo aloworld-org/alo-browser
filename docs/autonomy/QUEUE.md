@@ -557,7 +557,7 @@ first. Nothing here needs JavaScript.
   legal and tested, because a check written one off would refuse the frames
   servers send to disguise a response's size.
 
-- [ ] **160. HPACK.** The header compression HTTP/2 carries in its `HEADERS` and
+- [x] **160. HPACK.** The header compression HTTP/2 carries in its `HEADERS` and
   `CONTINUATION` blocks: static table, dynamic table, Huffman.
   *Depends on 59. Closes when:* the specification's own request and response
   examples round-trip, and a block that would grow the dynamic table past what

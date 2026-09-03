@@ -3049,3 +3049,68 @@ leaves the table in a condition nobody can reason about — resetting just that
 stream and continuing would mean decoding every later block against a table that
 is quietly wrong.
 
+---
+
+## Iteration 49 — queue item 160: HPACK
+
+**The decision that made this safe to write: derive the Huffman codes, do not
+copy them.** The specification prints 257 rows of symbol, code and length.
+Transcribing them is 257 chances at a bug that appears on the one byte nobody
+tested — and a wrong code is not a crash, it is a header that silently decodes
+to something else. But the code is **canonical**: sorted by length, the codes
+run consecutively, each new length starting where the last stopped shifted along
+by one. So the only thing written down is which symbols have which length, in
+order, and the codes follow.
+
+That turned a transcription problem into a structural one, and structure can be
+checked. Two tests do it: **Kraft's equality**, that the code space is filled
+exactly (a single wrong length anywhere breaks it), and a round trip of all 256
+bytes. Both passed first time, and so did the specification's four printed
+encodings, byte for byte.
+
+Kraft in integers rather than floating point, incidentally — clippy objected to
+the `usize as f64` and it was right for a better reason than it knew: a test
+that sums 257 fractions can fail for a reason that is not the table. Counting in
+units of `2^-30` makes it exact.
+
+**Validation that means something.** A codec that agrees with itself proves
+nothing here — HPACK's job is to agree with *somebody else's* encoder, one block
+at a time, carrying state between them. So the tests assert the exact bytes the
+specification prints **and the exact table sizes it says should exist after each
+block**: 57, then 110, then 164; and 222 in the response example, where the
+table is small enough that entries are evicted. Those numbers only come out
+right if the whole thing is right, eviction and the 32-byte per-entry overhead
+included.
+
+**The rule the queue told the last iteration to remember, now enforced:** every
+decoding failure is **fatal to the connection**, never to one stream. The table
+carries state from block to block, so a block nobody could decode leaves it in a
+condition nobody can reason about, and every later block would be decoded
+against something quietly wrong. There is a test that walks five different
+failures and asserts each is fatal — because "reset the stream and carry on" is
+the tempting answer and it is how a connection starts silently mis-decoding.
+
+**Refusals worth naming.** Index zero is not an index — it is the value meaning
+"a name follows", and reading it as one is off-by-one into the static table. An
+integer with enough continuation bytes is an overflow, refused at five groups of
+seven bits rather than allowed to wrap. A size update larger than was agreed is
+a peer choosing how much memory this end spends. A size update after a header in
+the same block is a sender doing something it must not.
+
+**One thing kept for a reader that does not exist yet.** `never-indexed`
+survives decoding. It is how a sender says a value is a secret, and a relay that
+forgot it would compress somebody's authorization token into a shared table.
+Nothing relays today; the flag is carried so that when something does, the
+information is there rather than remembered.
+
+**The gate.** Green: fmt, clippy zero and zero, 1075 tests. Nothing here
+positions, sizes or paints.
+
+**What the next iteration should know.** Item 161, streams and flow control —
+the connection state machine. This is the one where the bounds go in **before**
+the happy path, because it is where a misbehaving peer allocates memory on our
+side: streams opened and never used, a window that never opens, `CONTINUATION`
+frames that never end. The last of those has a name — CONTINUATION flood — and
+it should be refused by a bound on the total header block across frames, not by
+a bound on each frame.
+

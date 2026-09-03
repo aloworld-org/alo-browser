@@ -6,6 +6,35 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **HPACK**, the header compression HTTP/2 carries — integers, strings, the
+  static table, the dynamic table, and Huffman. Checked against the
+  specification's own worked examples: the exact bytes it prints, and the exact
+  table sizes it says should exist after each block (57, 110, 164, 222). A codec
+  that only agreed with itself would prove nothing, because HPACK's whole job is
+  to agree with somebody else's encoder.
+- **The Huffman codes are derived, not transcribed.** The specification prints
+  257 rows; copying them is 257 chances at a bug that shows up on the one byte
+  nobody tested — and a wrong code is not a crash, it is a header that silently
+  decodes to something else. The code is canonical, so only *which symbols have
+  which length* is written down and the codes follow. Two tests check the
+  structure itself: that the code space is exactly filled, and that all 256
+  bytes round-trip.
+- **A decoding failure kills the connection, never one stream.** The table
+  carries state from block to block, so a block nobody could decode leaves it in
+  a condition nobody can reason about; resetting the stream and carrying on is
+  the tempting, wrong answer, and there is a test asserting every failure is
+  fatal.
+- Refused: index zero (which means "a name follows", and reading it as an index
+  is off-by-one into the static table); an integer that never ends, before it
+  can overflow; a string longer than the block containing it; a table size
+  update larger than was agreed, or one appearing after a header in the block;
+  a Huffman string padded with anything but ones, or containing the
+  end-of-string symbol.
+- `never-indexed` **survives decoding**. It is how a sender says a value is a
+  secret, and a relay that forgot would compress somebody's authorization token
+  into a shared table. Nothing relays yet; the flag is kept so that when
+  something does, the information is there rather than remembered.
+
 - **HTTP/2 framing**: nine bytes of header, a payload, and every rule about what
   makes one unreadable. The rest of HTTP/2 — HPACK, streams and flow control,
   and negotiating the protocol at all — is queued as items 160, 161 and 162.
