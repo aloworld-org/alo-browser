@@ -46,6 +46,7 @@ pub mod page;
 pub mod pipe;
 pub mod pipeline;
 pub mod renderer;
+pub mod sandbox;
 pub mod serve;
 pub mod site;
 pub mod snapshot;

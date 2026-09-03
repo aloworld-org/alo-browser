@@ -3597,3 +3597,75 @@ the test has to watch a real refusal rather than trust a flag — so the test is
 which is worth checking deliberately: a test that passes both before and after
 is testing nothing.
 
+---
+
+## Iteration 57 — queue item 167: the sandbox, on macOS
+
+ADR 0010's code. Renderers are confined now, and the confinement is watched
+rather than trusted.
+
+**The route, decided by law 4 rather than by preference.** macOS has two ways
+in. `sandbox_init` is a C function, so FFI, so `unsafe` — and ADR 0010 says in a
+sentence of its own that it authorises none in this repository. `sandbox-exec`
+is a program that applies a profile and then execs, needing no FFI at all. So
+that is the route, and its deprecation is written into the module as a real cost
+rather than left to be discovered.
+
+It turned out to have an advantage that is not a consolation prize: applying the
+profile **by `exec`** means the process is never unconfined, not even for the
+instant between starting and sealing itself. ADR 0010 rejected "apply it after
+start-up" for exactly that reason and this route gets it for free.
+
+**The profile was found by removing things until it stopped working.** Several
+attempts failed with a bare `SIGABRT` and no diagnostic, which is what a
+sandbox violation looks like from outside. The missing permission in the end was
+a read of `/` itself — the root directory — which nothing about the failure
+pointed at. That is worth remembering for item 169: the feedback loop here is
+almost nonexistent, so the way through is bisection rather than reasoning.
+
+**The check is of the renderer, in the state it actually runs in.** ADR 0010
+asked for that specifically, so `alo-render --check-confinement` tries four
+forbidden things and prints what happened, rather than a stand-in binary sharing
+only a profile.
+
+**Two probes lied on the first attempt, and fixing them is the substance of this
+iteration.** Reading `/tmp` "failed" because it is a directory. Connecting to a
+dead port "failed" with *connection refused* — which means the socket **was**
+created and the sandbox did nothing. Both would have reported a working sandbox
+on a machine with none. So a probe now counts only `PermissionDenied`: a file
+not found means the open was allowed, and a connection refused means the socket
+was allowed, and neither is confinement. The type says so — `Attempt::Refused`
+against `Attempt::Allowed { what }`, where the second carries *why* it was not a
+refusal.
+
+**The test that makes the other test mean something.** The same binary is run
+twice, confined and not, and the unconfined run must be **allowed all four**. A
+test that passed both before and after would be testing nothing, and now there
+is a test asserting it does not. That was the thing the last journal entry told
+this iteration to check deliberately, and it was right to.
+
+**One small hardening worth naming.** The executable's path goes into the
+profile as a `-D` **parameter**, not pasted into the text. A checkout under a
+directory with a quote or a bracket in its name would otherwise change the
+meaning of the policy rather than filling in a blank — the same class of bug as
+an injected quote anywhere else, and worse here because the thing being injected
+into is a security policy.
+
+**A platform with no sandbox gets no renderer.** `sandbox::confined` returns an
+error on anything but macOS and `Renderers` turns that into a `Gone` rather than
+falling back to a plain command. There is a test for that branch, so the
+promise ADR 0010 made — *the browser does not claim a platform it cannot
+sandbox* — is enforced rather than stated.
+
+**The gate.** Green: fmt, clippy zero and zero, 1179 tests — and the process
+tests from item 166 now spawn *through* the sandbox, so the whole boundary is
+exercised confined.
+
+**What the next iteration should know.** Item 168, fonts across the boundary,
+and it is now a real problem rather than a tidy one: a confined renderer cannot
+open a font file, and `alo-render` embeds one because the design forces it. The
+rule ADR 0010 set is that the browser process passes **bytes** rather than the
+policy permitting a directory — so the work is a message carrying a font, and
+the temptation to resist is adding `(subpath "/System/Library/Fonts")` to the
+profile, which would be one hole per resource type from then on.
+

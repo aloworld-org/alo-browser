@@ -15,6 +15,13 @@ use alo_renderer::serve;
 use alo_text::{Font, FontDatabase, Slant, Weight};
 
 fn main() -> std::process::ExitCode {
+    // ADR 0010 asks for a check that *watches a refusal* rather than trusting a
+    // flag, and asks for it of the renderer rather than of a stand-in. So the
+    // renderer can be asked to try the forbidden things and say what happened,
+    // in the state it actually runs in.
+    if std::env::args().any(|argument| argument == "--check-confinement") {
+        return check_confinement();
+    }
     let mut renderer = Renderer::new(fonts());
     let mut input = std::io::stdin().lock();
     let mut output = std::io::stdout().lock();
@@ -26,6 +33,45 @@ fn main() -> std::process::ExitCode {
             eprintln!("alo-render: {why}");
             std::process::ExitCode::FAILURE
         }
+    }
+}
+
+/// Try what a renderer must not be able to do, and print what happened.
+///
+/// One line per thing, `refused` or `ALLOWED`, so a person reading the output
+/// and a test reading the output are reading the same thing.
+fn check_confinement() -> std::process::ExitCode {
+    use alo_renderer::sandbox::probe;
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/Users".to_owned());
+    let attempts = [
+        // A file that exists on every machine and is outside everything the
+        // profile allows. Reading it unconfined works, which is what makes its
+        // refusal mean something.
+        ("read /etc/hosts", probe::reading_a_file("/etc/hosts")),
+        (
+            "read a file in the home directory",
+            probe::reading_a_file(&format!("{home}/.zshrc")),
+        ),
+        (
+            "write a file",
+            probe::writing_a_file("/tmp/alo-render-should-not-exist"),
+        ),
+        ("open a socket", probe::opening_a_socket()),
+    ];
+    let mut all_refused = true;
+    for (what, outcome) in attempts {
+        match outcome {
+            probe::Attempt::Refused { why } => println!("refused: {what} ({why})"),
+            probe::Attempt::Allowed { what: how } => {
+                println!("ALLOWED: {what} ({how})");
+                all_refused = false;
+            }
+        }
+    }
+    if all_refused {
+        std::process::ExitCode::SUCCESS
+    } else {
+        std::process::ExitCode::FAILURE
     }
 }
 

@@ -6,6 +6,34 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Renderers are confined**, on macOS, by the platform's own sandbox — ADR 0010
+  in code. A renderer cannot read `/etc/hosts`, cannot read anything in the home
+  directory, cannot write a file and cannot open a socket, and each of those is
+  **watched failing** rather than assumed.
+- **The test would fail if the sandbox did nothing.** The same binary is run
+  twice — confined and not — and the unconfined run has to be *allowed* all four
+  things. A test that passed both before and after would be testing nothing, and
+  there is now a test asserting that it does not.
+- Only a refusal **by the operating system** counts. A connection refused
+  because nothing is listening means the socket was created; a file not found
+  means the open was allowed. Both look like failure and neither is confinement,
+  and a probe that counted them would report a working sandbox on a machine with
+  none.
+- **`sandbox-exec` rather than the library call**, because the library call is
+  FFI and ADR 0010 authorises no `unsafe` here. It is deprecated, which is
+  written down as a real cost rather than discovered later — and it has an
+  advantage that is not a consolation prize: the profile is applied *by* `exec`,
+  so the process is never unconfined, not even for the instant between starting
+  and sealing itself.
+- The executable's path goes into the profile as a **parameter, not pasted in**.
+  A checkout under a directory with a quote in its name would otherwise change
+  the meaning of the policy rather than filling in a blank — the same class of
+  bug as an injected quote anywhere else, and worse here because the thing being
+  injected into is a security policy.
+- **A platform with no sandbox gets no renderer**, not an unconfined one. Linux
+  is queue item 169; until then this engine does not claim it, which is what ADR
+  0010 asks for instead of shipping with the protection off.
+
 - **ADR 0010: the sandbox is rented, and failing to get one is fatal.** A
   renderer confines itself with the operating system's own sandbox — Seatbelt on
   macOS; seccomp-bpf, a user namespace and Landlock on Linux — before it reads a

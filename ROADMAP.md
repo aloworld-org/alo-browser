@@ -146,9 +146,11 @@ unreachable without it.
       a stranger chose — because a renderer is the process that parsed the page
       **The split itself** (queue item 166): a renderer process per site,
       spawned and talked to over pipes, with a test that kills one and watches
-      the other keep working · Owed: the sandbox (queue item 167, which needs an
-      ADR of its own — ADR 0005 says it does not pre-authorise the `unsafe` one
-      may need)
+      the other keep working **The sandbox** (ADR 0010 and queue item 167): rented, applied by
+      `exec` so a renderer is never unconfined, and fatal if unavailable —
+      watched failing rather than assumed · Owed: the Linux sandbox, queue item
+      169; and fonts across the boundary, queue item 168, which a confined
+      renderer now makes necessary
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
       than leaving a blank rectangle (queue item 166). It is not restarted
       silently, because that hides a bug somebody needs to see

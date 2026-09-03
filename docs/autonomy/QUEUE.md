@@ -671,7 +671,7 @@ wrong, which is the argument for the fourth.
   test, because a silent restart turns a page that crashes its renderer every
   time into an invisible loop.
 
-- [ ] **167. The sandbox.** Seccomp-bpf and user namespaces on Linux, Seatbelt
+- [x] **167. The sandbox, on macOS.** Seccomp-bpf and user namespaces on Linux, Seatbelt
   on macOS. **Needs ADR** — ADR 0005 says in its own consequences that it does
   not pre-authorise any `unsafe` a sandbox needs, and that such a thing wants
   its own decision naming the boundary and the reason.
@@ -679,6 +679,20 @@ wrong, which is the argument for the fourth.
   any page bytes, fatal if unavailable, and authorising no `unsafe` of ours. The
   code is what remains. Closes when:* a renderer cannot open a file, and the
   test that says so watches it fail rather than trusting a flag.
+
+  **Done, for macOS.** `sandbox-exec` rather than `sandbox_init`, because the
+  latter is FFI and ADR 0010 authorises no `unsafe` here — deprecated, said so
+  in the module, and with the advantage that the profile is applied *by* `exec`
+  so the process is never unconfined. The test runs the same binary confined and
+  unconfined and requires the unconfined run to be **allowed** all four things,
+  because a test that passed both ways would be testing nothing.
+
+- [ ] **169. The sandbox, on Linux.** seccomp-bpf, a user namespace and
+  Landlock, as ADR 0010 names them.
+  *Depends on 167. Closes when:* the same four probes are refused on Linux, in
+  the same test, run on Linux — because a sandbox only ever checked on the
+  machine of whoever wrote it stops working on a Tuesday without anybody
+  noticing.
 
 - [ ] **168. Fonts across the boundary.** ADR 0010's consequence: a confined
   renderer cannot open a font file, and the rule is that the browser process

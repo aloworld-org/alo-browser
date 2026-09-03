@@ -20,12 +20,13 @@
 
 use crate::message::{FromRenderer, ToRenderer};
 use crate::pipe::{self, Arrived};
+use crate::sandbox;
 use crate::site::Site;
 use crate::wire;
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStdin, ChildStdout, Stdio};
 
 /// How many renderer processes may exist at once.
 ///
@@ -181,8 +182,16 @@ impl Renderers {
             };
             self.stop(&oldest);
         }
-        let mut child = Command::new(&self.program)
-            .args(&self.arguments)
+        // ADR 0010: confined before it reads a byte of any page, and no
+        // rendering at all if it cannot be. A renderer that ran unconfined
+        // would have removed a protection the person believes they have, at
+        // the moment it found out it could not provide it.
+        let mut command =
+            sandbox::confined(&self.program, &self.arguments).map_err(|why| Gone {
+                site: site.to_string(),
+                why: why.why,
+            })?;
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             // Left alone deliberately: a renderer's own diagnostics go to the
