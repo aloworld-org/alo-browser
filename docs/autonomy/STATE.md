@@ -3320,3 +3320,73 @@ grammar is large and getting a directive wrong quietly weakens a page's own
 protection — so the rule should be that a directive we cannot parse makes the
 policy **more** restrictive, never less.
 
+---
+
+## Iteration 53 — queue item 62: HSTS, mixed content and referrer policy
+
+**Scope cut on starting.** The item named four things; CSP is a whole item on
+its own and went in as 165 before a line was written. The other three share a
+shape — each is a policy a site states **about itself**, which is the opposite
+direction from CORS, where a site states what *others* may do.
+
+**HSTS: two rules make it a defence rather than a weapon**, and both have tests
+named after them.
+
+A `Strict-Transport-Security` header arriving over **plain HTTP is ignored**.
+Honouring it would let the attacker who is already rewriting your traffic pin
+any domain for two years — turning the defence into a denial of service. And it
+**never applies to an IP address**: an address belongs to whoever holds it
+today, so a rule keyed on one would follow the address rather than the site.
+
+The attack itself is worth restating because it is the reason the whole
+mechanism exists: somebody types `example.com`, the browser tries `http://`, and
+a network in between answers before the real server is ever asked. The redirect
+the real server would have sent never happens. No amount of correct TLS touches
+this, because the whole attack is over before any TLS begins.
+
+**The subdomain walk is label by label, not by suffix.** A suffix comparison
+says `evil-example.com` is under `example.com`. Here that would mean a lookalike
+inheriting somebody else's pin. Same bug as the cookie domain check in item 57,
+and it got the same test.
+
+**Mixed content is not one rule**, and that is the thing to understand about it.
+A script or stylesheet replaced in transit does not *look at* the page — it **is**
+the page, and nothing recovers, so it is refused with nothing offered. An image
+replaced in transit is a wrong picture: bad, and not the same thing. Those are
+retried over TLS first, because a great many sites have an `http://` URL in
+their markup and a perfectly good `https://` server, and blocking them would
+break pages for nothing.
+
+**`http://localhost` is secure**, and not as a convenience: there is no network
+between the two ends, so there is nothing in between to attack. Refusing it
+would break every developer on earth while protecting nobody.
+
+**The referrer default is the modern one**, `strict-origin-when-cross-origin`,
+and the reason is in the module doc: a full URL carries the path and the query,
+and a great many paths and queries **are the message** —
+`/reset-password?token=…`, `/results/hiv-test?patient=…`. The test that says so
+is named `another_site_is_not_told_which_page_you_were_reading` and uses exactly
+that kind of URL, because a test using `/foo?bar=baz` does not make anybody
+think about what is being protected.
+
+**One rule holds under every policy but the one named for breaking it:** a
+referrer never survives a downgrade to `http`. What we would be sending is
+precisely what an attacker on that connection is there to read. `unsafe-url` is
+the exception and it is named for what it is.
+
+**A policy nobody can read leaves the default alone rather than weakening it**,
+and the last *known* value in a list wins rather than the last value. That is
+how a site offers a strict policy to browsers that have it without an unknown
+value at the end quietly discarding it — and it is the same principle item 165
+will need for CSP, written down here first.
+
+**The gate.** Green: fmt, clippy zero and zero, 1154 tests. Nothing here
+positions, sizes or paints.
+
+**What the next iteration should know.** Item 63, the process split and the
+sandbox — ADR 0005's central claim made real, and the largest structural item in
+stage 2. It cannot be retrofitted, which is why the roadmap put it first and why
+it should not be put off further just because the network items were easier to
+take. Read ADR 0005 before starting: the four reasons a memory-safe engine still
+needs a sandbox are the design, not the justification.
+

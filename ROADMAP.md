@@ -211,6 +211,11 @@ unreachable without it.
       wildcard never covers a request that carried credentials; a `Set-Cookie`
       is honoured and unreadable · Owed: the preflight cache, queue item 164
 - [ ] Content Security Policy, referrer policy, HSTS, mixed-content blocking
+      · Built: HSTS, mixed content and referrer policy (queue item 62) — a
+      `Strict-Transport-Security` over plain HTTP ignored so it cannot be used
+      as a weapon, a script refused outright where an image is retried over TLS,
+      and a referrer that never survives a downgrade · Owed: CSP, queue item
+      165
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action, caused it. No other engine has needed to answer that, and an agent-driven browser that cannot is one nobody should trust

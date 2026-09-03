@@ -622,9 +622,23 @@ wrong, which is the argument for the fourth.
   `OPTIONS`, one of a *different* shape still does, and an entry expires on the
   clock the caller passes in rather than one the cache reads.
 
-- [ ] **62. Content Security Policy, referrer policy, HSTS, mixed-content
-  blocking.**
+- [x] **62. Referrer policy, HSTS, mixed-content blocking.** *Scope cut on
+  starting: CSP is a whole item on its own — see 165 — and its grammar is where
+  doing it badly quietly weakens the protection a page asked for.*
   *Depends on 61.*
+
+  **Done.** The tests are named for the attacks, the way item 61's were. The two
+  rules that make HSTS a defence rather than a weapon are the ones with tests
+  named after them: a header over plain HTTP is ignored, and an address cannot
+  pin itself.
+
+- [ ] **165. Content Security Policy.** The directives, the source expressions,
+  and reporting.
+  *Depends on 62. Closes when:* a policy that would block an injected script
+  does, and — the rule that matters more than any single directive — **a
+  directive this engine cannot parse makes the policy more restrictive, never
+  less.** A page that asked for a protection must not lose it to our not
+  understanding the sentence it asked in.
 
 - [ ] **63. The process split, and the sandbox.** One process per site,
   renderers with almost no privilege, the platform's own sandbox rather than a

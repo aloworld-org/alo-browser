@@ -6,6 +6,43 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **HSTS, mixed-content blocking and referrer policy** — three things a site
+  says about *itself*, which is the opposite direction from CORS. CSP is queued
+  separately as item 165: its grammar is a whole item on its own, and doing it
+  badly quietly weakens the protection a page asked for.
+- **A site visited once is never reached insecurely again.** The attack is
+  twenty years old and no amount of correct TLS touches it: somebody types
+  `example.com`, the browser tries `http://`, and a network in between answers
+  before the real server is ever asked. Two rules make HSTS a defence rather
+  than a weapon — a `Strict-Transport-Security` arriving over **plain HTTP is
+  ignored** (or an attacker already rewriting your traffic could pin any domain
+  for two years), and it **never applies to an IP address** (which belongs to
+  whoever holds it today).
+- Subdomain coverage is walked label by label, so `evil-example.com` does not
+  inherit `example.com`'s pin — a suffix comparison says it does. A site can
+  release itself with `max-age=0`, because one that could pin and never unpin is
+  one nobody could move off TLS in an emergency. And a pin is capped at two
+  years.
+- **Mixed content is not one rule, because the answer differs by what the thing
+  is.** A script or stylesheet replaced in transit does not look at the page —
+  it *is* the page, and nothing recovers from that, so it is refused with
+  nothing offered. An image replaced in transit is a wrong picture: those are
+  tried over TLS first, because a great many sites have an `http://` URL in
+  their markup and a perfectly good `https://` server.
+- `http://localhost` is **secure**, and not by convention: there is no network
+  between the two ends, so there is nothing in between to attack. Refusing it
+  would break every developer on earth while protecting nobody.
+- **The referrer default is `strict-origin-when-cross-origin`.** A full URL
+  carries the path and the query, and a great many of those are the message —
+  `/reset-password?token=…`, `/results/hiv-test?patient=…`. Your own site gets
+  the whole URL; anybody else gets the origin; a downgrade to `http` gets
+  nothing, because what we would be sending is exactly what an attacker on that
+  connection is there to read.
+- A referrer policy nobody can read **leaves the default in place rather than
+  weakening it**, and the last policy in a list that this engine *understands*
+  is the one that applies — which is how a site offers a strict policy to
+  browsers that have it without an unknown value at the end discarding it.
+
 - **The same-origin policy, CORS and preflight.** The policy is not that a page
   may not *send* a request elsewhere — it may, and the web depends on it. It is
   that a page may not **read the answer** without the other site agreeing. An

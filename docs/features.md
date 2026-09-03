@@ -126,6 +126,11 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A truncated body is an **error**, not a short page
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
+- [2] **HSTS**, ignored over plain HTTP so it cannot be used as a weapon
+- [2] **Mixed-content blocking** — a script refused outright, an image tried
+  over TLS first, and `http://localhost` treated as secure because it is
+- [2] **Referrer policy**, defaulting to origin-only across sites and nothing at
+  all across a downgrade
 - [2] **The same-origin policy, CORS and preflight** — a page may send almost
   anywhere and may read almost nowhere, and a wildcard never covers a request
   that carried credentials
