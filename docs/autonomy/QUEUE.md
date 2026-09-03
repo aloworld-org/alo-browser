@@ -266,9 +266,16 @@ one number is a reference that quietly points at the wrong thing.*
   was written and nothing read it — and collapsing happens when the box is built
   so that layout, paint and the agent tree read the same text.
 
-- [ ] **48. `letter-spacing`.** Extra space after every character, which changes
-  what a run of text measures and therefore where every line breaks. It reaches
-  `alo-text`'s shaping and measuring rather than only paint. Cut from item 44.
+- [x] **48. `letter-spacing`.** Extra space after every character, which
+  changes what a run of text measures and therefore where every line breaks. It
+  reaches `alo-text`'s measuring rather than only paint. Cut from item 44.
+
+  **Done.** Applied after shaping rather than inside it, so the `rustybuzz`
+  boundary is untouched: shaping is the rented part and letter spacing is a CSS
+  decision about the result. alo's headline is four lines instead of five. It
+  still wraps one line more than the real screen, and that is the *font* — the
+  corpus renders in DejaVu Sans and the app loads Inter, which is narrower.
+  Web fonts are stage 2.
 
 - [ ] **49. `transition`, `:hover` and `:focus-visible`, accepted rather than
   dropped.** The case deletes them. On a static render of a settled page they

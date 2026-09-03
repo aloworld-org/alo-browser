@@ -30,6 +30,12 @@ pub struct TextStyle {
     pub weight: u16,
     /// Whether it is slanted.
     pub italic: bool,
+    /// Extra room after every character, in CSS pixels, or nothing.
+    ///
+    /// It changes what a run *measures*, so it changes where every line
+    /// breaks — which is why it is here, with the font, rather than being a
+    /// paint decision applied after the lines were settled.
+    pub letter_spacing: f32,
     /// How the whitespace in it is treated.
     ///
     /// Collapsing has already happened by the time a measurer sees the text
@@ -48,6 +54,7 @@ impl Default for TextStyle {
             size: 16.0,
             weight: 400,
             italic: false,
+            letter_spacing: 0.0,
             white_space: alo_box::WhiteSpace::Normal,
         }
     }
@@ -122,15 +129,18 @@ impl MeasureText for NoText {
 pub struct BlockFont;
 
 impl MeasureText for BlockFont {
-    fn measure(&self, text: &str, _style: &TextStyle, available_width: Option<f32>) -> Size {
+    fn measure(&self, text: &str, style: &TextStyle, available_width: Option<f32>) -> Size {
         if text.is_empty() {
             return Size::ZERO;
         }
         let characters = f32::from(u16::try_from(text.chars().count()).unwrap_or(u16::MAX));
-        let widest = characters * 8.0;
+        // Even a fake font has to honour letter spacing, or a layout test
+        // cannot tell whether spacing reached the measurer at all.
+        let per_character = 8.0 + style.letter_spacing;
+        let widest = characters * per_character;
         match available_width {
             Some(room) if room > 0.0 && widest > room => {
-                let per_line = (room / 8.0).floor().max(1.0);
+                let per_line = (room / per_character.max(0.001)).floor().max(1.0);
                 let lines = (characters / per_line).ceil();
                 Size::new(room, lines * 16.0)
             }
@@ -171,6 +181,19 @@ mod tests {
             Size::new(24.0, 16.0)
         );
         assert_eq!(BlockFont.measure("", &style, None), Size::ZERO);
+    }
+
+    #[test]
+    fn even_the_test_font_honours_letter_spacing() {
+        let spaced = TextStyle {
+            letter_spacing: 2.0,
+            ..TextStyle::default()
+        };
+        assert_eq!(
+            BlockFont.measure("abc", &spaced, None),
+            Size::new(30.0, 16.0),
+            "three characters of ten",
+        );
     }
 
     #[test]

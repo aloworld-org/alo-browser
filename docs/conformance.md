@@ -97,6 +97,9 @@ line, with its start border on the first piece and its end border on the last.
 A *percentage* padding on an inline box is refused and recorded: it is of the
 containing block's width, which is not known where a line is built.
 
+**`letter-spacing`** is applied where text is measured, so it changes where
+lines break rather than only how the letters sit.
+
 **`white-space` is processed**: runs of whitespace collapse to one space when
 a box is built, `pre-line` keeps the newlines, `pre` and `pre-wrap` keep
 everything, and `pre` and `nowrap` refuse to wrap. Before this the engine did
@@ -150,11 +153,16 @@ which is the specification for what "correct" means here.
 `crates/alo-corpus/cases/alo-sign-in/` is **alo-workplace's own sign-in
 screen** — its markup, its rules from `web/src/auth/LoginPage.module.css`, and
 its colours from `web/src/ds/tokens.css` — rendered by this engine and diffed on
-every run. **Two** substitutions are written into the case's own stylesheet, each naming a
-thing this engine does not implement: `letter-spacing`, and transitions. Two are
-gone — the headline's `clamp(2.4rem, 4vw, 3.5rem)` is the screen's own value
-now, and so is its `white-space: pre-line`, so the markup is one string with
-newlines in it as `alo-workplace` writes it.
+every run. **One** substitution is written into the case's own stylesheet: `transition`,
+`:hover` and `:focus-visible`, dropped because there is nothing to animate and
+no input to respond to. Three are gone — the headline's
+`clamp(2.4rem, 4vw, 3.5rem)`, its `white-space: pre-line` (so the markup is one
+string with newlines in it as `alo-workplace` writes it), and its
+`letter-spacing`.
+
+The headline still wraps one line more than the real screen does, and that is a
+**font** difference rather than an engine one: the corpus renders in DejaVu
+Sans, which is wider than the Inter the app loads. Web fonts are stage 2.
 
 It is a real alo screen, and it is one of the screens `ROADMAP.md`'s exit gate
 names — the gate used to name `alo-os`'s specifically, which was a fact about

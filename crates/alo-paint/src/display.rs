@@ -113,6 +113,9 @@ pub enum DisplayItem {
         font: alo_text::Font,
         /// How big.
         size: f32,
+        /// Extra room after every character, which the pen has to know about
+        /// or the letters land where the line did not put them.
+        letter_spacing: f32,
         /// What colour.
         color: Rgba,
         /// What it casts behind it, furthest back last — which is the order

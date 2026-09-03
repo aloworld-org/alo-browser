@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`letter-spacing`.** The third of the four substitutions in alo's own
+  sign-in case is gone: the headline's `-0.02em` is the screen's own value now,
+  and with it "Your servers." stops wrapping — four lines instead of five.
+- It is applied **where the text is measured**, not where it is drawn. Spacing
+  changes what a run is worth, so it changes where every line breaks; a version
+  that only moved the pen at paint time would have drawn different text from the
+  one the line was made of.
+- Shaping is untouched. `alo_text::spaced` adds the room after every glyph
+  afterwards, so the `rustybuzz` boundary stays exactly where it was — shaping
+  is the rented part, and letter spacing is a CSS decision about the result.
+- The test font honours it too. A fake that ignored it would have let a layout
+  test pass without the spacing ever reaching the measurer.
+
 - **`white-space`, and the whitespace processing that was never done at all.**
   Markup is written for people, so it is full of whitespace nobody meant to see
   — and until now the engine shaped whatever bytes the parser handed over, so

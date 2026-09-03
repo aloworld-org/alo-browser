@@ -573,6 +573,11 @@ impl Builder<'_> {
         };
         let ascender = font.metrics(size).ascender;
         let shadows = self.text_shadows_of(id);
+        let letter_spacing = style
+            .get("letter-spacing")
+            .filter(|value| !value.eq_ignore_ascii_case("normal"))
+            .and_then(|_| style.px("letter-spacing", 0.0))
+            .unwrap_or(0.0);
 
         let fragments = self.layout.fragments(id);
         if fragments.is_empty() {
@@ -593,6 +598,7 @@ impl Builder<'_> {
                     ),
                     font,
                     size,
+                    letter_spacing,
                     color,
                     shadows,
                 });
@@ -618,6 +624,7 @@ impl Builder<'_> {
                 origin: (fragment.rect.left(), fragment.rect.top() + ascender),
                 font: font.clone(),
                 size,
+                letter_spacing,
                 color,
                 shadows: shadows.clone(),
             });

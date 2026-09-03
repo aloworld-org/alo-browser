@@ -7,17 +7,13 @@
  * below rather than imported because that file lives in another repository,
  * which this one only ever reads.
  *
- * Two substitutions remain, and each is a thing this engine does not
- * implement yet:
- *   · `letter-spacing` is dropped, being a text feature this engine has not
- *     built
- *   · `transition`, `:hover` and `:focus-visible` are dropped, having nothing
- *     to animate and no input to respond to
+ * One substitution remains: `transition`, `:hover` and `:focus-visible` are
+ * dropped, having nothing to animate and no input to respond to.
  *
- * Two are gone. The headline's `clamp(2.4rem, 4vw, 3.5rem)` is the screen's
- * own value now, and its `white-space: pre-line` is too — the markup is one
- * string with newlines in it, as `alo-workplace` writes it, rather than three
- * `<span>`s made blocks.
+ * Three are gone. The headline's `clamp(2.4rem, 4vw, 3.5rem)` is the screen's
+ * own value now; so is its `white-space: pre-line`, so the markup is one
+ * string with newlines in it as `alo-workplace` writes it; and so is its
+ * `letter-spacing`.
  */
 
 /* Tailwind's preflight, which the real app loads, puts every box on
@@ -82,6 +78,7 @@ html, body { height: 100%; margin: 0; font-family: var(--font-ui); color: var(--
   font-weight: var(--weight-bold);
   font-size: clamp(2.4rem, 4vw, 3.5rem);
   line-height: 1.06;
+  letter-spacing: -0.02em;
   color: var(--text-on-rail);
   white-space: pre-line;
 }

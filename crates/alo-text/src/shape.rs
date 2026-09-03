@@ -103,6 +103,39 @@ impl ShapedRun {
     }
 }
 
+/// The same run with `letter-spacing` added after every glyph.
+///
+/// A separate step rather than a parameter to the shaper, and deliberately:
+/// shaping is the rented part, and letter spacing is a CSS decision about what
+/// to do with the result. Adding it here keeps the boundary in
+/// `rustybuzz`'s file exactly where it was.
+///
+/// **After every glyph, the last one included**, which is what browsers do —
+/// a spaced run is wider than the text by one spacing per character, and a
+/// line that measured it otherwise would break in the wrong place.
+pub fn spaced(run: ShapedRun, spacing: f32) -> ShapedRun {
+    if spacing == 0.0 || run.glyphs.is_empty() {
+        return run;
+    }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a run is at most a few thousand glyphs"
+    )]
+    let count = run.glyphs.len() as f32;
+    ShapedRun {
+        width: run.width + spacing * count,
+        glyphs: run
+            .glyphs
+            .into_iter()
+            .map(|glyph| ShapedGlyph {
+                advance: glyph.advance + spacing,
+                ..glyph
+            })
+            .collect(),
+        ..run
+    }
+}
+
 /// Shape a run of text with one font at one size.
 ///
 /// The run must be in one direction and one script — see [`crate::run`], which

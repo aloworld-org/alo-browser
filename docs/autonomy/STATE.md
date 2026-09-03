@@ -1813,3 +1813,43 @@ errors, 819 tests, no stubs, boundaries held, no verb takes a coordinate.
 breaks, and the sign-in headline's `-0.02em` may well stop it wrapping. That
 would move the reference render, and the diff is the review.
 
+---
+
+## Iteration 29 — queue item 48: `letter-spacing`
+
+**What was built.** Extra room after every character, applied **where the text
+is measured**. That is the whole decision: spacing changes what a run is worth,
+so it changes where every line breaks. A version that only moved the pen at
+paint time would have drawn different text from the one the line was made of,
+and the two would have disagreed by exactly the spacing.
+
+**Shaping is untouched.** `alo_text::spaced` adds the room after every glyph
+*afterwards*, so the `rustybuzz` boundary is where it was. Shaping is the
+rented part; letter spacing is a CSS decision about the result, and putting it
+inside the shaper would have made it look like the shaper's.
+
+**The test font honours it too**, which is not a nicety. `BlockFont` ignored
+the style entirely, so the first version of the layout test passed with the
+spacing never reaching the measurer at all. A fake that cannot be told apart
+from the real thing being broken is not a useful fake.
+
+**alo's headline is four lines instead of five.** `-0.02em` at 40 pixels is
+enough for "Your servers." to fit. It still wraps one line more than the real
+screen does, and that is a **font** difference rather than an engine one: the
+corpus renders in DejaVu Sans and the app loads Inter, which is narrower. Web
+fonts are stage 2, and `docs/conformance.md` now says so rather than leaving it
+to be discovered.
+
+**The roadmap line this item served** is stage 1's *A real alo screen renders
+correctly*; its Owed clause names one substitution now instead of two.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 823 tests, no stubs, boundaries held, no verb takes a coordinate.
+
+**What the next iteration should know.** Item 49 is the last substitution, and
+it is the odd one: on a static render of a settled page a transition has
+already run and nothing is hovered, so the honest work is to **read** those
+rules without recording a refusal and to make `:hover` and `:focus-visible`
+match nothing rather than drop the whole rule. Nothing there claims animation;
+that needs a clock.
+

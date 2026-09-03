@@ -1,9 +1,9 @@
 document at (0, 0) 1000×640
   complementary at (0, 0) 420×640
     text "alo" at (64, 64) 40.910156×27.9375
-    heading "Your workspace. Your servers. Your rules." [level=1] at (64, 168.3125) 292×232.8125
-    paragraph at (64, 425.125) 292×59.367188
-      text "Mail, calendar, chat, and files — sovereign, AI-native, and hosted in Europe." at (64, 425.125) 275.96777×59.367188
+    heading "Your workspace. Your servers. Your rules." [level=1] at (64, 191.59375) 292×186.25
+    paragraph at (64, 401.84375) 292×59.367188
+      text "Mail, calendar, chat, and files — sovereign, AI-native, and hosted in Europe." at (64, 401.84375) 275.96777×59.367188
     text "Hosted on your infrastructure · EU" at (80, 560.8672) 222.52979×15.1328125
   main at (420, 0) 580×640
     heading "Sign in" [level=2] at (510, 107.796875) 400×37.25

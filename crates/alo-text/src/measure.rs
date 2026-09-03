@@ -56,6 +56,7 @@ impl MeasureText for TextMeasurer<'_> {
             &Self::request(style),
             style.size,
             available_width,
+            style.letter_spacing,
         );
         Size::new(paragraph.width(), paragraph.height())
     }

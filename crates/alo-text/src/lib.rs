@@ -55,4 +55,4 @@ pub use line::{Line, Paragraph, lay_out, measure_unwrapped};
 pub use linebreak::{BreakPoint, opportunities};
 pub use measure::TextMeasurer;
 pub use run::{TextRun, split};
-pub use shape::{Direction, ShapedGlyph, ShapedRun, shape};
+pub use shape::{Direction, ShapedGlyph, ShapedRun, shape, spaced};

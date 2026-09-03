@@ -353,6 +353,17 @@ fn text_style_for(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> TextStyle {
                 italic: style
                     .get("font-style")
                     .is_some_and(|value| !value.eq_ignore_ascii_case("normal")),
+                // `normal` and a value this engine cannot read are both no
+                // extra room, which is what CSS says the initial value is.
+                letter_spacing: style
+                    .get("letter-spacing")
+                    .filter(|value| !value.eq_ignore_ascii_case("normal"))
+                    .and_then(|value| {
+                        style
+                            .px("letter-spacing", 0.0)
+                            .filter(|_| !value.is_empty())
+                    })
+                    .unwrap_or(0.0),
                 white_space: style
                     .get("white-space")
                     .and_then(alo_box::WhiteSpace::parse)

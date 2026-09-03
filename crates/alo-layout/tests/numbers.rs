@@ -666,6 +666,66 @@ fn pre_keeps_every_space_and_every_line() {
 }
 
 #[test]
+fn letter_spacing_changes_what_a_run_measures_and_so_where_it_breaks() {
+    // The test font is eight pixels a character. Five characters with two
+    // pixels after each is fifty, not forty — and a box of forty-five then
+    // holds four of them rather than five.
+    let html = "<body><div id=a>ab cd</div></body>";
+    let tight = lay_out(html, "#a { width: 45px }", Size::new(400.0, 300.0));
+    assert!(close(
+        rect_of(&tight.0, &tight.1, "a", html).size.height,
+        16.0
+    ));
+
+    let spaced = lay_out(
+        html,
+        "#a { width: 45px; letter-spacing: 2px }",
+        Size::new(400.0, 300.0),
+    );
+    assert!(
+        rect_of(&spaced.0, &spaced.1, "a", html).size.height > 16.0,
+        "spacing pushed it onto a second line: {:?}",
+        rect_of(&spaced.0, &spaced.1, "a", html),
+    );
+}
+
+#[test]
+fn negative_letter_spacing_pulls_a_line_back_together() {
+    let html = "<body><div id=a>ab cd</div></body>";
+    let wide = lay_out(html, "#a { width: 36px }", Size::new(400.0, 300.0));
+    assert!(
+        rect_of(&wide.0, &wide.1, "a", html).size.height > 16.0,
+        "forty pixels of text does not fit in thirty-six",
+    );
+
+    let tightened = lay_out(
+        html,
+        "#a { width: 36px; letter-spacing: -1px }",
+        Size::new(400.0, 300.0),
+    );
+    assert!(
+        close(
+            rect_of(&tightened.0, &tightened.1, "a", html).size.height,
+            16.0
+        ),
+        "and thirty-five does: {:?}",
+        rect_of(&tightened.0, &tightened.1, "a", html),
+    );
+}
+
+#[test]
+fn letter_spacing_of_normal_is_no_spacing_at_all() {
+    let html = "<body><div id=a>ab cd</div></body>";
+    let plain = lay_out(html, "#a { width: 45px }", Size::new(400.0, 300.0));
+    let normal = lay_out(
+        html,
+        "#a { width: 45px; letter-spacing: normal }",
+        Size::new(400.0, 300.0),
+    );
+    assert_eq!(plain.1.to_outline(&plain.0), normal.1.to_outline(&normal.0),);
+}
+
+#[test]
 fn a_document_that_generates_no_boxes_lays_out_nothing_and_does_not_mind() {
     let (boxes, layout) = lay_out(
         "<p>t</p>",

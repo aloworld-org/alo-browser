@@ -90,6 +90,7 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 origin,
                 font,
                 size,
+                letter_spacing,
                 color,
                 shadows,
                 ..
@@ -97,7 +98,7 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 // The run is outlined once and drawn once per shadow plus
                 // once for itself: shaping and outlining are the expensive
                 // part, and a shadow is the same letters somewhere else.
-                let outlined = outlined_run(text, font, *size, *origin);
+                let outlined = outlined_run(text, font, *size, *letter_spacing, *origin);
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
                 // Furthest back first, so the first shadow written ends up on
                 // top — which is the order CSS draws them in.
@@ -144,8 +145,19 @@ fn moved(path: &Path, transform: Matrix) -> Path {
 /// One path rather than one per glyph because a shadow is blurred from it: two
 /// letters that touch would otherwise be blurred separately and composited on
 /// top of one another, which is darker where they overlap.
-fn outlined_run(text: &str, font: &Font, size: f32, origin: (f32, f32)) -> Path {
-    let run = shape(text, font, size, Direction::LeftToRight);
+fn outlined_run(
+    text: &str,
+    font: &Font,
+    size: f32,
+    letter_spacing: f32,
+    origin: (f32, f32),
+) -> Path {
+    // The same spacing the line was measured with, or the letters land where
+    // the line did not put them.
+    let run = alo_text::spaced(
+        shape(text, font, size, Direction::LeftToRight),
+        letter_spacing,
+    );
     let mut whole = Path::new();
     let mut pen = origin;
     for glyph in &run.glyphs {

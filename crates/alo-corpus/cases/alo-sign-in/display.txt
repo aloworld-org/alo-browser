@@ -1,13 +1,12 @@
 fill box#5 rgb(31 37 41) at (0, 0) 420×640
 text box#9 "alo" rgb(247 243 239) 24px at (64, 86.27734)
-text box#14 "Your" rgb(247 243 239) 40px at (64, 205.4414)
-text box#14 "workspace." rgb(247 243 239) 40px at (64, 252.0039)
-text box#14 "Your" rgb(247 243 239) 40px at (64, 298.5664)
-text box#14 "servers." rgb(247 243 239) 40px at (64, 345.1289)
-text box#14 "Your rules." rgb(247 243 239) 40px at (64, 391.6914)
-text box#17 "Mail, calendar, chat, and files —" rgb(174 184 190) 17px at (64, 440.9048)
-text box#17 "sovereign, AI-native, and hosted" rgb(174 184 190) 17px at (64, 460.69385)
-text box#17 "in Europe." rgb(174 184 190) 17px at (64, 480.4829)
+text box#14 "Your" rgb(247 243 239) 40px at (64, 228.72266)
+text box#14 "workspace." rgb(247 243 239) 40px at (64, 275.28516)
+text box#14 "Your servers." rgb(247 243 239) 40px at (64, 321.84766)
+text box#14 "Your rules." rgb(247 243 239) 40px at (64, 368.41016)
+text box#17 "Mail, calendar, chat, and files —" rgb(174 184 190) 17px at (64, 417.62354)
+text box#17 "sovereign, AI-native, and hosted" rgb(174 184 190) 17px at (64, 437.4126)
+text box#17 "in Europe." rgb(174 184 190) 17px at (64, 457.20166)
 fill box#22 rgb(46 139 87) at (64, 564.4336) 8×8
 text box#25 "Hosted on your infrastructure · EU" rgb(174 184 190) 13px at (80, 572.9341)
 fill box#29 rgb(255 254 252) at (420, 0) 580×640

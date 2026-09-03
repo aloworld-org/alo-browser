@@ -82,6 +82,7 @@ pub fn lay_out(
     request: &FontRequest,
     size: f32,
     available_width: Option<f32>,
+    letter_spacing: f32,
 ) -> Paragraph {
     if text.is_empty() {
         return Paragraph::default();
@@ -94,6 +95,7 @@ pub fn lay_out(
             request,
             size,
             available_width,
+            letter_spacing,
             &mut paragraph,
         );
     }
@@ -107,7 +109,7 @@ pub fn measure_unwrapped(
     request: &FontRequest,
     size: f32,
 ) -> Paragraph {
-    lay_out(text, database, request, size, None)
+    lay_out(text, database, request, size, None, 0.0)
 }
 
 /// The pieces between the breaks that must happen.
@@ -144,18 +146,21 @@ fn lay_out_one(
     request: &FontRequest,
     size: f32,
     available_width: Option<f32>,
+    letter_spacing: f32,
     out: &mut Paragraph,
 ) {
     let trimmed = text.trim_end_matches(['\n', '\r']);
     let Some(width) = available_width else {
-        out.lines.push(shape_line(trimmed, database, request, size));
+        out.lines
+            .push(shape_line(trimmed, database, request, size, letter_spacing));
         return;
     };
     if trimmed.is_empty() {
         // A blank line between two paragraphs is a line, and it is as tall as
         // the font would have been. Dropping it would close the gap the author
         // asked for.
-        out.lines.push(shape_line("", database, request, size));
+        out.lines
+            .push(shape_line("", database, request, size, letter_spacing));
         return;
     }
 
@@ -176,15 +181,29 @@ fn lay_out_one(
             index += 1;
             continue;
         };
-        if shape_line(candidate.trim_end(), database, request, size).width <= width {
+        if shape_line(
+            candidate.trim_end(),
+            database,
+            request,
+            size,
+            letter_spacing,
+        )
+        .width
+            <= width
+        {
             last_fitting = Some(offset);
             index += 1;
             continue;
         }
         if let Some(end) = last_fitting {
             if let Some(line) = trimmed.get(start..end) {
-                out.lines
-                    .push(shape_line(line.trim_end(), database, request, size));
+                out.lines.push(shape_line(
+                    line.trim_end(),
+                    database,
+                    request,
+                    size,
+                    letter_spacing,
+                ));
             }
             start = end;
             last_fitting = None;
@@ -195,8 +214,13 @@ fn lay_out_one(
             // One unbreakable piece is wider than the whole line. It goes on a
             // line of its own and sticks out, because a word cut at an
             // arbitrary point is harder to read than one that overflows.
-            out.lines
-                .push(shape_line(candidate.trim_end(), database, request, size));
+            out.lines.push(shape_line(
+                candidate.trim_end(),
+                database,
+                request,
+                size,
+                letter_spacing,
+            ));
             start = offset;
             index += 1;
         }
@@ -205,13 +229,24 @@ fn lay_out_one(
     if start < trimmed.len()
         && let Some(rest) = trimmed.get(start..)
     {
-        out.lines
-            .push(shape_line(rest.trim_end(), database, request, size));
+        out.lines.push(shape_line(
+            rest.trim_end(),
+            database,
+            request,
+            size,
+            letter_spacing,
+        ));
     }
 }
 
 /// Shape one line's worth of text into its runs.
-fn shape_line(text: &str, database: &FontDatabase, request: &FontRequest, size: f32) -> Line {
+fn shape_line(
+    text: &str,
+    database: &FontDatabase,
+    request: &FontRequest,
+    size: f32,
+    letter_spacing: f32,
+) -> Line {
     let mut runs = Vec::new();
     let mut width = 0.0;
     let mut ascender: f32 = 0.0;
@@ -230,7 +265,7 @@ fn shape_line(text: &str, database: &FontDatabase, request: &FontRequest, size: 
             // and the caller can see the gap.
             continue;
         };
-        let shaped = shape(text, &font, size, direction);
+        let shaped = crate::shape::spaced(shape(text, &font, size, direction), letter_spacing);
         width += shaped.width;
         ascender = ascender.max(shaped.ascender);
         descender = descender.max(shaped.descender);
@@ -278,7 +313,7 @@ mod tests {
     }
 
     fn wrapped(text: &str, width: f32) -> Vec<String> {
-        lay_out(text, &database(), &request(), 16.0, Some(width))
+        lay_out(text, &database(), &request(), 16.0, Some(width), 0.0)
             .lines
             .iter()
             .map(|line| {
@@ -293,7 +328,7 @@ mod tests {
 
     #[test]
     fn nothing_lays_out_to_nothing() {
-        let paragraph = lay_out("", &database(), &request(), 16.0, Some(100.0));
+        let paragraph = lay_out("", &database(), &request(), 16.0, Some(100.0), 0.0);
         assert!(paragraph.is_empty());
         assert!((paragraph.width() - 0.0).abs() < f32::EPSILON);
         assert!((paragraph.height() - 0.0).abs() < f32::EPSILON);
@@ -301,7 +336,7 @@ mod tests {
 
     #[test]
     fn text_that_fits_is_one_line() {
-        let paragraph = lay_out("one two", &database(), &request(), 16.0, Some(1000.0));
+        let paragraph = lay_out("one two", &database(), &request(), 16.0, Some(1000.0), 0.0);
         assert_eq!(paragraph.len(), 1);
         assert!(paragraph.width() > 0.0);
         assert!(paragraph.height() > 0.0);
@@ -318,6 +353,7 @@ mod tests {
             &request(),
             16.0,
             Some(one_line.width() / 2.0),
+            0.0,
         );
         assert!(narrow.len() > 1, "and half that width takes more lines");
         assert!(narrow.width() <= one_line.width());
@@ -332,6 +368,7 @@ mod tests {
             &request(),
             16.0,
             Some(width),
+            0.0,
         );
         assert!(paragraph.len() > 1);
         for line in &paragraph.lines {
@@ -345,7 +382,14 @@ mod tests {
 
     #[test]
     fn a_word_wider_than_the_line_overflows_rather_than_being_cut_in_half() {
-        let paragraph = lay_out("extraordinarily", &database(), &request(), 16.0, Some(10.0));
+        let paragraph = lay_out(
+            "extraordinarily",
+            &database(),
+            &request(),
+            16.0,
+            Some(10.0),
+            0.0,
+        );
         assert_eq!(paragraph.len(), 1, "one word is one line");
         assert!(
             paragraph.width() > 10.0,
@@ -355,13 +399,20 @@ mod tests {
 
     #[test]
     fn a_newline_ends_a_line_however_wide_the_room_is() {
-        let paragraph = lay_out("one\ntwo", &database(), &request(), 16.0, Some(10000.0));
+        let paragraph = lay_out(
+            "one\ntwo",
+            &database(),
+            &request(),
+            16.0,
+            Some(10000.0),
+            0.0,
+        );
         assert_eq!(paragraph.len(), 2);
     }
 
     #[test]
     fn a_line_is_as_tall_as_the_font_reaches_above_and_below_the_baseline() {
-        let paragraph = lay_out("x", &database(), &request(), 16.0, Some(1000.0));
+        let paragraph = lay_out("x", &database(), &request(), 16.0, Some(1000.0), 0.0);
         let line = paragraph.lines.first().expect("one line");
         assert!(line.ascender > 0.0);
         assert!(line.descender > 0.0);
@@ -370,7 +421,14 @@ mod tests {
 
     #[test]
     fn a_blank_line_is_still_a_line_with_a_height() {
-        let paragraph = lay_out("one\n\ntwo", &database(), &request(), 16.0, Some(1000.0));
+        let paragraph = lay_out(
+            "one\n\ntwo",
+            &database(),
+            &request(),
+            16.0,
+            Some(1000.0),
+            0.0,
+        );
         assert_eq!(paragraph.len(), 3);
         for line in &paragraph.lines {
             assert!(line.height() > 0.0, "including the empty one");
