@@ -40,10 +40,14 @@
 //! corpus.
 
 pub mod frame;
+pub mod host;
 pub mod message;
 pub mod page;
+pub mod pipe;
 pub mod pipeline;
 pub mod renderer;
+pub mod serve;
+pub mod site;
 pub mod snapshot;
 pub mod wire;
 

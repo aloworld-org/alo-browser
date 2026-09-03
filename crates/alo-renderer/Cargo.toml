@@ -9,6 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+dejavu.workspace = true
 alo-agent = { path = "../alo-agent" }
 alo-box = { path = "../alo-box" }
 alo-css = { path = "../alo-css" }

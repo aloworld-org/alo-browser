@@ -6,6 +6,38 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **One renderer process per site.** ADR 0005's central claim is now processes
+  that actually exist: two sites are two processes, two tabs on one site are
+  one, and there is a real binary — `alo-render` — that reads work from a pipe
+  and answers on another. The tests spawn it and talk to it for real.
+- **Killing one renderer leaves the other running**, which is the entire reason
+  for the design and is now a test that kills a process while another is
+  serving. A page that finds a way to take over the process it is rendered in
+  has taken over a process holding **one site's pages and nothing else** — no
+  network, no disk, no profile.
+- **A dead renderer is not quietly restarted.** ADR 0005: *"a browser that
+  silently restarts a renderer hides a bug that somebody needs to see."* So the
+  failing request fails, the entry is dropped, and the next *deliberate* load
+  gets a fresh process — a distinction with a test of its own, because a silent
+  restart would turn a page that crashes its renderer every time into an
+  invisible loop.
+- A pipe has no message boundaries of its own, so every message says how long it
+  is — and that length is **checked before the read**, because the read is where
+  the memory goes. A stream ending *between* messages is told apart from one
+  ending *inside* one: a renderer that finished and exited is not a renderer
+  that crashed, and a browser that could not tell would report a bug every time
+  a tab closed.
+- **What a "site" is, said out loud rather than assumed.** ADR 0005 says scheme
+  plus registrable domain; the registrable domain needs the public suffix list
+  that is queue item 156, so today it is scheme plus **host**. That is stricter
+  — `a.example.com` and `b.example.com` get separate processes where they should
+  share one — and stricter is the safe direction. It is written down where
+  somebody adding the suffix list will find it, because the failure in the other
+  direction is two sites sharing a process because we could not tell them apart.
+- Sixteen renderers at most, evicting the least recently used: N processes cost
+  N processes, and a browser with three hundred tabs cannot be three hundred
+  processes.
+
 - **The renderer boundary has a wire format.** ADR 0005 built the boundary as a
   *type* so the process split would be a change of **transport** rather than a
   redesign; this is that transport's encoding, and it had to be right before

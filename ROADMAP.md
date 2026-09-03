@@ -144,12 +144,22 @@ unreachable without it.
       cannot be retrofitted. **The wire format** (queue item 63): both
       directions, every variant, and a message from a renderer treated as bytes
       a stranger chose — because a renderer is the process that parsed the page
-      · Owed: the split itself (queue item 166) and the sandbox (queue item
-      167, which needs an ADR of its own — ADR 0005 says it does not
-      pre-authorise the `unsafe` one may need)
-- [ ] A renderer that dies takes its tab and nothing else — and says so, rather than leaving a blank rectangle
-- [ ] The transport, and the lifecycle that starts, reuses and reaps renderers
-- [ ] Where one site ends and another begins — the origin, the site, and which of them gets a process
+      **The split itself** (queue item 166): a renderer process per site,
+      spawned and talked to over pipes, with a test that kills one and watches
+      the other keep working · Owed: the sandbox (queue item 167, which needs an
+      ADR of its own — ADR 0005 says it does not pre-authorise the `unsafe` one
+      may need)
+- [x] A renderer that dies takes its tab and nothing else — and says so, rather
+      than leaving a blank rectangle (queue item 166). It is not restarted
+      silently, because that hides a bug somebody needs to see
+- [x] The transport, and the lifecycle that starts, reuses and reaps renderers
+      (queue items 63 and 166) — length-prefixed messages over pipes, a ceiling
+      of sixteen processes, and the least recently used evicted
+- [ ] Where one site ends and another begins — the origin, the site, and which
+      of them gets a process · Built: the site as scheme plus host, which is
+      stricter than scheme plus registrable domain and said out loud as such
+      · Owed: the public suffix list, queue item 156, which is what makes the
+      registrable domain knowable
 
 ### The network
 

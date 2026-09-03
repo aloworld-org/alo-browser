@@ -3461,3 +3461,65 @@ in the code rather than quietly using the host: two sites sharing a process
 because we could not tell them apart is exactly the failure this whole structure
 exists to prevent.
 
+---
+
+## Iteration 55 — queue item 166: one process per site
+
+ADR 0005's central claim, as processes that exist. There is a binary now —
+`alo-render` — and the tests spawn it.
+
+**The test that is the whole point** kills a renderer process while another is
+serving, and asserts the other keeps working. Everything else in the design is
+in service of that sentence, and until this iteration it was a sentence in a
+document. It is `killing_one_renderer_leaves_the_other_running`, it uses `kill
+-9`, and it passes.
+
+**A dead renderer is not quietly restarted**, and that has a test of its own.
+ADR 0005: *"a browser that silently restarts a renderer hides a bug that
+somebody needs to see."* So the failing request fails, the entry is dropped, and
+the next **deliberate** load gets a fresh process. The distinction matters
+because a silent restart turns a page that crashes its renderer every time into
+an invisible loop — the test asserts the started-count does not go up on the
+failing request and does on the next real one.
+
+**Two endings told apart.** A stream that stops *between* messages is
+`Arrived::Ended`; one that stops *inside* a message is an error. A renderer that
+finished and exited is not a renderer that crashed, and a browser process that
+could not tell them apart would report a bug every time a tab closed.
+
+**What a site is, said out loud rather than assumed.** ADR 0005 says scheme plus
+registrable domain. The registrable domain needs the public suffix list, which
+is queue item 156 and does not exist — so today a site is scheme plus **host**.
+That is *stricter*: `a.example.com` and `b.example.com` get separate processes
+where they should share one. It costs memory and it never puts two sites
+together, which is the direction to be wrong in. `site.rs` says all of that in
+its module doc, because somebody adding the suffix list needs to **find** the
+assumption rather than discover it.
+
+**The renderer binary is deliberately tiny.** A loop, a decode, a call, an
+encode. It opens no file it was not given, makes no connection, and knows
+nothing about the profile — and it says in its own header that this is not the
+sandbox but the shape the sandbox will be applied to. The point of keeping it
+small is that when item 167 arrives there is very little here for a policy to
+have to permit.
+
+**One thing I decided rather than defaulted:** the child's standard error is
+inherited rather than piped. A pipe nobody reads fills and blocks the process
+that writes to it, and a renderer blocked on a diagnostic would look exactly
+like a renderer that hung on a page. So diagnostics go to the terminal where a
+person can see them.
+
+**The gate.** Green: fmt, clippy zero and zero, 1175 tests. Nothing here
+positions or sizes anything new — the frame that crosses is checked for size
+against its pixels, which the wire format already asserts.
+
+**What the next iteration should know.** Item 167, the sandbox, and it is marked
+**needs ADR** — so the next iteration is the *decision*, not the code, the way
+ADR 0007 preceded cookies and ADR 0008 preceded DNS. ADR 0005's consequences say
+it explicitly: *"If the platform crate we use does not cover something and we
+must write `unsafe` ourselves, that needs its own ADR at that time, naming the
+boundary and the reason. This ADR does not pre-authorise any of it."* The
+decision to make is which of Seatbelt, seccomp-bpf and user namespaces we rent
+versus write, and what a renderer is *given* once it can ask for nothing — the
+fonts question `alo-render` currently answers by embedding one.
+

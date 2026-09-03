@@ -660,10 +660,16 @@ wrong, which is the argument for the fourth.
   a decoder that recursed as far as it was told would crash the **browser**
   process on a message — which is the one thing ADR 0005 says must never happen.
 
-- [ ] **166. One process per site.** Spawn a renderer, talk to it over a pipe,
+- [x] **166. One process per site.** Spawn a renderer, talk to it over a pipe,
   key them by site, bound how many exist, and reuse the ones there are.
   *Depends on 63. Closes when:* two sites are two processes, and killing one
   leaves the other running and its tab showing the last frame it painted.
+
+  **Done.** The tests spawn the real `alo-render` binary and one of them kills a
+  process while another is serving, which is the only way to check the thing the
+  design is for. A dead renderer is **not** silently restarted — that has its own
+  test, because a silent restart turns a page that crashes its renderer every
+  time into an invisible loop.
 
 - [ ] **167. The sandbox.** Seccomp-bpf and user namespaces on Linux, Seatbelt
   on macOS. **Needs ADR** — ADR 0005 says in its own consequences that it does
