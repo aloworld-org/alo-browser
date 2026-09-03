@@ -6542,3 +6542,106 @@ and much of both may already exist in `host.rs`, so they should be read before
 they are built), **66** (where one site ends and another begins, much of which
 `alo_url::site` answers since item 156), **190** (the two-tone border styles:
 small, depends on nothing, and closes with a picture), and **196** above.
+
+---
+
+## Iteration 91 — queue item 195: a font's name in the language a page asks in
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 195 is the
+first unticked item whose dependency is done, and the previous entry named it
+first among the ready ones. It is the last of item 192's line: 192 made a font's
+name readable, 194 took the weight and slant off the filename, and this one
+decides **which** of a font's names is the one a page would ask for.
+
+**The item's own account of the damage was too kind, and checking it is the
+thing worth repeating.** It said macOS's system font was saved from being filed
+under Catalan only by an accident of record order. The accident holds — `SFNS.ttf`
+really does carry its unlocalised record first — but the survey that checked it
+found four other fonts on this machine that were never saved at all:
+`Songti.ttc` filed under `宋體-簡`, `STHeiti Light.ttc` and `STHeiti Medium.ttc`
+under `黑體-繁`, `Hiragino Sans GB.ttc` under `冬青黑體簡體中文`. A page asking
+for Songti SC was drawn in something else and told so. They are `Songti SC`,
+`Heiti TC` and `Hiragino Sans GB` now, and CoreText agrees on each.
+
+The survey was a throwaway test that read every font in `/System/Library/Fonts`,
+`/System/Library/Fonts/Supplemental` and `/Library/Fonts` — 663 files — and wrote
+what `family_in` called each. Run before and after, it is the whole review of a
+change with no picture in it: **five lines moved and 658 did not.**
+
+**The order has three steps and the third is the one that needed evidence.**
+
+- **A record that states no language wins.** The Unicode platform defines no
+  language ids, so a record there is not written *in* anything: it is what the
+  font calls itself, and the Windows records beside it are its translations.
+- **Then English**, in any of the sixteen ids that spell it.
+- **Then any other language**, first record winning, because a font in one
+  language is still a font somebody has and its own name beats no name.
+
+The third step is where a plausible alternative would have done damage. Ranking
+English above the unlocalised record is what `fontTools` does for a "best family
+name", and it would have renamed this machine's system font from `.SF NS` to
+`System Font` — out from under item 193's `sans-serif` candidate list. **CoreText
+was asked rather than reasoned about**: it answers `.SF NS` for that file's
+family and keeps `System Font` as the name to *show* a person. So the evidence is
+the platform's own reading, and it is written into `Spoken::Unstated`'s
+documentation rather than into a commit message.
+
+**The language decides inside a kind of name and never between two kinds.** A
+font may state its typographic name in one language and its older name in
+another, and the typographic one is still the family CSS means — a language that
+outranked the kind would file such a font under a name for four of its faces.
+This is also what keeps item 192's rule intact: a Unicode record still beats a
+Macintosh one, and that item's test proves it unchanged.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero errors,
+**1615 tests** (up from 1604), no stubs, no `unsafe`, boundaries held, the licence
+notice, and a `CHANGELOG.md` line. The half no script can check: the **layout
+assertion in numbers** is `text_asking_for_the_english_name_is_measured_in_the_
+font_that_carries_it` — the same shape item 193's was, because it is the same
+consequence: which family a font is filed under decides whether a page asking for
+it by name is given it, and so how wide its text is. The face there is the bold
+one, so a miss is a visibly different number, and the hit has to match a database
+holding only those bytes to the pixel. No reference render: nothing visual moved,
+and the corpus cases declare their own faces so none of them goes through this
+path at all. One file one responsibility: the reading stayed in `font.rs`, which
+is the file about what a font says about itself and the only file in the crate
+permitted to name `ttf_parser` — a new file for it would have widened a rented
+crate's boundary to say one sentence. The item is in `docs/features.md`.
+
+**Both directions were doctored to check the tests are not vacuous.** With the
+language ignored and the first record kept, 7 of the 11 new cases fail; with the
+unlocalised record demoted to a translation, exactly the one case that asserts it
+fails and no others. That second run is the more useful one — it says the
+three-step order is being tested as three steps rather than as two.
+
+**Hostile input.** A language id is two bytes out of somebody else's file, and
+the table underneath is rented: `ttf_parser` maps an id to a language by looking
+it up in a list, and a list is a thing with an end. So **all 65 536 ids** are
+walked, in chunks of a thousand records, and each chunk asserts the answer as
+well as the absence of a crash. The cross-check in that test is worth keeping:
+the test writes out the sixteen English ids by hand from the specification while
+the engine reads the rented table, so two roads meet on every id. It also found
+its own fixture bug — four thousand records of fourteen characters is more
+storage than a two-byte offset can point into, and the builder had been
+saturating quietly — which is now an assertion in the builder rather than a
+table of nonsense being asserted about.
+
+**`ROADMAP.md`.** The process-and-sandbox line again, whose `· Built:` clause
+gains item 195 beside 168, 170, 192, 193 and 194. **It is still not ticked**; its
+`· Owed:` clause drops 195 and keeps the Linux sandbox (169) and item 196.
+
+**What the next iteration should know.** No new cuts — this item closed both of
+its clauses and found nothing it had to leave. One thing was noticed and is not a
+cut, because it is not wrong: `family_in` reads face 0 of a font collection, so a
+`.ttc` is named by its first face. Every `.ttc` on this machine states one family
+across its faces, so nothing here is misfiled by it, and the day that stops being
+true is the day it becomes an item.
+
+The ready items in stage 2's file order are now **64** and **65** (the renderer
+lifecycle, both depending on 63 which is done — and much of both may already
+exist in `host.rs`, so they should be read before they are built), **66** (where
+one site ends and another begins, much of which `alo_url::site` answers since
+item 156), **190** (the two-tone border styles: small, depends on nothing, and
+closes with a picture), and **196** (a variable font is one file and many
+weights, which is the one that needs a decision about what a face *is* before it
+needs code).

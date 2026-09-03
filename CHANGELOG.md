@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A font is filed under the name a page would ask for it by, not the first
+  name in its file.** A font states its family once per language: macOS's system
+  font states it thirty-five times, in Catalan, Japanese, Russian and thirty-two
+  more. This engine took whichever the file happened to list first, so four of
+  the fonts on the machine it was built on were filed under names no stylesheet
+  will ever write — `Songti.ttc` under `宋體-簡`, `STHeiti Light.ttc` under
+  `黑體-繁`, `Hiragino Sans GB.ttc` under `冬青黑體簡體中文`. A page asking for
+  Songti SC was drawn in something else and told so.
+
+  A record's language decides now. A name written in **no language at all** is
+  the font's own name and wins — that is how macOS itself reads its system font,
+  which is why this engine still calls it `.SF NS` rather than `System Font`.
+  Otherwise **English** wins, in any of the sixteen ids that spell it. A font
+  that states no English name keeps its own, because a font in one language is
+  still a font somebody has.
+
 - **A font says how heavy it is and whether it leans; its filename no longer
   gets a vote.** Which face of a family a page is drawn in was decided by
   looking for the words `bold` and `italic` in the name of the file — so

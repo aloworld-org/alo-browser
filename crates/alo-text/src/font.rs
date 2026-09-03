@@ -314,6 +314,25 @@ use rustybuzz::ttf_parser;
 /// deliberately. It would put a guess back inside the one answer that must be a
 /// fact.
 ///
+/// # A name is written in a language
+///
+/// A `name` table holds the same name once per **language** as well as once per
+/// platform. macOS's system font states its family thirty-five times over —
+/// `System Font`, `Police système`, `システムフォント` — and a rule that took the
+/// first record of each kind files such a font under whichever language its
+/// table happens to list first. On this machine that would be Catalan, and this
+/// engine was saved from it only by the accident that the font's unlocalised
+/// record comes before all of them. A family filed under a name no page will
+/// ever ask for is [`crate::macintosh`]'s failure arriving by another road.
+///
+/// So where two records are of the same kind, the language decides between
+/// them, and [`Spoken`] is that order: a name that states **no language** is the
+/// font's own name, **English** is the language a `font-family` is nearly always
+/// written in, and any **other** language is a translation of one of those. The
+/// first record wins between two that say as much as each other, so a font
+/// carrying only translations is filed under the first of them — a font in one
+/// language is still a font somebody has.
+///
 /// # A name is text a person could type
 ///
 /// The bytes were written by somebody else, so two rules apply to every record
@@ -354,15 +373,14 @@ pub fn family_in(data: &[u8]) -> Option<String> {
             (ttf_parser::name_id::FAMILY, false) => &mut stated.family_legacy,
             _ => continue,
         };
-        if held.is_none() {
-            *held = Some(text.to_owned());
-        }
+        held.offer(text, spoken_in(&name));
     }
     stated
         .typographic
-        .or(stated.typographic_legacy)
-        .or(stated.family)
-        .or(stated.family_legacy)
+        .text
+        .or(stated.typographic_legacy.text)
+        .or(stated.family.text)
+        .or(stated.family_legacy.text)
 }
 
 /// The most bytes a name record may be and still be a family name.
@@ -378,13 +396,105 @@ pub const LONGEST_NAME: usize = 512;
 /// are separate questions and each has its own answer. The typographic name
 /// wins because it is the family CSS means; a Unicode record wins within each
 /// because it can spell names the older encodings cannot.
+///
+/// The **language** decides inside a slot rather than between slots, which is
+/// the difference between this and a fifth question. A font may state its
+/// typographic name in one language and its older name in another, and the
+/// typographic one is still the family CSS means; a language that outranked the
+/// kind of name would file such a font under a name for four of its faces.
 #[derive(Default)]
 struct Stated {
-    typographic: Option<String>,
-    typographic_legacy: Option<String>,
-    family: Option<String>,
-    family_legacy: Option<String>,
+    typographic: Held,
+    typographic_legacy: Held,
+    family: Held,
+    family_legacy: Held,
 }
+
+/// The best name found for one slot so far, and how much its record's language
+/// said.
+///
+/// [`Spoken`] is meaningless while there is no text: an empty slot takes
+/// whatever is offered to it.
+#[derive(Default)]
+struct Held {
+    text: Option<String>,
+    spoken: Spoken,
+}
+
+impl Held {
+    /// Take this name if its record said more about its language than the one
+    /// held, and leave the slot alone otherwise.
+    ///
+    /// Strictly more, so that the **first** of two records saying as much as
+    /// each other is kept — a font that states its family in Catalan and then in
+    /// Croatian is filed under the Catalan, which is the order the file itself
+    /// put them in and the only order there is anything to go on.
+    fn offer(&mut self, text: &str, spoken: Spoken) {
+        if self.text.is_some() && spoken <= self.spoken {
+            return;
+        }
+        self.text = Some(text.to_owned());
+        self.spoken = spoken;
+    }
+}
+
+/// What a name record's language says about whether a page would ask for the
+/// font by that name — weakest first, which is the order [`Held::offer`]
+/// compares in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+enum Spoken {
+    /// A language that is not English: a translation of the font's name, and a
+    /// name a stylesheet is very unlikely to write. Weakest, and the default,
+    /// because it is what a record says when it says nothing this engine can
+    /// use.
+    #[default]
+    Translated,
+    /// English, which is the language a `font-family` is nearly always written
+    /// in and the language every other record here is a translation of.
+    English,
+    /// No language at all, which is the font's own name rather than a
+    /// translation of it: the Unicode platform defines no language ids, so a
+    /// record there is not written *in* anything.
+    ///
+    /// Above English deliberately, and macOS is the evidence rather than the
+    /// specification: `SFNS.ttf` carries `.SF NS` on the Unicode platform and
+    /// `System Font` in its English Windows record, and CoreText answers
+    /// `.SF NS` for the family while keeping `System Font` as the name to show
+    /// a person. Reading it the other way round would file the system font of
+    /// this machine under a name the machine itself does not use.
+    Unstated,
+}
+
+/// Which language a name record was written in, as far as this engine can tell.
+///
+/// The Windows language ids are a list of somebody else's — eighteen of them
+/// are English — so the rented table answers, exactly as [`crate::macintosh`]
+/// rents the tables for the encodings. It covers the Macintosh records too:
+/// Apple's language code 0 is English, which is what nearly every Macintosh
+/// record carries.
+///
+/// Two readings are decided here rather than left to that table's [`None`]:
+///
+/// - **The Unicode platform states no language**, so a record there is
+///   [`Spoken::Unstated`] rather than a translation.
+/// - **Except when it states one anyway.** A `name` table in format 1 may put a
+///   language *tag* — `en`, `fr`, `ja` — behind an id of 0x8000 or more, and
+///   this engine does not read those. Such a record has named a language we
+///   cannot check, so it is treated as a translation: the weakest answer, which
+///   is the one that cannot promote a localised name over an English one.
+fn spoken_in(name: &ttf_parser::name::Name<'_>) -> Spoken {
+    if name.platform_id == ttf_parser::PlatformId::Unicode && name.language_id == 0 {
+        return Spoken::Unstated;
+    }
+    if name.language().primary_language() == ENGLISH {
+        Spoken::English
+    } else {
+        Spoken::Translated
+    }
+}
+
+/// What the rented table calls the language a `font-family` is written in.
+const ENGLISH: &str = "English";
 
 /// The weight and slant a font file states about **itself**.
 ///

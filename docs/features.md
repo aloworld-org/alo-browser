@@ -171,6 +171,13 @@ The reason this exists rather than a faster fork of somebody else's engine.
   encodings are read by nobody here rather than guessed at as their near
   relatives, and a Unicode name wins wherever a font has one. No family anywhere
   comes from a filename
+- [2] **A font's own name, read in the language a page would ask for it in** —
+  a `name` table holds the same family once per language, and macOS's system
+  font holds it thirty-five times. The unlocalised record wins where a font has
+  one, because that is the name the font calls itself and the platform reads it
+  the same way; English wins over every translation of it; and a font that
+  states no English name at all is still filed under its own, since a font in
+  one language is a font somebody has
 - [2] **A face's weight and slant, from the font** — the `OS/2` table states
   both, so `Helvetica-Oblique` leans and `InterDisplay-SemiBold` is 600 rather
   than everything being one of the two words a filename might carry. A weight of

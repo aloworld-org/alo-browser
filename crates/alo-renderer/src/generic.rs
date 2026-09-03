@@ -63,9 +63,11 @@ pub const MOST_PAIRS: usize = 64;
 /// macOS: the families are the ones the system actually ships. `System Font` is
 /// what `SFNS.ttf` calls itself in English and `.SF NS` is the name it carries
 /// for software that hides it from font menus; both are listed because which one
-/// this engine reads is decided by the font's `name` table, and today it reads
-/// whichever language that table happens to list first — queue item 195. The
-/// list continues past both for exactly that reason.
+/// this engine reads is decided by the font's `name` table. Since queue item 195
+/// it reads `.SF NS`, which is the unlocalised record and is what CoreText
+/// answers for that file — `System Font` is kept beside it because the two are
+/// one decision apart and a list that named only the winner would break silently
+/// if that decision ever moved.
 #[cfg(target_os = "macos")]
 const CANDIDATES: [(&str, &[&str]); 4] = [
     (

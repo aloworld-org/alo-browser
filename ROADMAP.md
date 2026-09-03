@@ -168,10 +168,13 @@ unreachable without it.
       and the slant come out of the font's `OS/2` table, so `Helvetica-Oblique`
       leans and a semibold is 600 — nothing about a face is read off its
       filename now, which is what items 192 and 194 together mean
-      · Owed: the Linux sandbox, queue item 169; a font's name read in
-      the language somebody asked for rather than whichever the file lists first
-      — queue item 195; and a variable font read as the range of weights it
-      really holds rather than the one instance it names — queue item 196
+      **And in which language that name is read** (queue item 195): a `name`
+      table states the same family once per language, so the unlocalised record
+      wins where there is one and English wins over every translation — four of
+      this machine's fonts were filed under Chinese names until it did
+      · Owed: the Linux sandbox, queue item 169; and a variable font read as the
+      range of weights it really holds rather than the one instance it names —
+      queue item 196
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
       than leaving a blank rectangle (queue item 166). It is not restarted
       silently, because that hides a bug somebody needs to see

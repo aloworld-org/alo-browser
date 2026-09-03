@@ -1234,7 +1234,7 @@ wrong, which is the argument for the fourth.
   because a generic decides what the text is *measured* in, and so where every
   line breaks.
 
-- [ ] **195. A font's name in a language somebody asked for.** Found while
+- [x] **195. A font's name in a language somebody asked for.** Found while
   building 193. `alo_text::family_in` reads the `name` table and takes the
   **first** record of each kind, whatever language it is in. macOS's system font
   states its family thirty-five times over — `System Font`, `Police système`,
@@ -1248,6 +1248,30 @@ wrong, which is the argument for the fourth.
   is filed under the English one, in a test whose fixture puts a localised record
   first — and a font that states no English name at all is still filed under
   something, since a font in one language is a font a person may still have.
+
+  **Done, both clauses, and the item's own guess about the accident was worth
+  re-checking.** The accident holds — the system font's unlocalised record does
+  come first — but four other fonts on this machine were filed under Chinese
+  names all along: `Songti.ttc` under `宋體-簡`, `STHeiti Light.ttc` and
+  `STHeiti Medium.ttc` under `黑體-繁`, `Hiragino Sans GB.ttc` under
+  `冬青黑體簡體中文`. They are `Songti SC`, `Heiti TC` and `Hiragino Sans GB` now,
+  which is what CoreText calls them.
+
+  **The order has three steps rather than two, and the third is the one that
+  needed evidence.** A record stating **no language** — the Unicode platform
+  defines none — is the font's own name and wins over English, because that is
+  how macOS reads its own system font: CoreText answers `.SF NS` for `SFNS.ttf`
+  and keeps `System Font` as the name to *show* a person. Ranking English above
+  it would have renamed this machine's `sans-serif` out from under item 193's
+  candidate list. Then English, in any of the sixteen ids that spell it, then any
+  other language with the first record winning.
+
+  The language decides **inside** a kind of name and never between two, so the
+  typographic name is still the family CSS means whatever language either is in —
+  and item 192's rule that a Unicode record beats a Macintosh one is untouched.
+  The cross-check that the whole file rests on is that the test writes out the
+  sixteen English ids by hand while the engine reads a rented table: two roads to
+  one answer, and they meet on all 65 536 ids a font could carry.
 
 - [ ] **64. The transport, and the lifecycle** that starts, reuses and reaps
   renderers, with a bound on how many exist.
