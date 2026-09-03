@@ -2969,10 +2969,18 @@ grant. Two items now wait on the same missing thing, which is worth noticing.
 **The gate.** Green: fmt, clippy zero and zero, 1037 tests. Nothing here
 positions, sizes or paints.
 
+**The owner relicensed mid-iteration.** ADR 0009 arrived on `main` while this
+was being written: the engine is MPL-2.0 now, not Apache-2.0, so a competitor
+cannot take it, improve it privately and sell a better version back. Rebased
+onto it; the only conflict was both of us adding to `CHANGELOG.md`'s Unreleased
+section, and both entries were kept. That commit says per-file Exhibit A headers
+are **owed** and deliberately deferred to avoid colliding with the loop — so
+they are now **queue item 159**, because owed work that lives only in a commit
+message is owed work one person is remembering.
+
 **What the next iteration should know.** Item 59, HTTP/2. It is the first item
 in a while that is a protocol rather than a policy: HPACK, streams, flow
 control, and the thing to get right early is that a stream's state machine is
 where a peer that misbehaves gets to allocate memory on our side. `MOST_HEADERS`
 and the other bounds in `http.rs` have counterparts there and they should be
 found before the happy path is, not after.
-

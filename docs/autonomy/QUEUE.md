@@ -529,6 +529,16 @@ first. Nothing here needs JavaScript.
   than a name, because resolving twice is how the second answer differs from the
   first. The setting went to item 158.
 
+- [ ] **159. MPL Exhibit A headers on every source file.** ADR 0009 relicensed
+  the engine and says the per-file headers are **owed** — left out deliberately,
+  because touching 147 files while the loop is working would collide with real
+  work. The root `LICENSE` satisfies MPL meanwhile, so this is tidiness rather
+  than exposure; it is in the queue because owed work that lives in one commit
+  message is owed work one person is remembering.
+  *Depends on nothing. Closes when:* every `.rs` file carries the header and
+  `scripts/gate.sh` fails on one that does not — a header nothing checks is a
+  header that stops being true.
+
 - [ ] **158. The encrypted-DNS setting.** ADR 0008 says it must name the company
   that would see every site you visit, in the sentence where it is chosen, and
   that no provider is preselected and the order is not for sale. Falling back to
