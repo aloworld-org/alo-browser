@@ -997,20 +997,9 @@ impl Builder<'_> {
             .and_then(|source| self.styles.get(source))
     }
 
-    /// The style a box's text is set with.
-    ///
-    /// A text box came from a text node, which has no style of its own — text
-    /// inherits everything from the element that holds it, so that is the
-    /// element to ask.
+    /// The style a box's text is set with, which the box tree answers.
     fn nearest_styled_ancestor(&self, id: BoxId) -> Option<&alo_style::ComputedStyle> {
-        let mut current = Some(id);
-        while let Some(box_id) = current {
-            if let Some(style) = self.style_of(box_id) {
-                return Some(style);
-            }
-            current = self.boxes.get(box_id).and_then(|node| node.parent);
-        }
-        None
+        self.boxes.nearest_style(self.styles, id)
     }
 }
 

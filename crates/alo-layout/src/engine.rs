@@ -384,54 +384,46 @@ fn added(left: Edges, right: Edges) -> Edges {
 /// to ask. Passing this to the measurer per box rather than once per document
 /// is what makes a heading and a caption on the same page different sizes.
 fn text_style_for(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> TextStyle {
-    let mut current = Some(id);
-    while let Some(box_id) = current {
-        if let Some(style) = boxes
-            .get(box_id)
-            .and_then(|node| node.kind.node())
-            .and_then(|source| styles.get(source))
-        {
-            return TextStyle {
-                families: style
-                    .get("font-family")
-                    .map(|value| {
-                        value
-                            .split(',')
-                            .map(|part| {
-                                part.trim()
-                                    .trim_matches(|c| c == '"' || c == '\'')
-                                    .trim()
-                                    .to_owned()
-                            })
-                            .filter(|part| !part.is_empty())
-                            .collect()
+    let Some(style) = boxes.nearest_style(styles, id) else {
+        return TextStyle::default();
+    };
+    TextStyle {
+        families: style
+            .get("font-family")
+            .map(|value| {
+                value
+                    .split(',')
+                    .map(|part| {
+                        part.trim()
+                            .trim_matches(|c| c == '"' || c == '\'')
+                            .trim()
+                            .to_owned()
                     })
-                    .unwrap_or_default(),
-                size: style.font_size(),
-                weight: weight_of(style),
-                italic: style
-                    .get("font-style")
-                    .is_some_and(|value| !value.eq_ignore_ascii_case("normal")),
-                // `normal` and a value this engine cannot read are both no
-                // extra room, which is what CSS says the initial value is.
-                letter_spacing: style
-                    .get("letter-spacing")
-                    .filter(|value| !value.eq_ignore_ascii_case("normal"))
-                    .and_then(|value| {
-                        style
-                            .px("letter-spacing", 0.0)
-                            .filter(|_| !value.is_empty())
-                    })
-                    .unwrap_or(0.0),
-                white_space: style
-                    .get("white-space")
-                    .and_then(alo_box::WhiteSpace::parse)
-                    .unwrap_or_default(),
-            };
-        }
-        current = boxes.get(box_id).and_then(|node| node.parent);
+                    .filter(|part| !part.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default(),
+        size: style.font_size(),
+        weight: weight_of(style),
+        italic: style
+            .get("font-style")
+            .is_some_and(|value| !value.eq_ignore_ascii_case("normal")),
+        // `normal` and a value this engine cannot read are both no extra room,
+        // which is what CSS says the initial value is.
+        letter_spacing: style
+            .get("letter-spacing")
+            .filter(|value| !value.eq_ignore_ascii_case("normal"))
+            .and_then(|value| {
+                style
+                    .px("letter-spacing", 0.0)
+                    .filter(|_| !value.is_empty())
+            })
+            .unwrap_or(0.0),
+        white_space: style
+            .get("white-space")
+            .and_then(alo_box::WhiteSpace::parse)
+            .unwrap_or_default(),
     }
-    TextStyle::default()
 }
 
 /// `font-weight` as a number, taking the two keywords that are numbers in

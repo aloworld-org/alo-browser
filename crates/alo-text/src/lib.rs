@@ -53,8 +53,8 @@ pub mod measure;
 pub mod run;
 pub mod shape;
 
-pub use database::FontDatabase;
-pub use font::{FaceMetrics, Font, FontRequest, Slant, Weight};
+pub use database::{Absent, FontDatabase, Instead};
+pub use font::{FaceMetrics, Font, FontRequest, Slant, Weight, family_in};
 pub use line::{Line, Paragraph, lay_out, measure_unwrapped};
 pub use linebreak::{BreakPoint, opportunities};
 pub use measure::TextMeasurer;

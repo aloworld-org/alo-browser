@@ -6,6 +6,27 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page that asks for a font by name is either given it or told it was not.**
+  A renderer is confined and cannot open a font file, so it starts with whatever
+  short list the browser process found and hands over. Until now a page asking
+  for anything outside that list — `Inter`, `Helvetica Neue`, or the
+  `system-ui` every document asks for by default — was quietly drawn in
+  something else. The render was stable and diffable and was not what the page
+  looks like in any other browser, which is the worst way for a rendering
+  difference to be wrong: reproducible, and unexplained.
+
+  A load now says which families it wanted and did not have. The browser
+  process, which is the side allowed to look, searches the machine for each and
+  sends over what it finds — **by the name each font gives itself**, not the one
+  on its file, because "does this machine have Inter" decides whether a page is
+  drawn as its author wrote it and an answer read off a filename is wrong for
+  every font somebody else named. What is genuinely not on the machine comes
+  back named, and the page reports in words what it was drawn in instead.
+
+  A page whose *second* choice was found is not reported: it got the fallback
+  its own author wrote, and there is nothing to tell anybody. The family is
+  still asked for, because the machine may well have the first one.
+
 - **A `style` attribute can be allowed by its digest, where the page asked for
   that in words.** A Content Security Policy that names a hash now reaches
   content with no element of its own — a `style` attribute today, an event

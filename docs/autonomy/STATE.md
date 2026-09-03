@@ -6083,3 +6083,120 @@ depending on 63 which is done), **66** (where one site ends and another begins �
 much of which `alo_url::site` already answers since item 156, so it should be
 read before it is built), and **190** (the two-tone border styles: small,
 depends on nothing, and closes with a picture).
+
+---
+
+## Iteration 87 — queue item 170: fonts a page asks for by name
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** This item was
+the first ready one in stage 2's file order, and the previous iteration named it
+as such: section B has nothing ready left in it, and 170 is the next line.
+
+**What was built.** A confined renderer cannot open a font file (ADR 0010), so
+it starts with whatever short list the browser process found and handed over. A
+page asking for anything outside that list was drawn in something else and
+**nothing anywhere said so** — a render that was stable, diffable, and not what
+the page looks like in any other browser, which is the worst way for a rendering
+difference to be wrong: reproducible and unexplained. All three of the item's
+clauses are closed in `crates/alo-renderer/tests/a_font_a_page_asked_for.rs`,
+over the real boundary with a spawned, confined renderer rather than in-process.
+
+**The distinction the whole item turns on is a type.** `alo_text::Absent` keeps
+two things apart that look like one:
+
+- A family that is **not here** is an *ask*. It goes to the browser process,
+  which may open a file and so may go and look. It includes a family the page
+  listed first and did not get even when a later one was found, because the
+  machine may well have the first — and it stops at the first family that *was*
+  found, since nothing was ever going to be drawn in the ones after it.
+- A **substitution** is a *message to a person*, and happens only when nothing
+  the page named was here at all. A page whose second choice was found got the
+  fallback its own author wrote; reporting that would put a warning in front of
+  somebody about a page working exactly as written.
+
+Folding these into one answer was the tempting mistake, and it would have made
+the corpus noisy in a way that reads like a bug.
+
+**`fonts::named` asks the font, not the filename.** `from_this_machine` takes a
+family from a file's name and that is right — it only decides what goes in a
+database, and opening every font on a machine at startup to ask would be most of
+a second before the first page. But *"does this machine have Inter"* decides
+whether a page is drawn as its author wrote it, and an answer read off a
+filename is wrong for every font somebody else named. So `alo_text::family_in`
+reads the `name` table, preferring the typographic family (id 16) over the older
+one (id 1), because a large family splits itself under the older name and CSS
+means the whole family.
+
+**The name in that request came off a page**, so it is compared against what a
+font states about itself and joined to nothing: a family called
+`../../../../etc/passwd` finds no font because no font is called that, and there
+is a test walking eight such names. The bound is applied twice — in the renderer
+that builds the list and again in `Renderers::supply` — because a limit a
+renderer applied to itself is not one the browser process may rely on, the
+renderer being the process that parsed the page.
+
+**A refactor went in rather than a third copy.** Both `alo_layout::engine` and
+`alo_paint::build` privately walked up the box tree to find the style a text box
+inherits from, and this needed the same walk. It is `BoxTree::nearest_style` now
+and all three call it: three copies of that rule is three chances for one of them
+to stop agreeing about which font a line is in, which is a rendering difference
+nobody could explain.
+
+**The corpus did not move at all, and that is the review.** Every alo case
+declares what its generics mean (`corpus_fonts` maps `system-ui`, `sans-serif`
+and `serif`), so nothing in the corpus was ever silently substituted for, and a
+rule that reported those would have been the wrong rule. `web-example-com`'s
+`origin.txt` named this item as its evidence and said the substitution there was
+silent; that is now corrected in the file rather than quietly left, because the
+substitution there is **declared** by the corpus harness and a declared one
+should not be reported. What was genuinely silent was what nobody had looked at,
+and it is written below.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1558 tests** (up from 1530), no stubs, no `unsafe`, boundaries held —
+nothing was rented, and `ttf_parser` stayed inside `alo-text/src/font.rs`, which
+is why `family_in` lives there rather than beside the code that wanted it — the
+licence notice, and a `CHANGELOG.md` line. The half no script can check: no
+layout assertion and no reference render, because **nothing here positions,
+sizes or draws** — this item changes what a load *reports*, and the strongest
+evidence of that is the twenty-four committed renders that did not move; one
+file one responsibility — `families.rs` is new and holds only the question of
+which families a page asked for, `fonts.rs` gained the on-demand search beside
+the startup one it already documented as the shape that would follow; and the
+item is in `docs/features.md`.
+
+**`ROADMAP.md`.** The line moved is the process-and-sandbox one, whose `· Built:`
+clause gains item 170 beside item 168 — fonts across the boundary, and now fonts
+a page asked for across it. **It is still not ticked**, and its `· Owed:` clause
+gained a second entry as well as keeping the Linux sandbox.
+
+**What the next iteration should know.** Two cuts, and the second is the more
+interesting:
+
+- **Item 192.** `family_in` answers `None` for a font naming itself only in a
+  legacy Macintosh encoding — several macOS ships do, Apple Braille among them.
+  Such a family cannot be found on demand, so a page asking for it is told the
+  machine does not have it. Safe direction, still wrong. Falling back to the
+  filename was refused deliberately: it would put the guess back inside the one
+  answer that has to be a fact.
+- **Item 193**, which this item made *audible* rather than fixed.
+  `FontDatabase::map_generic` exists and **only tests call it**. The browser
+  process hands over faces and never says which is this machine's `sans-serif`
+  or `system-ui`, so the user-agent sheet's own `font-family: system-ui,
+  sans-serif` reaches every real page as two families nobody has. It has always
+  been so; the difference is that a load now says so out loud instead of the
+  page just looking wrong. A face cannot carry that fact, so it needs something
+  new crossing the boundary — which is why it is an item rather than a line.
+
+`FromRenderer::Loaded` changed shape: it carries `wanted` beside `issues`, and
+every pattern matching it needed a field or a `..`. The wire format grew a
+second list in the same message, and it has its own hostile test — a decoder
+that read the issues and stopped would hand up a load wanting nothing, which
+reads exactly like a page that asked for nothing.
+
+The ready items in stage 2's file order are now **64** and **65** (the renderer
+lifecycle, both depending on 63 which is done — and much of both may already
+exist in `host.rs`, so they should be read before they are built), **66** (where
+one site ends and another begins, much of which `alo_url::site` answers since
+item 156), **190** (the two-tone border styles: small, depends on nothing, and
+closes with a picture), and the two cut above, **192** and **193**.

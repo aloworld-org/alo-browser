@@ -1039,7 +1039,7 @@ wrong, which is the argument for the fourth.
   document order rather than two — which is the part that would have been
   silently wrong if the sheets had been collected by kind.
 
-- [ ] **170. Fonts a page asks for by name.** *Item 68's first case is the
+- [x] **170. Fonts a page asks for by name.** *Item 68's first case is the
   evidence: it asks for `system-ui, sans-serif`, gets DejaVu Sans, and nothing
   says so.* Today every renderer is given the
   same short list at startup. A page asking for a family nobody sent gets a
@@ -1048,6 +1048,61 @@ wrong, which is the argument for the fourth.
   did not have, and the browser process can answer with it — and a family that
   genuinely is not on the machine is a named substitution rather than a silent
   one.
+
+  **Done, all three clauses:
+  `crates/alo-renderer/tests/a_font_a_page_asked_for.rs`**, over the real
+  boundary with a spawned, confined renderer. `FromRenderer::Loaded` carries a
+  `wanted` list, `Renderers::supply` is the answer, and it returns the families
+  this machine genuinely does not have rather than swallowing them.
+
+  **Two things are worth reading twice.** The first is a **distinction the
+  whole item turns on**: a family that is not here is an *ask* — the machine may
+  have it — and a substitution is a *message to a person*, which happens only
+  when **nothing** the page named was here. A page whose second choice was found
+  got the fallback its own author wrote, and reporting that would put a warning
+  in front of somebody about a page working exactly as written. `alo_text::Absent`
+  is that distinction as a type. The second is that `fonts::named` reads the
+  family out of the **font** (`alo_text::family_in`) rather than off its
+  filename: the startup list may guess, because a guess only decides what is in
+  a database, but *"does this machine have Inter"* decides whether a page is
+  drawn as its author wrote it, and a guess is wrong for every font somebody
+  else named.
+
+  **The corpus did not move, and that is the review.** Every alo case declares
+  what its generics mean (`corpus_fonts`), so nothing there was ever silently
+  substituted for, and a rule that reported those would have been the wrong
+  rule. What was genuinely silent is what nobody had looked at: **the browser
+  process declares no generic at all**, so a real renderer asked for
+  `system-ui`, fell off the end of the chain, and said nothing. Two cuts: items
+  192 and 193.
+
+- [ ] **192. A font whose name is only in a legacy platform encoding.** Cut
+  from 170. `alo_text::family_in` reads the `name` table and answers [`None`]
+  for a font that carries its name only in an old Macintosh encoding — several
+  that macOS ships do, Apple Braille among them. Such a family cannot be found
+  on demand, so a page asking for it by name is told the machine does not have
+  it. **That is the safe direction and it is still wrong**: the machine has it.
+  The alternative — falling back to the filename — was refused deliberately,
+  because it would put a guess back inside the one answer that has to be a
+  fact.
+  *Depends on 170. Closes when:* a font naming itself only in a legacy encoding
+  is found by the name a person would type, in a test that names the encoding
+  — and nothing anywhere returns a filename as a font's family.
+
+- [ ] **193. What a generic family means on this machine.** Cut from 170, and
+  it is the gap that item made visible. `FontDatabase::map_generic` exists and
+  **only tests call it**: the browser process hands over faces and never says
+  which of them is this machine's `sans-serif`, `serif`, `monospace` or
+  `system-ui`. So the user-agent sheet's own `font-family: system-ui,
+  sans-serif` reaches every real page as two families nobody has, and is
+  answered by falling off the end of the fallback chain. Item 170 made that
+  *audible* — it is reported now — rather than fixing it, because what a
+  generic means is a fact about the machine that has to cross the boundary and
+  a face does not carry it.
+  *Depends on 170. Closes when:* a renderer is told what each generic means as
+  part of being given fonts, a page asking for `sans-serif` on a machine that
+  has one is not reported as substituted, and one asking on a machine that has
+  none still is.
 
 - [ ] **64. The transport, and the lifecycle** that starts, reuses and reaps
   renderers, with a bound on how many exist.

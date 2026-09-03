@@ -150,7 +150,12 @@ unreachable without it.
       `exec` so a renderer is never unconfined, and fatal if unavailable —
       watched failing rather than assumed **Fonts across the boundary** (queue item 168): the browser
       process opens the files and passes bytes, and `alo-render` embeds nothing
-      · Owed: the Linux sandbox, queue item 169
+      **A font a page asked for by name** (queue item 170): a load says which
+      families it wanted and did not have, the browser process finds each on the
+      machine by the name the font gives itself, and a family that is genuinely
+      not there is a substitution said in words rather than a silence
+      · Owed: the Linux sandbox, queue item 169; and what a *generic* family
+      means on this machine, which nothing tells a renderer — queue item 193
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
       than leaving a blank rectangle (queue item 166). It is not restarted
       silently, because that hides a bug somebody needs to see

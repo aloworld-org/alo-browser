@@ -159,6 +159,12 @@ The reason this exists rather than a faster fork of somebody else's engine.
   `padding: 0` beats a user agent's `padding-left`
 - [2] **Fonts handed across the boundary** — the browser process opens the
   files, the renderer opens nothing
+- [2] **A font a page asked for by name, fetched on demand** — a renderer says
+  which families it wanted and did not have, the browser process looks for each
+  on the machine by the name the **font** gives itself rather than the one on
+  its file, and sends over what it finds. A family that genuinely is not on the
+  machine comes back named, and the page says in words what it was drawn in
+  instead — never a stable render nobody can explain
 - [2] **Renderers confined by the platform's own sandbox** (macOS) — no file
   read, no write, no socket, each watched failing rather than assumed
 - [2] **One renderer process per site** — two sites are two processes, and

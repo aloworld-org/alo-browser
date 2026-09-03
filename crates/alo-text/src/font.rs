@@ -260,6 +260,60 @@ impl fmt::Debug for Font {
 /// face here and shaping with it later are the same parse of the same bytes.
 use rustybuzz::ttf_parser;
 
+/// The family a font file states about **itself**.
+///
+/// Everywhere else in this engine a family is a name somebody supplied: the
+/// browser process reads a directory and guesses from the filename, because
+/// `HelveticaNeue-Bold.ttf` is nearly always Helvetica Neue and opening every
+/// font on a machine to ask would be most of a second at startup. A guess is
+/// fine for filling a database.
+///
+/// It is **not** fine for answering *"does this machine have Inter"*. That
+/// answer decides whether a page is drawn in the font its author asked for or
+/// in one this engine chose, and an answer derived from how somebody named a
+/// file is an answer that is wrong for every font named differently. So this
+/// asks the font.
+///
+/// Two names are read because fonts carry two. A large family splits itself
+/// into `Inter`, `Inter Light`, `Inter Semibold` under the older name so that
+/// software which can only hold four faces per family still works; the
+/// typographic name is the one that says `Inter` throughout, and it is the one
+/// CSS means. So it wins where a font has both.
+///
+/// [`None`] for bytes that are not a font, and for one whose names are all
+/// unreadable — both real answers about a file, and neither a reason to fail.
+///
+/// **Unreadable is more common than it sounds**, and the direction it fails in
+/// is the safe one. A font carrying its name only in an old platform-specific
+/// encoding — several of the ones macOS ships do — answers [`None`] here, so a
+/// page asking for it by name is told the machine does not have it and gets a
+/// substitution it can see. The alternative, falling back to the filename,
+/// would put the guess back inside the one answer that must be a fact.
+pub fn family_in(data: &[u8]) -> Option<String> {
+    let face = ttf_parser::Face::parse(data, 0).ok()?;
+    let mut typographic: Option<String> = None;
+    let mut family: Option<String> = None;
+    for name in face.names() {
+        let held = match name.name_id {
+            ttf_parser::name_id::TYPOGRAPHIC_FAMILY => &mut typographic,
+            ttf_parser::name_id::FAMILY => &mut family,
+            _ => continue,
+        };
+        if held.is_some() {
+            continue;
+        }
+        // A name in an encoding this parser cannot read is skipped rather than
+        // fatal: a font commonly carries the same name several times over, and
+        // one unreadable copy says nothing about the next.
+        if let Some(text) = name.to_string()
+            && !text.trim().is_empty()
+        {
+            *held = Some(text.trim().to_owned());
+        }
+    }
+    typographic.or(family)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,6 +330,33 @@ mod tests {
 
     fn close(left: f32, right: f32) -> bool {
         (left - right).abs() < 0.01
+    }
+
+    #[test]
+    fn a_font_says_what_family_it_belongs_to() {
+        assert_eq!(
+            family_in(dejavu::sans::regular()).as_deref(),
+            Some("DejaVu Sans"),
+        );
+        assert_eq!(
+            family_in(dejavu::serif::regular()).as_deref(),
+            Some("DejaVu Serif"),
+        );
+        assert_eq!(
+            family_in(dejavu::sans::bold()).as_deref(),
+            Some("DejaVu Sans"),
+            "a bold face belongs to the same family as the regular one",
+        );
+    }
+
+    #[test]
+    fn bytes_that_are_not_a_font_name_no_family() {
+        assert_eq!(family_in(&[]), None);
+        assert_eq!(family_in(&[0; 64]), None);
+        // A real font, truncated: the parser is handed something that starts
+        // like a font and stops, which is what a half-copied file looks like.
+        let cut = &dejavu::sans::regular()[..1024];
+        assert_eq!(family_in(cut), None);
     }
 
     #[test]

@@ -294,11 +294,15 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.tag(6);
             writer.text(family);
         }
-        FromRenderer::Loaded { issues } => {
+        FromRenderer::Loaded { issues, wanted } => {
             writer.tag(0);
             writer.number(issues.len() as u64);
             for issue in issues {
                 writer.text(issue);
+            }
+            writer.number(wanted.len() as u64);
+            for family in wanted {
+                writer.text(family);
             }
         }
         FromRenderer::Painted(frame) => {
@@ -833,7 +837,12 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
             for _ in 0..how_many {
                 issues.push(reader.text()?);
             }
-            FromRenderer::Loaded { issues }
+            let how_many = reader.count()?;
+            let mut wanted = Vec::new();
+            for _ in 0..how_many {
+                wanted.push(reader.text()?);
+            }
+            FromRenderer::Loaded { issues, wanted }
         }
         1 => {
             let width = u32::try_from(reader.number()?)

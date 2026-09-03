@@ -44,6 +44,7 @@
 //! corpus.
 
 pub mod face;
+pub mod families;
 pub mod fonts;
 pub mod frame;
 pub mod host;
@@ -58,6 +59,7 @@ pub mod site;
 pub mod snapshot;
 pub mod wire;
 
+pub use families::Wanted;
 pub use frame::Frame;
 pub use message::{Failure, FromRenderer, ToRenderer};
 pub use page::Page;

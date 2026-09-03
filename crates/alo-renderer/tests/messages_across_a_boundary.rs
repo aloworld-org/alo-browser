@@ -122,6 +122,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
     let messages = vec![
         FromRenderer::Loaded {
             issues: vec!["refused `float: left`".to_owned()],
+            wanted: vec!["Inter".to_owned()],
         },
         FromRenderer::Painted(Frame {
             width: 2,
@@ -212,6 +213,43 @@ fn a_length_longer_than_the_message_is_refused_before_anything_is_reserved() {
     let mut bytes = vec![5u8, 1u8];
     bytes.extend_from_slice(&u64::MAX.to_be_bytes());
     assert!(read_from_renderer(&bytes).is_err());
+}
+
+/// The families a renderer says a page wanted are the same kind of hazard as
+/// its issues, and they are a second list in the same message — so the same
+/// question is asked of it separately, because a bound that was only ever
+/// applied to the first list is a bound the second one does not have.
+#[test]
+fn a_count_of_families_larger_than_the_message_is_refused() {
+    // `Loaded`, no issues, and then a billion families.
+    let mut bytes = vec![0u8];
+    bytes.extend_from_slice(&0u64.to_be_bytes());
+    bytes.extend_from_slice(&1_000_000_000u64.to_be_bytes());
+    let why = read_from_renderer(&bytes)
+        .err()
+        .map(|why| why.why)
+        .unwrap_or_default();
+    assert!(why.contains("no room for them"), "{why:?}");
+}
+
+/// Every prefix of a load is a load that did not arrive.
+///
+/// Asked of this message in particular because it is the one that grew a second
+/// list: a decoder that read the issues and then stopped would hand up a load
+/// with an empty `wanted` rather than an error, which reads exactly like a page
+/// that asked for nothing.
+#[test]
+fn a_load_that_stops_part_way_through_is_refused() {
+    let whole = write_from_renderer(&FromRenderer::Loaded {
+        issues: vec!["refused `float: left`".to_owned()],
+        wanted: vec!["Inter".to_owned()],
+    });
+    for cut in 1..whole.len() {
+        assert!(
+            read_from_renderer(whole.get(..cut).unwrap_or_default()).is_err(),
+            "{cut} bytes of a load were read as a whole one"
+        );
+    }
 }
 
 /// A tree arrives as a recursive structure. A decoder that recursed as deeply

@@ -183,6 +183,56 @@ impl Renderers {
         }
     }
 
+    /// Answer a renderer that said which families it wanted and did not have.
+    ///
+    /// [`FromRenderer::Loaded`] carries that list. A renderer may not open a
+    /// font file (ADR 0010), so this side goes and looks, sends over every face
+    /// it found, and **returns the families that are genuinely not on this
+    /// machine** — which is the answer the caller shows, because a family
+    /// nobody has is a substitution somebody should be told about rather than a
+    /// silence.
+    ///
+    /// The page has already been laid out in the wrong font by the time this
+    /// runs. Loading it again is the caller's to decide and deliberately not
+    /// done here: a browser that reloaded on its own would render every page
+    /// asking for a missing font twice, and ADR 0005's rule that nothing
+    /// restarts a renderer by itself is the same rule.
+    ///
+    /// # Errors
+    ///
+    /// [`Gone`] when the renderer died while being sent a font. Nothing found
+    /// is not an error — it is this machine's honest answer.
+    pub fn supply(&mut self, site: &Site, families: &[String]) -> Result<Vec<String>, Gone> {
+        let mut absent = Vec::new();
+        // Bounded again here, having been bounded in the renderer that built
+        // the list: a renderer is the process that parsed a hostile page, so a
+        // limit it applied to itself is not one this side may rely on.
+        for family in families.iter().take(crate::families::MOST_WANTED) {
+            let faces = crate::fonts::named(family);
+            if faces.is_empty() {
+                absent.push(family.clone());
+                continue;
+            }
+            for face in faces {
+                // Kept, so a renderer started for this site later begins with
+                // the font rather than asking for it again.
+                if !self.faces.iter().any(|held| held == &face) {
+                    self.faces.push(face.clone());
+                }
+                match self.ask(site, &ToRenderer::UseFont(Box::new(face)))? {
+                    // A font this machine has and this renderer will not take
+                    // is not on the machine as far as the page is concerned,
+                    // and saying otherwise would report a family as supplied
+                    // while the text stayed in the wrong one.
+                    FromRenderer::UsingFont { .. } => {}
+                    _ => absent.push(family.clone()),
+                }
+            }
+        }
+        absent.dedup();
+        Ok(absent)
+    }
+
     /// Stop a site's renderer.
     pub fn stop(&mut self, site: &Site) {
         if let Some(mut held) = self.held.remove(site) {

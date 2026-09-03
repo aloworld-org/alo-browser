@@ -319,6 +319,38 @@ impl BoxTree {
             .copied()
     }
 
+    /// The style a box's **text** is set with.
+    ///
+    /// A text box came from a text node, and a text node has no style of its
+    /// own: text inherits everything from the element that holds it, so the
+    /// element is what to ask. An anonymous box has no node at all and the same
+    /// answer applies, which is why this walks upwards rather than reading one
+    /// box.
+    ///
+    /// It lives here because it is a question about the shape of *this* tree
+    /// and about nothing else, and because three separate places were each
+    /// walking it — layout, to measure a line; paint, to draw one; and the
+    /// count of families a page asked for. Three copies of a rule is three
+    /// chances for one of them to stop agreeing with the others about which
+    /// font a line is in, which is a rendering difference nobody could explain.
+    ///
+    /// [`None`] only for a box with no styled element above it at all, which is
+    /// a box outside any document — a tree built for a test.
+    pub fn nearest_style<'s>(&self, styles: &'s StyleTree, id: BoxId) -> Option<&'s ComputedStyle> {
+        let mut current = Some(id);
+        while let Some(box_id) = current {
+            if let Some(style) = self
+                .get(box_id)
+                .and_then(|node| node.kind.node())
+                .and_then(|source| styles.get(source))
+            {
+                return Some(style);
+            }
+            current = self.get(box_id).and_then(|node| node.parent);
+        }
+        None
+    }
+
     /// Every box beneath one, in tree order, not including it.
     pub fn descendants(&self, id: BoxId) -> Vec<BoxId> {
         let mut out = Vec::new();

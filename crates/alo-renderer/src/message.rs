@@ -78,6 +78,20 @@ pub enum FromRenderer {
     Loaded {
         /// What was refused, in the order it was met.
         issues: Vec<String>,
+        /// The font families this page asked for by name and this renderer does
+        /// not have, in the order it first asked.
+        ///
+        /// A renderer may not open a font file (ADR 0010), so this is the only
+        /// way it can ask for one — and the browser process is the only side
+        /// that can answer, because it is the side allowed to look. Sending it
+        /// with the load rather than as a message of its own keeps the protocol
+        /// coarse: which families a page wants is known exactly when the page
+        /// has been laid out, and that is this answer.
+        ///
+        /// **It is a request, not an instruction.** The names come from a page
+        /// a stranger wrote, so the browser process treats each as a string to
+        /// look up among the fonts it already knows about — never as a path.
+        wanted: Vec<String>,
     },
     /// A picture.
     Painted(Frame),

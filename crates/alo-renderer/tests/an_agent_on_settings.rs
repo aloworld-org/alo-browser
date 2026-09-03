@@ -56,7 +56,7 @@ fn settings() -> Renderer {
         Page::new(html, Size::new(900.0, 600.0)).with_sheet(css),
     )));
     assert!(
-        matches!(&answer, FromRenderer::Loaded { issues } if issues.is_empty()),
+        matches!(&answer, FromRenderer::Loaded { issues, .. } if issues.is_empty()),
         "alo's own screen asks for nothing this engine refuses: {answer:?}",
     );
     renderer

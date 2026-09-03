@@ -150,9 +150,14 @@ impl Renderer {
         let sheets = page.sheets.join("\n");
         let rendered = render(&page.html, &sheets, page.viewport, &self.fonts);
         let issues = rendered.issues();
+        // A renderer may not go and find a font (ADR 0010), so saying which
+        // families it wanted and did not have is the whole of what it can do
+        // about one — and the browser process, which may look, is exactly who
+        // is listening.
+        let wanted = rendered.wanted.families.clone();
         self.page = Some(page);
         self.rendered = Some(rendered);
-        FromRenderer::Loaded { issues }
+        FromRenderer::Loaded { issues, wanted }
     }
 
     fn paint(&self) -> FromRenderer {

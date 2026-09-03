@@ -90,7 +90,7 @@ fn loading_a_page_reports_what_the_engine_refused_rather_than_swallowing_it() {
             .with_sheet("p { width: calc(1px + 2); color: not-a-colour }"),
     )));
     match answer {
-        FromRenderer::Loaded { issues } => assert!(
+        FromRenderer::Loaded { issues, .. } => assert!(
             !issues.is_empty(),
             "a page told something impossible says so",
         ),

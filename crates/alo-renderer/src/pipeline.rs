@@ -50,14 +50,26 @@ pub struct Rendered {
     /// selector this engine cannot evaluate is refused when the sheet is
     /// parsed, long before any element is styled.
     pub sheet_issues: Vec<String>,
+    /// The families this page asked for and did not get, and what it was drawn
+    /// in instead.
+    ///
+    /// Kept separately from the trees for the same reason as `sheet_issues`:
+    /// it is not a property of any one of them. It needs the boxes, the styles
+    /// **and** the fonts, and the fonts are the one thing no tree here holds.
+    pub wanted: crate::families::Wanted,
 }
 
 impl Rendered {
-    /// Everything the engine refused along the way, as one list.
+    /// Everything that would surprise somebody about this render, as one list.
     ///
     /// Gathered from all four stages, because a case that renders oddly is
     /// nearly always a case that was told something it could not do — and
     /// finding that out should not mean asking four objects separately.
+    ///
+    /// Mostly refusals, and not only: a style sheet that never arrived and a
+    /// font family nobody had are both pages rendering *differently* rather
+    /// than pages being refused anything. What the list has in common is that
+    /// every line in it explains something a person can see.
     pub fn issues(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
         out.extend(self.document.issues().iter().map(ToString::to_string));
@@ -65,6 +77,11 @@ impl Rendered {
         out.extend(self.styles.issues().iter().map(ToString::to_string));
         out.extend(self.boxes.issues().iter().map(ToString::to_string));
         out.extend(self.layout.issues().iter().map(ToString::to_string));
+        // Last, because a substituted font is the only thing in this list that
+        // is not something the engine *refused* — the page rendered, in the
+        // wrong typeface, and that reads better after the refusals than among
+        // them.
+        out.extend(self.wanted.substitutions.iter().cloned());
         out
     }
 }
@@ -216,6 +233,10 @@ pub fn render_document_with(
     let mut canvas = Canvas::new(whole(size.width), whole(size.height), Rgba::WHITE);
     alo_paint::render(&display, &mut canvas);
 
+    // After the boxes exist, because it is the text that was actually built
+    // that decides which families a page really asked for.
+    let wanted = crate::families::wanted(&boxes, &styles, fonts);
+
     Rendered {
         document,
         styles,
@@ -224,6 +245,7 @@ pub fn render_document_with(
         display,
         canvas,
         sheet_issues,
+        wanted,
     }
 }
 
@@ -315,6 +337,26 @@ mod tests {
         FontDatabase::new()
     }
 
+    /// A database that can answer what the user-agent sheet asks for.
+    ///
+    /// The sheet sets `font-family: system-ui, sans-serif` on every document,
+    /// so a test rendering with no fonts at all is a test of a page drawn in
+    /// nothing — which is a real state and is now reported, and is not what
+    /// most of these tests are about.
+    fn one_font() -> FontDatabase {
+        let mut fonts = FontDatabase::new();
+        if let Some(font) = alo_text::Font::load(
+            "DejaVu Sans",
+            alo_text::Weight::NORMAL,
+            alo_text::Slant::Normal,
+            dejavu::sans::regular().to_vec(),
+        ) {
+            fonts.add(font);
+        }
+        fonts.map_generic("system-ui", "DejaVu Sans");
+        fonts
+    }
+
     #[test]
     fn a_size_becomes_whole_pixels() {
         assert_eq!(whole(0.0), 0);
@@ -347,9 +389,35 @@ mod tests {
             "<!DOCTYPE html><html><body><div><p>text</p></div></body></html>",
             "div { padding: 4px } p { margin: 0; color: #000000 }",
             Size::new(40.0, 20.0),
-            &no_fonts(),
+            &one_font(),
         );
         assert!(rendered.issues().is_empty(), "{:?}", rendered.issues());
+    }
+
+    #[test]
+    fn a_page_drawn_in_a_font_it_never_asked_for_says_so() {
+        // The user-agent sheet asks every document for `system-ui, sans-serif`.
+        // A renderer holding neither draws the text in something else, and the
+        // whole of queue item 170 is that this is said out loud rather than
+        // being a stable, diffable render nobody can explain.
+        let rendered = render(
+            "<!DOCTYPE html><html><body><p>text</p></body></html>",
+            "",
+            Size::new(40.0, 20.0),
+            &no_fonts(),
+        );
+        assert_eq!(
+            rendered.wanted.families,
+            vec!["system-ui".to_owned(), "sans-serif".to_owned()],
+        );
+        assert!(
+            rendered
+                .issues()
+                .iter()
+                .any(|issue| issue.contains("system-ui")),
+            "{:?}",
+            rendered.issues(),
+        );
     }
 
     #[test]

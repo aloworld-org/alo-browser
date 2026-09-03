@@ -16,6 +16,41 @@
 
 use crate::font::{Font, FontRequest, Slant, Weight};
 
+/// What text was set in, when a family a page named is not here.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Instead {
+    /// Nothing was substituted: either a family the page named is here, or it
+    /// named none at all. What was drawn is the page's **own** fallback,
+    /// written by its author, which is not a decision this engine made.
+    TheirFallback,
+    /// No family the page named is here, and this is the family the text was
+    /// drawn in — a substitution *this engine* made, which is the kind worth
+    /// saying out loud.
+    Ours(String),
+    /// No family the page named is here and this database has no font at all,
+    /// so the text is drawn in nothing.
+    Nothing,
+}
+
+/// What a database could not give a request.
+///
+/// Two different things, and keeping them apart is the point of the type. A
+/// family that is not here is something the **browser process** may be able to
+/// find on the machine and send over. A substitution is something a **person**
+/// should be told about, and only happens when nothing the page named is here.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Absent {
+    /// The families named that this database has no face for, in the order the
+    /// page wrote them, stopping at the first one that *is* here.
+    ///
+    /// It stops there because a family listed after one that was found is a
+    /// family the page never reaches — asking a machine for it would be asking
+    /// for something nothing was ever going to draw with.
+    pub families: Vec<String>,
+    /// What was drawn instead.
+    pub instead: Instead,
+}
+
 /// The fonts this engine can use, and the order it tries them in.
 #[derive(Debug, Clone, Default)]
 pub struct FontDatabase {
@@ -79,6 +114,64 @@ impl FontDatabase {
             }
         }
         chain
+    }
+
+    /// Whether this database has any face filed under a family.
+    ///
+    /// Generic names are resolved first, so `sans-serif` is held when whatever
+    /// this machine has said its sans-serif is has a face — and is **not** held
+    /// when nobody has said, which is a real state and the one a renderer that
+    /// was handed fonts and no mapping is in.
+    ///
+    /// Weight and slant are deliberately not asked about: a family with only a
+    /// bold face is still a family this engine has, and a page asking for it
+    /// light gets the bold one rather than a substitution.
+    pub fn holds(&self, family: &str) -> bool {
+        self.resolve_generic(family).iter().any(|name| {
+            self.fonts
+                .iter()
+                .any(|font| font.family().eq_ignore_ascii_case(name))
+        })
+    }
+
+    /// What this database could not give a request.
+    ///
+    /// The question queue item 170 exists to make askable: *which family did
+    /// this page want and not get, and what did it get instead?* Before it,
+    /// a page asking for `Inter` was drawn in whatever was to hand and nothing
+    /// anywhere said so.
+    pub fn absent(&self, request: &FontRequest) -> Absent {
+        let mut families: Vec<String> = Vec::new();
+        for family in &request.families {
+            if self.holds(family) {
+                return Absent {
+                    families,
+                    instead: Instead::TheirFallback,
+                };
+            }
+            if !families
+                .iter()
+                .any(|held| held.eq_ignore_ascii_case(family))
+            {
+                families.push(family.clone());
+            }
+        }
+        if families.is_empty() {
+            // A request naming nothing is a request nothing was refused for.
+            return Absent {
+                families,
+                instead: Instead::TheirFallback,
+            };
+        }
+        // The first of the chain rather than every font that drew a character:
+        // per-character fallback can reach further down for a rare glyph, and
+        // the family ordinary text came out in is what a person would recognise
+        // as "it is not in the font I asked for".
+        let instead = match self.chain(request).first() {
+            Some(font) => Instead::Ours(font.family().to_owned()),
+            None => Instead::Nothing,
+        };
+        Absent { families, instead }
     }
 
     /// The first font in the chain that has this character.
@@ -316,6 +409,108 @@ mod tests {
                 .is_none(),
             "no Devanagari here, and saying so beats drawing the wrong thing",
         );
+    }
+
+    #[test]
+    fn a_family_that_is_here_is_held_however_it_is_spelt() {
+        let database = database();
+        assert!(database.holds("DejaVu Sans"));
+        assert!(
+            database.holds("dejavu sans"),
+            "families are case-insensitive"
+        );
+        assert!(
+            database.holds("sans-serif"),
+            "a generic this machine mapped"
+        );
+        assert!(!database.holds("Inter"));
+        assert!(
+            !database.holds("monospace"),
+            "a generic nobody has said the meaning of is not held",
+        );
+    }
+
+    #[test]
+    fn a_family_the_page_named_and_got_is_not_a_substitution() {
+        let database = database();
+        let request = FontRequest {
+            families: vec!["Inter".to_owned(), "DejaVu Sans".to_owned()],
+            ..FontRequest::default()
+        };
+        let absent = database.absent(&request);
+        assert_eq!(
+            absent.families,
+            vec!["Inter".to_owned()],
+            "the machine may have Inter, so it is still worth asking for",
+        );
+        assert_eq!(
+            absent.instead,
+            Instead::TheirFallback,
+            "and what was drawn is the fallback the author wrote",
+        );
+    }
+
+    #[test]
+    fn a_family_listed_after_one_that_was_found_is_never_asked_for() {
+        let database = database();
+        let request = FontRequest {
+            families: vec![
+                "Inter".to_owned(),
+                "DejaVu Sans".to_owned(),
+                "Helvetica Neue".to_owned(),
+            ],
+            ..FontRequest::default()
+        };
+        assert_eq!(
+            database.absent(&request).families,
+            vec!["Inter".to_owned()],
+            "nothing was ever going to be drawn in Helvetica Neue",
+        );
+    }
+
+    #[test]
+    fn a_page_that_got_none_of_what_it_named_is_told_what_it_got() {
+        let database = database();
+        let request = FontRequest {
+            families: vec!["Inter".to_owned(), "monospace".to_owned()],
+            ..FontRequest::default()
+        };
+        let absent = database.absent(&request);
+        assert_eq!(
+            absent.families,
+            vec!["Inter".to_owned(), "monospace".to_owned()],
+        );
+        assert_eq!(absent.instead, Instead::Ours("DejaVu Sans".to_owned()));
+    }
+
+    #[test]
+    fn a_database_with_nothing_in_it_substitutes_nothing() {
+        let empty = FontDatabase::new();
+        let absent = empty.absent(&FontRequest::family("Inter"));
+        assert_eq!(absent.families, vec!["Inter".to_owned()]);
+        assert_eq!(
+            absent.instead,
+            Instead::Nothing,
+            "there is no family to name, and saying so beats naming one",
+        );
+    }
+
+    #[test]
+    fn a_request_naming_nothing_wanted_nothing() {
+        let database = database();
+        let absent = database.absent(&FontRequest::default());
+        assert!(absent.families.is_empty());
+        assert_eq!(absent.instead, Instead::TheirFallback);
+    }
+
+    #[test]
+    fn a_family_named_twice_is_wanted_once() {
+        let database = database();
+        let request = FontRequest {
+            families: vec!["Inter".to_owned(), "inter".to_owned()],
+            ..FontRequest::default()
+        };
+        assert_eq!(database.absent(&request).families, vec!["Inter".to_owned()]);
     }
 
     #[test]

@@ -34,6 +34,22 @@ text below was measured and drawn in a family the page did not ask for — and
 and it is not what this page looks like anywhere else. That is queue item 170,
 and this case is the evidence for it.
 
+*Item 170 is done, and the note above needs one correction it is worth being
+exact about. This case's `issues.txt` is still empty, and correctly so:
+`corpus_fonts` says `map_generic("system-ui", "DejaVu Sans")`, which is the
+corpus **declaring** what this machine's UI font is. A generic family answered
+by a mapping somebody made is not a substitution — it is what a generic means,
+and the declaration is deliberate, because a corpus that used the real system
+font would render differently on every machine and stop being diffable at all.
+What was genuinely silent was the case nobody had looked at: the browser
+process maps no generic at all, so a real renderer asked for `system-ui`, got
+DejaVu Sans by falling off the end of the chain, and said nothing. It says so
+now. That the corpus did not move is the evidence the rule is the right one —
+the substitution here was declared, and a declared one should not be reported.*
+
+*The render is still not what this page looks like elsewhere, and that is the
+font rather than the engine: item 105, web fonts, is where that closes.*
+
 What it did *not* find is worth recording too, because it was the thing being
 tested: `width:60vw` and `margin:15vh auto` resolve exactly (480 and 90 at
 800×600), `opacity:0.8` groups and ungroups, `a:link` gives `rgb(51 68 136)`,
