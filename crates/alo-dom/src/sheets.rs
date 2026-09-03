@@ -11,29 +11,51 @@
 //! anybody had thought about and refused. It was in the shape of the corpus, and
 //! it went unseen for as long as the corpus was ours.
 //!
-//! # What is here and what is not
+//! # `<style>` and `<link>` together, in document order
 //!
-//! `<style>` elements, in document order, because a later sheet overrides an
-//! earlier one and the order **is** the meaning.
+//! Both, and **in one list**, because a later sheet overrides an earlier one
+//! and the order is the meaning. A page that writes a `<link>` and then a
+//! `<style>` correcting it is relying on exactly that, and collecting the two
+//! kinds separately would silently reorder every such page.
 //!
-//! Not `<link rel="stylesheet">`: a linked sheet is a second thing to fetch,
-//! and what a page does while its style is still arriving is a real decision
-//! about flashes of unstyled content rather than a parsing detail. It waits for
-//! its own item.
+//! What is *not* here is the fetching. This says a sheet is linked and where
+//! from; getting the bytes is somebody else's job, because what a page does
+//! while its style is still arriving is a real decision about unstyled content
+//! rather than a parsing detail.
 
 use crate::document::Document;
 
-/// Every style sheet written into the markup, in document order.
+/// A style sheet a page asked for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Sheet {
+    /// Written into the markup, in a `<style>` element.
+    Written(String),
+    /// Somewhere else, named by a `<link>`.
+    Linked {
+        /// The `href`, exactly as the page wrote it — unresolved, because
+        /// resolving it needs the page's own address and this does not have
+        /// one.
+        href: String,
+    },
+}
+
+/// Every style sheet a page asks for, in document order.
 ///
-/// A `<style>` inside `<template>` is deliberately not here: a template's
-/// contents are inert until something clones them, and applying its style to
-/// the page would style things the page never showed.
-pub fn written_into(document: &Document) -> Vec<String> {
+/// A `<style>` or `<link>` inside `<template>` is deliberately not here: a
+/// template's contents are inert until something clones them, and applying
+/// their style to the page would style things the page never showed.
+pub fn asked_for(document: &Document) -> Vec<Sheet> {
     let mut found = Vec::new();
     for id in document.descendants(document.root()) {
         let Some(element) = document.element(id) else {
             continue;
         };
+        if element.name.local.eq_ignore_ascii_case("link") {
+            if let Some(href) = linked_sheet(element) {
+                found.push(Sheet::Linked { href });
+            }
+            continue;
+        }
         if !element.name.local.eq_ignore_ascii_case("style") {
             continue;
         }
@@ -52,8 +74,31 @@ pub fn written_into(document: &Document) -> Vec<String> {
         }
         let text = document.text_content(id);
         if !text.trim().is_empty() {
-            found.push(text);
+            found.push(Sheet::Written(text));
         }
     }
     found
+}
+
+/// Where a `<link>` points, if it is a style sheet at all.
+///
+/// `rel` is a space-separated list of keywords, so `rel="stylesheet alternate"`
+/// contains `stylesheet` and is not one this engine should apply — an alternate
+/// sheet is one a person chooses, and applying it as well would be applying
+/// two. Only a plain `stylesheet` is taken.
+fn linked_sheet(element: &crate::node::Element) -> Option<String> {
+    let attribute = |wanted: &str| {
+        element
+            .attrs
+            .iter()
+            .find(|attribute| attribute.name.local.eq_ignore_ascii_case(wanted))
+            .map(|attribute| attribute.value.trim().to_owned())
+    };
+    let rel = attribute("rel")?.to_ascii_lowercase();
+    let keywords: Vec<&str> = rel.split_ascii_whitespace().collect();
+    if !keywords.contains(&"stylesheet") || keywords.contains(&"alternate") {
+        return None;
+    }
+    let href = attribute("href")?;
+    if href.is_empty() { None } else { Some(href) }
 }

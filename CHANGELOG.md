@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's linked style sheets are applied**, and `<link>` and `<style>` are
+  collected into **one list in document order** — because a later sheet
+  overrides an earlier one and the order is the meaning. A page that links a
+  sheet and then writes a `<style>` correcting it depends on exactly that, and
+  gathering the two kinds separately would silently reorder every such page.
+- **A corpus case can hold more than one file.** A `linked.txt` maps an `href`
+  as the page wrote it to a file frozen beside the case. Written down rather
+  than inferred from filenames, because the `href` is what the page said and a
+  mapping somebody can read is a mapping somebody can check — the same reason a
+  case carries an `origin.txt`. Frozen, never fetched.
+- **A sheet that did not arrive is a state, not an error.** The page renders
+  without it and the fact is recorded as an issue, because a page styled by a
+  sheet that never came looks wrong for a reason nobody can see from the page.
+- `rel="stylesheet alternate"` is **not** applied. An alternate sheet is one a
+  person chooses, and applying it as well would be applying two.
+
 - **A wrapped inline reports the boxes it actually occupies.** A link crossing
   two lines is in two places — the end of one line and the start of the next —
   and their union covers the text between them, which belongs to somebody else.

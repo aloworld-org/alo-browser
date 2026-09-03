@@ -1,0 +1,7 @@
+# The href a page wrote, and the file beside this case holding what came back.
+# `/other.css` is deliberately here and deliberately not applied: the page links
+# it as `rel="stylesheet alternate"`, which is a sheet a person chooses.
+# `/never-arrived.css` is deliberately absent, so the case covers a page whose
+# style did not turn up.
+/site.css site.css
+/other.css other.css

@@ -28,7 +28,7 @@
 pub mod case;
 pub mod check;
 
-pub use alo_renderer::pipeline::{Rendered, render};
+pub use alo_renderer::pipeline::{Rendered, render, render_with};
 pub use case::Case;
 pub use check::{Difference, check};
 

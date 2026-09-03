@@ -1,0 +1,3 @@
+/* Deliberately empty of colour. The whole point of this case is which of the
+   page's own sheets wins, and a rule here would be appended after all of them
+   and decide it instead. */

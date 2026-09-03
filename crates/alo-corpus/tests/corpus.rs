@@ -5,7 +5,7 @@
 //! differs, with **every** expectation that differs in it. A run that fails
 //! tells you the whole story rather than the first sentence of it.
 
-use alo_corpus::{Case, cases_directory, check, corpus_fonts, render};
+use alo_corpus::{Case, cases_directory, check, corpus_fonts, render_with};
 use alo_layout::Size;
 use core::fmt::Write as _;
 
@@ -20,11 +20,12 @@ fn every_case_renders_the_way_it_is_committed_to() {
 
     let mut report = String::new();
     for case in &cases {
-        let rendered = render(
+        let rendered = render_with(
             &case.html,
             &case.css,
             Size::new(case.size.0, case.size.1),
             &fonts,
+            &case.linked,
         );
         let differences = check(case, &rendered);
         if differences.is_empty() {
@@ -53,8 +54,8 @@ fn every_case_is_rendered_the_same_way_twice() {
     let fonts = corpus_fonts();
     for case in Case::read_all(&cases_directory()) {
         let size = Size::new(case.size.0, case.size.1);
-        let first = render(&case.html, &case.css, size, &fonts);
-        let second = render(&case.html, &case.css, size, &fonts);
+        let first = render_with(&case.html, &case.css, size, &fonts, &case.linked);
+        let second = render_with(&case.html, &case.css, size, &fonts, &case.linked);
         assert_eq!(
             first.display.to_outline(),
             second.display.to_outline(),

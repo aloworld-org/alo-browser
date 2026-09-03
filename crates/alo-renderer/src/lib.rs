@@ -57,6 +57,6 @@ pub mod wire;
 pub use frame::Frame;
 pub use message::{Failure, FromRenderer, ToRenderer};
 pub use page::Page;
-pub use pipeline::{Rendered, render, render_document};
+pub use pipeline::{Rendered, render, render_document, render_document_with, render_with};
 pub use renderer::Renderer;
 pub use snapshot::{Snapshot, SnapshotNode};

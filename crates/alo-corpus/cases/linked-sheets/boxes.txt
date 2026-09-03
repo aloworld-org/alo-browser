@@ -1,0 +1,10 @@
+block flow · document
+  block flow · generic
+    block flow · paragraph
+      text "styled by a linked sheet"
+    block flow · paragraph
+      text "the linked sheet said red, the inline one after it says green"
+    block flow · paragraph
+      text "styled by the inline sheet after the links"
+    block flow · paragraph
+      text "an alternate sheet must not apply"

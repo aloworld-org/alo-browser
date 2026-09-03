@@ -1,0 +1,5 @@
+text box#3 "styled by a linked sheet" rgb(0 0 204) 14px at (0, 16.995117)
+text box#6 "the linked sheet said red, the inline one after" rgb(0 119 0) 14px at (0, 37.291992)
+text box#6 "it says green" rgb(0 119 0) 14px at (0, 53.588867)
+text box#9 "styled by the inline sheet after the links" rgb(0 119 0) 14px at (0, 73.88574)
+text box#12 "an alternate sheet must not apply" rgb(0 0 0) 14px at (0, 94.18262)

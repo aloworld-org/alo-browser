@@ -1,0 +1,9 @@
+document at (0, 0) 320×101.484375
+  paragraph at (0, 4) 320×16.296875
+    text "styled by a linked sheet" at (0, 4) 166.65332×16.296875
+  paragraph at (0, 24.296875) 320×32.59375
+    text "the linked sheet said red, the inline one after it says green" at (0, 24.296875) 315.44434×32.59375 in 2 pieces
+  paragraph at (0, 60.890625) 320×16.296875
+    text "styled by the inline sheet after the links" at (0, 60.890625) 278.81738×16.296875
+  paragraph at (0, 81.1875) 320×16.296875
+    text "an alternate sheet must not apply" at (0, 81.1875) 238.9707×16.296875

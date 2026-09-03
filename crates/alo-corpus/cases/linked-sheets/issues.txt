@@ -1,0 +1,2 @@
+line 1: Unexpected token
+no style sheet was loaded for "/never-arrived.css"

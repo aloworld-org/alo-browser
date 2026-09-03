@@ -1,0 +1,4 @@
+body { margin: 0; font-family: 'DejaVu Sans'; font-size: 14px }
+p { margin: 4px 0 }
+.from-link { color: #0000cc }
+.overridden { color: #cc0000 }

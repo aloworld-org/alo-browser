@@ -744,6 +744,16 @@ wrong, which is the argument for the fourth.
   predicted. The outline says `in 2 pieces` rather than listing them, which
   keeps it readable while no longer implying a wrapped link is a rectangle.
 
+- [x] **175. A corpus case with more than one file.** A real page keeps its
+  style in a second file, so a corpus that could only hold one could only ever
+  hold pages that keep it inline — which is almost none of them. `linked.txt`
+  maps an `href` to a file frozen beside the case.
+  *Depends on 68.*
+
+  **Done**, and it needed `<link>` and `<style>` gathered into one list in
+  document order rather than two — which is the part that would have been
+  silently wrong if the sheets had been collected by kind.
+
 - [ ] **170. Fonts a page asks for by name.** *Item 68's first case is the
   evidence: it asks for `system-ui, sans-serif`, gets DejaVu Sans, and nothing
   says so.* Today every renderer is given the

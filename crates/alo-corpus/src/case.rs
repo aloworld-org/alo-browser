@@ -41,6 +41,17 @@ pub struct Case {
     pub css: String,
     /// How large a picture to render.
     pub size: (f32, f32),
+    /// The style sheets the page links to, frozen beside it.
+    ///
+    /// An `href` exactly as the page wrote it, and the CSS behind it. A real
+    /// page keeps its style in a second file, and a case that could not hold
+    /// one could only ever be a page that keeps it inline — which is a thing
+    /// almost no page does.
+    ///
+    /// **Frozen, never fetched**, for the reason `LOOP.md` gives: a suite that
+    /// went to the network would be flaky, would fail on an aeroplane, and
+    /// would hand every site's owner the ability to break our build.
+    pub linked: Vec<(String, String)>,
 }
 
 impl Case {
@@ -63,6 +74,7 @@ impl Case {
             html,
             css,
             size,
+            linked: linked_sheets(directory),
         })
     }
 
@@ -92,6 +104,38 @@ impl Case {
 fn parse_size(text: &str) -> Option<(f32, f32)> {
     let (width, height) = text.trim().split_once(['x', '×'])?;
     Some((width.trim().parse().ok()?, height.trim().parse().ok()?))
+}
+
+/// The frozen sub-resources beside a case, from its `linked.txt`.
+///
+/// One per line: the `href` as the page wrote it, a space, and the file beside
+/// the case holding what came back. Written down rather than inferred from
+/// filenames, because the `href` is what the page said and a mapping somebody
+/// can read is a mapping somebody can check — which is the same reason a case
+/// carries an `origin.txt`.
+///
+/// A line naming a file that is not there is skipped, so the case renders as a
+/// page whose style sheet did not arrive — which the renderer records as an
+/// issue rather than treating as an error, because it is a real state.
+fn linked_sheets(directory: &Path) -> Vec<(String, String)> {
+    let Ok(list) = std::fs::read_to_string(directory.join("linked.txt")) else {
+        return Vec::new();
+    };
+    let mut found = Vec::new();
+    for line in list.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some((href, file)) = line.split_once(char::is_whitespace) else {
+            continue;
+        };
+        let Ok(text) = std::fs::read_to_string(directory.join(file.trim())) else {
+            continue;
+        };
+        found.push((href.trim().to_owned(), text));
+    }
+    found
 }
 
 #[cfg(test)]

@@ -65,7 +65,24 @@ impl Rendered {
 
 /// Render markup and a style sheet at a size.
 pub fn render(html: &str, css: &str, size: Size, fonts: &FontDatabase) -> Rendered {
-    render_document(alo_dom::parse_document(html), css, size, fonts)
+    render_with(html, css, size, fonts, &[])
+}
+
+/// The same, with the style sheets a page linked to already fetched.
+///
+/// `linked` maps an `href` exactly as the page wrote it to the CSS behind it.
+/// A page that links to something not in the list is **not** an error — it is a
+/// sheet that has not arrived, which is a real state a page can be in — but it
+/// is recorded as an issue, because a page styled by a sheet that never came is
+/// a page that looks wrong for a reason nobody can see.
+pub fn render_with(
+    html: &str,
+    css: &str,
+    size: Size,
+    fonts: &FontDatabase,
+    linked: &[(String, String)],
+) -> Rendered {
+    render_document_with(alo_dom::parse_document(html), css, size, fonts, linked)
 }
 
 /// Render a document that already exists.
@@ -81,6 +98,22 @@ pub fn render_document(
     size: Size,
     fonts: &FontDatabase,
 ) -> Rendered {
+    render_document_with(document, css, size, fonts, &[])
+}
+
+/// The same, with the style sheets a page linked to already fetched.
+///
+/// # Errors
+///
+/// None: a linked sheet that is not in `linked` is recorded as an issue rather
+/// than refused, because a page whose style has not arrived is still a page.
+pub fn render_document_with(
+    document: Document,
+    css: &str,
+    size: Size,
+    fonts: &FontDatabase,
+    linked: &[(String, String)],
+) -> Rendered {
     let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
     // A page's own `<style>` elements, then whatever the caller supplied. In
     // that order because a later sheet overrides an earlier one, and a caller
@@ -90,10 +123,24 @@ pub fn render_document(
     // This was missing until the first page taken off the web arrived carrying
     // its whole style sheet inside itself, which is what pages do and which the
     // corpus never showed because the corpus was ours.
-    let written_in = alo_dom::sheets::written_into(&document);
-    let mut parsed: Vec<_> = written_in
-        .iter()
-        .map(|text| parse_stylesheet(text))
+    let mut missing = Vec::new();
+    let mut parsed: Vec<_> = alo_dom::sheets::asked_for(&document)
+        .into_iter()
+        .map(|sheet| match sheet {
+            alo_dom::sheets::Sheet::Written(text) => parse_stylesheet(&text),
+            alo_dom::sheets::Sheet::Linked { href } => {
+                if let Some((_, text)) = linked.iter().find(|(at, _)| *at == href) {
+                    parse_stylesheet(text)
+                } else {
+                    // Not an error: a sheet that has not arrived is a real
+                    // state a page can be in. Recorded, because a page styled
+                    // by a sheet that never came looks wrong for a reason
+                    // nobody can see from the page itself.
+                    missing.push(format!("no style sheet was loaded for {href:?}"));
+                    parse_stylesheet("")
+                }
+            }
+        })
         .collect();
     parsed.push(parse_stylesheet(css));
     let mut sheets = vec![SourcedSheet::new(Origin::UserAgent, &agent)];
@@ -105,12 +152,13 @@ pub fn render_document(
     // Both dimensions, because `vh` is as real as `vw` and the window is the
     // one thing here that actually knows them.
     let device = MediaContext::sized(size.width, size.height, ColorScheme::Light);
-    let sheet_issues: Vec<String> = agent
+    let mut sheet_issues: Vec<String> = agent
         .issues()
         .iter()
         .chain(parsed.iter().flat_map(alo_css::Stylesheet::issues))
         .map(ToString::to_string)
         .collect();
+    sheet_issues.extend(missing);
     let styles = alo_style::resolve(&document, &sheets, &device);
     let boxes = alo_box::build(&document, &styles);
 

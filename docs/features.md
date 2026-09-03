@@ -126,7 +126,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A truncated body is an **error**, not a short page
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
-- [2] **A page's own `<style>` elements**, in document order
+- [2] **A page's own style sheets** — `<style>` and `<link>` together, in
+  document order, with an alternate sheet left alone and a missing one recorded
 - [2] **A wrapped inline is more than one rectangle** — and offscreen only when
   every piece of it is
 - [2] **`text-decoration`**: underline, overline and line-through, stopping at

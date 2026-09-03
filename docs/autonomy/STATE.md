@@ -4035,3 +4035,52 @@ stylesheet, an image and a form — and the first thing it will need is corpus
 machinery for a case with more than one file, which does not exist yet. That is
 worth doing as its own item rather than smuggling into the page's.
 
+---
+
+## Iteration 64 — queue item 175: a case with more than one file
+
+The machinery the last journal entry said should be its own item rather than
+smuggled into a page's. It was right to separate them: this turned out to
+contain a decision that would have been invisible inside a page's iteration.
+
+**The decision: `<link>` and `<style>` are one list, in document order.** The
+obvious implementation collects the linked sheets and the written ones
+separately and concatenates them. That is wrong for every page that links a
+sheet and then writes a `<style>` correcting it — which is a common shape, and
+which would have come out with the correction losing. Nothing would have
+crashed; the page would just have been the wrong colour, for a reason two
+crates apart from where it looked.
+
+So `alo_dom::sheets` returns one ordered list of *what the page asked for*,
+written or linked, and the pipeline resolves the linked ones as it walks it. The
+corpus case has a paragraph whose colour is red in the linked sheet and green in
+the inline one after it, and the case's own `style.css` is **deliberately empty
+of colour** — because a rule there is appended last and would decide the
+question instead of document order. My first version of the case had the green
+in `style.css` and would have passed against a completely broken ordering.
+
+**A sheet that did not arrive is a state rather than an error.** The page renders
+without it, and the fact goes into `issues.txt`. A page styled by a sheet that
+never came looks wrong for a reason nobody can see from the page, so the engine
+saying so is the whole difference between a mystery and a fact. The case links
+one that is deliberately absent.
+
+**`rel="stylesheet alternate"` is not applied**, and the case covers it. An
+alternate sheet is one a person chooses; applying it as well would be applying
+two. It is the sort of thing that works by accident until a page ships both.
+
+**Frozen, never fetched.** `linked.txt` maps an `href` as the page wrote it to a
+file beside the case, written down rather than inferred from filenames — because
+the `href` is what the page said, and a mapping somebody can read is a mapping
+somebody can check. Same reason a case carries an `origin.txt`.
+
+**The gate.** Green: fmt, clippy zero and zero, 1196 tests.
+
+**What the next iteration should know.** The corpus can now hold a real page
+with a real stylesheet, which is what the last three journal entries have been
+building towards. The remaining gap for a *hard* page is images: there is no
+image decoding at all — `alo-paint` has nothing for it and section H has seven
+open items — so a page with pictures will render their space and not their
+content. That is worth knowing **before** freezing such a page, so the case is
+taken with the gap understood rather than discovered as a failure.
+
