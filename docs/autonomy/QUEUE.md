@@ -408,7 +408,7 @@ first. Nothing here needs JavaScript.
   into item 54**: framing is the half where being wrong is a security bug, and
   it was worth the whole iteration.
 
-- [ ] **54. Connection pooling and keep-alive.** Cut from item 53. A pool that
+- [x] **54. Connection pooling and keep-alive.** Cut from item 53. A pool that
   hands out a stream, a connection reused across exchanges, and a request that
   can be cancelled. `exchange` already takes a stream from anywhere, so this is
   the pool rather than a change to the framing — and `Connection: close` comes
@@ -416,6 +416,12 @@ first. Nothing here needs JavaScript.
   *Depends on 53. Closes when:* two fetches of the same host use one socket,
   and a server that closes a pooled connection mid-exchange is a failure rather
   than a hang.
+
+  **Done.** The change that made it possible was moving the read-ahead buffer
+  from the exchange to the connection — a reader thrown away between exchanges
+  takes the start of the next response with it. The retry is narrow on purpose:
+  reused, **and** nothing arrived, **and** the method may be repeated. A `POST`
+  is never retried, because a payment that has happened must not happen twice.
 
 - [ ] **54. Content encodings**: gzip, brotli, zstd, rented.
   *Depends on 53. Closes when:* each round-trips, and a corrupt stream is

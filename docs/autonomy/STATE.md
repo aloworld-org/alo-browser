@@ -2379,3 +2379,59 @@ socket is to be kept, and a pooled connection that a server closed while it sat
 idle must be a retry rather than a failure — that race is the one every HTTP
 client gets wrong first.
 
+---
+
+## Iteration 39 — queue item 54: keeping a connection
+
+**The change that made pooling possible was not the pool.** It was moving the
+read-ahead buffer from the *exchange* to the *connection*. Reading a response
+means reading ahead: by the time one body ends, the reader may already hold the
+first bytes of the next response. Item 53 threw that reader away between
+exchanges — correctly, because there was nothing to reuse — and doing the same
+thing with a pool would have left every second request starting in the middle
+of a sentence. `Connection` is now the buffer, which is why it is a type.
+
+**A kept connection is a bet.** A server can close an idle one at any moment
+and there is no way to be told, so every reuse is a gamble and the interesting
+question is what losing looks like. It looks like a retry, and the conditions
+are narrow on purpose — all three, or it is a failure:
+
+1. the connection was **reused** rather than freshly opened,
+2. **not one byte** of an answer arrived,
+3. the method is one where doing it twice is the same as doing it once.
+
+**The third is about the method, not about how likely it seems.** A `POST` that
+failed after the server received it is a payment that has happened; sending it
+again is a payment that has happened twice. There is a test that makes a `POST`
+fail on a dead pooled connection and asserts that **no second socket is
+opened** — which is the assertion that would catch somebody later "improving"
+the retry into something more helpful.
+
+**The scheme is part of which server a connection goes to.** An `http`
+connection is never handed out for an `https` request; doing that would send a
+page's cookies in the clear. It is one field in a key and it is worth naming.
+
+**Bounds, because a pool without them is a file-descriptor leak.** Six per host
+(what browsers settled on), sixty-four in all, and twenty seconds before an
+idle connection is closed rather than gambled on — servers commonly close at
+five, so keeping one for minutes means losing the bet nearly every time, and
+every lost bet costs a round trip more than opening one would have.
+
+**One thing the tests forced that is a real improvement.** The suite took
+thirty seconds, all of it one test waiting out the browser's timeout on a
+server that never answers. How long to wait is now a caller's choice: a browser
+wants tens of seconds, that test wants half of one. The suite is back to half a
+second and the engine gained something it was going to need anyway.
+
+**The roadmap line this item served** is stage 2's *HTTP/1.1, then HTTP/2*; its
+Built clause now names pooling and the retry, and Owed is down to HTTP/2 alone.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 930 tests, no stubs, boundaries held, no verb takes a coordinate.
+
+**What the next iteration should know.** Item 55, content encodings — gzip,
+brotli, zstd, all rented. The interesting half is not decoding: it is that a
+**decompression bomb** is a body that is small on the wire and enormous in
+memory, so `LARGEST_BODY` has to apply to what comes *out* rather than to what
+came in. That is the hostile-input rule pointed at a new place.
+

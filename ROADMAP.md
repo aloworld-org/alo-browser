@@ -163,8 +163,10 @@ unreachable without it.
       · Built: HTTP/1.1 (queue item 53) — a request out, a response in, body
       framing by length, by chunks and by close, and every message that says
       two things about where it ends refused by name. `http:` and `https:`
-      fetch over a socket · Owed: queue item 54, pooling and keep-alive; and
-      queue item 59, HTTP/2
+      fetch over a socket. **Pooling and keep-alive** (queue item 54), with the
+      retry that has to come with them: a reuse that fails before a byte
+      arrives is tried again, and a request that must not happen twice never is
+      · Owed: queue item 59, HTTP/2
 - [ ] HTTP/3 and QUIC, once those two are correct
 - [ ] DNS, and encrypted DNS as a choice somebody made rather than a default nobody was told about
 - [ ] Content encodings: gzip, brotli, zstd

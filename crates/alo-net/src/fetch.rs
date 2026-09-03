@@ -59,10 +59,12 @@ pub fn fetch(request: &Request) -> Result<Response, FetchError> {
         "data" => schemes::data(url).map_err(|why| failed(url, why)),
         "file" => schemes::file(url).map_err(|why| failed(url, why)),
         "http" | "https" => {
-            // What this machine trusts, read once per fetch. Queue item 54's
-            // pool is where it starts being held rather than re-read.
-            let trust = crate::tls::Trust::from_this_machine().map_err(|why| failed(url, why))?;
-            crate::connection::fetch(request, &trust).map_err(|why| failed(url, why))
+            // A pool of one fetch, which keeps nothing: this function has
+            // nowhere to hold a connection between calls. A caller that wants
+            // reuse holds a `crate::Pool` and fetches through it, which is
+            // what everything above this will do.
+            let mut pool = crate::Pool::from_this_machine().map_err(|why| failed(url, why))?;
+            pool.fetch(request).map_err(|why| failed(url, why))
         }
         other => Err(FetchError::UnsupportedScheme {
             scheme: other.to_owned(),

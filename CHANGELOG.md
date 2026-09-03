@@ -6,6 +6,33 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Connections are kept between requests.** Opening a socket costs a round
+  trip and a TLS one costs two or three; a page asks for thirty things from the
+  same host, so a browser that opened thirty connections would spend most of a
+  page load saying hello. Three fetches of one host now use one socket.
+- **The buffer moved from the exchange to the connection**, which is the change
+  that made reuse possible at all. Reading a response means reading *ahead* —
+  by the time one body ends, the reader may hold the beginning of the next
+  response. Throwing that reader away between exchanges leaves the next one
+  starting in the middle of a sentence.
+- **A kept connection is a bet, and losing it is a retry rather than a
+  failure.** A server can close an idle connection at any moment and there is
+  no way to be told. So a request is tried again only when all three hold: the
+  connection was **reused**, **not one byte** of an answer arrived, and the
+  method is one where doing it twice is the same as doing it once.
+- That third condition is about the **method**, not about how likely it seems.
+  A `POST` that failed after the server received it is a payment that has
+  happened; sending it again is a payment that has happened twice.
+- The **scheme is part of which server a connection goes to**, so an `http`
+  connection is never handed out for an `https` request — doing that would send
+  a page's cookies in the clear.
+- Bounds, because a pool without them is a file-descriptor leak: six idle
+  connections per host, sixty-four in all, and twenty seconds before an idle one
+  is closed rather than gambled on.
+- How long to wait for a server that has gone quiet is now something a caller
+  chooses. A browser wants tens of seconds; the test for a server that never
+  answers wants half of one, and used to make the whole suite wait thirty.
+
 - **HTTP/1.1**, ours rather than rented. The syntax is a few lines of ASCII and
   the difficulty is not reading it — it is **refusing the readings that are
   almost right**, because nearly every famous HTTP bug is a parser being

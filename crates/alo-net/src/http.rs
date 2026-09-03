@@ -64,9 +64,25 @@ impl fmt::Display for Malformed {
 
 impl std::error::Error for Malformed {}
 
+/// Which HTTP/1 a response is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Version {
+    /// `HTTP/1.0`: a connection closes unless the response says otherwise.
+    Http10,
+    /// `HTTP/1.1`: a connection stays open unless the response says otherwise.
+    Http11,
+}
+
 /// A response's head: everything before the body.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Head {
+    /// Which HTTP/1 this is.
+    ///
+    /// Kept because it decides whether a connection may be reused when nobody
+    /// said: 1.1 keeps it open unless told otherwise, and 1.0 closes it unless
+    /// told otherwise. Dropping it would mean guessing, and guessing wrong
+    /// leaves a socket that the next request hangs on.
+    pub version: Version,
     /// The status.
     pub status: Status,
     /// The reason phrase, which servers are free to make up and often do.
@@ -113,9 +129,11 @@ pub fn write_request(request: &Request) -> Vec<u8> {
         }
         let _ = write!(out, "{}: {}\r\n", header.name, header.value);
     }
-    // Closed after one exchange until queue item 54 brings pooling, and saying
-    // so is politer than letting a server hold a socket open for nothing.
-    out.push_str("Connection: close\r\n\r\n");
+    // **No `Connection` header.** HTTP/1.1 keeps a connection open unless
+    // somebody says otherwise, and this engine wants it kept — see
+    // `crate::pool`. Saying `close` here is what queue item 53 did while there
+    // was nothing to reuse it with.
+    out.push_str("\r\n");
     out.into_bytes()
 }
 
@@ -125,9 +143,9 @@ pub fn write_request(request: &Request) -> Vec<u8> {
 ///
 /// [`Malformed`] for anything this engine will not read — including the four
 /// almost-right readings in this file's own note.
-pub fn read_head(source: &mut impl std::io::BufRead) -> Result<Head, Malformed> {
+pub fn read_head(source: &mut impl std::io::Read) -> Result<Head, Malformed> {
     let line = read_line(source, LONGEST_STATUS_LINE)?;
-    let (status, reason) = parse_status_line(&line)?;
+    let (version, status, reason) = parse_status_line(&line)?;
 
     let mut headers = Headers::new();
     loop {
@@ -143,6 +161,7 @@ pub fn read_head(source: &mut impl std::io::BufRead) -> Result<Head, Malformed> 
     }
     check_framing_is_unambiguous(&headers)?;
     Ok(Head {
+        version,
         status,
         reason,
         headers,
@@ -150,16 +169,19 @@ pub fn read_head(source: &mut impl std::io::BufRead) -> Result<Head, Malformed> 
 }
 
 /// `HTTP/1.1 200 OK`.
-fn parse_status_line(line: &str) -> Result<(Status, String), Malformed> {
-    let rest = line
-        .strip_prefix("HTTP/1.1 ")
-        .or_else(|| line.strip_prefix("HTTP/1.0 "))
-        .ok_or_else(|| {
+fn parse_status_line(line: &str) -> Result<(Version, Status, String), Malformed> {
+    let (version, rest) = if let Some(rest) = line.strip_prefix("HTTP/1.1 ") {
+        (Version::Http11, rest)
+    } else if let Some(rest) = line.strip_prefix("HTTP/1.0 ") {
+        (Version::Http10, rest)
+    } else {
+        return Err({
             Malformed::new(format!(
                 "the first line is not an HTTP/1 status line: {:?}",
                 shorten(line)
             ))
-        })?;
+        });
+    };
     let (code, reason) = match rest.split_once(' ') {
         Some((code, reason)) => (code, reason),
         None => (rest, ""),
@@ -172,7 +194,7 @@ fn parse_status_line(line: &str) -> Result<(Status, String), Malformed> {
     let code: u16 = code
         .parse()
         .map_err(|_| Malformed::new("the status does not fit in a status"))?;
-    Ok((Status(code), reason.trim().to_owned()))
+    Ok((version, Status(code), reason.trim().to_owned()))
 }
 
 /// `Name: value`, and none of the readings that are almost that.
@@ -241,7 +263,7 @@ fn check_framing_is_unambiguous(headers: &Headers) -> Result<(), Malformed> {
 }
 
 /// One line, without its ending, refusing one that never ends.
-fn read_line(source: &mut impl std::io::BufRead, longest: usize) -> Result<String, Malformed> {
+fn read_line(source: &mut impl std::io::Read, longest: usize) -> Result<String, Malformed> {
     let mut bytes = Vec::new();
     // Read a byte at a time so the limit is a limit rather than a hope: a
     // `read_until` with no bound will allocate for as long as a server keeps
