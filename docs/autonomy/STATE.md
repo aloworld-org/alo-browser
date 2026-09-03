@@ -4927,3 +4927,90 @@ offers it.
 
 Item 183, the fieldset border, is still the one iterations 70, 72, 73 and 74
 each named and nobody has taken.
+
+---
+
+## Iteration 76 — queue item 155: the cache on a disk
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 155 was
+the first unticked item, its dependency (56) is done, and iteration 75 had
+already written its ADR — so this iteration is the code that ADR 0011 asked
+for, and nothing else.
+
+**What was built, in the three files it takes.**
+
+- **`record.rs` — one entry as bytes, and the whole untrusted surface.** A magic
+  number, a version, a sequence, a checksum, and then the response. Every length
+  is checked against what is actually there before anything is reserved and every
+  step that a hostile number could push past the end is `checked_`. The tests
+  walk **every** truncation of a real entry and **every** single flipped byte of
+  one, and each is refused; a version we do not know is discarded rather than
+  interpreted; bytes appended after the end make it a miss, because that is what
+  a file half overwritten by somebody else looks like.
+- **`disk.rs` — the directory, the bound, and the policy.**
+  `why_it_is_never_written` is ADR 0011 section 2 as one function, consulted in
+  one place. The directory is created `0700` and every file `0600`, and set
+  rather than assumed, because a directory that already existed was made by
+  something else. A write goes to a `.writing` file, is `fsync`ed, and is renamed
+  over the entry, so a power cut leaves the old one or the new one and never half
+  of either. Bounds are **values** rather than constants — which is what made the
+  byte bound testable without writing sixty-four megabytes to reach it.
+- **`cache.rs` — the key, and the second question.** The key now carries the
+  top-level site, on the same `Partition` the cookie jar uses, and there is no
+  method that does not take one. `keep` asks `why_it_is_never_written` before it
+  writes; when the answer is a reason, it **removes** any entry that key already
+  had — a URL that was public yesterday and hands out a session token today must
+  not be served from the disk after a restart. `refresh` asks again, because a
+  `304` carries headers and one of them can be a `Set-Cookie`.
+
+**What the shape refuses to allow.** `Pool::follow` takes the top-level site
+now, and so does every `Cache` method. That is `jar.rs`'s promise repeated: the
+alternative was a field on `Request` with a sensible default, and a default is
+exactly how a subresource gets keyed under its own host and the cache is shared
+across sites again with nobody having decided it. `fetch::fetch` supplies the
+request's own URL, and the comment there says why that is right *only* there —
+its pool's cache is created and discarded inside the call, so there is no second
+site for anything to be joined to.
+
+**One thing the ADR overstates, said in the code rather than left implied.**
+Section 4 claims the checksum *"stops it writing a page into somebody's bank
+origin"*. An unkeyed checksum does not: anything that can write the file can
+compute the number that goes with it. What it does catch is exact and worth
+having — a half-written file, a flipped bit, another program's file under our
+name. `record.rs`'s module comment says both, and says that section 3's
+boundary is unchanged: against another user account the cache is protected,
+against a program running as the person it is not, and a key that would have to
+live next to the data is not a key. That is a refinement, not a relaxation, and
+it is written down where somebody will read it.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1340 tests** (up from 1310), no stubs, no `unsafe`, boundaries held, a
+`CHANGELOG.md` line. No layout assertion and no reference render: nothing here
+positions, sizes or draws. The stage 2 clause for anything that reads bytes from
+outside is met by `record.rs`'s malformed, truncated and adversarial tests and by
+`a_directory_full_of_rubbish_is_a_miss_rather_than_a_failure_to_load`, which puts
+eight kinds of rubbish in the directory and then puts the real entry back — so
+the refusals are the checks working rather than nothing ever hitting.
+
+**`ROADMAP.md`.** The line moved is *"The HTTP cache, with real semantics"*. Its
+`Owed:` clause named item 155 and nothing else, so the clause is gone and the
+`Built:` clause now names the ADR **and** the code. The box was already ticked
+by item 56 and is not touched. `docs/features.md` gains three lines in the built
+section rather than one, because the disk, the never-written list and the
+untrusted-input rule are three promises and not one.
+
+**What the next iteration should know.** Item 156, the public suffix list, is
+now the ready chore worth most: `Partition::of` is the host in **two** places
+that must agree, and correcting it corrects both at once — which is the whole
+reason ADR 0011 put the cache on the cookie jar's partition rather than on one
+of its own.
+
+Two things this deliberately did not do, both named in the ADR. There is no
+**quota** policy here and it must not become one by precedent (item 90). And no
+speed number is quoted anywhere: partitioning costs re-fetches, the never-written
+list makes the disk weakest where it would help most, and how much either costs
+is item 117 on hardware or is not said. `Cache::counts` across a restart is the
+measurement ADR 0011 asks for; nothing has run it on real use yet.
+
+And item 183, the fieldset border, is still the one iterations 70, 72, 73, 74
+and 75 each named and nobody has taken.

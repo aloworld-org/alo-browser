@@ -66,8 +66,17 @@ pub fn fetch(request: &Request) -> Result<Response, FetchError> {
             //
             // `follow` rather than `fetch`, because a load that stopped at a
             // `301` and handed up its empty body would be a blank page.
+            //
+            // The top-level site is the request's own URL. That is the right
+            // answer here and only here: this pool's cache is created and
+            // discarded inside this call, so there is no second site for
+            // anything to be joined to — which is the whole of what a partition
+            // prevents (ADR 0011). A caller whose cache outlives one load holds
+            // a `crate::Pool` and tells `follow` which site it is inside.
             let mut pool = crate::Pool::from_this_machine().map_err(|why| failed(url, why))?;
-            pool.follow(request).map_err(|why| failed(url, why))
+            let within = crate::cookie::Partition::of(url);
+            pool.follow(request, &within)
+                .map_err(|why| failed(url, why))
         }
         other => Err(FetchError::UnsupportedScheme {
             scheme: other.to_owned(),

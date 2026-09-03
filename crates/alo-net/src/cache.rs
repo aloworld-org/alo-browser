@@ -15,26 +15,36 @@
 //! `Vary: *` means the server is telling us it cannot promise that for
 //! anything, and the only correct reading is to never reuse the response.
 //!
-//! # What this is not, yet
+//! # Two questions, not one
 //!
-//! Memory, for one process, gone when it exits. Persisting it is queue item
-//! 155, and it is a separate item because *what may be written to a disk that
-//! other programs can read* is a different question from *what may be reused*,
-//! with a different answer for a page behind a password.
+//! *May this be reused* is above. *May this be written down* is a different
+//! question with a different answer for a page behind a password, and **ADR
+//! 0011** decides it. Three of its clauses are here and the rest are in
+//! [`crate::disk`] and [`crate::record`].
 //!
-//! That question is now decided rather than open: **ADR 0011**. Nothing here
-//! changes when the disk arrives — a response that went to disk is served under
-//! exactly these rules — but three of its clauses land in this file when it
-//! does. The key gains the **top-level site**, on the same `Partition` the
-//! cookie jar uses, because a cache shared across sites is a history oracle and
-//! an identifier that outlives clearing cookies. [`Cache::keep`] gains a second
-//! question, *may this be written down*, whose answer is no for a `private`
-//! response, a request that carried `Authorization` and a response carrying
-//! `Set-Cookie` — never written, rather than written and deleted. And the disk
-//! is the browser process's alone (ADR 0005), so nothing in a renderer opens
-//! one.
+//! **The key carries the top-level site.** The same [`Partition`] the cookie jar
+//! uses, and for ADR 0007's reason: a cache shared across sites answers *have
+//! you been somewhere that loads this* for any site that thinks to time a load,
+//! and an entry only one visitor was ever given is an identifier that survives
+//! clearing cookies. There is no method here that does not take one, which is
+//! how the promise is kept by the shape rather than by everybody remembering.
+//!
+//! **[`Cache::keep`] asks the second question before anything is written**, and
+//! [`crate::disk::why_it_is_never_written`] answers it. Never written, rather
+//! than written and deleted: a file that was deleted was still on the disk.
+//!
+//! **A cache with no disk is what a session-scoped profile is.**
+//! [`Cache::new`] has one nowhere; [`Cache::kept_on`] is the deliberate act of
+//! opening one. And that disk belongs to the browser process alone (ADR 0005),
+//! so nothing in a renderer opens one.
+//!
+//! What the disk does **not** change is anything above: a response that went to
+//! a disk is served under exactly the freshness and `Vary` rules it would have
+//! been served under from memory.
 
+use crate::cookie::Partition;
 use crate::directives::{Directives, Flag};
+use crate::disk::Disk;
 use crate::freshness::{self, Stored, Verdict};
 use crate::headers::Headers;
 use crate::httpdate;
@@ -59,6 +69,10 @@ pub struct Cache {
     /// millisecond still have an order, and the clock is not involved in a
     /// decision that has nothing to do with time.
     order: Vec<String>,
+    /// Where this survives a restart, when somebody opened one. [`None`] is a
+    /// cache that was never written to a disk at all — private browsing, and
+    /// any profile that is session-scoped (ADR 0011).
+    disk: Option<Disk>,
     hits: usize,
     revalidations: usize,
     misses: usize,
@@ -79,9 +93,29 @@ pub enum Answer {
 }
 
 impl Cache {
-    /// An empty cache.
+    /// An empty cache, in memory, that outlives nothing.
+    ///
+    /// This is what a session-scoped profile has, in ADR 0011's words: *"not a
+    /// cache that is emptied at the end: a cache that was never opened."*
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// The same cache, with a disk behind it.
+    ///
+    /// Opening one is deliberate and it is the browser process's to do —
+    /// ADR 0005 gives a renderer no filesystem, and ADR 0011 section 5 refuses
+    /// the temptation to hand it one, because a compromised renderer with this
+    /// directory would have every page that person has read across every site.
+    #[must_use]
+    pub fn kept_on(mut self, disk: Disk) -> Self {
+        self.disk = Some(disk);
+        self
+    }
+
+    /// The disk behind this, for a caller that wants to look.
+    pub fn disk(&self) -> Option<&Disk> {
+        self.disk.as_ref()
     }
 
     /// How many requests were answered without going out, revalidated, and not
@@ -102,10 +136,16 @@ impl Cache {
         self.kept.is_empty()
     }
 
-    /// What to do about this request.
-    pub fn answer(&mut self, request: &Request, now: SystemTime) -> Answer {
+    /// What to do about this request, inside this top-level site.
+    ///
+    /// `within` is ADR 0011 section 1: there is no version of this that does
+    /// not take one, because a cache shared across sites is a history oracle
+    /// and an identifier that outlives clearing cookies.
+    pub fn answer(&mut self, request: &Request, within: &Partition, now: SystemTime) -> Answer {
         let asked = Directives::of(request.headers.all("Cache-Control"));
-        let Some(stored) = self.kept.get(&key_of(request)) else {
+        let key = key_of(request, within);
+        self.take_from_the_disk(&key);
+        let Some(stored) = self.kept.get(&key) else {
             self.misses += 1;
             return Answer::Fetch;
         };
@@ -131,13 +171,40 @@ impl Cache {
         }
     }
 
+    /// Bring what is on the disk into memory, if there is anything and memory
+    /// does not already have it.
+    ///
+    /// Every way of failing is a miss (ADR 0011 section 4), so nothing here
+    /// returns a reason: the caller goes on to answer exactly as it would have
+    /// with an empty cache.
+    fn take_from_the_disk(&mut self, key: &str) {
+        if self.kept.contains_key(key) {
+            return;
+        }
+        let Some(disk) = self.disk.as_mut() else {
+            return;
+        };
+        let Some(stored) = disk.read(key) else {
+            return;
+        };
+        // Into memory without writing it back: it is already there, and a
+        // rewrite would give it a new place in the eviction order for having
+        // been read.
+        self.kept.insert(key.to_owned(), stored);
+        self.order.push(key.to_owned());
+        self.forget_the_oldest();
+    }
+
     /// Keep a response, if it may be kept.
     ///
-    /// Returns whether it was. A caller does not have to check first — the
-    /// decision is here so that it is made the same way everywhere.
+    /// Returns whether it was — in memory, which is the question this asks.
+    /// Whether it also went to the disk is a second question, and one a caller
+    /// does not have to remember to ask: [`crate::disk::why_it_is_never_written`]
+    /// is consulted here so that it is answered the same way everywhere.
     pub fn keep(
         &mut self,
         request: &Request,
+        within: &Partition,
         response: &Response,
         requested_at: SystemTime,
         received_at: SystemTime,
@@ -161,10 +228,40 @@ impl Cache {
                 .map(|name| (name.clone(), request.headers.get(name).map(str::to_owned)))
                 .collect(),
         };
-        let key = key_of(request);
+        let key = key_of(request, within);
+        self.write_or_never_write(&key, request, &stored);
         if self.kept.insert(key.clone(), stored).is_none() {
             self.order.push(key);
         }
+        self.forget_the_oldest();
+        true
+    }
+
+    /// The disk half of keeping something: ADR 0011 section 2, asked once.
+    ///
+    /// The `else` is the part that is easy to leave out. A URL that was public
+    /// yesterday and sets a session cookie today has an entry on the disk that
+    /// is now superseded by something that may never be written — and leaving it
+    /// there means a restart serves the older one. So it is removed. That is not
+    /// "written and deleted": nothing that the list refuses was ever written.
+    fn write_or_never_write(&mut self, key: &str, request: &Request, stored: &Stored) {
+        let Some(disk) = self.disk.as_mut() else {
+            return;
+        };
+        if crate::disk::why_it_is_never_written(request, &stored.response).is_none() {
+            disk.write(key, stored);
+        } else {
+            disk.forget(key);
+        }
+    }
+
+    /// The oldest go when the memory bound is reached.
+    ///
+    /// The disk is not touched. It has its own bound and its own order, and
+    /// evicting from memory is not a decision about what may be kept — a
+    /// browser that dropped a disk entry because memory filled up would lose
+    /// the thing surviving a restart was for.
+    fn forget_the_oldest(&mut self) {
         while self.order.len() > MOST_KEPT {
             if self.order.is_empty() {
                 break;
@@ -172,7 +269,6 @@ impl Cache {
             let oldest = self.order.remove(0);
             self.kept.remove(&oldest);
         }
-        true
     }
 
     /// Take a `304` and update what is stored, returning the response to use.
@@ -185,13 +281,19 @@ impl Cache {
     pub fn refresh(
         &mut self,
         request: &Request,
+        within: &Partition,
         not_modified: &Response,
         now: SystemTime,
     ) -> Option<Response> {
-        let key = key_of(request);
+        let key = key_of(request, within);
+        self.take_from_the_disk(&key);
         let stored = self.kept.get(&key)?;
         let updated = freshness::refreshed(stored, not_modified, now);
         let answer = updated.response.clone();
+        // Asked again rather than assumed: a `304` carries headers, and one of
+        // them can be a `Set-Cookie`. An entry that was writable when it was
+        // stored may not be writable now that it has been refreshed.
+        self.write_or_never_write(&key, request, &updated);
         self.kept.insert(key, updated);
         Some(answer)
     }
@@ -202,21 +304,49 @@ impl Cache {
     /// URL is now a lie. This is the small half of invalidation; the other half
     /// — invalidating what a `Location` pointed at — waits for something that
     /// actually submits forms.
-    pub fn forget(&mut self, request: &Request) {
-        let key = key_of(request);
+    pub fn forget(&mut self, request: &Request, within: &Partition) {
+        let key = key_of(request, within);
         self.kept.remove(&key);
         self.order.retain(|kept| kept != &key);
+        if let Some(disk) = self.disk.as_mut() {
+            disk.forget(&key);
+        }
+    }
+
+    /// Forget everything, on the disk as well as in memory.
+    ///
+    /// What "clear this browsing data" has to be able to do. ADR 0011: *"a
+    /// cache that survives a restart is a browsing record that survives a
+    /// restart … what we owe them is that deleting it is real and easy to
+    /// reach."*
+    pub fn empty(&mut self) {
+        self.kept.clear();
+        self.order.clear();
+        if let Some(disk) = self.disk.as_mut() {
+            disk.empty();
+        }
     }
 }
 
 /// What a response is stored under.
 ///
-/// The method is part of it because a `HEAD` and a `GET` for one URL are
+/// Three parts, and each is a way of serving somebody the wrong page.
+///
+/// The **top-level site** is ADR 0011 section 1 and ADR 0007's argument: one
+/// cache across every site joins a person's activity on one to their activity
+/// on another, answers *have you loaded this before* to anybody who times a
+/// load, and carries an identifier that survives clearing cookies.
+///
+/// The **method** is there because a `HEAD` and a `GET` for one URL are
 /// different responses — the first has no body — and answering a `GET` from a
 /// stored `HEAD` would be a blank page.
-fn key_of(request: &Request) -> String {
+///
+/// A space separates them because a host cannot contain one and a method cannot
+/// either, so no two different keys can be spelled the same way.
+fn key_of(request: &Request, within: &Partition) -> String {
     format!(
-        "{} {}",
+        "{} {} {}",
+        within.site(),
         request.method.to_ascii_uppercase(),
         request.url.serialised
     )

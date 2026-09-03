@@ -186,6 +186,21 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **An HTTP cache**: freshness, `Age`, revalidation with `ETag` and
   `Last-Modified`, and `Vary` as a contract so one reader never gets another
   reader's page
+- [2] **A cache that survives a restart, partitioned by top-level site** exactly
+  as cookies are (ADR 0011) — so no site can time a load to learn where else you
+  have been, and an entry only you were ever given cannot follow you between
+  sites
+- [2] **What must not outlive the session is never written**, rather than
+  written and deleted: a `private` response, a request that carried
+  `Authorization`, a response carrying `Set-Cookie`, anything that did not come
+  over HTTP, and a body that is not the length it was said to be. All of it
+  still reusable from memory, and a session that is not meant to persist has no
+  cache directory at all
+- [2] **A cache file is untrusted input** — a version discarded rather than
+  guessed at, a checksum over the whole entry, every length checked, and
+  anything that does not read treated as a miss rather than as a failure to
+  load. The directory and its files are private to their owner, and clearing it
+  really removes them
 - [2] **Redirects**, bounded and loop-detecting, with `Authorization` dropped
   at an origin boundary and `file:`/`data:` refused as destinations
 - [2] **A download that stops asks for the rest of itself**, over HTTP/1.1 and
@@ -218,7 +233,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] DNS, with encrypted DNS as a choice somebody made rather than a default nobody was told about
 - [2] Content encodings: gzip, brotli, zstd
 - [2] Redirects, byte ranges, and downloads that resume
-- [2] **The HTTP cache with real semantics** — freshness, revalidation, `Vary`. Subtly wrong here is invisible for months and then serves somebody a stale bank page. What of it may be written to a disk is a second question and has its own answer (ADR 0011): partitioned by top-level site like cookies, and a page behind a password never written down at all
+- [2] **The HTTP cache with real semantics** — freshness, revalidation, `Vary`. Subtly wrong here is invisible for months and then serves somebody a stale bank page. What of it may be written to a disk is a second question, and it has its own answer (ADR 0011) and now its own code: partitioned by top-level site like cookies, and a page behind a password never written down at all
 - [2] **Cookies**: `SameSite`, `Secure`, `HttpOnly`, partitioned by default — the default is a product decision, not a parser detail
 - [2] The same-origin policy, CORS and preflight
 - [2] Content Security Policy, referrer policy, HSTS, mixed-content blocking

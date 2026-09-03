@@ -6,7 +6,7 @@
 //! standing up a socket is a security rule that gets checked less often.
 
 use alo_net::redirect::{MOST_HOPS, Next, Refusal, Trail, next};
-use alo_net::{Headers, Pool, Purpose, Request, Response, Status, Trust};
+use alo_net::{Headers, Partition, Pool, Purpose, Request, Response, Status, Trust};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
@@ -405,10 +405,9 @@ fn a_load_follows_a_chain_and_reports_where_it_ended() {
     });
     assert!(port != 0, "no server");
 
+    let asked = Request::get(url(&format!("http://127.0.0.1:{port}/first")));
     let got = pool()
-        .follow(&Request::get(url(&format!(
-            "http://127.0.0.1:{port}/first"
-        ))))
+        .follow(&asked, &Partition::of(&asked.url))
         .unwrap_or_else(|why| panic!("the chain should have been followed: {why}"));
     assert_eq!(got.status, Status(200));
     assert_eq!(got.body, b"arrived");
@@ -432,9 +431,8 @@ fn a_server_that_redirects_to_itself_ends_the_load_rather_than_hanging() {
     });
     assert!(port != 0, "no server");
 
-    let refused = pool().follow(&Request::get(url(&format!(
-        "http://127.0.0.1:{port}/round"
-    ))));
+    let asked = Request::get(url(&format!("http://127.0.0.1:{port}/round")));
+    let refused = pool().follow(&asked, &Partition::of(&asked.url));
     let why = match refused {
         Ok(got) => panic!("a self-redirect produced a {} response", got.status),
         Err(why) => why,

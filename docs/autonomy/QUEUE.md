@@ -529,7 +529,7 @@ first. Nothing here needs JavaScript.
   request values a response was chosen by, so a French page is never handed to a
   German reader, and `Vary: *` is not stored at all. Disk went to item 155.
 
-- [ ] **155. The cache on disk.** Cut from 56, which is memory only.
+- [x] **155. The cache on disk.** Cut from 56, which is memory only.
   *Depends on 56. **ADR 0011 is written and accepted** — what may be written to a
   disk other programs can read is a different question from what may be reused,
   and it has a different answer for a page behind a password. The code is what
@@ -544,6 +544,21 @@ first. Nothing here needs JavaScript.
   renderer that directory would hand a compromised renderer every page the person
   has read. *Closes when:* a cache survives a restart, and a response that must
   not outlive the session does not.
+
+  **Done.** `tests/a_cache_that_survives_a_restart.rs` closes both halves with a
+  real restart — the `Cache` and its `Disk` are dropped and a second pair is
+  opened on the same directory — and the never-written list is a table, one row
+  per rule, each asserting three things: it is reusable in memory, the disk holds
+  nothing, and no file is left behind. The site is in the key, so the same script
+  fetched inside two sites is two entries and a restart does not launder the
+  join. `disk.rs` is the directory and the policy; `record.rs` is the bytes and
+  is the whole untrusted surface — every truncation and every single flipped byte
+  of an entry is refused in a test that walks all of them. Two things the ADR
+  named went to the queue as they were built: nothing here decides a **quota**
+  (item 90), and the site boundary is still the host until item 156. One thing
+  the ADR overstates is written down in `record.rs` rather than left implied: an
+  unkeyed checksum catches a half-written file and cannot catch a program running
+  as the person, which is section 3's boundary unchanged.
 
 - [x] **57. Cookies, partitioned by default.** `SameSite`, `Secure`,
   `HttpOnly`. **The default is a product decision** rather than a parser detail,

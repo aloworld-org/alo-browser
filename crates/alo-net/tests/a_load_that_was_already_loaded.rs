@@ -6,7 +6,7 @@
 //! that a revalidation sends the validator and uses the stored body when the
 //! answer is `304`. Nothing here leaves this machine.
 
-use alo_net::{Pool, Request, Trust};
+use alo_net::{Partition, Pool, Request, Trust};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -100,12 +100,13 @@ fn a_second_load_of_a_fresh_thing_never_reaches_the_server() {
     assert!(port != 0, "no server");
     let target = url(&format!("http://127.0.0.1:{port}/a"));
 
+    let site = Partition::of(&target);
     let mut pool = pool();
     let first = pool
-        .follow(&Request::get(target.clone()))
+        .follow(&Request::get(target.clone()), &site)
         .unwrap_or_else(|why| panic!("first load: {why}"));
     let second = pool
-        .follow(&Request::get(target))
+        .follow(&Request::get(target), &site)
         .unwrap_or_else(|why| panic!("second load: {why}"));
 
     assert_eq!(first.body, b"the page");
@@ -124,10 +125,11 @@ fn a_no_store_response_is_asked_for_every_time() {
     assert!(port != 0, "no server");
     let target = url(&format!("http://127.0.0.1:{port}/secret"));
 
+    let site = Partition::of(&target);
     let mut pool = pool();
     for _ in 0..3 {
         let got = pool
-            .follow(&Request::get(target.clone()))
+            .follow(&Request::get(target.clone()), &site)
             .unwrap_or_else(|why| panic!("{why}"));
         assert_eq!(got.body, b"private");
     }
@@ -160,14 +162,15 @@ fn a_stale_thing_is_revalidated_and_the_stored_body_is_what_comes_back() {
     assert!(port != 0, "no server");
     let target = url(&format!("http://127.0.0.1:{port}/b"));
 
+    let site = Partition::of(&target);
     let mut pool = pool();
     let first = pool
-        .follow(&Request::get(target.clone()))
+        .follow(&Request::get(target.clone()), &site)
         .unwrap_or_else(|why| panic!("first load: {why}"));
     assert_eq!(first.body, b"the original body");
 
     let second = pool
-        .follow(&Request::get(target.clone()))
+        .follow(&Request::get(target.clone()), &site)
         .unwrap_or_else(|why| panic!("revalidation: {why}"));
     assert_eq!(
         second.body, b"the original body",
@@ -177,7 +180,7 @@ fn a_stale_thing_is_revalidated_and_the_stored_body_is_what_comes_back() {
 
     // And the `304` said it is good for a minute now, so a third load is free.
     let third = pool
-        .follow(&Request::get(target))
+        .follow(&Request::get(target), &site)
         .unwrap_or_else(|why| panic!("third load: {why}"));
     assert_eq!(third.body, b"the original body");
     assert_eq!(
@@ -202,10 +205,11 @@ fn a_response_with_no_date_is_still_cached_correctly() {
     assert!(port != 0, "no server");
     let target = url(&format!("http://127.0.0.1:{port}/c"));
 
+    let site = Partition::of(&target);
     let mut pool = pool();
-    let _ = pool.follow(&Request::get(target.clone()));
+    let _ = pool.follow(&Request::get(target.clone()), &site);
     let again = pool
-        .follow(&Request::get(target))
+        .follow(&Request::get(target), &site)
         .unwrap_or_else(|why| panic!("{why}"));
     assert_eq!(again.body, b"here");
     assert_eq!(asked.load(Ordering::SeqCst), 1);

@@ -6,6 +6,30 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The cache is on a disk now, and it is partitioned.** What was loaded before
+  a restart is served after one, under exactly the freshness and `Vary` rules it
+  would have been served under from memory — and the key carries the top-level
+  site, so a script a thousand sites load from one address is fetched once per
+  site rather than once. That costs bandwidth and it buys this: no site can time
+  a load to learn where else you have been, and an entry only you were ever
+  given cannot follow you between sites.
+
+  What must not outlive the session is **never written** rather than written and
+  deleted, because a file that was deleted was still on the disk: a `private`
+  response, a request that carried `Authorization`, a response carrying
+  `Set-Cookie`, anything that did not come over HTTP, and a body that is not the
+  length it was said to be. Every one of them is still reusable from memory for
+  as long as the browser is open. A cache with no disk at all is what a session
+  that is not meant to persist has — not one emptied at the end.
+
+  A cache file is read as what it is, which is bytes from outside: a magic
+  number, a version discarded rather than guessed at, a checksum over the whole
+  of it, and every length checked against what is actually there. Anything that
+  does not read is a **miss** — never an error that reaches the page, because a
+  cache that can stop a page opening is a defect however correct its reasoning
+  was. The directory and every file in it are private to their owner, and
+  clearing it is one call that really removes the files.
+
 - **Decided: what the cache may write to a disk** (ADR 0011). A cache in memory
   is bytes we already had; a cache on a disk is a durable record of everywhere
   somebody has been, and an input we later hand to a page under that page's own

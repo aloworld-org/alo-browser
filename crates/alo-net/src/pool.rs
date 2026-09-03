@@ -28,6 +28,7 @@
 
 use crate::cache::{self, Answer, Cache};
 use crate::connection::{Connection, Exchanged, PATIENCE, Protocol, exchange_however_it_ends};
+use crate::cookie::Partition;
 use crate::download::{self, Answered};
 use crate::freshness;
 use crate::http::Malformed;
@@ -122,6 +123,17 @@ impl Pool {
             cache: Cache::new(),
             resolver: crate::resolve::Resolver::new(),
         }
+    }
+
+    /// The same pool, with a cache that survives a restart.
+    ///
+    /// Deliberate, and the browser process's to do: a pool without one caches
+    /// in memory and leaves nothing behind, which is what a session-scoped
+    /// profile is (ADR 0011).
+    #[must_use]
+    pub fn caching_on(mut self, disk: crate::disk::Disk) -> Self {
+        self.cache = std::mem::take(&mut self.cache).kept_on(disk);
+        self
     }
 
     /// The same pool, waiting this long on a server that has gone quiet.
@@ -245,15 +257,20 @@ impl Pool {
     /// way, because the cache (item 56) and the same-origin policy (item 61)
     /// both need to see each hop rather than only the last one.
     ///
+    /// `within` is the top-level site the person is looking at, and every hop
+    /// of a redirect chain stays inside it — the site that was navigated to is
+    /// what partitions the cache, not whichever host the chain passes through.
+    /// There is no version of this that does not take one (ADR 0011).
+    ///
     /// # Errors
     ///
     /// Whatever [`Pool::fetch`] fails with, and a [`crate::redirect::Refusal`]
     /// in words when the chain points somewhere this engine will not go.
-    pub fn follow(&mut self, request: &Request) -> Result<Response, String> {
+    pub fn follow(&mut self, request: &Request, within: &Partition) -> Result<Response, String> {
         let mut trail = Trail::from(&request.url);
         let mut asking = request.clone();
         loop {
-            let response = self.fetch_perhaps_from_the_cache(&asking)?;
+            let response = self.fetch_perhaps_from_the_cache(&asking, within)?;
             match redirect::next(&asking, &response).map_err(|refusal| refusal.to_string())? {
                 Next::Keep => return Ok(response),
                 Next::Follow(hop) => {
@@ -272,9 +289,13 @@ impl Pool {
     /// `fetch` is one exchange over a socket and stays that way, and a redirect
     /// is cacheable like anything else, so this has to sit on the inside of the
     /// redirect loop rather than around it.
-    fn fetch_perhaps_from_the_cache(&mut self, request: &Request) -> Result<Response, String> {
+    fn fetch_perhaps_from_the_cache(
+        &mut self,
+        request: &Request,
+        within: &Partition,
+    ) -> Result<Response, String> {
         let sent_at = SystemTime::now();
-        let asking = match self.cache.answer(request, sent_at) {
+        let asking = match self.cache.answer(request, within, sent_at) {
             Answer::Stored(response) => return Ok(*response),
             Answer::Fetch => request.clone(),
             Answer::Revalidate { conditions } => {
@@ -295,7 +316,7 @@ impl Pool {
             // saying so beats handing up an empty body as though it were a page.
             return self
                 .cache
-                .refresh(request, &response, arrived_at)
+                .refresh(request, within, &response, arrived_at)
                 .ok_or_else(|| {
                     "the server said nothing had changed about something we do not have".to_owned()
                 });
@@ -306,9 +327,10 @@ impl Pool {
             request.method.to_ascii_uppercase().as_str(),
             "GET" | "HEAD" | "OPTIONS" | "TRACE"
         ) {
-            self.cache.forget(request);
+            self.cache.forget(request, within);
         } else if !cache::nobody_wants_this_kept(request, &response) {
-            self.cache.keep(request, &response, sent_at, arrived_at);
+            self.cache
+                .keep(request, within, &response, sent_at, arrived_at);
         }
         Ok(response)
     }

@@ -226,12 +226,14 @@ unreachable without it.
       matter are the ones only wrong an hour later. `Age` is counted, so a
       response that arrives old expires early; `Vary` is stored as a contract,
       so a French page is never served to a German reader; `Vary: *` is not
-      stored at all · Built: the decision about a disk (ADR 0011) — partitioned
-      by top-level site like cookies, because a shared cache is a history oracle
-      and an identifier that survives clearing them; and what must not outlive
-      the session is never written rather than written and deleted, because a
-      deleted file was still on the disk · Owed: the code that writes it, queue
-      item 155
+      stored at all · Built: the decision about a disk (ADR 0011) and the code
+      that keeps it (queue item 155) — the key carries the top-level site, so a
+      shared cache is no longer a history oracle or an identifier that survives
+      clearing cookies; what must not outlive the session is never written
+      rather than written and deleted, because a deleted file was still on the
+      disk; and what comes back off the disk is read as what it is, which is
+      bytes from outside, with anything unreadable a miss rather than a page
+      that will not open
 - [x] **Cookies**: `SameSite`, `Secure`, `HttpOnly`, partitioned by default
       (ADR 0007, queue item 57). The default is a product decision and the ADR
       argues it — who it protects, and what it costs. There is no way to ask for

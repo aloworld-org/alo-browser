@@ -8,7 +8,7 @@
 //! an expiry.
 
 use alo_net::cache::{Answer, Cache, asking_whether_it_changed};
-use alo_net::{Headers, Purpose, Request, Response, Status};
+use alo_net::{Headers, Partition, Purpose, Request, Response, Status};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// A fixed moment to measure everything from: 2023-11-14 22:13:20 GMT.
@@ -34,6 +34,16 @@ fn asking(target: &str) -> Request {
     Request::get(url(target))
 }
 
+/// The top-level site every case here is inside.
+///
+/// ADR 0011 puts it in the key, on the same `Partition` the cookie jar uses,
+/// and there is no method that does not take one. Every case in this file is a
+/// person looking at one site, so it is the same one throughout — what happens
+/// when it is not is `a_cache_that_survives_a_restart.rs`.
+fn site() -> Partition {
+    Partition::of(&url("https://example.com/"))
+}
+
 /// A response carrying these headers, dated when it was sent.
 fn answered(sent_at: u64, headers: &[(&str, &str)]) -> Response {
     let mut carried = Headers::new();
@@ -53,9 +63,15 @@ fn answered(sent_at: u64, headers: &[(&str, &str)]) -> Response {
 fn served(headers: &[(&str, &str)], asked_at: u64) -> Answer {
     let mut cache = Cache::new();
     let request = asking("https://example.com/a");
-    let kept = cache.keep(&request, &answered(START, headers), at(START), at(START));
+    let kept = cache.keep(
+        &request,
+        &site(),
+        &answered(START, headers),
+        at(START),
+        at(START),
+    );
     assert!(kept, "the response was not stored at all: {headers:?}");
-    cache.answer(&request, at(asked_at))
+    cache.answer(&request, &site(), at(asked_at))
 }
 
 fn is_hit(answer: &Answer) -> bool {
@@ -207,14 +223,14 @@ fn a_response_that_arrives_already_old_expires_early() {
             ("ETag", "\"v1\""),
         ],
     );
-    assert!(cache.keep(&request, &response, at(START), at(START)));
+    assert!(cache.keep(&request, &site(), &response, at(START), at(START)));
 
     assert!(
-        is_hit(&cache.answer(&request, at(START + 50))),
+        is_hit(&cache.answer(&request, &site(), at(START + 50))),
         "it had a hundred seconds left and was refused at fifty"
     );
     assert!(
-        !is_hit(&cache.answer(&request, at(START + 150))),
+        !is_hit(&cache.answer(&request, &site(), at(START + 150))),
         "an Age of 3500 was ignored, so a stale response was served"
     );
 }
@@ -228,10 +244,10 @@ fn time_spent_in_transit_counts_against_a_short_lifetime() {
     let request = asking("https://example.com/a");
     let response = answered(START, &[("Cache-Control", "max-age=5"), ("ETag", "\"v1\"")]);
     // Asked at START, arrived two seconds later.
-    assert!(cache.keep(&request, &response, at(START), at(START + 2)));
-    assert!(is_hit(&cache.answer(&request, at(START + 4))));
+    assert!(cache.keep(&request, &site(), &response, at(START), at(START + 2)));
+    assert!(is_hit(&cache.answer(&request, &site(), at(START + 4))));
     assert!(
-        !is_hit(&cache.answer(&request, at(START + 6))),
+        !is_hit(&cache.answer(&request, &site(), at(START + 6))),
         "the two seconds it spent arriving were not counted"
     );
 }
@@ -270,6 +286,7 @@ fn no_store_is_not_kept_at_all() {
     assert!(
         !cache.keep(
             &request,
+            &site(),
             &answered(START, &[("Cache-Control", "no-store, max-age=3600")]),
             at(START),
             at(START)
@@ -277,7 +294,7 @@ fn no_store_is_not_kept_at_all() {
         "a no-store response was written down"
     );
     assert_eq!(cache.len(), 0);
-    assert_eq!(cache.answer(&request, at(START)), Answer::Fetch);
+    assert_eq!(cache.answer(&request, &site(), at(START)), Answer::Fetch);
 }
 
 /// A `POST` is not a thing to reuse, and answering a `GET` from a stored `HEAD`
@@ -289,6 +306,7 @@ fn a_post_is_never_kept_and_a_head_is_not_a_get() {
     posting.method = "POST".to_owned();
     assert!(!cache.keep(
         &posting,
+        &site(),
         &answered(START, &[("Cache-Control", "max-age=60")]),
         at(START),
         at(START)
@@ -298,12 +316,13 @@ fn a_post_is_never_kept_and_a_head_is_not_a_get() {
     heading.method = "HEAD".to_owned();
     assert!(cache.keep(
         &heading,
+        &site(),
         &answered(START, &[("Cache-Control", "max-age=60")]),
         at(START),
         at(START)
     ));
     assert_eq!(
-        cache.answer(&asking("https://example.com/a"), at(START)),
+        cache.answer(&asking("https://example.com/a"), &site(), at(START)),
         Answer::Fetch,
         "a GET was answered out of a stored HEAD"
     );
@@ -317,7 +336,7 @@ fn a_status_with_no_rule_is_not_kept() {
     let request = asking("https://example.com/a");
     let mut response = answered(START, &[("Cache-Control", "max-age=3600")]);
     response.status = Status(418);
-    assert!(!cache.keep(&request, &response, at(START), at(START)));
+    assert!(!cache.keep(&request, &site(), &response, at(START), at(START)));
 }
 
 // --- Vary, which is where one person gets another person's page --------------
@@ -334,17 +353,17 @@ fn a_response_chosen_by_a_header_is_not_reused_for_a_different_one() {
             ("Vary", "Accept-Language"),
         ],
     );
-    assert!(cache.keep(&french, &response, at(START), at(START)));
+    assert!(cache.keep(&french, &site(), &response, at(START), at(START)));
 
     assert!(
-        is_hit(&cache.answer(&french, at(START + 60))),
+        is_hit(&cache.answer(&french, &site(), at(START + 60))),
         "the same request missed"
     );
 
     let mut german = asking("https://example.com/a");
     german.headers.add("Accept-Language", "de");
     assert_eq!(
-        cache.answer(&german, at(START + 60)),
+        cache.answer(&german, &site(), at(START + 60)),
         Answer::Fetch,
         "a German reader was served the French page"
     );
@@ -363,12 +382,12 @@ fn a_header_that_is_absent_is_not_a_header_that_is_empty() {
             ("Vary", "Accept-Language"),
         ],
     );
-    assert!(cache.keep(&bare, &response, at(START), at(START)));
+    assert!(cache.keep(&bare, &site(), &response, at(START), at(START)));
 
     let mut empty = asking("https://example.com/a");
     empty.headers.add("Accept-Language", "");
-    assert_eq!(cache.answer(&empty, at(START + 60)), Answer::Fetch);
-    assert!(is_hit(&cache.answer(&bare, at(START + 60))));
+    assert_eq!(cache.answer(&empty, &site(), at(START + 60)), Answer::Fetch);
+    assert!(is_hit(&cache.answer(&bare, &site(), at(START + 60))));
 }
 
 /// The server saying it cannot promise this answers any other request. There is
@@ -379,6 +398,7 @@ fn vary_star_is_never_stored() {
     let request = asking("https://example.com/a");
     assert!(!cache.keep(
         &request,
+        &site(),
         &answered(START, &[("Cache-Control", "max-age=3600"), ("Vary", "*")]),
         at(START),
         at(START)
@@ -399,12 +419,12 @@ fn several_varied_headers_all_have_to_match() {
             ("Vary", "Accept-Language, Accept-Encoding"),
         ],
     );
-    assert!(cache.keep(&first, &response, at(START), at(START)));
+    assert!(cache.keep(&first, &site(), &response, at(START), at(START)));
 
     let mut half = asking("https://example.com/a");
     half.headers.add("Accept-Language", "fr");
     half.headers.add("Accept-Encoding", "gzip");
-    assert_eq!(cache.answer(&half, at(START + 60)), Answer::Fetch);
+    assert_eq!(cache.answer(&half, &site(), at(START + 60)), Answer::Fetch);
 }
 
 // --- Revalidation ------------------------------------------------------------
@@ -441,6 +461,7 @@ fn a_304_refreshes_the_headers_and_keeps_the_body() {
     let request = asking("https://example.com/a");
     assert!(cache.keep(
         &request,
+        &site(),
         &answered(START, &[("Cache-Control", "max-age=1"), ("ETag", "\"v1\"")]),
         at(START),
         at(START)
@@ -458,7 +479,7 @@ fn a_304_refreshes_the_headers_and_keeps_the_body() {
     not_modified.body = Vec::new();
 
     let refreshed = cache
-        .refresh(&request, &not_modified, at(START + 100))
+        .refresh(&request, &site(), &not_modified, at(START + 100))
         .unwrap_or_else(|| panic!("there was something stored to refresh"));
     assert_eq!(
         refreshed.body, b"the stored body",
@@ -471,7 +492,7 @@ fn a_304_refreshes_the_headers_and_keeps_the_body() {
         "a 304 described a body it did not send and was believed"
     );
     // And it is fresh again, for the new hour rather than the old second.
-    assert!(is_hit(&cache.answer(&request, at(START + 200))));
+    assert!(is_hit(&cache.answer(&request, &site(), at(START + 200))));
 }
 
 #[test]
@@ -482,6 +503,7 @@ fn refreshing_something_that_was_never_stored_says_so() {
     assert_eq!(
         cache.refresh(
             &asking("https://example.com/gone"),
+            &site(),
             &not_modified,
             at(START)
         ),
@@ -498,6 +520,7 @@ fn a_request_that_says_no_cache_is_revalidated_however_fresh_the_answer_is() {
     let plain = asking("https://example.com/a");
     assert!(cache.keep(
         &plain,
+        &site(),
         &answered(
             START,
             &[("Cache-Control", "max-age=3600"), ("ETag", "\"v1\"")]
@@ -505,11 +528,15 @@ fn a_request_that_says_no_cache_is_revalidated_however_fresh_the_answer_is() {
         at(START),
         at(START)
     ));
-    assert!(is_hit(&cache.answer(&plain, at(START + 1))));
+    assert!(is_hit(&cache.answer(&plain, &site(), at(START + 1))));
 
     let mut reloading = asking("https://example.com/a");
     reloading.headers.add("Cache-Control", "no-cache");
-    assert!(is_revalidate(&cache.answer(&reloading, at(START + 1))));
+    assert!(is_revalidate(&cache.answer(
+        &reloading,
+        &site(),
+        at(START + 1)
+    )));
 }
 
 /// A request that needs it to stay fresh a while longer than it will.
@@ -519,6 +546,7 @@ fn min_fresh_refuses_something_about_to_expire() {
     let request = asking("https://example.com/a");
     assert!(cache.keep(
         &request,
+        &site(),
         &answered(
             START,
             &[("Cache-Control", "max-age=100"), ("ETag", "\"v1\"")]
@@ -530,11 +558,11 @@ fn min_fresh_refuses_something_about_to_expire() {
     let mut demanding = asking("https://example.com/a");
     demanding.headers.add("Cache-Control", "min-fresh=60");
     assert!(
-        is_hit(&cache.answer(&demanding, at(START + 10))),
+        is_hit(&cache.answer(&demanding, &site(), at(START + 10))),
         "it had ninety seconds left"
     );
     assert!(
-        is_revalidate(&cache.answer(&demanding, at(START + 50))),
+        is_revalidate(&cache.answer(&demanding, &site(), at(START + 50))),
         "it had fifty seconds left and sixty were asked for"
     );
 }
@@ -552,6 +580,7 @@ fn max_stale_is_honoured_except_where_the_server_forbade_it() {
     let mut ordinary = Cache::new();
     assert!(ordinary.keep(
         &asking("https://example.com/a"),
+        &site(),
         &answered(
             START,
             &[("Cache-Control", "max-age=10"), ("ETag", "\"v1\"")]
@@ -560,17 +589,18 @@ fn max_stale_is_honoured_except_where_the_server_forbade_it() {
         at(START)
     ));
     assert!(
-        is_hit(&ordinary.answer(&willing("max-stale=100"), at(START + 60))),
+        is_hit(&ordinary.answer(&willing("max-stale=100"), &site(), at(START + 60))),
         "a caller happy with stale was refused"
     );
     assert!(
-        !is_hit(&ordinary.answer(&willing("max-stale=10"), at(START + 60))),
+        !is_hit(&ordinary.answer(&willing("max-stale=10"), &site(), at(START + 60))),
         "fifty seconds stale was served to somebody who allowed ten"
     );
 
     let mut strict = Cache::new();
     assert!(strict.keep(
         &asking("https://example.com/a"),
+        &site(),
         &answered(
             START,
             &[
@@ -582,7 +612,7 @@ fn max_stale_is_honoured_except_where_the_server_forbade_it() {
         at(START)
     ));
     assert!(
-        !is_hit(&strict.answer(&willing("max-stale=100"), at(START + 60))),
+        !is_hit(&strict.answer(&willing("max-stale=100"), &site(), at(START + 60))),
         "must-revalidate was overridden by the request"
     );
 }
@@ -595,6 +625,7 @@ fn a_write_that_makes_something_a_lie_forgets_it() {
     let request = asking("https://example.com/a");
     assert!(cache.keep(
         &request,
+        &site(),
         &answered(
             START,
             &[("Cache-Control", "max-age=3600"), ("ETag", "\"v1\"")]
@@ -602,9 +633,12 @@ fn a_write_that_makes_something_a_lie_forgets_it() {
         at(START),
         at(START)
     ));
-    assert!(is_hit(&cache.answer(&request, at(START + 1))));
-    cache.forget(&request);
-    assert_eq!(cache.answer(&request, at(START + 1)), Answer::Fetch);
+    assert!(is_hit(&cache.answer(&request, &site(), at(START + 1))));
+    cache.forget(&request, &site());
+    assert_eq!(
+        cache.answer(&request, &site(), at(START + 1)),
+        Answer::Fetch
+    );
 }
 
 /// A bound, not a tuning: without one, a page that fetches ten thousand images
@@ -616,6 +650,7 @@ fn the_cache_does_not_grow_without_end() {
         let request = asking(&format!("https://example.com/{n}"));
         assert!(cache.keep(
             &request,
+            &site(),
             &answered(START, &[("Cache-Control", "max-age=3600")]),
             at(START),
             at(START)
@@ -624,7 +659,7 @@ fn the_cache_does_not_grow_without_end() {
     assert_eq!(cache.len(), alo_net::cache::MOST_KEPT);
     // The oldest went, the newest stayed.
     assert_eq!(
-        cache.answer(&asking("https://example.com/0"), at(START)),
+        cache.answer(&asking("https://example.com/0"), &site(), at(START)),
         Answer::Fetch
     );
     assert!(is_hit(&cache.answer(
@@ -632,6 +667,7 @@ fn the_cache_does_not_grow_without_end() {
             "https://example.com/{}",
             alo_net::cache::MOST_KEPT + 49
         )),
+        &site(),
         at(START)
     )));
 }
@@ -640,9 +676,10 @@ fn the_cache_does_not_grow_without_end() {
 fn the_counts_say_what_the_cache_actually_did() {
     let mut cache = Cache::new();
     let request = asking("https://example.com/a");
-    assert_eq!(cache.answer(&request, at(START)), Answer::Fetch);
+    assert_eq!(cache.answer(&request, &site(), at(START)), Answer::Fetch);
     assert!(cache.keep(
         &request,
+        &site(),
         &answered(
             START,
             &[("Cache-Control", "max-age=10"), ("ETag", "\"v1\"")]
@@ -650,8 +687,8 @@ fn the_counts_say_what_the_cache_actually_did() {
         at(START),
         at(START)
     ));
-    let _ = cache.answer(&request, at(START + 1));
-    let _ = cache.answer(&request, at(START + 100));
+    let _ = cache.answer(&request, &site(), at(START + 1));
+    let _ = cache.answer(&request, &site(), at(START + 100));
     assert_eq!(cache.counts(), (1, 1, 1), "hits, revalidations, misses");
 }
 
@@ -662,10 +699,11 @@ fn a_stylesheet_and_a_document_share_one_stored_response() {
     let document = asking("https://example.com/a").for_purpose(Purpose::Document);
     assert!(cache.keep(
         &document,
+        &site(),
         &answered(START, &[("Cache-Control", "max-age=3600")]),
         at(START),
         at(START)
     ));
     let style = asking("https://example.com/a").for_purpose(Purpose::Style);
-    assert!(is_hit(&cache.answer(&style, at(START + 1))));
+    assert!(is_hit(&cache.answer(&style, &site(), at(START + 1))));
 }
