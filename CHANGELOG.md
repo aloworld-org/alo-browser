@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **ADR 0007: cookies are partitioned by default** — stored under the site that
+  set them *and* the top-level site they were set inside, so one embedded third
+  party cannot tell that the person on one site is the person on another. With
+  `SameSite=Lax` when a site does not say, `Secure` required to cross a site
+  boundary, `HttpOnly` binding the scripting engine from the day there is one,
+  and the `__Host-`/`__Secure-` prefixes enforced rather than parsed.
+- The ADR is written before any code, and it says what the default **costs**:
+  federated sign-in, embedded widgets and corporate SSO break, and a blocked
+  cookie is not an error a site can catch — it is a login that quietly does not
+  stick. It also says that "every other browser does this" is not available as a
+  justification, because Chrome abandoned the plan in 2024.
+
 - **An HTTP cache, with the semantics that make one safe.** `ROADMAP.md` says of
   this: *"subtly wrong here is invisible for months and then serves somebody a
   stale bank page."* So **nothing in it reads the clock** — every function takes

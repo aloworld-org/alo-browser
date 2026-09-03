@@ -2712,3 +2712,75 @@ somewhere a person can argue with it. The ADR is its own iteration, before any
 code depends on it. `redirect.rs` already drops `Cookie` at an origin boundary,
 so the day cookies exist that rule is in place rather than remembered.
 
+---
+
+## Iteration 44 — ADR 0007: cookies are partitioned by default
+
+Not code. Item 57 is marked *needs ADR*, and `LOOP.md` says such an item gets
+the ADR **as its own iteration, before any code depends on it** — the way
+ADR 0005 came before `alo-renderer`. A decision made inside a commit that was
+mostly code is a decision nobody reviewed.
+
+**The decision.** A cookie is keyed by two things: the site that set it *and*
+the top-level site the person was looking at. So a cookie `ads.example` sets
+inside `news.example` is a different cookie from the one it sets inside
+`shop.example`, and neither can see the other. Partitioning does not remove the
+cookie; it removes the **joining**, which is the only part that does the harm.
+
+**The argument the queue actually asked for — who it protects.** Not primarily
+somebody worried about advertising. The threat model that decides this is
+somebody whose reading history is *evidence*: of an illness, a pregnancy, an
+immigration status, a sexuality, an intention to leave. For that person a joined
+cross-site identity is not an annoyance, and a default that only protects the
+people who know to go and change it protects nobody who most needs it.
+
+**And what it costs, which is the half these documents usually skip.** Federated
+sign-in breaks. Embedded payment, comments, support chat and video preferences
+break. Corporate SSO breaks, which is the same cost arriving at somebody's job.
+Worst of all, **the failure mode is silent**: a blocked cookie is not an error a
+site can catch and explain, it is a login that quietly does not stick, and the
+person concludes the browser is broken. They are not wrong to.
+
+**One thing I made myself write down.** This is not a settled industry position.
+Safari and Firefox do it; Chrome announced the end of third-party cookies, moved
+the date four times, and abandoned the plan in 2024. So *"every other browser
+does this"* is **not** available to us as a justification, and using it would
+have been dishonest. What is available is that we have no advertising business
+and no compatibility debt — which is a reason we *can*, not a reason it is free.
+
+**Why take the cost.** Both costs are real; they are different shapes. A site
+that wanted a cross-site credential and did not get one is a breakage somebody
+can **see**, and can be asked about. A joined profile is a harm nobody can see
+and cannot be undone once joined. Between a breakage somebody can see and a harm
+nobody can, the ADR takes the breakage.
+
+**The escape hatch is specified by what it must not be.** A per-site grant, made
+by the person, naming who is asking and inside what. Never a global "allow
+third-party cookies" toggle — support pages tell people to turn those on and
+nobody turns them off — and never an allowlist we ship, because a list of sites
+this browser trusts with cross-site identity is a business we would then be in,
+and being able to sell a place on it is a pressure we should not have.
+
+**One rule is cheap now and expensive later, and that is why it is in this
+file.** `HttpOnly` binds the scripting engine from the day there is one. There
+is no JavaScript in stage 1, which makes this the cheapest possible moment to
+write the rule down and the worst possible moment to skip it: honoured from the
+first commit it costs nothing, retrofitted it is a security review.
+
+**And a way to find out it was wrong.** If the escape hatch is used constantly,
+the default is not protecting people — it is annoying them into clicking yes,
+which is worse than not having it. That is a measurement rather than an
+argument, and it is written into the ADR as the signal to come back.
+
+**The gate.** Green. Documentation-only, so no tests changed; the mechanical
+half passed and the half a script cannot check is satisfied by the ADR being
+what changed.
+
+**What the next iteration should know.** Item 57's code, now that its decision
+exists. Two things the ADR settles that the parser must not be able to lose: a
+cookie **carries its partition** — no code path may produce one without it — and
+a `__Host-` cookie that does not meet the prefix's conditions is **rejected**
+rather than stored under a different name, because the whole value of a prefix
+is that a server can trust the name. `redirect.rs` already drops `Cookie` at an
+origin boundary, so that rule is in place rather than remembered.
+

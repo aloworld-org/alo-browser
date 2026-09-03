@@ -492,7 +492,8 @@ first. Nothing here needs JavaScript.
 - [ ] **57. Cookies, partitioned by default.** `SameSite`, `Secure`,
   `HttpOnly`. **The default is a product decision** rather than a parser detail,
   so it is written down where a person can argue with it.
-  *Depends on 50, 53. Needs ADR* — what a default costs and who it protects.
+  *Depends on 50, 53. **ADR 0007 is written and accepted** — what the default
+  costs and who it protects. The code is what remains.*
 
 - [ ] **58. DNS, and encrypted DNS as a choice somebody made** rather than a
   default nobody was told about.
