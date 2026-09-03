@@ -171,6 +171,11 @@ The reason this exists rather than a faster fork of somebody else's engine.
   encodings are read by nobody here rather than guessed at as their near
   relatives, and a Unicode name wins wherever a font has one. No family anywhere
   comes from a filename
+- [2] **A face's weight and slant, from the font** — the `OS/2` table states
+  both, so `Helvetica-Oblique` leans and `InterDisplay-SemiBold` is 600 rather
+  than everything being one of the two words a filename might carry. A weight of
+  zero is a font that did not say rather than the lightest face there is, and a
+  font with no such table at all is still a face: normal, upright, and drawn
 - [2] **What `sans-serif` means on this machine** — `serif`, `sans-serif`,
   `monospace` and `system-ui` are decided by the browser process from the
   families it actually found, and handed to a renderer with the fonts, because a

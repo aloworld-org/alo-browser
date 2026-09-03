@@ -285,6 +285,99 @@ fn a_font_is_named_by_itself_and_never_by_its_filename() {
     std::fs::remove_dir_all(&place).ok();
 }
 
+/// A face is weighed by the font rather than by the file it came out of, and
+/// the text it sets is measured accordingly.
+///
+/// Queue item 194, and the half item 192 left: the family stopped being a guess
+/// there, and `bold` and `italic` in a filename were still what decided which
+/// face of that family this was. Both files here are named wrongly on purpose,
+/// and the numbers at the end are what makes the assertion more than a label —
+/// which face a page is given decides how wide its text is and so where every
+/// line of it breaks.
+#[test]
+fn a_face_is_weighed_by_the_font_and_never_by_its_filename() {
+    let place = std::env::temp_dir().join(format!("alo-weighed-{}", std::process::id()));
+    std::fs::create_dir_all(&place).expect("a temporary directory");
+
+    // Swapped, so that a rule reading the filename gets both of them wrong and
+    // a rule reading the font gets both of them right.
+    let heavy_file = place.join("Text-Regular.ttf");
+    let light_file = place.join("Text-Bold.ttf");
+    // And one with no word for what it is in its name at all, which is the
+    // ordinary case rather than the awkward one: `Oblique` is what half the
+    // world calls a face that leans.
+    let leaning_file = place.join("Text-Two.ttf");
+    std::fs::write(&heavy_file, dejavu::sans::bold()).expect("a bold font written");
+    std::fs::write(&light_file, dejavu::sans::regular()).expect("a regular font written");
+    std::fs::write(&leaning_file, dejavu::sans::oblique()).expect("an oblique font written");
+
+    let heavy = fonts::from_file(&heavy_file).expect("the bold font read back");
+    let light = fonts::from_file(&light_file).expect("the regular font read back");
+    let leaning = fonts::from_file(&leaning_file).expect("the oblique font read back");
+    assert_eq!(
+        heavy.weight(),
+        Weight::BOLD,
+        "a bold font in a file called Regular was filed by its file",
+    );
+    assert_eq!(
+        light.weight(),
+        Weight::NORMAL,
+        "a regular font in a file called Bold was filed by its file",
+    );
+    assert_eq!(
+        leaning.slant,
+        Slant::Italic,
+        "a face that leans is upright unless its file says the word italic",
+    );
+
+    // The numbers. A database of the two faces, asked for the same word at the
+    // same size in each weight: what comes back has to be the width of the file
+    // the font said was bold, and it has to differ from the other.
+    let mut database = alo_text::FontDatabase::new();
+    for face in [&heavy, &light] {
+        let font =
+            alo_text::Font::load(&face.family, face.weight(), face.slant, face.bytes.clone())
+                .expect("a face this engine can load");
+        database.add(font);
+    }
+    let asking = |weight| alo_text::FontRequest {
+        families: vec!["DejaVu Sans".to_owned()],
+        weight,
+        slant: Slant::Normal,
+    };
+    let bold = alo_text::measure_unwrapped("Invoices", &database, &asking(Weight::BOLD), 16.0);
+    let normal = alo_text::measure_unwrapped("Invoices", &database, &asking(Weight::NORMAL), 16.0);
+    assert!(
+        bold.width() > normal.width(),
+        "the two files were filed under one weight: {} against {}",
+        bold.width(),
+        normal.width(),
+    );
+
+    // And it is the bold *font* that was chosen rather than merely a different
+    // one: the same text through a database holding only those bytes measures
+    // the same, to the pixel.
+    let mut only_bold = alo_text::FontDatabase::new();
+    only_bold.add(
+        alo_text::Font::load(
+            "DejaVu Sans",
+            Weight::NORMAL,
+            Slant::Normal,
+            dejavu::sans::bold().to_vec(),
+        )
+        .expect("the bold font this test was written with"),
+    );
+    let known = alo_text::measure_unwrapped("Invoices", &only_bold, &asking(Weight::NORMAL), 16.0);
+    assert!(
+        (bold.width() - known.width()).abs() < 0.01,
+        "a request for bold was answered with something else: {} against {}",
+        bold.width(),
+        known.width(),
+    );
+
+    std::fs::remove_dir_all(&place).ok();
+}
+
 /// A machine's own fonts, through the boundary, drawing a page. If the family
 /// naming or the byte carrying were wrong anywhere, this is where it would
 /// show.

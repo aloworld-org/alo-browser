@@ -6429,3 +6429,116 @@ already exist in `host.rs`, so they should be read before they are built), **66*
 (where one site ends and another begins, much of which `alo_url::site` answers
 since item 156), and **190** (the two-tone border styles: small, depends on
 nothing, and closes with a picture).
+
+---
+
+## Iteration 90 — queue item 194: a face's weight and slant, from the font
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 194 is the
+first unticked item in the queue's own order whose dependency is done, and the
+previous entry named it first among the ready ones. It is the last of item 192's
+three cuts to close the same question: **nothing about a face is read off its
+filename now.**
+
+**What was wrong, and how ordinary it is.** `fonts::from_file` decided which face
+of a family it was holding by looking for `bold` and `italic` in the name of the
+file. `Helvetica-Oblique` contains neither word. Neither does
+`InterDisplay-SemiBold`, whose weight is 600 and which the old rule filed at 400.
+Neither does **`DejaVuSans-Oblique.ttf`**, which is in this repository's own
+dependency tree and has been since its first month: the file this engine has
+tested with all along was filed upright.
+
+**`alo_text::style_in` is the sibling of `family_in`**, one table further on and
+the same argument. It answers the pair rather than either half, because weight
+and slant are one sentence written side by side in `OS/2` — a caller asking twice
+would parse the same file twice to learn two halves of it. `from_file` no longer
+touches the path for anything but opening it, and its two lines now read as what
+they are: two tables, two questions, and no guess.
+
+**Two readings are decided rather than left to whatever a clamp does**, and both
+are written into the function's own documentation because the alternative is a
+number nobody can account for later:
+
+- **Zero is not a statement.** It is what a font writes when it did not say, and
+  several do. Brought into the range CSS allows it becomes **1** — a hairline,
+  the lightest face CSS can name, and a wrong answer that reads like a right one.
+  So the only other thing `OS/2` says about heaviness is read instead, the bold
+  bit, and a font stating neither is ordinary.
+- **A number wins over that bit where they disagree**, because CSS asks its
+  question as a number and the bit is the two-value shorthand older software went
+  by. A face stating 300 with the bold bit set is filed at 300.
+- **A weight in `1..=9` is kept as written.** Some fonts older than the current
+  specification meant the nine-point scale, where 9 was black; today 9 is very
+  nearly invisible. The bytes are identical either way, nothing in the file says
+  which was meant, and a guess would draw somebody's page in a face nobody chose.
+
+**A missing table is not a missing font.** `OS/2` is the one table a font may
+lack and still be a font — some older Macintosh ones do — and such a face is
+normal, upright and **kept**: a family of one unlabelled face is most of what is
+on a machine. It has not quite said nothing, either: an italic angle in `post`
+still counts, so a face that leans and states no table still leans, which is a
+test of its own.
+
+**What it does to this machine, checked rather than assumed.** Before, every one
+of the twenty-four faces handed to a renderer was 400 and upright unless its
+filename happened to carry a word. Now `.SF NS Mono` is **295**, `.SF Compact` is
+**1000**, `.Keyboard` is **100**, and `.New York` and `.SF NS` have italic faces.
+Those numbers were confirmed against the files with `fontTools` rather than
+believed: Apple really does state 1000 for its compact face. That last one is
+also the item's cut — see below.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero errors,
+**1604 tests** (up from 1591), no stubs, no `unsafe`, boundaries held — `OS/2` is
+read through `ttf_parser` in `alo-text/src/font.rs`, which is where that crate is
+already permitted — the licence notice, and a `CHANGELOG.md` line. The half no
+script can check: the **layout assertion in numbers** is the end of
+`a_face_is_weighed_by_the_font_and_never_by_its_filename`, and it is the right
+assertion rather than a formality — which face a page is given decides how wide
+its text is and so where every line of it breaks. Two files are named wrongly on
+purpose and **swapped**, so a rule reading the filename gets both wrong and a
+rule reading the font gets both right; the text measured at bold has to match, to
+the pixel, what a database holding only the bold bytes measures. No new reference
+render: the twenty-four committed ones did not move, and that is the review —
+every corpus case declares its own faces, so nothing there was ever going through
+`from_file`. One file one responsibility: `style_in` sits beside `family_in` in
+`font.rs`, which is the file about what a font says about itself. The item is in
+`docs/features.md`.
+
+**Both halves were doctored to check the tests are not vacuous.** With the weight
+forced to 400 six of the twelve new `alo-text` cases fail and the renderer one
+fails on its first assertion; with the slant forced upright, four different ones
+fail. That is worth the two minutes: a test that reads a real font and asserts
+what that font happens to say passes whatever the code does.
+
+**Hostile input.** A font file comes from somewhere else, so the new reading gets
+the same treatment item 192's did: an `OS/2` table claiming a version from the
+future, every truncation of one, and every single flipped bit of one, each an
+answer rather than a crash — with a sound table still read at the end, so what
+came back from the damaged ones was the engine refusing rather than the engine
+failing to look.
+
+**`ROADMAP.md`.** The process-and-sandbox line again, whose `· Built:` clause
+gains item 194 beside 168, 170, 192 and 193 — and the clause now says the thing
+those items add up to, which is that no part of a face comes from a filename. **It
+is still not ticked**; its `· Owed:` clause drops 194, keeps the Linux sandbox
+and item 195, and gains item 196.
+
+**What the next iteration should know.** One new cut, and it is the interesting
+one:
+
+- **Item 196.** A variable font is one file and many weights, and this item reads
+  **one** weight out of it. `SFCompact.ttf` has a `wght` axis and states 1000 in
+  `OS/2`, so this engine files the whole family as the heaviest thing CSS can
+  name; `SFNSMono.ttf` states 295. Neither number is wrong about the default
+  instance and both are wrong about the font. Nothing is drawn in the wrong
+  *family* — a family whose only face is 1000 still answers a request for 400 —
+  which is why it is a cut rather than a defect here, and why it belongs with the
+  variable-font line `docs/features.md` already carries for stage 2.
+
+The ready items in stage 2's file order are now **195** (a font's name in the
+language somebody asked for, rather than whichever record the file lists first),
+**64** and **65** (the renderer lifecycle, both depending on 63 which is done —
+and much of both may already exist in `host.rs`, so they should be read before
+they are built), **66** (where one site ends and another begins, much of which
+`alo_url::site` answers since item 156), **190** (the two-tone border styles:
+small, depends on nothing, and closes with a picture), and **196** above.

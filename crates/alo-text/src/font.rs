@@ -60,6 +60,19 @@ pub enum Slant {
     Italic,
 }
 
+/// The weight and the slant a font states about **itself**.
+///
+/// The pair rather than either alone, because they are written side by side in
+/// one table and read in one look: a caller asking twice would parse the same
+/// file twice to learn two halves of one sentence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Style {
+    /// How heavy, on CSS's scale.
+    pub weight: Weight,
+    /// Upright or slanted.
+    pub slant: Slant,
+}
+
 /// What a caller is asking for when it asks for a font.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FontRequest {
@@ -371,6 +384,82 @@ struct Stated {
     typographic_legacy: Option<String>,
     family: Option<String>,
     family_legacy: Option<String>,
+}
+
+/// The weight and slant a font file states about **itself**.
+///
+/// The sibling of [`family_in`], and the same argument one table further on.
+/// That function took the *family* off the font rather than off the name of the
+/// file it was read out of; the weight and the slant were still guessed at by
+/// looking for `bold` and `italic` in a filename, which is wrong for every file
+/// somebody named by another convention — `Helvetica-Oblique`,
+/// `InterDisplay-SemiBold`, a variable font with a weight axis and no word for
+/// it in its name.
+///
+/// It is a smaller wrong than the family was, and that is why it came second: a
+/// face filed under the wrong weight is still drawn in the right family, because
+/// [`crate::FontDatabase`] chooses among the faces of the family it holds. A
+/// family read off a filename is not drawn at all.
+///
+/// [`None`] for bytes that are not a font this engine can read — the same
+/// answer, for the same reason, as [`family_in`] gives.
+///
+/// # A font that states nothing is still a font
+///
+/// `OS/2` is where both are written, and it is the one table a font may be
+/// missing and still be a font — some of the older Macintosh ones are. Such a
+/// face is **normal and upright** rather than nothing: a family of one
+/// unlabelled face is most of the fonts on a machine, and refusing it would be
+/// this engine losing a font over a table nobody needed. It is not quite
+/// nothing, either: a face that leans says so in `post` as well, and that is
+/// still read.
+///
+/// The alternative — reading the filename when the table says nothing — was
+/// refused for [`family_in`]'s reason: it would put the guess back, in exactly
+/// the files where nothing else could contradict it.
+///
+/// # A weight is a number somebody else wrote
+///
+/// `usWeightClass` runs from 1 to 1000 and a font may hold anything in two
+/// bytes. Two readings are decided here rather than left to whatever the number
+/// happens to clamp to:
+///
+/// - **Zero is not a statement.** It is what a font writes when it did not say,
+///   and several do. Clamped into range it would become 1, the lightest face
+///   CSS can name — a statement, and a wrong one. So the only other thing the
+///   table says about heaviness is read instead: the **bold bit**, which is the
+///   two-value shorthand older software went by. A font that states neither is
+///   [`Weight::NORMAL`]. A font that states a number is taken at its word even
+///   where the bit disagrees, because the number is the finer answer and CSS
+///   asks its question as a number.
+/// - **A number in 1..=9 is read as written.** Some fonts older than the
+///   current specification meant that as the nine-point scale, so 9 was black;
+///   today 9 is very nearly invisible. The two are the same bytes, nothing in
+///   the file says which was meant, and a guess would draw somebody's page in a
+///   face nobody chose.
+pub fn style_in(data: &[u8]) -> Option<Style> {
+    let face = ttf_parser::Face::parse(data, 0).ok()?;
+    let stated = face.weight().to_number();
+    Some(Style {
+        weight: if stated == 0 {
+            if face.is_bold() {
+                Weight::BOLD
+            } else {
+                Weight::NORMAL
+            }
+        } else {
+            Weight::new(stated)
+        },
+        // Two questions, because `OS/2` answers them separately and a face is
+        // slanted either way: the italic bit — or a face that leans without
+        // having set it, which is an angle in the `post` table — and oblique,
+        // which is the third value CSS has and this engine does not.
+        slant: if face.is_italic() || face.is_oblique() {
+            Slant::Italic
+        } else {
+            Slant::Normal
+        },
+    })
 }
 
 #[cfg(test)]

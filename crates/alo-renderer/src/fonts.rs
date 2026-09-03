@@ -18,26 +18,30 @@
 //! rest **on demand, when a page asks for a family by name**, which is
 //! [`named`].
 //!
-//! # A font is called what it says it is called
+//! # A font is what it says it is
 //!
-//! Every family here comes from the **font**, via [`alo_text::family_in`], and
-//! never from the name of the file it was read out of. A filename is a guess:
-//! `HelveticaNeue-Bold.ttf` is nearly always Helvetica Neue and
-//! `ZapfDingbats.dfont` is nearly never what its author called it, and the
-//! difference between those two is invisible until somebody's page is drawn in
-//! the wrong font.
+//! Everything a face is filed under here comes from the **font**: the family
+//! from [`alo_text::family_in`], the weight and the slant from
+//! [`alo_text::style_in`]. Never from the name of the file it was read out of.
+//! A filename is a guess: `HelveticaNeue-Bold.ttf` is nearly always Helvetica
+//! Neue and `ZapfDingbats.dfont` is nearly never what its author called it, and
+//! the difference between those two is invisible until somebody's page is drawn
+//! in the wrong font.
 //!
 //! This file did take the filename once, for [`from_this_machine`], on the
 //! argument that a database is only a guess about what to look at and that
 //! opening every font on the machine to ask would be most of a second before
 //! the first page. The second half of that was **wrong**: [`from_file`] reads
 //! the whole file already, because a face is bytes rather than a path
-//! (ADR 0010), so asking costs a `name` table rather than an open.
+//! (ADR 0010), so asking costs two tables rather than an open.
 //!
 //! A font that states no readable family is skipped. That is a real answer
 //! about a file — nothing can ask for it by name, so a renderer holding it
 //! would be holding a font nothing could choose — and it is rarer than it
-//! sounds now that [`alo_text::family_in`] reads the Macintosh records too.
+//! sounds now that [`alo_text::family_in`] reads the Macintosh records too. A
+//! font that states no *weight* is kept and is normal: nothing needs to name a
+//! weight to be asked for, and a family of one unlabelled face is most of the
+//! fonts on a machine.
 //!
 //! # And what the generics mean
 //!
@@ -50,7 +54,6 @@
 
 use crate::face::{Face, LARGEST_FONT, MOST_FONTS};
 use crate::generic::Generics;
-use alo_text::{Slant, Weight};
 use std::path::{Path, PathBuf};
 
 /// Where a machine keeps its fonts.
@@ -196,39 +199,28 @@ pub fn named(family: &str) -> Vec<Face> {
     found
 }
 
-/// One font file, read and named by the font.
+/// One font file, read and described by the font.
 ///
 /// [`None`] for a file that is not a font this engine can read, that is larger
 /// than one may be, or that **states no family** — the last being a file whose
 /// name nothing could ever ask for.
 ///
-/// The weight and the slant are still read off the filename, and they are still
-/// a guess. It is a smaller one and it is answered elsewhere: which of a
-/// family's faces to draw with is chosen by `alo_text::FontDatabase` among the
-/// faces it holds, so a face filed under the wrong weight is drawn in the right
-/// family. A family read off a filename is drawn in the wrong font entirely,
-/// which is why only that half was owed here. The face's own `OS/2` table would
-/// answer both properly, and that is queue item 194 rather than this one.
+/// Nothing here reads the path except to open it. The family comes from the
+/// `name` table and the weight and the slant from `OS/2`, so a file called
+/// `Helvetica-Oblique.ttf` and one called `f2.ttf` describe themselves equally
+/// well — which was queue item 192 and then queue item 194, in that order,
+/// because the family is the half where being wrong means the page is drawn in
+/// another font entirely.
 pub fn from_file(path: &Path) -> Option<Face> {
     let bytes = std::fs::read(path).ok()?;
     if bytes.len() > LARGEST_FONT {
         return None;
     }
-    // The font's own answer, never the filename. This is the one fact in the
-    // module that decides whether a page is drawn as its author wrote it.
+    // The font's own answers, never the filename. Two tables and two questions:
+    // what a page asks for by name, and which face of it to draw with.
     let family = alo_text::family_in(&bytes)?;
-    let name = path.file_stem()?.to_str()?.to_ascii_lowercase();
-    let slant = if name.contains("italic") {
-        Slant::Italic
-    } else {
-        Slant::Normal
-    };
-    let weight = if name.contains("bold") {
-        Weight::BOLD
-    } else {
-        Weight::NORMAL
-    };
-    Face::new(family, weight, slant, bytes)
+    let style = alo_text::style_in(&bytes)?;
+    Face::new(family, style.weight, style.slant, bytes)
 }
 
 /// Read a directory's fonts, keeping the ones worth keeping.

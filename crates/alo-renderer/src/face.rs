@@ -45,9 +45,18 @@ pub struct Face {
     /// renderer chooses among the faces it was given and the choice is the
     /// interesting half.
     pub family: String,
-    /// How heavy.
+    /// How heavy, as the font's own `OS/2` table states it.
+    ///
+    /// Queue item 194, and the same argument as the family one table further
+    /// on: `bold` in a filename was what decided this until then, which is
+    /// wrong for `InterDisplay-SemiBold` and for every file somebody named by
+    /// another convention.
     pub weight: u16,
-    /// Upright or slanted.
+    /// Upright or slanted, from the same table.
+    ///
+    /// The rule this replaced looked for `italic`, so `Helvetica-Oblique` — and
+    /// `DejaVuSans-Oblique.ttf`, which this repository has tested with since
+    /// stage 1 — was filed upright.
     pub slant: Slant,
     /// The font file itself.
     pub bytes: Vec<u8>,

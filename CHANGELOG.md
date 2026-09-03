@@ -6,6 +6,25 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A font says how heavy it is and whether it leans; its filename no longer
+  gets a vote.** Which face of a family a page is drawn in was decided by
+  looking for the words `bold` and `italic` in the name of the file — so
+  `Helvetica-Oblique` was upright, `InterDisplay-SemiBold` was ordinary weight,
+  and every file named by any other convention was one of two possibilities.
+  `DejaVuSans-Oblique.ttf`, which this repository has tested with since its
+  first month, was among them.
+
+  The `OS/2` table states both properly and the bytes were already in hand, so
+  that is what is read. On this machine it is the difference between four
+  weights and two: Apple ships its monospace face at 295 and its compact one at
+  1000, and neither number is a word a filename could have carried.
+
+  Two readings are decided rather than left to chance. A stated weight of zero
+  is a font that **did not say**, not the lightest face CSS can name — so the
+  bold bit is read instead, and a font that says neither is ordinary. And a font
+  with no `OS/2` table at all is still a font: normal, upright, and kept, since
+  a family of one unlabelled face is most of what is on a machine.
+
 - **`sans-serif` now means a font this machine has.** Every page ever loaded
   asks for `system-ui, sans-serif` — it is in the user-agent style sheet, before
   anybody writes a line of CSS. Nothing had ever said what those are. The

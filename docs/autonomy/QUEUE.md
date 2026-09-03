@@ -1124,7 +1124,7 @@ wrong, which is the argument for the fourth.
   cost was a `name` table rather than an open, and the argument had been wrong
   since the day the sandbox landed. The cut is item 194.
 
-- [ ] **194. A face's weight and slant, from the font rather than from its
+- [x] **194. A face's weight and slant, from the font rather than from its
   filename.** Cut from 192, which took the *family* off the filename and put it
   back where it belongs. The other two fields of a `Face` are still guessed at
   by looking for `bold` and `italic` in the file's name, which is wrong for
@@ -1139,6 +1139,47 @@ wrong, which is the argument for the fourth.
   under them whatever its file is called, in a test that names a file wrongly on
   purpose — and a font that states neither is still a face rather than nothing,
   since a family of one unlabelled face is most of the fonts on a machine.
+
+  **Done, both clauses, and `alo_text::style_in` is the sibling of
+  `family_in`** — one table further on and the same argument, which is why the
+  pair comes back together: weight and slant are one sentence written side by
+  side in `OS/2`, and a caller asking twice would parse the file twice to learn
+  two halves of it. `from_file` no longer looks at the path for anything but
+  opening it.
+
+  **Two readings are decided rather than left to whatever a clamp does.** A
+  stated weight of **zero is not a statement** — it is what a font writes when
+  it did not say, and brought into CSS's range it would become 1, a hairline,
+  which is a wrong answer that reads like a right one. So the only other thing
+  the table says about heaviness is read instead, the bold bit, and a font
+  saying neither is normal. Where a number and that bit disagree the **number
+  wins**, because CSS asks its question as a number and the bit is a two-value
+  shorthand. A weight in `1..=9` is kept as written: some fonts older than the
+  current specification meant the nine-point scale, the bytes are identical
+  either way, and a guess would draw a page in a face nobody chose.
+
+  The test that names a file wrongly on purpose names **two**, swapped, so a
+  rule reading the filename gets both wrong and a rule reading the font gets
+  both right — and it ends in the numbers, because which face a page is given
+  decides how wide its text is and so where every line of it breaks. On this
+  machine the change is visible: Apple states 295 for its monospace face and
+  1000 for its compact one, and `.SF NS Mono` had been filed at 400. The cut is
+  item 196.
+
+- [ ] **196. A variable font is one file and many weights.** Found by 194,
+  which reads a face's weight out of `OS/2` and thereby reads *one* weight out
+  of a file that holds a continuum. macOS's `SFCompact.ttf` has a `wght` axis
+  and states 1000, so this engine files the whole family as the heaviest thing
+  CSS can name; `SFNSMono.ttf` states 295. Neither is wrong about the default
+  instance and both are wrong about the font. Nothing is drawn in the wrong
+  family — a family whose only face is 1000 still answers a request for 400 —
+  so this is a face chosen badly rather than a page drawn in the wrong font,
+  which is why it is a cut rather than a defect in 194.
+  *Depends on 194, and on `docs/features.md`'s stage 2 line for variable fonts.
+  Closes when:* a page asking for two weights of a variable family is drawn in
+  two different widths of text, in a layout assertion — and a font with a `wght`
+  axis reports the range it covers rather than the one instance its `OS/2`
+  names.
 
 - [x] **193. What a generic family means on this machine.** Cut from 170, and
   it is the gap that item made visible. `FontDatabase::map_generic` exists and
