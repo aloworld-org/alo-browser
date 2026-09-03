@@ -126,6 +126,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A truncated body is an **error**, not a short page
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
+- [2] **Redirects**, bounded and loop-detecting, with `Authorization` dropped
+  at an origin boundary and `file:`/`data:` refused as destinations
 - [2] **A decompression bomb is refused** — the bound is on what comes out,
   because every other bound in a loader watches what comes in
 - [2] **Connections kept between requests**, with the retry that has to come with them: a reuse that fails before a byte arrives is tried again, and a request that must not happen twice never is

@@ -447,9 +447,27 @@ first. Nothing here needs JavaScript.
   *Depends on 152. Closes when:* it decodes, or is refused by name — either is
   an answer; handing up compressed bytes is not.
 
-- [ ] **55. Redirects, byte ranges, and downloads that resume.** Redirect loops
-  bounded, cross-origin redirects losing what they should.
+- [x] **55. Redirects.** Redirect loops bounded, cross-origin redirects losing
+  what they should. *Byte ranges and resumable downloads were cut to item 154 —
+  scope, not depth: they share a roadmap line with redirects and share nothing
+  else.*
   *Depends on 53.*
+
+  **Done.** The deciding is a pure function, so every security rule is asserted
+  without a socket: `Authorization` dropped at an origin boundary (scheme and
+  port included, which is what a hand-written host comparison gets wrong), a
+  `POST` demoted to `GET` on 301/302/303 and preserved on 307/308, `HEAD`
+  untouched by all five, and `file:` and `data:` refused as destinations
+  because a server that could send a load into `file:///` would be reading the
+  disk of whoever opened the page.
+
+- [ ] **154. Byte ranges, and downloads that resume.** Cut from 55. A range
+  request that resumes has to ask for `identity` — a byte range of a compressed
+  stream is a range nobody can decompress — which is why item 152 left the
+  caller's `Accept-Encoding` alone.
+  *Depends on 55, 152. Closes when:* a download interrupted halfway resumes and
+  the bytes are the same as an uninterrupted one, and a server that answers a
+  range request with the whole thing is noticed rather than believed.
 
 - [ ] **56. The HTTP cache, with real semantics** — freshness, revalidation,
   `Vary`. `ROADMAP.md`: *"subtly wrong here is invisible for months and then

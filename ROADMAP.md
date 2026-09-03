@@ -174,7 +174,11 @@ unreachable without it.
       All three rented and all three pure Rust, because a decompressor is where
       a memory bug is most directly a remote code execution. The bound is on
       what comes **out**: a bomb is small on the wire by definition
-- [ ] Redirects, byte ranges, and downloads that resume
+- [ ] Redirects, byte ranges, and downloads that resume · Built: redirects
+      (queue item 55) — bounded, loop-detecting, `Authorization` dropped at an
+      origin boundary, a redirected `POST` demoted to `GET` on 301/302/303 and
+      preserved on 307/308, and `file:`/`data:` refused as destinations
+      · Owed: queue item 154, byte ranges and downloads that resume
 - [ ] **The HTTP cache, with real semantics** — freshness, revalidation, `Vary`. Subtly wrong here is invisible for months and then serves somebody a stale bank page
 - [ ] **Cookies**: `SameSite`, `Secure`, `HttpOnly`, partitioned by default. The default is a product decision, not a parser detail
 - [ ] The same-origin policy, CORS and preflight — code we write and can get wrong, which is one of ADR 0005's four reasons for the sandbox

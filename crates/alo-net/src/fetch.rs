@@ -59,12 +59,15 @@ pub fn fetch(request: &Request) -> Result<Response, FetchError> {
         "data" => schemes::data(url).map_err(|why| failed(url, why)),
         "file" => schemes::file(url).map_err(|why| failed(url, why)),
         "http" | "https" => {
-            // A pool of one fetch, which keeps nothing: this function has
+            // A pool of one load, which keeps nothing: this function has
             // nowhere to hold a connection between calls. A caller that wants
-            // reuse holds a `crate::Pool` and fetches through it, which is
-            // what everything above this will do.
+            // reuse holds a `crate::Pool` and loads through it, which is what
+            // everything above this will do.
+            //
+            // `follow` rather than `fetch`, because a load that stopped at a
+            // `301` and handed up its empty body would be a blank page.
             let mut pool = crate::Pool::from_this_machine().map_err(|why| failed(url, why))?;
-            pool.fetch(request).map_err(|why| failed(url, why))
+            pool.follow(request).map_err(|why| failed(url, why))
         }
         other => Err(FetchError::UnsupportedScheme {
             scheme: other.to_owned(),

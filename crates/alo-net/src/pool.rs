@@ -27,6 +27,7 @@
 //! closed rather than gambled on.
 
 use crate::connection::{Connection, PATIENCE, exchange};
+use crate::redirect::{self, Next, Trail};
 use crate::request::Request;
 use crate::response::Response;
 use crate::tls::Trust;
@@ -160,6 +161,33 @@ impl Pool {
             self.put(&server, fresh);
         }
         Ok(done.response)
+    }
+
+    /// Fetch, following redirects to wherever they end.
+    ///
+    /// This is what a load is. [`Pool::fetch`] is one exchange and stays that
+    /// way, because the cache (item 56) and the same-origin policy (item 61)
+    /// both need to see each hop rather than only the last one.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Pool::fetch`] fails with, and a [`crate::redirect::Refusal`]
+    /// in words when the chain points somewhere this engine will not go.
+    pub fn follow(&mut self, request: &Request) -> Result<Response, String> {
+        let mut trail = Trail::from(&request.url);
+        let mut asking = request.clone();
+        loop {
+            let response = self.fetch(&asking)?;
+            match redirect::next(&asking, &response).map_err(|refusal| refusal.to_string())? {
+                Next::Keep => return Ok(response),
+                Next::Follow(hop) => {
+                    trail
+                        .and_then(&hop.url)
+                        .map_err(|refusal| refusal.to_string())?;
+                    asking = *hop;
+                }
+            }
+        }
     }
 
     /// A kept connection to this server, if there is one worth having.

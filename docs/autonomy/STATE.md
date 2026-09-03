@@ -2577,3 +2577,70 @@ get right is not the loop bound — it is what a redirect *drops*: `Authorizatio
 must not cross an origin, and a redirect to a scheme this engine does not fetch
 has to be a refusal rather than a silent stop.
 
+---
+
+## Iteration 42 — queue item 55: redirects
+
+**Scope cut before anything was written.** The item was *redirects, byte ranges,
+and downloads that resume* — three things sharing a roadmap line and sharing
+nothing else. Ranges went to item 154. Scope, never depth: what is here is
+finished, and what is not here is a line in the queue rather than a half-built
+function.
+
+**The whole design decision is that following is not the interesting part.**
+Following a redirect is three lines of loop. Deciding *what to carry across one*
+is where every bug lives, and every one of those bugs is a security bug. So
+`redirect::next` is a pure function — a request and a response in, a decision
+out, no socket anywhere near it — and fifteen of the seventeen tests need no
+server at all. A security rule that can only be checked by standing up a socket
+is a security rule that gets checked less often.
+
+**What must not cross an origin**, and the case a hand-written check gets wrong:
+`Authorization` is dropped when the origin changes, and **a scheme is part of an
+origin**, so `https://example.com` → `http://example.com` is a crossing even
+though the host is identical. So is a different port. Somebody comparing hosts
+would carry a session cookie into the clear on the first of those. `Cookie` and
+`Proxy-Authorization` are on the list too; cookies do not exist yet (item 57),
+and a list that is already right beats a list somebody has to remember.
+
+**The method rule is a place where the specification is not what to implement.**
+301 and 302 say the method is preserved. Every browser has turned a redirected
+`POST` into a `GET` since the nineteen-nineties, because servers were written
+against that and because silently re-submitting a form somewhere new is worse
+than being wrong about an RFC. 307 and 308 exist precisely so a server can ask
+for the specified behaviour — those are honoured exactly, body headers and all.
+`HEAD` survives all five, since turning it into a `GET` would fetch a body
+nobody asked for.
+
+**Two schemes are refused as destinations rather than followed.** This engine
+fetches `file:` and `data:` when asked directly, and refuses to be *sent* to
+either. A server that could redirect a load into `file:///` would be reading the
+disk of whoever opened the page; one that could redirect into `data:` would
+choose the bytes *and* inherit the URL they appear to have come from. Refused by
+name, not ignored — an ignored redirect is a blank page with no reason in it.
+
+**Three smaller things that are each a real decision.** A `3xx` with no
+`Location` is the answer rather than a failure, because a redirect that does not
+say where is not a redirect. A relative `Location` resolves against where the
+*response* came from, which after one hop is not where the request started. And
+the purpose and initiator survive a hop unchanged, so a redirect cannot launder
+a request into looking like something else asked for it — which matters to item
+61 rather than to today.
+
+**A circle is told from a chain**, and the circle is checked first because it is
+the more useful thing to say: twenty distinct URLs is a misconfiguration, two
+pointing at each other is a specific bug somebody can go and find. `Trail` keeps
+the order rather than a set, because the order is what a person debugging one
+wants to read.
+
+**The gate.** Green: fmt, clippy zero and zero, 962 tests. Nothing here
+positions, sizes or paints, so no layout assertion and no reference render.
+
+**What the next iteration should know.** Item 56, the HTTP cache. `ROADMAP.md`
+calls it out by name — *"subtly wrong here is invisible for months and then
+serves somebody a stale bank page"* — and the queue already asks for the shape
+that catches it: a table of responses and clocks, asserting hit, miss and
+revalidate for each, **including the ones that are only wrong an hour later**.
+Freshness is arithmetic and testable; `Vary` is the part that quietly serves one
+user another user's page.
+

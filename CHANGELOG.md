@@ -6,6 +6,34 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Redirects are followed**, and the deciding is a pure function — a request
+  and a response in, what to do next out, with no socket near it. Following is
+  three lines of loop; what to *carry across* one is where every bug is, and
+  every one of those bugs is a security bug.
+- **`Authorization` does not cross an origin.** The site being redirected to
+  did not have this site's credentials a moment ago and must not have them now.
+  Same for `Cookie` and `Proxy-Authorization` — cookies do not exist yet, and
+  the list is right in advance so nobody has to remember to update it.
+- A **scheme is part of an origin**, so `https` → `http` on the same host is a
+  crossing and a session cookie is not about to go out in the clear. So is a
+  port. Both are what a hand-written host comparison gets wrong.
+- **A redirected `POST` becomes a `GET`** on `301`, `302` and `303`, which is
+  what every browser has done since the nineteen-nineties: silently
+  re-submitting a form somewhere new is worse than being wrong about an RFC.
+  `307` and `308` exist so a server can ask for the specified behaviour, and
+  those are honoured exactly. `HEAD` survives all five.
+- **A redirect into `file:` or `data:` is refused by name.** This engine
+  fetches both when asked directly and refuses to be *sent* to either: a server
+  that could redirect a load into `file:///` would be reading the disk of
+  whoever opened the page.
+- Twenty hops at most, and **a circle is told from a chain** — two URLs pointing
+  at each other say so in words rather than becoming a tab that will not close.
+  The trail keeps the order, which is what somebody debugging one wants to read.
+- A `3xx` **with no `Location` is the answer**, not a failure: a redirect that
+  does not say where is not a redirect, and its body is the only thing to show.
+- A relative `Location` resolves against **where the response came from**, which
+  after one hop is not where the request started.
+
 - **The build loop has a supervisor of its own**, `scripts/loop.sh`, for macOS
   (ADR 0006). It used to borrow one from `alo-workplace` — a repository this
   loop may not edit, which meant the command documented for it had been wrong
