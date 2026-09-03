@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The list that decides where one site ends now says how old it is.** The
+  public suffix list is compiled into the browser rather than fetched, which is
+  what makes the boundary work with no network and impossible to move under a
+  running program — and it means the list ages. A suffix delegated after our
+  copy was taken reads as an ordinary name somebody holds, which quietly puts
+  two organisations into one site: one cookie jar, one cache, one renderer
+  process. Nothing prompted anybody to refresh it. The build now fails once the
+  copy is six months old, and says which version is in, when it was taken, and
+  the two commands that bring it up to date.
+
 - **A site is an organisation now, rather than a host.** Until this change every
   subdomain was its own site: signing in at `example.com` left you a stranger at
   `www.example.com`, and the two could not share so much as a cached style

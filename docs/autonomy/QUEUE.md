@@ -591,7 +591,7 @@ first. Nothing here needs JavaScript.
   dot. The cut is item 186: the list is a snapshot, and nothing says when it has
   aged.
 
-- [ ] **186. The public suffix list has a date, and nothing reads it.** Cut from
+- [x] **186. The public suffix list has a date, and nothing reads it.** Cut from
   156. `psl` compiles a snapshot of the list in, which is right — a security
   boundary that arrived over the network would exist only when the network did —
   but a snapshot ages, and a suffix delegated after ours was taken is read as an
@@ -601,6 +601,19 @@ first. Nothing here needs JavaScript.
   *Depends on 156. Closes when:* something a person sees names the snapshot's
   age — the gate, or a test that fails when it is older than a stated number of
   months — so that an out-of-date boundary is a message rather than a silence.
+
+  **Done: `alo-url`'s `snapshot`, and it is the test rather than the gate.** The
+  stated number is **six months**, and the reason it is not twelve is written
+  down: the list carries no date and `psl` publishes none, so what is recorded
+  is the day the snapshot was taken *here*, which under-reports the true age by
+  however long the crate version had already existed. Two constants — the
+  version and the day — and a test that fails if `Cargo.lock` resolves `psl` to
+  anything else, so the record cannot drift from the code it describes. The
+  message a person gets names the version, the day, what a stale list costs (two
+  organisations in one site) and the two commands that discharge it, and it says
+  in its own doc comment that **this failure is not a fault in the change being
+  tested** — because the iteration that meets it will otherwise spend itself
+  looking for one.
 
 - [ ] **157. The storage-access grant.** ADR 0007 specifies it mostly by what it
   must not be: never a global toggle, never an allowlist we ship. A person is

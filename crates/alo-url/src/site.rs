@@ -43,6 +43,12 @@
 //! anybody deciding. The cost is that the snapshot ages, and updating it is a
 //! version bump in `Cargo.toml` — a diff somebody reads.
 //!
+//! Which is a cost only if somebody is prompted to write that diff, and nothing
+//! prompted anybody: a suffix delegated after ours was taken reads here as an
+//! ordinary registrable domain, and two organisations quietly become one site.
+//! [`crate::snapshot`] holds the day this one was taken and fails once it is six
+//! months old, so an out-of-date boundary is a message rather than a silence.
+//!
 //! # The two answers this gives when the list has nothing to say
 //!
 //! Both are the **host itself**, which is the strict direction:

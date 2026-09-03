@@ -188,6 +188,11 @@ The reason this exists rather than a faster fork of somebody else's engine.
   site is given, and two organisations under one suffix are two sites however
   alike their names look. One answer, used by the cookie jar, the cache and the
   process split
+- [2] **The list is a snapshot, and its age is a message rather than a silence**
+  — the day it was taken is recorded beside the version it was taken at, checked
+  against what is actually compiled in, and the build fails once it is six
+  months old. A stale list is two organisations sharing one site, which is the
+  direction that costs
 - [2] **A cookie for a whole public suffix is refused** — `Domain=co.uk` is a
   cookie for every school and council in the country, and nothing about the
   shape of the string says so

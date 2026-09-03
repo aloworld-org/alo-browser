@@ -161,7 +161,11 @@ unreachable without it.
       of them gets a process · Built: the site, as ADR 0005 defines it — scheme
       plus **registrable domain**, decided against the public suffix list
       (`alo-url`'s `site`, queue item 156), and the one answer the cookie jar,
-      the cache and the process split all use · Owed: **which** of the origin,
+      the cache and the process split all use. The list is a compiled-in
+      snapshot and it ages, so its age is recorded and the build fails once it
+      is six months old (`alo-url`'s `snapshot`, queue item 186) — a boundary
+      that has quietly stopped being current is the one failure here nobody
+      would see · Owed: **which** of the origin,
       the site and the registrable domain a page is given, case by case — queue
       item 66, whose dependencies are done
 

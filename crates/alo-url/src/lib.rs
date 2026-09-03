@@ -20,7 +20,9 @@
 //! names it. It is data rather than an algorithm — which names anybody may
 //! register under, decided by registries and not derivable from any rule of
 //! syntax — and it is what turns a host into the *site* that cookies, the cache
-//! and a renderer process are each divided by.
+//! and a renderer process are each divided by. It is a **snapshot**, so it
+//! ages; [`snapshot`] is what says how old it is and complains when the answer
+//! stops being one anybody should decide a boundary with.
 //!
 //! **The types are ours.** `url::Url` is a string with indices into it; our
 //! [`Url`] is the parts, and our [`Origin`] is a value other code compares. The
@@ -39,6 +41,7 @@ pub mod origin;
 pub mod parse;
 pub mod parts;
 pub mod site;
+pub mod snapshot;
 
 pub use origin::{Opaque, Origin};
 pub use parse::{ParseError, join, parse};

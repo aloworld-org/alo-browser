@@ -5115,3 +5115,101 @@ can navigate to one yet, which is why it is a note rather than an item.
 
 And item 183, the fieldset border, is still the one iterations 70 and 72 to 76
 each named and nobody has taken.
+
+---
+
+## Iteration 78 — queue item 186: the snapshot has a date, and now something reads it
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 186 was
+the first unticked item in the file, its one dependency (156) is done, and the
+iteration before it named this as the cut it left behind — so it was taken in
+file order.
+
+**What it is.** `crates/alo-url/src/snapshot.rs`: two recorded facts, three
+functions and a test that fails. The facts are the `psl` version whose list is
+compiled in (`2.1.223`) and the day that snapshot was taken into this repository
+(2026-09-03, which is the day commit `a9977c1` added the dependency — `git log`
+rather than a number somebody remembered). The test asserts the list is not more
+than **183 days** old and, when it is, prints the version, the day, what a stale
+list costs and the two commands that discharge it.
+
+**Why the test rather than the gate**, which the item offered as the first
+option. The gate would have meant the same arithmetic in shell, in a script
+nothing tests, and `date` on macOS and on Linux do not take the same arguments —
+so the check would have been least trustworthy on the machine that is not the
+one it was written on, which is item 169's lesson arriving early. The gate runs
+`cargo test`, so it fails either way; only one of the two has tests of its own.
+
+**Why the age is measured from the day *we* took it, and why that decided the
+number.** The list carries no date: `psl`'s `data/rules.txt` is the Mozilla file
+with no header, its `src/list.rs` says only that it was generated, and the crate
+publishes nothing else. So the honest record is when the snapshot entered this
+tree, which is **at least** as old as the list and possibly younger than it — a
+crate version may have sat on crates.io for weeks before we took it. The error
+runs in the direction of under-reporting age, and that is what set the threshold
+at six months rather than the twelve somebody could argue for: the unknown slack
+has to fit inside it.
+
+**The record cannot drift from the code**, which is the half that makes the day
+worth measuring from. `the_version_recorded_here_is_the_one_actually_compiled_in`
+`include_str!`s the workspace `Cargo.lock` and finds `psl`'s resolved version, so
+bumping the crate without re-dating the snapshot fails with a message saying to
+set both. Without that, the constant would have been a comment: true on the day
+it was written and unfalsifiable afterwards.
+
+**Two things done for the iteration that will meet this failure**, because it
+will be a loop, six months from now, and `LOOP.md` tells it to halt when the gate
+fails for a reason it did not cause. First, the test's own doc comment says in
+bold that **its failing is not a fault in the change being tested**. Second, the
+message names the work rather than the problem: bump `psl`, `cargo update -p
+psl`, set the two constants. That is the difference between a halt somebody can
+discharge in five minutes and a halt somebody spends an afternoon diagnosing.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero errors,
+**1365 tests** (up from 1357), no stubs, no `unsafe`, boundaries held — `psl` is
+still named only in `site.rs`, and this file names it in prose and in a string
+rather than in code — and a `CHANGELOG.md` line. No layout assertion and no
+reference render: nothing here positions, sizes or draws. `LOOP.md`'s
+hostile-input clause has nothing to bite on — no bytes from outside reach this —
+but the one input that is not ours is the **clock**, and it is tested from both
+sides: a clock set before the snapshot answers an age of zero rather than a
+negative number, and a clock before 1970 answers that it cannot say rather than
+failing a build over a machine's own confusion.
+
+**The evidence, run rather than reasoned about.** The failing path was checked by
+doctoring `TAKEN` back to 2024 and watching the test fail with the real message
+before putting it back. And the tests that name a moment are written from `TAKEN`
+rather than from dates read off it — a helper counts days by pushing the day of
+the month past the end of its month, which is arithmetic rather than a date, and
+the property it relies on is asserted rather than claimed
+(`a_day_of_the_month_past_the_end_of_it_is_the_day_it_counts_to`, anchored on one
+date a calendar agrees with). The point of that is that the only thing a future
+bump has to touch is the two constants; a test that needed re-dating with them
+would be friction on the exact chore this file exists to ask for.
+
+**One duplication, deliberate and written down.** `Day::in_epoch_days` is the
+same eight lines of Howard Hinnant's `days_from_civil` that `alo-net`'s
+`httpdate` uses. They are not shared: `alo-net` depends on `alo-url` and not the
+other way round, so sharing them means inverting a dependency for some Gregorian
+arithmetic, and renting a calendar crate for eight lines is not a boundary worth
+ADR 0001's paperwork. The doc comment on the function says so, so the next person
+to see both does not think one of them is an oversight.
+
+**`ROADMAP.md`.** The line moved is *"Where one site ends and another begins"* —
+the same line item 156 moved, and the same clause: its `Built:` half now says the
+list is a snapshot, that it ages, and that the build fails once it is six months
+old. It stays an empty box, because item 66 is what ticks it and item 66 is not
+done. `docs/features.md` gains one line under the site, which is where a reader
+would look for it.
+
+**What the next iteration should know.** The first unticked item is now **157**
+(the storage-access grant), which is blocked on an interface to ask in — as is
+**158**, the encrypted-DNS setting, for the same reason. So the first *ready*
+item in file order is **159**, the MPL Exhibit A headers on every source file:
+it depends on nothing, it is owed by ADR 0009, and it is the kind of item that
+stays owed for ever unless somebody takes it deliberately. It also asks for a
+gate check, which is where the reasoning above about shell would need
+revisiting — a header is a `grep`, not a calendar, so shell is right there.
+
+And item 183, the fieldset border, is still the one iterations 70 and 72 to 77
+each named and nobody has taken.
