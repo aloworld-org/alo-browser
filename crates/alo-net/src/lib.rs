@@ -29,6 +29,7 @@
 pub mod body;
 pub mod certificate;
 pub mod connection;
+pub mod decompress;
 pub mod encoding;
 pub mod fetch;
 pub mod headers;
@@ -43,6 +44,7 @@ pub mod tls;
 pub use body::Framing;
 pub use certificate::{Fault, Refused};
 pub use connection::{Connection, Exchanged, exchange};
+pub use decompress::{Encoding, undo, undo_within, what_was_applied};
 pub use encoding::{Decoded, decode, sniff};
 pub use fetch::{FetchError, fetch};
 pub use headers::Headers;

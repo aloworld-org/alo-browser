@@ -423,13 +423,29 @@ first. Nothing here needs JavaScript.
   reused, **and** nothing arrived, **and** the method may be repeated. A `POST`
   is never retried, because a payment that has happened must not happen twice.
 
-- [ ] **152. Content encodings**: gzip, brotli, zstd, rented. *(Numbered out of
+- [x] **152. Content encodings**: gzip, brotli, zstd, rented. *(Numbered out of
   sequence because 54 was allocated to pooling before this line was read. A
   number here is an identity, not a position — the same rule ADR 0003 gives
   node ids, for the same reason: a reused number makes two different pieces of
   history look like one.)*
   *Depends on 53. Closes when:* each round-trips, and a corrupt stream is
   refused rather than decoded into rubbish.
+
+  **Done.** Round-trips against fixtures made by `gzip`, `brotli`, `zstd` and
+  Python's `zlib` rather than by the crates that read them. The bound is on
+  what comes **out**, which is the only such bound in the crate and the only
+  one a bomb cannot walk past. `ruzstd` turned out to compute a frame's
+  checksum and compare it with nothing, so a corrupt zstd body decoded into
+  rubbish and reported success — the comparison is ours now, and named in a
+  test of its own.
+
+- [ ] **153. `Transfer-Encoding` that is not `chunked`.** Cut from 152 rather
+  than folded into it: `Transfer-Encoding: gzip, chunked` is legal, is rare,
+  and is a *different header* from the one item 152 undoes. Today the chunks
+  come off and the gzip does not, which yields compressed bytes labelled as a
+  page.
+  *Depends on 152. Closes when:* it decodes, or is refused by name — either is
+  an answer; handing up compressed bytes is not.
 
 - [ ] **55. Redirects, byte ranges, and downloads that resume.** Redirect loops
   bounded, cross-origin redirects losing what they should.

@@ -169,7 +169,11 @@ unreachable without it.
       · Owed: queue item 59, HTTP/2
 - [ ] HTTP/3 and QUIC, once those two are correct
 - [ ] DNS, and encrypted DNS as a choice somebody made rather than a default nobody was told about
-- [ ] Content encodings: gzip, brotli, zstd
+- [x] Content encodings: gzip, brotli, zstd (queue item 152) — and `deflate` in
+      both the spelling the specification asks for and the one servers send.
+      All three rented and all three pure Rust, because a decompressor is where
+      a memory bug is most directly a remote code execution. The bound is on
+      what comes **out**: a bomb is small on the wire by definition
 - [ ] Redirects, byte ranges, and downloads that resume
 - [ ] **The HTTP cache, with real semantics** — freshness, revalidation, `Vary`. Subtly wrong here is invisible for months and then serves somebody a stale bank page
 - [ ] **Cookies**: `SameSite`, `Secure`, `HttpOnly`, partitioned by default. The default is a product decision, not a parser detail

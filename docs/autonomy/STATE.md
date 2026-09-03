@@ -2435,3 +2435,78 @@ brotli, zstd, all rented. The interesting half is not decoding: it is that a
 memory, so `LARGEST_BODY` has to apply to what comes *out* rather than to what
 came in. That is the hostile-input rule pointed at a new place.
 
+---
+
+## Iteration 40 — queue item 152: bodies that arrive compressed
+
+**The queue had two items numbered 54**, fixed in its own commit first. Pooling
+was cut out of 53 and given the next number without noticing a later line
+already had it. The number moved rather than the identity: 54 is pooling in
+three pushed documents, and renumbering the done item would make them point at
+different work than they were written about. A queue number is an identity
+allocated once and never reused — ADR 0003's rule for node ids, for the same
+reason. Content encodings is 152.
+
+**Three crates rented, all three pure Rust on purpose.** `flate2` on its
+`rust_backend` rather than the C zlib it defaults to; `brotli-decompressor`;
+`ruzstd` rather than the C `zstd` bindings. ADR 0001 says rent the physics, and
+a codec is physics — but a decompressor is also the single place in a browser
+where a memory bug is most directly a remote code execution, because the
+attacker chooses every byte the allocator sees. That is worth a slower decoder.
+
+**The bound is on what comes out, and that is the only such bound in the
+crate.** Every other limit in `alo-net` watches what *arrives*: a
+`Content-Length`, a chunk header, a status line. None of them help here, because
+compression is the art of arriving small — a gigabyte of zeroes is a megabyte
+of gzip and six hundred bytes of brotli. `tests/compressed/bomb.gz` is eight
+kibibytes and decodes to eight mebibytes, and is refused.
+
+The limit is a **parameter** with `LARGEST_BODY` as its default, which came out
+of the test rather than out of taste: proving the bound at 256 MiB costs a
+quarter of a gigabyte per run. The mechanism is identical at 64 KiB. And a
+caller that knows a subresource should be small can now say so.
+
+**A test found a real defect in a rented crate's contract.** `ruzstd` computes
+a frame's XXH64, and reads the one the frame carries, and compares them for
+nobody — both are getters. So a zstd body with a byte flipped in the middle
+decoded into rubbish and returned success, which is precisely what this item
+exists to prevent. The comparison is ours now and has a test named after it, so
+deleting it fails one thing and nothing else.
+
+**And one thing written down rather than promised.** Raw DEFLATE and brotli
+carry no integrity check at all. A corruption that leaves a structurally valid
+stream decodes to different bytes and no implementation could tell. That is a
+property of the formats; what protects those two on the wire is TLS, which is a
+different layer doing a different job. The corruption test therefore covers
+gzip, zlib-deflate and zstd — and says in its own doc comment why brotli is
+tested for a mislabelled body but not a flipped byte.
+
+**The fixtures were made by something that is not us** — the `gzip`, `brotli`
+and `zstd` command-line tools, and Python's `zlib`, each re-derivable from the
+commands in `tests/compressed/README.md`. A suite that compressed with the crate
+it decompresses with proves that one crate agrees with itself, which is not the
+question anybody is asking.
+
+**Cut into the queue rather than folded in:** item 153, `Transfer-Encoding` that
+is not `chunked`. `Transfer-Encoding: gzip, chunked` is legal and rare, and it
+is a *different header* from the one this item undoes — today the chunks come
+off and the gzip does not, which hands up compressed bytes labelled as a page.
+
+**The roadmap line this item served** is stage 2's *Content encodings: gzip,
+brotli, zstd*, and it is **ticked** rather than annotated: all three are there,
+`deflate` in both of its spellings is there, and what is left over went to the
+queue as its own line rather than staying owed on this one.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 945 tests, no stubs, three new boundaries held, no verb takes a
+coordinate. Nothing here positions, sizes or paints, so no layout assertion and
+no reference render — the gate asks for those of anything visual, and a
+decompressor is not.
+
+**What the next iteration should know.** Item 55, redirects and byte ranges.
+The security half is the one to get right and it is not the loop bound: it is
+**what a redirect drops**. A cross-origin redirect must not carry the
+`Authorization` header across, and a redirect to a scheme we do not fetch must
+be a refusal rather than a silent stop. `Accept-Encoding: identity` on a ranged
+request is already handled — that is why the caller's choice is respected.
+

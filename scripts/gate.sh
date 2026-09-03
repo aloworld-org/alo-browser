@@ -44,6 +44,9 @@ declare -a BOUNDARIES=(
   "url:crates/alo-url/src/parse.rs"
   "encoding_rs:crates/alo-net/src/encoding.rs"
   "rustls:crates/alo-net/src/tls.rs"
+  "flate2:crates/alo-net/src/decompress.rs"
+  "brotli_decompressor:crates/alo-net/src/decompress.rs"
+  "ruzstd:crates/alo-net/src/decompress.rs"
 )
 
 step "cargo fmt"

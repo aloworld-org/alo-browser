@@ -6,6 +6,35 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Bodies that arrive compressed are undone**: gzip, brotli, zstd, and
+  `deflate` — which is two formats sharing one name, so both the zlib-wrapped
+  one the specification asks for and the raw one a great many servers send.
+  Requests now say `Accept-Encoding: br, zstd, gzip, deflate`, and a caller who
+  wants something else — a resumed download wants `identity` — keeps it.
+- All three are rented (ADR 0001) and all three are **pure Rust on purpose**. A
+  decompressor is the single place in a browser where a memory bug is most
+  directly a remote code execution, because the attacker chooses every byte the
+  allocator sees. So `flate2` on its `rust_backend` rather than the C zlib it
+  defaults to, and `ruzstd` rather than the C `zstd` bindings.
+- **The limit is on what comes out, and that is the whole point.** Every other
+  bound in this crate watches what arrives — a `Content-Length`, a chunk header
+  — and none of them help here, because compression is the art of arriving
+  small. A gigabyte of zeroes is a megabyte of gzip and six hundred bytes of
+  brotli. Eight kibibytes in the corpus decode to eight mebibytes, and are
+  refused.
+- **A zstd body whose contents do not match its own checksum is now refused.**
+  `ruzstd` computes the frame's checksum, and reads the one the frame carries,
+  and compares them for nobody — so a stream with a flipped byte decoded into
+  rubbish and reported success. A test caught it; the comparison is ours.
+- Written down rather than assumed: **raw DEFLATE and brotli carry no integrity
+  check at all**, so a corruption that leaves a structurally valid stream is
+  undetectable in any implementation. That is a property of the formats, and
+  what protects those two on the wire is TLS.
+- The fixtures were made by `gzip`, `brotli`, `zstd` and Python's `zlib` — not
+  by the crates that read them. A suite that compresses with what it
+  decompresses with proves one crate agrees with itself, which is not the
+  question anybody is asking.
+
 - **Connections are kept between requests.** Opening a socket costs a round
   trip and a TLS one costs two or three; a page asks for thirty things from the
   same host, so a browser that opened thirty connections would spend most of a

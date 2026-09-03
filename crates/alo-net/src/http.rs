@@ -118,6 +118,17 @@ pub fn write_request(request: &Request) -> Vec<u8> {
             None => write!(out, "Host: {host}\r\n"),
         };
     }
+    // Ask for the encodings this engine can undo — but only if the caller has
+    // not asked for something else. Unlike `Host`, this one *is* the caller's
+    // to set: a download that resumes wants `identity`, because a byte range
+    // of a compressed stream is a range of bytes nobody can decompress.
+    if request.headers.get("Accept-Encoding").is_none() {
+        let _ = write!(
+            out,
+            "Accept-Encoding: {}\r\n",
+            crate::decompress::Encoding::ASKED_FOR
+        );
+    }
     for header in request.headers.iter() {
         // The ones this function decides are not the caller's to set, for the
         // reason in this function's own note.

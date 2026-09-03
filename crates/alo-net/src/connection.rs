@@ -205,6 +205,12 @@ pub fn exchange(connection: &mut Connection, request: &Request) -> Result<Exchan
     let head = http::read_head(connection)?;
     let framing = Framing::of(head.status, &head.headers)?;
     let body = body::read(connection, framing)?;
+    // Last, and after framing on purpose: `Content-Length` counts the bytes on
+    // the wire, which are the compressed ones. A body decompressed before it
+    // was framed would be a body framed against a length describing something
+    // else.
+    let applied = crate::decompress::what_was_applied(&head.headers)?;
+    let body = crate::decompress::undo(body, &applied)?;
 
     Ok(Exchanged {
         reusable: may_reuse(head.version, &head.headers, framing),

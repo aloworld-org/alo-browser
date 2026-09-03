@@ -124,6 +124,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **Which encoding a page is in**: byte order mark, `Content-Type`, `<meta>`, then UTF-8 — the tables rented, the algorithm ours, and a page that decoded badly saying so
 - [2] **HTTP/1.1**, ours: a request out, a response in, and body framing that refuses every message saying two things about where it ends — which is what request smuggling is
 - [2] A truncated body is an **error**, not a short page
+- [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
+  spelling the specification asks for and the one servers actually send
+- [2] **A decompression bomb is refused** — the bound is on what comes out,
+  because every other bound in a loader watches what comes in
 - [2] **Connections kept between requests**, with the retry that has to come with them: a reuse that fails before a byte arrives is tried again, and a request that must not happen twice never is
 - [2] **TLS**, rented, with verification that cannot be turned off — no flag, no constructor, no feature
 - [2] **A certificate refusal a person can act on**: what is wrong, what trusting it anyway would mean, and whether the fault has an innocent explanation — three things a caller cannot show one of without the others
