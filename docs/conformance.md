@@ -72,10 +72,23 @@ sheet, and it has to be — a rule that centred a button's label would also
 centre the children of a button an author had made a flex container, and an
 author cannot override a rule they cannot see.
 
-**A form control does not draw its state.** A checkbox that is checked draws
-the same box as one that is not; there is no tick and no focus ring. The state
-is right in the tree and wrong on the screen, which is the worst way round —
-queue item 43.
+**A form control draws its state.** A checked checkbox draws a tick, a chosen
+radio a dot, and a checkbox that is neither on nor off — `aria-checked="mixed"`,
+the "select all" box above a half-selected list — a dash. The colour is
+`accent-color` if the page names one, and the mark on top of it is black or
+white by whichever shows up against it. The mark is drawn by the engine rather
+than set in the user-agent sheet, for the same reason a control's inner box is:
+CSS has no way to say "and draw a check inside it".
+
+**A control nobody can operate says so, and still says what state it is in.** A
+disabled control draws its mark in grey rather than the accent, and its border
+pales — so on, off, on-and-locked and off-and-locked are four different
+pictures. That much is ordinary colour and does live in the user-agent sheet,
+where a page can override it.
+
+**There is still no focus ring**, which is the rest of queue item 43: a focused
+field looks exactly like an unfocused one. Nothing in this stage has focus to
+draw, and the day something does, this is what it needs.
 
 A box can cast a shadow — offset, blurred, spread, and `inset` — and be filled
 with a `linear-gradient` or a `radial-gradient`; text casts a shadow too.
@@ -206,7 +219,7 @@ another repository — so both are this loop's to close.
 ## The corpus
 
 `crates/alo-corpus/cases/` holds the small cases this engine is checked against
-on every run — fourteen of them today. Each is a directory with what to render
+on every run — twenty-three of them today. Each is a directory with what to render
 and five expectations beside it, so a change that moves a box says which box, in
 which case, on which line.
 

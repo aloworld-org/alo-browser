@@ -16,6 +16,7 @@
 //! transforms and opacity.
 
 use crate::canvas::Canvas;
+use crate::control::{self, Mark};
 use crate::corner::{Corners, between, ring, rounded_rectangle};
 use crate::display::{DecorationLine, DisplayItem, DisplayList, TextShadow, lines_in};
 use crate::paint::Paint;
@@ -328,6 +329,7 @@ impl Builder<'_> {
 
         // After the background and border, before the text: a picture is
         // content, and content sits on top of what the box painted for itself.
+        self.control_state_of(id, out);
         self.picture_of(id, out);
 
         if let BoxKind::Text { text, .. } = &node.kind {
@@ -673,6 +675,48 @@ impl Builder<'_> {
 
     /// The picture a box holds, drawn into its content box.
     ///
+    /// What a control draws to say what state it is in: a tick, a dash, a dot.
+    ///
+    /// It is drawn like content rather than like a background, because that is
+    /// what it is — the control's own appearance, which no style sheet can
+    /// express and which [`crate::control`] says why. A control with nothing
+    /// to say about its state draws nothing at all, which is every box on a
+    /// page that is not a checkbox or a radio.
+    ///
+    /// The area is the **padding box**: inside the author's border, which they
+    /// can see and set, and which this does not paint over.
+    fn control_state_of(&self, id: BoxId, out: &mut Vec<DisplayItem>) {
+        let Some(node) = self.boxes.get(id) else {
+            return;
+        };
+        let Some(kind) = Mark::for_state(&node.semantics.role, node.semantics.states.checked)
+        else {
+            return;
+        };
+        let Some(geometry) = self.layout.get(id) else {
+            return;
+        };
+        let style = self.style_of(id);
+        let area = geometry.padding_box();
+        let accent = control::accent(style, node.semantics.states.disabled);
+        // The corners come from the border box and are fitted to the padding
+        // box, which is what turns a radio's `border-radius: 50%` into a
+        // circle inside its border rather than a rounded square.
+        let corners = style.map_or(Corners::SQUARE, |style| {
+            Corners::of(style, Self::extent_of(geometry.border_box))
+        });
+        out.push(DisplayItem::Fill {
+            box_id: id,
+            path: rounded_rectangle(area, corners),
+            paint: Paint::Solid(accent),
+        });
+        out.push(DisplayItem::Fill {
+            box_id: id,
+            path: control::mark(kind, area),
+            paint: Paint::Solid(control::mark_color(accent)),
+        });
+    }
+
     /// Into the *content* box rather than the border box, because a picture
     /// sits inside its own padding and border like any other content — an
     /// `<img>` with a border draws the border around the picture rather than

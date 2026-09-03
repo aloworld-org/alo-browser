@@ -163,6 +163,26 @@ input[type="button"], input[type="submit"], input[type="reset"] {
   background: #efefef;
 }
 
+/* A control nobody can operate says so.
+ *
+ * "You cannot change this" and "this is off" are different things to be told,
+ * and a disabled unchecked checkbox drawn exactly like a live one tells
+ * somebody the second when the first is true. The state a control is *in* is
+ * drawn by the control itself — see `alo_paint::control` — because a tick is
+ * not a property; whether it is **live** is ordinary colour, so it is here,
+ * where a page can override it.
+ */
+button:disabled, input:disabled, select:disabled, textarea:disabled,
+fieldset:disabled {
+  border-color: #c0c0c0;
+  color: #6d6d6d;
+}
+button:disabled, select:disabled, textarea:disabled,
+input[type="button"]:disabled, input[type="submit"]:disabled,
+input[type="reset"]:disabled {
+  background-color: #f5f5f5;
+}
+
 /* Text defaults. A person reading this is reading in a direction. */
 html { color: black; direction: ltr; font-family: system-ui, sans-serif }
 b, strong, th { font-weight: bold }

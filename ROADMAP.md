@@ -254,6 +254,13 @@ unreachable without it.
 - [ ] Mutation from script — create, append, remove, replace — and the invalidation that has to follow it
 - [ ] **Events**: capture and bubble, listeners, default actions
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
+      · Built: **a control draws its own state** (queue item 182) — a tick in a
+      checked box, a dot in a chosen radio, a dash in one that is neither, in
+      `accent-color` if the page names one; and a control nobody can operate
+      says so *while still saying what state it is in*. Corpus case
+      `control-states` · Owed: everything a control **does**, which needs events
+      (queue item 81) — constraint validation, submission, file inputs — and the
+      focus ring, which needs something to have focus (queue item 43)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
 - [ ] `iframe`s and the sandbox attribute — a document inside a document, where a great many security bugs live
 - [ ] Shadow DOM and custom elements; component frameworks are not optional on the modern web

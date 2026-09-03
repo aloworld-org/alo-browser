@@ -1,0 +1,38 @@
+block flow · document
+  block flow · generic
+    block flex · generic
+      inline flow-root · checkbox [checked=false]
+      inline flow · generic
+        text "Off"
+    block flex · generic
+      inline flow-root · checkbox [checked=true]
+      inline flow · generic
+        text "On"
+    block flex · generic
+      inline flow-root · checkbox [checked=mixed]
+      inline flow · generic
+        text "Some"
+    block flex · generic
+      inline flow-root · checkbox [disabled checked=true]
+      inline flow · generic
+        text "On, locked"
+    block flex · generic
+      inline flow-root · checkbox [disabled checked=false]
+      inline flow · generic
+        text "Off, locked"
+    block flex · generic
+      inline flow-root · radio [checked=false]
+      inline flow · generic
+        text "Small"
+    block flex · generic
+      inline flow-root · radio [checked=true]
+      inline flow · generic
+        text "Medium"
+    block flex · generic
+      inline flow-root · radio [disabled checked=true]
+      inline flow · generic
+        text "Large, locked"
+    block flex · generic
+      inline flow-root · checkbox [checked=true]
+      inline flow · generic
+        text "Their colour"

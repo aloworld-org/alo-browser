@@ -1,0 +1,10 @@
+document at (0, 0) 150×196
+  checkbox "Off" [checked=false] at (8, 10.5) 15×15
+  checkbox "On" [checked=true] at (8, 30.5) 15×15
+  checkbox "Some" [checked=mixed] at (8, 50.5) 15×15
+  checkbox "On, locked" [disabled checked=true] at (8, 70.5) 15×15
+  checkbox "Off, locked" [disabled checked=false] at (8, 90.5) 15×15
+  radio "Small" [checked=false] at (8, 110.5) 15×15
+  radio "Medium" [checked=true] at (8, 130.5) 15×15
+  radio "Large, locked" [disabled checked=true] at (8, 150.5) 15×15
+  checkbox "Their colour" [checked=true] at (8, 170.5) 15×15

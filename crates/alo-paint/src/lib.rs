@@ -33,6 +33,7 @@
 pub mod blur;
 pub mod build;
 pub mod canvas;
+pub mod control;
 pub mod corner;
 pub mod coverage;
 pub mod display;
@@ -47,6 +48,7 @@ pub mod render;
 pub use blur::blurred;
 pub use build::{PaintContext, build};
 pub use canvas::Canvas;
+pub use control::{Mark, mark};
 pub use corner::{Corners, between, ring, rounded_rectangle};
 pub use coverage::Coverage;
 pub use display::{DisplayItem, DisplayList, TextShadow};

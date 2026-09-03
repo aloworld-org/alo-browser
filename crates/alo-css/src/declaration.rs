@@ -110,12 +110,20 @@ impl fmt::Display for Declaration {
 
 /// The shorthands this expands, and the longhands each becomes.
 ///
-/// Only the box shorthands, because they are the ones a user-agent sheet sets
-/// and an author overrides. `border`, `background` and `font` have the same
-/// shape of problem and are not here — the engine does not yet set any of them
-/// in the user-agent sheet, so nothing collides, and expanding them correctly
-/// means parsing values rather than splitting on spaces.
-const SIDED: [(&str, [&str; 4]); 2] = [
+/// Only the shorthands that are **one value per side**, because splitting them
+/// is one rule — one value is every side, two are vertical then horizontal, and
+/// so on — and because they are the ones a user-agent sheet sets and an author
+/// overrides.
+///
+/// `border` itself, `background` and `font` are **not** here and have the same
+/// shape of problem: expanding them means parsing values rather than splitting
+/// on spaces, since `red solid 1px` and `1px solid red` are the same border.
+/// They are read where they are used instead, longhand first.
+///
+/// `border-radius` is one value per *corner* and pairs the diagonals rather
+/// than opposite sides, so it is not one of these however much it looks like
+/// one. It is `alo_paint::corner`'s.
+const SIDED: [(&str, [&str; 4]); 5] = [
     (
         "margin",
         ["margin-top", "margin-right", "margin-bottom", "margin-left"],
@@ -127,6 +135,37 @@ const SIDED: [(&str, [&str; 4]); 2] = [
             "padding-right",
             "padding-bottom",
             "padding-left",
+        ],
+    ),
+    // The three border shorthands arrived when the user-agent sheet first set
+    // one — `border-color` on a disabled control, queue item 182. Until then
+    // the sheet set none of them, so nothing collided; the comment that said
+    // so is what named the day they should be added.
+    (
+        "border-width",
+        [
+            "border-top-width",
+            "border-right-width",
+            "border-bottom-width",
+            "border-left-width",
+        ],
+    ),
+    (
+        "border-style",
+        [
+            "border-top-style",
+            "border-right-style",
+            "border-bottom-style",
+            "border-left-style",
+        ],
+    ),
+    (
+        "border-color",
+        [
+            "border-top-color",
+            "border-right-color",
+            "border-bottom-color",
+            "border-left-color",
         ],
     ),
 ];
@@ -481,15 +520,50 @@ mod expansion_tests {
         assert!(sides("").is_empty());
     }
 
-    /// Only the box shorthands. `border` and `background` have the same shape
-    /// of problem and are not expanded, because nothing sets them in the
-    /// user-agent sheet and so nothing collides.
+    /// The three border shorthands that are one value per side split like the
+    /// box ones, because they *are* box ones: the rule is the same.
+    #[test]
+    fn the_border_shorthands_that_are_one_value_per_side_split_too() {
+        for (shorthand, first) in [
+            ("border-width", "border-top-width"),
+            ("border-style", "border-top-style"),
+            ("border-color", "border-top-color"),
+        ] {
+            let split = expand(&Declaration::new(shorthand, "red blue", Importance::Normal));
+            assert_eq!(split.len(), 4, "{shorthand} is four sides");
+            assert_eq!(split.first().map(|(name, _)| name.as_str()), Some(first));
+            assert_eq!(
+                split
+                    .iter()
+                    .map(|(_, value)| value.as_str())
+                    .collect::<Vec<_>>(),
+                vec!["red", "blue", "red", "blue"],
+                "{shorthand} pairs vertical then horizontal",
+            );
+        }
+    }
+
+    /// Only the shorthands that are one value per side. `border` itself takes
+    /// its parts in any order — `red solid 1px` is the same border as
+    /// `1px solid red` — so splitting it means parsing rather than counting,
+    /// and it is read where it is used instead.
+    ///
+    /// `border-radius` is one value per **corner** and pairs the diagonals, so
+    /// it is not one of these however much it looks like one.
     #[test]
     fn only_the_shorthands_this_engine_expands_are_expanded() {
         assert!(
             expand(&Declaration::new(
                 "border",
                 "1px solid red",
+                Importance::Normal
+            ))
+            .is_empty()
+        );
+        assert!(
+            expand(&Declaration::new(
+                "border-radius",
+                "4px 8px",
                 Importance::Normal
             ))
             .is_empty()

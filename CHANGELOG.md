@@ -6,6 +6,29 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A checked control looks checked.** A checkbox that was ticked drew exactly
+  one thing — its border — so a person could not tell it from an unchecked one.
+  It draws a tick now, a chosen radio draws a dot, and a checkbox that is
+  neither on nor off (`aria-checked="mixed"`, the "select all" box above a
+  half-selected list) draws a dash. True since controls were built, with an
+  example sitting in the corpus the whole time; it took a page with radios and
+  checkboxes side by side to make anybody look.
+- **A control nobody can operate says so**, and still says what state it is in.
+  "You cannot change this" and "this is off" are different things to be told: a
+  disabled control draws its mark in grey rather than the accent colour, and its
+  border pales, so all four of on/off and live/dead are four different pictures.
+- **`accent-color` is read**, which is the property CSS has for what colour a
+  control draws its own state in. The mark on top of it is black or white by
+  whichever shows up — so a pale accent gives a black tick rather than an
+  invisible white one.
+- **`border-width`, `border-style` and `border-color` are read as shorthands.**
+  Each is one value per side and splits by the same rule as `margin` and
+  `padding`; they were not expanded before because nothing in the user-agent
+  sheet set one, which stopped being true the moment a disabled control needed a
+  paler border. `border` itself still is not: `red solid 1px` and `1px solid
+  red` are the same border, so splitting it means parsing rather than counting.
+- Corpus case `control-states`: nine controls, no two of them the same picture.
+
 - **A page with a form**, frozen — the HTML specification's own example, which
   contains almost every part of a form at once and has no style sheet. It found
   four things, all now fixed.

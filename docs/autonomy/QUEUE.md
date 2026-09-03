@@ -943,6 +943,29 @@ The long pole, and the thing most of section E is unreachable without.
   *Closes when:* a corpus case shows a ticked box, a chosen radio and a focused
   field, each differing from its resting state.
 
+  **The tick and the dot are done** — item 182, corpus case `control-states`.
+  **What is left is the focus ring**, and it is left rather than forgotten: this
+  engine has nothing that *has* focus, because focus arrives with events (item
+  81). `:focus-visible` already parses and matches nothing, which is the correct
+  answer for a still picture of a page nobody is using, so drawing a ring today
+  would mean inventing a focused element to draw it on.
+  *So: depends on 81.*
+
+- [x] **184. `border-width`, `border-style` and `border-color` as shorthands.**
+  Each is one value per side and splits by exactly the rule `margin` and
+  `padding` already use; none of them was expanded, so `border-color: red` was
+  kept and ignored. **Taken inside item 182** rather than queued after it: that
+  item needed the user-agent sheet to set `border-color` on a disabled control,
+  and `alo_css`'s own comment had already named the day these should be added —
+  *"the engine does not yet set any of them in the user-agent sheet, so nothing
+  collides"*. It collided.
+  *Closes when:* each splits into its four sides in a test that names all three,
+  and `border` itself still does not — `red solid 1px` and `1px solid red` are
+  the same border, so splitting that one means parsing rather than counting.
+
+  **Done.** No corpus case moved except the one the disabled rule was written
+  for, which is the evidence that nothing was relying on the old behaviour.
+
 - [ ] **94. Animations and transitions.** Stage 1 reads them and they change
   nothing, which is correct for a still picture; this is the clock.
   *Depends on 76.*
@@ -1047,7 +1070,7 @@ The long pole, and the thing most of section E is unreachable without.
   four are fixed. Two more are 182 and 183.
   *Depends on 68.*
 
-- [ ] **182. A checked control looks checked.** `[checked=true]` in the tree and
+- [x] **182. A checked control looks checked.** `[checked=true]` in the tree and
   one fill in the display list: the border. True since controls were built, and
   the alo corpus has an example of it — it took a page with radios and
   checkboxes side by side to make anybody look.
@@ -1056,6 +1079,15 @@ The long pole, and the thing most of section E is unreachable without.
   checkbox is different from both, and a disabled one still shows its state —
   because "you cannot change this" and "this is off" are different things to be
   told.
+
+  **Done, and the split between the two halves is the thing worth reading.** The
+  *mark* is drawn by the engine (`alo_paint::control`) because CSS has no way to
+  say "and draw a check inside it" — the same argument that put a control's
+  inner box in `alo_box` rather than the sheet. Whether the control is **live**
+  is ordinary colour, so it is in the user-agent sheet where a page can override
+  it. Corpus case `control-states`: nine controls, no two the same picture.
+  Setting `border-color` on a disabled control needed item 184, which was taken
+  with it because the code had already written down the day it would be needed.
 
 - [ ] **183. A fieldset looks like a group.** No border, so the thing that makes
   a fieldset worth using is invisible. Real browsers draw a groove the legend

@@ -4365,3 +4365,86 @@ whole time, and the corpus has been quietly committing a picture of it. The
 paint work is a tick path and a dot — small — and the reference renders it moves
 are the ones that prove it.
 
+
+## Iteration 70 — queue item 182: a checked control looks checked
+
+The item the last iteration named, and not because it was next: a state a
+person could not see, wrong since controls were built, with a picture of it
+committed in the corpus the whole time. `a-filled-form` has had a checked
+checkbox and a render showing an empty square since iteration 16.
+
+**The interesting part was deciding which half goes where.** A tick is drawn by
+the engine and cannot be a style rule: CSS has no way to say "and draw a check
+inside it", and the nearest thing — a `::before` with a character in it — puts
+the mark at the mercy of whichever font loaded. That is the same argument that
+put a control's inner box in `alo_box::Purpose::Control` rather than in the
+sheet, and it is why `alo-paint/src/control.rs` exists.
+
+But **whether a control is live is ordinary colour**, so that half *is* in the
+user-agent sheet, where a page can override it. Splitting it that way is what
+made the last clause of the closing condition reachable: "you cannot change
+this" and "this is off" are different things to be told, and the mark cannot
+tell you the first, because an unchecked control has no mark. The border does.
+
+So the case has four pictures where a naive reading of the item would have had
+two — on, off, on-and-locked, off-and-locked — and no two of the nine controls
+in `control-states` look alike.
+
+**`accent-color` came with it rather than a constant.** A hardcoded blue would
+have been a colour no page could change, in the one place CSS has a property
+for exactly this question. Reading it made a second rule necessary and worth
+having: the mark is black or white by whichever shows up against the accent,
+because a fixed white tick vanishes into `accent-color: yellow` and the page
+that set it would have no way to see why. The corpus case has one such row.
+
+**The item that the code had already scheduled.** Setting `border-color` on a
+disabled control did nothing, because `border-color` was never expanded into
+its four sides — and `alo_css::declaration`'s own comment said why: *"the engine
+does not yet set any of them in the user-agent sheet, so nothing collides"*.
+Writing that rule made it collide. `border-width`, `border-style` and
+`border-color` split by exactly the rule `margin` and `padding` already use, so
+this was three entries in a table; `border` itself still does not, because `red
+solid 1px` and `1px solid red` are the same border and splitting that means
+parsing rather than counting. Queue item 184, written down as taken.
+
+That is the second time in three iterations that a limitation *written down*
+turned out to be a limitation *scheduled*: iteration 69 found `border-radius`
+in per cent refused with a note beside it. A comment naming the day something
+becomes wrong is worth more than one saying it is wrong.
+
+**What I got wrong, and it was in the test rather than the code.** The first
+assertions counted pixels of exactly the mark's colour. A tick at the size a
+page asks for is two and a half pixels across, so nearly all of it is
+anti-aliased and almost none of it is exactly white — twenty pixels for the
+whole tick, one for the part that reaches the top of the box. Counting which of
+two colours a pixel is *closer to* is what measures a shape; counting exact
+matches measures a flat fill. The corpus render was right the whole time and the
+test was asking it the wrong question.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero and zero, 1234 tests. A
+new reference render (`control-states`) and nine assertions in
+`alo-paint/tests/control_states.rs` for the half a picture cannot say — that the
+ink inside a checked box is the accent, that a radio's mark is round and a
+checkbox's is not, that a disabled one is grey and still ticked.
+
+**One case moved and only one**, twice over: `a-filled-form` when the mark
+landed, `control-states` when the disabled border did. Nothing else in
+twenty-three cases changed, which is the review — a user-agent change that moved
+an unrelated screen would have been the thing to look at.
+
+**`ROADMAP.md`.** The line moved is **Forms** in the DOM section, to a Built /
+Owed clause: a control draws its own state; what a control *does* still needs
+events (item 81), and the focus ring still needs something to have focus. Item
+184 moved no line and that is the honest answer — the border shorthands are a
+cascade fix under stage 1's ticked "Computed style", not a line of its own.
+
+**What the next iteration should know.** Item 183 is the other half of what the
+form page found: a fieldset draws no border, so the thing that makes a fieldset
+worth using is invisible. The interesting part of it is that the legend sits
+*in* the top border rather than above it, which is a hole in a shape — and
+`corner.rs`'s `between` already draws one shape with another cut out of it,
+which is what an inset shadow uses. That is the machinery to reach for.
+
+Item 43 is now explicitly blocked on item 81 rather than open: the tick and the
+dot are done, and the focus ring cannot be drawn while nothing in this engine
+has focus. That is recorded in the queue rather than left as a half-open item.

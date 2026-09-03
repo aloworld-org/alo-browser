@@ -1,0 +1,9 @@
+body { margin: 8px; background: #ffffff; font-family: system-ui; font-size: 13px;
+  color: #18181b }
+.row { display: flex; align-items: center; gap: 8px; height: 20px }
+label { color: #3f3f46 }
+
+/* The one row that disagrees with the engine's default accent, so that the
+   picture shows `accent-color` being read — and shows the mark turning black
+   against a pale one, which a fixed white tick would have vanished into. */
+.accented { accent-color: #b8f000 }
