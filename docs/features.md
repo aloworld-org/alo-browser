@@ -98,6 +98,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 The reason this exists rather than a faster fork of somebody else's engine.
 
 - [1] ★ **The layout tree read as roles, states, positions and text** — a *view* of the tree that draws the page, never a parallel structure. Two structures eventually disagree, and the agent acts on whichever is wrong
+- [1] ★ **`aria-current`**, as the word the author used rather than a flag — a nav item being the current *page* is not the claim a cell being the current *date* makes
 - [1] ★ Roles are **declared, not inferred**. A box says it is a list, a row, a field, a button — guessing that from appearance is what screen-scraping already does badly
 - [1] ★ **Typed verbs**: activate, put text, scroll. **No verb takes a coordinate**, because a coordinate is a guess about a layout that may have moved between the reading and the acting
 - [1] ★ A verb **changes the page**: text into a field, a checkbox ticked, a radio chosen and its group un-chosen — rendered again from the same document, so every id an agent is holding still names what it named

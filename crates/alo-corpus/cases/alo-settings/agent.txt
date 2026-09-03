@@ -2,7 +2,7 @@ document at (0, 0) 900×600
   dialog "Mail settings" at (24, 77.07892) 852×445.84216
     heading "Mail settings" [level=2] at (44, 93.07892) 124.08008×19.789063
     navigation "Mail settings" at (24, 129.86798) 194×327.2531
-      button "General" at (36, 141.86798) 169×31.132813
+      button "General" [current=true] at (36, 141.86798) 169×31.132813
       button "Filters & rules" at (36, 175.0008) 169×31.132813
       button "Sharing" at (36, 208.1336) 169×31.132813
       button "Notifications" at (36, 241.26642) 169×31.132813

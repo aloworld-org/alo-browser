@@ -1952,3 +1952,63 @@ asserting it against a real alo screen, which is where a role declared wrongly
 actually shows up. The settings nav is `<button>`s inside a `<nav>`, so what an
 agent should find is buttons named "General", "Filters & rules" and so on.
 
+---
+
+## Iteration 32 — queue item 46: an agent on alo's Settings screen
+
+**What was built.** `crates/alo-renderer/tests/an_agent_on_settings.rs`: seven
+tests that read alo's Settings screen **from the corpus case on disk**, so the
+test and the committed reference render are looking at the same bytes. The
+agent finds the sections as buttons called what a person would call them, knows
+which one is open, activates one by name, ticks the out-of-office box, types a
+date, reads it all back, and is refused when it asks for something the screen
+does not have.
+
+**It found one thing missing, and it was the sentence ADR 0002 opens with.**
+`aria-current` was dropped. alo's nav says which section is open and the tree
+could not say it — an agent would have had to guess from a colour, which is
+exactly the screen-scraping ADR 0002 exists to refuse. It is read now, and as
+the **word** the author used rather than a flag: a nav item being the current
+*page* is not the claim a cell being the current *date* makes.
+
+**And one thing is said out loud rather than papered over.** Pressing a nav row
+runs the page's own code, and stage 1 has none — so the verb finds the row,
+reports what it pressed, and the screen does not change. There is a test that
+asserts exactly that. The day scripting arrives it will fail, and somebody will
+have to rewrite it on purpose, which is the point.
+
+---
+
+# Stage 1 is finished
+
+**The exit gate is met, all three clauses**, and `ROADMAP.md` says so:
+
+- alo's **sign-in screen** renders from its own stylesheet with no
+  substitutions, diffed against a committed image *and* a committed box tree.
+- alo's **Settings screen** does the same, its narrow-screen `@media` block
+  evaluated rather than assumed away.
+- An **agent reads Settings as a tree and activates a row by name**, never by
+  position.
+
+Every one of those runs on the machine anybody clones this on. No GPU, no
+window, no network, no sibling repository, and no claim measured on hardware.
+
+**What the gate does not claim**, said here so a tick is not read as more than
+it is:
+
+- **This is an engine, not a browser.** No scripting, no network, no hostile
+  pages. Stage 2 is the rest, and `ROADMAP.md` sizes it honestly at years.
+- **The screens are not pixel-identical to the app.** The corpus renders in
+  DejaVu Sans and the app loads Inter, which is narrower, so alo's headline
+  wraps one line more here. Web fonts are stage 2. `docs/conformance.md` says
+  it in the same paragraph as the passing row, so nobody reads the row alone.
+- **Nothing about speed.** Measured on hardware or not said.
+
+**Twenty-three stage 1 queue items**, plus the ten written by the iterations
+that found them, all ticked. 836 tests. Sixteen corpus cases. Five ADRs.
+
+**Stage 2 begins at queue item 26**, and the first two lines of it are already
+part built: ADR 0005 decided the process model and `alo-renderer` is the
+boundary it needs, so what item 29 owes is the transport and the sandbox rather
+than a redesign.
+

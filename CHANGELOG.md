@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent reads alo's Settings screen and acts on it by name** — the last
+  clause of stage 1's exit gate. It finds the sections as buttons called what a
+  person would call them, knows which one is open, activates one by name with no
+  coordinate anywhere in the transaction, ticks the out-of-office box and types
+  a date, and is refused when it asks for something the screen does not have.
+- **`aria-current` is read.** ADR 0002's own example sentence is "invoice list,
+  twelve rows, row three selected"; for this screen it is "which section is
+  open", and an agent that could not read it would have to guess from a colour.
+  It is a word rather than a flag — `page`, `step`, `date` — because a nav item
+  being the current *page* is not the same claim as a cell being the current
+  *date*.
+- Honest about the edge: pressing a nav row runs the page's own code, and there
+  is none in stage 1. The verb finds the row and reports what it pressed, and
+  the screen does not change. There is a test that says exactly that, so the
+  day scripting arrives it will fail and have to be rewritten on purpose.
+
 - **alo's Settings screen renders**, from its own markup and its own rules, with
   no substitutions — the second of the two screens stage 1's exit gate names.
   Corpus case `alo-settings`.

@@ -7,7 +7,7 @@ block flow · document
             text "Mail settings"
         block flex · generic
           block flex · navigation "Mail settings"
-            block flex · button
+            block flex · button [current=true]
               inline flow · generic
                 text "General"
             block flex · button

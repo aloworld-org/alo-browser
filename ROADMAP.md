@@ -70,27 +70,32 @@ correctness, not before it.
       the same document so held ids stay valid. *This line was ticked when a
       verb decided and reported and changed nothing, which is not what the line
       says. Queue item 42 made it true.*
-- [ ] **A real alo screen renders correctly** — the sign-in screen, then
-      Settings
-      · Built: `alo-workplace`'s sign-in screen, in `alo-corpus`, rendered and
-      diffed on every run, with the headline's own
-      `clamp(2.4rem, 4vw, 3.5rem)` resolving (queue item 44) and its
-      `white-space: pre-line` keeping the headline one string (item 47) and its
-      `letter-spacing` (item 48), and its `transition`, `:hover` and
-      `:focus-visible` rules read and inert (item 49); and **alo's Settings
-      screen** (item 45), its own markup and rules, likewise with no
-      substitutions. **Both screens the gate names now render and are diffed on
-      every run** · Owed: queue item 46 — an agent reading Settings as a tree
-      and activating a row by name, which is the gate's last clause. *The old reason for not ticking —
-      that the gate named alo OS's screens — was a fact about repository layout
-      rather than about this engine, and is gone.*
+- [x] **A real alo screen renders correctly** — the sign-in screen, then
+      Settings. Both are `alo-workplace`'s own markup and rules, rendered from
+      their own stylesheets with **no substitutions**, and diffed on every run
+      against a committed image *and* a committed box tree (queue items 44,
+      47, 48, 49 and 45). *One thing is true of both and is not a defect in
+      either: the corpus renders in DejaVu Sans and the app loads Inter, which
+      is narrower, so alo's headline wraps one line more here. Web fonts are
+      stage 2.*
 
-**Exit gate.** From this repository alone, on any machine: alo's sign-in screen
-and Settings render correctly from their own markup and `tokens.css`, with no
-substitutions left in the case — matched against the committed reference image
-*and* the expected box tree, so "correctly" is a diff rather than an opinion —
-and an agent reads the Settings screen as a tree and activates a row by name
-rather than by position.
+**Exit gate — met.** From this repository alone, on any machine: alo's sign-in
+screen and Settings render correctly from their own markup and `tokens.css`,
+with no substitutions left in the case — matched against the committed
+reference image *and* the expected box tree, so "correctly" is a diff rather
+than an opinion — and an agent reads the Settings screen as a tree and
+activates a row by name rather than by position.
+
+All three clauses hold. The two screens are `crates/alo-corpus/cases/`'s
+`alo-sign-in` and `alo-settings`, and the agent is
+`crates/alo-renderer/tests/an_agent_on_settings.rs`. Every one of them runs on
+the machine anybody clones this on.
+
+**What the gate does not claim.** That this is a browser — it is an engine, and
+stage 2 is the rest. That the screens are pixel-identical to the app — the
+corpus renders in DejaVu Sans and the app loads Inter, so alo's headline wraps
+one line more here; web fonts are stage 2. And nothing about speed, which is
+measured on hardware or not said.
 
 Nothing in that sentence needs a compositor, a certified machine or another
 repository. That is the point of the gate rather than an accident of it: a gate

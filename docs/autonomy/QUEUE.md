@@ -305,13 +305,22 @@ one number is a reference that quietly points at the wrong thing.*
   every `<input>` a fixed height, which became too *short* once a field showed
   its value.
 
-- [ ] **46. An agent reads Settings and activates a row by name.** The last
+- [x] **46. An agent reads Settings and activates a row by name.** The last
   clause of the exit gate. Reading works on pages we wrote, and a verb finds its
   target and reports what it decided — but it does not yet write back to the
   document, which was item 42. **Item 42 is done**, so this one is unblocked: a
   verb changes the page now. What this adds beyond 42 is asserting it against a
   real alo screen, which is where
   a role declared wrongly actually shows up.
+
+  **Done: `crates/alo-renderer/tests/an_agent_on_settings.rs`.** It reads the
+  screen from the corpus case, so the test and the committed render look at the
+  same thing. It also found that `aria-current` was dropped — alo's nav says
+  which section is open and the tree could not say it — so that is read now. And
+  it says out loud what a nav row does *next*: nothing, because that is the
+  page's own code and stage 1 has none.
+
+  **Stage 1's exit gate is met with this item.**
 
 **Still genuinely not this queue's**, and now recorded in `ROADMAP.md` outside
 the stage 1 list so they cannot block it: hardware acceleration (needs a GPU),

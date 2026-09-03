@@ -39,6 +39,42 @@ impl fmt::Display for Checked {
     }
 }
 
+/// Which thing in a set is the current one.
+///
+/// `aria-current` is not a boolean: a nav item can be the current *page*, a
+/// wizard step the current *step*, a cell the current *date*. Keeping the word
+/// the author used is the difference between an agent knowing which section of
+/// Settings is open and knowing only that something is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Current {
+    /// `aria-current="true"`, and what any word this engine does not know
+    /// means — ARIA says an unrecognised value is `true` rather than nothing.
+    Yes,
+    /// The current page in a set of them.
+    Page,
+    /// The current step.
+    Step,
+    /// The current location.
+    Location,
+    /// The current date.
+    Date,
+    /// The current time.
+    Time,
+}
+
+impl fmt::Display for Current {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Current::Yes => "true",
+            Current::Page => "page",
+            Current::Step => "step",
+            Current::Location => "location",
+            Current::Date => "date",
+            Current::Time => "time",
+        })
+    }
+}
+
 /// What is true of a box right now.
 ///
 /// Every field that can be absent is an [`Option`], and the distinction
@@ -78,6 +114,8 @@ pub struct States {
     pub hidden: bool,
     /// A heading's level, one to six.
     pub level: Option<u8>,
+    /// This is the current one of its kind, if its kind has a current one.
+    pub current: Option<Current>,
     /// Text can be put into this box.
     ///
     /// A **capability**, not a state a person would read out — which is why it
@@ -113,6 +151,7 @@ impl States {
             invalid: aria_flag(element, "aria-invalid").unwrap_or(false),
             hidden: aria_flag(element, "aria-hidden").unwrap_or(false),
             level: heading_level(element),
+            current: current(element),
             takes_text: alo_css::state::is_text_entry(element),
         }
     }
@@ -176,6 +215,9 @@ impl fmt::Display for States {
         if let Some(level) = self.level {
             write_one(f, &format!("level={level}"))?;
         }
+        if let Some(current) = self.current {
+            write_one(f, &format!("current={current}"))?;
+        }
         Ok(())
     }
 }
@@ -216,6 +258,25 @@ fn checked(document: &Document, id: NodeId, element: &Element) -> Option<Checked
     } else {
         Checked::No
     })
+}
+
+/// Which of `aria-current`'s words the author used.
+///
+/// `false` is the absence of the state rather than a state of its own, which
+/// is what ARIA says and what keeps an agent from being told about every item
+/// in a navigation that is not the current one.
+fn current(element: &Element) -> Option<Current> {
+    let value = element.attr("aria-current")?.trim().to_ascii_lowercase();
+    match value.as_str() {
+        "" | "false" => None,
+        "page" => Some(Current::Page),
+        "step" => Some(Current::Step),
+        "location" => Some(Current::Location),
+        "date" => Some(Current::Date),
+        "time" => Some(Current::Time),
+        // ARIA: anything it does not recognise means `true`.
+        _ => Some(Current::Yes),
+    }
 }
 
 fn selected(element: &Element) -> Option<bool> {

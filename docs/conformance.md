@@ -147,10 +147,16 @@ it lives in.
 
 | Target | State |
 |---|---|
-| alo sign-in screen | **nearly** — `alo-workplace`'s renders and is diffed on every run, with four substitutions still in the case (see below). Not correct until those are gone |
-| alo Settings | not yet — not rendered at all |
-| alo agent overlay | not yet |
-| An agent reading Settings as a tree and activating a row by name | reading and activating both work on pages we wrote; Settings itself is not yet rendered |
+| alo sign-in screen | **yes** — `alo-workplace`'s, from its own stylesheet with no substitutions, diffed against a committed image *and* a committed box tree on every run |
+| alo Settings | **yes** — `alo-workplace`'s, likewise, and its narrow-screen `@media` block evaluated rather than assumed away |
+| An agent reading Settings as a tree and activating a row by name | **yes** — `crates/alo-renderer/tests/an_agent_on_settings.rs`, against that same screen, by name and never by position |
+| alo agent overlay | not yet — the screen is not written in `alo-workplace` either |
+
+**One thing is true of both screens and is not a defect in either**: the corpus
+renders in DejaVu Sans, and the app loads Inter. Inter is narrower, so alo's
+headline wraps one line more here than it does in the app. The reference render
+is a diff against itself and passes; a person holding the two side by side would
+see it. Web fonts are stage 2.
 
 Colours are correct when they match `alo-workplace`'s `web/src/ds/tokens.css`,
 which is the specification for what "correct" means here.

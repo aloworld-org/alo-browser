@@ -35,6 +35,6 @@ pub mod whitespace;
 pub use display::{Display, Inside, Outside};
 pub use role::{KnownRole, Role};
 pub use semantics::Semantics;
-pub use state::{Checked, States};
+pub use state::{Checked, Current, States};
 pub use tree::{BoxId, BoxKind, BoxNode, BoxTree, Purpose, build};
 pub use whitespace::WhiteSpace;
