@@ -154,6 +154,11 @@ unreachable without it.
       · `alo-url`: parsing rented behind one file, the types ours, and an
       opaque origin that is the same as itself and nothing else
 - [ ] TLS with `rustls`, and certificate errors a person can act on rather than click through
+      · Built: nothing of TLS yet — but the **shape** a fetch produces is,
+      in `alo-net` (queue item 51): a request, a response, headers, a media
+      type and a body, with `data:` and `file:` as the only schemes, so HTTP
+      and TLS arrive as one more arm of a `match` rather than as a second
+      pipeline · Owed: queue items 52 and 53, the whole of TLS and HTTP
 - [ ] HTTP/1.1, then HTTP/2 — connection pooling and keep-alive with them
 - [ ] HTTP/3 and QUIC, once those two are correct
 - [ ] DNS, and encrypted DNS as a choice somebody made rather than a default nobody was told about

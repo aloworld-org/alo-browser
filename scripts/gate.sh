@@ -42,6 +42,7 @@ declare -a BOUNDARIES=(
   "tiny_skia:crates/alo-paint/src/raster.rs"
   "png:crates/alo-paint/src/encode.rs"
   "url:crates/alo-url/src/parse.rs"
+  "encoding_rs:crates/alo-net/src/encoding.rs"
 )
 
 step "cargo fmt"

@@ -1,0 +1,16 @@
+[package]
+name = "alo-net"
+description = "Loading: a request, a response, and the bytes a page is made of."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+alo-url = { path = "../alo-url" }
+encoding_rs.workspace = true
+
+[lints]
+workspace = true

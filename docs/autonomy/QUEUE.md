@@ -370,12 +370,17 @@ first. Nothing here needs JavaScript.
   same as itself and nothing else**, which `file:` and every unregistered
   scheme get, because unknown must never mean "probably fine".
 
-- [ ] **51. Fetching what needs no network.** The shape of a load — a request, a
+- [x] **51. Fetching what needs no network.** The shape of a load — a request, a
   response, a status, headers, a content type, a body — with `file:` and `data:`
   as the only schemes. Encoding sniffed the way HTML says rather than assumed to
   be UTF-8.
   *Depends on 50. Closes when:* the renderer loads a page from a path rather
   than from a string handed to it, and a mislabelled encoding still reads.
+
+  **Done: `alo-net`.** The fetching happens outside the renderer, which
+  ADR 0005 gives no filesystem — `Page::from_response` is how bytes reach it.
+  Encoding tables rented (`encoding_rs`), the algorithm ours, and a page that
+  decoded badly says so rather than showing question marks nobody can explain.
 
 - [ ] **52. TLS with `rustls`.** Rented (ADR 0001), behind its own file like
   every other rented crate. A certificate error is a **decision a person makes**,

@@ -77,6 +77,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "alo-net"
+version = "0.0.0"
+dependencies = [
+ "alo-url",
+ "encoding_rs",
+]
+
+[[package]]
 name = "alo-paint"
 version = "0.0.0"
 dependencies = [
@@ -102,9 +110,11 @@ dependencies = [
  "alo-css",
  "alo-dom",
  "alo-layout",
+ "alo-net",
  "alo-paint",
  "alo-style",
  "alo-text",
+ "alo-url",
  "alo-value",
  "dejavu",
 ]
@@ -270,6 +280,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd1511a7b6a56299bd043a9c167a6d2bfb37bf84a6dfceaba651168adfb43c87"
 dependencies = [
  "dtoa",
+]
+
+[[package]]
+name = "encoding_rs"
+version = "0.8.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
+dependencies = [
+ "cfg-if",
 ]
 
 [[package]]

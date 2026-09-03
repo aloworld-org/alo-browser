@@ -53,6 +53,23 @@ impl Page {
         self.scheme = ColorScheme::Dark;
         self
     }
+
+    /// A page from something that was fetched.
+    ///
+    /// **The fetching happened elsewhere**, and that is the whole point:
+    /// ADR 0005 gives a renderer no filesystem and no network, so it is handed
+    /// bytes rather than a place to go and get them. The response decides the
+    /// character encoding — from its own byte order mark, its `Content-Type`,
+    /// or a `<meta>` in the markup — because a renderer told "here is a
+    /// string" has already lost the chance to get that right.
+    pub fn from_response(response: &alo_net::Response, viewport: Size) -> Self {
+        Self {
+            html: response.text().text,
+            sheets: Vec::new(),
+            viewport,
+            scheme: ColorScheme::Light,
+        }
+    }
 }
 
 #[cfg(test)]

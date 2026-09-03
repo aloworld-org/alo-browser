@@ -269,3 +269,31 @@ fn a_scroll_crosses_the_boundary_like_anything_else() {
         "a list with more rows than room scrolls: {answer:?}",
     );
 }
+
+#[test]
+fn a_page_can_come_from_something_that_was_fetched() {
+    // Queue item 51's other half. The renderer is handed bytes rather than a
+    // place to go and get them — ADR 0005 gives it no filesystem and no
+    // network, so the fetch happens out here, in what will be the browser
+    // process.
+    let fetched = alo_net::fetch(&alo_net::Request::get(
+        alo_url::parse("data:text/html,%3Cp%3Efetched%3C/p%3E").expect("a URL"),
+    ))
+    .expect("a response");
+
+    let mut renderer = Renderer::new(fonts());
+    let answer = renderer.handle(ToRenderer::Load(Box::new(Page::from_response(
+        &fetched,
+        Size::new(200.0, 100.0),
+    ))));
+    assert!(matches!(answer, FromRenderer::Loaded { .. }), "{answer:?}");
+
+    match renderer.handle(ToRenderer::ReadTree) {
+        FromRenderer::Tree(snapshot) => assert!(
+            snapshot.to_outline().contains("fetched"),
+            "the bytes reached the page:\n{}",
+            snapshot.to_outline(),
+        ),
+        other => panic!("expected a tree, got {other:?}"),
+    }
+}

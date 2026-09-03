@@ -2143,3 +2143,62 @@ network in item 53 is one implementation of something already tested. The
 encoding sniffing matters more than it sounds: a mislabelled page is common,
 and the rule is HTML's rather than "assume UTF-8".
 
+---
+
+## Iteration 35 — queue item 51: the shape of a load
+
+**What was built.** `alo-net`: a request, a response, a status, headers, a
+media type and a body — with `data:` and `file:` as the only schemes and **no
+network in it at all**.
+
+**That absence is the design.** The shape is identical whether the bytes came
+from a socket, a file or the URL itself, so it is built and tested against the
+two that need nothing. HTTP is then *one more arm of a `match`* in `fetch.rs`,
+and the comment saying so is in the file. A pipeline built network-first would
+have had the network's shape pressed into everything above it.
+
+**It lives in the browser process, and that is a privilege boundary.**
+ADR 0005 gives a renderer no filesystem, no network and no way to name anything
+outside itself. So the renderer is *handed* a fetched response —
+`Page::from_response` — rather than a path to go and read. The test for it does
+the fetching outside the renderer, which is what the split will look like when
+item 63 makes it real.
+
+**Rented the tables, kept the algorithm.** Which byte means which character in
+`windows-1252` or `shift_jis` is twenty years of industry agreement in a table,
+so `encoding_rs`, behind one file. But *which* encoding a page is in is a
+**sequence of rules** — byte order mark, then `Content-Type`, then a `<meta>`
+in the first kilobyte, then UTF-8 — and each step is there because the one
+before it can be absent or wrong. That is ours, and it is where a browser
+actually gets mojibake right or wrong.
+
+**Two decisions worth keeping.**
+
+- **A page that decoded badly says so.** `Decoded::had_errors` is kept rather
+  than hidden. A browser that silently produced question marks would leave
+  nobody able to find out why.
+- **Headers are a list, not a map.** Names fold case, but order is observable
+  and `Set-Cookie` appearing three times means three cookies. A
+  `HashMap<String, String>` loses both, and loses the second one silently.
+
+**A judgement call: base64 is ours, not rented.** Twenty lines, and a
+dependency for twenty lines is its own kind of cost. Everything else in this
+crate that is a table is rented.
+
+**The roadmap line this item served** is stage 2's TLS line — not because this
+item did any TLS, but because what it built is the shape TLS and HTTP arrive
+into. Its Built clause says exactly that and its Owed clause says the whole of
+TLS is still owed, so nobody reads the clause as progress on the thing it
+names.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 884 tests, no stubs, boundaries held — `encoding_rs` joined the list —
+and no verb takes a coordinate.
+
+**What the next iteration should know.** Item 52, TLS with `rustls`. The
+interesting half is not the handshake, which is rented: it is that **a
+certificate error is a decision a person makes**, so the error has to say what
+is wrong and what trusting it would mean, and must not be bypassable by
+default. That is a design decision inside an item, and it is the part to get
+right.
+

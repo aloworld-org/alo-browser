@@ -6,6 +6,27 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Loading** (`alo-net`): a request, a response, a status, headers, a media
+  type and a body — with `data:` and `file:` as the only schemes and **no
+  network in it at all**. That is on purpose: the shape is the same whether the
+  bytes came from a socket, a file or the URL itself, so it is built and tested
+  against the two that need nothing, and HTTP arrives as *one more arm of a
+  `match`* rather than as a second pipeline beside this one.
+- **It lives in the browser process.** ADR 0005 gives a renderer no filesystem,
+  no network and no way to name anything outside itself, so fetching is a
+  privilege boundary rather than a division of labour. A renderer is now *handed*
+  a fetched response instead of a string somebody read for it.
+- **Which encoding a page is in** — the byte order mark, then the
+  `Content-Type`, then a `<meta>` in the first kilobyte, then UTF-8 because that
+  is what the modern web is. The tables are rented (`encoding_rs`); the
+  *algorithm* is ours, because it is a sequence of rules rather than a table and
+  getting it wrong shows up as mojibake on somebody's news site.
+- **A page that decoded badly says so.** Bytes that are not what they claim
+  become replacement characters and the fact is kept, so somebody can find out
+  why a page looks wrong instead of guessing.
+- Headers are a **list, not a map**: names fold case, but order is observable
+  and `Set-Cookie` appearing three times means three cookies.
+
 - **URLs and origins** (`alo-url`), the first item of stage 2. Every security
   decision a browser makes — the same-origin policy, CORS, cookies, CSP, which
   site gets which process — asks *which origin is this?*, and all of them are
