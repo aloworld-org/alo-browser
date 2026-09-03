@@ -6316,3 +6316,116 @@ which is done — and much of both may already exist in `host.rs`, so they shoul
 be read before they are built), **66** (where one site ends and another begins,
 much of which `alo_url::site` answers since item 156), and **190** (the two-tone
 border styles: small, depends on nothing, and closes with a picture).
+
+---
+
+## Iteration 89 — queue item 193: what a generic family means on this machine
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Two items were
+ready and both were cuts from the same parent; the journal's previous entry named
+193 first and this took it, because it is the one a real page hits **every**
+time: the user-agent sheet sets `font-family: system-ui, sans-serif` on every
+document, before anybody writes a line of CSS.
+
+**What was silent.** `FontDatabase::map_generic` has existed since stage 1 and
+**only tests called it**. The browser process handed a renderer faces and never
+said which of them was this machine's `sans-serif`, so every real page asked for
+two families nobody had and was answered by falling off the end of the fallback
+chain into whatever face sorted first. Item 170 made that *audible* rather than
+fixing it, because what a generic means is a fact about the **machine**, and the
+machine is the thing ADR 0010 confines a renderer away from. So it had to cross
+the boundary, and a `Face` cannot carry it: `sans-serif` is not a property of any
+one font.
+
+**The protocol gained one message in each direction.** `ToRenderer::UseGenerics`
+carries the mapping and `Renderers::start` sends it **after** the faces and
+before any page — in that order, because a generic names a family and a renderer
+asked which of them it can answer before it holds a face would truthfully say
+none of them. `FromRenderer::UsingGenerics` is that answer, and it is not an echo
+of what was sent: it names only the generics a face actually resolves. A mapping
+to a family the renderer was never given would otherwise have the browser process
+believing every page here has a `sans-serif` while text kept coming out in
+whatever was to hand.
+
+**A generic keeps every candidate this machine has, in preference order**, which
+was the one design decision worth making slowly. `FontDatabase` already holds a
+generic as *several* families and tries them in turn, so nothing new was needed
+to say that `sans-serif` here means `.SF NS` and then `Geneva` — and a character
+the first lacks is still drawn by the second rather than by whatever the database
+happens to hold. The candidate lists and the choosing live in
+`crates/alo-renderer/src/generic.rs`, and `choose` is deliberately separated from
+the compiled-in table so that what this file **decides** is tested on every
+platform rather than only on the one it was written on.
+
+**Four generics, and the refusal is the point.** `serif`, `sans-serif`,
+`monospace` and `system-ui` are what a real page and our own sheet write.
+`cursive` and `fantasy` have no answer on any machine that is not a guess —
+WebKit says Apple Chancery and Papyrus on macOS and nothing anywhere else — and a
+guess here is a page drawn in a typeface nobody chose. They stay unanswered,
+which is a state this engine already reports in words.
+
+**Reading a machine had to change in two ways, and the first was a real bug.**
+The short list was alphabetical and stopped at the first two dozen *faces*, so
+whether a machine had a `sans-serif` at all was decided by where its family
+sorted — on this one, twenty-four faces of `.SF Arabic` through `Apple Braille`
+would have answered nothing. It looks at up to `MOST_LOOKED_AT` files now, keeps
+a family some generic wants even after the list is full, and puts those families
+first when it cuts down to `MOST_FONTS`. The second: `from_this_machine` returns
+the fonts and the generics **together**, as one `Machine`, because the second is
+read out of the first — a caller deriving it again would be two derivations of
+one fact, which is the argument `fonts::named` already makes about a filename.
+
+**On this machine** the four are answered: `serif` is `.New York`, `sans-serif`
+is `.SF NS` then `Geneva`, `monospace` is `.SF NS Mono` then `Monaco`, and
+`system-ui` is `.SF NS` then `Geneva`. Every one of those is a family this engine
+read out of a font's own `name` table, and every one is handed to the renderer
+that is told about it — which is what the machine test asserts, in both
+directions so that it is not vacuous on a machine with no fonts.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero errors,
+**1591 tests** (up from 1573), no stubs, no `unsafe`, boundaries held — no rented
+crate is named in a new place — the licence notice, and a `CHANGELOG.md` line.
+The half no script can check: the **layout assertion in numbers** is
+`text_in_a_generic_is_measured_in_the_family_the_generic_means`, and it is the
+right assertion for this item rather than a formality — a generic decides what
+text is *measured* in and so where every line breaks, so the test lays out one
+word three times and asserts that `sans-serif` measures what the family named
+outright measures, and that a renderer nobody told measures something else. No
+new reference render: nothing here positions or draws anything new, and the
+evidence is the twenty-four committed renders that did not move, because every
+corpus case has declared its own generics since item 170. One file one
+responsibility — `generic.rs` holds only the question of what a generic name
+means, `fonts.rs` keeps the question of what is on the machine. The item is in
+`docs/features.md`.
+
+**Hostile input.** The two new message shapes are decoded from a pipe, so both
+are bounded before anything is read: a count larger than any honest mapping is
+refused in **both** directions, every prefix of a mapping is an error rather than
+a half-read mapping saying `sans-serif` means nothing, and every single flipped
+bit of one is an answer rather than a crash.
+
+**`ROADMAP.md`.** The process-and-sandbox line again, whose `· Built:` clause
+gains item 193 beside 168, 170 and 192 — a renderer is now told what the generics
+mean as part of being given fonts. **It is still not ticked**; its `· Owed:`
+clause keeps the Linux sandbox and item 194, and gains item 195.
+
+**What the next iteration should know.** One new cut, and it is the more
+interesting of the two now open:
+
+- **Item 195.** `alo_text::family_in` takes the **first** `name` record of each
+  kind, whatever language it is in. macOS's system font states its family
+  thirty-five times over — `System Font`, `Police système`, `システムフォント` —
+  and this engine is saved from filing it under Catalan only by the accident that
+  its Unicode-platform record happens to come first in that particular file. A
+  font whose first Windows record is a localised one is filed under a name no
+  page will ever ask for, which is item 192's whole failure mode arriving by
+  another road. The `name` table states a language id per record, so the fix is
+  small and it wants its own iteration and its own fixture.
+
+The ready items in stage 2's file order are now **194** (a face's weight and
+slant, still read off its filename), **195** (above), **64** and **65** (the
+renderer lifecycle, both depending on 63 which is done — and much of both may
+already exist in `host.rs`, so they should be read before they are built), **66**
+(where one site ends and another begins, much of which `alo_url::site` answers
+since item 156), and **190** (the two-tone border styles: small, depends on
+nothing, and closes with a picture).

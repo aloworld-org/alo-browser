@@ -171,6 +171,13 @@ The reason this exists rather than a faster fork of somebody else's engine.
   encodings are read by nobody here rather than guessed at as their near
   relatives, and a Unicode name wins wherever a font has one. No family anywhere
   comes from a filename
+- [2] **What `sans-serif` means on this machine** — `serif`, `sans-serif`,
+  `monospace` and `system-ui` are decided by the browser process from the
+  families it actually found, and handed to a renderer with the fonts, because a
+  confined renderer may not look at the machine. Each keeps every candidate that
+  is here, in preference order; `cursive` and `fantasy` are answered by nobody
+  rather than guessed at; and a machine that has none of them still says so,
+  rather than a page being drawn in whatever font sorted first
 - [2] **Renderers confined by the platform's own sandbox** (macOS) — no file
   read, no write, no socket, each watched failing rather than assumed
 - [2] **One renderer process per site** — two sites are two processes, and

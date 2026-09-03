@@ -18,6 +18,7 @@ use alo_box::tree::BoxId;
 use alo_css::media::ColorScheme;
 use alo_layout::geometry::{Point, Rect, Size};
 use alo_renderer::frame::Frame;
+use alo_renderer::generic::{Generics, MOST_PAIRS};
 use alo_renderer::message::{Failure, FromRenderer, ToRenderer};
 use alo_renderer::page::Page;
 use alo_renderer::snapshot::{Snapshot, SnapshotNode};
@@ -108,6 +109,14 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             target: Target::OfRole(Role::Declared("carousel".into())),
             verb: Verb::Scroll(ScrollBy::ToEnd),
         },
+        // A generic meaning several families in preference order, which is what
+        // a machine with more than one of them produces.
+        ToRenderer::UseGenerics(Generics::stating(vec![
+            ("sans-serif".to_owned(), "Helvetica Neue".to_owned()),
+            ("sans-serif".to_owned(), "Geneva".to_owned()),
+            ("monospace".to_owned(), "Menlo".to_owned()),
+        ])),
+        ToRenderer::UseGenerics(Generics::new()),
     ];
     for original in messages {
         let bytes = write_to_renderer(&original);
@@ -171,6 +180,10 @@ fn every_message_from_a_renderer_survives_the_crossing() {
         FromRenderer::Failed(Failure::Unpaintable {
             why: "a window of no size".to_owned(),
         }),
+        FromRenderer::UsingGenerics {
+            answering: vec!["sans-serif".to_owned(), "monospace".to_owned()],
+        },
+        FromRenderer::UsingGenerics { answering: vec![] },
     ];
     for original in messages {
         let bytes = write_from_renderer(&original);
@@ -230,6 +243,68 @@ fn a_count_of_families_larger_than_the_message_is_refused() {
         .map(|why| why.why)
         .unwrap_or_default();
     assert!(why.contains("no room for them"), "{why:?}");
+}
+
+/// What the generics mean is a list of pairs, and a count of pairs is the same
+/// hazard as a count of anything else.
+///
+/// Asked in **both** directions. The browser process is the trusted side, and
+/// that is exactly the argument that leaves a decoder unchecked until the day
+/// something else is speaking on that pipe.
+#[test]
+fn a_count_of_generic_families_larger_than_any_mapping_is_refused() {
+    // To a renderer: tag 6, then a billion pairs.
+    let mut bytes = vec![6u8];
+    bytes.extend_from_slice(&1_000_000_000u64.to_be_bytes());
+    assert!(read_to_renderer(&bytes).is_err());
+
+    // A count small enough to fit in the message and larger than any honest
+    // mapping — the case a length check alone would let through.
+    let mut bytes = vec![6u8];
+    bytes.extend_from_slice(&((MOST_PAIRS + 1) as u64).to_be_bytes());
+    bytes.extend_from_slice(&[0u8; 256]);
+    let why = read_to_renderer(&bytes)
+        .err()
+        .map(|why| why.why)
+        .unwrap_or_default();
+    assert!(why.contains("more than the"), "{why:?}");
+
+    // And back: tag 7, then a billion generics answered.
+    let mut bytes = vec![7u8];
+    bytes.extend_from_slice(&1_000_000_000u64.to_be_bytes());
+    assert!(read_from_renderer(&bytes).is_err());
+
+    let mut bytes = vec![7u8];
+    bytes.extend_from_slice(&((MOST_PAIRS + 1) as u64).to_be_bytes());
+    bytes.extend_from_slice(&[0u8; 256]);
+    assert!(read_from_renderer(&bytes).is_err());
+}
+
+/// Every prefix of a mapping is a mapping that did not arrive, and half a pair
+/// is the interesting prefix: a decoder that read the generic and stopped would
+/// hand up a mapping saying `sans-serif` means nothing at all.
+#[test]
+fn a_mapping_that_stops_part_way_through_is_refused() {
+    let whole = write_to_renderer(&ToRenderer::UseGenerics(Generics::stating(vec![
+        ("sans-serif".to_owned(), "Helvetica Neue".to_owned()),
+        ("serif".to_owned(), "Times".to_owned()),
+    ])));
+    for cut in 1..whole.len() {
+        assert!(
+            read_to_renderer(whole.get(..cut).unwrap_or_default()).is_err(),
+            "{cut} bytes of a mapping were read as a whole one"
+        );
+    }
+    // And every single flipped bit is an answer rather than a crash.
+    for at in 0..whole.len() {
+        for bit in 0..8 {
+            let mut flipped = whole.clone();
+            if let Some(byte) = flipped.get_mut(at) {
+                *byte ^= 1 << bit;
+            }
+            let _ = read_to_renderer(&flipped);
+        }
+    }
 }
 
 /// Every prefix of a load is a load that did not arrive.

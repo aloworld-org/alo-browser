@@ -66,6 +66,7 @@ fn asking_for(family: &str) -> ToRenderer {
 /// failing.
 fn a_family_this_machine_has() -> Option<String> {
     fonts::from_this_machine()
+        .faces
         .iter()
         .find_map(|face| alo_text::family_in(&face.bytes))
 }

@@ -19,6 +19,7 @@
 
 use crate::face::Face;
 use crate::frame::Frame;
+use crate::generic::Generics;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::pipeline::{Rendered, render, render_document};
@@ -67,6 +68,28 @@ impl Renderer {
         }
     }
 
+    /// Take what the browser process says the generic families mean.
+    ///
+    /// A renderer cannot work this out for itself — `sans-serif` is a fact about
+    /// the machine, and the machine is what ADR 0010 confines it away from. What
+    /// it *can* do is say which of them it can now answer, and that is what
+    /// comes back: a generic whose family is not among the faces this renderer
+    /// holds resolves to nothing, and reporting it as understood would tell the
+    /// browser process every page here has a `sans-serif` while text kept coming
+    /// out in whatever was to hand.
+    fn use_generics(&mut self, generics: &Generics) -> FromRenderer {
+        for (generic, family) in generics.pairs() {
+            self.fonts.map_generic(generic, family);
+        }
+        let answering = generics
+            .named()
+            .into_iter()
+            .filter(|generic| self.fonts.holds(generic))
+            .map(ToOwned::to_owned)
+            .collect();
+        FromRenderer::UsingGenerics { answering }
+    }
+
     /// Do one piece of work, and answer.
     ///
     /// The only way in. Every request is answered — with a result, with a
@@ -74,6 +97,7 @@ impl Renderer {
     pub fn handle(&mut self, work: ToRenderer) -> FromRenderer {
         match work {
             ToRenderer::UseFont(face) => self.use_font(&face),
+            ToRenderer::UseGenerics(generics) => self.use_generics(&generics),
             ToRenderer::Load(page) => self.load(*page),
             ToRenderer::Resize(viewport) => match self.page.clone() {
                 Some(page) => self.load(Page { viewport, ..page }),

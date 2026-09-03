@@ -174,7 +174,8 @@ fn a_renderer_given_no_fonts_has_none_and_cannot_fetch_any() {
 /// is the process that is allowed to.
 #[test]
 fn the_browser_process_finds_fonts_on_this_machine() {
-    let found = fonts::from_this_machine();
+    let machine = fonts::from_this_machine();
+    let found = &machine.faces;
     assert!(
         !found.is_empty(),
         "no fonts were found on a machine that certainly has some"
@@ -187,15 +188,69 @@ fn the_browser_process_finds_fonts_on_this_machine() {
         found.iter().all(|face| !face.bytes.is_empty()),
         "a font was found with no bytes in it"
     );
-    // Sorted, so two runs on the same machine hand a renderer the same fonts in
-    // the same order — which is what makes a rendering difference between runs
-    // mean something.
+    // Ordered, so two runs on the same machine hand a renderer the same fonts
+    // in the same order — which is what makes a rendering difference between
+    // runs mean something. The families a generic means come first, because the
+    // cut down to what one renderer is given must not be what decides whether
+    // this machine has a `sans-serif`; the rest follow by name.
+    let names_a_generic = |family: &str| {
+        machine
+            .generics
+            .pairs()
+            .iter()
+            .any(|(_, named)| named.eq_ignore_ascii_case(family))
+    };
     let mut sorted = found.clone();
-    sorted.sort_by(|one, two| one.family.cmp(&two.family));
+    sorted.sort_by(|one, two| {
+        (!names_a_generic(&one.family), one.family.clone())
+            .cmp(&(!names_a_generic(&two.family), two.family.clone()))
+    });
     assert_eq!(
         found.iter().map(|face| &face.family).collect::<Vec<_>>(),
         sorted.iter().map(|face| &face.family).collect::<Vec<_>>()
     );
+}
+
+/// What this machine's generics mean, on this machine.
+///
+/// Queue item 193. Which families they are is not something a test can assert —
+/// it differs by machine, which is the whole reason the mapping exists — so what
+/// is asserted is the property that has to hold **everywhere**: a generic names
+/// only families the renderer was actually handed. A mapping naming anything
+/// else is a generic that resolves to nothing, reported to a person as a family
+/// this machine does not have, while the browser process believes it sent one.
+#[test]
+fn a_generic_family_names_a_font_this_renderer_was_given() {
+    let machine = fonts::from_this_machine();
+    if machine.faces.is_empty() {
+        return;
+    }
+    for (generic, family) in machine.generics.pairs() {
+        assert!(
+            machine
+                .faces
+                .iter()
+                .any(|face| face.family.eq_ignore_ascii_case(family)),
+            "{generic} was said to mean {family:?}, which was not handed over",
+        );
+        assert!(
+            alo_renderer::generic::is_a_candidate(family),
+            "{family:?} was chosen for {generic} and is in no candidate list",
+        );
+    }
+    // And the other direction, so this test is not vacuous on the machine it is
+    // run on: a family a generic would like to mean, which was handed over and
+    // which no generic means, is a mapping that was dropped somewhere between
+    // being decided and being sent.
+    for face in &machine.faces {
+        if alo_renderer::generic::is_a_candidate(&face.family) {
+            assert!(
+                !machine.generics.is_empty(),
+                "{:?} is a family a generic wants and no generic means anything",
+                face.family,
+            );
+        }
+    }
 }
 
 /// A face is named by the font rather than by the file it came out of.
@@ -235,15 +290,16 @@ fn a_font_is_named_by_itself_and_never_by_its_filename() {
 /// show.
 #[test]
 fn a_page_is_drawn_with_a_font_that_came_from_this_machine() {
-    let found = fonts::from_this_machine();
-    if found.is_empty() {
+    let machine = fonts::from_this_machine();
+    if machine.faces.is_empty() {
         return;
     }
-    let family = found
+    let family = machine
+        .faces
         .first()
         .map(|face| face.family.clone())
         .unwrap_or_default();
-    let mut renderers = Renderers::running(RENDERER, &[]).with_fonts(found);
+    let mut renderers = Renderers::running(RENDERER, &[]).with_machine(machine);
     let site = Site::of(&url("https://example.com/"));
 
     let loaded = renderers.ask(

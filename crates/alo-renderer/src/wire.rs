@@ -32,6 +32,7 @@
 
 use crate::face::Face;
 use crate::frame::Frame;
+use crate::generic::Generics;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::snapshot::{Snapshot, SnapshotNode};
@@ -246,6 +247,14 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             });
             writer.bytes(&face.bytes);
         }
+        ToRenderer::UseGenerics(generics) => {
+            writer.tag(6);
+            writer.number(generics.pairs().len() as u64);
+            for (generic, family) in generics.pairs() {
+                writer.text(generic);
+                writer.text(family);
+            }
+        }
         ToRenderer::Load(page) => {
             writer.tag(0);
             writer.text(&page.html);
@@ -293,6 +302,13 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
         FromRenderer::UsingFont { family } => {
             writer.tag(6);
             writer.text(family);
+        }
+        FromRenderer::UsingGenerics { answering } => {
+            writer.tag(7);
+            writer.number(answering.len() as u64);
+            for generic in answering {
+                writer.text(generic);
+            }
         }
         FromRenderer::Loaded { issues, wanted } => {
             writer.tag(0);
@@ -812,6 +828,24 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
             })?;
             ToRenderer::UseFont(Box::new(face))
         }
+        6 => {
+            let how_many = reader.count()?;
+            // Bounded before anything is read rather than trimmed afterwards: a
+            // count is a number the other end chose, and no honest mapping is
+            // larger than the table that makes them.
+            if how_many > crate::generic::MOST_PAIRS {
+                return Err(unreadable(format!(
+                    "{how_many} generic families, more than the {} this engine maps",
+                    crate::generic::MOST_PAIRS
+                )));
+            }
+            let mut pairs = Vec::new();
+            for _ in 0..how_many {
+                let generic = reader.text()?;
+                pairs.push((generic, reader.text()?));
+            }
+            ToRenderer::UseGenerics(Generics::stating(pairs))
+        }
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -895,6 +929,23 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
         6 => FromRenderer::UsingFont {
             family: reader.text()?,
         },
+        7 => {
+            let how_many = reader.count()?;
+            // The direction that matters: a renderer is the process that parsed
+            // a hostile page, and it cannot answer for more generics than it
+            // could have been sent.
+            if how_many > crate::generic::MOST_PAIRS {
+                return Err(unreadable(format!(
+                    "{how_many} generic families answered, more than the {} this engine maps",
+                    crate::generic::MOST_PAIRS
+                )));
+            }
+            let mut answering = Vec::new();
+            for _ in 0..how_many {
+                answering.push(reader.text()?);
+            }
+            FromRenderer::UsingGenerics { answering }
+        }
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;

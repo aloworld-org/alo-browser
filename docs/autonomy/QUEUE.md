@@ -1140,7 +1140,7 @@ wrong, which is the argument for the fourth.
   purpose — and a font that states neither is still a face rather than nothing,
   since a family of one unlabelled face is most of the fonts on a machine.
 
-- [ ] **193. What a generic family means on this machine.** Cut from 170, and
+- [x] **193. What a generic family means on this machine.** Cut from 170, and
   it is the gap that item made visible. `FontDatabase::map_generic` exists and
   **only tests call it**: the browser process hands over faces and never says
   which of them is this machine's `sans-serif`, `serif`, `monospace` or
@@ -1154,6 +1154,59 @@ wrong, which is the argument for the fourth.
   part of being given fonts, a page asking for `sans-serif` on a machine that
   has one is not reported as substituted, and one asking on a machine that has
   none still is.
+
+  **Done, all three.** `ToRenderer::UseGenerics` carries the mapping, sent by
+  `Renderers::start` after the faces and before any page — in that order,
+  because a generic names a family and a renderer asked which of them it can
+  answer before it holds a face would truthfully say none. The answer,
+  `FromRenderer::UsingGenerics`, names only the generics a face actually
+  resolves: a mapping to a family the renderer was never given would otherwise
+  have the browser process believing every page here has a `sans-serif` while
+  text kept coming out in whatever was to hand.
+
+  **A generic keeps every candidate this machine has, in preference order**,
+  because `FontDatabase` already holds one as several families and tries them in
+  turn — so `sans-serif` on this machine means `.SF NS` and then `Geneva`, and a
+  character the first lacks is still drawn by the second. `crate::generic` holds
+  the candidate lists and the choosing; `choose` is separated from the compiled
+  table so what this file *decides* is tested on every platform rather than only
+  on the one it was written on.
+
+  **Only four**, and `cursive` and `fantasy` are refused rather than guessed:
+  there is no answer for them on any machine that is not a guess, and a guess
+  here is a page drawn in a typeface nobody chose. They stay in the state item
+  170 made reportable.
+
+  Two things had to change in how a machine is read. The short list was
+  alphabetical and stopped at the first two dozen **faces**, so whether a machine
+  had a `sans-serif` at all was decided by where its family sorted — it now looks
+  at up to `MOST_LOOKED_AT` files, keeps a family some generic wants even when
+  the list is full, and puts those families first when it cuts down to
+  `MOST_FONTS`. And `from_this_machine` returns the fonts and the generics
+  **together**, as one `Machine`, because the second is read out of the first and
+  a caller deriving it again would be two chances for them to disagree — which is
+  the argument `fonts::named` already makes about a filename.
+
+  The layout assertion is in `text_in_a_generic_is_measured_in_the_family_the_
+  generic_means`: text asking for `sans-serif` lays out to the same width as text
+  naming the family outright, and to a different one when nobody was told —
+  because a generic decides what the text is *measured* in, and so where every
+  line breaks.
+
+- [ ] **195. A font's name in a language somebody asked for.** Found while
+  building 193. `alo_text::family_in` reads the `name` table and takes the
+  **first** record of each kind, whatever language it is in. macOS's system font
+  states its family thirty-five times over — `System Font`, `Police système`,
+  `システムフォント` — and this engine is saved from filing it under Catalan only
+  by the accident that its Unicode-platform record happens to come first. A font
+  whose first Windows record is a localised one is filed under a name no page
+  will ever ask for, which is item 192's whole failure mode arriving by another
+  road. The `name` table states a language id per record: Windows English is
+  `0x0409` and its regional relatives, Macintosh English is `0`.
+  *Depends on 192. Closes when:* a font carrying its family in several languages
+  is filed under the English one, in a test whose fixture puts a localised record
+  first — and a font that states no English name at all is still filed under
+  something, since a font in one language is a font a person may still have.
 
 - [ ] **64. The transport, and the lifecycle** that starts, reuses and reaps
   renderers, with a bound on how many exist.

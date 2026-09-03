@@ -38,8 +38,18 @@
 //! about a file — nothing can ask for it by name, so a renderer holding it
 //! would be holding a font nothing could choose — and it is rarer than it
 //! sounds now that [`alo_text::family_in`] reads the Macintosh records too.
+//!
+//! # And what the generics mean
+//!
+//! [`from_this_machine`] answers two questions rather than one, because they are
+//! the same look through the same directories: *what fonts are here*, and *which
+//! of them is this machine's `sans-serif`*. [`crate::generic`] decides the
+//! second from the families the first found — deriving it twice from the same
+//! scan would be two chances for the two answers to disagree, which is the
+//! argument [`named`] already makes about a filename.
 
 use crate::face::{Face, LARGEST_FONT, MOST_FONTS};
+use crate::generic::Generics;
 use alo_text::{Slant, Weight};
 use std::path::{Path, PathBuf};
 
@@ -63,19 +73,78 @@ const DIRECTORIES: [&str; 3] = [
 /// renders and is not the one anybody asked for.
 const READABLE: [&str; 3] = ["ttf", "otf", "TTF"];
 
-/// The fonts this machine has, up to what one renderer will be given.
+/// The most font files this will open to find out what a machine has.
 ///
-/// Sorted by name so that two runs on the same machine hand a renderer the same
-/// fonts in the same order — which is what makes a rendering difference between
-/// runs mean something.
-pub fn from_this_machine() -> Vec<Face> {
+/// A bound on the *look* rather than on what is kept, and it has to be larger
+/// than [`MOST_FONTS`] now: a machine's `sans-serif` is a particular family, and
+/// stopping at the first two dozen files alphabetically is how a machine with
+/// Helvetica ends up with no answer for `sans-serif` because `Apple Braille`
+/// sorted earlier.
+pub const MOST_LOOKED_AT: usize = 256;
+
+/// The most faces held at once while a machine is being read.
+///
+/// Room for the short list and for the generic families that would otherwise
+/// have been cut out of it, and a ceiling: a directory holding two hundred faces
+/// all calling themselves `Helvetica` would otherwise be two hundred font files
+/// in memory at once, before anything was truncated.
+const MOST_KEPT: usize = MOST_FONTS * 2;
+
+/// What a machine turned out to have.
+///
+/// The two answers together rather than separately, because the second is read
+/// out of the first and a caller deriving it again would be deriving a fact
+/// this module already knows.
+#[derive(Debug, Clone, Default)]
+pub struct Machine {
+    /// The fonts to hand a renderer, up to [`MOST_FONTS`].
+    pub faces: Vec<Face>,
+    /// What the generic families mean here, naming only families in `faces`.
+    pub generics: Generics,
+}
+
+/// The fonts this machine has, up to what one renderer will be given, and what
+/// its generic families mean.
+///
+/// Ordered so that two runs on the same machine hand a renderer the same fonts
+/// in the same order — which is what makes a rendering difference between runs
+/// mean something. The families a generic names come **first**, because the cut
+/// down to [`MOST_FONTS`] must not be what decides whether every page on this
+/// machine has a `sans-serif`; the rest follow by name.
+pub fn from_this_machine() -> Machine {
     let mut found = Vec::new();
+    let mut looked_at = 0usize;
     for directory in DIRECTORIES {
-        collect(Path::new(directory), &mut found);
+        collect(Path::new(directory), &mut found, &mut looked_at);
     }
-    found.sort_by(|one, two| one.family.cmp(&two.family));
+    let wanted = Generics::of(&families_of(&found));
+    found.sort_by(|one, two| {
+        let after = |face: &Face| !names_a_generic(&wanted, &face.family);
+        (after(one), one.family.clone()).cmp(&(after(two), two.family.clone()))
+    });
     found.truncate(MOST_FONTS);
-    found
+    // Decided again, over what actually survived the cut. A mapping naming a
+    // family the renderer was not given is a generic that resolves to nothing,
+    // reported as a family this machine does not have — which would be this
+    // module saying one thing and the fonts it sent saying another.
+    let generics = Generics::of(&families_of(&found));
+    Machine {
+        faces: found,
+        generics,
+    }
+}
+
+/// The family of each face, in order.
+fn families_of(faces: &[Face]) -> Vec<String> {
+    faces.iter().map(|face| face.family.clone()).collect()
+}
+
+/// Whether a generic was decided to mean this family.
+fn names_a_generic(generics: &Generics, family: &str) -> bool {
+    generics
+        .pairs()
+        .iter()
+        .any(|(_, named)| named.eq_ignore_ascii_case(family))
 }
 
 /// The most faces of one family this looks for.
@@ -162,12 +231,29 @@ pub fn from_file(path: &Path) -> Option<Face> {
     Face::new(family, weight, slant, bytes)
 }
 
-fn collect(directory: &Path, into: &mut Vec<Face>) {
+/// Read a directory's fonts, keeping the ones worth keeping.
+///
+/// Two reasons to keep a face and they are different reasons: there is still
+/// room in the short list, or it belongs to a family some generic would like to
+/// mean. Without the second, the short list is alphabetical and whether a
+/// machine has a `sans-serif` at all is decided by how its fonts sort.
+///
+/// `looked_at` counts **files opened**, across every directory, so the bound is
+/// on the work rather than on any one directory — a machine that keeps two
+/// thousand fonts in one place and a machine that spreads them over three cost
+/// the same.
+fn collect(directory: &Path, into: &mut Vec<Face>, looked_at: &mut usize) {
     for path in readable_in(directory) {
-        if into.len() >= MOST_FONTS {
+        if *looked_at >= MOST_LOOKED_AT {
             return;
         }
-        if let Some(face) = from_file(&path) {
+        *looked_at += 1;
+        let Some(face) = from_file(&path) else {
+            continue;
+        };
+        let keep = into.len() < MOST_FONTS
+            || (into.len() < MOST_KEPT && crate::generic::is_a_candidate(&face.family));
+        if keep {
             into.push(face);
         }
     }

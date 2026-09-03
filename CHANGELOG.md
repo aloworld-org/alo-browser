@@ -6,6 +6,27 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`sans-serif` now means a font this machine has.** Every page ever loaded
+  asks for `system-ui, sans-serif` — it is in the user-agent style sheet, before
+  anybody writes a line of CSS. Nothing had ever said what those are. The
+  machinery to say it existed from the first month and only tests had called it,
+  so a real page named two families nobody had and was drawn in whichever font
+  happened to be first in the list.
+
+  The browser process decides now, from the families it actually found while
+  reading the machine's font directories, and hands the answer to each renderer
+  along with the fonts themselves — a renderer is confined and may not look at
+  the machine, so this is the only way it can be told. Each generic keeps every
+  family this machine has for it, in preference order, so a character the first
+  one lacks is still drawn by the second.
+
+  `cursive` and `fantasy` are deliberately answered by nobody. There is no
+  answer for them on any machine that is not a guess, and a guess here is a page
+  drawn in a typeface nobody chose. A machine with none of the other four is in
+  the same position and says so, in the words item 170 added: a page is told
+  what it was drawn in instead, rather than left looking wrong for a reason
+  nobody can see.
+
 - **A font is called what it says it is called, in every encoding it may say it
   in.** A font file states its family in its own `name` table, once per platform
   that was ever expected to read it. Nearly every font carries a Windows record

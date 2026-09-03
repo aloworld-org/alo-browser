@@ -24,6 +24,7 @@
 
 use crate::face::Face;
 use crate::frame::Frame;
+use crate::generic::Generics;
 use crate::page::Page;
 use crate::snapshot::Snapshot;
 use alo_agent::{Outcome, Refusal, Target, Verb};
@@ -40,6 +41,13 @@ pub enum ToRenderer {
     /// than with each page, because ADR 0005 asks for a coarse protocol and a
     /// font resent with every load would be megabytes a page.
     UseFont(Box<Face>),
+    /// This is what the generic families mean here.
+    ///
+    /// `sans-serif` is a fact about the **machine**, and a machine is the thing
+    /// a confined renderer may not look at (ADR 0010) — so it arrives the same
+    /// way a font does. Sent once, after the fonts, because a generic names a
+    /// family and a family is only real once its faces are here.
+    UseGenerics(Generics),
     /// Render this page.
     Load(Box<Page>),
     /// The window is a different size now.
@@ -69,6 +77,18 @@ pub enum FromRenderer {
     UsingFont {
         /// The family it was filed under.
         family: String,
+    },
+    /// The generics were taken, and these are the ones that now mean something.
+    ///
+    /// Not an echo of what was sent: a generic mapped to a family this renderer
+    /// was never given resolves to nothing, and reporting it as understood would
+    /// be the browser process believing every page on the machine has a
+    /// `sans-serif` while text was still coming out in whatever was to hand.
+    /// So a generic is here only when a face answers it.
+    UsingGenerics {
+        /// The generic names that now resolve to a face, in the order they were
+        /// sent.
+        answering: Vec<String>,
     },
     /// A page was rendered, with everything the engine refused along the way.
     ///
@@ -152,6 +172,18 @@ impl fmt::Display for ToRenderer {
                 face.bytes.len(),
                 face.family
             ),
+            ToRenderer::UseGenerics(generics) => {
+                let said: Vec<String> = generics
+                    .pairs()
+                    .iter()
+                    .map(|(generic, family)| format!("{generic} is {family:?}"))
+                    .collect();
+                if said.is_empty() {
+                    f.write_str("no generic family means anything here")
+                } else {
+                    write!(f, "{}", said.join(", "))
+                }
+            }
             ToRenderer::Load(page) => write!(
                 f,
                 "load {} bytes of markup at {}×{}",

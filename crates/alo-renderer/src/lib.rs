@@ -47,6 +47,7 @@ pub mod face;
 pub mod families;
 pub mod fonts;
 pub mod frame;
+pub mod generic;
 pub mod host;
 pub mod message;
 pub mod page;

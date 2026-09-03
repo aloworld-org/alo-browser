@@ -23,6 +23,7 @@
 //! that a page should be reloaded.
 
 use crate::face::Face;
+use crate::generic::Generics;
 use crate::message::{FromRenderer, ToRenderer};
 use crate::pipe::{self, Arrived};
 use crate::sandbox;
@@ -78,6 +79,13 @@ pub struct Renderers {
     /// rather than each renderer going looking, which is the thing it cannot
     /// do.
     faces: Vec<Face>,
+    /// What the generic families mean on this machine, handed over with them.
+    ///
+    /// Held here for the same reason and it is the more important half: every
+    /// page ever loaded asks for `system-ui, sans-serif` through the user-agent
+    /// sheet, and a renderer that was never told what those are answers them by
+    /// falling off the end of its fallback chain.
+    generics: Generics,
     held: HashMap<Site, Held>,
     /// Which site was used least recently, oldest first — so the bound above
     /// evicts something rather than refusing to open a tab.
@@ -99,6 +107,7 @@ impl Renderers {
                 .map(|argument| (*argument).to_owned())
                 .collect(),
             faces: Vec::new(),
+            generics: Generics::new(),
             held: HashMap::new(),
             order: Vec::new(),
             started: 0,
@@ -112,9 +121,33 @@ impl Renderers {
         self
     }
 
+    /// The same, with what this machine's generic families mean.
+    #[must_use]
+    pub fn with_generics(mut self, generics: Generics) -> Self {
+        self.generics = generics;
+        self
+    }
+
+    /// Everything one machine had to say: its fonts and its generics, together.
+    ///
+    /// The pair rather than two calls, because the generics name families that
+    /// have to be among the faces — [`crate::fonts::from_this_machine`] decides
+    /// them together for that reason, and splitting them here would be the one
+    /// place they could be given to a renderer apart.
+    #[must_use]
+    pub fn with_machine(self, machine: crate::fonts::Machine) -> Self {
+        self.with_fonts(machine.faces)
+            .with_generics(machine.generics)
+    }
+
     /// The fonts every renderer is given.
     pub fn fonts(&self) -> &[Face] {
         &self.faces
+    }
+
+    /// What every renderer is told the generic families mean.
+    pub fn generics(&self) -> &Generics {
+        &self.generics
     }
 
     /// How many are running.
@@ -299,8 +332,21 @@ impl Renderers {
         // Hand over the fonts before any page. A renderer that received a page
         // first would lay it out with nothing to draw text in, and the result
         // would be a rendering difference nobody could explain from outside.
-        for face in self.faces.clone() {
-            let sent = wire::write_to_renderer(&ToRenderer::UseFont(Box::new(face)));
+        //
+        // Then what the generics mean, and in that order: a generic names a
+        // family, and a renderer asked which of them it can answer before it
+        // holds any face would truthfully say none of them.
+        let mut opening: Vec<ToRenderer> = self
+            .faces
+            .clone()
+            .into_iter()
+            .map(|face| ToRenderer::UseFont(Box::new(face)))
+            .collect();
+        if !self.generics.is_empty() {
+            opening.push(ToRenderer::UseGenerics(self.generics.clone()));
+        }
+        for work in opening {
+            let sent = wire::write_to_renderer(&work);
             let Some(held) = self.held.get_mut(site) else {
                 break;
             };
