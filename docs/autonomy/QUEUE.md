@@ -675,8 +675,17 @@ wrong, which is the argument for the fourth.
   on macOS. **Needs ADR** — ADR 0005 says in its own consequences that it does
   not pre-authorise any `unsafe` a sandbox needs, and that such a thing wants
   its own decision naming the boundary and the reason.
-  *Depends on 166. Closes when:* a renderer cannot open a file, and the test
-  that says so watches it fail rather than trusting a flag.
+  *Depends on 166. **ADR 0010 is written and accepted** — rented, applied before
+  any page bytes, fatal if unavailable, and authorising no `unsafe` of ours. The
+  code is what remains. Closes when:* a renderer cannot open a file, and the
+  test that says so watches it fail rather than trusting a flag.
+
+- [ ] **168. Fonts across the boundary.** ADR 0010's consequence: a confined
+  renderer cannot open a font file, and the rule is that the browser process
+  passes bytes rather than the policy permitting a directory. `alo-render`
+  embeds one font today, which is what the design forces.
+  *Depends on 167. Closes when:* a renderer draws with a font it was handed and
+  never with one it went looking for.
 
 - [ ] **64. The transport, and the lifecycle** that starts, reuses and reaps
   renderers, with a bound on how many exist.

@@ -3523,3 +3523,77 @@ decision to make is which of Seatbelt, seccomp-bpf and user namespaces we rent
 versus write, and what a renderer is *given* once it can ask for nothing — the
 fonts question `alo-render` currently answers by embedding one.
 
+---
+
+## Iteration 56 — ADR 0010: the sandbox
+
+Item 167 is marked **needs ADR**, and ADR 0005 asks for this one by name in its
+own consequences. So this iteration is the decision and nothing else, the way
+0007 preceded cookies and 0008 preceded DNS.
+
+**Rent it — and the usual reason is not the reason.** The usual argument for
+renting is effort. Here it is that **a sandbox we wrote would be a sandbox only
+we had tested.** Seatbelt profiles and seccomp filters are load-bearing in
+browsers that are attacked continuously, and the bugs in them were found by
+people attacking them rather than by people reading them. Law 3 says correct
+before fast; there is no equivalent law for *correct before adversarially
+exercised*, and you cannot test your way there alone.
+
+**The `unsafe` question, answered narrowly on purpose.** A rented crate's
+`unsafe` is the crate's, which is exactly where ADR 0005 already puts TLS and
+codecs. So this decision **authorises no `unsafe` in this repository** — and the
+ADR says that in a sentence of its own, so that nobody later reads "the sandbox
+ADR" as having pre-authorised FFI we write ourselves. If a platform turns out to
+need that, it comes back for another decision naming the boundary and the
+reason. That is the same shape ADR 0005 used to defer *this* decision to *me*,
+and it seemed right to pass it on the same way rather than to quietly take a
+wider authorisation than I was given.
+
+**The hard part is failing closed.** A renderer that cannot apply its sandbox
+exits. Somebody will want to reverse that on a bad afternoon, so the reasoning
+is written out rather than assumed: rendering without a sandbox is not a
+degraded browser, it is a browser that has removed a protection the person
+believes it has, at the exact moment it discovered it could not provide it — and
+the failure is silent by nature, because nothing about the page looks different.
+
+The counter-argument is real and I wrote it down rather than around: a platform
+quirk, an unusual kernel, a container without the right permissions, and the
+browser will not open a page. That is somebody's Tuesday.
+
+**So failing closed comes with a promise that makes it rare:** the browser does
+not claim a platform it cannot sandbox. Windows is not on the list and the ADR
+says so as a consequence rather than an omission. A platform with no sandbox is
+one we do not ship — not one we ship with the protection quietly off, which is
+the same decision as failing open made once instead of per launch, and worse for
+being invisible.
+
+**The consequence people underestimate:** a confined renderer cannot open a font
+file. The rule is **the browser process passes bytes; the renderer opens
+nothing** — not "permit the font directory read-only", which is the tempting
+answer and which puts a filesystem path into the policy for every resource type
+that follows. One rule that holds for fonts, images and whatever comes next
+beats a policy that grows a hole per kind of thing. That is queue item 168, and
+`alo-render` embedding one font today is what the design forces rather than a
+gap in it.
+
+**Two things the sandbox does not do**, written down because assuming otherwise
+is how a half-measure gets mistaken for a measure. It does nothing about what a
+compromised renderer *says* on its pipe — which is why item 63's decoder treats
+every message as bytes a stranger chose, and the two decisions only work
+together. And it does not protect a renderer from the page: it confines the
+damage rather than preventing the compromise, which is why ADR 0005's four
+reasons survive a memory-safe engine instead of being replaced by one.
+
+**How we will know it works:** a test that watches a renderer fail to open a
+file, never a flag saying a sandbox was applied. A policy that was installed and
+permits everything reports success exactly like one that works.
+
+**The gate.** Green. Documentation only.
+
+**What the next iteration should know.** Item 167's code. The macOS half is the
+one to start with, since that is the machine this loop runs on and ADR 0010 says
+the test has to watch a real refusal rather than trust a flag — so the test is
+`a_renderer_cannot_open_a_file`, and it should fail before the sandbox exists,
+which is worth checking deliberately: a test that passes both before and after
+is testing nothing.
+

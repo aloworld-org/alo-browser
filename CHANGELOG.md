@@ -6,6 +6,27 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **ADR 0010: the sandbox is rented, and failing to get one is fatal.** A
+  renderer confines itself with the operating system's own sandbox — Seatbelt on
+  macOS; seccomp-bpf, a user namespace and Landlock on Linux — before it reads a
+  byte of any page. A renderer that cannot get one **exits** rather than
+  rendering without it.
+- The reason for renting is not effort. **A sandbox we wrote would be a sandbox
+  only we had tested**, and the bugs in these things are found by people
+  attacking them rather than by people reading them.
+- **The decision authorises no `unsafe` in this repository.** A rented crate's
+  `unsafe` is the crate's, which is where ADR 0005 already puts TLS and codecs.
+  If a platform ever needs FFI we write ourselves, that comes back for its own
+  ADR — said explicitly so nobody reads "the sandbox ADR" as having settled it.
+- Failing closed is only defensible if it is rare, so it comes with a promise:
+  **the browser does not claim a platform it cannot sandbox.** A platform with
+  no sandbox is one we do not ship, not one we ship with the protection quietly
+  off.
+- And the consequence people underestimate: a confined renderer cannot open a
+  font file. **The browser process passes bytes; the renderer opens nothing** —
+  rather than the tempting answer of permitting a font directory, which puts a
+  filesystem path in the policy for every resource type that follows.
+
 - **One renderer process per site.** ADR 0005's central claim is now processes
   that actually exist: two sites are two processes, two tabs on one site are
   one, and there is a real binary — `alo-render` — that reads work from a pipe
