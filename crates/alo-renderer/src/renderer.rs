@@ -16,9 +16,10 @@
 use crate::frame::Frame;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
-use crate::pipeline::{Rendered, render};
+use crate::pipeline::{Rendered, render, render_document};
 use crate::snapshot::Snapshot;
-use alo_agent::{AgentTree, perform};
+use alo_agent::{AgentTree, apply, perform};
+use alo_agent::{Target, Verb};
 use alo_layout::Size;
 use alo_text::FontDatabase;
 
@@ -54,16 +55,7 @@ impl Renderer {
             },
             ToRenderer::Paint => self.paint(),
             ToRenderer::ReadTree => self.read_tree(),
-            ToRenderer::Act { target, verb } => {
-                let Some(rendered) = &self.rendered else {
-                    return FromRenderer::Failed(Failure::NothingLoaded);
-                };
-                let tree = AgentTree::new(&rendered.document, &rendered.boxes, &rendered.layout);
-                match perform(&tree, &target, &verb) {
-                    Ok(outcome) => FromRenderer::Acted(outcome),
-                    Err(refusal) => FromRenderer::Refused(refusal),
-                }
-            }
+            ToRenderer::Act { target, verb } => self.act(&target, &verb),
         }
     }
 
@@ -76,6 +68,56 @@ impl Renderer {
     /// tests stay single-process.
     pub fn rendered(&self) -> Option<&Rendered> {
         self.rendered.as_ref()
+    }
+
+    /// Decide what a verb does, carry it into the document, and render again.
+    ///
+    /// Three steps, in that order, and they cannot be fewer. The **decision**
+    /// is made against the tree the agent read; the **change** is made to the
+    /// document, which the tree was borrowing and so could not touch; and the
+    /// page is **rendered again**, because a document that changed and a
+    /// layout that did not are two structures that disagree.
+    fn act(&mut self, target: &Target, verb: &Verb) -> FromRenderer {
+        let Some(rendered) = &self.rendered else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        let tree = AgentTree::new(&rendered.document, &rendered.boxes, &rendered.layout);
+        let outcome = match perform(&tree, target, verb) {
+            Ok(outcome) => outcome,
+            Err(refusal) => return FromRenderer::Refused(refusal),
+        };
+
+        let Some(mut rendered) = self.rendered.take() else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        let changed = apply(&mut rendered.document, &rendered.boxes, &outcome)
+            .iter()
+            .any(|change| *change != alo_agent::Change::Nothing);
+        if changed {
+            // The whole page again, from the **same document**. Correct before
+            // fast: working out what a changed attribute could possibly have
+            // affected is a cache, and a wrong cache is a wrong pixel nobody
+            // can find. Re-parsing would be worse than slow — it would mint new
+            // node ids and break every snapshot anybody was holding.
+            let sheets = self
+                .page
+                .as_ref()
+                .map(|page| page.sheets.join("\n"))
+                .unwrap_or_default();
+            let viewport = self
+                .page
+                .as_ref()
+                .map_or(rendered.layout.viewport(), |page| page.viewport);
+            self.rendered = Some(render_document(
+                rendered.document,
+                &sheets,
+                viewport,
+                &self.fonts,
+            ));
+        } else {
+            self.rendered = Some(rendered);
+        }
+        FromRenderer::Acted(outcome)
     }
 
     fn load(&mut self, page: Page) -> FromRenderer {

@@ -48,10 +48,12 @@
 //! That is ADR 0002's opening sentence, produced from HTML and CSS: *"invoice
 //! list, twelve rows, row three selected."*
 
+pub mod apply;
 pub mod name;
 pub mod tree;
 pub mod verb;
 
+pub use apply::{Change, apply};
 pub use name::accessible_name;
 pub use tree::{AgentNode, AgentTree};
 pub use verb::{Outcome, Refusal, ScrollBy, Target, Verb, perform};

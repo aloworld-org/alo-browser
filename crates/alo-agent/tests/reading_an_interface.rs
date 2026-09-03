@@ -217,7 +217,6 @@ document at (0, 0) 240×205.46114
       listitem \"Invoice 12\" [selected=true] at (8, 71.875) 224×24.296875
       listitem \"Invoice 13\" at (8, 96.171875) 224×24.296875
     form \"New invoice\" at (8, 120.46875) 224×44.398636
-      text \"Amount\" at (8, 128.27364) 55.015625×16.296875
       textbox \"Amount\" [required] at (63.015625, 120.46875) 146×20.800001
       checkbox \"Recurring\" [checked=true] at (209.01563, 126.26875) 15×15
       button \"Save\" [disabled] at (8, 144.57051) 48.364258×20.296875

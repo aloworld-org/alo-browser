@@ -1,0 +1,16 @@
+block flow · document
+  block flow · generic
+    block flow · form "Sign in"
+      block flow · generic
+        text "Email"
+      block flow · textbox
+        text "someone@alo.build"
+      block flow · generic
+        text "Password"
+      block flow · generic
+        text "••••••••"
+      anonymous block
+        text "\n"
+        inline flow-root · checkbox [checked=true]
+      block flow · generic
+        text "Remember me"

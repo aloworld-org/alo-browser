@@ -31,7 +31,9 @@
 //! belong to which whole, and this follows it. Still a view: nothing new is
 //! built, and the answer comes from the same trees.
 
-use crate::name::{accessible_name, names_itself_from_content, normalise, text_of};
+use crate::name::{
+    accessible_name, label_names_something, names_itself_from_content, normalise, text_of,
+};
 use alo_box::{BoxId, BoxNode, BoxTree, KnownRole, Role, States};
 use alo_dom::Document;
 use alo_layout::{LayoutTree, Rect};
@@ -238,16 +240,67 @@ impl<'a> AgentTree<'a> {
         // `button "Save"`; reporting `text "Save"` inside it as well would say
         // the same thing twice and make an agent choose between two nodes that
         // are the same thing.
+        // The dots a password field draws are a rendering of a secret, not
+        // something to read. Assistive technology never reads a password back
+        // and neither does this — the field itself is in the tree, and can be
+        // typed into, which is all an agent needs.
+        if self.is_a_masked_value(id) {
+            return false;
+        }
         if node.text().is_some_and(|text| !text.trim().is_empty()) {
+            // A `<label>`'s words have already been read, as the name of the
+            // control they name. Reading them again would put the same words
+            // on the page twice and give an agent two things answering to
+            // "Email" — which its verbs would then have to refuse.
+            if self.is_inside_a_label_that_names_something(id) {
+                return false;
+            }
             return !self.is_named_by_its_content(id);
         }
         match &node.semantics.role {
             // The author said this box means nothing. Read through it.
             Role::Presentational => false,
-            // A `<div>` or a `<span>` is worth reading only if it was named.
-            Role::Generic => node.semantics.label.is_some(),
+            // A `<div>` or a `<span>` is worth reading only if it was named —
+            // or if something can be done to it. `<input type=password>` is
+            // the case that matters: ARIA gives it no role on purpose, and a
+            // browser that then left it out of the tree would have an agent
+            // that cannot sign in to anything.
+            Role::Generic => node.semantics.label.is_some() || node.semantics.states.takes_text,
             Role::Known(_) | Role::Declared(_) => true,
         }
+    }
+
+    /// Whether this box is the text a password field draws.
+    fn is_a_masked_value(&self, id: BoxId) -> bool {
+        let Some(node) = self.boxes.get(id) else {
+            return false;
+        };
+        if node.text().is_none() {
+            return false;
+        }
+        node.kind
+            .node()
+            .and_then(|source| self.document.element(source))
+            .is_some_and(|element| {
+                element.name.is_html("input")
+                    && element
+                        .attr("type")
+                        .is_some_and(|kind| kind.eq_ignore_ascii_case("password"))
+            })
+    }
+
+    /// Whether this box is inside a `<label>` that names a control.
+    fn is_inside_a_label_that_names_something(&self, id: BoxId) -> bool {
+        let mut current = Some(id);
+        while let Some(box_id) = current {
+            if let Some(source) = self.boxes.get(box_id).and_then(|node| node.kind.node())
+                && label_names_something(self.document, source)
+            {
+                return true;
+            }
+            current = self.view_parent(box_id);
+        }
+        false
     }
 
     /// Whether the nearest thing above this box takes its name from what is

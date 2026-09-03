@@ -64,7 +64,12 @@ correctness, not before it.
 - [x] **Paint**: a display list, then a software raster to a PNG
 - [x] **Reference renders**: a committed corpus, diffed on every change
 - [x] ★ **The agent tree**: the layout tree read as roles, states and positions
-- [x] ★ **Typed verbs**: activate, type, scroll — and never a coordinate
+- [x] ★ **Typed verbs**: activate, type, scroll — and never a coordinate.
+      A verb **changes the page**: text put into a field is in it, a checkbox
+      ticks, a radio un-chooses its group, and the page is rendered again from
+      the same document so held ids stay valid. *This line was ticked when a
+      verb decided and reported and changed nothing, which is not what the line
+      says. Queue item 42 made it true.*
 - [ ] **A real alo screen renders correctly** — the sign-in screen, then
       Settings
       · Built: `alo-workplace`'s sign-in screen, in `alo-corpus`, rendered and

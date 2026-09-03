@@ -65,7 +65,22 @@ impl Rendered {
 
 /// Render markup and a style sheet at a size.
 pub fn render(html: &str, css: &str, size: Size, fonts: &FontDatabase) -> Rendered {
-    let document = alo_dom::parse_document(html);
+    render_document(alo_dom::parse_document(html), css, size, fonts)
+}
+
+/// Render a document that already exists.
+///
+/// **The document is moved in and comes back out**, which is the whole point:
+/// a page that was changed — a field typed into, a box checked — is rendered
+/// again from the same nodes, so every id an agent read a moment ago still
+/// names what it named (ADR 0003). Re-parsing would mint new ones and quietly
+/// break every snapshot anybody was holding.
+pub fn render_document(
+    document: Document,
+    css: &str,
+    size: Size,
+    fonts: &FontDatabase,
+) -> Rendered {
     let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
     let author = parse_stylesheet(css);
     let sheets = [

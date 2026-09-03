@@ -143,6 +143,44 @@ fn label_for(document: &Document, id: NodeId) -> Option<String> {
     None
 }
 
+/// Whether a `<label>` element actually names a control.
+///
+/// A label that points at nothing, or wraps nothing, is a piece of text like
+/// any other and is read as one. A label that *does* name a control has
+/// already been read — as that control's name — and reading it again is the
+/// same words twice, with the second copy being a thing an agent could try to
+/// act on.
+pub(crate) fn label_names_something(document: &Document, id: NodeId) -> bool {
+    let Some(element) = document.element(id) else {
+        return false;
+    };
+    if !element.name.is_html("label") {
+        return false;
+    }
+    if let Some(target) = element.attr("for") {
+        return document.descendants(document.root()).any(|candidate| {
+            document
+                .element(candidate)
+                .is_some_and(|held| held.attr("id") == Some(target) && is_labelable(held))
+        });
+    }
+    // Wrapped: a control inside it.
+    document
+        .descendants(id)
+        .any(|inner| document.element(inner).is_some_and(is_labelable))
+}
+
+/// The elements a `<label>` can name.
+///
+/// HTML's own list, trimmed to the controls this engine builds boxes for.
+fn is_labelable(element: &alo_dom::Element) -> bool {
+    [
+        "input", "select", "textarea", "button", "meter", "progress", "output",
+    ]
+    .iter()
+    .any(|name| element.name.is_html(name))
+}
+
 /// Everything a person would read inside a box, joined.
 ///
 /// **Every piece of it.** An inline box broken around a block is several boxes

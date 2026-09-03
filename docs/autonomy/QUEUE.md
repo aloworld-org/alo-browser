@@ -374,7 +374,7 @@ fails without it, not by a specification that lists it.
   typed verbs, on pages nobody wrote for us. ADR 0002 holds or it does not, and
   this is where it is found out.
 
-- [ ] **42. ★ A verb changes the page.** `perform` finds its target, refuses
+- [x] **42. ★ A verb changes the page.** `perform` finds its target, refuses
   what cannot be operated, and reports what it decided — and then nothing
   happens: the document is never written back to, so a field that was "typed
   into" reads the same afterwards. **Found by item 25**, which tried to use the
@@ -382,6 +382,22 @@ fails without it, not by a specification that lists it.
   exist. It needs a document that can be changed and a pipeline that runs
   again, and it is the difference between an agent that can *drive* an
   interface and one that can only describe what it would do.
+
+  **Done, and taken before item 26** because it is a correctness gap in the ★
+  agent surface, which `CLAUDE.md` calls the reason this project exists rather
+  than a faster fork of somebody else's engine. Deciding and changing are two
+  steps and the types say so: the decision is made against the tree the agent
+  read, `alo_agent::apply` changes the document, and the page is rendered again
+  **from the same document** so that ADR 0003's promise survives. It found three
+  more things, all fixed: a `<label>`'s words were read twice and made every
+  labelled field ambiguous; a password field was in no tree at all; and a field
+  did not show what it held. Corpus case `a-filled-form`.
+
+- [ ] **43. A form control draws its state.** A checked checkbox draws the same
+  box as an unchecked one — no tick, no focus ring, no radio dot. The state is
+  right in the tree and wrong on the screen, which is the worse way round: an
+  agent is correct and a person looking at the same page is misled. **Found by
+  item 42**, which made checking possible and then had nothing to show for it.
 
 **Exit gate** (`ROADMAP.md`): a person uses it as their browser for a week and
 reaches for another one only for a site they can name.

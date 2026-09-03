@@ -83,6 +83,30 @@ impl Element {
             .find(|a| a.name.is_plain(local))
             .map(|a| &*a.value)
     }
+
+    /// Set an attribute, adding it if it is not there.
+    ///
+    /// **Where it already exists it keeps its place**, so that setting a
+    /// value does not shuffle the attribute order and change what serialising
+    /// the document produces. A round-trip test is only meaningful while that
+    /// is true.
+    pub fn set_attr(&mut self, local: &str, value: &str) {
+        match self.attrs.iter_mut().find(|a| a.name.is_plain(local)) {
+            Some(held) => value.clone_into(&mut held.value),
+            None => self.attrs.push(Attribute::plain(local, value)),
+        }
+    }
+
+    /// Take an attribute away, and say whether there was one.
+    ///
+    /// Every one with the name, not the first: a document can be handed to us
+    /// with a repeated attribute, and leaving the second behind would make
+    /// removing look as though it had not worked.
+    pub fn remove_attr(&mut self, local: &str) -> bool {
+        let before = self.attrs.len();
+        self.attrs.retain(|a| !a.name.is_plain(local));
+        self.attrs.len() != before
+    }
 }
 
 /// What a node *is*.

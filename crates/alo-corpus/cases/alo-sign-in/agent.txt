@@ -9,11 +9,9 @@ document at (0, 0) 1000×640
     heading "Sign in" [level=2] at (510, 107.796875) 400×37.25
     paragraph at (510, 149.04688) 400×16.296875
       text "Welcome back. Enter your credentials to continue." at (510, 149.04688) 354.16992×16.296875
-    text "Email" at (510, 189.34375) 38.841797×16.296875
     textbox "Email" at (510, 213.64063) 400×46
-    text "Password" at (510, 275.64063) 65.39258×16.296875
+    generic "Password" at (510, 299.9375) 400×46
     checkbox "Remember me" [checked=false] at (510, 363.0039) 13×13
-    text "Remember me" at (531, 361.9375) 96.160645×15.1328125
     link "Forgot password?" at (779.5747, 361.9375) 130.4253×15.1328125
     button "Sign in" at (510, 393.0703) 400×46
     text "or" at (703.3508, 455.0703) 13.29834×15.1328125

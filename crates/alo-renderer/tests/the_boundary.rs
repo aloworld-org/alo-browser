@@ -182,13 +182,7 @@ fn a_verb_that_is_refused_is_a_result_rather_than_a_failure() {
 }
 
 #[test]
-fn a_verb_says_what_it_did_and_does_not_yet_change_the_page() {
-    // **This is what the engine does today, and it is less than it sounds.**
-    // A verb finds its target, checks that the thing can be operated, and
-    // reports what it decided. It does not write back into the document, so
-    // the next read shows the page unchanged. Queue item 42 is where a verb
-    // changes the page; until then this test pins what is true rather than
-    // what the name suggests.
+fn a_verb_reaches_the_page_and_the_next_read_can_see_it() {
     let mut renderer = loaded();
     let outcome = match renderer.handle(ToRenderer::Act {
         target: Target::Named("Note".to_owned()),
@@ -204,8 +198,8 @@ fn a_verb_says_what_it_did_and_does_not_yet_change_the_page() {
         other => panic!("expected a tree, got {other:?}"),
     };
     assert!(
-        !snapshot.to_outline().contains("typed"),
-        "the page is unchanged, and item 42 is where that stops being true:\n{}",
+        snapshot.to_outline().contains("typed"),
+        "what a verb did is there to be read:\n{}",
         snapshot.to_outline(),
     );
 }

@@ -6,6 +6,36 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A verb changes the page.** Putting text into a field puts it there; ticking
+  a checkbox ticks it; choosing a radio un-chooses the rest of its group. Until
+  now a verb decided, reported, and changed nothing — the half of "typed verbs"
+  that makes an agent able to *drive* an interface rather than describe what it
+  would do.
+- **Deciding and changing are two steps, and the types say so.** The agent tree
+  borrows the document, so nothing holding one can change it — which is right:
+  the decision has to be made against the tree the agent read, and the change
+  applied to the document afterwards. `alo_agent::apply` is the second half.
+- **The page is rendered again from the same document, never re-parsed.** A
+  re-parse would mint new node ids on every keystroke and silently invalidate
+  every snapshot anybody was holding. ADR 0003's promise — an id names the node
+  it named or nothing — is the thing that had to survive, and there is a test
+  that holds an id across a change and uses it.
+- **A field shows what it holds.** An `<input>`'s value becomes a text box
+  nobody wrote, so a typed value is laid out and drawn rather than only being in
+  the tree. A password shows one dot a character and never what it holds.
+- **A `<label>`'s words are no longer read twice.** They were exposed as loose
+  text *and* as the control's name, so every labelled field on every form
+  answered to its own name ambiguously — and an agent's verbs then had to refuse
+  it. alo's own sign-in screen read "Email" twice; now it reads it once.
+- **A password field is findable.** ARIA gives `<input type=password>` no role
+  on purpose, so that a screen reader does not read a password back — and a
+  browser that then left it out of the tree would have an agent that cannot sign
+  in to anything. Role says what a thing *is*; a new `takes_text` capability
+  says what can be done to it.
+- Attributes can be changed on a document (`alo_dom::Document::set_attribute`).
+  Adding and removing nodes is still the parser's alone, and arrives with the
+  DOM APIs.
+
 - **The engine is behind a message boundary** (`alo-renderer`, ADR 0005). A
   renderer is *sent* work and *returns* results: one direction, no callback in
   the signature, nowhere to wait, and nothing ambient — everything it needs

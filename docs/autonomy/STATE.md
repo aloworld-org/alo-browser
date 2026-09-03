@@ -1643,3 +1643,74 @@ errors, 786 tests, no stubs, boundaries held, no verb takes a coordinate.
 needs no network, and it is the first item written *against* the boundary
 rather than beside it. Item 42 is now the most valuable ★ item in the queue.
 
+---
+
+## Iteration 26 — queue item 42: a verb changes the page
+
+**Taken before item 26**, and the reason is written into the queue: this is a
+correctness gap in the ★ agent surface, which `CLAUDE.md` calls the reason this
+project exists rather than a faster fork of somebody else's engine. An agent
+that can only describe what it would do is not an agent.
+
+**What was built.** Text put into a field is in it. A checkbox ticks and
+un-ticks. Choosing a radio un-chooses the rest of its group, because a radio
+that toggled would leave the page in a state a person could not have put it in.
+
+**Deciding and changing are two steps, and the types say so.** The agent tree
+borrows the document, so nothing holding one can change it — and that is right
+rather than inconvenient: the decision has to be made against the tree the
+agent *read*, and the change applied to the document afterwards.
+`alo_agent::apply` is the second half, and the renderer does the three steps in
+order: decide, apply, render again.
+
+**Rendered again from the same document, never re-parsed.** This is the part
+that would have been a silent disaster. Re-serialising and re-parsing is the
+obvious way to "just re-render", and it mints new node ids on every keystroke —
+every snapshot anybody was holding goes stale and nothing says so, because a
+stale id would name a *different* node rather than none. ADR 0003's whole
+promise depends on the document surviving, so `render_document` takes it by
+value and hands it back. There is a test that holds an id across a change and
+uses it.
+
+**It found three more things, all of them real.**
+
+1. **A `<label>`'s words were read twice** — once as loose text, once as the
+   control's name. Every labelled field on every form therefore answered to its
+   own name *ambiguously*, and the verbs correctly refused to guess. alo's own
+   sign-in screen read "Email" twice. A label that names a control is now read
+   through, because those words have already been read.
+2. **A password field was in no tree at all.** ARIA gives `<input
+   type=password>` no role on purpose, so that a screen reader does not read a
+   password back — and a Generic box is only exposed when it was named. So the
+   engine had an agent that could not sign in to anything. Role says what a
+   thing *is*; a new `takes_text` capability says what can be *done* to it, and
+   the two come apart on exactly this element.
+3. **A field did not show what it held.** An `<input>`'s value is an attribute
+   with no box, so typing into one changed nothing on the screen. It now
+   generates the text box nobody wrote, which is what CSS says the inside of a
+   replaced control is — and a password draws one dot a character. Those dots
+   are *not* in the agent tree: they are a rendering of a secret, not something
+   to read.
+
+**And it left one, written down as item 43.** A checked checkbox draws the same
+box as an unchecked one. The state is right in the tree and wrong on the
+screen, which is the worse way round — the agent is correct and a person
+looking at the same page is misled.
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 797 tests, no stubs, boundaries held, no verb takes a coordinate.
+Fifteen corpus cases; the new one, `a-filled-form`, is a form with a typed
+email, a masked password and a ticked box.
+
+**The roadmap line this item served** is stage 1's ★ *Typed verbs*, and it was
+already ticked — ticked while a verb decided, reported, and changed nothing,
+which is not what the line says. The line now says what a verb does and records
+that it was ticked early. That is the only honest way to move a line that
+should not have been ticked in the first place.
+
+**What the next iteration should know.** Item 26 — a URL, and loading what
+needs no network — is next in the roadmap's order. Item 43 is small and
+visible. `alo-renderer/tests/signing_in.rs` is now the closest thing this
+repository has to the thing it is for: an agent reading alo's sign-in screen,
+filling it in by name, and reading back what it did.
+

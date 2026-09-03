@@ -49,6 +49,6 @@ pub mod snapshot;
 pub use frame::Frame;
 pub use message::{Failure, FromRenderer, ToRenderer};
 pub use page::Page;
-pub use pipeline::{Rendered, render};
+pub use pipeline::{Rendered, render, render_document};
 pub use renderer::Renderer;
 pub use snapshot::{Snapshot, SnapshotNode};

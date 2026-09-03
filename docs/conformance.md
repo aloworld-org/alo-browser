@@ -53,12 +53,22 @@ states and positions, with no screenshot involved — **and aim a verb at it by
 name**: activate, put text, scroll, with no verb taking a coordinate. Every
 corpus case pins that tree beside its picture.
 
-**A verb decides and reports; it does not yet change the page.** It finds its
-target, refuses when the target is ambiguous or cannot be operated, and says
-what it would do and to which node. Carrying that into the document — a field
-that holds what was typed, a checkbox that is now checked — is queue item 42.
-The name "typed verbs" promises more than the engine does until then, and this
-paragraph exists so that nobody has to find that out by trying it.
+**A verb changes the page.** Text put into a field is in it, a checkbox ticks,
+and choosing a radio un-chooses the rest of its group. The page is rendered
+again from the **same document**, so every id an agent read a moment ago still
+names what it named. What a verb cannot do is anything that needs a script: a
+button on a page with no JavaScript does nothing when it is pressed, and the
+outcome says what was pressed rather than pretending otherwise. Following a
+link reports where it goes; navigating is the browser process's.
+
+**A field shows what it holds**, and a password shows one dot a character and
+never what. The dots are not in the agent tree at all — assistive technology
+never reads a password back and neither does this.
+
+**A form control does not draw its state.** A checkbox that is checked draws
+the same box as one that is not; there is no tick and no focus ring. The state
+is right in the tree and wrong on the screen, which is the worst way round —
+queue item 43.
 
 A box can cast a shadow — offset, blurred, spread, and `inset` — and be filled
 with a `linear-gradient` or a `radial-gradient`; text casts a shadow too.

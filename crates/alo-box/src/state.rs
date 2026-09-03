@@ -78,6 +78,16 @@ pub struct States {
     pub hidden: bool,
     /// A heading's level, one to six.
     pub level: Option<u8>,
+    /// Text can be put into this box.
+    ///
+    /// A **capability**, not a state a person would read out — which is why it
+    /// is not in the outline. It exists because the two questions come apart
+    /// on exactly one element: ARIA deliberately gives
+    /// `<input type=password>` **no role**, so that assistive technology does
+    /// not read a password back, and a browser must nonetheless be able to
+    /// type into one. Role says what a thing *is*; this says what can be done
+    /// to it.
+    pub takes_text: bool,
 }
 
 impl States {
@@ -103,6 +113,7 @@ impl States {
             invalid: aria_flag(element, "aria-invalid").unwrap_or(false),
             hidden: aria_flag(element, "aria-hidden").unwrap_or(false),
             level: heading_level(element),
+            takes_text: alo_css::state::is_text_entry(element),
         }
     }
 
@@ -111,7 +122,13 @@ impl States {
     /// A box in no particular state does not need to be described as being in
     /// none, which keeps the agent tree readable.
     pub fn is_unremarkable(self) -> bool {
-        self == States::default()
+        // A capability is not a state to read out, so it is not one that makes
+        // a box worth mentioning. Without this, every field on every page
+        // would print an empty `[]`.
+        States {
+            takes_text: false,
+            ..self
+        } == States::default()
     }
 }
 

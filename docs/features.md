@@ -85,7 +85,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [1] ★ **The layout tree read as roles, states, positions and text** — a *view* of the tree that draws the page, never a parallel structure. Two structures eventually disagree, and the agent acts on whichever is wrong
 - [1] ★ Roles are **declared, not inferred**. A box says it is a list, a row, a field, a button — guessing that from appearance is what screen-scraping already does badly
 - [1] ★ **Typed verbs**: activate, put text, scroll. **No verb takes a coordinate**, because a coordinate is a guess about a layout that may have moved between the reading and the acting
-- [2] ★ A verb **changes the page** — today it decides and reports, and the document is not written back to
+- [1] ★ A verb **changes the page**: text into a field, a checkbox ticked, a radio chosen and its group un-chosen — rendered again from the same document, so every id an agent is holding still names what it named
+- [1] A field shows what it holds; a password shows one dot a character, and the dots are not in the agent tree
+- [2] A form control draws its state — a tick in a checked box, a focus ring
 - [1] ★ **One element, one thing to read** — an inline box broken around a block is read as one node, named by everything the element contains and positioned everywhere it was drawn, with the block inside it rather than beside it
 - [1] ★ Reading is never watching — the tree is exposed when asked, and `alo-os`'s capability model decides who may ask
 - [1] ★ **The same tree is the accessibility tree.** A screen reader and an agent want identical facts, and two implementations would guarantee one is wrong — so EN 301 549 conformance and agent capability are one piece of work, not two competing budgets

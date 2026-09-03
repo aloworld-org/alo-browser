@@ -1,0 +1,10 @@
+body { margin: 10px; background: #ffffff; font-family: system-ui; font-size: 13px }
+#f { width: 190px }
+label { display: block; color: #52525b }
+input[type=email], input[type=password] { display: block; width: 190px;
+  border-top-width: 1px; border-right-width: 1px;
+  border-bottom-width: 1px; border-left-width: 1px;
+  border-top-style: solid; border-right-style: solid;
+  border-bottom-style: solid; border-left-style: solid;
+  border-top-color: #a1a1aa; border-right-color: #a1a1aa;
+  border-bottom-color: #a1a1aa; border-left-color: #a1a1aa }

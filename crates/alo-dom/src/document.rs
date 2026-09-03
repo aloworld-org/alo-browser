@@ -6,9 +6,18 @@
 //! its identity and a stale id resolves to a node that is out of the tree
 //! rather than to some later node that is not the one that was meant.
 //!
-//! Editing is `pub(crate)` on purpose. `docs/features.md` puts DOM mutation in
-//! stage 2, and stage 1's tree is built by the parser and read by everything
-//! else; making that a compile error is cheaper than remembering it.
+//! # What may change, and what may not
+//!
+//! **Attributes may change; the shape of the tree may not** — not yet. Stage 2
+//! opened attribute editing because an agent that can only describe what it
+//! would do is not an agent (queue item 42), and putting text into a field is
+//! setting an attribute. Adding and removing nodes is still `pub(crate)` and
+//! still the parser's alone; it arrives with the DOM APIs, in queue item 35.
+//!
+//! Changing an attribute keeps **every id valid**, which is exactly why it
+//! could come first: an agent reads a tree, names a node, and acts on it a
+//! moment later, and ADR 0003 promises that the id it names is the node it
+//! read or nothing at all.
 
 use crate::node::{Element, Node, NodeId, NodeKind};
 
@@ -116,6 +125,32 @@ impl Document {
     /// The sibling after a node.
     pub fn next_sibling(&self, id: NodeId) -> Option<NodeId> {
         self.get(id).and_then(|node| node.next_sibling)
+    }
+
+    /// The element at this id, to change it.
+    ///
+    /// Attributes only: see the module documentation for why the shape of the
+    /// tree is not changeable here yet.
+    pub fn element_mut(&mut self, id: NodeId) -> Option<&mut Element> {
+        match &mut self.nodes.get_mut(id.0)?.kind {
+            NodeKind::Element(element) => Some(element),
+            _ => None,
+        }
+    }
+
+    /// Set an attribute on an element.
+    ///
+    /// [`None`] for an id that is not an element, which is a real answer
+    /// rather than a failure — a caller acting on a tree it read a moment ago
+    /// may well name something that is no longer what it was.
+    pub fn set_attribute(&mut self, id: NodeId, local: &str, value: &str) -> Option<()> {
+        self.element_mut(id)?.set_attr(local, value);
+        Some(())
+    }
+
+    /// Take an attribute away from an element, and say whether there was one.
+    pub fn remove_attribute(&mut self, id: NodeId, local: &str) -> Option<bool> {
+        Some(self.element_mut(id)?.remove_attr(local))
     }
 
     /// Whether a node is reachable from the root.

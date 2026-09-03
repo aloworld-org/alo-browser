@@ -1,0 +1,6 @@
+document at (0, 0) 210×119.598434
+  form "Sign in" at (10, 10) 190×99.598434
+    textbox "Email" at (10, 25.132813) 196×19.6
+      text "someone@alo.build" at (13, 27.132813) 127.981445×15.1328125
+    generic "Password" at (10, 59.865623) 196×19.6
+    checkbox "Remember me" [checked=true] at (10, 79.46562) 15×15

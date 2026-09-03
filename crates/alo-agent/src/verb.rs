@@ -336,13 +336,17 @@ fn is_a_field(role: &Role) -> bool {
 
 fn put_text(node: &AgentNode<'_>, text: &str) -> Result<Outcome, Refusal> {
     let role = node.role();
-    if !is_a_field(&role) {
+    let states = node.states();
+    // Either the role says it is a field, or the box says text goes into it.
+    // The two come apart on `<input type=password>`, which ARIA deliberately
+    // gives no role so that a screen reader does not read a password back —
+    // and which a browser must nonetheless be able to type into.
+    if !is_a_field(&role) && !states.takes_text {
         return Err(Refusal::NotAField {
             node: node.id(),
             role,
         });
     }
-    let states = node.states();
     if states.disabled {
         return Err(Refusal::Disabled { node: node.id() });
     }

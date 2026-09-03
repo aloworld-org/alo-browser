@@ -455,10 +455,46 @@ fn build_children(
     tree: &mut BoxTree,
 ) -> Vec<BoxId> {
     let mut generated = Vec::new();
+    // A field shows what it holds. An `<input>` has no children in the
+    // document — its text is an attribute — so the box for that text is one
+    // nobody wrote, exactly as CSS says the inside of a replaced control is.
+    if let Some(text) = field_text(document, parent) {
+        generated.push(tree.push(BoxKind::Text { node: parent, text }, Semantics::anonymous()));
+    }
     for child in document.children(parent) {
         generated.extend(build_one(document, styles, child, tree));
     }
     generated
+}
+
+/// The text an `<input>` shows, if it is one and it holds any.
+///
+/// Only the kinds that show their value as text. A checkbox's `value` is what
+/// it submits, not what it says, and drawing it in the box would be a word
+/// nobody wrote.
+fn field_text(document: &Document, id: NodeId) -> Option<String> {
+    let element = document.element(id)?;
+    if !element.name.is_html("input") {
+        return None;
+    }
+    let kind = element
+        .attr("type")
+        .map_or_else(|| "text".to_owned(), str::to_ascii_lowercase);
+    if !matches!(
+        kind.as_str(),
+        "text" | "search" | "email" | "url" | "tel" | "password" | "number"
+    ) {
+        return None;
+    }
+    let value = element.attr("value")?;
+    if value.is_empty() {
+        return None;
+    }
+    Some(match kind.as_str() {
+        // A password shows that it holds something and never what.
+        "password" => "•".repeat(value.chars().count()),
+        _ => value.to_owned(),
+    })
 }
 
 /// The boxes one node generates: none, one, or — for `display: contents` —
