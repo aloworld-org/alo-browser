@@ -396,10 +396,26 @@ first. Nothing here needs JavaScript.
   refusal is a type carrying what is wrong, what trusting it would mean, and
   whether the fault has an innocent explanation.
 
-- [ ] **53. HTTP/1.1**, with connection pooling and keep-alive. A response body
-  that arrives in pieces, and a request that can be cancelled.
+- [x] **53. HTTP/1.1.** A response body that arrives in pieces.
   *Depends on 52. Closes when:* a frozen page's own byte stream replays through
   it identically, and a truncated response is an error rather than a short page.
+
+  **Done**, and `http:`/`https:` fetch over a socket. The parsing is ours
+  because the difficulty is refusing the readings that are *almost* right —
+  two disagreeing `Content-Length`s, a length and an encoding together, a space
+  before the colon, a folded header — each of which is a request-smuggling
+  vector and each of which is refused by name. **Pooling and keep-alive are cut
+  into item 54**: framing is the half where being wrong is a security bug, and
+  it was worth the whole iteration.
+
+- [ ] **54. Connection pooling and keep-alive.** Cut from item 53. A pool that
+  hands out a stream, a connection reused across exchanges, and a request that
+  can be cancelled. `exchange` already takes a stream from anywhere, so this is
+  the pool rather than a change to the framing — and `Connection: close` comes
+  out of the request when it lands.
+  *Depends on 53. Closes when:* two fetches of the same host use one socket,
+  and a server that closes a pooled connection mid-exchange is a failure rather
+  than a hang.
 
 - [ ] **54. Content encodings**: gzip, brotli, zstd, rented.
   *Depends on 53. Closes when:* each round-trips, and a corrupt stream is

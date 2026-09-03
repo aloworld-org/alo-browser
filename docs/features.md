@@ -122,6 +122,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **URLs**: WHATWG parsing, resolution against a base, IDNA and punycode — rented, because whether two spellings are one host is a security question with a Unicode table for an answer
 - [2] **The shape of a load**: a request that says who asked and what for, a response of bytes, headers that keep their order and their repeats, and a media type — with `data:` and `file:`, so that HTTP is one more arm rather than a second pipeline
 - [2] **Which encoding a page is in**: byte order mark, `Content-Type`, `<meta>`, then UTF-8 — the tables rented, the algorithm ours, and a page that decoded badly saying so
+- [2] **HTTP/1.1**, ours: a request out, a response in, and body framing that refuses every message saying two things about where it ends — which is what request smuggling is
+- [2] A truncated body is an **error**, not a short page
 - [2] **TLS**, rented, with verification that cannot be turned off — no flag, no constructor, no feature
 - [2] **A certificate refusal a person can act on**: what is wrong, what trusting it anyway would mean, and whether the fault has an innocent explanation — three things a caller cannot show one of without the others
 - [2] **The origin as a value other code compares**, with an opaque origin that is the same as itself and nothing else — a `data:` URL, a local file, and any scheme nobody registered

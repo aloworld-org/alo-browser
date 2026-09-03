@@ -94,12 +94,15 @@ fn a_file_that_is_not_there_is_an_error_with_the_path_in_it() {
 #[test]
 fn a_scheme_this_browser_does_not_fetch_says_which_one() {
     // Distinct from "the server did not answer", because they are different
-    // things to tell a person.
-    match get("https://example.com/") {
-        Err(alo_net::FetchError::UnsupportedScheme { scheme }) => {
-            assert_eq!(scheme, "https", "until queue item 53");
+    // things to tell a person. `http` and `https` stopped being on this list
+    // with queue item 53.
+    for text in ["ftp://example.com/", "gopher://example.com/"] {
+        match get(text) {
+            Err(alo_net::FetchError::UnsupportedScheme { scheme }) => {
+                assert!(text.starts_with(&scheme), "{text}: {scheme}");
+            }
+            other => panic!("expected an unsupported scheme for {text}, got {other:?}"),
         }
-        other => panic!("expected an unsupported scheme, got {other:?}"),
     }
 }
 

@@ -6,6 +6,33 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **HTTP/1.1**, ours rather than rented. The syntax is a few lines of ASCII and
+  the difficulty is not reading it — it is **refusing the readings that are
+  almost right**, because nearly every famous HTTP bug is a parser being
+  generous. Four are refused by name:
+  - Two `Content-Length` headers that disagree, which is this parser and the
+    proxy in front of it disagreeing about where a response ends — request
+    smuggling in its plainest form.
+  - `Content-Length` and `Transfer-Encoding` together. The same bug, spelled
+    differently.
+  - A space before the colon. Some parsers accept it and some do not, and a
+    chain containing both is a smuggling chain.
+  - A header continued onto the next line, removed from the standard in 2014
+    for exactly this reason.
+- **A truncated body is an error, not a short page.** A browser that showed the
+  first half of a bank statement and said nothing would be worse than one that
+  showed nothing.
+- **A `204` gets no body however loudly it claims one**, because a parser that
+  believed the header would read the *next* response as this one's body.
+- Every limit is a named constant rather than a number in a condition — the
+  longest line, the most headers, the largest body, the largest chunk. Without
+  them a server can make this process allocate for as long as it cares to send,
+  which costs the sender nothing.
+- `http:` and `https:` fetch now, over a socket, with TLS through the same
+  verification queue item 52 built. **One exchange, then closed** — pooling and
+  keep-alive are cut into their own item, because framing is the half where
+  being wrong is a security bug and it deserved the whole iteration.
+
 - **The queue covers all four stages**, so the loop can always say what is next.
   Stage 3 (the legacy tail) and stage 4 (the product) are written out as items
   with what each depends on — and, more usefully, with what each is *blocked

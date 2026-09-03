@@ -58,8 +58,12 @@ pub fn fetch(request: &Request) -> Result<Response, FetchError> {
     match url.scheme.as_str() {
         "data" => schemes::data(url).map_err(|why| failed(url, why)),
         "file" => schemes::file(url).map_err(|why| failed(url, why)),
-        // Queue item 53 adds `http` and `https` here, and nothing else in this
-        // crate has to change for it.
+        "http" | "https" => {
+            // What this machine trusts, read once per fetch. Queue item 54's
+            // pool is where it starts being held rather than re-read.
+            let trust = crate::tls::Trust::from_this_machine().map_err(|why| failed(url, why))?;
+            crate::connection::fetch(request, &trust).map_err(|why| failed(url, why))
+        }
         other => Err(FetchError::UnsupportedScheme {
             scheme: other.to_owned(),
         }),

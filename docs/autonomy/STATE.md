@@ -2314,3 +2314,68 @@ rather than the work — so the tests are the 895 that were already passing.
 about this iteration moves the work along; it means the loop never has to guess
 what comes after the work it is doing.
 
+---
+
+## Iteration 38 — queue item 53: HTTP/1.1
+
+**Ours, not rented, and the reason is the whole iteration.** The syntax is a
+few lines of ASCII. The difficulty is not reading it — it is **refusing the
+readings that are almost right**, because nearly every famous HTTP bug is a
+parser being generous:
+
+- Two `Content-Length` headers that disagree. A parser that picks one has just
+  disagreed with the proxy in front of it about where this response ends and
+  the next begins. That is request smuggling in its plainest form.
+- `Transfer-Encoding` and `Content-Length` together. The same bug, spelled
+  differently.
+- A space before the colon — `Content-Length : 5`. Some parsers accept it and
+  some do not, and a chain containing both is a smuggling chain.
+- A header continued onto the next line by leading whitespace, removed from the
+  standard in 2014 for exactly this reason.
+
+All four are refused **by name**, with the reason in the code beside them.
+
+**A truncated body is an error, not a short page.** That is half the item's
+closing condition and it is the half worth stating twice: a browser that showed
+the first part of a bank statement and said nothing would be worse than one
+that showed nothing at all.
+
+**A `204` gets no body however loudly it claims one.** A parser that believed a
+`Content-Length` on a `204` would read the *next* response as this one's body,
+which is the same class of bug arriving from the other direction.
+
+**Every limit is a named constant.** The longest line, the most headers, the
+largest body, the largest chunk. Without them a server can make this process
+allocate for as long as it cares to send, and it costs the sender nothing. The
+first version of `read_line` used `read_until` with a `take` around it — which
+reads the *whole* line into memory and then complains — so it reads a byte at a
+time now, and the limit is a limit rather than a hope.
+
+**Scope was cut, as `LOOP.md` asks.** The item said "with connection pooling
+and keep-alive". Framing is the half where being wrong is a security bug, and
+it deserved the iteration; pooling is item 54, and costs nothing to defer
+because `exchange` already takes a stream from anywhere.
+
+**A test caught me rather than the parser.** The chunked fetch failed with
+`<p>hello\r</p>!` — because I had written a chunk announcing nine bytes for an
+eight-byte string, and the parser correctly ate the carriage return as the
+ninth. That is the framing being right about something I had got wrong, which
+is the best kind of test failure.
+
+**No network anywhere.** The HTTP server in the tests is thirty lines in the
+test file, on `127.0.0.1` with a port the operating system picks, and half the
+tests have it speak HTTP badly on purpose.
+
+**The roadmap line this item served** is stage 2's *HTTP/1.1, then HTTP/2*. Its
+Built clause names what landed; Owed names pooling (item 54) and HTTP/2 (item
+59).
+
+**The gate.** `scripts/gate.sh` green: fmt clean, clippy zero warnings and zero
+errors, 923 tests, no stubs, boundaries held, no verb takes a coordinate.
+
+**What the next iteration should know.** Item 54, pooling and keep-alive. Two
+things to get right: `Connection: close` comes *out* of the request when a
+socket is to be kept, and a pooled connection that a server closed while it sat
+idle must be a retry rather than a failure — that race is the one every HTTP
+client gets wrong first.
+

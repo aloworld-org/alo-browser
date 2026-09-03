@@ -26,20 +26,26 @@
 //! in, because that is a sequence of rules rather than a table, and getting it
 //! wrong shows up as mojibake on somebody's news site.
 
+pub mod body;
 pub mod certificate;
+pub mod connection;
 pub mod encoding;
 pub mod fetch;
 pub mod headers;
+pub mod http;
 pub mod media_type;
 pub mod request;
 pub mod response;
 pub mod schemes;
 pub mod tls;
 
+pub use body::Framing;
 pub use certificate::{Fault, Refused};
+pub use connection::exchange;
 pub use encoding::{Decoded, decode, sniff};
 pub use fetch::{FetchError, fetch};
 pub use headers::Headers;
+pub use http::{Head, Malformed, read_head, write_request};
 pub use media_type::MediaType;
 pub use request::{Purpose, Request};
 pub use response::{Response, Status};

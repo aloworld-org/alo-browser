@@ -160,6 +160,11 @@ unreachable without it.
       caller cannot show one of without the others. Verification cannot be
       turned off: no flag, no constructor, no feature
 - [ ] HTTP/1.1, then HTTP/2 — connection pooling and keep-alive with them
+      · Built: HTTP/1.1 (queue item 53) — a request out, a response in, body
+      framing by length, by chunks and by close, and every message that says
+      two things about where it ends refused by name. `http:` and `https:`
+      fetch over a socket · Owed: queue item 54, pooling and keep-alive; and
+      queue item 59, HTTP/2
 - [ ] HTTP/3 and QUIC, once those two are correct
 - [ ] DNS, and encrypted DNS as a choice somebody made rather than a default nobody was told about
 - [ ] Content encodings: gzip, brotli, zstd
