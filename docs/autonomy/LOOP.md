@@ -33,9 +33,25 @@ gate in `CLAUDE.md`, or in a halt that says why it could not.
    passed gate on its own.
 5. **Commit and push.** One item, one commit, a message that says what changed
    and why somebody would care.
-6. **Update the queue and the journal.** Tick the item. Append to
-   `docs/autonomy/STATE.md`: what was built, what the gate said, and anything
-   the next iteration should know.
+6. **Update the queue, the roadmap and the journal.** Tick the queue item.
+   Append to `docs/autonomy/STATE.md`: what was built, what the gate said, and
+   anything the next iteration should know.
+
+   **Then open `ROADMAP.md` and move the line this item served** — in the same
+   commit. A queue item is usually smaller than a roadmap line, so most often
+   what you write is the `· Built: … · Owed: …` clause described at the top of
+   that file rather than a tick.
+
+   If the item served no roadmap line, **say so in `STATE.md` and say why**.
+   That is a real answer; silence is not. Silence is what happened: fifteen of
+   twenty-eight consecutive commits left `ROADMAP.md` untouched, and stage 2's
+   first line still read as unstarted after its ADR was accepted *and* its
+   boundary was built.
+
+   **Never resolve this by ticking.** A tick means the line is finished, and
+   `ROADMAP.md` says a tick means done, not written. A loop that learns to tick
+   in order to discharge an obligation is worse than one that never updated the
+   file at all.
 7. **Stop.** One item per iteration. Two is how a bad decision gets made twice
    before anybody reads the first one.
 
@@ -87,6 +103,7 @@ more than one that invents a way past a problem nobody has looked at.
 |---|---|
 | `docs/autonomy/QUEUE.md` | The work, in order, with what each is blocked on |
 | `docs/autonomy/STATE.md` | The journal: one entry per iteration, newest last |
+| `ROADMAP.md` | What somebody outside the loop reads to know where this is. Moved every iteration, per step 6 |
 | `CLAUDE.md` | The four laws and the gate |
 | `docs/decisions/` | Why things are the way they are. Read before proposing otherwise |
 

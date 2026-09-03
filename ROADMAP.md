@@ -6,6 +6,28 @@ says so rather than being ticked optimistically.
 
 Every item appears in `docs/features.md`. If it is not there, it is not built.
 
+## Three states, because two are not enough
+
+A queue item is usually smaller than a line here, so a line is routinely *part
+built* — and a box that can only be empty or ticked has no way to say that. It
+said the wrong thing instead: fifteen of twenty-eight consecutive commits left
+this file untouched, and stage 2's first line read as unstarted after its ADR
+was accepted and its message boundary was built and tested.
+
+So a line is written in one of three states, and there is no fourth:
+
+- `- [ ]` **Not started.** Nothing exists.
+- `- [ ]` **· Built: … · Owed: …** — part done. The clause names what exists
+  *and* what is still missing, both concretely enough to check: a crate, a queue
+  item, a named capability. It stays an empty box, because half a line is not a
+  line.
+- `- [x]` **Done** — the whole line, gated, with any remainder stated in the
+  item's own words.
+
+**The clause is a claim, so it names something.** A Built clause that cannot
+name a crate or a landed capability is decoration, and decoration is how a
+roadmap starts lying slowly.
+
 ---
 
 ## Stage 1 — it renders alo
@@ -44,13 +66,15 @@ correctness, not before it.
 - [x] ★ **The agent tree**: the layout tree read as roles, states and positions
 - [x] ★ **Typed verbs**: activate, type, scroll — and never a coordinate
 - [ ] **A real alo screen renders correctly** — the sign-in screen, then
-      Settings. *`alo-workplace`'s sign-in screen renders and is diffed on every
-      run. Not ticked for two true reasons: Settings is not rendered at all, and
-      the sign-in case carries four substitutions — `clamp()` and viewport
-      units, `white-space: pre-line`, `letter-spacing`, transitions — each
-      naming something this engine does not implement, so what is diffed is a
-      modified screen. The old reason, that the gate named alo OS's screens, was
-      not a fact about this engine and is gone.*
+      Settings
+      · Built: `alo-workplace`'s sign-in screen, in `alo-corpus`, rendered and
+      diffed on every run · Owed: queue item 20 — the four substitutions in that
+      case (`clamp()` and viewport units, `white-space: pre-line`,
+      `letter-spacing`, transitions), each naming something this engine does not
+      implement, so what is diffed is a *modified* screen; and queue item 21,
+      Settings, which is not rendered at all. *The old reason for not ticking —
+      that the gate named alo OS's screens — was a fact about repository layout
+      rather than about this engine, and is gone.*
 
 **Exit gate.** From this repository alone, on any machine: alo's sign-in screen
 and Settings render correctly from their own markup and `tokens.css`, with no
@@ -82,6 +106,13 @@ repository. They are kept out of the list above so they cannot block it.
 ## Stage 2 — it renders the modern web
 
 - [ ] **The process and sandbox model — designed before the first hostile page is loaded.** One process per site, renderers with almost no privilege. Every browser that retrofitted this suffered for years, and it is the one thing here that cannot be added later
+      · Built: ADR 0005, and `alo-renderer` — the engine behind a message
+      boundary, sent work and returning results, every message owned and
+      `Send + 'static`, with a frame and an agent-tree snapshot as the only
+      things that cross. That is the expensive half, and it is the half that
+      cannot be retrofitted · Owed: queue item 29 — the actual split into a
+      process per site, and the platform's own sandbox rather than a hopeful one
+      of ours. Item 25 made that a change of transport rather than a redesign
 - [ ] Network: HTTP, `rustls`, caching, cookies with sane defaults
 - [ ] **A JavaScript engine, ours, in Rust** — a correct interpreter first; a JIT much later or never
 - [ ] The DOM APIs a modern page actually uses, driven by pages that fail
