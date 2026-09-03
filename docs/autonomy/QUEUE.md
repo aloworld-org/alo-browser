@@ -423,7 +423,11 @@ first. Nothing here needs JavaScript.
   reused, **and** nothing arrived, **and** the method may be repeated. A `POST`
   is never retried, because a payment that has happened must not happen twice.
 
-- [ ] **54. Content encodings**: gzip, brotli, zstd, rented.
+- [ ] **152. Content encodings**: gzip, brotli, zstd, rented. *(Numbered out of
+  sequence because 54 was allocated to pooling before this line was read. A
+  number here is an identity, not a position — the same rule ADR 0003 gives
+  node ids, for the same reason: a reused number makes two different pieces of
+  history look like one.)*
   *Depends on 53. Closes when:* each round-trips, and a corrupt stream is
   refused rather than decoded into rubbish.
 
