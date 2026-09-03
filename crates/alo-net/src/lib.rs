@@ -53,6 +53,7 @@ pub mod resolve;
 pub mod response;
 pub mod schemes;
 pub mod tls;
+pub mod transfer;
 
 pub use body::Framing;
 pub use cache::{Answer, Cache};
@@ -75,3 +76,4 @@ pub use request::{Purpose, Request};
 pub use resolve::{Reach, Resolver, Unresolved};
 pub use response::{Response, Status};
 pub use tls::{Secured, TlsError, Trust, secure};
+pub use transfer::Transfer;

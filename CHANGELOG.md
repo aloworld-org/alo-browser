@@ -6,6 +6,25 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A body compressed for one hop arrives as a page.**
+  `Transfer-Encoding: gzip, chunked` says the content was gzipped and then the
+  gzip was cut into chunks — a legal response this engine refused outright,
+  because it read the header as one word rather than as the list it is. The
+  chunks come off and then the gzip does, in that order, and `br`, `zstd` and
+  `deflate` come off the same way.
+- **It is a different header from `Content-Encoding`**, and now has a file
+  saying so. `Content-Encoding` describes the resource — it is still true in a
+  cache, on the next hop and in a saved file. `Transfer-Encoding` describes
+  *this connection* and does not survive it, which is why it is undone before
+  anything else looks at the message.
+- **What is refused is refused by name**, because framing is where being
+  generous is a request-smuggling bug: `chunked` anywhere but last (which is
+  also what refuses `chunked, chunked`), a coding we cannot undo, a list with an
+  empty element, and a compressed body that is *not* ended by `chunked` — legal,
+  and delimited by the connection closing, which cannot be told from an attacker
+  cutting it short. gzip and zstd carry a checksum that would catch that;
+  brotli and raw deflate carry nothing at all.
+
 - **The supervisor's log records runs, not tests.** `--self-test` starts the
   script eight times to check what the arguments mean, and every one of those
   children was appending its own startup lines and its own deliberate `FAILED:`

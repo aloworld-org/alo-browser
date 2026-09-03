@@ -439,13 +439,25 @@ first. Nothing here needs JavaScript.
   rubbish and reported success — the comparison is ours now, and named in a
   test of its own.
 
-- [ ] **153. `Transfer-Encoding` that is not `chunked`.** Cut from 152 rather
+- [x] **153. `Transfer-Encoding` that is not `chunked`.** Cut from 152 rather
   than folded into it: `Transfer-Encoding: gzip, chunked` is legal, is rare,
   and is a *different header* from the one item 152 undoes. Today the chunks
   come off and the gzip does not, which yields compressed bytes labelled as a
   page.
   *Depends on 152. Closes when:* it decodes, or is refused by name — either is
   an answer; handing up compressed bytes is not.
+
+  **Done: it decodes.** The item's stated symptom was wrong and is left above
+  as written — nothing handed up compressed bytes, because item 53 compared the
+  whole header value against `chunked` and refused everything else, a legal
+  response included. `alo-net/src/transfer.rs` reads the list, and the order it
+  fixes is the one that matters: the chunks were written *around* the gzip, so
+  they come off first. Refused by name, each for a reading two parsers could
+  differ on: `chunked` anywhere but last (which is what refuses `chunked,
+  chunked`), a coding we cannot undo, an empty element, and a compressed body
+  not ended by `chunked` — legal, delimited by the connection closing, and
+  indistinguishable from one cut short when the coding is brotli or raw
+  deflate, neither of which carries a checksum.
 
 - [x] **55. Redirects.** Redirect loops bounded, cross-origin redirects losing
   what they should. *Byte ranges and resumable downloads were cut to item 154 —

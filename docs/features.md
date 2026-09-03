@@ -128,6 +128,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] A truncated body is an **error**, not a short page
 - [2] **Content encodings**: gzip, brotli, zstd, and `deflate` in both the
   spelling the specification asks for and the one servers actually send
+- [2] **`Transfer-Encoding` as the list it is** — `gzip, chunked` is chunks
+  holding a gzip stream, and the chunks come off first. A coding after
+  `chunked`, one we cannot undo, or a compressed body the connection closing is
+  the only end of, is refused by name
 - [2] **A page's own style sheets** — `<style>` and `<link>` together, in
   document order, with an alternate sheet left alone and a missing one recorded
 - [2] **`<img>` lays out at the picture's own size** and keeps its ratio when

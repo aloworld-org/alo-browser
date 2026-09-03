@@ -189,8 +189,12 @@ unreachable without it.
       and the connection state machine** (queue item 161), with the CONTINUATION
       flood refused by a bound on the whole block. **Negotiated by ALPN and
       spoken** (queue item 162) — chosen during the handshake, so no request is
-      sent twice to find out which protocol it is · Owed: a request with a body
-      over HTTP/2, queue item 163
+      sent twice to find out which protocol it is. **`Transfer-Encoding` as the
+      list it is** (queue item 153) — `gzip, chunked` is chunks holding a gzip
+      stream and decodes as one; `chunked` anywhere but last, a coding we
+      cannot undo, and a compressed body the connection closing is the only end
+      of are each refused by name · Owed: a request with a body over HTTP/2,
+      queue item 163
 - [ ] HTTP/3 and QUIC, once those two are correct
 - [ ] DNS, and encrypted DNS as a choice somebody made rather than a default
       nobody was told about · Built: ADR 0008 and resolution through the

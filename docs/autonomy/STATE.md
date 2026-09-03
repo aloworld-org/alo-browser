@@ -4486,3 +4486,110 @@ ticked box where it had shown an empty square since iteration 16. Its own commit
 message reasons about why the mark is the engine's rather than a style rule,
 which is the kind of thing this journal exists to keep.
 
+
+---
+
+## Iteration 72 — queue item 153: `Transfer-Encoding` that is not `chunked`
+
+**Taken because it was first.** `LOOP.md` says take the first item that is not
+done and not blocked, and in stage 2 that means the first whose dependencies are
+all done. Item 153's dependency is 152, which is done. The last iteration named
+item 183 as the interesting next thing and it is still there; this one was ahead
+of it in the file and ready.
+
+**The item's stated symptom was wrong, and that is the first thing to record.**
+The queue says *"today the chunks come off and the gzip does not, which yields
+compressed bytes labelled as a page."* Nothing did that. Item 53 compared the
+**whole header value** against `chunked`, so `gzip, chunked` never reached the
+de-chunker at all — it was refused, along with a test asserting the refusal by
+that exact example. So the defect was the other way round: a legal response
+refused, rather than a wrong one accepted. The queue text is left as written
+with the correction beneath it, because an item's symptom being wrong is worth
+more as a record than as a tidy edit.
+
+That does not make the item smaller. `Transfer-Encoding` is a list, this engine
+read it as one word, and reading it properly is what the closing condition asked
+for: *"it decodes, or is refused by name."* It decodes.
+
+**What was built.** `crates/alo-net/src/transfer.rs`, and the three places that
+now go through it.
+
+- The list, parsed, with `chunked` recognised only where it can legally be.
+- `http::check_framing_is_unambiguous` calls it instead of comparing strings.
+  The `Content-Length`-beside-`Transfer-Encoding` refusal now turns on the
+  header being **present** rather than on what it parses to — a
+  `Transfer-Encoding: identity` applies no coding here and is still refused
+  beside a length, because a recipient that treated `identity` as a coding
+  would frame the message by the connection closing while we framed it by the
+  length. That *is* the disagreement.
+- `body::Framing::of` asks it whether the body is chunked.
+- `connection::exchange` undoes the transfer codings after de-chunking and
+  before `Content-Encoding`.
+
+**Why it is a file rather than a few lines.** The two headers name the same
+algorithms and mean different things: `Content-Encoding` is a property of the
+resource and survives the hop, the cache and a saved file; `Transfer-Encoding`
+is a property of this connection and does not survive it. The undoing is still
+`decompress.rs`'s, because that is the boundary for the three rented crates and
+there is no second one. What this file owns is **which codings and in what
+order they come off** — and getting that backwards means looking for chunk
+headers inside compressed bytes.
+
+**Every refusal is a reading two parsers could differ on**, which is the file's
+organising idea and the same one `http.rs` was written around:
+
+- `chunked` anywhere but last. This is also what refuses `chunked, chunked`,
+  and that is the better rule to have written: two `chunked`s is the shape a
+  smuggling attempt takes when it is aimed at a recipient that de-chunks once
+  and one that de-chunks twice, and a separate "not more than once" check would
+  have been a second rule saying the same thing.
+- A coding we cannot undo, named. `compress` is LZW and is not rented.
+- An empty element. `chunked,` is one coding to some parsers and one-and-a-blank
+  to others.
+- **A transfer-coded body that is not ended by `chunked`.** This one is legal:
+  the standard says the body then ends when the connection does. It is refused
+  anyway, and the reason is in `decompress.rs`'s own note — gzip and zstd carry
+  a checksum that would catch a body cut short, and **brotli and raw deflate
+  carry nothing at all**. A close-delimited brotli body truncated by an attacker
+  is a shorter page that nothing could tell from a whole one. Refusing by name
+  is what the closing condition allows; the alternative was a page that is
+  quietly the first half of a page.
+
+**One test I nearly left saying the wrong thing.** `chunked,` was refused with
+*"chunked is not the last transfer coding"* — true, and about the wrong thing:
+the trailing comma is the defect and `chunked` stopping being last is a
+consequence. The empty-element check runs over the whole list first now. A
+refusal is only as useful as the reason in it, which is the argument for having
+written the reasons out as separate refusals rather than one `is_err()`.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, 1260 tests, no stubs, boundaries held — `transfer.rs` names no rented
+crate, which is the point of it delegating to `decompress.rs`. Eighteen new
+integration tests in `a_body_encoded_for_one_hop.rs`, and the hostile-input
+clause `LOOP.md` asks of anything reading outside bytes is met three ways: a
+malformed list table, corrupt and truncated gzip inside the chunks, and a
+sweep of ten header values against four bodies asserting only that nothing
+panics. No layout assertion and no reference render: this reads bytes and
+positions nothing.
+
+**The evidence it decodes rather than merely parses** is that the frozen
+`page.html.gz` — made by the `gzip` tool, not by the crate that reads it —
+arrives as `page.html` after being cut into sixteen-byte chunks and put back
+together. Small chunks on purpose: one chunk would not have noticed a reader
+that de-chunked and decompressed in the wrong order.
+
+**`ROADMAP.md`.** The line moved is *"HTTP/1.1, then HTTP/2"*, whose Built
+clause gains the header. It stays an empty box: item 163, a request with a body
+over HTTP/2, is still owed and named there.
+
+**What the next iteration should know.** Item 154 (byte ranges and downloads
+that resume) is next in the file and its dependencies are done. It has a real
+interaction with what was built here and with item 152: a range request must ask
+for `identity`, and `write_request` already leaves a caller's `Accept-Encoding`
+alone for exactly that reason — but nothing yet stops a server answering a range
+request with a `Transfer-Encoding` anyway, and a range of a transfer-coded
+stream is a range of bytes nobody can reassemble.
+
+Item 183, the fieldset border, is still the one iteration 70 named and is still
+worth taking: `corner.rs`'s `between` draws one shape with another cut out of
+it, which is what a legend breaking a border is.

@@ -229,6 +229,12 @@ pub fn exchange(connection: &mut Connection, request: &Request) -> Result<Exchan
     let head = http::read_head(connection)?;
     let framing = Framing::of(head.status, &head.headers)?;
     let body = body::read(connection, framing)?;
+    // The chunking has come off; whatever was under it comes off next. A
+    // transfer coding describes **this hop** and does not survive it, so it is
+    // undone before anything looks at the message — and before
+    // `Content-Encoding`, which describes the representation underneath.
+    let transfer = crate::transfer::of(&head.headers)?;
+    let body = crate::transfer::undo(body, &transfer)?;
     // Last, and after framing on purpose: `Content-Length` counts the bytes on
     // the wire, which are the compressed ones. A body decompressed before it
     // was framed would be a body framed against a length describing something

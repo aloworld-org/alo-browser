@@ -48,7 +48,8 @@ impl Framing {
     /// # Errors
     ///
     /// [`Malformed`] for a `Content-Length` that is not a length, or one
-    /// larger than this engine will hold.
+    /// larger than this engine will hold — and for a `Transfer-Encoding` that
+    /// says two things about where this body ends.
     pub fn of(status: Status, headers: &Headers) -> Result<Self, Malformed> {
         // These have no body by definition, and a header claiming otherwise
         // does not change that. A parser that believed the header would read
@@ -56,10 +57,11 @@ impl Framing {
         if status.0 == 204 || status.0 == 304 || (100..200).contains(&status.0) {
             return Ok(Framing::Empty);
         }
-        if headers
-            .all("Transfer-Encoding")
-            .any(|held| held.eq_ignore_ascii_case("chunked"))
-        {
+        // `chunked` decides the framing, and it is only chunked when it is the
+        // **last** transfer coding — `gzip, chunked` is chunks holding gzip,
+        // and `chunked, gzip` is refused rather than read as either.
+        // [`crate::transfer`] is where that is decided.
+        if crate::transfer::of(headers)?.chunked {
             return Ok(Framing::Chunked);
         }
         if let Some(length) = headers.get("Content-Length") {

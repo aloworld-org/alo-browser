@@ -170,7 +170,11 @@ fn a_header_continued_onto_the_next_line_is_refused() {
 
 #[test]
 fn a_transfer_encoding_this_engine_does_not_read_is_refused() {
-    let answer = read(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip, chunked\r\n\r\nx");
+    // `gzip, chunked` used to be this test's example and is now a body this
+    // engine reads — queue item 153, and `a_body_encoded_for_one_hop.rs` is
+    // where the whole of that header now lives. `compress` is LZW and is not
+    // one we rent, so it is still the answer here.
+    let answer = read(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: compress, chunked\r\n\r\nx");
     assert!(answer.is_err(), "{answer:?}");
 }
 

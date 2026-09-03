@@ -244,9 +244,13 @@ fn parse_header(line: &str) -> Result<(String, String), Malformed> {
 /// parsers each believing a different one.
 fn check_framing_is_unambiguous(headers: &Headers) -> Result<(), Malformed> {
     let lengths: Vec<&str> = headers.all("Content-Length").collect();
-    let encodings: Vec<&str> = headers.all("Transfer-Encoding").collect();
 
-    if !lengths.is_empty() && !encodings.is_empty() {
+    // On the header being **present**, not on what it parses to. A
+    // `Transfer-Encoding: identity` beside a `Content-Length` applies no coding
+    // here and is still refused, because a recipient that treated `identity` as
+    // a transfer coding would frame this message by the connection closing
+    // while we framed it by the length — which is the disagreement.
+    if !lengths.is_empty() && headers.all("Transfer-Encoding").next().is_some() {
         return Err(Malformed::new(
             "both Content-Length and Transfer-Encoding, which say different \
              things about where this response ends",
@@ -258,18 +262,10 @@ fn check_framing_is_unambiguous(headers: &Headers) -> Result<(), Malformed> {
             return Err(Malformed::new("two Content-Length headers that disagree"));
         }
     }
-    if encodings.len() > 1 {
-        return Err(Malformed::new("more than one Transfer-Encoding"));
-    }
-    if let Some(encoding) = encodings.first()
-        && !encoding.eq_ignore_ascii_case("chunked")
-        && !encoding.eq_ignore_ascii_case("identity")
-    {
-        return Err(Malformed::new(format!(
-            "a Transfer-Encoding this engine does not read: {:?}",
-            shorten(encoding)
-        )));
-    }
+    // What a transfer coding may be, and in what order — [`crate::transfer`],
+    // because getting the order wrong is a framing bug rather than a decoding
+    // one and it wanted a file to say so in.
+    crate::transfer::of(headers)?;
     Ok(())
 }
 
@@ -336,7 +332,7 @@ fn is_token_byte(byte: u8) -> bool {
 
 /// Enough of a string to say what is wrong, without putting a server's whole
 /// answer into an error message.
-fn shorten(text: &str) -> String {
+pub(crate) fn shorten(text: &str) -> String {
     const ENOUGH: usize = 60;
     match text.char_indices().nth(ENOUGH) {
         Some((at, _)) => format!("{}…", text.get(..at).unwrap_or_default()),
