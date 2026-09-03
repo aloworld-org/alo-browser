@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The engine is MPL-2.0 now, not Apache-2.0** (ADR 0009). Anyone may still
+  embed alo browser in a closed product — that was the point of being permissive
+  and it has not changed. What is no longer allowed is taking this engine,
+  improving it privately, and shipping a better version of it against us: MPL is
+  file-level copyleft, so changes to these files come back. Apache-2.0 permitted
+  exactly that, including for the agent tree of ADR 0002, which is the one
+  genuinely novel thing here. Servo — whose parser and selector engine we rent —
+  chose the same licence for the same reason. Done now because every commit here
+  has a single author, and relicensing after outside contributors arrive needs
+  every one of them to agree.
+
 - **ADR 0008: DNS is the machine's choice until somebody changes it.** This
   browser uses the resolver the machine is configured to use and never silently
   replaces it. Encrypted DNS is offered, named, and chosen — and the name of the

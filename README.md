@@ -58,8 +58,17 @@ Two things follow that no existing engine offers:
 
 ## Licence
 
-Apache-2.0. An engine you want embedded and contributed to cannot be
-copyleft-heavy — Ladybird and Servo both chose permissive deliberately.
+**MPL-2.0** (ADR 0009). An engine you want embedded and contributed to cannot be
+copyleft-heavy, and this is not: MPL is *file-level* copyleft, so anyone may
+embed this engine in a closed product. What they may not do is improve the
+engine in private and ship a better version of our own work against us —
+changes to these files come back.
 
-The alo workspace is AGPL-3.0 and alo OS is GPL-3.0; this is the one that is
-meant to be used by other people.
+It was Apache-2.0 until somebody asked the obvious question: that licence let
+anyone take the agent tree, close it, and sell it. The permissive half of the
+reasoning was right and is kept; the part that gave away the one genuinely novel
+thing in here was not.
+
+The alo workspace is AGPL-3.0 and alo OS is GPL-3.0; this is still the one meant
+to be used by other people, and Servo — whose parser and selector engine we
+rent — chose the same licence for the same reason.
