@@ -148,9 +148,9 @@ unreachable without it.
       spawned and talked to over pipes, with a test that kills one and watches
       the other keep working **The sandbox** (ADR 0010 and queue item 167): rented, applied by
       `exec` so a renderer is never unconfined, and fatal if unavailable —
-      watched failing rather than assumed · Owed: the Linux sandbox, queue item
-      169; and fonts across the boundary, queue item 168, which a confined
-      renderer now makes necessary
+      watched failing rather than assumed **Fonts across the boundary** (queue item 168): the browser
+      process opens the files and passes bytes, and `alo-render` embeds nothing
+      · Owed: the Linux sandbox, queue item 169
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
       than leaving a blank rectangle (queue item 166). It is not restarted
       silently, because that hides a bug somebody needs to see

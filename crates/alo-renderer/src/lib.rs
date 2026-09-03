@@ -39,6 +39,8 @@
 //! single-process. The pipeline is *inside* the renderer, and so is the
 //! corpus.
 
+pub mod face;
+pub mod fonts;
 pub mod frame;
 pub mod host;
 pub mod message;

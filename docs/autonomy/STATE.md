@@ -3669,3 +3669,66 @@ policy permitting a directory — so the work is a message carrying a font, and
 the temptation to resist is adding `(subpath "/System/Library/Fonts")` to the
 profile, which would be one hole per resource type from then on.
 
+---
+
+## Iteration 58 — queue item 168: fonts across the boundary
+
+The consequence of ADR 0010 that nobody sees until it bites: a confined renderer
+cannot open a font file, so **somebody still has to**, and it has to be the
+process that is allowed to.
+
+**The temptation was named in advance and it was right to name it.** The easy
+way out is `(subpath "/System/Library/Fonts")` in the sandbox profile. That puts
+a filesystem path into a security policy for one kind of resource — and the next
+kind arrives with the same argument and no way to refuse it, and the profile
+becomes one hole per resource type. The harder way is the browser process
+reading the files and passing bytes, and it is what ADR 0010 chose. The last
+journal entry told this iteration to resist it, and having that written down
+before starting is what made it a decision rather than a shortcut not taken.
+
+**`alo-render` embeds nothing now.** It starts with an empty database, which is
+the design rather than a gap, and the test that proves the design is real is
+`a_renderer_given_no_fonts_has_none_and_cannot_fetch_any` — it checks both that
+the renderer has none *and* that it is genuinely confined, because a renderer
+with no fonts that could still open a file would just be one that had not tried
+yet.
+
+**Fonts go over once per renderer, not per page.** ADR 0005 asks for a coarse
+protocol, and a font resent with every load would be megabytes a page. They are
+sent immediately after spawn and before anything else — a renderer handed a page
+first would lay it out with nothing to draw text in, and the result is a
+rendering difference nobody could explain from outside.
+
+**Two small refusals that are the same idea twice.** Bytes that are not a font
+are refused *when they arrive*, not when text is shaped — a font that fails at
+shaping fails a long way from the moment somebody could have been told. And the
+renderer answers with the family it **actually found**, rather than echoing back
+the name the browser process guessed from a filename, because a renderer drawing
+with something other than what was asked for is exactly the kind of difference
+nobody can explain from the outside.
+
+**`.ttc` collections are skipped deliberately**, and the reason is in the code:
+a collection holds several fonts, `alo-text` cannot pick one out of it yet, and
+taking the first face and calling it the family would be a font that renders and
+is not the one anybody asked for. Skipping is honest; guessing is not.
+
+**The search is sorted and bounded**, so two runs on the same machine hand a
+renderer the same fonts in the same order. That is what makes a rendering
+difference *between runs* mean something, which is the only reason to care about
+the order at all.
+
+**The gate.** Green: fmt, clippy zero and zero, 1185 tests. Clippy caught the
+panic-in-a-helper rule again — a `fn` outside `#[test]` may not panic — and the
+fix was building the value directly rather than unwrapping, which reads better
+anyway.
+
+**What the next iteration should know.** Item 170, fonts a page asks for by
+name, was cut out of this one and is the honest gap: every renderer gets the
+same short list at startup, so a page asking for a family nobody sent gets a
+fallback **silently**. The closing condition asks for the substitution to be
+named rather than silent, which is the same principle as `FromRenderer::UsingFont`
+reporting the family it found — a difference the person can see beats one they
+cannot. Item 169, the Linux sandbox, is the other open one and it needs a Linux
+machine to be checked on, which this loop does not have; that is a real
+constraint rather than an excuse, and the queue says so.
+

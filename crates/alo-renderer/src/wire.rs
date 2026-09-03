@@ -26,6 +26,7 @@
 //! write down. Writing it down also means the wire format is a thing somebody
 //! can read, which matters for a boundary that is a security boundary.
 
+use crate::face::Face;
 use crate::frame::Frame;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
@@ -36,6 +37,7 @@ use alo_box::state::{Checked, Current, States};
 use alo_box::tree::BoxId;
 use alo_css::media::ColorScheme;
 use alo_layout::geometry::{Point, Rect, Size};
+use alo_text::{Slant, Weight};
 
 /// The most bytes one message may be.
 ///
@@ -226,6 +228,16 @@ impl Writer {
 pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
     let mut writer = Writer::default();
     match message {
+        ToRenderer::UseFont(face) => {
+            writer.tag(5);
+            writer.text(&face.family);
+            writer.number(u64::from(face.weight));
+            writer.tag(match face.slant {
+                Slant::Normal => 0,
+                Slant::Italic => 1,
+            });
+            writer.bytes(&face.bytes);
+        }
         ToRenderer::Load(page) => {
             writer.tag(0);
             writer.text(&page.html);
@@ -270,6 +282,10 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
 pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
     let mut writer = Writer::default();
     match message {
+        FromRenderer::UsingFont { family } => {
+            writer.tag(6);
+            writer.text(family);
+        }
         FromRenderer::Loaded { issues } => {
             writer.tag(0);
             writer.number(issues.len() as u64);
@@ -308,6 +324,10 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
                 Failure::Unpaintable { why } => {
                     writer.tag(1);
                     writer.text(why);
+                }
+                Failure::NotAFont { family } => {
+                    writer.tag(2);
+                    writer.text(family);
                 }
             }
         }
@@ -759,6 +779,21 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
             };
             ToRenderer::Act { target, verb }
         }
+        5 => {
+            let family = reader.text()?;
+            let weight = u16::try_from(reader.number()?)
+                .map_err(|_| unreadable("a font weight larger than any weight"))?;
+            let slant = match reader.tag()? {
+                0 => Slant::Normal,
+                1 => Slant::Italic,
+                other => return Err(unreadable(format!("a slant tagged {other}"))),
+            };
+            let bytes = reader.bytes()?;
+            let face = Face::new(family, Weight::new(weight), slant, bytes).ok_or_else(|| {
+                unreadable("a font of no bytes, or more than this engine carries")
+            })?;
+            ToRenderer::UseFont(Box::new(face))
+        }
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -827,10 +862,16 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
                 1 => Failure::Unpaintable {
                     why: reader.text()?,
                 },
+                2 => Failure::NotAFont {
+                    family: reader.text()?,
+                },
                 other => return Err(unreadable(format!("a failure tagged {other}"))),
             };
             FromRenderer::Failed(failure)
         }
+        6 => FromRenderer::UsingFont {
+            family: reader.text()?,
+        },
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;

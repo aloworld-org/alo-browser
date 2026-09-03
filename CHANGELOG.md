@@ -6,6 +6,34 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A renderer draws with a font it was handed, never one it went looking for.**
+  ADR 0010 confines renderers, and the consequence people underestimate is that
+  a confined renderer cannot open a font file. There were two ways out and the
+  harder one was taken: the browser process reads them and passes **bytes**,
+  rather than the sandbox policy permitting a font directory. Permitting the
+  directory would put a filesystem path in a security policy for one kind of
+  resource, and the next kind arrives with the same argument and no way to
+  refuse it.
+- `alo-render` **no longer embeds a font**. It starts with none, which is the
+  design rather than a gap, and is given them before it is given a page — a
+  renderer handed a page first would lay it out with nothing to draw text in,
+  and the result would be a rendering difference nobody could explain from
+  outside.
+- Fonts are sent **once per renderer**, not with each page. ADR 0005 asks for a
+  coarse protocol, and a font resent with every load would be megabytes a page.
+- **Bytes that are not a font are refused when they arrive**, not when text is
+  shaped. A font that fails at shaping fails a long way from the moment somebody
+  could have been told.
+- A renderer answers with the family it **actually found**, rather than echoing
+  back the name the browser process guessed from a filename — a renderer drawing
+  with something other than what was asked for is a rendering difference nobody
+  could explain from the outside.
+- The browser process's font search is sorted and bounded: the same fonts in the
+  same order on two runs of the same machine, which is what makes a rendering
+  difference between runs mean something. `.ttc` collections are deliberately
+  skipped — taking the first face of a collection and calling it the family
+  would be a font that renders and is not the one anybody asked for.
+
 - **Renderers are confined**, on macOS, by the platform's own sandbox — ADR 0010
   in code. A renderer cannot read `/etc/hosts`, cannot read anything in the home
   directory, cannot write a file and cannot open a socket, and each of those is

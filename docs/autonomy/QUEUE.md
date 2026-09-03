@@ -694,12 +694,26 @@ wrong, which is the argument for the fourth.
   machine of whoever wrote it stops working on a Tuesday without anybody
   noticing.
 
-- [ ] **168. Fonts across the boundary.** ADR 0010's consequence: a confined
+- [x] **168. Fonts across the boundary.** ADR 0010's consequence: a confined
   renderer cannot open a font file, and the rule is that the browser process
   passes bytes rather than the policy permitting a directory. `alo-render`
   embeds one font today, which is what the design forces.
   *Depends on 167. Closes when:* a renderer draws with a font it was handed and
   never with one it went looking for.
+
+  **Done.** `alo-render` embeds nothing now and starts with an empty database.
+  The temptation the ADR named — adding `(subpath "/System/Library/Fonts")` to
+  the profile — was resisted, and the test that would have made it tempting is
+  the one asserting a renderer given no fonts really has none and is still
+  confined.
+
+- [ ] **170. Fonts a page asks for by name.** Today every renderer is given the
+  same short list at startup. A page asking for a family nobody sent gets a
+  fallback, silently.
+  *Depends on 168. Closes when:* a renderer can say which family it wanted and
+  did not have, and the browser process can answer with it — and a family that
+  genuinely is not on the machine is a named substitution rather than a silent
+  one.
 
 - [ ] **64. The transport, and the lifecycle** that starts, reuses and reaps
   renderers, with a bound on how many exist.

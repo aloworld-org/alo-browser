@@ -12,7 +12,7 @@
 
 use alo_renderer::renderer::Renderer;
 use alo_renderer::serve;
-use alo_text::{Font, FontDatabase, Slant, Weight};
+use alo_text::FontDatabase;
 
 fn main() -> std::process::ExitCode {
     // ADR 0010 asks for a check that *watches a refusal* rather than trusting a
@@ -22,7 +22,10 @@ fn main() -> std::process::ExitCode {
     if std::env::args().any(|argument| argument == "--check-confinement") {
         return check_confinement();
     }
-    let mut renderer = Renderer::new(fonts());
+    // No fonts, and that is the design rather than a gap. A confined renderer
+    // cannot open a font file (ADR 0010), so it starts with none and is handed
+    // them by the browser process before it is given a page.
+    let mut renderer = Renderer::new(FontDatabase::new());
     let mut input = std::io::stdin().lock();
     let mut output = std::io::stdout().lock();
     match serve::serve(&mut renderer, &mut input, &mut output) {
@@ -73,22 +76,4 @@ fn check_confinement() -> std::process::ExitCode {
     } else {
         std::process::ExitCode::FAILURE
     }
-}
-
-/// The fonts this renderer can draw with.
-///
-/// One, embedded, for now — a renderer with no filesystem cannot go and look
-/// for any, which is a consequence of the design rather than a gap in it. What
-/// a sandboxed renderer is *given* is queue item 167's question.
-fn fonts() -> FontDatabase {
-    let mut database = FontDatabase::new();
-    if let Some(font) = Font::load(
-        "DejaVu Sans",
-        Weight::NORMAL,
-        Slant::Normal,
-        dejavu::sans::regular().to_vec(),
-    ) {
-        database.add(font);
-    }
-    database
 }

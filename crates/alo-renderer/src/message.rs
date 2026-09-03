@@ -18,6 +18,7 @@
 //! single caller. The transport itself is queue item 29's, and inventing a wire
 //! format before there is a process to send it to would be inventing.
 
+use crate::face::Face;
 use crate::frame::Frame;
 use crate::page::Page;
 use crate::snapshot::Snapshot;
@@ -28,6 +29,13 @@ use core::fmt;
 /// Work for a renderer.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ToRenderer {
+    /// Here is a font, as bytes.
+    ///
+    /// A confined renderer cannot open a font file (ADR 0010), so the browser
+    /// process reads them and hands them over. Sent once per renderer rather
+    /// than with each page, because ADR 0005 asks for a coarse protocol and a
+    /// font resent with every load would be megabytes a page.
+    UseFont(Box<Face>),
     /// Render this page.
     Load(Box<Page>),
     /// The window is a different size now.
@@ -48,6 +56,16 @@ pub enum ToRenderer {
 /// What a renderer answers with.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FromRenderer {
+    /// A font was taken, and this is what it turned out to be called.
+    ///
+    /// The family comes back rather than being assumed, because a font file
+    /// may not be the family the browser process guessed from its name — and a
+    /// renderer drawing with something other than what was asked for is a
+    /// rendering difference nobody could explain from the outside.
+    UsingFont {
+        /// The family it was filed under.
+        family: String,
+    },
     /// A page was rendered, with everything the engine refused along the way.
     ///
     /// The issues come back rather than being logged, because a page that
@@ -79,6 +97,15 @@ pub enum FromRenderer {
 pub enum Failure {
     /// Nothing is loaded, so there is nothing to answer about.
     NothingLoaded,
+    /// Bytes that were offered as a font and are not one.
+    ///
+    /// Refused rather than kept: a font that does not parse would fail at the
+    /// moment text is shaped, which is a long way from the moment somebody
+    /// could have been told.
+    NotAFont {
+        /// What it was offered as.
+        family: String,
+    },
     /// A size no picture can be made at.
     Unpaintable {
         /// What was asked for, in words.
@@ -90,6 +117,9 @@ impl fmt::Display for Failure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Failure::NothingLoaded => f.write_str("nothing is loaded"),
+            Failure::NotAFont { family } => {
+                write!(f, "the bytes offered as {family:?} are not a font")
+            }
             Failure::Unpaintable { why } => write!(f, "nothing could be painted: {why}"),
         }
     }
@@ -98,6 +128,12 @@ impl fmt::Display for Failure {
 impl fmt::Display for ToRenderer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ToRenderer::UseFont(face) => write!(
+                f,
+                "use {} bytes as the font {:?}",
+                face.bytes.len(),
+                face.family
+            ),
             ToRenderer::Load(page) => write!(
                 f,
                 "load {} bytes of markup at {}×{}",

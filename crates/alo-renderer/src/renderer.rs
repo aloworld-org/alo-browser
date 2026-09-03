@@ -13,6 +13,7 @@
 //! file, so in the split they are handed to it by the browser process. They
 //! are a constructor argument here for that reason rather than for tidiness.
 
+use crate::face::Face;
 use crate::frame::Frame;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
@@ -21,6 +22,7 @@ use crate::snapshot::Snapshot;
 use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Target, Verb};
 use alo_layout::Size;
+use alo_text::Font;
 use alo_text::FontDatabase;
 
 /// Everything that touches a page.
@@ -42,12 +44,32 @@ impl Renderer {
         }
     }
 
+    /// Take a font the browser process handed over.
+    ///
+    /// A confined renderer cannot go and find one (ADR 0010), so this is the
+    /// only way it gets any. Bytes that do not parse are **refused here**
+    /// rather than kept: a font that fails at the moment text is shaped fails a
+    /// long way from the moment somebody could have been told.
+    fn use_font(&mut self, face: &Face) -> FromRenderer {
+        match Font::load(&face.family, face.weight(), face.slant, face.bytes.clone()) {
+            Some(font) => {
+                let family = font.family().to_owned();
+                self.fonts.add(font);
+                FromRenderer::UsingFont { family }
+            }
+            None => FromRenderer::Failed(Failure::NotAFont {
+                family: face.family.clone(),
+            }),
+        }
+    }
+
     /// Do one piece of work, and answer.
     ///
     /// The only way in. Every request is answered — with a result, with a
     /// refusal, or with a [`Failure`] that leaves the renderer usable.
     pub fn handle(&mut self, work: ToRenderer) -> FromRenderer {
         match work {
+            ToRenderer::UseFont(face) => self.use_font(&face),
             ToRenderer::Load(page) => self.load(*page),
             ToRenderer::Resize(viewport) => match self.page.clone() {
                 Some(page) => self.load(Page { viewport, ..page }),

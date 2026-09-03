@@ -18,6 +18,7 @@
 //! *deliberate* load gets a fresh process — but nothing here decides on its own
 //! that a page should be reloaded.
 
+use crate::face::Face;
 use crate::message::{FromRenderer, ToRenderer};
 use crate::pipe::{self, Arrived};
 use crate::sandbox;
@@ -66,6 +67,13 @@ struct Held {
 pub struct Renderers {
     program: PathBuf,
     arguments: Vec<String>,
+    /// The fonts handed to every renderer as it starts.
+    ///
+    /// Held here because a renderer cannot open a font file (ADR 0010), so the
+    /// browser process reads them once and gives each new renderer a copy —
+    /// rather than each renderer going looking, which is the thing it cannot
+    /// do.
+    faces: Vec<Face>,
     held: HashMap<Site, Held>,
     /// Which site was used least recently, oldest first — so the bound above
     /// evicts something rather than refusing to open a tab.
@@ -86,10 +94,23 @@ impl Renderers {
                 .iter()
                 .map(|argument| (*argument).to_owned())
                 .collect(),
+            faces: Vec::new(),
             held: HashMap::new(),
             order: Vec::new(),
             started: 0,
         }
+    }
+
+    /// The same, giving every renderer these fonts.
+    #[must_use]
+    pub fn with_fonts(mut self, faces: Vec<Face>) -> Self {
+        self.faces = faces;
+        self
+    }
+
+    /// The fonts every renderer is given.
+    pub fn fonts(&self) -> &[Face] {
+        &self.faces
     }
 
     /// How many are running.
@@ -220,6 +241,24 @@ impl Renderers {
         );
         self.order.push(site.clone());
         self.started += 1;
+
+        // Hand over the fonts before any page. A renderer that received a page
+        // first would lay it out with nothing to draw text in, and the result
+        // would be a rendering difference nobody could explain from outside.
+        for face in self.faces.clone() {
+            let sent = wire::write_to_renderer(&ToRenderer::UseFont(Box::new(face)));
+            let Some(held) = self.held.get_mut(site) else {
+                break;
+            };
+            if pipe::write(&mut held.to, &sent).is_err() {
+                break;
+            }
+            // Read the answer, so the two ends stay in step — the next thing
+            // written would otherwise be read as the answer to this.
+            if pipe::read(&mut held.from).is_err() {
+                break;
+            }
+        }
         Ok(())
     }
 
