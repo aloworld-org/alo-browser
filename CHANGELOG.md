@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: what the cache may write to a disk** (ADR 0011). A cache in memory
+  is bytes we already had; a cache on a disk is a durable record of everywhere
+  somebody has been, and an input we later hand to a page under that page's own
+  origin. So it is **partitioned by top-level site**, exactly as cookies are —
+  a shared cache tells any site what you have loaded elsewhere, and an entry
+  only you were ever given is an identifier that survives clearing your cookies.
+  And what must not outlive the session is **never written**, rather than
+  written and deleted: a `private` response, a request that carried
+  `Authorization`, a response carrying `Set-Cookie`, a body that did not arrive
+  whole, and anything from a session meant not to persist. A deleted file was
+  still on the disk. All of it stays cached in memory, where being careful costs
+  nothing. The cost is written down too, including that the disk cache is
+  weakest exactly where it would help most.
+
 - **A download that stops over HTTP/2 resumes too.** It used to start again at
   zero: the HTTP/2 client turned a stream that ended early into an error, so
   the bytes were gone before anything could ask for the rest of them. It hands

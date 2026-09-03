@@ -530,10 +530,20 @@ first. Nothing here needs JavaScript.
   German reader, and `Vary: *` is not stored at all. Disk went to item 155.
 
 - [ ] **155. The cache on disk.** Cut from 56, which is memory only.
-  *Depends on 56. Needs ADR* — what may be written to a disk other programs can
-  read is a different question from what may be reused, and it has a different
-  answer for a page behind a password. *Closes when:* a cache survives a restart,
-  and a response that must not outlive the session does not.
+  *Depends on 56. **ADR 0011 is written and accepted** — what may be written to a
+  disk other programs can read is a different question from what may be reused,
+  and it has a different answer for a page behind a password. The code is what
+  remains, and the ADR names the rules it must carry: the cache is **partitioned
+  by top-level site** on the same `Partition` the cookie jar uses; what must not
+  outlive the session is **never written** rather than written and deleted
+  (`no-store`, `private`, a request carrying `Authorization`, a response carrying
+  `Set-Cookie`, anything not `http:`/`https:`, a body that did not arrive whole,
+  and any session-scoped profile); a cache file is **untrusted input** with a
+  checksum, a version and a miss rather than an error when it does not read; and
+  it lives in the **browser process only**, because a sandbox profile granting a
+  renderer that directory would hand a compromised renderer every page the person
+  has read. *Closes when:* a cache survives a restart, and a response that must
+  not outlive the session does not.
 
 - [x] **57. Cookies, partitioned by default.** `SameSite`, `Secure`,
   `HttpOnly`. **The default is a product decision** rather than a parser detail,

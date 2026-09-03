@@ -21,6 +21,18 @@
 //! 155, and it is a separate item because *what may be written to a disk that
 //! other programs can read* is a different question from *what may be reused*,
 //! with a different answer for a page behind a password.
+//!
+//! That question is now decided rather than open: **ADR 0011**. Nothing here
+//! changes when the disk arrives — a response that went to disk is served under
+//! exactly these rules — but three of its clauses land in this file when it
+//! does. The key gains the **top-level site**, on the same `Partition` the
+//! cookie jar uses, because a cache shared across sites is a history oracle and
+//! an identifier that outlives clearing cookies. [`Cache::keep`] gains a second
+//! question, *may this be written down*, whose answer is no for a `private`
+//! response, a request that carried `Authorization` and a response carrying
+//! `Set-Cookie` — never written, rather than written and deleted. And the disk
+//! is the browser process's alone (ADR 0005), so nothing in a renderer opens
+//! one.
 
 use crate::directives::{Directives, Flag};
 use crate::freshness::{self, Stored, Verdict};

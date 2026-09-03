@@ -218,7 +218,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] DNS, with encrypted DNS as a choice somebody made rather than a default nobody was told about
 - [2] Content encodings: gzip, brotli, zstd
 - [2] Redirects, byte ranges, and downloads that resume
-- [2] **The HTTP cache with real semantics** — freshness, revalidation, `Vary`. Subtly wrong here is invisible for months and then serves somebody a stale bank page
+- [2] **The HTTP cache with real semantics** — freshness, revalidation, `Vary`. Subtly wrong here is invisible for months and then serves somebody a stale bank page. What of it may be written to a disk is a second question and has its own answer (ADR 0011): partitioned by top-level site like cookies, and a page behind a password never written down at all
 - [2] **Cookies**: `SameSite`, `Secure`, `HttpOnly`, partitioned by default — the default is a product decision, not a parser detail
 - [2] The same-origin policy, CORS and preflight
 - [2] Content Security Policy, referrer policy, HSTS, mixed-content blocking

@@ -4833,3 +4833,97 @@ dependency is done.
 And item 183, the fieldset border, is still the one iterations 70, 72 and 73
 each named and nobody has taken. `corner.rs`'s `between` draws one shape with
 another cut out of it, which is what a legend breaking a border is.
+
+---
+
+## Iteration 75 — queue item 155: the decision about a disk (ADR 0011)
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 155 was
+the first unticked item in the file, its one dependency (56) is done, and it is
+marked *needs ADR* — so this iteration is the ADR and nothing else. `LOOP.md`:
+*"a decision made inside a commit that was mostly code is a decision nobody
+reviewed."* No code was written, deliberately.
+
+**What the decision had to answer.** The queue asked it in one sentence: what
+may be written to a disk other programs can read is a different question from
+what may be reused, and it has a different answer for a page behind a password.
+Writing it out found that the disk turns the cache into *two* things it is not
+today — a durable record of everywhere somebody has been, and an **input** we
+later hand to a page under that page's own origin. The second is the one that
+was not in the queue entry and is the reason section 4 exists.
+
+**ADR 0011, in the six clauses the code now has to carry.**
+
+- **Partitioned by top-level site**, on the same `Partition` the cookie jar
+  uses — so when item 156 corrects that answer from the host to the registrable
+  domain it corrects both, and there is never a version where cookies and the
+  cache disagree about where a boundary is. The argument is ADR 0007's: a shared
+  cache answers *have you been somewhere that loads this* for any site that
+  thinks to time a load, and an entry only one visitor was ever given is an
+  identifier that survives clearing cookies.
+- **Never written, rather than written and deleted.** A deleted file was still
+  on the disk, and the window between the two operations is exactly where a
+  power cut lands. The list: `no-store`, `private`, a request carrying
+  `Authorization`, a response carrying `Set-Cookie`, anything not
+  `http:`/`https:`, a body that did not arrive whole, and any session-scoped
+  profile. Every one of them stays cached in **memory**, where being careful
+  costs nothing.
+- **A cache file is untrusted input** — `LOOP.md`'s stage 2 rule, which applies
+  to a filesystem as fully as to a socket. A checksum over metadata and body, a
+  format version discarded rather than guessed at, and an unreadable entry that
+  is a **miss** rather than an error: a cache that can stop a page opening is a
+  defect however correct its reasoning was.
+- **The browser process only.** ADR 0010 named the temptation — permit a
+  directory in the sandbox profile instead of passing bytes — and item 168
+  refused it for fonts. Here the stakes are higher: that grant would hand a
+  compromised renderer every page the person has read, across every site.
+- **Bounded in bytes as well as entries**, oldest first by the insertion order
+  `cache.rs` already keeps. And said explicitly: **this is not the quota
+  decision** (item 90), and must not become it by precedent.
+- **No encryption of ours.** ADR 0001 rents the physics; a key that has to live
+  next to the data is not a key. So the honest boundary is stated instead:
+  protected against another user account, not against a program running as the
+  person — and neither is anything else they own.
+
+**What it costs, which is in the ADR rather than left out.** Partitioning costs
+re-fetches of shared libraries. The never-written list makes the disk cache
+weakest **exactly where it would help most** — a site somebody is signed into
+and uses daily is the one whose responses carry `Set-Cookie` or `private`. And
+a cache that survives a restart is a browsing record that survives a restart. No
+speed number is quoted: other browsers reported partitioning as cheap, and
+quoting theirs as though it were ours is the thing `CLAUDE.md` forbids. Item 117
+measures it or nobody does.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, 1310 tests unchanged, no stubs, no `unsafe`, boundaries held, a
+`CHANGELOG.md` line. No layout assertion and no reference render, and no new
+test — this iteration adds no behaviour to test, which is what an ADR-only
+iteration is. `cache.rs`'s module comment now says which three clauses land in
+that file when the disk arrives, so the decision is where the code is rather
+than only in `docs/decisions/`.
+
+**`ROADMAP.md`.** The line moved is *"The HTTP cache, with real semantics"*,
+and it gains a `Built:` clause naming ADR 0011 and keeps an `Owed:` clause for
+the code — item 155 is not done and the box stays as it was. `docs/features.md`
+gains the same distinction on its planned line, so the item is promised before
+it is built.
+
+**What the next iteration should know.** Item 155's code is now unblocked and is
+the natural next take: its rules are written down, `Cache::keep` is where the
+second question goes, and the closing condition is unchanged — a cache survives
+a restart, and a response that must not outlive the session does not. It will
+need a place to put files and a hostile-input test over half-written ones.
+
+Item 156 (the public suffix list, rented) is still a ready chore, and it is now
+worth **more** than it was this morning: ADR 0011 puts the cache on the same
+`Partition` as cookies, so the host-instead-of-registrable-domain answer is
+about to be wrong in two places rather than one.
+
+And a numbering trap, found while choosing 0011: **queue item 69 calls the
+JavaScript engine decision "ADR 0006"**, and 0006 is the supervisor. The next
+ADR is **0012**, whatever it decides. Fixing the queue's text was not this
+item's, but the iteration that takes 69 should not take the number the queue
+offers it.
+
+Item 183, the fieldset border, is still the one iterations 70, 72, 73 and 74
+each named and nobody has taken.
