@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The supervisor's log records runs, not tests.** `--self-test` starts the
+  script eight times to check what the arguments mean, and every one of those
+  children was appending its own startup lines and its own deliberate `FAILED:`
+  messages to the same log — so the record of a run that genuinely failed sat
+  among a dozen failures that were tests passing. A log somebody has to filter
+  before reading is a log they stop reading.
+- The fix is an environment variable rather than a flag, because the children
+  that mattered most were the ones failing **during argument parsing** — before
+  any flag is known. Something read at the top of the file is the only thing
+  that arrives early enough. A dry run and a self-test now write nowhere; a real
+  invocation that fails still does, because that is a run.
+- And the regression has a test of its own: a child told to log nowhere leaves
+  the real log exactly the length it was.
+
 - **A checked control looks checked.** A checkbox that was ticked drew exactly
   one thing — its border — so a person could not tell it from an unchecked one.
   It draws a tick now, a chosen radio draws a dot, and a checkbox that is

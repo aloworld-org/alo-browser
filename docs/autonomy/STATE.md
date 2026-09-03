@@ -4448,3 +4448,41 @@ which is what an inset shadow uses. That is the machinery to reach for.
 Item 43 is now explicitly blocked on item 81 rather than open: the tick and the
 dot are done, and the focus ring cannot be drawn while nothing in this engine
 has focus. That is recorded in the queue rather than left as a half-open item.
+
+---
+
+## Iteration 71 — the log records runs rather than tests
+
+Found by reading `loop.log` after the first real run, which is the first time
+anybody had. `--self-test` starts the script eight times to check what the
+arguments mean, and each child appended its startup lines and its deliberate
+`FAILED:` messages to the same log. Twelve lines of noise per self-test, all
+looking exactly like a run that had failed.
+
+That is worse than untidy. The log exists so that a run nobody watched can still
+be read, and its whole value is that a `FAILED:` line means something. A log
+somebody has to filter before reading is a log they stop reading — and they stop
+on the day it finally matters.
+
+**The fix had to be an environment variable rather than a flag**, and finding
+that out took one wrong attempt. Setting the log to nowhere once `--self-test`
+had been parsed left four lines still there: the children that fail *during
+argument parsing* fail before any flag is known. Something read at the top of
+the file is the only thing that arrives early enough.
+
+A dry run and a self-test write nowhere now. A real invocation that fails still
+writes, because that is a run — and it is one line rather than twelve.
+
+**The regression has a test of its own**, which is the point: a child told to
+log nowhere must leave the real log exactly the length it was. Without it the
+next person to touch the self-test puts the noise straight back.
+
+**The gate.** Green.
+
+**About the run before this.** The loop closed queue item 182 on its own — a
+checked control that looks checked — and I verified rather than trusted it:
+gate green, 1234 tests, and the committed render of `a-filled-form` now shows a
+ticked box where it had shown an empty square since iteration 16. Its own commit
+message reasons about why the mark is the engine's rather than a style rule,
+which is the kind of thing this journal exists to keep.
+

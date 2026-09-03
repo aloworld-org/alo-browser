@@ -35,7 +35,14 @@ CEILING_MIN="${CEILING_MIN:-240}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-500}"
 BACKOFF_MIN="${BACKOFF_MIN:-15}"
 
-LOG="docs/autonomy/loop.log"
+# Where a run is written down.
+#
+# From the environment first, because the self-test starts this script eight
+# times to check what the arguments mean and needs those children to write
+# nowhere — including the ones that fail *during argument parsing*, which is
+# before any flag is known. A variable read here, at the top, is the only thing
+# that arrives early enough.
+LOG="${ALO_LOOP_LOG:-docs/autonomy/loop.log}"
 
 # Everything to the terminal *and* to a file. A run somebody walked away from is
 # a run they should still be able to read, and a terminal is the one place that
@@ -84,6 +91,20 @@ if [ "$wanted" -lt 1 ]; then
   exit 2
 fi
 [ "$once" -eq 1 ] && wanted=1
+
+# Only a real run is written down.
+#
+# `--self-test` starts this script eight times to check what the arguments
+# mean, and every one of those children was appending its own startup lines and
+# its own deliberate `FAILED:` messages to the same log. So the record of a run
+# that genuinely failed would sit among a dozen failures that were tests
+# passing. A log somebody has to filter before reading is a log they will stop
+# reading.
+#
+# A dry run is not a run either, and neither is a self-test.
+if [ "$dry" -eq 1 ] || [ "${selftest:-0}" -eq 1 ]; then
+  LOG=/dev/null
+fi
 
 # --- Before anything: is this a tree an iteration should open on? ------------
 
@@ -213,7 +234,10 @@ nothing to report"
   # run forever, would be one nobody should trust with an unattended run.
   args() {
     JOURNAL="$journal_was"
-    ( "$0" "$@" --dry-run >/dev/null 2>&1 )
+    # `ALO_LOOP_LOG` so a child writes nowhere: a check that a bad argument is
+    # refused would otherwise put its refusal in the log, where it reads
+    # exactly like a run that failed.
+    ( ALO_LOOP_LOG=/dev/null "$0" "$@" --dry-run >/dev/null 2>&1 )
     echo "$?"
   }
   expect() {
@@ -236,6 +260,22 @@ nothing to report"
   expect "zero items is refused" 2 --items 0
   expect "--items with nothing after it is refused" 2 --items
   expect "a typo is refused rather than ignored" 2 --run-forever
+
+  # The regression this test exists for: those eight children each refused an
+  # argument, and every refusal used to land in the real log — so a run that
+  # genuinely failed sat among a dozen failures that were tests passing. A log
+  # somebody has to filter before reading is a log they stop reading.
+  real="docs/autonomy/loop.log"
+  before=$( [ -f "$real" ] && wc -l < "$real" || echo 0 )
+  ( ALO_LOOP_LOG=/dev/null "$0" --items abc --dry-run >/dev/null 2>&1 )
+  after=$( [ -f "$real" ] && wc -l < "$real" || echo 0 )
+  if [ "$before" = "$after" ]; then
+    printf '\033[32mok\033[0m    %s\n' "a child told to log nowhere writes nowhere"
+  else
+    printf '\033[31mFAIL\033[0m  %s — the log grew from %s to %s\n' \
+      "a child told to log nowhere writes nowhere" "$before" "$after"
+    failures=1
+  fi
 
   [ "$failures" -eq 0 ] && printf '\n\033[32m[loop]\033[0m the stop rule and the arguments hold.\n'
   exit "$failures"
