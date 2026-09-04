@@ -1940,7 +1940,32 @@ The long pole, and the thing most of section E is unreachable without.
 
 - [ ] **71. The object model, and a garbage collector.** Objects, properties,
   prototypes, and something that reclaims them.
-  *Depends on 69. Needs ADR* — a collector is a decision about pauses.
+  *Depends on 69. **ADR 0014 is written and accepted** — a collector is a
+  decision about pauses, and it turned out to be four decisions that cannot be
+  changed afterwards. The code is what remains, and the ADR names the rules it
+  must carry: the heap is an **arena of slots** and a reference is an **index
+  with a generation**, so ADR 0003's promise survives slot reuse and a stale
+  reference names nothing rather than naming whatever took the slot; the
+  collector is **precise**, which makes the places a live reference may live a
+  **closed list** — realm globals, the interpreter's frames and value stack, the
+  scopes native code holds, the embedder's roots, and a job's keep-alive set —
+  and nothing else may hold one across an allocation; the **DOM is in the same
+  graph**, traced rather than counted, with one wrapper per node and the trait in
+  `alo-js` so neither crate depends on the other; **non-moving mark and sweep**,
+  stop-the-world, with a **write barrier from the first line** that does nothing
+  today because incremental marking and a nursery both need it and neither can be
+  retrofitted; the **marker never recurses** and a collection **allocates
+  nothing**, since the moment we most need to collect is the moment there is none
+  to spare; **ephemerons marked to a fixpoint**, because a `WeakMap` written
+  afterwards is written wrong; a finaliser frees nothing of ours, `Drop` at the
+  sweep does; and the heap's ceiling is ours, in `bounds.rs` with its reason,
+  with a full heap an error the script or the embedder is told about and never an
+  abort. Closes when:* an object graph with a cycle in it — including one through
+  a DOM node — is reclaimed, counted rather than watched; a stress mode that
+  collects at **every** safepoint passes, because that is the only thing that
+  finds a rooting bug; the heap invariants hold after every collection in a test
+  that checks them; and the hostile half is a refusal or a collection rather than
+  a crash.
 
 - [ ] **72. A bytecode compiler and an interpreter.** Values, scopes, calls,
   `this`, closures, exceptions.

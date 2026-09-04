@@ -20,6 +20,14 @@
 //! 71's object model in the wrong crate. The tree is what item 72's compiler
 //! will read.
 //!
+//! The heap that is missing is **decided** rather than open — ADR 0014, item
+//! 71 — and two of its clauses land in this crate when it arrives. A reference
+//! into it is an **index carrying a generation** rather than a pointer, which
+//! is why nothing here will need `unsafe` to hold one; and the collector is
+//! **precise**, so the interpreter's frames and value stack live in structures
+//! the collector walks rather than in Rust locals. Both are shapes to build to
+//! rather than shapes to arrive at.
+//!
 //! # The rule that shapes every file: a script is a stranger's bytes
 //!
 //! ADR 0013 § 4. **It never panics, on any source text.** Not on a truncated

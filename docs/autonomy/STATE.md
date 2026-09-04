@@ -8110,3 +8110,128 @@ own iteration, so 71's ADR is a whole iteration with no code in it, exactly as
 depends on it, and its own content says why each refusal waits for a scope.
 Outside section D, **190** (the two-tone border styles: small, depends on
 nothing, closes with a picture) is still ready.
+
+---
+
+## Iteration 105 — queue item 71: ADR 0014, the collector and the object model
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 71 is
+`needs ADR`, so by `LOOP.md`'s stage 2 clause 4 this iteration is the decision
+and nothing else: **ADR 0014**, no code, exactly as iteration 102 was for
+ADR 0013.
+
+**Taken over 205, which is earlier in the file, and the reason is the ordering
+rule rather than a preference.** Stage 2's clause 3 says dependencies decide.
+Item 205 is the early errors that need a *scope*, and its own text says where a
+scope belongs: *"a scope is the thing item 71's object model and item 72's
+compiler both need, and building a second one inside the parser is how the two
+come to disagree."* Taking 205 first would mean building the scope before the
+thing that owns it, which is the item arguing against itself. Everything else
+outside section D is where it was: 157 and 158 need an interface to ask in, 187
+is deferred with its reason written into it, 169 must be *run* on Linux, 197
+waits on properties `alo-style` does not have, 201 and 203 wait on a wiring that
+does not exist, and 60 is HTTP/3, which nothing depends on and nothing makes
+reachable.
+
+**The item is one line of queue and the decision turned out to be four things
+that cannot be changed afterwards**, which is what made it worth a whole
+iteration:
+
+- **Where a reference may live.** A precise collector runs only where it can
+  find every live reference, so the answer decides the shape of the
+  interpreter's stack and the signature of every builtin. An engine that settles
+  this after it has two hundred builtins rewrites two hundred builtins.
+- **Whether the DOM is in the graph**, which decides what `alo-dom` is and is
+  the clause ADR 0013 § 1 refused a rented engine over.
+- **Whether there is a write barrier**, which looks like an optimisation and is
+  the hook both answers to a visible pause need.
+- **Whether the marker recurses**, which is item 204's finding on a graph whose
+  depth a script chooses.
+
+**What was decided**, in the order the ADR argues it. Tracing rather than
+counting, because the cycle is the normal case: `addEventListener("click", () =>
+node.focus())` is one in the first line of most pages, and a counted heap needs
+a second collector to find it. **Precise** rather than conservative, because
+conservative scanning needs `unsafe` to read the machine stack and retains by
+accident — so the places a live reference may be are a closed list of five, and
+anything else holding one across an allocation is a bug. A reference is an
+**index carrying a generation**, which is ADR 0004's move for `taffy`'s handle
+made again for the same reason: an index is safe code where a pointer is
+`unsafe`. **Non-moving mark and sweep**, stop-the-world, correct before fast.
+The **DOM is traced rather than counted**, one graph, one collector, with the
+trait in `alo-js` and the bindings crate the only thing depending on both.
+**Ephemerons to a fixpoint** from the first line. The **marker never recurses**
+and a collection **allocates nothing**. The heap's ceiling is ours, and a full
+heap is an error somebody is told about rather than an abort.
+
+**Two collisions with earlier decisions are settled rather than left implied.**
+ADR 0003 says a node's identity is allocated once and never reused, and a heap
+cannot afford never to reuse a slot — so what is never reused is the **pair**,
+slot plus generation, and a reference whose generation no longer matches names
+*nothing* rather than naming whatever took the slot. ADR 0003's promise is kept
+at the level it was made. And a generation that would wrap **retires the slot**
+instead of wrapping, which costs one slot and closes the one hole in that
+argument rather than describing it.
+
+The second is what a stale reference *does*. In an engine with pointers it is a
+use-after-free, which is the most valuable bug class in a browser. Here it is a
+mismatch the engine can see, it is always our bug rather than a page's, and it
+ends the script with an internal error — never the process (ADR 0005), never a
+panic (ADR 0013 § 4), and never a wrong object handed back as though it were
+right.
+
+**The write barrier is the clause I would most expect a later iteration to
+argue with, so it is argued for here.** It does nothing today: it stores and
+returns. It exists because incremental marking needs the tri-colour invariant
+maintained on every store and a generational nursery needs a remembered set, and
+because installing it afterwards means auditing every mutation in an engine that
+by then has builtins, a DOM binding and a compiler emitting stores. It is
+structural rather than remembered — an object's reference-bearing fields are
+private to the heap module, so there is no second way to write one.
+
+**One thing is explicitly allowed later without an ADR, and saying so is part of
+the decision.** Hidden classes and inline caches are refused now under law 3 and
+may arrive whenever somebody wants them, provided the semantics and the property
+order are unchanged: they are an optimisation behind one interface. A JIT is not,
+which is why ADR 0013 § 2 gives it two conditions and this gives shapes none.
+The difference is the line, and an ADR that did not draw it would have every
+future optimisation asking permission.
+
+**What is deliberately not in the ADR: the numbers.** The heap ceiling, the
+collection trigger and the worklist capacity land in `bounds.rs` with the code,
+each with its reason beside it, as `LONGEST_SOURCE` and `DEEPEST_NESTING`
+already do. A number written into a decision is a number nobody can tune with
+evidence — and every number in this repository that is defensible was measured
+by the iteration that needed it.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1853 tests** unchanged (no code), no stubs, no `unsafe`, every
+boundary held, the licence notice intact, and a `CHANGELOG.md` line. No layout
+assertion and no reference render: this iteration positions nothing, paints
+nothing and executes nothing. One file one responsibility: one new document, and
+one paragraph added to `alo-js`'s own module documentation, which is where
+somebody building item 71 will actually be standing.
+
+**`ROADMAP.md` moved, and it is not a tick.** *A garbage collector, and the
+object model underneath it* gains a second `· Built:` clause — the decision, its
+four retrofit-proof clauses, and the two refusals worth naming (counting, and
+conservative scanning) — and keeps its empty box, with `· Owed:` naming all of
+the code and the numbers that land with it. `docs/features.md`'s line gains the
+same in a reader's words. No other line moved, because no other line's content
+changed.
+
+**What the next iteration should know.** The next queue number is **206** and
+the next ADR number is **0015**. Section D's ready items are **71**, whose
+decision is now made and whose code is a large build, and **205**. **71 is the
+one to take**: 72 depends on it and every item from 73 to 79 is behind 72, and
+its closing conditions are written into the queue item — a cycle reclaimed and
+counted rather than watched, a stress mode that collects at *every* safepoint,
+the heap invariants checked after every collection, and the hostile half. Two
+things in it are easy to lose sight of and are named in the ADR rather than left
+to be noticed: the stress mode is not optional, because a builtin holding a
+reference across an allocation is correct in every ordinary run and wrong only
+in that one; and a collection must allocate nothing, because the moment it is
+most needed is the moment there is nothing to spare. Item 205 is still the
+better second choice and still not urgent. Outside section D, **190** (the
+two-tone border styles: small, depends on nothing, closes with a picture) is
+still ready.

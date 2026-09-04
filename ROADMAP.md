@@ -485,9 +485,28 @@ unreachable without it.
       · Built: the question, stated (ADR 0013 § 6) — the engine defines **one
       trait** for an embedder's objects and the DOM is one embedder, so the
       single thing it demands is that such an object can be **traced**, which is
-      what makes the collector's problem statable · Owed: the collector, and the
-      decision it needs first — pauses and precision are their own ADR (queue
-      item 71)
+      what makes the collector's problem statable
+      · Built: the decision (ADR 0014, queue item 71) — **one heap, one
+      collector, and the DOM is in it**. A reference is an **index with a
+      generation** rather than a pointer, which is ADR 0004's move again and is
+      what keeps a stale reference a detectable engine bug instead of the most
+      valuable bug class in a browser; ADR 0003's promise survives slot reuse
+      because what is never reused is the *pair*. The collector is **precise**,
+      so where a live reference may live is a closed list and conservative stack
+      scanning — `unsafe`, and retention by accident — is refused. The **DOM is
+      traced rather than counted**: node, listener and closure are one graph one
+      collector reclaims, which is ADR 0013 § 1's claim made real and the reason
+      renting an engine was unrecoverable. **Non-moving mark and sweep**,
+      stop-the-world, correct before fast — with the three things that cannot be
+      retrofitted in from the first line: a **write barrier** that does nothing
+      today because both answers to a visible pause need it, an **ephemeron
+      fixpoint** because a `WeakMap` added afterwards is wrong, and a **marker
+      that never recurses**, which is item 204's finding restated for a graph a
+      script chooses the depth of
+      · Owed: all of the code (queue item 71), and the numbers with it — the
+      heap ceiling, the collection trigger and the worklist capacity land in
+      `bounds.rs` with their reasons rather than in the ADR, because a number
+      written into a decision is a number nobody can tune with evidence
 - [ ] The standard library: the ECMAScript builtins, in the order real pages need them
 - [ ] Regular expressions, with the syntax the language actually has
 - [ ] Promises, the microtask queue, `async`/`await`, generators and iterators

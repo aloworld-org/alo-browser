@@ -6,6 +6,41 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: where a script's objects live, and what tidies them away.** No code
+  this time. A program makes things — objects, text, functions — and something
+  has to notice when nothing needs them any more. How that is done is the kind
+  of choice that cannot be revisited once a language is built on top of it, so
+  it is written down first, argued in one document, and open to being argued
+  with.
+
+  What was decided. Everything a script makes lives in one place the browser
+  owns, and anything referring to it holds **a number naming a slot** rather
+  than a machine address — so a mistake made here is something the browser can
+  notice and report, rather than the kind of bug browsers get broken into
+  through. Deciding what is still needed is done by **starting from what is
+  definitely in use and keeping whatever can be reached from it**. The obvious
+  alternative — count how many things refer to each object and free it at zero —
+  is simpler and would leak the most ordinary thing on the web: a button holding
+  a function that mentions the button refers to itself in a circle, and a count
+  never reaches zero on a circle.
+
+  The clause that matters most is that **the page's own document is part of the
+  same picture**. Every browser that treated a page's script objects and its
+  elements as two separate problems spent a decade chasing leaks that only
+  appear after a tab has been open for a day. Here one thing decides what is
+  alive, so a button that refers to a function that refers back to the button is
+  reclaimed when the page lets go of it, and nothing has to be untangled by
+  hand.
+
+  Three things go in before anything needs them, because each is a rewrite if it
+  arrives late: the hook that would let the tidying happen in slices, should
+  somebody ever notice the browser pause; the extra care that makes a `WeakMap`
+  actually right rather than nearly right; and a design that walks a page's
+  objects **without calling itself**, since a script can otherwise decide how
+  deep the walk goes and take the tab down with it. And the tidying never needs
+  spare memory to run, because the moment it is most needed is the moment there
+  is none.
+
 - **The engine understands a program now, not only its words.** The reader
   built last month turned a script's characters into its words and symbols;
   this turns those into the shape of the program — this is a function, that is
