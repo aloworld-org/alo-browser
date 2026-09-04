@@ -7377,3 +7377,93 @@ ready. 157 and 158 need an interface to ask in, and so does the question item
 198 stands in for; 187 is deferred for the reason written into it; 169 must be
 run on Linux; 60 is HTTP/3; and 197 waits on properties `alo-style` does not
 have.
+
+## Iteration 99 — queue item 199: a cause is a link in a chain
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 199 was
+the natural next take and the previous journal said so, with the hard part
+already named: a **document** had to become a thing with an identity outside a
+`Cause`, because `Tabs` minted tabs and minted no documents and `Page` is markup
+and a viewport.
+
+**Where a document comes from turned out to be the whole design.** Loading a
+page is what makes one, so `Tabs::load` now takes the [`Cause`] its own request
+carried, mints the document and records the pair in **one act** —
+`Documents::opened` mints and writes together, so there is no moment at which a
+document exists without a cause and no second call that could give it a
+different one. That is ADR 0012 § 3 made structural rather than a rule
+somebody follows, and it is the same shape as § 1's *no constructor without a
+cause* one layer up.
+
+**What is built.** `crates/alo-net/src/chain.rs`: `Documents` (what caused each
+document's load), `Documents::chain` (the walk), `Chain` and `End`.
+`alo_renderer::Tabs` is the one thing that writes to it — `load` takes a cause,
+`act` mints an `ActionId` and hands it back, and `a_page_fetching` and
+`an_agent_acting` compose the causes for what follows. A `Tab` holds the
+document it is showing.
+
+**Both reachable clauses are met and the third is said rather than asserted.**
+An agent's action is reachable from every request that followed from it, in
+`crates/alo-renderer/tests/what_an_agent_set_off.rs`, which drives the **real**
+renderer binary: a page loads, the agent activates a real link, the page the
+link named loads attributed to the action, and a fetch by *that* page walks back
+through it to the person. The walk terminates on a cycle rather than looping.
+The clause item 67 could not reach — *a renderer that states a cause is a
+renderer that has been ignored* — still has nothing to ignore: no message
+crossing the boundary carries a request, so a test of it would be a test of
+nothing. It is **item 201** now, with items 80 and 83 named as its dependency,
+rather than implied by a tick.
+
+**Three rules are worth reading twice.** The document a cause names is taken
+from the **tab** rather than from a caller or from anything a renderer said, so
+an agent acting in one tab cannot reach into another's browsing — that has a
+test of its own, named for what it refuses. The walk carries the documents it
+has been through and stops if one comes back: a cycle cannot be *created*, and a
+walk that trusted that would hang the **browser** process, which is the one
+thing ADR 0005 says must never happen; its test reaches past the constructor to
+build a cycle by hand, because what is asserted is that the walk survives a
+state nothing can put it in. And the bound (`MOST_DOCUMENTS`) came with the
+honesty it owes: a chain reaching a document dropped under the ceiling says
+`Forgotten`, and one reaching a document nothing ever recorded says
+`Unrecorded` — *we knew and no longer do* and *nobody ever said* are different
+answers, and running them together would be guessing in the one place that
+exists not to.
+
+**The negative test is the one that makes the positive worth anything.** A page
+a person opened themselves reaches **no action at all**. An engine whose chains
+found an action everywhere would answer the question the record exists for with
+the same word every time.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1713 tests** (1694 before, so 19 new — 10 in `chain.rs`, 5 in
+`tab.rs`, 4 in the new integration file), no stubs, no `unsafe`, boundaries
+held, the licence notice, and a `CHANGELOG.md` line. No layout assertion and no
+reference render: this iteration positions nothing and paints nothing. One file
+one responsibility: `chain.rs` is new and holds one thing — what caused each
+document's load, and the walk along it; `cause.rs` still holds one cause and the
+identities, and did not change. `docs/features.md`'s starred line gains the
+chain and what it refuses.
+
+**`ROADMAP.md` moved, and it is not a tick.** The ★ *every request attributable*
+line keeps its empty box. Its `· Built:` clause gains the chain and the three
+refusals; its `· Owed:` clause loses the chain and now names two things — the
+record itself (item 200), and a cause for a **subresource**, which needs a
+renderer that can ask for one at all.
+
+**What the next iteration should know.** Item 200 is the record and is the
+natural next take: its dependency is discharged, `Documents` is the shape its
+durable half will be keyed against, and ADR 0012 §§ 5, 6 and 7 are its whole
+specification. It is not small — the session record, the bound in **actions**
+rather than bytes, and a durable file under ADR 0011 § 3's rules that a
+session-scoped profile never opens — so cut it on starting if it turns out to be
+two.
+
+**Item 69 is the other decision-shaped item** and is the first of section D —
+our own JavaScript engine — and the queue still calls it "ADR 0006", which is
+the supervisor; the next free ADR number is **0013**. Beyond those, **190** (the
+two-tone border styles: small, depends on nothing, closes with a picture) is
+ready. 157 and 158 need an interface to ask in, and so does the question item
+198 stands in for; 187 is deferred for the reason written into it; 169 must be
+run on Linux; 60 is HTTP/3; 197 waits on properties `alo-style` does not have;
+and 201 waits on a renderer that can ask for a subresource. The next free queue
+number is **202**.

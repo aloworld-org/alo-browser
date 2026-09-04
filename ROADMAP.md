@@ -379,15 +379,20 @@ unreachable without it.
       engine makes for itself — a redirect hop, a resumed range request, a CORS
       preflight, a violation report — each carry the cause of the thing they are
       about, which is what let there be no `Unknown`; and a server answering
-      `302` cannot turn a page's fetch into something the person did
-      · Owed: the **chain** (queue item 199), so that *which page* and *which
-      agent action* are two answers rather than one — a document does not yet
-      record what caused its own load, so the walk stops at the first link; the
-      **record** itself (queue item 200), which is where a cause is kept for the
-      session and where an agent's work is kept until the person deletes it —
-      today a cause is carried and nothing is written down; and the browser
-      process assigning it in earnest, which needs a renderer that can ask for a
-      subresource at all (queue items 80 and 83)
+      `302` cannot turn a page's fetch into something the person did;
+      and the **chain** (queue item 199) — loading a page makes a document that
+      records what caused its own load, so a fetch by that page walks back to
+      the agent action that opened it and on to the person, with both answers
+      kept in order rather than one chosen. A page somebody opened themselves
+      reaches no action, an action in one tab cannot reach into another, and a
+      walk that meets a document twice stops rather than hanging the browser
+      process
+      · Owed: the **record** itself (queue item 200), which is where a cause is
+      kept for the session and where an agent's work is kept until the person
+      deletes it — today a chain can be walked and nothing is written down; and
+      the browser process assigning a cause to a *subresource*, which needs a
+      renderer that can ask for one at all (queue items 80 and 83) — until then
+      the page's own load is the only request it makes
 
 ### JavaScript, ours, in Rust
 

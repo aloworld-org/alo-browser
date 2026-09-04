@@ -19,6 +19,7 @@
 //! dying.
 
 use alo_layout::geometry::Size;
+use alo_net::Cause;
 use alo_renderer::frame::Frame;
 use alo_renderer::host::Renderers;
 use alo_renderer::message::FromRenderer;
@@ -68,7 +69,7 @@ fn a_page(text: &str, colour: &str) -> Page {
 /// [`None`] rather than a panic if either step did not happen, so that the
 /// test says which tab it was about.
 fn showing(tabs: &mut Tabs, id: TabId, text: &str, colour: &str) -> Option<Frame> {
-    match tabs.load(id, a_page(text, colour)) {
+    match tabs.load(id, a_page(text, colour), Cause::Person { tab: id }) {
         Ok(FromRenderer::Loaded { .. }) => {}
         _ => return None,
     }
@@ -233,7 +234,11 @@ fn a_dead_tab_comes_back_only_when_somebody_asks_it_to() {
     );
 
     // A deliberate load is the person asking, and it gets one.
-    let reloaded = tabs.load(news, a_page("something happened after all", "#8a3324"));
+    let reloaded = tabs.load(
+        news,
+        a_page("something happened after all", "#8a3324"),
+        Cause::Person { tab: news },
+    );
     assert!(
         matches!(reloaded, Ok(FromRenderer::Loaded { .. })),
         "{reloaded:?}",

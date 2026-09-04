@@ -31,11 +31,15 @@
 //!   it could forge. Structurally, a renderer has nothing to state one *with* —
 //!   only a [`crate::cause::Identities`] mints an id and it lives on this side.
 //!
-//! **Owed, and queue item 199's**: a cause is *a link in a chain*, because
-//! *which page* and *which agent action* are two questions with two true
-//! answers. A [`Cause::Document`] names a document; what that document's own
-//! load was caused by is not recorded anywhere yet, so the walk ADR 0012 § 3
-//! describes stops at the first link.
+//! The fourth is next door rather than here, which is why this file is only
+//! about one request: a cause is *a link in a chain*, because *which page* and
+//! *which agent action* are two questions with two true answers. A
+//! [`Cause::Document`] names a document, and [`crate::chain`] is what caused
+//! **that** document's load — the walk ADR 0012 § 3 describes, over a record
+//! the browser process writes as it loads pages.
+//!
+//! **Owed, and queue item 200's**: nothing writes down the requests
+//! themselves. A cause travels with a request and is not kept afterwards.
 
 use crate::cause::Cause;
 use crate::headers::Headers;

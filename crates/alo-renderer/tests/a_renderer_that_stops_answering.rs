@@ -34,6 +34,7 @@
 //! would otherwise spend its time wondering why the suite stopped.
 
 use alo_layout::geometry::Size;
+use alo_net::Cause;
 use alo_renderer::frame::Frame;
 use alo_renderer::host::Renderers;
 use alo_renderer::message::{FromRenderer, ToRenderer};
@@ -96,7 +97,7 @@ fn a_page(text: &str, colour: &str) -> Page {
 
 /// Load a tab and paint it, and hand back the picture that came out.
 fn showing(tabs: &mut Tabs, id: TabId, text: &str, colour: &str) -> Option<Frame> {
-    match tabs.load(id, a_page(text, colour)) {
+    match tabs.load(id, a_page(text, colour), Cause::Person { tab: id }) {
         Ok(FromRenderer::Loaded { .. }) => {}
         _ => return None,
     }
@@ -352,7 +353,11 @@ fn a_tab_whose_renderer_went_quiet_comes_back_only_when_somebody_asks() {
         "a tab whose renderer went quiet was given another one without being asked",
     );
 
-    let reloaded = tabs.load(news, a_page("something happened after all", "#8a3324"));
+    let reloaded = tabs.load(
+        news,
+        a_page("something happened after all", "#8a3324"),
+        Cause::Person { tab: news },
+    );
     assert!(
         matches!(reloaded, Ok(FromRenderer::Loaded { .. })),
         "{reloaded:?}",

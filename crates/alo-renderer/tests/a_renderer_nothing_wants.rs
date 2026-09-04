@@ -16,6 +16,7 @@
 //! not show up in a test of the map.
 
 use alo_layout::geometry::Size;
+use alo_net::Cause;
 use alo_renderer::host::Renderers;
 use alo_renderer::message::{FromRenderer, ToRenderer};
 use alo_renderer::page::Page;
@@ -91,7 +92,7 @@ fn process_behind(tabs: &Tabs, id: TabId) -> Option<u32> {
 
 /// Load a tab, so that its site really has a process running.
 fn load(tabs: &mut Tabs, id: TabId, text: &str) {
-    let loaded = tabs.load(id, a_page(text));
+    let loaded = tabs.load(id, a_page(text), Cause::Person { tab: id });
     assert!(
         matches!(loaded, Ok(FromRenderer::Loaded { .. })),
         "{id} did not load: {loaded:?}",

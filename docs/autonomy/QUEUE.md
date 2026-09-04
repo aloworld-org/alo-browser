@@ -1530,7 +1530,7 @@ wrong, which is the argument for the fourth.
   boundary carries a request at all. It is written into item 199 rather than
   left implied.
 
-- [ ] **199. A cause is a link in a chain.** Cut from 67, which carries one
+- [x] **199. A cause is a link in a chain.** Cut from 67, which carries one
   cause per request and no way to get from a [`Cause::Document`] to what caused
   *that* document's load. ADR 0012 § 3: *"which page, and which agent action* is
   two questions, and the second one is usually answered indirectly" — an agent
@@ -1548,6 +1548,50 @@ wrong, which is the argument for the fourth.
   that can ask for a subresource (items 80 and 83) before there is anything to
   ignore. If those are still unbuilt when this is taken, say so and cut it
   rather than asserting a boundary nothing crosses.
+
+  **Done, both clauses that could be reached, and the third is said rather than
+  asserted** — items 80 and 83 are unbuilt, no message crossing the boundary
+  carries a request, and a test of a renderer being ignored would be a test of
+  nothing. It is written into item 201 rather than left implied.
+
+  The thing the item was waiting for is that **loading a page is what makes a
+  document**: `Tabs::load` takes the [`Cause`] its own request carried, mints
+  the document and records the pair in one act, so there is no moment at which
+  a document exists without a cause and no second call that could give it a
+  different one. `alo-net/src/chain.rs` is the record and the walk;
+  `alo_renderer::Tabs` is the one thing that writes to it, which is ADR 0012
+  § 4 unchanged — a renderer holds no `Tabs`, no `Identities` and no
+  `Documents`, so it has nothing to attribute anything *with*.
+
+  **Two rules are worth reading twice.** The document a cause names is taken
+  from the **tab**, never from a caller or an answer
+  (`Tabs::an_agent_acting`), so an agent acting in one tab cannot reach into
+  another's browsing. And the walk carries the documents it has been through
+  and stops if one comes back: a cycle cannot be created, and a walk that
+  trusted that would hang the **browser** process, which is the one thing
+  ADR 0005 says must never happen. Its test reaches past the constructor to
+  build a cycle by hand, because what is asserted is that the walk survives a
+  state nothing can put it in.
+
+  The bound is ADR 0012 § 6's *bounded*, and the honesty owed with it is a
+  variant: a chain reaching a document dropped under `MOST_DOCUMENTS` says
+  `Forgotten`, and one reaching a document nothing ever recorded says
+  `Unrecorded` — *we knew and no longer do* and *nobody ever said* are
+  different answers, and a record that ran them together would be guessing in
+  the one place that exists not to.
+
+- [ ] **201. A renderer that states a cause is a renderer that has been
+  ignored.** Cut from 199, which could not assert it: ADR 0012 § 4 says the
+  browser process assigns a cause and a renderer never does, and today a
+  renderer has nothing to state one *with* and nowhere to put it — `ToRenderer`
+  and `FromRenderer` carry no request in either direction, and a renderer holds
+  no `Identities`. So the boundary is real and nothing crosses it, which is why
+  a test today would be a test of nothing.
+  *Depends on 80 and 83 — a renderer that can ask for a subresource is what
+  makes a request cross the boundary at all. Closes when:* a renderer asks for
+  a subresource and the cause recorded is the one the browser process composed
+  from the tab, in a test where the renderer's message says something else and
+  is ignored.
 
 - [ ] **200. The record itself.** Cut from 67, which carries a cause on a
   request and writes nothing down. ADR 0012 §§ 5, 6 and 7 are all this item:

@@ -34,6 +34,7 @@ pub mod body;
 pub mod cache;
 pub mod cause;
 pub mod certificate;
+pub mod chain;
 pub mod connection;
 pub mod cookie;
 pub mod cors;
@@ -75,6 +76,9 @@ pub use cache::{Answer, Cache};
 // meant, and `alo_renderer::tab` is where a caller usually meets a tab.
 pub use cause::Cause;
 pub use certificate::{Fault, Refused};
+// Not `End`: it is only ever read out of a `Chain`, and one more bare word at
+// the root is one more thing a caller has to disambiguate at a glance.
+pub use chain::{Chain, Documents};
 pub use connection::{Connection, Exchanged, Protocol, exchange};
 pub use cookie::{Cookie, Partition, SameSite};
 pub use cors::{Credentials, Mode};

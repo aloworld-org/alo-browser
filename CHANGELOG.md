@@ -6,6 +6,34 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's fetch now leads back to the agent action that opened the page.**
+  Before this, a request could say *this page wanted it* and nothing anywhere
+  said what had caused **that page** — so *which agent action* was answerable
+  only for the handful of requests an agent made itself, which is the narrowest
+  possible reading of the promise.
+
+  Loading a page now makes a **document**, and a document remembers what caused
+  its load: the person who navigated, or the agent action whose verb led there.
+  A request made by that page names the document, so walking back one link at a
+  time reaches the action and then the person who asked for it. Both answers are
+  kept in order rather than one being chosen: *which page* and *which agent
+  action* are two questions with two true answers.
+
+  Three things are worth saying about what this refuses to do. A page a person
+  opened themselves reaches **no action at all**, which is what makes the other
+  answer worth anything — a browser whose every request looked like the agent's
+  doing could not answer the question the record exists for. An agent acting in
+  one tab cannot reach into another, because the page a cause names is the one
+  that tab is actually showing rather than one a caller supplied. And a walk
+  that meets a page it has already been through **stops and says so** instead of
+  going round: nothing can create that situation, and a browser process that
+  hung because something eventually did would be the one failure this design is
+  built to prevent.
+
+  It is bounded, as a session record has to be, and it is honest about the
+  bound: a chain that reaches a page too old to still be remembered says the
+  piece is missing rather than reading like one that ended at a person.
+
 - **Every request now says what caused it, and there is no way to make one that
   does not.** A request carries a cause — a person, a page, or something an
   agent did — and it is not a field somebody remembers to set: it is an argument

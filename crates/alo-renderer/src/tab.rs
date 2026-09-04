@@ -37,6 +37,21 @@
 //! load ([`Tabs::load`]) starts a renderer for a tab that has lost one, which
 //! is the same rule `host.rs` states one layer down.
 //!
+//! # Where a document gets its identity, and its cause
+//!
+//! ADR 0012 § 3 needs a **document** to be a thing with an identity of its own
+//! that records what caused its load, so that a request made by a page can be
+//! walked back to the agent action or the person behind it. This file is where
+//! that happens, because loading a page is what makes a document: [`Tabs::load`]
+//! takes the [`Cause`] the load's own request carried, mints the document and
+//! records the pair in one act.
+//!
+//! It is the browser process's to do and nowhere else's (ADR 0012 § 4): a
+//! renderer holds no [`Tabs`], no [`Identities`] and no [`Documents`], so it has
+//! nothing to state a cause *with* — which is what makes *a renderer never
+//! attributes anything* a property of the design rather than a rule somebody
+//! keeps.
+//!
 //! # One process per site, and one document per process
 //!
 //! Two tabs on one site share a renderer (ADR 0005), and a [`crate::Renderer`]
@@ -53,7 +68,9 @@ use crate::host::{Gone, Renderers};
 use crate::message::{FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::site::Site;
-use alo_net::cause::Identities;
+use alo_agent::{Target, Verb};
+use alo_net::cause::{ActionId, Cause, DocumentId, Identities};
+use alo_net::chain::{Chain, Documents};
 use alo_url::Url;
 use core::fmt;
 use std::collections::{HashMap, HashSet};
@@ -80,6 +97,7 @@ pub struct Tab {
     id: TabId,
     url: Url,
     site: Site,
+    document: Option<DocumentId>,
     painted: Option<Frame>,
     gone: Option<Gone>,
 }
@@ -101,6 +119,17 @@ impl Tab {
     /// Which site it belongs to, and therefore which process renders it.
     pub fn site(&self) -> &Site {
         &self.site
+    }
+
+    /// The document it is showing, once one has loaded.
+    ///
+    /// [`None`] until then, and **the same address loaded twice is two
+    /// documents** (ADR 0012 § 3): a record that called them one would answer
+    /// *what did this page fetch* with two visits joined together. It is not
+    /// cleared when the renderer dies, because what the tab is showing is still
+    /// that document and the requests it made are still that document's.
+    pub fn document(&self) -> Option<DocumentId> {
+        self.document
     }
 
     /// The last frame it painted, if it ever painted one.
@@ -259,6 +288,13 @@ pub struct Tabs {
     /// which is what makes *a renderer never states a cause* structural rather
     /// than a rule somebody follows.
     identities: Identities,
+    /// What caused each document's load, which is the chain ADR 0012 § 3 asks
+    /// to be walkable.
+    ///
+    /// Here rather than on the [`Tab`] because a chain crosses tabs — an agent
+    /// acting in one page can open another — and because a document outlives
+    /// the tab that showed it for as long as somebody may ask what it fetched.
+    documents: Documents,
 }
 
 impl Tabs {
@@ -269,6 +305,7 @@ impl Tabs {
             list: Vec::new(),
             held: HashMap::new(),
             identities: Identities::default(),
+            documents: Documents::default(),
         }
     }
 
@@ -289,6 +326,7 @@ impl Tabs {
             id,
             url,
             site,
+            document: None,
             painted: None,
             gone: None,
         });
@@ -353,18 +391,113 @@ impl Tabs {
         self.list.is_empty()
     }
 
-    /// Load a page into a tab.
+    /// Load a page into a tab, saying what caused the load.
     ///
     /// The deliberate act: it starts a renderer for a tab that has lost one and
     /// takes the site's renderer back from a tab that had displaced it. Nothing
     /// else here does either.
     ///
+    /// # What the cause is, and why it is an argument
+    ///
+    /// **The same [`Cause`] the load's own request carried** — a person
+    /// navigating, or the agent action whose verb led here. A load whose bytes
+    /// were fetched as one thing and recorded as another would be a chain that
+    /// disagrees with the record of the request at its own first link, and
+    /// ADR 0012 § 1's whole argument is that this is not something to fill in
+    /// afterwards.
+    ///
+    /// A **document** is made here and remembers it, which is ADR 0012 § 3: the
+    /// chain is walked rather than assembled, so what the page goes on to fetch
+    /// leads back through this document to whoever caused it. The document is
+    /// made whether or not the renderer answers — the load was caused, and a
+    /// load that failed is a thing that happened — and the tab holds it only
+    /// once the renderer says it loaded, because a tab shows a page rather than
+    /// an attempt at one.
+    ///
     /// # Errors
     ///
     /// [`Lost::NoSuchTab`] for an id nobody opened, and [`Lost::Gone`] when the
     /// renderer could not be started or died on the way.
-    pub fn load(&mut self, id: TabId, page: Page) -> Result<FromRenderer, Lost> {
-        self.ask(id, &ToRenderer::Load(Box::new(page)))
+    pub fn load(&mut self, id: TabId, page: Page, cause: Cause) -> Result<FromRenderer, Lost> {
+        // Before anything is recorded: a load into a tab nobody opened is not a
+        // document, and minting one would put a line in the record for a page
+        // that never existed.
+        let _ = self.site_of(id)?;
+        let document = self.documents.opened(&mut self.identities, cause);
+        let answer = self.ask(id, &ToRenderer::Load(Box::new(page)))?;
+        if matches!(answer, FromRenderer::Loaded { .. })
+            && let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id)
+        {
+            tab.document = Some(document);
+        }
+        Ok(answer)
+    }
+
+    /// Do something to a tab's page on an agent's behalf, and name the action.
+    ///
+    /// The [`ActionId`] comes back because everything that follows from the
+    /// verb is attributed **to it**: a page the verb navigated to is loaded
+    /// with [`Tabs::an_agent_acting`], and the walk from any request that page
+    /// makes reaches this action again.
+    ///
+    /// # When the id is minted
+    ///
+    /// When the browser process **accepts** the verb rather than when it
+    /// succeeds, which is the rule [`alo_net::cause::ActionId`] states: a verb
+    /// the engine refused ([`FromRenderer::Refused`]) is still something the
+    /// agent did, and so is one whose renderer had died before it arrived. A
+    /// record that only named the verbs that worked could not answer *what did
+    /// it try*.
+    ///
+    /// # Errors
+    ///
+    /// As [`Tabs::ask`].
+    pub fn act(
+        &mut self,
+        id: TabId,
+        target: Target,
+        verb: Verb,
+    ) -> Result<(ActionId, FromRenderer), Lost> {
+        let _ = self.site_of(id)?;
+        let action = self.identities.an_action();
+        let answer = self.ask(id, &ToRenderer::Act { target, verb })?;
+        Ok((action, answer))
+    }
+
+    /// The cause of a request this tab's page makes for itself.
+    ///
+    /// [`None`] when nothing has loaded, which is the honest answer: there is
+    /// no document to name, and a request made before there is one is a
+    /// person's or an agent's rather than a page's.
+    pub fn a_page_fetching(&self, id: TabId) -> Option<Cause> {
+        self.tab(id)
+            .and_then(Tab::document)
+            .map(|document| Cause::Document { document })
+    }
+
+    /// The cause of a request an agent's action makes in this tab's page.
+    ///
+    /// The action is the one [`Tabs::act`] handed back. Composed here rather
+    /// than by the caller so that the document named is the one the tab is
+    /// actually showing — an agent action attributed to a page it did not act
+    /// in is a chain that leads somewhere true-looking and wrong.
+    pub fn an_agent_acting(&self, id: TabId, action: ActionId) -> Option<Cause> {
+        self.tab(id)
+            .and_then(Tab::document)
+            .map(|document| Cause::Agent { action, document })
+    }
+
+    /// Walk back from a cause to what caused it, and so on (ADR 0012 § 3).
+    ///
+    /// The answer to *which page* and *which agent action* at once. See
+    /// [`Chain`] for what it says when it cannot reach a person.
+    pub fn chain(&self, cause: &Cause) -> Chain {
+        self.documents.chain(cause)
+    }
+
+    /// What caused each document's load, to ask about one directly.
+    pub fn documents(&self) -> &Documents {
+        &self.documents
     }
 
     /// Paint a tab, and keep what came back as the last frame it painted.
@@ -634,6 +767,7 @@ mod tests {
         let load = tabs.load(
             here,
             Page::new("<p>hi</p>", alo_layout::Size::new(10.0, 10.0)),
+            Cause::Person { tab: here },
         );
         assert!(matches!(load, Err(Lost::Gone(_))), "{load:?}");
         assert!(tabs.tab(here).is_some_and(|tab| !tab.is_live()));
@@ -890,5 +1024,120 @@ mod tests {
             may_ask(&asking(this), &site("https://example.com/")),
             Ok(()),
         );
+    }
+
+    // --- Documents, and what caused them (ADR 0012 § 3) -----------------------
+
+    fn page() -> Page {
+        Page::new("<p>hi</p>", alo_layout::Size::new(10.0, 10.0))
+    }
+
+    /// A load into a tab nobody opened is not a document. Minting one would put
+    /// a line in the record for a page that never existed, and a record with
+    /// invented lines in it is the failure ADR 0012 is written against.
+    #[test]
+    fn a_load_into_a_tab_nobody_opened_records_nothing() {
+        let mut tabs = nowhere();
+        let (never, _) = two_tabs();
+
+        assert_eq!(
+            tabs.load(never, page(), Cause::Person { tab: never }),
+            Err(Lost::NoSuchTab(never)),
+        );
+        assert!(tabs.documents().is_empty(), "a document nobody loaded");
+    }
+
+    /// The load happened even though the renderer did not answer, so the
+    /// document is recorded — and the tab does not hold it, because a tab shows
+    /// a page rather than an attempt at one.
+    #[test]
+    fn a_load_whose_renderer_never_answered_is_still_something_that_was_caused() {
+        let mut tabs = nowhere();
+        let here = tabs.open(url("https://example.com/"));
+
+        let load = tabs.load(here, page(), Cause::Person { tab: here });
+        assert!(matches!(load, Err(Lost::Gone(_))), "{load:?}");
+        assert_eq!(tabs.documents().remembered(), 1);
+        assert_eq!(
+            tabs.tab(here).and_then(Tab::document),
+            None,
+            "a tab showed a page that never loaded",
+        );
+        assert_eq!(
+            tabs.a_page_fetching(here),
+            None,
+            "a page that never loaded was named as fetching something",
+        );
+    }
+
+    /// An action is minted when the verb is **accepted**, which is before
+    /// anybody knows whether it worked: a verb sent into a renderer that had
+    /// died is still something the agent did, and a record that named only the
+    /// verbs that succeeded could not answer *what did it try*.
+    #[test]
+    fn a_verb_that_never_reached_a_renderer_is_still_an_action() {
+        let mut tabs = nowhere();
+        let here = tabs.open(url("https://example.com/"));
+
+        let acted = tabs.act(here, Target::Named("Sign in".to_owned()), Verb::Activate);
+        assert!(matches!(acted, Err(Lost::Gone(_))), "{acted:?}");
+
+        // And a tab nobody has open is not an action, for the same reason a
+        // load into one is not a document.
+        let closed = tabs.open(url("https://example.com/"));
+        assert!(tabs.close(closed));
+        assert_eq!(
+            tabs.act(closed, Target::Named("Sign in".to_owned()), Verb::Activate),
+            Err(Lost::NoSuchTab(closed)),
+        );
+    }
+
+    /// Nothing here can attribute a request to a page a tab is not showing:
+    /// the document is taken from the tab rather than from the caller, so an
+    /// agent action can only be recorded against the page it acted in.
+    #[test]
+    fn an_agent_can_only_be_recorded_as_acting_in_the_page_the_tab_is_showing() {
+        let mut tabs = nowhere();
+        let here = tabs.open(url("https://example.com/"));
+        let action = tabs.identities.an_action();
+        let document = tabs
+            .documents
+            .opened(&mut tabs.identities, Cause::Person { tab: here });
+
+        assert_eq!(
+            tabs.an_agent_acting(here, action),
+            None,
+            "an agent acted in a page the tab has not loaded",
+        );
+
+        // Once the tab is showing that document — which only a renderer's
+        // `Loaded` does in earnest — both causes name it and nothing else.
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == here) {
+            tab.document = Some(document);
+        }
+        assert_eq!(
+            tabs.a_page_fetching(here),
+            Some(Cause::Document { document }),
+        );
+        assert_eq!(
+            tabs.an_agent_acting(here, action),
+            Some(Cause::Agent { action, document }),
+        );
+    }
+
+    /// The walk, over the browser process's own record: a request the page made
+    /// leads back to the person who opened it.
+    #[test]
+    fn a_request_a_page_made_walks_back_to_who_opened_the_page() {
+        let mut tabs = nowhere();
+        let here = tabs.open(url("https://example.com/"));
+        let document = tabs
+            .documents
+            .opened(&mut tabs.identities, Cause::Person { tab: here });
+
+        let chain = tabs.chain(&Cause::Document { document });
+        assert_eq!(chain.person(), Some(here));
+        assert_eq!(chain.action(), None);
+        assert!(chain.is_whole());
     }
 }
