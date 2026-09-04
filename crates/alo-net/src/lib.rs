@@ -30,6 +30,7 @@
 //! in, because that is a sequence of rules rather than a table, and getting it
 //! wrong shows up as mojibake on somebody's news site.
 
+pub mod activity;
 pub mod body;
 pub mod cache;
 pub mod cause;
@@ -70,6 +71,10 @@ pub mod schemes;
 pub mod tls;
 pub mod transfer;
 
+// Not `Entry` or `Happened`: both are words this crate could mean several
+// things by, and `activity::` at the call site says which record is meant —
+// `record::Record` is a cache entry's bytes and is a different thing entirely.
+pub use activity::Activity;
 pub use body::Framing;
 pub use cache::{Answer, Cache};
 // Not the ids: `cause::TabId` at a call site says which kind of identity is

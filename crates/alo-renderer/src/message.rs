@@ -221,6 +221,48 @@ mod tests {
         could_be_sent::<Snapshot>();
     }
 
+    /// ADR 0012 § 7: **no page, ever, and not the agent either.** The record of
+    /// what this browser asked for is kept for the person and is *about* the
+    /// agent, and one readable by script is a cross-site history oracle handed
+    /// out by the browser.
+    ///
+    /// Kept by the shape rather than by a check. A renderer holds no
+    /// [`alo_net::Pool`] and therefore no [`alo_net::Activity`], and nothing in
+    /// either direction of this boundary carries a line of one — which
+    /// [`crate::wire`] then cannot encode, because it can only encode what these
+    /// enums hold.
+    ///
+    /// This test **is** the enforcement rather than a description of it: a
+    /// variant added to either enum makes one of these matches non-exhaustive,
+    /// and the diff that fixes it is the diff where somebody has to say what the
+    /// new message carries. `alo-agent` needs no clause of its own — it does not
+    /// depend on `alo-net` at all, so no [`Outcome`] can name a record.
+    #[test]
+    fn nothing_crossing_the_boundary_carries_the_record_of_what_was_asked_for() {
+        let sent = |work: &ToRenderer| match work {
+            ToRenderer::UseFont(_)
+            | ToRenderer::UseGenerics(_)
+            | ToRenderer::Load(_)
+            | ToRenderer::Resize(_)
+            | ToRenderer::Paint
+            | ToRenderer::ReadTree
+            | ToRenderer::Act { .. } => "a page, a font, or a thing to do to one",
+        };
+        let answered = |answer: &FromRenderer| match answer {
+            FromRenderer::UsingFont { .. }
+            | FromRenderer::UsingGenerics { .. }
+            | FromRenderer::Loaded { .. }
+            | FromRenderer::Painted(_)
+            | FromRenderer::Tree(_)
+            | FromRenderer::Acted(_)
+            | FromRenderer::Refused(_)
+            | FromRenderer::Failed(_) => "what became of it, and nothing about any other request",
+        };
+
+        assert!(!sent(&ToRenderer::Paint).is_empty());
+        assert!(!answered(&FromRenderer::Failed(Failure::NothingLoaded)).is_empty());
+    }
+
     #[test]
     fn a_request_says_what_it_is_asking_for() {
         let page = Page::new("<p>hi</p>", Size::new(800.0, 600.0));

@@ -7467,3 +7467,112 @@ ready. 157 and 158 need an interface to ask in, and so does the question item
 run on Linux; 60 is HTTP/3; 197 waits on properties `alo-style` does not have;
 and 201 waits on a renderer that can ask for a subresource. The next free queue
 number is **202**.
+
+## Iteration 100 — queue item 200: the record itself, for the session
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 200 was
+the natural next take and the previous journal said so, along with the warning
+it turned out to need: *cut it on starting if it turns out to be two.*
+
+**It was two, and the seam was the one the cache was cut at.** Item 56 was the
+cache in memory and item 155 was the cache on a disk, because *what may be
+reused* and *what may be written to a disk other programs can read* are two
+questions with two answers. The same split here: this iteration is ADR 0012
+§ 6's first half — **everything, for the session, in memory, bounded** — and
+**item 202** is its second, what an agent did kept until the person deletes it,
+which is a different lifetime, a different bound (in actions rather than bytes)
+and a file under ADR 0011 § 3.
+
+**What is built.** `crates/alo-net/src/activity.rs`: `Activity`, `Entry`,
+`Happened`, and the two bounds. `Pool` holds one; `Pool::activity` reads it and
+`Pool::forget_the_record` empties it.
+
+**Where the line is written was the whole design.** A record every caller writes
+to is a record missing exactly the lines nobody thought of — the same failure
+ADR 0012 § 1 refuses for causes, one layer along. So it is written in
+`Pool::fetch_however_it_ends`, which is the one place every public door in that
+type leads through: `fetch`, and therefore `follow` and `report`, and `download`
+directly. That is what makes the engine-made requests lines of their own without
+any of them being asked to be, and it is why *everything, for the session* is a
+property of that file rather than a rule its callers keep. Two lines are written
+outside it, each for a request that never reached a socket and each said out
+loud in the code: what the **cache** answered, and a redirect hop a rule of ours
+**refused**.
+
+**Three rules are worth reading twice.** *Never a body and never a header set*
+is the type rather than a discipline — an `Entry` is built in one place, from six
+fields of a `Request`, with `headers` and `body` in scope and not read — and the
+test asserts against the whole of what an entry can be made to say, its own words
+and its `Debug`, rather than against the fields it happens to have: a field added
+later would pass a test that only checked the fields. The bound is **two**
+bounds, lines and bytes, because what a line costs is mostly a URL and a URL is
+as long as a page chooses; a reason quoting what a server sent is cut at
+`LONGEST_REASON`, since a server that could write a thousand lines into a record
+is a server deciding how much memory this process uses, and one that could bury a
+real line under its own is worse. And an entry keeps the **cause** rather than a
+chain, walking against `Documents` on demand — a frozen chain in every line is
+the side table ADR 0012 § 3 refuses by name, and one that disagreed with the
+browser process would still read like evidence.
+
+**The honesty the bound owes** is `Activity::forgotten`, in the shape item 199's
+`End::Forgotten` already set: a record that quietly shortened itself would read
+as a session in which less happened.
+
+**Two of the four closing clauses are met and the other two are item 202's.**
+`crates/alo-net/tests/what_the_record_says.rs` drives the **real** `Pool` over
+loopback for the first — a redirect chain is more than one line, a cache hit is a
+line that says it was the cache, a server that is not there is a line that says
+nothing happened, a circle is a line naming the rule, and what an agent set off
+is reachable from every line that followed from it while the person's own
+browsing reaches no action at all. The fourth clause — no API by which a page or
+an agent could read any of it — is kept by the **shape**: a renderer holds no
+`Pool`, `alo-agent` does not depend on `alo-net` at all, and nothing crossing the
+process boundary carries a line, which is now a match in `message.rs` that a
+fifth variant on either enum would break. The other two clauses are about a
+disk, and a disk is item 202.
+
+**Two doctored runs rather than reasoning about them**: with the cache-hit line
+removed, `what_the_cache_answered_is_a_line_that_says_it_was_the_cache` fails;
+with the reason left unbounded, both tests named for the bound fail.
+
+**One thing is written down rather than built**, because this engine cannot
+reach it yet: a line is written once, with its outcome, since fetching here is
+synchronous and there is no moment at which a request is outstanding and somebody
+could be reading. Concurrent loads would need the line opened and closed, and
+that is in `Activity::happened`'s own documentation rather than left to be
+discovered.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero errors,
+**1736 tests** (1713 before, so 23 new — 15 in `activity.rs`, 7 in the new
+integration file, 1 in `message.rs`), no stubs, no `unsafe`, boundaries held, the
+licence notice, and a `CHANGELOG.md` line. No layout assertion and no reference
+render: this iteration positions nothing and paints nothing. One file one
+responsibility: `activity.rs` is new and holds one thing — what was asked for and
+what happened; `pool.rs` gained a field and two accessors and did not gain a
+second reason to change, since where a request is made is where a line is
+written. `docs/features.md`'s starred line gains the record and what it refuses.
+
+**`ROADMAP.md` moved, and it is not a tick.** The ★ *every request attributable*
+line keeps its empty box. Its `· Built:` clause gains the session's record — what
+is in a line, what may never be, the two bounds, and who cannot read it; its
+`· Owed:` clause loses the record and now names two things: what an agent did
+kept until the person deletes it (item 202), and a cause for a **subresource**,
+which still needs a renderer that can ask for one.
+
+**What the next iteration should know.** Item 202 is the natural next take and it
+is not small: ADR 0011 § 3's rules unchanged, never written for a session-scoped
+profile, a bound counted in **actions**, and a file that is untrusted input the
+way `record.rs` is. One thing it cannot inherit and has to decide is written into
+the item: a durable entry has no `Documents` to walk against, so it must
+**freeze** its chain when it is written — which is not the side table § 3
+refuses, because there is nothing left for it to disagree with.
+
+**Item 69 is the other decision-shaped item** and is the first of section D —
+our own JavaScript engine — and the queue still calls it "ADR 0006", which is
+the supervisor; the next free ADR number is **0013**. Beyond those, **190** (the
+two-tone border styles: small, depends on nothing, closes with a picture) is
+ready. 157 and 158 need an interface to ask in, and so does the question item
+198 stands in for; 187 is deferred for the reason written into it; 169 must be
+run on Linux; 60 is HTTP/3; 197 waits on properties `alo-style` does not have;
+and 201 waits on a renderer that can ask for a subresource. The next free queue
+number is **203**.

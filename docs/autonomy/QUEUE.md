@@ -1593,7 +1593,7 @@ wrong, which is the argument for the fourth.
   from the tab, in a test where the renderer's message says something else and
   is ignored.
 
-- [ ] **200. The record itself.** Cut from 67, which carries a cause on a
+- [x] **200. The record itself.** Cut from 67, which carries a cause on a
   request and writes nothing down. ADR 0012 §§ 5, 6 and 7 are all this item:
   **what is recorded** (when, the cause chain, the method and URL, the purpose,
   and what happened — never a body, never a header set, never anything a page
@@ -1611,6 +1611,60 @@ wrong, which is the argument for the fourth.
   not, a private profile leaves no file behind at all (**never written**, rather
   than written and deleted — ADR 0011 § 2's rule), and there is no API of any
   kind by which a page or an agent could read any of it.
+
+  **Done for the session's record, and cut on starting into 200 and 202** — the
+  shape the item's own last sentence asked for, and the same seam the cache was
+  cut at: item 56 was the cache in memory and item 155 was the cache on a disk,
+  because *what may be reused* and *what may be written to a disk other programs
+  can read* are two questions with two answers. `alo-net/src/activity.rs` is the
+  record; `Pool` holds one.
+
+  **The clause that decided where it lives is *everything*.** A record every
+  caller writes to is a record missing exactly the lines nobody thought of, so
+  it is written in `Pool::fetch_however_it_ends` — the one place every door in
+  that type leads through — which is what makes the engine-made requests lines
+  without any of them being asked to be. A retry inside that function is one
+  line, because it is one thing that happened.
+
+  **Three rules are worth reading twice.** *Never a body and never a header set*
+  is the type rather than a discipline: an [`activity::Entry`] is built in one
+  place, from six fields of a [`Request`], with `headers` and `body` in scope and
+  unread — and the test asserts against the whole of what an entry can be made to
+  say rather than against the fields it happens to have, because a field added
+  later would pass a test that only checked the fields. The bound is **two**
+  bounds, lines and bytes, since what a line costs is mostly a URL and a URL is
+  as long as a page chooses — and a reason quoting what a server sent is cut at
+  [`activity::LONGEST_REASON`], because a server that could write a thousand
+  lines into a record is a server deciding how much memory this process uses.
+  And an entry keeps the **cause** rather than a chain, walking against
+  `Documents` on demand: a frozen chain in every line is the side table ADR 0012
+  § 3 refuses by name, and one that disagreed with the browser process would
+  still read like evidence.
+
+  Both reachable clauses are met — `tests/what_the_record_says.rs` drives the
+  real `Pool` over loopback for the first, and the fourth is kept by the shape:
+  a renderer holds no `Pool`, nothing crossing the boundary carries a line (a
+  match in `message.rs` that a fifth variant would break), and `alo-agent` does
+  not depend on `alo-net` at all. The other two clauses are item 202's, because
+  they are about a disk.
+
+- [ ] **202. What an agent did, kept until the person deletes it.** Cut from
+  200, which keeps the session's record in memory and writes nothing down. ADR
+  0012 § 6's second half: **only** what reaches an agent action, under ADR 0011
+  § 3's rules unchanged, **never opened at all** for a session-scoped profile,
+  and bounded in **actions rather than bytes** so that one action with three
+  hundred requests in it cannot evict a week of ordinary ones.
+  *Depends on 200. Closes when:* an agent's work survives a restart and a
+  person's browsing does not, a private profile leaves no file behind at all
+  (**never written**, rather than written and deleted — ADR 0011 § 2's rule),
+  and a file that does not read is a record with a gap rather than an error.
+
+  **One thing this cannot inherit and has to decide**: item 200's entry keeps a
+  cause and walks the chain against `Documents`, which is bounded and dies with
+  the process. A durable entry has neither, so it has to **freeze** the chain at
+  the moment it is written — which is not the side table ADR 0012 § 3 refuses,
+  because there is nothing left to disagree with it, and the reason is worth
+  writing into the file rather than leaving for somebody to rediscover.
 
 ## C. Pages that are not ours
 

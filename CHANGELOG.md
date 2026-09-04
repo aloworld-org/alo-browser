@@ -6,6 +6,46 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser now keeps a record of what it asked for, and what happened.**
+  Until this, a cause travelled with a request and was gone the moment the
+  request was — so the browser could say what had caused any single fetch and
+  could not say what it had done all session.
+
+  Every request the engine makes is now a line: when it was asked for, what
+  caused it, the method, the whole URL, what kind of thing it was, and what
+  became of it. Something the cache answered is a line that says it was the
+  cache, and a hop this browser refused to follow is a line naming the rule that
+  refused it — *what did this page try to load, and what stopped it* is most of
+  why anybody would open such a thing. The lines are written where a request is
+  actually made rather than by whoever remembered to write one, so the requests
+  the browser makes for itself are in it too.
+
+  **What is not in it is the part worth reading twice.** No request body, ever,
+  in either direction, and no headers: a record holding `Cookie` and
+  `Authorization` is a file that logs somebody into their own bank, and one
+  holding a body holds whatever they typed into a form. That is what the record
+  is built out of rather than a rule somebody keeps — a line is made in one
+  place, from six things, and the headers and the body are in front of that code
+  and are not read.
+
+  It lives for the session and dies with the process, which is the right
+  lifetime for a list of everywhere somebody went. It is bounded twice — in
+  lines, and in bytes, because what a line costs is mostly the length of a URL
+  and a URL is as long as a page chooses — and it says how many lines it has
+  dropped, rather than quietly reading as a session in which less happened. A
+  person can empty it, and emptying it is real.
+
+  **Nobody but the person can read it.** Not a page: there is no interface to it
+  and there is not going to be one, because a record a script could read is a
+  history oracle handed out by the browser. Not the agent either: the record is
+  *about* the agent and kept *for* the person. That is kept by the shape rather
+  than by a check — the process that renders a page holds no part of it, nothing
+  crossing the boundary between the two carries a line, and the agent surface
+  does not depend on the loading code at all.
+
+  Still owed, and it is the other half: what an agent did, kept until the person
+  deletes it, on a disk, which a private window never writes to at all.
+
 - **A page's fetch now leads back to the agent action that opened the page.**
   Before this, a request could say *this page wanted it* and nothing anywhere
   said what had caused **that page** — so *which agent action* was answerable

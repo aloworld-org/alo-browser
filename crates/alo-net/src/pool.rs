@@ -30,6 +30,7 @@
 //! A cap per host, a cap overall, and an age past which an idle connection is
 //! closed rather than gambled on.
 
+use crate::activity::{Activity, Happened};
 use crate::cache::{self, Answer, Cache};
 use crate::connection::{Connection, Exchanged, PATIENCE, Protocol, exchange_however_it_ends};
 use crate::cookie::Partition;
@@ -105,6 +106,15 @@ pub struct Pool {
     /// a session, and a cache that did not outlive one request would be a cache
     /// that never hit.
     cache: Cache,
+    /// What has been asked for, and what happened (ADR 0012 §§ 5 and 6).
+    ///
+    /// Here for the same reason the cache is: a pool is what a caller holds for
+    /// the life of a session, and *for the session* is the lifetime the decision
+    /// names. It is also what makes *every request is in the record* a property
+    /// of this file rather than a rule every caller keeps — every door in this
+    /// type leads to [`Pool::fetch_however_it_ends`], which writes a line
+    /// whichever way the exchange ends.
+    activity: Activity,
 }
 
 impl Pool {
@@ -126,6 +136,7 @@ impl Pool {
             reused: 0,
             cache: Cache::new(),
             resolver: crate::resolve::Resolver::new(),
+            activity: Activity::new(),
         }
     }
 
@@ -178,7 +189,42 @@ impl Pool {
     /// One exchange, handing up a body that stopped short rather than refusing
     /// it. Only [`Pool::download`] wants that; see
     /// [`crate::connection::exchange_however_it_ends`].
+    ///
+    /// **And the one place a request becomes a line in the record.** Every
+    /// public door here leads through it — [`Pool::fetch`], and therefore
+    /// [`Pool::follow`] and [`Pool::report`], and [`Pool::download`] directly —
+    /// so ADR 0012 § 6's *everything, for the session* is what this file does
+    /// rather than what its callers remember to do. The engine-made requests
+    /// are lines of their own for the same reason, each carrying the cause of
+    /// the thing it is about: a redirect hop, a resumed range request, a
+    /// preflight, a violation report.
+    ///
+    /// A retry inside this function is **one** line: the request that failed on
+    /// a connection the server had closed and succeeded on a fresh one is one
+    /// thing that happened, and two lines would read as a page that asked
+    /// twice.
     fn fetch_however_it_ends(&mut self, request: &Request) -> Result<Exchanged, String> {
+        let asked_at = SystemTime::now();
+        let done = self.exchange_once(request);
+        self.activity.happened(
+            request,
+            asked_at,
+            match &done {
+                Ok(done) => Happened::Answered {
+                    status: done.response.status,
+                    whole: done.short.is_none(),
+                },
+                // Not a status: there was no answer to have one. A record that
+                // filed a refused certificate as a `500` would be inventing a
+                // sentence a server never said.
+                Err(why) => Happened::Failed { why: why.clone() },
+            },
+        );
+        done
+    }
+
+    /// The exchange itself, over a kept connection where there is one.
+    fn exchange_once(&mut self, request: &Request) -> Result<Exchanged, String> {
         let server = server_of(request)?;
         let secure = server.scheme == "https";
 
@@ -278,9 +324,20 @@ impl Pool {
             match redirect::next(&asking, &response).map_err(|refusal| refusal.to_string())? {
                 Next::Keep => return Ok(response),
                 Next::Follow(hop) => {
-                    trail
-                        .and_then(&hop.url)
-                        .map_err(|refusal| refusal.to_string())?;
+                    if let Err(refusal) = trail.and_then(&hop.url) {
+                        // A hop that was composed and never sent, refused by a
+                        // rule of ours with a name. ADR 0012 § 5 asks for that
+                        // by name, and a silence here would make a load stopped
+                        // by this engine look like a load nobody attempted.
+                        self.activity.happened(
+                            &hop,
+                            SystemTime::now(),
+                            Happened::Refused {
+                                rule: refusal.to_string(),
+                            },
+                        );
+                        return Err(refusal.to_string());
+                    }
                     asking = *hop;
                 }
             }
@@ -300,7 +357,21 @@ impl Pool {
     ) -> Result<Response, String> {
         let sent_at = SystemTime::now();
         let asking = match self.cache.answer(request, within, sent_at) {
-            Answer::Stored(response) => return Ok(*response),
+            Answer::Stored(response) => {
+                // A line of its own, and the one place other than
+                // [`Pool::fetch_however_it_ends`] that writes one: *what did
+                // this page load* includes what it never went to the network
+                // for. A revalidation is not recorded here — it goes out as a
+                // request and is recorded as one, which is the truth about it.
+                self.activity.happened(
+                    request,
+                    sent_at,
+                    Happened::Served {
+                        status: response.status,
+                    },
+                );
+                return Ok(*response);
+            }
             Answer::Fetch => request.clone(),
             Answer::Revalidate { conditions } => {
                 cache::asking_whether_it_changed(request, &conditions)
@@ -379,6 +450,26 @@ impl Pool {
     /// What is kept, for a caller that wants to look.
     pub fn cache(&self) -> &Cache {
         &self.cache
+    }
+
+    /// What this session has asked for, and what happened (ADR 0012).
+    ///
+    /// **Read-only, and it goes no further than this process.** ADR 0012 § 7:
+    /// no page, ever, and not the agent either — the record is *about* the agent
+    /// and kept *for* the person. A renderer holds no [`Pool`], so there is
+    /// nothing on the other side of ADR 0005's boundary that could ask.
+    pub fn activity(&self) -> &Activity {
+        &self.activity
+    }
+
+    /// Forget everything the record holds.
+    ///
+    /// What "clear this browsing data" reaches for, and it is real: the lines
+    /// go, rather than a flag being set beside them. The only way to change the
+    /// record from outside this file, and it only subtracts — there is
+    /// deliberately no way to add a line except by making a request.
+    pub fn forget_the_record(&mut self) {
+        self.activity.empty();
     }
 
     /// A kept connection to this server, if there is one worth having.

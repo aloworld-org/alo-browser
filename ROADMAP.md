@@ -386,13 +386,26 @@ unreachable without it.
       kept in order rather than one chosen. A page somebody opened themselves
       reaches no action, an action in one tab cannot reach into another, and a
       walk that meets a document twice stops rather than hanging the browser
-      process
-      · Owed: the **record** itself (queue item 200), which is where a cause is
-      kept for the session and where an agent's work is kept until the person
-      deletes it — today a chain can be walked and nothing is written down; and
-      the browser process assigning a cause to a *subresource*, which needs a
-      renderer that can ask for one at all (queue items 80 and 83) — until then
-      the page's own load is the only request it makes
+      process;
+      and the **session's record** (queue item 200) — every request the engine
+      makes is a line in it, written where the request is made rather than by
+      whoever remembered to, holding when, the cause, the method, the URL, the
+      purpose and what happened, and **never a body, never a header set**, so
+      the file that would log somebody into their own bank is one the type
+      cannot become. A cache hit is a line that says it was the cache and a rule
+      of ours refusing a hop is a line naming the rule, because *what did this
+      page try to load, and what stopped it* is most of why anybody opens it. It
+      dies with the process, it is bounded in lines **and** in bytes since a URL
+      is something a page chooses, it says how many lines it has dropped, and
+      emptying it is real. No page and no agent can reach it: a renderer holds
+      no pool, nothing crossing the process boundary carries a line, and the
+      agent surface does not depend on the loader at all
+      · Owed: what an agent did, kept **until the person deletes it** (queue item
+      202) — a different lifetime, a bound counted in actions rather than bytes,
+      and a file on a disk that a private window never opens; and the browser
+      process assigning a cause to a *subresource*, which needs a renderer that
+      can ask for one at all (queue items 80 and 83) — until then the page's own
+      load is the only request it makes
 
 ### JavaScript, ours, in Rust
 
