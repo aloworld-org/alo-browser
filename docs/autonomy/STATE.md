@@ -8611,3 +8611,154 @@ before it starts:
 
 Outside section D, **190** (the two-tone border styles) is still ready and still
 small.
+
+---
+
+## Iteration 109 — queue item 72: the machine, and the language that needs no call
+
+**A page's script is executed by this browser for the first time.** Item 72 is
+ticked, cut on starting into three items — 209, 210 and 211 — and the cut is
+the one iteration 108 wrote down at the end of its own entry: take *the machine
+and the language that needs no call*, and leave calls, `try`/`catch`/`finally`
+and the forms that take a value apart as items of their own. Scope rather than
+depth (`LOOP.md` step 3): everything here is whole, and everything that is not
+here is a **refusal that names its queue item** rather than something plausible.
+
+**Eleven new files, one reason to change each.** `code.rs` is the instruction
+set and the chunk; `compile.rs` turns a tree into one, with `compile/scope.rs`
+(which name is which slot) and `compile/hoist.rs` (what a statement list
+declares before it runs) beside it; `interpret.rs` is the loop and the
+`Engine`; `realm.rs` is the global object and the global `let` bindings;
+`convert.rs` is the abstract operations and `operate.rs` the operators written
+in terms of them; `numeric.rs` is ADR 0013 § 8's rented arithmetic in the
+specification's own spelling; `abrupt.rs` is how a run ends when it is not with
+a value; and `object/slots.rs` is a list of values that lives in the heap.
+
+**Three things in it are decisions rather than detail.**
+
+1. **The value stack is a heap cell**, which is ADR 0014 § 2's last owed clause
+   — *the interpreter's frames and its value stack live in structures the
+   collector walks rather than in Rust locals*. That decides how every
+   instruction is written: **operands are read where they lie and taken off
+   only once the answer exists**, because an instruction that popped two values
+   into Rust locals and then allocated a string is correct in every ordinary run
+   and wrong under `Heap::stress`. The whole table therefore runs **twice**, the
+   second time collecting at every allocation, and the two runs must agree.
+2. **The interpreter never recurses and the compiler does.** A bytecode loop
+   runs the deepest expression in the world on a taller stack of *values*, which
+   is bounded and costs no frames — a tree walker would let a page choose how
+   much of this process's stack it uses. The compiler walks the tree, so it runs
+   on a stack of its own exactly as the parser does, and the number is
+   **measured rather than chosen**: four thousand additions overflow eight
+   mebibytes in a debug build, compile in sixteen, and the deepest tree the
+   parser will build (250 brackets around 4090 links) compiles in thirty-two.
+3. **Stopping is the embedder's.** `Stop` is an `Arc<AtomicBool>` checked at
+   every **backward** jump — the only way a program runs for ever — because
+   ADR 0013 § 5 gives this crate no clock and *when* is a person's judgement
+   about a tab. The test asks from another thread and then runs the same engine
+   again, because a tab that was stopped is not a tab that was lost.
+
+**What runs.** Values; every operator with the conversions the specification
+asks for in the order it asks for them; `var` on the global object and `let`
+and `const` in the realm with real dead zones; blocks that shadow; objects,
+their properties, computed keys, `__proto__`, `delete`, `in`; optional
+chaining; templates; and all of the control flow — `if`, `while`, `do…while`,
+`for`, `switch`, labels, `break`, `continue`, `throw`. **Completion values are
+the specification's**, which is the detail most engines get roughly right:
+`2; {}` is `2` and `2; if (true) {}` is `undefined`, because a block that
+produced nothing leaves the previous value and an `if` does not.
+
+**Four rules are worth reading twice**, each because the obvious implementation
+is wrong in a way tests written afterwards would not catch.
+
+- **`+` converts both sides before it asks whether either is a string**, and a
+  template does `ToString` where `+` does `ToPrimitive` — so `` `${a}` `` asks
+  an object for `toString` first and `"" + a` asks for `valueOf` first. That is
+  why `Op::ToText` exists rather than reusing the addition.
+- **`<` answers three things**, not two: less, not less, and *undefined*, which
+  is what a `NaN` produces and is why `a >= b` is not `!(a < b)`.
+- **A `Number` is not printed the way Rust prints one.** `1e21` and `1e-7` are
+  the two bands where the language writes an exponent and Rust does not, and a
+  page sees every one of them. The digits are rented (Rust's shortest
+  round-trip) and the *spelling* is ours, which is exactly ADR 0013 § 8's line.
+- **`ToPrimitive` on an object throws today and that is correct rather than
+  missing.** An object here has no prototype until item 73, so it has no
+  `valueOf` and no `toString` to call — which is the answer a real engine gives
+  for `Object.create(null) + ""`. Where this engine *finds* something it would
+  have to call, it says `Missing::ACall` rather than skipping it.
+
+**The five ways a run ends are kept apart because different people answer
+them**: a `TypeError` is the page's and its own `catch` will survive it (item
+210); a full heap is the embedder's and stops the tab (ADR 0014 § 9); an
+interrupt is the browser's; a lost reference is **ours** and is a bug in this
+engine rather than in anybody's page (ADR 0014 § 3); and *this is not built
+yet* is a fifth that most engines do not have and this one needs while it is
+being written — a sentence a person reads, never something a page can catch.
+
+**Two things landed here that were somebody else's on paper**, and both are
+written into the items they came from. Two of item 205's early errors are in
+the compiler because it cannot be correct without them: a name declared twice in
+one block would otherwise take a second slot or put a live binding back in its
+dead zone, and a `break` naming no open label has no instruction it could be.
+And the global object has the **three value properties** — `undefined`, `NaN`,
+`Infinity` — plus `globalThis`, with the specification's attributes, because
+they are the only way to *write* three of the language's own values. The rest of
+the builtins are item 73's and are absent rather than stubbed.
+
+**Two defects were found by the tests and are worth naming**, because both were
+invisible in the shape of the code. A keeping jump (`&&`, `||`, `??`) takes its
+value off itself on the path that carries on, so the compiler emitting a `Pop`
+after it popped twice — which is why `a ||= 5` was an engine bug rather than a
+five. And `?.` needs the value kept on **both** paths, since the rest of the
+chain reads from it and the end of the chain drops it, so it is an instruction
+of its own (`SkipTheChain`) rather than a spelling of `??`'s.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1975 tests** (up from 1924 — a table of small programs with the value
+each must produce, run twice; a hostile file for what a *run* can do; and unit
+tests in each new file), no stubs, no `unsafe`, every boundary held, the licence
+notice on every new file, and a `CHANGELOG.md` line. No layout assertion and no
+reference render: this iteration positions nothing and paints nothing. One file
+one responsibility: eleven new files, and the two splits worth naming are
+`convert.rs` against `operate.rs` (what a value is worth as something else,
+against what an operator does with two of them) and `compile/scope.rs` against
+`compile/hoist.rs` (which name is which slot, against what is declared before
+anything runs).
+
+**`ROADMAP.md` moved, and it is not a tick.** *A bytecode compiler and an
+interpreter* gains a `· Built:` clause naming the machine and the three
+decisions in it, and its `· Owed:` is rewritten from *all of the code* to the
+four items that remain — 209, 210, 211 and 73 — because that line is now
+mostly built rather than untouched. `docs/features.md`'s own line is rewritten
+in a reader's words for the same reason.
+
+**What the next iteration should know.** The next queue number is **212** and
+the next ADR number is **0015**. **Item 209 is the item to take** — calls,
+`this` and closures — and it is the largest of the three cuts; item 210
+(`try`/`catch`/`finally`) is smaller and depends on 73 for the `Error` object a
+`catch` binds, and item 211 depends on 73 and 75. Four things 209 should know
+before it starts:
+
+1. **The frame layout is already there and has room for it.** Slot zero of the
+   stack is the completion value, then the frame's own slots, then the operands;
+   a call frame is a second base into the same list rather than a new structure.
+   `bounds::VALUES_ON_THE_STACK` is already the bound that turns runaway
+   recursion into the `RangeError` the language specifies rather than into a
+   process that stops — nothing can reach it today, which is said in its own
+   doc comment.
+2. **`Missing::ACall` is the complete list of what waits for it.** Six places
+   raise it — a getter, a setter, `ToPrimitive` finding a method, `instanceof`,
+   and the realm's own get and set — and every one is a `TypeError` or a value
+   the moment there is something to call.
+3. **A closure needs a scope that outlives its frame**, which is the first thing
+   in this engine that does. `object/slots.rs` is the shape to reach for (the
+   realm's lexical bindings are already one), and `compile/scope.rs` is where a
+   name would learn to resolve to *an enclosing function's* slot rather than to
+   a frame's.
+4. **`Op::Complete` and `Op::CompleteEmpty` are a script's completion value, not
+   a function's return.** A `return` is a different instruction and a different
+   thing; the compiler refuses one today with `What::AFunction`, which is the
+   honest reason (there is nothing to return from) rather than a missing case.
+
+Outside section D, **190** (the two-tone border styles) is still ready and still
+small.

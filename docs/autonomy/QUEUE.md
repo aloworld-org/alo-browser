@@ -1938,6 +1938,15 @@ The long pole, and the thing most of section E is unreachable without.
   program it refuses, and an attribute reaches the thing that would act on it
   rather than being parsed and dropped.
 
+  **Two of these landed in item 72's compiler rather than waiting here**, and
+  the reason is the one this item gives for why they are not in the parser: a
+  scope is what sees them, and item 72 built one. A name declared twice in one
+  block is refused because the alternative is a second slot for one name or a
+  live binding put back in its dead zone, and a `break` naming no open label is
+  refused because there is no instruction the compiler could emit instead.
+  Everything else here is untouched, including the `let` that shadows itself
+  across a *function* boundary — there are no functions yet (item 209).
+
 - [x] **71. The object model, and a garbage collector.** Objects, properties,
   prototypes, and something that reclaims them.
   *Depends on 69. **ADR 0014 is written and accepted** — a collector is a
@@ -2122,7 +2131,7 @@ The long pole, and the thing most of section E is unreachable without.
   thousand statements all still parse, because a bound that added siblings up
   would refuse every bundle on the web.
 
-- [ ] **72. A bytecode compiler and an interpreter.** Values, scopes, calls,
+- [x] **72. A bytecode compiler and an interpreter.** Values, scopes, calls,
   `this`, closures, exceptions.
   *Depends on 70, 71, 206, 208. Closes when:* a suite of small programs produces
   the values the specification says, run as a table rather than as prose.
@@ -2140,6 +2149,86 @@ The long pole, and the thing most of section E is unreachable without.
   that has not learned to call one will not compile against this interface; and
   a **proxy** overrides `[[Get]]` rather than `[[GetOwnProperty]]`, which is a
   method added to `object::Internal` when there is a trap to call.
+
+  **Done, for the machine, and cut on starting into three items.** The cut is
+  the one the last iteration wrote down: take the machine and *the language
+  that needs no call* — values, scopes with their dead zone, the operators,
+  objects, control flow — and leave calls (209), `try`/`catch`/`finally` (210)
+  and the forms that take a value apart (211) as items of their own. Scope
+  rather than depth: what is here is whole, and what is not is a **refusal that
+  names its item** rather than something plausible (ADR 0013 § 3).
+
+  `code.rs` is the instruction set, `compile.rs` (with `scope.rs` and
+  `hoist.rs`) turns a tree into one, `interpret.rs` runs it, `realm.rs` is the
+  global object and the global `let` bindings, `convert.rs` is the abstract
+  operations and `operate.rs` the operators written in terms of them,
+  `numeric.rs` is ADR 0013 § 8's rented arithmetic in the specification's own
+  spelling, and `abrupt.rs` is the five ways a run ends that are not a value —
+  kept apart because **they are answered by different people**: a `TypeError` is
+  the page's, a full heap is the embedder's, a lost reference is ours.
+
+  **Three things in it are decisions rather than detail.** The **value stack is
+  a heap cell** (ADR 0014 § 2's last owed clause, `object/slots.rs`), so every
+  instruction reads its operands *where they lie* and drops them only once the
+  answer exists — and the whole table runs twice, the second time collecting at
+  every allocation, which is the only thing that finds a rooting bug. The
+  **interpreter never recurses**, so a page cannot choose how much stack this
+  process uses by nesting; the **compiler** does, so it runs on a stack of its
+  own like the parser, and the number is measured — four thousand additions
+  overflow eight mebibytes in a debug build. And **stopping is the embedder's**,
+  on a switch checked at every backward jump, because ADR 0013 § 5 gives this
+  crate no clock.
+
+  **Two things landed here that were somebody else's on paper.** Two of item
+  205's early errors are in the compiler, because it cannot be correct without
+  them — a name declared twice in one block would take a second slot or put a
+  live binding back in its dead zone, and a `break` naming no label has no
+  instruction to be. The rest of 205 is untouched. And the global object has the
+  **three value properties** (`undefined`, `NaN`, `Infinity`) and `globalThis`,
+  with the specification's attributes, because they are the only way to *write*
+  three of the language's own values; the rest of the builtins are item 73's and
+  are absent rather than stubbed.
+
+- [ ] **209. Calls, `this` and closures.** Cut from 72 on the iteration that
+  built it, and it is the largest of the three: a function object with a
+  `[[Call]]` and a `[[Construct]]`, a frame per call with its own slots, the
+  argument list, `arguments`, `this` and how an arrow does not have one,
+  closures over a scope that outlives its frame, `new`, classes and their
+  private members, tagged templates, and `super`. Two things item 206 named are
+  discharged here: an accessor property answers with its **getter**
+  ([`object::Found::Getter`]) rather than a value, so reading one is a call, and
+  a **proxy** overrides `[[Get]]` rather than `[[GetOwnProperty]]`, which is a
+  method on `object::Internal` once there is a trap to call. Item 72's
+  interpreter already refuses each by name, and [`bounds::VALUES_ON_THE_STACK`]
+  is already the bound that turns runaway recursion into the `RangeError` the
+  language specifies.
+  *Depends on 72. Closes when:* a table of programs that call things produces
+  the values the specification says, a closure keeps its scope alive after the
+  frame it was made in has gone — counted rather than watched, which is item
+  71's rule — and unbounded recursion is a `RangeError` rather than a process
+  that stops.
+
+- [ ] **210. `try`, `catch` and `finally`.** Cut from 72, which throws and has
+  nowhere for a throw to land: `Escape::Thrown` ends the script today, and what
+  is owed is the handler. The hard half is **`finally`**, which runs on the way
+  out of a `break`, a `continue`, a `return` and a throw alike, so a completion
+  has to be carried across a jump rather than only propagated up.
+  *Depends on 72, and on 73 for the `Error` objects a `catch` binds — until
+  then a thrown `TypeError` has a kind and a message and is not yet a value.
+  Closes when:* each of the five ways out of a `try` runs its `finally` exactly
+  once, in a test naming which way it left, and a `catch` binds what was thrown.
+
+- [ ] **211. The forms that take a value apart.** Cut from 72, which refuses
+  them together because they are one mechanism seen from four sides: an array
+  literal and a spread *build* from an iterable, a destructuring pattern and
+  `for…of` *read* from one. `for…in` is here too, and it is the odd one — it
+  enumerates keys rather than iterating, with a prototype-shadowing rule of its
+  own.
+  *Depends on 72, on 73 for the `Array` exotic object (the exotic part is
+  `length`) and on 75 for the iteration protocol. Closes when:* `[1, ...a]`,
+  `let [a, b] = c`, `let { a } = b` and both `for` loops produce what the
+  specification says, in the same table item 72 uses, and a hole is not
+  `undefined`.
 
 - [ ] **73. The ECMAScript builtins**, in the order real pages need them rather
   than the order the specification lists them.

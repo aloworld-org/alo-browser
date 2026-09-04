@@ -110,6 +110,44 @@ pub const DEEPEST_EXPRESSION: usize = 4096;
 /// not this.
 pub const STACK_FOR_A_PARSE: usize = 32 * 1024 * 1024;
 
+/// The stack a compile is given, which is [`STACK_FOR_A_PARSE`]'s argument made
+/// a second time.
+///
+/// Thirty-two mebibytes. The compiler walks the tree the parser built, one
+/// frame per level, and that tree may be [`DEEPEST_NESTING`] plus
+/// [`DEEPEST_EXPRESSION`] levels deep — four thousand three hundred and
+/// fifty-two, a bound chosen against a *walker's* frame rather than against a
+/// compiler's, which is several times larger. A caller's stack is two mebibytes
+/// on a `cargo test` thread and eight on a process's first thread, so a compiler
+/// that used it would refuse a different depth in every build, which is the
+/// thing [`STACK_FOR_A_PARSE`] exists to stop.
+///
+/// Measured rather than guessed at, the same way the parser's was, and the
+/// numbers are worth writing down because they are larger than they look: a
+/// chain of four thousand additions **overflows eight mebibytes** in a debug
+/// build and compiles in sixteen, and the deepest tree this parser will build —
+/// two hundred and fifty brackets around four thousand and ninety links —
+/// compiles in thirty-two. So this is the worst case with about a factor of two
+/// in hand, which is what a measurement taken on one machine deserves; a release
+/// build reuses stack slots and needs a fraction of it. Reserved rather than
+/// used, so an ordinary script costs the levels it has.
+pub const STACK_FOR_A_COMPILE: usize = 32 * 1024 * 1024;
+
+/// How many values one run may have on its stack at once.
+///
+/// A quarter of a million, which is four mebibytes of them. The stack holds a
+/// frame's slots and the operands of whatever it is in the middle of, and both
+/// are bounded today by how deep a tree the parser will build — so nothing a
+/// page can write reaches this, and that is the point of writing it down now:
+/// when a call gets a frame of its own (queue item 209) this is the bound that
+/// turns unbounded recursion into the `RangeError` the language specifies
+/// rather than into a process that stops.
+///
+/// It is counted in values rather than in bytes because that is what the
+/// interpreter can check in one comparison per push, and a value is a fixed
+/// sixteen bytes.
+pub const VALUES_ON_THE_STACK: usize = 256 * 1024;
+
 /// The most a page's objects may hold, in bytes.
 ///
 /// One gibibyte. ADR 0014 § 9: reaching it collects first and fails second, and

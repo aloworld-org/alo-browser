@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Our own JavaScript engine (ADR 0013). Today it reads a program.
+//! Our own JavaScript engine (ADR 0013). Today it runs one.
 //!
 //! # What this is, and what it is not yet
 //!
@@ -27,10 +27,24 @@
 //! strings. [`Heap<T>`](heap::Heap) was generic in its cell so that this could
 //! land inside it without changing a line of `heap.rs`, and it did.
 //!
-//! Nothing here evaluates anything yet. [`token::Kind::BigInt`] still keeps
-//! digits rather than a number, and now for a narrower reason: arbitrary
-//! precision arithmetic is a decision about renting rather than a variant to
-//! add, which is queue item 207. The tree is what item 72's compiler will read.
+//! [`code`], [`compile`] and [`interpret`] are the fifth (ADR 0013 § 2, item
+//! 72): the machine. A program becomes a flat array of instructions and an
+//! [`Engine`](interpret::Engine) runs them — values, the operators, `var`,
+//! `let` and `const` with their dead zones, objects and their properties, and
+//! every shape of control flow. Two things about it are decisions rather than
+//! detail. **Bytecode from the first line**, because a frame that can be
+//! suspended is what generators, `async` and a debugger all need and is not a
+//! thing to retrofit into a tree walker. And **the value stack lives in the
+//! heap** (ADR 0014 § 2), so the collector can walk it — which is why every
+//! instruction here reads its operands where they lie and takes them off only
+//! once the answer exists.
+//!
+//! What runs is the half of the language that needs no call. Functions, `this`,
+//! closures, `try`/`catch`, arrays and destructuring are **refused by name**,
+//! each saying which queue item builds it (ADR 0013 § 3: *absent beats
+//! approximate*), and [`token::Kind::BigInt`] still keeps digits rather than a
+//! number for the narrower reason that arbitrary precision arithmetic is a
+//! decision about renting — queue item 207.
 //!
 //! # The rule that shapes every file: a script is a stranger's bytes
 //!
@@ -62,17 +76,25 @@
 //! script has will arrive from the embedder, which is what makes *the browser
 //! process never runs page script* structural rather than remembered.
 
+pub mod abrupt;
 pub mod ast;
 pub mod bounds;
+pub mod code;
+pub mod compile;
+pub mod convert;
 pub mod error;
 pub mod escape;
 pub mod heap;
+pub mod interpret;
 pub mod lexer;
 pub mod number;
+pub mod numeric;
 pub mod object;
+pub mod operate;
 pub mod parser;
 pub mod punctuator;
 pub mod read;
+pub mod realm;
 pub mod regexp;
 pub mod string;
 pub mod template;
@@ -80,9 +102,13 @@ pub mod token;
 pub mod unicode;
 pub mod word;
 
+pub use abrupt::{Escape, Thrown};
 pub use ast::{Program, Source};
+pub use code::{Chunk, Op};
+pub use compile::compile;
 pub use error::{Position, Reason, SyntaxError};
 pub use heap::{Field, Full, Heap, Ref, Root, Scope, Survivors, Trace, Tracer, Weak};
+pub use interpret::{Engine, Stop, Trouble};
 pub use lexer::{Goal, Lexer};
 pub use object::{Cell, Fault, Found, Key, Objects, Property, Refused, Set, Value};
 pub use parser::{Parser, module, script};

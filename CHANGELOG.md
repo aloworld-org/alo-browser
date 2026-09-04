@@ -6,6 +6,37 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **JavaScript runs.** Not all of it, and the part that does not is refused out
+  loud rather than half-done — but a page's script is now read, compiled and
+  *executed* by this browser for the first time.
+
+  What runs is the half of the language that needs no function call: numbers and
+  strings, every operator with the conversions the language really asks for,
+  variables with the rule that makes reading a `let` too early an error rather
+  than a silent `undefined`, objects and their properties, `a?.b`, backtick
+  templates, and all of the control flow — `if`, three kinds of loop, `switch`,
+  labels, `break` and `continue`. The measure is a table of small programs with
+  the value each one must produce, which is how a language argument gets settled
+  in numbers rather than in prose.
+
+  Three things about it are worth saying to somebody who will never read the
+  code. A script cannot make this process run out of stack by nesting brackets,
+  because the thing that runs instructions never calls itself — and the thing
+  that *compiles* does, so it was given a stack of its own and measured against
+  the deepest program the reader will accept. What a script is holding lives
+  where the memory collector can see it, so a value half way through being
+  computed is never tidied away underneath it; every test runs twice, the second
+  time with the collector firing at every single allocation, because that is the
+  only way that kind of mistake ever shows up. And a page that will not stop is
+  ended by **the browser**, on a switch it can throw from another thread: there
+  is no clock inside the engine, because how long is too long is a person's
+  judgement about a tab rather than an engine's.
+
+  Everything else — calling a function, `try`/`catch`, arrays, taking a value
+  apart — is a refusal that names the work that will build it. A program using
+  one of them does not compile, and says so. That is deliberate: a script that
+  ran and was quietly wrong is worse than one that says what it could not do.
+
 - **Fixed: nine short scripts that killed the browser's page process.** Not a
   new feature — a hole in one that was already here, found while starting the
   work that runs a script and fixed before any of that was built on top of it.

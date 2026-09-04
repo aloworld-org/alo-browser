@@ -51,6 +51,7 @@ pub mod internal;
 pub mod key;
 pub mod ordinary;
 pub mod property;
+pub mod slots;
 pub mod symbol;
 pub mod table;
 pub mod text;
@@ -58,7 +59,7 @@ pub mod value;
 
 use std::fmt;
 
-use crate::heap::{Full, Heap, Ref};
+use crate::heap::{Barrier, Full, Heap, Ref};
 
 pub use access::{Fault, Found, Named, Set};
 pub use cell::Cell;
@@ -67,6 +68,7 @@ pub use internal::{Exotic, Internal};
 pub use key::Key;
 pub use ordinary::Ordinary;
 pub use property::Property;
+pub use slots::{Held, Slots};
 pub use symbol::Symbol;
 pub use table::Properties;
 pub use text::Text;
@@ -188,6 +190,48 @@ impl Objects {
         Ok(self.heap.allocate(Cell::Symbol(Symbol::new(description)))?)
     }
 
+    /// Make an empty list of values (queue item 72).
+    ///
+    /// ADR 0014 § 2: the interpreter's stack and a realm's lexical bindings are
+    /// lists of values, and a precise collector can only keep what it can walk
+    /// to — so they are cells rather than Rust locals. Nothing a script can name
+    /// is one.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn slots(&mut self) -> Result<Ref, Refused> {
+        Ok(self.heap.allocate(Cell::Slots(Slots::new()))?)
+    }
+
+    /// What the slot at `at` of a list holds, or [`None`] if the reference
+    /// names no list or the list is not that long.
+    pub fn slot(&self, list: Ref, at: usize) -> Option<Held> {
+        self.heap.get(list)?.slots()?.get(at)
+    }
+
+    /// How many slots a list has, or [`None`] if the reference names no list.
+    pub fn slot_count(&self, list: Ref) -> Option<usize> {
+        Some(self.heap.get(list)?.slots()?.len())
+    }
+
+    /// Change a list of values, through the barrier every store passes.
+    ///
+    /// [`None`] if the reference names no list, which is the engine's own
+    /// mistake rather than a script's (ADR 0014 § 3) — an interpreter that has
+    /// lost its stack has a rooting bug.
+    pub fn with_slots<R>(
+        &mut self,
+        list: Ref,
+        with: impl FnOnce(&mut Slots, &mut Barrier) -> R,
+    ) -> Option<R> {
+        self.heap
+            .write(list, |cell, barrier| {
+                cell.slots_mut().map(|slots| with(slots, barrier))
+            })
+            .flatten()
+    }
+
     /// Put an embedder's object in the heap — a node, a console, a harness.
     ///
     /// ADR 0014 § 6: it is in the **same graph**, so the cycle a page makes
@@ -228,6 +272,25 @@ impl Objects {
         let held = self.text(units.to_vec())?;
         self.names.remember(units, held);
         Ok(Key::text(held))
+    }
+
+    /// The key this text names **only if something already has it**.
+    ///
+    /// [`Objects::key`] interns, which allocates, which is a safepoint. This one
+    /// does not, and it exists because two very ordinary things must not
+    /// allocate: `typeof somethingNobodyDeclared` (queue item 72) would
+    /// otherwise put a name in the heap on its way to answering
+    /// `"undefined"`, and a page can write that in a loop.
+    ///
+    /// [`None`] means no object anywhere has a property of that name, which is
+    /// the answer the caller wanted anyway.
+    pub fn existing_key(&self, units: &[u16]) -> Option<Key> {
+        if let Some(at) = key::array_index(units) {
+            if let Some(key) = Key::index(at) {
+                return Some(key);
+            }
+        }
+        self.names.find(&self.heap, units).map(Key::text)
     }
 
     /// The key a symbol is.

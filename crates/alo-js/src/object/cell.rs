@@ -10,12 +10,19 @@
 //! nothing in that file changes when it does.* This is that enumeration, and
 //! nothing in `heap.rs` changed.
 //!
-//! # Three kinds, and one of them is somebody else's
+//! # Four kinds, and two of them are not a script's
 //!
 //! An [`Ordinary`] object, a [`Text`], a [`Symbol`] — and [`Cell::Foreign`],
 //! which is an [`Exotic`] an embedder supplied. The last one is ADR 0013 § 6
 //! and ADR 0014 § 6 in a single line of code: the DOM is **in this heap**,
 //! traced by this collector, in the same graph as the closure that mentions it.
+//!
+//! [`Cell::Slots`] is the fourth, and it is the engine's own (queue item 72):
+//! the interpreter's value stack and a realm's `let` bindings are lists of
+//! values, and ADR 0014 § 2 says such a list lives *in the heap* rather than in
+//! a Rust local, because a precise collector can only keep what it can walk to.
+//! No script can name one — [`Cell::internal`] answers [`None`] for it, so
+//! there is no property of it to read.
 //!
 //! A [`Text`] and a [`Symbol`] are in the heap without being objects, and that
 //! is the language rather than a shortcut. `"abc".foo` reads a property of a
@@ -27,6 +34,7 @@ use crate::heap::{Survivors, Trace, Tracer};
 
 use super::internal::{Exotic, Internal};
 use super::ordinary::Ordinary;
+use super::slots::Slots;
 use super::symbol::Symbol;
 use super::text::Text;
 
@@ -41,6 +49,9 @@ pub enum Cell {
     Symbol(Symbol),
     /// An object an embedder supplied — a node, a console, a test harness.
     Foreign(Box<dyn Exotic>),
+    /// A list of values the engine itself holds: an interpreter's stack, a
+    /// realm's lexical bindings.
+    Slots(Slots),
 }
 
 impl Cell {
@@ -54,7 +65,7 @@ impl Cell {
         match self {
             Cell::Object(object) => Some(object),
             Cell::Foreign(exotic) => Some(exotic.as_ref()),
-            Cell::Text(_) | Cell::Symbol(_) => None,
+            Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) => None,
         }
     }
 
@@ -63,7 +74,7 @@ impl Cell {
         match self {
             Cell::Object(object) => Some(object),
             Cell::Foreign(exotic) => Some(exotic.as_mut()),
-            Cell::Text(_) | Cell::Symbol(_) => None,
+            Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) => None,
         }
     }
 
@@ -71,7 +82,7 @@ impl Cell {
     pub const fn text(&self) -> Option<&Text> {
         match self {
             Cell::Text(text) => Some(text),
-            Cell::Object(_) | Cell::Symbol(_) | Cell::Foreign(_) => None,
+            Cell::Object(_) | Cell::Symbol(_) | Cell::Foreign(_) | Cell::Slots(_) => None,
         }
     }
 
@@ -79,7 +90,7 @@ impl Cell {
     pub const fn symbol(&self) -> Option<&Symbol> {
         match self {
             Cell::Symbol(symbol) => Some(symbol),
-            Cell::Object(_) | Cell::Text(_) | Cell::Foreign(_) => None,
+            Cell::Object(_) | Cell::Text(_) | Cell::Foreign(_) | Cell::Slots(_) => None,
         }
     }
 
@@ -91,7 +102,23 @@ impl Cell {
     pub const fn ordinary(&self) -> Option<&Ordinary> {
         match self {
             Cell::Object(object) => Some(object),
-            Cell::Text(_) | Cell::Symbol(_) | Cell::Foreign(_) => None,
+            Cell::Text(_) | Cell::Symbol(_) | Cell::Foreign(_) | Cell::Slots(_) => None,
+        }
+    }
+
+    /// The list of values this cell is, if it is one.
+    pub const fn slots(&self) -> Option<&Slots> {
+        match self {
+            Cell::Slots(slots) => Some(slots),
+            Cell::Object(_) | Cell::Text(_) | Cell::Symbol(_) | Cell::Foreign(_) => None,
+        }
+    }
+
+    /// The same, to be written through.
+    pub const fn slots_mut(&mut self) -> Option<&mut Slots> {
+        match self {
+            Cell::Slots(slots) => Some(slots),
+            Cell::Object(_) | Cell::Text(_) | Cell::Symbol(_) | Cell::Foreign(_) => None,
         }
     }
 
@@ -102,6 +129,7 @@ impl Cell {
             Cell::Text(_) => "a string",
             Cell::Symbol(_) => "a symbol",
             Cell::Foreign(exotic) => exotic.describe(),
+            Cell::Slots(_) => "the engine's own working memory",
         }
     }
 }
@@ -112,6 +140,7 @@ impl Trace for Cell {
             Cell::Object(object) => object.trace(tracer),
             Cell::Symbol(symbol) => symbol.trace(tracer),
             Cell::Foreign(exotic) => exotic.trace(tracer),
+            Cell::Slots(slots) => slots.trace(tracer),
             // A string holds no reference at all, which is the other half of
             // why it is immutable: there is nothing in it that could ever
             // become an edge.
@@ -124,6 +153,7 @@ impl Trace for Cell {
             Cell::Object(object) => object.footprint(),
             Cell::Text(text) => text.footprint(),
             Cell::Foreign(exotic) => exotic.footprint(),
+            Cell::Slots(slots) => slots.footprint(),
             Cell::Symbol(_) => 0,
         }
     }

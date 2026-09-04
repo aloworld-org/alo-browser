@@ -493,9 +493,30 @@ unreachable without it.
       comes from the embedder and the browser process never runs page script;
       and every bound a script can reach is a named constant of ours, with the
       interpreter interruptible and **never panicking** on any program
-      · Owed: all of the code (queue items 70 to 79). Nothing executes anything
-      today; `alo-dom`'s parser boundary says so in its own comment and names
-      the two clauses that land there
+      · Built: **the machine** (queue item 72, cut on starting). A program
+      becomes a flat array of instructions and an engine runs them: values, all
+      of the operators with the conversions the specification asks for in the
+      order it asks for them, `var` on the global object and `let` and `const`
+      with real dead zones, blocks that shadow, objects and their properties,
+      optional chaining, templates, and every shape of control flow — `if`,
+      three kinds of loop, `switch`, labels, `break` and `continue`. Three
+      things in it are decisions rather than detail. **The value stack lives in
+      the heap** (ADR 0014 § 2), so the collector can walk it — which is why
+      every instruction reads its operands where they lie and drops them only
+      once the answer exists, and why the whole suite runs twice with the
+      collector firing at every allocation. **The interpreter never recurses**,
+      so the deepest expression a page can write costs a taller stack of values
+      rather than a taller stack of frames; the *compiler* does recurse, so it
+      runs on a stack of its own exactly as the parser does, measured against
+      the deepest tree the parser will build. And **the embedder stops a
+      script**, on a switch checked at every backward jump, because there is no
+      clock in this crate and *when* is a person's judgement about a tab
+      · Owed: the rest of the language, and each piece is refused **by name**
+      rather than half-built — calls, `this` and closures (queue item 209),
+      `try`/`catch`/`finally` (210), arrays, spread, destructuring and
+      `for…of` (211), and the builtins that make a `{}` have a `toString` (73).
+      A program using one of them does not compile, and says which item builds
+      it
 - [ ] A garbage collector, and the object model underneath it
       · Built: the question, stated (ADR 0013 § 6) — the engine defines **one
       trait** for an embedder's objects and the DOM is one embedder, so the
