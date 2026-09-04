@@ -441,10 +441,28 @@ unreachable without it.
       panics: every cut of a hostile corpus, and every code point up to U+FFFF
       alone, is a token or a refusal with a line and column. Judged against a
       **frozen real script** in the corpus as well as a table
-      · Owed: the parser and the syntax tree (queue item 204), which is where
-      automatic semicolon insertion and the arrow-against-parenthesis ambiguity
-      land — the lexer records a line ending before every token and settles
-      neither
+      · Built: the **parser and the syntax tree** (queue item 204), which is
+      the rest of this line. Tokens into a program: statements, declarations,
+      functions, classes, patterns and module declarations, every node carrying
+      the bytes it came from because a stack trace and
+      `Function.prototype.toString` are both built from those and neither can be
+      retrofitted. The second ambiguity is settled the way the item said — on
+      the **token stream**: `(a, b)` and `(a, b) => c` are the same characters
+      until the `)` is passed, so the parameter list is tried and put back, with
+      a `(` that was not one remembered so nesting costs the attempt once rather
+      than at every level. Automatic semicolon insertion is all three rules and
+      the seven restricted productions. Where the specification refuses a
+      reading, so does this — `a ?? b || c` and `-a ** b` — and `with` is
+      refused **by name** (ADR 0013 § 3), as is a reserved word written with an
+      escape. **Nesting has a ceiling of ours and a stack to match it**: the
+      parse runs on its own thread, because a depth limit that depends on the
+      caller's stack is not a limit. Judged against **two** frozen real scripts
+      now, the second holding six regular expressions and no division at all
+      · Owed: the early errors that need a scope rather than a token — a name
+      declared twice, a label that names no loop, a private member nothing
+      declares — and the import attributes a `with { type: "json" }` carries.
+      Both are queue item 205, cut here and named there rather than left to be
+      discovered
 - [ ] A bytecode compiler and an interpreter. **Correct first; a JIT much later or never**
       · Built: the decision (ADR 0013, queue item 69) — `alo-js`, ours, in safe
       Rust, **bytecode from the first line of the compiler** because a

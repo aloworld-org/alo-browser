@@ -1,0 +1,63 @@
+alo-workplace, web/scripts/gen-tailwind-theme.mjs — alo's own generator that
+derives the Tailwind theme from the design tokens (its ADR 0046).
+
+Taken 2026-09-04 from the `alo-workplace` repository checked out beside this
+one. The bytes here are that file exactly as it stands, unedited, under the
+name `script.mjs` — the extension is the one thing that is a decision rather
+than a copy, because `.mjs` is how the file says it is a module and the parser
+is told which of the two it is reading rather than guessing (`alo_js::Source`).
+
+Why a second script, when there is already one. The first
+(`../alo-service-worker/`) is what queue item 70's lexer closed on, and its
+own `origin.txt` says what it does not cover: it has no regular expression in
+it at all. That was fine for a lexer read with one goal from beginning to end,
+and it is exactly what a parser cannot be judged on — the one question the
+lexer's interface exists to answer is whether a `/` divides or opens a
+pattern, and a script with no `/` in it never asks it. Queue item 204 said
+freezing a second one was part of the item rather than something to notice
+half way through.
+
+Why this script. Freezing it needs nobody's leave — it is ours — and anybody
+can re-derive it. It is hand-written rather than generated, and it holds six
+regular expressions in four different positions: after an `=`, as the whole of
+an argument, as the receiver of a method call, and inside a chain of them
+(`.replace(/…/g, "").split(";").map(…)`). Not one `/` in the file is
+division, which the test beside it asserts rather than assumes: a `Divide` in
+the tree would mean the parser had read a pattern as arithmetic and every
+other assertion would still pass.
+
+## What else it covers that the first one does not
+
+`import` declarations and `import.meta.url`, so the module goal is exercised
+by a real module rather than by a table. Template literals with substitutions
+in them, including a multi-line one holding escaped backticks, which is what
+makes the `}` that ends a substitution a question at all. Destructuring in a
+parameter list (`([p]) => …`), destructuring in a `for…of` head (`for (const
+[name, value] of declarations)`), a `try`/`catch` with no binding, a
+conditional as a return value, `new Map([[…]])`, and `!==` against `null` in
+half a dozen places.
+
+## What it does not cover
+
+No class, no generator, no `async` function, no `await`, no label, no
+`switch`. Those are in the table beside it
+(`crates/alo-js/tests/what_the_parser_makes_of_it.rs`), for the reason the
+first script's `origin.txt` gives: a frozen page proves the parser meets real
+code and a table proves it meets the grammar, and neither is the other.
+
+## What it found
+
+Two things, both in the lexer rather than in the parser, and both fixed in the
+same change.
+
+**A space before the `}` of a substitution was refused.** `Goal::Template-
+Continuation` skipped no trivia, on the reasoning that everything after the
+`}` is the template's own text — which is true and is about the wrong side of
+the brace. The whitespace before it belongs to the substitution that has just
+ended, and the specification's `InputElementTemplateTail` lists whitespace,
+line terminators and comments for exactly that reason. `` `${ a }` `` is
+ordinary code and would not have parsed.
+
+**Nothing else.** The six regular expressions, the module declarations and the
+destructuring all read first time, which is the honest report rather than a
+disappointing one.

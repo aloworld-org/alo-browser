@@ -6,6 +6,50 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The engine understands a program now, not only its words.** The reader
+  built last month turned a script's characters into its words and symbols;
+  this turns those into the shape of the program — this is a function, that is
+  its name, this call belongs to that condition. Still nothing runs; what
+  exists now is the thing an interpreter will read.
+
+  Two questions in JavaScript cannot be answered by looking at the characters,
+  and both are answered here. The first is the `/` the reader already refused
+  to guess at, and the answer is that whatever asks for the next word says
+  which it expects — so `return /a/g` and `x++ /y/z` come out as the different
+  programs they are. The second only a parser can settle: `(a, b)` and
+  `(a, b) => c` are the same characters until after the closing bracket, so the
+  second reading is **tried and put back** when what follows is not an arrow.
+  Trying costs a second look at what is inside the brackets, which on a page
+  that nests them a thousand deep would be a page choosing how long we spend —
+  so a bracket that turned out not to begin a function is remembered and never
+  tried twice.
+
+  Where the language forbids two readings, so does this. `a ?? b || c` is
+  refused rather than given a precedence, because either answer is one half of
+  every reader getting it wrong; `-a ** b` likewise. `with` is refused **by
+  name**, with a sentence saying why, rather than failing somewhere else three
+  lines later. A keyword smuggled in with an escape — `if` — is neither the
+  keyword nor a name, which is the rule that stops a check comparing text from
+  being walked past. And a semicolon nobody wrote is inserted exactly where the
+  language says one goes, so `return` alone on a line returns nothing rather
+  than returning what is on the next.
+
+  A stranger's script cannot make it stop. A file of twenty thousand open
+  brackets is a stack overflow in any parser that does not count, and an
+  overflow is not an error a browser can report — it is the process going away.
+  So the parser counts, refuses past a depth it chose, and — the part that
+  makes that a real promise — **runs on a stack of its own** rather than on
+  whatever the caller happened to have, because a limit that depends on who
+  called you is not a limit.
+
+  It is judged on real code as well as on examples: alo's own offline worker,
+  and now alo's own theme generator too, frozen into the corpus exactly as they
+  are. The second one earns its place by holding six search patterns and not
+  one division, so a `/` read the wrong way would be a different program that
+  still parses — which the test refuses to let happen quietly. Reading it found
+  one real bug in last month's work, in a place nobody would have looked: a
+  space before the closing brace of `` `${ a }` `` was refused.
+
 - **The first piece of our own JavaScript engine: it can read a script.** Not
   run one — nothing executes anything yet — but turn the characters somebody
   wrote into the words and symbols a program is made of, which is where every

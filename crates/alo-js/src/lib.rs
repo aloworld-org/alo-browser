@@ -2,22 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Our own JavaScript engine (ADR 0013). Today it is the lexer.
+//! Our own JavaScript engine (ADR 0013). Today it reads a program.
 //!
 //! # What this is, and what it is not yet
 //!
 //! ADR 0013 decided a **parser, a bytecode compiler and an interpreter**, in
-//! safe Rust, correct before fast, with no JIT. Queue item 70 is the first of
-//! them and was cut on starting: this crate holds the **lexer**, and the parser
-//! is item 204. The cut is at the seam the language itself has — a lexer turns
-//! characters into tokens and a parser turns tokens into a tree — and it is the
-//! half where being wrong is being wrong about *what a character is*, which is
-//! the half a stranger's bytes reach first.
+//! safe Rust, correct before fast, with no JIT. The first two queue items are
+//! built: [`lexer`] turns characters into tokens (item 70) and [`parser`] turns
+//! tokens into the tree in [`ast`] (item 204). [`script`] and [`module`] are
+//! the two ways in, and which of the two a file is, is the caller's to say —
+//! the same bytes are a legal script and a legal module with different
+//! meanings.
 //!
 //! Nothing here evaluates anything. There is no value, no object and no heap;
 //! [`token::Kind::BigInt`] keeps digits rather than a number for exactly that
 //! reason, and inventing an integer type to hold one would be building item
-//! 71's object model in the wrong crate.
+//! 71's object model in the wrong crate. The tree is what item 72's compiler
+//! will read.
 //!
 //! # The rule that shapes every file: a script is a stranger's bytes
 //!
@@ -49,11 +50,13 @@
 //! script has will arrive from the embedder, which is what makes *the browser
 //! process never runs page script* structural rather than remembered.
 
+pub mod ast;
 pub mod bounds;
 pub mod error;
 pub mod escape;
 pub mod lexer;
 pub mod number;
+pub mod parser;
 pub mod punctuator;
 pub mod read;
 pub mod regexp;
@@ -63,8 +66,10 @@ pub mod token;
 pub mod unicode;
 pub mod word;
 
+pub use ast::{Program, Source};
 pub use error::{Position, Reason, SyntaxError};
 pub use lexer::{Goal, Lexer};
+pub use parser::{Parser, module, script};
 pub use punctuator::Punctuator;
 pub use token::{Kind, Token};
 pub use word::{Keyword, Status, Word};

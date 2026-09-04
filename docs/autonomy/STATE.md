@@ -7971,3 +7971,142 @@ Item 204 carries one thing that is easy to lose: **freezing a second script with
 a regular expression in it is part of that item**, because the one in the corpus
 cannot exercise the goal choice. Outside section D, **190** (the two-tone border
 styles: small, depends on nothing, closes with a picture) is still ready.
+
+---
+
+## Iteration 104 — queue item 204: the parser, to a syntax tree
+
+**Taken because it is the first ready item in the file.** 157 and 158 need an
+interface to ask in, 187 is deferred with the reason written into it, 169 must
+be *run* on Linux, and 60 is HTTP/3. In section D the two ready items were 204
+and 71; 204 comes first in the file and its one dependency (item 70) was built
+last iteration, so the ordering rule took it. 71 is `needs ADR` and is where the
+next iteration should look.
+
+**Built: `crates/alo-js/src/ast.rs` and `crates/alo-js/src/parser{,/*}.rs`** —
+the tree, the cursor, and six files of grammar. Both frozen scripts parse, which
+is the item's own closing condition, and the second of them was frozen here
+because the first could not close it.
+
+**The seam this cut is at.** The lexer answers *what a character is*; the parser
+answers *what a token stream means*, and the whole of the difference is visible
+in one interface: `Lexer::next` takes a `Goal` every call, and the parser is the
+thing that knows which. `parser.rs` names the two goals `OPERAND` and `OPERATOR`
+so that a call site reads as the claim it is making. One token of lookahead is
+kept **with the goal it was read under**, so asking again under a different goal
+re-reads it from the source — which is what makes `` `${x}/y/` `` work: the
+substitution ends by peeking at `}` as an operator, and the tail is then asked
+for at the same offset as a template continuation, where `/y/` is text rather
+than two divisions. That is asserted in the table rather than reasoned about.
+
+**The arrow ambiguity is settled where item 70 said it would be.** `(a, b)` and
+`(a, b) => c` are the same characters until the `)` has been passed, so the
+parameter list is **tried and put back**. What the naive version of that gets
+wrong is cost: trying costs a second read of what is inside the parentheses, and
+a `(` inside a `(` pays it again at every level, which is quadratic on a page
+that chooses how deeply it nests. So a `(` that turned out not to open a
+parameter list is remembered by its offset and never tried twice. The same shape
+settles four other contextual words — `let` before a name, `async` before
+`function` **on the same line**, `static`, and any name before a `:`.
+
+**The depth bound needed a stack before it could mean anything, and that is the
+finding of this iteration.** `bounds.rs` had said since item 70 that nesting
+belonged to the parser. I set it at 512, wrote the test that stands either side
+of it, and the test **aborted**: a `cargo test` thread has two mebibytes, a
+bracket level is thirteen frames, and a debug build gets under fifty levels
+before the stack is gone. An abort is not a refusal — it is the process going
+away, which is the one thing ADR 0013 § 4 forbids outright — and the counter
+never reached its ceiling to say so.
+
+Lowering the number to what a debug test thread survives would have made the
+bound a property of *whoever called us*: fifty in a test, a few hundred in a
+release build, whatever a renderer was given in production. `alo-net` has
+written the answer to that in every file it has — **a limit somebody else
+chooses is not a limit** — so the parse now runs on a *scoped* thread of its
+own with `bounds::STACK_FOR_A_PARSE`, thirty-two mebibytes, which is measured
+rather than guessed: 256 bracket levels needs under twelve in a debug build and
+about a fifth of that in a release one. Scoped, so the source text is still
+borrowed and nothing is copied to get it there; and a panic inside is raised
+again on the caller's thread rather than turned into a refusal, because a bug
+reported as a syntax error is a bug nobody finds.
+
+`DEEPEST_NESTING` is 256 and now means the same thing in a debug build, a
+release build and a renderer. The cost is a thread per parse — about thirty
+microseconds, which is nothing beside a script and is why the hostile test that
+parses two hundred thousand tiny programs takes five seconds. Any claim beyond
+that is a performance claim and needs hardware.
+
+**Two refusals are the ones worth reading twice**, because each is a place a
+parser is quietly wrong rather than loudly. `a ?? b || c` is not a program, and
+the tree cannot tell it from `(a || b) ?? c` afterwards — parentheses are not
+nodes here — so it is refused *while parsing*, by the function that knows
+whether a `||` was written at that level and returns the fact alongside the
+expression. And `{ a = 1 }` is a destructuring pattern rather than an object
+literal, decided by an `=` that comes after the whole of it: `[{ a = 1 }] = b`
+is ordinary and `f({ a = 1 })` is not a program. So its refusal is **kept
+rather than raised**, dropped the moment the thing holding it is turned into a
+pattern, and raised where an expression can no longer become one. Those two are
+the whole of the cover grammar this parser needs, because the other cover the
+specification has is the arrow parameter list, and that is settled by trying it.
+
+**It found one defect in the lexer, in the place that design was most confident
+about.** `Goal::TemplateContinuation` skipped no trivia, on the stated reasoning
+that everything after the `}` is the template's own text. That is true and it is
+about the wrong side of the brace: the space in `` `${ a }` `` belongs to the
+substitution that has just ended, and the specification's
+`InputElementTemplateTail` lists whitespace, line terminators and comments for
+exactly that reason. Ordinary code would not have parsed. Fixed, with a lexer
+test named for the rule and the finding recorded in `lexer.rs` where somebody
+will read it.
+
+**The evidence is three kinds, and none of them is the other.** A **table**
+(`what_the_parser_makes_of_it.rs`, 23 tests) where the answer is the tree
+printed back as source with every grouping made explicit — `(a + (b * c))` —
+because a wrong precedence, a wrong associativity and a missing node all change
+the parentheses and a reader can check that by eye. **Two frozen scripts**
+(`two_frozen_scripts_parse.rs`): alo's service worker, and alo's theme generator
+frozen here because the first has no `/` in it at all. The generator holds six
+regular expressions and **no division**, which a test asserts by walking the
+whole tree — a pattern read as arithmetic is a different program that parses
+perfectly well, and every other assertion would still have passed. And the
+**hostile** half (`a_program_that_is_hostile.rs`): a nasty corpus cut at every
+character boundary from both ends, both goals, every code point up to U+FFFF as
+a program of its own, and the depth bound from both sides.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1853 tests** (1819 before; 34 new), no stubs, no `unsafe`, every
+boundary held, the licence notice on all nine new files, and `CHANGELOG.md`.
+No layout assertion and no reference render: this iteration positions nothing
+and paints nothing. One file one responsibility: the grammar is six files under
+`parser/` — expressions, statements, binding, functions, properties, classes,
+modules — because a parser that is one file is a file with a reason to change
+for every production.
+
+Clippy earned two changes that are better code rather than lint appeasement,
+and both are recorded because the reason outlives the lint. `Context`'s nine
+booleans became `Inside` (which of six kinds of body), `Home` (what `super` has
+to look in) and `Leaving` — and writing `Leaving` out as *two* facts rather than
+one caught a bug I had not noticed: a `switch` inside a loop is something
+`break` may leave and `continue` may not, so a single "innermost thing" would
+have lost the loop the moment the `switch` was entered. `Function`'s four
+booleans became `FunctionKind`, because `async` and `*` are read together
+everywhere.
+
+**`ROADMAP.md` moved, and it is not a tick.** *Lexer and parser to an AST* gains
+a second `· Built:` clause naming the parser, the arrow decision, the goal
+choice, the refusals and both kinds of evidence, and a new `· Owed:` naming item
+205 — so the line keeps its empty box, because early errors that need a scope
+are part of reading a program and are not built. `docs/features.md` gains two
+lines in a reader's words.
+
+**What the next iteration should know.** The next queue number is **206** and
+the next ADR number is **0014**. Section D's ready items are **71** (the object
+model and a collector) and **205** (cut here). **71 is `needs ADR` in its own
+right** — ADR 0013 § 6 states its problem and deliberately leaves it open — and
+it is on the critical path in a way 205 is not: 72 depends on 71, and every item
+from 73 to 79 is behind 72. `LOOP.md`'s stage 2 clause 4 says a decision is its
+own iteration, so 71's ADR is a whole iteration with no code in it, exactly as
+69's was. Item 205 is the better second choice, and it is not urgent: nothing
+depends on it, and its own content says why each refusal waits for a scope.
+Outside section D, **190** (the two-tone border styles: small, depends on
+nothing, closes with a picture) is still ready.

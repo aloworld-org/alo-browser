@@ -120,7 +120,7 @@ impl<'a> Lexer<'a> {
     /// left where the refusal happened, so a caller that wanted to report more
     /// than one can, and there is nothing it can be asked that panics.
     pub fn next(&mut self, goal: Goal) -> Result<Token, SyntaxError> {
-        let newline_before = self.skip_trivia(goal)?;
+        let newline_before = self.skip_trivia()?;
         let start = self.at;
         let (kind, end) = self.read_one(goal, start)?;
         self.at = end;
@@ -142,14 +142,16 @@ impl<'a> Lexer<'a> {
     /// specification writes that as a restriction on the first character of a
     /// pattern; here it falls out of the order.
     ///
-    /// [`Goal::TemplateContinuation`] skips nothing, because the `}` it is
-    /// looking for is the very next character and everything after it is a
-    /// template's own text — a space inside `` `} x ${ `` is part of the
-    /// string, not trivia.
-    fn skip_trivia(&mut self, goal: Goal) -> Result<bool, SyntaxError> {
-        if goal == Goal::TemplateContinuation {
-            return Ok(false);
-        }
+    /// [`Goal::TemplateContinuation`] skips trivia too, and that is worth
+    /// saying out loud because it looks as though it should not: everything
+    /// after the `}` is a template's own text, so a space inside `` `} x ${ ``
+    /// really is part of the string. But the trivia here comes *before* the
+    /// `}` — it is the space in `` `${ x }` ``, which belongs to the
+    /// substitution that has just ended — and the specification's
+    /// `InputElementTemplateTail` lists whitespace, line terminators and
+    /// comments for exactly that reason. Found by the parser (item 204) on
+    /// the first template it read with a space in it.
+    fn skip_trivia(&mut self) -> Result<bool, SyntaxError> {
         let mut newline = false;
         loop {
             let Some((c, after)) = read::next_char(self.source, self.at) else {

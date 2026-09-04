@@ -117,10 +117,129 @@ pub enum Reason {
     PrivateNameWithoutAName,
     /// A character that begins no token at all.
     UnexpectedCharacter(char),
+    /// The grammar wanted something here and the source has something else.
+    Expected {
+        /// What was wanted, spelled the way it would be written.
+        wanted: &'static str,
+    },
+    /// A token that begins no expression.
+    NotAnExpression,
+    /// A program nested deeper than [`crate::bounds::DEEPEST_NESTING`].
+    TooDeeplyNested {
+        /// How deep a program may be.
+        most: usize,
+    },
+    /// `with (a) b` — refused by ADR 0013 § 3 rather than unimplemented.
+    ///
+    /// It is a statement whose whole purpose is to make a name's meaning
+    /// undecidable until it runs, it exists only in sloppy code, and the
+    /// legacy tail is where the decision put it. A page that uses it is told
+    /// that it is refused, which is why this is a variant of its own rather
+    /// than `with` being read as an undeclared name.
+    WithIsRefused,
+    /// A reserved word written with a `\u` escape in it.
+    ///
+    /// `if` is neither the keyword nor a name — the specification makes it
+    /// an early error so that nobody can smuggle a keyword past a check that
+    /// compared text.
+    KeywordWrittenWithAnEscape(String),
+    /// A word the language keeps for itself, used as a name.
+    ReservedWordAsAName(String),
+    /// Something that cannot be assigned to, on the left of an `=`.
+    NotAnAssignmentTarget,
+    /// A member expression where a declaration wanted a name: `let a.b = 1`.
+    NotSomethingADeclarationCanBind,
+    /// `const a` — a `const` with nothing to be.
+    ConstWithoutAValue,
+    /// `[a] += b` — a destructuring target with an operator other than `=`.
+    ///
+    /// The compound operators read the target before they write it, and there
+    /// is no reading a pattern.
+    PatternNeedsAPlainAssignment,
+    /// `...a` before the end of a parameter list or a pattern.
+    RestMustBeLast,
+    /// `...a = 1` — a rest element with a default, which cannot be missing.
+    RestCannotHaveADefault,
+    /// `import` or `export` in a script.
+    ///
+    /// Which of the two a file is, is the page's to say (see
+    /// [`crate::ast::Source`]) and never ours to infer from what is in it.
+    ModuleDeclarationInAScript,
+    /// `import.meta` in a script.
+    ImportMetaInAScript,
+    /// `return` outside a function.
+    ReturnOutsideAFunction,
+    /// `super` where there is no home object to look in.
+    SuperWhereThereIsNone,
+    /// `new.target` outside a function.
+    NewTargetOutsideAFunction,
+    /// `#a` outside a class body.
+    PrivateNameOutsideAClass,
+    /// `break` or `continue` where there is nothing to leave.
+    NothingToLeave,
+    /// A declaration where only a statement may go: `if (a) let b = 1;`.
+    ///
+    /// A declaration in a body without braces has no scope to belong to. Annex
+    /// B allows one spelling of it in sloppy code, and ADR 0013 § 3 sends
+    /// Annex B to the legacy tail.
+    DeclarationWhereAStatementIsWanted,
+    /// An escape nobody can read, in a template with no tag.
+    ///
+    /// A tagged template may hold anything, because its tag is handed the raw
+    /// text; an untagged one is refused here rather than in the lexer, which
+    /// cannot see whether there is a tag.
+    UnreadableEscapeInATemplate,
+    /// `new a?.b()` — an optional chain where a constructor was wanted.
+    OptionalChainInNew,
+    /// `` a?.b`c` `` — a tagged template in an optional chain.
+    TaggedTemplateInAnOptionalChain,
+    /// `a ?? b || c` — mixing `??` with `&&` or `||` without parentheses.
+    ///
+    /// The specification refuses it rather than choosing a precedence, because
+    /// either choice is one half of every reader gets wrong.
+    CoalesceMixedWithAndOr,
+    /// A class with two `constructor` members, or one that is a getter, a
+    /// setter or a generator.
+    ConstructorIsNotThat,
+    /// The parse could not be given a stack of its own.
+    ///
+    /// See [`crate::bounds::STACK_FOR_A_PARSE`]: the depth bound is only a
+    /// bound because the parser runs on a stack it chose, so a machine that
+    /// cannot make a thread is told no rather than quietly parsed on whatever
+    /// stack the caller happened to have.
+    NoStackOfItsOwn,
+    /// `-a ** b` — a unary operator on the left of a `**`.
+    ///
+    /// Refused rather than given a reading, because `(-a) ** b` and
+    /// `-(a ** b)` are different numbers and a reader cannot tell which was
+    /// meant.
+    PowerAfterAUnary,
+    /// `a => b` written where the `=>` is on the next line.
+    ///
+    /// The grammar forbids a line ending there, so this is not an arrow
+    /// function and there is nothing else it could be.
+    ArrowOnANewLine,
 }
 
 impl std::fmt::Display for Reason {
+    /// Two halves, because there are two things here that refuse: a scanner
+    /// reading characters, and the parser reading tokens. Splitting them is
+    /// what keeps either from being a function nobody can read to the end of.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.what_a_scanner_found(f)? {
+            return Ok(());
+        }
+        self.what_the_parser_found(f)
+    }
+}
+
+impl Reason {
+    /// The message for a refusal that came out of a scanner, and whether it
+    /// was one — nothing is written when it was not.
+    fn what_a_scanner_found(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> Result<bool, std::fmt::Error> {
         match self {
             Self::SourceTooLong { bytes, most } => {
                 write!(
@@ -180,6 +299,80 @@ impl std::fmt::Display for Reason {
             }
             Self::PrivateNameWithoutAName => f.write_str("`#` needs a name after it"),
             Self::UnexpectedCharacter(c) => write!(f, "`{c}` begins nothing"),
+            _ => return Ok(false),
+        }?;
+        Ok(true)
+    }
+
+    /// The message for a refusal that came out of the parser.
+    ///
+    /// The last arm is what a variant added without a message would say. It is
+    /// a true sentence rather than a placeholder, because a `#[non_exhaustive]`
+    /// enum makes the arm compulsory and an empty message is what a reader
+    /// would otherwise be shown.
+    fn what_the_parser_found(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Expected { wanted } => write!(f, "`{wanted}` was wanted here"),
+            Self::NotAnExpression => f.write_str("this begins no expression"),
+            Self::TooDeeplyNested { most } => {
+                write!(f, "nothing here nests more than {most} deep")
+            }
+            Self::WithIsRefused => f.write_str(
+                "`with` is not read here: it makes a name's meaning \
+                 undecidable until the program runs",
+            ),
+            Self::KeywordWrittenWithAnEscape(word) => {
+                write!(
+                    f,
+                    "`{word}` is written with an escape, so it is not the keyword"
+                )
+            }
+            Self::ReservedWordAsAName(word) => write!(f, "`{word}` cannot be a name here"),
+            Self::NotAnAssignmentTarget => f.write_str("this cannot be assigned to"),
+            Self::NotSomethingADeclarationCanBind => {
+                f.write_str("a declaration binds names, and this is not one")
+            }
+            Self::ConstWithoutAValue => f.write_str("a `const` needs a value"),
+            Self::PatternNeedsAPlainAssignment => f.write_str("only `=` can assign to a pattern"),
+            Self::RestMustBeLast => f.write_str("`...` takes what is left, so nothing follows it"),
+            Self::RestCannotHaveADefault => {
+                f.write_str("`...` is never missing, so it has no default")
+            }
+            Self::ModuleDeclarationInAScript => {
+                f.write_str("`import` and `export` belong to a module, and this is a script")
+            }
+            Self::ImportMetaInAScript => {
+                f.write_str("`import.meta` belongs to a module, and this is a script")
+            }
+            Self::ReturnOutsideAFunction => f.write_str("there is nothing here to return from"),
+            Self::SuperWhereThereIsNone => f.write_str("there is no `super` here"),
+            Self::NewTargetOutsideAFunction => {
+                f.write_str("`new.target` needs a function around it")
+            }
+            Self::PrivateNameOutsideAClass => f.write_str("a `#name` belongs to a class"),
+            Self::NothingToLeave => f.write_str("there is nothing here to leave"),
+            Self::DeclarationWhereAStatementIsWanted => {
+                f.write_str("a declaration here would have no scope to belong to — use `{ }`")
+            }
+            Self::UnreadableEscapeInATemplate => {
+                f.write_str("this escape can only be read by a tagged template")
+            }
+            Self::OptionalChainInNew => f.write_str("`new` cannot construct an optional chain"),
+            Self::TaggedTemplateInAnOptionalChain => {
+                f.write_str("a template cannot be tagged inside an optional chain")
+            }
+            Self::CoalesceMixedWithAndOr => {
+                f.write_str("`??` needs parentheses beside `&&` or `||`")
+            }
+            Self::ConstructorIsNotThat => {
+                f.write_str("a class has one `constructor`, and it is a plain method")
+            }
+            Self::NoStackOfItsOwn => {
+                f.write_str("this machine could not give the parser a thread to read on")
+            }
+            Self::PowerAfterAUnary => f.write_str("`**` needs parentheses after a unary operator"),
+            Self::ArrowOnANewLine => f.write_str("a `=>` cannot begin a line"),
+            _ => f.write_str("this is not a program"),
         }
     }
 }

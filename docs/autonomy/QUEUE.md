@@ -1857,7 +1857,7 @@ The long pole, and the thing most of section E is unreachable without.
   reads every code point up to U+FFFF alone: a list of cases finds what somebody
   thought of, and the cuts find what nobody did.
 
-- [ ] **204. The parser, to a syntax tree.** Cut from 70 on the iteration that
+- [x] **204. The parser, to a syntax tree.** Cut from 70 on the iteration that
   built it. Automatic semicolon insertion — for which the lexer already records
   a line ending before every token, and settles nothing else — and the second
   ambiguity item 70 named: an arrow function against a parenthesised expression,
@@ -1875,6 +1875,68 @@ The long pole, and the thing most of section E is unreachable without.
   is why one goal read all of it. A parser needs a case that exercises the
   choice, so **freezing a second script is part of this item** rather than a
   thing to notice half way through.*
+
+  **Done: `alo-js`'s `ast` and `parser`, and every clause of the closing
+  condition.** Both frozen scripts parse, the second one frozen here
+  (`alo-theme-generator`) precisely because the first has no `/` in it: it
+  holds six regular expressions and **no division at all**, which a test
+  asserts by walking the whole tree — a pattern read as arithmetic would be a
+  different program that parses perfectly well, and every other assertion would
+  still have passed.
+
+  **The arrow ambiguity is settled where the item said it would be: on the
+  token stream.** A parameter list is *tried* and the cursor put back when what
+  follows is not `=>`. Trying costs a second read of what is inside the
+  parentheses, and a `(` inside a `(` would pay it again at every level — which
+  is quadratic on a page that chooses how deeply it nests — so a `(` that was
+  not a parameter list is remembered by its offset and never tried twice. The
+  same shape settles four other words the language leaves contextual: `let`,
+  `async`, `static`, and any name before a `:`.
+
+  **The depth bound needed a stack before it could mean anything.** A bound of
+  512 refused nothing on a `cargo test` thread, because two mebibytes is under
+  fifty bracket levels in a debug build and the process aborted before the
+  counter ever reached its ceiling — an abort is not a refusal, and ADR 0013 § 4
+  forbids it outright. So the parse **runs on a thread of its own**
+  (`bounds::STACK_FOR_A_PARSE`, thirty-two mebibytes, measured), which is the
+  same argument every bound in `alo-net` makes: *a limit somebody else chooses
+  is not a limit*. `DEEPEST_NESTING` is 256 and now means the same thing in a
+  debug build, a release build and a renderer.
+
+  **Two refusals are the ones worth reading twice**, because both are places a
+  parser can be quietly wrong rather than loudly: `a ?? b || c` is refused
+  rather than given a precedence, and the tree cannot tell it from
+  `(a || b) ?? c` afterwards — so it is caught while parsing, by the function
+  that knows whether a `||` was written at that level. And `{ a = 1 }` is a
+  pattern rather than an object literal, decided by an `=` that comes *after*
+  the whole of it, so its refusal is **kept rather than raised** and dropped
+  the moment the thing holding it becomes a pattern. That is the whole of the
+  cover grammar this parser needs.
+
+  **It found one defect in item 70's lexer**, in the place the design was most
+  confident: `Goal::TemplateContinuation` skipped no trivia, on the reasoning
+  that everything after the `}` is the template's own text. True, and about the
+  wrong side of the brace — the space in `` `${ a }` `` belongs to the
+  substitution that has just ended, which is why the specification's
+  `InputElementTemplateTail` lists whitespace and comments. Ordinary code would
+  not have parsed. Cut: item 205.
+
+- [ ] **205. The early errors that need a scope, and import attributes.** Cut
+  from 204, which refuses everything a *token stream* can refuse and nothing
+  that needs a table of names. What is owed: a name declared twice in one
+  scope (`let a; let a`), a `let` shadowing itself, a `break outer` naming no
+  label, a `#a` no class declares, a duplicate parameter name in strict code —
+  and the one 204 found in itself, a parameter list read under the strictness
+  in force *before* the `"use strict"` in the body it belongs to. Each is a
+  refusal about a program rather than about its text, which is why none of them
+  is in the parser: a scope is the thing item 71's object model and item 72's
+  compiler both need, and building a second one inside the parser is how the
+  two come to disagree. Import attributes (`import a from "b" with { type:
+  "json" }`) are here for a different reason: an attribute changes how a module
+  is **fetched**, so it is worth taking with the loader that fetches it.
+  *Depends on 204. Closes when:* each refusal above has a test named for the
+  program it refuses, and an attribute reaches the thing that would act on it
+  rather than being parsed and dropped.
 
 - [ ] **71. The object model, and a garbage collector.** Objects, properties,
   prototypes, and something that reclaims them.

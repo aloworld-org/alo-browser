@@ -325,6 +325,26 @@ fn a_template_is_read_in_pieces_the_parser_asks_for() {
 }
 
 #[test]
+fn the_space_before_a_substitutions_closing_brace_belongs_to_the_substitution() {
+    // Found by the parser (queue item 204) on the first template it read with
+    // a space in it. `` `${ a }` `` is ordinary code, and the whitespace here
+    // is on the *substitution's* side of the brace rather than the template's
+    // — which is why `InputElementTemplateTail` lists whitespace, line
+    // terminators and comments, and why this goal skips trivia like the other
+    // two. Everything after the `}` really is the template's own text, and
+    // that is a different question about the same character.
+    let mut lexer = Lexer::new("`a${ b /* between */ }c`").expect("a lexer");
+    let head = lexer.next(Goal::Division).expect("a head");
+    assert_eq!(sketch(&head.kind), r#"template Head raw "a" cooked "a""#);
+    let inside = lexer.next(Goal::RegularExpression).expect("a name");
+    assert_eq!(sketch(&inside.kind), "name b");
+    let tail = lexer
+        .next(Goal::TemplateContinuation)
+        .expect("a tail after the trivia");
+    assert_eq!(sketch(&tail.kind), r#"template Tail raw "c" cooked "c""#);
+}
+
+#[test]
 fn a_template_keeps_what_the_author_wrote_as_well_as_what_it_means() {
     assert_eq!(
         division(r"`a\nb`"),
