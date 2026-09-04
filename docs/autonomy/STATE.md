@@ -7170,3 +7170,112 @@ picture) is ready. 157 and 158 need an interface to ask in, and so does the
 question item 198 stands in for; 187 is deferred for the reason written into it;
 169 must be run on Linux; 60 is HTTP/3; and 197 waits on properties `alo-style`
 does not have.
+
+## Iteration 97 — queue item 67: ADR 0012, every request says what caused it
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 67 is the
+first ready item in stage 2's file order — its one dependency (53) is done, and
+the items above it in section B are finished — and it is marked *needs ADR*. So
+this iteration is the decision and nothing else, which is `LOOP.md`'s stage 2
+rule 4: *"a decision made inside a commit that was mostly code is a decision
+nobody reviewed."* No code was written, deliberately. The number is **0012**,
+which iteration 75 had already worked out was the next free one; the queue entry
+named no number, so nothing had to be corrected. (Item 69 still names "ADR 0006"
+wrongly, and that is the iteration that takes 69 to fix.)
+
+**What the decision had to answer**, in the queue's own words: what is recorded,
+for how long, and who may read it, in the shape of `alo-os` ADR 0001. That
+repository is not checked out here, which `LOOP.md` says must never block an
+item — the shape is taken from **ADR 0002**, which records it in this repository
+as *enumerated, visible, revocable, expiring, recorded*.
+
+**Writing it out found that the question pulls in two directions**, and that is
+the reason the ADR is not short. Attribution is a **claim**, so if the process
+that parsed a hostile page can make it, the record is a sentence somebody else
+composed — and a forgeable record is worse than none, because people believe it.
+But a record of every request is *a record of everywhere somebody has been*,
+which is exactly what ADR 0011 spent five sections being careful about. So the
+interesting half is not what to record. It is what **not to keep**, and who may
+never read what is kept.
+
+**ADR 0012, in the clauses the code now has to carry.**
+
+- **A cause is carried, with no default** — a request that cannot say what
+  caused it does not compile. The same structural shape as ADR 0002's *no verb
+  takes a coordinate*, and for the same reason: the call site added in a hurry
+  is exactly the one that would have omitted it.
+- **Three causes and no fourth**: a person, a document, an agent action. No
+  `Unknown` and no `Internal`, because a category like that does not stay empty:
+  it becomes where the awkward cases go. An engine-made request is attributed
+  to whatever caused the thing it is about, the way `Purpose::Report` already
+  belongs to the load that violated the policy.
+- **It is a chain rather than a label**, and each document records what caused
+  its own load. *Which page* and *which agent action* are two questions with two
+  true answers, and the walk cannot lie about which document it reached because
+  ADR 0003's ids are allocated once and never reused.
+- **The browser process assigns it; a renderer never does.** A renderer states a
+  `Purpose` — it is the only thing that knows a script from a picture — and
+  never a cause. ADR 0005 makes it the process that parsed a stranger's page, so
+  a cause it could state is a cause it could forge into *the person did that*.
+- **Everything for the session, in memory, bounded**; and **only what reaches an
+  agent action is kept until the person deletes it**, under ADR 0011 section 3's
+  rules unchanged, never opened at all for a session-scoped profile, and bounded
+  in **actions rather than bytes** so one busy action cannot evict a week of
+  ordinary ones.
+- **No page and no agent may read it.** No API, ever: a record readable by
+  script is a cross-site history oracle handed out by the browser, which undoes
+  ADR 0007's partitioning and ADR 0011's per-site key in one move. Not the agent
+  either — the record is *about* the agent and kept *for* the person, and one
+  that could read it could read everywhere that person has been and check
+  whether its own actions had been noticed.
+
+**The edge case is named in the ADR rather than left to be discovered.** While a
+verb is being applied, that tab's requests are the agent's — and a page that
+fetches on a timer minutes later is **not**. Widening the window until every
+consequence is captured makes the record true and useless. The precise boundary
+is the task, which the event loop defines (item 76); until scripts exist a
+verb's consequences are immediate, so the rule is writable now.
+
+**What it costs, which is in the ADR rather than left out.** Memory per request
+for the session. A durable file naming sites an agent visited, with ADR 0011's
+honest boundary restated rather than quietly dropped — protected against another
+user account, not against a program running as the person. And friction on
+purpose: every place that makes a request must name a cause, and no default
+rescues anybody from thinking about it.
+
+**Two things it explicitly does not decide**, because a record is not a
+permission: **grants** are items 93 and 133 and owe their own ADRs, and an
+action being recorded must never become the argument that it was authorised.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1678 tests** unchanged, no stubs, no `unsafe`, boundaries held, the
+licence notice, and a `CHANGELOG.md` line. No layout assertion, no reference
+render and no new test — this iteration adds no behaviour to test, which is what
+an ADR-only iteration is. One file one responsibility: the only source file
+touched is `request.rs`, and only its module comment, which now names the four
+clauses of ADR 0012 that land in that file — the decision where the code goes,
+the way `cache.rs` carried ADR 0011's before item 155 was built.
+
+**`ROADMAP.md` moved, and it is not a tick.** The line *"★ Every request
+attributable"* keeps its empty box and gains a `· Built:` clause for the
+decision and an `· Owed:` clause that says plainly that **all** of the code
+remains — nothing today carries a cause. `docs/features.md` gains the same
+distinction on its planned line, so the decision is promised before it is built.
+
+**What the next iteration should know.** Item 67's code is unblocked and is the
+natural next take: its clauses are written down, `alo-net/src/request.rs` is
+where the field goes and says so, and the closing condition is now in the queue
+— every request names its cause with no way to make one that does not, an
+action is reachable from every request that followed from it, and a renderer
+that states a cause is ignored. It is **larger than one iteration**: the field
+and the three causes are one thing, the chain another, and the durable half a
+third. Cut it on starting, into the queue, rather than half-building it.
+
+**Item 69 is the other decision-shaped item** and is the first of section D —
+our own JavaScript engine — and the queue still calls it "ADR 0006", which is
+the supervisor. The next free number is now **0013**. Beyond those, **190** (the
+two-tone border styles: small, depends on nothing, closes with a picture) is
+ready. 157 and 158 need an interface to ask in, and so does the question item
+198 stands in for; 187 is deferred for the reason written into it; 169 must be
+run on Linux; 60 is HTTP/3; and 197 waits on properties `alo-style` does not
+have.

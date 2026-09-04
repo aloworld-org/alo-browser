@@ -360,7 +360,22 @@ unreachable without it.
       `style` attribute and waits only for there to be handlers (queue item 81)
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
 - [ ] WebSocket
-- [ ] ★ **Every request attributable** — which page, and which agent action, caused it. No other engine has needed to answer that, and an agent-driven browser that cannot is one nobody should trust
+- [ ] ★ **Every request attributable** — which page, and which agent action,
+      caused it. No other engine has needed to answer that, and an agent-driven
+      browser that cannot is one nobody should trust · Built: the decision
+      (ADR 0012) — a cause is **carried** on the request with no default rather
+      than reconstructed from a log afterwards, because a guess recorded in the
+      shape of a fact cannot be checked later; there are three causes and no
+      `Unknown`, so an engine-made request belongs to whatever caused the thing
+      it is about; a cause is a **chain**, since which page and which agent
+      action are two questions with two true answers; and the **browser
+      process** assigns it, because a renderer parsed a stranger's page and a
+      cause it could state is a cause it could forge. The record is the
+      session's, in memory, except what an agent did, which is kept until the
+      person deletes it — and **no page and no agent may read any of it**
+      · Owed: all of the code (queue item 67). Nothing today carries a cause;
+      `alo-net`'s request carries a purpose and an origin and says in its own
+      comment that this is coming
 
 ### JavaScript, ours, in Rust
 

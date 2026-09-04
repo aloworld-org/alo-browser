@@ -361,7 +361,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] Content Security Policy, referrer policy, HSTS, mixed-content blocking
 - [2] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
 - [2] WebSocket
-- [2] ★ **Every request attributable** — which page, and which agent action, caused it. No other engine has needed to answer that, and an agent-driven browser that cannot is one nobody should trust
+- [2] ★ **Every request attributable** — which page, and which agent action, caused it. No other engine has needed to answer that, and an agent-driven browser that cannot is one nobody should trust. What is recorded, for how long, and who may read it is a decision rather than a detail, and it is made (ADR 0012): the cause is carried on the request rather than guessed at afterwards, a renderer never states one, the record is the session's except for what an agent did — which is kept until the person deletes it — and no page and no agent may read any of it
 
 ## JavaScript — stage 2
 

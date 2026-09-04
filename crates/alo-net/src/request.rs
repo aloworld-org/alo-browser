@@ -10,6 +10,28 @@
 //! action caused every request. A request that could not say would make both
 //! of those impossible to add later, which is the same argument ADR 0005 makes
 //! about the process boundary.
+//!
+//! # What ADR 0012 lands in this file
+//!
+//! The decision is written and the code is queue item 67's. Four of its clauses
+//! are this file's, and they are here rather than only in `docs/decisions/` so
+//! that whoever adds the field reads them where the field goes:
+//!
+//! - A **cause** beside [`Purpose`], with **no default** — a request that
+//!   cannot say what caused it does not compile. [`Purpose`] says what kind of
+//!   thing is wanted; a cause says who wanted it, and the two are not the same
+//!   question.
+//! - **Three causes and no fourth**: a person, a document, an agent action.
+//!   There is deliberately no `Unknown` — an engine-made request is attributed
+//!   to whatever caused the thing it is about, the way a [`Purpose::Report`]
+//!   already belongs to the load that violated the policy.
+//! - A cause is **a link in a chain**, because *which page* and *which agent
+//!   action* are two questions with two true answers, and a document records
+//!   what caused its own load.
+//! - It is assigned by the **browser process**. A renderer states a
+//!   [`Purpose`], which it is the only thing that knows, and never a cause: it
+//!   parsed a stranger's page (ADR 0005), so a cause it could state is a cause
+//!   it could forge.
 
 use crate::headers::Headers;
 use alo_url::{Origin, Url};

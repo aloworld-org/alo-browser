@@ -6,6 +6,31 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: what this browser records about who caused each request** — and,
+  more to the point, what it refuses to keep and who may never read it
+  (ADR 0012). An agent that acts on somebody's behalf has to be answerable
+  afterwards, which means the browser has to be able to say which page and which
+  agent action caused every request it made. Nothing here does that yet; this is
+  the decision the code will be built to, written before the code so that it can
+  be argued with.
+
+  The cause travels **with** the request rather than being pieced together from
+  a log afterwards, because a reconstruction is a guess and a guess written down
+  in the shape of a fact cannot be checked by anybody later. The part of the
+  page that reads a stranger's bytes never gets to say who caused something —
+  it says what it wants, a script or a picture, and the browser itself says who
+  wanted it, so that a page which has taken over the code that renders it cannot
+  write *the person did that* into somebody's record.
+
+  And the record is kept small on purpose. Everything is held for the session
+  and dies with it; the only part written down is what an **agent** did, kept
+  until the person deletes it, because a record that vanishes when the browser
+  closes cannot answer the one question it exists for. A private window never
+  writes one at all. No page can read any of it — a browser that let a site read
+  that list would be handing out the browsing history it partitions cookies to
+  protect — and neither can the agent, because the record is about the agent and
+  kept for the person. None of it is sent anywhere.
+
 - **A local file and a `data:` page each get a process of their own.** One
   process per site is what keeps one page's data out of another page's reach,
   and the question underneath it is what a *site* is. For an ordinary address

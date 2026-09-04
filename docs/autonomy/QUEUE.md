@@ -1481,8 +1481,26 @@ wrong, which is the argument for the fourth.
 - [ ] **67. ★ Every request attributable** — which page, and **which agent
   action**, caused it. `ROADMAP.md`: *"no other engine has needed to answer
   that, and an agent-driven browser that cannot is one nobody should trust."*
-  *Depends on 53. Needs ADR* — what is recorded, for how long, and who may read
-  it, in the shape of `alo-os` ADR 0001.
+  *Depends on 53. **ADR 0012 is written and accepted** — what is recorded, for
+  how long, and who may read it, in the shape of `alo-os` ADR 0001. (The queue
+  did not name a number and 0012 was the next free one; `alo-os` ADR 0001 is not
+  checked out here, so the shape is taken from ADR 0002, which records it.) The
+  code is what remains, and the ADR names the clauses it must carry: a
+  **cause** on the request with **no default**, so one that cannot say what
+  caused it does not compile; **three causes and no fourth** — a person, a
+  document, an agent action — with engine-made requests attributed to whatever
+  caused the thing they are about rather than to an `Unknown`; a cause is **a
+  link in a chain**, each document recording what caused its own load, because
+  *which page* and *which agent action* are two questions with two true answers;
+  it is assigned by the **browser process** and never by a renderer, which
+  states a [`Purpose`] and never a cause; everything is held **for the session
+  in memory**, and only what reaches an agent action is **kept until the person
+  deletes it**, under ADR 0011 section 3's rules and never opened at all for a
+  session-scoped profile; and **no page and no agent may read it**, ever.
+  *Closes when:* every request the engine makes names its cause and there is no
+  way to make one that does not, an agent's action is reachable from every
+  request that followed from it in a test that walks the chain, and a renderer
+  that states a cause is a renderer that has been ignored.
 
 ## C. Pages that are not ours
 
