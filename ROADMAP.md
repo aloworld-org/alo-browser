@@ -428,6 +428,23 @@ unreachable without it.
 ### JavaScript, ours, in Rust
 
 - [ ] Lexer and parser to an AST — the current language, not ES5
+      · Built: the **lexer** (`alo-js`, queue item 70, cut on starting) — source
+      text into tokens, with the first of the two ambiguities the item names
+      settled rather than guessed: `Lexer::next` **takes a goal symbol every
+      call**, so `/` is division or a regular expression because the parser said
+      which, and a `}` continues a template for the same reason. Everything the
+      modern language spells is read — four bases with separators and `BigInt`,
+      strings as UTF-16 code units so a lone surrogate survives, templates raw
+      and cooked, private names, `ID_Start` identifiers with `\u` escapes
+      remembered as escaped so an escaped reserved word is a name — and the
+      three legacy forms ADR 0013 § 3 refuses are refused **by name**. It never
+      panics: every cut of a hostile corpus, and every code point up to U+FFFF
+      alone, is a token or a refusal with a line and column. Judged against a
+      **frozen real script** in the corpus as well as a table
+      · Owed: the parser and the syntax tree (queue item 204), which is where
+      automatic semicolon insertion and the arrow-against-parenthesis ambiguity
+      land — the lexer records a line ending before every token and settles
+      neither
 - [ ] A bytecode compiler and an interpreter. **Correct first; a JIT much later or never**
       · Built: the decision (ADR 0013, queue item 69) — `alo-js`, ours, in safe
       Rust, **bytecode from the first line of the compiler** because a

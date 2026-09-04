@@ -23,6 +23,19 @@
 //! | `agent.txt` | what an agent reads: roles, names, states, positions |
 //! | `render.png` | everything the others cannot describe |
 //!
+//! # A second kind of frozen thing, beside the cases
+//!
+//! `scripts/` holds **frozen scripts**, one directory each, with an
+//! `origin.txt` saying where it came from and when. They are not cases and
+//! nothing here reads them: a case is a page with an expected box tree and an
+//! expected picture, and nothing renders a service worker. What they share with
+//! a case is the property `LOOP.md` actually asks for — an item is judged
+//! against something real, and that something is **frozen, never fetched**.
+//!
+//! `alo-js`'s tests read them by path rather than through this crate, because
+//! ADR 0013 § 5 gives that crate no dependencies and a route through here would
+//! put the whole renderer behind a lexer.
+//!
 //! # Running it
 //!
 //! `cargo test -p alo-corpus` checks every case.

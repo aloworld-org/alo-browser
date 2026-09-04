@@ -1,0 +1,43 @@
+alo-workplace, web/public/sw.js — alo's own offline-shell service worker.
+
+Taken 2026-09-04 from the `alo-workplace` repository checked out beside this
+one. The bytes here are that file exactly as it stands, unedited. It is served
+verbatim from `public/` to every browser that opens alo, so it is a real page's
+own script rather than something written to be lexed.
+
+Why a script lives in the corpus at all, and why not under `cases/`. A case is
+a directory with a page, its expected box tree and its expected picture, and
+this is none of those: nothing renders a service worker. `LOOP.md`'s rule is
+about the property rather than the directory — an item is opened by something
+real that fails and closed by the same thing working, and what it is judged
+against is **frozen, never fetched**. So `scripts/` is a second kind of frozen
+thing beside `cases/`, and it is read by `alo-js`'s tests rather than by
+`alo-corpus`'s.
+
+Why this script. Freezing it needs nobody's leave — it is ours — and anybody
+can re-derive it. It is hand-written rather than compiled, so what it exercises
+is what a person types: arrow functions, `const`, template-free strings with
+non-ASCII in them (`"alo öffnen"`), optional catch binding (`catch {`),
+nullish coalescing (`??`), object and array literals, method chains,
+`for…of`, and comments in both spellings including one that runs to the end of
+a line inside a call.
+
+## What it found
+
+**Nothing, on the first run, which is the honest report.** Queue item 70 built
+the lexer against a table of hand-written cases first, and this file is what
+says the table was not written to match the code: 670 tokens, no refusal, and
+the `/` question never arises because the script contains no division and no
+regular expression — which its test asserts rather than assumes, since a
+`Divide` in the token stream would mean the goal a caller chose had begun to
+matter and the test would be silently reading a different program.
+
+## What it does not cover, and what will
+
+No regular expression, no `BigInt`, no `label:`, no class with a private
+member, no `\u` escape in a name. Those are in the table beside it
+(`crates/alo-js/tests/what_the_lexer_makes_of_it.rs`), because a frozen page
+proves the lexer meets real code and a table proves it meets the grammar, and
+neither is the other. A second frozen script with a regular expression in it is
+worth taking when an item needs one — the parser (queue item 204) is the first
+that will.

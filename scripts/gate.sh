@@ -50,6 +50,7 @@ declare -a BOUNDARIES=(
   "brotli_decompressor:crates/alo-net/src/decompress.rs"
   "ruzstd:crates/alo-net/src/decompress.rs"
   "sha2:crates/alo-net/src/digest.rs"
+  "unicode_id_start:crates/alo-js/src/unicode.rs"
 )
 
 step "cargo fmt"

@@ -80,6 +80,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "alo-js"
+version = "0.0.0"
+dependencies = [
+ "unicode-id-start",
+]
+
+[[package]]
 name = "alo-layout"
 version = "0.0.0"
 dependencies = [
@@ -1293,6 +1300,12 @@ name = "unicode-ccc"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce61d488bcdc9bc8b5d1772c404828b17fc481c0a582b5581e95fb233aef503e"
+
+[[package]]
+name = "unicode-id-start"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81b79ad29b5e19de4260020f8919b443b2ef0277d242ce532ec7b7a2cc8b6007"
 
 [[package]]
 name = "unicode-ident"

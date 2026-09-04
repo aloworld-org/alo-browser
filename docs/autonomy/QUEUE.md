@@ -1810,12 +1810,71 @@ The long pole, and the thing most of section E is unreachable without.
   mutable memory between threads and is on no list here; and **WebAssembly**,
   which this decision does not put on one.
 
-- [ ] **70. Lexer and parser to a syntax tree** — the language pages actually
-  ship, not ES5. Automatic semicolon insertion, and the grammar that needs a
-  decision rather than a guess: a regular expression against division, an arrow
-  function against a parenthesised expression.
-  *Depends on 69. Closes when:* a frozen page's own script parses, and every
-  ambiguity above is settled at parse time rather than later.
+- [x] **70. The lexer** — the language pages actually ship, not ES5. *Scope cut
+  on starting: the parser and the syntax tree are item 204.* Originally: lexer
+  and parser together, with automatic semicolon insertion and the grammar that
+  needs a decision rather than a guess — a regular expression against division,
+  an arrow function against a parenthesised expression.
+  *Depends on 69. Closes when:* a frozen page's own script tokenises, and the
+  first of those two ambiguities is answerable at the token level rather than
+  guessed at.
+
+  **Done: `alo-js`, and the cut is at the seam the language has.** A lexer turns
+  characters into tokens and a parser turns tokens into a tree; the half taken
+  here is the one a stranger's bytes reach first, and the one where being wrong
+  is being wrong about *what a character is*. The arrow-against-parenthesis
+  ambiguity went with the parser because it is decided by what follows a closing
+  parenthesis — a question about a token stream, not about characters.
+
+  **The interface is the item's own rule made structural.** `Lexer::next` takes
+  a **`Goal` every call**, so `/` is division or a regular expression because
+  the caller said which, and a `}` continues a template for the same reason. It
+  is an argument rather than a mode that is set, because a mode is a thing a
+  caller forgets to change — and there is no heuristic anywhere to fall back on,
+  which is the point: every editor guesses from the previous token and every one
+  of them is wrong on `return /re/` against `x++ /y/z`.
+
+  Two rules fell out of the order rather than needing code. Trivia is skipped
+  **before** the goal is consulted, which is why a pattern can never begin with
+  `/` or `*` — the specification writes that as a lookahead restriction and here
+  those two spellings were simply already taken by a comment. And `<!--` is not
+  refused: Annex B is honoured by **not being implemented**, because `a <!--b`
+  is ordinary modern code meaning `a < !(--b)` and refusing the characters would
+  break a page over a decision about 1996.
+
+  **The one bound is source length, and that is not an oversight** — a lexer has
+  no nesting, so a million open brackets is a million tokens and no recursion.
+  The depth bound belongs to item 204, which is the thing that recurses, and
+  `bounds.rs` says so rather than leaving it to be noticed.
+
+  Judged both ways, because neither is the other: a **frozen real script** —
+  alo's own service worker, `crates/alo-corpus/scripts/alo-service-worker/`, a
+  second kind of frozen thing beside the cases — where the gap between every
+  pair of tokens is itself lexed and must come back empty, so a byte quietly
+  skipped is a failure rather than a tidy token stream with a hole in it; and a
+  table, which is where a grammar decision is settled in numbers. The hostile
+  half cuts a nasty corpus at **every character boundary from both ends** and
+  reads every code point up to U+FFFF alone: a list of cases finds what somebody
+  thought of, and the cuts find what nobody did.
+
+- [ ] **204. The parser, to a syntax tree.** Cut from 70 on the iteration that
+  built it. Automatic semicolon insertion — for which the lexer already records
+  a line ending before every token, and settles nothing else — and the second
+  ambiguity item 70 named: an arrow function against a parenthesised expression,
+  which is decided by what follows the closing parenthesis and is therefore a
+  question about a token stream rather than about characters.
+  *Depends on 70. Closes when:* a frozen page's own script parses; a `}` that
+  ends a template substitution is asked for with `Goal::TemplateContinuation`
+  and one that closes a block is not; a reserved word written with a `\u` escape
+  is refused rather than read as the keyword (the lexer records
+  `Word::escaped` and does nothing with it); `with` is refused by name per
+  ADR 0013 § 3; and nesting has a **depth bound** — the lexer has none because
+  it does not recurse, and this is the item that does.
+
+  *The frozen script the lexer closed on has no regular expression in it, which
+  is why one goal read all of it. A parser needs a case that exercises the
+  choice, so **freezing a second script is part of this item** rather than a
+  thing to notice half way through.*
 
 - [ ] **71. The object model, and a garbage collector.** Objects, properties,
   prototypes, and something that reclaims them.

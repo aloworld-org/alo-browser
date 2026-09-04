@@ -1,0 +1,19 @@
+[package]
+name = "alo-js"
+description = "Our own JavaScript engine (ADR 0013). Today: the lexer."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# ADR 0013 § 5: `alo-js` depends on no I/O crate at all — no network, no
+# filesystem, no clock, no entropy — so that every capability arrives from the
+# embedder and the engine is testable with nothing moving. The one dependency
+# here is a table of Unicode properties, which reaches nothing.
+[dependencies]
+unicode-id-start.workspace = true
+
+[lints]
+workspace = true

@@ -55,6 +55,14 @@ jpeg-decoder = { version = "0.3", default-features = false }
 # pure Rust, with the CPU's own SHA instructions used through `cpufeatures`
 # where there are any.
 sha2 = "0.10"
+# The identifier classes ECMAScript names, rented (ADR 0001, and ADR 0013 § 8
+# lists Unicode tables among the physics an engine does not differ by). It is
+# `unicode-id-start` rather than the more widely used `unicode-ident` because
+# the two answer different questions: `unicode-ident` gives XID_Start and
+# XID_Continue, and ECMAScript's grammar names **ID_Start and ID_Continue**.
+# The difference is a handful of pathological code points, and taking the crate
+# that answers the question asked is cheaper than writing down which ones.
+unicode-id-start = "1.4"
 unicode-linebreak = "0.1"
 unicode-script = "0.5"
 dejavu = "2.37"

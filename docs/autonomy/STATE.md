@@ -7827,3 +7827,147 @@ just as this one was; and item 70's closing condition names *a frozen page's own
 script*, so the corpus needs a case whose script is worth parsing before that
 item can close — no existing case has one. Outside section D, **190** (the
 two-tone border styles) is still ready and depends on nothing.
+
+---
+
+## Iteration 103 — queue item 70: the lexer
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 70 is the
+first buildable item of section D and its dependency — ADR 0013, iteration 102 —
+is met. It is not the first unchecked line in the file, and taking it is stage
+2's rule 3 rather than a preference: 157 and 158 are blocked on an interface to
+ask in, 187 is deferred with the reason written into it, 169 must be *run* on
+Linux, 197 waits on properties `alo-style` does not have, 201 and 203 wait on a
+wiring that does not exist, and 60 is HTTP/3 — which nothing depends on and
+nothing makes reachable, so it is left where it is for the third iteration
+running.
+
+**Cut on starting, and the cut is at the seam the language has.** Item 70 asked
+for a lexer *and* a parser *and* automatic semicolon insertion *and* two
+ambiguities. That is not one iteration at the depth this repository builds at,
+and `LOOP.md` says to cut the scope and write the cut into the queue rather than
+leave a half-built item. So this iteration is **the lexer**, item 70's title and
+closing condition are narrowed to it in the queue with the original wording kept
+above, and the parser is **item 204** — the same shape as items 59, 62 and 63,
+which were each cut on starting.
+
+The seam is the one the language itself has: a lexer turns characters into
+tokens and a parser turns tokens into a tree. The half taken is the one a
+stranger's bytes reach first, and the one where being wrong is being wrong about
+*what a character is*. The arrow-against-parenthesis ambiguity went with the
+parser because it is decided by what follows a closing parenthesis, which is a
+question about a token stream rather than about characters.
+
+**The interface is the item's own rule, made structural.** `Lexer::next` takes a
+**`Goal` every call**. There is no heuristic anywhere and no mode that can be
+left set: `/` is division or a regular expression because the caller said which,
+and `}` continues a template for the same reason. Every editor guesses from the
+previous token and every one of them is wrong on `return /re/` against
+`x++ /y/z` — the failure is not cosmetic, it is that the two readings are
+different programs. `a /b/ g` is asserted both ways in the table, five tokens and
+three, so the thing the design refuses to do is visible as a test.
+
+**Two rules fell out of the order rather than needing code**, and both are
+written into the file that has them. Trivia is skipped *before* the goal is
+consulted, which is why a pattern can never begin with `/` or `*`: those two
+spellings were already taken by a comment. The specification writes that as a
+lookahead restriction on the first character of a pattern; here there was
+nothing to write. And **`<!--` is not refused**. ADR 0013 § 3 sends Annex B to
+the legacy tail, and I started to refuse it by name before noticing that
+`a <!--b` is ordinary modern code meaning `a < !(--b)`. Refusing the characters
+would break a live page over a decision about 1996, which is law 1 backwards.
+Annex B is honoured by **not being implemented** — the characters lex as the
+punctuation they are and a page that meant them as comments fails in the parser.
+
+**The one bound is source length, and that is not an oversight.** A lexer has no
+nesting, so a million open brackets is a million tokens and no recursion — which
+is asserted rather than reasoned about. The depth bound belongs to item 204,
+which is the thing that recurses, and `bounds.rs` says so rather than leaving it
+for somebody to notice its absence and add a second ceiling in the wrong place.
+
+**One rented crate, and it is not the obvious one.** `unicode-id-start` rather
+than `unicode-ident`, which is what the rest of Rust uses: the two answer
+different questions — `XID_Start`/`XID_Continue` against ECMAScript's
+`ID_Start`/`ID_Continue` — and taking the crate that answers the question the
+specification asks costs nothing and leaves no list of exceptions for somebody
+to maintain. `crates/alo-js/src/unicode.rs` is its boundary and
+`scripts/gate.sh` now checks it. The file also records what is *not* rented and
+why: `WhiteSpace` and `LineTerminator` are two short closed lists, and a crate
+for either would be a dependency holding twenty numbers.
+
+**`f64` rounding is where ADR 0013 § 8 turned out to be already discharged in
+one direction and not the other.** The decimal path composes a plain literal and
+hands it to `str::parse::<f64>`, which is correctly rounded and is the standard
+library rather than a crate — so there is nothing to rent. The other three bases
+*cannot* use it (`0x1p3` is a Rust hexadecimal float and not a JavaScript one),
+and a literal with more than fifty-three significant bits has to round **once**.
+So `number::from_power_of_two` walks the bits with a guard and a sticky bit,
+nearest with ties to even, and allocates nothing — a literal is as long as the
+page chose. `0x20000000000001` and `0x20000000000003` are the two cases in the
+table, because they differ only in the parity of the significand and an
+accumulate-as-you-go loop gets exactly one of them right.
+
+**Strings are `Vec<u16>` and that is a correctness decision rather than a
+representation one.** `'\uD800'` is a legal program: one code unit, half a
+surrogate pair, standing for no character. Nothing in the crate goes through
+`char` on the way out of a literal, and the table asserts it — the sketch a test
+compares against falls back to `[U+D800]` when the units are not text, because a
+test that could only show valid text could not tell that case from a refusal.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero errors,
+**1819 tests** (1783 before; 36 new), no stubs, no `unsafe`, every boundary held
+including the new one, the licence notice on all fourteen new files, and a
+`CHANGELOG.md` line. No layout assertion and no reference render: this iteration
+positions nothing and paints nothing. One file one responsibility: fourteen
+files, each named for the one question it answers — `read.rs` is *how source
+text is looked at without indexing into it*, and it exists because a byte offset
+into UTF-8 is the one arithmetic in a lexer that panics.
+
+**The hostile half is stage 2's clause 2 and it is the shape rather than a
+list.** A list of malformed cases finds what somebody thought of. This cuts a
+nasty corpus at **every character boundary, from both ends**, and reads every
+code point up to U+FFFF on its own — deterministic, so a failure is reproducible
+in a way a random fuzzer's is not. It also asserts the lexer *advanced*: a token
+that consumed nothing is an infinite loop on somebody's page, and it is the
+failure a "returns rather than panics" test would otherwise miss entirely.
+
+**The frozen page is alo's own service worker**, and it went in
+`crates/alo-corpus/scripts/` — a second kind of frozen thing beside `cases/`,
+because a case is a page with an expected box tree and an expected picture and
+nothing renders a service worker. What it shares with a case is the property
+`LOOP.md` actually asks for: frozen, never fetched, with `origin.txt` saying
+where it came from and when. `alo-js` reads it **by path** rather than through
+`alo-corpus`, since ADR 0013 § 5 gives that crate no dependencies and a route
+through the corpus would put the whole renderer behind a lexer — and behind a
+dependency cycle, the day the renderer runs script.
+
+The assertion worth reading twice is not the token count. It is that **the gap
+between every pair of neighbouring tokens is itself lexed and must come back
+empty**: a lexer that skipped a character it should have read would otherwise
+produce a perfectly tidy token stream with a hole in it, and every span
+assertion would still pass.
+
+**It found nothing, and `origin.txt` says so** — which is the honest report
+rather than a disappointing one. What it did settle is that reading the whole
+file with one goal is the right reading, because the script has no division and
+no regular expression in it; that is asserted (`no_slash_in_it_means_the_goal_
+never_mattered`) rather than assumed, so the day somebody freezes a script with
+a pattern in it the test fails and says why.
+
+**`ROADMAP.md` moved, and it is not a tick.** *Lexer and parser to an AST* gains
+a `· Built: … · Owed: …` clause and keeps its empty box: the lexer with its goal
+argument, the bounds, the refusals and both kinds of evidence on the Built side;
+the parser, automatic semicolon insertion and the second ambiguity on the Owed
+side, named as item 204. `docs/features.md` gains the same in a reader's words,
+plus a line for the frozen script.
+
+**What the next iteration should know.** The next queue number is **205** and the
+next ADR number is **0014**. Section D's next items are **204** (the parser, cut
+here) and **71** (the object model and a collector), and **71 is `needs ADR` in
+its own right** — ADR 0013 § 6 states its problem and deliberately leaves it
+open. The ordering is worth noticing: 71 blocks 72, so its ADR is on the critical
+path exactly as 69's was, and it is takeable *now* while 204 is a large build.
+Item 204 carries one thing that is easy to lose: **freezing a second script with
+a regular expression in it is part of that item**, because the one in the corpus
+cannot exercise the goal choice. Outside section D, **190** (the two-tone border
+styles: small, depends on nothing, closes with a picture) is still ready.

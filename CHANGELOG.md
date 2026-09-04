@@ -6,6 +6,44 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The first piece of our own JavaScript engine: it can read a script.** Not
+  run one — nothing executes anything yet — but turn the characters somebody
+  wrote into the words and symbols a program is made of, which is where every
+  engine starts and where a surprising amount of what a program *means* is
+  decided.
+
+  The thing worth knowing about it is that **it never guesses**. A `/` in a
+  script is either a division sign or the start of a search pattern, and
+  nothing about the character says which: `a /b/ g` is three divisions or one
+  pattern, and those are different programs. Every code editor in the world
+  guesses, from whatever came before, and every one of them is sometimes wrong
+  — which is why syntax highlighting occasionally turns half a file the colour
+  of a string. Here nothing guesses: whatever asks for the next word says which
+  of the two it is expecting, every single time, so the question is answered by
+  the part of the engine that actually knows.
+
+  It reads what people write this decade: numbers in four bases, with the
+  underscores that make a million readable and the whole-number kind that has
+  no ceiling; text as the browser really stores it, so a half-character from an
+  emoji survives being read rather than being quietly repaired; strings with
+  code slotted into them, keeping both what the author typed and what it means;
+  names in any writing system Unicode has. Three ancient forms that mean
+  something different from what they look like — a number written `0755` being
+  the first — are **refused by name**, with a message saying what to write
+  instead, rather than read as something the person did not intend.
+
+  And it does not fall over. A script is a stranger's bytes, sent by whoever
+  owns the page; a file cut off in the middle of a piece of text, a hundred
+  thousand open brackets, a broken escape at the last byte — every one of them
+  is an answer saying what is wrong and on which line, never a browser that
+  stops. A tab that dies on a malformed script is a page that can take itself
+  down deliberately.
+
+  It is judged against a real script as well as against examples: alo's own
+  offline worker, frozen into the test corpus exactly as it is served, so what
+  the reader is measured on is code somebody wrote for a different purpose
+  rather than code written to match it.
+
 - **Decided: this browser writes its own JavaScript engine** (ADR 0013). It is
   the largest single component of a browser and the thing most of the rest of
   the web needs, so what it will be — and what it will not — is written down
