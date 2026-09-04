@@ -301,7 +301,7 @@ impl<T> Heap<T> {
     /// the reference was made. For a reference the engine believed was strong
     /// that is the internal error of ADR 0014 § 3 — ours rather than a page's —
     /// and the thing that turns it into an error a script sees is the
-    /// interpreter, because only it has a script to end (queue item 72). Under
+    /// interpreter, because only it has a script to end. Under
     /// test it is [`Broken::StaleEdges`], loudly.
     pub fn get(&self, held: Ref) -> Option<&T> {
         if self.generations.get(held.index()).copied() != Some(held.generation()) {

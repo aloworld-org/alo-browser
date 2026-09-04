@@ -144,8 +144,12 @@ pub enum Missing {
     /// A property was read from a string, a number, a boolean or a symbol,
     /// which needs the wrapper objects the builtins bring (queue item 73).
     AWrapperObject,
-    /// Something has to be called: an accessor property's getter or setter, or
-    /// anything else with a `[[Call]]` (queue item 209).
+    /// An accessor property's getter or setter had to be called, which means
+    /// re-entering the interpreter from inside an instruction (queue item 214).
+    ///
+    /// Calling an ordinary function is built (queue item 209); what is not is
+    /// calling one *while a property access is half done*, which is what a
+    /// getter, a setter and a proxy's trap all are.
     ACall,
 }
 
@@ -158,7 +162,7 @@ impl fmt::Display for Missing {
             ),
             Missing::ACall => write!(
                 out,
-                "this needs to call a function, which is queue item 209"
+                "reading or writing this property means calling a function part way through, which is queue item 214"
             ),
         }
     }
@@ -332,7 +336,7 @@ mod tests {
         assert!(
             Escape::NotBuiltYet(Missing::ACall)
                 .to_string()
-                .contains("209")
+                .contains("214")
         );
         assert!(
             Escape::NotBuiltYet(Missing::AWrapperObject)

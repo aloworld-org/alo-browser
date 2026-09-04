@@ -7,7 +7,9 @@
 //! ADR 0013 § 2: **bytecode from the first line of the compiler**, because a
 //! frame that can be suspended and resumed is the shape generators, `async` and
 //! a debugger all need, and it is not a thing to retrofit into a tree walker.
-//! This file is the instruction set and [`Chunk`] is what a program compiles to.
+//! This file is the instruction set and [`Chunk`] is what **one** body — a
+//! script, or a function — compiles to. The program they belong to is a
+//! [`Unit`](crate::unit::Unit), which holds them and the strings they name.
 //!
 //! # An enum rather than bytes, and why that is still bytecode
 //!
@@ -21,12 +23,30 @@
 //! bytes later changes no behaviour — the same argument ADR 0013 § 2 makes for
 //! [`Value`](crate::object::Value) being an enum.
 //!
+//! # Two places a name can live, and the instructions say which
+//!
+//! A **frame slot** ([`Op::Load`]) is a place in the interpreter's stack that
+//! belongs to the body running now: a block's `let`, and the temporaries the
+//! compiler takes for a `switch`'s discriminant or an `a.b++`. It dies with the
+//! call, which is what makes it a slot rather than a cell.
+//!
+//! A **binding** ([`Op::LoadBinding`]) is a place in an *environment*, which is
+//! a cell in the heap that a closure keeps alive after the call that made it has
+//! returned. A function's parameters, its `var`s and its body-level `let`s are
+//! bindings, and `hops` says how many function environments out to walk.
+//!
+//! Two mechanisms rather than one because only the second can be captured, and
+//! **a block's binding cannot be captured yet** — queue item 216, refused by
+//! name in the compiler rather than compiled into something that shares one slot
+//! between iterations.
+//!
 //! # What is *not* in an instruction
 //!
 //! **No heap references.** A chunk is compiled with no heap in sight and could
-//! be compiled once and run in two realms, so a string constant is code units
-//! here and becomes a cell when a run starts. That is also what keeps a chunk
-//! outside the collector's business entirely: there is no edge in it to trace.
+//! be compiled once and run in two realms, so a string constant is an index into
+//! its unit's pool here and becomes a cell when a run starts. That is also what
+//! keeps a chunk outside the collector's business entirely: there is no edge in
+//! it to trace.
 //!
 //! **No source text.** Every instruction carries the byte offset it came from
 //! ([`Chunk::at`]) and nothing else, which is what a `ReferenceError` points at
@@ -38,9 +58,9 @@ use crate::operate::Simple;
 /// One instruction.
 ///
 /// The operand stack is where values are, and each variant says what it takes
-/// off it and what it leaves. A `u32` operand is an index — into
-/// [`Chunk::texts`], into the frame's slots, or into the code itself for a jump
-/// — and never a heap reference.
+/// off it and what it leaves. A `u32` operand is an index — into the unit's
+/// texts, into the frame's slots, into an environment, or into the code itself
+/// for a jump — and never a heap reference.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Op {
     /// Push the string constant at this index.
@@ -78,8 +98,31 @@ pub enum Op {
     /// evaluated, because the language evaluates it before it complains.
     RefuseAssignment(u32),
 
-    /// Read a name that is not a frame slot: a realm's lexical binding, then a
-    /// property of the global object, then a `ReferenceError`.
+    /// Read a binding of an environment, `hops` function environments out from
+    /// the one the running call was given.
+    LoadBinding {
+        /// How many environments out.
+        hops: u32,
+        /// Which binding of it.
+        slot: u32,
+    },
+    /// Write one, leaving the value on the stack.
+    StoreBinding {
+        /// How many environments out.
+        hops: u32,
+        /// Which binding of it.
+        slot: u32,
+    },
+    /// Give one its first value, taking it off the stack.
+    InitializeBinding {
+        /// How many environments out.
+        hops: u32,
+        /// Which binding of it.
+        slot: u32,
+    },
+
+    /// Read a name that is not a slot or a binding: a realm's lexical binding,
+    /// then a property of the global object, then a `ReferenceError`.
     LoadGlobal(u32),
     /// Write one, with the same order and with sloppy mode's rule that an
     /// unresolvable name becomes a global property.
@@ -135,6 +178,18 @@ pub enum Op {
     /// that is not a property at all.
     SetPrototype,
 
+    /// Make a function from the chunk at this index of the unit, closing over
+    /// the environment the running call was given.
+    Closure(u32),
+    /// Push the `this` of the running call.
+    This,
+    /// Call something. The stack holds the callee, the `this` it was reached
+    /// through, and then this many arguments — and all of it is taken off and
+    /// replaced by the answer.
+    Call(u32),
+    /// Leave a function with the value on top of the stack as its answer.
+    Return,
+
     /// Go to this instruction.
     Jump(u32),
     /// Go there if the top of the stack is falsy, taking it off either way.
@@ -163,24 +218,29 @@ pub enum Op {
     Throw,
 }
 
-/// A compiled program.
+/// One body's compiled instructions.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Chunk {
     code: Vec<Op>,
     at: Vec<usize>,
-    texts: Vec<Vec<u16>>,
+    named: Vec<(u32, u32)>,
     locals: usize,
     slot_names: Vec<Option<u32>>,
+    bindings: usize,
+    parameters: usize,
+    own_name: Option<u32>,
+    own_slot: Option<u32>,
+    arrow: bool,
     vars: Vec<u32>,
     lexical: Vec<Lexical>,
     strict: bool,
 }
 
-/// One `let` or `const` a program declares at its top level.
+/// One `let` or `const` a **script** declares at its top level.
 ///
-/// These do not become frame slots: they belong to the **realm**, because a
-/// second script in the same page sees them and a frame does not outlive its
-/// script.
+/// These do not become frame slots or bindings: they belong to the **realm**,
+/// because a second script in the same page sees them and neither a frame nor an
+/// environment outlives its script.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Lexical {
     /// Which text names it.
@@ -190,12 +250,34 @@ pub struct Lexical {
 }
 
 impl Chunk {
-    /// An empty chunk for a program of this strictness.
-    pub fn new(strict: bool) -> Self {
+    /// A chunk with nothing in it at all.
+    ///
+    /// `const` so that [`Unit`](crate::unit::Unit) can name one without
+    /// allocating: it is what a unit missing its script chunk would answer
+    /// with, which cannot happen, and saying so this way costs no `unwrap`.
+    pub const fn empty() -> Self {
         Self {
-            strict,
-            ..Self::default()
+            code: Vec::new(),
+            at: Vec::new(),
+            named: Vec::new(),
+            locals: 0,
+            slot_names: Vec::new(),
+            bindings: 0,
+            parameters: 0,
+            own_name: None,
+            own_slot: None,
+            arrow: false,
+            vars: Vec::new(),
+            lexical: Vec::new(),
+            strict: false,
         }
+    }
+
+    /// An empty chunk for a body of this strictness.
+    pub const fn new(strict: bool) -> Self {
+        let mut chunk = Self::empty();
+        chunk.strict = strict;
+        chunk
     }
 
     /// The instructions.
@@ -216,35 +298,70 @@ impl Chunk {
         self.at.get(pc).copied().unwrap_or_default()
     }
 
-    /// The string constants, in the order the instructions index them.
-    pub fn texts(&self) -> &[Vec<u16>] {
-        &self.texts
-    }
-
-    /// The text at an index, for a message that names it.
-    pub fn text(&self, at: u32) -> Option<&[u16]> {
-        self.texts.get(usize::try_from(at).ok()?).map(Vec::as_slice)
-    }
-
-    /// How many slots a frame running this needs, above the one the completion
-    /// value lives in.
+    /// How many frame slots a call running this needs, above the completion
+    /// value and the `this` that sit below them.
     pub fn locals(&self) -> usize {
         self.locals
     }
 
-    /// The `var` names to put on the global object before anything runs.
+    /// How many bindings its environment holds: its parameters, its `var`s,
+    /// its body-level `let` and `const`, and the functions it declares.
+    pub fn bindings(&self) -> usize {
+        self.bindings
+    }
+
+    /// How many of those bindings are parameters, which are the ones a call
+    /// fills in from its arguments.
+    ///
+    /// They are bindings `0..parameters()`, in the order they were written.
+    pub fn parameters(&self) -> usize {
+        self.parameters
+    }
+
+    /// The binding a named function expression's own name is, if it has one.
+    ///
+    /// `(function f() { return f; })` can see itself, and it can see itself
+    /// **before** anything has assigned it anywhere, so the binding is filled in
+    /// by the call rather than by an instruction.
+    pub fn own_slot(&self) -> Option<u32> {
+        self.own_slot
+    }
+
+    /// The text that names this function, where it has one.
+    pub fn own_name(&self) -> Option<u32> {
+        self.own_name
+    }
+
+    /// Whether this body was written as an arrow, which is the one thing that
+    /// changes what `this` is.
+    ///
+    /// An arrow has no `this` of its own, so the one where it was **written**
+    /// is captured when the function is made rather than decided when it is
+    /// called — and it is captured whether the body says `this` or not, because
+    /// an arrow nested inside it may say it after this frame has gone.
+    pub fn is_arrow(&self) -> bool {
+        self.arrow
+    }
+
+    /// Say that this body was written as an arrow.
+    pub fn make_arrow(&mut self) {
+        self.arrow = true;
+    }
+
+    /// The `var` names to put on the global object before anything runs. A
+    /// script's only; a function's `var`s are bindings.
     pub fn vars(&self) -> &[u32] {
         &self.vars
     }
 
     /// The `let` and `const` names to declare in the realm before anything
-    /// runs.
+    /// runs. A script's only, for the same reason.
     pub fn lexical(&self) -> &[Lexical] {
         &self.lexical
     }
 
     /// Whether this is strict code, which changes what an assignment to an
-    /// unresolvable name does.
+    /// unresolvable name does and what a plain call's `this` is.
     pub fn strict(&self) -> bool {
         self.strict
     }
@@ -289,31 +406,17 @@ impl Chunk {
         }
     }
 
-    /// The index of these code units among the constants, adding them if they
-    /// are new.
-    ///
-    /// Shared rather than repeated, which matters more than it looks: every
-    /// property name and every global name is a text, so a loop reading `a.b`
-    /// has one entry rather than one per instruction, and the run that turns
-    /// texts into heap strings makes one string.
-    pub fn text_index(&mut self, units: &[u16]) -> Option<u32> {
-        if let Some(at) = self.texts.iter().position(|held| held == units) {
-            return u32::try_from(at).ok();
-        }
-        let at = u32::try_from(self.texts.len()).ok()?;
-        self.texts.push(units.to_vec());
-        Some(at)
-    }
-
     /// The name of a frame slot, where it has one.
     ///
     /// A binding's slot does; a slot the compiler took to hold a `switch`'s
     /// discriminant or the old value of an `a.b++` does not. It is here so that
     /// a `ReferenceError` about a dead zone can say *which* binding, which is
     /// the difference between a message somebody can act on and one they cannot.
-    pub fn slot_name(&self, slot: u32) -> Option<&[u16]> {
-        let which = *self.slot_names.get(usize::try_from(slot).ok()?)?;
-        self.text(which?)
+    pub fn slot_name(&self, slot: u32) -> Option<u32> {
+        self.slot_names
+            .get(usize::try_from(slot).ok()?)
+            .copied()
+            .flatten()
     }
 
     /// Say which name a slot holds.
@@ -324,6 +427,36 @@ impl Chunk {
         {
             *held = Some(name);
         }
+    }
+
+    /// The name the instruction at `pc` reads, where it reads one.
+    ///
+    /// A binding lives in another chunk's environment, so there is no table of
+    /// names this chunk could look it up in — the *instruction* is what knows
+    /// which name it was compiled from. Kept sparsely, because only the
+    /// instructions that can report a dead zone need it and the answer is only
+    /// ever wanted on the way to an error.
+    pub fn name_at(&self, pc: usize) -> Option<u32> {
+        let pc = u32::try_from(pc).ok()?;
+        let at = self.named.binary_search_by_key(&pc, |(had, _)| *had).ok()?;
+        self.named.get(at).map(|(_, name)| *name)
+    }
+
+    /// Say which name the instruction at `pc` reads.
+    ///
+    /// Called in increasing order of `pc`, because instructions are emitted in
+    /// order — which is what lets [`Chunk::name_at`] search rather than scan. An
+    /// entry out of order is dropped rather than stored, since a table that is
+    /// not sorted would answer a later question wrongly and this one only ever
+    /// improves a message.
+    pub fn name_instruction(&mut self, pc: usize, name: u32) {
+        let Ok(pc) = u32::try_from(pc) else {
+            return;
+        };
+        if self.named.last().is_some_and(|(had, _)| *had >= pc) {
+            return;
+        }
+        self.named.push((pc, name));
     }
 
     /// Take a frame slot, which is never given back — a block that has ended
@@ -340,7 +473,25 @@ impl Chunk {
         Some(at)
     }
 
-    /// Record a `var` this program declares.
+    /// Take a binding of this body's environment.
+    pub fn take_binding(&mut self) -> Option<u32> {
+        let at = u32::try_from(self.bindings).ok()?;
+        self.bindings = self.bindings.saturating_add(1);
+        Some(at)
+    }
+
+    /// Say how many of the bindings taken so far are parameters.
+    pub fn count_parameters(&mut self, how_many: usize) {
+        self.parameters = how_many;
+    }
+
+    /// Say which binding holds this function's own name, and what that name is.
+    pub fn name_itself(&mut self, name: u32, slot: Option<u32>) {
+        self.own_name = Some(name);
+        self.own_slot = slot;
+    }
+
+    /// Record a `var` this script declares.
     pub fn declare_var(&mut self, name: u32) {
         if !self.vars.contains(&name) {
             self.vars.push(name);
@@ -358,15 +509,6 @@ mod tests {
     use super::{Chunk, Op};
 
     #[test]
-    fn a_text_is_kept_once_however_often_it_is_named() {
-        let mut chunk = Chunk::new(false);
-        let units: Vec<u16> = "a".encode_utf16().collect();
-        assert_eq!(chunk.text_index(&units), Some(0));
-        assert_eq!(chunk.text_index(&units), Some(0));
-        assert_eq!(chunk.texts().len(), 1);
-    }
-
-    #[test]
     fn a_jump_is_patched_and_anything_else_refuses_to_be() {
         let mut chunk = Chunk::new(false);
         let jump = chunk.emit(Op::Jump(0), 7);
@@ -376,5 +518,30 @@ mod tests {
         assert!(!chunk.patch(other, 12), "a Pop is not a jump");
         assert!(!chunk.patch(99, 12), "and neither is nothing");
         assert_eq!(chunk.at(jump), 7);
+    }
+
+    #[test]
+    fn an_instructions_name_is_found_and_an_unnamed_one_answers_nothing() {
+        let mut chunk = Chunk::new(false);
+        chunk.name_instruction(2, 7);
+        chunk.name_instruction(5, 9);
+        // Out of order, so it is dropped rather than left unsorted.
+        chunk.name_instruction(3, 11);
+        assert_eq!(chunk.name_at(2), Some(7));
+        assert_eq!(chunk.name_at(5), Some(9));
+        assert_eq!(chunk.name_at(3), None);
+        assert_eq!(chunk.name_at(0), None);
+    }
+
+    #[test]
+    fn slots_and_bindings_are_counted_apart() {
+        let mut chunk = Chunk::new(false);
+        assert_eq!(chunk.take_slot(), Some(0));
+        assert_eq!(chunk.take_binding(), Some(0));
+        assert_eq!(chunk.take_binding(), Some(1));
+        assert_eq!(chunk.locals(), 1);
+        assert_eq!(chunk.bindings(), 2);
+        chunk.count_parameters(1);
+        assert_eq!(chunk.parameters(), 1);
     }
 }

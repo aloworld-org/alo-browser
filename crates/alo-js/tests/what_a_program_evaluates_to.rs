@@ -405,19 +405,25 @@ fn what_the_language_says_and_this_engine_has_not_built() {
     // ADR 0013 § 3: absent beats approximate. Each of these names the queue
     // item that builds it rather than producing something plausible.
     for (source, item) in [
-        ("f()", "209"),
-        ("function f() {}", "209"),
-        ("(() => 1)", "209"),
-        ("class A {}", "209"),
-        ("this", "209"),
+        ("new f()", "212"),
+        ("class A {}", "212"),
+        ("function f(a = 1) {}", "213"),
+        ("function f(...a) {}", "213"),
+        ("function f(a, a) {}", "213"),
+        ("function f() { return arguments; }", "213"),
+        ("({ get a() { return 1; } })", "214"),
+        ("f`a`", "215"),
+        ("{ let a = 1; (function () { return a; }); }", "216"),
         ("try { 1; } catch {}", "210"),
         ("[1]", "211"),
         ("let [a] = b;", "211"),
         ("for (const a in b) {}", "211"),
         ("for (const a of b) {}", "211"),
+        ("f(...a)", "211"),
         ("/a/.test", "74"),
         ("1n", "207"),
-        ("function* g() {}", "209"),
+        ("function* g() {}", "75"),
+        ("async function g() {}", "75"),
     ] {
         let answered = value(source);
         assert!(
@@ -425,6 +431,185 @@ fn what_the_language_says_and_this_engine_has_not_built() {
             "{source} should name queue item {item}: {answered}"
         );
     }
+}
+
+#[test]
+fn calling_things() {
+    table(&[
+        // A function is a value, and calling it is what it is for.
+        ("function f() { return 1; } f()", "1"),
+        ("(function () { return 1; })()", "1"),
+        ("(function () {})()", "undefined"),
+        // A function declaration is readable above the line that declares it,
+        // which a `let` is not — that is the whole of what hoisting means.
+        ("let n = f(); function f() { return 2; } n", "2"),
+        // Arguments, in order, with the missing and the spare ones both
+        // specified rather than an error.
+        ("function f(a, b) { return a - b; } f(5, 2)", "3"),
+        ("function f(a, b) { return b; } f(1)", "undefined"),
+        ("function f(a) { return a; } f(1, 2, 3)", "1"),
+        // An arrow, with a body and with an expression.
+        ("((a, b) => a + b)(1, 2)", "3"),
+        ("((a) => { return a * 2; })(21)", "42"),
+        ("(() => 1)()", "1"),
+        // Recursion, which needs the name to be readable inside the body.
+        (
+            "function fact(n) { return n < 2 ? 1 : n * fact(n - 1); } fact(10)",
+            "3628800",
+        ),
+        // A function expression can see itself under its own name, and that
+        // name is nowhere else.
+        (
+            "let f = function me(n) { return n < 1 ? 0 : n + me(n - 1); }; f(3)",
+            "6",
+        ),
+        ("typeof (function me() {})", "\"function\""),
+        ("let f = function me() {}; typeof me", "\"undefined\""),
+        // `typeof` is the one place a function is not just an object.
+        ("typeof (function () {})", "\"function\""),
+        ("typeof (() => 1)", "\"function\""),
+        ("typeof {}", "\"object\""),
+        // Calling what is not a function is the page's own mistake, and it is
+        // the commonest one there is.
+        (
+            "let a = 1; a()",
+            "! TypeError: 1 is not a function (at byte 11)",
+        ),
+        (
+            "({}).nothing()",
+            "! TypeError: undefined is not a function (at byte 0)",
+        ),
+    ]);
+}
+
+#[test]
+fn a_function_body_has_its_own_names() {
+    table(&[
+        // A `var` in a function is the function's, not the global object's.
+        (
+            "function f() { var a = 1; return a; } f(); typeof a",
+            "\"undefined\"",
+        ),
+        // And it is readable above its line, as `undefined`.
+        (
+            "function f() { let n = typeof a; var a = 1; return n; } f()",
+            "\"undefined\"",
+        ),
+        // A `let` in a function body has a dead zone like anywhere else.
+        (
+            "function f() { return a; let a = 1; } f()",
+            "! ReferenceError: 'a' is used before it is declared (at byte 22)",
+        ),
+        // A parameter and a `var` of the same name are one place.
+        ("function f(a) { var a; return a; } f(7)", "7"),
+        // A block inside a function still has its own slots.
+        (
+            "function f() { let a = 1; { let a = 2; } return a; } f()",
+            "1",
+        ),
+        // A name nothing declares is still the realm's.
+        ("var outside = 3; function f() { return outside; } f()", "3"),
+        // A function declared inside a function is that function's.
+        (
+            "function f() { function g() { return 4; } return g(); } f(); typeof g",
+            "\"undefined\"",
+        ),
+    ]);
+}
+
+#[test]
+fn closures_keep_the_names_they_were_written_beside() {
+    table(&[
+        // The counter, which is the whole reason an environment outlives its
+        // call: `n` is gone from the stack and still readable.
+        (
+            "function make() { var n = 0; return function () { n = n + 1; return n; }; } \
+             let c = make(); c(); c(); c()",
+            "3",
+        ),
+        // Two closures over two calls are two `n`s.
+        (
+            "function make() { var n = 0; return function () { n = n + 1; return n; }; } \
+             let a = make(); let b = make(); a(); a(); b()",
+            "1",
+        ),
+        // Two closures over **one** call share it.
+        (
+            "function make() { var n = 0; \
+               return { up: function () { n = n + 1; return n; }, read: function () { return n; } }; } \
+             let m = make(); m.up(); m.up(); m.read()",
+            "2",
+        ),
+        // Two environments out, which is what `hops` counts.
+        (
+            "function a() { var x = 5; return function b() { return function c() { return x; }; }; } \
+             a()()()",
+            "5",
+        ),
+        // A parameter is a binding like any other, so it is captured too.
+        (
+            "function adder(by) { return function (n) { return n + by; }; } adder(3)(4)",
+            "7",
+        ),
+    ]);
+}
+
+#[test]
+fn this_is_decided_where_the_call_is_made_and_an_arrow_has_none() {
+    table(&[
+        // A method call passes the object it was reached through.
+        (
+            "let o = { x: 5, get: function () { return this.x; } }; o.get()",
+            "5",
+        ),
+        ("let o = { x: 5, get() { return this.x; } }; o.get()", "5"),
+        (
+            "let o = { x: 5, get: function () { return this.x; } }; let f = o.get; f()",
+            "undefined",
+        ),
+        // A computed member call passes it too.
+        (
+            "let o = { x: 6, m: function () { return this.x; } }; o['m']()",
+            "6",
+        ),
+        // Sloppy code with no receiver gets the global object, and strict code
+        // gets `undefined` — which is most of what `\"use strict\"` is for.
+        ("function f() { return this === globalThis; } f()", "true"),
+        (
+            "'use strict'; function f() { return typeof this; } f()",
+            "\"undefined\"",
+        ),
+        // An arrow has no `this` of its own, so it uses the one where it was
+        // written — and that is what makes it usable inside a method.
+        (
+            "let o = { x: 7, m: function () { let g = () => this.x; return g(); } }; o.m()",
+            "7",
+        ),
+        // Even when it is called as a method of something else.
+        (
+            "let o = { x: 8, m: function () { return () => this.x; } }; \
+             let other = { x: 9, f: o.m() }; other.f()",
+            "8",
+        ),
+        // A script's own `this` is the global object.
+        ("this === globalThis", "true"),
+    ]);
+}
+
+#[test]
+fn an_optional_call_short_circuits_the_whole_chain() {
+    table(&[
+        ("let o = { m: function () { return 1; } }; o.m?.()", "1"),
+        ("let o = {}; o.m?.()", "undefined"),
+        ("let o = {}; o.m?.().a.b", "undefined"),
+        ("let f = null; f?.()", "undefined"),
+        ("let o = null; o?.m()", "undefined"),
+        // The receiver is still the object it was reached through.
+        (
+            "let o = { x: 2, m: function () { return this.x; } }; o?.m()",
+            "2",
+        ),
+    ]);
 }
 
 #[test]

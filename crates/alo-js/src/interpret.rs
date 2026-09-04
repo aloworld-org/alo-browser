@@ -22,10 +22,10 @@
 //!
 //! # The layout of one run's slots
 //!
-//! Slot zero is the **completion value** — what the program evaluates to —
-//! which is in the stack rather than in a Rust local for the same reason as
-//! everything else. Then the frame's own slots, one per binding the compiler
-//! gave one to. Then the operands.
+//! Slot zero is the **completion value** — what the program evaluates to — and
+//! slot one is the script's `this`. Then the script's frame slots, then its
+//! operands, and then, above those, one call's worth of things per call that
+//! has not returned. The `frame` module is what that shape is, drawn.
 //!
 //! # It does not recurse, and that is a property rather than an accident
 //!
@@ -33,7 +33,9 @@
 //! page chooses how much stack this process uses. A loop over a flat array of
 //! instructions does not: the deepest expression in the world is a taller
 //! *stack of values*, which is bounded by [`bounds::VALUES_ON_THE_STACK`] and
-//! costs no frames at all.
+//! costs no frames at all. **A call is the same** — it is a frame pushed on
+//! to a list and a jump back to the same loop, so a recursion that will not end
+//! is a `RangeError` the page can catch rather than a process that stops.
 //!
 //! # Stopping is the embedder's, and there is no clock in here
 //!
@@ -44,19 +46,26 @@
 //! jump, which is the only way a program can run for ever, and it costs a read
 //! of a flag per iteration rather than per instruction.
 
+mod call;
+mod frame;
+
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::abrupt::{Escape, Internal, Missing, Thrown};
 use crate::ast::Program;
 use crate::bounds;
-use crate::code::{Chunk, Op};
+use crate::code::Op;
 use crate::compile::{self, Refusal};
 use crate::convert::{self, Names};
 use crate::heap::{Ref, Root};
 use crate::object::{Found, Held, Key, Objects, Property, Set, Value};
 use crate::operate::{self, Simple};
 use crate::realm::{Realm, Resolved};
+use crate::unit::Unit;
+
+use frame::{Frame, Run};
 
 /// The switch an embedder throws to stop a script.
 ///
@@ -178,18 +187,23 @@ impl Engine {
     /// [`Trouble`], which is either a program that did not compile or a run
     /// that ended some other way.
     pub fn evaluate(&mut self, program: &Program) -> Result<Value, Trouble> {
-        let chunk = compile::compile(program).map_err(Trouble::NotCompiled)?;
-        self.run(&chunk).map_err(Trouble::Escaped)
+        let unit = Rc::new(compile::compile(program).map_err(Trouble::NotCompiled)?);
+        self.run(&unit).map_err(Trouble::Escaped)
     }
 
     /// Run a compiled program.
+    ///
+    /// The program is shared rather than borrowed because a function outlives
+    /// the run that made it: `function f() {}` in one script and `f()` in the
+    /// next is two runs over one [`Unit`], and the second reaches code the first
+    /// compiled.
     ///
     /// # Errors
     ///
     /// [`Escape`]: the script threw, the engine reached something it has not
     /// built, the heap filled, the embedder stopped it, or this engine has a
     /// bug.
-    pub fn run(&mut self, chunk: &Chunk) -> Result<Value, Escape> {
+    pub fn run(&mut self, unit: &Rc<Unit>) -> Result<Value, Escape> {
         let stack = self
             .objects
             .slots()
@@ -201,7 +215,7 @@ impl Engine {
             .map_err(|why| Escape::refused(why, 0))?;
         let constants = self.objects.heap_mut().root(constants);
 
-        let outcome = self.run_rooted(chunk, &stack, &constants);
+        let outcome = self.run_rooted(unit, &stack, &constants);
 
         // The value goes back to the caller, who is not a root: it is kept
         // alive here until the next run asks the same question.
@@ -226,37 +240,67 @@ impl Engine {
     /// The run itself, with its two lists already rooted.
     fn run_rooted(
         &mut self,
-        chunk: &Chunk,
+        unit: &Rc<Unit>,
         stack: &Root,
         constants: &Root,
     ) -> Result<Value, Escape> {
         let stack = self.held(stack)?;
         let constants = self.held(constants)?;
-        let keys = self.intern(chunk, constants)?;
-
-        // Slot zero is the completion value; the frame's own slots follow it.
-        let base = chunk.locals().saturating_add(1);
-        self.objects
-            .with_slots(stack, |slots, _| slots.grow_to(base))
-            .ok_or_else(|| Escape::fault(crate::object::Fault::Gone))?;
-
-        self.instantiate(chunk)?;
-
         let mut run = Run {
-            chunk,
-            keys,
             stack,
             constants,
-            base,
-            pc: 0,
+            units: Vec::new(),
+            frames: Vec::new(),
         };
-        self.walk(&mut run)?;
+        let outcome = self
+            .begin(&mut run, unit)
+            .and_then(|()| self.walk(&mut run));
+        // Whatever ended the run, every frame gives its environment back.
+        self.let_go(&mut run);
+        outcome?;
         match self.objects.slot(stack, 0) {
             Some(Held::Value(value)) => Ok(value),
             // Nothing wrote a completion, which the first instruction of every
             // compiled program does.
             Some(Held::Uninitialized) | None => Ok(Value::Undefined),
         }
+    }
+
+    /// Lay out the script's own frame and declare what it declares.
+    fn begin(&mut self, run: &mut Run, unit: &Rc<Unit>) -> Result<(), Escape> {
+        let keys = self.intern(unit, run.constants)?;
+        run.units.push(frame::Loaded {
+            unit: Rc::clone(unit),
+            offset: 0,
+            keys,
+        });
+
+        let locals = unit.script().locals();
+        let stack = run.stack;
+        // Slot zero is the completion value and slot one is the script's own
+        // `this`, which is the global object — a script is not a module, and
+        // ADR 0013 makes no claim about one yet.
+        let global = Value::Object(self.realm.global(&self.objects)?);
+        self.objects
+            .with_slots(stack, |slots, barrier| {
+                slots.grow_to(1);
+                slots.push(Value::Undefined);
+                let _ = slots.set(barrier, 1, global);
+                slots.grow_to(2_usize.saturating_add(locals));
+            })
+            .ok_or_else(|| Escape::fault(crate::object::Fault::Gone))?;
+
+        run.frames.push(Frame {
+            unit: 0,
+            chunk: 0,
+            environment: None,
+            callee_at: 0,
+            this_at: 1,
+            locals_at: 2,
+            base: 2_usize.saturating_add(locals),
+            pc: 0,
+        });
+        self.instantiate(run)
     }
 
     /// What a root is holding, or this engine's own bug.
@@ -267,17 +311,17 @@ impl Engine {
             .ok_or_else(|| Escape::fault(crate::object::Fault::Gone))
     }
 
-    /// Turn the chunk's texts into strings in the heap, and into keys.
+    /// Turn a program's texts into strings in the heap, and into keys.
     ///
     /// The two are made together on purpose. A [`Key`] holds a reference to the
     /// string that spells it and the intern table is **weak** (ADR 0014 § 11),
-    /// so a key held only in this `Vec` would name a cell the next collection
-    /// takes away. Interning first and keeping the *interned* string as the
-    /// constant means the rooted list of constants is what keeps every key
-    /// alive, and there is one string cell rather than two.
-    fn intern(&mut self, chunk: &Chunk, constants: Ref) -> Result<Vec<Key>, Escape> {
-        let mut keys = Vec::with_capacity(chunk.texts().len());
-        for text in chunk.texts() {
+    /// so a key held only in a `Vec` would name a cell the next collection takes
+    /// away. Interning first and keeping the *interned* string as the constant
+    /// means the rooted list of constants is what keeps every key alive, and
+    /// there is one string cell rather than two.
+    fn intern(&mut self, unit: &Rc<Unit>, constants: Ref) -> Result<Vec<Key>, Escape> {
+        let mut keys = Vec::with_capacity(unit.texts().len());
+        for text in unit.texts() {
             let key = self
                 .objects
                 .key(text)
@@ -305,48 +349,45 @@ impl Engine {
     /// `GlobalDeclarationInstantiation`, which is where a redeclaration across
     /// two scripts is refused — before either statement of either script has
     /// run.
-    fn instantiate(&mut self, chunk: &Chunk) -> Result<(), Escape> {
-        for name in chunk.vars() {
-            let Some(units) = chunk.text(*name) else {
-                return Err(Escape::Broken(Internal::StackIsWrong));
-            };
-            let units = units.to_vec();
+    fn instantiate(&mut self, run: &Run) -> Result<(), Escape> {
+        let vars: Vec<u32> = run.chunk()?.vars().to_vec();
+        let lexical: Vec<crate::code::Lexical> = run.chunk()?.lexical().to_vec();
+        for name in vars {
+            let units = run.text(name)?;
             self.realm.declare_var(&mut self.objects, &units, 0)?;
         }
-        for lexical in chunk.lexical() {
-            let Some(units) = chunk.text(lexical.name) else {
-                return Err(Escape::Broken(Internal::StackIsWrong));
-            };
-            let units = units.to_vec();
+        for one in lexical {
+            let units = run.text(one.name)?;
             self.realm
-                .declare_lexical(&mut self.objects, &units, lexical.mutable, 0)?;
+                .declare_lexical(&mut self.objects, &units, one.mutable, 0)?;
         }
         Ok(())
     }
 }
 
-/// One run of one chunk.
-struct Run<'a> {
-    chunk: &'a Chunk,
-    keys: Vec<Key>,
-    stack: Ref,
-    constants: Ref,
-    /// Where the operands begin: one for the completion value, then the frame's
-    /// own slots.
-    base: usize,
-    pc: usize,
-}
-
 impl Engine {
     /// The loop.
     fn walk(&mut self, run: &mut Run) -> Result<(), Escape> {
-        while let Some(op) = run.chunk.op(run.pc) {
-            let at = run.chunk.at(run.pc);
-            let next = run.pc.saturating_add(1);
-            run.pc = next;
-            self.step(run, op, at)?;
+        loop {
+            let (op, at, pc) = {
+                let Some(frame) = run.frames.last() else {
+                    return Ok(());
+                };
+                let pc = frame.pc;
+                let chunk = run.chunk()?;
+                let Some(op) = chunk.op(pc) else {
+                    if run.frames.len() > 1 {
+                        // Every function's chunk ends in a `Return`, so a call
+                        // that walked off the end is this engine's own mistake.
+                        return Err(Escape::Broken(Internal::JumpIsWrong));
+                    }
+                    return Ok(());
+                };
+                (op, chunk.at(pc), pc)
+            };
+            run.frame_mut()?.pc = pc.saturating_add(1);
+            self.step(run, op, at, pc)?;
         }
-        Ok(())
     }
 
     /// One instruction.
@@ -354,10 +395,10 @@ impl Engine {
     /// One arm per instruction and nothing else in it: what an instruction
     /// *does* lives in a method below, so that this stays a list of what the
     /// machine can be told to do rather than a place things accumulate.
-    fn step(&mut self, run: &mut Run, op: Op, at: usize) -> Result<(), Escape> {
+    fn step(&mut self, run: &mut Run, op: Op, at: usize, pc: usize) -> Result<(), Escape> {
         match op {
             Op::Text(which) => {
-                let value = constant(&self.objects, run, which)?;
+                let value = self.constant(run, which)?;
                 self.push(run, value)?;
             }
             Op::Number(number) => self.push(run, Value::Number(number))?,
@@ -378,7 +419,17 @@ impl Engine {
                 self.write_slot(run, slot, value)?;
             }
             Op::Uninitialize(slot) => self.empty_slot(run, slot)?,
-            Op::RefuseAssignment(which) => return Err(refuse(run, which, at)),
+            Op::RefuseAssignment(which) => return Err(Self::refuse(run, which, at)),
+
+            Op::LoadBinding { hops, slot } => self.load_binding(run, hops, slot, at, pc)?,
+            Op::StoreBinding { hops, slot } => self.store_binding(run, hops, slot, at, pc)?,
+            Op::InitializeBinding { hops, slot } => {
+                let environment = self.environment_at(run, hops)?;
+                let value = self.pop(run)?;
+                let slot =
+                    usize::try_from(slot).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
+                self.put_binding(environment, slot, value)?;
+            }
 
             Op::LoadGlobal(which) => self.load_global(run, which, at)?,
             Op::StoreGlobal(which) => self.store_global(run, which, at)?,
@@ -389,7 +440,7 @@ impl Engine {
             Op::GetNamed(which) => self.get_named(run, which, at)?,
             Op::GetKeyed => self.get_keyed(run, at)?,
             Op::SetNamed(which) => {
-                let key = key(run, which)?;
+                let key = run.key(which)?;
                 self.set_property(run, key, 1, at)?;
             }
             Op::SetKeyed => self.set_keyed(run, at)?,
@@ -410,6 +461,15 @@ impl Engine {
             Op::DefineNamed(which) => self.define_named(run, which)?,
             Op::DefineKeyed => self.define_keyed(run, at)?,
             Op::SetPrototype => self.set_prototype(run)?,
+
+            Op::Closure(which) => self.make_closure(run, which, at)?,
+            Op::This => {
+                let this_at = run.frame()?.this_at;
+                let value = self.value_at(run, this_at)?;
+                self.push(run, value)?;
+            }
+            Op::Call(argc) => self.enter(run, argc, at)?,
+            Op::Return => self.give_back(run)?,
 
             Op::Jump(to) => self.jump(run, to)?,
             Op::JumpIfFalse(to) => {
@@ -447,21 +507,21 @@ impl Engine {
 
     /// Give a realm's lexical binding its first value.
     fn initialize_global(&mut self, run: &mut Run, which: u32) -> Result<(), Escape> {
-        let name = units(run, which)?;
+        let name = run.text(which)?;
         let value = self.pop(run)?;
         self.realm.initialize(&mut self.objects, &name, value)
     }
 
     /// `delete a`, which only sloppy code may write.
     fn delete_global(&mut self, run: &mut Run, which: u32) -> Result<(), Escape> {
-        let name = units(run, which)?;
+        let name = run.text(which)?;
         let went = self.realm.delete(&mut self.objects, &name)?;
         self.push(run, Value::Bool(went))
     }
 
     /// `a.b`.
     fn get_named(&mut self, run: &mut Run, which: u32, at: usize) -> Result<(), Escape> {
-        let key = key(run, which)?;
+        let key = run.key(which)?;
         let object = self.peek(run, 0)?;
         let value = self.read(object, key, at)?;
         self.replace(run, 1, value)
@@ -469,9 +529,10 @@ impl Engine {
 
     /// `delete a.b`.
     fn delete_named(&mut self, run: &mut Run, which: u32, at: usize) -> Result<(), Escape> {
-        let key = key(run, which)?;
+        let key = run.key(which)?;
         let object = self.peek(run, 0)?;
-        let went = self.remove(object, key, run.chunk.strict(), at)?;
+        let strict = run.strict()?;
+        let went = self.remove(object, key, strict, at)?;
         self.replace(run, 1, Value::Bool(went))
     }
 
@@ -538,7 +599,7 @@ impl Engine {
 
     /// `{ a: 1 }`, one property of it.
     fn define_named(&mut self, run: &mut Run, which: u32) -> Result<(), Escape> {
-        let key = key(run, which)?;
+        let key = run.key(which)?;
         let object = self.peek(run, 1)?;
         let value = self.peek(run, 0)?;
         self.define(object, key, value)?;
@@ -566,7 +627,7 @@ impl Engine {
     fn load(&mut self, run: &mut Run, slot: u32, at: usize) -> Result<(), Escape> {
         let value = match self.slot(run, slot)? {
             Held::Value(value) => value,
-            Held::Uninitialized => return Err(dead_zone(run, slot, at)),
+            Held::Uninitialized => return Err(Self::dead_slot(run, slot, at)),
         };
         self.push(run, value)
     }
@@ -574,7 +635,7 @@ impl Engine {
     /// Write one, leaving the value on the stack.
     fn store(&mut self, run: &mut Run, slot: u32, at: usize) -> Result<(), Escape> {
         if self.slot(run, slot)? == Held::Uninitialized {
-            return Err(dead_zone(run, slot, at));
+            return Err(Self::dead_slot(run, slot, at));
         }
         let value = self.peek(run, 0)?;
         self.write_slot(run, slot, value)
@@ -582,7 +643,7 @@ impl Engine {
 
     /// Put a slot back in its dead zone.
     fn empty_slot(&mut self, run: &mut Run, slot: u32) -> Result<(), Escape> {
-        let at = slot_index(run, slot)?;
+        let at = Self::slot_index(run, slot)?;
         let stack = run.stack;
         self.objects
             .with_slots(stack, |slots, barrier| slots.uninitialize(barrier, at))
@@ -590,9 +651,64 @@ impl Engine {
         Ok(())
     }
 
+    /// Read a binding of an environment, which is a `ReferenceError` inside its
+    /// dead zone.
+    fn load_binding(
+        &mut self,
+        run: &mut Run,
+        hops: u32,
+        slot: u32,
+        at: usize,
+        pc: usize,
+    ) -> Result<(), Escape> {
+        let value = match self.binding(run, hops, slot)? {
+            Held::Value(value) => value,
+            Held::Uninitialized => return Err(Self::dead_binding(run, pc, at)),
+        };
+        self.push(run, value)
+    }
+
+    /// Write one, leaving the value on the stack.
+    fn store_binding(
+        &mut self,
+        run: &mut Run,
+        hops: u32,
+        slot: u32,
+        at: usize,
+        pc: usize,
+    ) -> Result<(), Escape> {
+        if self.binding(run, hops, slot)? == Held::Uninitialized {
+            return Err(Self::dead_binding(run, pc, at));
+        }
+        let environment = self.environment_at(run, hops)?;
+        let value = self.peek(run, 0)?;
+        let slot = usize::try_from(slot).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
+        self.put_binding(environment, slot, value)
+    }
+
+    /// What a binding holds.
+    fn binding(&self, run: &Run, hops: u32, slot: u32) -> Result<Held, Escape> {
+        let environment = self.environment_at(run, hops)?;
+        let slot = usize::try_from(slot).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
+        self.objects
+            .binding(environment, slot)
+            .ok_or(Escape::Broken(Internal::StackIsWrong))
+    }
+
+    /// Put a value in a binding.
+    fn put_binding(&mut self, environment: Ref, slot: usize, value: Value) -> Result<(), Escape> {
+        self.objects
+            .with_environment(environment, |environment, barrier| {
+                environment.set(barrier, slot, value)
+            })
+            .filter(|wrote| *wrote)
+            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        Ok(())
+    }
+
     /// Read a name the realm answers for.
     fn load_global(&mut self, run: &mut Run, which: u32, at: usize) -> Result<(), Escape> {
-        let name = units(run, which)?;
+        let name = run.text(which)?;
         let value = match self.realm.resolve(&self.objects, &name)? {
             Resolved::Lexical(value) | Resolved::Property(value) => value,
             Resolved::Dead => {
@@ -613,16 +729,16 @@ impl Engine {
 
     /// Write one, leaving the value on the stack.
     fn store_global(&mut self, run: &mut Run, which: u32, at: usize) -> Result<(), Escape> {
-        let name = units(run, which)?;
+        let name = run.text(which)?;
         let value = self.peek(run, 0)?;
-        let strict = run.chunk.strict();
+        let strict = run.strict()?;
         self.realm
             .assign(&mut self.objects, &name, value, strict, at)
     }
 
     /// `typeof` on a name, which a name nothing declares survives.
     fn type_of_global(&mut self, run: &mut Run, which: u32, at: usize) -> Result<(), Escape> {
-        let name = units(run, which)?;
+        let name = run.text(which)?;
         let value = match self.realm.resolve(&self.objects, &name)? {
             Resolved::Lexical(value) | Resolved::Property(value) => value,
             Resolved::Dead => {
@@ -660,7 +776,8 @@ impl Engine {
     ) -> Result<(), Escape> {
         let object = self.peek(run, under)?;
         let value = self.peek(run, 0)?;
-        self.write(object, key, value, run.chunk.strict(), at)?;
+        let strict = run.strict()?;
+        self.write(object, key, value, strict, at)?;
         self.replace(run, under.saturating_add(1), value)
     }
 
@@ -676,7 +793,8 @@ impl Engine {
         let object = self.peek(run, 1)?;
         let name = self.peek(run, 0)?;
         let key = convert::to_property_key(&mut self.objects, &self.names, name, at)?;
-        let went = self.remove(object, key, run.chunk.strict(), at)?;
+        let strict = run.strict()?;
+        let went = self.remove(object, key, strict, at)?;
         self.replace(run, 2, Value::Bool(went))
     }
 
@@ -725,7 +843,7 @@ impl Engine {
         if height >= bounds::VALUES_ON_THE_STACK {
             return Err(Escape::range_error(
                 "this script needs more values at once than this engine will hold",
-                run.chunk.at(run.pc),
+                Self::where_now(run),
             ));
         }
         self.objects
@@ -737,11 +855,12 @@ impl Engine {
     /// Take the top value off.
     fn pop(&mut self, run: &mut Run) -> Result<Value, Escape> {
         let stack = run.stack;
+        let base = run.base()?;
         let height = self
             .objects
             .slot_count(stack)
             .ok_or(Escape::Broken(Internal::StackIsWrong))?;
-        if height <= run.base {
+        if height <= base {
             // The compiler said there would be a value here. There is not, so
             // the compiler and this loop disagree, which is our bug.
             return Err(Escape::Broken(Internal::StackIsWrong));
@@ -759,18 +878,36 @@ impl Engine {
     /// Read a value without taking it off: `back` is how far down, zero being
     /// the top.
     fn peek(&self, run: &Run, back: usize) -> Result<Value, Escape> {
+        let base = run.base()?;
         let height = self
             .objects
             .slot_count(run.stack)
             .ok_or(Escape::Broken(Internal::StackIsWrong))?;
         let at = height
             .checked_sub(back.saturating_add(1))
-            .filter(|at| *at >= run.base)
+            .filter(|at| *at >= base)
             .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        self.value_at(run, at)
+    }
+
+    /// The value at an absolute place in the stack, which is how a frame reads
+    /// its callee, its `this` and its arguments — all of which are **below**
+    /// its own operands.
+    pub(crate) fn value_at(&self, run: &Run, at: usize) -> Result<Value, Escape> {
         match self.objects.slot(run.stack, at) {
             Some(Held::Value(value)) => Ok(value),
             Some(Held::Uninitialized) | None => Err(Escape::Broken(Internal::StackIsWrong)),
         }
+    }
+
+    /// Write one there.
+    fn write_at(&mut self, run: &mut Run, at: usize, value: Value) -> Result<(), Escape> {
+        let stack = run.stack;
+        self.objects
+            .with_slots(stack, |slots, barrier| slots.set(barrier, at, value))
+            .filter(|wrote| *wrote)
+            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        Ok(())
     }
 
     /// Take `how_many` values off and put one back.
@@ -787,49 +924,68 @@ impl Engine {
 
     /// What a frame slot holds.
     fn slot(&self, run: &Run, slot: u32) -> Result<Held, Escape> {
-        let at = slot_index(run, slot)?;
+        let at = Self::slot_index(run, slot)?;
         self.objects
             .slot(run.stack, at)
             .ok_or(Escape::Broken(Internal::StackIsWrong))
     }
 
+    /// Where a frame slot is in the stack.
+    fn slot_index(run: &Run, slot: u32) -> Result<usize, Escape> {
+        let frame = run.frame()?;
+        let slot = usize::try_from(slot).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
+        if slot >= run.chunk()?.locals() {
+            return Err(Escape::Broken(Internal::StackIsWrong));
+        }
+        Ok(frame.locals_at.saturating_add(slot))
+    }
+
     /// Put a value in a frame slot.
     fn write_slot(&mut self, run: &mut Run, slot: u32, value: Value) -> Result<(), Escape> {
-        let at = slot_index(run, slot)?;
-        let stack = run.stack;
-        self.objects
-            .with_slots(stack, |slots, barrier| slots.set(barrier, at, value))
-            .filter(|wrote| *wrote)
-            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
-        Ok(())
+        let at = Self::slot_index(run, slot)?;
+        self.write_at(run, at, value)
     }
 
     /// Say what the program evaluates to so far.
     fn write_completion(&mut self, run: &mut Run, value: Value) -> Result<(), Escape> {
-        let stack = run.stack;
-        self.objects
-            .with_slots(stack, |slots, barrier| slots.set(barrier, 0, value))
-            .filter(|wrote| *wrote)
-            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
-        Ok(())
+        self.write_at(run, 0, value)
     }
 
     /// Go to an instruction, checking the embedder's switch on the way back.
     fn jump(&mut self, run: &mut Run, to: u32) -> Result<(), Escape> {
         let to = usize::try_from(to).map_err(|_| Escape::Broken(Internal::JumpIsWrong))?;
-        if to > run.chunk.code().len() {
+        if to > run.chunk()?.code().len() {
             return Err(Escape::Broken(Internal::JumpIsWrong));
         }
+        let frame = run.frame_mut()?;
         // Backwards is the only way a program runs for ever, so it is the only
         // place worth asking whether somebody wants it to stop.
-        if to <= run.pc && self.stop.asked() {
+        if to <= frame.pc && self.stop.asked() {
             return Err(Escape::Interrupted);
         }
-        run.pc = to;
+        frame.pc = to;
         Ok(())
     }
 
-    // --- Names, keys and constants ------------------------------------------
+    /// Where in the source the running instruction came from, for a message
+    /// raised somewhere that does not already have it.
+    fn where_now(run: &Run) -> usize {
+        match (run.frame(), run.chunk()) {
+            (Ok(frame), Ok(chunk)) => chunk.at(frame.pc.saturating_sub(1)),
+            _ => 0,
+        }
+    }
+
+    // --- Constants ----------------------------------------------------------
+
+    /// The string constant at an index.
+    fn constant(&self, run: &Run, which: u32) -> Result<Value, Escape> {
+        let at = run.constant(which)?;
+        match self.objects.slot(run.constants, at) {
+            Some(Held::Value(value)) => Ok(value),
+            Some(Held::Uninitialized) | None => Err(Escape::Broken(Internal::StackIsWrong)),
+        }
+    }
 
     // --- Properties ---------------------------------------------------------
 
@@ -860,7 +1016,7 @@ impl Engine {
             Set::Refused => {
                 if strict {
                     return Err(Escape::type_error(
-                        format!("{} cannot be written", self.describe(key)),
+                        format!("{} cannot be written", self.describe_key(key)),
                         at,
                     ));
                 }
@@ -875,7 +1031,7 @@ impl Engine {
         let went = self.objects.delete(held, key)?;
         if !went && strict {
             return Err(Escape::type_error(
-                format!("{} cannot be deleted", self.describe(key)),
+                format!("{} cannot be deleted", self.describe_key(key)),
                 at,
             ));
         }
@@ -907,7 +1063,7 @@ impl Engine {
             Value::Undefined | Value::Null => Err(Escape::type_error(
                 format!(
                     "cannot {doing} {} of {}",
-                    self.describe(key),
+                    self.describe_key(key),
                     if matches!(object, Value::Null) {
                         "null"
                     } else {
@@ -923,7 +1079,7 @@ impl Engine {
     }
 
     /// A key, for a message a person reads.
-    fn describe(&self, key: Key) -> String {
+    fn describe_key(&self, key: Key) -> String {
         if let Some(index) = key.as_index() {
             return format!("property '{index}'");
         }
@@ -933,13 +1089,28 @@ impl Engine {
         }
     }
 
+    /// A value, for a message a person reads.
+    pub(crate) fn describe(&self, value: Value) -> String {
+        match value {
+            Value::Undefined => "undefined".to_owned(),
+            Value::Null => "null".to_owned(),
+            Value::Bool(is) => is.to_string(),
+            Value::Number(number) => crate::numeric::text_of(number),
+            Value::Text(held) => match self.objects.units(held) {
+                Some(units) => format!("'{}'", show(units)),
+                None => "a string".to_owned(),
+            },
+            Value::Symbol(_) => "a symbol".to_owned(),
+            Value::Object(_) => "that value".to_owned(),
+        }
+    }
+
     /// `typeof`, as the string it answers with.
     fn type_of(&mut self, value: Value, at: usize) -> Result<Value, Escape> {
-        let answer = convert::type_of(value);
+        let answer = convert::type_of(&self.objects, value);
         let units: Vec<u16> = answer.encode_utf16().collect();
-        // Interned rather than allocated: there are seven of these strings in
-        // this engine's language and eight in the finished one, and a page may
-        // ask in a loop.
+        // Interned rather than allocated: there are eight of these strings in
+        // the language and a page may ask in a loop.
         let key = self
             .objects
             .key(&units)
@@ -949,26 +1120,48 @@ impl Engine {
             None => Err(Escape::Broken(Internal::StackIsWrong)),
         }
     }
-}
 
-/// The `TypeError` for an assignment to a `const` the compiler could see.
-fn refuse(run: &Run, which: u32, at: usize) -> Escape {
-    match units(run, which) {
-        Ok(name) => Escape::type_error(
-            format!("'{}' is a constant and cannot be assigned to", show(&name)),
-            at,
-        ),
-        Err(why) => why,
-    }
-}
+    // --- The messages a dead zone and a constant produce ---------------------
 
-/// Where a frame slot is in the stack: past the completion value.
-fn slot_index(run: &Run, slot: u32) -> Result<usize, Escape> {
-    let slot = usize::try_from(slot).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
-    if slot >= run.chunk.locals() {
-        return Err(Escape::Broken(Internal::StackIsWrong));
+    /// The `TypeError` for an assignment to a `const` the compiler could see.
+    fn refuse(run: &Run, which: u32, at: usize) -> Escape {
+        match run.text(which) {
+            Ok(name) => Escape::type_error(
+                format!("'{}' is a constant and cannot be assigned to", show(&name)),
+                at,
+            ),
+            Err(why) => why,
+        }
     }
-    Ok(slot.saturating_add(1))
+
+    /// The `ReferenceError` for a frame slot read before it was written, naming
+    /// it where the compiler recorded a name.
+    ///
+    /// A slot the compiler took for itself — a `switch`'s discriminant, the old
+    /// value of an `a.b++` — has no name, and nothing a script can write reads
+    /// one before it is written. So the nameless message is unreachable rather
+    /// than vague, and it is here because *unreachable* is not a thing to prove
+    /// with a panic.
+    fn dead_slot(run: &Run, slot: u32, at: usize) -> Escape {
+        let named = run
+            .chunk()
+            .ok()
+            .and_then(|chunk| chunk.slot_name(slot))
+            .and_then(|which| run.text(which).ok());
+        dead_zone(named.as_deref(), at)
+    }
+
+    /// The same for a binding, whose name is recorded against the instruction
+    /// that reads it — because the binding itself belongs to another chunk's
+    /// environment and there is no table here to look it up in.
+    fn dead_binding(run: &Run, pc: usize, at: usize) -> Escape {
+        let named = run
+            .chunk()
+            .ok()
+            .and_then(|chunk| chunk.name_at(pc))
+            .and_then(|which| run.text(which).ok());
+        dead_zone(named.as_deref(), at)
+    }
 }
 
 /// Which way a keeping jump goes.
@@ -982,42 +1175,9 @@ enum When {
     NotNullish,
 }
 
-/// The string constant at an index.
-fn constant(objects: &Objects, run: &Run, which: u32) -> Result<Value, Escape> {
-    let at = usize::try_from(which).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
-    match objects.slot(run.constants, at) {
-        Some(Held::Value(value)) => Ok(value),
-        Some(Held::Uninitialized) | None => Err(Escape::Broken(Internal::StackIsWrong)),
-    }
-}
-
-/// The key an index names.
-fn key(run: &Run, which: u32) -> Result<Key, Escape> {
-    let at = usize::try_from(which).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
-    run.keys
-        .get(at)
-        .copied()
-        .ok_or(Escape::Broken(Internal::StackIsWrong))
-}
-
-/// The code units an index names.
-fn units(run: &Run, which: u32) -> Result<Vec<u16>, Escape> {
-    run.chunk
-        .text(which)
-        .map(<[u16]>::to_vec)
-        .ok_or(Escape::Broken(Internal::StackIsWrong))
-}
-
-/// The `ReferenceError` for a binding read before it was declared, naming it
-/// where the compiler recorded a name.
-///
-/// A slot the compiler took for itself — a `switch`'s discriminant, the old
-/// value of an `a.b++` — has no name, and nothing a script can write reads one
-/// before it is written. So the nameless message is unreachable rather than
-/// vague, and it is here because *unreachable* is not a thing to prove with a
-/// panic.
-fn dead_zone(run: &Run, slot: u32, at: usize) -> Escape {
-    match run.chunk.slot_name(slot) {
+/// The `ReferenceError` a dead zone produces.
+fn dead_zone(name: Option<&[u16]>, at: usize) -> Escape {
+    match name {
         Some(units) => Escape::reference_error(
             format!("'{}' is used before it is declared", show(units)),
             at,

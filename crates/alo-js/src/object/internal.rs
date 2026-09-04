@@ -28,7 +28,8 @@
 //!
 //! **A proxy is the case that will want more**, because it overrides `[[Get]]`
 //! rather than `[[GetOwnProperty]]`, and it does so by calling a script's trap:
-//! it needs the interpreter (queue item 72) before it needs anything here. When
+//! it needs the interpreter to re-enter itself (queue item 214) before it needs
+//! anything here. When
 //! it lands, what it adds is a way for an exotic object to intercept the walk —
 //! and it will be added to this trait rather than beside it, for the reason
 //! above.

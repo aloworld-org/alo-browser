@@ -2189,7 +2189,7 @@ The long pole, and the thing most of section E is unreachable without.
   three of the language's own values; the rest of the builtins are item 73's and
   are absent rather than stubbed.
 
-- [ ] **209. Calls, `this` and closures.** Cut from 72 on the iteration that
+- [x] **209. Calls, `this` and closures.** Cut from 72 on the iteration that
   built it, and it is the largest of the three: a function object with a
   `[[Call]]` and a `[[Construct]]`, a frame per call with its own slots, the
   argument list, `arguments`, `this` and how an arrow does not have one,
@@ -2207,6 +2207,144 @@ The long pole, and the thing most of section E is unreachable without.
   frame it was made in has gone — counted rather than watched, which is item
   71's rule — and unbounded recursion is a `RangeError` rather than a process
   that stops.
+
+  **Done, all three closing conditions, and cut on starting into five items.**
+  The item's own words said it was the largest of the three, and what it named
+  is five separable pieces of work rather than one: what is here is *calling*,
+  whole — a function object with a `[[Call]]`, a frame per call, the argument
+  list, `return`, `this` and how an arrow does not have one, closures, and the
+  bound that turns runaway recursion into a `RangeError`. Constructing (212),
+  `arguments` and the parameter forms that are not a plain name (213), a getter
+  or setter as a call (214), tagged templates (215) and per-block environments
+  (216) are items of their own, each **refused by name** where a program
+  reaches it.
+
+  **The decision worth reading twice is where a name lives, because it is two
+  places rather than one.** A function's parameters, its `var`s, its body-level
+  `let` and `const` and the functions it declares are **bindings of an
+  environment**, which is a cell in the heap that a closure keeps alive after
+  the call has returned. A **block's** `let` and the compiler's own temporaries
+  stay frame slots in the value stack, which die with the call. Two mechanisms
+  because only the first can be captured — and a function reading a block's
+  binding is therefore **refused** (item 216) rather than compiled into
+  something that shares one slot between two passes of a loop. That refusal is
+  what keeps item 72's note true: *the language copies a `let` head into every
+  iteration, and nothing can tell.* A closure is the only thing that could
+  tell, and it is the case that is refused.
+
+  Three more rules, each because the obvious implementation is wrong in a way
+  a test written afterwards would not catch. **`this` is decided by the
+  callee's strictness, not the caller's**: the compiler pushes `undefined` for
+  a plain call and the receiver for a method call, and the call then applies
+  `OrdinaryCallBindThis` — so a sloppy function called plainly gets the global
+  object and a strict one gets `undefined`, and the caller never has to know
+  which it is holding. An **arrow captures its `this` where it was written**
+  rather than walking a chain for it, and it captures it whether the body says
+  `this` or not, because an arrow nested inside it may say it after the frame
+  has gone. And a **named function expression can see itself**, before anything
+  has assigned it anywhere, so that binding is filled in by the call rather
+  than by an instruction — and assigning to it is silence in sloppy code and a
+  `TypeError` in strict code, which is a third answer to *what an assignment
+  does* rather than a shade of the `const` one.
+
+  **The chunk stopped being the unit of compilation.** A function is a chunk of
+  its own, so a program is a [`unit::Unit`] — one pool of strings and every
+  chunk in it — and a run interns that pool once. A function made by one script
+  and called by the next brings its own unit with it, which is why a run holds a
+  small list of loaded programs rather than one, and why the test that closes
+  this item runs **two scripts in one engine**.
+
+  **The bound is two bounds.** [`bounds::VALUES_ON_THE_STACK`] does bound a
+  runaway recursion, as this item said it would — but a call costs a frame, an
+  environment cell and a root as well as its two values, so a bound counting
+  only values under-counts what it is bounding by an order of magnitude.
+  [`bounds::CALLS_ON_THE_STACK`] is the second, ten thousand, with the reason
+  written beside it.
+
+- [ ] **212. `new`, classes, `super` and private members.** Cut from 209, which
+  builds `[[Call]]` and no `[[Construct]]`: a function here has no `prototype`
+  property, `new` is refused by name, and a class is refused whole. The order
+  inside it is the specification's own dependency: `[[Construct]]` first
+  (which needs `Function.prototype` and therefore item 73 for the object a
+  constructor's `prototype` is), then a class as sugar over it, then `super`,
+  which needs `[[HomeObject]]` on a method and is the reason a method is not
+  simply a function in a property. Private members are last and are their own
+  mechanism — a name that is not a property key at all.
+  *Depends on 209, and on 73 for `Function.prototype`. Closes when:* `new f()`
+  makes an object whose prototype is `f.prototype`, a class with a constructor
+  and a method produces the values the specification says in the same table
+  item 72 uses, `super.m()` finds the method on the home object rather than on
+  `this`, and a `#name` is unreachable from outside the class in a test that
+  tries.
+
+- [ ] **213. `arguments`, and the parameter forms that are not a plain name.**
+  Cut from 209, which takes a plain list of distinct names and refuses the
+  rest — a default, a `...rest`, a destructuring pattern, a repeated name, and
+  the `arguments` object. They are one item because they are one part of the
+  specification: a parameter list with any of them in it gets a **scope of its
+  own**, separate from the body's, so that `function f(a, b = () => a) {}`
+  closes over the parameter rather than over a `var a` in the body — and
+  building them separately is how those two scopes come to disagree.
+  `arguments` is here because it is the same machinery seen from the other
+  side: it is made from the argument list before the body runs, and in sloppy
+  code with a simple parameter list it is *mapped*, so writing `arguments[0]`
+  writes the parameter. Today an `arguments` a function did not declare is
+  refused by name rather than resolving to the realm, because *this engine has
+  not built it* must not read as *this page has a typo*.
+  *Depends on 209, on 211 for the destructuring a pattern parameter is, and on
+  73 for the `Array` a `...rest` collects into. Closes when:* a default is
+  evaluated once per call and only when the argument is `undefined`, a rest
+  parameter is an array of what was left, `arguments.length` and `arguments[0]`
+  answer, and the mapped and unmapped forms are told apart in a test naming
+  which is which.
+
+- [ ] **214. A getter is a call, and so is a proxy's trap.** Cut from 209, and
+  it is not "the rest of calling" — it is a different question. Item 209 calls
+  a function from an instruction that is *about* calling; this is calling one
+  from inside an instruction that is half way through something else, which
+  means the interpreter has to be able to re-enter itself at a point where the
+  operand stack is mid-expression. `object::Found::Getter` and
+  `object::Set::Setter` already hand back the function rather than pretending
+  to have called it, `convert::to_primitive` does the same when it finds a
+  `valueOf`, and all three answer `Missing::ACall` today. A **proxy** is the
+  same shape once more: it overrides `[[Get]]` rather than
+  `[[GetOwnProperty]]`, which is a method added to `object::Internal` when
+  there is a trap to call.
+  *Depends on 209. Closes when:* `({ get a() { return 1; } }).a` is `1`, a
+  setter sees what was assigned, `({}) + ''` calls a `toString` the object
+  inherits rather than refusing, and a getter that calls something that reads
+  the same property is bounded rather than a process that stops.
+
+- [ ] **215. Tagged templates.** Cut from 209. `` tag`a${b}c` `` calls `tag`
+  with an **array of the cooked strings, carrying a `raw` array**, then the
+  substitutions — which is why it is not a call with a template as its first
+  argument and why item 70 keeps a piece's raw text beside its cooked one. The
+  strings array is also the one place in the language with an identity a page
+  can rely on: the same template site hands the same array to every call, which
+  is what a caching tag library is built on.
+  *Depends on 209, and on 73 for the `Array` the strings arrive in. Closes
+  when:* a tag receives the cooked and raw strings and the substitutions in the
+  order the specification gives, a piece with an escape nobody can read is
+  `undefined` in cooked and present in raw, and two calls of the same template
+  site receive the same array.
+
+- [ ] **216. An environment per block, so a loop's `let` is a binding per
+  pass.** Cut from 209, which puts a function's names in a heap environment and
+  a **block's** names in frame slots that die with the call — so a function
+  reading a name a block declared outside it is refused by name today. The
+  refusal is honest and the hole is real: `for (let i = 0; …) { fns.push(() =>
+  i); }` is ordinary code. What closes it is the specification's own shape —
+  an environment for every scope that declares anything, pushed and popped
+  around a block, and **copied** at each pass of a `for` head
+  (`CreatePerIterationEnvironment`), which is what makes each closure see its
+  own `i`. It is its own item because it changes what every name instruction
+  means and because `break`, `continue` and `return` then have environments to
+  unwind, which is a second thing to get right rather than the same one.
+  *Depends on 209. Closes when:* a closure made in one pass of a `for (let …)`
+  and one made in the next answer differently, a `let` in a loop's **body** is
+  a fresh binding each pass in the same way, a `break` out of three nested
+  blocks leaves three environments, and nothing that compiled before is refused
+  after.
 
 - [ ] **210. `try`, `catch` and `finally`.** Cut from 72, which throws and has
   nowhere for a throw to land: `Escape::Thrown` ends the script today, and what

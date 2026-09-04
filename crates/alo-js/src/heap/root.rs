@@ -23,10 +23,11 @@
 //!   script cannot see one reference answer twice differently. Cleared by
 //!   [`Heap::end_job`](super::Heap::end_job).
 //!
-//! And two that do not exist yet, named here so it is clear they are owed
-//! rather than forgotten: the interpreter's frames and its value stack (queue
-//! item 72), which for this reason will live in structures the collector walks
-//! rather than in Rust locals.
+//! The interpreter's own two were owed when this was written and are built now
+//! (queue items 72 and 209), and they went where this list said they would: the
+//! **value stack** is a cell of its own, and every live call's **environment** is
+//! a [`Root`] held until that call returns. Nothing the interpreter can lose
+//! lives in a Rust local.
 //!
 //! **A reference held anywhere but these, across a point where the engine may
 //! allocate, is a bug** — and it is a bug that is correct in every ordinary run

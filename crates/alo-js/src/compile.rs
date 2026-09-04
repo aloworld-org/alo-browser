@@ -4,9 +4,9 @@
 
 //! A tree into instructions.
 //!
-//! The compiler walks the tree the parser built and emits the [`Chunk`] the
+//! The compiler walks the tree the parser built and emits the [`Unit`] the
 //! interpreter runs. It decides three things the interpreter therefore does not
-//! have to: **which slot a name is**, **where a jump goes**, and **what a
+//! have to: **where a name lives**, **where a jump goes**, and **what a
 //! program's completion value is**.
 //!
 //! # It runs on a stack of its own, for the parser's reason
@@ -21,35 +21,46 @@
 //!
 //! [`Parser::program`]: crate::parser::Parser::program
 //!
+//! # One unit, many chunks
+//!
+//! A function is a body of its own, so it is a [`Chunk`] of its own
+//! ([`function`]), and the program they all belong to is the [`Unit`] that holds
+//! them and the strings they name. The compiler is therefore a small stack of
+//! **suspended** compilations rather than one: meeting a function puts the body
+//! being compiled aside, compiles the function whole, and puts it back.
+//!
 //! # What it refuses, and why that is not a stub
 //!
-//! ADR 0013 § 3: *absent beats approximate*. Half of this language is not built
+//! ADR 0013 § 3: *absent beats approximate*. Some of this language is not built
 //! yet — every one of them is a queue item — and a compiler that emitted
-//! something plausible for a call, a `try` or an array literal would produce a
+//! something plausible for a `new`, a `try` or an array literal would produce a
 //! program that runs and is wrong. So each is a [`Refusal`] that **names the
 //! item that builds it**, in one list a person can read, and nothing downstream
 //! has to wonder whether an instruction means what it says.
 //!
 //! The second kind of refusal is different and is not about this engine being
 //! unfinished: [`Refusal::NotAProgram`] is an early error a *scope* is needed to
-//! see, like `let a; let a;`. Queue item 205 owns those in general; the two here
-//! are the ones the compiler cannot be correct without, and they are named in
-//! that item.
+//! see, like `let a; let a;`. Queue item 205 owns those in general; the three
+//! here are the ones the compiler cannot be correct without, and they are named
+//! in that item.
 
+pub mod function;
 pub mod hoist;
 pub mod scope;
 
 use std::fmt;
 
 use crate::ast::{
-    Assign, Declaration, DeclarationKind, Expression, ExpressionKind, ForInit, Key, Member,
-    Pattern, Program, Property, Statement, StatementKind, Template, Unary,
+    Argument, Assign, Declaration, DeclarationKind, Expression, ExpressionKind, ForInit, Key,
+    Member, Pattern, Program, Property, Statement, StatementKind, Template, Unary,
 };
 use crate::bounds;
 use crate::code::{Chunk, Op};
 use crate::operate::Simple;
+use crate::unit::Unit;
 
-use scope::{Blocks, Where};
+use function::Naming;
+use scope::{Assignment, Scopes, Where};
 
 /// Something the language has that this engine has not built.
 ///
@@ -58,14 +69,20 @@ use scope::{Blocks, Where};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum What {
-    /// A function, an arrow, a class or a method — anything with a body of its
-    /// own (queue item 209).
-    AFunction,
-    /// A call, a `new`, a `super`, a tagged template: anything that would run a
-    /// function (queue item 209).
-    ACall,
-    /// `this`, which needs something to have been called (queue item 209).
-    This,
+    /// `new`, a class, `super`, a private name, `new.target` — anything that
+    /// constructs (queue item 212).
+    AConstruction,
+    /// A parameter that is not a plain name: a default, a `...rest`, a pattern,
+    /// a repeated name — and `arguments` (queue item 213).
+    AParameterForm,
+    /// A getter or a setter, which is a property whose *access* is a call
+    /// (queue item 214).
+    AnAccessor,
+    /// `` tag`a${b}` `` (queue item 215).
+    ATaggedTemplate,
+    /// A function reading a **block's** binding of an enclosing function, which
+    /// needs an environment per block (queue item 216).
+    ACapturedBlockBinding,
     /// `try`, `catch` and `finally` (queue item 210).
     ACatch,
     /// An array literal, a spread, a destructuring pattern, `for…in` or
@@ -77,7 +94,8 @@ pub enum What {
     ABigInt,
     /// `import`, `export`, `import.meta` and `import()` (queue item 77).
     AModule,
-    /// `yield` and `await` (queue item 75).
+    /// `yield` and `await`, and the `async` and generator functions that hold
+    /// them (queue item 75).
     ASuspension,
 }
 
@@ -85,7 +103,11 @@ impl What {
     /// The queue item that builds it.
     pub const fn item(self) -> u16 {
         match self {
-            What::AFunction | What::ACall | What::This => 209,
+            What::AConstruction => 212,
+            What::AParameterForm => 213,
+            What::AnAccessor => 214,
+            What::ATaggedTemplate => 215,
+            What::ACapturedBlockBinding => 216,
             What::ACatch => 210,
             What::TakingAValueApart => 211,
             What::ARegularExpression => 74,
@@ -98,9 +120,11 @@ impl What {
     /// What it is, in a person's words.
     const fn describe(self) -> &'static str {
         match self {
-            What::AFunction => "a function, an arrow, a class or a method",
-            What::ACall => "calling something",
-            What::This => "`this`",
+            What::AConstruction => "`new`, a class, `super` or a private name",
+            What::AParameterForm => "a parameter that is not a plain name, or `arguments`",
+            What::AnAccessor => "a getter or a setter",
+            What::ATaggedTemplate => "a tagged template",
+            What::ACapturedBlockBinding => "a function reading a name a block declared outside it",
             What::ACatch => "`try`, `catch` and `finally`",
             What::TakingAValueApart => {
                 "an array literal, a spread, a destructuring pattern, `for…in` or `for…of`"
@@ -108,7 +132,7 @@ impl What {
             What::ARegularExpression => "a regular expression literal",
             What::ABigInt => "a `BigInt` literal",
             What::AModule => "`import` and `export`",
-            What::ASuspension => "`yield` and `await`",
+            What::ASuspension => "`yield`, `await` and the functions that hold them",
         }
     }
 }
@@ -160,7 +184,7 @@ impl fmt::Display for Refusal {
 /// # Errors
 ///
 /// [`Refusal`], naming what it could not compile and where.
-pub fn compile(program: &Program) -> Result<Chunk, Refusal> {
+pub fn compile(program: &Program) -> Result<Unit, Refusal> {
     std::thread::scope(|scope| {
         let started = std::thread::Builder::new()
             .name("alo-js compile".to_owned())
@@ -168,7 +192,7 @@ pub fn compile(program: &Program) -> Result<Chunk, Refusal> {
             .spawn_scoped(scope, || here(program));
         match started {
             Ok(work) => match work.join() {
-                Ok(chunk) => chunk,
+                Ok(unit) => unit,
                 // A panic is a bug in this crate, and a bug reported as a
                 // refusal is a bug nobody finds — the parser's argument,
                 // unchanged.
@@ -183,15 +207,19 @@ pub fn compile(program: &Program) -> Result<Chunk, Refusal> {
 }
 
 /// The compile itself, once it is on the stack it asked for.
-fn here(program: &Program) -> Result<Chunk, Refusal> {
+fn here(program: &Program) -> Result<Unit, Refusal> {
     let mut compiler = Compiler {
+        unit: Unit::new(),
         chunk: Chunk::new(program.strict),
-        blocks: Blocks::new(),
         enclosing: Vec::new(),
         chains: Vec::new(),
+        script: true,
+        suspended: Vec::new(),
+        scopes: Scopes::new(),
     };
     compiler.program(program)?;
-    Ok(compiler.chunk)
+    compiler.unit.finish(compiler.chunk);
+    Ok(compiler.unit)
 }
 
 /// Something a `break` or a `continue` may leave.
@@ -208,14 +236,33 @@ struct Enclosing {
     continues: Vec<usize>,
 }
 
+/// A body put aside while a function written inside it is compiled.
+#[derive(Debug)]
+struct Suspended {
+    chunk: Chunk,
+    enclosing: Vec<Enclosing>,
+    chains: Vec<Vec<usize>>,
+    script: bool,
+}
+
 /// The compiler.
 struct Compiler {
+    /// The program every chunk goes into, and the strings they all share.
+    unit: Unit,
+    /// The body being compiled now.
     chunk: Chunk,
-    blocks: Blocks,
     enclosing: Vec<Enclosing>,
     /// The optional chains being compiled, innermost last, each holding the
     /// jumps that short-circuit it.
     chains: Vec<Vec<usize>>,
+    /// Whether the body being compiled is the script's own, which is the one
+    /// body with a completion value.
+    script: bool,
+    /// The bodies put aside, outermost first.
+    suspended: Vec<Suspended>,
+    /// The scopes, which are **not** put aside: a function is compiled inside
+    /// the scopes it was written in, and that is what makes it a closure.
+    scopes: Scopes,
 }
 
 impl Compiler {
@@ -232,13 +279,25 @@ impl Compiler {
 
         let mut names = Vec::new();
         hoist::vars(&program.body, &mut names);
+        // A function declared at a script's top level is var-scoped, so it is a
+        // property of the global object like any other `var` — and it is given
+        // its value before the first statement runs, which is the whole of what
+        // "hoisted" means for one.
+        let declared = hoist::functions(&program.body);
+        for function in &declared {
+            if let Some(name) = &function.name {
+                if !names.contains(name) {
+                    names.push(name.clone());
+                }
+            }
+        }
         for name in &names {
             let at = self.text(name)?;
             self.chunk.declare_var(at);
         }
-        let mut declared: Vec<String> = Vec::new();
+        let mut lexically: Vec<String> = Vec::new();
         for one in hoist::lexical(&program.body) {
-            if declared.contains(&one.name) || names.contains(&one.name) {
+            if lexically.contains(&one.name) || names.contains(&one.name) {
                 return Err(Refusal::NotAProgram {
                     why: format!(
                         "'{}' is declared twice at this script's top level",
@@ -249,13 +308,26 @@ impl Compiler {
             }
             let at = self.text(&one.name)?;
             self.chunk.declare_lexical(at, one.mutable);
-            declared.push(one.name);
+            lexically.push(one.name);
         }
 
         // The completion value starts as `undefined`: a script of nothing but
         // declarations evaluates to that rather than to whatever was in the
         // slot.
         self.chunk.emit(Op::CompleteEmpty, 0);
+
+        for function in declared {
+            let Some(name) = function.name.clone() else {
+                continue;
+            };
+            let which = self.function_chunk(function, Naming::Outside)?;
+            let at = function.start;
+            self.chunk.emit(Op::Closure(which), at);
+            let text = self.text(&name)?;
+            self.chunk.emit(Op::StoreGlobal(text), at);
+            self.chunk.emit(Op::Pop, at);
+        }
+
         self.statements(&program.body)
     }
 
@@ -273,12 +345,14 @@ impl Compiler {
         match &statement.kind {
             StatementKind::Expression(expression) => {
                 self.expression(expression)?;
-                self.chunk.emit(Op::Complete, at);
+                self.completes(at);
             }
-            StatementKind::Empty | StatementKind::Debugger => {
-                // `debugger` with nobody attached is specified to do nothing at
-                // all, which is exactly this rather than a refusal.
-            }
+            // Three statements that emit nothing, for two different reasons.
+            // `debugger` with nobody attached is specified to do nothing at
+            // all, which is exactly this rather than a refusal; and a function
+            // declaration has already been made and given its name at the top
+            // of the body or the block that holds it.
+            StatementKind::Empty | StatementKind::Debugger | StatementKind::Function(_) => {}
             StatementKind::Block(body) => {
                 self.block(body)?;
             }
@@ -291,7 +365,7 @@ impl Compiler {
                 // An `if` whose branch produces nothing makes the program's
                 // completion `undefined` rather than leaving the last one —
                 // `2; if (true) {}` is `undefined`, and `2; {}` is `2`.
-                self.chunk.emit(Op::CompleteEmpty, at);
+                self.completes_empty(at);
                 self.expression(test)?;
                 let otherwise = self.chunk.emit(Op::JumpIfFalse(0), at);
                 self.statement(consequent)?;
@@ -331,17 +405,16 @@ impl Compiler {
                 self.expression(value)?;
                 self.chunk.emit(Op::Throw, at);
             }
+            StatementKind::Return(value) => self.leave_function(value.as_ref(), at)?,
             StatementKind::Try { .. } => {
                 return Err(Refusal::NotBuiltYet {
                     what: What::ACatch,
                     at,
                 });
             }
-            // A `return` is here rather than with the calls because what it is
-            // missing is a function to return *from*.
-            StatementKind::Function(_) | StatementKind::Class(_) | StatementKind::Return(_) => {
+            StatementKind::Class(_) => {
                 return Err(Refusal::NotBuiltYet {
-                    what: What::AFunction,
+                    what: What::AConstruction,
                     at,
                 });
             }
@@ -361,17 +434,57 @@ impl Compiler {
         Ok(())
     }
 
+    /// `return a;`.
+    ///
+    /// A function's answer, which is a different thing from a script's
+    /// completion value: one is written by the program and read by its caller,
+    /// and the other is what the whole script evaluated to.
+    fn leave_function(&mut self, value: Option<&Expression>, at: usize) -> Result<(), Refusal> {
+        if self.script {
+            return Err(Refusal::NotAProgram {
+                why: "a `return` outside a function has nothing to return from".to_owned(),
+                at,
+            });
+        }
+        match value {
+            Some(value) => self.expression(value)?,
+            None => {
+                self.chunk.emit(Op::Undefined, at);
+            }
+        }
+        self.chunk.emit(Op::Return, at);
+        Ok(())
+    }
+
+    /// The value of an expression statement: a script's completion, or nothing
+    /// a function's caller could see.
+    fn completes(&mut self, at: usize) {
+        if self.script {
+            self.chunk.emit(Op::Complete, at);
+        } else {
+            self.chunk.emit(Op::Pop, at);
+        }
+    }
+
+    /// The same for a statement that produced no value at all.
+    fn completes_empty(&mut self, at: usize) {
+        if self.script {
+            self.chunk.emit(Op::CompleteEmpty, at);
+        }
+    }
+
     /// A `{ … }`: its own bindings, in their own dead zones.
     fn block(&mut self, body: &[Statement]) -> Result<(), Refusal> {
-        self.blocks.open();
+        self.scopes.open_block();
         let outcome = self.block_body(body);
-        self.blocks.close();
+        self.scopes.close();
         outcome
     }
 
     /// The inside of a block, with the scope already open.
     fn block_body(&mut self, body: &[Statement]) -> Result<(), Refusal> {
         self.declare_lexically(body)?;
+        self.declare_functions(body)?;
         self.statements(body)
     }
 
@@ -384,7 +497,12 @@ impl Compiler {
     fn declare_lexically(&mut self, body: &[Statement]) -> Result<(), Refusal> {
         for one in hoist::lexical(body) {
             let slot = self.slot(one.at)?;
-            if self.blocks.declare(&one.name, slot, one.mutable).is_err() {
+            let assignment = if one.mutable {
+                Assignment::Allowed
+            } else {
+                Assignment::Refused
+            };
+            if self.scopes.declare(&one.name, slot, assignment).is_err() {
                 return Err(Refusal::NotAProgram {
                     why: format!("'{}' is declared twice in the same block", one.name),
                     at: one.at,
@@ -393,6 +511,41 @@ impl Compiler {
             let name = self.text(&one.name)?;
             self.chunk.name_slot(slot, name);
             self.chunk.emit(Op::Uninitialize(slot), one.at);
+        }
+        Ok(())
+    }
+
+    /// Make this block's own function declarations, before anything else in it
+    /// runs.
+    ///
+    /// A function declared in a block is that block's — Annex B's second,
+    /// var-scoped meaning is legacy and law 1 refuses it — so it is a frame slot
+    /// like the block's `let`, and it is given its value here rather than left
+    /// in a dead zone: a function declaration is readable above the line that
+    /// writes it, which is the one thing that makes it different from
+    /// `let f = function () {}`.
+    fn declare_functions(&mut self, body: &[Statement]) -> Result<(), Refusal> {
+        for function in hoist::functions(body) {
+            let Some(name) = function.name.clone() else {
+                continue;
+            };
+            let at = function.start;
+            let slot = self.slot(at)?;
+            if self
+                .scopes
+                .declare(&name, slot, Assignment::Allowed)
+                .is_err()
+            {
+                return Err(Refusal::NotAProgram {
+                    why: format!("'{name}' is declared twice in the same block"),
+                    at,
+                });
+            }
+            let text = self.text(&name)?;
+            self.chunk.name_slot(slot, text);
+            let which = self.function_chunk(function, Naming::Outside)?;
+            self.chunk.emit(Op::Closure(which), at);
+            self.chunk.emit(Op::Initialize(slot), at);
         }
         Ok(())
     }
@@ -407,15 +560,16 @@ impl Compiler {
             };
             match declaration.kind {
                 DeclarationKind::Var => {
-                    // The binding is already on the global object; a `var` with
-                    // no initialiser leaves whatever is there, which is what
-                    // makes `var a = 1; var a;` still one.
+                    // The binding already exists — a property of the global
+                    // object, or a binding of the enclosing function — and a
+                    // `var` with no initialiser leaves whatever is there, which
+                    // is what makes `var a = 1; var a;` still one.
                     let Some(init) = &declarator.init else {
                         continue;
                     };
                     self.expression(init)?;
-                    let text = self.text(name)?;
-                    self.chunk.emit(Op::StoreGlobal(text), at);
+                    let put = self.where_to_put(name, at)?;
+                    self.store_name(put, at);
                     self.chunk.emit(Op::Pop, at);
                 }
                 DeclarationKind::Let | DeclarationKind::Const => {
@@ -425,10 +579,14 @@ impl Compiler {
                             self.chunk.emit(Op::Undefined, at);
                         }
                     }
-                    match self.blocks.find(name) {
+                    match self.resolve(name, at)? {
                         Where::Local { slot, .. } => {
                             self.chunk.emit(Op::Initialize(slot), at);
                         }
+                        Where::Binding { hops, slot, .. } => {
+                            self.chunk.emit(Op::InitializeBinding { hops, slot }, at);
+                        }
+                        Where::Captured => return Err(captured(at)),
                         Where::Global => {
                             let text = self.text(name)?;
                             self.chunk.emit(Op::InitializeGlobal(text), at);
@@ -484,7 +642,7 @@ impl Compiler {
         at: usize,
         label: Option<&str>,
     ) -> Result<(), Refusal> {
-        self.chunk.emit(Op::CompleteEmpty, at);
+        self.completes_empty(at);
         let top = self.chunk.here();
         self.expression(test)?;
         let out = self.chunk.emit(Op::JumpIfFalse(0), at);
@@ -502,7 +660,7 @@ impl Compiler {
         at: usize,
         label: Option<&str>,
     ) -> Result<(), Refusal> {
-        self.chunk.emit(Op::CompleteEmpty, at);
+        self.completes_empty(at);
         let top = self.chunk.here();
         // A `continue` in a `do … while` goes to the test rather than to the
         // top, which is why the place its next pass begins is not known until
@@ -530,15 +688,16 @@ impl Compiler {
         at: usize,
         label: Option<&str>,
     ) -> Result<(), Refusal> {
-        self.chunk.emit(Op::CompleteEmpty, at);
+        self.completes_empty(at);
         // The head's own scope, so `for (let i = 0; …)` does not leak `i`.
         //
         // One slot rather than one per pass: the language copies a `let` head
-        // into every iteration, and nothing can tell — a closure is what would
-        // (queue item 209), and there are none.
-        self.blocks.open();
+        // into every iteration, and **nothing here can tell**, because a
+        // function may not read a block's binding from outside (queue item 216)
+        // and a closure is the only thing that could see the difference.
+        self.scopes.open_block();
         let outcome = self.for_inside(init, test, update, body, at, label);
-        self.blocks.close();
+        self.scopes.close();
         outcome
     }
 
@@ -560,10 +719,14 @@ impl Compiler {
                             names.push(name.clone());
                         }
                     }
+                    let assignment = if declaration.kind == DeclarationKind::Let {
+                        Assignment::Allowed
+                    } else {
+                        Assignment::Refused
+                    };
                     for name in names {
                         let slot = self.slot(at)?;
-                        let mutable = declaration.kind == DeclarationKind::Let;
-                        if self.blocks.declare(&name, slot, mutable).is_err() {
+                        if self.scopes.declare(&name, slot, assignment).is_err() {
                             return Err(Refusal::NotAProgram {
                                 why: format!("'{name}' is declared twice in this loop's header"),
                                 at,
@@ -618,16 +781,16 @@ impl Compiler {
         at: usize,
         label: Option<&str>,
     ) -> Result<(), Refusal> {
-        self.chunk.emit(Op::CompleteEmpty, at);
+        self.completes_empty(at);
         self.expression(discriminant)?;
         // Kept in a slot rather than on the stack: a `break` out of a case
         // would otherwise have to know how deep the stack was when it left.
         let held = self.slot(at)?;
         self.chunk.emit(Op::Initialize(held), at);
 
-        self.blocks.open();
+        self.scopes.open_block();
         let outcome = self.switch_inside(cases, held, at, label);
-        self.blocks.close();
+        self.scopes.close();
         outcome
     }
 
@@ -645,11 +808,14 @@ impl Compiler {
         for case in cases {
             self.declare_lexically(&case.body)?;
         }
+        for case in cases {
+            self.declare_functions(&case.body)?;
+        }
 
         self.enter(label, false);
         let outcome = self.switch_cases(cases, held, at);
         // A `switch` is not a loop: `continue` inside one leaves it entirely,
-        // which is what `repeats: None` says.
+        // which is what `repeats: false` says.
         let leaving = self.finish_switch(at);
         outcome?;
         leaving
@@ -795,15 +961,21 @@ impl Compiler {
             ExpressionKind::Null => {
                 self.chunk.emit(Op::Null, at);
             }
-            ExpressionKind::Name(name) => match self.blocks.find(name) {
-                Where::Local { slot, .. } => {
-                    self.chunk.emit(Op::Load(slot), at);
-                }
-                Where::Global => {
-                    let text = self.text(name)?;
-                    self.chunk.emit(Op::LoadGlobal(text), at);
-                }
-            },
+            ExpressionKind::Name(name) => {
+                self.load_name(name, at)?;
+            }
+            ExpressionKind::This => {
+                self.chunk.emit(Op::This, at);
+            }
+            ExpressionKind::Function(function) => {
+                let which = self.function_chunk(function, Naming::Itself)?;
+                self.chunk.emit(Op::Closure(which), at);
+            }
+            ExpressionKind::Call {
+                callee,
+                arguments,
+                optional,
+            } => self.call(callee, arguments, *optional, at)?,
             ExpressionKind::Template(template) => self.template(template, at)?,
             ExpressionKind::Object(properties) => self.object(properties, at)?,
             ExpressionKind::Unary { operator, argument } => self.unary(*operator, argument, at)?,
@@ -844,19 +1016,16 @@ impl Compiler {
                 value,
             } => self.assignment(*operator, target, value, at)?,
             // Everything the language has and this engine has not built. One
-            // arm each in [`Compiler::not_built_yet`], so that the list of what
-            // is missing is one list rather than a refusal scattered through
-            // the compiler.
+            // arm each in [`not_built_yet`], so that the list of what is
+            // missing is one list rather than a refusal scattered through the
+            // compiler.
             ExpressionKind::Array(_)
-            | ExpressionKind::Function(_)
             | ExpressionKind::Class(_)
-            | ExpressionKind::Call { .. }
             | ExpressionKind::New { .. }
             | ExpressionKind::TaggedTemplate { .. }
             | ExpressionKind::Super
             | ExpressionKind::NewTarget
             | ExpressionKind::PrivateName(_)
-            | ExpressionKind::This
             | ExpressionKind::RegularExpression(_)
             | ExpressionKind::BigInt { .. }
             | ExpressionKind::Yield { .. }
@@ -866,6 +1035,87 @@ impl Compiler {
                 return Err(not_built_yet(&expression.kind, at));
             }
         }
+        Ok(())
+    }
+
+    /// `f(a)`, `o.m(a)`, `f?.(a)`.
+    ///
+    /// The stack a call leaves behind it is **the callee, the `this` it was
+    /// reached through, and then the arguments** — one shape for every form,
+    /// because deciding `this` at the call site is what makes `o.m()` different
+    /// from `var m = o.m; m()` and the difference is not something the callee
+    /// can work out for itself.
+    fn call(
+        &mut self,
+        callee: &Expression,
+        arguments: &[Argument],
+        optional: bool,
+        at: usize,
+    ) -> Result<(), Refusal> {
+        let mut argc = 0_u32;
+        for argument in arguments {
+            match argument {
+                Argument::Item(_) => argc = argc.saturating_add(1),
+                Argument::Spread(_) => {
+                    return Err(Refusal::NotBuiltYet {
+                        what: What::TakingAValueApart,
+                        at,
+                    });
+                }
+            }
+        }
+
+        match &callee.kind {
+            ExpressionKind::Member {
+                object,
+                member,
+                optional: through,
+            } => {
+                // The object goes in a slot rather than staying under the
+                // function: a short circuit must leave **one** value on the
+                // stack for the chain's landing to drop, and an object left
+                // underneath would be a second.
+                let held = self.slot(at)?;
+                self.expression(object)?;
+                if *through {
+                    self.short_circuit(at)?;
+                }
+                self.chunk.emit(Op::Initialize(held), at);
+                self.chunk.emit(Op::Load(held), at);
+                if let Member::Computed(key) = member {
+                    self.expression(key)?;
+                }
+                self.read_member(member, at)?;
+                if optional {
+                    self.short_circuit(at)?;
+                }
+                self.chunk.emit(Op::Load(held), at);
+            }
+            ExpressionKind::Super => {
+                return Err(Refusal::NotBuiltYet {
+                    what: What::AConstruction,
+                    at,
+                });
+            }
+            _ => {
+                self.expression(callee)?;
+                if optional {
+                    self.short_circuit(at)?;
+                }
+                // A plain call passes `undefined`, and the **callee's** own
+                // strictness then decides whether that stays `undefined` or
+                // becomes the global object. That is the specification's order
+                // and it is not the caller's business.
+                self.chunk.emit(Op::Undefined, at);
+            }
+        }
+
+        for argument in arguments {
+            if let Argument::Item(value) = argument {
+                self.expression(value)?;
+            }
+        }
+        self.chunk.emit(Op::Call(argc), at);
         Ok(())
     }
 
@@ -964,10 +1214,10 @@ impl Compiler {
     fn push_piece(&mut self, piece: &crate::template::Piece, at: usize) -> Result<(), Refusal> {
         let Some(cooked) = &piece.cooked else {
             // Only a *tagged* template may hold a piece that could not be
-            // read, and a tagged template is a call (queue item 209). An
-            // untagged one with a bad escape never parsed.
+            // read (queue item 215). An untagged one with a bad escape never
+            // parsed.
             return Err(Refusal::NotBuiltYet {
-                what: What::ACall,
+                what: What::ATaggedTemplate,
                 at,
             });
         };
@@ -976,7 +1226,7 @@ impl Compiler {
         Ok(())
     }
 
-    /// `{ a: 1, [b]: 2, __proto__: c }`.
+    /// `{ a: 1, [b]: 2, __proto__: c, m() {} }`.
     fn object(&mut self, properties: &[Property], at: usize) -> Result<(), Refusal> {
         self.chunk.emit(Op::Object, at);
         for property in properties {
@@ -995,40 +1245,24 @@ impl Compiler {
                         self.chunk.emit(Op::SetPrototype, at);
                         continue;
                     }
-                    match key {
-                        Key::Computed(expression) => {
-                            self.expression(expression)?;
-                            self.expression(value)?;
-                            self.chunk.emit(Op::DefineKeyed, at);
-                        }
-                        Key::Name(name) => {
-                            let text = self.text(name)?;
-                            self.expression(value)?;
-                            self.chunk.emit(Op::DefineNamed(text), at);
-                        }
-                        Key::String(units) => {
-                            let text = self.units(units)?;
-                            self.expression(value)?;
-                            self.chunk.emit(Op::DefineNamed(text), at);
-                        }
-                        Key::Number(number) => {
-                            let text = self.text(&crate::numeric::text_of(*number))?;
-                            self.expression(value)?;
-                            self.chunk.emit(Op::DefineNamed(text), at);
-                        }
-                        Key::Private(_) => {
-                            return Err(Refusal::NotBuiltYet {
-                                what: What::AFunction,
-                                at,
-                            });
-                        }
-                    }
+                    self.define_property(key, at, |compiler| compiler.expression(value))?;
                 }
-                Property::Method(_) => {
-                    return Err(Refusal::NotBuiltYet {
-                        what: What::AFunction,
-                        at,
-                    });
+                Property::Method(method) => {
+                    if method.kind != crate::ast::MethodKind::Method {
+                        // A getter or a setter is a property whose *access* is
+                        // a call, which is a different mechanism from a
+                        // property that holds one (queue item 214).
+                        return Err(Refusal::NotBuiltYet {
+                            what: What::AnAccessor,
+                            at,
+                        });
+                    }
+                    let function = &method.function;
+                    self.define_property(&method.key, at, |compiler| {
+                        let which = compiler.function_chunk(function, Naming::Outside)?;
+                        compiler.chunk.emit(Op::Closure(which), at);
+                        Ok(())
+                    })?;
                 }
                 Property::Spread(_) => {
                     return Err(Refusal::NotBuiltYet {
@@ -1036,6 +1270,45 @@ impl Compiler {
                         at,
                     });
                 }
+            }
+        }
+        Ok(())
+    }
+
+    /// One property of an object literal: its key, then whatever `value`
+    /// leaves on the stack, then the definition.
+    fn define_property(
+        &mut self,
+        key: &Key,
+        at: usize,
+        value: impl FnOnce(&mut Self) -> Result<(), Refusal>,
+    ) -> Result<(), Refusal> {
+        match key {
+            Key::Computed(expression) => {
+                self.expression(expression)?;
+                value(self)?;
+                self.chunk.emit(Op::DefineKeyed, at);
+            }
+            Key::Name(name) => {
+                let text = self.text(name)?;
+                value(self)?;
+                self.chunk.emit(Op::DefineNamed(text), at);
+            }
+            Key::String(units) => {
+                let text = self.units(units)?;
+                value(self)?;
+                self.chunk.emit(Op::DefineNamed(text), at);
+            }
+            Key::Number(number) => {
+                let text = self.text(&crate::numeric::text_of(*number))?;
+                value(self)?;
+                self.chunk.emit(Op::DefineNamed(text), at);
+            }
+            Key::Private(_) => {
+                return Err(Refusal::NotBuiltYet {
+                    what: What::AConstruction,
+                    at,
+                });
             }
         }
         Ok(())
@@ -1053,7 +1326,7 @@ impl Compiler {
                 // a `ReferenceError`, and that is the only reason this is not
                 // an ordinary evaluation followed by an instruction.
                 if let ExpressionKind::Name(name) = &argument.kind {
-                    if self.blocks.find(name) == Where::Global {
+                    if self.resolve(name, at)? == Where::Global {
                         let text = self.text(name)?;
                         self.chunk.emit(Op::TypeOfGlobal(text), at);
                         return Ok(());
@@ -1087,7 +1360,7 @@ impl Compiler {
                     }
                     Member::Private(_) => {
                         return Err(Refusal::NotBuiltYet {
-                            what: What::AFunction,
+                            what: What::AConstruction,
                             at,
                         });
                     }
@@ -1101,12 +1374,13 @@ impl Compiler {
                         at,
                     });
                 }
-                match self.blocks.find(name) {
-                    // A `let` or `const` binding cannot be deleted, and the
-                    // language answers `false` rather than throwing.
-                    Where::Local { .. } => {
+                match self.resolve(name, at)? {
+                    // A declared binding cannot be deleted, and the language
+                    // answers `false` rather than throwing.
+                    Where::Local { .. } | Where::Binding { .. } => {
                         self.chunk.emit(Op::Bool(false), at);
                     }
+                    Where::Captured => return Err(captured(at)),
                     Where::Global => {
                         let text = self.text(name)?;
                         self.chunk.emit(Op::DeleteGlobal(text), at);
@@ -1240,7 +1514,7 @@ impl Compiler {
             put
         } else {
             self.expression(value)?;
-            self.where_to_put(name)?
+            self.where_to_put(name, at)?
         };
         self.store_name(put, at);
         Ok(())
@@ -1328,7 +1602,7 @@ impl Compiler {
                 Ok(())
             }
             Member::Private(_) => Err(Refusal::NotBuiltYet {
-                what: What::AFunction,
+                what: What::AConstruction,
                 at,
             }),
         }
@@ -1347,7 +1621,7 @@ impl Compiler {
                 Ok(())
             }
             Member::Private(_) => Err(Refusal::NotBuiltYet {
-                what: What::AFunction,
+                what: What::AConstruction,
                 at,
             }),
         }
@@ -1390,52 +1664,119 @@ impl Compiler {
         self.patch(over)
     }
 
-    // --- Names and slots ----------------------------------------------------
+    // --- Names, slots and bindings ------------------------------------------
 
-    /// Where a name is written, refusing an assignment to a `const`.
-    fn where_to_put(&mut self, name: &str) -> Result<Put, Refusal> {
-        Ok(match self.blocks.find(name) {
+    /// Where a name lives, refusing the two this engine cannot compile.
+    ///
+    /// One is [`Where::Captured`]. The other is **`arguments`**, which inside a
+    /// function is not a global at all but an object the call makes — so
+    /// letting it resolve to the realm would turn *this engine has not built
+    /// the arguments object* into *this page has a typo*, which is exactly the
+    /// wrong answer that reads like a right one. Queue item 213.
+    fn resolve(&self, name: &str, at: usize) -> Result<Where, Refusal> {
+        let place = self.scopes.find(name);
+        if place == Where::Captured {
+            return Err(captured(at));
+        }
+        if place == Where::Global && !self.script && name == "arguments" {
+            return Err(Refusal::NotBuiltYet {
+                what: What::AParameterForm,
+                at,
+            });
+        }
+        Ok(place)
+    }
+
+    /// Where a name is written, given where it lives.
+    fn put(&mut self, place: Where, name: &str, at: usize) -> Result<Put, Refusal> {
+        Ok(match place {
             Where::Local {
                 slot,
-                mutable: true,
+                assignment: Assignment::Allowed,
             } => Put::Slot(slot),
-            Where::Local {
+            Where::Binding {
+                hops,
                 slot,
-                mutable: false,
-            } => Put::Constant {
+                assignment: Assignment::Allowed,
+            } => Put::Binding {
+                hops,
                 slot,
                 name: self.text(name)?,
             },
+            Where::Local {
+                assignment: Assignment::Refused,
+                ..
+            }
+            | Where::Binding {
+                assignment: Assignment::Refused,
+                ..
+            } => Put::Constant(self.text(name)?),
+            Where::Local {
+                assignment: Assignment::Ignored,
+                ..
+            }
+            | Where::Binding {
+                assignment: Assignment::Ignored,
+                ..
+            } => Put::Ignored,
+            Where::Captured => return Err(captured(at)),
             Where::Global => Put::Global(self.text(name)?),
         })
     }
 
+    /// Where a name is written, refusing a name no function may reach.
+    fn where_to_put(&mut self, name: &str, at: usize) -> Result<Put, Refusal> {
+        let place = self.resolve(name, at)?;
+        self.put(place, name, at)
+    }
+
     /// Read a name, answering where writing it back would go.
     fn load_name(&mut self, name: &str, at: usize) -> Result<Put, Refusal> {
-        let put = self.where_to_put(name)?;
-        match put {
-            Put::Slot(slot) | Put::Constant { slot, .. } => {
+        let place = self.resolve(name, at)?;
+        match place {
+            Where::Local { slot, .. } => {
                 self.chunk.emit(Op::Load(slot), at);
             }
-            Put::Global(text) => {
+            Where::Binding { hops, slot, .. } => {
+                let text = self.text(name)?;
+                let pc = self.chunk.emit(Op::LoadBinding { hops, slot }, at);
+                self.chunk.name_instruction(pc, text);
+            }
+            Where::Captured => return Err(captured(at)),
+            Where::Global => {
+                let text = self.text(name)?;
                 self.chunk.emit(Op::LoadGlobal(text), at);
             }
         }
-        Ok(put)
+        self.put(place, name, at)
     }
 
     /// Write the value on the stack back to a name, leaving it there.
     fn store_name(&mut self, put: Put, at: usize) {
         match put {
-            Put::Slot(slot) => self.chunk.emit(Op::Store(slot), at),
-            Put::Global(text) => self.chunk.emit(Op::StoreGlobal(text), at),
+            Put::Slot(slot) => {
+                self.chunk.emit(Op::Store(slot), at);
+            }
+            Put::Binding { hops, slot, name } => {
+                let pc = self.chunk.emit(Op::StoreBinding { hops, slot }, at);
+                self.chunk.name_instruction(pc, name);
+            }
+            Put::Global(text) => {
+                self.chunk.emit(Op::StoreGlobal(text), at);
+            }
             // A `const` this compiler can see: the value has been evaluated,
             // because the language evaluates it before it complains about it.
-            Put::Constant { name, .. } => self.chunk.emit(Op::RefuseAssignment(name), at),
-        };
+            Put::Constant(name) => {
+                self.chunk.emit(Op::RefuseAssignment(name), at);
+            }
+            // A function expression's own name in sloppy code. The value was
+            // evaluated and stays on the stack, because an assignment is an
+            // expression whatever it did or did not store.
+            Put::Ignored => {}
+        }
     }
 
-    /// The index of a name among the chunk's texts.
+    /// The index of a name among the program's texts.
     fn text(&mut self, name: &str) -> Result<u32, Refusal> {
         let units: Vec<u16> = name.encode_utf16().collect();
         self.units(&units)
@@ -1443,7 +1784,7 @@ impl Compiler {
 
     /// The same, for code units that are already what they are.
     fn units(&mut self, units: &[u16]) -> Result<u32, Refusal> {
-        self.chunk
+        self.unit
             .text_index(units)
             .ok_or_else(|| Refusal::NotAProgram {
                 why: "this program holds more distinct strings than an index can name".to_owned(),
@@ -1451,12 +1792,22 @@ impl Compiler {
             })
     }
 
-    /// Take a frame slot.
+    /// Take a frame slot of the body being compiled.
     fn slot(&mut self, at: usize) -> Result<u32, Refusal> {
         self.chunk.take_slot().ok_or_else(|| Refusal::NotAProgram {
             why: "this program declares more bindings than a frame can hold".to_owned(),
             at,
         })
+    }
+
+    /// Take a binding of the environment the body being compiled is given.
+    fn binding(&mut self, at: usize) -> Result<u32, Refusal> {
+        self.chunk
+            .take_binding()
+            .ok_or_else(|| Refusal::NotAProgram {
+                why: "this function declares more names than an environment can hold".to_owned(),
+                at,
+            })
     }
 
     /// Point a jump at where the next instruction will land.
@@ -1479,20 +1830,26 @@ fn not_built_yet(kind: &ExpressionKind, at: usize) -> Refusal {
         // The empty array literal too: an array is an exotic object, and the
         // exotic part is its `length`.
         ExpressionKind::Array(_) => What::TakingAValueApart,
-        ExpressionKind::Function(_) | ExpressionKind::Class(_) => What::AFunction,
-        ExpressionKind::Call { .. }
+        ExpressionKind::Class(_)
         | ExpressionKind::New { .. }
-        | ExpressionKind::TaggedTemplate { .. }
         | ExpressionKind::Super
         | ExpressionKind::NewTarget
-        | ExpressionKind::PrivateName(_) => What::ACall,
-        ExpressionKind::This => What::This,
+        | ExpressionKind::PrivateName(_) => What::AConstruction,
+        ExpressionKind::TaggedTemplate { .. } => What::ATaggedTemplate,
         ExpressionKind::RegularExpression(_) => What::ARegularExpression,
         ExpressionKind::BigInt { .. } => What::ABigInt,
         ExpressionKind::Yield { .. } | ExpressionKind::Await(_) => What::ASuspension,
         _ => What::AModule,
     };
     Refusal::NotBuiltYet { what, at }
+}
+
+/// A name a function may not reach, because a block declared it outside.
+fn captured(at: usize) -> Refusal {
+    Refusal::NotBuiltYet {
+        what: What::ACapturedBlockBinding,
+        at,
+    }
 }
 
 /// A program with more instructions than a jump can name.
@@ -1530,18 +1887,26 @@ fn is_proto(key: &Key) -> bool {
 enum Put {
     /// A frame slot.
     Slot(u32),
+    /// A binding of an environment, with the name it was written as so that a
+    /// dead zone can say which one.
+    Binding {
+        /// How many environments out.
+        hops: u32,
+        /// Which binding of it.
+        slot: u32,
+        /// Which text names it.
+        name: u32,
+    },
     /// A name the realm answers for, which decides at run time whether it is a
     /// lexical binding, a property of the global object, or nothing — and which
     /// refuses a `const` of its own.
     Global(u32),
-    /// A `const` in a block, which this compiler can see is one. It still has a
-    /// slot, because reading it is ordinary.
-    Constant {
-        /// Its slot, for reading.
-        slot: u32,
-        /// Its name, for the message when something assigns to it.
-        name: u32,
-    },
+    /// A `const` this compiler can see is one. It still has a place, because
+    /// reading it is ordinary.
+    Constant(u32),
+    /// A named function expression's own name in sloppy code, where an
+    /// assignment is specified to do nothing at all.
+    Ignored,
 }
 
 /// The binary operator inside a compound assignment, if it has one.
@@ -1583,8 +1948,9 @@ mod tests {
     use super::{Refusal, What, compile};
     use crate::code::Op;
     use crate::parser::script;
+    use crate::unit::Unit;
 
-    fn chunk(source: &str) -> Result<crate::code::Chunk, Refusal> {
+    fn unit(source: &str) -> Result<Unit, Refusal> {
         match script(source) {
             Ok(program) => compile(&program),
             Err(why) => panic!("{source} does not parse: {why}"),
@@ -1593,32 +1959,60 @@ mod tests {
 
     #[test]
     fn a_name_in_a_block_is_a_slot_and_one_outside_it_is_not() {
-        let Ok(chunk) = chunk("{ let a = 1; a; } b;") else {
+        let Ok(unit) = unit("{ let a = 1; a; } b;") else {
             panic!("that compiles");
         };
-        assert!(chunk.code().contains(&Op::Load(0)), "the block's own name");
+        let code = unit.script().code();
+        assert!(code.contains(&Op::Load(0)), "the block's own name");
         assert!(
-            chunk
-                .code()
-                .iter()
-                .any(|op| matches!(op, Op::LoadGlobal(_))),
+            code.iter().any(|op| matches!(op, Op::LoadGlobal(_))),
             "and the one nothing declares"
+        );
+    }
+
+    #[test]
+    fn a_functions_own_name_is_a_binding_and_the_function_is_a_chunk_of_its_own() {
+        let Ok(unit) = unit("function f(a) { return a; } f(1);") else {
+            panic!("that compiles");
+        };
+        assert_eq!(unit.chunks(), 2, "the script, and the function");
+        let Some(inside) = unit.chunk(1) else {
+            panic!("the function is chunk one");
+        };
+        assert_eq!(inside.parameters(), 1);
+        assert_eq!(inside.bindings(), 1);
+        assert!(
+            inside
+                .code()
+                .contains(&Op::LoadBinding { hops: 0, slot: 0 }),
+            "a parameter is a binding of its own environment"
+        );
+        assert!(
+            unit.script().code().contains(&Op::Call(1)),
+            "and the script calls it with one argument"
         );
     }
 
     #[test]
     fn what_is_not_built_says_which_item_builds_it() {
         for (source, what) in [
-            ("f()", What::ACall),
-            ("function f() {}", What::AFunction),
+            ("new f()", What::AConstruction),
+            ("class A {}", What::AConstruction),
+            ("function f(a = 1) {}", What::AParameterForm),
+            ("({ get a() { return 1; } })", What::AnAccessor),
+            ("f`a`", What::ATaggedTemplate),
+            (
+                "{ let a = 1; (function () { return a; }); }",
+                What::ACapturedBlockBinding,
+            ),
             ("try { a; } catch {}", What::ACatch),
             ("[1, 2]", What::TakingAValueApart),
             ("for (const a of b) {}", What::TakingAValueApart),
             ("/a/", What::ARegularExpression),
             ("1n", What::ABigInt),
-            ("this", What::This),
+            ("function* f() {}", What::ASuspension),
         ] {
-            match chunk(source) {
+            match unit(source) {
                 Err(Refusal::NotBuiltYet { what: named, .. }) => {
                     assert_eq!(named, what, "{source}");
                 }
@@ -1635,7 +2029,7 @@ mod tests {
             "break outer;",
             "outer: { continue outer; }",
         ] {
-            match chunk(source) {
+            match unit(source) {
                 Err(Refusal::NotAProgram { .. }) => {}
                 other => panic!("{source} is not a program: {other:?}"),
             }

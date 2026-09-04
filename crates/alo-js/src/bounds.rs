@@ -135,18 +135,37 @@ pub const STACK_FOR_A_COMPILE: usize = 32 * 1024 * 1024;
 
 /// How many values one run may have on its stack at once.
 ///
-/// A quarter of a million, which is four mebibytes of them. The stack holds a
-/// frame's slots and the operands of whatever it is in the middle of, and both
-/// are bounded today by how deep a tree the parser will build — so nothing a
-/// page can write reaches this, and that is the point of writing it down now:
-/// when a call gets a frame of its own (queue item 209) this is the bound that
-/// turns unbounded recursion into the `RangeError` the language specifies
-/// rather than into a process that stops.
+/// A quarter of a million, which is four mebibytes of them. The stack holds
+/// every live call's slots, arguments and operands, so a recursion that will
+/// not end reaches this and is refused — which is the `RangeError` the language
+/// specifies rather than a process that stops.
 ///
 /// It is counted in values rather than in bytes because that is what the
 /// interpreter can check in one comparison per push, and a value is a fixed
 /// sixteen bytes.
 pub const VALUES_ON_THE_STACK: usize = 256 * 1024;
+
+/// How many calls may be on the stack at once.
+///
+/// Ten thousand. [`VALUES_ON_THE_STACK`] alone would bound a runaway recursion,
+/// because a call costs at least the callee and its `this` — but *at least two*
+/// is the wrong measure: a call also costs a frame, an environment cell in the
+/// heap and a root, so a hundred thousand frames of a function of no arguments
+/// would be far more memory than four mebibytes of values. A bound that
+/// under-counts what it is bounding is a bound in name only, which is why there
+/// are two rather than one.
+///
+/// Ten thousand is the band the other engines settled on, and it is chosen for
+/// the same reason they chose it: hand-written recursion over a page's own data
+/// — a DOM walk, a JSON tree — is hundreds deep at the very most, and a program
+/// that goes ten thousand deep either does not terminate or is a recursion that
+/// wanted to be a loop. Reaching it is a `RangeError` the page can catch, so a
+/// script that recurses on purpose can say what to do about it.
+///
+/// It is not a claim about speed and it is not measured on hardware, because it
+/// is not about time: `LOOP.md` asks for a measurement before a performance
+/// claim, and this is a ceiling on memory a stranger's script chooses.
+pub const CALLS_ON_THE_STACK: usize = 10 * 1024;
 
 /// The most a page's objects may hold, in bytes.
 ///

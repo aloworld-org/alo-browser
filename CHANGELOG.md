@@ -6,6 +6,40 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Functions run, and so do closures.** A page can now declare a function, call
+  it, pass it arguments, `return` a value, write an arrow, use `this`, and — the
+  one that matters most — keep a function that remembers where it was written.
+
+  `function counter() { var n = 0; return function () { return ++n; }; }` does
+  what every page expects it to: the counter it hands back goes on counting long
+  after `counter` itself has finished. That is not a detail. It is what almost
+  every line of JavaScript on the web is built out of, and getting it right
+  means the names a function declares live where a page's objects live rather
+  than on a stack that disappears when the function returns — so they survive
+  exactly as long as something can still reach them, and no longer. A thousand
+  calls that keep nothing leave nothing behind, which a test proves by counting
+  the objects back to zero rather than by watching how much memory the process
+  is using.
+
+  Two more things are worth saying to somebody who will never read the code.
+  **A recursion that never ends is an error the page can see, not a tab that
+  vanishes**: calling a function is a note on a list rather than the engine
+  calling itself, so a program that recurses for ever gets the same
+  "call stack size exceeded" every other browser gives, and the browser is still
+  there afterwards. And **`this` means what it means everywhere else**: the
+  object a method was reached through, the global object in old-style code
+  called plainly, nothing at all in modern strict code — and an arrow function
+  takes the `this` from where it was *written*, which is the whole reason people
+  write them inside methods.
+
+  What is still refused, by name, each saying which piece of work builds it:
+  `new` and classes, `try`/`catch`, arrays and taking a value apart,
+  `arguments`, default and rest parameters, getters and setters, tagged
+  templates, and a function reading a name that a *block* around it declared —
+  that last one because the honest version has to give a loop a fresh binding
+  every pass, and a version that shared one would be quietly wrong in exactly
+  the way nobody notices for a year.
+
 - **JavaScript runs.** Not all of it, and the part that does not is refused out
   loud rather than half-done — but a page's script is now read, compiled and
   *executed* by this browser for the first time.

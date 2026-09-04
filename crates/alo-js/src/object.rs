@@ -40,12 +40,16 @@
 //! # What is absent rather than approximate
 //!
 //! ADR 0013 § 3. There are no builtins here, no realm and no global object
-//! (item 73), nothing is callable (item 72), and there is no `BigInt`
-//! (item 207). Each is absent rather than stubbed, because a stub is the one
-//! answer that defeats a page's own feature test.
+//! (item 73) and there is no `BigInt` (item 207). A [`Function`] is here — it
+//! is an ordinary object with a `[[Call]]`'s worth of code beside it (item 209)
+//! — and so is the [`Environment`] a closure keeps. Everything else is absent
+//! rather than stubbed, because a stub is the one answer that defeats a page's
+//! own feature test.
 
 pub mod access;
 pub mod cell;
+pub mod environment;
+pub mod function;
 pub mod intern;
 pub mod internal;
 pub mod key;
@@ -58,11 +62,15 @@ pub mod text;
 pub mod value;
 
 use std::fmt;
+use std::rc::Rc;
 
 use crate::heap::{Barrier, Full, Heap, Ref};
+use crate::unit::Unit;
 
 pub use access::{Fault, Found, Named, Set};
 pub use cell::Cell;
+pub use environment::Environment;
+pub use function::Function;
 pub use intern::Interner;
 pub use internal::{Exotic, Internal};
 pub use key::Key;
@@ -228,6 +236,75 @@ impl Objects {
         self.heap
             .write(list, |cell, barrier| {
                 cell.slots_mut().map(|slots| with(slots, barrier))
+            })
+            .flatten()
+    }
+
+    /// Make a function of this chunk, closing over this environment (queue item
+    /// 209).
+    ///
+    /// **This is a safepoint.** `environment` is a reference the caller must be
+    /// able to name *after* it — which it can, because the only caller reads it
+    /// off a cell that is on the interpreter's stack, and this collector does
+    /// not move what it keeps.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn function(
+        &mut self,
+        unit: Rc<Unit>,
+        chunk: u32,
+        environment: Option<Ref>,
+        captured: Option<Value>,
+    ) -> Result<Ref, Refused> {
+        let function = Function::of(unit, chunk, environment, captured);
+        Ok(self.heap.allocate(Cell::Function(function))?)
+    }
+
+    /// The function a reference names, or [`None`] if it names anything else —
+    /// which is what `a()` asks before it decides to throw a `TypeError`.
+    pub fn callable(&self, held: Ref) -> Option<&Function> {
+        self.heap.get(held)?.function()
+    }
+
+    /// Make an environment of `bindings` places under `parent` (queue item
+    /// 209).
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn environment(&mut self, parent: Option<Ref>, bindings: usize) -> Result<Ref, Refused> {
+        let environment = Environment::under(parent, bindings);
+        Ok(self.heap.allocate(Cell::Environment(environment))?)
+    }
+
+    /// What the binding at `at` of an environment holds, or [`None`] if the
+    /// reference names no environment or it has no such binding.
+    pub fn binding(&self, environment: Ref, at: usize) -> Option<Held> {
+        self.heap.get(environment)?.environment()?.get(at)
+    }
+
+    /// The environment an environment was made inside.
+    ///
+    /// Two layers of [`Option`] and they mean different things: the outer one is
+    /// a reference that names no environment, which is this engine's own
+    /// mistake, and the inner one is the end of the chain, which is where every
+    /// function written at a script's top level starts.
+    pub fn enclosing(&self, environment: Ref) -> Option<Option<Ref>> {
+        Some(self.heap.get(environment)?.environment()?.parent())
+    }
+
+    /// Change an environment, through the barrier every store passes.
+    pub fn with_environment<R>(
+        &mut self,
+        environment: Ref,
+        with: impl FnOnce(&mut Environment, &mut Barrier) -> R,
+    ) -> Option<R> {
+        self.heap
+            .write(environment, |cell, barrier| {
+                cell.environment_mut()
+                    .map(|environment| with(environment, barrier))
             })
             .flatten()
     }

@@ -18,8 +18,8 @@
 //! makes lives in, and the collector that owns it. A reference into it is an
 //! **index carrying a generation** rather than a pointer, which is why nothing
 //! here needs `unsafe` to hold one; and the collector is **precise**, so the
-//! interpreter's frames and value stack will live in structures it walks rather
-//! than in Rust locals.
+//! interpreter's value stack, a realm's bindings and every live call's own
+//! bindings live in structures it walks rather than in Rust locals.
 //!
 //! [`object`] is the fourth (ADR 0014 § 11, item 206): what a cell in that heap
 //! **is**. A prototype, a property table whose order a page can observe,
@@ -27,24 +27,31 @@
 //! strings. [`Heap<T>`](heap::Heap) was generic in its cell so that this could
 //! land inside it without changing a line of `heap.rs`, and it did.
 //!
-//! [`code`], [`compile`] and [`interpret`] are the fifth (ADR 0013 § 2, item
-//! 72): the machine. A program becomes a flat array of instructions and an
-//! [`Engine`](interpret::Engine) runs them — values, the operators, `var`,
-//! `let` and `const` with their dead zones, objects and their properties, and
-//! every shape of control flow. Two things about it are decisions rather than
-//! detail. **Bytecode from the first line**, because a frame that can be
-//! suspended is what generators, `async` and a debugger all need and is not a
-//! thing to retrofit into a tree walker. And **the value stack lives in the
-//! heap** (ADR 0014 § 2), so the collector can walk it — which is why every
-//! instruction here reads its operands where they lie and takes them off only
-//! once the answer exists.
+//! [`code`], [`unit`](crate::unit), [`compile`] and [`interpret`] are the fifth (ADR 0013
+//! § 2, items 72 and 209): the machine. A program becomes a [`Unit`] of flat
+//! instruction arrays and an [`Engine`](interpret::Engine) runs them — values,
+//! the operators, `var`, `let` and `const` with their dead zones, objects and
+//! their properties, every shape of control flow, and **functions**: calls,
+//! `this`, and closures over a scope that outlives the call that made it.
 //!
-//! What runs is the half of the language that needs no call. Functions, `this`,
-//! closures, `try`/`catch`, arrays and destructuring are **refused by name**,
-//! each saying which queue item builds it (ADR 0013 § 3: *absent beats
-//! approximate*), and [`token::Kind::BigInt`] still keeps digits rather than a
-//! number for the narrower reason that arbitrary precision arithmetic is a
-//! decision about renting — queue item 207.
+//! Three things about it are decisions rather than detail. **Bytecode from the
+//! first line**, because a frame that can be suspended is what generators,
+//! `async` and a debugger all need and is not a thing to retrofit into a tree
+//! walker. **The value stack lives in the heap** (ADR 0014 § 2), so the
+//! collector can walk it — which is why every instruction reads its operands
+//! where they lie and takes them off only once the answer exists. And **a call
+//! is a frame rather than a recursion**, so a page cannot choose how much of
+//! this process's stack it uses, and a recursion that will not end is the
+//! `RangeError` the language specifies.
+//!
+//! What is not built is **refused by name**, each saying which queue item
+//! builds it (ADR 0013 § 3: *absent beats approximate*): `new` and classes,
+//! `try`/`catch`, arrays and destructuring, `arguments` and the parameter forms
+//! that are not a plain name, getters and setters, tagged templates, and a
+//! function reading a name a *block* declared outside it. And
+//! [`token::Kind::BigInt`] still keeps digits rather than a number for the
+//! narrower reason that arbitrary precision arithmetic is a decision about
+//! renting — queue item 207.
 //!
 //! # The rule that shapes every file: a script is a stranger's bytes
 //!
@@ -100,6 +107,7 @@ pub mod string;
 pub mod template;
 pub mod token;
 pub mod unicode;
+pub mod unit;
 pub mod word;
 
 pub use abrupt::{Escape, Thrown};
@@ -114,4 +122,5 @@ pub use object::{Cell, Fault, Found, Key, Objects, Property, Refused, Set, Value
 pub use parser::{Parser, module, script};
 pub use punctuator::Punctuator;
 pub use token::{Kind, Token};
+pub use unit::Unit;
 pub use word::{Keyword, Status, Word};

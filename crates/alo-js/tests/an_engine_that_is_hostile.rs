@@ -103,6 +103,62 @@ fn a_deep_graph_of_objects_is_built_and_let_go_of_without_recursing() {
 }
 
 #[test]
+fn a_recursion_that_will_not_end_is_a_range_error_rather_than_a_stack_overflow() {
+    // Queue item 209's third closing condition, and the one clause of it that
+    // is about this process rather than about the language: an interpreter that
+    // recursed would end the renderer here, which ADR 0013 § 4 forbids in one
+    // sentence — *it never panics, not on any source text, not on any program*.
+    //
+    // The assertion is the error the language specifies, so a page that
+    // recurses on purpose can say what to do about it (queue item 210) rather
+    // than losing its tab.
+    for source in [
+        "function f() { return f(); } f()",
+        // Not a tail call, so nothing could quietly turn it into a loop.
+        "function f(n) { return 1 + f(n + 1); } f(0)",
+        // Two functions calling each other, which a bound counting one name
+        // would miss.
+        "function a() { return b(); } function b() { return a(); } a()",
+        // An arrow, which takes a different path to its `this`.
+        "var f = () => f(); f()",
+        // And one that makes an object per frame, so the heap is under
+        // pressure while the frames pile up.
+        "function f(n) { var held = { n: n }; return f(held.n + 1); } f(0)",
+    ] {
+        match run(source) {
+            Err(why) => assert!(
+                why.contains("RangeError"),
+                "{source} should be a RangeError: {why}"
+            ),
+            Ok(value) => panic!("{source} should not answer: {value:?}"),
+        }
+    }
+}
+
+#[test]
+fn an_engine_that_refused_a_recursion_still_works_afterwards() {
+    // The frames are given back however the run ended, so an engine that has
+    // just refused a runaway recursion is an engine, not a leak — the same
+    // property as being stopped by the embedder, for the same reason.
+    let Ok(mut engine) = Engine::new() else {
+        panic!("an empty heap holds an engine");
+    };
+    let Ok(runaway) = script("function f() { return f(); } f()") else {
+        panic!("that parses");
+    };
+    assert!(engine.evaluate(&runaway).is_err());
+    engine.objects().heap_mut().collect();
+
+    let Ok(again) = script("function g(n) { return n * 2; } g(21)") else {
+        panic!("that parses");
+    };
+    match engine.evaluate(&again) {
+        Ok(Value::Number(number)) => assert!((number - 42.0).abs() < f64::EPSILON),
+        other => panic!("the engine still runs a program: {other:?}"),
+    }
+}
+
+#[test]
 fn a_script_that_will_not_finish_is_stopped_by_the_embedder() {
     // ADR 0013 § 4: *the interpreter is interruptible. A script that will not
     // finish is stopped by the embedder* — and there is no clock in `alo-js`,
@@ -149,12 +205,19 @@ fn every_shape_that_ends_a_script_early_is_a_refusal_rather_than_a_crash() {
         "throw 1;",
         "({}) + ''",
         "({})[{}]",
+        "f()",
+        "(1)()",
+        "'use strict'; function f() { return this.a; } f()",
         // Not built yet, each naming its queue item.
         "'a'.length",
-        "f()",
+        "function f() { return this.a; } f.call",
+        "new f()",
         // Nonsense a program can still be made of.
         "let a = {}; a[a] = a; typeof a",
         "let a = ''; a += a; a += a; a.length",
+        // A call whose arguments are the awkward part rather than the callee.
+        "function f(a) { return a; } f(f(f(f(1))))",
+        "function f() { return f; } f()()()()",
     ];
     for source in cases {
         let Ok(program) = script(source) else {

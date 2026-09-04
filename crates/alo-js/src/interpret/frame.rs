@@ -1,0 +1,178 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! What a run is made of: one stack, one list of constants, and a frame per
+//! call that has not returned.
+//!
+//! # The frames are a list here and the values are in the heap
+//!
+//! ADR 0014 § 2 names the closed list of places a live reference may be, and
+//! this file is where the interpreter keeps its side of that promise. A
+//! [`Frame`] is bookkeeping — where in the stack this call's things start, and
+//! which instruction it is on — and it holds **no value at all**. Everything a
+//! call could lose is somewhere the collector walks:
+//!
+//! - the callee, its `this` and its arguments are **on the stack**, which is a
+//!   cell, below where the call's own operands begin;
+//! - its **environment** is a [`Root`], which is the list of things held until
+//!   somebody gives them back, and it is given back by the `return` that ends
+//!   the frame.
+//!
+//! So a `Frame` is a handful of indices and a `Rc` index, and losing one loses
+//! nothing but a place to carry on from.
+//!
+//! # One stack for every frame
+//!
+//! A call does not get a stack of its own: it continues the caller's, and
+//! [`Frame::base`] is the floor below which its instructions may not reach.
+//! That is what makes the arguments a caller pushed into the parameters a callee
+//! reads without anything being copied twice, and it is what makes
+//! [`bounds::VALUES_ON_THE_STACK`](crate::bounds) a bound on the whole run
+//! rather than on one call.
+//!
+//! # A program is loaded once per run, however many times it is entered
+//!
+//! A function made by one script and called by the next brings its own
+//! [`Unit`] with it, so a run may reach more than one — and each needs its
+//! string constants as heap cells and its property keys interned. [`Loaded`] is
+//! that work done once, and `offset` is where that unit's constants begin in the
+//! run's single list.
+
+use std::rc::Rc;
+
+use crate::abrupt::{Escape, Internal};
+use crate::code::Chunk;
+use crate::heap::{Ref, Root};
+use crate::object::Key;
+use crate::unit::Unit;
+
+/// One program, with its constants made and its keys interned.
+#[derive(Debug)]
+pub(crate) struct Loaded {
+    /// The program.
+    pub(crate) unit: Rc<Unit>,
+    /// Where its constants begin in the run's list of them.
+    pub(crate) offset: usize,
+    /// Its texts as property keys, in the same order.
+    pub(crate) keys: Vec<Key>,
+}
+
+/// One call that has not returned.
+#[derive(Debug)]
+pub(crate) struct Frame {
+    /// Which loaded program its code is in.
+    pub(crate) unit: usize,
+    /// Which chunk of that program.
+    pub(crate) chunk: u32,
+    /// The environment this call was given, held until it returns. [`None`] is
+    /// the script's own frame, whose names are the realm's.
+    pub(crate) environment: Option<Root>,
+    /// Where the callee sits in the stack. Everything from here up is this
+    /// call's, and a `return` truncates to it.
+    pub(crate) callee_at: usize,
+    /// Where its `this` sits, which is always just above the callee.
+    pub(crate) this_at: usize,
+    /// Where its frame slots begin.
+    pub(crate) locals_at: usize,
+    /// Where its operands begin.
+    pub(crate) base: usize,
+    /// Which instruction it is on.
+    pub(crate) pc: usize,
+}
+
+/// One run of one program.
+#[derive(Debug)]
+pub(crate) struct Run {
+    /// The value stack, which is a cell.
+    pub(crate) stack: Ref,
+    /// The string constants of every loaded program, one after another.
+    pub(crate) constants: Ref,
+    /// The programs this run has entered.
+    pub(crate) units: Vec<Loaded>,
+    /// The calls that have not returned, the running one last.
+    pub(crate) frames: Vec<Frame>,
+}
+
+impl Run {
+    /// The call that is running.
+    pub(crate) fn frame(&self) -> Result<&Frame, Escape> {
+        self.frames
+            .last()
+            .ok_or(Escape::Broken(Internal::StackIsWrong))
+    }
+
+    /// The same, to move its program counter.
+    pub(crate) fn frame_mut(&mut self) -> Result<&mut Frame, Escape> {
+        self.frames
+            .last_mut()
+            .ok_or(Escape::Broken(Internal::StackIsWrong))
+    }
+
+    /// The program the running call's code is in.
+    pub(crate) fn loaded(&self) -> Result<&Loaded, Escape> {
+        self.units
+            .get(self.frame()?.unit)
+            .ok_or(Escape::Broken(Internal::StackIsWrong))
+    }
+
+    /// The chunk it is running.
+    pub(crate) fn chunk(&self) -> Result<&Chunk, Escape> {
+        let frame = self.frame()?;
+        self.loaded()?
+            .unit
+            .chunk(frame.chunk)
+            .ok_or(Escape::Broken(Internal::JumpIsWrong))
+    }
+
+    /// Where the running call's operands begin.
+    pub(crate) fn base(&self) -> Result<usize, Escape> {
+        Ok(self.frame()?.base)
+    }
+
+    /// Whether the code running is strict, which decides what an assignment to
+    /// an unresolvable name and a failed write both do.
+    pub(crate) fn strict(&self) -> Result<bool, Escape> {
+        Ok(self.chunk()?.strict())
+    }
+
+    /// The property key a text index names.
+    pub(crate) fn key(&self, which: u32) -> Result<Key, Escape> {
+        let at = usize::try_from(which).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
+        self.loaded()?
+            .keys
+            .get(at)
+            .copied()
+            .ok_or(Escape::Broken(Internal::StackIsWrong))
+    }
+
+    /// The code units a text index names.
+    pub(crate) fn text(&self, which: u32) -> Result<Vec<u16>, Escape> {
+        self.loaded()?
+            .unit
+            .text(which)
+            .map(<[u16]>::to_vec)
+            .ok_or(Escape::Broken(Internal::StackIsWrong))
+    }
+
+    /// Where in the run's list of constants a text index's string is.
+    pub(crate) fn constant(&self, which: u32) -> Result<usize, Escape> {
+        let at = usize::try_from(which).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
+        let loaded = self.loaded()?;
+        if at >= loaded.keys.len() {
+            return Err(Escape::Broken(Internal::StackIsWrong));
+        }
+        Ok(loaded.offset.saturating_add(at))
+    }
+
+    /// Which loaded program this one is, if the run has entered it already.
+    ///
+    /// By identity rather than by value: two programs with the same
+    /// instructions are still two, and comparing their code would be an
+    /// expensive way to get a wrong answer for the strings.
+    pub(crate) fn already_loaded(&self, unit: &Rc<Unit>) -> Option<usize> {
+        self.units
+            .iter()
+            .position(|loaded| Rc::ptr_eq(&loaded.unit, unit))
+    }
+}

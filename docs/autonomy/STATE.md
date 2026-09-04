@@ -8762,3 +8762,142 @@ before it starts:
 
 Outside section D, **190** (the two-tone border styles) is still ready and still
 small.
+
+---
+
+## Iteration 110 — queue item 209: calls, `this` and closures
+
+**A page can write a function and this browser will run it.** Item 209 is
+ticked, cut on starting into **five** items — 212, 213, 214, 215 and 216 — and
+the cut is the one the item's own text asks for: it said it was *the largest of
+the three*, and what it named is five separable pieces rather than one. What is
+here is **calling, whole**: a function object with a `[[Call]]`, a frame per
+call, the argument list, `return`, `this` and how an arrow does not have one,
+closures over a scope that outlives the call, and the bound that turns runaway
+recursion into a `RangeError`. Scope rather than depth (`LOOP.md` step 3):
+everything not here is a **refusal that names its item**.
+
+**All three closing conditions are met**, and each has its own evidence.
+`tests/what_a_program_evaluates_to.rs` gains five tables — calling, a function
+body's own names, closures, `this`, and an optional call — run twice like every
+other, the second time collecting at every allocation.
+`tests/what_a_closure_keeps.rs` is new and is the second condition in the form
+item 71 demands, **counted rather than watched**: a closure read after its call
+has returned *and* after a collection, an environment reclaimed when nothing can
+reach it with `Heap::live` back to the number it started at, and a thousand
+calls that keep nothing leaving nothing behind. And
+`an_engine_that_is_hostile.rs` gains the third: five shapes of unbounded
+recursion, each a `RangeError` rather than a process that stops, and an engine
+that runs an ordinary program afterwards.
+
+**The decision worth reading twice is that a name lives in one of two places,
+and only one of them can be captured.** A function's parameters, its `var`s, its
+body-level `let` and `const` and the functions it declares are **bindings of an
+environment** — `object/environment.rs`, a cell in the heap with a parent link —
+which a closure keeps alive after the call has returned. A **block's** `let` and
+the compiler's own temporaries stay **frame slots** in the value stack and die
+with the call. Two mechanisms rather than one, and the reason is a loop: the
+language gives `for (let i = …)` a fresh `i` every pass, so a closure made in
+one pass and one made in the next must not share a slot. Rather than share one
+quietly, a function reading a **block's** binding is **refused by name** (item
+216). That is what keeps item 72's note honest — *nothing can tell; a closure is
+what would* — because the only thing that could tell is now the thing that is
+refused.
+
+**Three rules went in because the obvious implementation is wrong in a way a
+test written afterwards would not catch.**
+
+- **`this` is the callee's business, not the caller's.** The compiler pushes
+  `undefined` for a plain call and the receiver for a method call, and
+  `interpret/call.rs` then applies `OrdinaryCallBindThis` — strict code keeps
+  what it was given, sloppy code turns `undefined` and `null` into the global
+  object. So a caller never has to know which kind of function it is holding,
+  which is what the specification's order is *for*. A primitive receiver in
+  sloppy code says `Missing::AWrapperObject` rather than passing the primitive
+  through, because `this.length` inside a sloppy method would otherwise be
+  quietly wrong.
+- **An arrow captures its `this` where it was written**, as a field on the
+  function, rather than walking a chain for it at call time — and it captures
+  it whether the body says `this` or not, because an arrow nested inside it may
+  say it after the frame has gone.
+- **A named function expression can see itself**, before anything has assigned
+  it anywhere, so that binding is filled in by the *call* rather than by an
+  instruction (`Chunk::own_slot`). Assigning to it is **silence** in sloppy code
+  and a `TypeError` in strict code, which is a third answer to *what an
+  assignment does* rather than a shade of the `const` one — hence
+  `scope::Assignment` with three variants.
+
+**The chunk stopped being the unit of compilation, and that is the structural
+change.** A function is a chunk of its own, so a program is a `unit::Unit`: one
+pool of strings and every chunk in it. A run interns that pool **once**, which
+is what stops `a.b` written in ten functions being ten string cells. And a
+function made by one script and called by the next brings its own unit with it,
+so a run holds a small list of loaded programs rather than one — which is why
+every case in `what_a_closure_keeps.rs` runs **two scripts in one engine**: it
+is the only shape in which the callee's code, strings and keys are provably the
+callee's rather than the caller's.
+
+**The bound is two bounds, and the queue's expectation was half right.** Item
+209 said `bounds::VALUES_ON_THE_STACK` *is already the bound that turns runaway
+recursion into the `RangeError` the language specifies*. It does bound it — but
+a call costs a frame, an environment cell and a root as well as its two values,
+so a quarter of a million values is a hundred thousand frames and far more
+memory than four mebibytes. A bound that under-counts what it bounds is a bound
+in name only, so `bounds::CALLS_ON_THE_STACK` is the second, ten thousand, with
+its reason written beside it.
+
+**Nine new files, one reason to change each**: `unit.rs` (a whole program: the
+strings and the chunks), `object/environment.rs` (a function's bindings, and the
+one it was written inside), `object/function.rs` (an object that can also be
+called), `compile/function.rs` (one function into a chunk of its own),
+`interpret/frame.rs` (what a run is made of) and `interpret/call.rs` (making a
+function, entering it, leaving it), plus the test file and two module
+directories. The two splits worth naming are `compile/function.rs` against
+`compile.rs` (compiling *a body* against compiling *a statement*) and
+`interpret/call.rs` against `interpret.rs` (the calling convention against the
+instruction loop).
+
+**One defect was found by the tests and is worth naming**, because it was
+invisible in the shape of the code: `Op::Text` read its constant out of the
+**stack** rather than out of the run's list of constants, which every string
+literal in the language goes through. It was one line and it failed ten tables
+at once, which is the argument for the tables.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1998 tests** (up from 1975), no stubs, no `unsafe`, every boundary
+held, the licence notice on every new file, and a `CHANGELOG.md` line. No layout
+assertion and no reference render: this iteration positions nothing and paints
+nothing.
+
+**`ROADMAP.md` moved, and it is not a tick.** *A bytecode compiler and an
+interpreter* gains a second `· Built:` clause naming functions and the three
+decisions in them, and its `· Owed:` is rewritten from four items to nine —
+which is more items and less owed, because what was one line saying *calls,
+`this` and closures* is now five lines each naming a thing somebody can pick up.
+`docs/features.md`'s own line is rewritten in a reader's words for the same
+reason.
+
+**What the next iteration should know.** The next queue number is **217** and
+the next ADR number is **0015**. Four things:
+
+1. **Item 214 is the one to take next if the goal is fewest refusals per line of
+   code.** A getter, a setter, `to_primitive` finding a `valueOf`, and a proxy
+   trap are all one problem — re-entering the interpreter from inside an
+   instruction — and all four already answer `Missing::ACall`. The shape to
+   reach for is `Engine::enter`: it pushes a frame and returns to the loop, so
+   an instruction that wants a call has to be able to *resume itself* when that
+   frame returns. Nothing in the machine does that yet.
+2. **Item 216 is the one to take next if the goal is fewest surprises.** A
+   function reading a block's binding is ordinary code and is refused today.
+   `compile/scope.rs` already distinguishes the two kinds of scope and answers
+   `Where::Captured` for exactly this case, so the compiler knows where every
+   one of them is; what is missing is `PushEnvironment`/`PopEnvironment`/
+   `CopyEnvironment` and the unwinding that `break` and `continue` then need.
+3. **Item 73 is now unblocking rather than blocked.** `Function.prototype`,
+   `Object.prototype` and `Array` are what most of the remaining refusals wait
+   on — item 212 needs the first, 213 and 215 need `Array`, and `({}) + ''`
+   throwing rather than answering `"[object Object]"` is the same gap.
+4. **A `Chunk` is no longer a program.** Anything that reaches for
+   `compile::compile` gets a `Unit` now, and `Engine::run` takes an
+   `Rc<Unit>` — because a function outlives the run that made it and its code
+   has to outlive it too.

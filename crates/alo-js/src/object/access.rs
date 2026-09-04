@@ -20,8 +20,9 @@
 //!
 //! # What a getter does here, and why that is not a stub
 //!
-//! Reading an accessor property means **calling a function**, and nothing in
-//! this engine can call anything until queue item 72. So [`Found::Getter`] hands
+//! Reading an accessor property means **calling a function**, and calling one
+//! part way through a property access means re-entering the interpreter from
+//! inside an instruction — which is queue item 214. So [`Found::Getter`] hands
 //! back the function to call rather than pretending to have called it. That is
 //! ADR 0013 § 3's *absent beats approximate* in its most literal form: the
 //! answer is a value the caller must act on, so an interpreter that has not
@@ -93,7 +94,7 @@ pub enum Found {
     Missing,
     /// A data property's value.
     Value(Value),
-    /// An accessor's getter, which the caller must call (queue item 72).
+    /// An accessor's getter, which the caller must call (queue item 214).
     ///
     /// [`Value::Undefined`] is an accessor with a setter and no getter, which
     /// reads as `undefined` without calling anything.

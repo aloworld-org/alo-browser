@@ -511,8 +511,26 @@ unreachable without it.
       the deepest tree the parser will build. And **the embedder stops a
       script**, on a switch checked at every backward jump, because there is no
       clock in this crate and *when* is a person's judgement about a tab
+      · Built: **functions** (queue item 209, cut on starting). A function is a
+      value, calling one is a **frame on a list rather than a recursion of the
+      engine**, and a closure keeps the names it was written beside after the
+      call that made them has returned — which is why a function's parameters
+      and body-level bindings live in a **cell in the heap** and a block's live
+      in the frame that dies with the call. Three things in it are decisions.
+      `this` is decided by the **callee's** strictness rather than the
+      caller's, so a plain call is `undefined` in strict code and the global
+      object in sloppy code and the caller does not have to know which; an
+      **arrow captures the `this` where it was written**, so it is one field on
+      the function rather than a chain to walk; and a recursion that will not
+      end is the `RangeError` the language specifies, bounded twice, because a
+      bound on the value stack alone under-counts what a frame costs
       · Owed: the rest of the language, and each piece is refused **by name**
-      rather than half-built — calls, `this` and closures (queue item 209),
+      rather than half-built — `new`, classes and `super` (queue item 212),
+      `arguments` and the parameter forms that are not a plain name (213), a
+      getter or a setter, which is a call *part way through* a property access
+      (214), tagged templates (215), a function reading a name a **block**
+      declared outside it, which needs an environment per block so that a
+      closure made in one pass of a loop is not the one made in the next (216),
       `try`/`catch`/`finally` (210), arrays, spread, destructuring and
       `for…of` (211), and the builtins that make a `{}` have a `toString` (73).
       A program using one of them does not compile, and says which item builds

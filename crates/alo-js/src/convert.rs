@@ -109,7 +109,7 @@ pub fn to_boolean(objects: &Objects, value: Value) -> bool {
 /// # Errors
 ///
 /// A `TypeError` for an object with nothing to call, and [`Missing::ACall`]
-/// where there *is* something and calling it is queue item 209.
+/// where there *is* something and calling it is queue item 214.
 pub fn to_primitive(
     objects: &Objects,
     names: &Names,
@@ -129,9 +129,10 @@ pub fn to_primitive(
     };
     for key in order {
         match objects.get(object, key)? {
-            // Something is there. Whether it is callable is a question this
-            // engine cannot answer yet — nothing is callable — so it says which
-            // item answers it rather than skipping a method the object has.
+            // Something is there, and calling it would be calling a function
+            // part way through a conversion — which is the same re-entry a
+            // getter needs and is queue item 214. So it says which item answers
+            // it rather than skipping a method the object has.
             Found::Value(Value::Object(_)) | Found::Getter(_) => {
                 return Err(Escape::NotBuiltYet(Missing::ACall));
             }
@@ -257,15 +258,23 @@ pub fn to_property_key(
 
 /// `typeof`.
 ///
-/// `"function"` is absent for the reason everything else about calling is:
-/// nothing in this heap has a `[[Call]]` yet (queue item 209), so no value can
-/// honestly answer with it.
-pub fn type_of(value: Value) -> &'static str {
+/// It takes the heap because one of the eight answers is a question about the
+/// *cell* rather than about the value: an object with a `[[Call]]` is
+/// `"function"` and every other object is `"object"`, and a page's own feature
+/// tests are written on exactly that difference.
+pub fn type_of(objects: &Objects, value: Value) -> &'static str {
     match value {
         Value::Undefined => "undefined",
         // The oldest wart in the language, and it is specified: `typeof null`
         // is `"object"`.
-        Value::Null | Value::Object(_) => "object",
+        Value::Null => "object",
+        Value::Object(held) => {
+            if objects.callable(held).is_some() {
+                "function"
+            } else {
+                "object"
+            }
+        }
         Value::Bool(_) => "boolean",
         Value::Number(_) => "number",
         Value::Text(_) => "string",
@@ -347,8 +356,23 @@ mod tests {
 
     #[test]
     fn typeof_null_is_object_because_the_language_says_so() {
-        assert_eq!(type_of(Value::Null), "object");
-        assert_eq!(type_of(Value::Undefined), "undefined");
-        assert_eq!(type_of(Value::Number(1.0)), "number");
+        let objects = Objects::new();
+        assert_eq!(type_of(&objects, Value::Null), "object");
+        assert_eq!(type_of(&objects, Value::Undefined), "undefined");
+        assert_eq!(type_of(&objects, Value::Number(1.0)), "number");
+    }
+
+    #[test]
+    fn typeof_a_function_is_the_one_answer_that_asks_about_the_cell() {
+        let mut objects = Objects::new();
+        let Ok(plain) = objects.object(None) else {
+            panic!("an empty heap holds an object");
+        };
+        assert_eq!(type_of(&objects, Value::Object(plain)), "object");
+        let unit = std::rc::Rc::new(crate::unit::Unit::new());
+        let Ok(callable) = objects.function(unit, 0, None, None) else {
+            panic!("and a function");
+        };
+        assert_eq!(type_of(&objects, Value::Object(callable)), "function");
     }
 }
