@@ -58,6 +58,7 @@ pub mod sandbox;
 pub mod serve;
 pub mod site;
 pub mod snapshot;
+pub mod tab;
 pub mod wire;
 
 pub use families::Wanted;
@@ -69,3 +70,4 @@ pub use pipeline::{
 };
 pub use renderer::Renderer;
 pub use snapshot::{Snapshot, SnapshotNode};
+pub use tab::{Lost, Tab, TabId, Tabs};

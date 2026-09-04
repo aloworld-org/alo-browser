@@ -6764,3 +6764,106 @@ one site ends and another begins, much of which `alo_url::site` answers since
 item 156), **190** (the two-tone border styles: small, depends on nothing, and
 closes with a picture), and **197** above, which is blocked in practice until
 `alo-style` has the properties it implements.
+
+---
+
+## Iteration 93 — queue item 65: a tab that keeps its picture and says what happened
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** The previous
+entry named 64 and 65 as the ready items in file order and said to read
+`host.rs` before building either, because much of both might already be there.
+That was the right instruction and reading it is what decided the iteration.
+
+**Item 64 is nearly built and item 65 was not built at all**, and `ROADMAP.md`
+said the opposite of both. Two lines under the process model were **ticked** —
+*"a renderer that dies takes its tab and nothing else"* and *"the transport, and
+the lifecycle that starts, reuses and reaps renderers"* — while their queue
+items sat open. Ticked beside item 166, which is the honest cause: that item
+built one process per site and a test that kills one and watches the other keep
+working, and from a renderer's point of view the line is met. From a **tab's**
+point of view none of it was, because there was nothing in this repository that
+was a tab. `Renderers::ask` returned a `Gone` with a sentence in it to whoever
+called; nothing kept a painted frame anywhere; so what a person would have been
+shown when a renderer died is the **blank rectangle the line names**.
+
+So this iteration built item 65 — `crates/alo-renderer/src/tab.rs` — and
+corrected both lines. The first stays ticked and now says what actually met it
+and when. The second is **un-ticked** into the `· Built: … · Owed: …` state that
+file defines, because "reaps" is the one word of item 64 that nothing does: a
+renderer whose last tab closed runs until the ceiling evicts it. Un-ticking is
+not the thing `LOOP.md` forbids — it forbids ticking to discharge an obligation,
+and the file's own preamble says a tick means done.
+
+**What a tab is.** Its id, its site, the last frame it painted, and what it was
+last told about its renderer. `Tabs` owns the `Renderers` rather than borrowing
+them, which is the whole design in one line: every `Gone` passes through the one
+door, so a tab that was not told its renderer died cannot exist.
+
+**The rule worth reading twice is that nothing here restarts anything.**
+`Renderers::ask` starts a process for a site that has none — so a repaint of a
+dead tab would have spawned a fresh one, found it holding no page, and answered
+that nothing was loaded. The tab would then be blank, the reason would be wrong,
+and the bug that killed the first process would have vanished. That is ADR
+0005's silent restart arriving by a road nobody had walked down. A tab that has
+been told answers from what it knows; only a deliberate `load` starts anything,
+and the test counts processes rather than reasoning about it. The same check
+catches a renderer **evicted** to stay under `MOST_RENDERERS`, which goes away
+without anybody dying and which nothing was going to tell a tab about.
+
+**The deciding is a pure function** — `may_ask`, over an `Asking` value — which
+is the shape items 55, 154 and 188 already use, for a version of the same
+reason: every rule in it is a rule about **not starting a process**, and a rule
+about not doing something is asserted honestly only when nothing is moving. Six
+of the thirteen unit tests are of that function alone, and they reach
+arrangements a test with real processes would take a minute to set up.
+
+**One thing was found while building it, and it is refused rather than answered
+wrongly.** Two tabs on one site share a process (ADR 0005) and a `Renderer`
+holds **one** page, so the second tab to load displaces the first inside that
+process — and a repaint of the displaced tab would have come back with somebody
+else's page, which is a wrong picture that looks like a right one. `Lost::
+HoldsAnotherPage` names the tab whose page the renderer is holding.
+`docs/features.md`'s *"several documents at once, the shape tabs need"* is what
+ends that, and it is not this item.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1646 tests** (up from 1630), no stubs, no `unsafe`, boundaries held,
+the licence notice, and a `CHANGELOG.md` line. The half no script can check:
+**nothing here positions or sizes anything**, so there is no layout assertion to
+make and saying so is the honest answer — a tab holds a frame the renderer
+already laid out, and the frame's size and pixel count are asserted by the wire
+format. **The visual assertion is the one this item is actually about**: the
+frame a tab keeps after its renderer is killed is compared **byte for byte**
+with the one that came back from the paint, and the two pages in the test are
+made two different pictures on purpose (the assertion that they differ comes
+first, so a change that made every page render identically could not let this
+pass). A committed reference render would have been the wrong tool: nothing new
+is drawn, and what is being asserted is that a picture *survives a process*.
+One file one responsibility: `host.rs` is still the renderers a browser process
+holds, `tab.rs` is what a person opened and what became of it. The item is in
+`docs/features.md`, as its own `[2]` line.
+
+**Four directions were doctored, and each failed the tests written for it.**
+With the frame not kept, two of the three process tests fail and both say the
+picture is gone. With a death marking no tabs, all three fail and three unit
+tests with them. With the gone check removed from `may_ask`, the process test
+that counts renderers fails — and notably the *unit* test of the same rule still
+passed, because the stand-in program exits and produces the same sentence by
+accident, which is why the counting test is the one that matters. With the
+displacement rule removed, exactly one process test and one unit test fail.
+
+**Hostile input.** Nothing new reads bytes from outside: a frame arrives through
+`wire.rs`, which already treats a renderer as the process that parsed the page
+and bounds what it will decode. What this file adds is bookkeeping over values
+that have already been through that door.
+
+**What the next iteration should know.** Item 64 is now a small, well-defined
+item and its closing condition is written into the queue: closing the last tab
+on a site stops that site's process, closing one of two stops nothing. It was
+deliberately **not** taken here — one item per iteration, and reaping is the
+renderer lifecycle rather than what a tab is. The other ready items in stage 2's
+file order are unchanged: **66** (where one site ends and another begins, much
+of which `alo_url::site` answers since item 156) and **190** (the two-tone
+border styles: small, depends on nothing, closes with a picture). 157, 158 and
+187 are still deferred for reasons written into them, 169 must be run on Linux,
+60 is HTTP/3, and 197 waits on properties `alo-style` does not have.

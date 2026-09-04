@@ -1319,12 +1319,50 @@ wrong, which is the argument for the fourth.
 
 - [ ] **64. The transport, and the lifecycle** that starts, reuses and reaps
   renderers, with a bound on how many exist.
-  *Depends on 63.*
+  *Depends on 63.* **Most of it is built and one word of it is not**, which is
+  worth writing down here rather than leaving somebody to find: item 63 is the
+  transport, item 166 is starting a process per site, reusing it, bounding how
+  many exist at [`MOST_RENDERERS`] and evicting the least recently used — and
+  **nothing reaps**. A renderer whose last tab has closed keeps running until
+  the ceiling happens to evict it. That could not be said before item 65,
+  because there was nothing that was a tab; it can be said now.
+  *Closes when:* closing the last tab on a site stops that site's process, in a
+  test that watches the process go, and closing one of two tabs on a site stops
+  nothing.
 
-- [ ] **65. A renderer that dies takes its tab and nothing else** — and says so,
+- [x] **65. A renderer that dies takes its tab and nothing else** — and says so,
   rather than leaving a blank rectangle.
   *Depends on 63. Closes when:* a renderer is killed from outside and the tab
   says what happened while every other tab keeps working.
+
+  **Done: `alo-renderer`'s `tab.rs`, and the item was open because a tab did
+  not exist.** Item 166 made one renderer's death survivable by the others and
+  `ROADMAP.md` ticked this line beside it, but what that item built was a
+  `Gone` **returned to whoever asked**. Nobody kept a painted frame anywhere,
+  so the thing this line names — the blank rectangle — is precisely what a
+  person would have been shown. A tab holds its last frame now and keeps it
+  when its renderer goes.
+
+  **The rule worth reading twice is that nothing here restarts anything.**
+  `Renderers::ask` starts a process for a site that has none, so a repaint of a
+  dead tab would have spawned a fresh one, found it holding no page, and
+  reported that nothing was loaded — the crash gone from view, which is the
+  silent restart ADR 0005 refuses arriving by another road. A tab that has been
+  told answers from what it knows; only a deliberate `load` starts a renderer,
+  and the test counts the processes to say so. The same check catches a
+  renderer **evicted** to stay under the ceiling, which goes away without
+  anybody dying.
+
+  The deciding is a pure function (`may_ask`), the shape items 55, 154 and 188
+  already use and for a version of the same reason: every rule in it is a rule
+  about *not starting a process*, and that is asserted honestly only when
+  nothing is moving. One thing was found while building it and is refused
+  rather than answered wrongly: two tabs on one site share a process, a
+  renderer holds **one** document, so the second tab to load displaces the
+  first — `Lost::HoldsAnotherPage` says so instead of answering about somebody
+  else's page. `docs/features.md`'s *"several documents at once, the shape tabs
+  need"* is the item that ends it. The cut is written into item 64: nothing
+  reaps.
 
 - [ ] **66. Where one site ends and another begins.** The origin, the site, the
   registrable domain, and which of them gets a process.

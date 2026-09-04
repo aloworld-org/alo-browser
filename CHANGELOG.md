@@ -6,6 +6,25 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A tab whose renderer dies keeps the page on the screen and says what
+  happened.** The process split has always meant that one site crashing cannot
+  take another down, and there was a test killing a renderer to prove it — but
+  nothing in this browser was a *tab*. Nobody kept the picture a renderer had
+  painted, so what a person would have been shown when one died is the blank
+  rectangle the design exists to avoid, and the sentence explaining it was a
+  value returned to a caller rather than anything on a screen.
+
+  A tab is a thing now. It holds the last frame it painted and keeps it when
+  its renderer goes; it says, in words naming the site, what happened; and one
+  process dying marks **every** tab that was in it and no tab anywhere else,
+  which is the claim the whole process model is for.
+
+  Nothing brings a dead tab back by itself. Painting or reading one answers
+  from what the tab already knows rather than starting a fresh process — which
+  would have found it holding no page, reported that nothing was loaded, and
+  made the crash disappear from view. Loading the page again is a person
+  asking, and that is the only thing that starts another renderer.
+
 - **A font that holds many weights is drawn at the one a page asked for.** A
   variable font is a single file covering a range — most of what macOS ships is
   one, its system font included — and this engine read only the single weight

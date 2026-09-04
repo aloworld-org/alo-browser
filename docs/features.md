@@ -195,6 +195,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   read, no write, no socket, each watched failing rather than assumed
 - [2] **One renderer process per site** — two sites are two processes, and
   killing one leaves the other running
+- [2] **A tab that keeps the last frame it painted when its renderer dies, and
+  says what happened** — every tab in the dead process and no other tab
+  anywhere, the picture still on the screen rather than a blank rectangle, and
+  a fresh process only when a person asks for the page again
 - [2] **A wire format for the renderer boundary**, where a message from a
   renderer is untrusted because a renderer is the process that parsed the page
 - [2] **HSTS**, ignored over plain HTTP so it cannot be used as a weapon

@@ -180,11 +180,25 @@ unreachable without it.
       · Owed: the Linux sandbox, queue item 169; and the axes that are not
       weight — width, slant and optical size — which are queue item 197
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
-      than leaving a blank rectangle (queue item 166). It is not restarted
-      silently, because that hides a bug somebody needs to see
-- [x] The transport, and the lifecycle that starts, reuses and reaps renderers
-      (queue items 63 and 166) — length-prefixed messages over pipes, a ceiling
-      of sixteen processes, and the least recently used evicted
+      than leaving a blank rectangle (queue items 166 and 65). It is not
+      restarted silently, because that hides a bug somebody needs to see.
+      *This line was ticked when item 166 made one renderer's death survivable
+      by the others, and the half about the **tab** was not built: nothing here
+      was a tab, nothing kept a painted frame, and the blank rectangle the line
+      names is exactly what a person would have been shown. Item 65 built it —
+      `alo-renderer`'s `tab.rs`, a frame kept per tab, every tab in the dead
+      process told and no other, and a new process only when somebody asks for
+      the page again*
+- [ ] The transport, and the lifecycle that starts, reuses and reaps renderers
+      · Built: length-prefixed messages over pipes, a process started per site
+      and reused, a ceiling of sixteen and the least recently used evicted
+      (queue items 63 and 166) · Owed: **reaping** — nothing stops a renderer
+      when the last tab on its site closes, so a process outlives every tab
+      that was in it until the ceiling evicts it. Tabs exist to say so since
+      item 65; the work is queue item 64
+      *This line was ticked with the two items above it, on a reading of
+      "reaps" that the eviction satisfies. It does not: evicting to stay under
+      a ceiling is what happens when reaping has not happened*
 - [ ] Where one site ends and another begins — the origin, the site, and which
       of them gets a process · Built: the site, as ADR 0005 defines it — scheme
       plus **registrable domain**, decided against the public suffix list
