@@ -13,26 +13,31 @@
 //!
 //! # What ADR 0012 lands in this file
 //!
-//! The decision is written and the code is queue item 67's. Four of its clauses
-//! are this file's, and they are here rather than only in `docs/decisions/` so
-//! that whoever adds the field reads them where the field goes:
+//! Three of its clauses are here, and one is still owed:
 //!
-//! - A **cause** beside [`Purpose`], with **no default** — a request that
-//!   cannot say what caused it does not compile. [`Purpose`] says what kind of
-//!   thing is wanted; a cause says who wanted it, and the two are not the same
-//!   question.
+//! - A [`Cause`] beside [`Purpose`], with **no default** — a request that
+//!   cannot say what caused it does not compile, because neither constructor
+//!   will make one without it. [`Purpose`] says what kind of thing is wanted; a
+//!   cause says who wanted it, and the two are not the same question.
 //! - **Three causes and no fourth**: a person, a document, an agent action.
 //!   There is deliberately no `Unknown` — an engine-made request is attributed
 //!   to whatever caused the thing it is about, the way a [`Purpose::Report`]
-//!   already belongs to the load that violated the policy.
-//! - A cause is **a link in a chain**, because *which page* and *which agent
-//!   action* are two questions with two true answers, and a document records
-//!   what caused its own load.
+//!   already belongs to the load that violated the policy. That is why a
+//!   redirect, a range request and a preflight **clone** a cause rather than
+//!   composing one.
 //! - It is assigned by the **browser process**. A renderer states a
 //!   [`Purpose`], which it is the only thing that knows, and never a cause: it
 //!   parsed a stranger's page (ADR 0005), so a cause it could state is a cause
-//!   it could forge.
+//!   it could forge. Structurally, a renderer has nothing to state one *with* —
+//!   only a [`crate::cause::Identities`] mints an id and it lives on this side.
+//!
+//! **Owed, and queue item 199's**: a cause is *a link in a chain*, because
+//! *which page* and *which agent action* are two questions with two true
+//! answers. A [`Cause::Document`] names a document; what that document's own
+//! load was caused by is not recorded anywhere yet, so the walk ADR 0012 § 3
+//! describes stops at the first link.
 
+use crate::cause::Cause;
 use crate::headers::Headers;
 use alo_url::{Origin, Url};
 use core::fmt;
@@ -88,6 +93,17 @@ pub struct Request {
     pub method: String,
     /// What is being asked, and by what.
     pub purpose: Purpose,
+    /// What caused it: a person, a document, or an agent action (ADR 0012).
+    ///
+    /// **Not the same question as [`Request::initiator`]**, which is an
+    /// *origin* and is what queue item 61 decides against. Two documents of the
+    /// same origin have one initiator and two causes, and that difference is
+    /// the whole of *which page did this*.
+    ///
+    /// There is no builder for it and no default: it is an argument to
+    /// [`Request::get`] and [`Request::sending`] because ADR 0012 § 1 asks for
+    /// a guarantee rather than a habit.
+    pub cause: Cause,
     /// Who is asking — the origin of the document that wanted it.
     ///
     /// [`None`] for the first load of a window, which nobody's page asked for.
@@ -107,12 +123,33 @@ pub struct Request {
 }
 
 impl Request {
-    /// A plain `GET` for a document, asked by nobody.
-    pub fn get(url: Url) -> Self {
+    /// A plain `GET` for a document, asked by nobody, caused by this.
+    ///
+    /// The cause is an argument rather than something added afterwards, and
+    /// that is the whole of ADR 0012 § 1:
+    ///
+    /// ```
+    /// # fn made(url: alo_url::Url, cause: alo_net::Cause) {
+    /// let request = alo_net::Request::get(url, cause);
+    /// # let _ = request;
+    /// # }
+    /// ```
+    ///
+    /// There is no way to leave it out, which is a property of this signature
+    /// rather than of anybody's care:
+    ///
+    /// ```compile_fail
+    /// # fn made(url: alo_url::Url) {
+    /// let request = alo_net::Request::get(url);
+    /// # let _ = request;
+    /// # }
+    /// ```
+    pub fn get(url: Url, cause: Cause) -> Self {
         Self {
             url,
             method: "GET".to_owned(),
             purpose: Purpose::Document,
+            cause,
             initiator: None,
             headers: Headers::new(),
             body: Vec::new(),
@@ -124,12 +161,13 @@ impl Request {
     ///
     /// The content type is the caller's to add as a header, because only the
     /// caller knows what the bytes are. The **length** is not: see
-    /// [`Request::declared_length`].
-    pub fn sending(url: Url, method: &str, body: Vec<u8>) -> Self {
+    /// [`Request::declared_length`]. The cause is not the caller's to omit: see
+    /// [`Request::get`].
+    pub fn sending(url: Url, method: &str, body: Vec<u8>, cause: Cause) -> Self {
         Self {
             method: method.to_owned(),
             body,
-            ..Self::get(url)
+            ..Self::get(url, cause)
         }
     }
 
@@ -216,47 +254,98 @@ impl fmt::Display for Request {
         if let Some(initiator) = &self.initiator {
             write!(f, " for {initiator}")?;
         }
-        Ok(())
+        // Last, and never omitted: a request that printed without saying what
+        // caused it would be the shape of a record with the answer missing,
+        // which is what ADR 0012 § 1 refuses in the type.
+        write!(f, ", caused by {}", self.cause)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cause::Identities;
 
     fn url(text: &str) -> Url {
         alo_url::parse(text).expect("a URL")
     }
 
+    /// What every request in this file was caused by: a person, in one tab.
+    ///
+    /// The same tab each time, which is what these tests mean — they are about
+    /// one person doing one thing.
+    fn a_person() -> Cause {
+        Cause::Person {
+            tab: Identities::default().a_tab(),
+        }
+    }
+
     #[test]
     fn the_first_load_of_a_window_is_asked_by_nobody() {
-        let request = Request::get(url("https://example.com/"));
+        let request = Request::get(url("https://example.com/"), a_person());
         assert_eq!(request.method, "GET");
         assert_eq!(request.purpose, Purpose::Document);
         assert_eq!(request.initiator, None, "no page asked for it");
     }
 
+    /// The two questions [`Request`] answers separately: *which origin may read
+    /// this* and *what caused it*.
     #[test]
-    fn everything_a_page_asks_for_says_which_page_asked() {
+    fn a_request_says_what_caused_it_as_well_as_who_may_read_it() {
         let page = Origin::of(&url("https://example.com/"));
-        let request = Request::get(url("https://example.com/a.css"))
-            .for_purpose(Purpose::Style)
-            .asked_by(page.clone());
+        let mut minting = Identities::default();
+        let document = minting.a_document();
+        let request = Request::get(
+            url("https://example.com/a.css"),
+            Cause::Document { document },
+        )
+        .for_purpose(Purpose::Style)
+        .asked_by(page.clone());
+
         assert_eq!(request.initiator, Some(page));
-        assert!(request.to_string().contains("style"));
-        assert!(request.to_string().contains("https://example.com"));
+        assert_eq!(request.cause, Cause::Document { document });
+        let said = request.to_string();
+        assert!(said.contains("style"), "{said:?}");
+        assert!(said.contains("https://example.com"), "{said:?}");
+        assert!(said.contains("caused by document#0"), "{said:?}");
+    }
+
+    /// A person's own navigation and a page's fetch are different lines in the
+    /// record even when they are the same URL for the same origin.
+    #[test]
+    fn a_person_and_a_page_asking_for_the_same_thing_are_two_causes() {
+        let mut minting = Identities::default();
+        let typed = Request::get(
+            url("https://example.com/a"),
+            Cause::Person {
+                tab: minting.a_tab(),
+            },
+        );
+        let fetched = Request::get(
+            url("https://example.com/a"),
+            Cause::Document {
+                document: minting.a_document(),
+            },
+        );
+        assert_ne!(typed.cause, fetched.cause);
+        assert_ne!(typed, fetched, "two causes are two requests");
     }
 
     #[test]
     fn what_a_page_reads_carries_nothing_and_declares_nothing() {
-        let request = Request::get(url("https://example.com/"));
+        let request = Request::get(url("https://example.com/"), a_person());
         assert!(request.body.is_empty());
         assert_eq!(request.declared_length(), None, "a GET said it had a body");
     }
 
     #[test]
     fn a_request_that_sends_something_declares_what_it_actually_sends() {
-        let request = Request::sending(url("https://example.com/"), "POST", b"name=x".to_vec());
+        let request = Request::sending(
+            url("https://example.com/"),
+            "POST",
+            b"name=x".to_vec(),
+            a_person(),
+        );
         assert_eq!(request.method, "POST");
         assert_eq!(request.declared_length(), Some(6));
         assert!(!request.may_be_repeated(), "a POST is not repeatable");
@@ -266,7 +355,7 @@ mod tests {
     /// is still waiting on.
     #[test]
     fn a_method_that_anticipates_content_says_zero_rather_than_nothing() {
-        let empty = Request::sending(url("https://example.com/"), "POST", Vec::new());
+        let empty = Request::sending(url("https://example.com/"), "POST", Vec::new(), a_person());
         assert_eq!(empty.declared_length(), Some(0));
     }
 
@@ -274,14 +363,24 @@ mod tests {
     /// about where a message ends is the request half of request smuggling.
     #[test]
     fn a_length_is_the_bodys_rather_than_whatever_a_caller_wrote() {
-        let mut request = Request::sending(url("https://example.com/"), "POST", b"1234".to_vec());
+        let mut request = Request::sending(
+            url("https://example.com/"),
+            "POST",
+            b"1234".to_vec(),
+            a_person(),
+        );
         request.headers.add("Content-Length", "99999");
         assert_eq!(request.declared_length(), Some(4));
     }
 
     #[test]
     fn an_expectation_is_refused_by_name_rather_than_ignored() {
-        let plain = Request::sending(url("https://example.com/"), "POST", b"x".to_vec());
+        let plain = Request::sending(
+            url("https://example.com/"),
+            "POST",
+            b"x".to_vec(),
+            a_person(),
+        );
         assert_eq!(plain.unmet_expectation(), None);
 
         let mut expecting = plain.clone();

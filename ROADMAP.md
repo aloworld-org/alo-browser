@@ -372,10 +372,22 @@ unreachable without it.
       process** assigns it, because a renderer parsed a stranger's page and a
       cause it could state is a cause it could forge. The record is the
       session's, in memory, except what an agent did, which is kept until the
-      person deletes it — and **no page and no agent may read any of it**
-      · Owed: all of the code (queue item 67). Nothing today carries a cause;
-      `alo-net`'s request carries a purpose and an origin and says in its own
-      comment that this is coming
+      person deletes it — and **no page and no agent may read any of it**;
+      and the **cause itself**, on every request there is (queue item 67).
+      Three causes and no fourth, with no default and no builder, so a request
+      that cannot say what caused it does not compile; the four requests the
+      engine makes for itself — a redirect hop, a resumed range request, a CORS
+      preflight, a violation report — each carry the cause of the thing they are
+      about, which is what let there be no `Unknown`; and a server answering
+      `302` cannot turn a page's fetch into something the person did
+      · Owed: the **chain** (queue item 199), so that *which page* and *which
+      agent action* are two answers rather than one — a document does not yet
+      record what caused its own load, so the walk stops at the first link; the
+      **record** itself (queue item 200), which is where a cause is kept for the
+      session and where an agent's work is kept until the person deletes it —
+      today a cause is carried and nothing is written down; and the browser
+      process assigning it in earnest, which needs a renderer that can ask for a
+      subresource at all (queue items 80 and 83)
 
 ### JavaScript, ours, in Rust
 

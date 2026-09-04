@@ -185,6 +185,12 @@ pub fn next(sent: &Request, got: &Response) -> Result<Next, Refusal> {
         // asked. Item 61 decides what may be *read*, and a redirect must not
         // be able to launder a request into looking self-inflicted.
         initiator: sent.initiator.clone(),
+        // Carried for the same reason and a sharper one. ADR 0012 § 2: a hop
+        // is attributed to whatever asked for the first hop, because a
+        // redirect is not a new intention. A server that could change it would
+        // be able to write *the person did that* into the record by answering
+        // `302`.
+        cause: sent.cause.clone(),
         headers,
         // The same condition that drops `Content-Length` and `Content-Type`
         // drops the bytes they described, and it has to be the same one: a

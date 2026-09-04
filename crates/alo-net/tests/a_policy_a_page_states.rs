@@ -11,9 +11,21 @@
 //! the one thing a policy must never do, because the page that wrote it is
 //! usually protecting itself from a bug it has not found yet.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::csp::{Content, Inline, Policies};
 use alo_net::{Headers, Purpose, Request};
 use alo_url::Origin;
+
+/// What caused every request in this file: a document fetching what it needs.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is a
+/// page asking for a subresource rather than a person navigating.
+fn a_page() -> Cause {
+    Cause::Document {
+        document: Identities::default().a_document(),
+    }
+}
 
 /// The page every test below is on.
 const PAGE: &str = "https://shop.example.com/checkout";
@@ -32,7 +44,7 @@ fn url(text: &str) -> alo_url::Url {
 
 /// A request the page made, as the page.
 fn wants(target: &str, purpose: Purpose) -> Request {
-    Request::get(url(target))
+    Request::get(url(target), a_page())
         .for_purpose(purpose)
         .asked_by(Origin::of(&url(PAGE)))
 }

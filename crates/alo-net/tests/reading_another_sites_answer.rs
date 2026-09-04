@@ -10,11 +10,23 @@
 //! it. A file full of `allow_origin_header_is_checked` would pass just as well
 //! against an implementation that checked the wrong thing.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::cors::{
     self, Credentials, asking_first, asking_first_allowed, may_read, needs_asking_first, readable,
 };
 use alo_net::{Headers, Request, Response, Status};
 use alo_url::Origin;
+
+/// What caused every request in this file: a document fetching what it needs.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is a
+/// page asking for a subresource rather than a person navigating.
+fn a_page() -> Cause {
+    Cause::Document {
+        document: Identities::default().a_document(),
+    }
+}
 
 fn url(text: &str) -> alo_url::Url {
     alo_url::parse(text).unwrap_or_else(|_| alo_url::Url {
@@ -30,7 +42,7 @@ fn url(text: &str) -> alo_url::Url {
 
 /// A request from `page` for `target`.
 fn asked_by(page: &str, target: &str) -> Request {
-    Request::get(url(target)).asked_by(Origin::of(&url(page)))
+    Request::get(url(target), a_page()).asked_by(Origin::of(&url(page)))
 }
 
 /// A response from `target` carrying these headers.
@@ -163,7 +175,7 @@ fn two_opaque_origins_are_not_the_same_origin_as_each_other() {
     assert_eq!(two.to_string(), "null");
     assert_ne!(one, two, "two opaque origins compared equal");
 
-    let asking = Request::get(url("https://bank.example/statement")).asked_by(one);
+    let asking = Request::get(url("https://bank.example/statement"), a_page()).asked_by(one);
     assert!(
         may_read(
             &asking,
@@ -182,7 +194,7 @@ fn two_opaque_origins_are_not_the_same_origin_as_each_other() {
 #[test]
 fn a_server_allowing_null_is_allowing_every_sandboxed_page_at_once() {
     let opaque = Origin::of(&url("file:///Users/somebody/a.html"));
-    let asking = Request::get(url("https://bank.example/statement")).asked_by(opaque);
+    let asking = Request::get(url("https://bank.example/statement"), a_page()).asked_by(opaque);
     let answer = answered(
         "https://bank.example/statement",
         &[("Access-Control-Allow-Origin", "null")],

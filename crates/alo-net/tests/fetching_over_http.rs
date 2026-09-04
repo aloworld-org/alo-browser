@@ -9,11 +9,23 @@
 //! Nothing here reaches the network: `127.0.0.1` on a port the operating
 //! system picks.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::{FetchError, Request, fetch};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::mpsc;
 use std::time::Duration;
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 /// Answer one request with these exact bytes, then close.
 ///
@@ -82,7 +94,7 @@ fn serve_and_hear(bytes: &'static [u8]) -> (u16, mpsc::Receiver<Vec<u8>>) {
 }
 
 fn get(port: u16, path: &str) -> Result<alo_net::Response, FetchError> {
-    fetch(&Request::get(at(port, path)))
+    fetch(&Request::get(at(port, path), a_person()))
 }
 
 fn at(port: u16, path: &str) -> alo_url::Url {
@@ -184,6 +196,7 @@ fn a_body_goes_out_after_the_head_with_the_length_that_describes_it() {
         at(port, "/form"),
         "POST",
         b"name=ada&trade=engines".to_vec(),
+        a_person(),
     ))
     .expect("a response");
     assert_eq!(response.status.0, 201);
@@ -203,7 +216,12 @@ fn a_body_goes_out_after_the_head_with_the_length_that_describes_it() {
 fn a_method_that_anticipates_content_says_zero_rather_than_nothing() {
     let (port, heard) = serve_and_hear(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n");
     assert!(port != 0, "no server");
-    let _ = fetch(&Request::sending(at(port, "/ping"), "POST", Vec::new()));
+    let _ = fetch(&Request::sending(
+        at(port, "/ping"),
+        "POST",
+        Vec::new(),
+        a_person(),
+    ));
 
     let asked = String::from_utf8(heard.recv().unwrap_or_default()).unwrap_or_default();
     assert!(asked.contains("Content-Length: 0\r\n"), "{asked:?}");
@@ -255,7 +273,7 @@ fn a_server_that_only_ever_says_something_first_is_refused() {
 fn an_expectation_is_refused_by_name() {
     let (port, _) = serve_and_hear(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
     assert!(port != 0, "no server");
-    let mut request = Request::sending(at(port, "/upload"), "POST", b"a form".to_vec());
+    let mut request = Request::sending(at(port, "/upload"), "POST", b"a form".to_vec(), a_person());
     request.headers.add("Expect", "100-continue");
     match fetch(&request) {
         Err(FetchError::Failed { why, .. }) => assert!(why.contains("100-continue"), "{why}"),
@@ -268,7 +286,7 @@ fn a_host_nothing_is_listening_on_says_so() {
     // Port 1 on loopback, where nothing is. No name is looked up, so this
     // needs no network and no DNS.
     let url = alo_url::parse("http://127.0.0.1:1/").expect("a URL");
-    match fetch(&Request::get(url)) {
+    match fetch(&Request::get(url, a_person())) {
         Err(FetchError::Failed { why, .. }) => assert!(why.contains("could not reach"), "{why}"),
         other => panic!("expected a failure, got {other:?}"),
     }

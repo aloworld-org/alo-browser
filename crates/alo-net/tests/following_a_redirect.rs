@@ -9,6 +9,7 @@
 //! below is a security rule, and a security rule that can only be checked by
 //! standing up a socket is a security rule that gets checked less often.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::redirect::{MOST_HOPS, Next, Refusal, Trail, next};
 use alo_net::{Headers, Partition, Pool, Purpose, Request, Response, Status, Trust};
 use std::io::{Read, Write};
@@ -16,6 +17,17 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 fn url(text: &str) -> alo_url::Url {
     alo_url::parse(text).unwrap_or_else(|_| alo_url::Url {
@@ -56,7 +68,7 @@ fn hop(sent: &Request, got: &Response) -> Result<Request, String> {
 /// site's credentials a moment ago and must not have them now.
 #[test]
 fn authorization_does_not_cross_to_another_origin() {
-    let mut sent = Request::get(url("https://bank.example/statement"));
+    let mut sent = Request::get(url("https://bank.example/statement"), a_person());
     sent.headers.add("Authorization", "Bearer a-real-token");
     sent.headers.add("Accept", "text/html");
 
@@ -97,7 +109,7 @@ fn authorization_does_not_cross_to_another_origin() {
 /// is the case somebody hand-writing a host comparison gets wrong.
 #[test]
 fn a_downgrade_to_http_is_a_crossing_even_though_the_host_is_the_same() {
-    let mut sent = Request::get(url("https://example.com/account"));
+    let mut sent = Request::get(url("https://example.com/account"), a_person());
     sent.headers.add("Authorization", "Bearer a-real-token");
     sent.headers.add("Cookie", "session=abc");
 
@@ -121,7 +133,7 @@ fn a_downgrade_to_http_is_a_crossing_even_though_the_host_is_the_same() {
 /// A port is part of an origin too.
 #[test]
 fn another_port_on_the_same_host_is_another_origin() {
-    let mut sent = Request::get(url("https://example.com/a"));
+    let mut sent = Request::get(url("https://example.com/a"), a_person());
     sent.headers.add("Authorization", "Bearer t");
     let across = hop(
         &sent,
@@ -143,6 +155,7 @@ fn a_post_redirected_by_301_or_302_or_303_becomes_a_get() {
             url("https://example.com/pay"),
             "POST",
             b"amount=100".to_vec(),
+            a_person(),
         );
         sent.headers
             .add("Content-Type", "application/x-www-form-urlencoded");
@@ -180,6 +193,7 @@ fn a_post_redirected_by_307_or_308_stays_a_post() {
             url("https://example.com/pay"),
             "POST",
             br#"{"amount":100}"#.to_vec(),
+            a_person(),
         );
         sent.headers.add("Content-Type", "application/json");
 
@@ -206,7 +220,7 @@ fn a_post_redirected_by_307_or_308_stays_a_post() {
 #[test]
 fn a_head_stays_a_head_through_every_kind_of_redirect() {
     for status in [301, 302, 303, 307, 308] {
-        let mut sent = Request::get(url("https://example.com/a"));
+        let mut sent = Request::get(url("https://example.com/a"), a_person());
         sent.method = "HEAD".to_owned();
         let away = hop(&sent, &pointing("https://example.com/a", status, "/b"))
             .unwrap_or_else(|why| panic!("{status}: {why}"));
@@ -228,7 +242,7 @@ fn a_redirect_into_file_or_data_is_refused_by_name() {
         ("file", "file:///etc/passwd"),
         ("data", "data:text/html,<script>alert(1)</script>"),
     ] {
-        let sent = Request::get(url("https://example.com/a"));
+        let sent = Request::get(url("https://example.com/a"), a_person());
         let refused = next(&sent, &pointing("https://example.com/a", 302, location));
         let Err(Refusal::ASchemeWeDoNotFetch { scheme: named }) = refused else {
             panic!("a redirect to {scheme}: was not refused as a scheme");
@@ -239,7 +253,7 @@ fn a_redirect_into_file_or_data_is_refused_by_name() {
 
 #[test]
 fn a_location_that_is_not_a_url_is_refused_rather_than_guessed_at() {
-    let sent = Request::get(url("https://example.com/a"));
+    let sent = Request::get(url("https://example.com/a"), a_person());
     let refused = next(
         &sent,
         &pointing("https://example.com/a", 302, "http://[not a host]/"),
@@ -255,7 +269,7 @@ fn a_location_that_is_not_a_url_is_refused_rather_than_guessed_at() {
 /// original would send the second hop to the wrong host entirely.
 #[test]
 fn a_relative_location_resolves_against_the_response_not_the_original_request() {
-    let sent = Request::get(url("https://first.example/a/b"));
+    let sent = Request::get(url("https://first.example/a/b"), a_person());
     // The request still names the first host; the response came from the second.
     let away = hop(&sent, &pointing("https://second.example/x/y", 302, "../z")).expect("followed");
     assert_eq!(away.url.serialised, "https://second.example/z");
@@ -267,7 +281,7 @@ fn a_relative_location_resolves_against_the_response_not_the_original_request() 
 /// with it is the only thing there is to show.
 #[test]
 fn a_3xx_with_no_location_is_the_answer_rather_than_a_refusal() {
-    let sent = Request::get(url("https://example.com/a"));
+    let sent = Request::get(url("https://example.com/a"), a_person());
     let got = Response {
         url: url("https://example.com/a"),
         status: Status(302),
@@ -279,7 +293,7 @@ fn a_3xx_with_no_location_is_the_answer_rather_than_a_refusal() {
 
 #[test]
 fn a_200_is_not_a_redirect_even_when_it_carries_a_location() {
-    let sent = Request::get(url("https://example.com/a"));
+    let sent = Request::get(url("https://example.com/a"), a_person());
     let mut got = pointing("https://example.com/a", 200, "https://elsewhere.example/");
     got.status = Status(201);
     assert_eq!(next(&sent, &got), Ok(Next::Keep));
@@ -290,7 +304,7 @@ fn a_200_is_not_a_redirect_even_when_it_carries_a_location() {
 #[test]
 fn what_asked_for_the_load_is_unchanged_by_being_redirected() {
     let asker = alo_url::Origin::of(&url("https://page.example/"));
-    let sent = Request::get(url("https://example.com/a.css"))
+    let sent = Request::get(url("https://example.com/a.css"), a_person())
         .for_purpose(Purpose::Style)
         .asked_by(asker.clone());
     let away = hop(
@@ -423,7 +437,7 @@ fn a_load_follows_a_chain_and_reports_where_it_ended() {
     });
     assert!(port != 0, "no server");
 
-    let asked = Request::get(url(&format!("http://127.0.0.1:{port}/first")));
+    let asked = Request::get(url(&format!("http://127.0.0.1:{port}/first")), a_person());
     let got = pool()
         .follow(&asked, &Partition::of(&asked.url))
         .unwrap_or_else(|why| panic!("the chain should have been followed: {why}"));
@@ -449,7 +463,7 @@ fn a_server_that_redirects_to_itself_ends_the_load_rather_than_hanging() {
     });
     assert!(port != 0, "no server");
 
-    let asked = Request::get(url(&format!("http://127.0.0.1:{port}/round")));
+    let asked = Request::get(url(&format!("http://127.0.0.1:{port}/round")), a_person());
     let refused = pool().follow(&asked, &Partition::of(&asked.url));
     let why = match refused {
         Ok(got) => panic!("a self-redirect produced a {} response", got.status),

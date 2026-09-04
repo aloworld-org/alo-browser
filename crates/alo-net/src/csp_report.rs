@@ -50,6 +50,7 @@
 //! reason: this engine sends no `User-Agent` header anywhere, and a report is
 //! not the place to invent the first fingerprint it ever emits.
 
+use crate::cause::Cause;
 use crate::csp::{Disposition, Refusal};
 use crate::headers::Headers;
 use crate::request::{Purpose, Request};
@@ -105,17 +106,27 @@ pub struct Page {
     /// The reporting endpoints its response defined, which is what a
     /// `report-to` group name means anything against.
     pub endpoints: Endpoints,
+    /// What caused this document to be loaded.
+    ///
+    /// Here rather than composed at the moment a report is posted, because
+    /// ADR 0012 § 2 attributes an engine-made request to whatever caused the
+    /// thing it is about — and the thing a violation report is about is this
+    /// load. A report is the one request on the web that no page asked for, so
+    /// it is also the one that would have grown an `Unknown` if the cause had
+    /// not been carried this far.
+    pub cause: Cause,
 }
 
 impl Page {
     /// A page at a URL, answered `200`, referred by nobody, defining no
     /// endpoints.
-    pub fn at(url: Url) -> Self {
+    pub fn at(url: Url, cause: Cause) -> Self {
         Self {
             url,
             referrer: String::new(),
             status: 200,
             endpoints: Endpoints::default(),
+            cause,
         }
     }
 
@@ -407,7 +418,7 @@ impl Posting {
             Format::CspReport => violation.as_csp_report(about),
             Format::Reports => violation.as_report(about),
         };
-        let mut post = Request::sending(url, "POST", body.into_bytes())
+        let mut post = Request::sending(url, "POST", body.into_bytes(), about.cause.clone())
             .for_purpose(Purpose::Report)
             .asked_by(about.origin());
         post.headers.add("Content-Type", format.media_type());
@@ -543,13 +554,25 @@ impl fmt::Display for Violation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cause::{Cause, Identities};
+
+    /// What caused every request in this file: a person, in a tab of their own.
+    ///
+    /// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+    /// forget, so a test has to say what it means too — and what these mean is
+    /// somebody opening a page. The same tab each time, because it is one person.
+    fn a_person() -> Cause {
+        Cause::Person {
+            tab: Identities::default().a_tab(),
+        }
+    }
 
     fn url(text: &str) -> Url {
         alo_url::parse(text).expect("a URL")
     }
 
     fn page() -> Page {
-        Page::at(url("https://shop.example.com/checkout?step=2"))
+        Page::at(url("https://shop.example.com/checkout?step=2"), a_person())
     }
 
     #[test]

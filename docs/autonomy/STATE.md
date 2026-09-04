@@ -7279,3 +7279,101 @@ ready. 157 and 158 need an interface to ask in, and so does the question item
 198 stands in for; 187 is deferred for the reason written into it; 169 must be
 run on Linux; 60 is HTTP/3; and 197 waits on properties `alo-style` does not
 have.
+
+## Iteration 98 — queue item 67: every request says what caused it, and cannot not
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 67's ADR
+landed last iteration; its code was the natural next take and the journal
+already said so. It also said the item is **larger than one iteration** and
+named the cut: the field and the three causes, the chain, the durable record.
+That is what happened — this iteration is the first of the three, and 199 and
+200 are the other two, written into the queue on starting rather than left as a
+half-built item.
+
+**What is built.** `crates/alo-net/src/cause.rs`: `Cause` with three variants
+and no fourth, `TabId` / `DocumentId` / `ActionId`, and `Identities`, which is
+the only thing that can mint one. `Request` carries a `Cause`, and
+`Request::get` and `Request::sending` take it as an **argument** — no builder,
+no `Default`, no `..Default::default()` anywhere near it. So ADR 0012 § 1's
+guarantee is a signature rather than a habit, and the thing that checks it is a
+`compile_fail` doctest on `Request::get` paired with a passing one, so a rename
+breaks the pair rather than silently turning the negative into a false pass.
+
+**The identities went in `alo-net`, and `alo_renderer::tab::TabId` is now a
+re-export of `alo_net::cause::TabId` rather than a type of its own.** That was
+the one real design decision in the iteration and it is written into both files.
+A cause is a *field on a request*; a field cannot name a type from a crate that
+depends on this one; so either the causes carry a second tab identity mapped
+onto the renderer's, or there is one identity and it lives here. Two identity
+spaces for one tab is precisely what ADR 0003 exists to refuse — an id meaning
+one tab in the record and another in the browser joins two unrelated pieces of
+somebody's history into one story. It also made ADR 0012 § 4 structural for
+free: a renderer holds no `Identities`, so it has nothing to state a cause
+*with*.
+
+**The four requests nobody asked for each clone the cause of the thing they are
+about**, which is what let the decision have no `Unknown` in it: a redirect hop
+(`redirect::next`), a resumed range request (`Download::asking`), a CORS
+preflight (`cors::asking_first`) and a violation report (`csp_report`, which
+needed the cause carried as far as its `Page` — the load that violated the
+policy is the thing a report is about). `tests/what_caused_a_request.rs` sweeps
+all four in one test as well as asserting each, because a **fifth** appearing
+with a fresh cause of its own is the drift worth catching and it would not show
+up in any one file. One test is named for the attack rather than for the field,
+the way items 61 and 62's are: a server answering `302` cannot promote a page's
+fetch into something the person did.
+
+**The third closing clause is not met and is not claimed.** *A renderer that
+states a cause is a renderer that has been ignored* has nothing to ignore today:
+no message crossing the boundary carries a request at all, so `ToRenderer` and
+`FromRenderer` could not express a cause if a renderer tried. Asserting it now
+would be a test of nothing. It is written into item 199 with the dependency
+named — items 80 and 83, where a renderer can ask for a subresource — rather
+than left implied by a tick.
+
+**The cost, which the ADR asked for on purpose.** 112 call sites gained an
+argument. Every test file that makes a request now says what its requests
+*mean* — `a_person()` where somebody is opening a page, `a_page()` where a
+document is fetching a subresource — which is friction, and is the friction ADR
+0012 § 8 named. It is also the first time those files say which of the two they
+were about.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1694 tests** (1678 before, so 16 new — 8 in the new integration file,
+5 unit tests in `cause.rs`, 2 rewritten and added in `request.rs`, 1
+`compile_fail` doctest), no stubs, no `unsafe`, boundaries held, the licence
+notice, and a `CHANGELOG.md` line. No layout assertion and no reference render:
+this iteration positions nothing and paints nothing. One file one
+responsibility: `cause.rs` is new and holds one thing — what caused a request,
+and the identities a cause names, which exist only to be named by one.
+`docs/features.md`'s starred line gains what is built and what is still to come.
+
+**`ROADMAP.md` moved, and it is not a tick.** The ★ line keeps its empty box.
+Its `· Built:` clause gains the cause itself and the four engine-made requests;
+its `· Owed:` clause was *all of the code* and is now three named things — the
+chain (199), the record (200), and the browser process assigning it in earnest,
+which needs a renderer that can ask for a subresource. While editing it I
+renumbered two of its existing references by accident and put them back: the
+Macintosh-encoding and generic-family clauses are queue items **192 and 193**,
+which is why the new cuts are **199 and 200** rather than the next two numbers
+after 191. The next free number is **201**.
+
+**What the next iteration should know.** Item 199 is the chain and is the
+natural next take, but it is not small: it needs a **document to be a thing with
+an identity** outside a `Cause`. `alo_renderer::Tabs` mints tabs and mints no
+documents, and `Page` is markup and a viewport — so the work starts by deciding
+where a document's identity is allocated and where it records what caused its
+own load, and `Tabs` already holds the `Identities` that would mint it. Item 200
+depends on 199 for the reason written into it: a record of chains needs chains,
+and building it first would keep only requests whose own cause happened to be an
+agent action, which is the narrowest reading of the ★ promise rather than the
+one the ADR makes.
+
+**Item 69 is the other decision-shaped item** and is the first of section D —
+our own JavaScript engine — and the queue still calls it "ADR 0006", which is
+the supervisor; the next free ADR number is **0013**. Beyond those, **190** (the
+two-tone border styles: small, depends on nothing, closes with a picture) is
+ready. 157 and 158 need an interface to ask in, and so does the question item
+198 stands in for; 187 is deferred for the reason written into it; 169 must be
+run on Linux; 60 is HTTP/3; and 197 waits on properties `alo-style` does not
+have.

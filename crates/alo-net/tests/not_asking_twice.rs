@@ -12,11 +12,23 @@
 //! Nothing sleeps. Every moment is passed in, which is the only way a table of
 //! expiries says anything: the pairs either side of an expiry are the point.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::cors::Credentials;
 use alo_net::preflight::{LONGEST_MEMORY, MOST_KEPT, Preflights, WHEN_NOBODY_SAYS};
 use alo_net::{Headers, Partition, Request, Response, Status};
 use alo_url::Origin;
 use std::time::{Duration, SystemTime};
+
+/// What caused every request in this file: a document fetching what it needs.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is a
+/// page asking for a subresource rather than a person navigating.
+fn a_page() -> Cause {
+    Cause::Document {
+        document: Identities::default().a_document(),
+    }
+}
 
 fn url(text: &str) -> alo_url::Url {
     alo_url::parse(text).unwrap_or_else(|_| alo_url::Url {
@@ -37,7 +49,7 @@ fn inside(top_level: &str) -> Partition {
 
 /// A request from `page` for `target`, with a method and some headers.
 fn asked_by(page: &str, target: &str, method: &str, headers: &[(&str, &str)]) -> Request {
-    let mut request = Request::get(url(target)).asked_by(Origin::of(&url(page)));
+    let mut request = Request::get(url(target), a_page()).asked_by(Origin::of(&url(page)));
     method.clone_into(&mut request.method);
     for (name, value) in headers {
         request.headers.add(*name, *value);

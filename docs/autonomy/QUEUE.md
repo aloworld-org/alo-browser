@@ -1478,7 +1478,7 @@ wrong, which is the argument for the fourth.
   inheriting its parent's (item 86), and a `blob:` taking the origin of whoever
   created it (items 72 and 90).
 
-- [ ] **67. ★ Every request attributable** — which page, and **which agent
+- [x] **67. ★ Every request attributable** — which page, and **which agent
   action**, caused it. `ROADMAP.md`: *"no other engine has needed to answer
   that, and an agent-driven browser that cannot is one nobody should trust."*
   *Depends on 53. **ADR 0012 is written and accepted** — what is recorded, for
@@ -1501,6 +1501,72 @@ wrong, which is the argument for the fourth.
   way to make one that does not, an agent's action is reachable from every
   request that followed from it in a test that walks the chain, and a renderer
   that states a cause is a renderer that has been ignored.
+
+  **Done for the first clause, and cut on starting into 199 and 200** — the
+  shape the iteration before this one predicted, because the field, the chain
+  and the durable record are three pieces of work and only the first is a
+  prerequisite for the others. `alo-net/src/cause.rs` is the type;
+  `Request::get` and `Request::sending` take a [`Cause`] as an **argument**, so
+  the guarantee is a signature rather than a habit and the `compile_fail`
+  example on `Request::get` is what checks it.
+
+  Two things are worth reading twice. **The identities live in `alo-net`**, and
+  `alo_renderer::tab::TabId` is now a re-export of `alo_net::cause::TabId`
+  rather than a second type: a cause is a field on a request, a field cannot
+  name a type from a crate that depends on it, and two identity spaces for one
+  tab is exactly what ADR 0003 exists to refuse. Nothing but
+  `cause::Identities` can mint one, which is also ADR 0012 § 4 made structural
+  — a renderer holds no `Identities` and therefore has nothing to state a cause
+  *with*. And **the four engine-made requests each clone the cause of the thing
+  they are about** — a redirect hop, a resumed range request, a CORS preflight,
+  a violation report — which is what let the decision have no `Unknown` in it;
+  `tests/what_caused_a_request.rs` sweeps all four together rather than
+  asserting each in its own file, because a fifth appearing with a fresh cause
+  is the drift worth catching. One test is named for the attack: a server
+  answering `302` cannot promote a page's fetch into something the person did.
+
+  The third clause is **not** met and is not claimed: nothing today can be
+  called a renderer that stated a cause, because no message crossing the
+  boundary carries a request at all. It is written into item 199 rather than
+  left implied.
+
+- [ ] **199. A cause is a link in a chain.** Cut from 67, which carries one
+  cause per request and no way to get from a [`Cause::Document`] to what caused
+  *that* document's load. ADR 0012 § 3: *"which page, and which agent action* is
+  two questions, and the second one is usually answered indirectly" — an agent
+  activates a link, a document loads, that document fetches a script, and only
+  the walk says the script was the agent's doing. So a document has to record
+  what caused its own load, which means a document has to be a thing with an
+  identity outside a `Cause` — `alo_renderer::Tabs` mints tabs and mints no
+  documents, and `Page` is markup and a viewport.
+  *Depends on 67. Closes when:* an agent's action is reachable from every
+  request that followed from it, in a test that walks the chain, and the walk
+  terminates on a cycle rather than looping — ADR 0003's ids make a cycle
+  impossible to *create*, and a walk that trusted that is a walk that hangs on
+  the first bug. **And the clause item 67 could not reach**: a renderer that
+  states a cause is a renderer that has been ignored, which needs a renderer
+  that can ask for a subresource (items 80 and 83) before there is anything to
+  ignore. If those are still unbuilt when this is taken, say so and cut it
+  rather than asserting a boundary nothing crosses.
+
+- [ ] **200. The record itself.** Cut from 67, which carries a cause on a
+  request and writes nothing down. ADR 0012 §§ 5, 6 and 7 are all this item:
+  **what is recorded** (when, the cause chain, the method and URL, the purpose,
+  and what happened — never a body, never a header set, never anything a page
+  chose to put there); **everything for the session, in memory, bounded**, which
+  is what a person opens to see what a page is doing and what item 129's
+  developer tools read; and **only what reaches an agent action kept until the
+  person deletes it**, under ADR 0011 § 3's rules unchanged, never opened at all
+  for a session-scoped profile, and bounded in **actions rather than bytes** so
+  one busy action cannot evict a week of ordinary ones.
+  *Depends on 199 — a record of chains needs chains; without them every durable
+  entry would be a request whose cause happened to be an agent action, which is
+  the narrowest possible reading of the promise and is not the one the ADR
+  makes. Closes when:* a session's requests are all in the in-memory record and
+  it is bounded, an agent's work survives a restart and a person's browsing does
+  not, a private profile leaves no file behind at all (**never written**, rather
+  than written and deleted — ADR 0011 § 2's rule), and there is no API of any
+  kind by which a page or an agent could read any of it.
 
 ## C. Pages that are not ours
 

@@ -305,8 +305,12 @@ pub fn needs_asking_first(request: &Request) -> bool {
 ///
 /// It carries no credentials, ever: the question "may I do this" must not
 /// itself be a request that does anything on somebody's behalf.
+///
+/// Its **cause is the cause of the request it is asking about** (ADR 0012 § 2).
+/// An engine-made request is attributed to whatever caused the thing it is
+/// about, and this one exists for exactly one other request.
 pub fn asking_first(request: &Request) -> Request {
-    let mut asking = Request::get(request.url.clone());
+    let mut asking = Request::get(request.url.clone(), request.cause.clone());
     "OPTIONS".clone_into(&mut asking.method);
     asking.purpose = request.purpose.clone();
     asking.initiator.clone_from(&request.initiator);

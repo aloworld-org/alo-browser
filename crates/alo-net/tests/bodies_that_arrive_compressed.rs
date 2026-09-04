@@ -10,8 +10,20 @@
 //! prove that one crate agrees with itself, which is not the question anybody
 //! is asking. See `tests/compressed/README.md` for how to re-derive each one.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::decompress::{Encoding, undo, undo_within, what_was_applied};
 use alo_net::{Headers, Request, http};
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 /// One of the frozen bodies.
 fn frozen(name: &str) -> Vec<u8> {
@@ -260,8 +272,8 @@ fn a_body_compressed_more_times_than_this_engine_will_undo_is_refused() {
 #[test]
 fn a_request_says_which_encodings_this_engine_reads() {
     let url = url("https://example.com/");
-    let sent =
-        String::from_utf8(http::write_request(&Request::get(url.clone()))).unwrap_or_default();
+    let sent = String::from_utf8(http::write_request(&Request::get(url.clone(), a_person())))
+        .unwrap_or_default();
     assert!(
         sent.contains("Accept-Encoding: br, zstd, gzip, deflate\r\n"),
         "the request did not ask for anything: {sent:?}"
@@ -270,7 +282,7 @@ fn a_request_says_which_encodings_this_engine_reads() {
     // But a caller who asked for something else keeps it. A download that
     // resumes wants `identity`, because a byte range of a compressed stream is
     // a range of bytes nobody can decompress.
-    let mut request = Request::get(url);
+    let mut request = Request::get(url, a_person());
     request.headers.add("Accept-Encoding", "identity");
     let sent = String::from_utf8(http::write_request(&request)).unwrap_or_default();
     assert!(

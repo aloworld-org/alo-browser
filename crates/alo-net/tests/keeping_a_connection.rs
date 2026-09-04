@@ -13,11 +13,23 @@
 //! connection sits idle, and one takes a request and then dies without
 //! answering. Nothing reaches the network.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::{Pool, Request, Trust};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 /// A response with a body, framed by length so a connection survives it.
 fn ok(body: &str) -> String {
@@ -114,7 +126,7 @@ fn two_fetches_of_one_host_use_one_socket() {
     let mut pool = pool();
     for _ in 0..3 {
         let response = pool
-            .fetch(&Request::get(url(port, "/")))
+            .fetch(&Request::get(url(port, "/"), a_person()))
             .expect("a response");
         assert_eq!(response.text().text, "hello");
     }
@@ -139,7 +151,10 @@ fn a_server_that_asks_to_close_is_not_kept() {
 
     let mut pool = pool();
     for _ in 0..2 {
-        assert!(pool.fetch(&Request::get(url(port, "/"))).is_ok());
+        assert!(
+            pool.fetch(&Request::get(url(port, "/"), a_person()))
+                .is_ok()
+        );
     }
     assert_eq!(
         sockets.load(Ordering::SeqCst),
@@ -162,7 +177,10 @@ fn a_body_that_ends_when_the_connection_does_ends_the_connection() {
 
     let mut pool = pool();
     for _ in 0..2 {
-        assert!(pool.fetch(&Request::get(url(port, "/"))).is_ok());
+        assert!(
+            pool.fetch(&Request::get(url(port, "/"), a_person()))
+                .is_ok()
+        );
     }
     assert_eq!(sockets.load(Ordering::SeqCst), 2);
     assert_eq!(pool.idle(), 0);
@@ -184,7 +202,7 @@ fn a_connection_closed_while_it_waited_is_tried_again_rather_than_failing() {
 
     let mut pool = pool();
     let first = pool
-        .fetch(&Request::get(url(port, "/")))
+        .fetch(&Request::get(url(port, "/"), a_person()))
         .expect("a response");
     assert_eq!(first.text().text, "first");
     assert_eq!(pool.idle(), 1, "kept, because nothing said not to");
@@ -192,7 +210,7 @@ fn a_connection_closed_while_it_waited_is_tried_again_rather_than_failing() {
     // Give the server's side time to actually close.
     std::thread::sleep(std::time::Duration::from_millis(120));
 
-    let second = pool.fetch(&Request::get(url(port, "/")));
+    let second = pool.fetch(&Request::get(url(port, "/"), a_person()));
     assert!(
         second.is_ok(),
         "a lost bet is a retry, not a failure: {second:?}",
@@ -215,10 +233,13 @@ fn a_request_that_must_not_happen_twice_is_never_tried_again() {
     });
 
     let mut pool = pool();
-    assert!(pool.fetch(&Request::get(url(port, "/"))).is_ok());
+    assert!(
+        pool.fetch(&Request::get(url(port, "/"), a_person()))
+            .is_ok()
+    );
     std::thread::sleep(std::time::Duration::from_millis(120));
 
-    let mut posting = Request::get(url(port, "/pay"));
+    let mut posting = Request::get(url(port, "/pay"), a_person());
     posting.method = "POST".to_owned();
     let answer = pool.fetch(&posting);
 
@@ -245,7 +266,10 @@ fn an_https_connection_is_never_handed_out_for_an_http_one() {
     });
 
     let mut pool = pool();
-    assert!(pool.fetch(&Request::get(url(port, "/"))).is_ok());
+    assert!(
+        pool.fetch(&Request::get(url(port, "/"), a_person()))
+            .is_ok()
+    );
     assert_eq!(pool.idle(), 1);
 
     let secure = format!("https://127.0.0.1:{port}/");
@@ -254,7 +278,7 @@ fn an_https_connection_is_never_handed_out_for_an_http_one() {
     };
     // It must not reuse the plain connection; it opens a new one and the TLS
     // handshake fails against a server speaking plain HTTP.
-    assert!(pool.fetch(&Request::get(secure)).is_err());
+    assert!(pool.fetch(&Request::get(secure, a_person())).is_err());
     assert_eq!(pool.idle(), 1, "the plain one is still there, untouched");
 }
 
@@ -265,5 +289,8 @@ fn a_request_the_server_never_answers_is_a_failure_rather_than_a_hang() {
         let _ = swallow_a_request(&mut socket);
     });
     let mut pool = pool();
-    assert!(pool.fetch(&Request::get(url(port, "/"))).is_err());
+    assert!(
+        pool.fetch(&Request::get(url(port, "/"), a_person()))
+            .is_err()
+    );
 }

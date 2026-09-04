@@ -28,6 +28,7 @@
 //!
 //! Nothing here touches the network.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::h2::client;
 use alo_net::h2::frame::{self, Frame, Setting};
 use alo_net::h2::hpack::{self, Field, Table};
@@ -37,6 +38,17 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 /// The thing being downloaded — the same bytes as the HTTP/1.1 test, so the two
 /// can be read against each other.
@@ -223,7 +235,7 @@ fn over_http_2(port: u16, request: &Request) -> Result<Answered, String> {
 
 /// Download something over HTTP/2, through the loop `Pool::download` runs.
 fn download(port: u16, path: &str) -> Result<alo_net::Response, String> {
-    alo_net::whole_of(&Request::get(url(port, path)), |asking| {
+    alo_net::whole_of(&Request::get(url(port, path), a_person()), |asking| {
         over_http_2(port, asking)
     })
 }
@@ -423,7 +435,7 @@ fn a_page_over_http_2_still_refuses_a_body_that_stopped() {
     let refused = client::exchange(
         &mut socket,
         &mut speaking,
-        &Request::get(url(port, "/page.html")),
+        &Request::get(url(port, "/page.html"), a_person()),
     );
     let Err(why) = refused else {
         panic!("half a page was handed up as a page");

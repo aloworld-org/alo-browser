@@ -53,6 +53,7 @@ use crate::host::{Gone, Renderers};
 use crate::message::{FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::site::Site;
+use alo_net::cause::Identities;
 use alo_url::Url;
 use core::fmt;
 use std::collections::{HashMap, HashSet};
@@ -63,22 +64,15 @@ use std::collections::{HashMap, HashSet};
 /// ADR 0003 gives `alo_box::BoxId` and for a version of the same reason: a
 /// closed tab's id must never come to mean a different page, or a caller
 /// holding one acts on the wrong one.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TabId(u64);
-
-impl TabId {
-    /// The id as a number, for diagnostics and for a caller keeping its own
-    /// record beside this one.
-    pub fn as_u64(self) -> u64 {
-        self.0
-    }
-}
-
-impl fmt::Display for TabId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "tab#{}", self.0)
-    }
-}
+///
+/// **Defined in [`alo_net::cause`] rather than here**, and re-exported, because
+/// ADR 0012 makes a tab something a *request* names: a request caused by a
+/// person carries the tab they made it in, and a field cannot name a type from
+/// a crate that depends on this one. Two tab identities would have been the
+/// alternative, and two identity spaces for one thing is what ADR 0003 exists
+/// to refuse — an id meaning one tab in the record and another in the browser
+/// would join two unrelated pieces of somebody's history into one story.
+pub use alo_net::cause::TabId;
 
 /// One tab: a page somebody opened, and what became of it.
 #[derive(Debug, Clone)]
@@ -260,7 +254,11 @@ pub struct Tabs {
     /// that page, and forgetting whose it was would let the next tab on the
     /// site paint it and believe it was its own.
     held: HashMap<Site, TabId>,
-    opened: u64,
+    /// Where tab identities come from (ADR 0012, ADR 0003). One per browser
+    /// process, and this is the browser process — a renderer has no [`Tabs`],
+    /// which is what makes *a renderer never states a cause* structural rather
+    /// than a rule somebody follows.
+    identities: Identities,
 }
 
 impl Tabs {
@@ -270,7 +268,7 @@ impl Tabs {
             renderers,
             list: Vec::new(),
             held: HashMap::new(),
-            opened: 0,
+            identities: Identities::default(),
         }
     }
 
@@ -285,8 +283,7 @@ impl Tabs {
 
     /// Open a tab at a URL. Nothing is loaded and no process is started yet.
     pub fn open(&mut self, url: Url) -> TabId {
-        let id = TabId(self.opened);
-        self.opened += 1;
+        let id = self.identities.a_tab();
         let site = Site::of(&url);
         self.list.push(Tab {
             id,
@@ -771,6 +768,16 @@ mod tests {
 
     // --- The decision, on its own --------------------------------------------
 
+    /// Two tabs, minted the way the browser process mints them (ADR 0012).
+    ///
+    /// A test cannot make a [`TabId`] out of a number any more, and that is the
+    /// point rather than an inconvenience: an identity nothing allocated is an
+    /// identity nothing guarantees is unique.
+    fn two_tabs() -> (TabId, TabId) {
+        let mut minting = Identities::default();
+        (minting.a_tab(), minting.a_tab())
+    }
+
     fn asking(id: TabId) -> Asking<'static> {
         Asking {
             id,
@@ -783,11 +790,12 @@ mod tests {
 
     #[test]
     fn nothing_is_asked_on_behalf_of_a_tab_whose_renderer_has_gone() {
+        let (this, _) = two_tabs();
         let gone = gone_at("https://example.com");
         let refused = may_ask(
             &Asking {
                 gone: Some(&gone),
-                ..asking(TabId(0))
+                ..asking(this)
             },
             &site("https://example.com/"),
         );
@@ -798,14 +806,15 @@ mod tests {
     /// it possible: a load passes every refusal above.
     #[test]
     fn a_deliberate_load_is_allowed_where_nothing_else_is() {
+        let (this, other) = two_tabs();
         let gone = gone_at("https://example.com");
         assert_eq!(
             may_ask(
                 &Asking {
                     deliberate: true,
                     gone: Some(&gone),
-                    holder: Some(TabId(9)),
-                    ..asking(TabId(0))
+                    holder: Some(other),
+                    ..asking(this)
                 },
                 &site("https://example.com/"),
             ),
@@ -815,20 +824,21 @@ mod tests {
 
     #[test]
     fn a_tab_whose_page_its_renderer_no_longer_holds_is_not_answered_about() {
+        let (this, other) = two_tabs();
         assert_eq!(
             may_ask(
                 &Asking {
-                    holder: Some(TabId(9)),
+                    holder: Some(other),
                     running: true,
-                    ..asking(TabId(0))
+                    ..asking(this)
                 },
                 &site("https://example.com/"),
             ),
-            Err(Lost::HoldsAnotherPage { holder: TabId(9) }),
+            Err(Lost::HoldsAnotherPage { holder: other }),
         );
         assert_eq!(
-            Lost::HoldsAnotherPage { holder: TabId(9) }.to_string(),
-            "its renderer is holding tab#9's page, and a renderer holds one page",
+            Lost::HoldsAnotherPage { holder: other }.to_string(),
+            "its renderer is holding tab#1's page, and a renderer holds one page",
         );
     }
 
@@ -837,11 +847,12 @@ mod tests {
     /// told nothing is loaded — which is the silent restart by another road.
     #[test]
     fn a_tab_whose_renderer_was_stopped_is_told_rather_than_given_a_new_one() {
+        let (this, _) = two_tabs();
         let refused = may_ask(
             &Asking {
-                holder: Some(TabId(0)),
+                holder: Some(this),
                 running: false,
-                ..asking(TabId(0))
+                ..asking(this)
             },
             &site("https://example.com/"),
         );
@@ -856,12 +867,13 @@ mod tests {
 
     #[test]
     fn a_tab_holding_its_own_page_in_a_running_renderer_is_asked() {
+        let (this, _) = two_tabs();
         assert_eq!(
             may_ask(
                 &Asking {
-                    holder: Some(TabId(0)),
+                    holder: Some(this),
                     running: true,
-                    ..asking(TabId(0))
+                    ..asking(this)
                 },
                 &site("https://example.com/"),
             ),
@@ -873,8 +885,9 @@ mod tests {
     /// better than a rule here would: it says nothing is loaded.
     #[test]
     fn a_tab_on_a_site_nothing_has_loaded_is_left_to_the_renderer_to_answer() {
+        let (this, _) = two_tabs();
         assert_eq!(
-            may_ask(&asking(TabId(0)), &site("https://example.com/")),
+            may_ask(&asking(this), &site("https://example.com/")),
             Ok(()),
         );
     }

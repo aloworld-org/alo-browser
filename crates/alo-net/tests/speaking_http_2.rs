@@ -11,6 +11,7 @@
 //! response is assembled out of frames, and that it answers the things a peer
 //! waits for rather than deadlocking against them.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::h2::frame::{self, Frame, Setting};
 use alo_net::h2::hpack::{self, Field, Table};
 use alo_net::h2::{ErrorCode, client};
@@ -18,6 +19,17 @@ use alo_net::{Request, Status};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 fn url(text: &str) -> alo_url::Url {
     alo_url::parse(text).unwrap_or_else(|_| alo_url::Url {
@@ -210,7 +222,7 @@ fn a_request_and_its_response_go_through() {
 
     let response = ask(
         port,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/a/b?c=d"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/a/b?c=d")), a_person()),
     )
     .unwrap_or_else(|why| panic!("the exchange failed: {why}"));
 
@@ -231,7 +243,7 @@ fn a_request_becomes_four_pseudo_headers_and_they_come_first() {
     assert!(port != 0, "no server");
     let _ = ask(
         port,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/a/b?c=d"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/a/b?c=d")), a_person()),
     );
 
     let asked = heard.recv().unwrap_or_default();
@@ -268,7 +280,7 @@ fn a_request_becomes_four_pseudo_headers_and_they_come_first() {
 fn the_headers_that_describe_a_hop_are_not_sent() {
     let (port, heard) = serve(ok_with("x"));
     assert!(port != 0, "no server");
-    let mut request = Request::get(url(&format!("http://127.0.0.1:{port}/")));
+    let mut request = Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person());
     request.headers.add("Connection", "keep-alive");
     request.headers.add("Host", "somewhere.else");
     request.headers.add("Accept", "text/html");
@@ -297,7 +309,7 @@ fn the_headers_that_describe_a_hop_are_not_sent() {
 fn header_names_go_out_lowercase() {
     let (port, heard) = serve(ok_with("x"));
     assert!(port != 0, "no server");
-    let mut request = Request::get(url(&format!("http://127.0.0.1:{port}/")));
+    let mut request = Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person());
     request.headers.add("X-Custom-Thing", "1");
     let _ = ask(port, &request);
 
@@ -315,7 +327,7 @@ fn header_names_go_out_lowercase() {
 fn a_credential_is_marked_never_indexed() {
     let (port, heard) = serve(ok_with("x"));
     assert!(port != 0, "no server");
-    let mut request = Request::get(url(&format!("http://127.0.0.1:{port}/")));
+    let mut request = Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person());
     request.headers.add("Authorization", "Bearer a-real-token");
     request.headers.add("Accept", "text/html");
     let _ = ask(port, &request);
@@ -345,7 +357,7 @@ fn a_response_with_no_status_is_refused() {
     assert!(port != 0, "no server");
     let why = ask(
         port,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person()),
     )
     .err()
     .unwrap_or_default();
@@ -368,7 +380,7 @@ fn a_header_before_the_status_is_refused() {
     assert!(port != 0, "no server");
     let why = ask(
         port,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person()),
     )
     .err()
     .unwrap_or_default();
@@ -386,7 +398,7 @@ fn a_response_carrying_a_request_pseudo_header_is_refused() {
     assert!(port != 0, "no server");
     let why = ask(
         port,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person()),
     )
     .err()
     .unwrap_or_default();
@@ -407,7 +419,7 @@ fn a_response_carrying_a_hop_header_is_refused() {
     assert!(port != 0, "no server");
     let why = ask(
         port,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person()),
     )
     .err()
     .unwrap_or_default();
@@ -421,7 +433,7 @@ fn a_status_that_is_not_a_number_is_refused() {
     assert!(port != 0, "no server");
     let why = ask(
         port,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person()),
     )
     .err()
     .unwrap_or_default();
@@ -440,7 +452,7 @@ fn an_interim_response_is_read_past_rather_than_taken_for_the_answer() {
     assert!(port != 0, "no server");
     let response = ask(
         port,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person()),
     )
     .unwrap_or_else(|why| panic!("the exchange failed: {why}"));
 
@@ -465,7 +477,7 @@ fn a_server_that_only_ever_says_something_first_is_refused() {
     assert!(port != 0, "no server");
     let why = ask(
         port,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person()),
     )
     .err()
     .unwrap_or_default();
@@ -480,7 +492,7 @@ fn an_interim_response_that_ends_the_stream_is_refused() {
     assert!(port != 0, "no server");
     let why = ask(
         port,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person()),
     )
     .err()
     .unwrap_or_default();
@@ -498,7 +510,7 @@ fn a_malformed_response_ends_the_stream_rather_than_the_connection() {
     let broken = client::exchange(
         &mut socket,
         &mut speaking,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person()),
     );
     let Err(why) = broken else {
         panic!("a response with a non-numeric status was accepted");

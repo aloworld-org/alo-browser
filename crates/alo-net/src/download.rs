@@ -598,8 +598,20 @@ fn named_coding(headers: &Headers, name: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{Download, Step, Unusable};
+    use crate::cause::{Cause, Identities};
     use crate::request::Request;
     use crate::response::{Response, Status};
+
+    /// What caused every request in this file: a person, in a tab of their own.
+    ///
+    /// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+    /// forget, so a test has to say what it means too — and what these mean is
+    /// somebody opening a page. The same tab each time, because it is one person.
+    fn a_person() -> Cause {
+        Cause::Person {
+            tab: Identities::default().a_tab(),
+        }
+    }
 
     fn url() -> alo_url::Url {
         alo_url::parse("https://example.com/big.bin").expect("a URL")
@@ -635,7 +647,7 @@ mod tests {
     #[test]
     fn a_download_that_arrives_whole_is_one_answer_and_no_range() {
         let mut download = Download::new();
-        let request = Request::get(url());
+        let request = Request::get(url(), a_person());
         let asking = download.asking(&request);
         assert_eq!(asking.headers.get("Range"), None, "nothing to continue yet");
         assert_eq!(
@@ -653,7 +665,7 @@ mod tests {
     fn a_body_that_stops_half_way_is_asked_for_from_where_it_stopped() {
         // The item's own closing condition, without a socket in it.
         let mut download = Download::new();
-        let request = Request::get(url());
+        let request = Request::get(url(), a_person());
 
         let mut cut = whole(b"0123456789");
         cut.body = b"01234".to_vec();
@@ -775,7 +787,7 @@ mod tests {
         let cut = answer(200, b"01234", &[("Content-Length", "10")]);
         assert_eq!(download.take(&cut, true), Ok(Step::More));
 
-        let asking = download.asking(&Request::get(url()));
+        let asking = download.asking(&Request::get(url(), a_person()));
         assert_eq!(asking.headers.get("Range"), None, "no range without one");
         assert_eq!(asking.headers.get("If-Range"), None);
     }
@@ -920,7 +932,7 @@ mod tests {
             &[("Content-Length", "10"), ("ETag", "W/\"v1\"")],
         );
         assert_eq!(download.take(&cut, true), Ok(Step::More));
-        let asking = download.asking(&Request::get(url()));
+        let asking = download.asking(&Request::get(url(), a_person()));
         assert_eq!(
             asking.headers.get("If-Range"),
             None,
@@ -941,7 +953,7 @@ mod tests {
             ],
         );
         assert_eq!(download.take(&cut, true), Ok(Step::More));
-        let asking = download.asking(&Request::get(url()));
+        let asking = download.asking(&Request::get(url(), a_person()));
         assert_eq!(
             asking.headers.get("If-Range"),
             Some("Wed, 21 Oct 2015 07:28:00 GMT")
@@ -1019,7 +1031,7 @@ mod tests {
                 let _ = download.take(&first, true);
                 let next = answer(206, b"23", &[("Content-Range", range)]);
                 let _ = download.take(&next, false);
-                let _ = download.asking(&Request::get(url()));
+                let _ = download.asking(&Request::get(url(), a_person()));
             }
         }
     }

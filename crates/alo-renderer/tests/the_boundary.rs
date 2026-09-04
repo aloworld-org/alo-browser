@@ -280,8 +280,16 @@ fn a_page_can_come_from_something_that_was_fetched() {
     // place to go and get them — ADR 0005 gives it no filesystem and no
     // network, so the fetch happens out here, in what will be the browser
     // process.
+    // The cause is the browser process's to state and never the renderer's
+    // (ADR 0012 § 4), which is what this test is standing in for: the fetch
+    // happens on this side, so the tab is nameable here and would not be over
+    // there.
+    let mut minting = alo_net::cause::Identities::default();
     let fetched = alo_net::fetch(&alo_net::Request::get(
         alo_url::parse("data:text/html,%3Cp%3Efetched%3C/p%3E").expect("a URL"),
+        alo_net::Cause::Person {
+            tab: minting.a_tab(),
+        },
     ))
     .expect("a response");
 

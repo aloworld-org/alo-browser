@@ -14,6 +14,7 @@
 //! dependency, for the reason `fetching_over_http.rs` gives: nothing here
 //! reaches the network, and a suite that did would fail on an aeroplane.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::csp::{Content, Disposition, Policies};
 use alo_net::csp_report::{Blocked, Endpoints, Page, Violation};
 use alo_net::{Headers, Purpose, Request, Trust};
@@ -22,6 +23,17 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::mpsc;
 use std::time::Duration;
+
+/// What caused every request in this file: a document fetching what it needs.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is a
+/// page asking for a subresource rather than a person navigating.
+fn a_page() -> Cause {
+    Cause::Document {
+        document: Identities::default().a_document(),
+    }
+}
 
 /// The page every test below is on.
 const PAGE: &str = "https://shop.example.com/checkout?step=2";
@@ -40,7 +52,7 @@ fn url(text: &str) -> alo_url::Url {
 
 /// A request the page made, as the page.
 fn wants(target: &str, purpose: Purpose) -> Request {
-    Request::get(url(target))
+    Request::get(url(target), a_page())
         .for_purpose(purpose)
         .asked_by(Origin::of(&url(PAGE)))
 }
@@ -58,7 +70,7 @@ fn policies(enforced: &[&str], watched: &[&str]) -> Policies {
 
 /// The page a report is about, at [`PAGE`].
 fn about() -> Page {
-    Page::at(url(PAGE)).came_from("https://search.example/")
+    Page::at(url(PAGE), a_page()).came_from("https://search.example/")
 }
 
 /// The whole reason reporting exists: a site sends the report-only header for a
@@ -361,7 +373,7 @@ fn whole_request(bytes: &[u8]) -> bool {
 /// A page served from this machine, so that a report to this machine is one a
 /// local page made. See the test below for what happens when it is not.
 fn local_page(port: u16) -> Page {
-    Page::at(url(&format!("http://127.0.0.1:{port}/checkout")))
+    Page::at(url(&format!("http://127.0.0.1:{port}/checkout")), a_page())
 }
 
 /// The item's third clause, from the other side: the report is actually posted,
@@ -372,7 +384,7 @@ fn a_report_arrives_at_the_collector_as_a_post() {
     assert!(port != 0, "loopback is unavailable");
 
     let policies = policies(&["script-src 'self'; report-uri /csp"], &[]);
-    let asked = Request::get(url("https://evil.test/x.js"))
+    let asked = Request::get(url("https://evil.test/x.js"), a_page())
         .for_purpose(Purpose::Script)
         .asked_by(Origin::of(&url(&format!(
             "http://127.0.0.1:{port}/checkout"
@@ -427,7 +439,7 @@ fn a_report_that_cannot_be_sent_is_not_a_load_that_fails() {
         )],
         &[],
     );
-    let asked = Request::get(url("https://evil.test/x.js"))
+    let asked = Request::get(url("https://evil.test/x.js"), a_page())
         .for_purpose(Purpose::Script)
         .asked_by(Origin::of(&url(&format!(
             "http://127.0.0.1:{port}/checkout"
@@ -464,6 +476,7 @@ fn a_collector_that_answers_an_error_is_named_rather_than_believed() {
         url(&format!("http://127.0.0.1:{port}/csp")),
         "POST",
         b"{}".to_vec(),
+        a_page(),
     )
     .for_purpose(Purpose::Report);
     let failed = pool().report(&[one]);

@@ -8,9 +8,21 @@
 //! HTTP into. Nothing here touches the network, which is what lets it be a
 //! test at all.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::encoding::Source;
 use alo_net::{Purpose, Request, fetch};
 use alo_url::Origin;
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 /// A URL, or one that names nothing when the text is not one — which no case
 /// here is. Built by hand rather than panicking in a helper, so the assertion
@@ -28,7 +40,7 @@ fn url(text: &str) -> alo_url::Url {
 }
 
 fn get(text: &str) -> Result<alo_net::Response, alo_net::FetchError> {
-    fetch(&Request::get(url(text)))
+    fetch(&Request::get(url(text), a_person()))
 }
 
 #[test]
@@ -113,7 +125,7 @@ fn a_scheme_this_browser_does_not_fetch_says_which_one() {
 #[test]
 fn a_request_says_who_asked_and_what_for() {
     let page = Origin::of(&url("https://example.com/"));
-    let request = Request::get(url("data:text/css,p{color:red}"))
+    let request = Request::get(url("data:text/css,p{color:red}"), a_person())
         .for_purpose(Purpose::Style)
         .asked_by(page.clone());
     assert_eq!(request.initiator, Some(page));
@@ -145,7 +157,7 @@ fn nothing_a_stranger_can_put_in_a_url_makes_this_panic() {
             continue;
         };
         // Either answer is fine; not returning one is not.
-        if let Ok(response) = fetch(&Request::get(parsed)) {
+        if let Ok(response) = fetch(&Request::get(parsed, a_person())) {
             let _ = response.text();
             let _ = response.media_type();
             let _ = response.to_string();

@@ -19,11 +19,23 @@
 //! `alo_net::download`'s own tests. What is here is that the loop over a real
 //! connection reaches them.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::{Pool, Request, Trust};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 /// The thing being downloaded: long enough that half of it is unmistakable.
 const FILE: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -179,12 +191,15 @@ fn a_download_interrupted_half_way_is_the_same_bytes_as_an_uninterrupted_one() {
 
     let mut held = pool();
     let resumed = held
-        .download(&Request::get(url(port, "/big.bin")))
+        .download(&Request::get(url(port, "/big.bin"), a_person()))
         .expect("a download that resumed");
 
     let mut plain = pool();
     let uninterrupted = plain
-        .download(&Request::get(url(a_server_that_works(), "/big.bin")))
+        .download(&Request::get(
+            url(a_server_that_works(), "/big.bin"),
+            a_person(),
+        ))
         .expect("a download that never stopped");
 
     assert_eq!(
@@ -245,7 +260,10 @@ fn a_download_never_asks_for_something_it_could_not_splice() {
     });
 
     let mut held = pool();
-    assert!(held.download(&Request::get(url(port, "/big.bin"))).is_ok());
+    assert!(
+        held.download(&Request::get(url(port, "/big.bin"), a_person()))
+            .is_ok()
+    );
 
     let held = asked
         .lock()
@@ -292,7 +310,7 @@ fn a_server_that_answers_a_range_with_the_whole_thing_is_noticed_rather_than_bel
 
     let mut held = pool();
     let downloaded = held
-        .download(&Request::get(url(port, "/big.bin")))
+        .download(&Request::get(url(port, "/big.bin"), a_person()))
         .expect("a download that started again");
     assert_eq!(downloaded.body, FILE, "not the first 25 bytes twice over");
     assert_eq!(downloaded.body.len(), FILE.len());
@@ -333,7 +351,7 @@ fn a_range_that_begins_a_byte_away_from_where_we_stopped_is_refused() {
 
     let mut held = pool();
     let why = held
-        .download(&Request::get(url(port, "/big.bin")))
+        .download(&Request::get(url(port, "/big.bin"), a_person()))
         .err()
         .unwrap_or_else(|| "it was accepted".to_owned());
     assert!(why.contains("26") && why.contains("25"), "{why:?}");
@@ -355,7 +373,7 @@ fn a_server_that_never_gets_any_further_stops_rather_than_being_asked_for_ever()
 
     let mut held = pool();
     let why = held
-        .download(&Request::get(url(port, "/big.bin")))
+        .download(&Request::get(url(port, "/big.bin"), a_person()))
         .err()
         .unwrap_or_else(|| "it finished somehow".to_owned());
     assert!(why.contains("attempts"), "{why:?}");
@@ -385,7 +403,7 @@ fn a_server_that_says_it_will_not_resume_fails_rather_than_asking_anyway() {
 
     let mut held = pool();
     let why = held
-        .download(&Request::get(url(port, "/big.bin")))
+        .download(&Request::get(url(port, "/big.bin"), a_person()))
         .err()
         .unwrap_or_else(|| "it was accepted".to_owned());
     assert!(why.contains("will not resume"), "{why:?}");
@@ -437,7 +455,7 @@ fn a_download_follows_a_redirect_and_starts_at_where_it_lands() {
 
     let mut held = pool();
     let downloaded = held
-        .download(&Request::get(url(port, "/moved")))
+        .download(&Request::get(url(port, "/moved"), a_person()))
         .expect("a download that followed a redirect and then resumed");
     assert_eq!(downloaded.body, FILE);
     assert!(
@@ -456,7 +474,7 @@ fn a_request_that_must_not_happen_twice_is_never_downloaded() {
         let _ = take_a_request(&mut socket);
     });
     let mut held = pool();
-    let mut posting = Request::get(url(port, "/pay"));
+    let mut posting = Request::get(url(port, "/pay"), a_person());
     posting.method = "POST".to_owned();
     let why = held
         .download(&posting)
@@ -505,7 +523,7 @@ fn nothing_a_server_can_answer_a_range_request_with_makes_this_panic() {
         // a body that is not *the file* — bytes spliced from two answers, or
         // the same bytes twice. So whatever comes back is a prefix of the real
         // thing, which a spliced body could not be.
-        if let Ok(downloaded) = held.download(&Request::get(url(port, "/big.bin"))) {
+        if let Ok(downloaded) = held.download(&Request::get(url(port, "/big.bin"), a_person())) {
             assert!(
                 FILE.starts_with(&downloaded.body),
                 "answered {head:?} and produced {:?}",

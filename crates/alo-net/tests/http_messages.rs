@@ -10,10 +10,22 @@
 //! where nearly every famous HTTP bug lives.
 
 use alo_net::body::{self, Framing};
+use alo_net::cause::{Cause, Identities};
 use alo_net::http::{read_head, write_request};
 use alo_net::{Purpose, Request, Status};
 use core::fmt::Write as _;
 use std::io::BufReader;
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 fn url(text: &str) -> alo_url::Url {
     alo_url::parse(text).unwrap_or_else(|_| alo_url::Url {
@@ -256,7 +268,7 @@ fn a_request_writes_the_host_from_the_url_and_not_from_a_header() {
     // Which site a shared server thinks it is talking to. Two sources
     // disagreeing about it is the same class of bug as two Content-Lengths,
     // so a caller does not get to set it.
-    let mut request = Request::get(url("https://example.com/a/b?c=d"));
+    let mut request = Request::get(url("https://example.com/a/b?c=d"), a_person());
     request.headers.add("Host", "somewhere-else.example");
     request.headers.add("Accept", "text/html");
 
@@ -270,20 +282,25 @@ fn a_request_writes_the_host_from_the_url_and_not_from_a_header() {
 
 #[test]
 fn a_non_default_port_is_part_of_the_host_and_a_default_one_is_not() {
-    let plain = String::from_utf8(write_request(&Request::get(url("https://example.com/"))))
-        .expect("ascii");
+    let plain = String::from_utf8(write_request(&Request::get(
+        url("https://example.com/"),
+        a_person(),
+    )))
+    .expect("ascii");
     assert!(plain.contains("Host: example.com\r\n"), "{plain:?}");
 
-    let odd = String::from_utf8(write_request(&Request::get(url(
-        "https://example.com:8443/",
-    ))))
+    let odd = String::from_utf8(write_request(&Request::get(
+        url("https://example.com:8443/"),
+        a_person(),
+    )))
     .expect("ascii");
     assert!(odd.contains("Host: example.com:8443\r\n"), "{odd:?}");
 }
 
 #[test]
 fn a_caller_cannot_set_the_headers_that_say_where_the_body_ends() {
-    let mut request = Request::get(url("http://example.com/")).for_purpose(Purpose::Fetch);
+    let mut request =
+        Request::get(url("http://example.com/"), a_person()).for_purpose(Purpose::Fetch);
     request.headers.add("Content-Length", "999");
     request.headers.add("Transfer-Encoding", "chunked");
     let bytes = String::from_utf8(write_request(&request)).expect("ascii");

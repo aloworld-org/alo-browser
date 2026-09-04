@@ -892,13 +892,25 @@ impl std::error::Error for Refusal {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cause::{Cause, Identities};
+
+    /// What caused every request in this file: a document fetching what it needs.
+    ///
+    /// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+    /// forget, so a test has to say what it means too — and what these mean is a
+    /// page asking for a subresource rather than a person navigating.
+    fn a_page() -> Cause {
+        Cause::Document {
+            document: Identities::default().a_document(),
+        }
+    }
 
     fn url(text: &str) -> Url {
         alo_url::parse(text).expect("a URL")
     }
 
     fn asking(target: &str, purpose: Purpose) -> Request {
-        Request::get(url(target))
+        Request::get(url(target), a_page())
             .for_purpose(purpose)
             .asked_by(Origin::of(&url("https://example.com/page")))
     }
@@ -1095,9 +1107,14 @@ mod tests {
     #[test]
     fn a_policy_never_blocks_its_own_violation_report() {
         let policies = enforcing("default-src 'none'; connect-src 'none'");
-        let post = Request::sending(url("https://collector.test/r"), "POST", b"{}".to_vec())
-            .for_purpose(Purpose::Report)
-            .asked_by(Origin::of(&url("https://example.com/page")));
+        let post = Request::sending(
+            url("https://collector.test/r"),
+            "POST",
+            b"{}".to_vec(),
+            a_page(),
+        )
+        .for_purpose(Purpose::Report)
+        .asked_by(Origin::of(&url("https://example.com/page")));
         assert!(policies.allows(&post, None).is_ok());
         assert!(policies.violations(&post, None).is_empty());
     }
@@ -1301,7 +1318,8 @@ mod tests {
     #[test]
     fn the_first_load_of_a_window_is_governed_by_nobodys_policy() {
         let policies = enforcing("default-src 'none'");
-        let typed = Request::get(url("https://anywhere.test/")).for_purpose(Purpose::Script);
+        let typed =
+            Request::get(url("https://anywhere.test/"), a_page()).for_purpose(Purpose::Script);
         assert!(policies.allows(&typed, None).is_ok());
     }
 

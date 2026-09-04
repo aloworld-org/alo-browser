@@ -32,6 +32,7 @@
 
 pub mod body;
 pub mod cache;
+pub mod cause;
 pub mod certificate;
 pub mod connection;
 pub mod cookie;
@@ -70,6 +71,9 @@ pub mod transfer;
 
 pub use body::Framing;
 pub use cache::{Answer, Cache};
+// Not the ids: `cause::TabId` at a call site says which kind of identity is
+// meant, and `alo_renderer::tab` is where a caller usually meets a tab.
+pub use cause::Cause;
 pub use certificate::{Fault, Refused};
 pub use connection::{Connection, Exchanged, Protocol, exchange};
 pub use cookie::{Cookie, Partition, SameSite};

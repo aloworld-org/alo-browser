@@ -6,6 +6,33 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Every request now says what caused it, and there is no way to make one that
+  does not.** A request carries a cause — a person, a page, or something an
+  agent did — and it is not a field somebody remembers to set: it is an argument
+  to the only two ways of making a request, so code that cannot say what caused
+  something does not build. That is deliberate friction, and it is the whole
+  reason the browser will be able to answer *what did the agent do on my
+  behalf* later without guessing.
+
+  There are three causes and there is no fourth. No "unknown", no "internal" —
+  a category like that does not stay empty, it becomes where the awkward cases
+  go, and the one line in a record nobody can account for is the line somebody
+  will eventually need. So the four requests the browser makes for itself, which
+  nobody asked for, each name whatever caused the thing they are about: a
+  redirect names whoever asked for the first hop, a download resuming after it
+  was interrupted names whoever started it, the permission check before a
+  cross-site request names the request it is asking about, and a report about a
+  page's own security policy names the load that broke it.
+
+  A server cannot rewrite any of this. It can answer a redirect and send a
+  request somewhere else, and the cause that arrives is still the one the
+  browser assigned — otherwise any site could write *the person did that* into
+  somebody's own browser by redirecting a fetch its page had made.
+
+  Nothing is written down yet: this is the cause travelling with the request.
+  The record it will be kept in, and the chain that connects a page's fetch back
+  to the agent action that opened the page, are next.
+
 - **Decided: what this browser records about who caused each request** — and,
   more to the point, what it refuses to keep and who may never read it
   (ADR 0012). An agent that acts on somebody's behalf has to be answerable

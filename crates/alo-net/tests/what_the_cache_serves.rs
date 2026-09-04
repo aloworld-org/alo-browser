@@ -12,8 +12,20 @@
 //! an expiry.
 
 use alo_net::cache::{Answer, Cache, asking_whether_it_changed};
+use alo_net::cause::{Cause, Identities};
 use alo_net::{Headers, Partition, Purpose, Request, Response, Status};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 /// A fixed moment to measure everything from: 2023-11-14 22:13:20 GMT.
 const START: u64 = 1_700_000_000;
@@ -35,7 +47,7 @@ fn url(text: &str) -> alo_url::Url {
 }
 
 fn asking(target: &str) -> Request {
-    Request::get(url(target))
+    Request::get(url(target), a_person())
 }
 
 /// The top-level site every case here is inside.

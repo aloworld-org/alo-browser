@@ -8,12 +8,24 @@
 //! `hsts_header_is_parsed` passes against an implementation that honours the
 //! header over plain HTTP, which is the one thing it must never do.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::hsts::Known;
 use alo_net::mixed::{Verdict, is_trustworthy, what_to_do};
 use alo_net::referrer::{Policy, for_request};
 use alo_net::{Headers, Purpose, Request};
 use alo_url::Origin;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+/// What caused every request in this file: a document fetching what it needs.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is a
+/// page asking for a subresource rather than a person navigating.
+fn a_page() -> Cause {
+    Cause::Document {
+        document: Identities::default().a_document(),
+    }
+}
 
 const NOW: u64 = 1_700_000_000;
 
@@ -156,7 +168,7 @@ fn a_pin_longer_than_the_cap_is_capped() {
 // --- Mixed content -----------------------------------------------------------
 
 fn asked_by(page: &str, target: &str, purpose: Purpose) -> Request {
-    Request::get(url(target))
+    Request::get(url(target), a_page())
         .for_purpose(purpose)
         .asked_by(Origin::of(&url(page)))
 }
@@ -233,7 +245,7 @@ fn an_insecure_page_loading_insecure_things_is_not_this_rule() {
 /// address bar, not a secure page reaching for something.
 #[test]
 fn a_person_typing_an_http_address_is_not_mixed_content() {
-    let request = Request::get(url("http://old.example/"));
+    let request = Request::get(url("http://old.example/"), a_page());
     assert_eq!(what_to_do(&request), Verdict::Fine);
 }
 

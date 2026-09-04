@@ -17,6 +17,7 @@
 //! condition the window test needs to be able to see, and which is why it is
 //! written here rather than reasoned about.
 
+use alo_net::cause::{Cause, Identities};
 use alo_net::h2::frame::{self, Frame, Setting};
 use alo_net::h2::hpack::{self, Field, Table};
 use alo_net::h2::{ErrorCode, client};
@@ -25,6 +26,17 @@ use std::io::{Cursor, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
 use std::time::Duration;
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 /// Long enough that a client with more to send has sent it, short enough that a
 /// test that is going to fail does not take all afternoon.
@@ -218,6 +230,7 @@ fn a_body_goes_out_in_data_frames_and_arrives_as_it_was_written() {
             url(&format!("http://127.0.0.1:{port}/form")),
             "POST",
             sent.clone(),
+            a_person(),
         ),
     )
     .unwrap_or_else(|why| panic!("the exchange failed: {why}"));
@@ -247,6 +260,7 @@ fn the_length_that_goes_out_is_the_bodys_rather_than_a_callers() {
         url(&format!("http://127.0.0.1:{port}/form")),
         "POST",
         b"1234567890".to_vec(),
+        a_person(),
     );
     request.headers.add("Content-Length", "3");
     let _ = send(port, &request);
@@ -272,7 +286,7 @@ fn a_request_with_nothing_to_send_still_ends_with_its_headers() {
     assert!(port != 0, "no server");
     let _ = send(
         port,
-        &Request::get(url(&format!("http://127.0.0.1:{port}/"))),
+        &Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person()),
     );
 
     let seen = heard.recv().unwrap_or_default();
@@ -295,6 +309,7 @@ fn a_body_larger_than_one_frame_is_cut_to_the_frame_size() {
             url(&format!("http://127.0.0.1:{port}/upload")),
             "POST",
             sent.clone(),
+            a_person(),
         ),
     )
     .unwrap_or_else(|why| panic!("the exchange failed: {why}"));
@@ -330,6 +345,7 @@ fn a_window_that_closes_mid_body_is_waited_on_rather_than_overrun() {
             url(&format!("http://127.0.0.1:{port}/upload")),
             "POST",
             sent.clone(),
+            a_person(),
         ),
     )
     .unwrap_or_else(|why| panic!("the exchange failed: {why}"));
@@ -362,6 +378,7 @@ fn an_answer_before_the_body_is_finished_ends_the_stream_rather_than_leaving_it_
             url(&format!("http://127.0.0.1:{port}/upload")),
             "POST",
             sent,
+            a_person(),
         ),
     )
     .unwrap_or_else(|why| panic!("the exchange failed: {why}"));
@@ -385,8 +402,12 @@ fn an_answer_before_the_body_is_finished_ends_the_stream_rather_than_leaving_it_
 /// Nothing on the web can reach this: Fetch forbids the header to scripts.
 #[test]
 fn an_expectation_is_refused_by_name_and_nothing_is_sent() {
-    let mut request =
-        Request::sending(url("http://127.0.0.1:1/upload"), "POST", b"a form".to_vec());
+    let mut request = Request::sending(
+        url("http://127.0.0.1:1/upload"),
+        "POST",
+        b"a form".to_vec(),
+        a_person(),
+    );
     request.headers.add("Expect", "100-continue");
 
     // No server, and none needed: the refusal happens before a byte is written,
@@ -407,7 +428,12 @@ fn an_expectation_is_refused_by_name_and_nothing_is_sent() {
 
 #[test]
 fn an_expectation_is_refused_whatever_it_asks_for() {
-    let mut request = Request::sending(url("http://127.0.0.1:1/"), "POST", b"x".to_vec());
+    let mut request = Request::sending(
+        url("http://127.0.0.1:1/"),
+        "POST",
+        b"x".to_vec(),
+        a_person(),
+    );
     request.headers.add("Expect", "the-moon-on-a-stick");
     let mut wire = Cursor::new(Vec::new());
     let mut speaking = client::Speaking::new();

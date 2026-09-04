@@ -26,11 +26,23 @@
 #![cfg(unix)]
 
 use alo_net::cache::{Answer, Cache};
+use alo_net::cause::{Cause, Identities};
 use alo_net::disk::{self, Disk};
 use alo_net::{Headers, Partition, Request, Response, Status};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+/// What caused every request in this file: a person, in a tab of their own.
+///
+/// ADR 0012 § 1 makes the cause an argument rather than something a caller may
+/// forget, so a test has to say what it means too — and what these mean is
+/// somebody opening a page. The same tab each time, because it is one person.
+fn a_person() -> Cause {
+    Cause::Person {
+        tab: Identities::default().a_tab(),
+    }
+}
 
 /// A fixed moment to measure everything from: 2023-11-14 22:13:20 GMT.
 const START: u64 = 1_700_000_000;
@@ -56,7 +68,7 @@ fn inside(site: &str) -> Partition {
 }
 
 fn asking(target: &str) -> Request {
-    Request::get(url(target))
+    Request::get(url(target), a_person())
 }
 
 /// A response that is good for an hour, plus whatever else a case needs.
