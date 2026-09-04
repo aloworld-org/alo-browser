@@ -9032,3 +9032,114 @@ the next ADR number is **0015**. Four things:
    how instructions read their operands — an inline cache, a register-based
    compiler — has to keep peek-then-replace, or the second run of an instruction
    stops being the same instruction.
+
+## Iteration 112 — queue item 216: a binding per pass
+
+**A loop gives every pass its own names.** Item 216 is ticked, all four closing
+conditions met and asserted in `crates/alo-js/tests/a_binding_per_pass.rs`. What
+it closes is the last refusal in this engine that was about *ordinary* code: a
+function reading a name a block around it declared — a `let` inside an `if`,
+read by a callback written two lines later — compiled to nothing at all before
+today, because a block's names were frame slots that died with the call.
+
+**Taken over item 205, which is earlier in the file, and the reason is that 205
+is now partly blocked rather than ready.** Its dependency (204) is done and item
+72's compiler took two of its early errors on the way past; of what is left, a
+`#a` no class declares needs classes (item 212, which waits on 73) and import
+attributes want *"the thing that would act on it"*, which is the module loader
+(item 77). So taking it would have meant cutting on starting and leaving the cut
+smaller than this item. Everything outside section D is where it was: 157 and
+158 need an interface to ask in, 187 is deferred with its reason written into
+it, 169 must be *run* on Linux, 60 is HTTP/3, 197 waits on properties
+`alo-style` does not have, and 201 and 203 wait on a renderer that can ask for a
+subresource.
+
+**The shape is the specification's own, and the alternative was the thing worth
+refusing.** A cheaper answer exists — keep block names in frame slots and
+promote only the ones a nested function captures — and it needs a pass over the
+tree the compiler does not have, so the compiler would have had two answers to
+*where does this name live* and they would eventually disagree. So every scope
+that declares anything is an environment ([`Op::PushEnvironment`]), left on the
+way out, and a `for (let …)` head is **copied** at each pass
+(`CreatePerIterationEnvironment`, [`Op::CopyEnvironment`]).
+
+**A copy is a sibling rather than a child**, and that is the sentence the whole
+change turns on. It has the *same parent*, so every `hops` the compiler counted
+still means what it meant and no instruction has to be recompiled or adjusted
+when a pass copies — which is what makes per-iteration bindings a run-time fact
+with no second instruction set behind it. A child would have left each pass able
+to see the one before it through one more hop.
+
+**Three rules keep it small enough to be right.** A scope that declares nothing
+gets **no environment**, so a hop is counted by asking a scope rather than by
+counting levels — otherwise every empty block in a program would be a cell
+nothing could look a name up in, and a link every name past it had to walk. A
+**`const` head is not copied**, which is the specification's own rule rather
+than an optimisation: a `const` cannot be assigned to, so a copy could differ
+from the original only by existing. And **leaving is the jump's own business** —
+a `break` out of three blocks emits three pops, because the blocks it skips will
+never reach their own — which is why `leave` now finds what it is leaving
+*before* it emits anything, rather than emitting the jump first.
+
+**`Where::Local` is gone entirely, and that is the change with the longest
+reach.** A block's names were the only thing a script could name that lived in a
+frame slot; they are bindings now, so what is left of a slot is the compiler's
+own temporaries — a `switch`'s discriminant, the old value of an `a.b++`, the
+object under an `a?.b()` — every one of which is written before it is read on
+every path. So `Op::Store` and `Op::Uninitialize` had no emitter left and are
+gone, `Chunk` no longer records a name for a slot, and reading an empty slot is
+`Internal::StackIsWrong` rather than a dead-zone `ReferenceError` no program can
+reach. One kind of name, one kind of dead zone, one place a message comes from.
+
+**Two doctored runs rather than reasoning about them.** With the per-pass copy
+removed, two tests fail; with the unwinding pops removed, two fail. The second
+doctoring is the one that earned its keep: it found that a test was passing by a
+**coincidence of layout** — the loop's `i` and the block's `seen` were each
+binding zero of their own environment and held the same number, so a `continue`
+that left nothing read and wrote the wrong cell and still answered correctly. It
+declares a name in front of the one it reads now.
+
+**One new file, one reason to change**: `interpret/environment.rs` — which
+environment is in force, and the three ways that changes. `environment_at` and
+`environment_of` moved into it out of `interpret/call.rs`, which is *making a
+function, entering it, leaving it* and had grown a second subject.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **2019 tests** (up from 2007 — eight new integration cases and four new
+unit tests), no stubs, no `unsafe`, every boundary held, the licence notice on
+every new file, and a `CHANGELOG.md` line. No layout assertion and no reference
+render: this iteration positions nothing and paints nothing.
+
+**`ROADMAP.md` moved, and it is not a tick.** *A bytecode compiler and an
+interpreter* gains a fifth `· Built:` clause — a binding per pass, the copy as a
+sibling, the empty block that is not a hop, and the pops a jump emits — and its
+`· Owed:` drops the captured block binding. One sentence in the item 209 clause
+was corrected rather than left standing: it said a block's bindings *live in the
+frame that dies with the call*, which stopped being true today.
+`docs/features.md`'s own line names the ten buttons that each know which row
+they are on, because that is the form a person has met this bug in.
+
+**What the next iteration should know.** The next queue number is **218** and
+the next ADR number is **0015**. Four things:
+
+1. **Item 73 is the one to take next.** It is now the only thing section D waits
+   on that nothing else waits on: 212, 213, 215, 217, 211 and half of 210 each
+   name it, and `({}) + ''` still throws rather than answering
+   `"[object Object]"`. Item 216 was the last item that could be built without
+   it.
+2. **Every declaring scope allocates, and nothing has measured it.** A block
+   with a `let` costs a cell each time it is entered and a `let` head costs one
+   per pass, which is what the specification asks for and what every engine
+   optimises away later with escape analysis. `LOOP.md` says a speed claim is
+   measured on hardware or not made, so nothing is claimed — but the test that
+   runs a thousand passes and counts the heap back to its baseline is the one to
+   keep whichever way that goes.
+3. **A frame slot is a temporary now.** Anything that gives a script a frame
+   slot again — a register allocator, a fast path for a block nothing captures —
+   has to put back the name a slot carries and the dead-zone message that goes
+   with it, both of which came out today.
+4. **`Frame::environments` is the balance check.** A pop with nothing to pop is
+   the compiler and the interpreter disagreeing, and it says so. Anything that
+   adds a new way out of a block — `try`/`finally` is item 210 and is exactly
+   that — must emit its pops on every path or that counter will say so at run
+   time rather than silently reading the wrong cell.

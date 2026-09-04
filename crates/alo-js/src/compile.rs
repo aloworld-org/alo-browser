@@ -51,8 +51,8 @@ pub mod scope;
 use std::fmt;
 
 use crate::ast::{
-    Argument, Assign, Declaration, DeclarationKind, Expression, ExpressionKind, ForInit, Key,
-    Member, Pattern, Program, Property, Statement, StatementKind, Template, Unary,
+    Argument, Assign, Declaration, DeclarationKind, Expression, ExpressionKind, ForInit, Function,
+    Key, Member, Pattern, Program, Property, Statement, StatementKind, Template, Unary,
 };
 use crate::bounds;
 use crate::code::{Chunk, Half, Op};
@@ -77,9 +77,6 @@ pub enum What {
     AParameterForm,
     /// `` tag`a${b}` `` (queue item 215).
     ATaggedTemplate,
-    /// A function reading a **block's** binding of an enclosing function, which
-    /// needs an environment per block (queue item 216).
-    ACapturedBlockBinding,
     /// `try`, `catch` and `finally` (queue item 210).
     ACatch,
     /// An array literal, a spread, a destructuring pattern, `for…in` or
@@ -103,7 +100,6 @@ impl What {
             What::AConstruction => 212,
             What::AParameterForm => 213,
             What::ATaggedTemplate => 215,
-            What::ACapturedBlockBinding => 216,
             What::ACatch => 210,
             What::TakingAValueApart => 211,
             What::ARegularExpression => 74,
@@ -119,7 +115,6 @@ impl What {
             What::AConstruction => "`new`, a class, `super` or a private name",
             What::AParameterForm => "a parameter that is not a plain name, or `arguments`",
             What::ATaggedTemplate => "a tagged template",
-            What::ACapturedBlockBinding => "a function reading a name a block declared outside it",
             What::ACatch => "`try`, `catch` and `finally`",
             What::TakingAValueApart => {
                 "an array literal, a spread, a destructuring pattern, `for…in` or `for…of`"
@@ -211,6 +206,7 @@ fn here(program: &Program) -> Result<Unit, Refusal> {
         script: true,
         suspended: Vec::new(),
         scopes: Scopes::new(),
+        environments: 0,
     };
     compiler.program(program)?;
     compiler.unit.finish(compiler.chunk);
@@ -225,6 +221,9 @@ struct Enclosing {
     /// Whether a `continue` may name it: a `switch` and a labelled block may be
     /// broken out of and never continued.
     repeats: bool,
+    /// How many environments were in force when it was entered, so that a jump
+    /// out of it knows how many to leave.
+    depth: usize,
     /// The jumps out of it, waiting for its end.
     breaks: Vec<usize>,
     /// The jumps back into it, waiting for where its next pass begins.
@@ -238,6 +237,7 @@ struct Suspended {
     enclosing: Vec<Enclosing>,
     chains: Vec<Vec<usize>>,
     script: bool,
+    environments: usize,
 }
 
 /// The compiler.
@@ -258,6 +258,13 @@ struct Compiler {
     /// The scopes, which are **not** put aside: a function is compiled inside
     /// the scopes it was written in, and that is what makes it a closure.
     scopes: Scopes,
+    /// How many environments the body being compiled has pushed and not yet
+    /// popped, above the one its call was given.
+    ///
+    /// It is the body's own count rather than the whole compile's, because a
+    /// `break` may only leave the body it is written in — so it is put aside
+    /// with the rest of a suspended body.
+    environments: usize,
 }
 
 impl Compiler {
@@ -349,7 +356,7 @@ impl Compiler {
             // of the body or the block that holds it.
             StatementKind::Empty | StatementKind::Debugger | StatementKind::Function(_) => {}
             StatementKind::Block(body) => {
-                self.block(body)?;
+                self.block(body, at)?;
             }
             StatementKind::Declaration(declaration) => self.declaration(declaration, at)?,
             StatementKind::If {
@@ -468,30 +475,75 @@ impl Compiler {
         }
     }
 
-    /// A `{ … }`: its own bindings, in their own dead zones.
-    fn block(&mut self, body: &[Statement]) -> Result<(), Refusal> {
+    /// A `{ … }`: its own bindings, in an environment of its own.
+    fn block(&mut self, body: &[Statement], at: usize) -> Result<(), Refusal> {
         self.scopes.open_block();
-        let outcome = self.block_body(body);
+        let outcome = self.block_body(body, at);
         self.scopes.close();
         outcome
     }
 
     /// The inside of a block, with the scope already open.
-    fn block_body(&mut self, body: &[Statement]) -> Result<(), Refusal> {
+    ///
+    /// Everything is named before anything is emitted, because the environment
+    /// is made in **one** instruction that carries how many bindings it has —
+    /// and because a function declared in the block closes over that
+    /// environment, so it cannot be made until the environment exists.
+    fn block_body(&mut self, body: &[Statement], at: usize) -> Result<(), Refusal> {
         self.declare_lexically(body)?;
-        self.declare_functions(body)?;
-        self.statements(body)
+        let functions = self.declare_functions(body)?;
+        let opened = self.open_environment(at)?;
+        self.make_functions(&functions)?;
+        self.statements(body)?;
+        self.close_environment(opened, at);
+        Ok(())
     }
 
-    /// Give this statement list's own `let` and `const` names their slots, and
-    /// put each slot in its dead zone.
+    /// Go into an environment for the scope that is open, if it declares
+    /// anything at all, answering whether one was made.
     ///
-    /// The `Uninitialize` matters on the second pass of a loop rather than the
-    /// first: the block is entered again, and a binding it declares has not been
-    /// reached yet.
+    /// A block that declares nothing gets none: it would be a cell allocated on
+    /// every pass of every loop for a chain nothing walks, and
+    /// [`Scopes::find`](scope::Scopes::find) counts hops by asking the same
+    /// question.
+    fn open_environment(&mut self, at: usize) -> Result<bool, Refusal> {
+        let bindings = self.bindings_here(at)?;
+        if bindings == 0 {
+            return Ok(false);
+        }
+        self.chunk.emit(Op::PushEnvironment(bindings), at);
+        self.environments = self.environments.saturating_add(1);
+        Ok(true)
+    }
+
+    /// Come out of one, if this scope made one.
+    fn close_environment(&mut self, opened: bool, at: usize) {
+        if !opened {
+            return;
+        }
+        self.chunk.emit(Op::PopEnvironment, at);
+        self.environments = self.environments.saturating_sub(1);
+    }
+
+    /// How many names the open scope has declared, which is both the binding
+    /// the next one takes and the size of the environment it will make.
+    fn bindings_here(&self, at: usize) -> Result<u32, Refusal> {
+        self.scopes
+            .count_here()
+            .ok_or_else(|| Refusal::NotAProgram {
+                why: "this block declares more names than an environment can hold".to_owned(),
+                at,
+            })
+    }
+
+    /// Give this statement list's own `let` and `const` names their bindings.
+    ///
+    /// Nothing is emitted: an environment's bindings begin in their dead zone,
+    /// which is what a `let` above its own line needs, and the instruction that
+    /// makes the environment is what puts them there.
     fn declare_lexically(&mut self, body: &[Statement]) -> Result<(), Refusal> {
         for one in hoist::lexical(body) {
-            let slot = self.slot(one.at)?;
+            let slot = self.bindings_here(one.at)?;
             let assignment = if one.mutable {
                 Assignment::Allowed
             } else {
@@ -503,32 +555,29 @@ impl Compiler {
                     at: one.at,
                 });
             }
-            let name = self.text(&one.name)?;
-            self.chunk.name_slot(slot, name);
-            self.chunk.emit(Op::Uninitialize(slot), one.at);
         }
         Ok(())
     }
 
-    /// Make this block's own function declarations, before anything else in it
-    /// runs.
+    /// Give this block's own function declarations their bindings, answering
+    /// them so that they can be made once the environment exists.
     ///
     /// A function declared in a block is that block's — Annex B's second,
-    /// var-scoped meaning is legacy and law 1 refuses it — so it is a frame slot
-    /// like the block's `let`, and it is given its value here rather than left
-    /// in a dead zone: a function declaration is readable above the line that
-    /// writes it, which is the one thing that makes it different from
-    /// `let f = function () {}`.
-    fn declare_functions(&mut self, body: &[Statement]) -> Result<(), Refusal> {
+    /// var-scoped meaning is legacy and law 1 refuses it.
+    fn declare_functions<'a>(
+        &mut self,
+        body: &'a [Statement],
+    ) -> Result<Vec<(u32, &'a Function)>, Refusal> {
+        let mut declared = Vec::new();
         for function in hoist::functions(body) {
-            let Some(name) = function.name.clone() else {
+            let Some(name) = &function.name else {
                 continue;
             };
             let at = function.start;
-            let slot = self.slot(at)?;
+            let slot = self.bindings_here(at)?;
             if self
                 .scopes
-                .declare(&name, slot, Assignment::Allowed)
+                .declare(name, slot, Assignment::Allowed)
                 .is_err()
             {
                 return Err(Refusal::NotAProgram {
@@ -536,11 +585,28 @@ impl Compiler {
                     at,
                 });
             }
-            let text = self.text(&name)?;
-            self.chunk.name_slot(slot, text);
+            declared.push((slot, function));
+        }
+        Ok(declared)
+    }
+
+    /// Make them, before anything else in the block runs.
+    ///
+    /// A function declaration is readable above the line that writes it, which
+    /// is the one thing that makes it different from `let f = function () {}` —
+    /// so it is given its value here rather than left in a dead zone.
+    fn make_functions(&mut self, functions: &[(u32, &Function)]) -> Result<(), Refusal> {
+        for (slot, function) in functions {
+            let at = function.start;
             let which = self.function_chunk(function, Naming::Outside)?;
             self.chunk.emit(Op::Closure(which), at);
-            self.chunk.emit(Op::Initialize(slot), at);
+            self.chunk.emit(
+                Op::InitializeBinding {
+                    hops: 0,
+                    slot: *slot,
+                },
+                at,
+            );
         }
         Ok(())
     }
@@ -575,13 +641,9 @@ impl Compiler {
                         }
                     }
                     match self.resolve(name, at)? {
-                        Where::Local { slot, .. } => {
-                            self.chunk.emit(Op::Initialize(slot), at);
-                        }
                         Where::Binding { hops, slot, .. } => {
                             self.chunk.emit(Op::InitializeBinding { hops, slot }, at);
                         }
-                        Where::Captured => return Err(captured(at)),
                         Where::Global => {
                             let text = self.text(name)?;
                             self.chunk.emit(Op::InitializeGlobal(text), at);
@@ -685,11 +747,6 @@ impl Compiler {
     ) -> Result<(), Refusal> {
         self.completes_empty(at);
         // The head's own scope, so `for (let i = 0; …)` does not leak `i`.
-        //
-        // One slot rather than one per pass: the language copies a `let` head
-        // into every iteration, and **nothing here can tell**, because a
-        // function may not read a block's binding from outside (queue item 216)
-        // and a closure is the only thing that could see the difference.
         self.scopes.open_block();
         let outcome = self.for_inside(init, test, update, body, at, label);
         self.scopes.close();
@@ -705,34 +762,37 @@ impl Compiler {
         at: usize,
         label: Option<&str>,
     ) -> Result<(), Refusal> {
+        // A `let` head is copied into every pass and a `const` head is not,
+        // which is the specification's own rule rather than an optimisation: a
+        // `const` cannot be assigned to, so a copy could differ from the
+        // original only by existing.
+        let mut per_pass = false;
+        let mut opened = false;
         match init {
             Some(ForInit::Declaration(declaration)) => {
                 if declaration.kind != DeclarationKind::Var {
-                    let mut names = Vec::new();
-                    for declarator in &declaration.declarators {
-                        if let Pattern::Name(name) = &declarator.pattern {
-                            names.push(name.clone());
-                        }
-                    }
-                    let assignment = if declaration.kind == DeclarationKind::Let {
+                    per_pass = declaration.kind == DeclarationKind::Let;
+                    let assignment = if per_pass {
                         Assignment::Allowed
                     } else {
                         Assignment::Refused
                     };
-                    for name in names {
-                        let slot = self.slot(at)?;
-                        if self.scopes.declare(&name, slot, assignment).is_err() {
+                    for declarator in &declaration.declarators {
+                        let Pattern::Name(name) = &declarator.pattern else {
+                            continue;
+                        };
+                        let slot = self.bindings_here(at)?;
+                        if self.scopes.declare(name, slot, assignment).is_err() {
                             return Err(Refusal::NotAProgram {
                                 why: format!("'{name}' is declared twice in this loop's header"),
                                 at,
                             });
                         }
-                        let spelling = self.text(&name)?;
-                        self.chunk.name_slot(slot, spelling);
-                        self.chunk.emit(Op::Uninitialize(slot), at);
                     }
                 }
+                opened = self.open_environment(at)?;
                 self.declaration(declaration, at)?;
+                per_pass = per_pass && opened;
             }
             Some(ForInit::Expression(expression)) => {
                 self.expression(expression)?;
@@ -741,6 +801,12 @@ impl Compiler {
             None => {}
         }
 
+        // The first copy is made before the first test, so that the body of
+        // every pass and the increment that follows it are in a copy rather
+        // than in the head's own environment.
+        if per_pass {
+            self.chunk.emit(Op::CopyEnvironment, at);
+        }
         let top = self.chunk.here();
         let out = match test {
             Some(test) => {
@@ -755,6 +821,12 @@ impl Compiler {
         // difference between `for (;;i++)` counting and not.
         let again = self.chunk.here();
         outcome?;
+        // `CreatePerIterationEnvironment` again, **before** the increment: the
+        // pass that has just ended keeps the values a closure it made can see,
+        // and the increment writes to the copy the next pass will use.
+        if per_pass {
+            self.chunk.emit(Op::CopyEnvironment, at);
+        }
         if let Some(update) = update {
             self.expression(update)?;
             self.chunk.emit(Op::Pop, at);
@@ -766,7 +838,9 @@ impl Compiler {
         if let Some(out) = out {
             self.patch(out)?;
         }
-        self.finish_loop(again, at)
+        self.finish_loop(again, at)?;
+        self.close_environment(opened, at);
+        Ok(())
     }
 
     fn switch(
@@ -799,13 +873,16 @@ impl Compiler {
         // Every case body is one block, so a `let` in one case is in the dead
         // zone of the whole `switch` rather than of its own case — which is why
         // each case's declarations are taken into the same scope rather than
-        // into one of its own.
+        // into one of its own, and why they share one environment.
         for case in cases {
             self.declare_lexically(&case.body)?;
         }
+        let mut functions = Vec::new();
         for case in cases {
-            self.declare_functions(&case.body)?;
+            functions.extend(self.declare_functions(&case.body)?);
         }
+        let opened = self.open_environment(at)?;
+        self.make_functions(&functions)?;
 
         self.enter(label, false);
         let outcome = self.switch_cases(cases, held, at);
@@ -813,7 +890,9 @@ impl Compiler {
         // which is what `repeats: false` says.
         let leaving = self.finish_switch(at);
         outcome?;
-        leaving
+        leaving?;
+        self.close_environment(opened, at);
+        Ok(())
     }
 
     fn switch_cases(
@@ -869,6 +948,7 @@ impl Compiler {
         self.enclosing.push(Enclosing {
             label: label.map(str::to_owned),
             repeats,
+            depth: self.environments,
             breaks: Vec::new(),
             continues: Vec::new(),
         });
@@ -908,16 +988,20 @@ impl Compiler {
     }
 
     /// `break` and `continue`.
+    ///
+    /// What it is leaving is found **before** anything is emitted, because a
+    /// jump out of three blocks leaves three environments and the count comes
+    /// from what it landed on. Leaving them is the jump's own business: the
+    /// blocks it skips will never reach their own `PopEnvironment`.
     fn leave(&mut self, label: Option<&str>, at: usize, repeating: bool) -> Result<(), Refusal> {
-        let jump = self.chunk.emit(Op::Jump(0), at);
-        let found = self.enclosing.iter_mut().rev().find(|enclosing| {
+        let found = self.enclosing.iter().rposition(|enclosing| {
             let named = match label {
                 Some(label) => enclosing.label.as_deref() == Some(label),
                 None => true,
             };
             named && (!repeating || enclosing.repeats)
         });
-        let Some(enclosing) = found else {
+        let Some(which) = found else {
             // A `break` naming a label nothing declares is an early error, and
             // the compiler has to catch it: there is no instruction it could
             // emit instead. Queue item 205 names this one.
@@ -929,6 +1013,16 @@ impl Compiler {
                 },
                 at,
             });
+        };
+        let Some(depth) = self.enclosing.get(which).map(|enclosing| enclosing.depth) else {
+            return Err(lost(at));
+        };
+        for _ in depth..self.environments {
+            self.chunk.emit(Op::PopEnvironment, at);
+        }
+        let jump = self.chunk.emit(Op::Jump(0), at);
+        let Some(enclosing) = self.enclosing.get_mut(which) else {
+            return Err(lost(at));
         };
         if repeating {
             enclosing.continues.push(jump);
@@ -1383,10 +1477,9 @@ impl Compiler {
                 match self.resolve(name, at)? {
                     // A declared binding cannot be deleted, and the language
                     // answers `false` rather than throwing.
-                    Where::Local { .. } | Where::Binding { .. } => {
+                    Where::Binding { .. } => {
                         self.chunk.emit(Op::Bool(false), at);
                     }
-                    Where::Captured => return Err(captured(at)),
                     Where::Global => {
                         let text = self.text(name)?;
                         self.chunk.emit(Op::DeleteGlobal(text), at);
@@ -1672,18 +1765,15 @@ impl Compiler {
 
     // --- Names, slots and bindings ------------------------------------------
 
-    /// Where a name lives, refusing the two this engine cannot compile.
+    /// Where a name lives, refusing the one this engine cannot compile.
     ///
-    /// One is [`Where::Captured`]. The other is **`arguments`**, which inside a
-    /// function is not a global at all but an object the call makes — so
-    /// letting it resolve to the realm would turn *this engine has not built
-    /// the arguments object* into *this page has a typo*, which is exactly the
-    /// wrong answer that reads like a right one. Queue item 213.
+    /// **`arguments`**, which inside a function is not a global at all but an
+    /// object the call makes — so letting it resolve to the realm would turn
+    /// *this engine has not built the arguments object* into *this page has a
+    /// typo*, which is exactly the wrong answer that reads like a right one.
+    /// Queue item 213.
     fn resolve(&self, name: &str, at: usize) -> Result<Where, Refusal> {
         let place = self.scopes.find(name);
-        if place == Where::Captured {
-            return Err(captured(at));
-        }
         if place == Where::Global && !self.script && name == "arguments" {
             return Err(Refusal::NotBuiltYet {
                 what: What::AParameterForm,
@@ -1694,12 +1784,8 @@ impl Compiler {
     }
 
     /// Where a name is written, given where it lives.
-    fn put(&mut self, place: Where, name: &str, at: usize) -> Result<Put, Refusal> {
+    fn put(&mut self, place: Where, name: &str) -> Result<Put, Refusal> {
         Ok(match place {
-            Where::Local {
-                slot,
-                assignment: Assignment::Allowed,
-            } => Put::Slot(slot),
             Where::Binding {
                 hops,
                 slot,
@@ -1709,23 +1795,14 @@ impl Compiler {
                 slot,
                 name: self.text(name)?,
             },
-            Where::Local {
-                assignment: Assignment::Refused,
-                ..
-            }
-            | Where::Binding {
+            Where::Binding {
                 assignment: Assignment::Refused,
                 ..
             } => Put::Constant(self.text(name)?),
-            Where::Local {
-                assignment: Assignment::Ignored,
-                ..
-            }
-            | Where::Binding {
+            Where::Binding {
                 assignment: Assignment::Ignored,
                 ..
             } => Put::Ignored,
-            Where::Captured => return Err(captured(at)),
             Where::Global => Put::Global(self.text(name)?),
         })
     }
@@ -1733,36 +1810,29 @@ impl Compiler {
     /// Where a name is written, refusing a name no function may reach.
     fn where_to_put(&mut self, name: &str, at: usize) -> Result<Put, Refusal> {
         let place = self.resolve(name, at)?;
-        self.put(place, name, at)
+        self.put(place, name)
     }
 
     /// Read a name, answering where writing it back would go.
     fn load_name(&mut self, name: &str, at: usize) -> Result<Put, Refusal> {
         let place = self.resolve(name, at)?;
         match place {
-            Where::Local { slot, .. } => {
-                self.chunk.emit(Op::Load(slot), at);
-            }
             Where::Binding { hops, slot, .. } => {
                 let text = self.text(name)?;
                 let pc = self.chunk.emit(Op::LoadBinding { hops, slot }, at);
                 self.chunk.name_instruction(pc, text);
             }
-            Where::Captured => return Err(captured(at)),
             Where::Global => {
                 let text = self.text(name)?;
                 self.chunk.emit(Op::LoadGlobal(text), at);
             }
         }
-        self.put(place, name, at)
+        self.put(place, name)
     }
 
     /// Write the value on the stack back to a name, leaving it there.
     fn store_name(&mut self, put: Put, at: usize) {
         match put {
-            Put::Slot(slot) => {
-                self.chunk.emit(Op::Store(slot), at);
-            }
             Put::Binding { hops, slot, name } => {
                 let pc = self.chunk.emit(Op::StoreBinding { hops, slot }, at);
                 self.chunk.name_instruction(pc, name);
@@ -1850,14 +1920,6 @@ fn not_built_yet(kind: &ExpressionKind, at: usize) -> Refusal {
     Refusal::NotBuiltYet { what, at }
 }
 
-/// A name a function may not reach, because a block declared it outside.
-fn captured(at: usize) -> Refusal {
-    Refusal::NotBuiltYet {
-        what: What::ACapturedBlockBinding,
-        at,
-    }
-}
-
 /// A program with more instructions than a jump can name.
 fn too_long(at: usize) -> Refusal {
     Refusal::NotAProgram {
@@ -1922,8 +1984,6 @@ impl Define {
 /// Where an assignment puts its value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Put {
-    /// A frame slot.
-    Slot(u32),
     /// A binding of an environment, with the name it was written as so that a
     /// dead zone can say which one.
     Binding {
@@ -1995,15 +2055,80 @@ mod tests {
     }
 
     #[test]
-    fn a_name_in_a_block_is_a_slot_and_one_outside_it_is_not() {
+    fn a_name_in_a_block_is_an_environment_of_its_own_and_one_outside_it_is_not() {
         let Ok(unit) = unit("{ let a = 1; a; } b;") else {
             panic!("that compiles");
         };
         let code = unit.script().code();
-        assert!(code.contains(&Op::Load(0)), "the block's own name");
+        assert!(
+            code.contains(&Op::PushEnvironment(1)) && code.contains(&Op::PopEnvironment),
+            "the block declares one name, so it is one environment"
+        );
+        assert!(
+            code.contains(&Op::LoadBinding { hops: 0, slot: 0 }),
+            "the block's own name"
+        );
         assert!(
             code.iter().any(|op| matches!(op, Op::LoadGlobal(_))),
             "and the one nothing declares"
+        );
+    }
+
+    #[test]
+    fn a_block_that_declares_nothing_makes_no_environment() {
+        let Ok(unit) = unit("{ a; }") else {
+            panic!("that compiles");
+        };
+        let code = unit.script().code();
+        assert!(
+            !code.contains(&Op::PopEnvironment)
+                && !code.iter().any(|op| matches!(op, Op::PushEnvironment(_))),
+            "a cell nothing could look a name up in is a cell nobody makes"
+        );
+    }
+
+    #[test]
+    fn a_let_head_is_copied_every_pass_and_a_const_head_is_not() {
+        let Ok(mutable) = unit("for (let i = 0; i < 2; i = i + 1) { i; }") else {
+            panic!("that compiles");
+        };
+        assert_eq!(
+            mutable
+                .script()
+                .code()
+                .iter()
+                .filter(|op| **op == Op::CopyEnvironment)
+                .count(),
+            2,
+            "one before the first test, and one before each increment"
+        );
+        let Ok(constant) = unit("for (const i = 0; i < 2;) { i; }") else {
+            panic!("that compiles too");
+        };
+        assert!(
+            !constant.script().code().contains(&Op::CopyEnvironment),
+            "a `const` head has nothing a copy could differ by"
+        );
+    }
+
+    #[test]
+    fn a_break_leaves_every_environment_between_it_and_what_it_names() {
+        let Ok(unit) = unit("outer: { let a = 1; { let b = 2; { let c = 3; break outer; } } }")
+        else {
+            panic!("that compiles");
+        };
+        let code = unit.script().code();
+        let Some(jump) = code
+            .iter()
+            .position(|op| matches!(op, Op::Jump(_)))
+            .and_then(|at| at.checked_sub(3))
+        else {
+            panic!("the break is a jump with the pops in front of it");
+        };
+        assert_eq!(
+            code.get(jump..jump.saturating_add(3)),
+            Some([Op::PopEnvironment, Op::PopEnvironment, Op::PopEnvironment].as_slice()),
+            "three blocks, three environments"
         );
     }
 
@@ -2037,10 +2162,6 @@ mod tests {
             ("class A {}", What::AConstruction),
             ("function f(a = 1) {}", What::AParameterForm),
             ("f`a`", What::ATaggedTemplate),
-            (
-                "{ let a = 1; (function () { return a; }); }",
-                What::ACapturedBlockBinding,
-            ),
             ("try { a; } catch {}", What::ACatch),
             ("[1, 2]", What::TakingAValueApart),
             ("for (const a of b) {}", What::TakingAValueApart),

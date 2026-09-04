@@ -33,6 +33,15 @@
 //! is [`Field::holding`](crate::heap::Field), which is the same hole in the
 //! wording that an ordinary object's prototype goes through.
 //!
+//! # A copy is a sibling rather than a child
+//!
+//! [`Environment::copied`] makes one with the **same parent** and the same
+//! values, which is `CreatePerIterationEnvironment` (queue item 216): each pass
+//! of a `for (let …)` runs in a copy, so a closure made in one pass keeps values
+//! the next pass cannot write to. Making it a child instead would leave every
+//! pass able to see the one before it through one more hop, and the compiler
+//! counts hops.
+//!
 //! # A script has no environment
 //!
 //! A script's own `let` and `const` are the realm's — a second `<script>` sees
@@ -68,6 +77,34 @@ impl Environment {
                 None => Field::empty(),
             },
             bindings: slots,
+        }
+    }
+
+    /// Another environment under the same parent, holding what this one holds.
+    ///
+    /// A binding still in its dead zone stays in it, which is what makes the
+    /// copy indistinguishable from the original to everything except a closure
+    /// that kept the original. No [`Barrier`] for the same reason
+    /// [`Environment::under`] needs none: nothing here is in the heap yet, so
+    /// there is no cell the marker could already have seen.
+    #[must_use]
+    pub fn copied(&self) -> Self {
+        let mut bindings = Slots::new();
+        for at in 0..self.bindings.len() {
+            match self.bindings.get(at) {
+                Some(Held::Value(value)) => bindings.push(value),
+                // A slot that is not there cannot happen — the loop is over the
+                // length — and answering it as a dead zone is the reading that
+                // cannot invent a value.
+                Some(Held::Uninitialized) | None => bindings.push_uninitialized(),
+            }
+        }
+        Self {
+            parent: match self.parent.get() {
+                Some(held) => Field::holding(held),
+                None => Field::empty(),
+            },
+            bindings,
         }
     }
 
@@ -118,6 +155,35 @@ mod tests {
     use crate::heap::Heap;
     use crate::object::slots::Held;
     use crate::object::value::Value;
+
+    #[test]
+    fn a_copy_keeps_the_values_the_parent_and_the_dead_zones() {
+        let mut heap: Heap<Holder> = Heap::new();
+        let Ok(parent) = heap.allocate(Holder(Environment::under(None, 0))) else {
+            panic!("an empty heap holds one cell");
+        };
+        let Ok(held) = heap.allocate(Holder(Environment::under(Some(parent), 2))) else {
+            panic!("and it holds a second");
+        };
+        let wrote = heap
+            .write(held, |cell, barrier| {
+                cell.0.set(barrier, 0, Value::Number(7.0))
+            })
+            .unwrap_or_default();
+        assert!(wrote);
+
+        let Some(copy) = heap.get(held).map(|cell| cell.0.copied()) else {
+            panic!("the environment is where it was put");
+        };
+        assert_eq!(copy.parent(), Some(parent), "a sibling, not a child");
+        assert_eq!(copy.get(0), Some(Held::Value(Value::Number(7.0))));
+        assert_eq!(
+            copy.get(1),
+            Some(Held::Uninitialized),
+            "and a dead zone is copied as one rather than as `undefined`"
+        );
+        assert_eq!(copy.len(), 2);
+    }
 
     #[test]
     fn a_binding_starts_in_its_dead_zone_and_the_chain_ends() {

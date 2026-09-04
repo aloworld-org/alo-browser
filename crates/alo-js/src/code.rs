@@ -25,20 +25,25 @@
 //!
 //! # Two places a name can live, and the instructions say which
 //!
-//! A **frame slot** ([`Op::Load`]) is a place in the interpreter's stack that
-//! belongs to the body running now: a block's `let`, and the temporaries the
-//! compiler takes for a `switch`'s discriminant or an `a.b++`. It dies with the
-//! call, which is what makes it a slot rather than a cell.
-//!
 //! A **binding** ([`Op::LoadBinding`]) is a place in an *environment*, which is
 //! a cell in the heap that a closure keeps alive after the call that made it has
-//! returned. A function's parameters, its `var`s and its body-level `let`s are
-//! bindings, and `hops` says how many function environments out to walk.
+//! returned. Every name a scope declares is one — a function's parameters, its
+//! `var`s, its body-level `let`s, and a **block's** `let` and `const` — and
+//! `hops` says how many environments out to walk.
 //!
-//! Two mechanisms rather than one because only the second can be captured, and
-//! **a block's binding cannot be captured yet** — queue item 216, refused by
-//! name in the compiler rather than compiled into something that shares one slot
-//! between iterations.
+//! A **frame slot** ([`Op::Load`]) is a place in the interpreter's stack that
+//! belongs to the body running now, and nothing a script can name is one: it is
+//! the temporaries the compiler takes for a `switch`'s discriminant, for the old
+//! value of an `a.b++`, or for the object under an `a?.b()`. It dies with the
+//! call, which is what makes it a slot rather than a cell, and the compiler
+//! writes one before it reads it on every path.
+//!
+//! A block declaring a name is therefore an environment of its own
+//! ([`Op::PushEnvironment`]), because a closure made inside it may outlive it
+//! and a `for (let …)` gives each pass a binding of its own
+//! ([`Op::CopyEnvironment`]). Sharing one place between passes is the wrong
+//! answer that reads like a right one, and until queue item 216 this engine
+//! refused the programs that would have shown it.
 //!
 //! # What is *not* in an instruction
 //!
@@ -91,24 +96,31 @@ pub enum Op {
     /// `a b` becomes `a b a b`.
     DupTwo,
 
-    /// Read a frame slot, which is a `ReferenceError` if it is still in its
-    /// dead zone.
+    /// Read a frame slot, which holds a temporary the compiler took for itself.
     Load(u32),
-    /// Write a frame slot, leaving the value on the stack — an assignment is an
-    /// expression, and `a = (b = 1)` is why.
-    Store(u32),
-    /// Give a frame slot its first value, taking it off the stack. This is what
-    /// ends a binding's dead zone.
+    /// Give a frame slot its value, taking it off the stack.
     Initialize(u32),
-    /// Put a frame slot back in its dead zone, which is what entering a block
-    /// again does to the bindings it declares.
-    Uninitialize(u32),
     /// Refuse an assignment to a `const`, naming it. The value has already been
     /// evaluated, because the language evaluates it before it complains.
     RefuseAssignment(u32),
 
-    /// Read a binding of an environment, `hops` function environments out from
-    /// the one the running call was given.
+    /// Make an environment of this many bindings, all of them in their dead
+    /// zone, under the one in force — and make it the one in force. This is
+    /// what going into a block that declares something does.
+    PushEnvironment(u32),
+    /// Come out of one, so that the environment it was made under is in force
+    /// again.
+    PopEnvironment,
+    /// Make a copy of the environment in force — the same bindings holding the
+    /// same values, under the same parent — and make **it** the one in force.
+    ///
+    /// `CreatePerIterationEnvironment`, which is what gives `for (let i = …)` a
+    /// fresh `i` every pass: a closure made in one pass keeps the copy that pass
+    /// was running in, and the next pass's increment writes to a different one.
+    CopyEnvironment,
+
+    /// Read a binding of an environment, `hops` environments out from the one
+    /// in force.
     LoadBinding {
         /// How many environments out.
         hops: u32,
@@ -252,7 +264,6 @@ pub struct Chunk {
     at: Vec<usize>,
     named: Vec<(u32, u32)>,
     locals: usize,
-    slot_names: Vec<Option<u32>>,
     bindings: usize,
     parameters: usize,
     own_name: Option<u32>,
@@ -288,7 +299,6 @@ impl Chunk {
             at: Vec::new(),
             named: Vec::new(),
             locals: 0,
-            slot_names: Vec::new(),
             bindings: 0,
             parameters: 0,
             own_name: None,
@@ -331,8 +341,13 @@ impl Chunk {
         self.locals
     }
 
-    /// How many bindings its environment holds: its parameters, its `var`s,
-    /// its body-level `let` and `const`, and the functions it declares.
+    /// How many bindings the environment a **call** is given holds: its
+    /// parameters, its `var`s, its body-level `let` and `const`, and the
+    /// functions it declares.
+    ///
+    /// A block inside it declares its own, in an environment of its own, and
+    /// [`Op::PushEnvironment`] carries how many those are — so they are not
+    /// counted here.
     pub fn bindings(&self) -> usize {
         self.bindings
     }
@@ -433,29 +448,6 @@ impl Chunk {
         }
     }
 
-    /// The name of a frame slot, where it has one.
-    ///
-    /// A binding's slot does; a slot the compiler took to hold a `switch`'s
-    /// discriminant or the old value of an `a.b++` does not. It is here so that
-    /// a `ReferenceError` about a dead zone can say *which* binding, which is
-    /// the difference between a message somebody can act on and one they cannot.
-    pub fn slot_name(&self, slot: u32) -> Option<u32> {
-        self.slot_names
-            .get(usize::try_from(slot).ok()?)
-            .copied()
-            .flatten()
-    }
-
-    /// Say which name a slot holds.
-    pub fn name_slot(&mut self, slot: u32, name: u32) {
-        if let Some(held) = self
-            .slot_names
-            .get_mut(usize::try_from(slot).unwrap_or(usize::MAX))
-        {
-            *held = Some(name);
-        }
-    }
-
     /// The name the instruction at `pc` reads, where it reads one.
     ///
     /// A binding lives in another chunk's environment, so there is no table of
@@ -496,7 +488,6 @@ impl Chunk {
     pub fn take_slot(&mut self) -> Option<u32> {
         let at = u32::try_from(self.locals).ok()?;
         self.locals = self.locals.saturating_add(1);
-        self.slot_names.push(None);
         Some(at)
     }
 

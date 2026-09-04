@@ -279,6 +279,34 @@ impl Objects {
         Ok(self.heap.allocate(Cell::Environment(environment))?)
     }
 
+    /// Make another environment under the same parent, holding what this one
+    /// holds (queue item 216).
+    ///
+    /// **This is a safepoint.** The values are read out of the cell before the
+    /// allocation, which is safe for the reason [`Objects::function`] gives: the
+    /// environment being copied is rooted by the frame that is running, so a
+    /// collection during the allocation reaches everything it holds, and this
+    /// collector does not move what it keeps.
+    ///
+    /// Two layers of answer and they mean different things: [`Ok(None)`] is a
+    /// reference that names no environment, which is this engine's own mistake,
+    /// and the error is a heap at its ceiling.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn copy_environment(&mut self, environment: Ref) -> Result<Option<Ref>, Refused> {
+        let Some(copy) = self
+            .heap
+            .get(environment)
+            .and_then(Cell::environment)
+            .map(Environment::copied)
+        else {
+            return Ok(None);
+        };
+        Ok(Some(self.heap.allocate(Cell::Environment(copy))?))
+    }
+
     /// What the binding at `at` of an environment holds, or [`None`] if the
     /// reference names no environment or it has no such binding.
     pub fn binding(&self, environment: Ref, at: usize) -> Option<Held> {

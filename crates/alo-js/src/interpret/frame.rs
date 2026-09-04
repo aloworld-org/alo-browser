@@ -17,7 +17,8 @@
 //!   cell, below where the call's own operands begin;
 //! - its **environment** is a [`Root`], which is the list of things held until
 //!   somebody gives them back, and it is given back by the `return` that ends
-//!   the frame.
+//!   the frame — or by the instruction that leaves a block for the one outside
+//!   it (see [`environment`](super::environment)).
 //!
 //! So a `Frame` is a handful of indices and a `Rc` index, and losing one loses
 //! nothing but a place to carry on from.
@@ -127,9 +128,19 @@ pub(crate) struct Frame {
     pub(crate) unit: usize,
     /// Which chunk of that program.
     pub(crate) chunk: u32,
-    /// The environment this call was given, held until it returns. [`None`] is
-    /// the script's own frame, whose names are the realm's.
+    /// The environment in force, held until it is left or the call returns.
+    ///
+    /// It is the one the call was given until an [`Op::PushEnvironment`] goes
+    /// into a block, and the ones it was made under are reached through its
+    /// parent link rather than kept here. [`None`] is the script's own frame
+    /// before it enters any block, whose names are the realm's.
+    ///
+    /// [`Op::PushEnvironment`]: crate::code::Op
     pub(crate) environment: Option<Root>,
+    /// How many block environments this call has pushed and not popped, which
+    /// is what makes an unbalanced pop this engine's own mistake rather than a
+    /// walk off the end of the chain.
+    pub(crate) environments: u32,
     /// Where the callee sits in the stack. Everything from here up is this
     /// call's, and a `return` truncates to it.
     pub(crate) callee_at: usize,

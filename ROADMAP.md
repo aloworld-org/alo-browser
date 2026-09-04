@@ -515,8 +515,8 @@ unreachable without it.
       value, calling one is a **frame on a list rather than a recursion of the
       engine**, and a closure keeps the names it was written beside after the
       call that made them has returned — which is why a function's parameters
-      and body-level bindings live in a **cell in the heap** and a block's live
-      in the frame that dies with the call. Three things in it are decisions.
+      and body-level bindings live in a **cell in the heap** rather than in the
+      frame that dies with the call. Three things in it are decisions.
       `this` is decided by the **callee's** strictness rather than the
       caller's, so a plain call is `undefined` in strict code and the global
       object in sloppy code and the caller does not have to know which; an
@@ -542,12 +542,25 @@ unreachable without it.
       that meets one answers *which* operand it needs converted rather than
       converting it, so the order `a > b` converts in stays in the one file that
       knows it
+      · Built: **a binding per pass** (queue item 216). A block that declares
+      something is an environment of its own now, made on the way in and left on
+      the way out, so a function may read a name a block around it declared —
+      ordinary code this engine refused by name until today. The decision is the
+      specification's own shape rather than a cheaper one: a `for (let i = …)`
+      head is **copied** at each pass, so a closure made in one pass keeps
+      values the next pass cannot write to and a loop that makes ten functions
+      makes ten different numbers rather than ten of the last one. A copy is a
+      **sibling** — the same parent, so every hop the compiler counted still
+      means what it meant — and a block that declares nothing makes no
+      environment at all, which is why a hop is counted by asking a scope rather
+      than by counting levels. Leaving is the jump's own business: a `break` out
+      of three blocks emits three pops, because the blocks it skips will never
+      reach their own. What is left of a frame slot is the compiler's
+      temporaries, so nothing a script can name is one
       · Owed: the rest of the language, and each piece is refused **by name**
       rather than half-built — `new`, classes and `super` (queue item 212),
       `arguments` and the parameter forms that are not a plain name (213),
-      tagged templates (215), a function reading a name a **block**
-      declared outside it, which needs an environment per block so that a
-      closure made in one pass of a loop is not the one made in the next (216),
+      tagged templates (215),
       `try`/`catch`/`finally` (210), arrays, spread, destructuring and
       `for…of` (211), a **proxy**, whose trap is the same re-entry as a getter
       and which nothing can make until `new` and the builtins exist (217), and

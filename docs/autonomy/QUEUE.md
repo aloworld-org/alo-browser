@@ -2410,7 +2410,7 @@ The long pole, and the thing most of section E is unreachable without.
   `undefined` in cooked and present in raw, and two calls of the same template
   site receive the same array.
 
-- [ ] **216. An environment per block, so a loop's `let` is a binding per
+- [x] **216. An environment per block, so a loop's `let` is a binding per
   pass.** Cut from 209, which puts a function's names in a heap environment and
   a **block's** names in frame slots that die with the call — so a function
   reading a name a block declared outside it is refused by name today. The
@@ -2427,6 +2427,40 @@ The long pole, and the thing most of section E is unreachable without.
   a fresh binding each pass in the same way, a `break` out of three nested
   blocks leaves three environments, and nothing that compiled before is refused
   after.
+
+  **Done, all four: `crates/alo-js/tests/a_binding_per_pass.rs`.** The shape is
+  the specification's own — an environment for every scope that declares
+  anything, and `CreatePerIterationEnvironment` at each pass of a `let` head —
+  and the thing worth reading twice is that **a copy is a sibling rather than a
+  child**: the same parent, so every `hops` the compiler counted still means
+  what it meant, which is what lets the copy happen at run time with no second
+  instruction set.
+
+  **Three rules make it small enough to be right.** A scope that declares
+  nothing gets **no environment**, so a hop is counted by asking a scope rather
+  than by counting levels — otherwise every empty block in a program would be a
+  cell nothing could look a name up in and a link every name past it walked. A
+  `const` head is **not** copied, because a copy could differ from the original
+  only by existing. And **leaving is the jump's own business**: a `break` out of
+  three blocks emits three pops, since the blocks it skips will never reach
+  their own — which is why what a jump is leaving is found before anything is
+  emitted rather than after.
+
+  **`Where::Local` is gone entirely.** A block's names were frame slots and are
+  now bindings, so nothing a script can name is a frame slot: what is left of
+  one is the compiler's temporaries — a `switch`'s discriminant, the old value
+  of an `a.b++` — which are written before they are read on every path. So
+  `Op::Store` and `Op::Uninitialize` had no emitter left and are gone with them,
+  a slot has no name to record, and reading an empty slot is
+  `Internal::StackIsWrong` rather than a dead zone that no program can reach.
+
+  **Two doctored runs rather than reasoning about them**: with the per-pass copy
+  removed two tests fail, and with the unwinding pops removed two fail. The
+  second doctoring found that one of them was passing by a coincidence of
+  layout — the loop's `i` and the block's `seen` were each binding zero of their
+  own environment and held the same number, so reading the wrong cell gave the
+  right answer — which is why that case now declares a name in front of the one
+  it reads.
 
 - [ ] **210. `try`, `catch` and `finally`.** Cut from 72, which throws and has
   nowhere for a throw to land: `Escape::Thrown` ends the script today, and what

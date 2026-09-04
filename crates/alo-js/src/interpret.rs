@@ -47,6 +47,7 @@
 //! of a flag per iteration rather than per instruction.
 
 mod call;
+mod environment;
 mod frame;
 mod primitive;
 mod property;
@@ -296,6 +297,7 @@ impl Engine {
             unit: 0,
             chunk: 0,
             environment: None,
+            environments: 0,
             callee_at: 0,
             this_at: 1,
             locals_at: 2,
@@ -416,14 +418,16 @@ impl Engine {
             Op::Dup => self.duplicate(run, 1)?,
             Op::DupTwo => self.duplicate(run, 2)?,
 
-            Op::Load(slot) => self.load(run, slot, at)?,
-            Op::Store(slot) => self.store(run, slot, at)?,
+            Op::Load(slot) => self.load(run, slot)?,
             Op::Initialize(slot) => {
                 let value = self.pop(run)?;
                 self.write_slot(run, slot, value)?;
             }
-            Op::Uninitialize(slot) => self.empty_slot(run, slot)?,
             Op::RefuseAssignment(which) => return Err(Self::refuse(run, which, at)),
+
+            Op::PushEnvironment(bindings) => self.push_environment(run, bindings, at)?,
+            Op::PopEnvironment => self.pop_environment(run)?,
+            Op::CopyEnvironment => self.copy_environment(run, at)?,
 
             Op::LoadBinding { hops, slot } => self.load_binding(run, hops, slot, at, pc)?,
             Op::StoreBinding { hops, slot } => self.store_binding(run, hops, slot, at, pc)?,
@@ -679,32 +683,18 @@ impl Engine {
         Ok(())
     }
 
-    /// Read a frame slot, which is a `ReferenceError` inside its dead zone.
-    fn load(&mut self, run: &mut Run, slot: u32, at: usize) -> Result<(), Escape> {
+    /// Read a frame slot, which holds a temporary the compiler took.
+    ///
+    /// A slot with nothing in it is this engine's own mistake rather than a
+    /// dead zone a script can reach: nothing a script can name is a frame slot
+    /// (queue item 216 moved the last of those into environments), and the
+    /// compiler writes a temporary before it reads it on every path.
+    fn load(&mut self, run: &mut Run, slot: u32) -> Result<(), Escape> {
         let value = match self.slot(run, slot)? {
             Held::Value(value) => value,
-            Held::Uninitialized => return Err(Self::dead_slot(run, slot, at)),
+            Held::Uninitialized => return Err(Escape::Broken(Internal::StackIsWrong)),
         };
         self.push(run, value)
-    }
-
-    /// Write one, leaving the value on the stack.
-    fn store(&mut self, run: &mut Run, slot: u32, at: usize) -> Result<(), Escape> {
-        if self.slot(run, slot)? == Held::Uninitialized {
-            return Err(Self::dead_slot(run, slot, at));
-        }
-        let value = self.peek(run, 0)?;
-        self.write_slot(run, slot, value)
-    }
-
-    /// Put a slot back in its dead zone.
-    fn empty_slot(&mut self, run: &mut Run, slot: u32) -> Result<(), Escape> {
-        let at = Self::slot_index(run, slot)?;
-        let stack = run.stack;
-        self.objects
-            .with_slots(stack, |slots, barrier| slots.uninitialize(barrier, at))
-            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
-        Ok(())
     }
 
     /// Read a binding of an environment, which is a `ReferenceError` inside its
@@ -1264,26 +1254,10 @@ impl Engine {
         }
     }
 
-    /// The `ReferenceError` for a frame slot read before it was written, naming
-    /// it where the compiler recorded a name.
-    ///
-    /// A slot the compiler took for itself — a `switch`'s discriminant, the old
-    /// value of an `a.b++` — has no name, and nothing a script can write reads
-    /// one before it is written. So the nameless message is unreachable rather
-    /// than vague, and it is here because *unreachable* is not a thing to prove
-    /// with a panic.
-    fn dead_slot(run: &Run, slot: u32, at: usize) -> Escape {
-        let named = run
-            .chunk()
-            .ok()
-            .and_then(|chunk| chunk.slot_name(slot))
-            .and_then(|which| run.text(which).ok());
-        dead_zone(named.as_deref(), at)
-    }
-
-    /// The same for a binding, whose name is recorded against the instruction
-    /// that reads it — because the binding itself belongs to another chunk's
-    /// environment and there is no table here to look it up in.
+    /// The `ReferenceError` for a binding read before it was written, whose
+    /// name is recorded against the instruction that reads it — because the
+    /// binding belongs to an environment rather than to this chunk, and there
+    /// is no table here to look it up in.
     fn dead_binding(run: &Run, pc: usize, at: usize) -> Escape {
         let named = run
             .chunk()

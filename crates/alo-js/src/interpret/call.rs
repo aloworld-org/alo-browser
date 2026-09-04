@@ -56,7 +56,7 @@ use std::rc::Rc;
 use crate::abrupt::{Escape, Internal, Missing};
 use crate::bounds;
 use crate::heap::Ref;
-use crate::object::{Fault, Value};
+use crate::object::Value;
 use crate::unit::Unit;
 
 use super::Engine;
@@ -64,7 +64,8 @@ use super::frame::{After, Frame, Loaded, Run};
 
 impl Engine {
     /// `Op::Closure`: a function of a chunk of the running program, over the
-    /// environment the running call was given.
+    /// environment in force where it was written — which is a block's if it was
+    /// written inside one.
     pub(super) fn make_closure(
         &mut self,
         run: &mut Run,
@@ -228,6 +229,7 @@ impl Engine {
             unit: loaded,
             chunk,
             environment: Some(root),
+            environments: 0,
             callee_at,
             this_at,
             locals_at,
@@ -292,35 +294,6 @@ impl Engine {
             if let Some(root) = frame.environment {
                 self.objects.heap_mut().release(root);
             }
-        }
-    }
-
-    /// The environment `hops` out from the one the running call was given.
-    pub(super) fn environment_at(&self, run: &Run, hops: u32) -> Result<Ref, Escape> {
-        let mut held = self
-            .environment_of(run)?
-            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
-        for _ in 0..hops {
-            held = self
-                .objects
-                .enclosing(held)
-                .ok_or_else(|| Escape::fault(Fault::Gone))?
-                .ok_or(Escape::Broken(Internal::StackIsWrong))?;
-        }
-        Ok(held)
-    }
-
-    /// The environment the running call was given, which the script's own frame
-    /// has none of.
-    fn environment_of(&self, run: &Run) -> Result<Option<Ref>, Escape> {
-        match &run.frame()?.environment {
-            Some(root) => Ok(Some(
-                self.objects
-                    .heap()
-                    .holding(root)
-                    .ok_or_else(|| Escape::fault(Fault::Gone))?,
-            )),
-            None => Ok(None),
         }
     }
 

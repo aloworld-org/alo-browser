@@ -15,9 +15,10 @@
 //! is a cell in the heap. That is what makes a closure possible: the environment
 //! outlives the call, kept alive by the functions that closed over it.
 //!
-//! A block *inside* the function still uses frame slots, which die with the
-//! call — see [`scope`](super::scope) for why the two are apart and what is
-//! refused because of it.
+//! A block *inside* the function has an environment of its own, made under this
+//! one when the block is entered — see [`scope`](super::scope). What is special
+//! about the function's is only that a **call** makes it, which is why it is the
+//! one an instruction cannot push.
 //!
 //! # What a call does before the first instruction
 //!
@@ -75,6 +76,7 @@ impl Compiler {
             enclosing: std::mem::take(&mut self.enclosing),
             chains: std::mem::take(&mut self.chains),
             script: std::mem::replace(&mut self.script, false),
+            environments: std::mem::take(&mut self.environments),
         };
         self.suspended.push(suspended);
         self.scopes.open_function();
@@ -88,6 +90,7 @@ impl Compiler {
         self.enclosing = saved.enclosing;
         self.chains = saved.chains;
         self.script = saved.script;
+        self.environments = saved.environments;
         let finished = std::mem::replace(&mut self.chunk, saved.chunk);
         outcome?;
 

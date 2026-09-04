@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A loop gives every pass its own names.** `for (let i = 0; i < 10; i++)` used
+  to be a program this browser refused if anything inside it kept a function;
+  now it runs, and — the part that catches people out in every other browser
+  once — ten functions made in ten passes answer with ten different numbers
+  rather than ten copies of the last one. That is what the language says, and it
+  is not a detail: it is the difference between a list of ten buttons that each
+  know which row they are on and ten buttons that all think they are the last
+  one.
+
+  More broadly, a function may now read a name that a `{ … }` around it
+  declared. That is ordinary code — a `let` inside an `if`, read by a callback
+  written two lines later — and until today the engine said plainly that it had
+  not built it rather than guessing. What it was waiting for is that each block
+  needs a place of its own for its names, and each pass of a loop needs a fresh
+  one, which is exactly what makes the ten buttons work.
+
 - **A property can be a question rather than a thing.** `get` and `set` in an
   object now work: `{ get total() { return this.items.length; } }` runs that
   line every time somebody reads `total`, and a `set` runs when somebody writes

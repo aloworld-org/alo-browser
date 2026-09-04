@@ -412,7 +412,6 @@ fn what_the_language_says_and_this_engine_has_not_built() {
         ("function f(a, a) {}", "213"),
         ("function f() { return arguments; }", "213"),
         ("f`a`", "215"),
-        ("{ let a = 1; (function () { return a; }); }", "216"),
         ("try { 1; } catch {}", "210"),
         ("[1]", "211"),
         ("let [a] = b;", "211"),
