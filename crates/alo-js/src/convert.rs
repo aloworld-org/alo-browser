@@ -443,7 +443,7 @@ mod tests {
         assert!(primitive_of(&objects, &names, held, Hint::Number, 0, 0).is_err());
 
         let unit = std::rc::Rc::new(crate::unit::Unit::new());
-        let Ok(function) = objects.function(unit, 0, None, None) else {
+        let Ok(function) = objects.function(unit, 0, None, None, None) else {
             panic!("and a function");
         };
         let value_of: Vec<u16> = "valueOf".encode_utf16().collect();
@@ -517,7 +517,7 @@ mod tests {
         };
         assert_eq!(type_of(&objects, Value::Object(plain)), "object");
         let unit = std::rc::Rc::new(crate::unit::Unit::new());
-        let Ok(callable) = objects.function(unit, 0, None, None) else {
+        let Ok(callable) = objects.function(unit, 0, None, None, None) else {
             panic!("and a function");
         };
         assert_eq!(type_of(&objects, Value::Object(callable)), "function");

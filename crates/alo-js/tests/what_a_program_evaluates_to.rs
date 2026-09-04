@@ -812,26 +812,26 @@ fn instanceof_answers_the_two_questions_it_can() {
 }
 
 #[test]
-fn an_object_with_no_prototype_cannot_become_a_primitive() {
-    // Not a gap: an object in this engine has no `Object.prototype` (queue item
-    // 73), so it has no `valueOf` and no `toString` to *find* — and a
-    // `TypeError` is exactly what a real engine gives for
-    // `Object.create(null) + ""`. Calling one it does have is queue item 214
-    // and is the test above.
+fn an_object_becomes_a_primitive_through_the_prototype_it_now_has() {
+    // Until queue item 218 every one of the first three was the `TypeError` a
+    // real engine gives for `Object.create(null) + ""`, because an object had
+    // no prototype and so had no `toString` to *find*. It has one now, and the
+    // last case is how a script reaches the old answer on purpose.
     table(&[
-        (
-            "({}) + ''",
-            "! TypeError: this object has no valueOf or toString, so it cannot become a primitive value (at byte 0)",
-        ),
-        (
-            "({}) == 1",
-            "! TypeError: this object has no valueOf or toString, so it cannot become a primitive value (at byte 0)",
-        ),
-        // These do not convert at all, so they answer.
+        ("({}) + ''", "\"[object Object]\""),
+        // `ToPrimitive` then `ToNumber`, which is `NaN` — and `NaN == 1` is
+        // false rather than an error.
+        ("({}) == 1", "false"),
+        ("({}) == '[object Object]'", "true"),
+        // These do not convert at all, so they answered before this item too.
         ("({}) === ({})", "false"),
         ("let a = {}; a === a", "true"),
         ("!{}", "false"),
         ("typeof {}", "\"object\""),
+        (
+            "let a = {}; a.__proto__ = null; a + ''",
+            "! TypeError: this object has no valueOf or toString, so it cannot become a primitive value (at byte 32)",
+        ),
     ]);
 }
 

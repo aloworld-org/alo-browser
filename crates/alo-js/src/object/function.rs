@@ -21,7 +21,16 @@
 //! needs in order to make the call itself: which chunk, of which program, over
 //! which environment.
 //!
-//! # Three fields, and each is a rule
+//! # Two kinds of code, and the rest is the same object
+//!
+//! A function's body is either a chunk this engine compiled from a script
+//! ([`Code::Compiled`]) or a piece of Rust this engine wrote
+//! ([`Code::Native`], queue item 218). Everything else about the two is
+//! identical — the same cell, the same `typeof`, the same ordinary properties —
+//! which is why it is one enumeration inside one object rather than a second
+//! kind of callable thing for the interpreter to know about.
+//!
+//! # Compiled: three fields, and each is a rule
 //!
 //! - **The unit and the chunk** are the code. A [`Unit`] is reference-counted
 //!   rather than in the heap because it holds no heap reference at all — a
@@ -40,12 +49,10 @@
 //! # What a function has not got yet
 //!
 //! No `[[Construct]]`: `new`, classes and `super` are queue item 212. No
-//! `prototype`, `name`, `length`, `call`, `apply` or `bind` — those are
-//! properties and methods of `Function.prototype`, which is a builtin (queue
-//! item 73) — and no prototype at all, for the reason the realm's global object
-//! has none: an object pretending to have one would be an object whose
-//! `toString` a page could find and this engine could not call. ADR 0013 § 3,
-//! absent beats approximate.
+//! `prototype`, and no own `name` or `length` — those are queue item 220, and a
+//! `length` without a `name` would be half an answer. `call`, `apply` and
+//! `bind` are methods of `Function.prototype` and each has to re-enter the
+//! script, which is queue item 219. ADR 0013 § 3, absent beats approximate.
 
 use std::rc::Rc;
 
@@ -54,70 +61,97 @@ use crate::unit::Unit;
 
 use super::internal::Internal;
 use super::key::Key;
+use super::native::Native;
 use super::ordinary::Ordinary;
 use super::property::Property;
 use super::value::{Stored, Value};
+
+/// Where a function's body came from.
+#[derive(Debug)]
+pub enum Code {
+    /// A chunk this engine compiled from a script (queue item 209).
+    Compiled {
+        /// The program the chunk is in.
+        unit: Rc<Unit>,
+        /// Which chunk of it.
+        chunk: u32,
+        /// The environment it closed over, empty for one written at a script's
+        /// top level.
+        environment: Field,
+        /// The `this` an arrow took from where it was written.
+        captured: Option<Stored>,
+    },
+    /// A builtin this engine wrote in Rust (queue item 218).
+    Native(Native),
+}
 
 /// A function object.
 #[derive(Debug)]
 pub struct Function {
     ordinary: Ordinary,
-    unit: Rc<Unit>,
-    chunk: u32,
-    environment: Field,
-    captured: Option<Stored>,
+    code: Code,
 }
 
 impl Function {
     /// A function of this chunk, closing over this environment.
     ///
     /// `captured` is the `this` an arrow took from where it was written, and
-    /// [`None`] for anything that gets its own.
+    /// [`None`] for anything that gets its own. `prototype` is the realm's
+    /// `Function.prototype` and is [`None`] only where there is no realm at all
+    /// — which a test may make and a script never can.
     pub fn of(
         unit: Rc<Unit>,
         chunk: u32,
         environment: Option<Ref>,
         captured: Option<Value>,
+        prototype: Option<Ref>,
     ) -> Self {
         Self {
-            ordinary: Ordinary::with_prototype(None),
-            unit,
-            chunk,
-            environment: match environment {
-                Some(held) => Field::holding(held),
-                None => Field::empty(),
+            ordinary: Ordinary::with_prototype(prototype),
+            code: Code::Compiled {
+                unit,
+                chunk,
+                environment: match environment {
+                    Some(held) => Field::holding(held),
+                    None => Field::empty(),
+                },
+                captured: captured.map(Stored::holding),
             },
-            captured: captured.map(Stored::holding),
         }
     }
 
-    /// The program its code is in.
-    pub const fn unit(&self) -> &Rc<Unit> {
-        &self.unit
+    /// A builtin, whose body is Rust.
+    pub fn native(native: Native, prototype: Option<Ref>) -> Self {
+        Self {
+            ordinary: Ordinary::with_prototype(prototype),
+            code: Code::Native(native),
+        }
     }
 
-    /// Which chunk of that program it is.
-    pub const fn chunk(&self) -> u32 {
-        self.chunk
-    }
-
-    /// The environment it closed over.
-    pub const fn environment(&self) -> Option<Ref> {
-        self.environment.get()
-    }
-
-    /// The `this` it captured, which only an arrow has.
-    pub fn captured(&self) -> Option<Value> {
-        self.captured.as_ref().map(Stored::get)
+    /// Where its body came from, which is what a call asks first.
+    pub const fn code(&self) -> &Code {
+        &self.code
     }
 }
 
 impl Trace for Function {
     fn trace(&self, tracer: &mut Tracer) {
         self.ordinary.trace(tracer);
-        self.environment.trace(tracer);
-        if let Some(captured) = &self.captured {
-            captured.trace(tracer);
+        match &self.code {
+            Code::Compiled {
+                environment,
+                captured,
+                ..
+            } => {
+                environment.trace(tracer);
+                if let Some(captured) = captured {
+                    captured.trace(tracer);
+                }
+            }
+            // A native holds a function pointer and a `&'static str`, neither of
+            // which can ever be an edge — see the module comment on
+            // [`native`](super::native).
+            Code::Native(_) => {}
         }
     }
 
@@ -170,27 +204,63 @@ impl Internal for Function {
 mod tests {
     use std::rc::Rc;
 
-    use super::Function;
+    use super::{Code, Function};
+    use crate::abrupt::Escape;
     use crate::object::internal::Internal;
+    use crate::object::native::{Call, Native};
     use crate::object::value::Value;
     use crate::unit::Unit;
 
     #[test]
     fn a_function_is_an_object_that_also_knows_its_code() {
         let unit = Rc::new(Unit::new());
-        let function = Function::of(Rc::clone(&unit), 0, None, None);
-        assert_eq!(function.chunk(), 0);
-        assert_eq!(function.environment(), None);
-        assert_eq!(function.captured(), None, "only an arrow captures one");
+        let function = Function::of(Rc::clone(&unit), 0, None, None, None);
+        let Code::Compiled {
+            unit: held,
+            chunk,
+            environment,
+            captured,
+        } = function.code()
+        else {
+            panic!("a compiled function's code is a chunk");
+        };
+        assert_eq!(*chunk, 0);
+        assert_eq!(environment.get(), None);
+        assert!(captured.is_none(), "only an arrow captures one");
+        assert!(Rc::ptr_eq(held, &unit), "the program is shared");
         assert!(function.is_extensible(), "and it is an ordinary object");
         assert!(function.own_keys().is_empty());
-        assert!(Rc::ptr_eq(function.unit(), &unit), "the program is shared");
     }
 
     #[test]
     fn an_arrow_holds_the_this_it_was_written_beside() {
         let unit = Rc::new(Unit::new());
-        let arrow = Function::of(unit, 0, None, Some(Value::Bool(true)));
-        assert_eq!(arrow.captured(), Some(Value::Bool(true)));
+        let arrow = Function::of(unit, 0, None, Some(Value::Bool(true)), None);
+        let Code::Compiled {
+            captured: Some(captured),
+            ..
+        } = arrow.code()
+        else {
+            panic!("an arrow captured a this");
+        };
+        assert_eq!(captured.get(), Value::Bool(true));
+    }
+
+    #[test]
+    fn a_native_is_the_same_object_with_a_different_body() {
+        #[expect(
+            clippy::unnecessary_wraps,
+            reason = "the signature is `native::Body`, which every builtin shares"
+        )]
+        fn nothing(_: &mut Call<'_>) -> Result<Value, Escape> {
+            Ok(Value::Undefined)
+        }
+        let function = Function::native(Native::new("nothing", nothing), None);
+        let Code::Native(native) = function.code() else {
+            panic!("a builtin's code is Rust");
+        };
+        assert_eq!(native.name(), "nothing");
+        assert!(function.is_extensible(), "a page may hang a property on it");
+        assert!(function.own_keys().is_empty());
     }
 }

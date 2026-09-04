@@ -2484,9 +2484,99 @@ The long pole, and the thing most of section E is unreachable without.
   specification says, in the same table item 72 uses, and a hole is not
   `undefined`.
 
+- [x] **218. A builtin is a function this engine wrote, and `{}` has a
+  `toString` of its own.** Cut from 73 on the iteration that started it, which
+  named no closing condition of its own and could not have — *the ECMAScript
+  builtins* is years of work. What is taken here is the piece every other one
+  needs and the piece a page needs first: the **mechanism** (a function whose
+  body is Rust, called by the machinery every other call goes through) and the
+  two objects that are not a library but what an object and a function *are*.
+  *Depends on 72, 209, 214. Closes when:* `({}) + ''` answers
+  `"[object Object]"`, a page's own `toString` shadows the builtin and a page
+  may replace the builtin itself, a builtin is reached by a conversion and by a
+  getter rather than only by a call the source spells, and what is not built
+  refuses **by name** rather than answering something plausible.
+
+  **Done, all four: `crates/alo-js/tests/what_a_builtin_answers.rs`.** The
+  thing to read twice is that a native is **the same cell** a compiled function
+  is — `object::Code` is where the body came from and nothing else differs — so
+  `typeof` needed no case, `IsCallable` needed no change, and a builtin works
+  as a getter, as a setter and as the `toString` a `+` reaches for because
+  `finish_call` is shared with `Op::Return` rather than written twice.
+
+  **Three rules keep it small enough to be right.** A native is a **function
+  pointer rather than a boxed closure**: everything a builtin could capture is
+  either a reference the collector must walk or the realm it is reached
+  through, so a native holds no edge and tracing one is nothing. It is given
+  **no interpreter** — the heap, its `this`, its arguments and a source offset —
+  which is the bound that makes a native call free of a frame and is why `call`,
+  `apply` and a conversion inside a builtin are item 219 rather than something
+  quietly allowed. And a builtin is **strict code**, so its `this` is what the
+  caller wrote: a bare `toString()` is `"[object Undefined]"` here as it is in
+  every other engine.
+
+  **The doctored runs found the gap that mattered.** Removing the
+  `Function.prototype.toString` refusal fails a test, and defining a method
+  enumerable fails another — but removing the **scope that roots a name between
+  interning it and defining it** failed nothing, because every other file turns
+  stress on *after* `Engine::new` has already built the realm. So
+  `builtin.rs` has a test that builds the intrinsics with the collector firing
+  at every allocation, and that test fails without the holds.
+
+  One thing the tests found rather than assumed: `a.__proto__ = null;
+  a.__proto__` is `undefined` and not `null`, because the accessor lived on the
+  prototype that was just cut away. That is what every engine answers, and it
+  is only obvious once written down.
+
+- [ ] **219. A builtin that calls back into the script.** Cut from 218, whose
+  natives are given the heap and no interpreter — so a builtin that must call
+  something cannot, and each one that would says so by name rather than
+  guessing. `Function.prototype.call` and `apply`, `Object.prototype.
+  toLocaleString`, and `ToPrimitive` on an argument
+  ([`Missing::AConversionInsideABuiltin`], which is what
+  `({}).hasOwnProperty({})` answers today) are the three shapes of it, and
+  `Array.prototype.map` is the shape everything after them takes. The
+  interpreter already has the mechanism — [`Engine::begin_call`] lays a call
+  out from a place an instruction chooses and [`After`] says what its answer is
+  for — so what is owed is a way for a **native** to ask for one and be
+  re-entered with the answer, which is a native that can suspend and is
+  therefore a design rather than a chore.
+  *Depends on 218. Closes when:* `f.call(o, 1)` runs `f` with `o` as its `this`,
+  a builtin that asked for a call and was re-entered gets the answer in the
+  place it left, and a builtin that calls itself for ever is the `RangeError` a
+  runaway function is rather than a process that stops. **`bind` is not in
+  it**: a bound function is an exotic object with its own `[[Call]]`, which is
+  a different piece of work, and it goes in item 220 beside the rest of
+  `Function.prototype`.
+
+- [ ] **220. A function's own `name` and `length`, its source text, and
+  `bind`.** Cut from 218. A function object has **no own properties at all**
+  today: `f.name` and `f.length` are `undefined`, and
+  `Function.prototype.toString` refuses by name
+  ([`Missing::AFunctionsSourceText`]) rather than letting
+  `Object.prototype.toString` answer `"[object Function]"` — a sentence no
+  engine produces, handed to a page as though it were right. `length` alone
+  would be half an item, because a `name` needs the **compiler** to record one:
+  `Chunk::own_name` is set only for a named function expression, so a
+  `function f() {}` and a `const f = () => {}` each have a name nothing keeps.
+  The source text is the same shape of gap — item 204 gave every node the bytes
+  it came from, and no [`Unit`] keeps the source those bytes index into.
+  *Depends on 218, and `bind` on 219. Closes when:* `function f(a, b) {}` has
+  `f.name === 'f'` and `f.length === 2` with the attributes the specification
+  gives them, an arrow and a method get the name they are assigned to,
+  `f.toString()` answers text that parses back to the same function, and a
+  bound function calls the one it wraps with the `this` it was bound to.
+
 - [ ] **73. The ECMAScript builtins**, in the order real pages need them rather
   than the order the specification lists them.
-  *Depends on 72.*
+  *Depends on 72, and on 218 for what a builtin is.* **Item 218 took the
+  mechanism and the two prototypes**; what remains is the library — `Object`
+  and `Function` themselves (which are constructors and wait on item 212),
+  `Array`, `Math`, `JSON`, the `Error` objects a `catch` binds (item 210 waits
+  on them), and the `String`, `Number` and `Boolean` wrappers that
+  [`Missing::AWrapperObject`] names. This item should be **cut again** the next
+  time it is taken: a closing condition that names one family is an item, and
+  the whole of a standard library is not.
   **Item 206 left three things here by name**: a **partial** property descriptor
   (`{ writable: false }` with no `value`), which is `Object.defineProperty`'s own
   reading of an argument object rather than a rule about properties — the rules

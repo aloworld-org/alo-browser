@@ -412,9 +412,19 @@ impl Objects {
         }
     }
 
-    /// Whether the chain from `from` reaches `object`, which is the cycle a
-    /// prototype assignment must refuse.
-    fn reaches(&self, from: Option<Ref>, object: Ref) -> Result<bool, Fault> {
+    /// Whether the chain from `from` reaches `object`.
+    ///
+    /// Two questions with one answer: it is the cycle a prototype assignment
+    /// must refuse, and it is `Object.prototype.isPrototypeOf` — which passes
+    /// the *prototype* of the object it was given, because a thing is not its
+    /// own prototype. One walk rather than two, so the bound on a chain an
+    /// embedder's object describes for itself is stated once.
+    ///
+    /// # Errors
+    ///
+    /// [`Fault`], for a reference that does not name an object or a chain that
+    /// does not end.
+    pub fn reaches(&self, from: Option<Ref>, object: Ref) -> Result<bool, Fault> {
         let mut current = from;
         let mut steps = 0_usize;
         while let Some(held) = current {

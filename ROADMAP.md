@@ -562,11 +562,12 @@ unreachable without it.
       `arguments` and the parameter forms that are not a plain name (213),
       tagged templates (215),
       `try`/`catch`/`finally` (210), arrays, spread, destructuring and
-      `for…of` (211), a **proxy**, whose trap is the same re-entry as a getter
-      and which nothing can make until `new` and the builtins exist (217), and
-      the builtins that make a `{}` have a `toString` of its own (73).
-      A program using one of them does not compile, and says which item builds
-      it
+      `for…of` (211), and a **proxy**, whose trap is the same re-entry as a
+      getter and which nothing can make until `new` and the builtins exist
+      (217). A program using one of them does not compile, and says which item
+      builds it. The builtins that make a `{}` have a `toString` of its own
+      were owed here and are built (queue item 218), on the standard library's
+      own line
 - [ ] A garbage collector, and the object model underneath it
       · Built: the question, stated (ADR 0013 § 6) — the engine defines **one
       trait** for an embedder's objects and the DOM is one embedder, so the
@@ -638,6 +639,31 @@ unreachable without it.
       which is why this line is still not ticked. No claim about speed is made
       here or anywhere: none has been measured
 - [ ] The standard library: the ECMAScript builtins, in the order real pages need them
+      · Built: **what a builtin is, and the two objects the language is made
+      of** (queue item 218, cut on starting — the item named no closing
+      condition, so what was taken is the piece everything else needs). A
+      builtin is a function whose body is Rust, in the **same cell** a script's
+      function is in, so `typeof` answers `"function"`, a page may hang a
+      property on one, and it is called by the machinery every other call goes
+      through — which is why one is found where a `+`, a getter or a setter
+      reaches for it and not only where a page names it. Three things in it are
+      decisions. It is a **function pointer rather than a boxed closure**,
+      because everything a builtin could capture is either a reference the
+      collector must walk or the realm it is reached through, so a native holds
+      no edge at all. It gets **no interpreter**, which is the bound that makes
+      it cheap — no frame, no recursion, and no way to re-enter the script —
+      so `call`, `apply` and a conversion inside a builtin are refused by name
+      rather than quietly allowed (queue item 219). And a builtin is **strict
+      code**, so its `this` is what the caller wrote: a bare `toString()` is
+      `"[object Undefined]"` here as it is everywhere else. `Object.prototype`
+      and `Function.prototype` are the two objects, rooted by the realm with
+      every method reachable from them, and `({}) + ''` answers
+      `"[object Object]"` for the first time
+      · Owed: everything a page would call a library. `Object` and `Function`
+      themselves are constructors and wait on `new` (queue item 212); a
+      function's own `name` and `length` and its source text are 220; `Array`,
+      `Math`, `JSON`, `Error`, the wrapper objects, the well-known symbols and
+      the weak collections are still item 73, which is what remains of it
 - [ ] Regular expressions, with the syntax the language actually has
 - [ ] Promises, the microtask queue, `async`/`await`, generators and iterators
 - [ ] Modules: ESM, dynamic `import()`, and the loader that fetches them

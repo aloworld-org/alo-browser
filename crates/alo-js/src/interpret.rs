@@ -147,7 +147,7 @@ impl Engine {
     /// was full before anything ran.
     pub fn new() -> Result<Self, Escape> {
         let mut objects = Objects::new();
-        let realm = Realm::new(&mut objects).map_err(|why| Escape::refused(why, 0))?;
+        let realm = Realm::new(&mut objects)?;
         let names = Names::new(&mut objects).map_err(|why| Escape::refused(why, 0))?;
         Ok(Self {
             objects,
@@ -650,9 +650,12 @@ impl Engine {
 
     /// `{}` — an object with no prototype and no properties.
     fn new_object(&mut self, run: &mut Run, at: usize) -> Result<(), Escape> {
+        // `Object.prototype`, which is what makes `({}).toString` a thing to
+        // find rather than the reason `{} + ''` used to be a `TypeError`.
+        let above = self.realm.intrinsics().object_prototype(&self.objects)?;
         let object = self
             .objects
-            .object(None)
+            .object(Some(above))
             .map_err(|why| Escape::refused(why, at))?;
         self.push(run, Value::Object(object))
     }

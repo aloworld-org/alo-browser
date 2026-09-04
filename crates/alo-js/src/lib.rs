@@ -86,6 +86,7 @@
 pub mod abrupt;
 pub mod ast;
 pub mod bounds;
+pub mod builtin;
 pub mod code;
 pub mod compile;
 pub mod convert;

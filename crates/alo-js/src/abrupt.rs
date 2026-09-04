@@ -151,6 +151,22 @@ pub enum Missing {
     /// is not callable is the `TypeError` the language specifies, and a
     /// left-hand side that is not an object is `false`.
     APrototype,
+    /// A builtin was handed an **object** where the specification turns one
+    /// into a primitive first — `({}).hasOwnProperty({})` — and turning one
+    /// into a primitive means calling the script's own `valueOf`, which a
+    /// native cannot do until queue item 219.
+    ///
+    /// A primitive argument is converted here and now; it is only the object
+    /// that has nowhere to go, which is why this is the narrow answer rather
+    /// than a refusal of the whole method.
+    AConversionInsideABuiltin,
+    /// `Function.prototype.toString`, which answers the text a function was
+    /// written as — text no [`Unit`](crate::unit::Unit) keeps (queue item 220).
+    ///
+    /// It is refused rather than left to `Object.prototype.toString`, which
+    /// would answer `"[object Function]"`: a wrong answer that reads like a
+    /// right one is the one thing *absent beats approximate* is against.
+    AFunctionsSourceText,
 }
 
 impl fmt::Display for Missing {
@@ -163,6 +179,14 @@ impl fmt::Display for Missing {
             Missing::APrototype => write!(
                 out,
                 "'instanceof' needs the `prototype` property a constructor has, which is queue item 212"
+            ),
+            Missing::AConversionInsideABuiltin => write!(
+                out,
+                "a builtin was given an object where a property key was wanted, and turning one into a primitive from inside a builtin is queue item 219"
+            ),
+            Missing::AFunctionsSourceText => write!(
+                out,
+                "a function's own source text, which Function.prototype.toString answers with, is queue item 220"
             ),
         }
     }

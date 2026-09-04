@@ -6,6 +6,32 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An object knows what it is.** `"" + {}` now answers `"[object Object]"`, the
+  way it does in every other browser, instead of stopping the script. Until
+  today an object in this engine had nothing behind it at all — no `toString`,
+  no `valueOf`, no `hasOwnProperty` — so the commonest thing a page does with a
+  value it is not sure about was an error.
+
+  What arrived is the two objects the language is actually built out of: the one
+  every `{}` inherits from and the one every function inherits from. So
+  `({}).hasOwnProperty('id')` answers, `a.isPrototypeOf(b)` answers, and
+  `a.__proto__` reads and writes what a page means by it — including refusing to
+  make a loop out of it, which is the check that keeps a chain walkable.
+
+  The mechanism underneath is the part that matters for what comes next: a
+  builtin is a function whose body is Rust rather than a script, and it is
+  called by exactly the machinery a page's own functions are called by. So a
+  page may replace one — `Object.prototype.toString = …` works, and a method a
+  page writes on its own object shadows ours — and one is found where a getter
+  or a `+` reaches for it rather than only where a page calls it by name.
+  Everything the standard library still owes is built on that one shape.
+
+  Two things are deliberately still refused rather than guessed at, each saying
+  so in a sentence: a function turned into a string, because nothing yet keeps
+  the text a function was written as, and a builtin handed an object where it
+  wanted a name, because answering that means running a page's own code from
+  inside ours.
+
 - **A loop gives every pass its own names.** `for (let i = 0; i < 10; i++)` used
   to be a program this browser refused if anything inside it kept a function;
   now it runs, and — the part that catches people out in every other browser

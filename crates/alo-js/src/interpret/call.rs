@@ -50,13 +50,27 @@
 //! frame carries and `return` reads: the answer lands where the callee stood, or
 //! is dropped, or is a step of a conversion that then runs the instruction
 //! again.
+//!
+//! # A builtin is a call with no frame in it
+//!
+//! A native function's body is Rust (queue item 218), so there is nothing to
+//! push a frame for: it is handed its `this` and its arguments, it answers, and
+//! [`Engine::finish_call`] does to the stack exactly what a `return` does. That
+//! one shared function is why a builtin works everywhere a script's function
+//! does — as a getter, as a setter, and as the `toString` a conversion reaches
+//! for — rather than only where it was called by name.
+//!
+//! Its arguments are read off the stack into a Rust slice and the stack is
+//! **not** taken down until the answer exists, which is what keeps them rooted
+//! while the builtin allocates.
 
 use std::rc::Rc;
 
 use crate::abrupt::{Escape, Internal, Missing};
 use crate::bounds;
 use crate::heap::Ref;
-use crate::object::Value;
+use crate::object::native::{Body, Call};
+use crate::object::{Code, Value};
 use crate::unit::Unit;
 
 use super::Engine;
@@ -79,6 +93,7 @@ impl Engine {
             .chunk(which)
             .ok_or(Escape::Broken(Internal::JumpIsWrong))?
             .is_arrow();
+        let above = self.realm.intrinsics().function_prototype(&self.objects)?;
         // An arrow takes the `this` that is in force here, and takes it whether
         // it writes `this` or not: an arrow nested inside it may, and by then
         // this frame has gone.
@@ -91,7 +106,7 @@ impl Engine {
         // captured value by the stack, so both survive it.
         let held = self
             .objects
-            .function(unit, which, environment, captured)
+            .function(unit, which, environment, captured, Some(above))
             .map_err(|why| Escape::refused(why, at))?;
         self.push(run, Value::Object(held))
     }
@@ -163,8 +178,14 @@ impl Engine {
         let Value::Object(held) = callee else {
             return Err(self.not_a_function(callee, at));
         };
-        let Some((unit, chunk, environment, captured)) = self.code_of(held) else {
-            return Err(self.not_a_function(callee, at));
+        let (unit, chunk, environment, captured) = match self.body_of(held) {
+            None => return Err(self.not_a_function(callee, at)),
+            // A builtin needs no frame at all, so it is done before the rest of
+            // this function's bookkeeping begins.
+            Some(Called::Native(body)) => {
+                return self.run_native(run, callee_at, argc, at, after, body);
+            }
+            Some(Called::Compiled(compiled)) => compiled,
         };
         let Some((parameters, bindings, locals, strict, own)) = shape_of(&unit, chunk) else {
             return Err(Escape::Broken(Internal::JumpIsWrong));
@@ -240,6 +261,34 @@ impl Engine {
         Ok(())
     }
 
+    /// Run a builtin, whose body is Rust and which needs no frame.
+    ///
+    /// The arguments are copied off the stack into a Rust slice and the stack
+    /// is left standing until the answer exists, so every one of them is still
+    /// somewhere the collector walks while the builtin allocates. The `this` is
+    /// **whatever the caller pushed**: a builtin is strict code, so
+    /// `OrdinaryCallBindThis` neither replaces `undefined` with the global
+    /// object nor wraps a primitive, and each builtin says what it does with
+    /// what it was given.
+    fn run_native(
+        &mut self,
+        run: &mut Run,
+        callee_at: usize,
+        argc: usize,
+        at: usize,
+        after: After,
+        body: Body,
+    ) -> Result<(), Escape> {
+        let this_at = callee_at.saturating_add(1);
+        let this = self.value_at(run, this_at)?;
+        let mut arguments = Vec::with_capacity(argc);
+        for which in 0..argc {
+            arguments.push(self.value_at(run, this_at.saturating_add(1).saturating_add(which))?);
+        }
+        let value = body(&mut Call::new(&mut self.objects, this, &arguments, at))?;
+        self.finish_call(run, callee_at, after, value)
+    }
+
     /// `Op::Return`: the answer is on top of the stack.
     pub(super) fn give_back(&mut self, run: &mut Run) -> Result<(), Escape> {
         let value = self.pop(run)?;
@@ -252,13 +301,27 @@ impl Engine {
             // it. What ends is *this frame's* claim on it.
             self.objects.heap_mut().release(root);
         }
+        self.finish_call(run, frame.callee_at, frame.after, value)
+    }
+
+    /// Take a finished call off the stack and do whatever its answer was for.
+    ///
+    /// Shared by a `return` and by a builtin, which is what makes the two
+    /// indistinguishable to the instruction that asked for the call.
+    fn finish_call(
+        &mut self,
+        run: &mut Run,
+        callee_at: usize,
+        after: After,
+        value: Value,
+    ) -> Result<(), Escape> {
         let stack = run.stack;
-        if frame.after == After::Discard {
+        if after == After::Discard {
             // A setter's answer is not what the assignment evaluates to, and
             // the value it does evaluate to is already below.
             return self
                 .objects
-                .with_slots(stack, |slots, _| slots.truncate(frame.callee_at))
+                .with_slots(stack, |slots, _| slots.truncate(callee_at))
                 .ok_or(Escape::Broken(Internal::StackIsWrong));
         }
         // No allocation between taking the value off and putting it back, so
@@ -267,13 +330,13 @@ impl Engine {
         // avoided.
         self.objects
             .with_slots(stack, |slots, _| {
-                slots.truncate(frame.callee_at);
+                slots.truncate(callee_at);
                 slots.push(value);
             })
             .ok_or(Escape::Broken(Internal::StackIsWrong))?;
         // Everything below reads the answer off the stack rather than out of a
         // local, because both of them allocate.
-        match frame.after {
+        match after {
             After::Answer | After::Discard => Ok(()),
             After::TypeOf => {
                 let value = self.peek(run, 0)?;
@@ -309,15 +372,25 @@ impl Engine {
         Ok(())
     }
 
-    /// What a function's code is, or [`None`] if the reference is not one.
-    fn code_of(&self, held: Ref) -> Option<Code> {
-        let function = self.objects.callable(held)?;
-        Some((
-            Rc::clone(function.unit()),
-            function.chunk(),
-            function.environment(),
-            function.captured(),
-        ))
+    /// What a function's body is, or [`None`] if the reference is not one.
+    ///
+    /// Read off the cell and held by value, so the borrow of the heap is over
+    /// before the call allocates anything.
+    fn body_of(&self, held: Ref) -> Option<Called> {
+        match self.objects.callable(held)?.code() {
+            Code::Compiled {
+                unit,
+                chunk,
+                environment,
+                captured,
+            } => Some(Called::Compiled((
+                Rc::clone(unit),
+                *chunk,
+                environment.get(),
+                captured.as_ref().map(crate::object::Stored::get),
+            ))),
+            Code::Native(native) => Some(Called::Native(native.body())),
+        }
     }
 
     /// `OrdinaryCallBindThis` for a function that has a `this` of its own.
@@ -381,9 +454,17 @@ pub(super) struct Ask<'a> {
     pub(super) after: After,
 }
 
-/// A function's code, read off its cell so that the borrow of the heap is over
-/// before the call allocates anything.
-type Code = (Rc<Unit>, u32, Option<Ref>, Option<Value>);
+/// What is about to be called.
+#[derive(Debug)]
+enum Called {
+    /// A chunk of a compiled program, its environment and its captured `this`.
+    Compiled(Compiled),
+    /// A builtin's body.
+    Native(Body),
+}
+
+/// A compiled function's code, read off its cell.
+type Compiled = (Rc<Unit>, u32, Option<Ref>, Option<Value>);
 
 /// What a call needs to know about the chunk it is entering.
 fn shape_of(unit: &Unit, chunk: u32) -> Option<(usize, usize, usize, bool, Option<u32>)> {

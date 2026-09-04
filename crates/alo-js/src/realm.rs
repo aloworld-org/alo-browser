@@ -29,7 +29,7 @@
 //! which also means a lookup costs no allocation and can happen in the middle of
 //! an instruction.
 //!
-//! # Four properties are here and the rest of the builtins are not
+//! # Four properties are here and most of the builtins are not
 //!
 //! `undefined`, `NaN`, `Infinity` and `globalThis` are **value** properties of
 //! the global object rather than functions, and they are here because without
@@ -39,14 +39,20 @@
 //! writable, not enumerable and not configurable, which is what makes
 //! `undefined = 1` do nothing.
 //!
-//! Nothing else is here: no `Object`, no `Array`, no `Math`, no `console`.
-//! ADR 0013 § 3 — *absent beats approximate* — and queue item 73 is where they
-//! arrive. An embedder may put its own things on the global object today, which
+//! What a realm also owns now is its [`Intrinsics`] (queue item 218):
+//! `Object.prototype` and `Function.prototype`, which are not a library but
+//! what an object and a function *are*. The global object is an ordinary object
+//! and inherits from the first of them like any other.
+//!
+//! No **named** builtin is here yet: no `Object`, no `Array`, no `Math`, no
+//! `console`. ADR 0013 § 3 — *absent beats approximate* — and each is a queue
+//! item. An embedder may put its own things on the global object today, which
 //! is how a test harness reaches a script.
 
 use std::collections::HashMap;
 
 use crate::abrupt::Escape;
+use crate::builtin::Intrinsics;
 use crate::heap::{Ref, Root};
 use crate::object::{Found, Held, Objects, Property, Refused, Set, Value};
 
@@ -65,6 +71,7 @@ pub struct Realm {
     global: Root,
     record: Root,
     bindings: HashMap<Vec<u16>, Binding>,
+    intrinsics: Intrinsics,
 }
 
 /// What a name resolved to.
@@ -101,27 +108,40 @@ pub enum Assigned {
 }
 
 impl Realm {
-    /// A realm with an empty global object and nothing declared.
+    /// A realm with its intrinsics, an empty global object and nothing
+    /// declared.
     ///
     /// # Errors
     ///
-    /// [`Refused`] if the heap cannot hold two cells, which is a heap that was
-    /// full before anything ran.
-    pub fn new(objects: &mut Objects) -> Result<Self, Refused> {
-        // No prototype: `Object.prototype` is a builtin (queue item 73), and an
-        // object pretending to have one would be an object whose `toString` a
-        // page could find and this engine could not call.
-        let global = objects.object(None)?;
+    /// [`Escape::Full`] if the heap cannot hold them, which is a heap that was
+    /// full before anything ran, and a fault for a root this engine has lost.
+    pub fn new(objects: &mut Objects) -> Result<Self, Escape> {
+        // The intrinsics come first, because the global object inherits from
+        // one of them: it is an ordinary object, and `globalThis.toString` is a
+        // name a page may reach for.
+        let intrinsics = Intrinsics::new(objects)?;
+        let above = intrinsics.object_prototype(objects)?;
+        let global = objects
+            .object(Some(above))
+            .map_err(|why| Escape::refused(why, 0))?;
         let global = objects.heap_mut().root(global);
-        let record = objects.slots()?;
+        let record = objects.slots().map_err(|why| Escape::refused(why, 0))?;
         let record = objects.heap_mut().root(record);
         let realm = Self {
             global,
             record,
             bindings: HashMap::new(),
+            intrinsics,
         };
-        realm.name_the_values(objects)?;
+        realm
+            .name_the_values(objects)
+            .map_err(|why| Escape::refused(why, 0))?;
         Ok(realm)
+    }
+
+    /// The objects the language itself is made of (queue item 218).
+    pub const fn intrinsics(&self) -> &Intrinsics {
+        &self.intrinsics
     }
 
     /// The four value properties of the global object.

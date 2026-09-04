@@ -53,6 +53,7 @@ pub mod function;
 pub mod intern;
 pub mod internal;
 pub mod key;
+pub mod native;
 pub mod ordinary;
 pub mod property;
 pub mod slots;
@@ -70,10 +71,11 @@ use crate::unit::Unit;
 pub use access::{Fault, Found, Named, Set};
 pub use cell::Cell;
 pub use environment::Environment;
-pub use function::Function;
+pub use function::{Code, Function};
 pub use intern::Interner;
 pub use internal::{Exotic, Internal};
 pub use key::Key;
+pub use native::Native;
 pub use ordinary::Ordinary;
 pub use property::Property;
 pub use slots::{Held, Slots};
@@ -257,13 +259,31 @@ impl Objects {
         chunk: u32,
         environment: Option<Ref>,
         captured: Option<Value>,
+        prototype: Option<Ref>,
     ) -> Result<Ref, Refused> {
-        let function = Function::of(unit, chunk, environment, captured);
+        let function = Function::of(unit, chunk, environment, captured, prototype);
+        Ok(self.heap.allocate(Cell::Function(function))?)
+    }
+
+    /// Make a builtin: a function whose body is Rust (queue item 218).
+    ///
+    /// **This is a safepoint**, and `prototype` is the realm's
+    /// `Function.prototype`, which is rooted by the realm for as long as the
+    /// engine lives.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn native(&mut self, native: Native, prototype: Option<Ref>) -> Result<Ref, Refused> {
+        let function = Function::native(native, prototype);
         Ok(self.heap.allocate(Cell::Function(function))?)
     }
 
     /// The function a reference names, or [`None`] if it names anything else —
     /// which is what `a()` asks before it decides to throw a `TypeError`.
+    ///
+    /// A builtin answers here like anything else: `IsCallable` is a question
+    /// about the cell, not about where the body was written.
     pub fn callable(&self, held: Ref) -> Option<&Function> {
         self.heap.get(held)?.function()
     }

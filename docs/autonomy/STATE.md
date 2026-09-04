@@ -9143,3 +9143,118 @@ the next ADR number is **0015**. Four things:
    adds a new way out of a block — `try`/`finally` is item 210 and is exactly
    that — must emit its pops on every path or that counter will say so at run
    time rather than silently reading the wrong cell.
+
+---
+
+## Iteration 113 — queue item 218: a builtin is a function this engine wrote
+
+**`"" + {}` answers `"[object Object]"`.** Item 218 is ticked, all four of its
+closing conditions met and asserted in
+`crates/alo-js/tests/what_a_builtin_answers.rs`. Until today an object in this
+engine had nothing behind it at all — no prototype, so no `toString` to *find* —
+and the commonest thing a page does with a value it is unsure of ended the
+script.
+
+**Item 218 is a cut from item 73, made on starting, and the cut is the whole
+judgement of this iteration.** Item 73 is *"the ECMAScript builtins, in the
+order real pages need them"* and it names **no closing condition**, which by
+`LOOP.md`'s own rule makes it not ready to build as written. `LOOP.md` also says
+what to do about an item larger than one iteration: **cut its scope, never its
+depth, and write the cut into the queue**. So what was taken is the piece
+everything else in that item needs and the piece a page needs first — the
+**mechanism** for a builtin at all, and the two objects that are not a library
+but are what an object and a function *are*. Items 219 and 220 are the cuts, and
+item 73 now says in its own text that it should be cut again next time it is
+taken.
+
+**The shape is one cell rather than two, and that is the sentence the change
+turns on.** A native function is a [`Cell::Function`] like any other; what
+differs is [`object::Code`], which says whether the body is a chunk this engine
+compiled or a piece of Rust this engine wrote. So `typeof` needed no case,
+`IsCallable` needed no change, and — the part that matters most — a builtin is
+found and called wherever a script's function is: as a getter, as a setter, and
+as the `toString` a `+` reaches for. That last one works because `Op::Return`'s
+tail became `Engine::finish_call` and a native calls the same function, rather
+than a second path that would have had to learn `After::Convert` separately.
+
+**Three rules keep it small enough to be right.** A native is a **function
+pointer rather than a boxed closure**: everything a builtin could capture is
+either a reference the collector must walk — which a boxed closure hides from it
+— or the realm it is reached through, so a native holds no edge at all and
+tracing one is nothing. It is handed **no interpreter**: the heap, its `this`,
+its arguments and a source offset, which is the bound that makes a native call
+need no frame and cannot recurse, and is why `call`, `apply` and a `ToPrimitive`
+on an argument are refused **by name** rather than quietly allowed. And a
+builtin is **strict code**, so its `this` is what the caller wrote and
+`OrdinaryCallBindThis` does not run: a bare `toString()` is `"[object
+Undefined]"` here as it is in every other engine, which is asserted rather than
+assumed.
+
+**Three doctored runs, and the third is the one that earned its keep.** Removing
+the `Function.prototype.toString` refusal fails a test — it answers `"[object
+Function]"`, a sentence no engine produces. Defining a builtin method as
+enumerable fails another. But removing the **scope that roots an interned name
+between interning it and defining the property that owns it** failed *nothing*,
+and the reason is a gap in the suite rather than in the code: every other file
+turns `Heap::stress` on **after** `Engine::new` has already built the realm, so
+nothing anywhere covered building the intrinsics. `builtin.rs` now has a test
+that builds them with the collector firing at every allocation, and that test
+fails without the holds. **Anything that adds an intrinsic must be covered by
+it** — the roots are otherwise unchecked.
+
+**One thing the tests found rather than confirmed**: `a.__proto__ = null;
+a.__proto__` is `undefined`, not `null`. The accessor lives on the prototype
+that was just cut away, so the name is no longer there to read. That is what
+every engine answers, and I had written `null` in the table.
+
+**Two files, one reason to change each**: `object/native.rs` (what a builtin's
+body is, and what it is given) and `builtin.rs` with `builtin/object_prototype.rs`
+and `builtin/function_prototype.rs` (which objects a realm owns, and what is on
+each of the two). `object::Objects::reaches` became public rather than a second
+chain walk being written for `isPrototypeOf`: it is the same question a
+prototype assignment asks to refuse a cycle, so the bound on a chain an
+embedder's object describes for itself is stated once.
+
+**Three clippy `#[expect]`s were added and each is the lint being wrong rather
+than the gate being weakened**: `unnecessary_wraps` on the three builtin bodies
+that cannot fail. Their signature is `native::Body`, which every builtin shares;
+narrowing one of them is not a thing that could compile.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **2035 tests** (up from 2019 — ten new integration cases in a file of
+their own, and six new unit tests), no stubs, no `unsafe`, every boundary held,
+the licence notice on every new file, and a `CHANGELOG.md` line. No layout
+assertion and no reference render: this iteration positions nothing and paints
+nothing.
+
+**`ROADMAP.md` moved, and it is not a tick.** *The standard library: the
+ECMAScript builtins* gains its first `· Built:` clause and an `· Owed:` naming
+what is left of item 73. One sentence on the interpreter's line was corrected
+rather than left standing: its `· Owed:` listed *the builtins that make a `{}`
+have a `toString` of its own (73)*, which is what this iteration built.
+`docs/features.md`'s own line says the same in a page author's words.
+
+**What the next iteration should know.** The next queue number is **221** and
+the next ADR number is **0015**. Four things:
+
+1. **Item 219 is the one to take next.** It is now what most of section D waits
+   on through item 73: `Array.prototype` methods, `Object.keys`, a
+   `toLocaleString` — every builtin that is not a pure function of its
+   arguments needs a native that can ask for a call and be re-entered with the
+   answer. The interpreter already has the half that lays a call out from a
+   place an instruction chooses (`Engine::begin_call` and `After`); what is
+   missing is a way for a *native* to use it, which is a native that can
+   suspend and is a design rather than a chore.
+2. **A native cannot re-enter the script, and nothing checks that it does not
+   try.** The bound is the type — `native::Call` has no engine in it — so it is
+   enforced by there being nothing to call *with*, which is the strongest kind
+   of bound and also the kind that silently disappears the day somebody widens
+   the struct. Item 219 is where that widening happens, deliberately.
+3. **Every `{}` and every function now allocates with a prototype**, so the
+   realm is reached on a path that used to touch nothing. Both go through
+   `Realm::intrinsics()`, which is two root lookups per allocation. Nothing has
+   measured it and `LOOP.md` says a speed claim is measured on hardware or not
+   made, so nothing is claimed.
+4. **`Realm::new` returns `Escape` rather than `Refused` now**, because making
+   the intrinsics can fault as well as fill the heap. Anything that makes a
+   realm outside `Engine::new` gets both errors rather than one.
