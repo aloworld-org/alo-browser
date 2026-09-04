@@ -6,6 +6,30 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A local file and a `data:` page each get a process of their own.** One
+  process per site is what keeps one page's data out of another page's reach,
+  and the question underneath it is what a *site* is. For an ordinary address
+  the answer has been right for a while: the scheme and the registrable domain,
+  so two tabs on one organisation's pages share a process and two organisations
+  never do. For a page with no address at all — a local file, a `data:` page,
+  anything on a scheme this browser has not been told about — the answer was the
+  scheme and nothing else, so **every local file on the machine was one site**
+  and shared one process, and so was every `data:` page.
+
+  Those pages are not one another. The browser has said so since the day it
+  learned about origins: each of them is its own origin, the same as itself and
+  nothing else, and one local file being able to read another is the oldest
+  exfiltration bug there is. The process split now agrees with that rather than
+  undoing it — each such page is rendered alone, and nothing else is ever put in
+  with it.
+
+  It costs processes: twenty local files open is twenty renderers rather than
+  one, up to the ceiling of sixteen, past which the least recently used one is
+  ended. That is the direction to be wrong in. The other way is two pages that
+  can read nothing of each other's sharing one address space, which no amount of
+  careful checking inside the process can undo — the hardware side channels these
+  processes exist to defend against do not care what the checks say.
+
 - **A page that wedges its renderer no longer freezes the whole browser.** One
   process per site means a page that crashes costs one tab, and that has been
   true here for a while. A page that leaves its renderer *alive and silent* —

@@ -544,6 +544,59 @@ mod tests {
         assert!(tabs.tab(one).is_some_and(|tab| tab.frame().is_none()));
     }
 
+    /// Queue item 66: a document whose origin is opaque has no site, so it
+    /// shares a renderer with nothing — not even with the same bytes opened in
+    /// another tab. One of them dying therefore leaves the other untouched,
+    /// which is the same claim as `a_renderer_going_takes_every_tab_on_its_site`
+    /// arriving from the other side.
+    #[test]
+    fn two_tabs_on_one_data_url_are_two_renderers_and_one_going_leaves_the_other() {
+        let mut tabs = nowhere();
+        let one = tabs.open(url("data:text/html,<p>hi"));
+        let two = tabs.open(url("data:text/html,<p>hi"));
+        let (Some(first), Some(second)) = (
+            tabs.tab(one).map(|tab| tab.site().clone()),
+            tabs.tab(two).map(|tab| tab.site().clone()),
+        ) else {
+            panic!("a tab that was opened has no site");
+        };
+
+        assert!(first.is_alone() && second.is_alone());
+        assert_ne!(first, second, "two opaque origins were given one process");
+        assert_eq!(
+            tabs.sites_open().len(),
+            2,
+            "two documents that share no origin wanted one process",
+        );
+
+        let _ = tabs.lost(&first, gone_at(&first.to_string()));
+        assert!(tabs.tab(one).is_some_and(|tab| !tab.is_live()));
+        assert!(
+            tabs.tab(two).is_some_and(Tab::is_live),
+            "one hostless document's renderer going took another's with it",
+        );
+    }
+
+    /// A site is decided when the tab is opened and kept, because deciding it
+    /// again mints another opaque origin — a tab that asked per request would
+    /// be given a new process every time it painted.
+    #[test]
+    fn a_tabs_site_is_decided_once_rather_than_every_time_it_asks() {
+        let mut tabs = nowhere();
+        let here = tabs.open(url("data:text/html,<p>hi"));
+        let first = tabs.tab(here).map(|tab| tab.site().clone());
+
+        let _ = tabs.paint(here);
+        assert_eq!(
+            tabs.tab(here).map(|tab| tab.site().clone()),
+            first,
+            "a tab's site changed under it",
+        );
+        // And deciding it again would not have given the same answer, which is
+        // what makes keeping it the thing that has to be true.
+        assert_ne!(first, Some(Site::of(&url("data:text/html,<p>hi"))));
+    }
+
     /// ADR 0003's rule, one layer up: a caller holding an id must never find
     /// it naming a different page.
     #[test]

@@ -7060,3 +7060,113 @@ iteration added a third thing waiting on that interface, since *"wait, or stop
 it?"* is the honest form of the bound built here. 187 is deferred for the reason
 written into it, 169 must be run on Linux, 60 is HTTP/3, and 197 waits on
 properties `alo-style` does not have.
+
+---
+
+## Iteration 96 — queue item 66: which of the origin, the site and the registrable domain gets a process
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 66 was the
+first ready item in stage 2's file order, and it arrived without a *closes when*
+— which stage 2's rules say makes an item unready. It was taken rather than
+marked `needs design` because `ROADMAP.md` had already written the owed half
+precisely: *"which of the origin, the site and the registrable domain a page is
+given, case by case"*. The closing condition is written into the queue item now,
+before the code: every URL a page could hold is given one of the three by a rule
+written down, and two documents whose origins are **opaque** are never in one
+renderer process, in a test with real processes in it.
+
+**Reading the three answers side by side is what found the defect.** `alo-url`
+has three of them — `Origin::of`, `site::of`, and the `Url`'s own host — and
+`alo-renderer`'s `Site::of` was consulting the last two and never the first. For
+an ordinary address that is right and has been since item 156. For a URL with no
+host it gave **the scheme and nothing else**, so every `data:` page in the
+browser was one site, every `about:` page was one site, and every local file on
+the machine was one site sharing one address space. `alo-url` has said since item
+50 that each of those is its own origin, and says in its own words that *"one
+local file being able to read every other one is the oldest exfiltration bug
+there is"*. The process split was quietly undoing that: two documents that may
+read nothing of one another's, in one renderer.
+
+**The rule is one sentence — the origin decides whether there is a site at all.**
+Where it is a tuple, the registrable domain widens it into a site and two tabs
+share a process; the **port is left to the origin**, because two ports are two
+origins that can already reach one another with a link and a cookie, so a process
+each would cost memory and buy nothing. Where it is opaque there is no site, and
+the document is `Site::Alone` carrying that opaque origin's own identity: a
+process nothing else is ever put into, not another `data:` page with the same
+bytes, and not the same file opened a second time.
+
+**The answer is taken from `Origin::of` rather than restated**, which is the
+whole reason the change is small. Two functions deciding what is opaque are two
+functions that can come to disagree, and the disagreement would be a process
+holding two documents the security rules call strangers. It also settled the
+cases nobody had asked about without a line of code each: a scheme with no
+default port and no port written is opaque there, so unknown still never means
+"probably fine" here either.
+
+**Two things went in beside it because the shape invites the opposite.** The
+cost is written down rather than left to be discovered — twenty local files open
+is twenty renderers, up to `MOST_RENDERERS`, past which the least recently used
+is evicted, and ADR 0005 already priced that memory. And **a site is decided
+once**, when the tab is opened: `Site::of` on an opaque origin mints a new
+identity every call, so a caller that decided again per request would hand one
+tab a new process every time it painted. `tab.rs` asserts both halves of that —
+the site a tab keeps does not move, and deciding it again would not have given
+the same answer.
+
+**`Site::host()` returns an `Option` now**, which is the part of the type worth
+reading. A document with no site has an identity rather than a name, and a caller
+handed an empty string would read it as a host that every other hostless document
+shares — which is exactly the belief this change exists to make impossible.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero errors,
+**1678 tests** (up from 1665 — thirteen added: ten on the rule itself, two on a
+tab keeping its site, one on real processes), no stubs, no `unsafe`, boundaries
+held, the licence notice, and a `CHANGELOG.md` line. The half no script can
+check: **nothing here positions, sizes or draws anything**, so there is no layout
+assertion and no reference render to make, and saying so is the honest answer —
+this item decides which process a document is given, so the assertion is three
+real renderers with three different process ids. One file one responsibility:
+`site.rs` still answers only *which process renders this document*, and it now
+asks `alo-url` the question instead of half-answering it. The item is in
+`docs/features.md`, with a second line for what is still owed.
+
+**Eight tests were doctored out in three files.** With `Site::of` reading a
+hostless URL as the scheme again — the tree exactly as it was before this change
+— five of `site.rs`'s ten fail, both of `tab.rs`'s new ones fail, and the real-
+process test fails with two `data:` documents in one renderer. The five that
+still pass are the ones about ordinary addresses, which is the evidence the
+change moved what it meant to move and nothing else.
+
+**Hostile input.** A URL comes off a stranger's page, and
+`every_url_a_page_could_hold_is_answered_rather_than_crashed_on` walks fourteen
+shapes of one — punycode, an address with a port at the top of the range, a
+trailing dot, a bare public suffix, `javascript:`, `mailto:`, an empty `data:` —
+and asserts each is either a site or a process of its own. There is no third
+outcome, which is the property that matters: no URL falls through to sharing a
+process by accident.
+
+**`ROADMAP.md` moved, and it is not a tick.** The line *"where one site ends and
+another begins"* keeps its box empty and gains a `· Built:` clause for what item
+66 decided, and its `· Owed:` clause was rewritten from "queue item 66" to the
+thing that is genuinely left: what a **document inside a document** is given — a
+sandboxed `iframe`'s opaque origin and `about:srcdoc` inheriting its parent's
+(item 86), and a `blob:` taking the origin of whoever created it (items 72
+and 90). None of those can exist yet, because nothing here can produce a document
+inside a document, so ticking would have been ticking a line for the documents
+that happen to be reachable today.
+
+**What the next iteration should know.** Stage 2's section B is now finished
+except **item 67**, which is the next item in file order and is a **decision
+rather than a chore**: *every request attributable — which page, and which agent
+action, caused it*, marked `needs ADR` in the shape of `alo-os` ADR 0001. Stage
+2's rules say a decision gets the ADR as its own iteration, so that is what
+taking 67 means. **Item 69 is the same shape** and is the first item of section D
+— our own JavaScript engine — and both queue entries name ADR numbers that are
+stale: the queue says "ADR 0006" for item 69 and 0006 has been *the supervisor
+lives here* since it was written. **The next free number is 0012.** Beyond those,
+**190** (the two-tone border styles: small, depends on nothing, closes with a
+picture) is ready. 157 and 158 need an interface to ask in, and so does the
+question item 198 stands in for; 187 is deferred for the reason written into it;
+169 must be run on Linux; 60 is HTTP/3; and 197 waits on properties `alo-style`
+does not have.

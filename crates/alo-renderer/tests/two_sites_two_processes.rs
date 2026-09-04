@@ -261,6 +261,37 @@ fn a_scheme_is_enough_to_make_it_a_different_site() {
     );
 }
 
+/// And a document with **no** site is a process nothing else is put into
+/// (queue item 66). Two `data:` URLs with identical bytes are two origins, and
+/// a local file is its own origin too — so each is its own process, because
+/// ADR 0005's first reason is a hardware property that no same-origin check
+/// reaches. These are real processes rather than two values compared, which is
+/// the difference between the rule being decided and the rule being applied.
+#[test]
+fn documents_with_no_site_are_a_process_each_rather_than_one_between_them() {
+    let mut renderers = renderers();
+    let one = site("data:text/html,<p>hello");
+    let two = site("data:text/html,<p>hello");
+    let local = site("file:///Users/somebody/page.html");
+
+    assert!(renderers.ask(&one, &a_page("one")).is_ok());
+    assert!(renderers.ask(&two, &a_page("two")).is_ok());
+    assert!(renderers.ask(&local, &a_page("a local file")).is_ok());
+
+    assert_eq!(renderers.len(), 3, "opaque origins shared a process");
+    assert_eq!(renderers.started(), 3);
+    assert_ne!(
+        renderers.process_of(&one),
+        renderers.process_of(&two),
+        "two `data:` documents with the same bytes are in one process",
+    );
+    assert_ne!(
+        renderers.process_of(&one),
+        renderers.process_of(&local),
+        "a local file shares a process with a `data:` document",
+    );
+}
+
 /// The host is not the site, and this test asserted that it was until queue
 /// item 156 rented the public suffix list. ADR 0005 says a site is the scheme
 /// and the **registrable domain**: two subdomains of one organisation share a

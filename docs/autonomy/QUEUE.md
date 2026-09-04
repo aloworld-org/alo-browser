@@ -1427,9 +1427,56 @@ wrong, which is the argument for the fourth.
   need"* is the item that ends it. The cut is written into item 64: nothing
   reaps.
 
-- [ ] **66. Where one site ends and another begins.** The origin, the site, the
+- [x] **66. Where one site ends and another begins.** The origin, the site, the
   registrable domain, and which of them gets a process.
-  *Depends on 50, 63.*
+  *Depends on 50, 63. Closes when:* every URL a page could hold is given one of
+  the three by a rule written down, and the case that was wrong is right — two
+  documents whose origins are **opaque** are never in one renderer process, in a
+  test with real processes in it.
+
+  **Done, and the closing condition was written on taking it** — the item had
+  none, which stage 2's rules say makes an item unready; what made it ready
+  instead of `needs design` is that `ROADMAP.md` already named exactly what was
+  owed, *"which of the origin, the site and the registrable domain a page is
+  given, case by case"*, and the case that was wrong was findable by reading the
+  three answers side by side.
+
+  **The rule is one sentence: the origin decides whether there is a site at
+  all.** Where it is a tuple the registrable domain widens it into a site, and
+  the **port is left to the origin** — two ports are two origins that can
+  already reach one another with a link and a cookie, so a process each would
+  cost memory and buy nothing. Where it is opaque there is no site, and the
+  document is `Site::Alone` with the opaque origin's own identity in it: a
+  process nothing else is ever put into.
+
+  **What was wrong is that a hostless URL was read as the scheme and nothing
+  else**, so every `data:` page in the browser was one site, every `about:` page
+  was one site, and — the one that matters — **every local file on the machine
+  was one site sharing one address space**. `alo-url` has said since item 50
+  that each of those is its own origin and that *"one local file being able to
+  read every other one is the oldest exfiltration bug there is"*; the process
+  split was quietly undoing it.
+
+  The answer is **taken from `Origin::of` rather than restated** from the URL,
+  which is the whole of why this is small: two functions deciding what is opaque
+  are two functions that can come to disagree, and the disagreement would be a
+  process holding two documents the security rules call strangers. It also
+  settles the cases nobody had asked about — a scheme with no default port and
+  no port written is opaque, so unknown still never means "probably fine".
+
+  **The cost is written down rather than discovered later**: twenty local files
+  open is twenty renderers, up to `MOST_RENDERERS`, past which the least
+  recently used is evicted. ADR 0005 already priced that. And a rule went in
+  beside it because the shape invites the opposite: a site is decided **once**,
+  when the tab is opened, since `Site::of` on an opaque origin mints a new
+  identity every call — a caller that asked again per request would give one tab
+  a new process every time it painted. `tab.rs` asserts both halves.
+
+  What is left is not this item's and is named in `ROADMAP.md` and
+  `docs/features.md`: a **document inside a document**, which nothing here can
+  yet produce — a sandboxed `iframe`'s opaque origin and `about:srcdoc`
+  inheriting its parent's (item 86), and a `blob:` taking the origin of whoever
+  created it (items 72 and 90).
 
 - [ ] **67. ★ Every request attributable** — which page, and **which agent
   action**, caused it. `ROADMAP.md`: *"no other engine has needed to answer

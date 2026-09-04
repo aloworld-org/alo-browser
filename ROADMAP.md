@@ -214,9 +214,20 @@ unreachable without it.
       snapshot and it ages, so its age is recorded and the build fails once it
       is six months old (`alo-url`'s `snapshot`, queue item 186) — a boundary
       that has quietly stopped being current is the one failure here nobody
-      would see · Owed: **which** of the origin,
-      the site and the registrable domain a page is given, case by case — queue
-      item 66, whose dependencies are done
+      would see
+      **And which of the three a page is given** (queue item 66): the **origin**
+      decides whether there is a site at all. Where it is a tuple the
+      registrable domain widens it into a site and two tabs share a process,
+      with the port left to the origin because two ports can already reach one
+      another. Where it is **opaque** there is no site: a local file, a `data:`
+      page, `about:`, a scheme nobody registered — each is rendered in a process
+      nothing else is ever put into, where before every local file on the
+      machine was one site sharing one address space
+      · Owed: what a **document inside a
+      document** is given, which nothing here can yet produce — a sandboxed
+      `iframe`'s opaque origin and `about:srcdoc` inheriting its parent's (queue
+      item 86), and a `blob:` taking the origin of whoever created it (queue
+      items 72 and 90)
 
 ### The network
 
