@@ -1,0 +1,261 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! What a script's things **are**, in the heap item 71 built for them.
+//!
+//! ADR 0014 § 11, and queue item 206. Item 71 stopped exactly here on purpose:
+//! [`Heap<T>`](crate::heap::Heap) is generic in what a cell is, because the
+//! collector's business is *reachability* and an object's business is
+//! prototypes, properties and an order a page can observe. This module is the
+//! second half, and nothing in `heap.rs` changed to let it in.
+//!
+//! # The five decisions, and where each one lives
+//!
+//! - **An ordinary object is a prototype, a property table and one flag** —
+//!   [`ordinary`], and a property is data or accessor with three attributes and
+//!   no fourth ([`property`]).
+//! - **Property order is observable, so it is the specification's order from
+//!   the first line** — [`table`], where it is a property of the storage rather
+//!   than a sort done at enumeration time.
+//! - **Internal methods are a trait, and it is the same trait an embedder
+//!   gets** — [`internal`]. An array, a proxy and an `HTMLCollection` are one
+//!   mechanism rather than two.
+//! - **Property keys are interned and the intern table is weak** — [`key`] and
+//!   [`intern`]. A page can mint unbounded distinct names, so a strong table
+//!   would be a leak a stranger controls.
+//! - **A string is a heap object, immutable once made, in UTF-16 code units** —
+//!   [`text`].
+//!
+//! [`access`] is the sixth clause — *one interface for get, set, define, delete
+//! and own keys* — and it is the file the rest of the engine talks to.
+//!
+//! # [`Objects`] is the heap plus the one thing that must sit beside it
+//!
+//! The intern table cannot live inside a cell: interning a name means comparing
+//! it against the names already in the heap, and a cell cannot read the heap it
+//! is in. So [`Objects`] owns both, and it is the type item 72's interpreter
+//! will hold.
+//!
+//! # What is absent rather than approximate
+//!
+//! ADR 0013 § 3. There are no builtins here, no realm and no global object
+//! (item 73), nothing is callable (item 72), and there is no `BigInt`
+//! (item 207). Each is absent rather than stubbed, because a stub is the one
+//! answer that defeats a page's own feature test.
+
+pub mod access;
+pub mod cell;
+pub mod intern;
+pub mod internal;
+pub mod key;
+pub mod ordinary;
+pub mod property;
+pub mod symbol;
+pub mod table;
+pub mod text;
+pub mod value;
+
+use std::fmt;
+
+use crate::heap::{Full, Heap, Ref};
+
+pub use access::{Fault, Found, Named, Set};
+pub use cell::Cell;
+pub use intern::Interner;
+pub use internal::{Exotic, Internal};
+pub use key::Key;
+pub use ordinary::Ordinary;
+pub use property::Property;
+pub use symbol::Symbol;
+pub use table::Properties;
+pub use text::Text;
+pub use value::{Stored, Value};
+
+/// Something a script asked for that it may not have.
+///
+/// Two refusals rather than one, because the language distinguishes them and a
+/// page can tell: a string too long is a `RangeError` the script's own `catch`
+/// can survive, and a heap at its ceiling is ADR 0014 § 9's [`Full`], which
+/// goes to the embedder and stops the tab.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Refused {
+    /// The heap is at its ceiling and a collection did not bring it under.
+    Full(Full),
+    /// A string longer than [`bounds::LONGEST_STRING`](crate::bounds).
+    StringTooLong {
+        /// How many code units were asked for.
+        units: usize,
+    },
+}
+
+impl From<Full> for Refused {
+    fn from(full: Full) -> Self {
+        Self::Full(full)
+    }
+}
+
+impl fmt::Display for Refused {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Refused::Full(full) => full.fmt(out),
+            Refused::StringTooLong { units } => write!(
+                out,
+                "a string of {units} code units is longer than this engine will make"
+            ),
+        }
+    }
+}
+
+/// A heap of a script's objects, and the names its properties are known by.
+#[derive(Debug)]
+pub struct Objects {
+    heap: Heap<Cell>,
+    names: Interner,
+}
+
+impl Default for Objects {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Objects {
+    /// An empty heap with nothing interned.
+    pub fn new() -> Self {
+        Self {
+            heap: Heap::new(),
+            names: Interner::new(),
+        }
+    }
+
+    /// The heap, for the things that are the collector's rather than the object
+    /// model's: rooting, scopes, collecting, and the invariant check.
+    pub const fn heap(&self) -> &Heap<Cell> {
+        &self.heap
+    }
+
+    /// The same, to hold a root or ask for a collection.
+    pub fn heap_mut(&mut self) -> &mut Heap<Cell> {
+        &mut self.heap
+    }
+
+    /// How many property names are interned.
+    ///
+    /// Including any whose string has been collected since the last prune,
+    /// which is what makes this the number a test of the bound asserts on.
+    pub const fn interned(&self) -> usize {
+        self.names.len()
+    }
+
+    /// Make an ordinary object with this prototype.
+    ///
+    /// **This is a safepoint** — everything the caller means to keep must be
+    /// rooted, which is ADR 0014 § 2's discipline and is why
+    /// [`Heap::stress`](crate::heap::Heap::stress) exists.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn object(&mut self, prototype: Option<Ref>) -> Result<Ref, Refused> {
+        let object = Ordinary::with_prototype(prototype);
+        Ok(self.heap.allocate(Cell::Object(object))?)
+    }
+
+    /// Make a string of these code units.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::StringTooLong`] before anything is allocated, and
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn text(&mut self, units: Vec<u16>) -> Result<Ref, Refused> {
+        let asked = units.len();
+        let Some(text) = Text::of(units) else {
+            return Err(Refused::StringTooLong { units: asked });
+        };
+        Ok(self.heap.allocate(Cell::Text(text))?)
+    }
+
+    /// Make a symbol, with a description that is a string cell or nothing.
+    ///
+    /// Every call makes a **different** symbol, which is the whole of what a
+    /// symbol is: two with the same description are two property keys.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn symbol(&mut self, description: Option<Ref>) -> Result<Ref, Refused> {
+        Ok(self.heap.allocate(Cell::Symbol(Symbol::new(description)))?)
+    }
+
+    /// Put an embedder's object in the heap — a node, a console, a harness.
+    ///
+    /// ADR 0014 § 6: it is in the **same graph**, so the cycle a page makes
+    /// between a node, a listener and a closure is one this collector reclaims.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn foreign(&mut self, exotic: Box<dyn Exotic>) -> Result<Ref, Refused> {
+        Ok(self.heap.allocate(Cell::Foreign(exotic))?)
+    }
+
+    /// The key this text names, interning it if it is new.
+    ///
+    /// A text that is the canonical decimal of an array index is that index and
+    /// **allocates nothing** — `a[i]` in a loop interns no strings at all. Every
+    /// other text is one string cell, shared by every object that has a
+    /// property of that name.
+    ///
+    /// **This is a safepoint when the name is new**, so a caller holding
+    /// references across it must have rooted them. What it hands back is *not*
+    /// rooted: the key's string is kept alive by the object it becomes a
+    /// property of, and until then by the caller.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Objects::text`] refuses.
+    pub fn key(&mut self, units: &[u16]) -> Result<Key, Refused> {
+        if let Some(at) = key::array_index(units) {
+            if let Some(key) = Key::index(at) {
+                return Ok(key);
+            }
+        }
+        self.names.prune(&self.heap);
+        if let Some(held) = self.names.find(&self.heap, units) {
+            return Ok(Key::text(held));
+        }
+        let held = self.text(units.to_vec())?;
+        self.names.remember(units, held);
+        Ok(Key::text(held))
+    }
+
+    /// The key a symbol is.
+    ///
+    /// # Errors
+    ///
+    /// [`Fault::NotASymbol`] if the reference names anything else, and
+    /// [`Fault::Gone`] if it names nothing.
+    pub fn symbol_key(&self, held: Ref) -> Result<Key, Fault> {
+        match self.heap.get(held) {
+            Some(cell) if cell.symbol().is_some() => Ok(Key::symbol(held)),
+            Some(_) => Err(Fault::NotASymbol),
+            None => Err(Fault::Gone),
+        }
+    }
+
+    /// The code units of a string cell, or [`None`] if it names something else.
+    pub fn units(&self, held: Ref) -> Option<&[u16]> {
+        self.heap.get(held).and_then(Cell::text).map(Text::units)
+    }
+
+    /// Drop the interned names whose string has been collected.
+    ///
+    /// [`Objects::key`] does this on its own, and this is for the caller who
+    /// wants the table settled without interning anything — a test asserting
+    /// the bound, and an embedder that has just been told the tab is in the
+    /// background.
+    pub fn prune(&mut self) -> bool {
+        self.names.prune(&self.heap)
+    }
+}

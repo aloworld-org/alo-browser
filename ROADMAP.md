@@ -515,14 +515,42 @@ unreachable without it.
       rescan rather than an object. A cycle through an embedder's object is
       reclaimed, counted rather than watched. The numbers landed with it in
       `bounds.rs`, each with its reason: a heap ceiling, a collection trigger,
-      and the two marking buffers · Owed: **the object model** the collector
-      collects (queue item 206) — objects, prototypes, properties in the order
-      a page can observe, interned keys and strings — which is why this line is
-      not ticked. The heap is generic in what a cell is until it lands. Also
-      owed and named where they belong: the DOM's real wrapper (queue item 80),
-      and `WeakRef` and `FinalizationRegistry` callbacks as tasks (queue item
-      76). No claim about speed is made here or anywhere: none has been
-      measured
+      and the two marking buffers
+      · Built: **the object model the collector collects** (`alo-js`'s
+      `object`, queue item 206) — and it landed *inside* the heap without one
+      line of `heap.rs` changing, which was the argument for building the two in
+      this order. An ordinary object is a prototype, a property table and one
+      extensibility flag; a property is data or accessor with the three
+      attributes and no fourth, and `ValidateAndApplyPropertyDescriptor` is in
+      the object model rather than in a builtin, so what a page froze cannot be
+      unfrozen by whichever caller happens to define next. **Property order is
+      the specification's from the first line** — integer-like keys ascending,
+      then strings in insertion order, then symbols — and it is a property of
+      the storage rather than a sort at enumeration time, so a later hidden-class
+      representation cannot quietly lose it. **Internal methods are a trait and
+      it is the trait an embedder gets**, so an array, a proxy and an element are
+      one mechanism rather than two. **Keys are interned against a weak table**
+      that holds no copy of the text and no edge, so ten thousand objects with a
+      `title` share one string and two hundred thousand names nobody kept are
+      collected — with the collector firing on its own during the loop rather
+      than because a test asked. A canonical array index is a key that allocates
+      nothing at all. A string is a heap object, immutable once made, in UTF-16
+      code units, so a lone surrogate is a name like any other and two of them
+      are two names. The hostile half is its own file: a chain a hundred thousand
+      deep walked without recursion, a cycle refused where the specification
+      refuses it and **bounded** where an embedder lies about its own prototype,
+      a hundred-digit name that is a string key rather than a saturated index,
+      and add-then-delete in a loop that compacts rather than growing
+      · Owed: the DOM's real wrapper (queue item 80) — the trait it will
+      implement is built and tested against a stand-in; `WeakRef` and
+      `FinalizationRegistry` callbacks as tasks (queue item 76); a partial
+      property descriptor and the well-known symbols (item 73); a `BigInt`
+      value, which is a decision about renting arbitrary precision rather than a
+      variant to add (item 207); and a proxy's ability to intercept the walk
+      itself, which needs something that can call a trap (item 72). Nothing here
+      is callable, so an accessor hands back its getter rather than a value —
+      which is why this line is still not ticked. No claim about speed is made
+      here or anywhere: none has been measured
 - [ ] The standard library: the ECMAScript builtins, in the order real pages need them
 - [ ] Regular expressions, with the syntax the language actually has
 - [ ] Promises, the microtask queue, `async`/`await`, generators and iterators

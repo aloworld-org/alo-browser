@@ -15,18 +15,22 @@
 //! meanings.
 //!
 //! [`heap`] is the third (ADR 0014, item 71): the arena everything a script
-//! makes will live in, and the collector that owns it. A reference into it is an
+//! makes lives in, and the collector that owns it. A reference into it is an
 //! **index carrying a generation** rather than a pointer, which is why nothing
 //! here needs `unsafe` to hold one; and the collector is **precise**, so the
 //! interpreter's frames and value stack will live in structures it walks rather
 //! than in Rust locals.
 //!
-//! Nothing here evaluates anything yet, and the heap is generic in what a cell
-//! is because what an object **is** — a prototype, a property table, an order a
-//! page can observe — is queue item 206 rather than this one.
-//! [`token::Kind::BigInt`] keeps digits rather than a number for the same
-//! reason: inventing an integer type to hold one would be building the object
-//! model in the wrong file. The tree is what item 72's compiler will read.
+//! [`object`] is the fourth (ADR 0014 § 11, item 206): what a cell in that heap
+//! **is**. A prototype, a property table whose order a page can observe,
+//! internal methods that are the same trait an embedder gets, interned keys and
+//! strings. [`Heap<T>`](heap::Heap) was generic in its cell so that this could
+//! land inside it without changing a line of `heap.rs`, and it did.
+//!
+//! Nothing here evaluates anything yet. [`token::Kind::BigInt`] still keeps
+//! digits rather than a number, and now for a narrower reason: arbitrary
+//! precision arithmetic is a decision about renting rather than a variant to
+//! add, which is queue item 207. The tree is what item 72's compiler will read.
 //!
 //! # The rule that shapes every file: a script is a stranger's bytes
 //!
@@ -65,6 +69,7 @@ pub mod escape;
 pub mod heap;
 pub mod lexer;
 pub mod number;
+pub mod object;
 pub mod parser;
 pub mod punctuator;
 pub mod read;
@@ -79,6 +84,7 @@ pub use ast::{Program, Source};
 pub use error::{Position, Reason, SyntaxError};
 pub use heap::{Field, Full, Heap, Ref, Root, Scope, Survivors, Trace, Tracer, Weak};
 pub use lexer::{Goal, Lexer};
+pub use object::{Cell, Fault, Found, Key, Objects, Property, Refused, Set, Value};
 pub use parser::{Parser, module, script};
 pub use punctuator::Punctuator;
 pub use token::{Kind, Token};

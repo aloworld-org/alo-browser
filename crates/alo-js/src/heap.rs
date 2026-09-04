@@ -30,9 +30,11 @@
 //! [`Heap<T>`] is generic in what a cell is, and that is not indirection for
 //! its own sake: the collector's business is *reachability*, and what an object
 //! **is** — its prototype, its properties, their observable order — is the
-//! object model's, which is queue item 206. The heap will hold one enumeration
-//! of cell kinds when that arrives, an embedder's node wrapper among them, and
-//! nothing in this file changes when it does.
+//! object model's, which is [`crate::object`] (queue item 206). That has since
+//! landed, [`Cell`](crate::object::Cell) is the enumeration this holds, an
+//! embedder's object is one of its variants, and **nothing in this file changed
+//! when it arrived** — which was the argument for building the two in this
+//! order rather than the other.
 //!
 //! # The discipline, which is the price of precision
 //!

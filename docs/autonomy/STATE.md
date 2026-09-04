@@ -8366,3 +8366,127 @@ table that grows without reporting is a ceiling that is not enforced. Item 205
 is still the better second choice and still not urgent. Outside section D,
 **190** (the two-tone border styles: small, depends on nothing, closes with a
 picture) is still ready.
+
+---
+
+## Iteration 107 — queue item 206: the object model
+
+**Item 206 is done**, which is ADR 0014 § 11 and the other half of item 71. It
+was the item the last iteration named as the one to take, for the reason it
+gave: item 72 depends on it, the ADR was already written, and its closing
+conditions were in the queue.
+
+**It landed inside the heap without one line of `heap.rs` changing.** That was
+the argument for building the collector first and it held: `Heap<T>` is generic
+in its cell, `object::Cell` is now that cell, and the only files under `heap/`
+that changed at all are `reference.rs` — for a reason given below — and two
+doc comments that said the object model was owed.
+
+**All three closing conditions are met, and each is a test.** The order a page
+enumerates is asserted from keys of all three kinds minted in the worst order
+for the rule — a symbol first, the indices descending, the strings in the
+middle — and the near misses have a test of their own, because `"01"`,
+`"4294967295"`, `" 1"` and `"-0"` are string keys that look like indices and a
+page can see where they come. A prototype chain answers a lookup, and a cycle
+is refused twice over: at the assignment, which is the specification's own
+rule, and by a bound on the walk, which is the defence against an embedder that
+does not obey it.
+
+**The hostile clause is answered by a collection rather than by a refusal, and
+the test says which.** Item 206 allowed either. Two hundred thousand distinct
+names are minted; the count is what makes it a bound rather than a hope, since
+it is far past `COLLECT_AFTER` and so the collector fires **on its own** during
+the loop. `Heap::collections` is asserted to be past zero for that reason: a
+test that asked for the collection would be asserting that it can call a
+method. The arena ends with fewer slots than half the names and the intern
+table ends empty.
+
+**Three things are worth reading twice, and the first is a hole this iteration
+nearly left in the ceiling.**
+
+The intern table holds **no copy of the text**. The obvious table is
+`HashMap<Box<[u16]>, Ref>`, and it would put a second copy of every property
+name *outside* `HEAP_CEILING` — which is the same leak ADR 0014 § 11 names, in
+a place nothing counts, and it would have passed every test I had written. So
+the table is a **seeded hash to the cells that hashed to it**, and a lookup
+compares by reading the string cell it already has. The seeding is a security
+property rather than a detail: a page chooses every name it writes, and a fixed
+hash function is an invitation to engineer collisions until a lookup is a walk.
+It is `RandomState`, which is what `HashSet` in `heap/root.rs` already relies
+on, and it reaches no I/O crate — ADR 0013 § 5's rule is about dependencies.
+
+**The keys are edges.** A property named by a string keeps that string alive,
+which is what makes a weak intern table safe rather than merely small: what
+holds a name is the object whose property it is, and interning holds nothing.
+The test that says so is the one that deletes a property and finds the heap
+down to one cell and the table down to none.
+
+**The prototype walk is bounded by the number of slots in the heap**, which is
+exact rather than chosen — a chain longer than that has visited a slot twice.
+Nothing a page writes can make a cycle, because `set_prototype` refuses one;
+an embedder answers `[[GetPrototypeOf]]` for itself, and the test builds
+exactly that: a foreign object whose prototype is set straight through
+`Heap::write` rather than through the rule, which is what an embedder that does
+not consult the engine amounts to. A renderer that hung there would be a denial
+of service in the process that parses hostile bytes (ADR 0005).
+
+**One change to item 71's code, and it is the barrier's hook rather than a way
+round it.** `Barrier::record` was private, so a property *value* — which is a
+heap reference only sometimes — had no way to record its store. It is
+`Barrier::stored` and public now, with the reason written into it: what
+ADR 0014 § 5 forbids is a **mutator that skips the barrier**, and reaching the
+barrier is the opposite of skipping it. A `Barrier` still cannot be made from
+outside; the only one there is comes from `Heap::write`.
+
+**One test seam was added and it is narrower than the one item 71 has.**
+`Ref::for_a_test` is `#[cfg(test)]`, reaches no further than this crate's unit
+tests, and exists because the property table's business is the **order** of
+keys: making a real heap to get two distinct names for it would test the heap
+in the file that tests the order. Every integration test, and every test that
+collects, allocates properly.
+
+**What was cut, and none of it is depth.** A `BigInt` value is **item 207** and
+is marked `needs ADR`, because arbitrary-precision arithmetic is a question
+about renting rather than a variant to add — item 70's lexer already keeps a
+`BigInt` literal's digits as text for exactly this reason. A **partial**
+property descriptor and the well-known symbols went to item 73, written into
+it; a **proxy** intercepting the walk itself went to item 72, written into it.
+Nothing here is callable, so an accessor answers with its **getter** rather
+than with a value, which is ADR 0013 § 3's *absent beats approximate* in its
+most literal form: an interpreter that has not learned to call one will not
+compile against this interface, where an engine that answered `undefined` would
+run and be wrong.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1920 tests** (up from 1879 — twenty-four cases in two new integration
+files and seventeen unit tests), no stubs, no `unsafe`, every boundary held,
+the licence notice on all eleven new files, and a `CHANGELOG.md` line. No
+layout assertion and no reference render: this iteration positions nothing and
+paints nothing. One file one responsibility: eleven files, each named in
+`object.rs`'s own module documentation with the one reason it changes.
+
+**`ROADMAP.md` moved, and it is not a tick.** *A garbage collector, and the
+object model underneath it* gains a fourth `· Built:` clause — the five § 11
+decisions as things a reader can check, and the hostile half by name — and its
+`· Owed:` is rewritten: the DOM's real wrapper (item 80, whose trait is built
+and tested against a stand-in), the weak-reference callbacks (item 76), the
+partial descriptor and well-known symbols (item 73), `BigInt` (item 207), and a
+proxy's own `[[Get]]` (item 72). The box stays empty because **nothing here is
+callable**, and a line about objects that cannot yet answer a getter is not a
+finished line. `docs/features.md`'s line gains the same in a reader's words.
+
+**What the next iteration should know.** The next queue number is **208** and
+the next ADR number is **0015**. Section D's ready items are **72** and **205**,
+and **72 is the one to take**: its dependencies (70, 71, 206) are all done, it
+is the item most of the rest of stage 2 is unreachable without, and it is where
+this engine stops holding a program and starts running one. Two things it will
+want that are already there: `object::Objects` is the type it holds — the heap
+and the intern table together, since interning needs to read the heap — and
+`Objects::define_named` is the shape that interns and defines with no
+allocation in between, which is the rooting discipline written as one call
+rather than remembered. One thing it must decide early: ADR 0014 § 2 says the
+interpreter's **frames and value stack** live in structures the collector walks
+rather than in Rust locals, and that is the clause with the longest reach in
+the whole decision. Item 205 is still the better second choice and still not
+urgent. Outside section D, **190** (the two-tone border styles: small, depends
+on nothing, closes with a picture) is still ready.

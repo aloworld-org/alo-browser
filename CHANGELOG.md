@@ -6,6 +6,44 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Built: what an object *is*.** The other half of last month's work. The place
+  a script's things live was built; what one of those things looks like from a
+  page's side was not, and this is that: an object has a prototype, it has
+  properties, and a property has a value and three switches saying whether it may
+  be changed, listed or removed.
+
+  **The order matters and is the order every other browser uses.** When a page
+  asks an object for its property names, it gets the ones that look like numbers
+  first, counting up, then the rest in the order they were added, then the
+  invisible ones a page makes on purpose. That sounds like a detail and is not: a
+  browser that answered in a different order would break real pages, and it is
+  invisible until the day it does.
+
+  **A name a page uses twice is stored once.** Ten thousand records that each
+  have a `title` hold one copy of the word, not ten thousand — and a name nothing
+  uses any more is tidied away with everything else, which matters because a page
+  can invent names as fast as it likes and a browser that remembered every one of
+  them would grow until it fell over. There is a test that invents two hundred
+  thousand of them and ends with none of them held.
+
+  **A page's own document plays by the same rules.** The way an element behaves
+  differently from an ordinary object — a list that answers to numbers, a
+  property a page is not allowed to redefine — is the *same mechanism* the
+  language itself uses for arrays and functions, rather than a second one bolted
+  beside it. That is the difference between a browser where the document and the
+  script are one thing and one where they are two things that disagree.
+
+  And what a page cannot do: build a chain of a hundred thousand objects and make
+  the browser fall over walking it; make a loop in that chain, which is refused
+  at the moment it would be created; or add and remove properties in a loop until
+  the memory holding them grows without end. Each of those is a test with a
+  number in it.
+
+  Nothing here runs a script yet. Reading a property that is computed by a
+  function hands back the function rather than pretending to have called it,
+  because calling one is the next piece of work — and answering `undefined`
+  instead would be a browser that runs and is quietly wrong.
+
 - **Built: the place a script's things live, and the thing that tidies them
   away.** Last month's decision, in code. A program makes objects and something
   has to notice when nothing needs them any more; this is that something, and it

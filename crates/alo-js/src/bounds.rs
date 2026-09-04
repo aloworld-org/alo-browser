@@ -107,6 +107,26 @@ pub const HEAP_CEILING: usize = 1024 * 1024 * 1024;
 /// does.
 pub const COLLECT_AFTER: usize = 8 * 1024 * 1024;
 
+/// The longest string a script may make, in UTF-16 code units.
+///
+/// 2²⁸−1, which is 268 million code units and half a gibibyte of memory —
+/// deliberately below [`HEAP_CEILING`], so that **one string cannot be the
+/// whole heap**. A page that could allocate a string of the ceiling's size
+/// would have a way to make every later allocation fail while holding one
+/// object, which is a denial of service written in one line of `repeat`.
+///
+/// The specification allows a string of 2⁵³−1 code units, which no engine has
+/// ever been able to make; every engine picks a smaller number, and picking one
+/// is what stops a length computation overflowing somewhere further in. It is
+/// far above what a page legitimately holds as a single string — the largest
+/// such thing is usually a document's own source, a few mebibytes — so a script
+/// that reaches this is one building a string to see what happens.
+///
+/// Reaching it is a `RangeError` the script can catch (queue item 72), which is
+/// what the language specifies for a string that cannot be made, rather than
+/// the [`Full`](crate::heap::Full) that a heap at its ceiling produces.
+pub const LONGEST_STRING: usize = (1 << 28) - 1;
+
 /// How many references the marker's worklist holds.
 ///
 /// Sixty-four thousand, which is half a mebibyte of them, taken once when the

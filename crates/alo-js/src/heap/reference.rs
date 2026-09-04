@@ -68,6 +68,26 @@ impl Ref {
     pub const fn generation(self) -> u32 {
         self.generation
     }
+
+    /// A reference naming a slot nothing allocated, for a unit test about
+    /// something that is not the heap.
+    ///
+    /// [`Heap::allocate`](super::Heap::allocate) is the only thing that makes a
+    /// reference, and that is the invariant the whole design rests on — so this
+    /// is `#[cfg(test)]`, reaches no further than this crate's own unit tests,
+    /// and exists for one reason: the property table's business is the **order**
+    /// of keys, and making a real heap to get two distinct names for it would
+    /// test the heap in the file that tests the order.
+    ///
+    /// Everything that is about a real graph — every integration test, and
+    /// every test that collects — allocates properly.
+    #[cfg(test)]
+    pub(crate) const fn for_a_test(slot: u32) -> Self {
+        Self {
+            slot,
+            generation: 0,
+        }
+    }
 }
 
 /// The generation of a slot that will never be filled again.
@@ -136,7 +156,7 @@ impl Field {
 
     /// Store a reference, telling the collector.
     pub fn set(&mut self, barrier: &mut Barrier, to: Option<Ref>) {
-        barrier.record(self.0, to);
+        barrier.stored(self.0, to);
         self.0 = to;
     }
 
@@ -226,7 +246,17 @@ impl Barrier {
     /// different ones: an incremental marker shades the reference being lost,
     /// a nursery remembers the reference being gained. Taking one of them today
     /// would be choosing between them today.
-    fn record(&mut self, was: Option<Ref>, now: Option<Ref>) {
+    ///
+    /// It is public because a [`Field`] is not the only shape a stored
+    /// reference has: a value is one *sometimes*
+    /// ([`Stored`](crate::object::Stored)), and a type that holds a reference
+    /// in a cell records through this. That is not a second way to write a
+    /// field — the thing ADR 0014 § 5 forbids is a **mutator that skips the
+    /// barrier**, and reaching the barrier is the opposite of skipping it. What
+    /// still cannot be reached from outside is a [`Barrier`] itself: the only
+    /// one there is comes from
+    /// [`Heap::write`](super::Heap::write).
+    pub fn stored(&mut self, was: Option<Ref>, now: Option<Ref>) {
         let _ = (was, now);
         self.stores = self.stores.saturating_add(1);
     }

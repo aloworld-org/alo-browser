@@ -1,6 +1,6 @@
 [package]
 name = "alo-js"
-description = "Our own JavaScript engine (ADR 0013). Today: the lexer."
+description = "Our own JavaScript engine (ADR 0013). Today: it reads a program, and holds what one would make."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

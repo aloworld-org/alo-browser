@@ -2001,7 +2001,7 @@ The long pole, and the thing most of section E is unreachable without.
   what the heap owes them, clearing and reporting the loss, is here — and
   test262 for the weak collections needs a script to run, which is item 72.
 
-- [ ] **206. The object model.** Cut from 71, which built the heap and the
+- [x] **206. The object model.** Cut from 71, which built the heap and the
   collector and is generic in what a cell is. ADR 0014 § 11 is the whole
   specification and it is mostly decisions already made: an ordinary object is a
   prototype reference or null, a property table and an extensibility flag;
@@ -2021,14 +2021,87 @@ The long pole, and the thing most of section E is unreachable without.
   unbounded number of distinct property keys**, which is a refusal or a
   collection rather than a heap that grows for ever.
 
+  **Done, all three closing conditions, and it landed inside the heap without
+  one line of `heap.rs` changing** — which was the whole argument for building
+  the collector first. Eleven files under `alo-js/src/object/`, one reason to
+  change each: what a value is and how a cell holds one, what names a property,
+  what a property is, the table that keeps the order, the string, the symbol,
+  the internal methods, the ordinary object, the cell enumeration, the intern
+  table, and the one interface for access.
+
+  **The hostile clause is answered by a collection rather than by a refusal, and
+  the test says which.** Two hundred thousand distinct names are minted, the
+  collector fires **on its own** during the loop — `collections()` is asserted
+  to be past zero, because a test that asked for the collection would be
+  asserting that it can call a method — the arena ends with fewer slots than
+  half the names, and the intern table ends empty. The refusal half of the
+  disjunction is the heap's ceiling, which is item 71's and is unchanged.
+
+  **Three things are worth reading twice.** The intern table holds **no copy of
+  the text**: a `HashMap<Box<[u16]>, Ref>` would be the obvious table and would
+  put a second copy of every property name *outside* the heap's ceiling, which
+  is the same leak in a place nothing counts. So it is a seeded hash to the
+  cells that hashed to it, and a lookup compares by reading the string cell it
+  already has — the seeding being a security property rather than a detail,
+  since a page chooses every name it writes. **The keys are edges**: a property
+  named by a string keeps that string alive, which is what makes the weak intern
+  table safe rather than merely small. And the **prototype walk is bounded by
+  the number of slots in the heap**, which is exact rather than chosen: nothing
+  a page writes can make a cycle, because `set_prototype` refuses one, but an
+  embedder answers `[[GetPrototypeOf]]` for itself and a renderer that hung on a
+  lying object would be a denial of service in the process that parses hostile
+  bytes.
+
+  **One thing became a decision rather than a chore and went to the queue as
+  item 207**: there is no `BigInt` value, because arbitrary-precision arithmetic
+  is a question about renting rather than a variant to add. Two smaller cuts are
+  recorded where they belong rather than as items of their own: a **partial**
+  property descriptor is `Object.defineProperty`'s reading of an argument object
+  and is item 73's, and a **proxy** intercepts the walk itself rather than the
+  own-property questions, which needs something that can call a trap — item 72.
+  Both are written into the files that would otherwise look incomplete.
+
+- [ ] **207. A `BigInt` that is a number rather than digits.** Cut from 206,
+  which has no such value: `Value` is an enum of the language's primitives and a
+  `BigInt` is not one of them, it is arbitrary-precision arithmetic. Item 70's
+  lexer already keeps a `BigInt` literal's **digits as text**
+  ([`token::Kind::BigInt`]) for exactly this reason, and a variant holding an
+  `f64` would be a wrong answer that reads like a right one — `9007199254740993n`
+  is a number a double cannot hold and the type exists to hold it.
+  **Needs ADR** — arbitrary precision is physics in ADR 0001's sense (nobody
+  differs by it, and the hard parts are division and the base conversions), so
+  the question is whether it is rented like the Unicode tables and the
+  double-to-string conversion ADR 0013 § 8 already rents, or written like the
+  collector. Renting it puts a stranger's allocator in the path of numbers a
+  page chooses the size of, which is the clause every bound in this engine is
+  written against; writing it is a well-specified week nobody enjoys.
+  *Depends on 206. Closes when:* the decision is written down, and then a
+  `BigInt` round-trips through a value, compares, and refuses a size the page
+  chose rather than allocating it.
+
 - [ ] **72. A bytecode compiler and an interpreter.** Values, scopes, calls,
   `this`, closures, exceptions.
   *Depends on 70, 71, 206. Closes when:* a suite of small programs produces the
   values the specification says, run as a table rather than as prose.
+  **Item 206 left two things here by name**, each because it needs something
+  that can call: an accessor property answers with its **getter** rather than a
+  value ([`object::Found::Getter`]) and a setter likewise, so an interpreter
+  that has not learned to call one will not compile against this interface; and
+  a **proxy** overrides `[[Get]]` rather than `[[GetOwnProperty]]`, which is a
+  method added to `object::Internal` when there is a trap to call.
 
 - [ ] **73. The ECMAScript builtins**, in the order real pages need them rather
   than the order the specification lists them.
   *Depends on 72.*
+  **Item 206 left three things here by name**: a **partial** property descriptor
+  (`{ writable: false }` with no `value`), which is `Object.defineProperty`'s own
+  reading of an argument object rather than a rule about properties — the rules
+  are in `object::Property` and take a complete one; the **well-known symbols**
+  and the `Symbol.for` registry, each of which is a symbol made once and rooted
+  by the realm that owns it rather than a change to what a symbol is; and the
+  **weak collections** — `WeakMap`, `WeakSet`, `WeakRef`, `FinalizationRegistry`
+  — each of which is a cell of its own, over an ephemeron fixpoint that is
+  already built and tested (item 71).
 
 - [ ] **74. Regular expressions**, with the syntax the language actually has.
   *Depends on 72. Closes when:* a hostile pattern is refused or bounded rather
