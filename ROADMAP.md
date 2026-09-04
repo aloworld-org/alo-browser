@@ -399,13 +399,31 @@ unreachable without it.
       is something a page chooses, it says how many lines it has dropped, and
       emptying it is real. No page and no agent can reach it: a renderer holds
       no pool, nothing crossing the process boundary carries a line, and the
-      agent surface does not depend on the loader at all
-      · Owed: what an agent did, kept **until the person deletes it** (queue item
-      202) — a different lifetime, a bound counted in actions rather than bytes,
-      and a file on a disk that a private window never opens; and the browser
-      process assigning a cause to a *subresource*, which needs a renderer that
-      can ask for one at all (queue items 80 and 83) — until then the page's own
-      load is the only request it makes
+      agent surface does not depend on the loader at all;
+      and **what an agent did, kept until the person deletes it** (queue item
+      202) — the small durable half beside the session's, holding only requests
+      whose chain reaches an agent action, so a person's own browsing is never
+      written to a disk at all. It **freezes** each chain as it writes it, since
+      a file read back next week has no documents left to walk against, and it
+      keeps them as numbers rather than identities because this morning's
+      `action#0` is not last week's. A session-scoped profile leaves **no file
+      behind at all** — never written rather than written and deleted, which is
+      a record nobody opened rather than a flag anything reads. The bound is
+      counted in **actions**, so one action with three hundred requests in it
+      cannot evict a week of ordinary ones; the oldest action goes whole; and
+      everything it shortens it says the size of. It lives where the system
+      keeps what it may not delete rather than beside the cache, because a
+      record of what an agent did while nobody was watching must not be removed
+      on a Tuesday to make room. What comes back off the disk is untrusted the
+      way a cache entry is, and a file that does not read is a **gap it counts**
+      rather than an error — and it is left where it is, because it is somebody's
+      record and a later version of this engine may be able to read it. Deleting
+      is real: the files, not a flag on them
+      · Owed: the browser process assigning a cause to a *subresource*, which
+      needs a renderer that can ask for one at all (queue items 80 and 83) —
+      until then the page's own load is the only request it makes; and an
+      action's own **outcome** beside the requests it caused (queue item 203),
+      which needs the verb path to reach the loader
 
 ### JavaScript, ours, in Rust
 

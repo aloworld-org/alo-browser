@@ -7576,3 +7576,143 @@ ready. 157 and 158 need an interface to ask in, and so does the question item
 run on Linux; 60 is HTTP/3; 197 waits on properties `alo-style` does not have;
 and 201 waits on a renderer that can ask for a subresource. The next free queue
 number is **203**.
+
+## Iteration 101 — queue item 202: what an agent did, kept until the person deletes it
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 202 was
+the natural next take, the previous journal said so, and it was as large as that
+journal warned.
+
+**What is built.** `crates/alo-net/src/kept.rs` — the directory, the policy, the
+bound and the one way a line gets in; `deed.rs` — one action's file, which is
+the whole untrusted surface. The division is `disk.rs` and `record.rs`'s,
+deliberately, because it is the same pair of questions: *what may be kept* and
+*what these bytes are*. `Pool` holds an `Option<Kept>`; `Pool::keeping_what_an_agent_did`
+gives it one, `Pool::what_an_agent_did` reads it and `Pool::forget_what_an_agent_did`
+deletes it.
+
+**Two files were extracted rather than copied, and that is the part of this
+change a reviewer should look at first.** A second durable format needed a
+hostile-input reader and a private-file writer, and both already existed inside
+`record.rs` and `disk.rs`. Copying either would have been a second place for a
+length check to be subtly weaker — and the weaker copy is the one nobody looks
+at. So `bytes.rs` is the reader and the writer (`Reader::length` is the line both
+formats are built around, and `Reader::how_many` is new: a **count** is a number
+a stranger chose too, and the cost of believing one is a loop rather than an
+allocation), and `private.rs` is ADR 0011 § 3's promise — the directory made
+private, the file written privately, the length asked of the filesystem before
+anything is reserved. `record.rs` and `disk.rs` use both now and are shorter for
+it.
+
+**The decision the item asked for is the freezing, and it needed one more
+decision than the item named.** A durable entry has no `Documents` to walk, so
+it freezes the chain — but a frozen link holds **numbers rather than
+identities**. ADR 0003's ids are minted once per browser *process*, so `action#0`
+exists in every session that had one; a `DocumentId` read off a disk that
+compared equal to one minted this morning would join two unrelated pieces of
+somebody's history into one story, which is the exact thing ADR 0003 exists to
+prevent. The same rule settles what to do with an action from an earlier
+session: **never add to it**. It is matched to a file only within the session
+that minted it, and what names an action across sessions is the number the disk
+counts up.
+
+**Where the write happens is a seam rather than a door, and it is written down
+at length in `Kept::take_from`.** Item 200 could put every session line in
+`Pool::fetch_however_it_ends` — the one place every request passes. This cannot:
+deciding whether a request followed from an action needs the requests
+(`Activity`, in the `Pool`, because a pool is what a session holds) **and** what
+caused each document's load (`Documents`, in `alo_renderer::Tabs`, because
+ADR 0012 § 4 puts attribution where the tabs are) at the same instant, and a
+copy of either beside the other is precisely the side table § 3 refuses by name.
+So the browser process brings them together, which is the one thing it is for.
+What makes that safe rather than a rule somebody keeps: the walk is made **here**
+rather than trusted from a caller, so a durable line is exactly as unforgeable as
+a session one; it is idempotent by `activity::Entry::sequence`, which is what
+that new field is for; `Kept::missed` counts lines that went by before they were
+taken, so a browser process that swept too rarely is a number rather than a
+silence; and reading brings it up to date, so nothing can be handed a record
+somebody forgot to refresh.
+
+**Three things are refused that ADR 0012 § 5 did not have to say.** A `data:`
+URL keeps its scheme and media type and loses its content — a URL that *is* the
+content is a body wearing an address's clothes, and § 5 refuses bodies. An
+address longer than `LONGEST_URL` is cut and says so. And the reason for a cut is
+matched back to one of ours on the way in, because a sentence read off a disk and
+shown to a person is a sentence somebody else could have written.
+
+**One clause of ADR 0011 § 3 is deliberately not taken unchanged, and this is
+the only place this iteration departs from a written decision.** § 3 says *"in
+the place the operating system keeps caches"*. The **rules** are taken unchanged
+— one directory per profile, private to its owner, no encryption of ours, the
+same honest boundary — and the **place** is not: a system empties a cache when a
+disk fills, and it is right to, because everything in a cache can be fetched
+again. Nothing here can. A record of what an agent did while nobody was watching,
+removed by the system on a Tuesday to make room, is the failure the decision
+exists to prevent. So it is `Application Support` / `XDG_DATA_HOME` rather than
+`Caches`, and the reason is in `kept.rs`'s own documentation and in
+`where_the_system_keeps_records`.
+
+**A file that does not read is a gap, and it is left where it is.** That is the
+one place the cache's answer is wrong here: `disk.rs` deletes an entry it cannot
+decode, because it can never be served and would otherwise sit against the bound
+forever. This keeps it, counts it in `Kept::unreadable`, and says so — it is
+somebody's record, we are the ones who cannot read it, and a later version of
+this engine may be able to.
+
+**All three closing clauses are met over a real restart.**
+`crates/alo-net/tests/what_an_agent_did.rs` drives the real `Pool` over
+loopback, drops it, and opens the directory again: the agent's two requests are
+there with the whole chain still in them, the person's two are not on the disk at
+all, a pool with no `Kept` leaves no **directory**, deleting removes the files and
+they do not come back, and reading twice writes nothing twice. `kept.rs`'s own
+tests cover the bound the ADR asks for by name — a busy action with fifty
+requests evicts nothing, and the oldest actions go whole — and `deed.rs`'s walk
+every truncation and every single flipped byte, as `record.rs`'s do.
+
+**Two doctored runs rather than reasoning about them.** With the chain frozen one
+link deep, four tests fail. With a person's browsing kept too, three fail — and
+the first attempt at that doctoring **passed**, which found a real defect: the
+selection rule was being asked in two places (`take_from` and `keep`), so
+breaking one of them changed nothing. `keep` takes the action as an argument now
+and the rule is asked once. A rule this important asked twice is a rule that can
+come to be answered differently in one of them.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero errors,
+**1783 tests** (1736 before, so 47 new — 7 in `bytes.rs`, 4 in `private.rs`, 16
+in `deed.rs`, 15 in `kept.rs`, 5 in the new integration file), no stubs, no
+`unsafe`, boundaries held, the licence notice, and a `CHANGELOG.md` line. No
+layout assertion and no reference render: this iteration positions nothing and
+paints nothing. One file one responsibility: four new files, two of which are
+extractions that made two existing files smaller, and `pool.rs` gained a field
+and three doors without gaining a second reason to change.
+`docs/features.md`'s starred line gains the durable record and what it refuses.
+
+**`ROADMAP.md` moved, and it is not a tick.** The ★ *every request attributable*
+line keeps its empty box. Its `· Built:` clause gains the durable record — what
+is in it, what never is, the frozen chain, the numbers-not-identities rule, the
+bound in actions, where it lives and why, and the gap it counts; its `· Owed:`
+clause loses it and now names two things: a cause for a **subresource**, which
+still needs a renderer that can ask for one, and an action's own **outcome**,
+which is the cut.
+
+**What the next iteration should know.** The cut is **item 203** — an action's
+own outcome beside the requests it caused, which is the half of ADR 0012 § 6's
+sentence this did not build. It is not blocked on a decision; it is blocked on a
+path that does not exist: `alo_agent::Outcome` lives in a crate `alo-net`
+deliberately does not depend on (that direction is what makes § 7's *not the
+agent* structural), and `alo_renderer::Tabs` holds no `Pool`, so there is nothing
+today that could carry a verb's outcome to the record. **That absence is worth
+noticing beyond item 203**: it is the same absence item 201 waits on, and this
+iteration met it from the other side. Nothing yet wires a `Pool` and a `Tabs`
+together, which is why the durable record is taken by a browser process rather
+than written where the request is made.
+
+**Item 69 is the decision-shaped item** and is the first of section D — our own
+JavaScript engine — and the queue still calls it "ADR 0006", which is the
+supervisor; the next free ADR number is **0013**. Beyond it, **190** (the
+two-tone border styles: small, depends on nothing, closes with a picture) is
+ready. 157 and 158 need an interface to ask in, and so does the question item
+198 stands in for; 187 is deferred for the reason written into it; 169 must be
+run on Linux; 60 is HTTP/3; 197 waits on properties `alo-style` does not have;
+and 201 and 203 wait on the wiring described above. The next free queue number is
+**204**.

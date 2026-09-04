@@ -32,11 +32,13 @@
 
 use crate::activity::{Activity, Happened};
 use crate::cache::{self, Answer, Cache};
+use crate::chain::Documents;
 use crate::connection::{Connection, Exchanged, PATIENCE, Protocol, exchange_however_it_ends};
 use crate::cookie::Partition;
 use crate::download::{self, Answered};
 use crate::freshness;
 use crate::http::Malformed;
+use crate::kept::Kept;
 use crate::redirect::{self, Next, Trail};
 use crate::request::Request;
 use crate::response::Response;
@@ -115,6 +117,14 @@ pub struct Pool {
     /// type leads to [`Pool::fetch_however_it_ends`], which writes a line
     /// whichever way the exchange ends.
     activity: Activity,
+    /// What an agent did, kept until the person deletes it (ADR 0012 § 6).
+    ///
+    /// [`None`] is not an oversight and not a default to be tidied away later:
+    /// it is what a session-scoped profile **is**, in the same shape
+    /// [`crate::cache::Cache::new`] has no disk. Private browsing is not a flag
+    /// anything reads; it is a [`Kept`] nobody made, so there is no file to
+    /// delete afterwards because there was never one to write.
+    kept: Option<Kept>,
 }
 
 impl Pool {
@@ -137,6 +147,7 @@ impl Pool {
             cache: Cache::new(),
             resolver: crate::resolve::Resolver::new(),
             activity: Activity::new(),
+            kept: None,
         }
     }
 
@@ -148,6 +159,18 @@ impl Pool {
     #[must_use]
     pub fn caching_on(mut self, disk: crate::disk::Disk) -> Self {
         self.cache = std::mem::take(&mut self.cache).kept_on(disk);
+        self
+    }
+
+    /// The same pool, keeping what an agent does past the end of the session.
+    ///
+    /// Deliberate, and the browser process's to do, exactly as
+    /// [`Pool::caching_on`] is: a pool without one records the session and
+    /// leaves nothing behind, which is what a session-scoped profile is
+    /// (ADR 0012 § 6, ADR 0011 § 2).
+    #[must_use]
+    pub fn keeping_what_an_agent_did(mut self, kept: Kept) -> Self {
+        self.kept = Some(kept);
         self
     }
 
@@ -460,6 +483,45 @@ impl Pool {
     /// nothing on the other side of ADR 0005's boundary that could ask.
     pub fn activity(&self) -> &Activity {
         &self.activity
+    }
+
+    /// What an agent did, brought up to date and handed back to read.
+    ///
+    /// [`None`] for a session-scoped profile, which never opened one — and that
+    /// is the whole of how private browsing is answered here.
+    ///
+    /// **It takes the browser process's [`Documents`] because deciding what
+    /// belongs in a durable record needs the walk**, and this crate holds no
+    /// documents: ADR 0012 § 4 puts them where tabs are, and a copy kept beside
+    /// them would be the side table § 3 refuses. So the browser process brings
+    /// the two halves together, and [`crate::kept::Kept::take_from`] is where
+    /// that is written down at length.
+    ///
+    /// Reading brings it up to date rather than reporting what it happened to
+    /// hold, so that there is no version of this that answers *what did the
+    /// agent do* with a record somebody forgot to bring up to date.
+    /// It hands back something to change rather than something to look at,
+    /// because everything a person may do with this record — read it, and
+    /// delete it — reads the files, and reading them is what counts the ones
+    /// that would not read.
+    pub fn what_an_agent_did(&mut self, documents: &Documents) -> Option<&mut Kept> {
+        let kept = self.kept.as_mut()?;
+        kept.take_from(&self.activity, documents);
+        Some(kept)
+    }
+
+    /// Delete the durable record of what an agent did.
+    ///
+    /// Whether there was one. ADR 0012 § 7: deleting is real — the files, not a
+    /// flag on them.
+    pub fn forget_what_an_agent_did(&mut self) -> bool {
+        match self.kept.as_mut() {
+            Some(kept) => {
+                kept.empty();
+                true
+            }
+            None => false,
+        }
     }
 
     /// Forget everything the record holds.

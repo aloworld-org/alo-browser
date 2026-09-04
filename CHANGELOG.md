@@ -6,6 +6,47 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **What an agent did is now kept until the person deletes it, and nothing else
+  is.** The record added last time dies with the browser, which is right for a
+  session and cannot answer the question an agent-driven browser exists to be
+  able to answer: *what did it do while I was not watching?*
+
+  So there is now a small second record on the disk, and what makes it
+  affordable is what is **not** in it. Only requests whose chain leads back to
+  something an agent did are written down. A person's own browsing never
+  reaches it — not filtered out on the way to being shown, never written at all
+  — because a file listing every address somebody visited, with times beside
+  them, is the thing itself rather than a by-product of it, and it would have
+  been built in the name of protecting the person it is about.
+
+  **A private window leaves nothing behind.** Not a record emptied when the
+  window closes: a record that was never opened. A file that was deleted is a
+  file that was on the disk, recoverable, and present for the whole window
+  between the two operations — which is exactly the window a crash lands in.
+
+  Each entry keeps the whole chain that led to it, frozen at the moment it is
+  written, because next week there is nothing left to walk it against. It keeps
+  the names as plain numbers rather than as live identities, since this
+  morning's first action and last week's first action are two different things
+  with one name, and a record that ran them together would join two unrelated
+  pieces of somebody's history into one story.
+
+  It is bounded in **actions** rather than in bytes, so one busy action cannot
+  push a week of ordinary ones out; the oldest goes whole; and everything it
+  shortens, it says the size of. It lives where the operating system keeps
+  things it is not entitled to delete rather than beside the cache — a record of
+  what an agent did while nobody was watching, quietly removed on a Tuesday to
+  make room, is the failure this exists to prevent. A `data:` address keeps its
+  kind and loses its content, because an address that *is* the content is a body
+  in disguise, and bodies are never recorded.
+
+  What comes back off a disk is treated as a stranger's, the way a cache file
+  already is: a checksum, a version, every length checked before anything is
+  reserved. A file that does not read is a **gap the record counts** rather than
+  an error that stops anything — and it is left where it is rather than deleted,
+  because it is somebody's record and a later version of this browser may be
+  able to read it. Deleting is real: the files go, not a flag beside them.
+
 - **The browser now keeps a record of what it asked for, and what happened.**
   Until this, a cause travelled with a request and was gone the moment the
   request was — so the browser could say what had caused any single fetch and

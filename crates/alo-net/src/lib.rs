@@ -32,6 +32,7 @@
 
 pub mod activity;
 pub mod body;
+pub mod bytes;
 pub mod cache;
 pub mod cause;
 pub mod certificate;
@@ -43,6 +44,7 @@ pub mod csp;
 pub mod csp_report;
 pub mod csp_source;
 pub mod decompress;
+pub mod deed;
 pub mod digest;
 pub mod directives;
 pub mod disk;
@@ -56,10 +58,12 @@ pub mod hsts;
 pub mod http;
 pub mod httpdate;
 pub mod jar;
+pub mod kept;
 pub mod media_type;
 pub mod mixed;
 pub mod pool;
 pub mod preflight;
+pub mod private;
 pub mod range;
 pub mod record;
 pub mod redirect;
@@ -97,6 +101,9 @@ pub use csp::Policies;
 pub use csp_report::Endpoints;
 pub use decompress::{Encoding, undo, undo_within, what_was_applied};
 pub use directives::{Directives, Flag};
+// Not `Deed`, `Did`, `Link` or `Ended`: `deed::` at the call site says that
+// what is meant is one action as it lives on a disk, which is a different thing
+// from the session's `activity::Entry` it was frozen from.
 pub use disk::Disk;
 pub use download::{Answered, Download, Step, Unusable, whole_of};
 pub use encoding::{Decoded, decode, sniff};
@@ -105,6 +112,7 @@ pub use freshness::{Stored, Verdict};
 pub use headers::Headers;
 pub use http::{Head, Malformed, read_head, write_request};
 pub use jar::{How, Jar};
+pub use kept::Kept;
 pub use media_type::MediaType;
 pub use pool::Pool;
 pub use preflight::Preflights;

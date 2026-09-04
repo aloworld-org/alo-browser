@@ -36,8 +36,10 @@
 //! it would hand any compromised renderer every page that person has read,
 //! across every site. Nothing in a renderer opens one of these.
 
+use crate::bytes::fingerprint;
 use crate::directives::{Directives, Flag};
 use crate::freshness::Stored;
+use crate::private::{make_the_directory_private, read_at_most, write_privately};
 use crate::record::{self, Record};
 use crate::request::Request;
 use crate::response::Response;
@@ -417,22 +419,15 @@ pub fn why_it_is_never_written(request: &Request, response: &Response) -> Option
 /// place to be lenient: one containing a separator would put the cache
 /// somewhere nobody chose.
 pub fn where_the_system_keeps_caches(profile: &str) -> Option<PathBuf> {
-    if profile.is_empty()
-        || !profile
-            .chars()
-            .all(|glyph| glyph.is_ascii_alphanumeric() || glyph == '-' || glyph == '_')
-    {
-        return None;
-    }
-    let home = std::env::var_os("HOME").filter(|home| !home.is_empty())?;
+    let home = crate::private::home()?;
     let caches = if cfg!(target_os = "macos") {
-        PathBuf::from(home).join("Library").join("Caches")
+        home.join("Library").join("Caches")
     } else {
         std::env::var_os("XDG_CACHE_HOME")
             .filter(|set| !set.is_empty())
-            .map_or_else(|| PathBuf::from(home).join(".cache"), PathBuf::from)
+            .map_or_else(|| home.join(".cache"), PathBuf::from)
     };
-    Some(caches.join("alo-browser").join(profile).join("http"))
+    crate::private::for_profile(&caches, profile, "http")
 }
 
 /// Whether a scheme is one whose responses may be written down.
@@ -448,7 +443,7 @@ fn is_http(scheme: &str) -> bool {
 /// it, and a hash does not stop them."* The key is written inside the file, so
 /// a collision is a miss rather than one URL's response served for another's.
 fn file_for(key: &str) -> String {
-    format!("{:016x}.{ENTRY}", record::fingerprint(key.as_bytes()))
+    format!("{:016x}.{ENTRY}", fingerprint(key.as_bytes()))
 }
 
 /// The sequence number in a file's prefix, without reading the rest of it.
@@ -457,68 +452,6 @@ fn prefix_of(path: &Path) -> Option<u64> {
     let mut prefix = [0u8; record::PREFIX];
     file.read_exact(&mut prefix).ok()?;
     record::sequence_of(&prefix).ok()
-}
-
-/// A file's contents, when it is not larger than this.
-///
-/// The length is asked of the filesystem before anything is allocated, for the
-/// reason every length in [`crate::record`] is checked: a number somebody else
-/// chose is not a size to reserve.
-fn read_at_most(path: &Path, most: u64) -> Option<Vec<u8>> {
-    let about = fs::metadata(path).ok()?;
-    if !about.is_file() || about.len() > most {
-        return None;
-    }
-    fs::read(path).ok()
-}
-
-#[cfg(unix)]
-fn make_the_directory_private(directory: &Path) -> Result<(), String> {
-    use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
-    if !directory.is_dir() {
-        fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(directory)
-            .map_err(|why| format!("the cache directory cannot be made: {why}"))?;
-    }
-    // Set rather than assume: a directory that already existed may have been
-    // made by something else, and ADR 0011 promises this one is private to its
-    // owner rather than promising we would have made it that way.
-    fs::set_permissions(directory, fs::Permissions::from_mode(0o700))
-        .map_err(|why| format!("the cache directory cannot be made private: {why}"))
-}
-
-#[cfg(not(unix))]
-fn make_the_directory_private(_directory: &Path) -> Result<(), String> {
-    // ADR 0011 promises the directory and every file in it are private to their
-    // owner. On a platform where this engine cannot say that, the honest answer
-    // is no disk cache rather than a promise it does not keep.
-    Err("this platform has no way to make the cache private to its owner".to_owned())
-}
-
-#[cfg(unix)]
-fn write_privately(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    use std::io::Write;
-    use std::os::unix::fs::OpenOptionsExt;
-    let mut file = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(path)?;
-    file.write_all(bytes)?;
-    // The bytes, then the rename. Without this the rename can land before the
-    // contents do, and what survives a power cut is an entry full of zeroes —
-    // which the checksum would catch, and which there is no reason to create.
-    file.sync_all()
-}
-
-#[cfg(not(unix))]
-fn write_privately(_path: &Path, _bytes: &[u8]) -> std::io::Result<()> {
-    Err(std::io::Error::other(
-        "this platform has no way to make a cache file private to its owner",
-    ))
 }
 
 #[cfg(test)]

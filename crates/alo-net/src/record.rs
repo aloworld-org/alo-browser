@@ -16,7 +16,10 @@
 //! So it is written the way [`crate::http`] and the process boundary's encoding
 //! are written: **every length is a number a stranger chose**, checked against
 //! what is actually there before anything is reserved, and every arithmetic
-//! step that a hostile number could push past the end is `checked_`.
+//! step that a hostile number could push past the end is `checked_`. That part
+//! is [`crate::bytes`], which is shared with the other thing this engine keeps
+//! on a person's disk ([`crate::deed`]) — one hostile-input reader rather than
+//! two, because the copy that is subtly weaker is the one nobody is looking at.
 //!
 //! # What the checksum is for, said precisely
 //!
@@ -40,11 +43,10 @@
 //! the one surface where being wrong is a page written into somebody's bank
 //! origin.
 
+use crate::bytes::{Reader, Unreadable, Writer, fingerprint, unreadable};
 use crate::freshness::Stored;
 use crate::headers::Headers;
 use crate::response::{Response, Status};
-use core::fmt;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// What every entry begins with, so a file that is not one is refused before
 /// anything else is read.
@@ -78,47 +80,6 @@ pub struct Record {
     pub sequence: u64,
     /// The response, and the two moments that decide how old it is.
     pub stored: Stored,
-}
-
-/// Why an entry could not be read.
-///
-/// Never reaches a page. [`crate::disk`] turns every one of these into a miss,
-/// because ADR 0011 is explicit that *"a cache is an optimisation, and an
-/// optimisation that can stop a page opening is a defect however correct its
-/// reasoning was"*. The words are for somebody looking at why a cache is not
-/// hitting.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Unreadable {
-    /// In words.
-    pub why: String,
-}
-
-impl fmt::Display for Unreadable {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.why)
-    }
-}
-
-impl std::error::Error for Unreadable {}
-
-fn unreadable(why: impl Into<String>) -> Unreadable {
-    Unreadable { why: why.into() }
-}
-
-/// FNV-1a, 64 bits.
-///
-/// Written out rather than rented because it is nine lines and because what it
-/// has to do is stated above: catch a truncated or corrupted file, not an
-/// adversary who can write one.
-pub fn fingerprint(bytes: &[u8]) -> u64 {
-    const START: u64 = 0xcbf2_9ce4_8422_2325;
-    const PRIME: u64 = 0x0000_0100_0000_01b3;
-    let mut hash = START;
-    for byte in bytes {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(PRIME);
-    }
-    hash
 }
 
 /// The checksum an entry carries.
@@ -247,7 +208,10 @@ pub fn decode(bytes: &[u8]) -> Result<Record, Unreadable> {
     let received_at = reader.time()?;
 
     let mut headers = Headers::new();
-    let how_many = reader.number()?;
+    // A count, refused before the loop when there are not that many bytes left
+    // to hold them. The fields inside would each refuse in turn, so this is the
+    // difference between an error and four thousand million turns of a loop.
+    let how_many = reader.how_many()?;
     for _ in 0..how_many {
         let name = reader.text()?;
         let value = reader.text()?;
@@ -255,7 +219,7 @@ pub fn decode(bytes: &[u8]) -> Result<Record, Unreadable> {
     }
 
     let mut varied_on = Vec::new();
-    let how_many = reader.number()?;
+    let how_many = reader.how_many()?;
     for _ in 0..how_many {
         let name = reader.text()?;
         let was = if reader.flag()? {
@@ -291,143 +255,10 @@ pub fn decode(bytes: &[u8]) -> Result<Record, Unreadable> {
     })
 }
 
-// --- Writing -----------------------------------------------------------------
-
-#[derive(Debug, Default)]
-struct Writer {
-    out: Vec<u8>,
-}
-
-impl Writer {
-    fn flag(&mut self, yes: bool) {
-        self.out.push(u8::from(yes));
-    }
-    fn small(&mut self, value: u16) {
-        self.out.extend_from_slice(&value.to_be_bytes());
-    }
-    fn number(&mut self, value: u64) {
-        self.out.extend_from_slice(&value.to_be_bytes());
-    }
-    fn bytes(&mut self, value: &[u8]) {
-        self.number(value.len() as u64);
-        self.out.extend_from_slice(value);
-    }
-    fn text(&mut self, value: &str) {
-        self.bytes(value.as_bytes());
-    }
-    /// A moment, as seconds and nanoseconds since the epoch.
-    ///
-    /// A moment before 1970 is written as the epoch itself. That is a machine
-    /// whose clock is set to before the epoch, and the effect of clamping is
-    /// that the entry reads as **older** than it is — which expires it early,
-    /// and early is the safe direction for a cache to be wrong in.
-    fn time(&mut self, at: SystemTime) {
-        let since = at.duration_since(UNIX_EPOCH).unwrap_or(Duration::ZERO);
-        self.number(since.as_secs());
-        self.out
-            .extend_from_slice(&since.subsec_nanos().to_be_bytes());
-    }
-}
-
-// --- Reading, from a stranger --------------------------------------------------
-
-struct Reader<'a> {
-    bytes: &'a [u8],
-    at: usize,
-}
-
-impl<'a> Reader<'a> {
-    fn new(bytes: &'a [u8]) -> Self {
-        Self { bytes, at: 0 }
-    }
-
-    fn is_done(&self) -> bool {
-        self.at == self.bytes.len()
-    }
-
-    /// The next `how_many` bytes, or an error — never a panic and never a wrap.
-    fn take(&mut self, how_many: usize) -> Result<&'a [u8], Unreadable> {
-        let end = self
-            .at
-            .checked_add(how_many)
-            .ok_or_else(|| unreadable("an entry with a length larger than this machine"))?;
-        let slice = self
-            .bytes
-            .get(self.at..end)
-            .ok_or_else(|| unreadable("an entry that stops before it says it does"))?;
-        self.at = end;
-        Ok(slice)
-    }
-
-    fn flag(&mut self) -> Result<bool, Unreadable> {
-        Ok(self
-            .take(1)?
-            .first()
-            .copied()
-            .ok_or_else(|| unreadable("an entry that stops where a flag should be"))?
-            != 0)
-    }
-
-    fn small(&mut self) -> Result<u16, Unreadable> {
-        let mut two = [0u8; 2];
-        two.copy_from_slice(self.take(2)?);
-        Ok(u16::from_be_bytes(two))
-    }
-
-    fn number(&mut self) -> Result<u64, Unreadable> {
-        let mut eight = [0u8; 8];
-        eight.copy_from_slice(self.take(8)?);
-        Ok(u64::from_be_bytes(eight))
-    }
-
-    /// A length, checked against what is actually left.
-    ///
-    /// The line this file is built around. A length is a number somebody else
-    /// chose, and reserving before checking is how eight bytes in a file become
-    /// a gigabyte of allocation.
-    fn length(&mut self) -> Result<usize, Unreadable> {
-        let said = self.number()?;
-        let said = usize::try_from(said)
-            .map_err(|_| unreadable("an entry with a length larger than this machine"))?;
-        let left = self.bytes.len().saturating_sub(self.at);
-        if said > left {
-            return Err(unreadable(format!(
-                "an entry claiming {said} bytes with {left} left"
-            )));
-        }
-        Ok(said)
-    }
-
-    fn bytes(&mut self) -> Result<Vec<u8>, Unreadable> {
-        let how_many = self.length()?;
-        Ok(self.take(how_many)?.to_vec())
-    }
-
-    fn text(&mut self) -> Result<String, Unreadable> {
-        let taken = self.bytes()?;
-        String::from_utf8(taken).map_err(|_| unreadable("an entry with text that is not UTF-8"))
-    }
-
-    /// A moment. A nanosecond field that is not a nanosecond is a corrupt
-    /// entry, not something to fold into the seconds — and a moment further
-    /// ahead than this machine's clock can name is refused rather than saturated.
-    fn time(&mut self) -> Result<SystemTime, Unreadable> {
-        let seconds = self.number()?;
-        let mut four = [0u8; 4];
-        four.copy_from_slice(self.take(4)?);
-        let nanos = u32::from_be_bytes(four);
-        if nanos >= 1_000_000_000 {
-            return Err(unreadable("an entry with more nanoseconds than a second"));
-        }
-        UNIX_EPOCH
-            .checked_add(Duration::new(seconds, nanos))
-            .ok_or_else(|| unreadable("an entry from further ahead than time goes"))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{Duration, UNIX_EPOCH};
 
     fn an_entry() -> Record {
         let url = alo_url::parse("https://example.com/a").expect("a URL");

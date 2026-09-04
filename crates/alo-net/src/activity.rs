@@ -55,9 +55,12 @@
 //! less happened.
 //!
 //! **What an agent did, kept until the person deletes it**, is the other half
-//! of § 6 and is queue item 202. It is a different lifetime, a different bound
+//! of § 6 and is [`crate::kept`]. It is a different lifetime, a different bound
 //! (in actions rather than in bytes) and a file on a disk under ADR 0011 § 3,
-//! which is why it is not this file.
+//! which is why it is not this file. It takes its lines from here — every one of
+//! them was a request, and this is where a request becomes a line — and it
+//! **freezes** the chain as it takes them, because a file read back next week
+//! has no [`Documents`] left to walk against.
 //!
 //! # Who may read it
 //!
@@ -182,6 +185,15 @@ impl fmt::Display for Happened {
 /// which is what stops *a header, just this one* from ever being reasonable.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
+    /// Where this line falls in the order requests were made.
+    ///
+    /// Counting up from one and never reused, for the reason ADR 0003 gives
+    /// every id in this engine: [`crate::kept`] takes lines out of here into a
+    /// durable record and remembers how far it got, and a number that came round
+    /// again would make it skip a line or keep one twice. A counter rather than
+    /// the moment, because two requests made in the same millisecond still have
+    /// an order.
+    sequence: u64,
     at: SystemTime,
     cause: Cause,
     method: String,
@@ -195,6 +207,11 @@ pub struct Entry {
 }
 
 impl Entry {
+    /// Where this line falls in the order requests were made, counting from one.
+    pub fn sequence(&self) -> u64 {
+        self.sequence
+    }
+
     /// When it was asked for.
     pub fn at(&self) -> SystemTime {
         self.at
@@ -271,6 +288,12 @@ pub struct Activity {
     /// requests to find out.
     most: usize,
     largest: usize,
+    /// The sequence the next line written gets.
+    ///
+    /// It counts up across the whole session and is **not** reset by
+    /// [`Activity::empty`] — a person emptying the record is not a person asking
+    /// for the next line to be confusable with one already taken durably.
+    next: u64,
     /// How many lines have been dropped under the bounds.
     ///
     /// Counted rather than left implicit, for [`crate::chain::End::Forgotten`]'s
@@ -293,6 +316,7 @@ impl Activity {
             bytes: 0,
             most: MOST_ENTRIES,
             largest: LARGEST_RECORD,
+            next: 1,
             forgotten: 0,
         }
     }
@@ -341,6 +365,7 @@ impl Activity {
             answered => answered,
         };
         let entry = Entry {
+            sequence: self.next,
             at,
             cause: request.cause.clone(),
             method: request.method.clone(),
@@ -350,6 +375,7 @@ impl Activity {
             happened,
         };
         self.bytes = self.bytes.saturating_add(entry.weighs);
+        self.next = self.next.saturating_add(1);
         self.entries.push_back(entry);
         self.stay_within_bounds();
     }

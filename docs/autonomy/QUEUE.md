@@ -1648,7 +1648,7 @@ wrong, which is the argument for the fourth.
   not depend on `alo-net` at all. The other two clauses are item 202's, because
   they are about a disk.
 
-- [ ] **202. What an agent did, kept until the person deletes it.** Cut from
+- [x] **202. What an agent did, kept until the person deletes it.** Cut from
   200, which keeps the session's record in memory and writes nothing down. ADR
   0012 § 6's second half: **only** what reaches an agent action, under ADR 0011
   § 3's rules unchanged, **never opened at all** for a session-scoped profile,
@@ -1665,6 +1665,72 @@ wrong, which is the argument for the fourth.
   the moment it is written — which is not the side table ADR 0012 § 3 refuses,
   because there is nothing left to disagree with it, and the reason is worth
   writing into the file rather than leaving for somebody to rediscover.
+
+  **Done, all three closing clauses, over a real restart.**
+  `crates/alo-net/src/kept.rs` is the directory, the policy and the bound;
+  `deed.rs` is one action's file, which is the whole untrusted surface — the
+  same division as `disk.rs` and `record.rs`, and it reads its bytes with the
+  same reader, which is now `bytes.rs` rather than a second copy inside each.
+  `Pool` holds an `Option<Kept>`, and [`None`] is what a session-scoped profile
+  **is**.
+
+  **The freezing needed one more decision than the item names**, and it is the
+  one worth reading twice: a frozen link holds **numbers rather than
+  identities**. ADR 0003's ids are minted once per browser *process*, so
+  `action#0` exists in every session that had one — a `DocumentId` decoded off a
+  disk that compared equal to one minted this morning would join two unrelated
+  pieces of somebody's history into one story, which is the exact failure
+  ADR 0003 exists to prevent. The same rule decides that **an action from an
+  earlier session is never added to**: an action is matched to a file only
+  within the session that minted it, and what names one across sessions is the
+  number the disk counts up.
+
+  **Where the write happens was the whole design, and it is a seam rather than
+  a door.** Item 200 could put the session's record in
+  `Pool::fetch_however_it_ends`, the one place every request passes. This cannot:
+  deciding whether a request followed from an action needs the requests
+  (`Activity`, held by the `Pool`, because a pool is what a session holds) **and**
+  what caused each document's load (`Documents`, held by `alo_renderer::Tabs`,
+  because ADR 0012 § 4 puts attribution where the tabs are) at the same instant
+  — and a copy of either beside the other is precisely the side table § 3
+  refuses. So the browser process brings them together, which is the one thing
+  it is for: `Kept::take_from` walks `Documents` itself rather than trusting
+  anything a caller says, so a durable line is exactly as unforgeable as a
+  session one. It is idempotent by `Entry::sequence` — which is what that field
+  was added for — and `Kept::missed` says how many lines went by uncounted, so
+  a browser process that swept too rarely is a number rather than a silence.
+  Reading brings it up to date, so there is no way to be handed a record
+  somebody forgot to refresh.
+
+  Two refusals are added to ADR 0012 § 5's list because a durable file is worse
+  than memory in exactly two ways: a **`data:` URL keeps its kind and loses its
+  content**, since a URL that *is* the content is a body wearing an address's
+  clothes, and an address longer than `LONGEST_URL` is cut and says so. And the
+  place is not the cache directory, which is the one clause of ADR 0011 § 3 that
+  is deliberately not taken unchanged: a system may empty a cache because
+  everything in one can be fetched again, and nothing here can.
+
+  Two doctored runs rather than reasoning about them: with the chain frozen one
+  link deep, four tests fail; with a person's browsing kept too, three do. The
+  first doctoring found that the selection rule was being asked in two places,
+  which is now one. The cut is item 203.
+
+- [ ] **203. An action's own outcome, beside the requests it caused.** Cut from
+  202. ADR 0012 § 6 says what is kept durably is *"only requests whose cause
+  chain reaches an agent action, **plus the action and its outcome**"*, and item
+  202 built the first half: a file per action, holding the requests. What it
+  does not hold is what the verb itself did — activated what, refused why —
+  because that is `alo_agent::Outcome` and `alo-net` does not depend on
+  `alo-agent`. **That dependency is not an obstacle to route around**: it is
+  what makes ADR 0012 § 7's *not the agent* structural, since a crate that
+  cannot name the record cannot be handed one. So the outcome has to arrive from
+  the browser process, which is the side that accepts a verb and is the
+  authority § 4 names — and the path by which a verb reaches the loader does not
+  exist yet, because `alo_renderer::Tabs` holds no `Pool`.
+  *Depends on 202, and on a browser process that has both. Closes when:* an
+  action's file says what the verb did as well as what it fetched, and the
+  outcome it says is the one the browser process recorded rather than one a
+  renderer or an agent stated.
 
 ## C. Pages that are not ours
 
