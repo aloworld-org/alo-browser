@@ -1317,7 +1317,7 @@ wrong, which is the argument for the fourth.
   sixteen English ids by hand while the engine reads a rented table: two roads to
   one answer, and they meet on all 65 536 ids a font could carry.
 
-- [ ] **64. The transport, and the lifecycle** that starts, reuses and reaps
+- [x] **64. The transport, and the lifecycle** that starts, reuses and reaps
   renderers, with a bound on how many exist.
   *Depends on 63.* **Most of it is built and one word of it is not**, which is
   worth writing down here rather than leaving somebody to find: item 63 is the
@@ -1329,6 +1329,41 @@ wrong, which is the argument for the fourth.
   *Closes when:* closing the last tab on a site stops that site's process, in a
   test that watches the process go, and closing one of two tabs on a site stops
   nothing.
+
+  **Done: `Renderers::reap`, and the division of labour is the thing to read.**
+  `tab.rs`'s `close` had a comment saying reaping was not its to do, because
+  deciding a process ends on the strength of holding the last reference to it is
+  how a lifecycle ends up scattered. So the caller says what it still **wants** —
+  the sites that have a tab open — and `host.rs` decides what that costs a
+  process. A site left out of `wanted` by mistake costs a process that starts
+  again; one left in by mistake would be a renderer nothing can ever reach, and
+  that asymmetry is why the argument goes in that direction.
+  `tests/a_renderer_nothing_wants.rs` asks the operating system rather than this
+  program: `kill -0` on the process id, which is a real answer only because
+  `stop` waits — an unwaited process is a zombie and a zombie answers `kill -0`
+  like anything else.
+
+  Two things went in with it. The tab whose page a reaped renderer was holding
+  is forgotten, because a `held` entry outliving its process refuses the next
+  tab on that site on behalf of a renderer nobody can reach — doctored out, and
+  the test names it. And reaping **only ever ends things**: a wanted site with
+  no renderer does not get one, which is the same rule as everywhere else here,
+  that nothing starts a process except somebody asking for a page.
+
+  The cut is **item 198**, found on the way and not folded in: nothing bounds
+  how long an exchange may take.
+
+- [ ] **198. A renderer that stops answering without dying.** Found while
+  building 64. `pipe::read` blocks until bytes arrive, so a renderer that is
+  alive and never answers — wedged on a page, or on something a hostile page
+  arranged — hangs the **browser** process, which is the one thing ADR 0005 says
+  must never happen. Killing a hung renderer is a lifecycle act and the
+  lifecycle has no clock: `Gone` can already say a renderer went, and nothing
+  can decide that one should.
+  *Depends on 64. Closes when:* a renderer that never answers is given up on
+  after a bound a test can name, the tab says what happened in the same shape as
+  a tab whose renderer died, and a renderer that is merely **slow** is not
+  killed — which is the half that decides what the bound may be.
 
 - [x] **65. A renderer that dies takes its tab and nothing else** — and says so,
   rather than leaving a blank rectangle.

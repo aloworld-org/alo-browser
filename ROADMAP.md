@@ -189,16 +189,20 @@ unreachable without it.
       `alo-renderer`'s `tab.rs`, a frame kept per tab, every tab in the dead
       process told and no other, and a new process only when somebody asks for
       the page again*
-- [ ] The transport, and the lifecycle that starts, reuses and reaps renderers
-      · Built: length-prefixed messages over pipes, a process started per site
-      and reused, a ceiling of sixteen and the least recently used evicted
-      (queue items 63 and 166) · Owed: **reaping** — nothing stops a renderer
-      when the last tab on its site closes, so a process outlives every tab
-      that was in it until the ceiling evicts it. Tabs exist to say so since
-      item 65; the work is queue item 64
-      *This line was ticked with the two items above it, on a reading of
-      "reaps" that the eviction satisfies. It does not: evicting to stay under
-      a ceiling is what happens when reaping has not happened*
+- [x] The transport, and the lifecycle that starts, reuses and reaps renderers
+      (queue items 63, 166 and 64). Length-prefixed messages over pipes; a
+      process started per site and reused; a ceiling of sixteen with the least
+      recently used evicted; and, since item 64, **reaping** — closing the last
+      tab on a site stops that site's process, and closing one of two tabs on a
+      site stops nothing.
+      *This line was ticked once before, with the two items above it, on a
+      reading of "reaps" that the eviction satisfies. It did not: evicting to
+      stay under a ceiling is what happens when reaping has **not** happened,
+      and it was un-ticked. What was owed is built, which is what a tick means*
+      *Found while building it and deliberately not folded in, because it is
+      not one of the three verbs this line names: a renderer that stops
+      answering **without dying** hangs the browser process, since nothing
+      bounds how long an exchange may take. Queue item 198*
 - [ ] Where one site ends and another begins — the origin, the site, and which
       of them gets a process · Built: the site, as ADR 0005 defines it — scheme
       plus **registrable domain**, decided against the public suffix list

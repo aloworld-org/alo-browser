@@ -195,6 +195,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   read, no write, no socket, each watched failing rather than assumed
 - [2] **One renderer process per site** — two sites are two processes, and
   killing one leaves the other running
+- [2] **A renderer nothing wants any more is stopped** — closing the last tab
+  on a site ends that site's process, and closing one of two tabs on a site
+  ends nothing, so the memory one process per site costs is paid for pages
+  somebody still has open rather than held until a ceiling evicts them
 - [2] **A tab that keeps the last frame it painted when its renderer dies, and
   says what happened** — every tab in the dead process and no other tab
   anywhere, the picture still on the screen rather than a blank rectangle, and

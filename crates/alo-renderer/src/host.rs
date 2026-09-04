@@ -29,7 +29,7 @@ use crate::pipe::{self, Arrived};
 use crate::sandbox;
 use crate::site::Site;
 use crate::wire;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Stdio};
@@ -273,6 +273,44 @@ impl Renderers {
             let _ = held.child.wait();
         }
         self.order.retain(|held| held != site);
+    }
+
+    /// Stop every renderer nothing wants any more, and say which those were.
+    ///
+    /// The **reaping** half of the lifecycle, and the one this file did not
+    /// have: a renderer whose last tab has closed used to run until the ceiling
+    /// happened to evict it, which is what happens when reaping has *not*
+    /// happened rather than a way of doing it. A person who closes a tab has
+    /// stopped wanting the process behind it, and sixteen of somebody else's
+    /// pages held open behind a bound is the memory ADR 0005 says the split
+    /// costs, spent on nothing.
+    ///
+    /// # Why the caller says what it wants rather than what to stop
+    ///
+    /// Because a caller that named a process to end would be deciding the
+    /// lifecycle from outside this file, on the strength of happening to hold
+    /// the last reference to it. What a caller actually knows is which sites it
+    /// still has open — [`crate::tab::Tabs`] knows that and nothing else about
+    /// processes — and turning that into an ending is this file's to do. It is
+    /// also the safer direction: a site left out of `wanted` by mistake costs a
+    /// process that starts again, and one left in by mistake would be a
+    /// renderer nothing can ever reach.
+    ///
+    /// Sites in `wanted` with no renderer are not started; this only ever ends
+    /// things. Stopping is [`Renderers::stop`]'s kill and wait, so a reaped
+    /// renderer is gone by the time this returns rather than left as a zombie
+    /// for whoever waits next.
+    pub fn reap(&mut self, wanted: &HashSet<Site>) -> Vec<Site> {
+        let unwanted: Vec<Site> = self
+            .held
+            .keys()
+            .filter(|site| !wanted.contains(*site))
+            .cloned()
+            .collect();
+        for site in &unwanted {
+            self.stop(site);
+        }
+        unwanted
     }
 
     /// Stop all of them, which is what closing the browser means.

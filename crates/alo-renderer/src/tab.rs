@@ -55,7 +55,7 @@ use crate::page::Page;
 use crate::site::Site;
 use alo_url::Url;
 use core::fmt;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Which tab.
 ///
@@ -300,14 +300,40 @@ impl Tabs {
 
     /// Close one. Whether there was one to close.
     ///
-    /// The site's renderer is **not** stopped, even when this was its last tab.
-    /// Reaping is the renderer lifecycle's — queue item 64 — and doing it here
-    /// would be this file deciding when a process ends because it happened to
-    /// hold the last reference.
+    /// **A site nothing has open any more loses its renderer**, which is the
+    /// reaping half of the lifecycle. This file does not decide that a process
+    /// ends: it says which sites still have a tab on them and
+    /// [`Renderers::reap`] decides what that means, which is the same division
+    /// as everywhere else here — tabs know what a person opened, `host.rs`
+    /// knows what a process is.
+    ///
+    /// Closing one of two tabs on a site stops nothing, because the other tab
+    /// is still showing a page out of that process.
     pub fn close(&mut self, id: TabId) -> bool {
         let before = self.list.len();
         self.list.retain(|tab| tab.id != id);
-        self.list.len() != before
+        if self.list.len() == before {
+            return false;
+        }
+        let wanted = self.sites_open();
+        for stopped in self.renderers.reap(&wanted) {
+            // The page went with the process, so nothing is holding it now —
+            // and a `held` entry left behind would refuse the next tab on this
+            // site ([`Lost::HoldsAnotherPage`]) on behalf of a renderer that no
+            // longer exists.
+            self.held.remove(&stopped);
+        }
+        true
+    }
+
+    /// The sites that still have a tab open on them.
+    ///
+    /// The whole of what this file contributes to reaping, and it is deliberate
+    /// that a tab whose renderer has **gone** still names its site: the tab is
+    /// open, a person may reload it, and there is no renderer held for a dead
+    /// site to stop anyway.
+    fn sites_open(&self) -> HashSet<Site> {
+        self.list.iter().map(|tab| tab.site.clone()).collect()
     }
 
     /// Every tab, in the order they were opened.
@@ -643,6 +669,51 @@ mod tests {
             Err("the renderer for https://example.com is gone: it exited".to_owned()),
             "a dead tab said something a person could not be shown",
         );
+    }
+
+    // --- What closing a tab means --------------------------------------------
+
+    /// The whole of what this file contributes to reaping: which sites still
+    /// have a tab on them. What that costs a process is
+    /// [`Renderers::reap`]'s, and `tests/a_renderer_nothing_wants.rs` watches
+    /// the process go.
+    #[test]
+    fn a_site_is_wanted_while_any_tab_on_it_is_open_and_not_after() {
+        let mut tabs = nowhere();
+        let statement = tabs.open(url("https://a.bank.example/statement"));
+        let settings = tabs.open(url("https://b.bank.example/settings"));
+        let _news = tabs.open(url("https://news.example/"));
+        let bank = site("https://bank.example/");
+
+        assert!(tabs.sites_open().contains(&bank));
+        assert!(tabs.close(statement));
+        assert!(
+            tabs.sites_open().contains(&bank),
+            "closing one of two tabs on a site gave the site up",
+        );
+        assert!(tabs.close(settings));
+        assert!(
+            !tabs.sites_open().contains(&bank),
+            "a site with no tab left open on it was still wanted",
+        );
+        assert!(tabs.sites_open().contains(&site("https://news.example/")));
+    }
+
+    /// A tab whose renderer has gone is still a tab somebody has open, so it
+    /// still names its site — and closing *it* is what gives the site up.
+    #[test]
+    fn a_tab_whose_renderer_went_still_wants_its_site_until_it_is_closed() {
+        let mut tabs = nowhere();
+        let here = tabs.open(url("https://example.com/"));
+        let _ = tabs.lost(
+            &site("https://example.com/"),
+            gone_at("https://example.com"),
+        );
+
+        assert!(tabs.tab(here).is_some_and(|tab| !tab.is_live()));
+        assert!(tabs.sites_open().contains(&site("https://example.com/")));
+        assert!(tabs.close(here));
+        assert!(tabs.sites_open().is_empty());
     }
 
     // --- The decision, on its own --------------------------------------------

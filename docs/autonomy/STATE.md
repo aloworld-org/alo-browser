@@ -6867,3 +6867,90 @@ of which `alo_url::site` answers since item 156) and **190** (the two-tone
 border styles: small, depends on nothing, closes with a picture). 157, 158 and
 187 are still deferred for reasons written into them, 169 must be run on Linux,
 60 is HTTP/3, and 197 waits on properties `alo-style` does not have.
+
+---
+
+## Iteration 94 — queue item 64: a renderer nothing wants any more is stopped
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** The previous
+entry left item 64 as a small, well-defined item with its closing condition
+written into the queue, and that is what this iteration took: the lifecycle
+starts renderers, reuses them and bounds how many exist, and **nothing reaped
+one**. A renderer whose last tab had closed ran until the ceiling happened to
+evict it — which is what happens when reaping has not happened rather than a
+way of doing it, and which the previous iteration had already written into
+`ROADMAP.md` when it un-ticked that line.
+
+**The division of labour is the thing worth reading, not the stopping.**
+`tab.rs`'s `close` carried a comment saying reaping was not its to do, because
+deciding that a process ends on the strength of happening to hold the last
+reference to it is how a lifecycle ends up scattered across the files that call
+it. That comment was right, so the shape it asks for is what was built: the
+caller says what it still **wants** — `Tabs::sites_open`, the sites that have a
+tab open on them — and `Renderers::reap` decides what that costs a process. The
+argument goes in that direction rather than the other because the mistakes are
+not symmetric: a site left out of `wanted` costs a process that starts again,
+and a site left in by mistake would be a renderer nothing can ever reach.
+
+**The test asks the operating system rather than this program.** `kill -0` on
+the process id, which is a real answer only because `stop` waits: an unwaited
+process is a zombie and a zombie answers `kill -0` like anything living. A
+bookkeeping entry that disappeared while the process kept running is exactly the
+bug a test of the map would not have found.
+
+**Two things went in beside it.** The tab whose page a reaped renderer was
+holding is forgotten, because a `held` entry outliving its process refuses the
+next tab on that site (`Lost::HoldsAnotherPage`) on behalf of a renderer nobody
+can reach — and names a tab that has by then been closed, so the refusal would
+be unanswerable as well as wrong. And reaping **only ever ends things**: a
+wanted site with no renderer does not get one out of it, which is the same rule
+as everywhere else here, that nothing starts a process except somebody asking
+for a page.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1654 tests** (up from 1646), no stubs, no `unsafe`, boundaries held,
+the licence notice, and a `CHANGELOG.md` line. The half no script can check:
+**nothing here positions or sizes anything and nothing here draws**, so there is
+no layout assertion and no reference render to make, and saying so is the honest
+answer — this item is about a process existing or not existing, which is why the
+assertions are `kill -0` rather than pixels. One file one responsibility:
+`host.rs` gained the verb its own lifecycle was missing and `tab.rs` gained one
+private function saying which sites are still open, which is the split the
+comment in `close` had already argued for. The item is in `docs/features.md` as
+its own `[2]` line.
+
+**Three directions were doctored, and each failed the tests written for it.**
+With the reaping taken out of `close`, two of the six fail and one says the last
+tab on a site closed with its process still running. With the `held` entry left
+behind, exactly one fails and it names the refusal it got. With `reap`'s filter
+inverted — stopping what is wanted — four fail, including the two that call
+`reap` directly with no tabs anywhere near it.
+
+**Hostile input.** Nothing new reads bytes from outside. What was added is a set
+difference over sites this process already holds, and a process id this process
+already spawned.
+
+**`ROADMAP.md` moved, and it is a tick this time.** *"The transport, and the
+lifecycle that starts, reuses and reaps renderers"* names three verbs and all
+three now exist, so the line is ticked with the history left beside it: it was
+ticked once before on a reading of "reaps" that the eviction satisfied, and
+un-ticked last iteration for that reason. Ticking it now is what a tick means.
+
+**One thing was found and is queue item 198 rather than folded in.** `pipe::read`
+blocks until bytes arrive, so a renderer that is **alive and never answers**
+hangs the browser process — the one thing ADR 0005 says must never happen.
+Killing a hung renderer is a lifecycle act and the lifecycle has no clock. It is
+deliberately not this item: it is not one of the three verbs the roadmap line
+names, its closing condition needs a bound a test can state, and the half that
+decides what that bound may be is that a merely **slow** renderer must not be
+killed. It is written into `ROADMAP.md` beside the ticked line as well, so it is
+not a gap living in one commit message.
+
+**What the next iteration should know.** The ready items in stage 2's file order
+are now **66** (where one site ends and another begins — much of which
+`alo_url::site` has answered since item 156, so read that before building
+anything), **190** (the two-tone border styles: small, depends on nothing,
+closes with a picture) and **198** above, which depends on 64 and is now
+unblocked. 157 and 158 need an interface to ask in, 187 is deferred for the
+reason written into it, 169 must be run on Linux, 60 is HTTP/3, and 197 waits on
+properties `alo-style` does not have.

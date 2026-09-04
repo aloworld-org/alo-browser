@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Closing the last tab on a site ends that site's process.** One process per
+  site is what keeps one page's failure away from every other page, and it is
+  paid for in memory: N sites cost N processes. Nothing was ending them.
+  A renderer whose last tab had closed kept running — holding a page nobody was
+  looking at any more — until sixteen sites were open and the ceiling happened
+  to evict the least recently used one. Evicting under a bound is what happens
+  when nothing has been reaped, not a way of reaping.
+
+  Closing a tab now gives up its site if it was the last tab on it, and the
+  process behind it stops. Closing one of two tabs on a site stops nothing: the
+  other tab is still showing a page out of that renderer. A tab whose renderer
+  already died has nothing to stop, and closing it is not a way to start one.
+
 - **A tab whose renderer dies keeps the page on the screen and says what
   happened.** The process split has always meant that one site crashing cannot
   take another down, and there was a test killing a renderer to prove it — but
