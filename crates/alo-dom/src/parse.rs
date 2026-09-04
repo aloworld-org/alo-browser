@@ -17,6 +17,14 @@
 //!   as standards. See [`QuirksSignal`](crate::QuirksSignal).
 //! - **Scripting** does not exist, so a `<script>` is a element with text in it
 //!   and nothing runs. `mark_script_already_started` has nothing to mark.
+//!
+//!   What will run there is decided: ADR 0013 — `alo-js`, ours, a bytecode
+//!   compiler and an interpreter in safe Rust, with no JIT until a measurement
+//!   says otherwise. Two of its clauses land in *this* file rather than in that
+//!   crate. `document.write` stays refused (stage 3, queue item 137), so the
+//!   parser is never re-entered by a script it started; and a script that is
+//!   fetched is fetched by the browser process, because ADR 0005 gives this one
+//!   no network and ADR 0013 § 5 gives `alo-js` no I/O at all.
 //! - **Declarative shadow roots** are refused rather than half-built: they are
 //!   not in `docs/features.md`, and a parser told "yes" by a sink that cannot
 //!   attach one produces a tree that says something happened when it did not.

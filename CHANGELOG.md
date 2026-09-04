@@ -6,6 +6,39 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: this browser writes its own JavaScript engine** (ADR 0013). It is
+  the largest single component of a browser and the thing most of the rest of
+  the web needs, so what it will be — and what it will not — is written down
+  before any of it is built, in a form somebody can argue with.
+
+  It will be a parser, a bytecode compiler and an interpreter, in Rust, and it
+  will be **correct before it is fast**. There is no just-in-time compiler and
+  there will not be one until two things happen: a measurement, on real
+  hardware, showing that our interpreter is the reason somebody reached for a
+  different browser; and a second decision weighing that against what such a
+  compiler costs. What it costs is not abstract — a just-in-time compiler
+  writes machine code and jumps to it, which is the one part of a browser that
+  memory-safe Rust stops protecting, in the part of the browser most worth
+  attacking.
+
+  The interesting argument was not against Google's engine, which was refused
+  at the start of this project. It was against a JavaScript engine already
+  written in Rust, which exists, is freely licensed and would save years. It is
+  refused because the piece that reclaims memory decides how the page itself is
+  stored, and because the limits on what a stranger's script can make this
+  browser allocate would then be somebody else's to choose. Those limits are
+  the difference between a page that is refused and a browser that falls over.
+
+  Three promises come with it. A feature we have not written yet will be
+  **missing rather than faked**, because pages already check for what they
+  need and a convincing stub is the one answer that fools the check and then
+  behaves wrongly. The engine can reach **nothing** on its own — no network, no
+  files, not even a clock — so a script gets only what the page it is in was
+  given, and the part of the browser holding your history and your cookies
+  never runs a stranger's code at all. And a script that will not stop is
+  stopped by the browser, on your behalf, rather than by a timer the engine
+  keeps to itself.
+
 - **What an agent did is now kept until the person deletes it, and nothing else
   is.** The record added last time dies with the browser, which is right for a
   session and cannot answer the question an agent-driven browser exists to be

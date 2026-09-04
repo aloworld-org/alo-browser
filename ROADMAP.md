@@ -429,7 +429,30 @@ unreachable without it.
 
 - [ ] Lexer and parser to an AST — the current language, not ES5
 - [ ] A bytecode compiler and an interpreter. **Correct first; a JIT much later or never**
+      · Built: the decision (ADR 0013, queue item 69) — `alo-js`, ours, in safe
+      Rust, **bytecode from the first line of the compiler** because a
+      suspendable frame is what generators, `async` and a debugger all need and
+      a tree walker expresses it by being rewritten. It re-argues renting rather
+      than inheriting ADR 0001's refusal, and the close call is **Boa** rather
+      than V8: safe Rust, permissive, exists today, and refused because a rented
+      collector decides how `alo-dom` is stored and a rented engine's bounds are
+      a stranger's idea of how much memory a script may make us allocate. Three
+      clauses constrain every item under this heading — **absent beats
+      approximate**, so a builtin we have not written is *not defined* rather
+      than stubbed; **`alo-js` depends on no I/O crate**, so every capability
+      comes from the embedder and the browser process never runs page script;
+      and every bound a script can reach is a named constant of ours, with the
+      interpreter interruptible and **never panicking** on any program
+      · Owed: all of the code (queue items 70 to 79). Nothing executes anything
+      today; `alo-dom`'s parser boundary says so in its own comment and names
+      the two clauses that land there
 - [ ] A garbage collector, and the object model underneath it
+      · Built: the question, stated (ADR 0013 § 6) — the engine defines **one
+      trait** for an embedder's objects and the DOM is one embedder, so the
+      single thing it demands is that such an object can be **traced**, which is
+      what makes the collector's problem statable · Owed: the collector, and the
+      decision it needs first — pauses and precision are their own ADR (queue
+      item 71)
 - [ ] The standard library: the ECMAScript builtins, in the order real pages need them
 - [ ] Regular expressions, with the syntax the language actually has
 - [ ] Promises, the microtask queue, `async`/`await`, generators and iterators
@@ -438,6 +461,15 @@ unreachable without it.
 - [ ] Errors and stack traces good enough to debug somebody else's minified page
 - [ ] Internationalisation (`Intl`), rented rather than written
 - [ ] Refused for now and recorded: a JIT, until there is a measured reason and an ADR weighing it against the attack surface it adds
+      · Built: the recording, with its two conditions for re-opening named
+      (ADR 0013 § 2) — a **measurement on hardware** saying the interpreter is
+      why somebody reached for another browser, and an ADR of its own weighing
+      `unsafe` and writable-then-executable memory inside the process that
+      parses hostile bytes. Two cheaper things are named ahead of it so it is
+      not reached for first: an interpreter actually optimised, and not running
+      the script at all. `unsafe` in the **value representation** is refused on
+      the same terms, since NaN-boxing is the obvious first one · Owed: nothing
+      until a measurement re-opens it — which is what this line is for
 
 ### The DOM, and the pages that use it
 

@@ -7716,3 +7716,114 @@ ready. 157 and 158 need an interface to ask in, and so does the question item
 run on Linux; 60 is HTTP/3; 197 waits on properties `alo-style` does not have;
 and 201 and 203 wait on the wiring described above. The next free queue number is
 **204**.
+
+---
+
+## Iteration 102 — queue item 69: ADR 0013, our own JavaScript engine
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 69 is
+marked *needs ADR* and is the first item of section D, so this iteration is the
+decision and nothing else — `LOOP.md`'s stage 2 rule 4, and the same shape as
+iteration 97. No code was written, deliberately, beyond one comment in the file
+the first clause lands in.
+
+**It is not the first unchecked item in the file, and taking it is stage 2's
+rule 3 rather than a preference.** Ahead of it sit 157 and 158 (blocked on an
+interface to ask in), 187 (deferred with the reason written into it — nothing on
+the web can reach the refusal, since `Expect` is a forbidden request header),
+169 (must be *run* on Linux), 197 (waits on properties `alo-style` does not
+have), 201 and 203 (wait on a wiring iteration 101 described from the other
+side), and **60**, HTTP/3, whose dependencies are met. 60 was left where it is:
+nothing depends on it, and `LOOP.md` says an item nothing makes reachable is one
+to leave alone until something does. Item 69 is the opposite — most of section E
+is unreachable without it.
+
+**The number is 0013.** The queue said "ADR 0006", which is the supervisor's and
+was taken while that line sat unread; iteration 97 spotted it and said the
+iteration taking 69 would fix it. Renumbered rather than reused, which is item
+152's rule and ADR 0003's.
+
+**The item named three things and the argument turned out to be a fourth.** What
+it is (bytecode compiler and interpreter, correct first), what it is not (a JIT),
+and why it is ours (ADR 0001's memory-safety argument) were all still right — but
+ADR 0001 refused **V8**, in a paragraph written when JavaScript was years away
+and the refusal cost nothing. The refusal that costs something now is **Boa**:
+safe Rust, permissively licensed, exists today, and ADR 0009's MPL makes taking
+it legally trivial. So licence is not the objection and neither is memory safety,
+and an ADR that did not say why would be inheriting a decision rather than
+making one.
+
+**Why it is refused, in the terms `CLAUDE.md` already uses.** *Rent the physics,
+build the engine.* A shaper, a codec and a Unicode table are physics — nobody's
+engine differs by them. An interpreter is not: a page's objects and the DOM's
+nodes are **one graph**, so whichever collector traces it decides how `alo-dom`
+is stored, and that is the one structure ADR 0003 has already made a promise
+about. And every bound on what a stranger's script can make this process
+allocate would be somebody else's to choose, which is the thing `alo-net` says
+in every file: *a limit somebody else chooses is not a limit*. The cost is
+written into the ADR rather than argued away — Boa exists and `alo-js` is years
+off.
+
+**Three clauses were added because items 70 to 79 would otherwise each decide
+them, differently.**
+
+- **Bytecode from the first line of the compiler.** A suspendable frame is what
+  generators, `async` and a debugger all need, and a tree walker expresses it by
+  being rewritten. Choosing after there are builtins is choosing to implement
+  every semantic twice.
+- **Absent beats approximate.** A builtin we have not written is *not defined* —
+  not a stub returning a plausible value. Pages already cope with missing
+  features by testing for them, and a stub is the one answer that defeats the
+  test *and* behaves wrongly afterwards. This is the gate's no-stubs rule
+  restated for the place it would look most reasonable to break.
+- **`alo-js` depends on no I/O crate at all** — no network, no filesystem, no
+  clock, no entropy. Every capability arrives from the embedder, which makes the
+  engine testable with nothing moving (the property that made items 55, 154 and
+  188 assertable) and makes ADR 0005's *the browser process never runs page
+  script* structural rather than remembered.
+
+**Four things are refused and recorded**, each with what would re-open it: a
+**JIT** (a measurement on hardware, plus an ADR weighing `unsafe` and
+writable-then-executable memory in the process that parses hostile bytes);
+`unsafe` in the **value representation**, on the same terms, since NaN-boxing is
+the obvious first one and is worth real performance; **`SharedArrayBuffer`**,
+which is shared mutable memory between threads and the mechanism that made
+Spectre a web attack; and **WebAssembly**, which is on no list in this repository
+and which this decision does not put on one.
+
+**One clause is where `CLAUDE.md` and a language disagree, and the ADR says
+which way it went.** *The measure is alo, not a conformance score* was written
+against Web Platform Tests — a percentage scored against legacy we refuse. A
+language ships an executable suite, and there is no honest way to call an
+interpreter correct from a handful of examples. So **test262 is vendored per
+feature, frozen, and read as a table rather than a score**: the sections for the
+feature being built go in with the change, an expected failure is written down
+with why, and **no percentage is computed or published** — a number that goes up
+is exactly the incentive that makes an engine implement the easy half of
+everything.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero errors,
+1783 tests unchanged, no stubs, no `unsafe`, boundaries held, the licence notice,
+and a `CHANGELOG.md` line. No layout assertion and no reference render: this
+iteration positions nothing, paints nothing and executes nothing. One file one
+responsibility: one new document and one comment.
+
+**`ROADMAP.md` moved, and none of it is a tick.** Three lines under *JavaScript,
+ours, in Rust* gain `· Built:` clauses and keep their empty boxes — the bytecode
+and interpreter line (the decision, and the three clauses above), the garbage
+collector line (§ 6 states the question: one trait, and the one thing the engine
+demands of an embedder's object is that it can be **traced**), and the JIT line,
+whose whole content is a refusal and which now names the two conditions for
+re-opening it. `docs/features.md`'s starred JavaScript line gains the same in a
+reader's words.
+
+**What the next iteration should know.** The next ADR number is **0014** and the
+next queue number is **204**. Section D's first buildable item is **70**, the
+lexer and parser, whose dependency is now met — and **71** is *needs ADR* in its
+own right (a collector is a decision about pauses), which ADR 0013 § 6
+deliberately leaves open while stating its problem. Two orderings are worth
+noticing before 70 is taken: 71 blocks 72, so its ADR is on the critical path
+just as this one was; and item 70's closing condition names *a frozen page's own
+script*, so the corpus needs a case whose script is worth parsing before that
+item can close — no existing case has one. Outside section D, **190** (the
+two-tone border styles) is still ready and depends on nothing.

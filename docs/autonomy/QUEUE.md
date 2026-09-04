@@ -1768,13 +1768,47 @@ wrong, which is the argument for the fourth.
 
 The long pole, and the thing most of section E is unreachable without.
 
-- [ ] **69. ADR 0006 — our own JavaScript engine.** *Needs ADR, and it is the
+- [x] **69. An ADR for our own JavaScript engine.** *Needs ADR, and it is the
   first item here.* What it is: a bytecode compiler and an interpreter,
   **correct first**. What it is not: a JIT, until there is a measured reason and
   an ADR weighing the speed against the attack surface. Why it is ours at all:
   taking somebody else's C++ engine spends the memory-safety argument this
   project is built on (ADR 0001), and spending it quietly is worse than not
-  having made it.
+  having made it. *This item used to say "ADR 0006", which is the supervisor's
+  number and was taken while this line sat unread; the decision is **ADR 0013**,
+  renumbered rather than reused for the reason item 152 gives.*
+
+  **Done: `docs/decisions/0013-our-own-javascript-engine.md`.** No code — a
+  decision is its own iteration, and there is nothing yet for it to be a
+  decision *about*.
+
+  **The refusal the item did not name is the one that took the argument**: not
+  V8, which ADR 0001 already refused, but **Boa** — safe Rust, permissively
+  licensed, exists today, and MPL (ADR 0009) makes taking it legally trivial.
+  It is refused because the collector, the bounds and the object graph are
+  where this browser's own promises are kept: a rented engine's collector
+  decides how `alo-dom` is stored, which is the one structure ADR 0003 already
+  made a promise about, and a rented engine's limits are a stranger's idea of
+  how much memory a script may make us allocate. The cost is written down
+  rather than argued away — it exists and we are years from one.
+
+  **Three clauses constrain items 70 to 79 so they are not each re-decided.**
+  Bytecode from the first line of the compiler, because a suspendable frame is
+  what generators, `async` and a debugger all need and a tree walker expresses
+  it by being rewritten. **Absent beats approximate**: a builtin we have not
+  written is *not defined*, since a stub is the one answer that defeats a
+  page's own feature test and then behaves wrongly. And `alo-js` **depends on
+  no I/O crate at all** — no network, no filesystem, no clock, no entropy —
+  so every capability arrives from the embedder, the engine is testable with
+  nothing moving, and the browser process never runs page script.
+
+  Four things are refused and recorded rather than left open: a **JIT**, with
+  the two conditions for re-opening it named (a measurement on hardware, and an
+  ADR of its own weighing `unsafe` in the largest target in the browser);
+  `unsafe` in the **value representation**, on the same terms, because
+  NaN-boxing is the obvious first one; **`SharedArrayBuffer`**, which is shared
+  mutable memory between threads and is on no list here; and **WebAssembly**,
+  which this decision does not put on one.
 
 - [ ] **70. Lexer and parser to a syntax tree** — the language pages actually
   ship, not ES5. Automatic semicolon insertion, and the grammar that needs a
