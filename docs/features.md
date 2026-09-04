@@ -203,6 +203,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   says what happened** — every tab in the dead process and no other tab
   anywhere, the picture still on the screen rather than a blank rectangle, and
   a fresh process only when a person asks for the page again
+- [2] **A renderer that stops answering without dying is given up on** — an
+  exchange has a bound, so a renderer that is alive and silent costs its own tab
+  rather than freezing the browser and every other tab with it, and one that is
+  merely slow is still waited for
 - [2] **A wire format for the renderer boundary**, where a message from a
   renderer is untrusted because a renderer is the process that parsed the page
 - [2] **HSTS**, ignored over plain HTTP so it cannot be used as a weapon

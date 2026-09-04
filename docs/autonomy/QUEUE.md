@@ -1353,7 +1353,7 @@ wrong, which is the argument for the fourth.
   The cut is **item 198**, found on the way and not folded in: nothing bounds
   how long an exchange may take.
 
-- [ ] **198. A renderer that stops answering without dying.** Found while
+- [x] **198. A renderer that stops answering without dying.** Found while
   building 64. `pipe::read` blocks until bytes arrive, so a renderer that is
   alive and never answers — wedged on a page, or on something a hostile page
   arranged — hangs the **browser** process, which is the one thing ADR 0005 says
@@ -1364,6 +1364,34 @@ wrong, which is the argument for the fourth.
   after a bound a test can name, the tab says what happened in the same shape as
   a tab whose renderer died, and a renderer that is merely **slow** is not
   killed — which is the half that decides what the bound may be.
+
+  **Done, all three clauses, and the wedged renderer in the test is the real
+  binary stopped with `kill -STOP`** — alive, its pipe open, and never going to
+  answer, which is the condition itself rather than a stand-in that shares only
+  the silence. The same signal makes the other half exact: a renderer stopped
+  and then continued is slow by precisely as long as a test says, which nothing
+  about a real page could promise.
+
+  **The clock needed a thread, and that is the whole of `answers.rs`.** A pipe
+  read cannot be given a deadline in safe Rust — the calls that would are FFI,
+  and ADR 0010 refused FFI for the sandbox itself on that ground — so the read
+  happens on a thread and the browser process waits on a channel, which does
+  take a bound. The channel holds **one** message, deliberately: a thread
+  reading ahead as fast as a renderer can write is a renderer that fills the
+  browser process's memory by talking, and the blocking read had that
+  backpressure for free.
+
+  **A bound without a kill would be worse than no bound.** The protocol is one
+  answer per request, so an answer arriving after we stopped waiting would be
+  handed back as the answer to the *next* question — a picture of the wrong
+  page, or a tree an agent then acts on. So a silence is fatal to the renderer
+  rather than something to retry.
+
+  **Ten seconds, and it is a choice rather than a measurement** — said so in the
+  constant, because `LOOP.md` says a claim about speed is measured on hardware
+  or not made. Too short loses pages that were about to arrive; too long is a
+  frozen browser. The honest version is a question — *wait, or stop it?* — and
+  asking it needs an interface, which is items 157 and 158's block.
 
 - [x] **65. A renderer that dies takes its tab and nothing else** — and says so,
   rather than leaving a blank rectangle.

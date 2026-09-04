@@ -199,10 +199,13 @@ unreachable without it.
       reading of "reaps" that the eviction satisfies. It did not: evicting to
       stay under a ceiling is what happens when reaping has **not** happened,
       and it was un-ticked. What was owed is built, which is what a tick means*
-      *Found while building it and deliberately not folded in, because it is
-      not one of the three verbs this line names: a renderer that stops
-      answering **without dying** hangs the browser process, since nothing
-      bounds how long an exchange may take. Queue item 198*
+      *And since queue item 198, an exchange has a **bound**: a renderer that is
+      alive and says nothing for ten seconds is given up on and stopped, where
+      before it held the browser process in a read for as long as it lived and
+      every other tab with it. A renderer that is merely slow is still waited
+      for, which is the half that decides what the bound may be. The number is a
+      choice rather than a measurement, and it stands in for a question — wait,
+      or stop it? — that needs an interface to ask in*
 - [ ] Where one site ends and another begins — the origin, the site, and which
       of them gets a process · Built: the site, as ADR 0005 defines it — scheme
       plus **registrable domain**, decided against the public suffix list

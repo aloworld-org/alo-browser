@@ -6954,3 +6954,109 @@ closes with a picture) and **198** above, which depends on 64 and is now
 unblocked. 157 and 158 need an interface to ask in, 187 is deferred for the
 reason written into it, 169 must be run on Linux, 60 is HTTP/3, and 197 waits on
 properties `alo-style` does not have.
+
+---
+
+## Iteration 95 — queue item 198: a renderer that stops answering is given up on
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** The previous
+iteration cut this item out of 64 and left it as the first ready item in file
+order: `pipe::read` blocks until bytes arrive, so a renderer that is **alive and
+never answers** — wedged on a page, or on something a hostile page arranged —
+held the browser process in a read for as long as it lived. Every other tab, and
+everything a person could click, waited with it. That is the one thing ADR 0005
+says must never happen, arriving by the one road nobody had walked down: a
+renderer that *dies* closes its pipe, and a read that ends is an answer.
+
+**The clock needed a thread, and that is the whole of `answers.rs`.** A pipe read
+cannot be given a deadline in safe Rust — the platform calls that would do it are
+FFI, and ADR 0010 refused FFI for the sandbox itself on exactly that ground — so
+the read happens on a thread of its own and the browser process waits on a
+channel, which does take a bound. Two rules went in with it because the shape
+would otherwise be a worse bug than the one it fixes:
+
+- **The channel holds one message.** A thread reading ahead as fast as a renderer
+  can write is a renderer that fills the *browser* process's memory by talking,
+  and the blocking read had that backpressure for free. `sync_channel(1)` keeps
+  it: the reader stops with one message in hand and everything after it stays in
+  the pipe, where the operating system already bounds it.
+- **A bound without a kill would be worse than no bound.** The protocol is one
+  answer per request, so an answer arriving after we stopped waiting for it would
+  be handed back as the answer to the *next* question — a picture of the wrong
+  page, or a tree an agent then acts on. So a silence is fatal to the renderer
+  rather than something to retry, and `Renderers::ask` sends it through `lost`,
+  which is the same door a death goes through.
+
+**The thread is detached and nothing ever joins it**, deliberately: a join is an
+unbounded wait on a renderer, which is the exact bug this file is for, and it
+would be taken at the worst possible moment — while stopping a renderer that has
+already proved it does not answer. It ends on its own when the pipe closes, which
+`stop`'s kill and wait guarantee.
+
+**Ten seconds, and the constant says it is a choice rather than a measurement.**
+`LOOP.md` says a claim about speed is measured on hardware or not made, so this
+is not one: it is the point past which waiting is worse than losing the page, and
+both directions cost something real — too short kills a renderer that was about
+to answer, too long is a browser somebody force-quits. The honest version is not
+a number at all but a question, *wait, or stop it?*, and asking it needs an
+interface, which is what blocks items 157 and 158. The bound is a **field** on
+`Renderers` rather than the constant used in place, because a test that waited
+ten seconds to find out what happens after ten seconds is a test nobody runs.
+
+**The wedged renderer in the test is the real binary stopped with `kill -STOP`.**
+That is the condition itself rather than a stand-in that shares only the silence:
+alive, `kill -0` finds it, its pipe is open, and it will never answer. The same
+signal makes the other half exact — a renderer stopped and then continued with
+`-CONT` is slow by precisely as long as the test says, which nothing about a real
+page could promise, and *"a renderer that is merely slow is not killed"* is the
+clause that decides whether the bound may exist at all.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero errors,
+**1665 tests** (up from 1654 — eleven added, seven of `answers.rs` on readers a
+test controls the timing of, four on real processes), no stubs, no `unsafe`,
+boundaries held, the licence notice, and a `CHANGELOG.md` line. The half no
+script can check: **nothing here positions or sizes anything and nothing here
+draws**, so there is no layout assertion and no reference render to make, and
+saying so is the honest answer — this item is about how long a process waits, so
+the assertions are a clock, `kill -0` and the sentence a tab gives a person. One
+file one responsibility: `pipe.rs` still says where a message *ends* and
+`answers.rs` says how long we wait for one, which is why the thread and the clock
+did not go into `pipe.rs`; `host.rs` gained a field and lost a `BufReader`. The
+item is in `docs/features.md` as its own `[2]` line.
+
+**Four directions were doctored.** With the timeout reported as a clean ending
+rather than a silence, two tests fail and both quote a tab being told "it exited"
+about a renderer that is alive. With the giving-up not stopping the process,
+three fail — including the one that finds the wedged renderer still running, and
+the one where a tab is refused a reload on a dead renderer's behalf. With
+`waiting_at_most` ignored so the ten-second default applies, the wedged test
+fails on the clock at 10.15s, which is the assertion that the *named* bound is
+what fired. And with no bound at all — the tree as it was before this change —
+the test **does not return**: it was still running after 45 seconds, which is the
+bug itself and is written into the test file's own preamble, because an iteration
+that breaks this would otherwise spend itself wondering why the suite stopped.
+
+**Hostile input.** Nothing new reads bytes from outside: the bytes still go
+through `pipe::read`, which already treats a renderer as the process that parsed
+the page and refuses a length before allocating for it. What is new is the
+*waiting*, and the hostile version of waiting is exactly what this bounds. The
+unit tests feed the reader a length no message may have and assert it is refused
+and ends the reading, since a stream that has lost its place in the message
+boundaries has nothing further worth reading.
+
+**`ROADMAP.md` moved, and it is not a tick.** The line *"the transport, and the
+lifecycle that starts, reuses and reaps renderers"* was ticked by item 64 and
+stays ticked — its three verbs are done. What it carried was a note saying this
+was found and deliberately not folded in; that note now says what was built
+instead, which is the `· Built:` half of the clause that file defines. Nothing
+was re-ticked to discharge an obligation.
+
+**What the next iteration should know.** The ready items in stage 2's file order
+are now **66** (where one site ends and another begins — much of which
+`alo_url::site` has answered since item 156, so read that before building
+anything) and **190** (the two-tone border styles: small, depends on nothing,
+closes with a picture). 157 and 158 need an interface to ask in — and this
+iteration added a third thing waiting on that interface, since *"wait, or stop
+it?"* is the honest form of the bound built here. 187 is deferred for the reason
+written into it, 169 must be run on Linux, 60 is HTTP/3, and 197 waits on
+properties `alo-style` does not have.

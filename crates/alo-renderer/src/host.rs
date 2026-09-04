@@ -21,7 +21,18 @@
 //! **not** start another one to retry. The site's entry is dropped, so the next
 //! *deliberate* load gets a fresh process — but nothing here decides on its own
 //! that a page should be reloaded.
+//!
+//! # And what one that has stopped answering without dying looks like
+//!
+//! The same thing, which is the point. A renderer that is alive and silent used
+//! to be nothing at all — an exchange had no bound, so the browser process
+//! waited in a read for ever and every other tab waited with it. It is a
+//! [`Gone`] now, after [`crate::answers::LONGEST_SILENCE`], and the process is
+//! stopped on the way: a tab hears the same sentence in the same shape as one
+//! whose renderer crashed, because from a person's side those are the same
+//! event.
 
+use crate::answers::{Answers, LONGEST_SILENCE};
 use crate::face::Face;
 use crate::generic::Generics;
 use crate::message::{FromRenderer, ToRenderer};
@@ -30,9 +41,10 @@ use crate::sandbox;
 use crate::site::Site;
 use crate::wire;
 use std::collections::{HashMap, HashSet};
-use std::io::{BufReader, BufWriter};
+use std::io::BufWriter;
 use std::path::PathBuf;
-use std::process::{Child, ChildStdin, ChildStdout, Stdio};
+use std::process::{Child, ChildStdin, Stdio};
+use std::time::Duration;
 
 /// How many renderer processes may exist at once.
 ///
@@ -64,7 +76,9 @@ impl std::error::Error for Gone {}
 struct Held {
     child: Child,
     to: BufWriter<ChildStdin>,
-    from: BufReader<ChildStdout>,
+    /// What it has said, read on a thread of its own so that waiting for it can
+    /// be given a bound — see [`crate::answers`] for why that needs a thread.
+    answers: Answers,
 }
 
 /// The renderers a browser process is holding.
@@ -91,6 +105,12 @@ pub struct Renderers {
     /// evicts something rather than refusing to open a tab.
     order: Vec<Site>,
     started: usize,
+    /// How long a renderer may say nothing before it is given up on.
+    ///
+    /// A field rather than the constant used in place, so that a test can name
+    /// a bound of its own: one that waits [`LONGEST_SILENCE`] to find out that
+    /// a wedged renderer is killed is a test nobody runs.
+    patience: Duration,
 }
 
 impl Renderers {
@@ -111,7 +131,19 @@ impl Renderers {
             held: HashMap::new(),
             order: Vec::new(),
             started: 0,
+            patience: LONGEST_SILENCE,
         }
+    }
+
+    /// The same, giving a renderer this long to answer before it is stopped.
+    ///
+    /// [`LONGEST_SILENCE`] otherwise, and that constant says why it is the
+    /// number it is. This exists for a test, and for whoever one day puts the
+    /// question to a person instead.
+    #[must_use]
+    pub fn waiting_at_most(mut self, patience: Duration) -> Self {
+        self.patience = patience;
+        self
     }
 
     /// The same, giving every renderer these fonts.
@@ -182,23 +214,26 @@ impl Renderers {
     ///
     /// # Errors
     ///
-    /// [`Gone`] when the renderer could not be started, or died. A renderer
-    /// that answered with a refusal or a failure is **not** an error here —
-    /// that is the renderer doing its job, and it comes back as a
-    /// [`FromRenderer`].
+    /// [`Gone`] when the renderer could not be started, died, or **said nothing
+    /// for [`Renderers::waiting_at_most`]** — the last of which stops it, since
+    /// an answer that arrived after we gave up waiting would be handed back as
+    /// the answer to somebody else's question. A renderer that answered with a
+    /// refusal or a failure is **not** an error here — that is the renderer
+    /// doing its job, and it comes back as a [`FromRenderer`].
     pub fn ask(&mut self, site: &Site, work: &ToRenderer) -> Result<FromRenderer, Gone> {
         if !self.held.contains_key(site) {
             self.start(site)?;
         }
         self.remember_as_newest(site);
         let sent = wire::write_to_renderer(work);
+        let patience = self.patience;
 
         let answer = {
             let Some(held) = self.held.get_mut(site) else {
                 return Err(self.lost(site, "it could not be started"));
             };
             match pipe::write(&mut held.to, &sent) {
-                Ok(()) => pipe::read(&mut held.from).map_err(|why| why.why),
+                Ok(()) => held.answers.within(patience).map_err(|why| why.to_string()),
                 Err(why) => Err(why.to_string()),
             }
         };
@@ -361,7 +396,7 @@ impl Renderers {
             Held {
                 child,
                 to: BufWriter::new(to),
-                from: BufReader::new(from),
+                answers: Answers::read_from(from),
             },
         );
         self.order.push(site.clone());
@@ -383,6 +418,7 @@ impl Renderers {
         if !self.generics.is_empty() {
             opening.push(ToRenderer::UseGenerics(self.generics.clone()));
         }
+        let patience = self.patience;
         for work in opening {
             let sent = wire::write_to_renderer(&work);
             let Some(held) = self.held.get_mut(site) else {
@@ -392,8 +428,11 @@ impl Renderers {
                 break;
             }
             // Read the answer, so the two ends stay in step — the next thing
-            // written would otherwise be read as the answer to this.
-            if pipe::read(&mut held.from).is_err() {
+            // written would otherwise be read as the answer to this. Bounded
+            // like every other wait for a renderer: a process that goes silent
+            // while being handed a font is as capable of hanging this one as
+            // any other, and the first page is what finds out.
+            if held.answers.within(patience).is_err() {
                 break;
             }
         }

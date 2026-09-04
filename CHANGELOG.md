@@ -6,6 +6,28 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page that wedges its renderer no longer freezes the whole browser.** One
+  process per site means a page that crashes costs one tab, and that has been
+  true here for a while. A page that leaves its renderer *alive and silent* —
+  stuck in a loop, or stuck on something a hostile page arranged — was a
+  different story: nothing bounded how long an answer might take, so the
+  browser process waited in a read for as long as the renderer lived. Every
+  other tab, and everything a person could click, waited with it. The one
+  failure the process split exists to prevent, arriving by the one road nobody
+  had walked down.
+
+  A renderer that says nothing for ten seconds is now given up on and stopped,
+  and its tab says so in the same words as a tab whose renderer crashed —
+  keeping the picture it was showing, taking no other tab with it, and coming
+  back only when somebody asks for the page again. From a person's side those
+  are the same event, so they read the same.
+
+  A renderer that is merely **slow** is still waited for: the bound is on
+  silence, not on being quick. Ten seconds is a choice rather than a
+  measurement, and the honest version of it is a question — *this page is not
+  responding; wait, or stop it?* — which is what this will become when there is
+  an interface to ask it in.
+
 - **Closing the last tab on a site ends that site's process.** One process per
   site is what keeps one page's failure away from every other page, and it is
   paid for in memory: N sites cost N processes. Nothing was ending them.
