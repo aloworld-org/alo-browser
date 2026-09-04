@@ -8235,3 +8235,134 @@ most needed is the moment there is nothing to spare. Item 205 is still the
 better second choice and still not urgent. Outside section D, **190** (the
 two-tone border styles: small, depends on nothing, closes with a picture) is
 still ready.
+
+---
+
+## Iteration 106 — queue item 71: the heap, and the collector that owns it
+
+**The tree was clean on entry and `scripts/gate.sh` was green.** Item 71's ADR
+was written by the iteration before this one, so this is the code — the shape
+`LOOP.md`'s stage 2 clause 4 asks for, and the same shape ADR 0005 and
+`alo-renderer` had.
+
+**Taken over 205, which is earlier in the file, and the reason is unchanged
+from last time**: 205's own text says a scope belongs to the thing that owns
+it, and 71 is that thing. Everything else outside section D is where it was:
+157 and 158 need an interface to ask in, 187 is deferred with its reason
+written into it, 169 must be *run* on Linux, 197 waits on properties
+`alo-style` does not have, 201 and 203 wait on a wiring that does not exist,
+and 60 is HTTP/3, which nothing depends on and nothing makes reachable.
+
+**Scope was cut and depth was not, and the cut is the ADR's own seam.** ADR
+0014 § § 1 to 10 are the heap and the collector; § 11 is what a *cell* is —
+prototypes, properties, an observable order, interned keys, strings. This
+iteration built the first and wrote the second into the queue as **item 206**.
+The order was not a preference: `Heap<T>` is generic in its cell, so the object
+model lands inside it without changing a line of `heap.rs`, and building it the
+other way round would have meant putting objects somewhere else first and then
+moving them into a heap. Item 72 now depends on 71 **and** 206, which is
+written into 72.
+
+**What was built**, in six files, one responsibility each: `heap.rs` is the
+arena and its interface; `heap/reference.rs` is what names a cell and the two
+kinds of field that hold one; `heap/trace.rs` is the one demand the engine
+makes of anything in the heap; `heap/root.rs` is the closed list of places a
+live reference may be; `heap/collect.rs` is mark and sweep; `heap/check.rs` is
+the invariants. Four numbers landed in `bounds.rs` with their reasons, which is
+where ADR 0014 § 9 says they go rather than in the decision.
+
+**All four closing conditions are met, and each is a test rather than a
+sentence.** A cycle is reclaimed and **counted** — `Heap::live` is a number the
+heap knows, so nothing here watches the process's memory. One of those cycles
+goes through an **embedder's** object: a node, a listener on it, a closure back
+to the node, which is § 6's clause in the only form available before the
+bindings crate (item 80) exists, and the test says so in its own words rather
+than implying it tested the real DOM. The stress mode collects at every
+safepoint — today that is every allocation — and **both halves are asserted**,
+because a mode that reclaimed everything would pass the first half by being
+useless. The invariants are `Heap::check`, run after every collection in every
+test, and it walks with the collector's own marker rather than a second one:
+ADR 0014 § 1 refuses two ideas of what is alive, and a check with its own idea
+would be that mistake in the place it is hardest to see.
+
+**Three things are worth reading twice, and two of them are defects this
+iteration found in its own first design.**
+
+The **bounded ephemeron buffer was a correctness bug** before it was fixed. ADR
+0014 § 8 says a collection allocates nothing, so the pair list is bounded like
+the worklist — and the § 8 argument that an overflow *costs a rescan and never
+correctness* is true of the worklist and was **not** true of the pairs. A
+worklist overflow leaves a marked cell whose children were not followed, and a
+rescan finds it by its mark bit; a pair overflow leaves nothing behind to find
+it by, so a `WeakMap` with more live entries than the buffer holds would have
+had entries silently dropped — a value a page can still ask for and would not
+get. Two changes fix it, and the second is what makes the first sound: a pair
+whose key is **already marked is settled where it is reported** and never
+stored at all, which is the common case and empties the buffer of everything
+decided; and a collection that ever refused a pair does not finish until a pass
+over every marked cell marks nothing new. Since a rescan re-derives every pair
+from the cell holding it, and by then a key may be marked, the last thing such
+a collection does is a full pass that found nothing. `Heap::rescans` counts
+those passes, and the two hostile tests **assert it is not zero** — a bound
+nothing ever reaches is a bound nobody has checked is reachable, which is
+exactly what item 204 learned about `DEEPEST_NESTING`.
+
+A **retired slot needed the retired generation reserved rather than reached.**
+ADR 0014 § 3 says a slot whose generation would wrap is retired instead. Written
+the obvious way — stop when the counter cannot be raised — the last reference
+handed out before retirement goes on matching for ever, so retiring the slot
+keeps alive the one thing it was retired to let go of. `u32::MAX` is reserved
+and `next_life` stops one below it, so no reference is ever made carrying it.
+
+And **the cell being allocated is traced as a root** for the collection its own
+allocation caused. Without it the discipline in § 2 would include "do not build
+an object", since an allocation is a safepoint and the references the new cell
+carries would be nobody's. It is not a weakening of precision: the cell is about
+to be live and the collector has it in its hand.
+
+**One thing about the write barrier is honest rather than absolute.** ADR 0014
+§ 5 says an object's reference-bearing fields are private to the heap module so
+there is no second way to write one. `Field` has no mutator but `set`, which
+takes a `Barrier`, and the only `Barrier` comes from `Heap::write` — but Rust
+cannot stop somebody assigning a whole field over. That is written into
+`Field::holding`'s own documentation rather than left implied, with the second
+half of § 5 named as what closes it: a cell keeps its fields private. Nothing in
+this crate assigns one, and `Heap::stores` counts every store that went through
+the barrier so a test can say so.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1879 tests** (up from 1853 — twenty-one new cases and five unit
+tests), no stubs, no `unsafe`, every boundary held, the licence notice on all
+six new files, and a `CHANGELOG.md` line. No layout assertion and no reference
+render: this iteration positions nothing and paints nothing. One file one
+responsibility: six files, each named above with the one reason it changes.
+
+**One thing a later iteration will meet and should not spend an hour on.** The
+panic family is denied outside a test, and clippy means a `#[test]` function
+rather than a test *crate* — so a helper in `tests/*.rs` that unwraps is
+production code as far as the lints are concerned, and they are right. The two
+new test files allocate through a **macro**, which expands at the call site, and
+each says why in a comment.
+
+**`ROADMAP.md` moved, and it is not a tick.** *A garbage collector, and the
+object model underneath it* gains a third `· Built:` clause naming the crate,
+the three retrofit-proof clauses as things a reader can check, and the numbers;
+its `· Owed:` names the object model (item 206), the DOM's real wrapper (item
+80) and the weak-reference callbacks (item 76), and says plainly that no claim
+about speed is made because none has been measured. The box stays empty,
+because half a line is not a line. `docs/features.md`'s line gains the same in a
+reader's words.
+
+**What the next iteration should know.** The next queue number is **207** and
+the next ADR number is **0015**. Section D's ready items are **206** and
+**205**. **206 is the one to take**: item 72 depends on it, it is the other half
+of an ADR that is already written, and its closing conditions are in the queue —
+the observable property order, a prototype chain with a refused cycle, and the
+hostile half item 71 could not have, which is an unbounded number of distinct
+property keys. Two things it will want that are already there: `Heap::write` is
+the only way to get `&mut` to a cell and it hands over the `Barrier` with it, and
+`Trace::footprint` is how a cell that grows tells the heap it did — a property
+table that grows without reporting is a ceiling that is not enforced. Item 205
+is still the better second choice and still not urgent. Outside section D,
+**190** (the two-tone border styles: small, depends on nothing, closes with a
+picture) is still ready.

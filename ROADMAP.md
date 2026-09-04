@@ -503,10 +503,26 @@ unreachable without it.
       fixpoint** because a `WeakMap` added afterwards is wrong, and a **marker
       that never recurses**, which is item 204's finding restated for a graph a
       script chooses the depth of
-      · Owed: all of the code (queue item 71), and the numbers with it — the
-      heap ceiling, the collection trigger and the worklist capacity land in
-      `bounds.rs` with their reasons rather than in the ADR, because a number
-      written into a decision is a number nobody can tune with evidence
+      · Built: the heap and the collector (`alo-js`'s `heap`, queue item 71) —
+      an arena of slots, a reference that is an index carrying a generation, a
+      **precise non-moving mark and sweep**, and every clause of the decision
+      above in code rather than in prose. The three that cannot be retrofitted
+      are the ones to check: the barrier is the only way a reference is stored
+      into a cell and it is counted so a test can prove it; the ephemeron
+      fixpoint keeps a chain of weak maps that a single pass loses; and the
+      marker uses a bounded worklist, so **a graph a million objects deep is
+      marked with no recursion at all** and a buffer that fills up costs a
+      rescan rather than an object. A cycle through an embedder's object is
+      reclaimed, counted rather than watched. The numbers landed with it in
+      `bounds.rs`, each with its reason: a heap ceiling, a collection trigger,
+      and the two marking buffers · Owed: **the object model** the collector
+      collects (queue item 206) — objects, prototypes, properties in the order
+      a page can observe, interned keys and strings — which is why this line is
+      not ticked. The heap is generic in what a cell is until it lands. Also
+      owed and named where they belong: the DOM's real wrapper (queue item 80),
+      and `WeakRef` and `FinalizationRegistry` callbacks as tasks (queue item
+      76). No claim about speed is made here or anywhere: none has been
+      measured
 - [ ] The standard library: the ECMAScript builtins, in the order real pages need them
 - [ ] Regular expressions, with the syntax the language actually has
 - [ ] Promises, the microtask queue, `async`/`await`, generators and iterators

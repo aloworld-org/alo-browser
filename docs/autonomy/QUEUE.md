@@ -1938,7 +1938,7 @@ The long pole, and the thing most of section E is unreachable without.
   program it refuses, and an attribute reaches the thing that would act on it
   rather than being parsed and dropped.
 
-- [ ] **71. The object model, and a garbage collector.** Objects, properties,
+- [x] **71. The object model, and a garbage collector.** Objects, properties,
   prototypes, and something that reclaims them.
   *Depends on 69. **ADR 0014 is written and accepted** — a collector is a
   decision about pauses, and it turned out to be four decisions that cannot be
@@ -1967,9 +1967,63 @@ The long pole, and the thing most of section E is unreachable without.
   that checks them; and the hostile half is a refusal or a collection rather than
   a crash.
 
+  **Done, for the collector; the object model is cut to item 206.** Scope
+  rather than depth, and the cut is the one the ADR's own shape suggests: § § 1
+  to 10 are the heap and § 11 is what a cell *is*. `Heap<T>` is generic in its
+  cell, so the object model lands inside it without changing a line of
+  `heap.rs` — and building it the other way round would have meant storing
+  objects somewhere else first and moving them.
+
+  All four closing conditions are met. A cycle is reclaimed and **counted**,
+  including one through an embedder's object — a node, a listener, a closure
+  back to the node — which is § 6's clause in the only form available before
+  the bindings crate (item 80) exists. The stress mode collects at every
+  safepoint, which today means at every allocation, and it has both halves
+  asserted: a reference in a Rust local does not survive one and a rooted one
+  does. The invariants are `Heap::check`, run after every collection in every
+  test. And the hostile half is `tests/a_heap_that_is_hostile.rs`.
+
+  **Three things are worth reading twice.** The bounded pair buffer nearly
+  became a correctness bug: a `WeakMap` with more live entries than the buffer
+  holds would have had entries silently dropped, so the mark phase settles a
+  pair **where it is reported** when the key is already marked, and a
+  collection that ever refused a pair does not end until a pass over every
+  marked cell finds nothing new. A **retired** slot needed the retired
+  generation to be reserved rather than reached, or the last reference handed
+  out before retirement would have gone on matching for ever. And the cell
+  *being allocated* is traced as a root for the collection its own allocation
+  caused — otherwise the discipline would have included "do not build an
+  object", which is not a discipline.
+
+  Two things the ADR names are recorded as owed rather than done, each against
+  the item that owns it: `WeakRef` and `FinalizationRegistry` **callbacks** are
+  item 76's, since they run as tasks on an event loop that does not exist —
+  what the heap owes them, clearing and reporting the loss, is here — and
+  test262 for the weak collections needs a script to run, which is item 72.
+
+- [ ] **206. The object model.** Cut from 71, which built the heap and the
+  collector and is generic in what a cell is. ADR 0014 § 11 is the whole
+  specification and it is mostly decisions already made: an ordinary object is a
+  prototype reference or null, a property table and an extensibility flag;
+  **property order is observable, so it is the specification's order from the
+  first line** — integer-like keys ascending, then strings in insertion order,
+  then symbols; internal methods are the *same* trait ADR 0013 § 6 promised the
+  embedder, so arrays, functions, proxies and the DOM's oddities are one
+  mechanism rather than two; one interface for get, set, define, delete and own
+  keys, because the representation behind it is what an engine changes when it
+  gets fast; **property keys are interned and the intern table is weak**, since
+  a strong one is a leak a stranger's script controls; and a string is a heap
+  object, immutable once made, in UTF-16 code units.
+  *Depends on 71. Closes when:* the property order a page can enumerate is the
+  specification's in a test that mints keys of all three kinds out of order; a
+  prototype chain answers a lookup and a cycle in one is refused rather than
+  looped; and the hostile half is the one item 71 could not have — **an
+  unbounded number of distinct property keys**, which is a refusal or a
+  collection rather than a heap that grows for ever.
+
 - [ ] **72. A bytecode compiler and an interpreter.** Values, scopes, calls,
   `this`, closures, exceptions.
-  *Depends on 70, 71. Closes when:* a suite of small programs produces the
+  *Depends on 70, 71, 206. Closes when:* a suite of small programs produces the
   values the specification says, run as a table rather than as prose.
 
 - [ ] **73. The ECMAScript builtins**, in the order real pages need them rather

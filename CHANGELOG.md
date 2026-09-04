@@ -6,8 +6,44 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Built: the place a script's things live, and the thing that tidies them
+  away.** Last month's decision, in code. A program makes objects and something
+  has to notice when nothing needs them any more; this is that something, and it
+  is now a thing that runs rather than a document that describes one.
+
+  What it does. Everything lives in one place the browser owns, and anything
+  referring to it holds **a number naming a slot** rather than a machine
+  address. Tidying up starts from what is definitely in use and keeps whatever
+  can be reached from it — so a button that holds a function that mentions the
+  button, which refers to itself in a circle and which counting would never free,
+  is freed the moment the page lets go of it. A slot is used again afterwards,
+  and the number that named the old occupant **names nothing** rather than
+  quietly naming the new one, which is the difference between a mistake the
+  browser can report and the kind of bug browsers get broken into through.
+
+  The three things that had to go in before anything needed them are in: the
+  hook that would let the tidying happen in slices, should anybody ever notice
+  the browser pause; the extra care that makes a `WeakMap` actually right rather
+  than nearly right; and a walk over a page's objects that **never calls
+  itself**. That last one is the one a page can attack: a script can build a
+  chain of a million objects in one line, and a browser that walked it by
+  calling itself would stop. This walks it, and there is a test that builds
+  exactly that chain.
+
+  What happens when a page asks for too much is a sentence rather than a
+  collapse. There is a ceiling on how much one page's objects may hold, chosen
+  here rather than inherited from the machine, and a page that reaches it gets a
+  refusal that says the tab stopped and why. The browser stays up, and so does
+  every other tab.
+
+  Two things it is honest about. It does not yet know what an *object* is —
+  prototypes, properties and the order a page sees them in are the next piece of
+  work — and nothing here claims to be fast, because nothing here has been
+  measured on real hardware and a claim about speed that has not been measured is
+  not one this project makes.
+
 - **Decided: where a script's objects live, and what tidies them away.** No code
-  this time. A program makes things — objects, text, functions — and something
+  that time. A program makes things — objects, text, functions — and something
   has to notice when nothing needs them any more. How that is done is the kind
   of choice that cannot be revisited once a language is built on top of it, so
   it is written down first, argued in one document, and open to being argued

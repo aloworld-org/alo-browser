@@ -10,12 +10,18 @@
 //! nobody can argue with later, so each one here says what it protects and what
 //! a page hitting it would look like.
 //!
-//! The lexer needs one and the parser needs the other. A lexer allocates in
-//! proportion to its source and nothing else — a string's characters, a name's
-//! bytes and a token's span are all cut out of the text that was already read,
-//! so bounding the text bounds all of them — and it does not recurse, so a
-//! million open brackets is a million tokens and no stack at all. The parser
-//! is the thing that recurses, which is why the second bound arrived with it.
+//! The lexer needs the first two. A lexer allocates in proportion to its source
+//! and nothing else — a string's characters, a name's bytes and a token's span
+//! are all cut out of the text that was already read, so bounding the text
+//! bounds all of them — and it does not recurse, so a million open brackets is a
+//! million tokens and no stack at all. The parser is the thing that recurses,
+//! which is why the third arrived with it.
+//!
+//! The rest are the heap's, and ADR 0014 § 9 says explicitly that they land here
+//! rather than in the decision: *a ceiling written into an ADR is a number
+//! nobody can tune with evidence*. None of them is a claim about speed —
+//! `LOOP.md` says such a claim is measured on hardware or not made, and nothing
+//! here has been measured on any.
 
 /// The most source text we will read, in bytes.
 ///
@@ -66,3 +72,62 @@ pub const DEEPEST_NESTING: usize = 256;
 /// touches, so a script that nests four deep costs four levels of stack and
 /// not this.
 pub const STACK_FOR_A_PARSE: usize = 32 * 1024 * 1024;
+
+/// The most a page's objects may hold, in bytes.
+///
+/// One gibibyte. ADR 0014 § 9: reaching it collects first and fails second, and
+/// failing means an error the script or the embedder is told about rather than
+/// an abort.
+///
+/// The reasoning is the process model rather than the machine. ADR 0005 gives a
+/// **site its own renderer**, so this number is multiplied by however many sites
+/// a person has open — and somebody with a dozen tabs must not be able to reach
+/// a dozen times a machine's memory before anything says a word. A gibibyte is
+/// far above what the heaviest single-page application legitimately holds and
+/// far below what a page would need to make a laptop swap, which is the band
+/// this belongs in.
+///
+/// It is a number to argue with once there is evidence: the honest report is
+/// that no page has yet been measured against it, because nothing in this
+/// engine runs a page.
+pub const HEAP_CEILING: usize = 1024 * 1024 * 1024;
+
+/// How many bytes a script may allocate before the collector runs.
+///
+/// Eight mebibytes. ADR 0014 § 9: the trigger is **bytes allocated since the
+/// last collection, never a clock** — ADR 0013 § 5 gives this crate no clock and
+/// ADR 0014 does not hand it one, which is also why a collection is a thing a
+/// test asks for rather than a thing a test waits for.
+///
+/// The number bounds *growth* rather than pause: a program allocating rubbish
+/// in a loop is collected every eight mebibytes of it, so a heap that holds
+/// nothing stays a heap that holds nothing. Whether it is the right number for a
+/// pause somebody can see is a measurement nobody has taken, and ADR 0014's own
+/// section on how we will know this was wrong says what to do when somebody
+/// does.
+pub const COLLECT_AFTER: usize = 8 * 1024 * 1024;
+
+/// How many references the marker's worklist holds.
+///
+/// Sixty-four thousand, which is half a mebibyte of them, taken once when the
+/// heap is made and never grown. ADR 0014 § 8: *a collection allocates nothing
+/// it has not already got*, because the moment we most need to collect is the
+/// moment there is nothing spare — and the size of a worklist that grew would be
+/// chosen by whoever wrote the script, which is `alo-net`'s sentence in a
+/// different crate: **a limit somebody else chooses is not a limit**.
+///
+/// Overflowing it costs a rescan and never correctness: the mark bits are the
+/// truth and the worklist is only a list of what to look at next. So this is a
+/// number that trades work against memory and cannot trade away an answer, which
+/// is why it can be small.
+pub const MARKING_WORKLIST: usize = 64 * 1024;
+
+/// How many ephemeron pairs the marker holds while it iterates them.
+///
+/// Sixteen thousand, a quarter of [`MARKING_WORKLIST`] and for the same
+/// reasons. A pair is a `WeakMap` entry whose key was reached, so a page holding
+/// more than this many live weak entries at once pays for a rescan rather than
+/// losing one: ADR 0014 § 7 asks for a fixpoint that never drops an entry a
+/// chain of maps keeps live, and a bound that could drop one would be that
+/// promise broken quietly.
+pub const MARKING_EPHEMERONS: usize = 16 * 1024;

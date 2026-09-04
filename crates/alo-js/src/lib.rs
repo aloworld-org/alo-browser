@@ -14,19 +14,19 @@
 //! the same bytes are a legal script and a legal module with different
 //! meanings.
 //!
-//! Nothing here evaluates anything. There is no value, no object and no heap;
-//! [`token::Kind::BigInt`] keeps digits rather than a number for exactly that
-//! reason, and inventing an integer type to hold one would be building item
-//! 71's object model in the wrong crate. The tree is what item 72's compiler
-//! will read.
+//! [`heap`] is the third (ADR 0014, item 71): the arena everything a script
+//! makes will live in, and the collector that owns it. A reference into it is an
+//! **index carrying a generation** rather than a pointer, which is why nothing
+//! here needs `unsafe` to hold one; and the collector is **precise**, so the
+//! interpreter's frames and value stack will live in structures it walks rather
+//! than in Rust locals.
 //!
-//! The heap that is missing is **decided** rather than open — ADR 0014, item
-//! 71 — and two of its clauses land in this crate when it arrives. A reference
-//! into it is an **index carrying a generation** rather than a pointer, which
-//! is why nothing here will need `unsafe` to hold one; and the collector is
-//! **precise**, so the interpreter's frames and value stack live in structures
-//! the collector walks rather than in Rust locals. Both are shapes to build to
-//! rather than shapes to arrive at.
+//! Nothing here evaluates anything yet, and the heap is generic in what a cell
+//! is because what an object **is** — a prototype, a property table, an order a
+//! page can observe — is queue item 206 rather than this one.
+//! [`token::Kind::BigInt`] keeps digits rather than a number for the same
+//! reason: inventing an integer type to hold one would be building the object
+//! model in the wrong file. The tree is what item 72's compiler will read.
 //!
 //! # The rule that shapes every file: a script is a stranger's bytes
 //!
@@ -62,6 +62,7 @@ pub mod ast;
 pub mod bounds;
 pub mod error;
 pub mod escape;
+pub mod heap;
 pub mod lexer;
 pub mod number;
 pub mod parser;
@@ -76,6 +77,7 @@ pub mod word;
 
 pub use ast::{Program, Source};
 pub use error::{Position, Reason, SyntaxError};
+pub use heap::{Field, Full, Heap, Ref, Root, Scope, Survivors, Trace, Tracer, Weak};
 pub use lexer::{Goal, Lexer};
 pub use parser::{Parser, module, script};
 pub use punctuator::Punctuator;
