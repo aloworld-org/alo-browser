@@ -8490,3 +8490,124 @@ rather than in Rust locals, and that is the clause with the longest reach in
 the whole decision. Item 205 is still the better second choice and still not
 urgent. Outside section D, **190** (the two-tone border styles: small, depends
 on nothing, closes with a picture) is still ready.
+
+---
+
+## Iteration 108 — queue item 208: the parser bounds the tree it builds
+
+**The item I took is not the item the last iteration named**, and the reason is
+the whole of this entry. It named **72**, correctly. Item 72's compiler walks
+the tree the parser hands it, one stack frame per level, so the first thing I
+did was ask how deep that tree can be — and found that the answer is *as deep
+as the file is long*, that this is reachable from any page, and that it ends
+the renderer.
+
+`script("+a".repeat(60_000))` parses in about a second and then **aborts the
+process**. Not while reading it: while *dropping* it. `Drop` walks the tree one
+frame per level like every other reader, and there was no reader before it, so
+nothing had ever found out.
+
+So item 72's scope was cut on starting, the cut is **item 208**, and 208 was
+taken first. `LOOP.md` allows the cut (*"if it is turning out larger than one
+iteration, cut its scope, never its depth, and write the cut into the queue as
+a new item"*); what made it the item to take rather than one to file is that
+ADR 0013 § 4 says *it never panics, not on any source text, not on any program*,
+and a renderer that stops is the denial of service ADR 0005 is built around.
+Building a compiler on top of it would have been building on a hole somebody
+had already walked into.
+
+**Nine shapes, and they are two defects wearing one name.** Item 204 counts how
+deep the parser *recurses*, which is the right bound for a bracket and the
+wrong question for everything else.
+
+- **Five recursed where nothing counted** and overflowed the parse thread's own
+  thirty-two mebibytes: `!!!…a`, `- - - …a`, `typeof typeof …a`, `new new …a`,
+  and `a**a**a…`. Each is a recursive call in `expression.rs` that had no
+  `deeper()` around it.
+- **Four are read in a loop**, so they cost the parser no stack at all and only
+  the *tree* gets deeper: `a.b.b.b…`, `a()()…`, `a?.b?.b…`, `a+a+a…`, with a run
+  of tagged templates and `||`, `&&`, `??` beside them. These parsed perfectly
+  and died on the way out.
+
+**Two bounds now, and they are two questions.** `DEEPEST_NESTING` stays at 256
+and means what it always meant: how deep this parser recurses, measured against
+`STACK_FOR_A_PARSE`, where a bracket costs thirteen frames.
+`DEEPEST_EXPRESSION` is new and is 4096: how deep a **tree** it will build,
+where a level costs one frame in every walker there will ever be. The number is
+measured rather than chosen — a `cargo test` thread has two mebibytes and drops
+a tree sixteen thousand levels deep without trouble in a debug build, so 4096 is
+that with a margin, and it is sixteen times the other because a level here is a
+sixteenth of the cost. `Reason::ExpressionTooDeep` is a refusal of its own, so a
+test asserts *which* bound answered rather than that something was refused.
+
+**The rule worth reading twice is what the new counter does not do**, because
+the obvious implementation is wrong in a way every test would have passed.
+`Parser::linked` counts the **path** rather than the loop, and `Parser::beside`
+puts the count back only around **siblings** — the right side of an operator, an
+argument, an array element, a property's value, a branch of a `?:`, one
+declarator, one statement. A counter that were put back when each *loop* ended
+is defeated by nesting: two hundred levels, each a thousand links, none of which
+reaches the ceiling alone and which together are two hundred thousand deep. I
+built that program and it is now a test
+(`a_chain_inside_a_chain_inside_a_chain_is_counted_as_all_three`).
+
+**And the half that would have been much harder to notice.** A bound that added
+siblings up would be sound and would refuse most of the real web. So the other
+new test is the opposite one: an array of fifty thousand elements, an object of
+twenty thousand properties, a call with twenty thousand arguments, a `var` with
+five thousand declarators, sixty thousand comma operands, twenty thousand
+statements and a template with twenty thousand substitutions all still parse and
+are dropped. Both frozen real scripts still parse, unchanged, which is the
+evidence that mattered most.
+
+The counting is deliberately a slight **over-approximation** in one place: a
+long chain whose *operands* are themselves long chains is charged for both. It
+takes two hundred chains of two thousand terms each to notice, over-approximating
+is the safe direction, and under-approximating is the bug this item exists to
+fix.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **1924 tests** (up from 1920 — four new cases in the parser's existing
+hostile file), no stubs, no `unsafe`, every boundary held, the licence notice
+intact, and a `CHANGELOG.md` line. No layout assertion and no reference render:
+this iteration positions nothing and paints nothing. One file one
+responsibility: no new file, because this is not a new responsibility — it is
+`a_program_that_is_hostile.rs` finally asking its own question properly, plus a
+bound in `bounds.rs`, a refusal in `error.rs` and two helpers in `parser.rs`
+beside the two that were already there.
+
+**`ROADMAP.md` moved, and it is not a tick.** *Lexer and parser to an AST* gains
+a third `· Built:` clause naming the nine shapes, the two bounds and the two
+directions the tests stand in; its `· Owed:` is unchanged, because item 205 is
+untouched. `docs/features.md`'s parser line gains the same in a reader's words,
+including the sentence about width that is the part somebody would otherwise get
+wrong.
+
+**What the next iteration should know.** The next queue number is **209** and
+the next ADR number is **0015**. **Item 72 is the item to take**, and it is now
+genuinely unblocked rather than apparently so. Three things it should know
+before it starts:
+
+1. **The tree is bounded** at `DEEPEST_NESTING + DEEPEST_EXPRESSION`, so a
+   recursive compiler is a legitimate shape — but 4096 levels of a compiler's
+   frames will not fit in a caller's two mebibytes, so it needs **a stack of its
+   own**, which is `Parser::program`'s argument made a second time and should be
+   a `STACK_FOR_A_COMPILE` beside `STACK_FOR_A_PARSE` with its own measurement.
+2. **Item 72 is far larger than one iteration and should be cut again on
+   starting.** The shape I had worked out before this item interrupted it, in
+   case it is useful: take the machine and the language that needs no call —
+   values, scopes with their temporal dead zone, the operators, control flow —
+   and cut *calls, `this` and closures* and *`try`/`catch`/`finally`* into items
+   of their own. Two things fall out of having no callable object and both are
+   correct rather than approximate: `ToPrimitive` on an object throws a
+   `TypeError`, because nothing in the heap is callable and `OrdinaryToPrimitive`
+   has nothing to call; and per-iteration loop bindings are unobservable, because
+   nothing can capture one.
+3. **ADR 0014 § 2 is the clause with the longest reach**: the value stack lives
+   in a structure the collector walks rather than in Rust locals, which means a
+   cell of its own in `object::Cell` and every push and pop going through
+   `Heap::write`. `object::Objects` is the type to hold, and
+   `Objects::define_named` is the rooting discipline written as one call.
+
+Outside section D, **190** (the two-tone border styles) is still ready and still
+small.

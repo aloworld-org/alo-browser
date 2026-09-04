@@ -6,6 +6,38 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Fixed: nine short scripts that killed the browser's page process.** Not a
+  new feature — a hole in one that was already here, found while starting the
+  work that runs a script and fixed before any of that was built on top of it.
+
+  A page can send us any text it likes and call it JavaScript, so the rule has
+  always been that we *refuse* what we cannot read rather than falling over.
+  There was a check for the obvious shape — a file of twenty thousand open
+  brackets — and it turned out to be answering a narrower question than the one
+  that mattered. Nine other shapes walked past it, and each of them ends a tab
+  with no message and nothing to look at afterwards. The simplest is sixty
+  thousand plus signs: a hundred and eighty kilobytes of somebody else's file,
+  read in about a second, and then the process is gone.
+
+  What was wrong is worth saying plainly, because it is the same mistake
+  anywhere. Reading a program builds a shape like a family tree, and the check
+  counted how far the *reader* had walked into it. But some things — `a + a +
+  a + …`, `a.b.b.b…`, a long run of calls — are read straight through without
+  the reader going anywhere at all, so nothing was counted while the tree grew
+  as deep as the file was long. Every later step then has to climb that tree
+  one branch at a time, and the first of those steps is simply throwing the
+  program away when it is finished with. That is where it fell over: not while
+  reading the page, but while tidying up after it.
+
+  There are two limits now instead of one, and they answer the two different
+  questions. Both refuse in words, and both are checked from *below* as well as
+  above, so neither is a number nobody has confirmed is reachable. What the
+  limits deliberately do not count is a page being **wide**: an array of fifty
+  thousand numbers, an object of twenty thousand entries, a file of twenty
+  thousand lines. Those are ordinary, and a limit that added them up would have
+  refused most of the real web — which is the failure that would have been much
+  harder to notice.
+
 - **Built: what an object *is*.** The other half of last month's work. The place
   a script's things live was built; what one of those things looks like from a
   page's side was not, and this is that: an object has a prototype, it has

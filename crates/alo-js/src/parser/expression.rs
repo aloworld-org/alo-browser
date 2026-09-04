@@ -121,7 +121,7 @@ impl Parser<'_> {
         }
         let mut all = vec![first];
         while self.eat(OPERATOR, Punctuator::Comma)? {
-            all.push(self.assignment(allow_in)?);
+            all.push(self.beside(|parser| parser.assignment(allow_in))?);
         }
         Ok(self.expression_at(ExpressionKind::Sequence(all), start))
     }
@@ -237,9 +237,9 @@ impl Parser<'_> {
         // Both arms are `AssignmentExpression[+In]`: an `in` inside them is
         // never the `in` of a `for` header, because the `?` has already
         // committed the header to being an expression.
-        let consequent = self.assignment(true)?;
+        let consequent = self.beside(|parser| parser.assignment(true))?;
         self.expect(OPERATOR, Punctuator::Colon)?;
-        let alternate = self.assignment(allow_in)?;
+        let alternate = self.beside(|parser| parser.assignment(allow_in))?;
         Ok(self.expression_at(
             ExpressionKind::Conditional {
                 test: Box::new(test),
@@ -263,7 +263,8 @@ impl Parser<'_> {
         }
         while self.eat(OPERATOR, Punctuator::Coalesce)? {
             let at = self.start_of_next(OPERAND)?;
-            let (right, right_and_or) = self.or(allow_in)?;
+            self.linked(at)?;
+            let (right, right_and_or) = self.beside(|parser| parser.or(allow_in))?;
             if right_and_or {
                 return Err(SyntaxError::new(Reason::CoalesceMixedWithAndOr, at));
             }
@@ -287,7 +288,8 @@ impl Parser<'_> {
         let (mut left, mut wrote_one) = self.and(allow_in)?;
         while self.eat(OPERATOR, Punctuator::Or)? {
             wrote_one = true;
-            let (right, _) = self.and(allow_in)?;
+            self.linked(start)?;
+            let (right, _) = self.beside(|parser| parser.and(allow_in))?;
             left = self.expression_at(
                 ExpressionKind::Logical {
                     operator: Logical::Or,
@@ -307,7 +309,8 @@ impl Parser<'_> {
         let mut wrote_one = false;
         while self.eat(OPERATOR, Punctuator::And)? {
             wrote_one = true;
-            let right = self.binary(allow_in, 1)?;
+            self.linked(start)?;
+            let right = self.beside(|parser| parser.binary(allow_in, 1))?;
             left = self.expression_at(
                 ExpressionKind::Logical {
                     operator: Logical::And,
@@ -338,14 +341,22 @@ impl Parser<'_> {
             }
             first = false;
             self.bump(OPERATOR)?;
+            // Every turn of this loop wraps what has been read so far in one
+            // more node, so the tree grows a level without this function
+            // growing a frame — which is what [`Parser::linked`] counts.
+            self.linked(at)?;
             // `**` is the one right-associative operator, so its right side is
-            // parsed at its own precedence rather than one above it.
+            // parsed at its own precedence rather than one above it — and that
+            // is recursion rather than another turn of this loop, which is what
+            // `deeper` is for.
             let next_least = if operator == Binary::Power {
                 binds
             } else {
                 binds.saturating_add(1)
             };
-            let right = self.binary(allow_in, next_least)?;
+            let right = self.one_deeper(at, |parser| {
+                parser.beside(|parser| parser.binary(allow_in, next_least))
+            })?;
             left = self.expression_at(
                 ExpressionKind::Binary {
                     operator,
@@ -417,7 +428,7 @@ impl Parser<'_> {
         };
         if let Some(operator) = operator {
             self.bump(OPERAND)?;
-            let (argument, _) = self.unary(allow_in)?;
+            let (argument, _) = self.one_deeper(start, |parser| parser.unary(allow_in))?;
             return Ok((
                 self.expression_at(
                     ExpressionKind::Unary {
@@ -431,7 +442,7 @@ impl Parser<'_> {
         }
         if self.context.inside.awaits() && self.at_keyword(OPERAND, Keyword::Await)? {
             self.bump(OPERAND)?;
-            let (argument, _) = self.unary(allow_in)?;
+            let (argument, _) = self.one_deeper(start, |parser| parser.unary(allow_in))?;
             return Ok((
                 self.expression_at(ExpressionKind::Await(Box::new(argument)), start),
                 true,
@@ -448,7 +459,7 @@ impl Parser<'_> {
         ] {
             if self.at(OPERAND, punctuator)? {
                 self.bump(OPERAND)?;
-                let (argument, _) = self.unary(allow_in)?;
+                let (argument, _) = self.one_deeper(start, |parser| parser.unary(allow_in))?;
                 let at = argument.start;
                 must_be_simple(&argument, at)?;
                 return Ok(self.expression_at(
@@ -522,7 +533,7 @@ impl Parser<'_> {
             return Ok(self.expression_at(ExpressionKind::NewTarget, start));
         }
         let inner = if self.at_keyword(OPERAND, Keyword::New)? {
-            self.new_expression(allow_in)?
+            self.one_deeper(start, |parser| parser.new_expression(allow_in))?
         } else {
             self.primary(allow_in)?
         };
@@ -555,7 +566,14 @@ impl Parser<'_> {
     ) -> Result<(Expression, bool), SyntaxError> {
         let mut optional_anywhere = false;
         loop {
+            // Every suffix nests what has been read inside a new node without
+            // this loop growing a frame, so each one is a level of tree that
+            // [`Parser::linked`] has to count: `a.b.b.b…`, `a()()()…` and
+            // `a?.b?.b…` are the shapes that otherwise build a tree as deep as
+            // the file is long.
+            let at = self.start_of_next(OPERATOR)?;
             if self.eat(OPERATOR, Punctuator::Dot)? {
+                self.linked(at)?;
                 let member = self.member_name(OPERATOR)?;
                 expression = self.expression_at(
                     ExpressionKind::Member {
@@ -569,7 +587,8 @@ impl Parser<'_> {
             }
             if self.at(OPERATOR, Punctuator::LeftBracket)? {
                 self.bump(OPERATOR)?;
-                let index = self.expression(true)?;
+                self.linked(at)?;
+                let index = self.beside(|parser| parser.expression(true))?;
                 self.expect(OPERATOR, Punctuator::RightBracket)?;
                 expression = self.expression_at(
                     ExpressionKind::Member {
@@ -582,6 +601,7 @@ impl Parser<'_> {
                 continue;
             }
             if allow_calls && self.at(OPERATOR, Punctuator::LeftParenthesis)? {
+                self.linked(at)?;
                 let arguments = self.arguments()?;
                 expression = self.expression_at(
                     ExpressionKind::Call {
@@ -595,6 +615,7 @@ impl Parser<'_> {
             }
             if self.at(OPERATOR, Punctuator::OptionalChain)? {
                 optional_anywhere = true;
+                self.linked(at)?;
                 expression = self.optional_link(expression, start, allow_calls)?;
                 continue;
             }
@@ -606,7 +627,8 @@ impl Parser<'_> {
                         at,
                     ));
                 }
-                let template = self.template(true, allow_in)?;
+                self.linked(at)?;
+                let template = self.beside(|parser| parser.template(true, allow_in))?;
                 expression = self.expression_at(
                     ExpressionKind::TaggedTemplate {
                         tag: Box::new(expression),
@@ -646,7 +668,7 @@ impl Parser<'_> {
         }
         if self.at(OPERATOR, Punctuator::LeftBracket)? {
             self.bump(OPERATOR)?;
-            let index = self.expression(true)?;
+            let index = self.beside(|parser| parser.expression(true))?;
             self.expect(OPERATOR, Punctuator::RightBracket)?;
             return Ok(self.expression_at(
                 ExpressionKind::Member {
@@ -696,11 +718,13 @@ impl Parser<'_> {
         self.expect(OPERATOR, Punctuator::LeftParenthesis)?;
         let mut arguments = Vec::new();
         while !self.at(OPERAND, Punctuator::RightParenthesis)? {
-            if self.eat(OPERAND, Punctuator::Spread)? {
-                arguments.push(Argument::Spread(self.value_assignment(true)?));
+            let spread = self.eat(OPERAND, Punctuator::Spread)?;
+            let argument = self.beside(|parser| parser.value_assignment(true))?;
+            arguments.push(if spread {
+                Argument::Spread(argument)
             } else {
-                arguments.push(Argument::Item(self.value_assignment(true)?));
-            }
+                Argument::Item(argument)
+            });
             if !self.eat(OPERATOR, Punctuator::Comma)? {
                 break;
             }
@@ -862,11 +886,13 @@ impl Parser<'_> {
                 elements.push(ArrayElement::Hole);
                 continue;
             }
-            if self.eat(OPERAND, Punctuator::Spread)? {
-                elements.push(ArrayElement::Spread(self.assignment(allow_in)?));
+            let spread = self.eat(OPERAND, Punctuator::Spread)?;
+            let element = self.beside(|parser| parser.assignment(allow_in))?;
+            elements.push(if spread {
+                ArrayElement::Spread(element)
             } else {
-                elements.push(ArrayElement::Item(self.assignment(allow_in)?));
-            }
+                ArrayElement::Item(element)
+            });
             if !self.eat(OPERATOR, Punctuator::Comma)? {
                 break;
             }
@@ -880,7 +906,8 @@ impl Parser<'_> {
         self.expect(OPERAND, Punctuator::LeftBrace)?;
         let mut properties = Vec::new();
         while !self.at(OPERAND, Punctuator::RightBrace)? {
-            properties.push(self.object_property(allow_in)?);
+            let property = self.beside(|parser| parser.object_property(allow_in))?;
+            properties.push(property);
             if !self.eat(OPERATOR, Punctuator::Comma)? {
                 break;
             }
@@ -974,7 +1001,7 @@ impl Parser<'_> {
         let mut part = first.part;
         pieces.push(first);
         while part == Part::Head || part == Part::Middle {
-            expressions.push(self.expression(allow_in)?);
+            expressions.push(self.beside(|parser| parser.expression(allow_in))?);
             let token = self.bump(Goal::TemplateContinuation)?;
             let Kind::Template(piece) = token.kind else {
                 return Err(SyntaxError::new(

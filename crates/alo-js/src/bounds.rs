@@ -32,7 +32,7 @@
 /// is a bug report somebody can act on — unlike a renderer that stopped.
 pub const LONGEST_SOURCE: usize = 64 * 1024 * 1024;
 
-/// How many brackets deep a program may nest.
+/// How deep the parser will **recurse**.
 ///
 /// Two hundred and fifty-six. The parser is recursive descent, so a nesting
 /// level is a handful of stack frames, and a script chooses its own nesting —
@@ -46,8 +46,45 @@ pub const LONGEST_SOURCE: usize = 64 * 1024 * 1024;
 /// a file written to reach it, which is the case this exists for.
 ///
 /// It is paired with [`STACK_FOR_A_PARSE`], and neither number means anything
-/// without the other.
+/// without the other. It is **not** the depth of the tree that comes out —
+/// that is [`DEEPEST_EXPRESSION`], and reading this one as though it were both
+/// is what let `a+a+a+…` build a tree sixty thousand deep.
 pub const DEEPEST_NESTING: usize = 256;
+
+/// How deep a tree the parser will **build**, along one path through it.
+///
+/// Four thousand and ninety-six, and it is a different question from
+/// [`DEEPEST_NESTING`] rather than a larger answer to the same one.
+///
+/// [`DEEPEST_NESTING`] bounds how deep the parser **recurses**, which is why it
+/// is small: a bracket costs thirteen stack frames, and the ceiling is measured
+/// against [`STACK_FOR_A_PARSE`]. Some of this grammar builds a level of tree
+/// without recursing at all — `a.b.b.b…`, `a()()()…`, `a+a+a+…`, `a||a||a…`,
+/// a run of tagged templates and every `?.` link are read in a **loop** that
+/// nests what it has already built inside what it reads next. A thousand of
+/// those cost the parser one frame and build a tree a thousand deep.
+///
+/// That tree is then walked by everything downstream, one frame per level, and
+/// the first walker is `Drop`: a chain of sixty thousand `+` parses in a
+/// fraction of a second and aborts the process when the program is let go of.
+/// A compiler (queue item 72) is the second. So the bound belongs on the
+/// **tree** rather than on any one reader of it, and it is here rather than in
+/// each of them.
+///
+/// The number is what those walkers can afford on the smallest stack any of
+/// them runs on. A `cargo test` thread has two mebibytes and drops a tree
+/// sixteen thousand deep without trouble in a debug build, so four thousand is
+/// that with the margin a measurement taken on one machine deserves. It is
+/// sixteen times [`DEEPEST_NESTING`] because a level here costs one frame
+/// rather than thirteen, and it is far above what a written program reaches:
+/// the longest `+` chain a bundler emits is a few hundred, and `a.b.c.d` is
+/// four.
+///
+/// A path through the tree may also pass through [`DEEPEST_NESTING`] levels of
+/// recursion, so the deepest tree this parser will build is the sum of the two.
+/// Both are counted, neither is inferred from the other, and a program that
+/// reaches either is refused by name.
+pub const DEEPEST_EXPRESSION: usize = 4096;
 
 /// The stack a parse is given, which is why [`DEEPEST_NESTING`] is a number we
 /// chose rather than a number somebody else did.

@@ -44,10 +44,14 @@ use super::{OPERAND, OPERATOR, Parser};
 
 impl Parser<'_> {
     /// One statement or declaration.
+    ///
+    /// A statement's expressions are a tree of their own, so the depth counted
+    /// by [`Parser::linked`] is put back around each of them: a file of ten
+    /// thousand statements is ten thousand shallow trees, not one deep one.
     pub(super) fn statement(&mut self) -> Result<Statement, SyntaxError> {
         let start = self.start_of_next(OPERAND)?;
         self.deeper(start)?;
-        let out = self.statement_inner(start, true);
+        let out = self.beside(|parser| parser.statement_inner(start, true));
         self.shallower();
         out
     }
@@ -56,7 +60,7 @@ impl Parser<'_> {
     fn nested_statement(&mut self) -> Result<Statement, SyntaxError> {
         let start = self.start_of_next(OPERAND)?;
         self.deeper(start)?;
-        let out = self.statement_inner(start, false);
+        let out = self.beside(|parser| parser.statement_inner(start, false));
         self.shallower();
         out
     }
@@ -209,7 +213,9 @@ impl Parser<'_> {
         self.bump(OPERAND)?;
         let mut declarators = Vec::new();
         loop {
-            declarators.push(self.declarator(allow_in)?);
+            // One declarator is a tree beside the next rather than below it,
+            // which is what keeps `var a = …, b = …, …` from adding up.
+            declarators.push(self.beside(|parser| parser.declarator(allow_in))?);
             if !self.eat(OPERATOR, Punctuator::Comma)? {
                 break;
             }

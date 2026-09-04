@@ -2079,10 +2079,61 @@ The long pole, and the thing most of section E is unreachable without.
   `BigInt` round-trips through a value, compares, and refuses a size the page
   chose rather than allocating it.
 
+- [x] **208. The parser bounds the tree it builds, not only the brackets it
+  counts.** Found by starting item 72 and **taken before it**, because item 72's
+  compiler recurses over the same tree and cannot be built whole over a parser
+  that aborts. It is a live denial of service rather than tidiness: nine short
+  scripts end the renderer today, and ADR 0013 § 4 says in one sentence that
+  this must not happen — *it never panics, not on any source text, not on any
+  program*.
+  *Depends on 204. Closes when:* every shape that deepens a tree is a refusal
+  rather than an abort, each named for the bound that refused it, and the shapes
+  that are **wide** rather than deep still parse.
+
+  **Done, and it was two defects with one name.** Item 204 counted how deep the
+  parser *recurses*, which is the right bound for brackets and the wrong
+  question for everything else. Five shapes recursed where nothing counted —
+  `!!!…a`, `- - - …a`, `typeof typeof …a`, `new new …a`, `a**a**a…` — and
+  overflowed the parse thread's own thirty-two mebibytes. Four more are read in
+  a **loop**, so they cost the parser no stack at all and build a tree as deep
+  as the file is long: `a.b.b.b…`, `a()()…`, `a?.b?.b…`, `a+a+a…`, and a run of
+  tagged templates with them. Those parsed *fine* and killed the process when
+  the program was dropped — `Drop` walks the tree one frame per level, before
+  any compiler gets near it.
+
+  **Two bounds, because they are two questions**, and the second one is new:
+  [`bounds::DEEPEST_NESTING`] is how deep the parser recurses (256, measured
+  against `STACK_FOR_A_PARSE`, a bracket costing thirteen frames) and
+  [`bounds::DEEPEST_EXPRESSION`] is how deep a tree it builds (4096, a level
+  costing one frame in every walker, and a `cargo test` thread drops sixteen
+  thousand levels without trouble). `Reason::ExpressionTooDeep` is a refusal of
+  its own so a test asserts which bound answered.
+
+  **The rule worth reading twice is what the second counter does *not* do.** It
+  counts the **path** rather than the loop, and it is put back only around
+  **siblings** — the right side of an operator, an argument, an array element, a
+  property's value, a branch of a `?:`, a statement. A count that were put back
+  when each loop ended would be defeated by nesting: two hundred levels, each a
+  thousand links, none of which reaches the ceiling on its own and which
+  together are two hundred thousand deep. That case is a test. So is the
+  opposite one, which is the failure that would have been much harder to
+  notice: an array of fifty thousand elements, an object of twenty thousand
+  properties, a call with twenty thousand arguments and a file of twenty
+  thousand statements all still parse, because a bound that added siblings up
+  would refuse every bundle on the web.
+
 - [ ] **72. A bytecode compiler and an interpreter.** Values, scopes, calls,
   `this`, closures, exceptions.
-  *Depends on 70, 71, 206. Closes when:* a suite of small programs produces the
-  values the specification says, run as a table rather than as prose.
+  *Depends on 70, 71, 206, 208. Closes when:* a suite of small programs produces
+  the values the specification says, run as a table rather than as prose.
+  **Item 208 was cut out of this one on the iteration that started it**: a
+  compiler walks the tree the parser built, one frame per level, so a tree
+  nothing bounded is a compiler that cannot be written to ADR 0013 § 4 at all.
+  It is done, and what it leaves here is a fact this item may rely on — the tree
+  is at most `DEEPEST_NESTING + DEEPEST_EXPRESSION` deep — and a question it
+  must answer for itself: **the compiler's own stack**, which is the parser's
+  argument again (*a limit somebody else chooses is not a limit*) and which
+  4096 levels of a compiler's frames will not fit in a caller's two mebibytes.
   **Item 206 left two things here by name**, each because it needs something
   that can call: an accessor property answers with its **getter** rather than a
   value ([`object::Found::Getter`]) and a setter likewise, so an interpreter

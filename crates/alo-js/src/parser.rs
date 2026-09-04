@@ -57,13 +57,22 @@
 //! do differs — `return\n1` inserts a semicolon and `a\n=> b` is not a program
 //! at all.
 //!
-//! # A depth this parser will not go past
+//! # Two depths this parser will not go past, and they are different questions
 //!
 //! [`crate::bounds::LONGEST_SOURCE`] bounds the lexer, which does not recurse.
 //! This does, and a script of twenty thousand open brackets is a stack overflow
 //! rather than a refusal in any parser that does not count. [`Parser::deeper`]
 //! counts, and [`bounds::DEEPEST_NESTING`] is the ceiling with its reason
 //! beside it.
+//!
+//! That is how deep this parser **recurses**. How deep a tree it **builds** is
+//! a second question, and reading the first as an answer to it is what let
+//! `a+a+a+…` through: an operator chain, a `.b.b.b` chain, a `()()()` chain and
+//! a run of `?.` links are each read in a *loop*, so sixty thousand of them
+//! cost one stack frame and build a tree sixty thousand deep. Nothing refused
+//! it, and the first thing to walk that tree — `Drop`, before any compiler gets
+//! near it — aborted the process. [`Parser::linked`] counts that, and
+//! [`bounds::DEEPEST_EXPRESSION`] is its ceiling.
 
 pub mod binding;
 pub mod class;
@@ -225,6 +234,7 @@ struct Mark<'a> {
     peeked: Option<Peeked<'a>>,
     last_end: usize,
     depth: usize,
+    links: usize,
     context: Context,
     kept_refusal: Option<SyntaxError>,
 }
@@ -239,6 +249,10 @@ pub struct Parser<'a> {
     /// The end of the last token consumed, which is where a node ends.
     last_end: usize,
     depth: usize,
+    /// How many levels of tree the loops below have already built on the path
+    /// being read, which is the other half of how deep the tree is — see
+    /// [`Parser::linked`].
+    links: usize,
     context: Context,
     /// The offsets of every `(` that was tried as a parameter list and was not
     /// one — see this file's header.
@@ -274,6 +288,7 @@ impl<'a> Parser<'a> {
             peeked: None,
             last_end,
             depth: 0,
+            links: 0,
             context: Context::top(which),
             not_a_parameter_list: HashSet::new(),
             kept_refusal: None,
@@ -583,6 +598,78 @@ impl<'a> Parser<'a> {
         self.depth = self.depth.saturating_sub(1);
     }
 
+    /// Read something one level of recursion further in, counted and put back.
+    ///
+    /// The pair written out by hand is three lines and one of them is easy to
+    /// leave out — which is how `!!!!…a`, `new new new …a` and `a ** a ** a …`
+    /// came to recurse as far as the source text asked them to.
+    fn one_deeper<T>(
+        &mut self,
+        at: usize,
+        read: impl FnOnce(&mut Self) -> Result<T, SyntaxError>,
+    ) -> Result<T, SyntaxError> {
+        self.deeper(at)?;
+        let out = read(self);
+        self.shallower();
+        out
+    }
+
+    /// One more level of tree built without recursing, or a refusal.
+    ///
+    /// [`Parser::deeper`] counts the frames this parser is using;
+    /// this counts the levels of tree it has produced on the path it is on.
+    /// They are different numbers because parts of this grammar build a level
+    /// in a **loop**: `a.b.b.b…`, `a()()()…`, `a+a+a+…`, `a||a||a…`, a run of
+    /// tagged templates and every `?.` link each nest what has been built
+    /// inside what comes next, without a stack frame to show for it.
+    ///
+    /// The tree is what everything downstream walks, one frame per level, so a
+    /// bound on it belongs here rather than in each walker — the first of which
+    /// is `Drop`. See [`bounds::DEEPEST_EXPRESSION`].
+    ///
+    /// It is **not** put back by the loop that took it, and that is the point:
+    /// a chain read inside a chain really is deeper than either, so what is
+    /// counted is the depth of the **path** rather than the length of one loop.
+    /// What puts it back is [`Parser::beside`], around the sub-expressions that
+    /// are siblings rather than links — otherwise an array of ten thousand
+    /// small elements would count as ten thousand deep.
+    fn linked(&mut self, at: usize) -> Result<(), SyntaxError> {
+        self.links = self.links.saturating_add(1);
+        if self.links > bounds::DEEPEST_EXPRESSION {
+            return Err(SyntaxError::new(
+                Reason::ExpressionTooDeep {
+                    most: bounds::DEEPEST_EXPRESSION,
+                },
+                at,
+            ));
+        }
+        Ok(())
+    }
+
+    /// Read something that hangs **beside** what is being counted rather than
+    /// below it.
+    ///
+    /// An argument, an array element, a property's value, the right side of an
+    /// operator, a branch of a `?:` — each of these is a *sibling*. A tree's
+    /// depth is the longest path through it, so siblings take the deeper of the
+    /// two rather than the sum, and an array of ten thousand small elements is
+    /// two deep rather than ten thousand.
+    ///
+    /// What it does *not* do is forget the depth already reached: the count is
+    /// saved and put back, so the sibling is read starting from where it
+    /// actually sits. That is what keeps the bound honest when a chain is read
+    /// inside a chain inside a chain — the case that is otherwise a tree a
+    /// thousand times deeper than anything refused it.
+    fn beside<T>(
+        &mut self,
+        read: impl FnOnce(&mut Self) -> Result<T, SyntaxError>,
+    ) -> Result<T, SyntaxError> {
+        let links = self.links;
+        let out = read(self);
+        self.links = links;
+        out
+    }
+
     // --- Speculation --------------------------------------------------------
 
     /// Where the cursor is, so it can be put back.
@@ -592,6 +679,7 @@ impl<'a> Parser<'a> {
             peeked: self.peeked.clone(),
             last_end: self.last_end,
             depth: self.depth,
+            links: self.links,
             context: self.context,
             kept_refusal: self.kept_refusal.clone(),
         }
@@ -607,6 +695,7 @@ impl<'a> Parser<'a> {
         self.peeked.clone_from(&mark.peeked);
         self.last_end = mark.last_end;
         self.depth = mark.depth;
+        self.links = mark.links;
         self.context = mark.context;
         self.kept_refusal.clone_from(&mark.kept_refusal);
     }

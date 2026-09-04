@@ -124,9 +124,23 @@ pub enum Reason {
     },
     /// A token that begins no expression.
     NotAnExpression,
-    /// A program nested deeper than [`crate::bounds::DEEPEST_NESTING`].
+    /// A program that recurses deeper than
+    /// [`crate::bounds::DEEPEST_NESTING`].
     TooDeeplyNested {
         /// How deep a program may be.
+        most: usize,
+    },
+    /// One expression built deeper than
+    /// [`crate::bounds::DEEPEST_EXPRESSION`].
+    ///
+    /// A different refusal from [`Reason::TooDeeplyNested`] because it is a
+    /// different bound with a different reason: that one is how deep the parser
+    /// may *recurse*, this one is how deep a tree it may *build*. `a.b.b.b…`
+    /// and `a+a+a+…` are read in a loop and cost the parser nothing, and every
+    /// walker of the tree afterwards — `Drop` first among them — pays a stack
+    /// frame per level.
+    ExpressionTooDeep {
+        /// How deep one expression may be.
         most: usize,
     },
     /// `with (a) b` — refused by ADR 0013 § 3 rather than unimplemented.
@@ -316,6 +330,9 @@ impl Reason {
             Self::NotAnExpression => f.write_str("this begins no expression"),
             Self::TooDeeplyNested { most } => {
                 write!(f, "nothing here nests more than {most} deep")
+            }
+            Self::ExpressionTooDeep { most } => {
+                write!(f, "no one expression here is built more than {most} deep")
             }
             Self::WithIsRefused => f.write_str(
                 "`with` is not read here: it makes a name's meaning \

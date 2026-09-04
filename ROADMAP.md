@@ -458,6 +458,21 @@ unreachable without it.
       parse runs on its own thread, because a depth limit that depends on the
       caller's stack is not a limit. Judged against **two** frozen real scripts
       now, the second holding six regular expressions and no division at all
+      · Built: **a second ceiling, on the tree rather than on the parser**
+      (queue item 208, found by item 72 and taken before it). Counting brackets
+      answered a narrower question than the one that matters: nine shapes got
+      past it and aborted the process, five by recursing where nothing counted
+      — `!!!…a`, `new new …a`, `a**a**a…` — and four by being read in a *loop*,
+      which costs the parser no stack at all and builds a tree as deep as the
+      file is long — `a.b.b.b…`, `a()()…`, `a?.b?.b…`, `a+a+a…`. Sixty thousand
+      `+` parsed in a moment and killed the process when the program was let go
+      of, because `Drop` walks the tree one frame per level and every reader
+      after it does too. So there are two bounds now, and they are two
+      questions: how deep this parser **recurses**, and how deep a tree it
+      **builds**. The second counts the path rather than the loop, so a chain
+      inside a chain inside a chain is counted as all three, and it is put back
+      around **siblings** — an array of fifty thousand elements is two deep and
+      must go on parsing, or the bound would refuse every bundle there is
       · Owed: the early errors that need a scope rather than a token — a name
       declared twice, a label that names no loop, a private member nothing
       declares — and the import attributes a `with { type: "json" }` carries.
