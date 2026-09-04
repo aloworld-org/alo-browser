@@ -55,7 +55,7 @@ use crate::ast::{
     Member, Pattern, Program, Property, Statement, StatementKind, Template, Unary,
 };
 use crate::bounds;
-use crate::code::{Chunk, Op};
+use crate::code::{Chunk, Half, Op};
 use crate::operate::Simple;
 use crate::unit::Unit;
 
@@ -75,9 +75,6 @@ pub enum What {
     /// A parameter that is not a plain name: a default, a `...rest`, a pattern,
     /// a repeated name — and `arguments` (queue item 213).
     AParameterForm,
-    /// A getter or a setter, which is a property whose *access* is a call
-    /// (queue item 214).
-    AnAccessor,
     /// `` tag`a${b}` `` (queue item 215).
     ATaggedTemplate,
     /// A function reading a **block's** binding of an enclosing function, which
@@ -105,7 +102,6 @@ impl What {
         match self {
             What::AConstruction => 212,
             What::AParameterForm => 213,
-            What::AnAccessor => 214,
             What::ATaggedTemplate => 215,
             What::ACapturedBlockBinding => 216,
             What::ACatch => 210,
@@ -122,7 +118,6 @@ impl What {
         match self {
             What::AConstruction => "`new`, a class, `super` or a private name",
             What::AParameterForm => "a parameter that is not a plain name, or `arguments`",
-            What::AnAccessor => "a getter or a setter",
             What::ATaggedTemplate => "a tagged template",
             What::ACapturedBlockBinding => "a function reading a name a block declared outside it",
             What::ACatch => "`try`, `catch` and `finally`",
@@ -1245,20 +1240,26 @@ impl Compiler {
                         self.chunk.emit(Op::SetPrototype, at);
                         continue;
                     }
-                    self.define_property(key, at, |compiler| compiler.expression(value))?;
+                    self.define_property(key, Define::Value, at, |compiler| {
+                        compiler.expression(value)
+                    })?;
                 }
                 Property::Method(method) => {
-                    if method.kind != crate::ast::MethodKind::Method {
-                        // A getter or a setter is a property whose *access* is
-                        // a call, which is a different mechanism from a
-                        // property that holds one (queue item 214).
-                        return Err(Refusal::NotBuiltYet {
-                            what: What::AnAccessor,
-                            at,
-                        });
-                    }
+                    let define = match method.kind {
+                        crate::ast::MethodKind::Method => Define::Value,
+                        crate::ast::MethodKind::Get => Define::Accessor(Half::Getter),
+                        crate::ast::MethodKind::Set => Define::Accessor(Half::Setter),
+                        // Only a class has one, and a class is refused whole
+                        // before this is reached (queue item 212).
+                        crate::ast::MethodKind::Constructor => {
+                            return Err(Refusal::NotBuiltYet {
+                                what: What::AConstruction,
+                                at,
+                            });
+                        }
+                    };
                     let function = &method.function;
-                    self.define_property(&method.key, at, |compiler| {
+                    self.define_property(&method.key, define, at, |compiler| {
                         let which = compiler.function_chunk(function, Naming::Outside)?;
                         compiler.chunk.emit(Op::Closure(which), at);
                         Ok(())
@@ -1277,9 +1278,14 @@ impl Compiler {
 
     /// One property of an object literal: its key, then whatever `value`
     /// leaves on the stack, then the definition.
+    ///
+    /// The two kinds of definition share this because the *key* is the awkward
+    /// half — four spellings, one of them an expression that must be evaluated
+    /// before the value — and a getter's key is spelled the same four ways.
     fn define_property(
         &mut self,
         key: &Key,
+        define: Define,
         at: usize,
         value: impl FnOnce(&mut Self) -> Result<(), Refusal>,
     ) -> Result<(), Refusal> {
@@ -1287,22 +1293,22 @@ impl Compiler {
             Key::Computed(expression) => {
                 self.expression(expression)?;
                 value(self)?;
-                self.chunk.emit(Op::DefineKeyed, at);
+                self.chunk.emit(define.keyed(), at);
             }
             Key::Name(name) => {
                 let text = self.text(name)?;
                 value(self)?;
-                self.chunk.emit(Op::DefineNamed(text), at);
+                self.chunk.emit(define.named(text), at);
             }
             Key::String(units) => {
                 let text = self.units(units)?;
                 value(self)?;
-                self.chunk.emit(Op::DefineNamed(text), at);
+                self.chunk.emit(define.named(text), at);
             }
             Key::Number(number) => {
                 let text = self.text(&crate::numeric::text_of(*number))?;
                 value(self)?;
-                self.chunk.emit(Op::DefineNamed(text), at);
+                self.chunk.emit(define.named(text), at);
             }
             Key::Private(_) => {
                 return Err(Refusal::NotBuiltYet {
@@ -1882,6 +1888,37 @@ fn is_proto(key: &Key) -> bool {
     }
 }
 
+/// Which kind of property an object literal is defining.
+///
+/// The two differ only in the instruction they end with, so they share
+/// [`Compiler::define_property`] and this is the one-word difference between
+/// them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Define {
+    /// `a: 1`, `a() {}` — a data property.
+    Value,
+    /// `get a() {}`, `set a(b) {}` — one half of an accessor.
+    Accessor(Half),
+}
+
+impl Define {
+    /// The instruction for a key that is a name.
+    const fn named(self, name: u32) -> Op {
+        match self {
+            Define::Value => Op::DefineNamed(name),
+            Define::Accessor(half) => Op::DefineNamedAccessor { name, half },
+        }
+    }
+
+    /// The instruction for a key that is on the stack.
+    const fn keyed(self) -> Op {
+        match self {
+            Define::Value => Op::DefineKeyed,
+            Define::Accessor(half) => Op::DefineKeyedAccessor { half },
+        }
+    }
+}
+
 /// Where an assignment puts its value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Put {
@@ -1999,7 +2036,6 @@ mod tests {
             ("new f()", What::AConstruction),
             ("class A {}", What::AConstruction),
             ("function f(a = 1) {}", What::AParameterForm),
-            ("({ get a() { return 1; } })", What::AnAccessor),
             ("f`a`", What::ATaggedTemplate),
             (
                 "{ let a = 1; (function () { return a; }); }",

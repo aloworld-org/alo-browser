@@ -6,6 +6,34 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A property can be a question rather than a thing.** `get` and `set` in an
+  object now work: `{ get total() { return this.items.length; } }` runs that
+  line every time somebody reads `total`, and a `set` runs when somebody writes
+  it. Frameworks are built on this — it is how a page keeps two things in step
+  without anybody calling a function by name — and this browser could not run a
+  line of it before today.
+
+  The same change fixes something that looks unrelated and is the same problem:
+  `"total: " + basket` now asks `basket` for its `toString`, and `basket * 2`
+  asks for its `valueOf`. Turning an object into a number or a string means
+  running a method the page wrote, which is a call in the middle of an
+  arithmetic step — the same awkward shape as a getter, and until now the engine
+  said so and stopped rather than guessing.
+
+  The reason it was hard is worth one sentence. This engine deliberately never
+  calls itself to run a page's code, so that no page can end a tab by nesting
+  things deeply; a getter is a call that begins *half way through* another
+  instruction, and the honest way to do it was to teach that instruction to hand
+  over, wait its turn, and pick up where it left off. So a getter that reads
+  itself for ever is the ordinary "call stack size exceeded" a page can catch,
+  and the browser is still there afterwards — proved by six ways of writing that
+  mistake, each of which used to have nowhere to land.
+
+  One smaller thing was found and fixed on the way: `x instanceof f` said `f`
+  was not a function, about things that were. It now answers `false` for the
+  values the specification answers `false` for, and says plainly which piece of
+  work the rest of it waits on.
+
 - **Functions run, and so do closures.** A page can now declare a function, call
   it, pass it arguments, `return` a value, write an arrow, use `this`, and — the
   one that matters most — keep a function that remembers where it was written.

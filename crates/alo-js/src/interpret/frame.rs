@@ -43,9 +43,71 @@ use std::rc::Rc;
 
 use crate::abrupt::{Escape, Internal};
 use crate::code::Chunk;
+use crate::convert::Hint;
 use crate::heap::{Ref, Root};
 use crate::object::Key;
 use crate::unit::Unit;
+
+/// What the value a call answers with is for.
+///
+/// A call is not always an expression. An instruction half way through
+/// something else can want one — reading a property that is a getter, writing
+/// one that is a setter, asking an object for a primitive — and what happens to
+/// the answer is different in each case. So the frame records it, and *leaving*
+/// a call is one `match` rather than four kinds of frame.
+///
+/// It holds no [`Value`](crate::object::Value), for the same reason the rest of
+/// [`Frame`] does not: everything a call could lose is on the stack, which the
+/// collector walks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum After {
+    /// The answer is what the instruction that made this call leaves behind,
+    /// and it lands where the callee stood. `f()`, and a getter.
+    Answer,
+    /// The answer is dropped, because what the instruction evaluates to is
+    /// already on the stack below the call. A setter: `a.b = c` evaluates to
+    /// `c` whatever the setter chose to return.
+    Discard,
+    /// The answer is `typeof`'d — the one instruction whose value is a question
+    /// *about* what a getter returned rather than the thing itself.
+    TypeOf,
+    /// The answer is one step of turning an object into a primitive, and the
+    /// instruction that wanted the primitive runs again once there is one.
+    Convert(Converting),
+}
+
+/// Where a conversion that had to call something has got to.
+///
+/// `OrdinaryToPrimitive` tries two names in turn, and either of them can be a
+/// call — so a conversion is a small state machine rather than one call, and
+/// this is its state. Every field is a number or a flag, and the object being
+/// converted is named by *where it is on the stack* rather than held here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Converting {
+    /// Which of the two calls is outstanding.
+    pub(crate) step: Step,
+    /// Where the object being converted is in the stack — and where its
+    /// primitive is written when there is one, so that the instruction reading
+    /// that operand finds it there when it runs again.
+    pub(crate) at: usize,
+    /// Which primitive was asked for.
+    pub(crate) hint: Hint,
+    /// Which name the search carries on at if this call does not produce one.
+    pub(crate) next: usize,
+    /// The byte offset of the instruction that wanted it, for a message.
+    pub(crate) source: usize,
+}
+
+/// Which of a conversion's two kinds of call is outstanding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Step {
+    /// A getter was called to *find* the method, so what it answers **is** the
+    /// method — `valueOf` is allowed to be an accessor.
+    Fetching,
+    /// The method itself was called, so what it answers is the primitive, or is
+    /// an object and the search carries on.
+    Calling,
+}
 
 /// One program, with its constants made and its keys interned.
 #[derive(Debug)]
@@ -79,6 +141,8 @@ pub(crate) struct Frame {
     pub(crate) base: usize,
     /// Which instruction it is on.
     pub(crate) pc: usize,
+    /// What the caller wanted this call's answer for.
+    pub(crate) after: After,
 }
 
 /// One run of one program.

@@ -8901,3 +8901,134 @@ the next ADR number is **0015**. Four things:
    `compile::compile` gets a `Unit` now, and `Engine::run` takes an
    `Rc<Unit>` — because a function outlives the run that made it and its code
    has to outlive it too.
+
+## Iteration 111 — queue item 214: a call that begins half way through
+
+**A property can be a question rather than a thing.** Item 214 is ticked, all
+four closing conditions met, with the proxy cut to a new item 217 and the reason
+written into it: nothing can *make* a proxy until `new` (212) and the `Proxy`
+constructor (73) exist, so the trap would be a mechanism no test could reach
+from a script — and the item's own closing conditions never named it. That is
+scope rather than depth (`LOOP.md` step 3).
+
+What is here is every call the source does not spell: **a getter, a setter, and
+the `valueOf` or `toString` that turns an object into a primitive.** Object
+literals compile `get`/`set` for the first time — the compiler refused them by
+name until today — the two halves of one name are **one property** rather than
+two definitions of which the second wins, and every spelling of a key reaches
+them.
+
+**The decision worth reading twice is that the interpreter still does not
+recurse.** `interpret.rs` has said so since item 72 — *it does not recurse, and
+that is a property rather than an accident* — and a getter is precisely the
+thing that tempts an engine to break it, because the call is wanted from inside
+an instruction that is half way through. A nested `walk` would have been twenty
+lines and would have handed a page the process's own stack through
+`obj = { get a() { return obj.a; } }`. So an instruction **hands over** instead:
+the frame joins the list every other call's frame is on, and the frame carries
+one new field ([`frame::After`]) saying what the answer is *for* — the value the
+instruction leaves behind, a value to drop, a `typeof` to take, or one step of a
+conversion. Leaving a call is one `match` rather than four kinds of frame, and
+the field holds no `Value`, so ADR 0014 § 2's list of where a live reference may
+be is unchanged.
+
+**Two shapes carry all of it, and only one needs anything remembered.** A
+property access takes a known number of stack values and leaves one; a call
+takes everything above its callee and leaves one in its place. So putting the
+getter **where the access's answer belongs** makes the getter's `return` the end
+of the access — nothing resumed, nothing recorded. A setter is the exception,
+because `a.b = c` evaluates to `c` rather than to what the setter answered, so
+the value is written into the answer's place first and the call laid out above
+it with its answer dropped. A **conversion** is the one that genuinely resumes:
+the primitive is written into the operand's own stack slot and the instruction
+**runs again**. That is not a retry. Every instruction in this engine reads its
+operands where they lie and takes them off only once the answer exists — the
+discipline the collector forced on it — so the second run is the same
+instruction on an operand that is now a primitive, which is exactly the
+specification's next step. `a + b` with objects on both sides runs three times
+and calls each side's `valueOf` once, in order.
+
+**Neither can loop, and both are asserted.** A method that answers with an
+object again carries on at the *next* name and there are two, so running out is
+the `TypeError` the specification gives; an accessor that reads itself makes a
+frame each time, which is `bounds::CALLS_ON_THE_STACK` and a `RangeError` a page
+can catch. `an_engine_that_is_hostile.rs` gains six shapes of that — the item's
+own wording (a getter calling something that reads the same property), the
+direct one, a setter, one through a prototype where the receiver is the child
+every time, a **conversion** rather than an access, and one that allocates per
+frame so the heap is under pressure while the frames pile up.
+
+**Two types keep the halves apart, and they are the change with the longest
+reach.** `convert::Primitive` wraps a value that is **not an object** and is the
+only way to make one, so `ToNumber`, `ToString` and `ToPropertyKey` cannot be
+handed an object by mistake — before this, every one of them had an object arm
+answering *not built yet* and the arm was reachable from a dozen operators.
+And `operate::Applied::Wants` is how an operator says **which** operand it needs
+converted and with which hint, rather than converting it — which keeps the order
+`a > b` converts in (left first, which is what the specification's `LeftFirst`
+flag is *for*) inside the one file that knows it, rather than copied into the
+interpreter. `Missing::ACall` is gone from the engine entirely.
+
+**The realm went with it.** A bare name can be an accessor too. No script can
+make one until item 73, and an **embedder** can today — a `document` behind a
+getter would otherwise be a name this engine could see and not read. So
+`Resolved::Getter` and `Assigned::Setter` are answers rather than refusals, and
+`tests/a_name_behind_an_accessor.rs` drives that path with the getter and the
+setter written in the language rather than in Rust.
+
+**One defect was found and fixed rather than cut**, because item 209 had turned
+it into a lie a script could see: `instanceof` refused everything with *the
+right-hand side is not callable*, on the stated grounds that nothing in the heap
+was callable — and since item 209 things are. `1 instanceof f` now answers
+`false`, which is what the specification answers before it reads anything off
+`f`; a genuinely non-callable right-hand side is still that `TypeError`; and the
+rest names item 212, because a function has no `prototype` until it has a
+`[[Construct]]`.
+
+**Four new files, one reason to change each**: `interpret/property.rs` (reading
+and writing a property, either of which may be a call), `interpret/primitive.rs`
+(the conversion state machine), and the two test files. `interpret/frame.rs`
+gained the two types a frame now carries, which is the same responsibility it
+already had — *what a run is made of*.
+
+**The gate.** `scripts/gate.sh` green: fmt, clippy zero warnings and zero
+errors, **2007 tests** (up from 1998 — nine new test functions, two of them
+tables carrying about seventy programs between them), no stubs, no `unsafe`,
+every boundary held, the licence notice on every new file, and a `CHANGELOG.md`
+line. No layout
+assertion and no reference render: this iteration positions nothing and paints
+nothing.
+
+**`ROADMAP.md` moved, and it is not a tick.** *A bytecode compiler and an
+interpreter* gains a fourth `· Built:` clause naming the re-entry and the two
+types, and its `· Owed:` drops the getter and gains the proxy as item 217.
+`docs/features.md`'s own line is rewritten in a reader's words, including the
+half that reads as unrelated and is the same problem: `"total: " + basket` now
+asks `basket` for its `toString`.
+
+**What the next iteration should know.** The next queue number is **218** and
+the next ADR number is **0015**. Four things:
+
+1. **Item 216 is the one to take next if the goal is fewest surprises.** A
+   function reading a block's binding is ordinary code and is still refused.
+   `compile/scope.rs` already answers `Where::Captured` for exactly that case,
+   so the compiler knows where every one of them is; what is missing is
+   `PushEnvironment`/`PopEnvironment`/`CopyEnvironment` and the unwinding
+   `break` and `continue` then need.
+2. **Item 73 is the one to take next if the goal is unblocking.**
+   `Function.prototype`, `Object.prototype` and `Array` are what 212, 213, 215
+   and 211 all wait on, and `({}) + ''` still throwing rather than answering
+   `"[object Object]"` is the same gap — item 214's third closing condition is
+   met through a prototype the *script* set, and 73 is what makes the literal
+   form of it true.
+3. **`After` is the extension point, not a special case.** Anything else that
+   needs a call from inside an instruction — a `Symbol.toPrimitive`, a proxy
+   trap (217), an iterator's `next` (211) — adds a variant there and a handler
+   in `give_back`, and must not add a nested `walk`. The one rule to keep: an
+   instruction that will run again **must** rewind its own program counter, and
+   `Engine::convert_at` does it rather than each caller, because it is the half
+   that is invisible when it is left out.
+4. **A conversion writes into an operand's stack slot.** Anything that changes
+   how instructions read their operands — an inline cache, a register-based
+   compiler — has to keep peek-then-replace, or the second run of an instruction
+   stops being the same instruction.

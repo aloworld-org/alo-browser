@@ -39,6 +39,17 @@
 //! so the one it captured where it was written is used and what the caller
 //! pushed is overwritten. That is the whole of the difference, and it is one
 //! `match`.
+//!
+//! # A call an instruction wanted, rather than one the program wrote
+//!
+//! A getter, a setter and a `valueOf` are calls nothing in the source spells:
+//! the instruction is half way through and needs one before it can finish.
+//! [`Engine::begin_call`] is how it asks — it lays the same shape out on the
+//! stack, from a place the instruction chooses, so the callee still knows
+//! nothing about how it was reached. What differs is [`After`], which the
+//! frame carries and `return` reads: the answer lands where the callee stood, or
+//! is dropped, or is a step of a conversion that then runs the instruction
+//! again.
 
 use std::rc::Rc;
 
@@ -49,7 +60,7 @@ use crate::object::{Fault, Value};
 use crate::unit::Unit;
 
 use super::Engine;
-use super::frame::{Frame, Loaded, Run};
+use super::frame::{After, Frame, Loaded, Run};
 
 impl Engine {
     /// `Op::Closure`: a function of a chunk of the running program, over the
@@ -87,14 +98,64 @@ impl Engine {
     /// `Op::Call`: the callee, its `this` and `argc` arguments are on the stack.
     pub(super) fn enter(&mut self, run: &mut Run, argc: u32, at: usize) -> Result<(), Escape> {
         let argc = usize::try_from(argc).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
-        let height = self
-            .objects
-            .slot_count(run.stack)
-            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        let height = self.height(run)?;
         let callee_at = height
             .checked_sub(argc.saturating_add(2))
-            .filter(|which| *which >= run.base().unwrap_or(usize::MAX))
             .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        self.enter_at(run, callee_at, argc, at, After::Answer)
+    }
+
+    /// Put a call the *instruction* wanted on the stack, and enter it.
+    ///
+    /// Everything from `callee_at` up is replaced by the call's own things, so
+    /// an instruction hands over the operands it was working on and gets the
+    /// answer in their place. Nothing between reading those values and writing
+    /// them back allocates, which is what makes it safe to hold them in Rust
+    /// locals while the slots that were holding them are gone.
+    pub(super) fn begin_call(
+        &mut self,
+        run: &mut Run,
+        callee_at: usize,
+        ask: Ask<'_>,
+    ) -> Result<(), Escape> {
+        let stack = run.stack;
+        self.objects
+            .with_slots(stack, |slots, _| {
+                slots.truncate(callee_at);
+                slots.push(ask.callee);
+                slots.push(ask.receiver);
+                for value in ask.arguments {
+                    slots.push(*value);
+                }
+            })
+            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        self.enter_at(run, callee_at, ask.arguments.len(), ask.at, ask.after)
+    }
+
+    /// How many values are on the stack.
+    pub(super) fn height(&self, run: &Run) -> Result<usize, Escape> {
+        self.objects
+            .slot_count(run.stack)
+            .ok_or(Escape::Broken(Internal::StackIsWrong))
+    }
+
+    /// Enter the call whose callee sits at `callee_at`.
+    fn enter_at(
+        &mut self,
+        run: &mut Run,
+        callee_at: usize,
+        argc: usize,
+        at: usize,
+        after: After,
+    ) -> Result<(), Escape> {
+        let height = self.height(run)?;
+        if callee_at < run.base().unwrap_or(usize::MAX)
+            || height != callee_at.saturating_add(2).saturating_add(argc)
+        {
+            // The compiler said the stack would look like this. It does not, so
+            // the compiler and this loop disagree, which is our bug.
+            return Err(Escape::Broken(Internal::StackIsWrong));
+        }
         let this_at = callee_at.saturating_add(1);
 
         let callee = self.value_at(run, callee_at)?;
@@ -172,6 +233,7 @@ impl Engine {
             locals_at,
             base,
             pc: 0,
+            after,
         });
         Ok(())
     }
@@ -189,6 +251,14 @@ impl Engine {
             self.objects.heap_mut().release(root);
         }
         let stack = run.stack;
+        if frame.after == After::Discard {
+            // A setter's answer is not what the assignment evaluates to, and
+            // the value it does evaluate to is already below.
+            return self
+                .objects
+                .with_slots(stack, |slots, _| slots.truncate(frame.callee_at))
+                .ok_or(Escape::Broken(Internal::StackIsWrong));
+        }
         // No allocation between taking the value off and putting it back, so
         // nothing can collect while it is in a Rust local — which is the one
         // place in this engine where that argument has to be made rather than
@@ -198,7 +268,18 @@ impl Engine {
                 slots.truncate(frame.callee_at);
                 slots.push(value);
             })
-            .ok_or(Escape::Broken(Internal::StackIsWrong))
+            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        // Everything below reads the answer off the stack rather than out of a
+        // local, because both of them allocate.
+        match frame.after {
+            After::Answer | After::Discard => Ok(()),
+            After::TypeOf => {
+                let value = self.peek(run, 0)?;
+                let answer = self.type_of(value, Self::where_now(run))?;
+                self.replace(run, 1, answer)
+            }
+            After::Convert(state) => self.carry_on(run, state),
+        }
     }
 
     /// Give back every frame's environment, whatever ended the run.
@@ -306,9 +387,25 @@ impl Engine {
 
     /// The `TypeError` for calling something that is not a function, which is
     /// the page's own mistake and one of the commonest there is.
-    fn not_a_function(&self, value: Value, at: usize) -> Escape {
+    pub(super) fn not_a_function(&self, value: Value, at: usize) -> Escape {
         Escape::type_error(format!("{} is not a function", self.describe(value)), at)
     }
+}
+
+/// A call an instruction wants, as one thing rather than five arguments.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Ask<'a> {
+    /// What to call.
+    pub(super) callee: Value,
+    /// Its `this`, which for a getter, a setter and a `valueOf` is the object
+    /// the property was reached through.
+    pub(super) receiver: Value,
+    /// Its arguments: none for a getter, the value for a setter.
+    pub(super) arguments: &'a [Value],
+    /// The byte offset the instruction came from, for a message.
+    pub(super) at: usize,
+    /// What its answer is for.
+    pub(super) after: After,
 }
 
 /// A function's code, read off its cell so that the borrow of the heap is over

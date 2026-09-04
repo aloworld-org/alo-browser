@@ -136,6 +136,41 @@ fn a_recursion_that_will_not_end_is_a_range_error_rather_than_a_stack_overflow()
 }
 
 #[test]
+fn an_accessor_that_will_not_end_is_a_range_error_too() {
+    // Queue item 214's fourth closing condition. Every one of these is a call
+    // *inside* an instruction, so a frame is pushed while an operand stack is
+    // half way through an expression — which is exactly the shape an engine
+    // that re-entered itself in Rust would end the process on.
+    for source in [
+        // The item's own words: a getter that calls something that reads the
+        // same property.
+        "const o = { get a() { return f(); } }; function f() { return o.a; } o.a",
+        // The same without a function in between.
+        "const o = { get a() { return o.a; } }; o.a",
+        // A setter, which is the other half and takes a different path out.
+        "const o = { set a(v) { o.a = v; } }; o.a = 1;",
+        // Reading through a prototype, where the receiver is the child every
+        // time and the property is found one step up.
+        "const p = { get a() { return this.a; } }; const o = { __proto__: p }; o.a",
+        // A conversion, which is the deepest of them: an instruction half way
+        // through an addition, calling a method, which starts the same addition
+        // again.
+        "const o = { valueOf() { return o + 1; } }; o + 1",
+        // And one where each frame allocates, so the heap is under pressure
+        // while the frames pile up.
+        "const o = { get a() { return { held: o.a }; } }; o.a",
+    ] {
+        match run(source) {
+            Err(why) => assert!(
+                why.contains("RangeError"),
+                "{source} should be a RangeError: {why}"
+            ),
+            Ok(value) => panic!("{source} should not answer: {value:?}"),
+        }
+    }
+}
+
+#[test]
 fn an_engine_that_refused_a_recursion_still_works_afterwards() {
     // The frames are given back however the run ended, so an engine that has
     // just refused a runaway recursion is an engine, not a leak — the same

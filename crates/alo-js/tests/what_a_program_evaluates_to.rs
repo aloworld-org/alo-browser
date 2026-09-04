@@ -411,7 +411,6 @@ fn what_the_language_says_and_this_engine_has_not_built() {
         ("function f(...a) {}", "213"),
         ("function f(a, a) {}", "213"),
         ("function f() { return arguments; }", "213"),
-        ("({ get a() { return 1; } })", "214"),
         ("f`a`", "215"),
         ("{ let a = 1; (function () { return a; }); }", "216"),
         ("try { 1; } catch {}", "210"),
@@ -613,10 +612,213 @@ fn an_optional_call_short_circuits_the_whole_chain() {
 }
 
 #[test]
+fn an_accessor_is_a_call() {
+    // Queue item 214's first two closing conditions. A getter and a setter are
+    // the two places the language turns reading and writing a *property* into
+    // running a page's own code, and every case here is a program that could
+    // not run at all before.
+    table(&[
+        ("({ get a() { return 1; } }).a", "1"),
+        // The setter sees what was assigned, and the assignment still evaluates
+        // to that value rather than to what the setter answered.
+        (
+            "let seen; const o = { set a(v) { seen = v; } }; o.a = 5; seen",
+            "5",
+        ),
+        ("const o = { set a(v) { return 9; } }; o.a = 5", "5"),
+        // Both halves of one name are one property, which is what makes the
+        // second definition complete the first rather than replace it.
+        (
+            "let n = 0; const o = { get a() { return n; }, set a(v) { n = v + 1; } }; o.a = 1; o.a",
+            "2",
+        ),
+        (
+            "let n = 0; const o = { set a(v) { n = v + 1; }, get a() { return n; } }; o.a = 1; o.a",
+            "2",
+        ),
+        // A half that is missing is not an error: reading a set-only property
+        // is `undefined`, and writing a get-only one is sloppy mode's silence.
+        ("({ set a(v) {} }).a", "undefined"),
+        ("const o = { get a() { return 1; } }; o.a = 2; o.a", "1"),
+        (
+            "'use strict'; const o = { get a() { return 1; } }; o.a = 2;",
+            "! TypeError: property 'a' has a getter and no setter, so it cannot be written (at byte 51)",
+        ),
+        // `this` is the object it was reached through, which is the whole
+        // reason an accessor is not a value in a property.
+        ("({ x: 3, get a() { return this.x; } }).a", "3"),
+        // Inherited, which is where a getter differs from a data property most:
+        // it runs with the *child* as its `this`.
+        (
+            "const p = { get a() { return this.x; } }; ({ __proto__: p, x: 4 }).a",
+            "4",
+        ),
+        (
+            "let seen; const p = { set a(v) { seen = v; } }; const o = { __proto__: p }; o.a = 6; seen",
+            "6",
+        ),
+        // A prototype's setter is called rather than shadowed, so the child has
+        // no own property afterwards.
+        (
+            "const p = { set a(v) {} }; const o = { __proto__: p }; o.a = 6; o.a",
+            "undefined",
+        ),
+        // Every spelling of a key reaches the same property.
+        ("const o = { get a() { return 1; } }; o['a']", "1"),
+        (
+            "const k = 'a'; const o = { get [k]() { return 2; } }; o.a",
+            "2",
+        ),
+        ("const o = { get 1() { return 'i'; } }; o[1]", "\"i\""),
+        ("const o = { get 'a b'() { return 3; } }; o['a b']", "3"),
+        // Reading and writing in one expression, which is two calls.
+        (
+            "let n = 1; const o = { get a() { return n; }, set a(v) { n = v; } }; o.a += 4; n",
+            "5",
+        ),
+        (
+            "let n = 1; const o = { get a() { return n; }, set a(v) { n = v; } }; o.a++; n",
+            "2",
+        ),
+        (
+            "let n = 1; const o = { get a() { return n; }, set a(v) { n = v; } }; o.a++",
+            "1",
+        ),
+        // What a getter answers can be called, and it keeps the receiver the
+        // *call* was written with rather than the getter's.
+        (
+            "const o = { x: 8, get f() { return function () { return this.x; }; } }; o.f()",
+            "8",
+        ),
+        // An accessor is an ordinary property in every other respect.
+        (
+            "const o = { get a() { return 1; } }; delete o.a; o.a",
+            "undefined",
+        ),
+        ("const o = { get a() { return 1; } }; 'a' in o", "true"),
+        ("typeof ({ get a() { return 1; } }).a", "\"number\""),
+        // A getter that throws throws out of the read.
+        (
+            "({ get a() { throw 'no'; } }).a",
+            "! the script threw a value (at byte 13)",
+        ),
+    ]);
+}
+
+#[test]
+fn an_object_becomes_a_primitive_by_being_asked() {
+    // Queue item 214's third closing condition. `ToPrimitive` is what every
+    // operator is written in terms of, so this is the same re-entry as a getter
+    // seen from the other side: the instruction is half way through.
+    table(&[
+        ("({ valueOf() { return 2; } }) + 1", "3"),
+        ("({ toString() { return 'x'; } }) + 'y'", "\"xy\""),
+        ("+{ valueOf() { return '3'; } }", "3"),
+        ("-{ valueOf() { return 3; } }", "-3"),
+        ("~{ valueOf() { return 5; } }", "-6"),
+        ("({ valueOf() { return 2; } }) * 3", "6"),
+        ("({ valueOf() { return 1; } }) == 1", "true"),
+        ("({ valueOf() { return 2; } }) < 3", "true"),
+        // Both sides, which is three runs of one instruction and one call each.
+        (
+            "({ valueOf() { return 2; } }) + ({ valueOf() { return 3; } })",
+            "5",
+        ),
+        // `valueOf` first for `+`, `toString` first for a template — which is
+        // the difference `Op::ToText` exists for, and a page can see it.
+        (
+            "'' + { toString() { return 't'; }, valueOf() { return 'v'; } }",
+            "\"v\"",
+        ),
+        (
+            "`${ { toString() { return 't'; }, valueOf() { return 'v'; } } }`",
+            "\"t\"",
+        ),
+        // A method that answers with an object has converted nothing, so the
+        // *other* name is tried — and when both do, it is a `TypeError`.
+        (
+            "({ valueOf() { return {}; }, toString() { return 'z'; } }) + ''",
+            "\"z\"",
+        ),
+        (
+            "({ valueOf() { return {}; }, toString() { return {}; } }) + ''",
+            "! TypeError: this object has no valueOf or toString, so it cannot become a primitive value (at byte 0)",
+        ),
+        // A name that is there and is not callable is skipped rather than
+        // thrown at, which is the specification's `IsCallable` check.
+        ("({ valueOf: 1, toString() { return 'q'; } }) + ''", "\"q\""),
+        // `valueOf` may itself be behind a getter, so finding the method is a
+        // call before calling it is.
+        (
+            "({ get valueOf() { return function () { return 5; }; } }) + 1",
+            "6",
+        ),
+        // The order is left then right, and a `valueOf` with a side effect can
+        // see it.
+        (
+            "let log = ''; const a = { valueOf() { log += 'a'; return 1; } }; const b = { valueOf() { log += 'b'; return 2; } }; a + b; log",
+            "\"ab\"",
+        ),
+        (
+            "let log = ''; const a = { valueOf() { log += 'a'; return 1; } }; const b = { valueOf() { log += 'b'; return 2; } }; a <= b; log",
+            "\"ab\"",
+        ),
+        // A property key is a conversion too.
+        (
+            "const o = {}; o[{ toString() { return 'k'; } }] = 1; o.k",
+            "1",
+        ),
+        (
+            "const o = { get [{ toString() { return 'k'; } }]() { return 2; } }; o.k",
+            "2",
+        ),
+        // And an inherited `toString` is found by the walk, which is what
+        // `({}) + ''` will use once there is an `Object.prototype` to inherit
+        // it from (queue item 73).
+        (
+            "({ __proto__: { toString() { return 'p'; } } }) + ''",
+            "\"p\"",
+        ),
+    ]);
+}
+
+#[test]
+fn instanceof_answers_the_two_questions_it_can() {
+    // Not this item's work and it is in this item's file, because item 209 made
+    // the old answer a lie: `instanceof` refused everything as *not callable*
+    // on the grounds that nothing in the heap was, and now things are.
+    table(&[
+        // The right-hand side has to be an object, and then it has to be
+        // callable — both `TypeError`s the language specifies.
+        (
+            "1 instanceof 2",
+            "! TypeError: the right-hand side of 'instanceof' must be an object (at byte 0)",
+        ),
+        (
+            "1 instanceof {}",
+            "! TypeError: the right-hand side of 'instanceof' is not callable (at byte 0)",
+        ),
+        // A primitive is not an instance of anything, and the specification
+        // answers that *before* it reads `prototype`.
+        ("function f() {} 1 instanceof f", "false"),
+        ("function f() {} 'a' instanceof f", "false"),
+        ("function f() {} null instanceof f", "false"),
+        // What is left needs the `prototype` a constructor has, which is queue
+        // item 212 — and saying so is not the same as answering `false`.
+        (
+            "function f() {} ({}) instanceof f",
+            "! 'instanceof' needs the `prototype` property a constructor has, which is queue item 212",
+        ),
+    ]);
+}
+
+#[test]
 fn an_object_with_no_prototype_cannot_become_a_primitive() {
     // Not a gap: an object in this engine has no `Object.prototype` (queue item
-    // 73), so it has no `valueOf` and no `toString` to call — and a `TypeError`
-    // is exactly what a real engine gives for `Object.create(null) + ""`.
+    // 73), so it has no `valueOf` and no `toString` to *find* — and a
+    // `TypeError` is exactly what a real engine gives for
+    // `Object.create(null) + ""`. Calling one it does have is queue item 214
+    // and is the test above.
     table(&[
         (
             "({}) + ''",

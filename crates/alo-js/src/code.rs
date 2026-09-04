@@ -55,6 +55,15 @@
 use crate::ast::Binary;
 use crate::operate::Simple;
 
+/// Which half of an accessor property an instruction defines.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Half {
+    /// `get a() {}` — reading the property calls it.
+    Getter,
+    /// `set a(b) {}` — writing the property calls it with the value.
+    Setter,
+}
+
 /// One instruction.
 ///
 /// The operand stack is where values are, and each variant says what it takes
@@ -174,6 +183,24 @@ pub enum Op {
     DefineNamed(u32),
     /// The same with the key on the stack: `{ [a]: 1 }`.
     DefineKeyed,
+    /// Define one half of an accessor property — `{ get a() {} }` — of the
+    /// object below the function, leaving the object.
+    ///
+    /// One instruction per half rather than one per property, because
+    /// `{ get a() {}, set a(v) {} }` is two definitions of one property in the
+    /// specification too: the second **completes** the first rather than
+    /// replacing it.
+    DefineNamedAccessor {
+        /// The property's name.
+        name: u32,
+        /// Which half this is.
+        half: Half,
+    },
+    /// The same with the key on the stack: `{ get [a]() {} }`.
+    DefineKeyedAccessor {
+        /// Which half this is.
+        half: Half,
+    },
     /// `{ __proto__: a }`, which is the one property name in an object literal
     /// that is not a property at all.
     SetPrototype,

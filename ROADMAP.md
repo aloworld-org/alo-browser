@@ -524,15 +524,34 @@ unreachable without it.
       the function rather than a chain to walk; and a recursion that will not
       end is the `RangeError` the language specifies, bounded twice, because a
       bound on the value stack alone under-counts what a frame costs
+      · Built: **a call that begins half way through an instruction** (queue
+      item 214). A getter, a setter and the `valueOf` or `toString` that turns
+      an object into a primitive are all calls nothing in the source spells, and
+      all three now run. The decision is that the interpreter **still does not
+      recurse**: an instruction that needs a call hands its operands over, the
+      frame goes on the same list every other call goes on, and the answer comes
+      back to the place the instruction left. A getter's answer lands where its
+      operands were, so a property access needs nothing remembered at all; a
+      conversion writes the primitive into the operand's own slot and the
+      instruction runs **again**, which works only because every instruction
+      reads its operands where they lie. So an accessor that reads itself for
+      ever is the same `RangeError` a runaway function is, and the conversion
+      cannot loop because the search only ever moves on to the next name.
+      Two types carry it: a conversion takes a value that **cannot be an
+      object**, so no arithmetic can be handed one by mistake, and an operator
+      that meets one answers *which* operand it needs converted rather than
+      converting it, so the order `a > b` converts in stays in the one file that
+      knows it
       · Owed: the rest of the language, and each piece is refused **by name**
       rather than half-built — `new`, classes and `super` (queue item 212),
-      `arguments` and the parameter forms that are not a plain name (213), a
-      getter or a setter, which is a call *part way through* a property access
-      (214), tagged templates (215), a function reading a name a **block**
+      `arguments` and the parameter forms that are not a plain name (213),
+      tagged templates (215), a function reading a name a **block**
       declared outside it, which needs an environment per block so that a
       closure made in one pass of a loop is not the one made in the next (216),
       `try`/`catch`/`finally` (210), arrays, spread, destructuring and
-      `for…of` (211), and the builtins that make a `{}` have a `toString` (73).
+      `for…of` (211), a **proxy**, whose trap is the same re-entry as a getter
+      and which nothing can make until `new` and the builtins exist (217), and
+      the builtins that make a `{}` have a `toString` of its own (73).
       A program using one of them does not compile, and says which item builds
       it
 - [ ] A garbage collector, and the object model underneath it

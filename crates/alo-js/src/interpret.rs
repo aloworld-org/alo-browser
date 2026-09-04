@@ -48,6 +48,8 @@
 
 mod call;
 mod frame;
+mod primitive;
+mod property;
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -56,16 +58,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use crate::abrupt::{Escape, Internal, Missing, Thrown};
 use crate::ast::Program;
 use crate::bounds;
-use crate::code::Op;
+use crate::code::{Half, Op};
 use crate::compile::{self, Refusal};
-use crate::convert::{self, Names};
+use crate::convert::{self, Hint, Names, Primitive};
 use crate::heap::{Ref, Root};
-use crate::object::{Found, Held, Key, Objects, Property, Set, Value};
-use crate::operate::{self, Simple};
-use crate::realm::{Realm, Resolved};
+use crate::object::{Held, Key, Objects, Property, Value};
+use crate::operate::{self, Applied, Side, Simple};
+use crate::realm::{Assigned, Realm, Resolved};
 use crate::unit::Unit;
 
-use frame::{Frame, Run};
+use frame::{After, Frame, Run};
 
 /// The switch an embedder throws to stop a script.
 ///
@@ -299,6 +301,8 @@ impl Engine {
             locals_at: 2,
             base: 2_usize.saturating_add(locals),
             pc: 0,
+            // Nothing is waiting for the script's own answer: the run ends.
+            after: After::Answer,
         });
         self.instantiate(run)
     }
@@ -438,28 +442,33 @@ impl Engine {
             Op::DeleteGlobal(which) => self.delete_global(run, which)?,
 
             Op::GetNamed(which) => self.get_named(run, which, at)?,
-            Op::GetKeyed => self.get_keyed(run, at)?,
+            Op::GetKeyed => self.get_keyed(run, at, pc)?,
             Op::SetNamed(which) => {
                 let key = run.key(which)?;
-                self.set_property(run, key, 1, at)?;
+                self.write_from(run, key, 2, at)?;
             }
-            Op::SetKeyed => self.set_keyed(run, at)?,
+            Op::SetKeyed => self.set_keyed(run, at, pc)?,
             Op::DeleteNamed(which) => self.delete_named(run, which, at)?,
-            Op::DeleteKeyed => self.delete_keyed(run, at)?,
+            Op::DeleteKeyed => self.delete_keyed(run, at, pc)?,
 
-            Op::Unary(simple) => self.one_operand(run, simple, at)?,
-            Op::Binary(operator) => self.two_operands(run, operator, at)?,
+            Op::Unary(simple) => self.one_operand(run, simple, at, pc)?,
+            Op::Binary(operator) => self.two_operands(run, operator, at, pc)?,
             Op::TypeOf => {
                 let value = self.peek(run, 0)?;
                 let answer = self.type_of(value, at)?;
                 self.replace(run, 1, answer)?;
             }
-            Op::ToNumeric => self.make_numeric(run, at)?,
-            Op::ToText => self.make_text(run, at)?,
+            Op::ToNumeric => self.make_numeric(run, at, pc)?,
+            Op::ToText => self.make_text(run, at, pc)?,
 
             Op::Object => self.new_object(run, at)?,
             Op::DefineNamed(which) => self.define_named(run, which)?,
-            Op::DefineKeyed => self.define_keyed(run, at)?,
+            Op::DefineKeyed => self.define_keyed(run, at, pc)?,
+            Op::DefineNamedAccessor { name, half } => {
+                let key = run.key(name)?;
+                self.define_accessor(run, key, half, 2)?;
+            }
+            Op::DefineKeyedAccessor { half } => self.define_keyed_accessor(run, half, at, pc)?,
             Op::SetPrototype => self.set_prototype(run)?,
 
             Op::Closure(which) => self.make_closure(run, which, at)?,
@@ -523,8 +532,7 @@ impl Engine {
     fn get_named(&mut self, run: &mut Run, which: u32, at: usize) -> Result<(), Escape> {
         let key = run.key(which)?;
         let object = self.peek(run, 0)?;
-        let value = self.read(object, key, at)?;
-        self.replace(run, 1, value)
+        self.read_into(run, object, key, 1, at)
     }
 
     /// `delete a.b`.
@@ -537,17 +545,42 @@ impl Engine {
     }
 
     /// What `++` and `--` do to the old value before they add to it.
-    fn make_numeric(&mut self, run: &mut Run, at: usize) -> Result<(), Escape> {
-        let value = self.peek(run, 0)?;
-        let number = convert::to_number(&self.objects, &self.names, value, at)?;
+    fn make_numeric(&mut self, run: &mut Run, at: usize, pc: usize) -> Result<(), Escape> {
+        let Some(value) = self.primitive_or_convert(run, 0, Hint::Number, at, pc)? else {
+            return Ok(());
+        };
+        let number = convert::to_number(&self.objects, value, at)?;
         self.replace(run, 1, Value::Number(number))
     }
 
     /// What a template substitution does, which is not what `+` does.
-    fn make_text(&mut self, run: &mut Run, at: usize) -> Result<(), Escape> {
-        let value = self.peek(run, 0)?;
-        let text = convert::to_text(&mut self.objects, &self.names, value, at)?;
+    fn make_text(&mut self, run: &mut Run, at: usize, pc: usize) -> Result<(), Escape> {
+        let Some(value) = self.primitive_or_convert(run, 0, Hint::String, at, pc)? else {
+            return Ok(());
+        };
+        let text = convert::to_text(&mut self.objects, value, at)?;
         self.replace(run, 1, text)
+    }
+
+    /// The primitive an operand already is, or [`None`] once a conversion has
+    /// been started — in which case this instruction will run again.
+    ///
+    /// `back` is how far down the stack the operand is, zero being the top.
+    fn primitive_or_convert(
+        &mut self,
+        run: &mut Run,
+        back: usize,
+        hint: Hint,
+        at: usize,
+        pc: usize,
+    ) -> Result<Option<Primitive>, Escape> {
+        let value = self.peek(run, back)?;
+        if let Some(primitive) = Primitive::of(value) {
+            return Ok(Some(primitive));
+        }
+        let place = self.place(run, back)?;
+        self.convert_at(run, place, hint, pc, at)?;
+        Ok(None)
     }
 
     /// Push second copies of the top `how_many` values, in the order they were.
@@ -567,10 +600,21 @@ impl Engine {
     }
 
     /// `-a`, `!a`, `~a`, `+a`, `void a`.
-    fn one_operand(&mut self, run: &mut Run, operator: Simple, at: usize) -> Result<(), Escape> {
+    fn one_operand(
+        &mut self,
+        run: &mut Run,
+        operator: Simple,
+        at: usize,
+        pc: usize,
+    ) -> Result<(), Escape> {
         let value = self.peek(run, 0)?;
-        let answer = operate::unary(&self.objects, &self.names, operator, value, at)?;
-        self.replace(run, 1, answer)
+        match operate::unary(&self.objects, operator, value, at)? {
+            Applied::Answer(answer) => self.replace(run, 1, answer),
+            Applied::Wants { hint, .. } => {
+                let place = self.place(run, 0)?;
+                self.convert_at(run, place, hint, pc, at)
+            }
+        }
     }
 
     /// Every operator that takes two values.
@@ -579,13 +623,25 @@ impl Engine {
         run: &mut Run,
         operator: crate::ast::Binary,
         at: usize,
+        pc: usize,
     ) -> Result<(), Escape> {
         // Both stay on the stack while the answer is computed, because
-        // computing it may allocate — which is this file's whole discipline.
+        // computing it may allocate — which is this file's whole discipline,
+        // and which is also what makes running this instruction a second time
+        // after a conversion the same instruction rather than a retry.
         let left = self.peek(run, 1)?;
         let right = self.peek(run, 0)?;
-        let answer = operate::binary(&mut self.objects, &self.names, operator, left, right, at)?;
-        self.replace(run, 2, answer)
+        match operate::binary(&mut self.objects, operator, left, right, at)? {
+            Applied::Answer(answer) => self.replace(run, 2, answer),
+            Applied::Wants { side, hint } => {
+                let back = match side {
+                    Side::Left => 1,
+                    Side::Right => 0,
+                };
+                let place = self.place(run, back)?;
+                self.convert_at(run, place, hint, pc, at)
+            }
+        }
     }
 
     /// `{}` — an object with no prototype and no properties.
@@ -711,6 +767,13 @@ impl Engine {
         let name = run.text(which)?;
         let value = match self.realm.resolve(&self.objects, &name)? {
             Resolved::Lexical(value) | Resolved::Property(value) => value,
+            // An accessor with no getter reads as `undefined`; one with a
+            // getter is a call, and its answer is pushed where this push would
+            // have put it.
+            Resolved::Getter(Value::Undefined) => Value::Undefined,
+            Resolved::Getter(getter) => {
+                return self.begin_global_getter(run, getter, at, After::Answer);
+            }
             Resolved::Dead => {
                 return Err(Escape::reference_error(
                     format!("'{}' is used before it is declared", show(&name)),
@@ -732,8 +795,59 @@ impl Engine {
         let name = run.text(which)?;
         let value = self.peek(run, 0)?;
         let strict = run.strict()?;
-        self.realm
-            .assign(&mut self.objects, &name, value, strict, at)
+        match self
+            .realm
+            .assign(&mut self.objects, &name, value, strict, at)?
+        {
+            Assigned::Done => Ok(()),
+            Assigned::Setter(setter) => {
+                if self.function_of(setter).is_none() {
+                    return Err(self.not_a_function(setter, at));
+                }
+                // The value stays where it is: the call is laid out above it and
+                // its answer is dropped, because an assignment evaluates to what
+                // was assigned.
+                let global = Value::Object(self.realm.global(&self.objects)?);
+                let callee_at = self.height(run)?;
+                self.begin_call(
+                    run,
+                    callee_at,
+                    call::Ask {
+                        callee: setter,
+                        receiver: global,
+                        arguments: &[value],
+                        at,
+                        after: After::Discard,
+                    },
+                )
+            }
+        }
+    }
+
+    /// A global property that is behind a getter, as the call it is.
+    fn begin_global_getter(
+        &mut self,
+        run: &mut Run,
+        getter: Value,
+        at: usize,
+        after: After,
+    ) -> Result<(), Escape> {
+        if self.function_of(getter).is_none() {
+            return Err(self.not_a_function(getter, at));
+        }
+        let global = Value::Object(self.realm.global(&self.objects)?);
+        let callee_at = self.height(run)?;
+        self.begin_call(
+            run,
+            callee_at,
+            call::Ask {
+                callee: getter,
+                receiver: global,
+                arguments: &[],
+                at,
+                after,
+            },
+        )
     }
 
     /// `typeof` on a name, which a name nothing declares survives.
@@ -741,6 +855,14 @@ impl Engine {
         let name = run.text(which)?;
         let value = match self.realm.resolve(&self.objects, &name)? {
             Resolved::Lexical(value) | Resolved::Property(value) => value,
+            // The one instruction whose answer is a question *about* what the
+            // getter returns, which is why leaving a call has an
+            // [`After::TypeOf`]. An accessor with no getter reads as
+            // `undefined`, which is the same answer a name nothing declared
+            // gets and for a different reason.
+            Resolved::Getter(getter) if getter != Value::Undefined => {
+                return self.begin_global_getter(run, getter, at, After::TypeOf);
+            }
             Resolved::Dead => {
                 // `typeof` saves a name nothing declared and does not save one
                 // that is still in its dead zone, which is the one place the
@@ -750,64 +872,83 @@ impl Engine {
                     at,
                 ));
             }
-            Resolved::Nothing => Value::Undefined,
+            Resolved::Getter(_) | Resolved::Nothing => Value::Undefined,
         };
         let answer = self.type_of(value, at)?;
         self.push(run, answer)
     }
 
     /// `a[b]`.
-    fn get_keyed(&mut self, run: &mut Run, at: usize) -> Result<(), Escape> {
+    fn get_keyed(&mut self, run: &mut Run, at: usize, pc: usize) -> Result<(), Escape> {
+        let Some(key) = self.keyed(run, 0, at, pc)? else {
+            return Ok(());
+        };
+        // Read after the key is made rather than before: interning it allocates,
+        // and a value read into a Rust local across an allocation is a value the
+        // collector cannot see.
         let object = self.peek(run, 1)?;
-        let name = self.peek(run, 0)?;
-        let key = convert::to_property_key(&mut self.objects, &self.names, name, at)?;
-        let value = self.read(object, key, at)?;
-        self.replace(run, 2, value)
-    }
-
-    /// `a.b = c` and `a[b] = c`, which differ only in how far down the object
-    /// is.
-    fn set_property(
-        &mut self,
-        run: &mut Run,
-        key: Key,
-        under: usize,
-        at: usize,
-    ) -> Result<(), Escape> {
-        let object = self.peek(run, under)?;
-        let value = self.peek(run, 0)?;
-        let strict = run.strict()?;
-        self.write(object, key, value, strict, at)?;
-        self.replace(run, under.saturating_add(1), value)
+        self.read_into(run, object, key, 2, at)
     }
 
     /// `a[b] = c`.
-    fn set_keyed(&mut self, run: &mut Run, at: usize) -> Result<(), Escape> {
-        let name = self.peek(run, 1)?;
-        let key = convert::to_property_key(&mut self.objects, &self.names, name, at)?;
-        self.set_property(run, key, 2, at)
+    fn set_keyed(&mut self, run: &mut Run, at: usize, pc: usize) -> Result<(), Escape> {
+        let Some(key) = self.keyed(run, 1, at, pc)? else {
+            return Ok(());
+        };
+        self.write_from(run, key, 3, at)
     }
 
     /// `delete a[b]`.
-    fn delete_keyed(&mut self, run: &mut Run, at: usize) -> Result<(), Escape> {
+    fn delete_keyed(&mut self, run: &mut Run, at: usize, pc: usize) -> Result<(), Escape> {
+        let Some(key) = self.keyed(run, 0, at, pc)? else {
+            return Ok(());
+        };
         let object = self.peek(run, 1)?;
-        let name = self.peek(run, 0)?;
-        let key = convert::to_property_key(&mut self.objects, &self.names, name, at)?;
         let strict = run.strict()?;
         let went = self.remove(object, key, strict, at)?;
         self.replace(run, 2, Value::Bool(went))
     }
 
     /// `{ [a]: b }`.
-    fn define_keyed(&mut self, run: &mut Run, at: usize) -> Result<(), Escape> {
+    fn define_keyed(&mut self, run: &mut Run, at: usize, pc: usize) -> Result<(), Escape> {
+        let Some(key) = self.keyed(run, 1, at, pc)? else {
+            return Ok(());
+        };
         let object = self.peek(run, 2)?;
-        let name = self.peek(run, 1)?;
         let value = self.peek(run, 0)?;
-        let key = convert::to_property_key(&mut self.objects, &self.names, name, at)?;
         self.define(object, key, value)?;
         self.pop(run)?;
         self.pop(run)?;
         Ok(())
+    }
+
+    /// `{ get [a]() {} }`.
+    fn define_keyed_accessor(
+        &mut self,
+        run: &mut Run,
+        half: Half,
+        at: usize,
+        pc: usize,
+    ) -> Result<(), Escape> {
+        let Some(key) = self.keyed(run, 1, at, pc)? else {
+            return Ok(());
+        };
+        self.define_accessor(run, key, half, 3)
+    }
+
+    /// `ToPropertyKey` on the operand `back` down, or [`None`] once a conversion
+    /// has been started — in which case this instruction will run again.
+    fn keyed(
+        &mut self,
+        run: &mut Run,
+        back: usize,
+        at: usize,
+        pc: usize,
+    ) -> Result<Option<Key>, Escape> {
+        let Some(name) = self.primitive_or_convert(run, back, Hint::String, at, pc)? else {
+            return Ok(None);
+        };
+        Ok(Some(convert::to_property_key(&mut self.objects, name, at)?))
     }
 
     /// `{ __proto__: a }`.
@@ -853,7 +994,7 @@ impl Engine {
     }
 
     /// Take the top value off.
-    fn pop(&mut self, run: &mut Run) -> Result<Value, Escape> {
+    pub(super) fn pop(&mut self, run: &mut Run) -> Result<Value, Escape> {
         let stack = run.stack;
         let base = run.base()?;
         let height = self
@@ -877,17 +1018,26 @@ impl Engine {
 
     /// Read a value without taking it off: `back` is how far down, zero being
     /// the top.
-    fn peek(&self, run: &Run, back: usize) -> Result<Value, Escape> {
+    pub(super) fn peek(&self, run: &Run, back: usize) -> Result<Value, Escape> {
+        let at = self.place(run, back)?;
+        self.value_at(run, at)
+    }
+
+    /// Where in the stack the value `back` down is, zero being the top.
+    ///
+    /// The absolute place rather than the value, which is what a getter's call
+    /// and a conversion's answer both need: one puts a callee there and the
+    /// other writes a primitive there.
+    pub(super) fn place(&self, run: &Run, back: usize) -> Result<usize, Escape> {
         let base = run.base()?;
         let height = self
             .objects
             .slot_count(run.stack)
             .ok_or(Escape::Broken(Internal::StackIsWrong))?;
-        let at = height
+        height
             .checked_sub(back.saturating_add(1))
             .filter(|at| *at >= base)
-            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
-        self.value_at(run, at)
+            .ok_or(Escape::Broken(Internal::StackIsWrong))
     }
 
     /// The value at an absolute place in the stack, which is how a frame reads
@@ -901,7 +1051,12 @@ impl Engine {
     }
 
     /// Write one there.
-    fn write_at(&mut self, run: &mut Run, at: usize, value: Value) -> Result<(), Escape> {
+    pub(super) fn write_at(
+        &mut self,
+        run: &mut Run,
+        at: usize,
+        value: Value,
+    ) -> Result<(), Escape> {
         let stack = run.stack;
         self.objects
             .with_slots(stack, |slots, barrier| slots.set(barrier, at, value))
@@ -915,7 +1070,12 @@ impl Engine {
     /// The order matters and is the whole discipline of this file: the answer
     /// is computed while the operands are still on the stack, so nothing it
     /// allocated on the way is holding a reference the collector cannot see.
-    fn replace(&mut self, run: &mut Run, how_many: usize, value: Value) -> Result<(), Escape> {
+    pub(super) fn replace(
+        &mut self,
+        run: &mut Run,
+        how_many: usize,
+        value: Value,
+    ) -> Result<(), Escape> {
         for _ in 0..how_many {
             self.pop(run)?;
         }
@@ -969,7 +1129,7 @@ impl Engine {
 
     /// Where in the source the running instruction came from, for a message
     /// raised somewhere that does not already have it.
-    fn where_now(run: &Run) -> usize {
+    pub(super) fn where_now(run: &Run) -> usize {
         match (run.frame(), run.chunk()) {
             (Ok(frame), Ok(chunk)) => chunk.at(frame.pc.saturating_sub(1)),
             _ => 0,
@@ -988,42 +1148,6 @@ impl Engine {
     }
 
     // --- Properties ---------------------------------------------------------
-
-    /// `[[Get]]`, with the two answers this engine cannot give yet named.
-    fn read(&mut self, object: Value, key: Key, at: usize) -> Result<Value, Escape> {
-        let held = self.object_of(object, key, at, "read")?;
-        match self.objects.get(held, key)? {
-            Found::Missing => Ok(Value::Undefined),
-            Found::Value(value) => Ok(value),
-            // The property is there and reading it means calling a function.
-            Found::Getter(_) => Err(Escape::NotBuiltYet(Missing::ACall)),
-        }
-    }
-
-    /// `[[Set]]`, with sloppy mode's silence and strict mode's `TypeError`.
-    fn write(
-        &mut self,
-        object: Value,
-        key: Key,
-        value: Value,
-        strict: bool,
-        at: usize,
-    ) -> Result<(), Escape> {
-        let held = self.object_of(object, key, at, "write")?;
-        match self.objects.set(held, key, value)? {
-            Set::Done => Ok(()),
-            Set::Setter(_) => Err(Escape::NotBuiltYet(Missing::ACall)),
-            Set::Refused => {
-                if strict {
-                    return Err(Escape::type_error(
-                        format!("{} cannot be written", self.describe_key(key)),
-                        at,
-                    ));
-                }
-                Ok(())
-            }
-        }
-    }
 
     /// `[[Delete]]`.
     fn remove(&mut self, object: Value, key: Key, strict: bool, at: usize) -> Result<bool, Escape> {
@@ -1057,7 +1181,13 @@ impl Engine {
     /// specifies** and a page may catch, and `"abc".a` is a wrapper object this
     /// engine has not built (queue item 73) — which is not an error the language
     /// has, and must not be reported as one.
-    fn object_of(&self, object: Value, key: Key, at: usize, doing: &str) -> Result<Ref, Escape> {
+    pub(super) fn object_of(
+        &self,
+        object: Value,
+        key: Key,
+        at: usize,
+        doing: &str,
+    ) -> Result<Ref, Escape> {
         match object {
             Value::Object(held) => Ok(held),
             Value::Undefined | Value::Null => Err(Escape::type_error(
@@ -1079,7 +1209,7 @@ impl Engine {
     }
 
     /// A key, for a message a person reads.
-    fn describe_key(&self, key: Key) -> String {
+    pub(super) fn describe_key(&self, key: Key) -> String {
         if let Some(index) = key.as_index() {
             return format!("property '{index}'");
         }
@@ -1106,7 +1236,7 @@ impl Engine {
     }
 
     /// `typeof`, as the string it answers with.
-    fn type_of(&mut self, value: Value, at: usize) -> Result<Value, Escape> {
+    pub(super) fn type_of(&mut self, value: Value, at: usize) -> Result<Value, Escape> {
         let answer = convert::type_of(&self.objects, value);
         let units: Vec<u16> = answer.encode_utf16().collect();
         // Interned rather than allocated: there are eight of these strings in

@@ -11,18 +11,22 @@
 //! else* — and because getting one of them subtly wrong is visible in a dozen
 //! operators at once.
 //!
-//! # `ToPrimitive` on an object throws today, and that is correct rather than
-//! missing
+//! # Every conversion below takes a [`Primitive`], and that is a type rather
+//! than a check
 //!
-//! `OrdinaryToPrimitive` calls `valueOf` and then `toString`, and throws a
-//! `TypeError` when neither is callable. An object in this engine has **no
-//! prototype at all** until the builtins arrive (queue item 73), so neither
-//! method is there to call and the `TypeError` is the answer the specification
-//! gives for exactly that object — the same answer a real engine gives for
-//! `Object.create(null) + ""`. What is *not* built is finding a method and
-//! calling it, and where this engine finds something it would have to call it
-//! says so ([`Missing::ACall`]) rather than skipping it, because skipping would
-//! be quietly answering a question it did not ask.
+//! Turning an **object** into a primitive means calling `valueOf` or `toString`
+//! — a function the page wrote, which may do anything, including reading the
+//! property again. Calling one is the interpreter's business (queue item 214),
+//! because only the interpreter has a stack to put a frame on. So this file
+//! does the half that is arithmetic and [`primitive_of`] does the half that is
+//! a *search*: it says which method to call and where to carry on if what that
+//! answers is not a primitive either.
+//!
+//! The two halves are kept apart by a type. [`Primitive`] wraps a value that is
+//! not an object and there is no other way to make one, so a conversion cannot
+//! be handed an object by mistake — there is nowhere to write the mistake down.
+//! Before this, every one of these functions had an object arm that answered
+//! *this is not built yet*, and the arm was reachable from a dozen operators.
 //!
 //! # The names the engine needs are interned once
 //!
@@ -33,8 +37,8 @@
 //! them**: a key holds a reference to its own string, and a key whose string
 //! was collected would name nothing.
 
-use crate::abrupt::{Escape, Missing};
-use crate::heap::Root;
+use crate::abrupt::Escape;
+use crate::heap::{Ref, Root};
 use crate::numeric;
 use crate::object::{Found, Key, Objects, Refused, Value};
 
@@ -47,6 +51,37 @@ pub enum Hint {
     Number,
     /// A string is wanted: a property key, and `ToString`.
     String,
+}
+
+/// A value that is not an object.
+///
+/// The demand every conversion in this file makes, and the reason it is a type:
+/// an object is the one kind of value that cannot be converted without running
+/// a page's own code, so a conversion that accepted one would have to have an
+/// answer for a case it cannot answer. [`Primitive::of`] is the only way to make
+/// one and it refuses an object, so that case does not exist here.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Primitive(Value);
+
+impl Primitive {
+    /// The primitive this value is, or [`None`] if it is an object — which the
+    /// caller turns into one with [`primitive_of`] and a call.
+    pub const fn of(value: Value) -> Option<Self> {
+        match value {
+            Value::Object(_) => None,
+            Value::Undefined
+            | Value::Null
+            | Value::Bool(_)
+            | Value::Number(_)
+            | Value::Text(_)
+            | Value::Symbol(_) => Some(Self(value)),
+        }
+    }
+
+    /// The value it is.
+    pub const fn value(self) -> Value {
+        self.0
+    }
 }
 
 /// The property names the engine itself has to be able to ask for.
@@ -83,6 +118,118 @@ impl Names {
             _held: held,
         })
     }
+
+    /// The two names `OrdinaryToPrimitive` tries, in the order this hint asks
+    /// for.
+    ///
+    /// `Symbol.toPrimitive` comes before both in the specification and is a
+    /// well-known symbol, which arrives with the builtins (queue item 73).
+    /// Until then no object can have one, because a script cannot spell the
+    /// symbol.
+    const fn order(&self, hint: Hint) -> [Key; ORDER] {
+        match hint {
+            Hint::String => [self.to_string, self.value_of],
+            Hint::Default | Hint::Number => [self.value_of, self.to_string],
+        }
+    }
+}
+
+/// How many names a conversion tries before it gives up.
+const ORDER: usize = 2;
+
+/// What turning an object into a primitive needs the interpreter to call.
+///
+/// Two shapes rather than one because the method may itself be behind an
+/// accessor: `valueOf` is usually a value on a prototype, and it is allowed to
+/// be a getter, in which case *finding* it is a call before *calling* it is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Wanted {
+    /// Call this method with the object as its receiver. If what it answers is
+    /// not a primitive either, ask again from `next`.
+    Call {
+        /// The function to call.
+        method: Ref,
+        /// Where the search carries on if its answer is an object.
+        next: usize,
+    },
+    /// Call this getter with the object as its receiver: whatever it answers
+    /// *is* the method. If that is not callable, the search carries on from
+    /// `next` rather than throwing, because `IsCallable` is a question rather
+    /// than a demand.
+    Fetch {
+        /// The getter to call.
+        getter: Ref,
+        /// Where the search carries on if what it answers is not callable.
+        next: usize,
+    },
+}
+
+/// `OrdinaryToPrimitive`, as far as the next thing that has to be called.
+///
+/// `from` is where to start, which is `0` for a conversion that has not begun
+/// and the `next` of a previous answer for one that has: a method that answered
+/// with an object has not converted anything, and the specification's rule is
+/// to try the *other* name rather than to throw or to ask the same one again.
+///
+/// # Errors
+///
+/// A `TypeError` when neither name is callable — which is the answer the
+/// specification gives for `Object.create(null) + ""` — and a fault for a
+/// prototype chain this engine has lost.
+pub fn primitive_of(
+    objects: &Objects,
+    names: &Names,
+    object: Ref,
+    hint: Hint,
+    from: usize,
+    at: usize,
+) -> Result<Wanted, Escape> {
+    for (which, key) in names.order(hint).into_iter().enumerate().skip(from) {
+        let next = which.saturating_add(1);
+        match objects.get(object, key)? {
+            // Not there — or there as an accessor with no getter, which reads
+            // as `undefined` and is therefore not callable either.
+            Found::Missing | Found::Getter(Value::Undefined) => {}
+            // There and callable: this is the method. There and *not* callable
+            // — a number, a plain object — is skipped rather than thrown at,
+            // which is the specification's `IsCallable` check.
+            Found::Value(value) => {
+                if let Some(method) = function_of(objects, value) {
+                    return Ok(Wanted::Call { method, next });
+                }
+            }
+            Found::Getter(getter) => {
+                let Some(getter) = function_of(objects, getter) else {
+                    return Err(Escape::type_error(
+                        format!("the getter for '{}' is not a function", name(objects, key)),
+                        at,
+                    ));
+                };
+                return Ok(Wanted::Fetch { getter, next });
+            }
+        }
+    }
+    Err(Escape::type_error(
+        "this object has no valueOf or toString, so it cannot become a primitive value",
+        at,
+    ))
+}
+
+/// The function a value is, or [`None`] if it is not callable — the
+/// specification's `IsCallable`.
+fn function_of(objects: &Objects, value: Value) -> Option<Ref> {
+    match value {
+        Value::Object(held) if objects.callable(held).is_some() => Some(held),
+        _ => None,
+    }
+}
+
+/// A key's name, for a message a person reads.
+fn name(objects: &Objects, key: Key) -> String {
+    match key.as_text().and_then(|held| objects.units(held)) {
+        Some(units) => String::from_utf16_lossy(units),
+        None => "that name".to_owned(),
+    }
 }
 
 /// A string's code units, for the names this file spells in Rust.
@@ -104,57 +251,13 @@ pub fn to_boolean(objects: &Objects, value: Value) -> bool {
     }
 }
 
-/// `ToPrimitive`.
-///
-/// # Errors
-///
-/// A `TypeError` for an object with nothing to call, and [`Missing::ACall`]
-/// where there *is* something and calling it is queue item 214.
-pub fn to_primitive(
-    objects: &Objects,
-    names: &Names,
-    value: Value,
-    hint: Hint,
-    at: usize,
-) -> Result<Value, Escape> {
-    let Value::Object(object) = value else {
-        return Ok(value);
-    };
-    // `Symbol.toPrimitive` comes first in the specification and is a well-known
-    // symbol, which arrives with the builtins (queue item 73). Until then no
-    // object can have one: a script cannot spell the symbol.
-    let order = match hint {
-        Hint::String => [names.to_string, names.value_of],
-        Hint::Default | Hint::Number => [names.value_of, names.to_string],
-    };
-    for key in order {
-        match objects.get(object, key)? {
-            // Something is there, and calling it would be calling a function
-            // part way through a conversion — which is the same re-entry a
-            // getter needs and is queue item 214. So it says which item answers
-            // it rather than skipping a method the object has.
-            Found::Value(Value::Object(_)) | Found::Getter(_) => {
-                return Err(Escape::NotBuiltYet(Missing::ACall));
-            }
-            // Not there, or there and a primitive: the specification's
-            // `IsCallable` check skips both rather than throwing, and tries the
-            // other name.
-            Found::Missing | Found::Value(_) => {}
-        }
-    }
-    Err(Escape::type_error(
-        "this object has no valueOf or toString, so it cannot become a primitive value",
-        at,
-    ))
-}
-
 /// `ToNumber`.
 ///
 /// # Errors
 ///
-/// A `TypeError` for a symbol, and whatever [`to_primitive`] refuses.
-pub fn to_number(objects: &Objects, names: &Names, value: Value, at: usize) -> Result<f64, Escape> {
-    match value {
+/// A `TypeError` for a symbol, which is the one primitive that refuses.
+pub fn to_number(objects: &Objects, value: Primitive, at: usize) -> Result<f64, Escape> {
+    match value.value() {
         Value::Undefined => Ok(f64::NAN),
         Value::Null => Ok(0.0),
         Value::Bool(is) => Ok(if is { 1.0 } else { 0.0 }),
@@ -169,10 +272,8 @@ pub fn to_number(objects: &Objects, names: &Names, value: Value, at: usize) -> R
             "a symbol cannot be turned into a number",
             at,
         )),
-        Value::Object(_) => {
-            let primitive = to_primitive(objects, names, value, Hint::Number, at)?;
-            to_number(objects, names, primitive, at)
-        }
+        // Unreachable by construction: a [`Primitive`] is never an object.
+        Value::Object(_) => Err(Escape::fault(crate::object::Fault::NotAnObject)),
     }
 }
 
@@ -184,14 +285,9 @@ pub fn to_number(objects: &Objects, names: &Names, value: Value, at: usize) -> R
 /// # Errors
 ///
 /// A `TypeError` for a symbol, which is the one value the language refuses to
-/// spell implicitly, and whatever [`to_primitive`] refuses.
-pub fn to_units(
-    objects: &Objects,
-    names: &Names,
-    value: Value,
-    at: usize,
-) -> Result<Vec<u16>, Escape> {
-    match value {
+/// spell implicitly.
+pub fn to_units(objects: &Objects, value: Primitive, at: usize) -> Result<Vec<u16>, Escape> {
+    match value.value() {
         Value::Undefined => Ok(units("undefined")),
         Value::Null => Ok(units("null")),
         Value::Bool(true) => Ok(units("true")),
@@ -205,10 +301,8 @@ pub fn to_units(
             "a symbol cannot be turned into a string; use String(symbol) to say so on purpose",
             at,
         )),
-        Value::Object(_) => {
-            let primitive = to_primitive(objects, names, value, Hint::String, at)?;
-            to_units(objects, names, primitive, at)
-        }
+        // Unreachable by construction, as in [`to_number`].
+        Value::Object(_) => Err(Escape::fault(crate::object::Fault::NotAnObject)),
     }
 }
 
@@ -220,16 +314,11 @@ pub fn to_units(
 /// # Errors
 ///
 /// Whatever [`to_units`] refuses, and a heap that cannot hold the result.
-pub fn to_text(
-    objects: &mut Objects,
-    names: &Names,
-    value: Value,
-    at: usize,
-) -> Result<Value, Escape> {
-    if matches!(value, Value::Text(_)) {
-        return Ok(value);
+pub fn to_text(objects: &mut Objects, value: Primitive, at: usize) -> Result<Value, Escape> {
+    if matches!(value.value(), Value::Text(_)) {
+        return Ok(value.value());
     }
-    let units = to_units(objects, names, value, at)?;
+    let units = to_units(objects, value, at)?;
     let held = objects
         .text(units)
         .map_err(|why| Escape::refused(why, at))?;
@@ -243,16 +332,11 @@ pub fn to_text(
 /// # Errors
 ///
 /// Whatever [`to_units`] refuses, and a heap that cannot hold the name.
-pub fn to_property_key(
-    objects: &mut Objects,
-    names: &Names,
-    value: Value,
-    at: usize,
-) -> Result<Key, Escape> {
-    if let Value::Symbol(held) = value {
+pub fn to_property_key(objects: &mut Objects, value: Primitive, at: usize) -> Result<Key, Escape> {
+    if let Value::Symbol(held) = value.value() {
         return objects.symbol_key(held).map_err(Escape::fault);
     }
-    let units = to_units(objects, names, value, at)?;
+    let units = to_units(objects, value, at)?;
     objects.key(&units).map_err(|why| Escape::refused(why, at))
 }
 
@@ -323,8 +407,71 @@ pub fn to_uint32(number: f64) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{to_boolean, to_int32, to_uint32, type_of};
-    use crate::object::{Objects, Value};
+    use super::{
+        Hint, Names, Primitive, Wanted, primitive_of, to_boolean, to_int32, to_uint32, type_of,
+    };
+    use crate::object::{Objects, Property, Value};
+
+    #[test]
+    fn an_object_is_the_one_value_that_is_not_a_primitive() {
+        let mut objects = Objects::new();
+        let Ok(held) = objects.object(None) else {
+            panic!("an empty heap holds an object");
+        };
+        assert!(Primitive::of(Value::Object(held)).is_none());
+        for value in [
+            Value::Undefined,
+            Value::Null,
+            Value::Bool(false),
+            Value::Number(0.0),
+        ] {
+            assert_eq!(Primitive::of(value).map(Primitive::value), Some(value));
+        }
+    }
+
+    #[test]
+    fn a_search_for_a_primitive_tries_each_name_once_and_then_gives_up() {
+        let mut objects = Objects::new();
+        let Ok(names) = Names::new(&mut objects) else {
+            panic!("an empty heap holds two names");
+        };
+        let Ok(held) = objects.object(None) else {
+            panic!("an empty heap holds an object");
+        };
+        // Nothing to call at all, which is a `TypeError` rather than a refusal
+        // of ours — the answer a real engine gives for `Object.create(null)`.
+        assert!(primitive_of(&objects, &names, held, Hint::Number, 0, 0).is_err());
+
+        let unit = std::rc::Rc::new(crate::unit::Unit::new());
+        let Ok(function) = objects.function(unit, 0, None, None) else {
+            panic!("and a function");
+        };
+        let value_of: Vec<u16> = "valueOf".encode_utf16().collect();
+        let Ok(true) =
+            objects.define_named(held, &value_of, Property::plain(Value::Object(function)))
+        else {
+            panic!("the object takes a valueOf");
+        };
+        assert_eq!(
+            primitive_of(&objects, &names, held, Hint::Number, 0, 0),
+            Ok(Wanted::Call {
+                method: function,
+                next: 1
+            })
+        );
+        // A hint decides the order, so the same object asked for a string looks
+        // for `toString` first and finds `valueOf` second.
+        assert_eq!(
+            primitive_of(&objects, &names, held, Hint::String, 0, 0),
+            Ok(Wanted::Call {
+                method: function,
+                next: 2
+            })
+        );
+        // Carrying on past the last name is the same `TypeError`, which is what
+        // stops a method that keeps answering with an object from looping.
+        assert!(primitive_of(&objects, &names, held, Hint::Number, 2, 0).is_err());
+    }
 
     #[test]
     fn an_empty_string_is_the_only_false_string() {

@@ -2298,7 +2298,7 @@ The long pole, and the thing most of section E is unreachable without.
   answer, and the mapped and unmapped forms are told apart in a test naming
   which is which.
 
-- [ ] **214. A getter is a call, and so is a proxy's trap.** Cut from 209, and
+- [x] **214. A getter is a call, and so is a proxy's trap.** Cut from 209, and
   it is not "the rest of calling" — it is a different question. Item 209 calls
   a function from an instruction that is *about* calling; this is calling one
   from inside an instruction that is half way through something else, which
@@ -2314,6 +2314,88 @@ The long pole, and the thing most of section E is unreachable without.
   setter sees what was assigned, `({}) + ''` calls a `toString` the object
   inherits rather than refusing, and a getter that calls something that reads
   the same property is bounded rather than a process that stops.
+
+  **Done, all four closing conditions, and the proxy is cut to item 217.** The
+  third one is met in the only form this engine can honestly meet it: a
+  `toString` **the object inherits** is called — `({ __proto__: { toString() {
+  … } } }) + ''` answers — and `({})` itself still has no prototype and so
+  nothing to inherit, which is item 73's and is asserted as its own case rather
+  than left to be discovered.
+
+  **The decision worth reading twice is that the interpreter still does not
+  recurse.** `interpret.rs` says it as a property rather than an accident, and a
+  getter is exactly the thing that tempts an engine to break it: a call is
+  wanted from inside an instruction that is half way through. So the instruction
+  hands over instead, and the frame goes on the list every other call's frame
+  goes on. What differs is a field on the frame ([`After`]) saying what the
+  answer is *for* — the value the instruction leaves behind, a value to drop, a
+  `typeof` to take, or one step of a conversion — so leaving a call is one
+  `match` rather than four kinds of frame.
+
+  **Two shapes carry all of it, and only one of them needs anything remembered.**
+  A property access takes a known number of stack values and leaves one, and a
+  call takes everything above its callee and leaves one in its place — so
+  putting the getter *where the access's answer belongs* makes the getter's
+  `return` the end of the access, with nothing resumed and nothing recorded. A
+  setter is the exception, because `a.b = c` evaluates to `c` rather than to
+  what the setter answered, so the value is written into the answer's place
+  first and the call laid out above it with its answer dropped. A **conversion**
+  is the one that genuinely resumes: the primitive is written into the operand's
+  own stack slot and the instruction **runs again**. That is not a retry — every
+  instruction in this engine reads its operands where they lie and takes them
+  off only once the answer exists, so the second run is the same instruction on
+  an operand that is now a primitive, which is the specification's own next
+  step. `a + b` with objects on both sides runs three times and calls each
+  side's `valueOf` once.
+
+  **Neither loop.** A method that answers with an object again carries on at the
+  *next* name and there are two, so running out is the `TypeError` the
+  specification gives; and an accessor that reads itself makes a frame each
+  time, which is `bounds::CALLS_ON_THE_STACK`. Six shapes of that are asserted,
+  including one through a prototype and one that is a conversion rather than an
+  access.
+
+  **Two types keep the halves apart, and they are the change with the longest
+  reach.** `convert::Primitive` wraps a value that is **not an object** and is
+  the only way to make one, so `ToNumber` and `ToString` cannot be handed an
+  object by mistake — before this, every one of them had an object arm
+  answering *not built yet*, reachable from a dozen operators. And
+  `operate::Applied::Wants` is how an operator says **which operand** it needs
+  converted and with which hint, rather than converting it: that keeps the order
+  `a > b` converts in — left first, which is what `LeftFirst` is *for* — inside
+  the one file that knows it. `Missing::ACall` is gone from the engine
+  entirely.
+
+  **The realm went with it**, because a bare name can be an accessor too: a
+  script cannot make one until item 73, and an **embedder** can, and a
+  `document` behind a getter would otherwise be a name this engine could see and
+  not read. `tests/a_name_behind_an_accessor.rs` is that path, with the getter
+  and the setter written in the language rather than in Rust.
+
+  **One thing was found and fixed rather than cut**, because item 209 had made
+  it a lie: `instanceof` refused everything with *the right-hand side is not
+  callable*, on the grounds that nothing in the heap was callable — and things
+  are now. The two answers that come before `Get(C, "prototype")` are given (a
+  right-hand side that is not callable is still that `TypeError`; a left-hand
+  side that is not an object is `false`), and the rest names item 212.
+
+  **Four new files, one reason to change each**: `interpret/property.rs`
+  (reading and writing a property, either of which may be a call),
+  `interpret/primitive.rs` (the conversion state machine), the two test files,
+  and `frame.rs` gained the two types the frame now carries.
+
+- [ ] **217. A proxy's trap.** Cut from 214 on the iteration that built it. A
+  proxy overrides `[[Get]]` rather than `[[GetOwnProperty]]`, which is a method
+  added to `object::Internal` — and the re-entry it needed is now built, so what
+  remains is the trap object and the invariants. It is a cut rather than a
+  refusal because **nothing can make one**: `new Proxy(target, handler)` needs
+  `new` (item 212) and the `Proxy` constructor (item 73), so building the trap
+  now would be building a mechanism no test could reach from a script and no
+  page could reach at all. Item 214's own closing conditions do not name it.
+  *Depends on 214, 212 and 73. Closes when:* a `get` trap runs and sees the key
+  it was asked for, a trap that contradicts a non-configurable property is a
+  `TypeError` rather than the answer it gave, and a proxy whose target is itself
+  is bounded rather than a process that stops.
 
 - [ ] **215. Tagged templates.** Cut from 209. `` tag`a${b}c` `` calls `tag`
   with an **array of the cooked strings, carrying a `raw` array**, then the

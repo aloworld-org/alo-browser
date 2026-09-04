@@ -46,7 +46,7 @@
 
 use std::collections::HashMap;
 
-use crate::abrupt::{Escape, Missing};
+use crate::abrupt::Escape;
 use crate::heap::{Ref, Root};
 use crate::object::{Found, Held, Objects, Property, Refused, Set, Value};
 
@@ -76,8 +76,28 @@ pub enum Resolved {
     Dead,
     /// A property of the global object.
     Property(Value),
+    /// A property of the global object whose value is behind a getter, which
+    /// the caller must call with the global object as its receiver.
+    ///
+    /// Nothing a script can write makes one — defining an accessor on the
+    /// global object needs `Object.defineProperty` (queue item 73) — but an
+    /// **embedder** may, and one that put `document` behind a getter would
+    /// otherwise be a name this engine could see and not read.
+    Getter(Value),
     /// Nothing at all, which reading is a `ReferenceError` and `typeof` is not.
     Nothing,
+}
+
+/// What assigning to a name came to.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Assigned {
+    /// It was stored, or silently refused in the way sloppy code is told
+    /// nothing about.
+    Done,
+    /// The property is an accessor and this is its setter, which the caller
+    /// must call with the global object as its receiver and the value as its
+    /// one argument.
+    Setter(Value),
 }
 
 impl Realm {
@@ -242,8 +262,7 @@ impl Realm {
     ///
     /// # Errors
     ///
-    /// [`Missing::ACall`] for a property with a getter, and a fault for a
-    /// reference this engine has lost.
+    /// A fault for a reference this engine has lost.
     pub fn resolve(&self, objects: &Objects, name: &[u16]) -> Result<Resolved, Escape> {
         if let Some(binding) = self.bindings.get(name) {
             let record = self.record(objects)?;
@@ -264,7 +283,7 @@ impl Realm {
         match objects.get(global, key)? {
             Found::Missing => Ok(Resolved::Nothing),
             Found::Value(value) => Ok(Resolved::Property(value)),
-            Found::Getter(_) => Err(Escape::NotBuiltYet(Missing::ACall)),
+            Found::Getter(getter) => Ok(Resolved::Getter(getter)),
         }
     }
 
@@ -306,9 +325,9 @@ impl Realm {
     ///
     /// # Errors
     ///
-    /// A `TypeError` for a `const` or a property that refuses, a
+    /// A `TypeError` for a `const` or a property that refuses, and a
     /// `ReferenceError` for a dead zone or for strict code assigning to
-    /// nothing, and [`Missing::ACall`] for a setter.
+    /// nothing.
     pub fn assign(
         &mut self,
         objects: &mut Objects,
@@ -316,7 +335,7 @@ impl Realm {
         value: Value,
         strict: bool,
         at: usize,
-    ) -> Result<(), Escape> {
+    ) -> Result<Assigned, Escape> {
         if let Some(binding) = self.bindings.get(name).copied() {
             let record = self.record(objects)?;
             match objects.slot(record, binding.slot) {
@@ -340,7 +359,7 @@ impl Realm {
                     slots.set(barrier, binding.slot, value)
                 })
                 .ok_or_else(|| Escape::fault(crate::object::Fault::Gone))?;
-            return Ok(());
+            return Ok(Assigned::Done);
         }
 
         let global = self.global(objects)?;
@@ -359,20 +378,24 @@ impl Realm {
             Some(key) => key,
             None => objects.key(name).map_err(|why| Escape::refused(why, at))?,
         };
-        match objects.set(global, key, value)? {
-            Set::Done => Ok(()),
-            Set::Setter(_) => Err(Escape::NotBuiltYet(Missing::ACall)),
-            Set::Refused => {
-                if strict {
-                    return Err(Escape::type_error(
-                        format!("'{}' cannot be assigned to", show(name)),
-                        at,
-                    ));
-                }
-                // Sloppy code is told nothing, which is the language's oldest
-                // and least defensible rule and is not ours to change.
-                Ok(())
+        // Sloppy code is told nothing about a refusal, which is the language's
+        // oldest and least defensible rule and is not ours to change.
+        let refused = |why: &str| -> Result<Assigned, Escape> {
+            if strict {
+                return Err(Escape::type_error(format!("'{}' {why}", show(name)), at));
             }
+            Ok(Assigned::Done)
+        };
+        match objects.set(global, key, value)? {
+            Set::Done => Ok(Assigned::Done),
+            // An accessor with no setter is its own kind of refusal, and the
+            // difference is worth a message: the name is there, and writing it
+            // was never going to do anything.
+            Set::Setter(Value::Undefined) => {
+                refused("has a getter and no setter, so it cannot be assigned to")
+            }
+            Set::Setter(setter) => Ok(Assigned::Setter(setter)),
+            Set::Refused => refused("cannot be assigned to"),
         }
     }
 

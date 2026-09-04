@@ -144,13 +144,13 @@ pub enum Missing {
     /// A property was read from a string, a number, a boolean or a symbol,
     /// which needs the wrapper objects the builtins bring (queue item 73).
     AWrapperObject,
-    /// An accessor property's getter or setter had to be called, which means
-    /// re-entering the interpreter from inside an instruction (queue item 214).
+    /// `a instanceof f` reached `Get(f, "prototype")`, and a function has no
+    /// `prototype` property until it has a `[[Construct]]` (queue item 212).
     ///
-    /// Calling an ordinary function is built (queue item 209); what is not is
-    /// calling one *while a property access is half done*, which is what a
-    /// getter, a setter and a proxy's trap all are.
-    ACall,
+    /// The two answers that come *before* it are given: a right-hand side that
+    /// is not callable is the `TypeError` the language specifies, and a
+    /// left-hand side that is not an object is `false`.
+    APrototype,
 }
 
 impl fmt::Display for Missing {
@@ -160,9 +160,9 @@ impl fmt::Display for Missing {
                 out,
                 "a property of a primitive needs a wrapper object, which is queue item 73"
             ),
-            Missing::ACall => write!(
+            Missing::APrototype => write!(
                 out,
-                "reading or writing this property means calling a function part way through, which is queue item 214"
+                "'instanceof' needs the `prototype` property a constructor has, which is queue item 212"
             ),
         }
     }
@@ -334,9 +334,9 @@ mod tests {
     #[test]
     fn something_not_built_says_which_item_builds_it() {
         assert!(
-            Escape::NotBuiltYet(Missing::ACall)
+            Escape::NotBuiltYet(Missing::APrototype)
                 .to_string()
-                .contains("214")
+                .contains("212")
         );
         assert!(
             Escape::NotBuiltYet(Missing::AWrapperObject)
