@@ -9,8 +9,11 @@ month, and the compatibility burden arrives last rather than first. It is writte
 construction, and its layout tree is the same tree an agent reads, so an
 agent operates on what the interface *is* rather than on a photograph of it.
 
-**Status: nothing works yet.** This repository holds the decisions and the
-first queue of work. See `ROADMAP.md`.
+**Status: stage 1 is complete; stage 2 is in progress.** The engine renders
+alo’s sign-in and Settings screens against committed references. Networking,
+process isolation and a JavaScript interpreter are partly built. It is not yet
+a general-purpose browser. See `ROADMAP.md` and the
+[remaining-work audit](docs/autonomy/REMAINING.md).
 
 ## Why build this
 
@@ -55,6 +58,7 @@ Two things follow that no existing engine offers:
 | **1** | Renders alo. No scripting, no hostile pages, no compatibility burden. Ships as alo OS's renderer. |
 | **2** | Renders the modern web. A JavaScript engine, the network stack, and a process/sandbox model designed **before** it ever loads a hostile page. |
 | **3** | The legacy tail, scheduled by real pages failing rather than by a specification. |
+| **4** | Product adoption: extensions, sync, updates, mobile and local AI; gated on stage 2. |
 
 ## Licence
 

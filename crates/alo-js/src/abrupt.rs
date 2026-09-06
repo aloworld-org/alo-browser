@@ -151,15 +151,6 @@ pub enum Missing {
     /// is not callable is the `TypeError` the language specifies, and a
     /// left-hand side that is not an object is `false`.
     APrototype,
-    /// A builtin was handed an **object** where the specification turns one
-    /// into a primitive first — `({}).hasOwnProperty({})` — and turning one
-    /// into a primitive means calling the script's own `valueOf`, which a
-    /// native cannot do until queue item 219.
-    ///
-    /// A primitive argument is converted here and now; it is only the object
-    /// that has nowhere to go, which is why this is the narrow answer rather
-    /// than a refusal of the whole method.
-    AConversionInsideABuiltin,
     /// `Function.prototype.toString`, which answers the text a function was
     /// written as — text no [`Unit`](crate::unit::Unit) keeps (queue item 220).
     ///
@@ -179,10 +170,6 @@ impl fmt::Display for Missing {
             Missing::APrototype => write!(
                 out,
                 "'instanceof' needs the `prototype` property a constructor has, which is queue item 212"
-            ),
-            Missing::AConversionInsideABuiltin => write!(
-                out,
-                "a builtin was given an object where a property key was wanted, and turning one into a primitive from inside a builtin is queue item 219"
             ),
             Missing::AFunctionsSourceText => write!(
                 out,
@@ -208,6 +195,9 @@ pub enum Internal {
     StackIsWrong,
     /// A jump named an instruction that is not in the chunk.
     JumpIsWrong,
+    /// A builtin was resumed somewhere it never suspended: it read the answer
+    /// to a call it had not asked for, or was handed one it had no step for.
+    BuiltinIsWrong,
 }
 
 impl fmt::Display for Internal {
@@ -222,6 +212,9 @@ impl fmt::Display for Internal {
                 )
             }
             Internal::JumpIsWrong => write!(out, "an instruction jumped outside its own code"),
+            Internal::BuiltinIsWrong => {
+                write!(out, "a builtin was resumed at a step it never asked for")
+            }
         }
     }
 }

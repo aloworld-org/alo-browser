@@ -31,8 +31,10 @@ gate in `CLAUDE.md`, or in a halt that says why it could not.
    or sizes, a **reference render** for anything visual, one responsibility per
    file, and the item's section in `docs/features.md`. A green script is not a
    passed gate on its own.
-5. **Commit and push.** One item, one commit, a message that says what changed
-   and why somebody would care.
+5. **Prepare one local commit.** Include the documentation in step 6 before
+   committing. One item, one commit, a message that says what changed and why
+   somebody would care. Do not push, publish, merge, or pull/rebase during the
+   loop; publication is a separate action requiring an explicit user request.
 6. **Update the queue, the roadmap and the journal.** Tick the queue item.
    Append to `docs/autonomy/STATE.md`: what was built, what the gate said, and
    anything the next iteration should know.
@@ -233,6 +235,7 @@ scripts/loop.sh --items 5    # five iterations, then exit
 scripts/loop.sh --once       # one iteration, then exit
 scripts/loop.sh --dry-run    # say what it would do, start nothing
 scripts/loop.sh --self-test  # check the stop rule and the arguments
+scripts/test-loop.sh        # exercise failures using an isolated fake worker
 ```
 
 **Start with `--items 5`.** "Run until the queue is empty" is a large thing to
@@ -247,16 +250,32 @@ iterations it managed: an iteration that halts honestly is worth more than one
 that invented a way past a problem, so counting iterations would be counting the
 wrong thing. A run that closed nothing and committed nothing says so, loudly.
 
-It refuses to begin on a tree where `scripts/gate.sh` does not pass, because an
-iteration that opens on somebody else's failure will either work around it or
-spend itself diagnosing it. It takes a lock, so a second supervisor on the same
-machine is refused rather than left to edit the same files. A worker that goes
-silent for twenty minutes is presumed hung and killed, and the item it was
-building is redone next time — silence rather than elapsed time, because an
-honest long item keeps writing and a hung one does not.
+It requires an authenticated `claude` CLI on PATH for real runs; dry runs and
+self-tests need no model access. It refuses a dirty checkout, takes an atomic
+lock in the checkout's Git directory, and runs `scripts/gate.sh` before the
+first worker and after every successful iteration. An iteration must leave a
+clean local commit and a new journal entry; a zero exit with no progress is an
+error. Failed workers stop the run, including the final worker in `--once`.
 
-Stop it any time. Every finished item was committed and pushed by the iteration
-that built it, so nothing is lost by interrupting one.
+The worker's silence limit is twenty minutes and its absolute limit is four
+hours (`IDLE_KILL_MIN` and `CEILING_MIN`). A timeout stops its process tree and
+preserves its files. Ctrl+C and termination also clean up the worker and lock.
+There is no reset, automatic rebase, or automatic retry of unfinished work.
+Inspect a stale lock and its recorded PID before removing it; never remove a
+lock owned by a running supervisor.
+
+Before starting, finish and verify existing work, then commit it. Use
+`docs/autonomy/REMAINING.md` for the roadmap audit and continuation order. The
+default run is bounded to 500 iterations, and reaching that budget means only
+that the run ended: it does not certify any stage. Restart from the queue after
+reviewing the journal. Keep the host awake and the terminal/session alive while
+running; creating this script does not install a background service.
+
+Exit codes: 2 invalid configuration or missing prerequisite; 3 existing lock;
+4 gate failure; 5 explicit halt; 6 unfinished changes; 7 no recorded progress;
+124 timeout. Other worker failures propagate their original nonzero status.
+A zero exit means the requested iterations passed or a completion marker was
+reached, not that every roadmap stage is finished.
 
 **It stops on its own at a boundary a person has to cross** — see the section
 above. A supervisor that restarted the loop past a `LOOP COMPLETE` would be

@@ -168,8 +168,8 @@ step "the supervisor's stop rule holds"
 # first tick and reports the queue complete with ninety-nine items open, which
 # is what the journal's own `LOOP COMPLETE` from the end of stage 1 caused.
 if [ -x scripts/loop.sh ]; then
-  if ./scripts/loop.sh --self-test >/tmp/alo-gate-loop.log 2>&1; then
-    good "a stale marker is history and a live one stops the loop"
+  if { ./scripts/loop.sh --self-test && ./scripts/test-loop.sh; } >/tmp/alo-gate-loop.log 2>&1; then
+    good "stop markers, worker failures, locks and preserved work hold"
   else
     cat /tmp/alo-gate-loop.log
     bad "the supervisor would start or stop at the wrong time"

@@ -95,3 +95,16 @@ from `alo-workplace`'s. That is accepted: the two repositories have different
 queues, different journals and different stage boundaries, and the shared thing
 was never the script — it was the four lessons above, which are now written
 down in prose here rather than inherited by copying a file nobody may edit.
+
+
+## Amendment — 2026-09-06: preserve interrupted work
+
+The lock is now an atomic directory in this checkout's Git directory, acquired
+before the baseline gate. Stale locks require inspection. The supervisor
+refuses existing uncommitted work and never resets it after a timeout. It stops
+on any worker failure instead of retrying automatically: an exit status alone
+cannot distinguish a rate limit from a partially changed engine. Interruptions
+stop the worker process tree, and successful iterations receive an independent
+gate run and must produce a clean commit and a changed journal. This supersedes
+the earlier nonzero-exit backoff policy. Commits remain local; publishing is a
+separate explicit action. The supervisor still does not decide what to build.

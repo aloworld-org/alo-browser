@@ -20,20 +20,32 @@
 //! [`Missing::AWrapperObject`], which no page can catch, because a page acting
 //! on it would be acting on a lie.
 //!
+//! # Two of these ask the interpreter for something (queue item 219)
+//!
+//! `toLocaleString` is specified as `Invoke(O, "toString")` — a property read
+//! that may be an accessor, and then a call — so it is three steps rather than
+//! one. And `hasOwnProperty` and `propertyIsEnumerable` both begin with
+//! `ToPropertyKey`, which for an **object** argument means running the script's
+//! own `valueOf`: `({}).hasOwnProperty({})` was a refusal by name until this
+//! item and is an ordinary `false` now.
+//!
+//! Both are written the same way, because the mechanism is the same one: return
+//! [`Answer::Want`], name the step to come back at, and read [`Call::answer`]
+//! there.
+//!
 //! # What is absent, and where each one is
 //!
-//! `toLocaleString` calls `this.toString()`, which is a builtin re-entering the
-//! script (queue item 219). `Symbol.toStringTag`, which `toString` consults
-//! before anything else, needs the well-known symbols (queue item 73). And
-//! `toString`'s builtin tags for an array, an error, a date and the three
-//! wrapper kinds each need that builtin to exist; until then every object that
-//! is not a function is `"[object Object]"`, which is what it genuinely is.
+//! `Symbol.toStringTag`, which `toString` consults before anything else, needs
+//! the well-known symbols (queue item 73). And `toString`'s builtin tags for an
+//! array, an error, a date and the three wrapper kinds each need that builtin to
+//! exist; until then every object that is not a function is `"[object Object]"`,
+//! which is what it genuinely is.
 
-use crate::abrupt::{Escape, Missing};
-use crate::convert::{self, Primitive};
+use crate::abrupt::{Escape, Internal, Missing};
+use crate::convert::{self, Hint, Primitive};
 use crate::heap::Ref;
-use crate::object::native::Call;
-use crate::object::{Key, Property, Value};
+use crate::object::native::{Answer, Call, Want};
+use crate::object::{Found, Key, Property, Value};
 
 use super::Intrinsics;
 
@@ -50,6 +62,7 @@ pub(super) fn furnish(
     let on = intrinsics.object_prototype(objects)?;
     let functions = intrinsics.function_prototype(objects)?;
     super::method(objects, on, functions, "toString", to_string)?;
+    super::method(objects, on, functions, "toLocaleString", to_locale_string)?;
     super::method(objects, on, functions, "valueOf", value_of)?;
     super::method(objects, on, functions, "hasOwnProperty", has_own_property)?;
     super::method(objects, on, functions, "isPrototypeOf", is_prototype_of)?;
@@ -69,7 +82,7 @@ pub(super) fn furnish(
 /// `undefined` and `null` are answered *before* `ToObject`, which is the one
 /// place in this file where a primitive `this` is not an error: the two values
 /// that have no wrapper are the two the specification names outright.
-fn to_string(call: &mut Call<'_>) -> Result<Value, Escape> {
+fn to_string(call: &mut Call<'_>) -> Result<Answer, Escape> {
     let tag = match call.this() {
         Value::Undefined => "[object Undefined]",
         Value::Null => "[object Null]",
@@ -92,7 +105,68 @@ fn to_string(call: &mut Call<'_>) -> Result<Value, Escape> {
         .objects()
         .text(units)
         .map_err(|why| Escape::refused(why, at))?;
-    Ok(Value::Text(held))
+    Ok(Answer::Value(Value::Text(held)))
+}
+
+/// `Object.prototype.toLocaleString`, which is `Invoke(this, "toString")`.
+///
+/// It exists so that a page may override `toLocaleString` on one kind of object
+/// and have every other kind still answer something, and it is the *shape* that
+/// matters here: a builtin that looks a method up on its own `this` and calls
+/// it. `Array.prototype.join` and `toString` are the same shape, and so is
+/// every method that takes a callback.
+///
+/// # It is three steps because a property read can be a call
+///
+/// `Invoke` is `GetV` and then `Call`, and `GetV` may find an accessor — so
+/// finding the method is itself a call, exactly as it is in
+/// [`convert::primitive_of`]. Step 0 looks, step 1 has what a getter answered
+/// and calls it, step 2 has what the method answered and is done.
+///
+/// There is no `ToObject` here and that is the specification rather than a gap:
+/// `toLocaleString` is written on the value, not on an object made from it,
+/// which is why a primitive `this` reaches [`Missing::AWrapperObject`] through
+/// the property read rather than before it.
+fn to_locale_string(call: &mut Call<'_>) -> Result<Answer, Escape> {
+    let at = call.at();
+    let (callee, step) = match call.step() {
+        // What a getter answered *is* the method, and a method it is not is the
+        // `TypeError` `Invoke` gives for anything uncallable.
+        1 => (call.answer()?, 2),
+        2 => return Ok(Answer::Value(call.answer()?)),
+        _ => {
+            let held = object_of(call, "toLocaleString")?;
+            let units: Vec<u16> = "toString".encode_utf16().collect();
+            let key = call
+                .objects()
+                .key(&units)
+                .map_err(|why| Escape::refused(why, at))?;
+            match call.seen().get(held, key)? {
+                // Not there, or an accessor with no getter, which reads as
+                // `undefined` and so is not callable either.
+                Found::Missing | Found::Getter(Value::Undefined) => (Value::Undefined, 2),
+                Found::Value(method) => (method, 2),
+                // Fetching the method before calling it, so the answer of this
+                // call is the method rather than the result.
+                Found::Getter(getter) => (getter, 1),
+            }
+        }
+    };
+    if !callable(call, callee) {
+        return Err(Escape::type_error(
+            "toLocaleString needs a toString to call, and this object's is not a function",
+            at,
+        ));
+    }
+    let receiver = call.this();
+    Ok(Answer::want(
+        Want::Call {
+            callee,
+            receiver,
+            arguments: Vec::new(),
+        },
+        step,
+    ))
 }
 
 /// `Object.prototype.valueOf`, which is `ToObject(this)` and nothing else.
@@ -100,19 +174,22 @@ fn to_string(call: &mut Call<'_>) -> Result<Value, Escape> {
 /// It is the reason `1 + {}` is `"1[object Object]"` rather than a `TypeError`:
 /// the conversion asks for `valueOf` first, this hands back the object it was
 /// given, and the search moves on to `toString`.
-fn value_of(call: &mut Call<'_>) -> Result<Value, Escape> {
+fn value_of(call: &mut Call<'_>) -> Result<Answer, Escape> {
     let held = object_of(call, "valueOf")?;
-    Ok(Value::Object(held))
+    Ok(Answer::Value(Value::Object(held)))
 }
 
 /// `Object.prototype.hasOwnProperty`.
-fn has_own_property(call: &mut Call<'_>) -> Result<Value, Escape> {
+fn has_own_property(call: &mut Call<'_>) -> Result<Answer, Escape> {
     // The specification converts the key before it touches `this`, so a bad key
     // is answered even when `this` is `null`.
-    let key = key_of(call, 0)?;
+    let key = match key_of(call, 0)? {
+        Keyed::Wanting(answer) => return Ok(answer),
+        Keyed::Key(key) => key,
+    };
     let held = object_of(call, "hasOwnProperty")?;
     let there = call.seen().own_property(held, key)?.is_some();
-    Ok(Value::Bool(there))
+    Ok(Answer::Value(Value::Bool(there)))
 }
 
 /// `Object.prototype.isPrototypeOf`.
@@ -122,35 +199,40 @@ fn has_own_property(call: &mut Call<'_>) -> Result<Value, Escape> {
 /// the walk that says so is [`Objects::reaches`](crate::object::Objects::reaches)
 /// — the same one a prototype assignment uses to refuse a cycle, so the bound
 /// on a chain is stated once.
-fn is_prototype_of(call: &mut Call<'_>) -> Result<Value, Escape> {
+fn is_prototype_of(call: &mut Call<'_>) -> Result<Answer, Escape> {
     let Value::Object(other) = call.argument(0) else {
         // Not an object, so nothing is its prototype. Answered before `this` is
         // looked at, which is the specification's order.
-        return Ok(Value::Bool(false));
+        return Ok(Answer::Value(Value::Bool(false)));
     };
     let held = object_of(call, "isPrototypeOf")?;
     let above = call.seen().prototype(other)?;
-    Ok(Value::Bool(call.seen().reaches(above, held)?))
+    Ok(Answer::Value(Value::Bool(
+        call.seen().reaches(above, held)?,
+    )))
 }
 
 /// `Object.prototype.propertyIsEnumerable`.
-fn property_is_enumerable(call: &mut Call<'_>) -> Result<Value, Escape> {
-    let key = key_of(call, 0)?;
+fn property_is_enumerable(call: &mut Call<'_>) -> Result<Answer, Escape> {
+    let key = match key_of(call, 0)? {
+        Keyed::Wanting(answer) => return Ok(answer),
+        Keyed::Key(key) => key,
+    };
     let held = object_of(call, "propertyIsEnumerable")?;
     let enumerable = call
         .seen()
         .own_property(held, key)?
         .is_some_and(Property::is_enumerable);
-    Ok(Value::Bool(enumerable))
+    Ok(Answer::Value(Value::Bool(enumerable)))
 }
 
 /// Reading `__proto__`.
-fn proto_get(call: &mut Call<'_>) -> Result<Value, Escape> {
+fn proto_get(call: &mut Call<'_>) -> Result<Answer, Escape> {
     let held = object_of(call, "__proto__")?;
-    Ok(match call.seen().prototype(held)? {
+    Ok(Answer::Value(match call.seen().prototype(held)? {
         Some(above) => Value::Object(above),
         None => Value::Null,
-    })
+    }))
 }
 
 /// Writing `__proto__`.
@@ -161,7 +243,7 @@ fn proto_get(call: &mut Call<'_>) -> Result<Value, Escape> {
 /// name is an accessor a page may reach on any value. Only a refusal by the
 /// object model — a cycle, or an object that is not extensible — is an error,
 /// and it is the error that says a page's own `Object.freeze` held.
-fn proto_set(call: &mut Call<'_>) -> Result<Value, Escape> {
+fn proto_set(call: &mut Call<'_>) -> Result<Answer, Escape> {
     let at = call.at();
     // `RequireObjectCoercible` first: `undefined` and `null` throw even though
     // every other non-object is quietly nothing.
@@ -172,15 +254,15 @@ fn proto_set(call: &mut Call<'_>) -> Result<Value, Escape> {
         ));
     }
     let Value::Object(held) = call.this() else {
-        return Ok(Value::Undefined);
+        return Ok(Answer::Value(Value::Undefined));
     };
     let to = match call.argument(0) {
         Value::Object(above) => Some(above),
         Value::Null => None,
-        _ => return Ok(Value::Undefined),
+        _ => return Ok(Answer::Value(Value::Undefined)),
     };
     if call.objects().set_prototype(held, to)? {
-        return Ok(Value::Undefined);
+        return Ok(Answer::Value(Value::Undefined));
     }
     Err(Escape::type_error(
         "this object's prototype cannot be changed: it is not extensible, or the new prototype is already below it",
@@ -207,17 +289,59 @@ fn object_of(call: &Call<'_>, method: &str) -> Result<Ref, Escape> {
     }
 }
 
-/// `ToPropertyKey` of an argument.
+/// What [`key_of`] has: a key, or the conversion that has to happen first.
+enum Keyed {
+    /// The key.
+    Key(Key),
+    /// The object needs the script's own `valueOf` run over it, which is what
+    /// this asks for. The caller returns it unchanged and is entered again at
+    /// step 1 with the primitive as its answer.
+    Wanting(Answer),
+}
+
+/// `ToPropertyKey` of an argument, at step 0 or of what step 1 was answered.
 ///
-/// An object argument is where a builtin would have to call the script's own
-/// `valueOf`, which it cannot until queue item 219 — so that one case says so
-/// and every other one is converted here. `hasOwnProperty()` with no argument
-/// asks about the property named `"undefined"`, which is the answer the
-/// language gives rather than a refusal.
-fn key_of(call: &mut Call<'_>, which: usize) -> Result<Key, Escape> {
+/// An **object** argument is the case this needed queue item 219 for:
+/// `ToPropertyKey` begins with `ToPrimitive`, which means calling the script's
+/// own `valueOf` or `toString`. That algorithm is
+/// [`convert::primitive_of`]'s and the interpreter drives it, so what is asked
+/// for here is the conversion rather than either call — a builtin that spelled
+/// out the search would be a second copy of a rule that has to agree with the
+/// first.
+///
+/// `hasOwnProperty()` with no argument asks about the property named
+/// `"undefined"`, which is the answer the language gives rather than a refusal.
+fn key_of(call: &mut Call<'_>, which: usize) -> Result<Keyed, Escape> {
     let at = call.at();
-    let Some(primitive) = Primitive::of(call.argument(which)) else {
-        return Err(Escape::NotBuiltYet(Missing::AConversionInsideABuiltin));
+    let given = if call.step() == 0 {
+        call.argument(which)
+    } else {
+        call.answer()?
     };
-    convert::to_property_key(call.objects(), primitive, at)
+    let Some(primitive) = Primitive::of(given) else {
+        if call.step() != 0 {
+            // A conversion answers a primitive or throws, so an object here is
+            // this engine having resumed the wrong builtin.
+            return Err(Escape::Broken(Internal::BuiltinIsWrong));
+        }
+        return Ok(Keyed::Wanting(Answer::want(
+            Want::Primitive {
+                of: given,
+                // `ToPropertyKey` wants a string, and the hint decides which of
+                // `valueOf` and `toString` is tried first.
+                hint: Hint::String,
+            },
+            1,
+        )));
+    };
+    Ok(Keyed::Key(convert::to_property_key(
+        call.objects(),
+        primitive,
+        at,
+    )?))
+}
+
+/// The specification's `IsCallable`.
+fn callable(call: &Call<'_>, value: Value) -> bool {
+    matches!(value, Value::Object(held) if call.seen().callable(held).is_some())
 }

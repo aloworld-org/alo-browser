@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Builtins can call page script and resume with its answer.** Function
+  `call`, object `toLocaleString`, and property-name conversions now use
+  interpreter continuations with values kept on the traced stack. Recursion
+  counts suspended builtins as well as script frames, fixing the runaway
+  native-call test. `apply` remains separately queued as item 221.
+
+- **The build loop preserves interrupted work.** It refuses dirty checkouts,
+  acquires its lock atomically, reports failed final iterations as failures,
+  checks each completed iteration independently, and stops when a worker makes
+  no recorded progress. Timeout recovery no longer discards files. Commits
+  remain local. The remaining-work audit records all four stages and the
+  evidence needed before advancing.
+
 - **An object knows what it is.** `"" + {}` now answers `"[object Object]"`, the
   way it does in every other browser, instead of stopping the script. Until
   today an object in this engine had nothing behind it at all — no `toString`,

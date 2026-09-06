@@ -87,7 +87,9 @@ fn an_object_has_a_to_string_of_its_own() {
         // A function is the one tag this engine can tell apart, because
         // `IsCallable` is a question about the cell rather than about a
         // builtin it has not written.
-        ("({}).toString.call === undefined", "true"),
+        // `call` arrived with queue item 219 and `apply` is queue item 221, so
+        // this pair says which half of `Function.prototype` a function has.
+        ("typeof ({}).toString.call", "\"function\""),
         (
             "let f = function () {}; ({}).__proto__.toString.apply === undefined",
             "true",
@@ -298,17 +300,6 @@ fn what_this_engine_has_not_built_refuses_by_name() {
         (
             "let f = function () {}; f.toString()",
             "! a function's own source text, which Function.prototype.toString answers with, is queue item 220",
-        ),
-        // Turning an argument into a property key means calling the script's
-        // own `valueOf`, which a builtin cannot do until queue item 219. Only
-        // the object case: every primitive converts here and now.
-        (
-            "({}).hasOwnProperty({})",
-            "! a builtin was given an object where a property key was wanted, and turning one into a primitive from inside a builtin is queue item 219",
-        ),
-        (
-            "({}).propertyIsEnumerable({})",
-            "! a builtin was given an object where a property key was wanted, and turning one into a primitive from inside a builtin is queue item 219",
         ),
         // A primitive `this` needs the wrapper object the builtins bring, and
         // the property read says so before the builtin is even reached.

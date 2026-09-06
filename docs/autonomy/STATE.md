@@ -9258,3 +9258,73 @@ the next ADR number is **0015**. Four things:
 4. **`Realm::new` returns `Escape` rather than `Refused` now**, because making
    the intrinsics can fault as well as fill the heap. Anything that makes a
    realm outside `Engine::new` gets both errors rather than one.
+
+---
+
+## Iteration 114 — roadmap audit and supervisor continuation
+
+The user requested analysis of the remaining roadmap and a loop to finish it.
+`docs/autonomy/REMAINING.md` records the inventory: stage 1's gate is met;
+stage 2 has 84 open queue items, stage 3 has 8, and stage 4 has 9. These are
+scope counts, not estimates. Item 219 is the journal's recommended continuation
+and already has substantial uncommitted JavaScript work in this checkout.
+
+The existing supervisor is retained. It now preserves interrupted files,
+refuses a dirty checkout, acquires its lock atomically before the gate, stops
+on failed workers (including `--once`), and checks committed/journalled progress
+and the full gate after successful workers. Local commits are separated from
+publication. The worker contract and ADR 0006's amendment record the changes.
+
+Validation: shell syntax, supervisor self-tests, isolated fake-worker regression
+tests (including timeout preservation), and `git diff --check` pass. The
+workspace baseline passed formatting and clippy. Its pre-existing new
+`what_a_builtin_asks_for` executable was still consuming a CPU after more than
+three minutes; this audit terminated that test process. The full gate is
+therefore not certified. The unfinished test is
+`a_builtin_that_calls_itself_for_ever_is_a_range_error`; the other five tests
+in that executable passed. No existing JavaScript changes were edited or removed,
+no worker was launched, and nothing was committed or published by this audit.
+
+No roadmap feature line is ticked: this is execution infrastructure, not a
+browser capability. The audit is linked from the roadmap and README. Resume by
+reconciling the item 219 changes and resolving or explaining the long-running
+test, then passing the complete gate and committing the prepared work. Stage 2's
+week-long use gate and stage 4's external adoption evidence remain real gates;
+this request is not evidence that either has happened. Stage 3 still needs real
+failing pages. Next queue number remains 221; next ADR number remains 0015.
+
+---
+
+## Iteration 115 — finish item 219 and the prepared build loop
+
+The user authorized finishing and committing the dirty checkout. The pending
+native continuation implementation is complete: `call`, `toLocaleString` and
+object arguments to property-key methods can ask the interpreter for script
+execution or conversion, then resume with their answers on the traced stack.
+
+The baseline blocker was `Run::calls()`: its comment promised to count both
+kinds of pending call, but the implementation returned only `frames.len()`.
+It now includes `builtins.len()`. The runaway native-only and mixed-call tests
+reach the existing recursion bound and report `RangeError`; no limit was
+lowered and no test was disabled. All seven builtin continuation tests pass,
+including collection stress and reuse of an engine after an exception through
+suspended builtins. The targeted suite finishes in about 2.5 seconds on this
+machine, which is test timing rather than a browser performance claim.
+
+Item 219 is ticked with its closing evidence. `apply` needs an intermediate
+argument list that survives accessor calls, so that remainder is explicitly
+item 221 rather than an unimplemented method hidden behind the tick. Item 220
+remains function metadata, source text and binding. The next unused queue
+number is 222; the next ADR number remains 0015.
+
+`ROADMAP.md` and `docs/features.md` now describe the native continuation
+capability; the standard-library roadmap line remains partly built. The
+remaining-work audit retires the resolved dirty-tree blocker. The supervisor
+hardening from iteration 114 is included in this cleanup, along with its tests,
+worker contract and ADR amendment.
+
+Validation: `scripts/gate.sh` passes in full — formatting, clippy without
+warnings, workspace tests, source and boundary checks, supervisor self-tests
+and isolated worker regressions. `git diff --check` passes. No layout assertion
+or reference image was added because this work changes neither geometry nor
+paint. The commit is local; no push and no unattended worker launch.

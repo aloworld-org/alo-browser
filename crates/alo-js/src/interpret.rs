@@ -254,6 +254,7 @@ impl Engine {
             constants,
             units: Vec::new(),
             frames: Vec::new(),
+            builtins: Vec::new(),
         };
         let outcome = self
             .begin(&mut run, unit)
@@ -375,6 +376,14 @@ impl Engine {
     /// The loop.
     fn walk(&mut self, run: &mut Run) -> Result<(), Escape> {
         loop {
+            // A builtin part way through its own Rust is run here rather than
+            // by whatever entered it, so that a builtin asking for a call
+            // becomes another turn of this loop instead of another Rust frame
+            // (queue item 219, and see [`call`]'s module comment).
+            if let Some(waiting) = run.ready() {
+                self.step_builtin(run, waiting)?;
+                continue;
+            }
             let (op, at, pc) = {
                 let Some(frame) = run.frames.last() else {
                     return Ok(());

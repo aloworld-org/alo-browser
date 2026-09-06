@@ -2528,7 +2528,7 @@ The long pole, and the thing most of section E is unreachable without.
   prototype that was just cut away. That is what every engine answers, and it
   is only obvious once written down.
 
-- [ ] **219. A builtin that calls back into the script.** Cut from 218, whose
+- [x] **219. A builtin that calls back into the script.** Cut from 218, whose
   natives are given the heap and no interpreter — so a builtin that must call
   something cannot, and each one that would says so by name rather than
   guessing. `Function.prototype.call` and `apply`, `Object.prototype.
@@ -2548,6 +2548,26 @@ The long pole, and the thing most of section E is unreachable without.
   it**: a bound function is an exotic object with its own `[[Call]]`, which is
   a different piece of work, and it goes in item 220 beside the rest of
   `Function.prototype`.
+
+  **Done.** A native returns an `Answer::Want` with a continuation step;
+  the interpreter runs the requested call or conversion and resumes it with
+  the answer held on the traced value stack. `call`, `toLocaleString` and
+  object-to-property-key conversion use it. The recursion bound counts both
+  script frames and waiting builtins, including mixed chains. The closing
+  conditions run normally and with collection at every allocation in
+  `what_a_builtin_asks_for.rs`. **`apply` is cut to item 221**: retaining a
+  partially assembled argument list across accessor calls needs traced state.
+
+- [ ] **221. `Function.prototype.apply` and traced native scratch state.**
+  Cut from item 219. A native currently retains its receiver, arguments, answer
+  and a numeric continuation step. `apply` must accumulate an argument list
+  while reading an array-like's `length` and indexed properties, any of which
+  can call script. Keep that intermediate list in collector-visible storage.
+  *Depends on 219 and the length conversions from 73. Closes when:* `apply`
+  forwards an array-like's values in order, null/undefined mean no arguments,
+  getters execute once in order, getter exceptions propagate, and excessive
+  lengths are bounded before allocating. All cases must survive collection at
+  every allocation. Array objects themselves remain part of item 73.
 
 - [ ] **220. A function's own `name` and `length`, its source text, and
   `bind`.** Cut from 218. A function object has **no own properties at all**

@@ -6,6 +6,10 @@ says so rather than being ticked optimistically.
 
 Every item appears in `docs/features.md`. If it is not there, it is not built.
 
+For the remaining-work audit and executable continuation loop, see
+[`docs/autonomy/REMAINING.md`](docs/autonomy/REMAINING.md). The loop follows
+these gates; running it does not certify them.
+
 ## Three states, because two are not enough
 
 A queue item is usually smaller than a line here, so a line is routinely *part
@@ -651,15 +655,18 @@ unreachable without it.
       because everything a builtin could capture is either a reference the
       collector must walk or the realm it is reached through, so a native holds
       no edge at all. It gets **no interpreter**, which is the bound that makes
-      it cheap — no frame, no recursion, and no way to re-enter the script —
-      so `call`, `apply` and a conversion inside a builtin are refused by name
-      rather than quietly allowed (queue item 219). And a builtin is **strict
+      it cheap — no bytecode frame and no Rust recursion. Item 219 adds
+      suspension: a native asks the interpreter for a call or conversion, then
+      resumes with its answer on the traced value stack. `call`,
+      `toLocaleString` and object-to-property-key conversions use this path,
+      and the recursion limit counts waiting builtins alongside script frames. And a builtin is **strict
       code**, so its `this` is what the caller wrote: a bare `toString()` is
       `"[object Undefined]"` here as it is everywhere else. `Object.prototype`
       and `Function.prototype` are the two objects, rooted by the realm with
       every method reachable from them, and `({}) + ''` answers
       `"[object Object]"` for the first time
-      · Owed: everything a page would call a library. `Object` and `Function`
+      · Owed: `apply` and traced native scratch state (queue item 221), and
+      the remaining library. `Object` and `Function`
       themselves are constructors and wait on `new` (queue item 212); a
       function's own `name` and `length` and its source text are 220; `Array`,
       `Math`, `JSON`, `Error`, the wrapper objects, the well-known symbols and

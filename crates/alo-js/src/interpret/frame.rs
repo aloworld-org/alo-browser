@@ -47,6 +47,7 @@ use crate::code::Chunk;
 use crate::convert::Hint;
 use crate::heap::{Ref, Root};
 use crate::object::Key;
+use crate::object::native::Body;
 use crate::unit::Unit;
 
 /// What the value a call answers with is for.
@@ -75,6 +76,12 @@ pub(crate) enum After {
     /// The answer is one step of turning an object into a primitive, and the
     /// instruction that wanted the primitive runs again once there is one.
     Convert(Converting),
+    /// The answer belongs to the builtin that asked for the call: it lands in
+    /// that builtin's answer slot and the builtin runs again (queue item 219).
+    ///
+    /// It names no builtin because it does not have to — calls nest, so the one
+    /// waiting is always the last of [`Run::builtins`].
+    Builtin,
 }
 
 /// Where a conversion that had to call something has got to.
@@ -97,6 +104,23 @@ pub(crate) struct Converting {
     pub(crate) next: usize,
     /// The byte offset of the instruction that wanted it, for a message.
     pub(crate) source: usize,
+    /// Who wanted it, which decides what runs once there is one.
+    pub(crate) then: Then,
+}
+
+/// Who a conversion's primitive is for.
+///
+/// The primitive is written into the slot at [`Converting::at`] either way —
+/// what differs is what runs next, and there is no third answer: an instruction
+/// left an operand there, or a builtin left its answer slot there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Then {
+    /// The instruction that wanted it runs again, with the primitive in the
+    /// operand the object was in.
+    Instruction,
+    /// The builtin that asked for it runs again, with the primitive as its
+    /// answer.
+    Builtin,
 }
 
 /// Which of a conversion's two kinds of call is outstanding.
@@ -156,6 +180,49 @@ pub(crate) struct Frame {
     pub(crate) after: After,
 }
 
+/// One builtin that has been entered and has not answered (queue item 219).
+///
+/// A builtin gets no [`Frame`], because there are no instructions to be part
+/// way through: what it is part way through is *its own Rust*, and the honest
+/// record of that is the step it named. Everything else here is where its
+/// things are, which is the same shape a frame keeps and for the same reason —
+/// **nothing that could be collected is held in this struct**. Its `this`, its
+/// arguments and the answer it is waiting for are all on the stack.
+///
+/// [`Body`] is a function pointer, so it is a number too: a builtin holds no
+/// edge (see [`native`](crate::object::native)), which is what makes this
+/// copyable and traceless.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Waiting {
+    /// The Rust to run.
+    pub(crate) body: Body,
+    /// Where its callee sits, with its `this` and arguments above.
+    pub(crate) callee_at: usize,
+    /// How many arguments it was called with.
+    pub(crate) argc: usize,
+    /// The byte offset it was called from, for a message.
+    pub(crate) at: usize,
+    /// What its own answer is for, which is what a `return` would have carried.
+    pub(crate) after: After,
+    /// Which step of its body runs next.
+    pub(crate) step: u32,
+    /// Whether its body runs next, rather than a call it is waiting for.
+    pub(crate) ready: bool,
+    /// Whether the slot at [`Waiting::answer_at`] holds an answer for it.
+    pub(crate) answered: bool,
+}
+
+impl Waiting {
+    /// Where the answer to whatever it asked for is written.
+    ///
+    /// Directly above its arguments, which is where the stack already ends when
+    /// it is entered — so a builtin's whole region is `callee | this | args |
+    /// answer` and nothing it asked for can disturb what is below.
+    pub(crate) const fn answer_at(&self) -> usize {
+        self.callee_at.saturating_add(2).saturating_add(self.argc)
+    }
+}
+
 /// One run of one program.
 #[derive(Debug)]
 pub(crate) struct Run {
@@ -167,9 +234,40 @@ pub(crate) struct Run {
     pub(crate) units: Vec<Loaded>,
     /// The calls that have not returned, the running one last.
     pub(crate) frames: Vec<Frame>,
+    /// The builtins that have not answered, the innermost last.
+    pub(crate) builtins: Vec<Waiting>,
 }
 
 impl Run {
+    /// How many calls are on the stack, of either kind.
+    ///
+    /// A builtin waiting for the call it asked for is as much a call that has
+    /// not returned as a frame is, and it costs the same kind of memory — so
+    /// [`bounds::CALLS_ON_THE_STACK`](crate::bounds) counts both. Counting only
+    /// frames would let a builtin that asks for itself run until the *value*
+    /// bound caught it, which under-counts what it is bounding.
+    pub(crate) fn calls(&self) -> usize {
+        self.frames.len().saturating_add(self.builtins.len())
+    }
+
+    /// The builtin whose body runs next, if one is ready.
+    pub(crate) fn ready(&self) -> Option<Waiting> {
+        self.builtins
+            .last()
+            .copied()
+            .filter(|waiting| waiting.ready)
+    }
+
+    /// Say that the innermost builtin's answer has arrived.
+    pub(crate) fn answered(&mut self) -> Result<(), Escape> {
+        let waiting = self
+            .builtins
+            .last_mut()
+            .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
+        waiting.ready = true;
+        Ok(())
+    }
+
     /// The call that is running.
     pub(crate) fn frame(&self) -> Result<&Frame, Escape> {
         self.frames

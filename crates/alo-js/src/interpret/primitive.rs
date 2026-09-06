@@ -43,7 +43,7 @@ use crate::object::Value;
 
 use super::Engine;
 use super::call::Ask;
-use super::frame::{After, Converting, Run, Step};
+use super::frame::{After, Converting, Run, Step, Then};
 
 impl Engine {
     /// Begin turning the object at `at` into a primitive, and run the
@@ -62,17 +62,18 @@ impl Engine {
         source: usize,
     ) -> Result<(), Escape> {
         run.frame_mut()?.pc = pc;
-        self.want_primitive(run, at, hint, 0, source)
+        self.want_primitive(run, at, hint, 0, source, Then::Instruction)
     }
 
     /// `OrdinaryToPrimitive` from the name at `from`, as the call it needs.
-    fn want_primitive(
+    pub(super) fn want_primitive(
         &mut self,
         run: &mut Run,
         at: usize,
         hint: Hint,
         from: usize,
         source: usize,
+        then: Then,
     ) -> Result<(), Escape> {
         let Value::Object(object) = self.value_at(run, at)? else {
             // Only an operand that is an object is ever handed over, and the
@@ -100,6 +101,7 @@ impl Engine {
                     hint,
                     next,
                     source,
+                    then,
                 }),
             },
         )
@@ -114,17 +116,36 @@ impl Engine {
             // other name rather than throwing.
             Step::Fetching => match self.function_of(answered) {
                 Some(_) => self.call_method(run, answered, state),
-                None => self.want_primitive(run, state.at, state.hint, state.next, state.source),
+                None => self.want_primitive(
+                    run,
+                    state.at,
+                    state.hint,
+                    state.next,
+                    state.source,
+                    state.then,
+                ),
             },
             Step::Calling => {
                 if Primitive::of(answered).is_some() {
-                    // The answer takes the operand's place, and the instruction
-                    // that wanted it is what runs next.
-                    return self.write_at(run, state.at, answered);
+                    // The answer takes the place the object was in — an
+                    // instruction's operand, or a builtin's answer slot — and
+                    // whichever of the two wanted it runs next.
+                    self.write_at(run, state.at, answered)?;
+                    return match state.then {
+                        Then::Instruction => Ok(()),
+                        Then::Builtin => run.answered(),
+                    };
                 }
                 // An object again, so this name has not converted anything: the
                 // other one is tried, and `next` is why the same one is not.
-                self.want_primitive(run, state.at, state.hint, state.next, state.source)
+                self.want_primitive(
+                    run,
+                    state.at,
+                    state.hint,
+                    state.next,
+                    state.source,
+                    state.then,
+                )
             }
         }
     }

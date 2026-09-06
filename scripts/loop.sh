@@ -14,9 +14,8 @@
 # Everything it does is written to docs/autonomy/loop.log as well as to the
 # terminal, so a run you walked away from is a run you can still read.
 #
-# Ctrl+C is always safe. Every finished item was committed and pushed by the
-# iteration that built it, so interrupting one loses at most the item in
-# progress, which the next iteration redoes from the queue.
+# Finished items are local commits. Interruptions preserve uncommitted work;
+# inspect it before resuming. Publication is a separate, explicit action.
 
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -33,7 +32,7 @@ PROMPT="Read docs/autonomy/LOOP.md and execute exactly ONE iteration of the buil
 IDLE_KILL_MIN="${IDLE_KILL_MIN:-20}"
 CEILING_MIN="${CEILING_MIN:-240}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-500}"
-BACKOFF_MIN="${BACKOFF_MIN:-15}"
+
 
 # Where a run is written down.
 #
@@ -106,11 +105,24 @@ if [ "$dry" -eq 1 ] || [ "${selftest:-0}" -eq 1 ]; then
   LOG=/dev/null
 fi
 
+# Guard values are arithmetic input, never shell expressions.
+for guard in IDLE_KILL_MIN CEILING_MIN; do
+  value="${!guard}"
+  case "$value" in
+    ''|*[!0-9]*) bad "$guard wants a positive integer"; exit 2 ;;
+  esac
+  [ "$value" -ge 1 ] && [ "$value" -le 1000000 ] || {
+    bad "$guard must be between 1 and 1000000"; exit 2;
+  }
+  printf -v "$guard" '%s' "$((10#$value))"
+done
+[ "$wanted" -le 1000000 ] || { bad "too many iterations"; exit 2; }
+wanted=$((10#$wanted))
+
 # --- Before anything: is this a tree an iteration should open on? ------------
 
 [ -f "$JOURNAL" ] || { bad "no journal at $JOURNAL — is this the alo-browser checkout?"; exit 2; }
 [ -f "$QUEUE" ]   || { bad "no queue at $QUEUE";   exit 2; }
-command -v claude >/dev/null || { bad "no \`claude\` on PATH — nothing could run an iteration"; exit 2; }
 
 # Whether the journal says to stop *now*, and which way.
 #
@@ -142,7 +154,7 @@ stop_marker() {
   echo "${kind#LOOP }"
 }
 
-open_items() { grep -c '^- \[ \]' "$QUEUE" 2>/dev/null || echo 0; }
+open_items() { awk '/^- \[ \]/ { n++ } END { print n+0 }' "$QUEUE"; }
 
 # What the run has actually done, said once at the end.
 #
@@ -260,6 +272,7 @@ nothing to report"
   expect "zero items is refused" 2 --items 0
   expect "--items with nothing after it is refused" 2 --items
   expect "a typo is refused rather than ignored" 2 --run-forever
+  expect "an excessive count is refused" 2 --items 999999999999999999999
 
   # The regression this test exists for: those eight children each refused an
   # argument, and every refusal used to land in the real log — so a run that
@@ -292,46 +305,64 @@ if [ "$dry" -eq 1 ]; then
   exit 0
 fi
 
-# The gate, before the first iteration only. An iteration that opens on
-# somebody else's red tree will either work around the failure or spend itself
-# diagnosing it, and both are worse than not starting (ADR 0006).
+command -v claude >/dev/null || { bad "no claude on PATH"; exit 2; }
+
+# Claim the checkout atomically before the gate or any worker. A stale lock
+# requires inspection: guessing its owner is dead can start rival workers.
+LOCK="$(git rev-parse --git-path alo-loop.lock)"
+if ! mkdir "$LOCK" 2>/dev/null; then
+  bad "checkout is locked at $LOCK; inspect its owner before removing it."
+  exit 3
+fi
+printf '%s\n' "$$" > "$LOCK/pid"
+worker=""
+stop_tree() {
+  local parent="$1" child
+  for child in $(pgrep -P "$parent" 2>/dev/null); do
+    stop_tree "$child"
+  done
+  kill -TERM "$parent" 2>/dev/null || true
+  kill -KILL "$parent" 2>/dev/null || true
+}
+cleanup() {
+  if [ -n "$worker" ]; then
+    stop_tree "$worker"
+    wait "$worker" 2>/dev/null || true
+  fi
+  rm -f "$LOCK/pid" "$LOCK/gate.log"
+  rmdir "$LOCK" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+if [ -n "$(git status --porcelain)" ]; then
+  bad "uncommitted changes exist; preserve and finish them before starting the loop."
+  exit 6
+fi
 say "checking the tree is green before starting…"
-if ! ./scripts/gate.sh >/tmp/alo-loop-gate.log 2>&1; then
-  bad "the gate does not pass on this tree, so no iteration will start."
-  bad "the loop may never work around a failure it did not cause — LOOP.md."
-  tail -20 /tmp/alo-loop-gate.log
+if ! ./scripts/gate.sh >"$LOCK/gate.log" 2>&1; then
+  bad "the baseline gate failed; no worker started."
+  cat "$LOCK/gate.log" >> "$LOG"
+  tail -20 "$LOCK/gate.log"
+  rm -f "$LOCK/gate.log"
   exit 4
 fi
+rm -f "$LOCK/gate.log"
 say "the gate is met. $(open_items) queue items open."
-
-# One supervisor per checkout, machine-wide. Stopped wrappers have survived as
-# detached processes and spawned rival workers editing the same files, so a
-# live owner is refused and a dead one is taken over (ADR 0006).
-LOCK="$HOME/.alo-browser-loop.lock"
-if [ -f "$LOCK" ]; then
-  owner="$(cat "$LOCK" 2>/dev/null || true)"
-  if [ -n "$owner" ] && kill -0 "$owner" 2>/dev/null; then
-    bad "another supervisor (PID $owner) already owns this checkout — refusing to start."
-    bad "if it is truly dead: rm $LOCK"
-    exit 3
-  fi
-  say "stale lock from dead PID $owner — taking over."
-fi
 
 # Where the run started, so the summary at the end can say what it changed
 # rather than how long it took.
 started_open="$(open_items)"
 started_at="$(git rev-parse HEAD 2>/dev/null || echo HEAD)"
 
-echo $$ > "$LOCK"
-trap 'rm -f "$LOCK"' EXIT
 
 for (( i = 1; i <= wanted; i++ )); do
   case "$(stop_marker)" in
     COMPLETE)
       echo
       say "the journal says LOOP COMPLETE — stopping, and not restarting."
-      say "what is left is a person's: LOOP.md's stage boundaries say so."
+      say "this means available work is exhausted, not that all stages are finished."
       say "read the last entry in $JOURNAL for what it is asking you to decide."
       exit 0 ;;
     HALT)
@@ -344,7 +375,8 @@ for (( i = 1; i <= wanted; i++ )); do
   printf '\n\033[1m%s\033[0m\n' "════════════════════════════════════════════════════════"
   say "iteration $i  ·  $(date '+%Y-%m-%d %H:%M')  ·  $(open_items) items open"
 
-  git pull --rebase origin main >/dev/null 2>&1 || say "could not pull — working from the local tree."
+  iteration_head="$(git rev-parse HEAD)"
+  iteration_journal="$(git hash-object "$JOURNAL")"
 
   # macOS `stat -f %m`. The script this replaces needed a GNU fallback and was
   # bitten by it; this one is for one platform and says so (ADR 0006).
@@ -357,6 +389,7 @@ for (( i = 1; i <= wanted; i++ )); do
 
   while kill -0 "$worker" 2>/dev/null; do
     sleep 30
+    kill -0 "$worker" 2>/dev/null || break
     now=$(date +%s)
     newest=$(find "$transcripts" -name '*.jsonl' -exec stat -f %m {} \; 2>/dev/null \
              | grep -E '^[0-9]+$' | sort -rn | head -1)
@@ -371,11 +404,8 @@ for (( i = 1; i <= wanted; i++ )); do
     [ "$running" -ge $(( CEILING_MIN * 60 )) ] && why="past the ${CEILING_MIN}-minute ceiling"
     if [ -n "$why" ]; then
       bad "killing the worker — $why."
-      kill -TERM "$worker" 2>/dev/null; sleep 10; kill -KILL "$worker" 2>/dev/null
-      # Leave a clean tree for the next iteration. Anything finished was
-      # already committed; what is dropped here is a half-built item.
-      git rebase --abort >/dev/null 2>&1
-      git checkout -- . >/dev/null 2>&1
+      stop_tree "$worker"
+      # Preserve every change. A timed-out iteration needs inspection, not a reset.
       code=124
       break
     fi
@@ -383,20 +413,43 @@ for (( i = 1; i <= wanted; i++ )); do
 
   if [ -z "$code" ]; then wait "$worker"; code=$?; else wait "$worker" 2>/dev/null || true; fi
 
+  worker=""
+  if [ "$code" -ne 0 ]; then
+    bad "worker exited $code; stopping with its changes preserved."
+    finished "$i"
+    exit "$code"
+  fi
+  case "$(stop_marker)" in
+    HALT) bad "worker recorded LOOP HALT"; finished "$i"; exit 5 ;;
+
+  esac
+  if [ -n "$(git status --porcelain)" ]; then
+    bad "worker left uncommitted changes; stopping for inspection."
+    exit 6
+  fi
+  if [ "$(git rev-parse HEAD)" = "$iteration_head" ] ||
+     [ "$(git hash-object "$JOURNAL")" = "$iteration_journal" ]; then
+    bad "worker made no committed, journalled progress; stopping."
+    exit 7
+  fi
+  if ! ./scripts/gate.sh >"$LOCK/gate.log" 2>&1; then
+    bad "the completed iteration failed independent verification."
+    cat "$LOCK/gate.log" >> "$LOG"
+    tail -20 "$LOCK/gate.log"
+    rm -f "$LOCK/gate.log"
+    exit 4
+  fi
+  rm -f "$LOCK/gate.log"
+  if [ "$(stop_marker)" = COMPLETE ]; then
+    say "available work exhausted; read the journal's remaining gates."
+    finished "$i"
+    exit 0
+  fi
   if [ "$i" -ge "$wanted" ]; then
     finished "$wanted"
     exit 0
   fi
 
-  if [ "$code" -eq 124 ]; then
-    say "the hang already cost time — going again in 30 seconds."
-    sleep 30
-  elif [ "$code" -ne 0 ]; then
-    # Almost always a rate limit. Restarting straight into one spends a model
-    # call to be told to wait.
-    bad "iteration exited $code — waiting ${BACKOFF_MIN} minutes rather than spinning."
-    sleep $(( BACKOFF_MIN * 60 ))
-  fi
 done
 
 finished "$wanted"

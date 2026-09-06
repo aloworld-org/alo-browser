@@ -207,7 +207,7 @@ mod tests {
     use super::{Code, Function};
     use crate::abrupt::Escape;
     use crate::object::internal::Internal;
-    use crate::object::native::{Call, Native};
+    use crate::object::native::{Answer, Call, Native};
     use crate::object::value::Value;
     use crate::unit::Unit;
 
@@ -252,8 +252,8 @@ mod tests {
             clippy::unnecessary_wraps,
             reason = "the signature is `native::Body`, which every builtin shares"
         )]
-        fn nothing(_: &mut Call<'_>) -> Result<Value, Escape> {
-            Ok(Value::Undefined)
+        fn nothing(_: &mut Call<'_>) -> Result<Answer, Escape> {
+            Ok(Answer::Value(Value::Undefined))
         }
         let function = Function::native(Native::new("nothing", nothing), None);
         let Code::Native(native) = function.code() else {

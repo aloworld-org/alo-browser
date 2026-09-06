@@ -63,18 +63,36 @@
 //! Its arguments are read off the stack into a Rust slice and the stack is
 //! **not** taken down until the answer exists, which is what keeps them rooted
 //! while the builtin allocates.
+//!
+//! # A builtin's body is run by the loop, never by the call that entered it
+//!
+//! Item 219 let a builtin ask for a call ([`Answer::Want`]), and the shape that
+//! makes possible is the reason [`Engine::enter_at`] does **not** run a native
+//! where it finds one. It pushes a [`Waiting`] and returns; the loop in
+//! [`interpret`](super) sees a builtin that is ready and runs one step of it.
+//!
+//! Doing it the other way — running the body from `enter_at` — compiles and is
+//! wrong in exactly the way the whole interpreter is written to avoid. A
+//! builtin that asks for a call would call `begin_call`, which calls `enter_at`,
+//! which would run the next builtin's body *inside* the first one's Rust frame;
+//! an object whose `toString` is its `toLocaleString` nests for ever and
+//! would overflow **this process's** stack rather than being the `RangeError`
+//! the language specifies. So the rule the module comment gives for scripts —
+//! *a call is a frame, not a recursion* — holds for builtins too, and it holds
+//! by there being one place a body runs.
 
 use std::rc::Rc;
 
 use crate::abrupt::{Escape, Internal, Missing};
 use crate::bounds;
+use crate::convert::{Hint, Primitive};
 use crate::heap::Ref;
-use crate::object::native::{Body, Call};
+use crate::object::native::{Answer, Body, Call, Want};
 use crate::object::{Code, Value};
 use crate::unit::Unit;
 
 use super::Engine;
-use super::frame::{After, Frame, Loaded, Run};
+use super::frame::{After, Frame, Loaded, Run, Then, Waiting};
 
 impl Engine {
     /// `Op::Closure`: a function of a chunk of the running program, over the
@@ -180,10 +198,11 @@ impl Engine {
         };
         let (unit, chunk, environment, captured) = match self.body_of(held) {
             None => return Err(self.not_a_function(callee, at)),
-            // A builtin needs no frame at all, so it is done before the rest of
-            // this function's bookkeeping begins.
+            // A builtin needs no frame at all: it is written down as waiting,
+            // and the loop runs its body. See the module comment on why it is
+            // not simply run here.
             Some(Called::Native(body)) => {
-                return self.run_native(run, callee_at, argc, at, after, body);
+                return Self::wait(run, callee_at, argc, at, after, body);
             }
             Some(Called::Compiled(compiled)) => compiled,
         };
@@ -197,7 +216,7 @@ impl Engine {
         };
         self.write_at(run, this_at, this)?;
 
-        if run.frames.len() >= bounds::CALLS_ON_THE_STACK {
+        if run.calls() >= bounds::CALLS_ON_THE_STACK {
             return Err(Escape::range_error(
                 "this script calls more deeply than this engine will go",
                 at,
@@ -261,17 +280,13 @@ impl Engine {
         Ok(())
     }
 
-    /// Run a builtin, whose body is Rust and which needs no frame.
+    /// Write a builtin down as entered, for the loop to run.
     ///
-    /// The arguments are copied off the stack into a Rust slice and the stack
-    /// is left standing until the answer exists, so every one of them is still
-    /// somewhere the collector walks while the builtin allocates. The `this` is
-    /// **whatever the caller pushed**: a builtin is strict code, so
-    /// `OrdinaryCallBindThis` neither replaces `undefined` with the global
-    /// object nor wraps a primitive, and each builtin says what it does with
-    /// what it was given.
-    fn run_native(
-        &mut self,
+    /// Nothing about the stack changes: its callee, its `this` and its
+    /// arguments stay exactly where the caller put them, and stay there until
+    /// it answers. That is what keeps every one of them somewhere the collector
+    /// walks across each of its steps.
+    fn wait(
         run: &mut Run,
         callee_at: usize,
         argc: usize,
@@ -279,14 +294,125 @@ impl Engine {
         after: After,
         body: Body,
     ) -> Result<(), Escape> {
-        let this_at = callee_at.saturating_add(1);
+        if run.calls() >= bounds::CALLS_ON_THE_STACK {
+            return Err(Escape::range_error(
+                "this script calls more deeply than this engine will go",
+                at,
+            ));
+        }
+        run.builtins.push(Waiting {
+            body,
+            callee_at,
+            argc,
+            at,
+            after,
+            step: 0,
+            ready: true,
+            answered: false,
+        });
+        Ok(())
+    }
+
+    /// Run one step of the innermost builtin's body.
+    ///
+    /// The arguments are copied off the stack into a Rust slice and the stack
+    /// is left standing, so every one of them is still somewhere the collector
+    /// walks while the builtin allocates. The `this` is **whatever the caller
+    /// pushed**: a builtin is strict code, so `OrdinaryCallBindThis` neither
+    /// replaces `undefined` with the global object nor wraps a primitive, and
+    /// each builtin says what it does with what it was given.
+    pub(super) fn step_builtin(&mut self, run: &mut Run, waiting: Waiting) -> Result<(), Escape> {
+        let this_at = waiting.callee_at.saturating_add(1);
         let this = self.value_at(run, this_at)?;
-        let mut arguments = Vec::with_capacity(argc);
-        for which in 0..argc {
+        let mut arguments = Vec::with_capacity(waiting.argc);
+        for which in 0..waiting.argc {
             arguments.push(self.value_at(run, this_at.saturating_add(1).saturating_add(which))?);
         }
-        let value = body(&mut Call::new(&mut self.objects, this, &arguments, at))?;
-        self.finish_call(run, callee_at, after, value)
+        // Read from the slot rather than kept from the step before: the body is
+        // about to allocate, and the stack is what roots this.
+        let answered = if waiting.answered {
+            Some(self.value_at(run, waiting.answer_at())?)
+        } else {
+            None
+        };
+        let mut call = Call::new(&mut self.objects, this, &arguments, waiting.at);
+        if let Some(value) = answered {
+            call.resume(waiting.step, value);
+        }
+        let answer = (waiting.body)(&mut call)?;
+        match answer {
+            Answer::Value(value) => {
+                run.builtins.pop();
+                self.finish_call(run, waiting.callee_at, waiting.after, value)
+            }
+            Answer::Want { want, step } => self.want_for(run, waiting, want, step),
+        }
+    }
+
+    /// Lay out what a builtin asked for, and mark it as waiting on the answer.
+    ///
+    /// Everything from the builtin's answer slot up is the asked-for call's, so
+    /// a builtin that asks twice reuses the same ground rather than growing the
+    /// stack by a step each time.
+    fn want_for(
+        &mut self,
+        run: &mut Run,
+        waiting: Waiting,
+        want: Want,
+        step: u32,
+    ) -> Result<(), Escape> {
+        let place = waiting.answer_at();
+        let mine = run
+            .builtins
+            .last_mut()
+            .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
+        mine.step = step;
+        mine.ready = false;
+        mine.answered = true;
+        match want {
+            Want::Call {
+                callee,
+                receiver,
+                arguments,
+            } => self.begin_call(
+                run,
+                place,
+                Ask {
+                    callee,
+                    receiver,
+                    arguments: &arguments,
+                    at: waiting.at,
+                    after: After::Builtin,
+                },
+            ),
+            Want::Primitive { of, hint } => {
+                self.want_primitive_for(run, place, of, hint, waiting.at)
+            }
+        }
+    }
+
+    /// `ToPrimitive` for a builtin: the object goes in the answer slot, and the
+    /// primitive is written over it when there is one.
+    fn want_primitive_for(
+        &mut self,
+        run: &mut Run,
+        place: usize,
+        of: Value,
+        hint: Hint,
+        at: usize,
+    ) -> Result<(), Escape> {
+        if Primitive::of(of).is_some() {
+            // A builtin asking for a conversion of something that needs none is
+            // this engine's mistake: `Primitive::of` answers it without anything
+            // being run, and every builtin here checks first.
+            return Err(Escape::Broken(Internal::BuiltinIsWrong));
+        }
+        let stack = run.stack;
+        self.objects
+            .with_slots(stack, |slots, _| slots.truncate(place))
+            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        self.push(run, of)?;
+        self.want_primitive(run, place, hint, 0, at, Then::Builtin)
     }
 
     /// `Op::Return`: the answer is on top of the stack.
@@ -338,6 +464,10 @@ impl Engine {
         // local, because both of them allocate.
         match after {
             After::Answer | After::Discard => Ok(()),
+            // The value has just been written into the builtin's answer slot,
+            // which is exactly where `callee_at` was: nothing else to do but
+            // say the builtin may run again.
+            After::Builtin => run.answered(),
             After::TypeOf => {
                 let value = self.peek(run, 0)?;
                 let answer = self.type_of(value, Self::where_now(run))?;
@@ -352,7 +482,12 @@ impl Engine {
     /// A script that threw leaves its frames where they were, and a root
     /// nobody released would keep an environment — and everything it reaches —
     /// alive for the life of the engine.
+    ///
+    /// The builtins that had not answered go with them. They hold no root and
+    /// no reference, so this is bookkeeping rather than a release — but a run
+    /// that ended must not leave one behind for the next one to resume.
     pub(super) fn let_go(&mut self, run: &mut Run) {
+        run.builtins.clear();
         while let Some(frame) = run.frames.pop() {
             if let Some(root) = frame.environment {
                 self.objects.heap_mut().release(root);
