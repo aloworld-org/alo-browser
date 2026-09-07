@@ -1964,6 +1964,16 @@ The long pole, and the thing most of section E is unreachable without.
   a named refusal or value test. This does not lift ADR 0013's stage 3 gate
   for sloppy-mode aliasing.
 
+  **Iteration 119 halted before implementation.** Named-expression shadowing
+  is reachable with the existing function and environment machinery, but no
+  frozen real-script failure for that scope was established. The two scripts
+  currently in the corpus have ordinary function declarations, not named
+  function expressions. Their lexer/parser regressions do not close this
+  execution defect. Before taking this bounded piece, freeze a permitted real
+  source with provenance and demonstrate the binding failure, as LOOP's stage 2
+  clause 1 and ADR 0013 § 9 require. Retain the other dependency gates above;
+  this item is not done.
+
 - [x] **71. The object model, and a garbage collector.** Objects, properties,
   prototypes, and something that reclaims them.
   *Depends on 69. **ADR 0014 is written and accepted** — a collector is a

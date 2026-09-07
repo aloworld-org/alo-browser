@@ -6,6 +6,10 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Function-binding work retains its real-script evidence gate.** Iteration
+  119 records the missing frozen failure for item 222 and halts before
+  implementation; no function capability or roadmap completion is claimed.
+
 - **Every loop iteration explicitly follows the repository rules.** Workers
   must read applicable instructions and contracts, review compliance before
   committing, record validation evidence, and stop on unmet obligations.

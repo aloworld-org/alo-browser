@@ -20,6 +20,12 @@ that number without changing the amount of work owed.
 
 ## Continuation order
 
+Iteration 119 halted at item 222's reachable named-expression binding scope:
+the required frozen real-script failure has not been established. Supply that
+case with provenance and a failing execution assertion before implementing this
+scope. Existing lexer/parser corpus tests do not close it. No item or stage was
+completed, and this halt does not mean the queue or roadmap is finished.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -487,6 +487,10 @@ unreachable without it.
       private-name validation, named-expression binding separation, and import
       attributes delivered to the loader (queue item 222). The parser alone
       still does not certify every early error
+      · Owed before item 222's named-expression binding work: a frozen real
+      script demonstrating that failure. Iteration 119 halted without changing
+      the compiler; the existing lexer/parser corpus is not execution evidence
+      for this scope
 - [ ] A bytecode compiler and an interpreter. **Correct first; a JIT much later or never**
       · Built: the decision (ADR 0013, queue item 69) — `alo-js`, ours, in safe
       Rust, **bytecode from the first line of the compiler** because a

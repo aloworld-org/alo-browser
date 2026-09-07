@@ -9440,3 +9440,64 @@ the actual worker argument. `git diff --check` passes. This changes execution
 instructions only, so no layout assertion, reference render or browser feature
 tick applies. The prepared local commit is followed by restarting the loop
 under the user's standing run instruction. No remote publication is performed.
+
+---
+
+## Iteration 119 — halt at the missing real-script binding case
+
+The checkout was clean on entry at `6c5ae12`. Read `CLAUDE.md`, the complete
+`docs/autonomy/LOOP.md` and `ROADMAP.md`, iteration 118, the queue and remaining
+audit, ADRs 0001, 0002 and 0013, and the function-header and interpreter
+contracts in `docs/features.md`. No AGENTS.md was found in this repository or
+its ancestor directories. No sibling repository was modified.
+
+Selection followed queue order. Items 157 and 158 still require an interface;
+187 names no reachable upload caller; 60 is already `needs design`; 169 needs
+Linux execution and this host reports Darwin; 197's CSS properties are still
+only names in the style inheritance list. Items 201 and 203 retain their
+subresource and browser-owner dependencies. Item 222 is the first candidate
+with a reachable bounded piece: named-function-expression binding separation,
+using the functions and environments already built. Its other forms retain
+their parameter, suspension, class and loader dependencies.
+
+The compiler's `function_inside` currently declares a named expression's own
+name in the parameter scope and explicitly refuses a matching parameter. The
+queue identifies that defect, but it does not name a frozen real script that
+fails on it. The two corpus scripts, `alo-service-worker/script.js` and
+`alo-theme-generator/script.mjs`, contain ordinary named declarations, not named
+function expressions. Their provenance files and existing tests describe lexer
+and parser coverage. They are not execution evidence for this binding scope.
+
+LOOP's stage 2 clause 1 requires an item to be opened by a real failure and
+closed by the same frozen case working; ADR 0013 § 9 requires real-script
+evidence alongside small-program tables. That obligation is not established
+here. The iteration therefore halts before implementation rather than treating
+handwritten examples or the existing green parser corpus as that evidence.
+Resume this scope by freezing a permitted real source with provenance and a
+failing assertion for the binding defect, then implementing and verifying the
+same case. Do not manufacture a page solely to satisfy the condition.
+
+The queue and remaining audit record this blocker. ROADMAP's parser line
+records the evidence still owed and stays open. The changelog records only the
+halt; `docs/features.md` remains unchanged because no capability changed.
+No item is ticked, no new item number is allocated, and no stage gate is
+certified. Next unused queue number remains 223; next ADR remains 0015.
+This is one halted iteration, not a completed item or a finished roadmap.
+
+Compliance review: no source, tests, dependencies, bounds, gate scripts or
+rules were changed. Each edited file retains its existing documentation
+responsibility. No geometry, painting or verb semantics changed, so additional
+numeric layout assertions and reference renders are not applicable. No push
+or supervisor launch was performed; the gate's isolated supervisor regressions
+are tests. The only unresolved item obligation is the missing trigger evidence
+for this selected scope, in addition to the remainder's existing dependencies.
+
+Validation: the full `scripts/gate.sh` exited 0. Formatting is clean; clippy
+reports zero warnings and errors; all workspace tests pass; stub, unsafe,
+licence, rental-boundary and coordinate checks pass; isolated supervisor
+regressions pass. The captured log is `/tmp/alo-iteration-119-gate.log` (local,
+not a committed artifact). `git diff --check` passes. These results verify the
+documentation-only halt record, not completion of item 222. The record is
+prepared for one local conventional commit.
+
+LOOP HALT
