@@ -9421,3 +9421,22 @@ workspace tests, source notices, rental boundaries, no stubs/unsafe opt-outs,
 and isolated supervisor regressions. `git diff --check` passes. All iteration
 changes are included in one local commit. No push or supervisor launch was
 performed; the mechanical gate's isolated supervisor regressions are tests only.
+
+---
+
+## Iteration 118 — explicit compliance in every worker prompt
+
+The user reminded the loop to follow all rules. The active worker was stopped
+before it made any file changes so the reminder can apply to its replacement,
+not just future processes. The supervisor prompt now explicitly requires all
+applicable instructions, the constitution, loop contract, roadmap, relevant
+ADRs and feature contracts. The loop contract requires a compliance review and
+recorded mechanical and manual validation before committing. Unmet obligations
+must be reported and work preserved; no rule or stage gate may be bypassed.
+
+Validation: the full `scripts/gate.sh` passes. The fake-worker regression now
+also checks that the mandatory instruction and compliance-review clauses reach
+the actual worker argument. `git diff --check` passes. This changes execution
+instructions only, so no layout assertion, reference render or browser feature
+tick applies. The prepared local commit is followed by restarting the loop
+under the user's standing run instruction. No remote publication is performed.

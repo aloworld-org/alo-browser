@@ -22,7 +22,7 @@ cd "$(dirname "$0")/.."
 
 JOURNAL="docs/autonomy/STATE.md"
 QUEUE="docs/autonomy/QUEUE.md"
-PROMPT="Read CLAUDE.md (the repository constitution), docs/autonomy/LOOP.md, and the latest journal entry. Execute exactly ONE eligible iteration of the build loop. Update the queue, roadmap, features, changelog and journal as applicable, run the full gate, and commit all iteration changes locally before exiting. Do not push or launch another supervisor. Preserve stage gates and unfinished work."
+PROMPT="Follow all applicable system, developer and user instructions and repository rules. Before choosing or changing anything, read applicable AGENTS.md files, CLAUDE.md (the repository constitution), docs/autonomy/LOOP.md, ROADMAP.md, and the latest journal entry; read the selected item’s relevant ADRs and feature contract. Execute exactly ONE eligible iteration. Treat every applicable rule as mandatory: never weaken the gate, disable tests, add stubs, bypass dependency or stage gates, or claim unverified completion. Preserve unfinished work and keep sibling repositories read-only. Before committing, review compliance with the rules you read, run the complete mechanical gate and applicable manual checks, and record the evidence and any unresolved obligation in the journal. Update the queue, roadmap, features and changelog as applicable. Commit verified iteration changes locally before exiting. Do not push or launch another supervisor. If a rule cannot be met, report the blocker and stop rather than bypassing it. A blocked queue is not a finished roadmap."
 WORKER=(codex exec --sandbox danger-full-access -c 'approval_policy="never"' --json "$PROMPT")
 
 # How long a worker may be *silent* before it is presumed hung, and the

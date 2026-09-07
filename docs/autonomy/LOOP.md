@@ -8,6 +8,20 @@ The loop exists because the work in `ROADMAP.md` is long and mostly independent,
 not because it is unsupervised. Every iteration ends in a commit that met the
 gate in `CLAUDE.md`, or in a halt that says why it could not.
 
+## Rules apply to every iteration
+
+Read all applicable `AGENTS.md` instructions, `CLAUDE.md`, this contract and
+`ROADMAP.md` before choosing work, then the selected item's ADRs and feature
+contract. Follow applicable system, developer and user instructions in their
+priority order. An unattended run is not an exception to any repository rule.
+
+Before committing, review the change against the rules actually read. Record
+in the journal which contracts applied, the mechanical gate result, the manual
+checks that apply (including layout assertions and reference renders), and any
+unresolved obligation. Do not weaken rules, disable tests, skip dependencies,
+claim unverified completion or modify sibling repositories to keep moving.
+If an obligation cannot be met, preserve the work, state the blocker and stop.
+
 ## What one iteration does
 
 1. **Read `docs/autonomy/QUEUE.md`.** Take the first item that is not done and

@@ -28,6 +28,10 @@ fi
 [ "${2:-}" = --sandbox ] && [ "${3:-}" = danger-full-access ] || exit 98
 [ "${4:-}" = -c ] && [ "${5:-}" = 'approval_policy="never"' ] || exit 98
 [ "${6:-}" = --json ] && [ -n "${7:-}" ] || exit 98
+case "${7:-}" in
+  *AGENTS.md*CLAUDE.md*LOOP.md*ROADMAP.md*"review compliance"*"report the blocker and stop"*) ;;
+  *) exit 98 ;;
+esac
 case "$TEST_MODE" in
   fail) echo preserved > work; exit 42 ;;
   timeout) echo preserved > work; /bin/sleep 30; exit 0 ;;

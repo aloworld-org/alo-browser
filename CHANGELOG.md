@@ -6,6 +6,10 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Every loop iteration explicitly follows the repository rules.** Workers
+  must read applicable instructions and contracts, review compliance before
+  committing, record validation evidence, and stop on unmet obligations.
+
 - **Strict function headers are checked before a script runs.** A body's
   `"use strict"` now rejects forbidden plain parameter and function names;
   duplicate strict and arrow parameters report an early error. Parenthesized
