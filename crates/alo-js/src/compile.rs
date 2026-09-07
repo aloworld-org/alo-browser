@@ -46,6 +46,7 @@
 
 pub mod function;
 pub mod hoist;
+mod parameters;
 pub mod scope;
 
 use std::fmt;

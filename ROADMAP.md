@@ -477,11 +477,16 @@ unreachable without it.
       inside a chain inside a chain is counted as all three, and it is put back
       around **siblings** — an array of fifty thousand elements is two deep and
       must go on parsing, or the bound would refuse every bundle there is
-      · Owed: the early errors that need a scope rather than a token — a name
-      declared twice, a label that names no loop, a private member nothing
-      declares — and the import attributes a `with { type: "json" }` carries.
-      Both are queue item 205, cut here and named there rather than left to be
-      discovered
+      · Built: plain function headers checked under the body's final
+      strictness (queue item 205): reserved bindings and duplicate strict or
+      arrow parameters are early errors before any statement runs. Grouped
+      strings do not start or extend a directive prologue. Existing scope
+      checks reject parameter/body collisions and labels across function
+      boundaries while allowing legal lexical shadowing
+      · Owed: early errors for the remaining parameter and function forms,
+      private-name validation, named-expression binding separation, and import
+      attributes delivered to the loader (queue item 222). The parser alone
+      still does not certify every early error
 - [ ] A bytecode compiler and an interpreter. **Correct first; a JIT much later or never**
       · Built: the decision (ADR 0013, queue item 69) — `alo-js`, ours, in safe
       Rust, **bytecode from the first line of the compiler** because a

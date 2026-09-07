@@ -22,12 +22,9 @@
 //! function inside a sloppy script does not make the rest of the script
 //! strict.
 //!
-//! What this does **not** yet do is check a parameter list against a
-//! strictness declared after it: `function f(arg) { "use strict" }` is refused
-//! by the specification when `arg` is a word strict code reserves, and here the
-//! parameters were already read under the old strictness. It is written down in
-//! the queue rather than left to be discovered, with the rest of the early
-//! errors that need a scope.
+//! The compiler rechecks supported plain-name headers against this final
+//! strictness (queue item 205). Validation for parameter forms that cannot yet
+//! run remains queue item 222; parsing alone does not certify early errors.
 
 use crate::ast::{Body, Element, Function, FunctionKind, Pattern, Statement};
 use crate::error::{Reason, SyntaxError};

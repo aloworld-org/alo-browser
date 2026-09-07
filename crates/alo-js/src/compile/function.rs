@@ -38,12 +38,13 @@
 //! scope stack of its own would resolve every outer name to the realm, which is
 //! a closure that has quietly stopped being one.
 
-use crate::ast::{Body, Function, FunctionKind, Pattern};
+use crate::ast::{Body, Function};
 use crate::code::{Chunk, Op};
 
 use super::hoist;
+use super::parameters::parameter_names;
 use super::scope::Assignment;
-use super::{Compiler, Refusal, Suspended, What};
+use super::{Compiler, Refusal, Suspended};
 
 /// Whose the function's name is.
 ///
@@ -234,52 +235,4 @@ impl Compiler {
 
         self.statements(body)
     }
-}
-
-/// The names of a function's parameters, refusing every form that is not one.
-///
-/// Four refusals and one item: a default, a `...rest` and a destructuring
-/// pattern each need a value taken apart before the body starts, and a repeated
-/// name needs the parameter scope the specification gives a function that has
-/// one. Queue item 213 is all four, which is why they answer with one
-/// [`What`].
-fn parameter_names(function: &Function) -> Result<Vec<String>, Refusal> {
-    let at = function.start;
-    if function.kind != FunctionKind::Plain {
-        // An `async` or a generator is a function whose frame is suspended and
-        // resumed, which is queue item 75 rather than a shape of parameter.
-        return Err(Refusal::NotBuiltYet {
-            what: What::ASuspension,
-            at,
-        });
-    }
-    if function.rest.is_some() {
-        return Err(Refusal::NotBuiltYet {
-            what: What::AParameterForm,
-            at,
-        });
-    }
-    let mut names: Vec<String> = Vec::new();
-    for element in &function.parameters {
-        if element.default.is_some() {
-            return Err(Refusal::NotBuiltYet {
-                what: What::AParameterForm,
-                at,
-            });
-        }
-        let Pattern::Name(name) = &element.pattern else {
-            return Err(Refusal::NotBuiltYet {
-                what: What::AParameterForm,
-                at,
-            });
-        };
-        if names.contains(name) {
-            return Err(Refusal::NotBuiltYet {
-                what: What::AParameterForm,
-                at,
-            });
-        }
-        names.push(name.clone());
-    }
-    Ok(names)
 }

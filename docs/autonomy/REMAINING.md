@@ -1,13 +1,13 @@
 # Remaining roadmap and execution loop
 
-Audit date: 2026-09-06. `ROADMAP.md` owns scope and stage gates;
+Audit date: 2026-09-07. `ROADMAP.md` owns scope and stage gates;
 `QUEUE.md` owns implementation order and closing conditions. These counts are
 an inventory snapshot, not a completion percentage or an effort estimate.
 
 | Stage | Roadmap state | Queue inventory | What closes it |
 |---|---|---|---|
 | 1: renders alo | 11 done; exit gate met | 29 done, 0 open | Sign-in and Settings reference images and box trees, plus named agent activation |
-| 2: modern web | 9 done, 73 open or partly built | 72 done, 84 open | A person uses it for a week; an agent completes a real external-site task with an audit record |
+| 2: modern web | 9 done, 73 open or partly built | 73 done, 84 open | A person uses it for a week; an agent completes a real external-site task with an audit record |
 | 3: legacy tail | 8 open | 8 open | No fixed completion gate; actual failing pages schedule individual work |
 | 4: adoption | 8 open | 9 open | Somebody outside alo chooses it on their own machine and stays |
 
@@ -20,32 +20,38 @@ that number without changing the amount of work owed.
 
 ## Continuation order
 
-1. **Item 219 is finished.** Native calls can suspend and resume; the
+1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
+   function headers under the body's strictness and preserves the remaining
+   early errors and import attributes as item 222. Item 60 is `needs design`;
+   item 187 still awaits an upload caller, and item 169 needs Linux execution.
+   Follow actual queue dependencies; item 207 requires an ADR-only iteration
+   before implementation. The next unused queue number is 223.
+2. **Item 219 is finished.** Native calls can suspend and resume; the
    recursion limit counts waiting builtins as well as script frames. Its
    previously unbounded test now passes, including collection stress. Item 221
    retains `apply` and the traced scratch storage it needs, so the total number
    of open items remains 101 despite closing 219. Continue with the queue's
    first eligible item; the JavaScript branch can now take item 220.
-2. **Continue JavaScript's dependency chain.** Item 220 covers function
+3. **Continue JavaScript's dependency chain.** Item 220 covers function
    metadata/source and binding; item 73 must be split into bounded builtin
    families with explicit closing conditions. Constructors (212), exceptions
    (210), parameter forms (213), proxies (217), tagged templates (215) and
    destructuring (211) depend on pieces of this work. Resolve dependencies per
    item rather than treating this paragraph as a new queue order.
-3. **Complete process/network prerequisites as they become eligible.** Linux
+4. **Complete process/network prerequisites as they become eligible.** Linux
    sandbox probes (169) require execution on Linux; this macOS checkout cannot
    certify them. Remaining font axes (197), request causality, HTTP behaviour,
    encrypted DNS settings and storage-access policy retain their queue gates.
-4. **Connect script to live pages.** The event loop, DOM wrappers/mutation,
+5. **Connect script to live pages.** The event loop, DOM wrappers/mutation,
    events, forms, navigation, frames, storage and workers unlock useful web
    interactions. Split large capabilities when starting, preserve their
    remainders, and freeze the smallest allowed real-page case that demonstrates
    each missing behaviour.
-5. **Finish the modern browser surface.** CSS/text/input, media, incremental
+6. **Finish the modern browser surface.** CSS/text/input, media, incremental
    rendering, window/tabs, accessibility, developer tools and the agent's
    permission/audit model all remain stage 2 work. Use the queue's actual
    prerequisites. Hardware and usability claims need the specified evidence.
-6. **Exercise stage 2's real exit gate.** Record the week's browser use,
+7. **Exercise stage 2's real exit gate.** Record the week's browser use,
    fallback sites and external agent task. Queue exhaustion cannot stand in
    for that evidence. Then eligible stage 3 page failures and stage 4 product
    work can proceed under the existing stage rules. Stage 3 is not a finite

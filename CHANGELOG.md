@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Strict function headers are checked before a script runs.** A body's
+  `"use strict"` now rejects forbidden plain parameter and function names;
+  duplicate strict and arrow parameters report an early error. Parenthesized
+  strings no longer act as strict directives. Legal shadowing remains valid,
+  and unsupported parameter, class and module checks stay queued.
+
 - **The unattended build loop runs on Codex.** It uses the local Codex login,
   keeps a separate event log per iteration, and detects stalled workers from
   their own output. An expired Claude login no longer blocks the build queue.

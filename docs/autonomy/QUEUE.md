@@ -743,7 +743,9 @@ first. Nothing here needs JavaScript.
   and a server that says nothing is sent the body after a bound a test can name.
 
 - [ ] **60. HTTP/3 and QUIC**, once both of those are.
-  *Depends on 59.*
+  *Depends on 59. Needs design:* name the QUIC rental boundary, transport
+  integration, frozen protocol fixtures and bounded closing conditions before
+  this becomes a build item. No protocol implementation is claimed.
 
 ## B. Origins, and the model that keeps sites apart
 
@@ -1921,31 +1923,46 @@ The long pole, and the thing most of section E is unreachable without.
   `InputElementTemplateTail` lists whitespace and comments. Ordinary code would
   not have parsed. Cut: item 205.
 
-- [ ] **205. The early errors that need a scope, and import attributes.** Cut
-  from 204, which refuses everything a *token stream* can refuse and nothing
-  that needs a table of names. What is owed: a name declared twice in one
-  scope (`let a; let a`), a `let` shadowing itself, a `break outer` naming no
-  label, a `#a` no class declares, a duplicate parameter name in strict code —
-  and the one 204 found in itself, a parameter list read under the strictness
-  in force *before* the `"use strict"` in the body it belongs to. Each is a
-  refusal about a program rather than about its text, which is why none of them
-  is in the parser: a scope is the thing item 71's object model and item 72's
-  compiler both need, and building a second one inside the parser is how the
-  two come to disagree. Import attributes (`import a from "b" with { type:
-  "json" }`) are here for a different reason: an attribute changes how a module
-  is **fetched**, so it is worth taking with the loader that fetches it.
-  *Depends on 204. Closes when:* each refusal above has a test named for the
-  program it refuses, and an attribute reaches the thing that would act on it
-  rather than being parsed and dropped.
+- [x] **205. The early errors for plain function headers.** Cut from 204,
+  whose parser reads parameters before the body's directive prologue. **Scope
+  cut in iteration 117:** the callable plain-name forms are finished here;
+  remaining scope-sensitive errors and import attributes are item 222.
+  Implements ADR 0013 §§ 3, 4 and 9 and `docs/features.md`'s parser/compiler
+  promise. *Depends on 204 and 209. Closes when:* strict function parameters
+  and binding names are checked under the body's final strictness, duplicate
+  strict parameters are early errors, and valid shadowing remains valid. An
+  invalid header must prevent every statement from running, including when the
+  function would never be called; malformed/truncated headers must not panic.
 
-  **Two of these landed in item 72's compiler rather than waiting here**, and
-  the reason is the one this item gives for why they are not in the parser: a
-  scope is what sees them, and item 72 built one. A name declared twice in one
-  block is refused because the alternative is a second slot for one name or a
-  live binding put back in its dead zone, and a `break` naming no open label is
-  refused because there is no instruction the compiler could emit instead.
-  Everything else here is untouched, including the `let` that shadows itself
-  across a *function* boundary — there are no functions yet (item 209).
+  **Done.** The compiler checks plain names before assigning bindings, reusing
+  the keyword table rather than creating another scope table. `eval`,
+  `arguments`, strict reserved words and decoded escapes cannot bypass it.
+  Duplicate strict and arrow parameters are early errors rather than reports
+  of an unsupported parameter form. A method's property name remains legal.
+  The parser now distinguishes `('use strict')` from a directive; a grouped
+  string also ends the directive prologue. Eight integration tests cover
+  refusal before side effects, engine reuse, collection stress, hostile input,
+  and existing parameter/body collision and label-boundary checks. Legal
+  shadowing across a function boundary is explicitly tested, not refused.
+
+- [ ] **222. The remaining scope-sensitive early errors, and import
+  attributes.** Cut from item 205 without claiming those mechanisms exist.
+  The original scope also named private identifiers no class declares and
+  import attributes delivered to the loader. Parameter defaults, destructuring,
+  rest, async/generator headers, and uniqueness for non-strict methods need
+  their own validation; plain sloppy duplicate parameters remain explicitly
+  unsupported. A named function expression's own binding and a parameter of
+  the same name also need separate scopes rather than a false duplicate error.
+  *Depends on 205; parameter execution needs 213, async/generator execution
+  needs 75, private-name validation needs 212, and import attributes need 77.*
+  Cut a bounded subitem when one of these becomes reachable. *Closes when:*
+  supported parameter forms are checked under the body's final strictness,
+  including the ban on a local strict directive with a non-simple list;
+  legal named-expression shadowing runs; a private name absent from its class
+  is refused; and `import a from "b" with { type: "json" }` delivers the
+  attribute to the loader rather than parsing and dropping it. Each must have
+  a named refusal or value test. This does not lift ADR 0013's stage 3 gate
+  for sloppy-mode aliasing.
 
 - [x] **71. The object model, and a garbage collector.** Objects, properties,
   prototypes, and something that reclaims them.

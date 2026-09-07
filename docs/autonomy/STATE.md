@@ -9357,3 +9357,67 @@ must still follow the first eligible queue item and its actual dependencies.
 This change is committed locally before starting a detached supervisor under
 the user's standing request to run the loop. No push is authorized or made.
 Runtime status belongs in `docs/autonomy/loop.log` and the per-worker events.
+
+
+---
+
+## Iteration 117 — strict function headers before any statement runs
+
+One eligible queue iteration, item 205, narrowed to plain function headers and
+closed at that scope. The checkout was clean on entry. Read the constitution,
+loop, latest journal, ADRs 0001, 0002 and 0013, feature contract and queue
+prerequisites before selecting it.
+
+Earlier open items remain real work: 157 and 158 need an interface; 187 has no
+upload caller requiring its bounded wait and is unreachable from page Fetch;
+60 had no transport design or closing contract and is now marked `needs design`
+under LOOP step 2; 169 requires the Linux probes on Linux, while this host is
+Darwin; 197 lacks the style-property implementations its dependency names
+(their names in the inheritance list are not those implementations); 201 needs
+80 and 83; 203 needs the browser process that owns both verbs and a loader.
+Item 205 can use the functions and scopes already built by 209 and 216.
+
+The compiler now rechecks plain parameter names and function binding names
+under the strictness returned by the body's directive prologue. Strict reserved
+words, `eval`, `arguments` and decoded escapes are refused before bindings or
+instructions run. Strict and arrow duplicates are early errors rather than an
+unsupported-form diagnostic. Header validation lives in `compile/parameters.rs`;
+function chunk generation keeps its existing responsibility and scope table.
+
+The new valid-code tests found a related parser defect: parentheses are omitted
+from the AST, so `('use strict')` was being treated as a directive. Comparing
+the statement and expression starts distinguishes a grouped string without
+adding another AST representation. It also ends the prologue, so a later plain
+string cannot reactivate it. A method's property name and legal lexical
+shadowing remain valid. Parameter/body lexical collisions and labels crossing a
+function boundary have named assertions over the existing scope machinery.
+
+Eight integration tests cover the forbidden names across declarations,
+expressions, arrows, methods and setters; duplicate and escaped names;
+inherited strictness; valid shadowing and non-directives; rejection before side
+effects and reuse of the same engine; every character-boundary truncation of
+malformed headers; and a wide adversarial parameter list. Execution checks run
+with and without collection at every allocation. These are early-error and
+hostile-input regressions, not a claim that another real page now runs; existing
+frozen-script tests remain part of the workspace suite. No geometry or paint
+changes, so no new layout assertion or reference raster is applicable.
+
+Item 222 retains the remaining parameter/function early errors, private-name
+validation, named-expression binding separation and import attributes, with the
+mechanisms they require named. The original queue's wording about a `let`
+shadowing across a function boundary is clarified: legal shadowing is allowed;
+a body-level lexical declaration colliding with a parameter is an error.
+ROADMAP's parser line moves with Built/Owed clauses and stays open; features,
+changelog and the remaining-work audit move in the same commit. There are still
+101 open queue items because closing the narrowed item also adds its remainder.
+Next unused queue number: 223. Next ADR: 0015. No stage gate is certified.
+
+Validation: the targeted eight tests pass. The first full gate found test-helper
+panic lints and string-building style in the new test, both corrected without
+weakening a lint. An earlier gate overlapped the initial edit and reported the
+then-missing changelog; its clippy and workspace tests passed. The final full
+`scripts/gate.sh` passes: clean formatting, clippy with zero warnings/errors,
+workspace tests, source notices, rental boundaries, no stubs/unsafe opt-outs,
+and isolated supervisor regressions. `git diff --check` passes. All iteration
+changes are included in one local commit. No push or supervisor launch was
+performed; the mechanical gate's isolated supervisor regressions are tests only.

@@ -729,7 +729,7 @@ impl<'a> Parser<'a> {
     /// directive prologue asks for.
     ///
     /// A directive is a string literal statement before anything else, judged
-    /// by **what was written** rather than by what it means: `"use strict"`
+    /// by **what was written** rather than by what it means: `"use\u0020strict"`
     /// is a string whose value is `use strict` and is not the directive, which
     /// is why this compares the source text.
     fn directives_then_statements(
@@ -769,7 +769,12 @@ impl<'a> Parser<'a> {
         let StatementKind::Expression(expression) = &statement.kind else {
             return None;
         };
-        if !matches!(expression.kind, ExpressionKind::String(_)) {
+        // Parentheses are not AST nodes. A grouped string starts after the
+        // statement's opening `(` and is not a directive, even if its inner
+        // source text spells one exactly.
+        if expression.start != statement.start
+            || !matches!(expression.kind, ExpressionKind::String(_))
+        {
             return None;
         }
         Some(read::slice(self.source, expression.start, expression.end))
