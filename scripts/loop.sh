@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/loop.sh — the build loop's supervisor, for macOS (ADR 0006).
 #
-# One `claude` invocation per queue item, until the journal says to stop.
+# One `codex exec` invocation per queue item, until the journal says to stop.
 # `docs/autonomy/LOOP.md` is what an iteration reads; this file only decides
 # when to start one and when to stop starting them.
 #
@@ -22,7 +22,8 @@ cd "$(dirname "$0")/.."
 
 JOURNAL="docs/autonomy/STATE.md"
 QUEUE="docs/autonomy/QUEUE.md"
-PROMPT="Read docs/autonomy/LOOP.md and execute exactly ONE iteration of the build loop, then exit."
+PROMPT="Read CLAUDE.md (the repository constitution), docs/autonomy/LOOP.md, and the latest journal entry. Execute exactly ONE eligible iteration of the build loop. Update the queue, roadmap, features, changelog and journal as applicable, run the full gate, and commit all iteration changes locally before exiting. Do not push or launch another supervisor. Preserve stage gates and unfinished work."
+WORKER=(codex exec --sandbox danger-full-access -c 'approval_policy="never"' --json "$PROMPT")
 
 # How long a worker may be *silent* before it is presumed hung, and the
 # absolute ceiling regardless of how busy it looks. Idle rather than duration,
@@ -295,7 +296,7 @@ nothing to report"
 fi
 
 if [ "$dry" -eq 1 ]; then
-  say "would run:  claude -p \"\$PROMPT\" --dangerously-skip-permissions"
+  say 'would run: codex exec --sandbox danger-full-access -c approval_policy="never" --json "$PROMPT"'
   marker="$(stop_marker)"
   say "journal:    $JOURNAL  (stop marker: ${marker:-none})"
   say "queue:      $(open_items) items still open"
@@ -305,7 +306,11 @@ if [ "$dry" -eq 1 ]; then
   exit 0
 fi
 
-command -v claude >/dev/null || { bad "no claude on PATH"; exit 2; }
+command -v codex >/dev/null || { bad "no codex on PATH"; exit 2; }
+if ! codex login status >/dev/null 2>&1; then
+  bad "Codex is not logged in; run codex login before starting."
+  exit 2
+fi
 
 # Claim the checkout atomically before the gate or any worker. A stale lock
 # requires inspection: guessing its owner is dead can start rival workers.
@@ -340,6 +345,9 @@ if [ -n "$(git status --porcelain)" ]; then
   bad "uncommitted changes exist; preserve and finish them before starting the loop."
   exit 6
 fi
+RUNS="$(git rev-parse --git-path alo-loop-runs)"
+mkdir -p "$RUNS" || { bad "cannot create $RUNS"; exit 2; }
+RUN_DIR="$(mktemp -d "$RUNS/run.XXXXXX")" || exit 2
 say "checking the tree is green before starting…"
 if ! ./scripts/gate.sh >"$LOCK/gate.log" 2>&1; then
   bad "the baseline gate failed; no worker started."
@@ -378,24 +386,24 @@ for (( i = 1; i <= wanted; i++ )); do
   iteration_head="$(git rev-parse HEAD)"
   iteration_journal="$(git hash-object "$JOURNAL")"
 
-  # macOS `stat -f %m`. The script this replaces needed a GNU fallback and was
-  # bitten by it; this one is for one platform and says so (ADR 0006).
-  transcripts="$HOME/.claude/projects/$(pwd | sed 's#[/: ]#-#g')"
   started=$(date +%s)
-
-  claude -p "$PROMPT" --dangerously-skip-permissions &
+  transcript="$RUN_DIR/iteration-$i.jsonl"
+  say "worker events: $transcript"
+  "${WORKER[@]}" > "$transcript" 2>&1 &
   worker=$!
   code=""
+  newest=$started
+  previous_bytes=0
 
   while kill -0 "$worker" 2>/dev/null; do
     sleep 30
     kill -0 "$worker" 2>/dev/null || break
     now=$(date +%s)
-    newest=$(find "$transcripts" -name '*.jsonl' -exec stat -f %m {} \; 2>/dev/null \
-             | grep -E '^[0-9]+$' | sort -rn | head -1)
-    # The first two minutes are grace: the worker has not opened a transcript
-    # yet, and an empty answer here is not silence.
-    if [ -z "$newest" ] || [ "$newest" -lt "$started" ]; then newest=$started; fi
+    # Observe only this worker's event stream. Another session's activity
+    # cannot hide a hung worker, and no provider-private transcript path is used.
+    bytes=$(wc -c < "$transcript")
+    if [ "$bytes" -ne "$previous_bytes" ]; then newest=$now; fi
+    previous_bytes=$bytes
     idle=$(( now - newest ))
     running=$(( now - started ))
 
@@ -415,7 +423,8 @@ for (( i = 1; i <= wanted; i++ )); do
 
   worker=""
   if [ "$code" -ne 0 ]; then
-    bad "worker exited $code; stopping with its changes preserved."
+    bad "worker exited $code; stopping with its changes preserved. Events: $transcript"
+    tail -8 "$transcript"
     finished "$i"
     exit "$code"
   fi

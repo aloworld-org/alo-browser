@@ -66,7 +66,7 @@ it. `LOOP COMPLETE` means no eligible work remains, not all stages are finished.
 
 ## Run and resume
 
-Prerequisites: macOS, Rust toolchain, authenticated `claude` CLI, a clean
+Prerequisites: macOS, Rust toolchain, authenticated `codex` CLI, a clean
 checkout, and a passing `scripts/gate.sh`. No supervisor was started by this audit or by the follow-up cleanup. The
 item 219 recursion blocker is resolved. The follow-up validation and commit
 are recorded in `STATE.md`; start from a clean checkout after the full gate.

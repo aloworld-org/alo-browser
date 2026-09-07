@@ -18,8 +18,16 @@ cat > scripts/gate.sh <<'GATE'
 #!/usr/bin/env bash
 [ ! -f broken ]
 GATE
-cat > bin/claude <<'WORKER'
+cat > bin/codex <<'WORKER'
 #!/usr/bin/env bash
+if [ "${1:-}" = login ]; then
+  [ "${TEST_MODE:-}" != unauthenticated ]
+  exit $?
+fi
+[ "${1:-}" = exec ] || exit 98
+[ "${2:-}" = --sandbox ] && [ "${3:-}" = danger-full-access ] || exit 98
+[ "${4:-}" = -c ] && [ "${5:-}" = 'approval_policy="never"' ] || exit 98
+[ "${6:-}" = --json ] && [ -n "${7:-}" ] || exit 98
 case "$TEST_MODE" in
   fail) echo preserved > work; exit 42 ;;
   timeout) echo preserved > work; /bin/sleep 30; exit 0 ;;
@@ -69,6 +77,7 @@ check() {
 }
 # Keep the captured output outside git's work inventory.
 printf '%s\n' result >> .git/info/exclude
+check unauthenticated 2
 check fail 42
 [ "$(cat work)" = preserved ]
 check timeout 124

@@ -9328,3 +9328,32 @@ warnings, workspace tests, source and boundary checks, supervisor self-tests
 and isolated worker regressions. `git diff --check` passes. No layout assertion
 or reference image was added because this work changes neither geometry nor
 paint. The commit is local; no push and no unattended worker launch.
+
+---
+
+## Iteration 116 — a Codex supervisor, independent of Claude login
+
+The user requested our own loop after the Claude worker's OAuth session expired.
+The existing supervisor now launches one `codex exec` per eligible queue item,
+with the configured local Codex model and login. The prompt explicitly loads
+the repository constitution and worker contract, requires a verified local
+commit, and forbids pushing or spawning a competing supervisor.
+
+The idle timer measures growth of each worker's captured event stream under
+Git's `alo-loop-runs` directory. It no longer searches Claude's private session
+files. Errors and events survive worker failure. Authentication has a preflight
+check; dry runs and tests do not need a real account. Atomic locking, clean-tree
+checks, independent gates, stage boundaries and failure preservation remain.
+
+Validation: a real read-only Codex CLI invocation returned `READY`; the stored
+login reports ChatGPT authentication. The full `scripts/gate.sh` passes,
+including fake-Codex argument, login-failure, timeout, lock, dirty-tree and
+progress regressions. Shell syntax and `git diff --check` pass. No browser
+feature or queue item is claimed by this infrastructure change; the roadmap
+still has 101 open queue items. Next unused queue number is 222 and next ADR
+number is 0015. The JavaScript branch can continue at item 220, while selection
+must still follow the first eligible queue item and its actual dependencies.
+
+This change is committed locally before starting a detached supervisor under
+the user's standing request to run the loop. No push is authorized or made.
+Runtime status belongs in `docs/autonomy/loop.log` and the per-worker events.

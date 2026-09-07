@@ -250,8 +250,16 @@ iterations it managed: an iteration that halts honestly is worth more than one
 that invented a way past a problem, so counting iterations would be counting the
 wrong thing. A run that closed nothing and committed nothing says so, loudly.
 
-It requires an authenticated `claude` CLI on PATH for real runs; dry runs and
-self-tests need no model access. It refuses a dirty checkout, takes an atomic
+It requires an authenticated `codex` CLI on PATH for real runs; dry runs and
+self-tests need no model access. `codex login status` checks the stored login,
+and `codex login` connects an account. Claude authentication is not used.
+Each iteration uses `codex exec --json` with the configured Codex model and
+local credentials, full filesystem access and no interactive approval prompts,
+matching this unattended checkout workflow. The worker is explicitly told to
+read `CLAUDE.md` as the repository constitution and make local commits only.
+The supervisor stores each worker’s event stream under the Git directory’s
+`alo-loop-runs/run.*/iteration-N.jsonl` and measures silence from that file’s
+growth. These files survive failure and never become repository changes. It refuses a dirty checkout, takes an atomic
 lock in the checkout's Git directory, and runs `scripts/gate.sh` before the
 first worker and after every successful iteration. An iteration must leave a
 clean local commit and a new journal entry; a zero exit with no progress is an

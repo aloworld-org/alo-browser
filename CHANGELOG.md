@@ -6,6 +6,10 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The unattended build loop runs on Codex.** It uses the local Codex login,
+  keeps a separate event log per iteration, and detects stalled workers from
+  their own output. An expired Claude login no longer blocks the build queue.
+
 - **Builtins can call page script and resume with its answer.** Function
   `call`, object `toLocaleString`, and property-name conversions now use
   interpreter continuations with values kept on the traced stack. Recursion

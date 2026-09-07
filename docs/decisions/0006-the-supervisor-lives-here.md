@@ -108,3 +108,13 @@ stop the worker process tree, and successful iterations receive an independent
 gate run and must produce a clean commit and a changed journal. This supersedes
 the earlier nonzero-exit backoff policy. Commits remain local; publishing is a
 separate explicit action. The supervisor still does not decide what to build.
+
+
+## Amendment — 2026-09-07: Codex workers
+
+The supervisor now uses `codex exec` and the machine's Codex login rather than
+Claude. This removes the expired Claude session as a prerequisite for work.
+The worker contract and stage gates remain the same. A fresh Codex execution
+handles one item; its JSON event stream is captured in the Git directory, and
+only growth of that worker's file counts as activity. No private provider
+transcript directory is inspected. The configured Codex model is inherited.
