@@ -3992,7 +3992,7 @@ The long pole, and the thing most of section E is unreachable without.
   recording `<meta>`s, and the corpus case's row order — each fails at
   least one test.
 
-- [ ] **253. `document.body`.** *Cut from 247.* Item 247's closing condition
+- [x] **253. `document.body`.** *Cut from 247.* Item 247's closing condition
   names `document.body.lastChild`; `body` is not one of item 80's members,
   so 247's scripts reach the same node as `document.documentElement.lastChild`.
   HTML's `body` is an attribute with a getter (the root element's first
@@ -4003,6 +4003,61 @@ The long pole, and the thing most of section E is unreachable without.
   script reads `document.body` as the body element and `null` before
   there is one, and assigning a body replaces the old one or is refused
   by name.
+  **Done (iteration 149).** `alo-dom`'s new `body.rs` is HTML's *the body
+  element*: `Document::body` (the first `body` or `frameset` child of the
+  document element when that is an HTML `html`) and `Document::set_body`
+  (the same element changes nothing; otherwise the body element is
+  replaced through `replace_child`, or, with none, the new one appended to
+  the document element through `append_child`; anything not a `body` or a
+  `frameset` — `null` included — and a document with no element are
+  `HierarchyRequestError`). `alo-bindings`' `Document.prototype` gains
+  `body` as an accessor with both halves; the setter converts its value as
+  Web IDL's `HTMLElement?` (`idl::nullable_html_element`: `null` and
+  `undefined` are no element, anything not an element in the HTML
+  namespace is a `TypeError`). **Decision inside the item:** `frameset`
+  counts, as the standard says, against this entry's own sketch — law 1
+  refuses to render frames, not to answer `document.body` as every other
+  engine does on a page with one; leaving it out would be the approximate
+  member ADR 0013 § 3 refuses. Recorded in `body.rs`.
+  *Closed by:* `crates/alo-dom/tests/the_body_element.rs` (14 tests: a
+  parsed page's body and an empty document's none; a page stopped at a
+  script in its head has no body yet, and has it after; a frameset is the
+  body element; the first `body`/`frameset` child of the html element and
+  no deeper; a document element that is not `html` has none; a new body
+  replaces the old where it was, the old detached keeping its children,
+  one change counted; the same body changes nothing, not even the count;
+  frameset and body replace each other; a body from inside the tree is
+  moved into place; with no body, appended to the document element, and to
+  a non-`html` one; `null`, a `div`, text, the `html` element and the
+  document refused by name with nothing changed; no document element
+  refused; the append's own cycle refusal passed through; and the hostile
+  half — every id, minted or not, answered or refused with nothing
+  changed); `crates/alo-bindings/tests/the_body_a_script_reads_and_replaces.rs`
+  (8 tests: the body as one wrapper, an expando kept; `null` with none and
+  under a non-`html` root; an assignment answering its value, the old body
+  detached keeping its expando and children, the serialisation, two
+  changes counted and the new body numbered after the parsed nodes; the
+  same body no change, a frameset appended; five `HierarchyRequestError`s
+  with nothing changed and the message read; no document element;
+  nine `TypeError`s — an SVG element, text, the document, a plain object,
+  a string, another document's body, and the getter and setter on objects
+  that only inherit from `Document.prototype`; ten thousand replacements
+  then a collection, the last body's expando kept);
+  `crates/alo-renderer/tests/the_body_a_page_reads_and_replaces.rs` (3
+  tests: item 247's sentence as written — a mid-body script reads
+  `document.body.lastChild` as itself — and a script in the head reads
+  `null`; a body a script assigns laid out in numbers, `Kept` at (0, 0) and
+  `Made` at (0, 20), 300×20 each, read by the agent without the old body's
+  row, and serialised; a refused assignment reported as
+  `uncaught: HierarchyRequestError: …`, nothing changed, the page drawn);
+  and the corpus case **`a-script-gives-a-new-body`** — reference render
+  looked at: *Inbox* and the green *Three new messages*, no red *Loading*;
+  `layout.txt` has the line at (8, 39.28125) 184×24.296875. Doctored runs,
+  each restored and checked identical by hash and rebuilt: seven rules
+  disabled alone — `frameset` not counted, any document element taken as
+  the html element, the same body not short-circuited, the last rather
+  than the first such child, `null` taken as no change, the HTML-namespace
+  conversion, and the setter absent — each fails at least one test.
 
 - [ ] **81. Events**: capture and bubble, listeners, default actions. **This is
   what makes a button do something**, which every agent verb has been honest

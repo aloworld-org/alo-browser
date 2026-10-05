@@ -1,0 +1,4 @@
+document at (0, 0) 200×71.578125
+  heading "Inbox" [level=1] at (8, 8) 184×23.28125
+  paragraph at (8, 39.28125) 184×24.296875
+    text "Three new messages" at (12, 43.28125) 148.14844×16.296875

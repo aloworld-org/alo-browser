@@ -12,7 +12,8 @@
 //!   wrapper **of the same document** as `this`, since a cross-document write
 //!   is what ADR 0017 § 4 refuses; a `DOMString` argument is `ToString`,
 //!   which for an object runs the page's own `toString` and so is asked of
-//!   the interpreter rather than done here.
+//!   the interpreter rather than done here; an `HTMLElement?` is an element
+//!   in the HTML namespace, or `null`.
 //! - **Answers**: a node is answered as its one wrapper (ADR 0014 § 6), made
 //!   if it has none, and text as a string in the heap.
 //!
@@ -186,6 +187,47 @@ pub(crate) fn nullable_node(
         Value::Null | Value::Undefined => Ok(None),
         _ => node(call, which, this, member).map(Some),
     }
+}
+
+/// Argument `which` as an `HTMLElement?`: `null` and `undefined` are no
+/// element, and anything else must be an element in the HTML namespace of
+/// `this`'s document.
+///
+/// There is no `HTMLElement` interface yet — every element is an `Element`
+/// to a script — so the conversion asks the node's namespace, which is
+/// exactly what being one is.
+///
+/// # Errors
+///
+/// A `TypeError` for anything that is not an HTML element, and as [`node`]
+/// for a node of another document.
+pub(crate) fn nullable_html_element(
+    call: &Call<'_>,
+    which: usize,
+    this: This,
+    member: &'static str,
+) -> Result<Option<NodeId>, Escape> {
+    let held = match call.argument(which) {
+        Value::Null | Value::Undefined => return Ok(None),
+        Value::Object(held) => embed::node_of(call.seen(), held),
+        _ => None,
+    };
+    if held.is_some() {
+        let node = node(call, which, this, member)?;
+        let is_html = embed::document(call.seen(), this.owner)
+            .and_then(|document| document.element(node))
+            .is_some_and(|element| element.name.ns == alo_dom::Namespace::Html);
+        if is_html {
+            return Ok(Some(node));
+        }
+    }
+    Err(Escape::type_error(
+        format!(
+            "argument {} to '{member}' is not an HTMLElement",
+            which.saturating_add(1)
+        ),
+        call.at(),
+    ))
 }
 
 /// A `DOMString` argument, converted — or what to ask the interpreter for

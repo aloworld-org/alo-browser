@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html><body><h1>Inbox</h1><p class=loading>Loading</p><script>
+// document.body read and assigned (queue item 253). The script makes a new
+// body, moves the old body's heading into it, adds a line, and makes it the
+// body: the old one, with the loading line and this script, is detached.
+const old = document.body;
+const made = document.createElement('body');
+made.appendChild(old.firstChild);
+const note = document.createElement('p');
+note.setAttribute('class', 'ready');
+note.appendChild(document.createTextNode('Three new messages'));
+made.appendChild(note);
+document.body = made;
+</script></body></html>

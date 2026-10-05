@@ -1,0 +1,4 @@
+fill box#1 rgb(255 255 255) at (0, 0) 200×71.578125
+text box#3 "Inbox" rgb(16 16 20) 20px at (8, 26.564453)
+fill box#4 rgb(220 252 231) at (8, 39.28125) 184×24.296875
+text box#5 "Three new messages" rgb(16 16 20) 14px at (12, 56.276367)

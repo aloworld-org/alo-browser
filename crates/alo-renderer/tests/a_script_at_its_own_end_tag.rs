@@ -10,10 +10,12 @@
 //! can; scripts still run in document order under the same policies.* The
 //! reference render is the corpus case `a-script-beside-itself`.
 //!
-//! The scripts here use item 80's members and no others, so `document.body`
-//! is `document.documentElement.lastChild` — the body is the root element's
-//! last child while it is being parsed — and what a script saw is written
-//! onto the root element as an attribute for the test to read.
+//! The scripts here use item 80's members and no others, so they reach the
+//! body as `document.documentElement.lastChild` — the root element's last
+//! child while it is being parsed — and what a script saw is written onto the
+//! root element as an attribute for the test to read. `document.body` came
+//! after (item 253); `the_body_a_page_reads_and_replaces.rs` reads this
+//! file's first sentence as it was written.
 
 use alo_dom::{Document, NodeId};
 use alo_layout::Size;

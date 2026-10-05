@@ -12405,3 +12405,127 @@ iteration 141's browser-side font-name guard still has no discriminating
 test. 110 queue items are open. Next is **253** (`document.body`, depends
 only on 249; 251 waits on item 73). Next unused queue number **254**; next
 ADR **0018**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 149 — item 253: `document.body`
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s *Mutation from script* line, iteration 148's entry, queue
+items 80, 81, 247 and 249–253, ADR 0017 (all of it; §§ 4, 5 and 8 apply)
+and ADR 0013 § 3, `docs/features.md`'s *Mutation from script* entry, and
+the code this changes and reads: `alo-dom`'s `mutation.rs`, `validity.rs`,
+`name.rs`, `parse.rs` and `lib.rs`; `alo-bindings`' `idl.rs`, `define.rs`,
+`interface.rs` and `interface/{document,node,element,dom_exception}.rs`
+and their tests; `alo-renderer`'s `a_script_at_its_own_end_tag.rs` and
+`a_dom_exception_said_by_its_name.rs`; `alo-corpus`'s `case.rs` and
+`lib.rs`. No ADR is changed. No `AGENTS.md` exists. No sibling repository
+was read or modified. The checkout was clean on entry at `679d52a`.
+
+**Selection.** Iteration 148 named **253** next; it depends only on 249
+(done). Every earlier open item is still blocked for the reasons iteration
+144 recorded, and 251 waits on item 73.
+
+**What was built.** `alo-dom`'s new `body.rs`: `Document::body` is HTML's
+*the body element* — the first `body` or `frameset` child of the document
+element when that is an HTML `html` — and `Document::set_body` is the
+setter's algorithm: not a `body`/`frameset` (`null` included) is
+`HierarchyRequestError`; the same element changes nothing; otherwise the
+body element is replaced through `replace_child`, or with none the new one
+is appended to the document element through `append_child`, and with no
+document element it is `HierarchyRequestError`. The rules are in `alo-dom`
+for ADR 0017 § 5's reason. `alo-bindings`: `Document.prototype.body`, an
+accessor with both halves (ADR 0013 § 3: a getter alone would be
+approximate); the setter's value is converted as Web IDL's `HTMLElement?`
+by the new `idl::nullable_html_element` — `null`/`undefined` are no
+element, anything not an element in the HTML namespace (an SVG element,
+text, the document, a primitive) is a `TypeError`, another document's
+node the existing cross-document `TypeError`.
+
+**Decision inside the item:** `frameset` counts, as the standard says —
+against the queue entry's own sketch, which left it out under law 1. Law 1
+refuses to *render* frames; it does not license a `document.body` that
+answers `null` where every other engine answers an element, or a setter
+that appends beside a frameset instead of replacing it. That would be the
+approximate member ADR 0013 § 3 refuses, and the name test costs one
+comparison. Recorded in `body.rs`'s module comment and the queue entry.
+
+**Evidence.** `crates/alo-dom/tests/the_body_element.rs` (14 tests),
+`crates/alo-bindings/tests/the_body_a_script_reads_and_replaces.rs` (8),
+`crates/alo-renderer/tests/the_body_a_page_reads_and_replaces.rs` (3) —
+the queue entry lists what each asserts. **Layout assertion in numbers:**
+a page whose script assigns a new body is laid out with `Kept` at (0, 0)
+and `Made` at (0, 20), each 300×20, the old body's `Dropped` row nowhere,
+and the agent's tree agreeing. **Reference render:** the new corpus case
+`a-script-gives-a-new-body`, looked at — *Inbox* and the green *Three new
+messages*, no red *Loading*; `layout.txt` has the line at
+(8, 39.28125) 184×24.296875 and `issues.txt` is empty. Every other
+committed reference render still matches (regenerating references touched
+no other case; the gate runs the corpus). Item 247's closing sentence —
+*a mid-body script reads `document.body.lastChild` as its own `<script>`*
+— now has a test written exactly that way.
+
+**Doctored runs**, each restored and checked identical by hash: seven
+rules disabled alone — `frameset` not counted (3 fail), any document
+element taken as the html element (2), the same body not short-circuited
+(1), the last rather than the first such child (1), `null` taken as no
+change (1), the HTML-namespace conversion (1), the setter absent (6).
+**A mistake in the doctoring, caught and redone:** the first script
+restored each file with `mv` from a backup older than the doctored build,
+so cargo kept the doctored binary — the suites then failed on correct
+source, which is how it was noticed. Runs 1–5 each rewrote `body.rs` fresh
+and so were valid; runs 6 and 7 had run 5's edit still compiled into
+`alo-dom` and were redone with a `touch` after every restore (results
+above are the redone ones), then all three suites were rerun clean.
+
+**One existing test changed, and why.** `what_a_script_does_to_its_document.rs`'s
+`every_other_member_is_absent` listed `typeof document.body` among the
+absent members; it is present now, by this item's purpose. It was replaced
+in that list by `document.head`, still absent, so the test still asserts
+fourteen absent members. `a_script_at_its_own_end_tag.rs`'s module comment,
+which said `document.body` did not exist, now says it came after.
+
+**Compliance review.** Law 1: no frame rendering, no legacy surface; `head`
+and the rest stay absent. Law 2: the agent reads the assigned body
+(tested). Law 3: no stub, `todo!` or `unwrap` outside tests, no unreachable
+branch (the body's parent is the html element it was found in, not
+looked up). Law 4: no `unsafe`. One file, one responsibility: `body.rs` is
+*the body element*; `idl.rs` is still Web IDL's conversions; `document.rs`
+is still the `Document` interface. Stage 2 § 2: every id, minted or not,
+handed to `set_body` answers or refuses with nothing changed; nine
+`TypeError`s and five `HierarchyRequestError`s from script, nothing
+changed; ten thousand replacements then a collection, the body's expando
+kept.
+
+**Gate.** `scripts/gate.sh` first failed on `tests fail` alone (the
+absent-member list above); after that change it exited 0, run in the
+foreground and read in the same step (6 min 23 s): formatting clean,
+clippy silent, all tests pass, nothing stubbed, `unsafe` forbidden,
+licence notices, every rented crate behind its boundary, no coordinate
+verb, the stop rule holds, `CHANGELOG.md` changed. `cargo test --workspace
+--all-features` counts 2461 passed, 0 failed (2436 at iteration 148, this
+item's 25). `git diff --check` passes. Logs kept in this session's
+scratchpad, not committed.
+
+**Roadmap.** The *Mutation from script* line was already ticked (iteration
+147) and named 253 in its remainder; it now records `document.body` built,
+with its corpus case and test, and names only 251 and 113. Not a new tick.
+Queue: 253 ticked with its evidence; `CHANGELOG.md`, `docs/features.md`,
+`docs/conformance.md` (twenty-seven cases, the new one named) and
+`REMAINING.md` moved with it.
+
+**Unresolved obligations.** `document.head` and every other absent member
+wait for a page or an item. Carried from before: any other object a page
+throws is said as `an object` (item 78); a `<meta>` policy a script inserts
+is not applied; detached trees a script drops during a load wait for the
+first collection after the parse; the renderer's path for a document the
+heap refuses is not discriminated (it needs a document over the heap's
+1 GiB ceiling); the one-write overshoot of the heap's ceiling; 248's
+undiscriminated overrun fallback; 78's remainder; 77 needs design; 233,
+234, 238 and 240 open and item 76 not done; `violations::reports` still
+called by nothing in the browser process (item 203's dependency); iteration
+141's browser-side font-name guard still has no discriminating test. 109
+queue items are open. Next is **81** (events; its dependency 80 is done) —
+dispatch, capture and listener lifetime are decisions ADR 0017 explicitly
+left to it, so the next iteration should judge whether it needs an ADR of
+its own first (LOOP.md, stage 2 § 4). 251 still waits on item 73. Next
+unused queue number **254**; next ADR **0018**. This is one iteration, not
+a finished queue or roadmap.

@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's script can now find the page's body, and replace it.**
+  `document.body` is the page's body — or nothing, for a script that runs
+  before the page has one — and assigning a new body puts it where the old
+  one was, or adds it when there was none. Anything that is not a body is
+  refused with the standard's `HierarchyRequestError`, and the page is left
+  exactly as it was.
+
 - **A change the page is not allowed to make is now named when the page
   fails to catch it.** A script that tries to put the page inside itself,
   remove something that is not there, or make an element with a name no

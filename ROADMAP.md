@@ -885,8 +885,13 @@ unreachable without it.
       named in a load's report** (`alo-renderer`, queue item 252, iteration
       148) — by the name and message it was made with, read from the cell
       and running nothing; proven by `a_dom_exception_said_by_its_name.rs`.
-      The remainder, each its own item: `document.body` (253), `document`
-      as Web IDL's accessor (251), and rendering only what changed (113). The decision is made (ADR 0017): the document
+      **`document.body`** (`alo-dom`'s `body.rs` and `alo-bindings`, queue
+      item 253, iteration 149) — read as HTML's *the body element* and
+      assigned by replacing it or appending to the document element, a
+      non-body refused as `HierarchyRequestError`; proven by the corpus
+      case `a-script-gives-a-new-body` and `the_body_element.rs`.
+      The remainder, each its own item: `document` as Web IDL's accessor
+      (251), and rendering only what changed (113). The decision is made (ADR 0017): the document
       moves into the page's heap when it first runs script; a node's wrapper
       lives while its tree is reachable and an unreachable detached tree is
       freed, its ids never reused; every change goes through `alo-dom` under

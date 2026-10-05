@@ -232,6 +232,14 @@ as before. 110 queue items are open; 253 is next (`document.body`, which
 depends only on 249; 251 waits on item 73); the next unused queue number is
 254 and the next unused ADR 0018.
 
+Iteration 149 built 253: `document.body`, read as HTML's *the body element*
+and assigned by replacing it or appending to the document element, a
+non-body refused as `HierarchyRequestError` (`alo-dom`'s `body.rs`, one
+accessor in `alo-bindings`). Corpus case `a-script-gives-a-new-body`.
+109 queue items are open; 81 (events) is next, unblocked by 80, and 251
+still waits on item 73; the next unused queue number is 254 and the next
+unused ADR 0018.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -1,0 +1,6 @@
+block flow · document
+  block flow · generic
+    block flow · heading [level=1]
+      text "Inbox"
+    block flow · paragraph
+      text "Three new messages"
