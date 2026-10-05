@@ -847,6 +847,15 @@ unreachable without it.
 ### The DOM, and the pages that use it
 
 - [ ] Mutation from script — create, append, remove, replace — and the invalidation that has to follow it
+      · Owed: all of the code. The decision is made (ADR 0017): the document
+      moves into the page's heap when it first runs script; a node's wrapper
+      lives while its tree is reachable and an unreachable detached tree is
+      freed, its ids never reused; every change goes through `alo-dom` under
+      the standard's validity rules; a changed document is rendered again
+      whole when its rendering is read; and a parser-inserted script sees the
+      document up to its own element. Built as queue items 245 (`alo-dom`'s
+      operations), 246 (the bindings and the re-render) and 247 (a script at
+      its own end tag)
 - [ ] **Events**: capture and bubble, listeners, default actions
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
       · Built: **a control draws its own state** (queue item 182) — a tick in a

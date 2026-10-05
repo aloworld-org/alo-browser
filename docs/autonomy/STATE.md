@@ -11555,3 +11555,123 @@ called by nothing in the browser process on its own (item 203's dependency).
 No script can reach the document. 109 queue items are open (244 closed).
 Next unused queue number **245**; next ADR **0017**. This is one iteration,
 not a finished queue or roadmap.
+
+
+---
+
+## Iteration 142 — item 80's decision: the document moves into the heap, and a wrapper lives as long as its tree
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its DOM and event-loop lines,
+`docs/autonomy/REMAINING.md`, iterations 132 (the form an ADR-only iteration
+takes), 136, 138, 139 and 141 and their selection reasoning, queue items 78,
+79–93 and 241–244, ADR 0014 in full, ADR 0013 § 6, ADR 0016 §§ 4–8 and its
+*What this does not decide*, ADR 0003's alternatives and consequences, and the
+code the decision is about: `alo-dom`'s `lib.rs`, `node.rs` and
+`document.rs` (the arena that never frees, the `pub(crate)` tree operations),
+`alo-js`'s `object/internal.rs` (`Internal`, `Exotic`), `object/native.rs`
+(a native is a plain `fn` handed the heap, `this` and arguments),
+`heap/root.rs`, `heap/trace.rs` (`ephemeron`, `footprint`, `clear_weak`),
+`Objects::foreign`, `alo-renderer`'s `renderer.rs` (`act`, `load`,
+`lay_out`) and `event_loop.rs`, `alo-agent`'s `apply`, and `html5ever`
+0.39's tokenizer (`TokenizerResult::Script`). No `AGENTS.md` exists. No
+sibling repository was read or modified. The checkout was clean on entry at
+`a529f24`.
+
+**Selection.** Nothing landed in iteration 141 that unblocks an earlier item:
+every blocker iteration 136 listed stands, 240 and 238 wait for a frozen
+page, 234 on 233, 233 on 81 or 92, 77 is `needs design`, 78's remainder has
+no closing condition. 241–244 are done. **79** depends on 73, open. **80**
+depends only on 72, which is done, and was the first eligible item — but it
+could not name the decision it implements: ADR 0014's *What this does not
+decide* hands **the shape of the DOM bindings** to item 80 by name, and the
+code confirms the gap is real rather than a formality — a native function is
+handed the heap, its `this` and its arguments and nothing else, there is no
+way for an embedder to get its own exotic object back, the document is owned
+by `Rendered` outside any heap, and ADR 0003's *a detached node's slot is
+not freed* rests on *bounded by the input*, which a script makes false.
+`LOOP.md` stage 2 § 4 makes the decision its own iteration, before any code
+depends on it — iteration 132's precedent for item 76.
+
+**What was built: ADR 0017, accepted.**
+`docs/decisions/0017-the-document-moves-into-the-heap-and-a-wrapper-lives-as-long-as-its-tree.md`.
+§ 1 the `alo-bindings` crate, the only one naming both, one file per
+interface, hand-written before generated. § 2 the document moves into the
+page's heap as one rooted embedder cell when the page first runs script and
+never moves back; everything else borrows it from there; its footprint is the
+document's size, so the heap's ceiling bounds a page's DOM. § 3 a wrapper is
+one per node, holds the id, the document cell and an ordinary object's part;
+the document cell traces attached nodes' wrappers strongly and each detached
+tree's wrappers as a **ring of ephemerons** (n pairs), so a detached tree lives
+while any of its wrappers does; an unreachable detached tree is released at
+the sweep with its ids left as tombstones — never reused, ADR 0003's promise
+kept and its *bounded by the input* consequence retired. § 4 a native reaches
+its node only through its `this`, by a typed borrow (`Any`) the engine gains;
+a wrong `this` is the WebIDL brand check's `TypeError`. § 5 `alo-dom`'s tree
+operations become public under the standard's names and pre-insertion
+validity rules, for script and agent alike, refusing with the standard's
+exception names; a change count; script-made nodes take ids from the parser's
+counter; `DOMException`. § 6 a changed document is rendered again whole, from
+the same document, when its rendering is read — `Paint`, `ReadTree`, an
+`Act`'s decision, the end of a `Load`, a `Resize` (which stops re-parsing) —
+never inside a task; forced layout is decided with the first geometry API.
+§ 7 a parser-inserted classic script runs at its own end tag and sees the
+document up to its own element. § 8 law 1's surface: no live collections, no
+`document.write`; absent members are absent. Facts checked rather than
+assumed: `alo-dom` never frees a node; `Trace` has `ephemeron`, `footprint`
+and `clear_weak(&mut self)` called on survivors before anything is freed;
+`html5ever` 0.39's tokenizer returns `TokenizerResult::Script(node)` when the
+tree builder reaches a script's end tag (a first draft said the tree builder
+"asks whether to suspend", which is not 0.39's interface, and was corrected
+before committing).
+
+**What is not built, and why it stops here.** No code, dependency or test.
+Item 80 stays unticked and records its ADR and what it says; its code is cut
+as **245** (`alo-dom`'s public operations, validity refusals, change count,
+tombstones — no dependency, so next), **246** (the bindings, the typed
+borrow, the document cell and wrapper liveness, `document` and item 80's
+members, the renderer's re-render — item 80's closing condition, with layout
+assertions in numbers and a reference render named in it) and **247** (a
+script at its own end tag), each with a closing condition.
+`docs/features.md` is unchanged: no capability changed, and its line for 80
+describes the feature rather than claiming it (its event-loop line's *No
+script can see the page's document yet (80)* is still true).
+
+**Roadmap.** The *Mutation from script* line, which read as unstarted, gains
+an Owed clause: all of the code is owed, the decision is ADR 0017, built as
+245, 246 and 247. No Built clause — a decision is not a crate or a capability
+(`ROADMAP.md`). Not ticked. `CHANGELOG.md` and `REMAINING.md` move with it.
+
+**Compliance review.** Law 1: the ADR refuses live collections and
+`document.write` by name and routes them to stage 3. Law 2: § 6 makes the
+agent read a re-rendered tree after any change, and § 5 makes the agent and
+script share one set of rules. Law 3: whole re-render, no incremental cache;
+no speed claim — the cost of re-rendering is named as a measurement on
+hardware. Law 4: no `unsafe` authorised; the typed borrow is safe Rust and
+`unsafe_code = "forbid"` is unchanged. *Settled decisions*: ADRs 0003, 0013,
+0014 and 0016 were read first and 0017 stays inside each — the engine still
+learns no DOM type (0013 § 6), one wrapper per node and reachability decides
+(0014 § 6), ids never reused (0003, whose memory consequence is explicitly
+retired with its reason rather than quietly contradicted), rendering on the
+browser process's frame (0016 § 5). `LOOP.md`: one item, a decision as its
+own iteration, no tick for unfinished work, no gate or test changed, no page
+manufactured. Each edited file keeps its single responsibility. Nothing
+positions, sizes or paints, so layout assertions and reference renders do
+not apply to this change (246 owes both). No push, no supervisor launched.
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step: formatting clean, clippy silent, all workspace tests pass, nothing
+stubbed, `unsafe` forbidden, licence notices present, every rented crate
+behind its boundary, no coordinate verb, the supervisor's stop rule holds;
+the documentation check reports no uncommitted code to judge, which is right
+for a documentation-only change. `git diff --check` passes. The log was kept
+in this session's scratchpad, not committed. That verifies the repository
+still meets its gate; it says nothing about bindings that do not exist yet.
+
+**Unresolved obligations.** Item 80's code, all of it (245, 246, 247). 78's
+remainder; 77 needs design; 233, 234, 238 and 240 are open and item 76 is not
+done; `violations::reports` is still called by nothing in the browser
+process (item 203's dependency); the browser-side font-name guard of
+iteration 141 still has no discriminating test. 112 queue items are open (245,
+246 and 247 added). Next unused queue number **248**; next ADR **0018**. This
+is one iteration, not a finished queue or roadmap.

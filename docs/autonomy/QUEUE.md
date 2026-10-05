@@ -3543,6 +3543,70 @@ The long pole, and the thing most of section E is unreachable without.
   so); this is where that stops being true.
   *Depends on 72. Closes when:* a script changes a document and the next render
   shows it, with node identity surviving (ADR 0003).
+  **Its decision is ADR 0017 (iteration 142)**, written first because ADR 0014
+  left *the shape of the DOM bindings* to this item and a native function had
+  no way to reach a document: the document moves into the page's heap as one
+  rooted cell when the page first runs script; a wrapper is one per node and
+  lives while its **tree** is reachable (the document's always, a detached
+  tree through a ring of ephemerons over its wrappers), and an unreachable
+  detached tree is freed with its ids left as tombstones, never reused; a
+  native reaches its node only through its `this`, by a typed borrow the
+  engine gains; every change goes through `alo-dom`'s own operations under the
+  standard's validity rules and advances a change count; a changed document is
+  rendered again whole when its rendering is read, never inside a task; and a
+  parser-inserted script runs at its own end tag. No code yet. It closes when
+  245, 246 and 247 have, and the cut is in that order.
+
+- [ ] **245. `alo-dom`'s tree operations, public, under the standard's
+  rules.** *Cut from 80 (ADR 0017 §§ 3 and 5). Depends on nothing.* Insert,
+  append, replace and remove become public under the DOM standard's names,
+  with its pre-insertion validity checks answered as a refusal that names the
+  standard's exception (`HierarchyRequestError`, `NotFoundError`), not `false`;
+  creating an element or a text node takes the next id from the parser's
+  counter; every change advances `Document`'s change count; and releasing a
+  detached tree drops its nodes' contents while their ids answer nothing and
+  are never handed out again (a tombstone). The parser keeps its own
+  crate-private operations. The agent's `apply` uses the public ones. No
+  engine. *Closes when:* every validity rule the standard lists for insert and
+  replace is a test that refuses with the right name and leaves the tree
+  unchanged; a created node after 40 parsed ones is `#40`; the count moves on
+  every change and not on a refusal; and a released tree's ids answer `None`
+  while the next created node's id is still one past the highest ever made.
+
+- [ ] **246. The bindings: a script changes the document and the next render
+  shows it.** *Cut from 80 (ADR 0017 §§ 1–6). Depends on 245.* The
+  `alo-bindings` crate; the typed borrow of an embedder's own cell in
+  `alo-js`; the document cell (rooted by the renderer, its footprint the
+  document's size) and the wrapper with its table, its strong edges for
+  attached nodes and its ephemeron ring for each detached tree, and the
+  release of unreachable trees at the sweep; `document` on the global
+  object, and item 80's members only — the document and its root element,
+  `createElement`, `createTextNode`, `appendChild`, `insertBefore`,
+  `removeChild`, `replaceChild`, `remove`, `textContent`,
+  `getAttribute`/`setAttribute`/`removeAttribute`, `parentNode`,
+  `firstChild`, `lastChild`, `nextSibling`, `previousSibling` — with the
+  brand check's `TypeError` and `DOMException`; and the renderer borrowing
+  the document from the cell and rendering again whole when the change count
+  says what it holds is stale, at `Paint`, `ReadTree`, an `Act`'s decision,
+  the end of a `Load` and a `Resize`. *Closes when* (item 80's own
+  condition): a page's script appends an element and the next render's box
+  tree and layout have it, in numbers, with a reference render; the agent
+  names the node the script made and acts on it; every parsed node keeps its
+  id; one node asked for twice is one object, and its expando survives a
+  forced collection; a detached tree no script holds is freed at a
+  collection and one a script holds is not, counted; and the hostile half —
+  a page appending to itself in a loop, a million detached nodes, a node
+  inserted into its own child — refuses or collects and never panics.
+
+- [ ] **247. A parser-inserted script sees the document up to its own
+  element.** *Cut from 80 (ADR 0017 § 7). Depends on 246.* The parser stops
+  at each classic script's end tag (`html5ever`'s `TokenizerResult::Script`),
+  the renderer runs it as a task with its checkpoint, and the parser
+  continues; the page renders once, at the end of its load. *Closes when:* an
+  inline script in the middle of `<body>` reads `document.body.lastChild` as
+  its own `<script>`; a script before a `<p>` cannot find it and one after
+  can; scripts still run in document order under the same policies; and the
+  renderer's existing script tests are re-read against the new order.
 
 - [ ] **81. Events**: capture and bubble, listeners, default actions. **This is
   what makes a button do something**, which every agent verb has been honest

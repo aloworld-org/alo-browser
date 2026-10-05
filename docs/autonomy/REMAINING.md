@@ -164,6 +164,18 @@ process answers one a renderer sends anyway absent without looking. 109 queue
 items are open; the next unused queue number is 245 and the next unused ADR
 0017.
 
+Iteration 142 wrote item 80's decision, ADR 0017 (the document moves into
+the page's heap; a wrapper lives as long as its tree is reachable; a native
+reaches its node only through its `this`; every change goes through
+`alo-dom` under the standard's rules; a changed document is rendered again
+whole when read; a parser-inserted script sees the document up to its own
+element). No code. Item 80 was the first eligible item after 244 (79 waits
+on 73), and ADR 0014 had left its bindings' shape to it. Its code is cut as
+245 (`alo-dom`'s operations, no dependency — next), 246 (the bindings and
+re-render, item 80's closing condition) and 247 (a script at its own end
+tag). 112 queue items are open; the next unused queue number is 248 and the
+next unused ADR 0018.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

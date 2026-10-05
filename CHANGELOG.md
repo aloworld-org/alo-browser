@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How a script will change a page is decided (ADR 0017).** Nothing changes
+  yet; this is the decision the code will be built against. Once a page runs
+  script, its document is kept where the JavaScript engine's memory collector
+  can see it, so a page's own objects and its elements are one set of things
+  that are kept or thrown away together, and an element removed from the page
+  that no script still holds is freed rather than kept for ever. The same
+  element asked for twice is the same object, so what a page attaches to it
+  does not vanish. A script and an agent change the page under the same rules,
+  so they cannot disagree about what is allowed. A changed page is laid out
+  again in full whenever something reads it — a frame, or an agent reading the
+  page — so an agent never acts on a page that is no longer there. And a script
+  in the middle of a page sees only the part of the page written before it, as
+  in every other browser.
+
 - **A page can no longer make its load report unsendable by naming one
   enormous font.** A load asks the browser for the font families it lacks,
   and each name was as long as the page wrote it: a page just under the size
