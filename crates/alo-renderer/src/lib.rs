@@ -56,6 +56,7 @@ pub mod page;
 pub mod pipe;
 pub mod pipeline;
 pub mod renderer;
+pub mod said;
 pub mod sandbox;
 pub mod scripts;
 pub mod serve;

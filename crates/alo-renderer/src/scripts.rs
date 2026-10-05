@@ -58,8 +58,10 @@
 //! renderer that failed with every issue lost and no reason given. So a load
 //! says at most [`MOST_SAID`] things about its scripts, and then **how many
 //! more** there were (queue item 242) — the way it says at most
-//! [`MOST_OBJECTIONS`] objections. The scripts run the same either way: a
-//! ceiling on what is said is not a ceiling on what is run.
+//! [`MOST_OBJECTIONS`] objections, each line at most
+//! [`LONGEST_LINE`](crate::said::LONGEST_LINE) characters (243, where the
+//! markup's half is bounded the same way). The scripts run the same either
+//! way: a ceiling on what is said is not a ceiling on what is run.
 //!
 //! # A page whose script stops it
 //!
@@ -76,13 +78,15 @@ use alo_net::csp::{Content, Inline};
 
 use crate::event_loop::{EventLoop, MOST_REPORTS};
 use crate::page::Page;
+use crate::said;
 use crate::violations::{MOST_OBJECTIONS, Objection};
 
 /// The most lines one load says about its scripts (queue item 242).
 ///
-/// Each line is bounded — a report's strings at 1024 code units and its trace
-/// at 32 places, a refusal by the header it quotes — so this many is a few
-/// megabytes at the very worst, against a message cap of 64. It is the most
+/// Each line is at most [`LONGEST_LINE`](crate::said::LONGEST_LINE)
+/// characters (queue item 243 — a fetched script's `src` is quoted, escaped,
+/// and is as long as the page made it), so this many is eight megabytes at the very
+/// worst, against a message cap of 64. It is the most
 /// one turn of the loop keeps, for the same reason: past it a page is saying
 /// the same thing in a loop, and the count says how long the loop was.
 pub const MOST_SAID: usize = MOST_REPORTS;
@@ -99,7 +103,8 @@ impl Said {
     /// Say a line about script `number`, if there is room.
     fn script(&mut self, number: usize, what: &str) {
         if self.lines.len() < MOST_SAID {
-            self.lines.push(format!("script {number}: {what}"));
+            self.lines
+                .push(said::line(&format_args!("script {number}: {what}")));
         } else {
             self.left_out = self.left_out.saturating_add(1);
         }

@@ -822,11 +822,15 @@ unreachable without it.
       says** (queue item 242, `alo-renderer`'s `scripts::MOST_SAID` and
       `event_loop::MOST_REPORTS`) — 256 lines about a load's scripts and then
       how many more, and a turn of the loop keeping at most 256 reports and
-      counting the rest without describing them
+      counting the rest without describing them; **the same for a page's
+      markup** (queue item 243, `alo-renderer`'s `said.rs`) — 256 lines about
+      what the markup made the engine say and then how many more, only those
+      written out, and every line of a load's report at most 8192 characters
+      with the rest counted
       · Owed: `error.stack`, a trace taken where an error is made, and names
       in it (queue items 78 and 220); source maps; showing any of it to a
-      person (developer tools, 129); a non-error object described; the same
-      ceiling for what a page's markup makes a load say (243)
+      person (developer tools, 129); a non-error object described; the font
+      names a load asks for, which are as long as the page made them (244)
 - [ ] Internationalisation (`Intl`), rented rather than written
 - [ ] Refused for now and recorded: a JIT, until there is a measured reason and an ADR weighing it against the attack surface it adds
       · Built: the recording, with its two conditions for re-opening named

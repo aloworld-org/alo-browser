@@ -28,6 +28,7 @@ use alo_style::{Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET};
 use alo_text::{FontDatabase, TextMeasurer};
 use alo_value::Rgba;
 use std::collections::BTreeMap;
+use std::fmt;
 use std::sync::Arc;
 
 /// Everything one render produced.
@@ -71,18 +72,31 @@ impl Rendered {
     /// than pages being refused anything. What the list has in common is that
     /// every line in it explains something a person can see.
     pub fn issues(&self) -> Vec<String> {
-        let mut out: Vec<String> = Vec::new();
-        out.extend(self.document.issues().iter().map(ToString::to_string));
-        out.extend(self.sheet_issues.iter().cloned());
-        out.extend(self.styles.issues().iter().map(ToString::to_string));
-        out.extend(self.boxes.issues().iter().map(ToString::to_string));
-        out.extend(self.layout.issues().iter().map(ToString::to_string));
-        // Last, because a substituted font is the only thing in this list that
-        // is not something the engine *refused* — the page rendered, in the
-        // wrong typeface, and that reads better after the refusals than among
-        // them.
-        out.extend(self.wanted.substitutions.iter().cloned());
-        out
+        self.each_issue().map(ToString::to_string).collect()
+    }
+
+    /// The same list, one line at a time and none of it written out yet.
+    ///
+    /// What crosses the boundary is bounded ([`crate::said::of_markup`]), and
+    /// a page can make millions of these: written out only when somebody asks
+    /// for a line, the ones past the bound cost nothing to count.
+    pub fn each_issue(&self) -> impl Iterator<Item = &dyn fmt::Display> {
+        fn shown<T: fmt::Display>(issue: &T) -> &dyn fmt::Display {
+            issue
+        }
+        self.document
+            .issues()
+            .iter()
+            .map(shown)
+            .chain(self.sheet_issues.iter().map(shown))
+            .chain(self.styles.issues().iter().map(shown))
+            .chain(self.boxes.issues().iter().map(shown))
+            .chain(self.layout.issues().iter().map(shown))
+            // Last, because a substituted font is the only thing in this list
+            // that is not something the engine *refused* — the page rendered,
+            // in the wrong typeface, and that reads better after the refusals
+            // than among them.
+            .chain(self.wanted.substitutions.iter().map(shown))
     }
 }
 

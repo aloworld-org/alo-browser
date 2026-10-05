@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's markup can no longer make its own load report unsendable.**
+  The other half of the report — what the page's markup, style sheets,
+  pictures and fonts made the engine say — had no ceiling, and it could say
+  more than the page was: two and a half million empty `<img>` tags, twelve
+  megabytes of page, would have said seventy megabytes, more than the
+  renderer may send. A load now says at most 256 things about its markup and
+  then how many more there were, and every line of the report, about markup
+  or scripts, is at most 8192 characters and then how many more — a quoted
+  address full of control characters had been five times the size the page
+  wrote it. The page renders exactly as before.
+
 - **A page that throws in a loop can no longer lose its own load report.**
   Everything a page load says about its scripts travels to the browser in one
   message of bounded size, and a page throwing errors by the hundred thousand

@@ -37,6 +37,7 @@ use crate::generic::Generics;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::pipeline::{Rendered, render, render_document};
+use crate::said;
 use crate::scripts;
 use crate::snapshot::Snapshot;
 use alo_agent::{AgentTree, apply, perform};
@@ -234,7 +235,9 @@ impl Renderer {
     fn lay_out(&mut self, page: Page) -> FromRenderer {
         let sheets = page.sheets.join("\n");
         let rendered = render(&page.html, &sheets, page.viewport, &self.fonts);
-        let issues = rendered.issues();
+        // What the markup made the engine say, as much of it as one load
+        // says (queue item 243).
+        let issues = said::of_markup(&rendered);
         // A renderer may not go and find a font (ADR 0010), so saying which
         // families it wanted and did not have is the whole of what it can do
         // about one — and the browser process, which may look, is exactly who

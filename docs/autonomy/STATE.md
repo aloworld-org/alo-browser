@@ -11398,3 +11398,45 @@ nothing in the browser process on its own (item 203's dependency). No script
 can reach the document. 110 queue items are open (242 closed, 243 added).
 Next unused queue number **244**; next ADR **0017**. This is one iteration,
 not a finished queue or roadmap.
+
+---
+
+## Iteration 140 — queue item 243: a ceiling on what a page's markup makes one load say
+
+A page's markup can no longer make its own load report unsendable. Eight tests,
+and item 244 cut from it: the font names a load asks for, bounded in length.
+
+**The worker built all of this and did not commit it.** The supervisor found
+the tree dirty and stopped for inspection, which is what it is for. This entry
+and the one-line fix below are the only things added.
+
+**What it was doing when it stopped, which is worth reading.** Its own words
+are in the run log: it ran the full test file against the real code, then
+against three *doctored* builds with each ceiling removed in turn — run A, the
+count ceiling, failed five tests including the closing clause; run B, the line
+ceiling, failed exactly the two long-line tests. That is mutation testing. It
+is a better answer to "do these tests discriminate" than reading them, which
+is what I do, and nobody asked it to.
+
+**Why it did not finish.** It started the gate *in the background* and spent
+its remaining turns waiting: *"The gate is running in the background; I'll
+write the journal entry once it reports"*, then *"Still waiting on the gate."*
+The session ended while it waited. It was neither hung nor blocked — it was
+holding a door open for a result that arrived after it was gone.
+
+So it never saw what the gate had to say, which was one clippy error.
+
+**The error, and why the fix is a rename rather than an allow.**
+`struct Kept` had a field `kept`, which `clippy::pedantic` rejects for telling
+the reader nothing twice. The deeper problem is that `alo-net` already exports
+a public `Kept` — the record of what an agent did — and this was a second,
+unrelated `Kept` meaning a truncated line buffer. Two types of one name, one
+repository.
+
+Its own doc comment already had the better name in it: *"a line as it is
+written"*. It is now `Line`, which fixes the lint and the collision together,
+and the struct says why in a comment so nobody reintroduces the clash.
+
+**Verified.** The gate is green on the result. The worker's eight tests are
+unchanged; only the type's name moved.
+

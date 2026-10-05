@@ -3454,7 +3454,7 @@ The long pole, and the thing most of section E is unreachable without.
   `usize::MAX` capped at 256, and a job throwing and requeueing itself for ever,
   stopped from another thread, keeping 256 and counting the rest.
 
-- [ ] **243. A ceiling on what a page's markup makes one load say.** *Found
+- [x] **243. A ceiling on what a page's markup makes one load say.** *Found
   while building 242, by reading, not yet by a run.* The markup half of a
   load's issues (`pipeline::Rendered::issues` — the document's, the sheets',
   each picture's, the box tree's and layout's) has no ceiling either, and it
@@ -3464,6 +3464,45 @@ The long pole, and the thing most of section E is unreachable without.
   page itself crossed the wire in — would make an answer the wire refuses. *Depends on 242. Closes when:* a
   page of a few million `<img>` elements loads and says a ceiling's worth of
   them and how many more, under `LARGEST_MESSAGE`.
+  **Built** in `alo-renderer/src/said.rs`: `of_markup` says at most
+  `MOST_SAID_OF_MARKUP` (256) of what the markup made the engine say and then
+  how many more, writing out only the lines said
+  (`Rendered::each_issue` yields them unformatted). **And a second clause the
+  item did not name, and why it is here:** a ceiling on how many lines is no
+  ceiling while one line can be any length. A line quoting what the page
+  wrote quotes it escaped — `\u{1}` is five characters for one — so one
+  `<img>` whose `src` is fourteen million control characters said a line of
+  seventy million, past the cap alone; and the scripts' half had the same
+  hole (a fetched script's `src`), which 242's "each line is bounded" had
+  missed. So `said::line` keeps every line of a load's report, both halves,
+  to `LONGEST_LINE` (8192) characters, counting the rest as they are written
+  rather than keeping them — long enough that no report of a throw (two
+  strings of 1024 and 32 places) is ever cut.
+  *Closed by:* `crates/alo-renderer/tests/what_a_pages_markup_says.rs`, eight
+  tests — the closing clause through a real `Renderer` (2,500,000 `<img>`:
+  the first 256 lines, then `2499744 more`, the answer under
+  `LARGEST_MESSAGE` and round-tripping the wire); 300 counted and exactly
+  256 said whole; a picture's `src` and a script's `src` of fourteen million
+  control characters each said as one line cut at 8192 characters with the
+  rest counted, and the answer sendable; markup and scripts each to their own
+  ceiling in one load; a resize bounded the same; every prefix of a page
+  saying more than the ceiling. `said.rs` four unit tests. Three doctored runs, each restored byte for
+  byte: the count ceiling removed fails five, the line ceiling removed fails
+  the two long-line tests, the scripts' lines left unbounded fails the
+  script one.
+
+- [ ] **244. The font names a load asks for, bounded in length.** *Found while
+  building 243, by reading, not yet by a run.* `FromRenderer::Loaded`'s
+  `wanted` is at most `families::MOST_WANTED` (64) names, but each name is
+  as long as the page wrote it, so a page near the wire's cap that names one
+  enormous family can make an answer of itself plus the issues' bounded
+  sixteen megabytes, which the wire refuses. Not an amplification — a name
+  is never longer than the page wrote it — so only a page already close to
+  the cap reaches it. What to do with a name longer than any font has is a
+  choice (not asked for, or asked for cut, which would ask for a different
+  font), and it is the families module's. *Depends on 243. Closes when:* a
+  page naming a family of tens of megabytes loads and its answer crosses the
+  wire, with what was not asked for said.
 
 - [ ] **79. `Intl`, rented** rather than written.
   *Depends on 73.*
