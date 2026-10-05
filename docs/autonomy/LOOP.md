@@ -294,9 +294,15 @@ inside a single long tool call, because the stream carries a tool's result and
 not its progress, so a fifteen-minute compile reads as silence. Processor time
 cannot see a worker waiting on a network call that will never be answered.
 
-The deliberate cost: a worker spinning in a loop is burning processor time and
-so is never idle by this measure. The idle guard will not stop it, and
-`CEILING_MIN` is what does.
+A worker spinning in a loop is burning processor time and so is never idle by
+this measure. That is what the second bound is for: `SILENT_KILL_MIN`, an hour
+by default, asks the slower question — not *is it doing anything* but *has it
+produced anything*. An honest tool call answers in minutes; an hour of heat
+and no output is a runaway. It cannot be set below `IDLE_KILL_MIN`, which
+would quietly retire the idle guard by catching everything first.
+
+`CEILING_MIN` remains the absolute bound on a single iteration, for whatever
+neither question catches.
 
 `--dry-run` looks for the worker rather than describing it. It used to print a
 fixed line naming a program it had never checked was installed — every

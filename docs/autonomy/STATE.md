@@ -10064,3 +10064,56 @@ here rather than implied by a green suite.
 **Cost of the interruption.** The loop was thirty seconds into an iteration
 with a clean tree; nothing was lost.
 
+---
+
+## Iteration 129 — the two gaps, closed and tested
+
+Not a queue item. Iteration 128 named two things it had not covered. Both are
+closed here, and each is covered by a check that fails without its change.
+
+**The falling total now has a test, and it is deterministic.** 128 said a
+fixture case could not isolate a decrease-only window without depending on
+process timings fine enough to be flaky. That was true of *real* processes
+and I stopped a step too early: the fixture can script `ps` instead. A
+`shrinking` mode reports a total that only ever falls, and the worker must
+survive it.
+
+The division of labour between the two checks is the point. `busy` reads
+processor time off a live tree, so the *reading* is exercised against real
+processes. `shrinking` controls what is read, so the *interpretation* is
+exercised without a race. Neither covers the other, and a stub is the right
+instrument for the second because the question is what the guard concludes
+from a number, not where the number comes from.
+
+Run against the rule 128 replaced — `-gt` rather than `-ne` — `busy` passes
+and `shrinking` is killed: *"silent and burning no processor time for 1
+minutes"*. The check fails without the change.
+
+**The spinning worker now has a bound of its own.** Processor time counting as
+work is exactly what lets a long compile finish, and exactly why a worker
+going round in circles never looks idle. Leaving `CEILING_MIN` — four hours —
+as the only answer was accepting four hours of heat for nothing.
+
+`SILENT_KILL_MIN`, an hour by default, asks the slower question: not *is it
+doing anything* but *has it produced anything*. An honest tool call answers in
+minutes. The guard now has three bounds and they ask three different
+questions, which is why none of them replaces another:
+
+| bound | question | default |
+| --- | --- | --- |
+| `IDLE_KILL_MIN` | is it doing anything | 20m |
+| `SILENT_KILL_MIN` | has it produced anything | 60m |
+| `CEILING_MIN` | has this gone on long enough | 240m |
+
+A silence bound below the idle bound is refused outright, because it would
+retire the idle guard without saying so — everything the shorter bound
+catches, it would catch first. That refusal has its own check.
+
+Run against the supervisor without this bound, the `spinning` worker is killed
+by the ceiling instead and the suite fails: *"producing nothing"* appears
+nowhere in its output.
+
+**Eighteen fixture checks, from fifteen.** The loop was three minutes into an
+iteration with a clean tree when it was stopped to apply this; nothing was
+lost.
+

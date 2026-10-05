@@ -52,6 +52,16 @@ case "$TEST_MODE" in
   # tool call, which the transcript cannot see into. Pure shell arithmetic, so
   # the processor time lands on the worker rather than on a child that comes
   # and goes.
+  # Writes nothing and its tree's processor total only ever falls, which is
+  # what `bin/ps` is scripted to report here. A falling total means a child
+  # exited, and a child exiting is work finishing.
+  shrinking) /bin/sleep 2.5 ;;
+  # Writes nothing and burns processor time without end: the runaway the idle
+  # guard deliberately cannot catch, since heat is what it reads as work.
+  spinning)
+    spin=0
+    while :; do spin=$(( spin + 1 )); done
+    ;;
   busy)
     stop=$(( SECONDS + 3 ))
     spin=0
@@ -97,15 +107,17 @@ cat > bin/sleep <<'SLEEP'
 SLEEP
 cat > bin/date <<'DATE'
 #!/usr/bin/env bash
-if { [ "$TEST_MODE" = timeout ] || [ "$TEST_MODE" = streaming ] \
-  || [ "$TEST_MODE" = busy ]; } \
+case "$TEST_MODE" in timeout | streaming | busy | shrinking | spinning) fake=1 ;;
+  *) fake=0 ;;
+esac
+if [ "$fake" = 1 ] \
   && [ "${1:-}" = +%s ]; then
   count=$(cat bin/clock 2>/dev/null || echo 0)
   # Coarse enough in `timeout` to cross the idle window in one observation;
   # finer in `streaming` so the window is crossed only by a worker that has
   # genuinely stopped writing, rather than by the clock outrunning it.
   step=60
-  [ "$TEST_MODE" = streaming ] || [ "$TEST_MODE" = busy ] && step=5
+  case "$TEST_MODE" in streaming | busy | shrinking | spinning) step=5 ;; esac
   count=$((count + step))
   echo "$count" > bin/clock
   echo "$count"
@@ -113,6 +125,23 @@ else
   /bin/date "$@"
 fi
 DATE
+# Processor times the test chooses, for the one case real processes cannot
+# stage honestly. `busy` already exercises reading them off a live tree; what
+# this isolates is the guard's *interpretation* of a total that falls, which
+# needs a decrease-only window — and staging that with real children depends
+# on timings fine enough to make the check flaky.
+cat > bin/ps <<'PS'
+#!/usr/bin/env bash
+if [ "${TEST_MODE:-}" = shrinking ] && [ "${1:-}" = -o ] && [ "${2:-}" = time= ]
+then
+  n=$(cat bin/cpu 2>/dev/null || echo 1000)
+  n=$(( n - 1 ))
+  echo "$n" > bin/cpu
+  printf '  0:%02d.%02d\n' $(( n / 100 )) $(( n % 100 ))
+  exit 0
+fi
+exec /bin/ps "$@"
+PS
 chmod +x scripts/gate.sh bin/*
 export PATH="$fixture/bin:$PATH"
 git add .
@@ -122,7 +151,7 @@ check() {
   local mode="$1" expected="$2" actual=0
   # These resets affect only this disposable fixture, never the real checkout.
   git reset --hard -q "$base"
-  rm -f work broken bin/clock
+  rm -f work broken bin/clock bin/cpu
   TEST_MODE="$mode" IDLE_KILL_MIN=1 scripts/loop.sh --once > "$fixture/result" 2>&1 || actual=$?
   if [ "$actual" != "$expected" ]; then cat "$fixture/result"; exit 1; fi
   [ ! -d .git/alo-loop.lock ]
@@ -149,6 +178,10 @@ check streaming 0
 # writes nothing, and is still working. `timeout` above is the counterpart —
 # it sleeps, so it burns no processor time and is still killed.
 check busy 0
+# The gap the processor-time rule left when it asked whether time had grown
+# rather than changed: a total that only falls is a tree whose children are
+# finishing, not a worker that has stopped.
+check shrinking 0
 # A pre-existing change must never reach a worker.
 git reset --hard -q "$base"
 echo original > work
@@ -195,4 +228,26 @@ grep -q 'no codex on PATH' result
 [ ! -d .git/alo-loop.lock ]
 git diff --quiet HEAD
 printf 'ok    a worker asked for and absent refuses before taking the lock\n'
+
+# The runaway the idle guard is deliberately blind to. Heat counts as work
+# there, so a worker going round in circles is never idle; what catches it is
+# the longer question of whether it has produced anything at all.
+git reset --hard -q "$base"
+rm -f work broken bin/clock bin/cpu
+code=0
+TEST_MODE=spinning IDLE_KILL_MIN=1 SILENT_KILL_MIN=1 \
+  scripts/loop.sh --once > result 2>&1 || code=$?
+[ "$code" = 124 ] || { cat result; exit 1; }
+grep -q 'producing nothing' result
+[ ! -d .git/alo-loop.lock ]
+printf 'ok    a worker burning processor time and producing nothing is killed\n'
+
+# And that bound cannot be set below the idle one, which would quietly retire
+# the idle guard: everything it catches the shorter bound catches first.
+code=0
+SILENT_KILL_MIN=1 IDLE_KILL_MIN=5 scripts/loop.sh --dry-run > result 2>&1 \
+  || code=$?
+[ "$code" = 2 ] || { cat result; exit 1; }
+grep -q 'leaves the idle guard nothing to do' result
+printf 'ok    a silence bound under the idle bound is refused\n'
 mv bin/parked/codex bin/

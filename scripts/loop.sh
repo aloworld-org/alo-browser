@@ -115,6 +115,18 @@ choose_worker() {
 # CEILING_MIN is what bounds it.
 IDLE_KILL_MIN="${IDLE_KILL_MIN:-20}"
 CEILING_MIN="${CEILING_MIN:-240}"
+
+# How long a worker may produce *no output at all* before it is presumed to be
+# going round in circles, whatever its processor is doing.
+#
+# The guard above treats processor time as evidence of work, which is what
+# lets a long compile finish. A worker stuck in a loop burns processor time
+# too, and so is never idle by that measure — without this it would run to
+# CEILING_MIN, four hours, before anything stopped it. This asks the slower
+# question: not "is it doing anything" but "has it produced anything". An
+# honest tool call answers in minutes. An hour of heat and no output is a
+# runaway, and the ceiling is too blunt an instrument to be the only one.
+SILENT_KILL_MIN="${SILENT_KILL_MIN:-60}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-500}"
 
 
@@ -190,7 +202,7 @@ if [ "$dry" -eq 1 ] || [ "${selftest:-0}" -eq 1 ]; then
 fi
 
 # Guard values are arithmetic input, never shell expressions.
-for guard in IDLE_KILL_MIN CEILING_MIN; do
+for guard in IDLE_KILL_MIN SILENT_KILL_MIN CEILING_MIN; do
   value="${!guard}"
   case "$value" in
     ''|*[!0-9]*) bad "$guard wants a positive integer"; exit 2 ;;
@@ -200,6 +212,12 @@ for guard in IDLE_KILL_MIN CEILING_MIN; do
   }
   printf -v "$guard" '%s' "$((10#$value))"
 done
+# A silence bound under the idle bound would retire the idle guard without
+# saying so: everything it catches, the shorter one would have caught first.
+if [ "$SILENT_KILL_MIN" -lt "$IDLE_KILL_MIN" ]; then
+  bad "SILENT_KILL_MIN below IDLE_KILL_MIN leaves the idle guard nothing to do"
+  exit 2
+fi
 [ "$wanted" -le 1000000 ] || { bad "too many iterations"; exit 2; }
 wanted=$((10#$wanted))
 
@@ -424,7 +442,7 @@ if [ "$dry" -eq 1 ]; then
   marker="$(stop_marker)"
   say "journal:    $JOURNAL  (stop marker: ${marker:-none})"
   say "queue:      $(open_items) items still open"
-  say "guards:     silent for ${IDLE_KILL_MIN}m, or ${CEILING_MIN}m total"
+  say "guards:     idle ${IDLE_KILL_MIN}m, no output ${SILENT_KILL_MIN}m, ceiling ${CEILING_MIN}m"
   say "iterations:  $wanted at most"
   say "log:         $LOG"
   [ -n "$WORKER_NAME" ] || exit "$WORKER_STATUS"
@@ -556,6 +574,7 @@ for (( i = 1; i <= wanted; i++ )); do
   worker=$!
   code=""
   newest=$started
+  wrote=$started
   previous_bytes=0
   previous_cpu=$(tree_cpu "$worker")
 
@@ -572,17 +591,22 @@ for (( i = 1; i <= wanted; i++ )); do
     # hanging — measured on a live tree, which went from 16 to 13 hundredths
     # across eight seconds as the gate's processes came and went. Only a
     # frozen set of processes burning a frozen amount is doing nothing.
+    if [ "$bytes" -ne "$previous_bytes" ]; then wrote=$now; fi
     if [ "$bytes" -ne "$previous_bytes" ] || [ "$cpu" -ne "$previous_cpu" ]; then
       newest=$now
     fi
     previous_bytes=$bytes
     previous_cpu=$cpu
     idle=$(( now - newest ))
+    quiet=$(( now - wrote ))
     running=$(( now - started ))
 
     why=""
     [ "$idle" -ge $(( IDLE_KILL_MIN * 60 )) ] \
       && why="silent and burning no processor time for $(( idle / 60 )) minutes"
+    [ "$quiet" -ge $(( SILENT_KILL_MIN * 60 )) ] \
+      && why="burning processor time but producing nothing for \
+$(( quiet / 60 )) minutes"
     [ "$running" -ge $(( CEILING_MIN * 60 )) ] && why="past the ${CEILING_MIN}-minute ceiling"
     if [ -n "$why" ]; then
       bad "killing the worker — $why."

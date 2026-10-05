@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A runaway worker is caught in an hour rather than four.** Processor time
+  counts as evidence of work, which is what lets a long compile finish, but it
+  also means a worker going round in circles never looks idle. A second bound
+  asks whether a worker has produced any output at all, and refuses to be set
+  below the idle one.
+
 - **The build loop no longer mistakes a long compile for a hung worker.** Its
   idle guard counted transcript bytes, which cannot see inside a single tool
   call, so any one step running longer than the window read as silence. A
