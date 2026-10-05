@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The build loop no longer mistakes a long compile for a hung worker.** Its
+  idle guard counted transcript bytes, which cannot see inside a single tool
+  call, so any one step running longer than the window read as silence. A
+  worker now counts as idle only when it is both writing nothing and burning no
+  processor time across its process tree. A worker spinning in a loop is
+  deliberately no longer caught by this guard; the total-runtime ceiling bounds
+  that case.
+
 - **The build loop stopped capping every iteration at twenty minutes.** Its
   idle guard presumes a worker that writes as it works; the Claude worker was
   invoked in a mode that buffers everything until the end, so every iteration

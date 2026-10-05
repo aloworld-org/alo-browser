@@ -48,6 +48,15 @@ case "$TEST_MODE" in
   badgate) touch broken ;;
   # Writes as it goes and takes longer than the idle window, which is the one
   # thing the guard must not treat as a hang.
+  # Writes nothing at all and is plainly working: the inside of a single long
+  # tool call, which the transcript cannot see into. Pure shell arithmetic, so
+  # the processor time lands on the worker rather than on a child that comes
+  # and goes.
+  busy)
+    stop=$(( SECONDS + 3 ))
+    spin=0
+    while [ "$SECONDS" -lt "$stop" ]; do spin=$(( spin + 1 )); done
+    ;;
   streaming)
     for n in 1 2 3 4 5 6 7 8 9 10 11 12; do
       printf '{"type":"event","n":%s}\n' "$n"
@@ -88,14 +97,15 @@ cat > bin/sleep <<'SLEEP'
 SLEEP
 cat > bin/date <<'DATE'
 #!/usr/bin/env bash
-if { [ "$TEST_MODE" = timeout ] || [ "$TEST_MODE" = streaming ]; } \
+if { [ "$TEST_MODE" = timeout ] || [ "$TEST_MODE" = streaming ] \
+  || [ "$TEST_MODE" = busy ]; } \
   && [ "${1:-}" = +%s ]; then
   count=$(cat bin/clock 2>/dev/null || echo 0)
   # Coarse enough in `timeout` to cross the idle window in one observation;
   # finer in `streaming` so the window is crossed only by a worker that has
   # genuinely stopped writing, rather than by the clock outrunning it.
   step=60
-  [ "$TEST_MODE" = streaming ] && step=5
+  [ "$TEST_MODE" = streaming ] || [ "$TEST_MODE" = busy ] && step=5
   count=$((count + step))
   echo "$count" > bin/clock
   echo "$count"
@@ -135,6 +145,10 @@ check success 0
 # The regression that cost iteration 125: a worker writing all the way through
 # an iteration longer than the idle window is working, not hung.
 check streaming 0
+# And the limit streaming does not reach: a worker inside one long tool call
+# writes nothing, and is still working. `timeout` above is the counterpart —
+# it sleeps, so it burns no processor time and is still killed.
+check busy 0
 # A pre-existing change must never reach a worker.
 git reset --hard -q "$base"
 echo original > work

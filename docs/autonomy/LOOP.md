@@ -287,6 +287,17 @@ clock on all work. That is how iteration 125 was killed mid-item, and the
 three iterations before it finished one to two minutes inside the window
 without anybody noticing how close they were.
 
+**Doing nothing means two things at once.** A worker is idle only when it is
+writing nothing to its transcript *and* burning no processor time, counted
+across its whole process tree. Either signal alone is wrong. Bytes cannot see
+inside a single long tool call, because the stream carries a tool's result and
+not its progress, so a fifteen-minute compile reads as silence. Processor time
+cannot see a worker waiting on a network call that will never be answered.
+
+The deliberate cost: a worker spinning in a loop is burning processor time and
+so is never idle by this measure. The idle guard will not stop it, and
+`CEILING_MIN` is what does.
+
 `--dry-run` looks for the worker rather than describing it. It used to print a
 fixed line naming a program it had never checked was installed — every
 precondition reported except the one that stops a run dead. A missing worker

@@ -9988,3 +9988,41 @@ progress. The gate is comfortably inside twenty minutes today. If it ever is
 not, the guard will be right about what it sees and wrong about what it means,
 exactly as it was here.
 
+---
+
+## Iteration 127 — the half of the guard that was still guessing
+
+Not a queue item. Iteration 126 made the worker stream so the idle guard could
+see it between tool calls, and said plainly what that did not fix: *a single
+tool call longer than the idle window is still silence, because the stream
+carries a tool's result and not its progress*. This closes that.
+
+**A worker is idle only when it is doing nothing by both measures** — writing
+nothing to its transcript, and burning no processor time across its whole
+process tree. Either alone is wrong in a different direction. Bytes cannot see
+inside one long tool call, so a fifteen-minute compile reads as a deadlock.
+Processor time cannot see a worker waiting on a network call that will never
+be answered, which sits there costing nothing and looking busy.
+
+**The test, and the proof that it is a test.** A new `busy` mode writes
+nothing at all and burns processor time in pure shell arithmetic, past the
+idle window, and must survive — the inside of one long tool call. Its
+counterpart is the existing `timeout` mode, which sleeps: no bytes and no
+processor time, and it is still killed.
+
+That pair was run against the previous supervisor before this one was
+committed. `busy` is killed there — *"silent for 1 minutes"*, exit 124, nothing
+committed — and passes here. The test fails without the change, which is the
+only thing that makes it a test rather than a description.
+
+**The cost, which is chosen rather than overlooked.** A worker spinning in a
+loop burns processor time and is therefore never idle by this measure. The
+idle guard will not stop it. `CEILING_MIN` is what bounds that case, and it is
+the right instrument for it: a runaway is a *duration* problem, and the thing
+this guard exists to avoid is killing honest long work on a timer.
+
+**One iteration was interrupted to do this.** The supervisor was mid-way into
+`try`/`catch` compilation — one file modified, one added, no tests, no tick —
+which is not a completable unit, so it was stashed rather than finished or
+thrown away, and the next iteration will take the item properly.
+

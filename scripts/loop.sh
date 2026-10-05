@@ -97,11 +97,22 @@ choose_worker() {
   return 0
 }
 
-# How long a worker may be *silent* before it is presumed hung, and the
+# How long a worker may do *nothing* before it is presumed hung, and the
 # absolute ceiling regardless of how busy it looks. Idle rather than duration,
-# because a hung worker stops writing to its transcript while an honest long
-# item keeps writing to it — a duration-only guard in the script this replaces
-# once killed ninety minutes of real work (ADR 0006).
+# because a hung worker stops working while an honest long item carries on — a
+# duration-only guard in the script this replaces once killed ninety minutes of
+# real work (ADR 0006).
+#
+# Doing nothing means two things at once: writing nothing to its transcript
+# *and* burning no processor time. Either alone is wrong. Bytes alone cannot
+# see inside a single long tool call, because the stream carries a tool's
+# result and not its progress, so a long compile reads as silence. Processor
+# time alone cannot see a worker that is waiting on a network call it will
+# never get an answer to.
+#
+# The cost, which is deliberate: a worker spinning in a loop burns processor
+# time and so is no longer idle by this measure. Nothing here will stop it, and
+# CEILING_MIN is what bounds it.
 IDLE_KILL_MIN="${IDLE_KILL_MIN:-20}"
 CEILING_MIN="${CEILING_MIN:-240}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-500}"
@@ -436,6 +447,43 @@ if ! mkdir "$LOCK" 2>/dev/null; then
 fi
 printf '%s\n' "$$" > "$LOCK/pid"
 worker=""
+
+# Every process in a tree, parent first. `stop_tree` walks this same shape to
+# kill it; these two walk it to ask whether it is doing anything.
+tree_pids() {
+  local parent="$1" child
+  printf '%s\n' "$parent"
+  for child in $(pgrep -P "$parent" 2>/dev/null); do
+    tree_pids "$child"
+  done
+}
+
+# Hundredths of a processor second the worker's tree has burned.
+#
+# The other half of "is this worker doing anything". A transcript answers that
+# between tool calls and cannot answer it during one, because the stream
+# carries a tool's result and not its progress — so by bytes alone a
+# fifteen-minute compile is indistinguishable from a deadlock. Processor time
+# tells them apart: the compile is burning it, the deadlock is not.
+#
+# `ps` prints [[dd-]hh:]mm:ss[.ff]; hundredths keep the comparison integer.
+tree_cpu() {
+  local pids
+  pids="$(tree_pids "$1" | paste -sd, -)"
+  [ -n "$pids" ] || { printf '0\n'; return; }
+  ps -o time= -p "$pids" 2>/dev/null | awk '
+    {
+      t = $1; d = 0
+      if (t ~ /-/) { split(t, p, "-"); d = p[1]; t = p[2] }
+      n = split(t, p, ":")
+      s = 0
+      for (i = 1; i <= n; i++) { s = s * 60 + p[i] }
+      total += (s + d * 86400) * 100
+    }
+    END { printf "%d\n", total }
+  '
+}
+
 stop_tree() {
   local parent="$1" child
   for child in $(pgrep -P "$parent" 2>/dev/null); do
@@ -509,6 +557,7 @@ for (( i = 1; i <= wanted; i++ )); do
   code=""
   newest=$started
   previous_bytes=0
+  previous_cpu=$(tree_cpu "$worker")
 
   while kill -0 "$worker" 2>/dev/null; do
     sleep 30
@@ -517,13 +566,18 @@ for (( i = 1; i <= wanted; i++ )); do
     # Observe only this worker's event stream. Another session's activity
     # cannot hide a hung worker, and no provider-private transcript path is used.
     bytes=$(wc -c < "$transcript")
-    if [ "$bytes" -ne "$previous_bytes" ]; then newest=$now; fi
+    cpu=$(tree_cpu "$worker")
+    if [ "$bytes" -ne "$previous_bytes" ] || [ "$cpu" -gt "$previous_cpu" ]; then
+      newest=$now
+    fi
     previous_bytes=$bytes
+    previous_cpu=$cpu
     idle=$(( now - newest ))
     running=$(( now - started ))
 
     why=""
-    [ "$idle" -ge $(( IDLE_KILL_MIN * 60 )) ] && why="silent for $(( idle / 60 )) minutes"
+    [ "$idle" -ge $(( IDLE_KILL_MIN * 60 )) ] \
+      && why="silent and burning no processor time for $(( idle / 60 )) minutes"
     [ "$running" -ge $(( CEILING_MIN * 60 )) ] && why="past the ${CEILING_MIN}-minute ceiling"
     if [ -n "$why" ]; then
       bad "killing the worker — $why."
