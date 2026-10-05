@@ -1963,6 +1963,10 @@ The long pole, and the thing most of section E is unreachable without.
   attribute to the loader rather than parsing and dropping it. Each must have
   a named refusal or value test. This does not lift ADR 0013's stage 3 gate
   for sloppy-mode aliasing.
+  ***Blocked: no frozen real script demonstrates the binding defect.*** Written
+  here, in the form the selection rule reads, so that the next iteration passes
+  over this item rather than re-deriving iteration 119's halt. Unblocked by a
+  frozen source, not by an opinion.
 
   **Iteration 119 halted before implementation.** Named-expression shadowing
   is reachable with the existing function and environment machinery, but no

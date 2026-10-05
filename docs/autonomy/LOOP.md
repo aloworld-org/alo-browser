@@ -252,6 +252,19 @@ scripts/loop.sh --self-test  # check the stop rule and the arguments
 scripts/test-loop.sh        # exercise failures using an isolated fake worker
 ```
 
+**To run it unattended, detach it:**
+
+```sh
+nohup scripts/loop.sh > /dev/null 2>&1 &
+```
+
+Without `nohup` the supervisor is a child of the terminal that started it and
+dies with it. That is not theoretical: the first long run ended at iteration 45
+for exactly that reason — mid-item, leaving eleven uncommitted files — and from
+outside it looked like the loop had stopped of its own accord. "Run this while
+you watch" and "run this overnight" are different instructions, and only the
+first was written down.
+
 **Start with `--items 5`.** "Run until the queue is empty" is a large thing to
 agree to on faith, and it is the same loop either way — only the number differs.
 Five iterations is enough to see what it does to the repository and to read the

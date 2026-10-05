@@ -9501,3 +9501,60 @@ documentation-only halt record, not completion of item 222. The record is
 prepared for one local conventional commit.
 
 LOOP HALT
+
+---
+
+## Iteration 120 — the halt was right, and here is what it was owed
+
+Not a queue item. Iteration 119 halted rather than implement item 222's
+named-expression binding without a frozen real script demonstrating the defect,
+and this entry resolves that halt by recording what was found rather than by
+deciding the requirement was inconvenient.
+
+**The halt's judgement was tested, not taken on trust.** Two things were
+checked directly.
+
+The defect is real and reproduces exactly as 119 described it:
+`var f = function me(me) { return me; }` is refused with *"'me' is this
+function's own name and a parameter of it"*. That is valid JavaScript and the
+engine rejects it, so the item names something true.
+
+And the evidence genuinely does not exist. The obvious candidate was
+`browserslist/parse.js` — MIT, four kilobytes, a real dependency actually
+installed in alo's own web application, and carrying a named function
+expression on its last line. It is **not** evidence: the compiler refuses it at
+offset 80 with `NotBuiltYet { what: TakingAValueApart }`, a different missing
+feature entirely. It never reaches the binding question.
+
+That is the shape of the problem, and it is worth writing down: code old enough
+to use named function expressions is generally also code that uses several
+things this engine has not built, so it fails earlier for an unrelated reason.
+A script that exercises *this* defect and nothing unbuilt is a narrow target,
+and searching for one is its own piece of work rather than a preliminary to
+item 222.
+
+**So item 222 is marked blocked**, in the form the selection rule reads, with
+the reason named. The next iteration passes over it instead of re-deriving
+119's halt from scratch — which is what would otherwise happen, because nothing
+about the repository had changed to make the answer different.
+
+**The halt is retired by this entry rather than by deleting the marker.** The
+supervisor's stop rule is that a marker is live only while no iteration entry
+follows it, which is exactly so that resuming is an append and never an edit of
+history. Iteration 119's record stands unchanged.
+
+**And one defect in the supervisor itself is now written down.** `scripts/loop.sh`
+is a child of the terminal that starts it and dies with it; the first long run
+ended at iteration 45 for that reason, mid-item, leaving eleven uncommitted
+files, and from outside it looked like the loop had stopped of its own accord.
+`LOOP.md` now carries the detached invocation beside the plain one, because
+"run this while you watch" and "run this overnight" are different instructions
+and only the first was documented.
+
+**What is not claimed.** No item is ticked, no item number allocated, no stage
+gate certified. Item 222 is not done and is not closer to done; it is correctly
+labelled. The engine defect it names is still there.
+
+**The gate.** Documentation only — no source, tests, dependencies or gate
+scripts changed.
+
