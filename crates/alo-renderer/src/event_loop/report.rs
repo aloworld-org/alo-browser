@@ -18,8 +18,9 @@
 //! § 3, *absent beats approximate*).
 //!
 //! What was thrown is put into words by [`described`], which reads the heap
-//! and runs nothing: an error object by its `name` and `message`, and any
-//! string a page made cut short. **Where** it was thrown follows it (queue
+//! and runs nothing: an error object by its `name` and `message`, a
+//! `DOMException` by the name and message it was made with, and any string a
+//! page made cut short. **Where** it was thrown follows it (queue
 //! item 241): the script, line and column of the throw, then of each call it
 //! left on its way out, innermost first — see [`source`](super::source) for how an offset
 //! becomes a line and a column, and why a column.

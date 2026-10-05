@@ -347,11 +347,11 @@ fn what_a_script_changed_before_it_threw_is_drawn() {
     );
     assert_eq!(issues.len(), 1, "{issues:?}");
     // The refusal is the `HierarchyRequestError` a `catch` would receive
-    // (item 249); the report names it only as an object, which is item 252.
+    // (item 249), and the report names it (item 252).
     assert!(
-        issues
-            .first()
-            .is_some_and(|issue| issue.starts_with("script 1: uncaught:")),
+        issues.first().is_some_and(|issue| issue.starts_with(
+            "script 1: uncaught: HierarchyRequestError: a node cannot be put inside itself"
+        )),
         "{issues:?}"
     );
     let tree = read(&mut renderer).to_outline();

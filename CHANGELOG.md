@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A change the page is not allowed to make is now named when the page
+  fails to catch it.** A script that tries to put the page inside itself,
+  remove something that is not there, or make an element with a name no
+  element can have was reported only as having thrown "an object". It is
+  now reported by the standard's name and the rule that refused —
+  `HierarchyRequestError: a document cannot hold text` — the same words the
+  page's own `catch` would have read. They are taken from the error itself,
+  so a page that tampers with how errors describe themselves cannot change
+  them, and writing the report still runs none of the page's code.
+
 - **A page's script now runs where it is written.** The page is read a piece
   at a time and each script runs when reading reaches its end, so it sees
   the page only as far as that point: itself as the last thing in it, and

@@ -23,6 +23,21 @@
 //! What `Error.prototype.toString` itself is, on the object, does not matter:
 //! a page replacing it would otherwise choose what its own failure says.
 //!
+//! # A `DOMException`
+//!
+//! What a DOM member throws when `alo-dom` refuses its change (ADR 0017 § 5)
+//! is not an error object to the engine: it is `alo-bindings`' embedder
+//! cell, with `Error.prototype` on its chain but no `[[ErrorData]]`. It is
+//! said as `name: message` — `HierarchyRequestError: a document cannot be
+//! put inside anything` — read **from the cell's own two slots**, which are
+//! what its `name` and `message` getters answer and which nothing a page
+//! does can change. Not from the properties along its chain: those are
+//! getters, which would run code, and a page that deleted or replaced them
+//! would otherwise choose what its own failure says — the same reason an
+//! error's `toString` is not consulted. Which object is one is asked by
+//! type, never by its prototype, so an object that merely inherits from
+//! `DOMException.prototype` is still `an object` (queue item 252).
+//!
 //! Any other object is still `an object`: describing one means choosing
 //! which of its properties to trust, and nothing yet says which (item 78).
 //!
@@ -33,6 +48,7 @@
 //! message whose size is capped. So no string is said past
 //! [`LONGEST_SAID`] code units; the rest is counted rather than copied.
 
+use alo_bindings::DomException;
 use alo_js::convert::{self, Primitive};
 use alo_js::heap::Ref;
 use alo_js::numeric;
@@ -53,8 +69,11 @@ pub fn thrown(objects: &Objects, value: Value) -> String {
             None => "a string that has gone".to_owned(),
         },
         Value::Symbol(_) => "a symbol".to_owned(),
-        Value::Object(held) if objects.is_error(held) => error(objects, held),
-        Value::Object(_) => "an object".to_owned(),
+        Value::Object(held) => match objects.embedded::<DomException>(held) {
+            Some(exception) => format!("{}: {}", exception.name(), exception.message()),
+            None if objects.is_error(held) => error(objects, held),
+            None => "an object".to_owned(),
+        },
     }
 }
 

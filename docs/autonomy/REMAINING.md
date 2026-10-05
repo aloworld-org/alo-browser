@@ -225,6 +225,13 @@ item 80 — 245, 246 and 247 all done — and added 253 (`document.body`).
 87, 88 and 89 are unblocked by 80; the next unused queue number is 254 and
 the next unused ADR 0018.
 
+Iteration 148 built 252: a `DOMException` a page lets escape is reported by
+the name and message it was made with, read from the `alo-bindings` cell by
+type and running nothing (`described.rs`); every other thrown value is said
+as before. 110 queue items are open; 253 is next (`document.body`, which
+depends only on 249; 251 waits on item 73); the next unused queue number is
+254 and the next unused ADR 0018.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

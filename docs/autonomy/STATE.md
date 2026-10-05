@@ -12319,3 +12319,89 @@ font-name guard still has no discriminating test. 111 queue items are open.
 Next is **252** (it depends on nothing); closing 80 also unblocks 81, 85,
 87, 88 and 89. Next unused queue number **254**; next ADR **0018**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 148 — item 252: a thrown `DOMException` is reported by its name
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s *Mutation from script* line, iteration 147's entry, queue
+items 80, 249–253, and the code this changes and reads: `alo-renderer`'s
+`event_loop/described.rs`, `event_loop/report.rs` and its error-report
+tests; `alo-bindings`' `interface/dom_exception.rs` and each member that
+throws (`node.rs`, `element.rs`, `document.rs`); `alo-dom`'s `Refusal`
+and the rules that make one; `alo-js`'s `Objects::embedded`. ADR 0017 § 5
+(what a refusal throws) and ADR 0013 § 3 apply; no ADR is changed. No
+`AGENTS.md` exists. No sibling repository was read or modified. The
+checkout was clean on entry at `30f1667`.
+
+**Selection.** Iteration 147 named **252** next; it depends on nothing, and
+every earlier open item is still blocked for the reasons iteration 144
+recorded.
+
+**What was built.** `described::thrown` asks a thrown object, by type,
+whether it is `alo-bindings`' `DomException` cell, and says one as
+`name: message` from the cell's own two slots — what its getters answer and
+what no page can change — ahead of the error and plain-object cases, which
+are unchanged. **Decision inside the item:** the slots, not the properties
+along the chain. Those are getters (calling one would run code), and a page
+that deleted or replaced them would choose what its own failure says — the
+same reason an error's `toString` is not consulted. Recorded in
+`described.rs`. The words are what `e.name + ': ' + e.message` gives an
+untouched exception, matching how an error is said.
+
+**Evidence.** `crates/alo-renderer/tests/a_dom_exception_said_by_its_name.rs`
+(7 tests; the queue entry lists what each asserts) — all six members of item
+80's that throw, eight refusals across all three names, each said exactly
+and each the same words the page's own `catch` read; a page that deletes
+both getters, plants its own name and a counting `message` getter is
+reported by the exception's own words with the getter run zero times; an
+object inheriting from `DOMException.prototype`, a look-alike plain object
+and a renamed `Error` said as before; a refusal thrown through a function
+said with both places; two refusals in two scripts each said.
+`what_a_script_left.rs`'s hostile test now asserts the name it used to
+leave to this item. No layout or pixel changes, so no layout assertion or
+reference render applies; every committed reference render still matches
+(the gate runs the corpus).
+
+**Doctored runs**, each restored and checked identical by hash: the
+`DomException` case removed (five of seven fail, and `what_a_script_left`);
+the exception read as an error's properties rather than its slots (five
+fail). Asking by type rather than by prototype was not doctored — no small
+edit spells the wrong rule — and the inheriting-object test pins it.
+
+**Compliance review.** Law 1: nothing legacy (no `code` attribute). Law 2:
+untouched. Law 3: no stub, `todo!` or `unwrap` outside tests; reporting
+runs no page code (tested). Law 4: no `unsafe`. One file, one
+responsibility: `described.rs` is still *a thrown value in words*; the
+renderer already depended on `alo-bindings`. Stage 2 § 2: the hostile half
+is the tampering page above; the report reads only `'static` text the
+engine made.
+
+**Gate.** `scripts/gate.sh` first failed on `cargo fmt` alone (the new test
+file); after `cargo fmt --all` it exited 0, run in the foreground and read
+in the same step (about 6½ minutes): formatting clean, clippy silent, all
+tests pass, nothing stubbed, `unsafe` forbidden, licence notices, every
+rented crate behind its boundary, no coordinate verb, the stop rule holds,
+`CHANGELOG.md` changed. `cargo test --workspace --all-features` counts 2436
+passed, 0 failed (2429 at iteration 147, this item's 7). `git diff --check`
+passes. Logs kept in this session's scratchpad, not committed.
+
+**Roadmap.** The *Mutation from script* line was already ticked (iteration
+147) and named 252 in its remainder; that remainder now records 252 built,
+with its test, and names only 253, 251 and 113. Not a new tick. Queue: 252
+ticked with its evidence; `CHANGELOG.md`, `docs/features.md` and
+`REMAINING.md` moved with it. `docs/conformance.md` does not track script
+reports, so it has nothing to move.
+
+**Unresolved obligations.** Any other object a page throws is still said
+as `an object` (item 78). Carried from before: a `<meta>` policy a script
+inserts is not applied; detached trees a script drops during a load wait
+for the first collection after the parse; the renderer's path for a
+document the heap refuses is not discriminated (it needs a document over
+the heap's 1 GiB ceiling); the one-write overshoot of the heap's ceiling;
+248's undiscriminated overrun fallback; 78's remainder; 77 needs design;
+233, 234, 238 and 240 open and item 76 not done; `violations::reports`
+still called by nothing in the browser process (item 203's dependency);
+iteration 141's browser-side font-name guard still has no discriminating
+test. 110 queue items are open. Next is **253** (`document.body`, depends
+only on 249; 251 waits on item 73). Next unused queue number **254**; next
+ADR **0018**. This is one iteration, not a finished queue or roadmap.

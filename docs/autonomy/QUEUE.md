@@ -3877,7 +3877,7 @@ The long pole, and the thing most of section E is unreachable without.
   document, `document` is an accessor whose getter reads it, and a
   descriptor reads as Web IDL's.
 
-- [ ] **252. A thrown `DOMException` is reported by its name.** *Found by 250.*
+- [x] **252. A thrown `DOMException` is reported by its name.** *Found by 250.*
   A script that lets a refusal escape — `appendChild(document)` — is said in
   the load's issues as `uncaught: an object`: `described.rs` names the
   engine's own errors and calls every other object *an object* (which
@@ -3889,6 +3889,32 @@ The long pole, and the thing most of section E is unreachable without.
   of item 80's throws is reported with its name and message, read without
   running any of the page's code, and every other object is reported as
   now.
+  **Done (iteration 148).** `alo-renderer`'s `described.rs` asks a thrown
+  object, by type, whether it is `alo-bindings`' `DomException` cell
+  (`Objects::embedded`), and says one as `name: message` **from the cell's
+  own two slots** — what its getters answer, and what nothing a page does
+  can change — before the error and plain-object cases, which are as they
+  were. Not from the properties along its chain: those are getters, and a
+  page that deleted or replaced them would choose what its own failure
+  says. An object that only inherits from `DOMException.prototype` is not
+  one. *Closed by:* `crates/alo-renderer/tests/a_dom_exception_said_by_its_name.rs`
+  (7 tests: each of the six members that throw — `appendChild`,
+  `insertBefore`, `removeChild`, `replaceChild`, `createElement`,
+  `setAttribute` — made to refuse, eight refusals over all three names,
+  each reported as `uncaught: <name>: <message>`; each the same words the
+  page's own `catch` read through the getters; a page that deletes both
+  getters, plants a name of its own and a counting `message` getter is
+  reported by the exception's own name and message with the getter run
+  zero times; an object inheriting from `DOMException.prototype`, a plain
+  object shaped like one and a renamed `Error` said as before; a refusal
+  thrown through a function said with both places; two refusals in two
+  scripts each said), and `what_a_script_left.rs`'s hostile test now
+  asserts the name. Doctored runs, each restored and checked identical by
+  hash: the `DomException` case removed (five of the seven fail, and
+  `what_a_script_left.rs`), and the exception read as an error's
+  properties instead of its slots (five fail). **Not doctored:** asking by
+  type rather than by prototype — no simple edit spells the wrong rule; the
+  inheriting-object test pins it for whoever writes one.
 
 - [x] **247. A parser-inserted script sees the document up to its own
   element.** *Cut from 80 (ADR 0017 § 7). Depends on 246.* The parser stops

@@ -881,10 +881,12 @@ unreachable without it.
       detached tree is released while the parser may hold it; a `<meta>`
       policy holds from where the parser made it; proven by the corpus case
       `a-script-beside-itself` and `a_script_at_its_own_end_tag.rs`. Done
-      as queue item 80 (iteration 147). The remainder, each its own item:
-      `document.body` (253), `document` as Web IDL's accessor (251), a
-      thrown `DOMException` named in a load's report (252), and rendering
-      only what changed (113). The decision is made (ADR 0017): the document
+      as queue item 80 (iteration 147). **A thrown `DOMException` is
+      named in a load's report** (`alo-renderer`, queue item 252, iteration
+      148) — by the name and message it was made with, read from the cell
+      and running nothing; proven by `a_dom_exception_said_by_its_name.rs`.
+      The remainder, each its own item: `document.body` (253), `document`
+      as Web IDL's accessor (251), and rendering only what changed (113). The decision is made (ADR 0017): the document
       moves into the page's heap when it first runs script; a node's wrapper
       lives while its tree is reachable and an unreachable detached tree is
       freed, its ids never reused; every change goes through `alo-dom` under
