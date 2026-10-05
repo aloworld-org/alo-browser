@@ -180,6 +180,17 @@ pub enum Missing {
     /// call is the traced scratch state of item 221; reading `name` again
     /// afterwards would be a second getter call a page can count.
     AMessageBehindACall,
+    /// An array iterator's `next` reaching an element, or an array-like's
+    /// `length`, that is behind a getter or is an object to convert (queue item
+    /// 231).
+    ///
+    /// The specification writes an array iterator as a generator, and running
+    /// a script from inside one makes two of a generator's states observable
+    /// that this iterator does not keep: *executing*, which a getter calling
+    /// `next` again sees as a `TypeError`, and *completed* after a throw, which
+    /// every later `next` sees as `done`. An iterator that skipped either would
+    /// answer a page that can tell.
+    AnIteratedValueBehindACall,
 }
 
 impl fmt::Display for Missing {
@@ -204,6 +215,10 @@ impl fmt::Display for Missing {
             Missing::AMessageBehindACall => write!(
                 out,
                 "Error.prototype.toString of a message that is a getter or an object is queue item 228"
+            ),
+            Missing::AnIteratedValueBehindACall => write!(
+                out,
+                "an array iterator reading an element or a length through a getter or a conversion is queue item 231"
             ),
         }
     }

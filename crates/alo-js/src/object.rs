@@ -43,13 +43,16 @@
 //! (item 73) and there is no `BigInt` (item 207). A [`Function`] is here — it
 //! is an ordinary object with a `[[Call]]`'s worth of code beside it (item 209)
 //! — and so is the [`Environment`] a closure keeps, the [`Array`] whose
-//! `length` keeps up with its indices (item 225), and an error, which is an
-//! ordinary object with one slot that holds nothing (item 227). Everything else is absent
+//! `length` keeps up with its indices (item 225), an error, which is an
+//! ordinary object with one slot that holds nothing (item 227), and an array
+//! iterator, which is an ordinary object with a generator's state beside it
+//! (item 230). Everything else is absent
 //! rather than stubbed, because a stub is the one answer that defeats a page's
 //! own feature test.
 
 pub mod access;
 pub mod array;
+pub mod array_iterator;
 pub mod cell;
 pub mod environment;
 pub mod function;
@@ -73,6 +76,7 @@ use crate::unit::Unit;
 
 pub use access::{Fault, Found, Named, Set};
 pub use array::Array;
+pub use array_iterator::ArrayIterator;
 pub use cell::Cell;
 pub use environment::Environment;
 pub use function::{Code, Function};
@@ -204,6 +208,45 @@ impl Objects {
     /// `IsArray`, for an object that is not a proxy (item 217 is the proxy).
     pub fn as_array(&self, held: Ref) -> Option<&Array> {
         self.heap.get(held)?.array()
+    }
+
+    /// Make an iterator over `iterated` with this prototype:
+    /// `CreateArrayIterator` (queue item 230).
+    ///
+    /// **This is a safepoint**, and both references are the caller's to have
+    /// rooted, as [`Objects::object`]'s prototype is.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn array_iterator(
+        &mut self,
+        prototype: Option<Ref>,
+        iterated: Ref,
+        kind: array_iterator::Kind,
+    ) -> Result<Ref, Refused> {
+        let iterator = ArrayIterator::new(prototype, iterated, kind);
+        Ok(self.heap.allocate(Cell::ArrayIterator(iterator))?)
+    }
+
+    /// The array iterator a reference names, or [`None`] if it names anything
+    /// else.
+    pub fn as_array_iterator(&self, held: Ref) -> Option<&ArrayIterator> {
+        self.heap.get(held)?.array_iterator()
+    }
+
+    /// Change an array iterator, through the barrier every store passes.
+    pub fn with_array_iterator<R>(
+        &mut self,
+        held: Ref,
+        with: impl FnOnce(&mut ArrayIterator, &mut Barrier) -> R,
+    ) -> Option<R> {
+        self.heap
+            .write(held, |cell, barrier| {
+                cell.array_iterator_mut()
+                    .map(|iterator| with(iterator, barrier))
+            })
+            .flatten()
     }
 
     /// Make an error with this prototype and no properties of its own: the

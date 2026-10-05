@@ -657,15 +657,17 @@ fn the_frozen_service_worker_compiles_past_the_try_that_stopped_it() {
     let Ok(program) = script(&source) else {
         panic!("the frozen script parses");
     };
+    // What stopped it next was the `for … of` inside the `try`, at 2922,
+    // which queue item 230 built — and after that, nothing: the whole script
+    // compiles, which `what_for_of_reads.rs` pins.
     match alo_js::compile(&program) {
-        Err(Refusal::NotBuiltYet { what, at }) => {
-            assert!(at > 2853, "it gets past the try at 2853, to {at}");
-            // What stops it next is the `for … of` inside the `try` — queue
-            // item 211, and a different item.
-            assert_eq!(what, What::TakingAValueApart);
-            assert_eq!(at, 2922);
-            assert_eq!(source.get(at..at.saturating_add(3)), Some("for"));
+        Ok(_) => {}
+        Err(Refusal::NotBuiltYet { at, .. }) => {
+            assert!(
+                at > 2922,
+                "it gets past the try at 2853 and the for…of at 2922, to {at}"
+            );
         }
-        other => panic!("expected the next unbuilt item, got {other:?}"),
+        other => panic!("expected it to compile, or the next unbuilt item: {other:?}"),
     }
 }

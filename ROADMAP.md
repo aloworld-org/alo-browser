@@ -602,14 +602,30 @@ unreachable without it.
       `finally`s run innermost first. Because a page can now catch the
       `RangeError` that ended a runaway recursion, the embedder's stop switch is
       read on every call as well as on every backward jump. The frozen service
-      worker compiles past its `try` to the `for…of` inside it (item 211)
+      worker compiles past its `try` to the `for…of` inside it (item 230)
+      · Built: **`for…of`** (queue item 230, cut from 211, 75 and 73), with a
+      `let`, `const` or `var` name or a property as its head. The decision is
+      that **the protocol is compiled as the calls a page can see**: reading
+      `obj[Symbol.iterator]` and calling it, calling `next` each pass and
+      reading `done` and `value` are ordinary property reads and calls, so a
+      page's own `next` or a getter on `done` behaves as anywhere else, and the
+      interpreter gained only a symbol no source can spell and the protocol's
+      two `TypeError` checks. Leaving early **closes the iterator by reusing
+      `finally`'s routing**: the loop pushes a closing of its own, a `break`,
+      `return` or outer `continue` is routed through it innermost first, its
+      own `continue` is not, and a throw from the body lands in a handler that
+      closes and ignores what the closing does — while a throw from the
+      iterator itself closes nothing. `let` and `const` are a binding per pass
+      and the head has a dead zone. **The frozen service worker now compiles
+      whole**; running it stops at `self`, a worker's global and an
+      embedder's to supply (item 91)
       · Owed: the rest of the language, and each piece is refused **by name**
       rather than half-built — classes, `super`, `new.target` and private names
       (queue item 223), `instanceof` past its first two answers (224),
       `arguments` and the parameter forms that are not a plain name (213),
       tagged templates (215), a `catch` parameter that is a pattern, spread,
-      destructuring, `for…in` and
-      `for…of` (211), an object assigned to an array's `length`, which is
+      destructuring — in a `for…of` head too — and `for…in` (211), `for await`
+      (75), an object assigned to an array's `length`, which is
       converted twice (226), and a **proxy**, whose trap is the same re-entry as a
       getter and which nothing can make until a builtin `Proxy` constructor
       exists (217). A program using one of them does not compile — or, for
@@ -731,17 +747,34 @@ unreachable without it.
       because a native keeps nothing else across the script it asks to run.
       An error this engine throws is not yet an instance of one: turning it
       into one is what item 210's `catch` does
+      · Built: **iterating an array** (queue item 230) — `keys`, `values`,
+      `entries` and `[Symbol.iterator]` on `Array.prototype`, the last the very
+      function `values` is; the array iterator, which re-reads the length every
+      step and lets go of the array once done; `%IteratorPrototype%`; and two
+      well-known symbols, `Symbol.iterator` and `Symbol.toStringTag`, made by
+      the realm with no `Symbol` function to reach them, so
+      `Object.prototype.toString` answers `[object Array Iterator]` by reading
+      the tag rather than by a case for it. An element or an array-like's
+      `length` behind a getter is refused by name (item 231), because a call
+      from inside the iterator would make a generator's states observable
       · Owed: `apply` and traced native scratch state (queue item 221), and
       the remaining library. `Error.prototype.toString` of a `message` that is
       a getter or an object is refused by name (item 228, on 221), and
       `AggregateError` is item 229. `Object` and `Function` themselves are
       constructors item 73 has not built; a
       function's own `name` and `length` and its source text are 220; the
-      `Array` constructor, `Array.isArray` and every array method,
-      `Math`, `JSON`, the wrapper objects, the well-known symbols and
-      the weak collections are still item 73, which is what remains of it
+      `Array` constructor, `Array.isArray` and every array method but the
+      three iterators, `Math`, `JSON`, the wrapper objects, the `Symbol`
+      function and the other eleven well-known symbols, the iterator helpers
+      and the weak collections are still item 73, which is what remains of it
 - [ ] Regular expressions, with the syntax the language actually has
 - [ ] Promises, the microtask queue, `async`/`await`, generators and iterators
+      · Built: **the iteration protocol** that `for…of` reads (queue item
+      230) — `GetIterator`, a step and `IteratorClose`, compiled to ordinary
+      calls, with `%IteratorPrototype%` and the array iterator behind them
+      · Owed: generators, which are a suspended frame; promises and the
+      microtask queue; `async`/`await`; `for await` and async iterators (queue
+      item 75)
 - [ ] Modules: ESM, dynamic `import()`, and the loader that fetches them
 - [ ] **The event loop** — tasks, microtasks, the rendering steps, `requestAnimationFrame`. Where "it works, but the animation stutters" is decided
 - [ ] Errors and stack traces good enough to debug somebody else's minified page

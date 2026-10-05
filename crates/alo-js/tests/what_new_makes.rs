@@ -447,6 +447,8 @@ fn the_frozen_service_worker_compiles_past_the_new_that_stopped_it() {
             // 225 built; `what_an_array_is.rs` says where it stops now.
             assert!(at > 2847, "and past the array literal at 2847, to {at}");
         }
+        // Queue item 230 built the last thing it was refused at.
+        Ok(_) => {}
         other => panic!("expected the next unbuilt item, got {other:?}"),
     }
 }

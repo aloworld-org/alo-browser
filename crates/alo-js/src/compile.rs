@@ -44,6 +44,7 @@
 //! here are the ones the compiler cannot be correct without, and they are named
 //! in that item.
 
+mod for_of;
 pub mod function;
 pub mod hoist;
 mod parameters;
@@ -81,8 +82,8 @@ pub enum What {
     AParameterForm,
     /// `` tag`a${b}` `` (queue item 215).
     ATaggedTemplate,
-    /// An array literal, a spread, a destructuring pattern, `for…in` or
-    /// `for…of` (queue item 211).
+    /// A spread, a destructuring pattern — in a declaration, an assignment, a
+    /// parameter or a `for…of` head — or `for…in` (queue item 211).
     TakingAValueApart,
     /// A regular expression literal (queue item 74).
     ARegularExpression,
@@ -116,9 +117,7 @@ impl What {
             What::AClass => "a class, `super`, `new.target` or a private name",
             What::AParameterForm => "a parameter that is not a plain name, or `arguments`",
             What::ATaggedTemplate => "a tagged template",
-            What::TakingAValueApart => {
-                "an array literal, a spread, a destructuring pattern, `for…in` or `for…of`"
-            }
+            What::TakingAValueApart => "a spread, a destructuring pattern or `for…in`",
             What::ARegularExpression => "a regular expression literal",
             What::ABigInt => "a `BigInt` literal",
             What::AModule => "`import` and `export`",
@@ -426,7 +425,13 @@ impl Compiler {
                     at,
                 });
             }
-            StatementKind::ForIn { .. } | StatementKind::ForOf { .. } => {
+            StatementKind::ForOf {
+                left,
+                right,
+                is_await,
+                body,
+            } => self.for_of(left, right, *is_await, body, at, None)?,
+            StatementKind::ForIn { .. } => {
                 return Err(Refusal::NotBuiltYet {
                     what: What::TakingAValueApart,
                     at,
@@ -687,6 +692,12 @@ impl Compiler {
                 discriminant,
                 cases,
             } => self.switch(discriminant, cases, at, Some(label)),
+            StatementKind::ForOf {
+                left,
+                right,
+                is_await,
+                body,
+            } => self.for_of(left, right, *is_await, body, at, Some(label)),
             _ => {
                 // Anything else may be broken out of and never continued.
                 self.enter(Some(label), false);
@@ -2234,7 +2245,8 @@ mod tests {
             ("function f(a = 1) {}", What::AParameterForm),
             ("f`a`", What::ATaggedTemplate),
             ("[1, ...a]", What::TakingAValueApart),
-            ("for (const a of b) {}", What::TakingAValueApart),
+            ("for (const [a] of b) {}", What::TakingAValueApart),
+            ("for (a in b) {}", What::TakingAValueApart),
             ("/a/", What::ARegularExpression),
             ("1n", What::ABigInt),
             ("function* f() {}", What::ASuspension),

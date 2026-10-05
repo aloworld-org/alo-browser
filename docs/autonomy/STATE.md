@@ -10242,3 +10242,158 @@ trace's business, item 78. The service worker still cannot *run*: it needs
 embedder's `self`. 104 items are open (105 before; 210 closed). Next unused
 queue number **230**; next ADR **0016**. This is one iteration, not a finished
 queue or roadmap.
+
+
+---
+
+## Iteration 131 — queue item 230, cut from 211, 75 and 73: `for…of`, and the protocol it reads through
+
+The checkout was clean on entry at `82d6303`, with the one stash iteration 130
+recorded (`stash@{0}`, superseded `try` work) left where it is — dropping it is
+a person's call. Read `CLAUDE.md`, the complete `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s JavaScript lines, `REMAINING.md`, iteration 130 and the
+selection reasoning of 124, the open queue items of section D, ADR 0013 (all
+of it), ADR 0014's section list and § 2, and the JavaScript lines of
+`docs/features.md`. No `AGENTS.md` exists in this repository. No sibling
+repository was read or modified.
+
+**Selection followed queue order, dependencies and the real-script rule.**
+157, 158, 187, 60, 169, 197, 201 and 203 keep their recorded blockers; 222 and
+207 are blocked on a frozen script; 223, 226 and 228 have no real-script
+trigger or wait on 221; 224, 229, 213, 217 and 215 depend on 73, 211 or 75.
+211 has the trigger — the service worker refused at byte 2922,
+`for (const account of Object.values(…))` — but depends on 75 for the
+iteration protocol, which is not built. 221 and 220 have no trigger. **73 is
+the first item whose dependencies are done**, and the queue says to cut it
+when taken; iteration 124 settled how — by the real failure. That failure
+needed one piece each of 211 (`for…of`), 75 (the protocol and an iterator) and
+73 (`Symbol.iterator` and the array iterator), so **item 230** is those
+pieces, written into the queue with its own closing conditions and ticked at
+that scope, exactly as 225 was cut from 73 and 211.
+
+**What was built.**
+`compile/for_of.rs`: `for…of` with a `let`, `const` or `var` name, a name, or
+a property as its head; the head's dead zone around the iterable; a binding
+per pass; `GetIterator`, each step and `IteratorClose` compiled to ordinary
+`GetKeyed`/`Call`/`GetNamed` instructions, `next` read once into a frame slot.
+Leaving early reuses `try_statement.rs`'s routing: the loop pushes
+`Finally::closing`, so `break`, `return` and an outer `continue` are routed
+through the closing and carried on from its end (`route_here` and `carry_on`
+were split out of `finally` for both to use), while the loop's own `continue`
+is the one exit that does not cross it. A throw from the body lands in a
+handler that calls `return` inside a second handler which drops whatever it
+does, then throws on; a throw from `next`, `done` or `value` is outside the
+guarded range and closes nothing. `code.rs`: `Op::WellKnown`, `Op::Iterable`,
+`Op::RequireObject` and `Expecting`; `interpret/iterate.rs` runs them.
+`object/array_iterator.rs` and `Cell::ArrayIterator`; `builtin/array_prototype.rs`
+(`keys`, `values`, `entries`, `[Symbol.iterator]` as the same function as
+`values`), `builtin/array_iterator.rs` (`next`, the `"Array Iterator"` tag,
+`CreateIterResultObject`), `builtin/iterator_prototype.rs`
+(`[Symbol.iterator]` answering `this`); `WellKnown` in `object/symbol.rs`, and
+the two symbols made and rooted by `Intrinsics`. `Object.prototype.toString`
+reads `Symbol.toStringTag`, through a getter as a call at step 1, working the
+builtin tag out again from `this` rather than keeping it. A native is now
+handed the realm's intrinsics (`Call::within`), read-only, because `values`
+and `next` make objects whose prototypes are intrinsics. `Engine::well_known`
+gives an embedder the symbols, since a node list will become iterable the same
+way. `Missing::AnIteratedValueBehindACall` refuses an element or an
+array-like's `length` behind a getter or a conversion, cut to **item 231**:
+a call from inside the iterator would make a generator's *executing* and
+*completed* states observable, and this iterator keeps neither.
+
+**Two changes outside the item, both forced by it.** `Engine::step`
+crossed clippy's hundred lines with the three new arms; `Op::This`'s inline
+body moved into `push_this`, which is what the function's own comment asks
+for, rather than allowing the lint. And `What::TakingAValueApart`'s
+description still named the array literal, which item 225 built; it now names
+what it refuses.
+
+**Evidence.** `crates/alo-js/tests/what_for_of_reads.rs`, thirty-three tests,
+every table program run ordinarily and with the collector at every allocation
+and required to agree: arrays in order with holes and a hole a prototype
+fills; keys, values and entries; an array growing and shrinking while walked;
+a finished iterator staying finished; an iterator iterating itself; array-likes
+through `.call` with `ToLength`; the tag; a binding per pass; a `const` head;
+the dead zone, including a closure made in the iterable; `var`, name and
+property heads with the target evaluated each pass; completion values; no
+closing on finishing or `continue`; closing on `break`, labelled `break`,
+`return`, an outer `continue` (inner only), three nested loops innermost
+first, a `finally` inside the body before the closing and one around the loop
+after; a throw from the body closing and ignoring a throwing, non-object,
+non-callable or getter-throwing `return`; a failed closing after `break` not
+ignored; no closing for a throw from `next`, `done` or `value`; `next` read
+once and `done`/`value` read in order; every protocol `TypeError`; refusals by
+name for item 231, item 73's wrapper, item 211's patterns and `for…in`, and
+item 75's `for await`; an embedder's object made iterable and tagged through
+`Engine::well_known`, a non-callable `Symbol.iterator`, one answering no
+object, and a tag behind a getter called once or throwing; the stop switch on
+an endless iterator from another thread; live cells equal after three runs of
+ten thousand passes; every prefix cut of a program using every form; twenty
+thousand nested loops refused by the parser, two hundred closed by one
+`break`, and two thousand in a row. `builtin/array_prototype.rs`'s unit test
+builds the intrinsics with the collector at every allocation and checks the
+chain, the identity of `values` and `[Symbol.iterator]`, every attribute and
+both symbols' descriptions; `object/array_iterator.rs` has its own.
+
+**Doctored runs, six**, each restored byte for byte and the suite re-run green:
+no closing on `break`/`return` fails eight tests; no handler around the body
+fails one; the loop's own `continue` closing fails three; no dead zone for the
+head fails one; one environment for every pass fails four; the result's value
+not held across its allocations fails two, under the collector at every
+allocation.
+
+**The frozen script compiles whole.** The four tests that pinned the next
+refusal (`what_a_catch_catches.rs`, `what_an_array_is.rs`, `what_new_makes.rs`,
+and the compile-refusal tests in `an_engine_that_is_hostile.rs` and
+`what_a_program_evaluates_to.rs`) now accept or assert that, or use a
+destructuring head as the refused form. Running it — checked with a throwaway
+probe, not committed — stops at `ReferenceError: 'self' is not defined (at
+byte 1168)`: a worker's global, which is an embedder's (ADR 0013 § 5, item
+91). So the service worker's next trigger is an embedder rather than this
+engine, and after that `Object.values`, `concat` (73) and promises (75).
+
+**Roadmap.** The interpreter line gains a Built clause for `for…of` and its
+Owed clause names a destructuring head, `for…in` (211) and `for await` (75)
+instead of `for…of`; the standard-library line gains a Built clause for
+iterating an array and its Owed clause names the `Symbol` function, the other
+eleven symbols and the iterator helpers; and the line for promises, generators
+and iterators, which read as unstarted, gains a Built clause for the protocol
+and an Owed clause for everything else. None is ticked. `docs/features.md`,
+`CHANGELOG.md`, `REMAINING.md`, and queue items 211 (its dependency on 75 met
+by 230 for what it has left; no trigger), 73 and 75 move with it.
+
+**Compliance review.** Law 1: nothing legacy; `for…in` is not taken because
+it is a different mechanism and has no trigger. Law 3 and ADR 0013 § 3: no
+stub, no `todo!`, no `unwrap` outside tests; no `Symbol` function was made to
+carry two symbols, because a `Symbol` with only `iterator` would answer a
+page's feature test wrongly — the symbols are reachable only by `for…of` and by
+an embedder; the iterator helpers are absent and `[].values().map` is
+`undefined`; a getter the iterator would have to call is refused by name
+rather than called without the generator states. Law 4: no `unsafe`. ADR 0013
+§ 4: never panics (every cut of a program, nesting bounds), every loop
+interruptible (the backward jump, tested), arithmetic bounded (`ToLength`
+clamps to 2⁵³−1 and the index never passes it). ADR 0014 § 2: an iterator and
+its `next` live in frame slots between passes, every native allocation holds
+what it made in a scope, and the stress runs and the doctored run say so.
+LOOP stage 2 §§ 1–3: opened and closed against the frozen real script; the
+bytes are a script we execute, and the hostile tests cover them; dependencies
+were respected by cutting rather than by skipping. One file, one
+responsibility: the statement, the instructions, the iterator cell and each of
+the three prototypes are files of their own; `try_statement.rs` holds the
+routing both a `finally` and a closing use, which its comment now says.
+Clippy's findings were fixed by restructuring and renaming, never allowed.
+Nothing positions, sizes or paints, so layout assertions and reference renders
+do not apply.
+
+**Gate.** `scripts/gate.sh` exited 0: formatting clean, clippy silent, all
+workspace tests pass, nothing stubbed, `unsafe` forbidden, Exhibit A on every
+file, every rented crate behind its boundary, no coordinate verb, the
+supervisor's stop rule holds, `CHANGELOG.md` changed. `git diff --check`
+passes. The log was kept in this session's scratchpad, not committed.
+
+**Unresolved obligations.** Item 231 (an iterator reading through a call).
+`REMAINING.md`'s summary table and its "101 open queue items" sentence were
+already stale before this iteration and were not recomputed; the per-iteration
+paragraph gives the current count. 105 items are open (104 before; 230 added
+closed, 231 open). Next unused queue number **232**; next ADR **0016**. This
+is one iteration, not a finished queue or roadmap.

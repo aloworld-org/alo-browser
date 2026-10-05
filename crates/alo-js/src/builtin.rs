@@ -7,26 +7,38 @@
 //! ADR 0013 § 3 — *absent beats approximate* — is why there were none of these
 //! until item 218, and it is also why there are so few: `Object.prototype`,
 //! `Function.prototype` and `Array.prototype`, which are not a library but
-//! **what an ordinary object, an ordinary function and an array are**, and the
+//! **what an ordinary object, an ordinary function and an array are**; the
 //! seven error constructors ([`error`], queue item 227), which are what a
-//! `catch` binds. Until the first three existed, `{}` had no prototype at all,
-//! so `({}) + ''` was a `TypeError` rather than `"[object Object]"` and no page
-//! could have run.
+//! `catch` binds; and what `for…of` reads through (queue item 230) — two
+//! well-known symbols, `%IteratorPrototype%` and `%ArrayIteratorPrototype%`.
+//! Until the first three existed, `{}` had no prototype at all, so `({}) + ''`
+//! was a `TypeError` rather than `"[object Object]"` and no page could have
+//! run.
 //!
 //! # An intrinsic is rooted, and everything else hangs off it
 //!
-//! [`Intrinsics`] holds three [`Root`]s. Every builtin method is a property of
-//! one of those objects, so the collector reaches all of them from the realm
-//! and none of them needs a root of its own. That is also the reason they are
-//! made in the order they are: `Object.prototype` first with a null prototype,
-//! then `Function.prototype` as a function *whose* prototype is
+//! [`Intrinsics`] holds a [`Root`] for each. Every builtin method is a property
+//! of one of those objects, so the collector reaches all of them from the
+//! realm and none of them needs a root of its own. That is also the reason
+//! they are made in the order they are: `Object.prototype` first with a null
+//! prototype, then `Function.prototype` as a function *whose* prototype is
 //! `Object.prototype`, then the methods on both.
 //!
-//! `Array.prototype` is last and **is itself an array**, of length zero, which
-//! is the specification's and is what `Object.prototype.toString` says about
-//! it (queue item 225). It has **no methods yet**: `[].push` is `undefined`,
-//! which a page's own feature test reads correctly, where a `push` that did
-//! half of what the specification says would not be (item 73).
+//! `Array.prototype` **is itself an array**, of length zero, which is the
+//! specification's and is what `Object.prototype.toString` says about it
+//! (queue item 225). Its only methods are the three that make an iterator
+//! ([`array_prototype`], queue item 230): `[].push` is still `undefined`, which
+//! a page's own feature test reads correctly, where a `push` that did half of
+//! what the specification says would not be (item 73).
+//!
+//! # A well-known symbol is an intrinsic too
+//!
+//! `Symbol.iterator` is a key on `Array.prototype` and `%IteratorPrototype%`,
+//! and `Symbol.toStringTag` one on `%ArrayIteratorPrototype%`, so each is made
+//! once with the realm and rooted beside the objects it is a key of. No page
+//! can name either yet — the `Symbol` function that carries them is item 73's —
+//! and nothing here needs a page to: `for…of` reaches `Symbol.iterator` through
+//! an instruction of its own.
 //!
 //! # What is deliberately not here
 //!
@@ -37,19 +49,23 @@
 //! `Object.prototype` is still reachable from a script — `({}).__proto__` — so
 //! nothing here is untestable from the language it belongs to.
 //!
-//! No `Array` constructor and no array method, no `Math`, `JSON`, `String`,
-//! `Number` or `Boolean`, no `AggregateError` (queue item 229), no well-known
-//! symbols and no weak collections. Each is named in the queue rather than
-//! half-built here.
+//! No `Array` constructor and no array method but the three iterators, no
+//! `Math`, `JSON`, `String`, `Number` or `Boolean`, no `AggregateError` (queue
+//! item 229), no `Symbol` and eleven of the thirteen well-known symbols, and no
+//! weak collections. Each is named in the queue rather than half-built here.
 
+pub mod array_iterator;
+pub mod array_prototype;
 pub mod error;
 pub mod function_prototype;
+pub mod iterator_prototype;
 pub mod object_prototype;
 
 use crate::abrupt::Escape;
 use crate::heap::{Ref, Root};
 use crate::object::native::Body;
-use crate::object::{Fault, Native, Objects, Property, Value};
+use crate::object::symbol::WellKnown;
+use crate::object::{Fault, Found, Key, Native, Objects, Property, Value};
 pub use error::Family;
 
 /// The objects a realm owns.
@@ -64,6 +80,13 @@ pub struct Intrinsics {
     /// The seven error constructors, in [`Family::ALL`]'s order. Each holds its
     /// prototype, which may be neither changed nor deleted.
     errors: Vec<Root>,
+    /// The well-known symbols, in [`WellKnown::ALL`]'s order (queue item 230).
+    symbols: Vec<Root>,
+    /// `%IteratorPrototype%`, which every iterator the language makes inherits
+    /// from.
+    iterator: Root,
+    /// `%ArrayIteratorPrototype%`, which an array iterator inherits from.
+    array_iterator: Root,
 }
 
 impl Intrinsics {
@@ -103,6 +126,24 @@ impl Intrinsics {
             .map_err(|why| Escape::refused(why, 0))?;
         let array_prototype = objects.heap_mut().root(array_prototype);
 
+        let symbols = well_known(objects)?;
+
+        // `%IteratorPrototype%` inherits from `Object.prototype`, and
+        // `%ArrayIteratorPrototype%` from it — each rooted the instant it
+        // exists, as the three above are.
+        let iterator = objects
+            .object(Some(above))
+            .map_err(|why| Escape::refused(why, 0))?;
+        let iterator = objects.heap_mut().root(iterator);
+        let iterators = objects
+            .heap()
+            .holding(&iterator)
+            .ok_or_else(|| Escape::fault(Fault::Gone))?;
+        let array_iterator = objects
+            .object(Some(iterators))
+            .map_err(|why| Escape::refused(why, 0))?;
+        let array_iterator = objects.heap_mut().root(array_iterator);
+
         let functions = objects
             .heap()
             .holding(&function_prototype)
@@ -114,9 +155,15 @@ impl Intrinsics {
             function: function_prototype,
             array: array_prototype,
             errors,
+            symbols,
+            iterator,
+            array_iterator,
         };
         object_prototype::furnish(objects, &intrinsics)?;
         function_prototype::furnish(objects, &intrinsics)?;
+        iterator_prototype::furnish(objects, &intrinsics)?;
+        array_iterator::furnish(objects, &intrinsics)?;
+        array_prototype::furnish(objects, &intrinsics)?;
         Ok(intrinsics)
     }
 
@@ -170,6 +217,79 @@ impl Intrinsics {
             .holding(&self.function)
             .ok_or_else(|| Escape::fault(Fault::Gone))
     }
+
+    /// A well-known symbol: the one this realm made, which is the only one
+    /// there is (queue item 230).
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn well_known(&self, objects: &Objects, which: WellKnown) -> Result<Ref, Escape> {
+        self.symbols
+            .get(which.index())
+            .and_then(|root| objects.heap().holding(root))
+            .ok_or_else(|| Escape::fault(Fault::Gone))
+    }
+
+    /// The key a well-known symbol is.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`Intrinsics::well_known`].
+    pub fn well_known_key(&self, objects: &Objects, which: WellKnown) -> Result<Key, Escape> {
+        let held = self.well_known(objects, which)?;
+        Ok(objects.symbol_key(held)?)
+    }
+
+    /// `%IteratorPrototype%` (queue item 230).
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn iterator_prototype(&self, objects: &Objects) -> Result<Ref, Escape> {
+        objects
+            .heap()
+            .holding(&self.iterator)
+            .ok_or_else(|| Escape::fault(Fault::Gone))
+    }
+
+    /// `%ArrayIteratorPrototype%` (queue item 230).
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn array_iterator_prototype(&self, objects: &Objects) -> Result<Ref, Escape> {
+        objects
+            .heap()
+            .holding(&self.array_iterator)
+            .ok_or_else(|| Escape::fault(Fault::Gone))
+    }
+}
+
+/// Make the well-known symbols, each rooted the instant it exists.
+///
+/// The description is made first and held in a scope across the symbol's own
+/// allocation, which is the one place between them a collection may run.
+fn well_known(objects: &mut Objects) -> Result<Vec<Root>, Escape> {
+    let mut symbols = Vec::with_capacity(WellKnown::ALL.len());
+    for which in WellKnown::ALL {
+        let scope = objects.heap_mut().open();
+        let made = described(objects, which.description());
+        objects.heap_mut().close(scope);
+        symbols.push(objects.heap_mut().root(made?));
+    }
+    Ok(symbols)
+}
+
+/// A symbol with this description, with a scope open.
+fn described(objects: &mut Objects, description: &str) -> Result<Ref, Escape> {
+    let text = objects
+        .text(description.encode_utf16().collect())
+        .map_err(|why| Escape::refused(why, 0))?;
+    objects.heap_mut().hold(text);
+    objects
+        .symbol(Some(text))
+        .map_err(|why| Escape::refused(why, 0))
 }
 
 /// Put a builtin method on an object.
@@ -225,6 +345,76 @@ fn defined(
         key,
         Property::data(Value::Object(function), true, false, true),
     )?;
+    Ok(())
+}
+
+/// Put a builtin method on an object under a well-known symbol:
+/// `Array.prototype[Symbol.iterator]` is the shape (queue item 230).
+///
+/// The attributes are [`method`]'s. The key needs no scope — the symbol is an
+/// intrinsic and rooted — so the function is the one thing held across the
+/// definition.
+///
+/// # Errors
+///
+/// The same as [`method`].
+pub(crate) fn symbol_method(
+    objects: &mut Objects,
+    on: Ref,
+    function_prototype: Ref,
+    key: Key,
+    name: &'static str,
+    body: Body,
+) -> Result<(), Escape> {
+    let scope = objects.heap_mut().open();
+    let outcome = symbol_defined(objects, on, function_prototype, key, name, body);
+    objects.heap_mut().close(scope);
+    outcome
+}
+
+/// [`symbol_method`], with the scope already open.
+fn symbol_defined(
+    objects: &mut Objects,
+    on: Ref,
+    function_prototype: Ref,
+    key: Key,
+    name: &'static str,
+    body: Body,
+) -> Result<(), Escape> {
+    let function = objects
+        .native(Native::new(name, body), Some(function_prototype))
+        .map_err(|why| Escape::refused(why, 0))?;
+    objects.heap_mut().hold(function);
+    objects.define(
+        on,
+        key,
+        Property::data(Value::Object(function), true, false, true),
+    )?;
+    Ok(())
+}
+
+/// Give a method an object already has a second name: the **same** function
+/// object under `key`, as the specification makes `Array.prototype[
+/// Symbol.iterator]` the very function `Array.prototype.values` is (queue item
+/// 230). Nothing is allocated, so nothing needs holding.
+///
+/// # Errors
+///
+/// A fault for a method that is not there, which is this engine's own bug.
+pub(crate) fn alias(
+    objects: &mut Objects,
+    on: Ref,
+    name: &'static str,
+    key: Key,
+) -> Result<(), Escape> {
+    let units: Vec<u16> = name.encode_utf16().collect();
+    let Some(existing) = objects.existing_key(&units) else {
+        return Err(Escape::fault(Fault::Gone));
+    };
+    let Found::Value(function) = objects.get(on, existing)? else {
+        return Err(Escape::fault(Fault::Gone));
+    };
+    objects.define(on, key, Property::data(function, true, false, true))?;
     Ok(())
 }
 

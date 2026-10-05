@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`for…of` works, and alo's service worker compiles whole.** A loop over an
+  array visits every item in order, gives each pass its own `let` or `const`,
+  and tells the thing it was walking when it leaves early — by `break`,
+  `return` or an error — exactly as the language specifies, through calls a
+  page can see and replace. `[].values()`, `keys()` and `entries()` hand out
+  the same iterator, which says `[object Array Iterator]` when asked. alo's own
+  service worker now compiles from first line to last; running it waits for
+  the worker global the browser supplies.
+
 - **A page can catch an error.** `try`, `catch` and `finally` work in the
   JavaScript engine: a `catch` receives what was thrown from any depth of call,
   an error the engine raises itself — reading a property of `null`, a name that

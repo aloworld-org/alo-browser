@@ -43,6 +43,17 @@
 //! that leaves abruptly keeps its own, which is why the block also starts from
 //! an empty completion rather than the `try`'s.
 //!
+//! # A `for…of` stands in the way of a jump too
+//!
+//! Leaving a `for…of` early must close its iterator — call its `return` — and
+//! that is the same problem as a `finally`: a `break`, a `return` or a
+//! `continue` to an outer loop has to stop on the way. So the loop pushes a
+//! [`Finally`] of its own ([`Finally::closing`], queue item 230), and the way
+//! out is routed into it, numbered and carried on from its end exactly as it is
+//! here. The one difference is that the loop's **own** `continue` does not
+//! close anything — it is the next pass — which is what
+//! [`Finally::closing`]'s `own` is for.
+//!
 //! # Why the interpreter may judge a throw by the instruction before
 //!
 //! It does not: a frame records the instruction it is running
@@ -100,6 +111,41 @@ pub(super) struct Finally {
     exits: Vec<Exit>,
     /// The jumps into the `finally`, waiting for where its block begins.
     entries: Vec<usize>,
+    /// For a `for…of`'s closing, the index in `enclosing` of the loop itself,
+    /// whose `continue` stays inside rather than crossing.
+    own: Option<usize>,
+}
+
+impl Finally {
+    /// What a `for…of` pushes so that leaving it early closes its iterator
+    /// (queue item 230).
+    ///
+    /// `own` is the loop's entry among the things a `break` may leave, and the
+    /// loop must already have been entered: a `break` of the loop then crosses
+    /// this — the iterator is closed and the loop is left — and a `continue`
+    /// of it does not.
+    pub(super) const fn closing(kind: u32, value: u32, depth: usize, own: usize) -> Self {
+        Self {
+            kind,
+            value,
+            depth,
+            enclosing: own.saturating_add(1),
+            exits: Vec::new(),
+            entries: Vec::new(),
+            own: Some(own),
+        }
+    }
+
+    /// The frame slot that carries what was thrown or returned.
+    pub(super) const fn value(&self) -> u32 {
+        self.value
+    }
+
+    /// Whether any way out was routed into it — whether there is anything to
+    /// compile at its end.
+    pub(super) fn routed(&self) -> bool {
+        !self.entries.is_empty()
+    }
 }
 
 impl Compiler {
@@ -130,6 +176,7 @@ impl Compiler {
             enclosing: self.enclosing.len(),
             exits: Vec::new(),
             entries: Vec::new(),
+            own: None,
         });
         let outcome = self.guarded(block, handler, true, environments, at);
         // Popped whether or not the blocks compiled, so a refusal leaves the
@@ -286,9 +333,7 @@ impl Compiler {
         self.chunk.emit(Op::Initialize(finally.kind), at);
 
         // Every other way in jumps to the block itself.
-        for jump in &finally.entries {
-            self.patch(*jump)?;
-        }
+        self.route_here(finally)?;
         let kept = if self.script {
             let kept = self.slot(at)?;
             self.chunk.emit(Op::Completion, at);
@@ -306,6 +351,25 @@ impl Compiler {
         }
 
         // Then carry on leaving the way the guarded blocks were leaving.
+        self.carry_on(finally, at)?;
+        let normal = self.when_kind_is(finally.kind, THROWN, at);
+        self.chunk.emit(Op::Load(finally.value), at);
+        self.chunk.emit(Op::Throw, at);
+        self.patch(normal)
+    }
+
+    /// Point every way out that was routed into a `finally` here.
+    pub(super) fn route_here(&mut self, finally: &Finally) -> Result<(), Refusal> {
+        for jump in &finally.entries {
+            self.patch(*jump)?;
+        }
+        Ok(())
+    }
+
+    /// At a `finally`'s end, carry on each way out that was routed into it —
+    /// each one compiled again from here, so that the next `finally` out
+    /// meets it in turn. A way out that matches none of them falls through.
+    pub(super) fn carry_on(&mut self, finally: &Finally, at: usize) -> Result<(), Refusal> {
         for (number, exit) in (FIRST_EXIT..).zip(finally.exits.iter().copied()) {
             let next = self.when_kind_is(finally.kind, number, at);
             if exit == Exit::Return {
@@ -314,10 +378,7 @@ impl Compiler {
             self.exit(exit, at)?;
             self.patch(next)?;
         }
-        let normal = self.when_kind_is(finally.kind, THROWN, at);
-        self.chunk.emit(Op::Load(finally.value), at);
-        self.chunk.emit(Op::Throw, at);
-        self.patch(normal)
+        Ok(())
     }
 
     /// Test the way-out slot against a number, answering the jump to patch to
@@ -335,7 +396,9 @@ impl Compiler {
     /// For a `return` the value is on the stack.
     pub(super) fn exit(&mut self, exit: Exit, at: usize) -> Result<(), Refusal> {
         let crossing = self.finallys.last().is_some_and(|finally| match exit {
-            Exit::Jump { which, .. } => which < finally.enclosing,
+            Exit::Jump { which, repeating } => {
+                which < finally.enclosing && !(repeating && finally.own == Some(which))
+            }
             Exit::Return => true,
         });
         if !crossing {

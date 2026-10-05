@@ -418,7 +418,7 @@ fn what_the_language_says_and_this_engine_has_not_built() {
         ("[1, ...a]", "211"),
         ("let [a] = b;", "211"),
         ("for (const a in b) {}", "211"),
-        ("for (const a of b) {}", "211"),
+        ("for (const [a] of b) {}", "211"),
         ("f(...a)", "211"),
         ("/a/.test", "74"),
         ("1n", "207"),

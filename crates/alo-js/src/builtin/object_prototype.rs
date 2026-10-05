@@ -35,18 +35,22 @@
 //!
 //! # What is absent, and where each one is
 //!
-//! `Symbol.toStringTag`, which `toString` consults before anything else, needs
-//! the well-known symbols (queue item 73). An array is `"[object Array]"`
-//! (queue item 225) and an error `"[object Error]"` (item 227); the builtin
-//! tags for a date and the three
+//! An array is `"[object Array]"` (queue item 225) and an error
+//! `"[object Error]"` (item 227); the builtin tags for a date and the three
 //! wrapper kinds each need that builtin to exist, and until then every other
 //! object that is not a function is `"[object Object]"`, which is what it
-//! genuinely is.
+//! genuinely is — **unless it carries a `Symbol.toStringTag`**, which `toString`
+//! reads before it answers (queue item 230). That is how an array iterator is
+//! `"[object Array Iterator]"`: its prototype says so. The tag may be a getter,
+//! which makes `toString` the fourth method here that asks the interpreter for
+//! a call; what it would have answered otherwise is worked out again from
+//! `this` when the getter returns, so nothing is kept across the call.
 
 use crate::abrupt::{Escape, Internal, Missing};
 use crate::convert::{self, Hint, Primitive};
 use crate::heap::Ref;
 use crate::object::native::{Answer, Call, Want};
+use crate::object::symbol::WellKnown;
 use crate::object::{Found, Key, Property, Value};
 
 use super::Intrinsics;
@@ -85,31 +89,75 @@ pub(super) fn furnish(
 /// place in this file where a primitive `this` is not an error: the two values
 /// that have no wrapper are the two the specification names outright.
 fn to_string(call: &mut Call<'_>) -> Result<Answer, Escape> {
-    let tag = match call.this() {
-        Value::Undefined => "[object Undefined]",
-        Value::Null => "[object Null]",
-        Value::Object(held) => {
-            if call.seen().as_array(held).is_some() {
-                "[object Array]"
-            } else if call.seen().is_error(held) {
-                "[object Error]"
-            } else if call.seen().callable(held).is_some() {
-                "[object Function]"
-            } else {
-                "[object Object]"
-            }
-        }
+    let held = match call.this() {
+        Value::Undefined => return tagged(call, &units("Undefined")),
+        Value::Null => return tagged(call, &units("Null")),
+        Value::Object(held) => held,
         // A wrapper's tag is `"[object String]"` and the rest, which needs the
         // wrapper first.
         Value::Bool(_) | Value::Number(_) | Value::Text(_) | Value::Symbol(_) => {
             return Err(Escape::NotBuiltYet(Missing::AWrapperObject));
         }
     };
+    let builtin = if call.seen().as_array(held).is_some() {
+        "Array"
+    } else if call.seen().is_error(held) {
+        "Error"
+    } else if call.seen().callable(held).is_some() {
+        "Function"
+    } else {
+        "Object"
+    };
+
+    // `Get(O, @@toStringTag)`, which a getter makes a call: the answer comes
+    // back at step 1, and everything else is worked out from `this` again.
+    let tag = if call.step() == 1 {
+        call.answer()?
+    } else {
+        let key = call
+            .intrinsics()?
+            .well_known_key(call.seen(), WellKnown::ToStringTag)?;
+        match call.seen().get(held, key)? {
+            Found::Value(value) => value,
+            Found::Missing | Found::Getter(Value::Undefined) => Value::Undefined,
+            Found::Getter(getter) => {
+                return Ok(Answer::want(
+                    Want::Call {
+                        callee: getter,
+                        receiver: Value::Object(held),
+                        arguments: Vec::new(),
+                    },
+                    1,
+                ));
+            }
+        }
+    };
+    // Only a string replaces the builtin tag; anything else is ignored.
+    let name = match tag {
+        Value::Text(text) => call
+            .seen()
+            .units(text)
+            .map(<[u16]>::to_vec)
+            .ok_or(Escape::fault(crate::object::Fault::NotAnObject))?,
+        _ => units(builtin),
+    };
+    tagged(call, &name)
+}
+
+/// A name's code units.
+fn units(name: &str) -> Vec<u16> {
+    name.encode_utf16().collect()
+}
+
+/// `"[object " + name + "]"`, as a string.
+fn tagged(call: &mut Call<'_>, name: &[u16]) -> Result<Answer, Escape> {
     let at = call.at();
-    let units: Vec<u16> = tag.encode_utf16().collect();
+    let mut whole = units("[object ");
+    whole.extend_from_slice(name);
+    whole.extend(units("]"));
     let held = call
         .objects()
-        .text(units)
+        .text(whole)
         .map_err(|why| Escape::refused(why, at))?;
     Ok(Answer::Value(Value::Text(held)))
 }

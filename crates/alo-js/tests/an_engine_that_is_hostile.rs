@@ -276,13 +276,13 @@ fn every_shape_that_ends_a_script_early_is_a_refusal_rather_than_a_crash() {
 
 #[test]
 fn a_program_the_compiler_refuses_never_reaches_the_interpreter() {
-    let Ok(program) = script("for (const a of b) {}") else {
+    let Ok(program) = script("for (const [a] of b) {}") else {
         panic!("that parses");
     };
     match compile::compile(&program) {
         Err(compile::Refusal::NotBuiltYet { what, .. }) => {
-            assert_eq!(what.item(), 211, "`for…of` is queue item 211's");
+            assert_eq!(what.item(), 211, "a destructuring head is queue item 211's");
         }
-        other => panic!("a `for…of` is refused by name: {other:?}"),
+        other => panic!("a destructuring `for…of` head is refused by name: {other:?}"),
     }
 }

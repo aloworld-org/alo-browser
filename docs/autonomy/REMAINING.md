@@ -66,6 +66,18 @@ therefore has a real-script trigger, but its dependencies on 73 (beyond what
 is takeable, as 225 was cut from it. 104 queue items are open; the next unused
 queue number remains 230 and the next unused ADR 0016.
 
+Iteration 131 took that cut: item 230, `for…of` with a name or a property as
+its head and the iteration protocol it reads through, cut from 211, 75 and 73
+(`Symbol.iterator`, `Symbol.toStringTag`, `%IteratorPrototype%` and the array
+iterator). **The frozen service worker now compiles whole**; running it stops
+at `self`, a worker's global and an embedder's to supply (item 91), so the
+next real-script trigger is an embedder rather than the engine. An array
+iterator reading through a getter is cut to item 231. Item 211's dependency on
+75 is met by 230 for everything it has left (spread, patterns, `for…in`), but
+no frozen script reaches any of them. 105 queue items are open (230 was added
+closed and 231 open); the next unused queue number is 232 and the next unused
+ADR remains 0016.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

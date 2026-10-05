@@ -55,6 +55,7 @@ mod catch;
 mod construct;
 mod environment;
 mod frame;
+mod iterate;
 mod primitive;
 mod property;
 
@@ -182,6 +183,20 @@ impl Engine {
     /// [`Escape::Broken`] if the engine has lost it, which is its own bug.
     pub fn global(&self) -> Result<Ref, Escape> {
         self.realm.global(&self.objects)
+    }
+
+    /// A well-known symbol of this realm (queue item 230).
+    ///
+    /// An embedder's object becomes iterable the way the language's own are,
+    /// by a method under `Symbol.iterator` — a node list is the first that
+    /// will want one — and no script can spell that key until the `Symbol`
+    /// function exists (item 73). The symbol is rooted by the realm.
+    ///
+    /// # Errors
+    ///
+    /// [`Escape::Broken`] if the engine has lost it, which is its own bug.
+    pub fn well_known(&self, which: crate::object::symbol::WellKnown) -> Result<Ref, Escape> {
+        self.realm.intrinsics().well_known(&self.objects, which)
     }
 
     /// The switch that stops a script.
@@ -496,11 +511,7 @@ impl Engine {
             Op::SetPrototype => self.set_prototype(run)?,
 
             Op::Closure(which) => self.make_closure(run, which, at)?,
-            Op::This => {
-                let this_at = run.frame()?.this_at;
-                let value = self.value_at(run, this_at)?;
-                self.push(run, value)?;
-            }
+            Op::This => self.push_this(run)?,
             Op::Call(argc) => self.enter(run, argc, at)?,
             Op::Construct(argc) => self.construct(run, argc, at)?,
             Op::Return => self.give_back(run)?,
@@ -537,11 +548,22 @@ impl Engine {
                 let value = self.pop(run)?;
                 return Err(Escape::Thrown(Thrown::Value { value, at }));
             }
+
+            Op::WellKnown(which) => self.push_well_known(run, which)?,
+            Op::Iterable => self.iterable(run, at)?,
+            Op::RequireObject(expecting) => self.require_object(run, expecting, at)?,
         }
         Ok(())
     }
 
     // --- The instructions with more than a line in them ---------------------
+
+    /// Push the `this` of the running call.
+    fn push_this(&mut self, run: &mut Run) -> Result<(), Escape> {
+        let this_at = run.frame()?.this_at;
+        let value = self.value_at(run, this_at)?;
+        self.push(run, value)
+    }
 
     /// Give a realm's lexical binding its first value.
     fn initialize_global(&mut self, run: &mut Run, which: u32) -> Result<(), Escape> {

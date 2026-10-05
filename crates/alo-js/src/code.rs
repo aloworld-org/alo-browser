@@ -67,8 +67,20 @@
 //! take off, because there is no stack of handlers at all. The table is
 //! searched only when something has been thrown, which is the one time its
 //! cost is not on the path every program takes.
+//!
+//! # Iterating is ordinary instructions, and three checks
+//!
+//! `for…of` (queue item 230) is a call of `obj[Symbol.iterator]`, then a call
+//! of `next` per pass and a read of `done` and `value` — every one of which a
+//! page can intercept with a getter or a function of its own, and every one of
+//! which is therefore an ordinary [`Op::GetNamed`], [`Op::GetKeyed`] or
+//! [`Op::Call`] rather than a hidden one inside an instruction. What the
+//! protocol adds is a symbol nothing can spell ([`Op::WellKnown`]) and the
+//! `TypeError`s it specifies when one of those answers is the wrong shape
+//! ([`Op::Iterable`], [`Op::RequireObject`]).
 
 use crate::ast::Binary;
+use crate::object::symbol::WellKnown;
 use crate::operate::Simple;
 
 /// Which half of an accessor property an instruction defines.
@@ -78,6 +90,19 @@ pub enum Half {
     Getter,
     /// `set a(b) {}` — writing the property calls it with the value.
     Setter,
+}
+
+/// What an iteration step needs to be an object, and is a `TypeError` when it
+/// is not (queue item 230).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Expecting {
+    /// What `obj[Symbol.iterator]()` answered.
+    AnIterator,
+    /// What an iterator's `next()` answered.
+    AResult,
+    /// What an iterator's `return()` answered, when it was closed by a
+    /// `break`, a `continue` or a `return` rather than by a throw.
+    AClosedResult,
 }
 
 /// One instruction.
@@ -290,6 +315,16 @@ pub enum Op {
     /// put aside before the block runs and written back after (queue item
     /// 210).
     Completion,
+
+    /// Push a well-known symbol, which no source text can spell until the
+    /// `Symbol` function exists (queue item 230).
+    WellKnown(WellKnown),
+    /// `GetIterator`'s check on what `obj[Symbol.iterator]` read as: `null`
+    /// and `undefined` are "not iterable", anything else uncallable is "not a
+    /// function", and either is a `TypeError`. The method stays.
+    Iterable,
+    /// A `TypeError` unless the top of the stack is an object, which stays.
+    RequireObject(Expecting),
 }
 
 /// Where a throw from a range of instructions lands (queue item 210).

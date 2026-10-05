@@ -586,6 +586,8 @@ fn the_frozen_service_worker_compiles_past_the_array_that_stopped_it() {
             assert!(at > 2853, "and past the try at 2853, to {at}");
             assert_ne!(what, What::AClass);
         }
+        // Queue item 230 built the last thing it was refused at.
+        Ok(_) => {}
         other => panic!("expected the next unbuilt item, got {other:?}"),
     }
 }

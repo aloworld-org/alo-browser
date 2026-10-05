@@ -10,10 +10,11 @@
 //! nothing in that file changes when it does.* This is that enumeration, and
 //! nothing in `heap.rs` changed.
 //!
-//! # Nine kinds, and two of them are not a script's
+//! # Ten kinds, and two of them are not a script's
 //!
 //! An [`Ordinary`] object, an [`Array`] (queue item 225), an error (queue item
-//! 227), a [`Function`], a [`Text`], a [`Symbol`] — and
+//! 227), an [`ArrayIterator`] (queue item 230), a [`Function`], a [`Text`], a
+//! [`Symbol`] — and
 //! [`Cell::Foreign`], which is an [`Exotic`] an embedder supplied. That one is
 //! ADR 0013 § 6 and ADR 0014 § 6 in a single line of code: the DOM is **in this
 //! heap**, traced by this collector, in the same graph as the closure that
@@ -36,6 +37,7 @@
 use crate::heap::{Survivors, Trace, Tracer};
 
 use super::array::Array;
+use super::array_iterator::ArrayIterator;
 use super::environment::Environment;
 use super::function::Function;
 use super::internal::{Exotic, Internal};
@@ -60,6 +62,10 @@ pub enum Cell {
     /// `"[object Error]"` — so it is a kind of cell rather than a field, and
     /// everything else about the object is the ordinary answer.
     Error(Ordinary),
+    /// What `[].values()` answers: an ordinary object with the state of the
+    /// generator the specification writes an array iterator as (queue item
+    /// 230).
+    ArrayIterator(ArrayIterator),
     /// A function, which is an ordinary object that can also be called (queue
     /// item 209).
     Function(Function),
@@ -90,6 +96,7 @@ impl Cell {
         match self {
             Cell::Object(object) | Cell::Error(object) => Some(object),
             Cell::Array(array) => Some(array),
+            Cell::ArrayIterator(iterator) => Some(iterator.ordinary()),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_ref()),
             Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) | Cell::Environment(_) => None,
@@ -101,6 +108,7 @@ impl Cell {
         match self {
             Cell::Object(object) | Cell::Error(object) => Some(object),
             Cell::Array(array) => Some(array),
+            Cell::ArrayIterator(iterator) => Some(iterator.ordinary_mut()),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_mut()),
             Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) | Cell::Environment(_) => None,
@@ -141,6 +149,22 @@ impl Cell {
     pub const fn array(&self) -> Option<&Array> {
         match self {
             Cell::Array(array) => Some(array),
+            _ => None,
+        }
+    }
+
+    /// The array iterator this cell is, if it is one (queue item 230).
+    pub const fn array_iterator(&self) -> Option<&ArrayIterator> {
+        match self {
+            Cell::ArrayIterator(iterator) => Some(iterator),
+            _ => None,
+        }
+    }
+
+    /// The same, to be written through.
+    pub const fn array_iterator_mut(&mut self) -> Option<&mut ArrayIterator> {
+        match self {
+            Cell::ArrayIterator(iterator) => Some(iterator),
             _ => None,
         }
     }
@@ -197,6 +221,7 @@ impl Cell {
             Cell::Object(_) => "an object",
             Cell::Array(_) => "an array",
             Cell::Error(_) => "an error",
+            Cell::ArrayIterator(_) => "an array iterator",
             Cell::Function(_) => "a function",
             Cell::Text(_) => "a string",
             Cell::Symbol(_) => "a symbol",
@@ -212,6 +237,7 @@ impl Trace for Cell {
         match self {
             Cell::Object(object) | Cell::Error(object) => object.trace(tracer),
             Cell::Array(array) => array.trace(tracer),
+            Cell::ArrayIterator(iterator) => iterator.trace(tracer),
             Cell::Function(function) => function.trace(tracer),
             Cell::Symbol(symbol) => symbol.trace(tracer),
             Cell::Foreign(exotic) => exotic.trace(tracer),
@@ -228,6 +254,7 @@ impl Trace for Cell {
         match self {
             Cell::Object(object) | Cell::Error(object) => object.footprint(),
             Cell::Array(array) => array.footprint(),
+            Cell::ArrayIterator(iterator) => iterator.footprint(),
             Cell::Function(function) => function.footprint(),
             Cell::Text(text) => text.footprint(),
             Cell::Foreign(exotic) => exotic.footprint(),

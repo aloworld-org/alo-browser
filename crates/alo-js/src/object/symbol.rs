@@ -11,13 +11,14 @@
 //! with a label — and it is the mirror image of a string, which is interned so
 //! that the *same text* is the same key.
 //!
-//! # What a symbol is not, yet
+//! # The ones the language names, and the ones it does not yet
 //!
-//! The well-known symbols (`Symbol.iterator` and the rest) are queue item 73's,
-//! and the cross-realm registry behind `Symbol.for` is too. Both are objects a
-//! realm holds rather than a change to what a symbol is, which is why neither
-//! blocks this file: a well-known symbol is one of these, made once and rooted
-//! by the realm that owns it.
+//! A well-known symbol is one of these, made once and rooted by the realm that
+//! owns it — not a change to what a symbol is. [`WellKnown`] names the two
+//! this engine makes (queue item 230): `Symbol.iterator`, which `for…of`
+//! calls, and `Symbol.toStringTag`, which `Object.prototype.toString` reads.
+//! The other eleven, the `Symbol` function that would let a page name any of
+//! them, and the cross-realm registry behind `Symbol.for` are queue item 73's.
 
 use crate::heap::{Field, Ref, Tracer};
 
@@ -52,5 +53,40 @@ impl Symbol {
     /// Report the edge to the description.
     pub fn trace(&self, tracer: &mut Tracer) {
         self.description.trace(tracer);
+    }
+}
+
+/// A symbol the language itself names, made once per realm (queue item 230).
+///
+/// Only the two something here reads. Each is a key on an intrinsic, and the
+/// realm's [`Intrinsics`](crate::builtin::Intrinsics) hold one of each,
+/// rooted, for as long as the realm lives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WellKnown {
+    /// `Symbol.iterator`: the method `GetIterator` calls to begin iterating.
+    Iterator,
+    /// `Symbol.toStringTag`: the name `Object.prototype.toString` puts in its
+    /// answer, in place of the one it would work out for itself.
+    ToStringTag,
+}
+
+impl WellKnown {
+    /// Every one, in the order a realm makes them.
+    pub const ALL: [WellKnown; 2] = [WellKnown::Iterator, WellKnown::ToStringTag];
+
+    /// Where it is in [`WellKnown::ALL`].
+    pub const fn index(self) -> usize {
+        match self {
+            WellKnown::Iterator => 0,
+            WellKnown::ToStringTag => 1,
+        }
+    }
+
+    /// Its description, which is the specification's spelling of its name.
+    pub const fn description(self) -> &'static str {
+        match self {
+            WellKnown::Iterator => "Symbol.iterator",
+            WellKnown::ToStringTag => "Symbol.toStringTag",
+        }
     }
 }

@@ -359,7 +359,8 @@ impl Engine {
         } else {
             None
         };
-        let mut call = Call::new(&mut self.objects, this, &arguments, waiting.at);
+        let mut call = Call::new(&mut self.objects, this, &arguments, waiting.at)
+            .within(self.realm.intrinsics());
         if let Some(value) = answered {
             call.resume(waiting.step, value);
         }

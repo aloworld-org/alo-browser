@@ -34,6 +34,16 @@
 //! interpreter's list of calls rather than this process's stack, and is the
 //! `RangeError` a runaway function is.
 //!
+//! # A native that makes an object is told the realm's prototypes
+//!
+//! `[].values()` makes an iterator that inherits from
+//! `%ArrayIteratorPrototype%`, and the result of its `next` inherits from
+//! `Object.prototype` (queue item 230). Neither is reachable from `this` by
+//! anything a page could not change, so the interpreter hands a builtin the
+//! realm's [`Intrinsics`] beside the heap ([`Call::intrinsics`]). They are
+//! read, never written: an intrinsic is the realm's, and a builtin that could
+//! replace one could change what every later `[]` is.
+//!
 //! # A step is a number, and the answer arrives on the stack
 //!
 //! A suspended builtin keeps no state of its own beyond a `u32`: everything
@@ -58,7 +68,8 @@
 //! allocate between building it and returning it.** Every builtin here builds it
 //! last, out of values that are already on the stack.
 
-use crate::abrupt::Escape;
+use crate::abrupt::{Escape, Internal};
+use crate::builtin::Intrinsics;
 use crate::convert::Hint;
 
 use super::{Objects, Value};
@@ -197,6 +208,7 @@ impl Native {
 #[derive(Debug)]
 pub struct Call<'a> {
     objects: &'a mut Objects,
+    intrinsics: Option<&'a Intrinsics>,
     this: Value,
     arguments: &'a [Value],
     at: usize,
@@ -214,11 +226,33 @@ impl<'a> Call<'a> {
     ) -> Self {
         Self {
             objects,
+            intrinsics: None,
             this,
             arguments,
             at,
             step: 0,
             answer: None,
+        }
+    }
+
+    /// The same call, in a realm whose intrinsics it may read.
+    #[must_use]
+    pub const fn within(mut self, intrinsics: &'a Intrinsics) -> Self {
+        self.intrinsics = Some(intrinsics);
+        self
+    }
+
+    /// The realm's intrinsics, for a builtin that makes an object.
+    ///
+    /// # Errors
+    ///
+    /// [`Internal::BuiltinIsWrong`] for a call made without them, which only
+    /// a test that built a [`Call`] by hand does: the interpreter always
+    /// passes them.
+    pub const fn intrinsics(&self) -> Result<&'a Intrinsics, Escape> {
+        match self.intrinsics {
+            Some(intrinsics) => Ok(intrinsics),
+            None => Err(Escape::Broken(Internal::BuiltinIsWrong)),
         }
     }
 
@@ -245,7 +279,7 @@ impl<'a> Call<'a> {
     pub const fn answer(&self) -> Result<Value, Escape> {
         match self.answer {
             Some(value) => Ok(value),
-            None => Err(Escape::Broken(crate::abrupt::Internal::BuiltinIsWrong)),
+            None => Err(Escape::Broken(Internal::BuiltinIsWrong)),
         }
     }
 

@@ -2792,13 +2792,101 @@ The long pole, and the thing most of section E is unreachable without.
   own.
   *Depends on 72, on 73 for the `Array` exotic object (the exotic part is
   `length`) and on 75 for the iteration protocol.* **Item 225 took the exotic
-  object and the array literal without a spread**, so what is left here is
-  the spread, both patterns and both loops. The frozen service worker reaches
-  one: after item 210 it is refused at byte 2922, `for (const account of …)`.
+  object and the array literal without a spread**, and **item 230 took
+  `for…of` with a name or a property as its head, and the protocol it reads
+  through** — `GetIterator`, a step, `IteratorClose` — compiled to ordinary
+  instructions that a spread and an array pattern can be compiled to as well.
+  So the dependency on 75 is met for everything left here, which is the
+  spread, both patterns (in a declaration, an assignment, a parameter, a
+  `catch` and a `for…of` head) and `for…in`. No frozen script reaches any of
+  them yet: the service worker compiles whole since item 230.
   *Closes when:* `[1, ...a]`,
-  `let [a, b] = c`, `let { a } = b` and both `for` loops produce what the
-  specification says, in the same table item 72 uses, and a hole is not
-  `undefined`.
+  `let [a, b] = c`, `let { a } = b`, `for (const [k, v] of m)` and `for…in`
+  produce what the specification says, in the same table item 72 uses, and a
+  hole is not `undefined`. Opened by a frozen real script that uses one.
+
+- [x] **230. `for…of` over an array, and the iteration protocol it reads
+  through.** Cut on the iteration that built it from item 211 (`for…of`), item
+  75 (*iterators*) and item 73 (`Symbol.iterator`, `Symbol.toStringTag` and
+  the array iterator), because the real failure needed one piece of each.
+  Opened by a frozen real script: after item 210 the service worker
+  (`crates/alo-corpus/scripts/alo-service-worker/script.js`) was refused at
+  byte 2922, `for (const account of Object.values(…))`.
+  *Depends on 72, 210, 218, 219 and 225. Closes when:* `for…of` over an array
+  produces what the specification says in a table, a hole included; `let`
+  and `const` are a binding per pass and the head has a dead zone; `var`, a
+  name and a property are assigned each pass; leaving by `break`, `return` or
+  a `continue` of an outer loop calls the iterator's `return` and a failure of
+  it is thrown, a throw from the body calls it and ignores what it does, and
+  finishing, `continue` and a throw from the iterator itself call nothing;
+  `next` is read once and called with the iterator as `this`, `done` every
+  pass and `value` only when not done; a wrong answer from the protocol is the
+  language's `TypeError`; an array iterator says `[object Array Iterator]`;
+  what is not built is refused by name; and the frozen script compiles past
+  byte 2922.
+
+  **Done, all of them: `crates/alo-js/tests/what_for_of_reads.rs`**, thirty-three
+  tests, every table program run ordinarily and with the collector at every
+  allocation and required to agree, and
+  `builtin/array_prototype.rs`'s unit test, which builds the new intrinsics
+  with the collector at every allocation. **The frozen service worker now
+  compiles whole.** Running it stops at its first line that reads `self`, a
+  worker's global, which is an embedder's to supply (item 91).
+
+  **The protocol is calls a page can see, compiled as calls.**
+  `obj[Symbol.iterator]()`, each `next()`, and each read of `done` and `value`
+  is an ordinary `GetKeyed`, `Call` or `GetNamed`, so a page's own `next`, a
+  `done` behind a getter and a `return` that throws each behave as they do
+  elsewhere, and the interpreter learned three things only: a well-known
+  symbol no source can spell (`Op::WellKnown`) and the protocol's two
+  `TypeError` checks (`Op::Iterable`, `Op::RequireObject`).
+
+  **Closing reuses `finally`'s routing.** The loop pushes a `Finally` of its
+  own (`Finally::closing`), so a `break`, a `return` and a `continue` of an
+  outer loop are numbered, routed into the closing and carried on from its end
+  exactly as through a `finally` — innermost first across nested loops and
+  `try`s — and the loop's **own** `continue` is the one exit that does not
+  cross it. A throw from the body lands in a handler around the body only, so
+  a throw from the iterator closes nothing; a second handler around the call
+  to `return` is what ignores whatever the closing does on that path.
+
+  **Two well-known symbols, no `Symbol`.** `Symbol.iterator` and
+  `Symbol.toStringTag` are made once per realm and rooted by the intrinsics;
+  `Object.prototype.toString` now reads the tag, through a getter if it is one.
+  `Engine::well_known` gives an embedder the symbols, because an embedder's
+  object (a node list) becomes iterable the same way; no script can name them
+  until item 73 builds `Symbol`.
+
+  **Refused by name and cut to item 231**: an array iterator reading an
+  element or an array-like's `length` through a getter or a conversion. A
+  destructuring head stays item 211's and `for await` item 75's.
+
+  **Six doctored runs**, each restored and the suite re-run green: no closing
+  on `break` fails eight tests; no handler around the body fails one; a loop's
+  own `continue` closing fails three; no dead zone for the head fails one; one
+  environment for every pass fails four; and the result's value not held
+  across its allocations fails two, both under the collector at every
+  allocation.
+
+- [ ] **231. An array iterator that reads through a call.** Cut from 230.
+  `%ArrayIteratorPrototype%.next` reads an element with `Get`, and an
+  array-like's `length` with `Get` and `ToLength` — any of which may run a
+  page's getter or `valueOf`. The specification writes the iterator as a
+  generator, so a call from inside it makes two generator states observable
+  that this iterator does not keep: *executing*, in which a getter that calls
+  `next` again gets a `TypeError`, and *completed* after a throw, after which
+  every `next` answers `done`. So the three are refused by name
+  ([`Missing::AnIteratedValueBehindACall`]) rather than half right. An array's
+  own `length` is never one of them, so `for…of` over an ordinary array never
+  reaches the refusal.
+  *Depends on 230, and on 75 for a generator's states or on a native being
+  told that a call it waited on was taken down by a throw (item 219's
+  mechanism, extended). Closes when:* an element getter runs once per `next`,
+  a getter that calls `next` again gets a `TypeError`, a throw from the getter
+  leaves the iterator completed so the next `next` is `{ value: undefined,
+  done: true }`, and an array-like's `length` getter and `valueOf` each run
+  once per `next`. Opened by a frozen real script that does it, and not
+  before.
 
 - [x] **218. A builtin is a function this engine wrote, and `{}` has a
   `toString` of its own.** Cut from 73 on the iteration that started it, which
@@ -2926,6 +3014,13 @@ The long pole, and the thing most of section E is unreachable without.
   **weak collections** — `WeakMap`, `WeakSet`, `WeakRef`, `FinalizationRegistry`
   — each of which is a cell of its own, over an ephemeron fixpoint that is
   already built and tested (item 71).
+  **Item 230 took two of the well-known symbols and the iterators of
+  `Array.prototype`**: `Symbol.iterator` and `Symbol.toStringTag`, made by the
+  realm with no `Symbol` function to reach them; `Object.prototype.toString`'s
+  reading of the tag; `%IteratorPrototype%` with its `[Symbol.iterator]`; and
+  `keys`, `values`, `entries` and `[Symbol.iterator]` on `Array.prototype`,
+  over `%ArrayIteratorPrototype%`. The `Symbol` function, the other eleven
+  symbols and the iterator helpers stay here.
 
 - [ ] **74. Regular expressions**, with the syntax the language actually has.
   *Depends on 72. Closes when:* a hostile pattern is refused or bounded rather
@@ -2933,7 +3028,11 @@ The long pole, and the thing most of section E is unreachable without.
   service.
 
 - [ ] **75. Promises, `async`/`await`, generators and iterators.**
-  *Depends on 72, 76.*
+  *Depends on 72, 76.* **Item 230 took the iteration protocol `for…of` reads**
+  — `GetIterator`, a step, `IteratorClose`, `%IteratorPrototype%` and the
+  array iterator — so *iterators* here now means a generator, which is a
+  suspended frame, `for await` and the async iterators, and the iterator
+  helpers (item 73's library).
 
 - [ ] **76. The event loop** — tasks, microtasks, the rendering steps,
   `requestAnimationFrame`. `ROADMAP.md`: *"where 'it works, but the animation
