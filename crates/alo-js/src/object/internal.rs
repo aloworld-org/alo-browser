@@ -111,11 +111,44 @@ pub trait Internal {
 /// [`Cell`](super::Cell) is what a heap of hostile objects is made of, and a
 /// heap nobody can print is a heap nobody can debug when a collection goes
 /// wrong at three in the morning.
-pub trait Exotic: Internal + Trace + std::fmt::Debug {
+pub trait Exotic: Internal + Trace + Typed + std::fmt::Debug {
     /// What this object is, for a message a person reads.
     ///
     /// Not a class name a script can see — that is `Symbol.toStringTag` and it
     /// is an ordinary property. This is for the engine's own reports, so that a
     /// refusal names `an HTMLDivElement` rather than `a foreign object`.
     fn describe(&self) -> &'static str;
+}
+
+/// What lets an embedder have its own object back, by its own type.
+///
+/// ADR 0017 § 4: a DOM method is a native handed the heap, its `this` and its
+/// arguments, and it reaches its node **through its `this`** — so it must be
+/// able to ask whether that object is one of its wrappers, and borrow it as
+/// one. The engine learns no type of the embedder's to answer: this is
+/// [`Any`](std::any::Any), and the answer to *is this mine?* is a downcast
+/// that fails for every other kind of object, the engine's own included.
+///
+/// Implemented for every type there is, so an embedder writes nothing for it;
+/// [`Objects::embedded`](super::Objects::embedded) and
+/// [`Objects::write_embedded`](super::Objects::write_embedded) are what use
+/// it. It is a trait of its own rather than `Any` named directly because
+/// the toolchain this workspace promises (`rust-version`) predates turning a
+/// `dyn Exotic` into a `dyn Any` without being asked.
+pub trait Typed: std::any::Any {
+    /// This object, as something that can be asked its type.
+    fn as_any(&self) -> &dyn std::any::Any;
+
+    /// The same, to be written through.
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+}
+
+impl<T: std::any::Any> Typed for T {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }

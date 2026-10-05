@@ -27,6 +27,9 @@
 //!   validity rules ([`mutation`], [`validity`]), answering a [`Refusal`] the
 //!   standard names rather than `false`; [`Document::release`] lets go of a
 //!   detached tree nothing reaches ([`release`]).
+//! - [`Document::footprint`] is what the document owns, kept as a sum as
+//!   nodes change, so the heap a scripted page's document moves into can
+//!   count it at no cost per change (ADR 0017 § 2; [`footprint`]).
 //!
 //! # What is not here, by decision
 //!
@@ -63,6 +66,7 @@
 //! ```
 
 pub mod document;
+pub mod footprint;
 pub mod mutation;
 pub mod name;
 pub mod node;

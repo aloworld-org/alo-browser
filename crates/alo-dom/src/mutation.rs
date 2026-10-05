@@ -53,9 +53,7 @@ impl Document {
         if is_template {
             let contents = self.create(NodeKind::Fragment);
             self.set_host(contents, element);
-            if let Some(made) = self.element_mut(element) {
-                made.template_contents = Some(contents);
-            }
+            self.edit_element(element, |made| made.template_contents = Some(contents));
         }
         Ok(element)
     }

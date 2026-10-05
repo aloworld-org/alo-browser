@@ -3634,6 +3634,107 @@ The long pole, and the thing most of section E is unreachable without.
   collection and one a script holds is not, counted; and the hostile half —
   a page appending to itself in a loop, a million detached nodes, a node
   inserted into its own child — refuses or collects and never panics.
+  **Cut (iteration 144)** into 248, 249 and 250, in that order, because it is
+  three changes to three crates each with its own reason to be wrong: what a
+  wrapper is and how long it lives (the clause a script observes, and the one
+  every member stands on), the members a script calls, and the renderer
+  handing its document over and rendering it again. It closes when they have,
+  on its own condition above — which is 250's.
+
+- [x] **248. The document in the heap, and a wrapper that lives as long as its
+  tree.** *Cut from 246 (ADR 0017 §§ 2–4). Depends on 245.* The typed borrow
+  of an embedder's own cell in `alo-js`; the `alo-bindings` crate with the
+  document cell (its footprint the document's size, kept as a sum so a
+  change does not cost a walk), the wrapper (node id, document, an ordinary
+  object's part) and the table from node to wrapper; the cell tracing every
+  attached node's wrapper strongly and each detached tree's wrappers as a ring
+  of ephemerons, and at the sweep dropping dead wrappers and releasing every
+  detached tree none of whose nodes still has one, allocating nothing. No
+  script member, no renderer change. *Closes when:* one node wrapped twice is
+  one object and its expando survives forced collections; a detached tree no
+  wrapper holds is released at a collection and one held through any one of
+  its wrappers is not, counted; a `<template>`'s contents are kept with their
+  template; a node wrapped while every allocation collects is kept; the heap
+  grows by exactly what the document does; and the hostile half — a ring
+  wider than the marker's pair buffer, a chain too deep to recurse, a long
+  run of operations in an order nobody chose — keeps exactly what is held and
+  never panics.
+  **Done (iteration 144).** `alo-js`: `Exotic` gains the supertrait `Typed`
+  (blanket-implemented, so an embedder writes nothing — the workspace's
+  `rust-version` predates `dyn` upcasting, so `Any` cannot be named
+  directly), and `Objects::embedded::<T>` / `write_embedded::<T>` answer an
+  embedder's own object by type and `None` for every other cell. `alo-dom`:
+  `Document::footprint` is a sum kept as nodes are made, edited and
+  tombstoned (`footprint.rs`; every content edit goes through one accounting
+  helper, `element_mut` became `edit_element`); `release` walks down
+  unlinking and climbs back by the parent link, so it allocates nothing and
+  cannot recurse; `next_detached_root` is a cursor over detached roots for a
+  caller that releases as it goes. `alo-bindings` (new; the only crate
+  naming both): `document_cell.rs` (the cell, the table, the pending node,
+  the released counts), `wrapper.rs`, `tree.rs` (the host-including
+  pre-order walk, going round, with a step budget), `liveness.rs` (trace and
+  sweep), `embed.rs` (`adopt`, `wrap`, `node_of`, `document`,
+  `change_document`). **Two refinements of ADR 0017 § 3's mechanism, its
+  rule unchanged:** the ring follows tree order and each tree is walked once
+  per collection, rather than each wrapper asking for its root (a held chain
+  a million deep would make that quadratic); and a node whose wrapper is
+  being made is *pending*, its tree kept by the collection that allocation
+  may cause — without it, `createElement`'s node would be released while its
+  first wrapper was being made. A walk that overruns its budget keeps every
+  wrapper and releases nothing.
+  *Closed by:* `crates/alo-bindings/tests/what_a_wrapper_keeps.rs` (8 tests)
+  and `a_document_that_is_hostile.rs` (4: a ring of 19384 wrappers held by
+  its last, which overflows the marker's 16384 pairs and is kept whole by a
+  rescan; a 200001-node chain held from its bottom and then released; a
+  20000-link chain in the page, every link wrapped; 4000 seeded operations
+  checked after every collection); `tree.rs` (3 unit tests);
+  `crates/alo-js/tests/what_an_embedder_gets_back.rs` (3);
+  `crates/alo-dom/tests/what_a_document_weighs.rs` (4, every footprint
+  recounted by hand). Doctored runs, each restored and checked identical:
+  thirteen rules disabled alone — attached wrappers strong, the ring's
+  forward pairs, its closing pair, the release, the pending node, pruning
+  the table, the document counted, a template's contents walked, an existing
+  wrapper reused, the downcast through the box rather than of it, an edit
+  weighed, a tombstone weighed — each fails at least one test. **Not
+  discriminated:** the overrun fallback, which a document `alo-dom`'s
+  validity rules allow cannot reach.
+
+- [ ] **249. The interfaces a script calls.** *Cut from 246 (ADR 0017 §§ 1, 4,
+  5 and 8). Depends on 248.* One file per interface in `alo-bindings` —
+  `Node`, `Element`, `Document`, `Text` — each with its prototype, its
+  attributes as accessors whose halves are natives and its operations as
+  native methods, and item 80's members only: the document and its root
+  element, `createElement`, `createTextNode`, `appendChild`, `insertBefore`,
+  `removeChild`, `replaceChild`, `remove`, `textContent`,
+  `getAttribute`/`setAttribute`/`removeAttribute`, `parentNode`,
+  `firstChild`, `lastChild`, `nextSibling`, `previousSibling`; the brand
+  check's `TypeError` for a wrong `this`; `DOMException` with `name` and
+  `message` and `Error.prototype` on its chain, made from `alo-dom`'s
+  `Refusal`; and `document` on the global object of an engine given a
+  document cell. Every other member absent (`typeof` answers `"undefined"`).
+  *Closes when:* a script run by the engine against an adopted document
+  makes, inserts, moves, replaces and removes nodes and reads them back
+  through every member; each refusal is the named `DOMException` a `catch`
+  receives; a member called on a plain object, on a `Text` where an
+  `Element` is required, or on a wrapper of another document throws a
+  `TypeError`; one node read twice through different members is one object;
+  and the hostile half — a node inserted into its own child, a script
+  appending to itself in a loop until the heap's ceiling, a million detached
+  nodes made and dropped — refuses or collects and never panics.
+
+- [ ] **250. The renderer hands its document to script and renders what script
+  left.** *Cut from 246 (ADR 0017 §§ 2 and 6). Depends on 249.* The document
+  moves into the page's heap when its first script is about to run, rooted by
+  the renderer, and every reader — style, layout, paint, the agent's tree,
+  `apply` — borrows it from the cell; the page is rendered again whole, from
+  the same document, when its change count says what was rendered is stale:
+  at `Paint`, `ReadTree`, an `Act`'s decision, the end of a `Load` and a
+  `Resize`. A page that runs no script never builds a heap, and every stage 1
+  reference render still matches. *Closes when* (item 80's own condition): a
+  page's script appends an element and the next render's box tree and layout
+  have it, in numbers, with a reference render; the agent names the node the
+  script made and acts on it; every parsed node keeps its id; and a page that
+  changes its document ten thousand times in one task is rendered once.
 
 - [ ] **247. A parser-inserted script sees the document up to its own
   element.** *Cut from 80 (ADR 0017 § 7). Depends on 246.* The parser stops

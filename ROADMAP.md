@@ -852,10 +852,18 @@ unreachable without it.
       validity rules, refusing as `HierarchyRequestError`, `NotFoundError`
       or `InvalidCharacterError` with the tree unchanged; a change count;
       script-made nodes numbered on the parser's counter; and a released
-      detached tree's ids answering nothing, never reused.
-      · Owed: everything script touches — the bindings, the document in the
-      heap, wrapper liveness and the re-render (246), and a script at its
-      own end tag (247). The decision is made (ADR 0017): the document
+      detached tree's ids answering nothing, never reused. **The document
+      in the heap and its wrappers' lifetime** (`alo-bindings`, queue item
+      248) — the engine hands an embedder its own object back by type; a
+      page's document becomes one heap cell counted at its size; a node's
+      wrapper is one object kept while its tree is reachable (the
+      document's always, a detached tree's while any of its wrappers is),
+      and a detached tree nothing holds is released at a collection,
+      without allocating.
+      · Owed: everything a script calls — the interfaces, `DOMException`
+      and `document` on the global object (249), the renderer handing its
+      document over and rendering it again (250), and a script at its own
+      end tag (247). The decision is made (ADR 0017): the document
       moves into the page's heap when it first runs script; a node's wrapper
       lives while its tree is reachable and an unreachable detached tree is
       freed, its ids never reused; every change goes through `alo-dom` under

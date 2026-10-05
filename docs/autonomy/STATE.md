@@ -11786,3 +11786,172 @@ process (item 203's dependency); iteration 141's browser-side font-name
 guard still has no discriminating test. 111 queue items are open. Next is
 **246**. Next unused queue number **248**; next ADR **0018**. This is one
 iteration, not a finished queue or roadmap.
+
+
+---
+
+## Iteration 144 — item 246 cut; item 248: the document in the heap, and a wrapper that lives as long as its tree
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Mutation from script* line,
+`docs/autonomy/REMAINING.md`'s tail, iteration 143's entry, queue items 80
+and 245–247, ADR 0017 in full, ADR 0014 §§ 2, 5–8 as the heap's code states
+them, and the code this builds on: `alo-js`'s `object/internal.rs`,
+`object/cell.rs`, `object/native.rs`, `object.rs`, `heap.rs`,
+`heap/trace.rs`, `heap/collect.rs` and `bounds.rs`; `alo-dom`'s
+`document.rs`, `node.rs`, `mutation.rs` and `release.rs`; the renderer's
+`event_loop.rs` and `event_loop/microtask.rs` for how an embedder installs a
+native. No `AGENTS.md` exists. No sibling repository was read or modified.
+The checkout was clean on entry at `2a7c909`.
+
+**Selection.** Iteration 143 named **246** next, and every earlier item is
+still blocked for the reasons it recorded (79 on 73; 233, 234, 238, 240 on
+their dependencies or a frozen page; 77 `needs design`; 78's remainder with
+no closing condition). 245 is done, so 246's dependency is met.
+
+**The cut.** 246 is three changes to three crates, each with its own way to
+be wrong — what a wrapper is and how long it lives (`alo-js`, `alo-dom`, a
+new crate), the members a script calls, and the renderer handing its
+document over and rendering again. LOOP step 3: cut scope, never depth, and
+write the cut into the queue. So 246 stays open as the umbrella that closes
+on its own (item 80's) condition, and is cut as **248** (built here), **249**
+(the interfaces, `DOMException`, `document` on the global, the brand check,
+and the script-level hostile half) and **250** (the renderer: adopt at the
+first script, borrow for every reader, render again on a stale change count;
+item 80's reference-render condition). 248 came first because it is the
+clause a script observes and every member stands on.
+
+**What was built.** `alo-js`: `Exotic` gains the supertrait `Typed`, blanket-
+implemented for every type, and `Objects::embedded::<T>` and
+`Objects::write_embedded::<T>` answer an embedder's own object by type and
+`None` for any other cell — through the box, not of it (a `Box<dyn Exotic>`
+is itself `Any`, and asking it answers for the box). ADR 0017 § 4 says the
+trait *gains the one method*; it gains a supertrait instead, because the
+workspace's `rust-version` (1.85) predates `dyn` upcasting to `Any`, and a
+blanket impl means an embedder writes nothing. `alo-dom`: `footprint.rs`
+says what a node owns (lengths, not capacities, so a clone answers the same)
+and `Document` keeps the sum as nodes are made, edited and tombstoned —
+every content edit now goes through one accounting helper and
+`element_mut` became `edit_element` — because the heap measures a cell
+before and after every write and a walk would make building a page
+quadratic. `release` was rewritten to walk down unlinking each child and
+climb back by the parent link (`take_first_child`): it now allocates
+nothing and cannot recurse, since the bindings call it inside a sweep (ADR
+0014 § 8). `next_detached_root` is a cursor for a caller releasing as it
+goes. `alo-bindings` (new; the only crate naming both, ADR 0017 § 1):
+`document_cell.rs` (the cell, the node-to-wrapper table, the pending node,
+the released counts; no prototype, no properties, refuses any — no script
+is ever handed it), `wrapper.rs` (node id, the document cell held strongly,
+an ordinary part for expandos), `tree.rs` (the host-including pre-order
+walk, going round, with a step budget), `liveness.rs` (the trace: every
+wrapper in the document's tree a strong edge, each detached tree's wrappers
+a ring of ephemerons in tree order; the sweep: dead wrappers leave the
+table, and every detached tree with no wrapped and no pending node is
+released and counted), `embed.rs` (`adopt`, `wrap`, `node_of`, `document`,
+`change_document`).
+
+**Two refinements of ADR 0017 § 3's mechanism; its rule is unchanged.**
+(1) The ring is formed by walking each tree once per collection, wrappers
+linked in tree order, rather than by asking each wrapper for its tree's
+root — a chain a million deep with every link held would make the latter
+quadratic at every collection. (2) A node whose wrapper is being made is
+*pending*, and the sweep keeps its tree: `createElement`'s node is in a tree
+of its own with no wrapper, and the allocation that makes its first wrapper
+may collect — without this it would be released mid-wrap (the doctored run
+below shows the stress test catching exactly that). Also: a walk that
+overruns its budget keeps every wrapper strongly and releases nothing it
+could not see round. None of the three changes what a script observes, so
+no ADR amendment; recorded here and in the queue for whoever reads § 3
+next.
+
+**Evidence.** `crates/alo-bindings/tests/what_a_wrapper_keeps.rs`, 8 tests:
+one node wrapped twice is one object and its expando survives three forced
+collections with nothing rooting the wrapper, every parsed id unchanged; a
+detached tree held through its child is kept while a never-wrapped text
+node is released (`Released { trees: 1, nodes: 1 }`), then released when let
+go (`{2, 3}`), table emptied, wrapper freed, change count untouched, the
+released id refusing as `NoSuchNode` and the next id one past the highest;
+one held wrapper keeps all three of its tree's; a detached template kept
+through a node in its contents, then released with them (3 nodes), and a
+parsed template's contents kept by the document; a node's wrapper moving
+between the two rules as it is inserted and removed; twenty wrappers made
+under stress collection, each node kept; nothing but a wrapper answers as a
+node (`NotADocument`, `NoSuchNode` for an id this document never made); the
+heap's held bytes grew by exactly the document's footprint growth for a
+megabyte of attributes, and fell back once released.
+`a_document_that_is_hostile.rs`, 4 tests (LOOP stage 2 § 2): a ring of
+19384 wrappers (16384 + 3000) held by its last, which overflows the
+marker's pair buffer, costs a rescan, and is kept whole; a 200001-node chain
+held from the bottom, then released whole; a 20000-link chain in the page
+with every link wrapped, unchanged across three collections; 4000 seeded
+operations (make, insert, move, remove, wrap, hold, let go, collect) with
+the heap's invariants and the cell's — held nodes alive, every wrapper for a
+live node, no detached tree kept that nobody holds — checked after every
+collection. `tree.rs`, 3 unit tests. `crates/alo-js/tests/
+what_an_embedder_gets_back.rs`, 3 tests (two types alike but for their
+type; a stale reference; a reference stored through the borrow traced).
+`crates/alo-dom/tests/what_a_document_weighs.rs`, 4 tests (every footprint
+recounted by hand after parse, clone and each kind of change; a 300001-node
+chain released without recursion; the cursor finding exactly the detached
+roots).
+
+A first version of the hostile tests built chains top-down and ran for
+minutes: inserting into a node checks its ancestry (the standard's rule),
+so that is the depth per link. The tests now build bottom-up, and say why.
+That cost belongs to the standard's insertion check, and it will be met
+again by a page that appends ever deeper; recorded for 249's hostile half
+rather than fixed here.
+
+**Doctored runs**, each restored and checked identical by hash: thirteen
+rules disabled alone — attached wrappers strong, the ring's forward pairs,
+its closing pair, the release, the pending node, pruning the table, the
+document counted in the cell's footprint, a template's contents walked, an
+existing wrapper reused, the downcast through the box, a node edit weighed,
+a tombstone weighed — each fails at least one test (rerun with
+`--no-fail-fast`, attached wrappers fail four tests across both binding
+test files, and the template walk fails two unit tests and the
+integration test). **Not discriminated:** the
+budget-overrun fallback in `liveness.rs`, which no document `alo-dom`'s
+validity rules allow can reach.
+
+**Compliance review.** Law 1: no legacy surface; nothing script-visible was
+added. Law 2: node ids remain the agent's names — a released id answers
+nothing and is never reused (ADR 0003, tested). Law 3: no stub, `todo!` or
+`unwrap` outside tests; refusals are answered (`Wrapping`), the unreachable
+post-allocation case answered rather than assumed. No speed claim; the
+complexity reasoning (one walk per tree per collection) is stated as
+reasoning, not measured. Law 4: no `unsafe`; `Any` downcasting is safe
+Rust. One file, one responsibility: `alo-dom` gained `footprint.rs`; the
+bindings are five files with one reason each; `document.rs` gained only
+the accounting its own edits need. ADR 0017 §§ 1–4 built as far as this
+cut reaches, with the refinements above. Nothing positions, sizes or paints
+differently, so no new layout assertion or reference render applies, and
+every existing one still matches (the gate runs them). `docs/features.md`'s
+item states the engine's half and what is still owed.
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step: formatting clean, clippy silent (one run fixed, not silenced: a
+doc word, and a test function over 100 lines split by extracting its check
+into a helper), all tests pass, nothing stubbed, `unsafe` forbidden, every
+file carries the licence notice, every rented crate behind its boundary, no
+coordinate verb, the supervisor's stop rule holds, `CHANGELOG.md` changed.
+`cargo test --workspace --all-features` counts 2374 passed, 0 failed (2352
+at iteration 143, this item's 22). `git diff --check` passes. The log was
+kept in this session's scratchpad, not committed.
+
+**Roadmap.** The *Mutation from script* line's Built clause gains the
+document in the heap and its wrappers' lifetime (item 248); its Owed clause
+now names 249, 250 and 247. Not ticked. Queue: 246 cut and left open, 248
+ticked with its evidence, 249 and 250 added; `CHANGELOG.md`,
+`docs/features.md` and `REMAINING.md` moved with it.
+
+**Unresolved obligations.** Item 80 and 246 stay open until 249, 250 and 247
+close; no script can reach the document yet. Inserting at depth *d* costs
+*d* (249's hostile half must face a page appending ever deeper). The
+budget-overrun fallback is undiscriminated. 78's remainder; 77 needs
+design; 233, 234, 238 and 240 are open and item 76 is not done;
+`violations::reports` is still called by nothing in the browser process
+(item 203's dependency); iteration 141's browser-side font-name guard still
+has no discriminating test. 113 queue items are open. Next is **249**. Next
+unused queue number **251**; next ADR **0018**. This is one iteration, not a
+finished queue or roadmap.

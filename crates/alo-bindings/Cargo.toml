@@ -1,0 +1,16 @@
+[package]
+name = "alo-bindings"
+description = "The alo browser DOM bindings: the one crate that names both the engine and the document (ADR 0017)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+alo-dom = { path = "../alo-dom" }
+alo-js = { path = "../alo-js" }
+
+[lints]
+workspace = true

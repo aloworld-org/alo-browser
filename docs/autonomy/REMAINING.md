@@ -185,6 +185,15 @@ script reaches it yet. 111 queue items are open; 246 (the bindings and the
 re-render) is next; the next unused queue number is 248 and the next unused
 ADR 0018.
 
+Iteration 144 cut item 246 into 248 (the document in the heap and wrapper
+liveness), 249 (the interfaces a script calls) and 250 (the renderer handing
+its document over and rendering again), and built 248: the engine's typed
+borrow, `alo-dom`'s footprint kept as a sum and an allocation-free release,
+and the `alo-bindings` crate with the document cell, the wrapper, and the
+ring-and-sweep that keeps a wrapper as long as its tree. No script reaches
+it yet. 113 queue items are open; 249 is next; the next unused queue number
+is 251 and the next unused ADR 0018.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

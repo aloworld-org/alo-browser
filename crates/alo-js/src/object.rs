@@ -81,7 +81,7 @@ pub use cell::Cell;
 pub use environment::Environment;
 pub use function::{Code, Function};
 pub use intern::Interner;
-pub use internal::{Exotic, Internal};
+pub use internal::{Exotic, Internal, Typed};
 pub use key::Key;
 pub use native::Native;
 pub use ordinary::Ordinary;
@@ -462,6 +462,44 @@ impl Objects {
     /// [`Refused::Full`] when the heap is at its ceiling.
     pub fn foreign(&mut self, exotic: Box<dyn Exotic>) -> Result<Ref, Refused> {
         Ok(self.heap.allocate(Cell::Foreign(exotic))?)
+    }
+
+    /// The embedder's object `held` names, borrowed as the embedder's own
+    /// type — or [`None`] if it names anything else (ADR 0017 § 4).
+    ///
+    /// This is the Web IDL brand check's first half: a DOM method asks for its
+    /// `this` as a wrapper, and a plain object, a function, a string, another
+    /// embedder's object or a wrapper of a different type answers [`None`]
+    /// alike. The engine learns nothing of `T` to answer.
+    pub fn embedded<T: Exotic>(&self, held: Ref) -> Option<&T> {
+        match self.heap.get(held)? {
+            // Through the box, not of it: the box is an `Any` too, and asking
+            // it would answer for `Box<dyn Exotic>` rather than for `T`.
+            Cell::Foreign(exotic) => exotic.as_ref().as_any().downcast_ref::<T>(),
+            _ => None,
+        }
+    }
+
+    /// The same, to be written through, with the barrier every store of a
+    /// reference passes (ADR 0014 § 5).
+    ///
+    /// [`None`], changing nothing, if `held` is not a `T`. Not a safepoint,
+    /// and `change` has no way to allocate: an exotic object may not.
+    pub fn write_embedded<T: Exotic, R>(
+        &mut self,
+        held: Ref,
+        change: impl FnOnce(&mut T, &mut Barrier) -> R,
+    ) -> Option<R> {
+        self.heap
+            .write(held, |cell, barrier| match cell {
+                Cell::Foreign(exotic) => exotic
+                    .as_mut()
+                    .as_any_mut()
+                    .downcast_mut::<T>()
+                    .map(|mine| change(mine, barrier)),
+                _ => None,
+            })
+            .flatten()
     }
 
     /// The key this text names, interning it if it is new.

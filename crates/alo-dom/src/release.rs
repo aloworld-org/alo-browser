@@ -14,7 +14,6 @@
 
 use crate::document::Document;
 use crate::node::NodeId;
-use core::iter;
 
 impl Document {
     /// Release the detached tree whose root is `root`, and say how many nodes
@@ -26,6 +25,13 @@ impl Document {
     /// contents (they go with their template), and not an id that already
     /// answers nothing. Releasing changes no tree anything can see, so it
     /// does not advance [`Document::change_count`].
+    ///
+    /// **It allocates nothing**, because the bindings call it from inside a
+    /// collection's sweep, and ADR 0014 § 8 says a collection allocates
+    /// nothing it has not already got. So it keeps no list of what is left to
+    /// visit: it walks down unlinking each child as it takes it, releases a
+    /// node once it has no children left, and climbs back by the parent
+    /// link, which costs two steps per node whatever the tree's shape.
     pub fn release(&mut self, root: NodeId) -> Option<usize> {
         if root == self.root()
             || self.get(root).is_none()
@@ -35,26 +41,57 @@ impl Document {
             return None;
         }
         let mut released = 0_usize;
-        let mut pending = vec![root];
-        while let Some(top) = pending.pop() {
-            // A node already released has no descendants to find, so a
-            // template that somehow reached its own tree twice ends here
-            // rather than going round.
-            let tree: Vec<NodeId> = iter::once(top)
-                .filter(|id| self.get(*id).is_some())
-                .chain(self.descendants(top))
-                .collect();
-            for id in &tree {
-                if let Some(contents) = self.element(*id).and_then(|e| e.template_contents) {
-                    pending.push(contents);
-                }
+        let mut current = root;
+        loop {
+            // Down first: a template's contents, then its children, each
+            // unlinked as it is taken so that nothing is visited twice and
+            // nothing needs remembering on the way back up.
+            if let Some(contents) = self
+                .edit_element(current, |element| element.template_contents.take())
+                .flatten()
+                && self.get(contents).is_some()
+            {
+                current = contents;
+                continue;
             }
-            for id in tree {
-                self.tombstone(id);
-                released = released.saturating_add(1);
+            if let Some(child) = self.take_first_child(current) {
+                if self.get(child).is_some() {
+                    current = child;
+                }
+                continue;
+            }
+            // A leaf now: it goes, and the walk climbs to what held it.
+            let up = if current == root {
+                None
+            } else {
+                self.parent(current).or_else(|| self.host(current))
+            };
+            self.tombstone(current);
+            released = released.saturating_add(1);
+            match up {
+                Some(up) => current = up,
+                None => break,
             }
         }
         Some(released)
+    }
+
+    /// The first root of a detached tree whose id comes after `after` — or
+    /// from the start, for [`None`] — in the order the nodes were made.
+    ///
+    /// A cursor rather than an iterator, so that a caller can release each
+    /// tree as it finds it: the bindings walk every detached tree at a
+    /// collection's sweep, where nothing may be allocated to remember a list
+    /// (ADR 0014 § 8). A root is what [`Document::release`] accepts: live,
+    /// not the document, with no parent and not a template's contents.
+    pub fn next_detached_root(&self, after: Option<NodeId>) -> Option<NodeId> {
+        let from = after.map_or(0, |id| id.0.saturating_add(1));
+        (from..self.node_count()).map(NodeId).find(|id| {
+            *id != self.root()
+                && self.get(*id).is_some()
+                && self.parent(*id).is_none()
+                && self.host(*id).is_none()
+        })
     }
 }
 

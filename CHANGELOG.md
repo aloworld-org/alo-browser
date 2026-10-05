@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's elements can now be kept or freed by the same tidy-up as its
+  scripts' objects.** Nothing a page runs reaches this yet; it is what a
+  script holding an element will stand on. Once a page runs script its
+  document can live in the page's own memory and is counted at its real
+  size, so a page that builds elements without end is stopped like one that
+  builds anything else without end. The same element asked for twice is the
+  same object, so what a page attaches to it does not vanish. An element
+  taken out of the page is kept exactly as long as something still holds
+  any part of the piece it is in, and freed at the next tidy-up when nothing
+  does — its number never handed out again.
+
 - **A page's tree can be changed, under the DOM standard's rules.** Nothing a
   page runs reaches this yet; it is the part a script's `appendChild` will
   come down to. An element or text can be made, put in, moved, replaced or

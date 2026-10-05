@@ -37,6 +37,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "alo-bindings"
+version = "0.0.0"
+dependencies = [
+ "alo-dom",
+ "alo-js",
+]
+
+[[package]]
 name = "alo-box"
 version = "0.0.0"
 dependencies = [

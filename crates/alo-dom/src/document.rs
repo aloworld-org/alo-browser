@@ -63,6 +63,9 @@ pub struct Document {
     nodes: Vec<Option<Box<Node>>>,
     root: NodeId,
     changes: u64,
+    /// What every live node owns, kept as the nodes change so that
+    /// [`Document::footprint`] is a sum rather than a walk.
+    bytes: usize,
     quirks_signal: QuirksSignal,
     issues: Vec<crate::parse::ParseIssue>,
 }
@@ -74,6 +77,7 @@ impl Document {
             nodes: vec![Some(Box::new(Node::new(NodeKind::Document)))],
             root: NodeId(0),
             changes: 0,
+            bytes: Node::new(NodeKind::Document).footprint(),
             quirks_signal: QuirksSignal::NoQuirks,
             issues: Vec::new(),
         }
@@ -117,6 +121,12 @@ impl Document {
     /// it rendered at to know whether what it holds is stale (ADR 0017 § 6).
     pub fn change_count(&self) -> u64 {
         self.changes
+    }
+
+    /// The sum of every live node's [`Node::footprint`], kept as they
+    /// change; [`Document::footprint`] adds the arena's slots.
+    pub(crate) fn live_bytes(&self) -> usize {
+        self.bytes
     }
 
     /// The node an id names, or [`None`] if the id came from somewhere else or
@@ -171,15 +181,33 @@ impl Document {
         self.get(id).and_then(|node| node.host)
     }
 
-    /// The element at this id, to change it.
+    /// Change the element at this id with `change`.
     ///
     /// Crate-private so that nothing outside changes an element without
-    /// [`Document::change_count`] hearing of it.
-    pub(crate) fn element_mut(&mut self, id: NodeId) -> Option<&mut Element> {
-        match &mut self.node_mut(id)?.kind {
-            NodeKind::Element(element) => Some(element),
+    /// [`Document::change_count`] hearing of it, and a closure rather than a
+    /// borrow so that [`Document::footprint`] hears of it too.
+    pub(crate) fn edit_element<R>(
+        &mut self,
+        id: NodeId,
+        change: impl FnOnce(&mut Element) -> R,
+    ) -> Option<R> {
+        self.edit(id, |node| match &mut node.kind {
+            NodeKind::Element(element) => Some(change(element)),
             _ => None,
-        }
+        })?
+    }
+
+    /// Change what the node at this id holds, keeping the footprint's sum.
+    ///
+    /// Every change to a node's *content* comes through here; a change to its
+    /// links alone does not, since a link owns nothing.
+    fn edit<R>(&mut self, id: NodeId, change: impl FnOnce(&mut Node) -> R) -> Option<R> {
+        let node = self.node_mut(id)?;
+        let before = node.footprint();
+        let outcome = change(node);
+        let after = node.footprint();
+        self.bytes = self.bytes.saturating_sub(before).saturating_add(after);
+        Some(outcome)
     }
 
     /// Set an attribute on an element.
@@ -191,7 +219,7 @@ impl Document {
     /// Setting an attribute is a change even when the value is the one it
     /// already had, as it is in the standard.
     pub fn set_attribute(&mut self, id: NodeId, local: &str, value: &str) -> Option<()> {
-        self.element_mut(id)?.set_attr(local, value);
+        self.edit_element(id, |element| element.set_attr(local, value))?;
         self.note_change();
         Some(())
     }
@@ -200,7 +228,7 @@ impl Document {
     ///
     /// Taking away one that was not there changes nothing, and is not counted.
     pub fn remove_attribute(&mut self, id: NodeId, local: &str) -> Option<bool> {
-        let removed = self.element_mut(id)?.remove_attr(local);
+        let removed = self.edit_element(id, |element| element.remove_attr(local))?;
         if removed {
             self.note_change();
         }
@@ -263,7 +291,9 @@ impl Document {
 
     pub(crate) fn create(&mut self, kind: NodeKind) -> NodeId {
         let id = NodeId(self.nodes.len());
-        self.nodes.push(Some(Box::new(Node::new(kind))));
+        let node = Node::new(kind);
+        self.bytes = self.bytes.saturating_add(node.footprint());
+        self.nodes.push(Some(Box::new(node)));
         id
     }
 
@@ -283,8 +313,10 @@ impl Document {
     /// answers nothing from now on and is never given out again. The caller
     /// releases whole trees, so no live node is left linking to this one.
     pub(crate) fn tombstone(&mut self, id: NodeId) {
-        if let Some(slot) = self.nodes.get_mut(id.0) {
-            *slot = None;
+        if let Some(slot) = self.nodes.get_mut(id.0)
+            && let Some(node) = slot.take()
+        {
+            self.bytes = self.bytes.saturating_sub(node.footprint());
         }
     }
 
@@ -360,6 +392,19 @@ impl Document {
         self.set_next_sibling(id, None);
     }
 
+    /// Unhook the first child of `parent` from it, for a release taking the
+    /// tree apart: the child keeps its own parent link, which is the way back
+    /// up a walk that remembers nothing else.
+    pub(crate) fn take_first_child(&mut self, parent: NodeId) -> Option<NodeId> {
+        let child = self.first_child(parent)?;
+        let next = self.next_sibling(child);
+        self.set_first_child(parent, next);
+        if next.is_none() {
+            self.set_last_child(parent, None);
+        }
+        Some(child)
+    }
+
     /// Make `child` the last child of `parent`, detaching it from wherever it
     /// was first.
     ///
@@ -422,10 +467,14 @@ impl Document {
     /// node, and every consumer downstream assumes it.
     pub(crate) fn append_text(&mut self, parent: NodeId, text: &str) {
         if let Some(last) = self.last_child(parent)
-            && let Some(node) = self.node_mut(last)
-            && let NodeKind::Text(existing) = &mut node.kind
+            && self.edit(last, |node| match &mut node.kind {
+                NodeKind::Text(existing) => {
+                    existing.push_str(text);
+                    true
+                }
+                _ => false,
+            }) == Some(true)
         {
-            existing.push_str(text);
             return;
         }
         let id = self.create(NodeKind::Text(text.to_owned()));
@@ -436,10 +485,14 @@ impl Document {
     /// that is already a text node.
     pub(crate) fn insert_text_before(&mut self, sibling: NodeId, text: &str) {
         if let Some(previous) = self.previous_sibling(sibling)
-            && let Some(node) = self.node_mut(previous)
-            && let NodeKind::Text(existing) = &mut node.kind
+            && self.edit(previous, |node| match &mut node.kind {
+                NodeKind::Text(existing) => {
+                    existing.push_str(text);
+                    true
+                }
+                _ => false,
+            }) == Some(true)
         {
-            existing.push_str(text);
             return;
         }
         let id = self.create(NodeKind::Text(text.to_owned()));
@@ -450,14 +503,13 @@ impl Document {
     /// it does. The parser needs this for `<html>` and `<body>`, whose
     /// attributes can arrive on a second start tag.
     pub(crate) fn add_attrs_if_missing(&mut self, id: NodeId, attrs: Vec<crate::node::Attribute>) {
-        let Some(element) = self.element_mut(id) else {
-            return;
-        };
-        for attr in attrs {
-            if !element.attrs.iter().any(|held| held.name == attr.name) {
-                element.attrs.push(attr);
+        self.edit_element(id, |element| {
+            for attr in attrs {
+                if !element.attrs.iter().any(|held| held.name == attr.name) {
+                    element.attrs.push(attr);
+                }
             }
-        }
+        });
     }
 
     /// Whether `parent` may hold `child`: not itself, and not one of its own
