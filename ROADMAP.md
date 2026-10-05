@@ -582,15 +582,21 @@ unreachable without it.
       it was **written**, recorded on the chunk: an arrow, a method and every
       builtin are a `TypeError`, raised after the arguments are evaluated
       because a page can see the order. Opened by a **frozen real script** —
-      alo's own service worker, refused at its `new Request(…)` — which now
-      compiles past it to an array literal, item 211's
+      alo's own service worker, refused at its `new Request(…)` — which then
+      compiled past it to an array literal
+      · Built: **the array literal** (queue item 225, cut from 211 and 73).
+      `[a, , b]` makes an array of the literal's length with each element
+      defined and each hole left out, so a hole is not `undefined` and `in`
+      can tell. Opened by the same frozen script at that literal, which now
+      compiles to the `try` on the next line (item 210)
       · Owed: the rest of the language, and each piece is refused **by name**
       rather than half-built — classes, `super`, `new.target` and private names
       (queue item 223), `instanceof` past its first two answers (224),
       `arguments` and the parameter forms that are not a plain name (213),
       tagged templates (215),
-      `try`/`catch`/`finally` (210), arrays, spread, destructuring and
-      `for…of` (211), and a **proxy**, whose trap is the same re-entry as a
+      `try`/`catch`/`finally` (210), spread, destructuring, `for…in` and
+      `for…of` (211), an object assigned to an array's `length`, which is
+      converted twice (226), and a **proxy**, whose trap is the same re-entry as a
       getter and which nothing can make until a builtin `Proxy` constructor
       exists (217). A program using one of them does not compile — or, for
       `instanceof`, stops where it is reached — and says which item builds it. The builtins that make a `{}` have a `toString` of its own
@@ -691,12 +697,23 @@ unreachable without it.
       and `Function.prototype` are the two objects, rooted by the realm with
       every method reachable from them, and `({}) + ''` answers
       `"[object Object]"` for the first time
+      · Built: **the array, as an object** (queue item 225) — the exotic object
+      whose `length` grows with an index and deletes from the end when made
+      smaller, and `Array.prototype`, which is itself an empty array and
+      carries **no method yet**, so `[].push` is `undefined` rather than half
+      of what the specification says. The decision with the longest reach is
+      that **every write is a definition**: the object model's trait lost its
+      mutable borrow of a property, because a store that went round
+      `[[DefineOwnProperty]]` would go round every exotic object's rules — an
+      array's and an embedder's alike. A length a value is not is a
+      `RangeError`; an object as a length is refused by name (item 226)
       · Owed: `apply` and traced native scratch state (queue item 221), and
       the remaining library. `Object` and `Function`
       themselves are constructors, and `new` constructs only a function a
       script wrote (queue item 212) — a builtin with a `[[Construct]]` is item
       73's; a
-      function's own `name` and `length` and its source text are 220; `Array`,
+      function's own `name` and `length` and its source text are 220; the
+      `Array` constructor, `Array.isArray` and every array method,
       `Math`, `JSON`, `Error`, the wrapper objects, the well-known symbols and
       the weak collections are still item 73, which is what remains of it
 - [ ] Regular expressions, with the syntax the language actually has

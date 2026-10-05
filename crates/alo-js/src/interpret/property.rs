@@ -32,9 +32,11 @@
 //! in strict code, which is the same pair every other failed write gets and is
 //! why the message says which of the two it was.
 
-use crate::abrupt::{Escape, Internal};
+use crate::abrupt::{Escape, Internal, Missing};
 use crate::code::Half;
-use crate::object::{Found, Key, Property, Set, Value};
+use crate::convert::{self, Primitive};
+use crate::numeric;
+use crate::object::{Found, Key, Property, Set, Value, array};
 
 use super::Engine;
 use super::call::Ask;
@@ -94,7 +96,18 @@ impl Engine {
         let value = self.peek(run, 0)?;
         let strict = run.strict()?;
         let held = self.object_of(object, key, at, "write")?;
-        match self.objects.set(held, key, value)? {
+        // An array's `length` is given a length or nothing: the conversion can
+        // throw, and the array cannot do it for itself (queue item 225). A
+        // `length` that is not writable is refused before anything converts,
+        // which is `OrdinarySet`'s order. What the assignment evaluates to is
+        // still the value as it was written.
+        let stored = match self.objects.as_array(held) {
+            Some(array) if array.is_length(key) && array.length_is_writable() => {
+                self.length_of(value, at)?
+            }
+            _ => value,
+        };
+        match self.objects.set(held, key, stored)? {
             Set::Done => self.replace(run, depth, value),
             Set::Setter(Value::Undefined) => {
                 if strict {
@@ -123,6 +136,26 @@ impl Engine {
                 }
                 self.replace(run, depth, value)
             }
+        }
+    }
+
+    /// The length a value assigned to an array's `length` is:
+    /// `ArraySetLength`'s `ToUint32` and `ToNumber`, which must agree.
+    ///
+    /// A `RangeError` when they do not — `-1`, `1.5`, `NaN` and `2**32` are
+    /// not lengths — and a refusal by name for an object, whose conversion is
+    /// two calls rather than one (queue item 226).
+    fn length_of(&self, value: Value, at: usize) -> Result<Value, Escape> {
+        let Some(primitive) = Primitive::of(value) else {
+            return Err(Escape::NotBuiltYet(Missing::AnObjectAsALength));
+        };
+        let number = convert::to_number(&self.objects, primitive, at)?;
+        match array::exact_length(number) {
+            Some(length) => Ok(Value::Number(f64::from(length))),
+            None => Err(Escape::range_error(
+                format!("{} is not a valid array length", numeric::text_of(number)),
+                at,
+            )),
         }
     }
 

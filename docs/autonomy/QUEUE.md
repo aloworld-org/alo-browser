@@ -2398,6 +2398,75 @@ The long pole, and the thing most of section E is unreachable without.
   method a page defines is called with the left-hand side, and a getter on a
   builtin's `prototype` runs once.
 
+- [x] **225. An array: the exotic object, `Array.prototype`, and the literal
+  that makes one.** Cut on the iteration that built it from item 73 (*the
+  `Array` exotic object — the exotic part is `length`*) and from item 211 (*an
+  array literal*, without a spread, which reads an iterable and stays with
+  211). Opened by a frozen real script: after item 212 the service worker
+  (`crates/alo-corpus/scripts/alo-service-worker/script.js`) was refused at
+  byte 2847, `let changedTypes = [];`, and item 211's own dependency list says
+  the thing that literal needs first is item 73's exotic object.
+  *Depends on 72, 206 and 218. Closes when:* `[1, , 3]` has a length of three
+  and no property at one, an index at or past the length grows it, a smaller
+  length deletes from the end and stops at an element that will not go, a
+  length that is not one is a `RangeError`, `length` has the specification's
+  attributes, `Array.prototype` is itself an array and
+  `Object.prototype.toString` says so, and the frozen script compiles past
+  byte 2847.
+
+  **Done, all of them: `crates/alo-js/tests/what_an_array_is.rs`**, seventeen
+  tests, every program run ordinarily and with the collector at every
+  allocation and required to agree. The frozen script now compiles to byte
+  2853, the `try` on the next line, which is item 210's.
+
+  **The decision worth reading twice is that every write is a definition.**
+  `Internal` lost its mutable borrow of a property: `a.b = c` into a property
+  `a` already has is now `OrdinarySet`'s own `[[DefineOwnProperty]]` with the
+  attributes it had, so an exotic object sees every store rather than only the
+  first one. Without that `a.length = 0` would have written a number into the
+  property and deleted nothing — and an embedder's object would have had the
+  same hole. Ordinary definitions now tell the write barrier about the value
+  they replace and the one they store, since a definition is now how an
+  ordinary store happens.
+
+  **`length` is held beside the table, not in it**, so the one key the rules
+  are about cannot be stored somewhere they would be walked round; it still
+  answers as an own property and comes after the indices and before every other
+  name. A shrinking length visits only the indices that **exist** — four
+  billion to zero over two elements is two deletions. Converting a value is the
+  interpreter's (it can throw), so the object model accepts only an exact
+  length and refuses anything else rather than guessing; a `length` that is not
+  writable is refused before anything converts, which is `OrdinarySet`'s order.
+  The literal makes the array at its final length (`Op::Array(n)`), which is
+  the same array the specification's trailing `Set(length)` makes, because no
+  script can see it before the literal ends.
+
+  **What was cut**: an **object** assigned to `length` to **item 226**, and
+  everything else about arrays stays where it was — the `Array` constructor,
+  `Array.isArray` and every method are item 73 (`[].push` is `undefined`,
+  which a page's feature test reads correctly), and a spread is item 211.
+  **Five doctored runs**: without growth three tests fail, without truncation
+  two, with a store that goes round `define_own` five, without tracing the
+  length's name two. A fifth — dropping a scope that held the name between
+  interning it and making the array — failed nothing, and the reason is real
+  rather than luck: a collection an allocation runs traces the cell being
+  allocated, and the array traces the name. The scope was removed and that
+  reason written beside `Objects::array` instead.
+
+- [ ] **226. An object assigned to an array's `length`.** Cut from 225.
+  `ArraySetLength` converts the value with `ToUint32` and then with `ToNumber`,
+  each of which calls an object's `valueOf` — **twice**, and a page can count
+  the calls — and the assignment still evaluates to the object rather than to
+  the number it became. Every other conversion in the interpreter converts an
+  operand in place and runs the instruction again, which here would call
+  `valueOf` once and overwrite what the assignment answers. So it is refused by
+  name today ([`Missing::AnObjectAsALength`]) rather than half right.
+  *Depends on 225. Closes when:* `a.length = { valueOf() { n++; return 2; } }`
+  leaves `n` two greater and `a.length` two, the assignment answers the object,
+  a `valueOf` that answers differently the second time is the `RangeError` the
+  specification gives, and a `valueOf` that throws leaves the array unchanged.
+  Opened by a frozen real script that does it, and not before.
+
 - [ ] **213. `arguments`, and the parameter forms that are not a plain name.**
   Cut from 209, which takes a plain list of distinct names and refuses the
   rest — a default, a `...rest`, a destructuring pattern, a repeated name, and
@@ -2600,7 +2669,9 @@ The long pole, and the thing most of section E is unreachable without.
   enumerates keys rather than iterating, with a prototype-shadowing rule of its
   own.
   *Depends on 72, on 73 for the `Array` exotic object (the exotic part is
-  `length`) and on 75 for the iteration protocol. Closes when:* `[1, ...a]`,
+  `length`) and on 75 for the iteration protocol.* **Item 225 took the exotic
+  object and the array literal without a spread**, so what is left here is
+  the spread, both patterns and both loops. *Closes when:* `[1, ...a]`,
   `let [a, b] = c`, `let { a } = b` and both `for` loops produce what the
   specification says, in the same table item 72 uses, and a hole is not
   `undefined`.
@@ -2715,7 +2786,9 @@ The long pole, and the thing most of section E is unreachable without.
   and `Function` themselves (which are constructors: item 212 built `new` for a
   function a script wrote, and a **builtin** with a `[[Construct]]` is this
   item's, since none exists yet),
-  `Array`, `Math`, `JSON`, the `Error` objects a `catch` binds (item 210 waits
+  `Array` (whose exotic object and prototype item 225 built — what remains is
+  the constructor, `Array.isArray` and every method), `Math`, `JSON`, the
+  `Error` objects a `catch` binds (item 210 waits
   on them), and the `String`, `Number` and `Boolean` wrappers that
   [`Missing::AWrapperObject`] names. This item should be **cut again** the next
   time it is taken: a closing condition that names one family is an item, and

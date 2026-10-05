@@ -9765,3 +9765,129 @@ so "the same page working" is met at compile time for the `new` that opened the
 item, and no more. The next eligible item is for the next iteration to
 determine; 211 now has a real-script trigger but depends on 73 and 75. This is
 one iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 124 — queue item 225, cut from 73 and 211: an array is an object whose `length` keeps up
+
+The checkout was clean on entry at `ee49354`. Read `CLAUDE.md`, the complete
+`docs/autonomy/LOOP.md`, `ROADMAP.md`'s JavaScript lines, `REMAINING.md`,
+iterations 119–123, the open queue items in section D, ADR 0013 (all of it)
+and ADR 0014 §§ 9–11, and the JavaScript section of `docs/features.md`. No
+`AGENTS.md` exists in this repository. No sibling repository was read or
+modified.
+
+**Selection followed queue order and dependencies.** 157, 158, 187, 60, 169,
+197, 201 and 203 keep the blockers iteration 122 recorded; 222 and 207 are
+blocked on a frozen script. 223 depends only on 212 (done), but neither frozen
+corpus script contains a `class`, `super`, `new.target` or a private name, so
+it has no real-script trigger and was not taken — the rule iterations 119 and
+120 established, applied rather than re-argued. 224, 213, 217, 215, 210, 211
+and 221 each depend on 73. 220's dependencies are done, and neither script
+reads a function's `name`, `length` or source text or calls `bind`, so it has
+no trigger either. **73 is next**, its dependencies done, and the queue says to
+cut it when taken. The cut was chosen by the real failure rather than by
+taste: item 123 left the service worker refused at byte 2847,
+`let changedTypes = [];`, naming 211 — and 211 says the thing that literal
+needs first is item 73's array exotic object. So **item 225** is that exotic
+object plus the literal without a spread, cut from both, written into the queue
+with its own closing conditions, and ticked at that scope.
+
+223 and 220 were **not** marked blocked in the queue: neither had been
+selected-and-halted the way 222 and 207 were, and marking them is a queue
+decision this iteration did not need to make. The next iteration should apply
+the same trigger check to them.
+
+**What was built.** `object/array.rs`: `Array`, an `Ordinary` plus `length`
+held beside the table, implementing `Internal` with the specification's
+`ArrayDefineOwnProperty` and `ArraySetLength` — an index at or past the length
+grows it (refused when `length` is not writable), a smaller length deletes
+existing indices highest first and stops one past an element that is not
+configurable. `Cell::Array`, `Objects::array` and `Objects::as_array`;
+`Array.prototype` as a third intrinsic, itself an array of length zero with no
+methods; `"[object Array]"` from `Object.prototype.toString`; `Op::Array(n)`
+and `Op::DefineIndex(i)`, compiled from a literal with holes left undefined
+and a spread still refused as item 211. The interpreter converts a value
+assigned to an array's writable `length` (`ToNumber`, then the exact-length
+test) and throws `RangeError` when it is not one; an object there is refused
+by name as **item 226**, because the specification converts it twice and the
+assignment still answers the object.
+
+**The change with the longest reach**: `Internal::own_property_mut` is gone.
+`Objects::set` stored into an existing own property through a mutable borrow,
+which would have let `a.length = 0` write a number and delete nothing — and
+gave every embedder's exotic object the same hole. A store is now
+`OrdinarySet`'s own `[[DefineOwnProperty]]` with the attributes the property
+had. Because that makes a definition the way an ordinary store happens,
+`Ordinary::define_own` now reports the replaced and stored values to the write
+barrier (`Property::edges`), not only the key. `Property::write` and
+`Properties::get_mut` had no caller left and were removed.
+
+**Evidence.** `crates/alo-js/tests/what_an_array_is.rs`, seventeen tests, every
+program run ordinarily and with the collector at every allocation and required
+to agree, plus object-model tests for the rules no script can reach yet (a
+non-configurable element stopping truncation, a non-writable length, a length
+nobody converted, key order) and a stress-mode test that the length's name
+survives. Hostile input: every prefix cut of an array program, twenty thousand
+nested brackets (refused by the parser's bound), a fifty-thousand-element
+literal and one of fifty thousand holes, a length of 2³²−1 shrunk to zero over
+two elements (two deletions), `NaN`, `Infinity`, `-1`, `1.5`, `2**32`, strings
+and `undefined` as lengths, and the largest index and one past it. The frozen
+service worker now compiles past byte 2847 to byte 2853, the `try` on the next
+line, which is item 210; the test pins both bytes.
+
+**Doctored runs, five.** Without growth three tests fail; without truncation
+two; with stores going round `define_own` five; without tracing the length's
+name two. The fifth — removing a heap scope that held `"length"` between
+interning it and allocating the array — failed nothing, and that was checked
+rather than shrugged at: `Heap::allocate` runs its collection with the
+incoming cell traced (`collect_with(Some(&cell))`), and the array traces the
+name. The scope was redundant, so it was removed and the real reason written
+beside `Objects::array`; a doc comment claiming the scope was needed had been
+drafted and was corrected before commit. All doctored files restored and the
+suite re-run green.
+
+**Roadmap.** The interpreter line gains a Built clause for the array literal
+and its Owed clause names 211 for spread, patterns and loops and 226 for an
+object as a length; the standard-library line gains a Built clause for the
+array as an object and `Array.prototype`, and its Owed clause says the
+constructor, `Array.isArray` and every method remain item 73's. Neither line is
+ticked. `docs/features.md`'s interpreter and standard-library lines,
+`CHANGELOG.md`, `REMAINING.md`, and queue items 73 and 211 move with it.
+
+**Compliance review.** Rules applied: law 1 (modern language only; no legacy
+array behaviour); law 3 — no stub, no `todo!`, no `unwrap` outside tests, and
+what is not built refuses by name (ADR 0013 § 3: `[].push` is absent, not
+approximate); law 4 — no `unsafe`; ADR 0013 § 4 and LOOP stage 2 § 2 — every
+length a script chooses is bounded by what exists, never by the number it
+names; ADR 0014 §§ 2, 5, 11 — rooting checked under stress, the barrier hears
+every stored edge, internal methods stay one trait; ADR 0013 § 9 and LOOP
+stage 2 § 1 — opened by a frozen real script and closed against it at compile
+time; one item per iteration with both cuts written into the queue. One file,
+one responsibility: the array is its own file; `interpret.rs`'s `step` went
+over clippy's length limit and `InitializeBinding`'s body moved to a method of
+its own rather than silencing the lint; the intrinsics' fields were renamed
+rather than allowing `struct_field_names`. No gate, lint or test was weakened.
+Existing tests that asserted the old refusal (`[1]` naming 211 in
+`what_a_program_evaluates_to.rs` and `compile.rs`, the frozen-script byte in
+`what_new_makes.rs`) were changed to the new truth, and the test embedder in
+`what_an_object_is.rs` lost the trait method that no longer exists. Nothing
+positions, sizes or paints, so layout assertions and reference renders do not
+apply.
+
+**Gate.** `scripts/gate.sh` exited 0: formatting clean, clippy silent with
+`-D warnings` across the workspace and all targets, all workspace tests pass,
+nothing stubbed, `unsafe` forbidden, Exhibit A on every file, every rented
+crate behind its boundary, no coordinate verb, the supervisor stop rule holds,
+`CHANGELOG.md` changed. `git diff --check` passes. The log was kept in this
+session's scratchpad, not committed.
+
+**Unresolved obligations.** Item 226 as written. The service worker cannot
+*run* — it needs `try` (210), `Object.values`/`Object.keys` (73), `concat` and
+`includes` (73), promises (75) and an embedder's `self` — so "the same page
+working" is met at compile time for the literal that opened the item, and no
+more. The next refusal, `try` at 2853, names 210, which depends on 73 for the
+`Error` objects a `catch` binds. Next unused queue number **227**; next ADR
+**0016**. 103 items are open (102 before; 225 was added already closed and 226
+added open). This is one iteration, not a finished queue or
+roadmap.

@@ -52,8 +52,9 @@ pub mod scope;
 use std::fmt;
 
 use crate::ast::{
-    Argument, Assign, Declaration, DeclarationKind, Expression, ExpressionKind, ForInit, Function,
-    Key, Member, Pattern, Program, Property, Statement, StatementKind, Template, Unary,
+    Argument, ArrayElement, Assign, Declaration, DeclarationKind, Expression, ExpressionKind,
+    ForInit, Function, Key, Member, Pattern, Program, Property, Statement, StatementKind, Template,
+    Unary,
 };
 use crate::bounds;
 use crate::code::{Chunk, Half, Op};
@@ -1110,8 +1111,8 @@ impl Compiler {
             // missing is one list rather than a refusal scattered through the
             // compiler.
             ExpressionKind::New { callee, arguments } => self.construct(callee, arguments, at)?,
-            ExpressionKind::Array(_)
-            | ExpressionKind::Class(_)
+            ExpressionKind::Array(elements) => self.array(elements, at)?,
+            ExpressionKind::Class(_)
             | ExpressionKind::TaggedTemplate { .. }
             | ExpressionKind::Super
             | ExpressionKind::NewTarget
@@ -1349,6 +1350,32 @@ impl Compiler {
         };
         let text = self.units(cooked)?;
         self.chunk.emit(Op::Text(text), at);
+        Ok(())
+    }
+
+    /// `[a, , b]` (queue item 225).
+    ///
+    /// A hole defines nothing — `1 in [0, , 2]` is `false`, which is the
+    /// difference between a hole and `undefined` — and still counts towards
+    /// the length. A spread is item 211's, because it reads an iterable.
+    fn array(&mut self, elements: &[ArrayElement], at: usize) -> Result<(), Refusal> {
+        if elements
+            .iter()
+            .any(|element| matches!(element, ArrayElement::Spread(_)))
+        {
+            return Err(Refusal::NotBuiltYet {
+                what: What::TakingAValueApart,
+                at,
+            });
+        }
+        let length = u32::try_from(elements.len()).map_err(|_| too_long(at))?;
+        self.chunk.emit(Op::Array(length), at);
+        for (index, element) in (0_u32..).zip(elements) {
+            if let ArrayElement::Item(expression) = element {
+                self.expression(expression)?;
+                self.chunk.emit(Op::DefineIndex(index), at);
+            }
+        }
         Ok(())
     }
 
@@ -1940,9 +1967,6 @@ impl Compiler {
 /// compiler.
 fn not_built_yet(kind: &ExpressionKind, at: usize) -> Refusal {
     let what = match kind {
-        // The empty array literal too: an array is an exotic object, and the
-        // exotic part is its `length`.
-        ExpressionKind::Array(_) => What::TakingAValueApart,
         ExpressionKind::Class(_)
         | ExpressionKind::Super
         | ExpressionKind::NewTarget
@@ -2199,7 +2223,7 @@ mod tests {
             ("function f(a = 1) {}", What::AParameterForm),
             ("f`a`", What::ATaggedTemplate),
             ("try { a; } catch {}", What::ACatch),
-            ("[1, 2]", What::TakingAValueApart),
+            ("[1, ...a]", What::TakingAValueApart),
             ("for (const a of b) {}", What::TakingAValueApart),
             ("/a/", What::ARegularExpression),
             ("1n", What::ABigInt),

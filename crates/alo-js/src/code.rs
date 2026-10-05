@@ -189,6 +189,18 @@ pub enum Op {
 
     /// Push a new object with no prototype and no properties.
     Object,
+    /// Push a new array of this length with no elements: `[a, , b]` is an
+    /// `Array(3)` followed by two [`Op::DefineIndex`]es (queue item 225).
+    ///
+    /// The specification makes the array empty and sets `length` at the end
+    /// when the literal ends in holes; making it at its final length is the
+    /// same array, because nothing a script can reach sees it before the
+    /// literal is finished.
+    Array(u32),
+    /// Define element `n` of the array below the value, leaving the array —
+    /// an array literal's `CreateDataPropertyOrThrow`, which *defines* rather
+    /// than sets, as an object literal's properties do.
+    DefineIndex(u32),
     /// Define an own property of the object below the value, leaving the
     /// object. This is an object literal's `a: 1`, which *defines* rather than
     /// sets: a setter on a prototype does not see it.

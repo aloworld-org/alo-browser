@@ -29,7 +29,7 @@
 //! a partial descriptor becomes once it has been completed against what is
 //! already there.
 
-use crate::heap::{Barrier, Tracer};
+use crate::heap::{Ref, Tracer};
 
 use super::value::{Stored, Value};
 
@@ -144,20 +144,13 @@ impl Property {
         self.configurable
     }
 
-    /// Write a new value into a data property, through the barrier.
-    ///
-    /// The caller has already decided it may: this is the store, and
-    /// [`Property::is_writable`] is the decision. It answers `false` on an
-    /// accessor, which is not a failure — it is the caller asking the wrong
-    /// question, and answering rather than panicking is the rule the whole
-    /// crate is written to.
-    pub fn write(&mut self, barrier: &mut Barrier, value: Value) -> bool {
-        match &mut self.what {
-            What::Data { value: held, .. } => {
-                held.set(barrier, value);
-                true
-            }
-            What::Accessor { .. } => false,
+    /// The references this property holds — a data property's value, or an
+    /// accessor's two halves — in a fixed order, so that a definition can tell
+    /// the barrier which edges it gained and which it lost, place by place.
+    pub fn edges(&self) -> [Option<Ref>; 2] {
+        match &self.what {
+            What::Data { value, .. } => [value.get().reference(), None],
+            What::Accessor { get, set } => [get.get().reference(), set.get().reference()],
         }
     }
 

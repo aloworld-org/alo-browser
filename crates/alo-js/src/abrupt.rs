@@ -163,6 +163,14 @@ pub enum Missing {
     /// would answer `"[object Function]"`: a wrong answer that reads like a
     /// right one is the one thing *absent beats approximate* is against.
     AFunctionsSourceText,
+    /// An object assigned to an array's `length` (queue item 226).
+    ///
+    /// `ArraySetLength` converts the value with `ToUint32` **and** with
+    /// `ToNumber`, so an object's `valueOf` is called twice and a page can
+    /// count the calls; and the assignment still evaluates to the object
+    /// rather than to the number it became. Converting it once in place, which
+    /// is what every other operator here does, would get both wrong.
+    AnObjectAsALength,
 }
 
 impl fmt::Display for Missing {
@@ -179,6 +187,10 @@ impl fmt::Display for Missing {
             Missing::AFunctionsSourceText => write!(
                 out,
                 "a function's own source text, which Function.prototype.toString answers with, is queue item 220"
+            ),
+            Missing::AnObjectAsALength => write!(
+                out,
+                "an object assigned to an array's length, which converts it twice, is queue item 226"
             ),
         }
     }

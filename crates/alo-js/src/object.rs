@@ -42,11 +42,13 @@
 //! ADR 0013 § 3. There are no builtins here, no realm and no global object
 //! (item 73) and there is no `BigInt` (item 207). A [`Function`] is here — it
 //! is an ordinary object with a `[[Call]]`'s worth of code beside it (item 209)
-//! — and so is the [`Environment`] a closure keeps. Everything else is absent
+//! — and so is the [`Environment`] a closure keeps, and the [`Array`] whose
+//! `length` keeps up with its indices (item 225). Everything else is absent
 //! rather than stubbed, because a stub is the one answer that defeats a page's
 //! own feature test.
 
 pub mod access;
+pub mod array;
 pub mod cell;
 pub mod environment;
 pub mod function;
@@ -69,6 +71,7 @@ use crate::heap::{Barrier, Full, Heap, Ref};
 use crate::unit::Unit;
 
 pub use access::{Fault, Found, Named, Set};
+pub use array::Array;
 pub use cell::Cell;
 pub use environment::Environment;
 pub use function::{Code, Function};
@@ -172,6 +175,34 @@ impl Objects {
     pub fn object(&mut self, prototype: Option<Ref>) -> Result<Ref, Refused> {
         let object = Ordinary::with_prototype(prototype);
         Ok(self.heap.allocate(Cell::Object(object))?)
+    }
+
+    /// Make an array of this length with no elements and this prototype:
+    /// `ArrayCreate` (queue item 225).
+    ///
+    /// **This is a safepoint, twice** — interning `"length"` and making the
+    /// array. Between the two the name is held by nothing but this function,
+    /// and that is safe for a reason worth knowing rather than a coincidence:
+    /// a collection that an allocation runs **traces the cell being
+    /// allocated** ([`Heap::allocate`]), and an array traces its length's name.
+    /// `what_an_array_is.rs` collects at every allocation to keep that true.
+    /// The prototype is the caller's to have rooted, as [`Objects::object`]'s
+    /// is.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn array(&mut self, prototype: Option<Ref>, length: u32) -> Result<Ref, Refused> {
+        let units: Vec<u16> = "length".encode_utf16().collect();
+        let key = self.key(&units)?;
+        let array = Array::new(prototype, key, length);
+        Ok(self.heap.allocate(Cell::Array(array))?)
+    }
+
+    /// The array a reference names, or [`None`] if it names anything else —
+    /// `IsArray`, for an object that is not a proxy (item 217 is the proxy).
+    pub fn as_array(&self, held: Ref) -> Option<&Array> {
+        self.heap.get(held)?.array()
     }
 
     /// Make a string of these code units.

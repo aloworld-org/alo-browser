@@ -10,9 +10,10 @@
 //! nothing in that file changes when it does.* This is that enumeration, and
 //! nothing in `heap.rs` changed.
 //!
-//! # Six kinds, and two of them are not a script's
+//! # Eight kinds, and two of them are not a script's
 //!
-//! An [`Ordinary`] object, a [`Function`], a [`Text`], a [`Symbol`] — and
+//! An [`Ordinary`] object, an [`Array`] (queue item 225), a [`Function`], a
+//! [`Text`], a [`Symbol`] — and
 //! [`Cell::Foreign`], which is an [`Exotic`] an embedder supplied. That one is
 //! ADR 0013 § 6 and ADR 0014 § 6 in a single line of code: the DOM is **in this
 //! heap**, traced by this collector, in the same graph as the closure that
@@ -34,6 +35,7 @@
 
 use crate::heap::{Survivors, Trace, Tracer};
 
+use super::array::Array;
 use super::environment::Environment;
 use super::function::Function;
 use super::internal::{Exotic, Internal};
@@ -47,6 +49,9 @@ use super::text::Text;
 pub enum Cell {
     /// An ordinary object.
     Object(Ordinary),
+    /// An array: an ordinary object whose `length` keeps up with its indices
+    /// (queue item 225).
+    Array(Array),
     /// A function, which is an ordinary object that can also be called (queue
     /// item 209).
     Function(Function),
@@ -76,6 +81,7 @@ impl Cell {
     pub fn internal(&self) -> Option<&dyn Internal> {
         match self {
             Cell::Object(object) => Some(object),
+            Cell::Array(array) => Some(array),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_ref()),
             Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) | Cell::Environment(_) => None,
@@ -86,6 +92,7 @@ impl Cell {
     pub fn internal_mut(&mut self) -> Option<&mut dyn Internal> {
         match self {
             Cell::Object(object) => Some(object),
+            Cell::Array(array) => Some(array),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_mut()),
             Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) | Cell::Environment(_) => None,
@@ -117,6 +124,15 @@ impl Cell {
     pub const fn ordinary(&self) -> Option<&Ordinary> {
         match self {
             Cell::Object(object) => Some(object),
+            _ => None,
+        }
+    }
+
+    /// The array this cell is, if it is one: `IsArray`, and what an assignment
+    /// to `length` asks before it converts the value (queue item 225).
+    pub const fn array(&self) -> Option<&Array> {
+        match self {
+            Cell::Array(array) => Some(array),
             _ => None,
         }
     }
@@ -166,6 +182,7 @@ impl Cell {
     pub fn describe(&self) -> &'static str {
         match self {
             Cell::Object(_) => "an object",
+            Cell::Array(_) => "an array",
             Cell::Function(_) => "a function",
             Cell::Text(_) => "a string",
             Cell::Symbol(_) => "a symbol",
@@ -180,6 +197,7 @@ impl Trace for Cell {
     fn trace(&self, tracer: &mut Tracer) {
         match self {
             Cell::Object(object) => object.trace(tracer),
+            Cell::Array(array) => array.trace(tracer),
             Cell::Function(function) => function.trace(tracer),
             Cell::Symbol(symbol) => symbol.trace(tracer),
             Cell::Foreign(exotic) => exotic.trace(tracer),
@@ -195,6 +213,7 @@ impl Trace for Cell {
     fn footprint(&self) -> usize {
         match self {
             Cell::Object(object) => object.footprint(),
+            Cell::Array(array) => array.footprint(),
             Cell::Function(function) => function.footprint(),
             Cell::Text(text) => text.footprint(),
             Cell::Foreign(exotic) => exotic.footprint(),

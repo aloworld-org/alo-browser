@@ -87,18 +87,6 @@ impl Properties {
         self.named.get(at)?.as_ref().map(|(_, property)| property)
     }
 
-    /// The property this key names, to be written to.
-    pub fn get_mut(&mut self, key: Key) -> Option<&mut Property> {
-        if let Some(at) = key.as_index() {
-            return self.indexed.get_mut(&at);
-        }
-        let at = *self.at.get(&key)?;
-        self.named
-            .get_mut(at)?
-            .as_mut()
-            .map(|(_, property)| property)
-    }
-
     /// Put a property under this key, replacing whatever was there.
     ///
     /// Replacing keeps the key's **place** in the order, which is the half of
@@ -162,6 +150,14 @@ impl Properties {
             }
         }
         keys
+    }
+
+    /// The indices at or above `from`, ascending.
+    ///
+    /// Only the indices that are there: an array whose `length` drops from four
+    /// billion to zero over three elements visits three (queue item 225).
+    pub fn indices_from(&self, from: u32) -> Vec<u32> {
+        self.indexed.range(from..).map(|(at, _)| *at).collect()
     }
 
     /// Report every edge the table holds: the keys as well as the values.

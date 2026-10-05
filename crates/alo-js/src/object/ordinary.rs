@@ -69,6 +69,12 @@ impl Ordinary {
         self.properties.is_empty()
     }
 
+    /// The own indices at or above `from`, ascending — what an array's
+    /// shrinking `length` deletes (queue item 225).
+    pub fn indices_from(&self, from: u32) -> Vec<u32> {
+        self.properties.indices_from(from)
+    }
+
     /// Report every edge: the prototype, and everything the table holds.
     pub fn trace(&self, tracer: &mut Tracer) {
         self.prototype.trace(tracer);
@@ -86,17 +92,22 @@ impl Internal for Ordinary {
         self.properties.get(key)
     }
 
-    fn own_property_mut(&mut self, key: Key) -> Option<&mut Property> {
-        self.properties.get_mut(key)
-    }
-
     fn define_own(&mut self, barrier: &mut Barrier, key: Key, property: Property) -> bool {
         // A key that is a reference is a reference this object now holds, so it
-        // is a store like any other and the barrier hears about it. The
-        // property's own value went through [`Stored`](super::Stored) when it
-        // was built, which is the case ADR 0014 § 5 calls a hole in the wording
-        // rather than in the barrier: it was not in the heap yet.
+        // is a store like any other and the barrier hears about it. So are the
+        // property's values: a definition is also how `a.b = c` stores into a
+        // property `a` already has (queue item 225), so what the property held
+        // before is an edge lost and what it holds now is one gained.
         barrier.stored(None, key.reference());
+        let was = self
+            .properties
+            .get(key)
+            .map_or([None, None], Property::edges);
+        for (lost, gained) in was.into_iter().zip(property.edges()) {
+            if lost.is_some() || gained.is_some() {
+                barrier.stored(lost, gained);
+            }
+        }
         self.properties.put(key, property);
         true
     }

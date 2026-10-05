@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Arrays exist.** `[1, 2, 3]` makes an array, and `[1, , 3]` makes one that
+  is three long with genuinely nothing in the middle, so `1 in [1, , 3]` is
+  `false` as it is in every browser. Writing past the end makes an array
+  longer, setting `length` smaller throws the end away, and a length that is
+  not one — `-1`, `1.5` — is a `RangeError`. Arrays have no methods yet:
+  `[].push` is `undefined` rather than something that does half of what it
+  should. alo's own service worker, frozen in the corpus, used to stop at
+  `let changedTypes = [];`; it now compiles to the `try` on the next line,
+  which is separate work. Assigning an *object* to `length` is refused by name
+  for now, because doing it correctly means asking the object for its number
+  twice. Underneath, every write to an existing property now goes through the
+  same step as defining one, so special objects — arrays today, a page's own
+  elements later — see every change rather than only the first.
+
 - **`new` works.** A function written with `function` now has a `prototype`,
   and `new Thing(a, b)` makes an object that inherits from it, runs `Thing`
   with that object as `this`, and hands it back — or hands back whatever object

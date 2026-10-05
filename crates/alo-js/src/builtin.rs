@@ -5,20 +5,26 @@
 //! The objects a realm has before a script has run a line (queue item 218).
 //!
 //! ADR 0013 § 3 — *absent beats approximate* — is why there were none of these
-//! until now, and it is also why there are exactly two: `Object.prototype` and
-//! `Function.prototype`. Those two are not a library, they are **what an
-//! ordinary object and an ordinary function are**. Until they existed, `{}` had
+//! until now, and it is also why there are exactly three: `Object.prototype`,
+//! `Function.prototype` and `Array.prototype`. Those are not a library, they
+//! are **what an ordinary object, an ordinary function and an array are**. Until they existed, `{}` had
 //! no prototype at all, so `({}) + ''` was a `TypeError` rather than
 //! `"[object Object]"` and no page could have run.
 //!
 //! # An intrinsic is rooted, and everything else hangs off it
 //!
-//! [`Intrinsics`] holds two [`Root`]s. Every builtin method is a property of
-//! one of those two objects, so the collector reaches all of them from the
-//! realm and none of them needs a root of its own. That is also the reason the
-//! two are made in the order they are: `Object.prototype` first with a null
-//! prototype, then `Function.prototype` as a function *whose* prototype is
+//! [`Intrinsics`] holds three [`Root`]s. Every builtin method is a property of
+//! one of those objects, so the collector reaches all of them from the realm
+//! and none of them needs a root of its own. That is also the reason they are
+//! made in the order they are: `Object.prototype` first with a null prototype,
+//! then `Function.prototype` as a function *whose* prototype is
 //! `Object.prototype`, then the methods on both.
+//!
+//! `Array.prototype` is last and **is itself an array**, of length zero, which
+//! is the specification's and is what `Object.prototype.toString` says about
+//! it (queue item 225). It has **no methods yet**: `[].push` is `undefined`,
+//! which a page's own feature test reads correctly, where a `push` that did
+//! half of what the specification says would not be (item 73).
 //!
 //! # What is deliberately not here
 //!
@@ -29,8 +35,9 @@
 //! `Object.prototype` is still reachable from a script — `({}).__proto__` — so
 //! nothing here is untestable from the language it belongs to.
 //!
-//! No `Array`, `Math`, `JSON`, `Error`, `String`, `Number` or `Boolean`, no
-//! well-known symbols and no weak collections. Each is named in the queue
+//! No `Array` constructor and no array method, no `Math`, `JSON`, `Error`,
+//! `String`, `Number` or `Boolean`, no well-known symbols and no weak
+//! collections. Each is named in the queue
 //! rather than half-built here.
 
 pub mod function_prototype;
@@ -44,8 +51,12 @@ use crate::object::{Fault, Native, Objects, Property, Value};
 /// The objects a realm owns.
 #[derive(Debug)]
 pub struct Intrinsics {
-    object_prototype: Root,
-    function_prototype: Root,
+    /// `Object.prototype`.
+    object: Root,
+    /// `Function.prototype`.
+    function: Root,
+    /// `Array.prototype`.
+    array: Root,
 }
 
 impl Intrinsics {
@@ -78,9 +89,17 @@ impl Intrinsics {
             .map_err(|why| Escape::refused(why, 0))?;
         let function_prototype = objects.heap_mut().root(function_prototype);
 
+        // `Array.prototype` is an array of length zero inheriting from
+        // `Object.prototype`, which is still rooted above.
+        let array_prototype = objects
+            .array(Some(above), 0)
+            .map_err(|why| Escape::refused(why, 0))?;
+        let array_prototype = objects.heap_mut().root(array_prototype);
+
         let intrinsics = Self {
-            object_prototype,
-            function_prototype,
+            object: object_prototype,
+            function: function_prototype,
+            array: array_prototype,
         };
         object_prototype::furnish(objects, &intrinsics)?;
         function_prototype::furnish(objects, &intrinsics)?;
@@ -95,7 +114,20 @@ impl Intrinsics {
     pub fn object_prototype(&self, objects: &Objects) -> Result<Ref, Escape> {
         objects
             .heap()
-            .holding(&self.object_prototype)
+            .holding(&self.object)
+            .ok_or_else(|| Escape::fault(Fault::Gone))
+    }
+
+    /// `Array.prototype` — what every array literal inherits from (queue item
+    /// 225).
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn array_prototype(&self, objects: &Objects) -> Result<Ref, Escape> {
+        objects
+            .heap()
+            .holding(&self.array)
             .ok_or_else(|| Escape::fault(Fault::Gone))
     }
 
@@ -107,7 +139,7 @@ impl Intrinsics {
     pub fn function_prototype(&self, objects: &Objects) -> Result<Ref, Escape> {
         objects
             .heap()
-            .holding(&self.function_prototype)
+            .holding(&self.function)
             .ok_or_else(|| Escape::fault(Fault::Gone))
     }
 }

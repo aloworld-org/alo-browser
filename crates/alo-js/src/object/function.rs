@@ -171,10 +171,6 @@ impl Internal for Function {
         self.ordinary.own_property(key)
     }
 
-    fn own_property_mut(&mut self, key: Key) -> Option<&mut Property> {
-        self.ordinary.own_property_mut(key)
-    }
-
     fn define_own(&mut self, barrier: &mut Barrier, key: Key, property: Property) -> bool {
         self.ordinary.define_own(barrier, key, property)
     }

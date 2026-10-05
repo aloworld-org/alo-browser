@@ -54,17 +54,23 @@ pub trait Internal {
     /// `[[GetOwnProperty]]`: the property this object itself has under `key`.
     fn own_property(&self, key: Key) -> Option<&Property>;
 
-    /// The same, to be written to — which is how a data property's value is
-    /// changed without redefining it.
-    fn own_property_mut(&mut self, key: Key) -> Option<&mut Property>;
-
     /// `[[DefineOwnProperty]]`, after the caller has decided it is allowed.
+    ///
+    /// **Every write is one of these**, including `a.b = 1` on a property `a`
+    /// already has: the specification's `OrdinarySet` stores into an existing
+    /// property by defining it again with the attributes it had, and that is
+    /// what lets an array see `a.length = 0` (queue item 225). There is no
+    /// mutable borrow of a property in this trait for exactly that reason — a
+    /// store that went round this method would go round every exotic object's
+    /// rules with it.
     ///
     /// The validation — is it configurable, is the object extensible — is
     /// [`access`](super::access)'s, because it is the same for every object and
     /// an exotic one that reimplemented it would be a place for the rules to
     /// drift. What this does is the storing, and an exotic object that refuses
-    /// a key for a reason of its own answers `false` here.
+    /// a key for a reason of its own answers `false` here — having stored what
+    /// it could first, when the rule says so: an array whose shrinking length
+    /// meets an element it may not delete keeps the length one past it.
     fn define_own(&mut self, barrier: &mut Barrier, key: Key, property: Property) -> bool;
 
     /// `[[Delete]]`, after the caller has checked the property is configurable.

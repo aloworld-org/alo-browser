@@ -106,8 +106,12 @@ pub enum Found {
 /// Read out of the heap and held by value, so that the borrow is over before
 /// anything is changed.
 enum Shape {
-    /// A data property, and whether it may be written.
-    Data { writable: bool },
+    /// A data property, and its attributes.
+    Data {
+        writable: bool,
+        enumerable: bool,
+        configurable: bool,
+    },
     /// An accessor, and its setter.
     Accessor(Value),
 }
@@ -226,6 +230,8 @@ impl Objects {
             let shape = match self.own(holder)?.own_property(key) {
                 Some(property) if property.is_data() => Some(Shape::Data {
                     writable: property.is_writable(),
+                    enumerable: property.is_enumerable(),
+                    configurable: property.is_configurable(),
                 }),
                 Some(property) => Some(Shape::Accessor(
                     property.setter().unwrap_or(Value::Undefined),
@@ -234,20 +240,29 @@ impl Objects {
             };
             match shape {
                 Some(Shape::Accessor(setter)) => return Ok(Set::Setter(setter)),
-                Some(Shape::Data { writable: false }) => return Ok(Set::Refused),
-                Some(Shape::Data { writable: true }) if holder == object => {
-                    // The one case that is a store rather than a definition: an
-                    // own writable data property keeps its attributes and its
-                    // place in the order, so this must not go through
-                    // [`Objects::define`].
+                Some(Shape::Data {
+                    writable: false, ..
+                }) => return Ok(Set::Refused),
+                Some(Shape::Data {
+                    writable: true,
+                    enumerable,
+                    configurable,
+                }) if holder == object => {
+                    // An own writable data property is stored into by defining
+                    // it again with the attributes it had — `OrdinarySet`'s own
+                    // `Receiver.[[DefineOwnProperty]](P, { [[Value]]: V })`.
+                    // The table keeps its place in the order, and an exotic
+                    // object sees the store: that is how an array hears
+                    // `a.length = 0` (queue item 225). A writable property may
+                    // always be given a new value, so there is nothing for
+                    // [`Objects::define`] to check.
+                    let property = Property::data(value, true, enumerable, configurable);
                     let wrote = self.write(object, |internal, barrier| {
-                        internal
-                            .own_property_mut(key)
-                            .is_some_and(|property| property.write(barrier, value))
+                        internal.define_own(barrier, key, property)
                     })?;
                     return Ok(if wrote { Set::Done } else { Set::Refused });
                 }
-                Some(Shape::Data { writable: true }) | None => {}
+                Some(Shape::Data { writable: true, .. }) | None => {}
             }
         }
 

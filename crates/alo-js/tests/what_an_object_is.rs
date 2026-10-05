@@ -72,10 +72,6 @@ impl Internal for Node {
         self.own.own_property(key)
     }
 
-    fn own_property_mut(&mut self, key: Key) -> Option<&mut Property> {
-        self.own.own_property_mut(key)
-    }
-
     fn define_own(&mut self, barrier: &mut Barrier, key: Key, property: Property) -> bool {
         !self.sealed && self.own.define_own(barrier, key, property)
     }

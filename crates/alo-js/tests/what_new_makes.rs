@@ -443,11 +443,9 @@ fn the_frozen_service_worker_compiles_past_the_new_that_stopped_it() {
         Err(Refusal::NotBuiltYet { what, at }) => {
             assert_ne!(what, What::AClass, "no construction stops it now");
             assert!(at > 1438, "it gets past the `new` at 1438, to {at}");
-            // What stops it next is the array literal `let changedTypes = [];`
-            // in the push handler — queue item 211, and a different item.
-            assert_eq!(what, What::TakingAValueApart);
-            assert_eq!(at, 2847);
-            assert_eq!(source.get(at..at.saturating_add(2)), Some("[]"));
+            // What stopped it next was the array literal at 2847, which item
+            // 225 built; `what_an_array_is.rs` says where it stops now.
+            assert!(at > 2847, "and past the array literal at 2847, to {at}");
         }
         other => panic!("expected the next unbuilt item, got {other:?}"),
     }

@@ -41,6 +41,15 @@ next unused ADR remains 0016. The service worker's next refusal names item 211,
 whose dependencies (73, 75) are not built — a real-script trigger for 211 is
 not the same as its dependencies being met.
 
+Iteration 124 took the piece of that dependency the trigger needed: item 225,
+cut from 73 and 211, built the array exotic object, `Array.prototype` and the
+array literal without a spread. The service worker now compiles to the `try`
+at byte 2853, which is item 210 — whose dependency on 73 is for the `Error`
+objects a `catch` binds. An object assigned to an array's `length` is cut to
+item 226. 225 was added already closed and 226 was added open, so 103 queue
+items are open. The next
+unused queue number is 227; the next unused ADR remains 0016.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -441,13 +441,7 @@ impl Engine {
 
             Op::LoadBinding { hops, slot } => self.load_binding(run, hops, slot, at, pc)?,
             Op::StoreBinding { hops, slot } => self.store_binding(run, hops, slot, at, pc)?,
-            Op::InitializeBinding { hops, slot } => {
-                let environment = self.environment_at(run, hops)?;
-                let value = self.pop(run)?;
-                let slot =
-                    usize::try_from(slot).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
-                self.put_binding(environment, slot, value)?;
-            }
+            Op::InitializeBinding { hops, slot } => self.initialize_binding(run, hops, slot)?,
 
             Op::LoadGlobal(which) => self.load_global(run, which, at)?,
             Op::StoreGlobal(which) => self.store_global(run, which, at)?,
@@ -476,6 +470,8 @@ impl Engine {
             Op::ToText => self.make_text(run, at, pc)?,
 
             Op::Object => self.new_object(run, at)?,
+            Op::Array(length) => self.new_array(run, length, at)?,
+            Op::DefineIndex(index) => self.define_index(run, index)?,
             Op::DefineNamed(which) => self.define_named(run, which)?,
             Op::DefineKeyed => self.define_keyed(run, at, pc)?,
             Op::DefineNamedAccessor { name, half } => {
@@ -669,6 +665,38 @@ impl Engine {
             .object(Some(above))
             .map_err(|why| Escape::refused(why, at))?;
         self.push(run, Value::Object(object))
+    }
+
+    /// Give a binding of an environment its first value, which ends its dead
+    /// zone.
+    fn initialize_binding(&mut self, run: &mut Run, hops: u32, slot: u32) -> Result<(), Escape> {
+        let environment = self.environment_at(run, hops)?;
+        let value = self.pop(run)?;
+        let slot = usize::try_from(slot).map_err(|_| Escape::Broken(Internal::StackIsWrong))?;
+        self.put_binding(environment, slot, value)
+    }
+
+    /// `[a, , b]` — an array of the literal's length, inheriting from
+    /// `Array.prototype` (queue item 225).
+    fn new_array(&mut self, run: &mut Run, length: u32, at: usize) -> Result<(), Escape> {
+        let above = self.realm.intrinsics().array_prototype(&self.objects)?;
+        let array = self
+            .objects
+            .array(Some(above), length)
+            .map_err(|why| Escape::refused(why, at))?;
+        self.push(run, Value::Object(array))
+    }
+
+    /// `[a]`, one element of it.
+    fn define_index(&mut self, run: &mut Run, index: u32) -> Result<(), Escape> {
+        // The compiler numbers a literal's elements from zero and a literal is
+        // shorter than its source, so an index past the largest is its bug.
+        let key = Key::index(index).ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        let array = self.peek(run, 1)?;
+        let value = self.peek(run, 0)?;
+        self.define(array, key, value)?;
+        self.pop(run)?;
+        Ok(())
     }
 
     /// `{ a: 1 }`, one property of it.
