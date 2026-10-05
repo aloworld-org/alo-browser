@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An error a page did not catch now says where it happened.** The load
+  report gives the script, line and column of the throw, and of each call it
+  passed through on the way out — so an error in a function one script
+  defined and another called points into the first. Columns are counted the
+  way other browsers' developer tools count them, which is what finds
+  anything in a minified script that is all one line. A runaway recursion
+  lists its innermost 32 calls and says how many more there were.
+
 - **An error a page did not catch is reported by what it says.** Where the
   load report used to say only that a script threw "an object", it now says
   `TypeError: no such thing` — the error's own name, including one the page

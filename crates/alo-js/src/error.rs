@@ -406,7 +406,7 @@ pub struct Position {
     /// Code units rather than characters, because that is what every other
     /// engine's stack traces and every developer tool count in — a column we
     /// print can be compared with a column somebody else printed. It is also
-    /// what queue item 78's stack traces will need.
+    /// how a throw nothing caught is placed (queue item 241).
     pub column: usize,
 }
 

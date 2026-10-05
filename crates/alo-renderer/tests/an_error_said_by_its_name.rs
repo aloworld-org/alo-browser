@@ -38,8 +38,32 @@ fn run(source: &str) -> (Renderer, Vec<String>) {
     let issues = issues
         .into_iter()
         .filter(|issue| issue.starts_with("script "))
+        .map(|issue| without_its_place(&issue))
         .collect();
     (renderer, issues)
+}
+
+/// An uncaught throw's report with where it was taken off the end.
+///
+/// *Where* is queue item 241's and is asserted in
+/// `where_a_page_threw.rs`; this file is about *what* is said. So the place
+/// is checked to be there and to be in the page's one script, on its one
+/// line, and is then set aside — a report with no place, or a place
+/// somewhere else, is left whole and fails whichever test reads it.
+fn without_its_place(issue: &str) -> String {
+    if !issue.contains("uncaught: ") {
+        return issue.to_owned();
+    }
+    match issue.rsplit_once(" (at script 1, line 1, column ") {
+        Some((said, column))
+            if column
+                .strip_suffix(')')
+                .is_some_and(|number| number.parse::<usize>().is_ok()) =>
+        {
+            said.to_owned()
+        }
+        _ => issue.to_owned(),
+    }
 }
 
 /// What one expression evaluates to in the page's engine, as text.

@@ -47,7 +47,12 @@ impl Seq {
 #[derive(Debug)]
 pub(super) enum Work {
     /// Run a classic script's text.
-    Script(String),
+    Script {
+        /// The name a throw in it is placed by.
+        name: String,
+        /// The text.
+        text: String,
+    },
     /// Call each callee in turn with the same `this` and arguments — one
     /// listener after another for one event, or a timer's one callback.
     Calls {
@@ -115,7 +120,7 @@ impl Tasks {
     /// Let go of what a task was holding.
     pub(super) fn release(engine: &mut Engine, work: Work) {
         match work {
-            Work::Script(_) => {}
+            Work::Script { .. } => {}
             Work::Calls { list, .. } => engine.objects().heap_mut().release(list),
         }
     }
@@ -196,15 +201,23 @@ pub(super) fn call(
 mod tests {
     use super::*;
 
+    /// A script task, its name and text the same.
+    fn script(text: &str) -> Work {
+        Work::Script {
+            name: text.to_owned(),
+            text: text.to_owned(),
+        }
+    }
+
     #[test]
     fn tasks_are_numbered_in_the_order_they_join_and_leave_oldest_first() {
         let mut tasks = Tasks::default();
-        let first = tasks.push(Work::Script("1".to_owned()));
-        let second = tasks.push(Work::Script("2".to_owned()));
+        let first = tasks.push(script("1"));
+        let second = tasks.push(script("2"));
         assert!(first < second);
         assert_eq!((first.number(), second.number()), (0, 1));
         assert_eq!(tasks.pop().map(|task| task.seq), Some(first));
-        let third = tasks.push(Work::Script("3".to_owned()));
+        let third = tasks.push(script("3"));
         assert_eq!(tasks.pop().map(|task| task.seq), Some(second));
         assert_eq!(tasks.pop().map(|task| task.seq), Some(third));
         assert!(tasks.pop().is_none());

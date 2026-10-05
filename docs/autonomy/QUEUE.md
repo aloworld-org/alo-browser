@@ -3345,11 +3345,92 @@ The long pole, and the thing most of section E is unreachable without.
   callback registered inside a frame runs in the second.
 
 - [ ] **77. Modules**: ESM, dynamic `import()`, and the loader that fetches them.
-  *Depends on 53, 72.*
+  *Depends on 53, 72.* **Needs design** (iteration 138, as `LOOP.md` step 2
+  asks of an item that cannot name its contract): it has no closing
+  condition, and a loader is a decision no ADR has made — a renderer cannot
+  fetch (ADR 0005), so who fetches a module graph, under which policy and
+  CORS mode, and what crosses the boundary is the same question item 238
+  waits on for a classic script, with linking and a module map per realm on
+  top. Nothing reaches it either: no corpus page has a module script, and the
+  frozen `alo-theme-generator` is a Node program (`node:fs`), not a page's.
 
 - [ ] **78. Errors and stack traces** good enough to debug somebody else's
   minified page.
-  *Depends on 72.*
+  *Depends on 72.* **Iteration 138 cut item 241 from it**, built: an uncaught
+  throw is reported with the script, line and column of the throw and of
+  every call it left. What is left here: `error.stack` — a trace taken when an
+  error is **made**, which a page can read and a rethrow does not change —
+  and the function names in it (item 220); a builtin named as a call in a
+  trace; source maps; and the browser process showing a person any of this
+  (developer tools, item 129).
+
+- [x] **241. An uncaught throw placed: script, line and column, and the calls
+  it left.** *Cut from 78 (iteration 138). Depends on 72 and 235.* A throw no
+  `try` caught is reported by **where** as well as what: the script, line and
+  column of the throw, then of each call it unwound through on its way out,
+  innermost first. `alo-js`'s `interpret/unwound.rs`: when `land` finds
+  nothing guarding a throw — the last moment the calls it left exist — it
+  reads every frame, innermost first, as a `Place` (the `Rc<Unit>` and the
+  byte offset of the instruction the frame was on, `Frame::now`, so a throw
+  from a `valueOf` an operator rewound for is placed at the operator), at
+  most `bounds::PLACES_IN_A_TRACE` (32) with the rest counted.
+  `Engine::unwound()` answers it after a run, call or job answered a throw;
+  every run starts from nothing (`two_lists`), so a caught throw and the next
+  run leave nothing; `Engine::checkpoint`'s report is handed it with each
+  job's throw. `alo-renderer`'s `event_loop/source.rs`: the loop compiles each
+  script itself and keeps it, under the name its embedder gave
+  (`EventLoop::queue_script(name, text)`; a page's are `script N`, numbered
+  as the load's issues number them), so a function one script declared is
+  placed in that script when another calls it. A line and column are
+  `alo_js::Position`'s — lines ended by every ECMAScript line terminator,
+  columns in UTF-16 code units from one — counted from the nearest of marks
+  laid every 4096 bytes when the script is kept, so a page throwing in a loop
+  cannot make the renderer re-read a one-line bundle from the start for every
+  place. A program the loop did not compile is said by its byte offset. The
+  report reads `uncaught: Error: e (at script 2, line 3, column 5; called
+  from script 1, line 1, column 9; and 4 calls further out)`; a throw no call
+  was entered for (a callee that is not a function) is placed nowhere rather
+  than somewhere invented.
+  *Closes when:* a page's throw on a script's third line is placed there; a
+  function one script declared and another called is placed in the first and
+  called from the second; a column in a one-line script tens of kilobytes long
+  is right in UTF-16 code units; and a runaway recursion says 32 places and
+  how many more.
+  *Closed by:* `crates/alo-renderer/tests/where_a_page_threw.rs`, twelve
+  tests through a real `Renderer` — the four clauses (line 3 column 5; script
+  1 line 2 column 10 called from script 2 line 1 column 9; column 20005 of a
+  20-kilobyte line; 32 places at line 2 column 3 and `10208 calls further
+  out`), a column that is 16 in code units where bytes would say 19 and
+  characters 15, `\r\n`, `\r`, U+2028 and U+2029 each ending a line, a
+  script refused by its policy still counted so names agree with the page, a
+  job placed in the function that was queued, a rethrow placed at the
+  rethrow, a builtin's throw placed at the call that entered it, a script
+  that did not parse not placed, and every prefix of a page throwing from
+  deep calls in a script and a job. `crates/alo-js/tests/where_a_throw_was.rs`,
+  eleven tests of the engine half with offsets counted by hand — the throw,
+  the waiting calls, the recursion's 32 + 10208 = `CALLS_ON_THE_STACK`, a
+  caught throw and the next run leaving nothing, two programs told apart by
+  identity, engine-thrown errors whose innermost place is the throw's own
+  offset, a `valueOf` and a getter, an embedder's call, a non-function callee
+  placed nowhere, and a job's throw handed to the checkpoint's report.
+  `source.rs` has five unit tests (marks against counting from the start
+  across every kind of line ending and character width, a mark never
+  splitting `\r\n`, a one-line bundle, an unknown program) and `report.rs`
+  one (the trace's words).
+
+- [ ] **242. A ceiling on what one load says about its scripts.** *Found
+  while building 241.* Each uncaught throw is one line in a load's issues,
+  and a page can queue as many throwing jobs as it likes in one load: nothing
+  counts the lines, and the whole answer crosses the wire in one message
+  capped at 64 MiB (`wire::LARGEST_MESSAGE`). Past the cap the renderer
+  cannot send its answer and the tab sees a renderer that failed — safe, but
+  the page's every issue is lost and the reason is not said. Item 239 cut
+  each string a report repeats to 1024 code units and 241 bounds a trace at
+  32 places, so one report is bounded; how many is this item: a ceiling on
+  issues per load, with how many more there were said, as
+  `MOST_OBJECTIONS` already does for objections. *Depends on 236. Closes
+  when:* a page queueing a hundred thousand throwing jobs loads, says the
+  ceiling's worth, and says how many it left out.
 
 - [ ] **79. `Intl`, rented** rather than written.
   *Depends on 73.*

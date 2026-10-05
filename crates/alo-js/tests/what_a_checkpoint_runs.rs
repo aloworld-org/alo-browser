@@ -93,7 +93,7 @@ fn task(engine: &mut Engine, source: &str) -> Result<Value, String> {
 /// A checkpoint, collecting what the jobs that threw threw.
 fn checkpoint(engine: &mut Engine) -> (Result<Drained, Escape>, Vec<String>) {
     let mut reports = Vec::new();
-    let outcome = engine.checkpoint(&mut |objects, thrown| {
+    let outcome = engine.checkpoint(&mut |objects, thrown, _| {
         reports.push(match thrown {
             Thrown::Error { kind, message, .. } => format!("{}: {message}", kind.name()),
             Thrown::Value { value, .. } => match value {

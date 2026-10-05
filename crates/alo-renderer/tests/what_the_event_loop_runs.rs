@@ -77,9 +77,9 @@ fn turns(pieces: &[Queue], stress: bool) -> String {
         return "no loop".to_owned();
     };
     let mut said = Vec::new();
-    for piece in pieces {
+    for (number, piece) in pieces.iter().enumerate() {
         let queued = match piece {
-            Queue::Script(source) => looping.queue_script(*source),
+            Queue::Script(source) => looping.queue_script(format!("piece {number}"), *source),
             Queue::Calls(callees, this, argument) => {
                 let mut values = Vec::new();
                 // Each is a global, so it stays reachable between reading it
@@ -212,7 +212,7 @@ fn the_oldest_task_runs_next() {
         "out += 'y'; queueMicrotask(() => { out += 'Y'; });",
         "out += 'z'; queueMicrotask(() => { out += 'Z'; });",
     ] {
-        match looping.queue_script(source) {
+        match looping.queue_script("a script", source) {
             Ok(seq) => queued.push(seq),
             Err(stopped) => panic!("a fresh page queues: {stopped}"),
         }
@@ -278,7 +278,7 @@ fn a_throw_is_reported_and_the_loop_runs_on() {
                 Script("var out = ''; queueMicrotask(() => { out += 'j'; }); throw 'no';"),
                 Script("out += 'n';"),
             ],
-            "jn | uncaught: \"no\"",
+            "jn | uncaught: \"no\" (at piece 0, line 1, column 54)",
         ),
         // A job that threw: reported, and the next job runs.
         (
@@ -286,7 +286,8 @@ fn a_throw_is_reported_and_the_loop_runs_on() {
                 "var out = ''; queueMicrotask(() => { null.x; }); \
                  queueMicrotask(() => { out += 'after'; });",
             )],
-            "after | uncaught: TypeError: cannot read property 'x' of null",
+            "after | uncaught: TypeError: cannot read property 'x' of null (at piece 0, line 1, \
+             column 38)",
         ),
         // A listener that threw: reported, and the next listener is called.
         (
@@ -295,12 +296,13 @@ fn a_throw_is_reported_and_the_loop_runs_on() {
                 Script("function bad() { throw 7; }"),
                 Calls(&["bad", "two"], "target", "event"),
             ],
-            "2b | uncaught: 7",
+            "2b | uncaught: 7 (at piece 1, line 1, column 18)",
         ),
         // `queueMicrotask` given something that is not a function.
         (
             &[Script("var out = 'q'; queueMicrotask(1);")],
-            "q | uncaught: TypeError: 1 is not a function, and only a function can be queued",
+            "q | uncaught: TypeError: 1 is not a function, and only a function can be queued \
+             (at piece 0, line 1, column 16)",
         ),
         // A script that is not one is a SyntaxError, and nothing of it ran.
         (
@@ -326,6 +328,9 @@ fn a_callee_that_is_not_a_function_is_reported_when_its_turn_comes() {
         answered.starts_with("1a2b | uncaught: TypeError: "),
         "{answered}"
     );
+    // No call was entered, so nothing is placed rather than something made up
+    // (queue item 241).
+    assert!(!answered.contains("(at "), "{answered}");
 }
 
 /// Queue a call of global `f` with a fresh object `{ v: 'kept' }` as its
@@ -349,7 +354,7 @@ fn a_waiting_task_holds_what_it_will_call_through_a_collection() {
         let Some(mut looping) = a_loop(stress) else {
             panic!("an empty heap holds a loop");
         };
-        let _ = looping.queue_script("var out = ''; function f(x) { out += x.v; }");
+        let _ = looping.queue_script("a script", "var out = ''; function f(x) { out += x.v; }");
         while looping.run_next().is_some() {}
         let Ok(object) = queue_with_a_fresh_object(&mut looping) else {
             panic!("a fresh page queues a call");
@@ -387,6 +392,7 @@ fn many_tasks_leak_nothing() {
         panic!("an empty heap holds a loop");
     };
     let _ = looping.queue_script(
+        "a script",
         "var out = 0; var target = {}; function count(e) { out += 1; queueMicrotask(() => {}); }",
     );
     while looping.run_next().is_some() {}
@@ -439,11 +445,11 @@ fn a_stopped_page_drops_what_was_waiting_and_runs_nothing_more() {
     let Some(mut looping) = a_loop(false) else {
         panic!("an empty heap holds a loop");
     };
-    let _ = looping.queue_script("var out = ''; function f(x) { out += x.v; }");
+    let _ = looping.queue_script("a script", "var out = ''; function f(x) { out += x.v; }");
     while looping.run_next().is_some() {}
     // A straight-line script first: it makes no call and no backward jump, so
     // the engine would never read the switch inside it.
-    let _ = looping.queue_script("out += 'never';");
+    let _ = looping.queue_script("a script", "out += 'never';");
     let Ok(object) = queue_with_a_fresh_object(&mut looping) else {
         panic!("a fresh page queues a call");
     };
@@ -454,7 +460,7 @@ fn a_stopped_page_drops_what_was_waiting_and_runs_nothing_more() {
     assert_eq!(looping.waiting(), 0, "every waiting task dropped");
     assert!(looping.run_next().is_none());
     assert_eq!(
-        looping.queue_script("out += 'later';"),
+        looping.queue_script("a script", "out += 'later';"),
         Err(Stopped::Escaped(Escape::Interrupted))
     );
     assert!(looping.queue_calls(&[], Value::Undefined, &[]).is_err());
@@ -473,9 +479,10 @@ fn an_endless_task_is_stopped_from_another_thread_and_its_jobs_are_dropped() {
         panic!("an empty heap holds a loop");
     };
     let _ = looping.queue_script(
+        "a script",
         "var out = 'started'; queueMicrotask(() => { out = 'job'; }); while (true) {}",
     );
-    let _ = looping.queue_script("out = 'next';");
+    let _ = looping.queue_script("a script", "out = 'next';");
     let switch = looping.stop_switch();
     let stopper = thread::spawn(move || {
         thread::sleep(Duration::from_millis(50));
@@ -495,6 +502,7 @@ fn a_job_that_requeues_itself_for_ever_is_stopped_from_another_thread() {
         panic!("an empty heap holds a loop");
     };
     let _ = looping.queue_script(
+        "a script",
         "var out = 0; function again() { out += 1; queueMicrotask(again); } again();",
     );
     let switch = looping.stop_switch();
@@ -512,7 +520,7 @@ fn a_quiet_point_that_is_not_quiet_stops_the_page() {
     let Some(mut looping) = a_loop(false) else {
         panic!("an empty heap holds a loop");
     };
-    let _ = looping.queue_script("var out = {};");
+    let _ = looping.queue_script("a script", "var out = {};");
     let Ok(Value::Object(held)) = read(&mut looping, "({})") else {
         panic!("an object");
     };
@@ -525,7 +533,7 @@ fn a_quiet_point_that_is_not_quiet_stops_the_page() {
     };
     assert_eq!(turn.stopped, Some(Stopped::NotQuiet { scoped: 1, kept: 0 }));
     looping.engine().objects().heap_mut().close(scope);
-    assert!(looping.queue_script("0").is_err());
+    assert!(looping.queue_script("a script", "0").is_err());
 }
 
 /// A script that queues and requeues jobs, to be cut at every place.
@@ -543,8 +551,8 @@ fn every_prefix_of_a_script_is_reported_or_run_and_never_panics() {
         let Some(mut looping) = a_loop(false) else {
             panic!("an empty heap holds a loop");
         };
-        let _ = looping.queue_script(prefix.to_owned());
-        let _ = looping.queue_script("var after = 'ran';");
+        let _ = looping.queue_script("a script", prefix.to_owned());
+        let _ = looping.queue_script("a script", "var after = 'ran';");
         while let Some(turn) = looping.run_next() {
             assert!(
                 turn.stopped.is_none()
@@ -555,7 +563,7 @@ fn every_prefix_of_a_script_is_reported_or_run_and_never_panics() {
                 assert!(
                     matches!(
                         report,
-                        Report::NotParsed(_) | Report::NotCompiled(_) | Report::Threw(_)
+                        Report::NotParsed(_) | Report::NotCompiled(_) | Report::Threw { .. }
                     ),
                     "{report:?}"
                 );

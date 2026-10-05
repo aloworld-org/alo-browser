@@ -19,7 +19,10 @@
 //!
 //! What was thrown is put into words by [`described`], which reads the heap
 //! and runs nothing: an error object by its `name` and `message`, and any
-//! string a page made cut short.
+//! string a page made cut short. **Where** it was thrown follows it (queue
+//! item 241): the script, line and column of the throw, then of each call it
+//! left on its way out, innermost first — see [`source`](super::source) for how an offset
+//! becomes a line and a column, and why a column.
 
 use core::fmt;
 
@@ -27,12 +30,18 @@ use alo_js::abrupt::Thrown;
 use alo_js::object::Objects;
 
 use super::described;
+use super::source::{Place, Trace};
 
 /// Script that did not finish, and why, in words.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Report {
     /// It threw, and nothing caught it.
-    Threw(String),
+    Threw {
+        /// What was thrown, in words.
+        what: String,
+        /// Where: the throw, then each call it left.
+        trace: Trace,
+    },
     /// A script's text is not a script.
     NotParsed(String),
     /// A script uses something this engine has not built, so none of it ran.
@@ -40,22 +49,56 @@ pub enum Report {
 }
 
 impl Report {
-    /// A throw nothing caught, described while what was thrown is still alive.
-    pub fn thrown(objects: &Objects, thrown: &Thrown) -> Self {
-        Report::Threw(match thrown {
-            Thrown::Error { kind, message, .. } => format!("{}: {message}", kind.name()),
-            Thrown::Value { value, .. } => described::thrown(objects, *value),
-        })
+    /// A throw nothing caught, described while what was thrown is still alive,
+    /// and where it was.
+    pub fn thrown(objects: &Objects, thrown: &Thrown, trace: Trace) -> Self {
+        Report::Threw {
+            what: match thrown {
+                Thrown::Error { kind, message, .. } => format!("{}: {message}", kind.name()),
+                Thrown::Value { value, .. } => described::thrown(objects, *value),
+            },
+            trace,
+        }
     }
 }
 
 impl fmt::Display for Report {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Report::Threw(what) => write!(out, "uncaught: {what}"),
+            Report::Threw { what, trace } => {
+                write!(out, "uncaught: {what}")?;
+                said_where(out, trace)
+            }
             Report::NotParsed(why) => write!(out, "not a script: {why}"),
             Report::NotCompiled(why) => write!(out, "not run: {why}"),
         }
+    }
+}
+
+/// ` (at …; called from …)`, or nothing for a throw no call was placed for.
+fn said_where(out: &mut fmt::Formatter<'_>, trace: &Trace) -> fmt::Result {
+    for (which, place) in trace.places.iter().enumerate() {
+        out.write_str(if which == 0 {
+            " (at "
+        } else {
+            "; called from "
+        })?;
+        match place {
+            Place::Script { name, line, column } => {
+                write!(out, "{name}, line {line}, column {column}")?;
+            }
+            Place::Elsewhere { at } => {
+                write!(out, "a program this page did not run, byte {at}")?;
+            }
+        }
+    }
+    if trace.left_out > 0 {
+        write!(out, "; and {} calls further out", trace.left_out)?;
+    }
+    if trace.places.is_empty() {
+        Ok(())
+    } else {
+        out.write_str(")")
     }
 }
 
@@ -67,7 +110,11 @@ mod tests {
     #[test]
     fn a_report_says_which_of_the_three_it_is() {
         assert_eq!(
-            Report::Threw("TypeError: x".to_owned()).to_string(),
+            Report::Threw {
+                what: "TypeError: x".to_owned(),
+                trace: Trace::default(),
+            }
+            .to_string(),
             "uncaught: TypeError: x"
         );
         assert_eq!(
@@ -83,12 +130,37 @@ mod tests {
     #[test]
     fn a_thrown_primitive_is_written_as_itself() {
         let objects = Objects::new();
-        let thrown = |value| Report::thrown(&objects, &Thrown::Value { value, at: 0 });
-        assert_eq!(thrown(Value::Number(4.0)), Report::Threw("4".to_owned()));
-        assert_eq!(thrown(Value::Null), Report::Threw("null".to_owned()));
+        let thrown = |value| {
+            Report::thrown(&objects, &Thrown::Value { value, at: 0 }, Trace::default()).to_string()
+        };
+        assert_eq!(thrown(Value::Number(4.0)), "uncaught: 4");
+        assert_eq!(thrown(Value::Null), "uncaught: null");
+        assert_eq!(thrown(Value::Bool(false)), "uncaught: false");
+    }
+
+    #[test]
+    fn a_trace_is_said_innermost_first_with_what_was_left_out() {
+        let place = |name: &str, line, column| Place::Script {
+            name: name.to_owned(),
+            line,
+            column,
+        };
+        let report = Report::Threw {
+            what: "Error: e".to_owned(),
+            trace: Trace {
+                places: vec![
+                    place("script 2", 1, 15),
+                    place("script 1", 3, 1),
+                    Place::Elsewhere { at: 7 },
+                ],
+                left_out: 4,
+            },
+        };
         assert_eq!(
-            thrown(Value::Bool(false)),
-            Report::Threw("false".to_owned())
+            report.to_string(),
+            "uncaught: Error: e (at script 2, line 1, column 15; called from script 1, \
+             line 3, column 1; called from a program this page did not run, byte 7; and 4 \
+             calls further out)"
         );
     }
 }

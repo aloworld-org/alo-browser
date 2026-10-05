@@ -167,6 +167,20 @@ pub const VALUES_ON_THE_STACK: usize = 256 * 1024;
 /// claim, and this is a ceiling on memory a stranger's script chooses.
 pub const CALLS_ON_THE_STACK: usize = 10 * 1024;
 
+/// How many calls a throw nothing caught is said to have left, innermost
+/// first (queue item 241).
+///
+/// Thirty-two. A throw can leave as many calls as [`CALLS_ON_THE_STACK`]
+/// allows, and a runaway recursion's `RangeError` leaves exactly that many —
+/// ten thousand places that say the same thing, which a report would carry
+/// across a process boundary and a person would scroll past. The innermost are
+/// kept because that is where the throw was; how many more there were is
+/// counted rather than dropped, so a trace that was cut says so. Thirty-two is
+/// deeper than a hand-written chain of calls into a page's own library is
+/// likely to be, and it is a number to argue with once a real page's trace
+/// has been cut by it.
+pub const PLACES_IN_A_TRACE: usize = 32;
+
 /// The most a page's objects may hold, in bytes.
 ///
 /// One gibibyte. ADR 0014 § 9: reaching it collects first and fails second, and

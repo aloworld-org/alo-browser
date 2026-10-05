@@ -51,6 +51,7 @@ use crate::object::{Found, Property, Value};
 
 use super::Engine;
 use super::frame::Run;
+use super::unwound::Unwound;
 
 impl Engine {
     /// Land a throw in the `try` that guards it, or answer the escape if
@@ -66,6 +67,9 @@ impl Engine {
             return Err(escape);
         };
         let Some((which, handler)) = Self::guarding(run)? else {
+            // The last moment the calls it left exist: the run gives them back
+            // on its way out (queue item 241).
+            self.unwound = Unwound::of(run)?;
             return Err(Escape::Thrown(thrown));
         };
         self.take_down(run, which, handler)?;

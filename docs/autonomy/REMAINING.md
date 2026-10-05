@@ -137,6 +137,15 @@ of the page's script, and every string a report repeats is cut at 1024 code
 units. 109 queue items are open; the next unused queue number is 241 and the
 next unused ADR 0017.
 
+Iteration 138 found 234 waiting on 233, marked item 77 `needs design` (no
+closing condition, and its loader is the fetch-across-the-boundary decision
+238 also waits on), and cut item 241 from 78: an uncaught throw is reported
+with the script, line and column — UTF-16 code units — of the throw and of
+each call it left, at most 32 with the rest counted. Item 242 (a ceiling on
+how many reports one load carries) was found and added. 110 queue items are
+open (241 added closed, 242 added open); the next unused queue number is 243
+and the next unused ADR 0017.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -11151,3 +11151,136 @@ on its own (item 203's dependency); stack traces are item 78. No script can
 reach the document. 109 queue items are open (239 closed). Next unused queue
 number **241**; next ADR **0017**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 138 — queue item 241, cut from 78: an uncaught throw placed by script, line and column
+
+The checkout was clean on entry at `5694a05`, with iteration 130's stash
+(`stash@{0}`) still left where it is — dropping it is a person's call. Read
+`CLAUDE.md`, the complete `docs/autonomy/LOOP.md`, `ROADMAP.md`'s conventions
+and its errors and event-loop lines, `docs/autonomy/REMAINING.md`,
+iterations 136 and 137 and their selection reasoning, queue items 75–93 and
+232–240, ADR 0013 § 3 and 0016 §§ 1, 3 and 7, the JavaScript lines of
+`docs/features.md`, both frozen scripts' `origin.txt`, and the code the
+change touches: `alo-js`'s `abrupt.rs`, `code.rs` (`Chunk::at`), `error.rs`
+(`Position::of`), `unit.rs`, `interpret.rs` (`run`, `two_lists`, `walk`),
+`interpret/frame.rs` (`Frame::now`, `Run`), `interpret/catch.rs` (`land`),
+`interpret/checkpoint.rs`, `bounds.rs`; `alo-renderer`'s `event_loop.rs`,
+`event_loop/report.rs`, `event_loop/task.rs`, `scripts.rs`, `pipe.rs` and
+`wire.rs`'s message cap. No `AGENTS.md` exists in this repository. No sibling
+repository was read or modified.
+
+**Selection followed queue order and dependencies.** Nothing landed in
+iteration 137 that unblocks an earlier item; every blocker iteration 136
+listed stands, and 240 and 238 still wait for a frozen page. **234** depends
+on 233, which is open. **77** came next: its listed dependencies (53, 72) are
+done, but it has **no closing condition** and its loader is a decision no
+ADR has made — a renderer cannot fetch (ADR 0005), so who fetches a module
+graph under which policy and CORS mode is item 238's open question plus
+linking and a module map. `LOOP.md` step 2 says such an item is marked
+`needs design` and the next taken, and that is what the queue now says, with
+the reason. Nothing reaches it either: no corpus page has a module script,
+and the frozen `alo-theme-generator` is a Node program. **78 was next and was
+eligible** (depends on 72, done) but as written had no closing condition
+either; unlike 77 the decisions it needs were already made — `Chunk::at`
+carries the offset ("what a stack trace (queue item 78) will be built
+from"), and `Position` already defines a line and a UTF-16 column for item
+78 by name — and iteration 137 left "where in the source a throw happened"
+as its explicit remainder. So the iteration cut that piece as **item 241**
+with its own closing condition, rather than inventing a policy. Like 236,
+237 and 239 it is opened by a renderer test rather than a frozen page, and
+that is recorded rather than papered over.
+
+**What was built.** `alo-js/src/interpret/unwound.rs`: when `land` finds no
+`try` for a throw — the last moment the calls it left exist — it reads each
+frame, innermost first, as a `Place` (`Rc<Unit>` and the byte offset of
+`Frame::now`'s instruction, so a throw from a `valueOf` is placed at the
+operator that rewound for it), at most `bounds::PLACES_IN_A_TRACE` (32, a new
+bound with its reasoning) with the rest counted. `Engine::unwound()` answers
+it; `two_lists`, where every run, call and job starts, forgets it; the
+checkpoint's report callback is handed it with each job's throw (a new third
+argument). `alo-renderer/src/event_loop/source.rs`: the loop now compiles
+each script itself (`compile` + `run` rather than `evaluate`) and keeps it
+under the name it was queued with — `EventLoop::queue_script(name, text)`,
+`script N` for a page, numbered as the load's issues are — so a function
+declared in one script is placed there when another calls it. Lines and
+columns are `Position::of`'s, counted from marks laid every 4096 bytes when
+a script is kept (never splitting a `\r\n`), so a page throwing in a loop
+cannot make the renderer re-read a one-line bundle per place. `Report::Threw`
+became `{ what, trace }`, said as `uncaught: Error: e (at script 2, line 3,
+column 5; called from script 1, line 1, column 9; and 4 calls further out)`;
+a throw no call was entered for is placed nowhere.
+
+**Evidence.** `crates/alo-renderer/tests/where_a_page_threw.rs`, twelve tests
+through a real `Renderer`, every place counted by hand from the page's text
+(one of my own counts was wrong — the UTF-16 test's comment said column 17
+where code unit 15 from zero is column 16; the code was right and the comment
+now gives all three counts, 19 bytes / 15 characters / 16 code units). The
+four closing clauses, then: every line terminator, a refused script still
+numbered, a job placed in the queued function, a rethrow, a builtin's throw
+at its call, a script that did not parse, and every prefix of a page that
+throws from deep calls in a script and a job (the job: 42 calls, 32 kept, 10
+counted). `crates/alo-js/tests/where_a_throw_was.rs`, eleven tests of the
+engine half including the recursion's 32 + 10208 = `CALLS_ON_THE_STACK`.
+`source.rs` five unit tests, `report.rs` one. Existing assertions that now
+carry a place were updated with hand-checked columns
+(`what_the_event_loop_runs.rs` four, `a_page_runs_its_scripts.rs` four);
+`an_error_said_by_its_name.rs`'s helper sets the place aside **only after
+checking it is there** and in the page's one script on its one line, since
+that file is about what is said, not where.
+
+**Doctored runs, four, each restored byte for byte (`cmp`)**: nothing
+recorded in `land` fails ten of the engine's eleven tests; `pc − 1` instead of
+`now` fails the `valueOf` test; the bound raised a thousandfold fails the
+recursion and prefix tests; a column not carried across a mark fails the
+one-line bundle test.
+
+**Found and not hidden.** A load's issues have no ceiling on *how many*: a
+page can queue as many throwing jobs as it likes, and past the wire's 64 MiB
+cap the renderer cannot send its answer (the tab sees a failed renderer —
+safe, but every issue is lost and the reason unsaid). That predates this
+change; a trace makes each report up to ~33 places long, so it is now a
+closer edge. Recorded as **item 242** rather than widened into this one.
+
+**Roadmap.** The *Errors and stack traces* line gains a Built clause (an
+uncaught throw placed, item 241) and its Owed clause now names `error.stack`
+and names in it (78, 220), source maps, developer tools (129), a non-error
+object described, and 242. Not ticked. `docs/features.md` (that line),
+`CHANGELOG.md`, `REMAINING.md`, two `alo-js` doc comments that promised this
+to item 78, and the queue (77 `needs design`, 78's remainder, 241 ticked with
+its evidence, 242 new) move with it.
+
+**Compliance review.** Law 1: nothing legacy; `error.stack` (non-standard
+but universal) is deliberately not built here. Law 2: unchanged. Law 3: no
+stub, `todo!` or `unwrap` outside tests; an unknown program is said by its
+offset and a call-less throw is placed nowhere, never guessed; no speed
+claim — the marks are a bound on work a page can cause, not a performance
+claim. Law 4: no `unsafe`. ADR 0013 § 3 (absent beats approximate) and § 4
+(every ceiling ours, with a reason). ADR 0014: a `Place` holds an `Rc<Unit>`,
+which is Rust memory with no heap edge, and recording allocates nothing in
+the heap between a throw and its landing. ADR 0016 § 7: unchanged — a throw
+is reported and the loop runs on. LOOP stage 2 § 2: what a page controls
+here is recursion depth, script length and how often it throws — bounded at
+32 places, at most 4096 bytes read per place, with a prefix-cut test. One
+file, one responsibility: `unwound.rs` reads the calls a throw left,
+`source.rs` keeps scripts and turns offsets into lines and columns,
+`report.rs` says a report. Nothing positions, sizes or paints differently,
+so no layout assertion or reference render applies; every existing
+reference render still matches.
+
+**Gate.** `scripts/gate.sh` exited 0 on the second run (the first failed only
+`cargo fmt --check` on the new code; `cargo fmt --all` fixed it and nothing
+was allowed or silenced): formatting clean, clippy silent, all workspace
+tests pass (2298 passed, 0 failed, counted with `cargo test --workspace`;
+2269 before, the 29 new tests exactly), nothing stubbed, `unsafe` forbidden,
+the licence notice on every file, every rented crate behind its boundary, no
+coordinate verb, the supervisor's stop rule holds, `CHANGELOG.md` changed.
+`git diff --check` passes. The log was kept in this session's scratchpad,
+not committed.
+
+**Unresolved obligations.** 242 (a ceiling on reports per load); 78's
+remainder (`error.stack`, names, source maps); 77 needs design; 233, 234,
+238 and 240 are open and item 76 is not done; `violations::reports` is still
+called by nothing in the browser process on its own (item 203's
+dependency). No script can reach the document. 110 queue items are open (241
+added closed, 242 added open). Next unused queue number **243**; next ADR
+**0017**. This is one iteration, not a finished queue or roadmap.

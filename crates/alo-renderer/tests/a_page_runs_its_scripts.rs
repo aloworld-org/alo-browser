@@ -112,9 +112,13 @@ fn a_throw_is_said_and_the_next_script_runs() {
     // without running a getter (item 239).
     assert_eq!(
         said.first(),
-        Some(&"script 1: uncaught: TypeError: no such thing")
+        Some(&"script 1: uncaught: TypeError: no such thing (at script 1, line 1, column 47)")
     );
-    assert_eq!(said.get(1), Some(&"script 1: uncaught: 4"));
+    // The job's throw is placed in the arrow function the script queued.
+    assert_eq!(
+        said.get(1),
+        Some(&"script 1: uncaught: 4 (at script 1, line 1, column 35)")
+    );
     assert!(
         said.get(2)
             .is_some_and(|it| it.starts_with("script 3: not a script:")),
@@ -364,7 +368,10 @@ fn a_resize_lays_the_page_out_again_and_runs_none_of_its_script() {
     let (mut renderer, issues) = load(page(
         "<script>out = (this.out === undefined ? '' : this.out) + 'x'; throw 'once'</script>",
     ));
-    assert_eq!(about_scripts(&issues), vec!["script 1: uncaught: \"once\""]);
+    assert_eq!(
+        about_scripts(&issues),
+        vec!["script 1: uncaught: \"once\" (at script 1, line 1, column 55)"]
+    );
     // Mark the page's own realm, so that a resize which made a new one —
     // and ran the script again in it — is told apart from one that kept it.
     let marked = renderer
@@ -420,7 +427,7 @@ fn a_page_still_renders_when_its_script_fails() {
     );
     assert_eq!(
         about_scripts(&issues),
-        vec!["script 1: uncaught: Error: broken"]
+        vec!["script 1: uncaught: Error: broken (at script 1, line 1, column 1)"]
     );
     let Some(drawn) = renderer.rendered() else {
         panic!("nothing was rendered");

@@ -35,6 +35,14 @@
 //! and nothing the page queued runs again. Reloading is the person's to ask
 //! for.
 //!
+//! # Where a throw was
+//!
+//! The loop compiles each script itself rather than asking the engine to, and
+//! keeps it under the name it was queued with ([`source`], queue item 241):
+//! the engine places a throw by program and byte offset, and only the loop
+//! has the text that turns an offset into a line and a column, and the name
+//! a person would look for.
+//!
 //! # The quiet point
 //!
 //! ADR 0016 § 4. Between one task's last checkpoint and the next task, no
@@ -65,14 +73,19 @@
 mod described;
 mod microtask;
 mod report;
+mod source;
 mod task;
 
 use core::fmt;
 
-use alo_js::interpret::{Engine, Stop, Trouble};
-use alo_js::{Escape, Value, script};
+use std::rc::Rc;
+
+use alo_js::interpret::{Engine, Stop};
+use alo_js::{Escape, Thrown, Value, compile, script};
 
 pub use report::Report;
+use source::Sources;
+pub use source::{Place, Trace};
 pub use task::Seq;
 use task::{Tasks, Work};
 
@@ -129,6 +142,9 @@ pub struct EventLoop {
     /// stop while nothing was running stops before the next thing does.
     stop: Stop,
     stopped: Option<Stopped>,
+    /// Every script this loop compiled, so a throw can be placed in the one
+    /// it happened in (queue item 241).
+    sources: Sources,
 }
 
 impl EventLoop {
@@ -149,6 +165,7 @@ impl EventLoop {
             tasks: Tasks::default(),
             stop,
             stopped: None,
+            sources: Sources::default(),
         })
     }
 
@@ -173,16 +190,24 @@ impl EventLoop {
         self.tasks.len()
     }
 
-    /// Queue a task that runs a classic script's text.
+    /// Queue a task that runs a classic script's text, under the name a throw
+    /// in it is placed by — `script 3`, say.
     ///
     /// # Errors
     ///
     /// Why the page stopped, if it has: a stopped page runs nothing more.
-    pub fn queue_script(&mut self, text: impl Into<String>) -> Result<Seq, Stopped> {
+    pub fn queue_script(
+        &mut self,
+        name: impl Into<String>,
+        text: impl Into<String>,
+    ) -> Result<Seq, Stopped> {
         if let Some(stopped) = &self.stopped {
             return Err(stopped.clone());
         }
-        Ok(self.tasks.push(Work::Script(text.into())))
+        Ok(self.tasks.push(Work::Script {
+            name: name.into(),
+            text: text.into(),
+        }))
     }
 
     /// Queue a task that calls each of `callees`, in order, with `this` and
@@ -245,8 +270,8 @@ impl EventLoop {
     /// Run every piece of a task's script, each followed by a checkpoint.
     fn perform(&mut self, work: &Work, turn: &mut Turn) -> Result<(), Escape> {
         match work {
-            Work::Script(text) => {
-                self.script(text, turn)?;
+            Work::Script { name, text } => {
+                self.script(name, text, turn)?;
                 self.checkpoint(turn)
             }
             Work::Calls {
@@ -259,9 +284,7 @@ impl EventLoop {
                     let (call, values) = task::call(&mut self.engine, list, *arguments, which)?;
                     match self.engine.call(call.callee, call.this, &values) {
                         Ok(_) => {}
-                        Err(Escape::Thrown(thrown)) => turn
-                            .reports
-                            .push(Report::thrown(self.engine.objects(), &thrown)),
+                        Err(Escape::Thrown(thrown)) => self.report(&thrown, turn),
                         Err(escape) => return Err(escape),
                     }
                     self.checkpoint(turn)?;
@@ -273,7 +296,11 @@ impl EventLoop {
 
     /// Parse and run a classic script, reporting what a page would see
     /// reported.
-    fn script(&mut self, text: &str, turn: &mut Turn) -> Result<(), Escape> {
+    ///
+    /// The script is kept, under its name, before it runs: a throw in it is
+    /// placed by it, and so is one in a function it declared that throws long
+    /// after it has finished.
+    fn script(&mut self, name: &str, text: &str, turn: &mut Turn) -> Result<(), Escape> {
         self.awake()?;
         let program = match script(text) {
             Ok(program) => program,
@@ -282,27 +309,39 @@ impl EventLoop {
                 return Ok(());
             }
         };
-        match self.engine.evaluate(&program) {
-            Ok(_) => Ok(()),
-            Err(Trouble::NotCompiled(refusal)) => {
+        let unit = match compile(&program) {
+            Ok(unit) => Rc::new(unit),
+            Err(refusal) => {
                 turn.reports.push(Report::NotCompiled(refusal.to_string()));
+                return Ok(());
+            }
+        };
+        self.sources.keep(&unit, name, text);
+        match self.engine.run(&unit) {
+            Ok(_) => Ok(()),
+            Err(Escape::Thrown(thrown)) => {
+                self.report(&thrown, turn);
                 Ok(())
             }
-            Err(Trouble::Escaped(Escape::Thrown(thrown))) => {
-                turn.reports
-                    .push(Report::thrown(self.engine.objects(), &thrown));
-                Ok(())
-            }
-            Err(Trouble::Escaped(escape)) => Err(escape),
+            Err(escape) => Err(escape),
         }
+    }
+
+    /// Report a throw nothing caught, while what it threw is still alive and
+    /// the engine still knows where it was.
+    fn report(&mut self, thrown: &Thrown, turn: &mut Turn) {
+        let trace = self.sources.trace(self.engine.unwound());
+        turn.reports
+            .push(Report::thrown(self.engine.objects(), thrown, trace));
     }
 
     /// A microtask checkpoint: every job, oldest first, including those jobs
     /// queue; then the job ends.
     fn checkpoint(&mut self, turn: &mut Turn) -> Result<(), Escape> {
         let mut reports = Vec::new();
-        let drained = self.engine.checkpoint(&mut |objects, thrown| {
-            reports.push(Report::thrown(objects, thrown));
+        let sources = &self.sources;
+        let drained = self.engine.checkpoint(&mut |objects, thrown, unwound| {
+            reports.push(Report::thrown(objects, thrown, sources.trace(unwound)));
         });
         turn.reports.append(&mut reports);
         let drained = drained?;

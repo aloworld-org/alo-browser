@@ -814,9 +814,15 @@ unreachable without it.
       properties along the error's chain as `Error.prototype.toString` would
       join them, with no getter called, no object converted and a page's own
       `toString` not consulted; every string a report repeats cut at 1024
-      code units
-      · Owed: stack traces, source positions and a throw located in somebody
-      else's minified script (queue item 78); a non-error object described
+      code units; **an uncaught throw placed** (queue item 241, `alo-js`'s
+      `interpret/unwound.rs` and `alo-renderer`'s `event_loop/source.rs`) —
+      the script, line and column, in UTF-16 code units, of the throw and of
+      every call it left, at most 32 with the rest counted, found in a
+      one-line bundle without re-reading it
+      · Owed: `error.stack`, a trace taken where an error is made, and names
+      in it (queue items 78 and 220); source maps; showing any of it to a
+      person (developer tools, 129); a non-error object described; a ceiling
+      on how many reports one load carries (242)
 - [ ] Internationalisation (`Intl`), rented rather than written
 - [ ] Refused for now and recorded: a JIT, until there is a measured reason and an ADR weighing it against the attack surface it adds
       · Built: the recording, with its two conditions for re-opening named

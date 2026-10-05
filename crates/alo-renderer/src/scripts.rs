@@ -136,7 +136,7 @@ pub(crate) fn at_load(
                 }
             },
         };
-        if let Err(stopped) = page_loop.queue_script(text) {
+        if let Err(stopped) = page_loop.queue_script(format!("script {number}"), text) {
             issues.push(said(&format!("not run: {stopped}")));
             ended = true;
             continue;

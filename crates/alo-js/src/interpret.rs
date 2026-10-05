@@ -59,6 +59,7 @@ mod frame;
 mod iterate;
 mod primitive;
 mod property;
+mod unwound;
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -81,6 +82,7 @@ use crate::unit::Unit;
 use frame::{After, Frame, Run};
 
 pub use checkpoint::Drained;
+pub use unwound::{Place, Unwound};
 
 /// The switch an embedder throws to stop a script.
 ///
@@ -150,6 +152,8 @@ pub struct Engine {
     /// next allocation may sweep: the stack that was holding it has gone, and an
     /// embedder holding a [`Value`] is not a root (ADR 0014 § 2).
     last: Option<Root>,
+    /// Where the last throw nothing caught had got to (queue item 241).
+    unwound: Unwound,
 }
 
 impl Engine {
@@ -171,6 +175,7 @@ impl Engine {
             stop: Stop::new(),
             jobs,
             last: None,
+            unwound: Unwound::default(),
         })
     }
 
@@ -263,8 +268,21 @@ impl Engine {
         self.finish(stack, constants, outcome)
     }
 
+    /// The calls the last throw nothing caught left, innermost first.
+    ///
+    /// Read it after a run, a call or a job answered [`Escape::Thrown`]: it is
+    /// what that throw unwound through, and the next run, call or job starts
+    /// from nothing unwound. A run that ended any other way leaves it empty.
+    pub fn unwound(&self) -> &Unwound {
+        &self.unwound
+    }
+
     /// A rooted stack and a rooted list of constants, for a run.
+    ///
+    /// Every run, call and job starts here, so this is also where the last
+    /// throw's trace is forgotten.
     pub(super) fn two_lists(&mut self) -> Result<(Root, Root), Escape> {
+        self.unwound.clear();
         let stack = self
             .objects
             .slots()

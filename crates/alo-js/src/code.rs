@@ -55,7 +55,7 @@
 //!
 //! **No source text.** Every instruction carries the byte offset it came from
 //! ([`Chunk::at`]) and nothing else, which is what a `ReferenceError` points at
-//! today and what a stack trace (queue item 78) will be built from.
+//! and what a throw nothing caught is placed by (queue item 241).
 //!
 //! # Where a throw lands is a table, not an instruction
 //!

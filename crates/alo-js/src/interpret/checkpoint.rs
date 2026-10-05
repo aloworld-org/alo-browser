@@ -54,6 +54,7 @@ use crate::object::{Held, Objects, Value};
 
 use super::Engine;
 use super::frame::{After, Run};
+use super::unwound::Unwound;
 
 /// What a checkpoint did.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -142,7 +143,8 @@ impl Engine {
     ///
     /// `report` is told of each job that threw, as it throws, and is handed
     /// the object model read-only so that it can describe what was thrown and
-    /// cannot run anything.
+    /// cannot run anything — and the calls the throw left (queue item 241),
+    /// which the next job forgets.
     ///
     /// # Errors
     ///
@@ -152,7 +154,7 @@ impl Engine {
     /// job is ended either way.
     pub fn checkpoint(
         &mut self,
-        report: &mut dyn FnMut(&Objects, &Thrown),
+        report: &mut dyn FnMut(&Objects, &Thrown, &Unwound),
     ) -> Result<Drained, Escape> {
         match self.drain(report) {
             Ok(drained) => {
@@ -183,7 +185,10 @@ impl Engine {
     }
 
     /// Run jobs until none is left.
-    fn drain(&mut self, report: &mut dyn FnMut(&Objects, &Thrown)) -> Result<Drained, Escape> {
+    fn drain(
+        &mut self,
+        report: &mut dyn FnMut(&Objects, &Thrown, &Unwound),
+    ) -> Result<Drained, Escape> {
         let mut drained = Drained::default();
         while !self.jobs.is_empty() {
             // Every job is a call, and a call reads the switch — but a job
@@ -197,7 +202,7 @@ impl Engine {
                 Ok(()) => {}
                 Err(Escape::Thrown(thrown)) => {
                     drained.threw = drained.threw.saturating_add(1);
-                    report(&self.objects, &thrown);
+                    report(&self.objects, &thrown, &self.unwound);
                 }
                 Err(escape) => return Err(escape),
             }
