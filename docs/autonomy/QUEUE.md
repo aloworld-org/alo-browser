@@ -2119,6 +2119,21 @@ The long pole, and the thing most of section E is unreachable without.
   `BigInt` round-trips through a value, compares, and refuses a size the page
   chose rather than allocating it.
 
+  **The decision is written down: ADR 0015, accepted.** The limb arithmetic is
+  rented from `num-bigint` behind one file (`crates/alo-js/src/bigint.rs`, added
+  to the gate's boundary list with the dependency); every spelling, comparison
+  and Number conversion is ours; and no rented function is called until our
+  code has computed the result's largest possible size from its operands and
+  refused it past a ceiling in `bounds.rs` — measured against the slowest
+  single operation, because one rented call is not an interrupt point. The
+  crate's three panics (division by zero, an out-of-range shift, an exponent
+  that overflows memory) are preconditions checked before the call, each with
+  a hostile test. **The code half is not built and this item is not done.**
+  ***Blocked: no frozen real script uses a `BigInt`.*** LOOP's stage 2 clause 1
+  opens the implementation with a page that fails on one; neither corpus script
+  contains a `BigInt` literal or call. Unblocked by a frozen source with
+  provenance, not by an opinion — the same form as item 222.
+
 - [x] **208. The parser bounds the tree it builds, not only the brackets it
   counts.** Found by starting item 72 and **taken before it**, because item 72's
   compiler recurses over the same tree and cannot be built whole over a parser

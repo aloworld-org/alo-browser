@@ -9603,3 +9603,77 @@ and absent refuses with 8 before taking the lock, leaving the tree clean.
 **What is not claimed.** No queue item is touched. The loop has still not run
 an iteration under this supervisor; it is now capable of starting one.
 
+
+---
+
+## Iteration 122 — item 207's decision: `BigInt` limbs rented, sizes ours
+
+The checkout was clean on entry at `4e37b21`. Read `CLAUDE.md`, the complete
+`docs/autonomy/LOOP.md`, `ROADMAP.md`, `REMAINING.md`, iterations 119–121, the
+open queue items, ADR 0013 in full and ADR 0014's head, ADR 0009's licence
+section and ADR 0010's *whose `unsafe` this is*, and the JavaScript section of
+`docs/features.md`. No `AGENTS.md` exists in this repository. No sibling
+repository was read or modified.
+
+**Selection followed queue order and dependencies.** 157 and 158 need an
+interface; 187 has no upload caller; 60 is `needs design`; 169 needs Linux and
+this host is Darwin; 197's properties do not exist in `alo-style`; 201 waits on
+80 and 83; 203 on a browser process holding both a pool and tabs; 222 is
+blocked on a frozen script (iteration 120). **Item 207 is next**: it depends on
+206, which is done, and it is marked **needs ADR** — which `LOOP.md` stage 2
+§ 4 makes an iteration of its own, before any code depends on it.
+
+**What was built: ADR 0015, accepted.** The limb arithmetic is rented from
+`num-bigint` behind one file; every spelling, cross-type comparison and Number
+conversion is ours; and the queue item's objection — a stranger's allocator in
+the path of sizes a page chooses — is answered structurally rather than
+waved at: a `BigInt` result's largest size is computable from its operands'
+bit lengths before the call, so the adapter refuses past a ceiling before the
+rented code runs. The ceiling must bound *work* too, because one rented call
+is not an interrupt point, so it is to be measured against the slowest single
+operation and written beside the constant in `bounds.rs` (ADR 0014 § 9 keeps
+the number out of the ADR). The crate's three panics are preconditions with
+hostile tests. Facts in the ADR were checked against the `num-bigint` 0.4.8
+source in the local cargo registry, not recalled: MIT/Apache-2.0; Karatsuba
+and Toom-3 multiplication; `unsafe` limited to x86-64 carry intrinsics, an
+unchecked UTF-8 conversion in `to_str_radix` (which the ADR never calls —
+digits come from `to_radix_le` and are spelled by us) and the optional `rand`
+feature; `panic!` on division by zero, negative shift and pow overflow.
+
+**What is not built, and why it stops here.** No dependency, code or test was
+added. The code half of 207 needs a frozen real script that fails on a
+`BigInt` (LOOP stage 2 clause 1, ADR 0013 § 9); `grep` over both corpus scripts
+finds no `BigInt` literal or call. So 207 stays unticked and is marked
+***Blocked: no frozen real script uses a `BigInt`*** in the form the selection
+rule reads, as 222 is. No page was manufactured to lift it.
+
+**Roadmap.** The object-model line's Owed clause now says the renting decision
+is made (ADR 0015) and the value waits for its script. Not ticked.
+`docs/features.md` is unchanged: no capability changed, and there is no
+`BigInt` feature line to amend — the lexer line already says only that a
+`BigInt` literal is *read*. `object/value.rs`'s doc comment still says item 207
+"is where the decision is made", which remains accurate as a pointer and was
+left alone rather than touching code in a documentation-only iteration.
+
+**Compliance review.** Rules read and applied: the four laws (law 4 — the ADR
+authorises no `unsafe`; `unsafe_code = "forbid"` is unchanged), *rent the
+physics, build the engine*, *settled decisions live in `docs/decisions/`*
+(ADR 0013 § 8 read before deciding, and the ADR cites it), LOOP's one item per
+iteration, its decision-is-its-own-iteration rule, and its never-tick rule. No
+gate, lint or test was changed. Each edited file keeps its single
+documentation responsibility. Nothing positions, sizes or paints, so layout
+assertions and reference renders do not apply. No push, no supervisor launch.
+
+**Gate.** `scripts/gate.sh` exited 0: formatting clean, clippy silent, all
+workspace tests pass, no stubs, `unsafe` forbidden everywhere, Exhibit A on
+every source file, every rented crate behind its boundary, no coordinate verb,
+supervisor stop rule holds. `git diff --check` passes. The log was kept in this
+session's scratchpad, not committed. That verifies a documentation-only change;
+it says nothing about a `BigInt` that does not exist yet.
+
+**Unresolved obligations.** Item 207's code half (blocked as above). Next
+unused queue number remains **223**; next ADR is **0016**. The next eligible
+queue item after 207 in order is for the next iteration to determine — 212,
+213, 217, 215, 210 and 211 all name dependencies on 73, which is itself the
+item `REMAINING.md` says must be cut into bounded families when taken. This is
+one iteration, not a finished queue or roadmap.

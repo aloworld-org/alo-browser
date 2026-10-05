@@ -25,6 +25,12 @@ the required frozen real-script failure has not been established. Supply that
 case with provenance and a failing execution assertion before implementing this
 scope. Existing lexer/parser corpus tests do not close it. No item or stage was
 completed, and this halt does not mean the queue or roadmap is finished.
+Iteration 120 marked item 222 blocked in the queue's own words.
+
+Iteration 122 wrote item 207's decision, ADR 0015 (`BigInt` limbs rented from
+`num-bigint`, sizes and spellings ours). Its code half is blocked the same way
+222 is: no frozen real script uses a `BigInt`. The next unused ADR is 0016;
+the next unused queue number remains 223.
 
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining

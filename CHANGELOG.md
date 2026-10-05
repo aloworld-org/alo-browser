@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How `BigInt` will work is decided (ADR 0015).** The arithmetic on numbers
+  of any size is rented from `num-bigint`, the widely used pure-Rust library,
+  behind one file — but the size of every result is worked out and checked by
+  the engine *before* the library is called, so a page cannot make it allocate
+  more than the engine allows, and nothing the library could crash on ever
+  reaches it. Everything a page can see — how a `BigInt` is written as text,
+  compared with a Number, or converted to one — is the engine's own. Nothing is
+  built yet: the code waits for a real script that uses a `BigInt`.
+
 - **The build loop runs on whichever worker the machine has.** Codex when it is
   installed and logged in, Claude Code when Codex is absent, and
   `ALO_LOOP_WORKER` names one explicitly and reports it missing rather than

@@ -645,8 +645,10 @@ unreachable without it.
       implement is built and tested against a stand-in; `WeakRef` and
       `FinalizationRegistry` callbacks as tasks (queue item 76); a partial
       property descriptor and the well-known symbols (item 73); a `BigInt`
-      value, which is a decision about renting arbitrary precision rather than a
-      variant to add (item 207); and a proxy's ability to intercept the walk
+      value (item 207) — the renting decision is made (ADR 0015: the limbs
+      rented from `num-bigint` behind one file, every size checked by us before
+      the call, every spelling ours), and the value itself waits for a frozen
+      script that uses one; and a proxy's ability to intercept the walk
       itself, which needs something that can call a trap (item 72). Nothing here
       is callable, so an accessor hands back its getter rather than a value —
       which is why this line is still not ticked. No claim about speed is made
