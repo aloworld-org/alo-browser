@@ -103,12 +103,12 @@ impl Answer {
 
 /// What a builtin may ask the interpreter to do for it.
 ///
-/// Two rather than one because a conversion is not a call: turning an object
-/// into a primitive is `OrdinaryToPrimitive`, which is a search over two names
-/// and may be two calls or none. That algorithm lives in
-/// [`convert`](crate::convert) and the interpreter drives it; a builtin
-/// spelling it out again would be a second copy of a rule that has to agree
-/// with the first.
+/// A call and a conversion are two rather than one because a conversion is not
+/// a call: turning an object into a primitive is `OrdinaryToPrimitive`, which
+/// is a search over two names and may be two calls or none. That algorithm
+/// lives in [`convert`](crate::convert) and the interpreter drives it; a
+/// builtin spelling it out again would be a second copy of a rule that has to
+/// agree with the first. A job is the third, and runs nothing now at all.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Want {
     /// Call `callee` with `receiver` as its `this`, and answer with what it
@@ -132,6 +132,20 @@ pub enum Want {
         of: Value,
         /// Which primitive is wanted.
         hint: Hint,
+    },
+    /// Queue a call of `callee` with `arguments` as a job, to run at the next
+    /// microtask checkpoint, and answer `undefined` (queue item 232).
+    ///
+    /// This is how an embedder's `queueMicrotask` reaches the engine's job
+    /// queue (ADR 0016 § 1): a builtin is handed no engine, so it asks, as it
+    /// does for a call. A `callee` that is not callable is the `TypeError`
+    /// `queueMicrotask` throws, thrown where the builtin was called rather
+    /// than later, when the job would have run.
+    Job {
+        /// What to call when the job runs.
+        callee: Value,
+        /// Its arguments, in order. Its `this` is `undefined`.
+        arguments: Vec<Value>,
     },
 }
 

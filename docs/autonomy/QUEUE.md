@@ -3035,6 +3035,9 @@ The long pole, and the thing most of section E is unreachable without.
   array iterator — so *iterators* here now means a generator, which is a
   suspended frame, `for await` and the async iterators, and the iterator
   helpers (item 73's library).
+  **Item 232 built the job queue a promise reaction will wait in** — in the
+  heap, run by `Engine::checkpoint` — so a promise here queues its reactions
+  with `Engine::queue_job` rather than building a queue of its own.
 
 - [ ] **76. The event loop** — tasks, microtasks, the rendering steps,
   `requestAnimationFrame`. `ROADMAP.md`: *"where 'it works, but the animation
@@ -3060,6 +3063,69 @@ The long pole, and the thing most of section E is unreachable without.
   code cut is the job queue, the checkpoint and the task order, closed by the
   table above; the rendering steps and `requestAnimationFrame` may be cut
   from it if the iteration that takes it finds them a second item.
+  **Iteration 133 cut it three ways**, by owner, as ADR 0016 § 1 draws the
+  line: the engine's half is **item 232**, built; the renderer's loop is
+  **item 233**; the rendering steps and `requestAnimationFrame` are **item
+  234**. This item closes when 233 and 234 have, against its own table.
+
+- [x] **232. The engine's half of the event loop: the job queue and the
+  checkpoint.** *Cut from 76 (iteration 133); ADR 0016 §§ 1, 3, 4 and 7.*
+  `alo-js` holds the job queue **in the heap** (`job.rs`: one `Slots` cell
+  rooted for the engine's life, jobs back to back, compacted as it is run);
+  `Engine::queue_job` and a builtin's `Want::Job` are the one way in, and a
+  callee that is not a function is the `TypeError` `queueMicrotask` throws,
+  where it was queued; `Engine::checkpoint` runs jobs oldest first **including
+  those jobs queue**, reports a throw to the embedder as it happens and runs
+  the next, and on any other escape — `Stop`, a full heap, a refusal, a bug —
+  drops the queue (§ 7); it ends the job (`Heap::end_job`) either way; and
+  `Engine::call` runs a function with nothing running, which is how a loop
+  calls a listener or a timer's callback. The checkpoint never nests because
+  it holds `&mut Engine` for its whole length and a builtin is handed no
+  engine — the borrow is the specification's flag.
+  *Closed by:* `crates/alo-js/tests/what_a_checkpoint_runs.rs` — a job runs
+  after its task and before the next; oldest first; jobs a job queued join
+  the same checkpoint behind those waiting; a thousand-long chain is one
+  checkpoint; a job's `this`; a throw reported and the next job run; a job's
+  own `catch`; the `TypeError` for a non-function; **a checkpoint after each
+  callback the loop calls but not after each a script calls** (ADR 0016 § 3's
+  person's-click-versus-`element.click()` row, `1a2b` against `12ab`); an
+  embedder's call with `this`, arguments, a throw, a builtin, a non-function
+  and a runaway recursion; an embedder's job whose only reference is the
+  queue surviving a collection; the last run's value kept across a
+  checkpoint; the job ended, finished or stopped; a stopped checkpoint
+  dropping its jobs; an endless job and an endless requeue stopped from
+  another thread; live cells equal after three checkpoints of two thousand
+  jobs; every prefix cut of a program that queues jobs. Each table runs
+  ordinarily and with the collector at every allocation.
+  `queueMicrotask` itself is HTML's, and an embedder's to define (ADR 0016
+  § 1): the test defines it the way item 233 will.
+
+- [ ] **233. The renderer's event loop: tasks, their order, and the
+  checkpoint after each.** *Cut from 76 (iteration 133); ADR 0016 §§ 1–3, 6
+  and 7. Depends on 232.* `alo-renderer` gains its loop: one sequence number
+  across every task queue, the oldest due task next; each `ToRenderer`
+  message is one task and an `Act` is answered only after its checkpoint; a
+  task holding script holds it by a `Root`, released when it has run or been
+  dropped; a checkpoint after every task and after every call the loop makes
+  with nothing else running; the quiet point between tasks as the only place
+  the loop asks for a collection and queues finaliser cleanups; a stopped task
+  stops the page, its queues dropped and its roots released. `queueMicrotask`
+  is installed on the global object here. The renderer runs no script today,
+  so this is also where it first holds an `Engine`.
+  *Closes when:* item 76's table of interleaved tasks and microtasks — in
+  the order the specification gives — passes through the renderer's own
+  loop, with `Act`'s answer arriving after its jobs.
+
+- [ ] **234. The rendering steps and `requestAnimationFrame`.** *Cut from 76
+  (iteration 133); ADR 0016 § 5. Depends on 233.* A frame is a message from
+  the browser process carrying its time; after the current task and its
+  checkpoint the loop runs the `requestAnimationFrame` callbacks registered
+  before the frame began, in registration order, each handed that time and
+  each followed by a checkpoint, then style, layout and paint. A callback
+  registered during a frame waits for the next. No claim about frame rate.
+  *Closes when:* a test sends two frames with given times and the callbacks
+  and their jobs run in the specification's order with those times, and a
+  callback registered inside a frame runs in the second.
 
 - [ ] **77. Modules**: ESM, dynamic `import()`, and the loader that fetches them.
   *Depends on 53, 72.*

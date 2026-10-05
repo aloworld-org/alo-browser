@@ -153,6 +153,17 @@ impl Slots {
     pub fn truncate(&mut self, len: usize) {
         self.slots.truncate(len);
     }
+
+    /// Drop the first `count` slots, moving the rest down — all of them, if
+    /// there are fewer than that.
+    ///
+    /// No barrier, for [`Slots::truncate`]'s reason: a slot that goes away is
+    /// not a store. The job queue is the one list that is read from the front
+    /// (queue item 232), and this is how it gives back what it has run.
+    pub fn remove_front(&mut self, count: usize) {
+        let count = count.min(self.slots.len());
+        self.slots.drain(..count);
+    }
 }
 
 impl Slot {
@@ -207,6 +218,19 @@ mod tests {
         slots.truncate(1);
         assert_eq!(slots.len(), 1);
         assert_eq!(slots.get(1), None);
+    }
+
+    #[test]
+    fn removing_from_the_front_keeps_the_rest_in_order() {
+        let mut slots = Slots::new();
+        for number in [1.0, 2.0, 3.0] {
+            slots.push(Value::Number(number));
+        }
+        slots.remove_front(2);
+        assert_eq!(slots.len(), 1);
+        assert_eq!(slots.get(0), Some(Held::Value(Value::Number(3.0))));
+        slots.remove_front(9);
+        assert!(slots.is_empty(), "removing more than there are empties it");
     }
 
     #[test]

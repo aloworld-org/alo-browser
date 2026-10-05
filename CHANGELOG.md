@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The JavaScript engine can run the follow-up jobs a page queues.** A script
+  can ask for a small piece of work to run as soon as it finishes —
+  `queueMicrotask` today, a promise's reactions once promises exist — and the
+  engine now keeps those jobs where its memory collector can see them and runs
+  them, oldest first, after each piece of work, including any jobs those jobs
+  ask for. One that throws is reported and the rest still run; a page the
+  browser stops has its waiting jobs dropped rather than resumed. The order
+  matches the specification, including the case libraries depend on: two click
+  handlers a person triggered see each other's jobs run between them, and the
+  same two triggered from a script do not. The renderer does not run scripts
+  yet, so no page uses this until the loop that drives it is built.
+
 - **How the event loop will work is decided (ADR 0016).** Nothing runs yet; this
   is the decision the code will be built against. The loop belongs to the part
   of the browser that renders a page, not to the JavaScript engine, which keeps

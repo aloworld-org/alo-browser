@@ -88,6 +88,14 @@ each left to it. No code was written and 76 is not done; its first code cut is
 the job queue, the checkpoint and the task order. 105 queue items remain open;
 the next unused queue number remains 232 and the next unused ADR is 0017.
 
+Iteration 133 built the engine's half of item 76 as item 232: the job queue in
+`alo-js`'s heap, `Engine::queue_job` and `Want::Job`, `Engine::checkpoint`
+(oldest first, jobs queued by jobs included, a throw reported, the queue
+dropped on any other escape, the job ended) and `Engine::call`. The renderer's
+loop is item 233 and the rendering steps with `requestAnimationFrame` are 234;
+76 closes when both have. 107 queue items are open (232 added closed, 233 and
+234 open); the next unused queue number is 235 and the next unused ADR 0017.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

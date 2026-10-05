@@ -10507,3 +10507,131 @@ it says nothing about an event loop that does not exist yet.
 open (unchanged: none added, none closed). Next unused queue number remains
 **232**; next ADR is **0017**. This is one iteration, not a finished queue or
 roadmap.
+
+---
+
+## Iteration 133 — queue item 232, cut from 76: the engine's half of the event loop
+
+The checkout was clean on entry at `b9112d0`, with iteration 130's stash
+(`stash@{0}`, superseded `try` work) left where it is — dropping it is a
+person's call. Read `CLAUDE.md`, the complete `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its JavaScript lines, iterations 131 and 132,
+queue items 73–79, ADR 0016 in full, and the parts of `alo-js` the change
+touches (`interpret.rs`, `interpret/call.rs`, `interpret/frame.rs`,
+`interpret/catch.rs`, `object/native.rs`, `object/slots.rs`, `object/cell.rs`,
+`heap.rs`). ADR 0014 § 2 and § 7 and ADR 0013 §§ 4–5 were read as ADR 0016
+quotes and depends on them. No `AGENTS.md` exists in this repository. No
+sibling repository was read or modified.
+
+**Selection followed queue order and dependencies.** Every item before 76
+keeps the blocker iteration 132 recorded for it (157, 158, 187, 60, 169, 197,
+201, 203; 222 and 207 on a frozen script; 223, 226, 228, 231 on a trigger or
+221; 224, 229, 213, 217, 215 on 73, 211 or 75; 211, 221, 220, 73 and 74 with no
+running frozen script reaching them), and 75 depends on 76. **76's dependency
+(72) is done and its decision is now written (ADR 0016)**, and iteration 132
+named its first code cut. It is larger than an iteration — it spans two crates
+and the renderer runs no script at all yet — so it was **cut by owner, as ADR
+0016 § 1 draws the line**: item 232 the engine's half (built and ticked here),
+item 233 the renderer's loop, item 234 the rendering steps and
+`requestAnimationFrame`. 76 stays open and closes when 233 and 234 have.
+
+**What was built.** `job.rs`: the job queue as one `Slots` cell rooted for the
+engine's life, jobs back to back with their argument counts beside the heap,
+taken from the front and compacted once what has run is all or more than half
+of the list, so a job requeueing itself for ever holds one job's slots.
+`Jobs::take_onto` moves a job straight onto a rooted stack with nothing
+allocated between. `interpret/checkpoint.rs`: `Engine::call` (a function run
+with nothing running — the callee, `this` and arguments laid out at the bottom
+of a fresh stack and entered; `enter_at`'s floor is zero when no frame is
+running, the one change to an existing rule, which no existing caller could
+reach), `Engine::queue_job` (refusing a non-function with the `TypeError`
+`queueMicrotask` throws, at the call), `Engine::jobs_waiting`, and
+`Engine::checkpoint` → `Drained`: jobs oldest first including those jobs
+queue, `Stop` read before every job (a builtin job enters no frame and would
+otherwise never look), a throw reported to the embedder's callback as it
+happens — handed `&Objects` so it can describe a thrown value before anything
+allocates and cannot run anything — and the next job run; any other escape
+drops the queue (§ 7); `Heap::end_job` either way. A job's answer is not kept,
+so the value the embedder's last run answered stays kept across a checkpoint —
+found in review, given a test, and the test checked against the flaw.
+`object/native.rs`: `Want::Job`, which is how an embedder's `queueMicrotask`
+reaches the queue; `interpret/call.rs` answers it `undefined`. `Slots::remove_front`.
+`Engine::run`'s list making and releasing moved into `two_lists` and
+`finish`, shared with `call`, which also stops `run` leaking its stack's root
+if the second list cannot be made.
+
+**How the ADR's rules are held.** § 1: the queue is in the heap and the
+engine queues to itself; `alo-js` gained no task, clock or I/O. § 3: a
+checkpoint after every callback is the loop's to do, and the test shows the
+engine supports it (`1a2b` for two loop calls, `12ab` for one script calling
+both); *never nests* is held by the borrow — the checkpoint holds `&mut
+Engine` throughout and a builtin is handed no engine — rather than by a flag,
+which this entry records as the one place the code's mechanism differs from
+the ADR's wording ("so do we" guard it with a flag) while keeping its rule.
+§ 4: the checkpoint ends the job. § 7: stopped means dropped.
+
+**Evidence.** `crates/alo-js/tests/what_a_checkpoint_runs.rs`, thirteen tests,
+tables run ordinarily and with the collector at every allocation and required
+to agree: order within and across tasks, FIFO, jobs queued by jobs, a
+thousand-long chain, `this`, throws reported (a string, a `TypeError`, an
+object still live when described), a job's own `catch`, non-function
+refusals, the loop-call versus script-call row, `Engine::call` (`this`,
+arguments, a throw, two hundred nested calls, a runaway recursion as
+`RangeError`, a builtin, a non-function, `Heap::check`), an embedder's job
+whose argument is held only by the queue across two runs and a collection,
+the last run's value kept, the job ended when finished and when stopped,
+stopped before starting, an endless job and two endless requeues stopped from
+another thread (or the doubling one meeting the heap's ceiling, ADR 0016 § 3's
+other answer), live cells equal after three checkpoints of two thousand jobs
+with 286 throws each, and every prefix cut of a program that queues jobs.
+`job.rs` has three unit tests and `slots.rs` one.
+
+**Doctored runs, eight**, each restored byte for byte (`cmp`) and the suite
+re-run green: running only the jobs waiting at the start fails two tests;
+newest first fails the unit test and two integration tests (a first attempt
+that only reversed the counts was not a reorder and was discarded rather than
+counted); keeping the queue after a stop fails three; never ending the job
+fails one; a throw ending the checkpoint fails two; no `this` slot fails
+seven; moving a job's values out of the queue and allocating before they reach
+the stack fails four under the collector at every allocation; keeping a job's
+answer fails one.
+
+**Roadmap.** The event-loop line gains a Built clause naming `alo-js`, item
+232 and its capabilities, and its Owed clause now names 233 and 234; the
+promises line's Built clause gains the microtask queue and its Owed clause
+says promises' reactions will be jobs on it. Neither is ticked.
+`docs/features.md` (event loop and promises lines), `CHANGELOG.md`,
+`REMAINING.md`, `lib.rs`'s module comment, and queue items 75 and 76 move
+with it.
+
+**Compliance review.** Law 1: nothing legacy. Law 2: unchanged; the agent's
+window (§ 6) is item 233's. Law 3: no stub, `todo!` or `unwrap` outside tests;
+`queueMicrotask` is not shipped by the engine because it is HTML's and an
+embedder's (§ 1), so the test defines it as item 233 will; no claim about
+speed. Law 4: no `unsafe`. ADR 0013 § 4: never panics on any cut, every job
+interruptible, the queue's length bounded by the heap's ceiling through
+`Heap::write`'s accounting. ADR 0014 § 2: every value is on a rooted stack or
+in the rooted queue across every allocation, and the stress runs and the
+doctored run say so. LOOP stage 2: a script is hostile input and the prefix
+and endless-job tests cover it; dependencies respected by cutting; the cut
+written into the queue as items with closing conditions. One file, one
+responsibility: the queue (`job.rs`) and what the engine does with it
+(`interpret/checkpoint.rs`) are separate files; `interpret.rs` keeps run
+setup, which `two_lists` and `finish` are. Clippy's findings in the new test
+were fixed by restructuring helpers to answer `Option`, renaming, and the
+`unnecessary_wraps` expectation the other builtins' tests already carry for a
+`Body`. Nothing positions, sizes or paints, so layout assertions and
+reference renders do not apply.
+
+**Gate.** `scripts/gate.sh` exited 0: formatting clean, clippy silent, all
+workspace tests pass, nothing stubbed, `unsafe` forbidden, Exhibit A on every
+file, every rented crate behind its boundary, no coordinate verb, the
+supervisor's stop rule holds, `CHANGELOG.md` changed. `git diff --check`
+passes. The log was kept in this session's scratchpad, not committed.
+
+**Unresolved obligations.** Item 76 is not done: items 233 (the renderer's
+loop, where the renderer first holds an engine and `queueMicrotask` is
+installed) and 234 (frames and `requestAnimationFrame`). No page runs a job
+yet. 107 queue items are open (105 before; 232 added closed, 233 and 234
+open). Next unused queue number **235**; next ADR **0017**. This is one
+iteration, not a finished queue or roadmap.

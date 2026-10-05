@@ -53,6 +53,12 @@
 //! narrower reason that arbitrary precision arithmetic is a decision about
 //! renting — queue item 207.
 //!
+//! [`job`] and [`Engine::checkpoint`](interpret::Engine::checkpoint) are the
+//! engine's half of the event loop (ADR 0016, queue item 232): the queue a
+//! `queueMicrotask` callback or a promise reaction waits in, held in the heap,
+//! and the checkpoint that runs it. The loop itself — tasks, their order,
+//! frames — is the renderer's, and this crate has no notion of a task.
+//!
 //! # The rule that shapes every file: a script is a stranger's bytes
 //!
 //! ADR 0013 § 4. **It never panics, on any source text.** Not on a truncated
@@ -94,6 +100,7 @@ pub mod error;
 pub mod escape;
 pub mod heap;
 pub mod interpret;
+pub mod job;
 pub mod lexer;
 pub mod number;
 pub mod numeric;
@@ -117,7 +124,7 @@ pub use code::{Chunk, Op};
 pub use compile::compile;
 pub use error::{Position, Reason, SyntaxError};
 pub use heap::{Field, Full, Heap, Ref, Root, Scope, Survivors, Trace, Tracer, Weak};
-pub use interpret::{Engine, Stop, Trouble};
+pub use interpret::{Drained, Engine, Stop, Trouble};
 pub use lexer::{Goal, Lexer};
 pub use object::{Cell, Fault, Found, Key, Objects, Property, Refused, Set, Value};
 pub use parser::{Parser, module, script};

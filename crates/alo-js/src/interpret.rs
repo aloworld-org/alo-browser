@@ -52,6 +52,7 @@
 
 mod call;
 mod catch;
+mod checkpoint;
 mod construct;
 mod environment;
 mod frame;
@@ -70,12 +71,15 @@ use crate::code::{Half, Op};
 use crate::compile::{self, Refusal};
 use crate::convert::{self, Hint, Names, Primitive};
 use crate::heap::{Ref, Root};
+use crate::job::Jobs;
 use crate::object::{Held, Key, Objects, Property, Value};
 use crate::operate::{self, Applied, Side, Simple};
 use crate::realm::{Assigned, Realm, Resolved};
 use crate::unit::Unit;
 
 use frame::{After, Frame, Run};
+
+pub use checkpoint::Drained;
 
 /// The switch an embedder throws to stop a script.
 ///
@@ -137,6 +141,8 @@ pub struct Engine {
     realm: Realm,
     names: Names,
     stop: Stop,
+    /// The jobs waiting for the next microtask checkpoint (ADR 0016 § 1).
+    jobs: Jobs,
     /// What the last run answered, kept alive until the next one.
     ///
     /// Without this the value handed back would be a reference to a cell the
@@ -156,11 +162,13 @@ impl Engine {
         let mut objects = Objects::new();
         let realm = Realm::new(&mut objects)?;
         let names = Names::new(&mut objects).map_err(|why| Escape::refused(why, 0))?;
+        let jobs = Jobs::new(&mut objects)?;
         Ok(Self {
             objects,
             realm,
             names,
             stop: Stop::new(),
+            jobs,
             last: None,
         })
     }
@@ -228,21 +236,38 @@ impl Engine {
     /// built, the heap filled, the embedder stopped it, or this engine has a
     /// bug.
     pub fn run(&mut self, unit: &Rc<Unit>) -> Result<Value, Escape> {
+        let (stack, constants) = self.two_lists()?;
+        let outcome = self.run_rooted(unit, &stack, &constants);
+        // The value goes back to the caller, who is not a root: it is kept
+        // alive here until the next run asks the same question.
+        self.finish(stack, constants, outcome)
+    }
+
+    /// A rooted stack and a rooted list of constants, for a run.
+    pub(super) fn two_lists(&mut self) -> Result<(Root, Root), Escape> {
         let stack = self
             .objects
             .slots()
             .map_err(|why| Escape::refused(why, 0))?;
         let stack = self.objects.heap_mut().root(stack);
-        let constants = self
-            .objects
-            .slots()
-            .map_err(|why| Escape::refused(why, 0))?;
+        let constants = match self.objects.slots() {
+            Ok(constants) => constants,
+            Err(why) => {
+                self.objects.heap_mut().release(stack);
+                return Err(Escape::refused(why, 0));
+            }
+        };
         let constants = self.objects.heap_mut().root(constants);
+        Ok((stack, constants))
+    }
 
-        let outcome = self.run_rooted(unit, &stack, &constants);
-
-        // The value goes back to the caller, who is not a root: it is kept
-        // alive here until the next run asks the same question.
+    /// Keep what a run answered, and give back its two lists.
+    pub(super) fn finish(
+        &mut self,
+        stack: Root,
+        constants: Root,
+        outcome: Result<Value, Escape>,
+    ) -> Result<Value, Escape> {
         if let Ok(value) = outcome {
             self.keep(value);
         }

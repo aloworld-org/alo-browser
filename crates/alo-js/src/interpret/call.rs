@@ -189,9 +189,15 @@ impl Engine {
         after: After,
     ) -> Result<(), Escape> {
         let height = self.height(run)?;
-        if callee_at < run.base().unwrap_or(usize::MAX)
-            || height != callee_at.saturating_add(2).saturating_add(argc)
-        {
+        // The floor is the running frame's operands — or the bottom of the
+        // stack, for a call an embedder or a job made with nothing running
+        // (queue item 232).
+        let floor = if run.frames.is_empty() {
+            0
+        } else {
+            run.base()?
+        };
+        if callee_at < floor || height != callee_at.saturating_add(2).saturating_add(argc) {
             // The compiler said the stack would look like this. It does not, so
             // the compiler and this loop disagree, which is our bug.
             return Err(Escape::Broken(Internal::StackIsWrong));
@@ -413,7 +419,33 @@ impl Engine {
             Want::Primitive { of, hint } => {
                 self.want_primitive_for(run, place, of, hint, waiting.at)
             }
+            Want::Job { callee, arguments } => {
+                self.want_job_for(run, place, callee, &arguments, waiting.at)
+            }
         }
+    }
+
+    /// Queue a job for a builtin, and answer it `undefined` (queue item 232).
+    ///
+    /// Nothing here allocates, so the callee and its arguments are safe in the
+    /// Rust locals they arrived in until the queue's list holds them.
+    fn want_job_for(
+        &mut self,
+        run: &mut Run,
+        place: usize,
+        callee: Value,
+        arguments: &[Value],
+        at: usize,
+    ) -> Result<(), Escape> {
+        self.queue_job(callee, arguments, at)?;
+        let stack = run.stack;
+        self.objects
+            .with_slots(stack, |slots, _| {
+                slots.truncate(place);
+                slots.push(Value::Undefined);
+            })
+            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        run.answered()
     }
 
     /// `ToPrimitive` for a builtin: the object goes in the answer slot, and the

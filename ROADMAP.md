@@ -771,18 +771,24 @@ unreachable without it.
 - [ ] Promises, the microtask queue, `async`/`await`, generators and iterators
       · Built: **the iteration protocol** that `for…of` reads (queue item
       230) — `GetIterator`, a step and `IteratorClose`, compiled to ordinary
-      calls, with `%IteratorPrototype%` and the array iterator behind them
-      · Owed: generators, which are a suspended frame; promises and the
-      microtask queue; `async`/`await`; `for await` and async iterators (queue
-      item 75)
+      calls, with `%IteratorPrototype%` and the array iterator behind them;
+      and **the microtask queue** (queue item 232) — `alo-js`'s job queue in
+      the heap and the checkpoint that drains it
+      · Owed: generators, which are a suspended frame; promises, whose
+      reactions will be jobs on that queue; `async`/`await`; `for await` and
+      async iterators (queue item 75)
 - [ ] Modules: ESM, dynamic `import()`, and the loader that fetches them
 - [ ] **The event loop** — tasks, microtasks, the rendering steps, `requestAnimationFrame`. Where "it works, but the animation stutters" is decided
-      · Owed: all of it. The decision is made (ADR 0016: the loop lives in
-      `alo-renderer`, the job queue in `alo-js`'s heap, a task is one message
-      or one thing the renderer scheduled, a checkpoint follows every task and
-      ends the job, and a frame is the browser process's to call) and no code
-      exists — the job queue, the checkpoint, the task order, the rendering
-      steps and `requestAnimationFrame` are all queue item 76
+      · Built: **the engine's half** (`alo-js`, queue item 232, under ADR
+      0016) — the job queue in the heap, `Engine::queue_job` and a builtin's
+      `Want::Job`, `Engine::checkpoint` running jobs oldest first including
+      those jobs queue, reporting a throw and running on, dropping the queue
+      when stopped and ending the job either way, and `Engine::call` for a
+      loop to call a listener with nothing running
+      · Owed: the renderer's loop — tasks, their order, the checkpoint after
+      each, `Act` answered after its jobs, `queueMicrotask` on the global
+      object (queue item 233) — and the rendering steps and
+      `requestAnimationFrame` (234); item 76 closes when both have
 - [ ] Errors and stack traces good enough to debug somebody else's minified page
 - [ ] Internationalisation (`Intl`), rented rather than written
 - [ ] Refused for now and recorded: a JIT, until there is a measured reason and an ADR weighing it against the attack surface it adds
