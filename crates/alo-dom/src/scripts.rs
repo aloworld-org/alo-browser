@@ -50,6 +50,18 @@
 //!   the first and so hides from the tree (see
 //!   [`crate::node::Element::had_duplicate_attributes`]).
 //!
+//! # One element at a time, as the parser reaches it
+//!
+//! [`carried`] reads a whole document. A page whose scripts run reads it a
+//! step at a time instead (ADR 0017 § 7): the parser stops at each script's
+//! end tag ([`crate::parse::Parsing`]), and [`prepared`] says what that
+//! element is, by the same rules — plus HTML's *if the element is not
+//! connected, return*, since a script can take the element the parser was
+//! inserting into out of the document, and a script the parser then puts
+//! there never runs. [`stated`] says what policy a `<meta>` the parser made
+//! states, which is checked as the parser makes it rather than when a later
+//! script runs: removing a `<meta>` does not take back its policy.
+//!
 //! # A `<meta>` policy, and where it counts
 //!
 //! Only a `<meta>` that is a child of `<head>` states a policy — HTML says so
@@ -147,6 +159,30 @@ pub fn carried(document: &Document) -> Vec<Carried> {
         }
     }
     found
+}
+
+/// What the `<script>` element `id` is, as the parser reaches its end tag —
+/// or [`None`] if it is not a script to run: not an HTML `<script>`, not in
+/// the document (inside a `<template>`, or in a tree a script took out of
+/// it), a data block, a classic script marked `nomodule`, or empty.
+pub fn prepared(document: &Document, id: NodeId) -> Option<Script> {
+    let element = document.element(id)?;
+    if !element.name.is_html("script") || !document.is_attached(id) {
+        return None;
+    }
+    script(document, id, element)
+}
+
+/// The policy the `<meta>` element `id` states, if it is a Content Security
+/// Policy in `<head>` with something in it, and in the document — a
+/// `<head>` a script took out is not. Asked as the parser makes it: HTML
+/// checks where the element is when it is inserted.
+pub fn stated(document: &Document, id: NodeId) -> Option<String> {
+    let element = document.element(id)?;
+    if !element.name.is_html("meta") || !document.is_attached(id) {
+        return None;
+    }
+    meta_policy(document, id, element)
 }
 
 /// What a `<script>` element is, or [`None`] if it is not a script to run.
@@ -420,6 +456,101 @@ mod tests {
         assert_eq!(
             of("<script id=a nonce=abc id=b>x</script>"),
             vec![written("x", None)]
+        );
+    }
+
+    /// Every HTML element named `name`, template contents included, in the
+    /// order the parser made them.
+    fn made(document: &Document, name: &str) -> Vec<NodeId> {
+        (0..document.node_count())
+            .map(NodeId)
+            .filter(|id| {
+                document
+                    .element(*id)
+                    .is_some_and(|element| element.name.is_html(name))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_prepared_script_is_what_carried_says_it_is() {
+        let document = parse_document(
+            "<script nonce=n>a</script><script type=text/plain>data</script>\
+             <script nomodule>fallback</script><script></script>\
+             <script type=module src=m.js></script>",
+        );
+        let prepared: Vec<Script> = made(&document, "script")
+            .into_iter()
+            .filter_map(|id| prepared(&document, id))
+            .collect();
+        let carried: Vec<Script> = carried(&document)
+            .into_iter()
+            .filter_map(|carried| match carried {
+                Carried::Script(script) => Some(script),
+                Carried::Policy(_) => None,
+            })
+            .collect();
+        assert_eq!(prepared, carried);
+        assert_eq!(prepared.len(), 2);
+    }
+
+    #[test]
+    fn a_script_out_of_the_document_is_not_prepared() {
+        let mut document = parse_document(
+            "<template><script>t</script></template><svg><script>s</script></svg>\
+             <div><script>moved out</script></div>",
+        );
+        let scripts = made(&document, "script");
+        assert_eq!(scripts.len(), 2, "the SVG one is not HTML's");
+        let (Some(inert), Some(moved)) = (scripts.first(), scripts.get(1)) else {
+            panic!("no scripts");
+        };
+        assert_eq!(prepared(&document, *inert), None, "a template's");
+        assert!(prepared(&document, *moved).is_some());
+        let div = document.parent(*moved);
+        assert!(div.is_some_and(|div| document.remove(div)));
+        assert_eq!(prepared(&document, *moved), None, "in a detached tree");
+        let svg_script = (0..document.node_count()).map(NodeId).find(|id| {
+            document.element(*id).is_some_and(|element| {
+                &*element.name.local == "script" && !element.name.is_html("script")
+            })
+        });
+        assert!(svg_script.is_some());
+        assert_eq!(svg_script.and_then(|id| prepared(&document, id)), None);
+        let body = made(&document, "body").first().copied();
+        assert_eq!(
+            body.and_then(|id| prepared(&document, id)),
+            None,
+            "not a script"
+        );
+    }
+
+    #[test]
+    fn a_meta_states_a_policy_where_carried_says_it_does_and_in_the_document() {
+        let mut document = parse_document(
+            "<head><meta http-equiv=content-security-policy content=\"script-src 'none'\">\
+             <meta http-equiv=refresh content=5></head>\
+             <body><meta http-equiv=content-security-policy content=x>",
+        );
+        let metas = made(&document, "meta");
+        let stated_now: Vec<Option<String>> =
+            metas.iter().map(|id| stated(&document, *id)).collect();
+        assert_eq!(
+            stated_now,
+            vec![Some("script-src 'none'".to_owned()), None, None]
+        );
+        let head = made(&document, "head").first().copied();
+        assert!(head.is_some_and(|head| document.remove(head)));
+        assert_eq!(
+            metas.first().and_then(|id| stated(&document, *id)),
+            None,
+            "a `<head>` out of the document states nothing"
+        );
+        let body = made(&document, "body").first().copied();
+        assert_eq!(
+            body.and_then(|id| stated(&document, id)),
+            None,
+            "not a meta"
         );
     }
 

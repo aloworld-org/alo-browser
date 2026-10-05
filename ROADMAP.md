@@ -846,7 +846,7 @@ unreachable without it.
 
 ### The DOM, and the pages that use it
 
-- [ ] Mutation from script — create, append, remove, replace — and the invalidation that has to follow it
+- [x] Mutation from script — create, append, remove, replace — and the invalidation that has to follow it
       · Built: **the document's half** (`alo-dom`, queue item 245) — create,
       insert, append, replace and remove under the DOM standard's names and
       validity rules, refusing as `HierarchyRequestError`, `NotFoundError`
@@ -874,9 +874,17 @@ unreachable without it.
       `Act`, once at the end of a `Load` and from the document it has at a
       `Resize`; a page that runs no script builds no heap; proven by the
       corpus case `a-script-grows-a-list`, loaded through a renderer, and
-      `what_a_script_left.rs`.
-      · Owed: a script at its own end tag, seeing the document parsed so
-      far (247) — item 80's last cut. The decision is made (ADR 0017): the document
+      `what_a_script_left.rs`. **A script runs at its own end tag**
+      (`alo-dom` and `alo-renderer`, queue item 247) — the page is parsed a
+      step at a time, each step lent the document wherever it is, and each
+      script sees the document parsed so far, itself its last element; no
+      detached tree is released while the parser may hold it; a `<meta>`
+      policy holds from where the parser made it; proven by the corpus case
+      `a-script-beside-itself` and `a_script_at_its_own_end_tag.rs`. Done
+      as queue item 80 (iteration 147). The remainder, each its own item:
+      `document.body` (253), `document` as Web IDL's accessor (251), a
+      thrown `DOMException` named in a load's report (252), and rendering
+      only what changed (113). The decision is made (ADR 0017): the document
       moves into the page's heap when it first runs script; a node's wrapper
       lives while its tree is reachable and an unreachable detached tree is
       freed, its ids never reused; every change goes through `alo-dom` under

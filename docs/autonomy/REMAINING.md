@@ -214,6 +214,17 @@ thrown `DOMException` reported by its name). Item 80 waits only on 247.
 112 queue items are open; 247 is next; the next unused queue number is 253
 and the next unused ADR 0018.
 
+Iteration 147 built 247: the page is parsed a step at a time (`alo-dom`'s
+`Parsing`), each step lent the document — in the page's heap once a script
+has run — and each script runs at its own end tag against the document
+parsed so far; no detached tree is released while the parse lasts, since
+the parser holds open elements no wrapper does; `<meta>` policies are taken
+as the parser made them. Corpus case `a-script-beside-itself`. It ticked
+item 80 — 245, 246 and 247 all done — and added 253 (`document.body`).
+111 queue items are open; 252 is next (it depends on nothing), and 81, 85,
+87, 88 and 89 are unblocked by 80; the next unused queue number is 254 and
+the next unused ADR 0018.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -11,6 +11,20 @@
 //! it here. Its nodes' contents are dropped and their slots become
 //! tombstones, so **their ids answer nothing and are never given out again**
 //! — ADR 0003's promise, kept at the level it was made.
+//!
+//! # Nothing goes while the parser is still building
+//!
+//! A script runs at its own end tag, with the rest of the markup still to
+//! read (ADR 0017 § 7), and the parser holds nodes of its own: the elements
+//! it has open, which it goes on inserting into whether or not a script has
+//! since taken them out of the document — the HTML standard's parser does
+//! exactly that. No wrapper marks them, so a collection would see a detached
+//! `<body>` nobody holds and release it, and the parser would then be asking
+//! a tombstone its name. Which nodes the parser holds is html5ever's to know
+//! and not to tell, so **while a document is being parsed, no tree is
+//! released at all**: what a script drops during a page's load is let go at
+//! the first collection after it, and is counted against the heap's ceiling
+//! until then, like everything else.
 
 use crate::document::Document;
 use crate::node::NodeId;
@@ -20,10 +34,11 @@ impl Document {
     /// went: the root, everything beneath it, and the contents of every
     /// `<template>` in it, which are part of its tree.
     ///
-    /// [`None`], releasing nothing, unless `root` is the root of a detached
-    /// tree: not the document, not a node with a parent, not a template's
-    /// contents (they go with their template), and not an id that already
-    /// answers nothing. Releasing changes no tree anything can see, so it
+    /// [`None`], releasing nothing, while the document is being parsed (see
+    /// the module), and unless `root` is the root of a detached tree: not the
+    /// document, not a node with a parent, not a template's contents (they go
+    /// with their template), and not an id that already answers nothing.
+    /// Releasing changes no tree anything can see, so it
     /// does not advance [`Document::change_count`].
     ///
     /// **It allocates nothing**, because the bindings call it from inside a
@@ -33,7 +48,8 @@ impl Document {
     /// node once it has no children left, and climbs back by the parent
     /// link, which costs two steps per node whatever the tree's shape.
     pub fn release(&mut self, root: NodeId) -> Option<usize> {
-        if root == self.root()
+        if self.is_being_parsed()
+            || root == self.root()
             || self.get(root).is_none()
             || self.parent(root).is_some()
             || self.host(root).is_some()

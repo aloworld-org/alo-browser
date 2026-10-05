@@ -3,12 +3,28 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! A page's scripts as it loads: which may run, under its own policy, and
-//! running them through its event loop (queue item 236, cut from 233).
+//! running them through its event loop (queue item 236, cut from 233), each
+//! at its own end tag (queue item 247).
+//!
+//! # Each runs where the parser reaches it
+//!
+//! ADR 0017 § 7. The page is parsed a step at a time
+//! ([`alo_dom::Parsing`]): the parser stops at each `</script>`, the script
+//! runs against **the document parsed so far** — its own element the last
+//! thing in it, nothing written after it there yet — and the parser carries
+//! on with exactly the markup it was going to read, since there is no
+//! `document.write` (law 1). So an inline script that inserts content beside
+//! itself puts it where the page meant, and a script before a `<p>` cannot
+//! find it while one after can. The page is drawn once, at the end of the
+//! load, by the renderer (§ 6).
 //!
 //! # Which run
 //!
-//! [`alo_dom::scripts::carried`] says what the markup carries, in document
-//! order. Of that, **a classic script written into the page** runs, if the
+//! [`alo_dom::scripts::prepared`] says what each `<script>` the parser
+//! reaches is, by the rules [`alo_dom::scripts::carried`] reads a whole page
+//! with — and one more, HTML's: a script the parser puts into a tree a
+//! script has taken out of the document is not connected, and never runs.
+//! Of those, **a classic script written into the page** runs, if the
 //! page's policy allows it. Everything else is said rather than skipped in
 //! silence, because a page whose script did not run is a page that looks
 //! wrong for a reason, and the reason is what somebody needs to see:
@@ -23,10 +39,14 @@
 //! Running a page's inline script without its `Content-Security-Policy` would
 //! be running script its author forbade, so every script is asked about first,
 //! with the nonce its element presents and its text for a hash: the response's
-//! policies ([`Page::policies`]) and every `<meta>` policy **written before
-//! it**. A `<meta>` governs what follows it and not what came before, which is
-//! why the policies are gathered as the walk goes rather than up front. A
-//! refusal is said with the policy's own words for it.
+//! policies ([`Page::policies`]) and every `<meta>` policy **the parser wrote
+//! before it**. A `<meta>` governs what follows it and not what came before,
+//! which is why the policies are gathered as the parse goes rather than up
+//! front — each as the parser made it ([`alo_dom::scripts::stated`]), so a
+//! script that removes a `<meta>` does not take its policy back. A `<meta>`
+//! a script inserts states nothing here: HTML would apply it, and that is
+//! the narrower rule's cost, recorded rather than approximated. A refusal is
+//! said with the policy's own words for it.
 //!
 //! # And telling the policy's author
 //!
@@ -44,18 +64,19 @@
 //! then *cleans up after running script*, which is a microtask checkpoint
 //! because nothing else is running. Each script here is a task of the
 //! page's [`EventLoop`] and each is followed by a checkpoint, which is the
-//! same order — the script, its jobs, the next script — and is the order a
-//! page can see. What a page can still tell apart is the document being half
-//! built while its script runs: every script here sees the whole parsed
-//! document, and running each at its own end tag is queue item 247.
+//! same order — the script, its jobs, then the parser again — and is the
+//! order a page can see.
 //!
-//! # The document goes to the script
+//! # The document goes to the script, and the parser borrows it back
 //!
-//! When the first script that may run is about to, the page's document moves
-//! into its heap and `document` appears on its global object (ADR 0017 § 2,
-//! [`Held::scripted`]). Not before: a page none of whose scripts may run
-//! never builds a heap. The page is rendered once, after its last script
-//! (§ 6) — by the renderer, not here.
+//! When the first script that may run is about to, the page's document —
+//! as much of it as is parsed — moves into its heap and `document` appears
+//! on its global object (ADR 0017 § 2, [`Held::scripted`]). Not before: a
+//! page none of whose scripts may run never builds a heap. Every step of the
+//! parse after that is **lent** the document out of the heap
+//! ([`Held::change`]), between tasks, where no script can see it half way.
+//! The page is rendered once, after the parse and its last script (§ 6) — by
+//! the renderer, not here.
 //!
 //! # How much a load says
 //!
@@ -80,7 +101,8 @@
 //! not come and the tab says what happened ([`crate::answers`]) — the bound
 //! that already holds for a renderer that stops answering for any reason.
 
-use alo_dom::scripts::{Carried, Kind, Script, Source, carried};
+use alo_dom::scripts::{Kind, Script, Source, prepared, stated};
+use alo_dom::{Parsing, Reached};
 use alo_net::csp::{Content, Inline};
 
 use crate::event_loop::MOST_REPORTS;
@@ -98,6 +120,12 @@ use crate::violations::{MOST_OBJECTIONS, Objection};
 /// one turn of the loop keeps, for the same reason: past it a page is saying
 /// the same thing in a loop, and the count says how long the loop was.
 pub const MOST_SAID: usize = MOST_REPORTS;
+
+/// What a load says if the heap's cell stops being a document part way
+/// through its parse — the engine's bug, answered rather than assumed. The
+/// page is drawn from what was parsed.
+const LOST: &str =
+    "the rest of this page was not parsed: its document could not be found in its heap";
 
 /// What a load says about its scripts: the first [`MOST_SAID`] lines, and how
 /// many more there were.
@@ -136,34 +164,43 @@ impl Said {
     }
 }
 
-/// Run a page's scripts as it loads, oldest first, against the document
-/// `held` — moved into the page's heap before the first of them runs — with
-/// everything that did not run or did not finish added to `issues`, and every
-/// header policy's objection to a script written into the page added to
-/// `objections`.
+/// Parse a page to its end through `parsing`, into the document `held` —
+/// which starts as the one [`Parsing::start`] handed out — and run each of its
+/// scripts as the parser reaches its end tag, moving the document into the
+/// page's heap before the first of them runs; with everything that did not
+/// run or did not finish added to `issues`, and every header policy's
+/// objection to a script written into the page added to `objections`.
 pub(crate) fn at_load(
     held: &mut Held,
+    parsing: &mut Parsing,
     page: &Page,
     issues: &mut Vec<String>,
     objections: &mut Vec<Objection>,
 ) {
-    let stated = page.stated();
+    let stated_by = page.stated();
     let mut said = Said::default();
     let mut left_out = 0_usize;
     let mut policies = page.policies.clone();
     let mut ended = false;
     let mut number = 0_usize;
-    // Gathered before any of them runs: a script that moves or removes a
-    // later `<script>` does not change what the page carried as it arrived.
-    // Which scripts run at all as the parser reaches them is item 247's.
-    let found = held.document().map(carried).unwrap_or_default();
-    for found in found {
-        let script = match found {
-            Carried::Policy(policy) => {
-                policies.push(policy);
-                continue;
-            }
-            Carried::Script(script) => script,
+    loop {
+        let Some(reached) = held.change(|document| parsing.resume(document)) else {
+            issues.push(LOST.to_owned());
+            break;
+        };
+        let Reached::Script(element) = reached else {
+            break;
+        };
+        // Every `<meta>` the parser made before this end tag, read where it
+        // was put — which no script has had the chance to change since.
+        let metas = parsing.take_metas();
+        let Some(document) = held.document() else {
+            issues.push(LOST.to_owned());
+            break;
+        };
+        policies.extend(metas.into_iter().filter_map(|meta| stated(document, meta)));
+        let Some(script) = prepared(document, element) else {
+            continue;
         };
         number = number.saturating_add(1);
         if ended {
@@ -173,7 +210,7 @@ pub(crate) fn at_load(
         if let (Kind::Classic, Source::Written(text)) = (&script.kind, &script.source) {
             let content = Content::element(text);
             let nonce = script.nonce.as_deref();
-            for place in stated.objecting_to_inline(Inline::Script, nonce, content) {
+            for place in stated_by.objecting_to_inline(Inline::Script, nonce, content) {
                 if objections.len() < MOST_OBJECTIONS {
                     objections.push(Objection {
                         policy: place,
@@ -183,11 +220,14 @@ pub(crate) fn at_load(
                     left_out = left_out.saturating_add(1);
                 }
             }
-            if stated.allows_inline(Inline::Script, nonce, content).is_ok() {
+            if stated_by
+                .allows_inline(Inline::Script, nonce, content)
+                .is_ok()
+            {
                 // Every enforced header policy allows it, so any objection
                 // was a watched policy's, and the script will run regardless
                 // (unless a `<meta>` refuses it, which is said below).
-                for watched in stated.inline_violations(Inline::Script, nonce, content) {
+                for watched in stated_by.inline_violations(Inline::Script, nonce, content) {
                     said.script(number, &format!("runs, but {watched}"));
                 }
             }

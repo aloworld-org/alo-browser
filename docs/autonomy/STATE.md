@@ -12186,3 +12186,136 @@ remainder; 77 needs design; 233, 234, 238 and 240 open and item 76 not done;
 discriminating test. 112 queue items are open. Next is **247**. Next unused
 queue number **253**; next ADR **0018**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 147 — item 247: a parser-inserted script sees the document up to its own element
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Mutation from script* line, iterations
+145 and 146's entries, queue items 80, 245–253 and 247, ADR 0017 in full
+(§ 7 is this item's), and the code this changes: `alo-dom`'s `parse.rs`,
+`scripts.rs`, `release.rs`, `document.rs`; `alo-bindings`' `document_cell.rs`,
+`liveness.rs`, `embed.rs`; `alo-renderer`'s `scripts.rs`, `held.rs`,
+`renderer.rs`, `pipeline.rs`; html5ever 0.39's `driver.rs`, `Tokenizer::feed`
+and the tree builder's `</script>` rule; `alo-js`'s collection trigger
+(`COLLECT_AFTER`). No `AGENTS.md` exists. No sibling repository was read or
+modified. The checkout was clean on entry at `336347d`.
+
+**Selection.** Iteration 146 named **247** next; its dependency, 246, is
+done, and every earlier open item is still blocked for the reasons iteration
+144 recorded.
+
+**What was built.** `alo-dom`: `Parsing` in `parse.rs` (still the only file
+naming html5ever) — `start` hands out the document; each `resume` is lent it
+`&mut`, feeds html5ever's tokenizer to the next `TokenizerResult::Script` or
+the end, and gives it back; `parse_document` is that parse run to its end.
+The sink records each HTML `<meta>` it makes (`take_metas`).
+`Document::is_being_parsed` holds from `start` to the end, and `release`
+refuses while it does. `scripts::prepared` and `scripts::stated` answer, per
+element, what `carried` answers for a whole page, plus HTML's *not
+connected, return*. `alo-renderer`: `scripts::at_load` drives the parse
+through `Held::change`, takes the `<meta>` policies made before each stop,
+and runs the script there; `load` starts the `Parsing`. Corpus case
+`a-script-beside-itself`.
+
+**Decisions taken inside the item, none changing ADR 0017's rules.**
+(1) **The document is lent to each step by a swap.** html5ever's tree
+builder outlives every borrow, so its sink cannot hold a `&mut Document`;
+the document is moved into the sink for the step and out before `resume`
+returns, with the caller's exclusive borrow (out of the heap cell, through
+`change_document`) held throughout. One owner at every moment, nothing able
+to see the document half way — § 2's rule, kept in substance; the spelling
+is a move because of the rented crate's shape, and `parse.rs` says so.
+(2) **No release while the parse lasts.** The tree builder holds open
+elements no wrapper marks; a collection would otherwise tombstone a `<body>`
+a script detached while the parser was still inserting into it, and the
+parser would ask a tombstone its name. Which nodes it holds is html5ever's
+and not exposed, so the rule is whole-document and conservative: what a
+script drops during a load is released at the first collection after it,
+counted against the heap's ceiling until then. Recorded in `release.rs`.
+(3) **A `<meta>` policy is read as the parser made it**, so removing the
+tag does not lift the policy (HTML). A `<meta>` a script inserts states
+nothing here, where HTML would apply it — the narrower rule, written down
+in `scripts.rs` rather than approximated. (4) **`document.body` is cut** to
+item **253**: it is not one of item 80's members, a getter without the
+setter would be an approximation (ADR 0013 § 3), and the closing
+condition's node is reached as `document.documentElement.lastChild`, which
+is the body while it is being parsed. (5) A `<script>` still open at the
+end of the markup no longer runs — HTML marks it already started; the old
+whole-document walk ran it.
+
+**Evidence.** `crates/alo-renderer/tests/a_script_at_its_own_end_tag.rs`
+(10 tests), `crates/alo-dom/tests/a_parse_in_steps.rs` (9 tests), 3 unit
+tests in `alo-dom`'s `scripts.rs`, and the corpus case
+`a-script-beside-itself`: reference render looked at — *Older*, the
+script's green *From the script*, *Newer* — and `layout.txt` with the
+script's row at (8, 64.578125) 184×25.296875; the renderer test asserts the
+same order box by box at (0, 0), (0, 20), (0, 40), each 300×20. The queue
+entry lists what each test asserts. **The existing script tests were
+re-read against the new order**, as the item requires: the order tests run
+pure script, the policy tests' `<meta>`s already governed only what
+followed, `what_a_script_left.rs`'s scripts are each last in their body,
+the prefix test asks only that every prefix loads, and
+`a-script-grows-a-list`'s script is last in its `<main>` — all pass
+unchanged.
+
+**Doctored runs**, each restored and checked identical by hash (log in the
+scratchpad): nine rules disabled alone, each failing at least one test —
+release while parsing, `prepared` requiring connected, `stated` requiring
+connected, `resume` refusing a document it did not start, the end clearing
+*being parsed*, stopping at an end tag at all, policies read as the parser
+made them, the sink recording `<meta>`s, the corpus case's row order. The
+first pass found one gap, closed before committing: the renderer's
+collection test did not fail with release-while-parsing disabled, because
+the script's own register still held the body's wrapper through the
+collection; the removal moved into a function whose frame is gone first,
+and it now fails. Cargo stops at the first failing test binary, so the
+lists in the log are lower bounds.
+
+**Compliance review.** Law 1: no `document.write`, nothing legacy; the
+parser continues with exactly the markup it had. Law 2: the agent's tree is
+the document's; a script's node is numbered before what the parser reads
+after it (tested). Law 3: no stub, `todo!` or `unwrap` outside tests; the
+heap cell ceasing to be a document mid-parse is answered with an issue, not
+assumed. Law 4: no `unsafe`. One file, one responsibility: html5ever stays
+in `parse.rs` alone (the gate checks it); per-element script rules beside
+the whole-page ones in `scripts.rs`; the renderer's `scripts.rs` now also
+drives the parse, which is the same reason to change — *when a page's
+scripts run as it loads* — since a script runs only at a stop. Stage 2 § 2:
+every prefix of a page with scripts parses in steps to the same document;
+ten thousand scripts are ten thousand stops; a script that removes the body
+the parser is in and forces a collection, and one that removes its own
+element, both leave a page that is drawn and answers. Layout assertion in
+numbers and a reference render: both, above; every existing reference
+render still matches (the gate runs the corpus).
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step (6 min 54 s): formatting clean, clippy silent, all tests pass,
+nothing stubbed, `unsafe` forbidden, every file carries the licence notice,
+every rented crate behind its boundary (html5ever included), no coordinate
+verb, the supervisor's stop rule holds, `CHANGELOG.md` changed.
+`cargo test --workspace --all-features` counts 2429 passed, 0 failed (2407
+at iteration 146, this item's 22). `git diff --check` passes. Logs kept in
+this session's scratchpad, not committed.
+
+**Roadmap.** The *Mutation from script* line is **ticked**: item 80 said it
+closes when 245, 246 and 247 have, and all three are done — its closing
+condition met by item 250 (iteration 146) and the order settled here. The
+line names its remainder, each an item of its own: `document.body` (253),
+`document` as Web IDL's accessor (251), a thrown `DOMException` named in a
+load's report (252), rendering only what changed (113). Queue: 247 and 80
+ticked with their evidence, 253 added; `CHANGELOG.md`, `docs/features.md`,
+`docs/conformance.md` and `REMAINING.md` moved with it.
+
+**Unresolved obligations.** A `<meta>` policy a script inserts is not
+applied (HTML would). Detached trees a script drops during a load wait for
+the first collection after the parse. 253, 251 and 252 as above. Carried
+from before: the renderer's path for a document the heap refuses is not
+discriminated (it needs a document over the heap's 1 GiB ceiling); the
+one-write overshoot of the heap's ceiling; 248's undiscriminated overrun
+fallback; 78's remainder; 77 needs design; 233, 234, 238 and 240 open and
+item 76 not done; `violations::reports` still called by nothing in the
+browser process (item 203's dependency); iteration 141's browser-side
+font-name guard still has no discriminating test. 111 queue items are open.
+Next is **252** (it depends on nothing); closing 80 also unblocks 81, 85,
+87, 88 and 89. Next unused queue number **254**; next ADR **0018**. This is
+one iteration, not a finished queue or roadmap.

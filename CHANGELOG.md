@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's script now runs where it is written.** The page is read a piece
+  at a time and each script runs when reading reaches its end, so it sees
+  the page only as far as that point: itself as the last thing in it, and
+  nothing written after it there yet. A script that adds something beside
+  itself — a row in the list it sits in — puts it there, before the rows
+  written after it, which is what every page that does this expects.
+  Scripts still run in order, each under the policies stated before it, and
+  removing the tag that stated a policy does not lift it. A script whose
+  end never arrives does not run, as in every browser. This was the last
+  piece of letting a page's script change the page.
+
 - **A page's own script can now change the page, and the page shows it.**
   When a page's first script runs it is handed the page, and from then on
   what a person sees and what an agent reads are the page as its script

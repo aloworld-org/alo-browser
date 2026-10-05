@@ -22,8 +22,9 @@
 //! Each page loaded gets its own [`EventLoop`], and so its own engine and
 //! realm: a renderer serves one site (ADR 0005), and the globals one of its
 //! pages left behind are not the next page's to find. A `Load` is one task
-//! per script the page carries (ADR 0016 § 2, [`crate::scripts`]), and its
-//! answer comes after every one of them and their jobs.
+//! per script the page carries, each run as the parser reaches its end tag
+//! (ADR 0016 § 2, ADR 0017 § 7, [`crate::scripts`]), and its answer comes
+//! after the whole parse, every one of them and their jobs.
 //!
 //! # The page's document, and when it is drawn again
 //!
@@ -55,7 +56,7 @@ use crate::scripts;
 use crate::snapshot::Snapshot;
 use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Target, Verb};
-use alo_dom::Document;
+use alo_dom::{Document, Parsing};
 use alo_layout::Size;
 use alo_text::Font;
 use alo_text::FontDatabase;
@@ -235,17 +236,19 @@ impl Renderer {
         FromRenderer::Acted(outcome)
     }
 
-    /// A new page: parsed, its scripts run, each a task, and then drawn once.
+    /// A new page: parsed, each of its scripts run as a task when the parser
+    /// reaches its end tag, and then drawn once.
     ///
     /// The loop the last page ran in goes with it, whatever this page turns
     /// out to carry.
     fn load(&mut self, page: Page) -> FromRenderer {
         self.held = None;
         self.drawn = None;
-        let mut held = Held::Parsed(alo_dom::parse_document(&page.html));
+        let (mut parsing, document) = Parsing::start(&page.html);
+        let mut held = Held::Parsed(document);
         let mut said = Vec::new();
         let mut objections = Vec::new();
-        scripts::at_load(&mut held, &page, &mut said, &mut objections);
+        scripts::at_load(&mut held, &mut parsing, &page, &mut said, &mut objections);
         self.held = Some(held);
         self.page = Some(page);
         // After the scripts, so what the load says — its issues, the fonts it

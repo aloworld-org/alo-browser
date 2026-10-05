@@ -68,6 +68,9 @@ pub struct Document {
     bytes: usize,
     quirks_signal: QuirksSignal,
     issues: Vec<crate::parse::ParseIssue>,
+    /// Whether the parser is still building this document, a step at a time
+    /// ([`crate::parse::Parsing`]).
+    being_parsed: bool,
 }
 
 impl Document {
@@ -80,6 +83,7 @@ impl Document {
             bytes: Node::new(NodeKind::Document).footprint(),
             quirks_signal: QuirksSignal::NoQuirks,
             issues: Vec::new(),
+            being_parsed: false,
         }
     }
 
@@ -109,6 +113,18 @@ impl Document {
     /// worth asserting on in a test about identity.
     pub fn node_count(&self) -> usize {
         self.nodes.len()
+    }
+
+    /// Whether the parser is still building this document: it has stopped at
+    /// a script's end tag ([`crate::parse::Parsing`]) and has more markup to
+    /// read. While it is, [`Document::release`] lets nothing go, because the
+    /// parser holds nodes — its open elements — that nothing else does.
+    pub fn is_being_parsed(&self) -> bool {
+        self.being_parsed
+    }
+
+    pub(crate) fn set_being_parsed(&mut self, being_parsed: bool) {
+        self.being_parsed = being_parsed;
     }
 
     /// How many times the document has been changed since it was made.

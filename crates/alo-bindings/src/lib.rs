@@ -37,9 +37,10 @@
 //!
 //! The renderer hands a page's document over when its first script is about
 //! to run, and draws again when the change count says what it holds is stale
-//! (`alo-renderer`'s `held.rs`, queue item 250). **A parser-inserted script
-//! running at its own end tag** is item 247: today every script sees the
-//! whole parsed document. The members are item 80's and no more — everything
+//! (`alo-renderer`'s `held.rs`, queue item 250), and runs each of a page's
+//! scripts at its own end tag against the document parsed so far, lending
+//! the document back to the parser between them (queue item 247). The
+//! members are item 80's and no more — everything
 //! else a page reaches for is absent, so `typeof` answers `"undefined"`
 //! (ADR 0017 § 8).
 

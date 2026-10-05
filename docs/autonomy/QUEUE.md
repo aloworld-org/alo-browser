@@ -3544,7 +3544,7 @@ The long pole, and the thing most of section E is unreachable without.
 
 ## E. The DOM, and the pages that use it
 
-- [ ] **80. Mutation from script**, and the invalidation that has to follow it.
+- [x] **80. Mutation from script**, and the invalidation that has to follow it.
   Adding and removing nodes is still the parser's alone today (`alo-dom` says
   so); this is where that stops being true.
   *Depends on 72. Closes when:* a script changes a document and the next render
@@ -3562,6 +3562,14 @@ The long pole, and the thing most of section E is unreachable without.
   rendered again whole when its rendering is read, never inside a task; and a
   parser-inserted script runs at its own end tag. No code yet. It closes when
   245, 246 and 247 have, and the cut is in that order.
+  **Done (iteration 147)**, when 247 closed: 245, 246 (through 248, 249 and
+  250) and 247 are all done, and the closing condition was met by item
+  250 (iteration 146) — the corpus case `a-script-grows-a-list` and
+  `what_a_script_left.rs`, with every parsed node keeping its id — and at
+  the order 247 settled, `a-script-beside-itself`. Left as items of their
+  own, not as this one's remainder: `document` as Web IDL's accessor (251),
+  a thrown `DOMException` named in a load's report (252), `document.body`
+  (253), and rendering only what changed (113).
 
 - [x] **245. `alo-dom`'s tree operations, public, under the standard's
   rules.** *Cut from 80 (ADR 0017 §§ 3 and 5). Depends on nothing.* Insert,
@@ -3882,7 +3890,7 @@ The long pole, and the thing most of section E is unreachable without.
   running any of the page's code, and every other object is reported as
   now.
 
-- [ ] **247. A parser-inserted script sees the document up to its own
+- [x] **247. A parser-inserted script sees the document up to its own
   element.** *Cut from 80 (ADR 0017 § 7). Depends on 246.* The parser stops
   at each classic script's end tag (`html5ever`'s `TokenizerResult::Script`),
   the renderer runs it as a task with its checkpoint, and the parser
@@ -3891,6 +3899,84 @@ The long pole, and the thing most of section E is unreachable without.
   its own `<script>`; a script before a `<p>` cannot find it and one after
   can; scripts still run in document order under the same policies; and the
   renderer's existing script tests are re-read against the new order.
+  **Done (iteration 147).** `alo-dom`'s `parse.rs` gains `Parsing`: `start`
+  hands out the document, and each `resume` is **lent** it (`&mut`), runs
+  html5ever's tokenizer to the next `TokenizerResult::Script` or the end,
+  and gives it back — moved into the tree builder's sink for the step and
+  out again, since the builder outlives every borrow, with the caller's
+  exclusive borrow held throughout. `parse_document` is the same parse run
+  to its end. The sink records each HTML `<meta>` it makes (`take_metas`).
+  `Document::is_being_parsed` holds from `start` to the end, and **while it
+  does, `release` lets nothing go** — the parser holds open elements no
+  wrapper marks, and a collection would otherwise tombstone a `<body>` a
+  script detached while the parser was still inserting into it.
+  `scripts::prepared` is what a `<script>` the parser stopped at is, by
+  `carried`'s rules plus HTML's *not connected, return*; `scripts::stated`
+  is a `<meta>`'s policy, asked as the parser made it. `alo-renderer`'s
+  `scripts::at_load` drives the parse through `Held::change`, gathers the
+  `<meta>` policies made before each stop, and runs the script there;
+  `load` starts the `Parsing`. **Cut: `document.body`** — not one of item
+  80's members, so the scripts reach the body as
+  `document.documentElement.lastChild` (the root element's last child
+  while it is being parsed), which is the same node; the member is item
+  **253**. **A changed behaviour**: a `<script>` still open at the end of
+  the markup no longer runs (HTML marks it already started); every other
+  existing script test reads the same under the new order — each was
+  re-read: the order tests run pure script, the policy tests' `<meta>`s
+  already governed only what followed, `what_a_script_left.rs`'s scripts
+  are each last in their body, and the prefix test asks only that every
+  prefix loads.
+  *Closed by:* `crates/alo-renderer/tests/a_script_at_its_own_end_tag.rs`
+  (10 tests: a mid-body script is its body's last child, its previous
+  sibling the element before it; a script before a `<p>` does not find it
+  and one after does; three scripts count `1`, `3` and `6` children of the
+  body in document order; a `<meta>` policy a script removes still refuses
+  the script after it and admits the one with its nonce; a `<meta>` after a
+  script does not reach back to it; a row a script appends beside itself
+  laid out between the rows at (0, 20) 300×20, in numbers; the script's row
+  numbered before the row the parser read after it; an unterminated script
+  not run; and the hostile half — a script that takes out the body the
+  parser is in, drops every hold on it inside a function and allocates
+  eight mebibytes until the heap collects: no tree-builder broken promise,
+  the script the parser then put in the detached body not run, the page
+  drawn and answering; and a script that removes its own element);
+  `crates/alo-dom/tests/a_parse_in_steps.rs` (9 tests: each stop with its
+  script last and nothing after it; a stepped parse equal to a whole one —
+  tree, ids and issues — over tables, misnested formatting, templates, SVG
+  and `<select>`; a stop at every `</script>`, data blocks and templates'
+  included, and none at an unterminated one; a change between steps kept
+  and the parser's next row after it, on one counter; a body taken out
+  between steps still inserted into, never released while the parse lasts
+  and released (10 nodes) once it has ended; a document the parse did not
+  start not built into; `<meta>`s handed over once, in order; every prefix
+  of a page with scripts parsing in steps to the same document; ten
+  thousand scripts, ten thousand stops); `scripts.rs` 3 unit tests
+  (`prepared` agrees with `carried`; not connected, a template's, an SVG
+  one; `stated` only in a `<head>` in the document); and the corpus case
+  **`a-script-beside-itself`** — reference render looked at: *Older*, the
+  script's green *From the script*, *Newer*; `layout.txt` has the script's
+  row at (8, 64.578125) 184×25.296875. Doctored runs, each restored and
+  checked identical by hash: nine rules disabled alone — release while
+  parsing (the dom test, and after one fix the renderer's: its first
+  version held the body's wrapper in a register, so it did not
+  discriminate), `prepared` requiring connected, `stated` requiring
+  connected, `resume` refusing a document it did not start, the end
+  clearing *being parsed*, stopping at an end tag at all, a policy read as
+  the parser made it rather than from the page as it now is, the sink
+  recording `<meta>`s, and the corpus case's row order — each fails at
+  least one test.
+
+- [ ] **253. `document.body`.** *Cut from 247.* Item 247's closing condition
+  names `document.body.lastChild`; `body` is not one of item 80's members,
+  so 247's scripts reach the same node as `document.documentElement.lastChild`.
+  HTML's `body` is an attribute with a getter (the root element's first
+  `body` child — and `frameset`, which law 1 leaves a page to fail
+  without) and a setter (replace or append, refusing what is not a body
+  as `HierarchyRequestError`); a getter alone would be an approximation
+  (ADR 0013 § 3), so both arrive together. *Depends on 249. Closes when:* a
+  script reads `document.body` as the body element and `null` before
+  there is one, and assigning a body replaces the old one or is refused
+  by name.
 
 - [ ] **81. Events**: capture and bubble, listeners, default actions. **This is
   what makes a button do something**, which every agent verb has been honest

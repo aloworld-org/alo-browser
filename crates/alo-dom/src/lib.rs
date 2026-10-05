@@ -33,6 +33,10 @@
 //!   element, refused when no attribute can have it ([`by_name`]);
 //!   [`Document::set_data`] and [`Document::replace_all_with_text`] are what
 //!   `textContent` writes.
+//! - [`Parsing`] parses a document a step at a time, stopping at each
+//!   script's end tag ([`Reached`]) so the page's script can run against the
+//!   document parsed so far (ADR 0017 § 7); [`parse_document`] is the same
+//!   parse, run to its end.
 //! - [`Document::footprint`] is what the document owns, kept as a sum as
 //!   nodes change, so the heap a scripted page's document moves into can
 //!   count it at no cost per change (ADR 0017 § 2; [`footprint`]).
@@ -87,5 +91,5 @@ pub mod validity;
 pub use document::{Children, Descendants, Document, QuirksSignal};
 pub use name::{Namespace, QualifiedName};
 pub use node::{Attribute, Element, Node, NodeId, NodeKind};
-pub use parse::{ParseIssue, parse_document, parse_fragment};
+pub use parse::{ParseIssue, Parsing, Reached, parse_document, parse_fragment};
 pub use validity::Refusal;

@@ -1,0 +1,12 @@
+block flow · document
+  block flow · generic
+    block flow · main
+      block flow · heading [level=1]
+        text "Inbox"
+      block flow · list "Messages"
+        block flow list-item · listitem
+          text "Older"
+        block flow list-item · listitem
+          text "From the script"
+        block flow list-item · listitem
+          text "Newer"

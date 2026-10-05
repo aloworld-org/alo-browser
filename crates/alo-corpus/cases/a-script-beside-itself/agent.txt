@@ -1,0 +1,7 @@
+document at (0, 0) 200×123.171875
+  main at (0, 0) 200×123.171875
+    heading "Inbox" [level=1] at (8, 8) 184×23.28125
+    list "Messages" at (8, 39.28125) 184×75.890625
+      listitem "Older" at (8, 39.28125) 184×25.296875
+      listitem "From the script" at (8, 64.578125) 184×25.296875
+      listitem "Newer" at (8, 89.875) 184×25.296875

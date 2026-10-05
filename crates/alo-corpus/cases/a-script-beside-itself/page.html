@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html><body><main><h1>Inbox</h1><ul aria-label="Messages"><li>Older</li><script>
+// Runs at its own end tag (ADR 0017 § 7), so the list holds only what was
+// parsed before it: a row appended now lands beside the script, and the row
+// written after the script follows it. Item 80's members only.
+const list = document.documentElement.lastChild.firstChild.lastChild;
+const row = document.createElement('li');
+row.setAttribute('class', 'new');
+row.appendChild(document.createTextNode('From the script'));
+list.appendChild(row);
+</script><li>Newer</li></ul></main></body></html>

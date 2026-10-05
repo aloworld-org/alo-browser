@@ -15,16 +15,19 @@
 //! - **Quirks mode** is recorded and never honoured. Law 1 refuses it, so a
 //!   document that would put another engine into quirks mode is still laid out
 //!   as standards. See [`QuirksSignal`](crate::QuirksSignal).
-//! - **Scripting** does not exist, so a `<script>` is a element with text in it
-//!   and nothing runs. `mark_script_already_started` has nothing to mark.
+//! - **Scripting runs nothing here.** A `<script>` is an element with text in
+//!   it, and this crate depends on no engine. What it does is **stop**: a
+//!   [`Parsing`] parses a step at a time and pauses at each script's end tag,
+//!   so that whoever does run script can run it against the document parsed
+//!   so far, as the HTML standard has it (ADR 0017 § 7), and then let the
+//!   parser carry on. `mark_script_already_started` has nothing to mark:
+//!   which elements are scripts to run is [`crate::scripts`]'s to say.
 //!
-//!   What will run there is decided: ADR 0013 — `alo-js`, ours, a bytecode
-//!   compiler and an interpreter in safe Rust, with no JIT until a measurement
-//!   says otherwise. Two of its clauses land in *this* file rather than in that
-//!   crate. `document.write` stays refused (stage 3, queue item 137), so the
-//!   parser is never re-entered by a script it started; and a script that is
-//!   fetched is fetched by the browser process, because ADR 0005 gives this one
-//!   no network and ADR 0013 § 5 gives `alo-js` no I/O at all.
+//!   `document.write` stays refused (stage 3, queue item 137), so the parser
+//!   is never re-entered by a script it started, and what it carries on with
+//!   is exactly the markup it was going to read. A script that is fetched is
+//!   fetched by the browser process, because ADR 0005 gives this one no
+//!   network and ADR 0013 § 5 gives `alo-js` no I/O at all.
 //! - **Declarative shadow roots** are refused rather than half-built: they are
 //!   not in `docs/features.md`, and a parser told "yes" by a sink that cannot
 //!   attach one produces a tree that says something happened when it did not.
@@ -40,7 +43,7 @@ use html5ever::interface::tree_builder::{
     ElemName, ElementFlags, NodeOrText, QuirksMode, TreeSink,
 };
 use html5ever::tendril::{StrTendril, TendrilSink};
-use html5ever::{LocalName, ParseOpts, Prefix, QualName};
+use html5ever::{LocalName, ParseOpts, Prefix, QualName, TokenizerResult};
 use std::borrow::Cow;
 
 /// Something the parser objected to, and where.
@@ -65,9 +68,122 @@ impl fmt::Display for ParseIssue {
 /// Parse a whole HTML document.
 ///
 /// Always succeeds: an HTML parser has a defined repair for every input, and
-/// [`Document::issues`] reports what it had to repair.
+/// [`Document::issues`] reports what it had to repair. It is a [`Parsing`]
+/// run to its end without stopping, so a page whose scripts never run is
+/// built by exactly the steps of one whose scripts do.
 pub fn parse_document(html: &str) -> Document {
-    html5ever::parse_document(Sink::new(), ParseOpts::default()).one(html)
+    let (mut parsing, mut document) = Parsing::start(html);
+    while let Reached::Script(_) = parsing.resume(&mut document) {}
+    document
+}
+
+/// A document's parse, a step at a time: each step ends at a script's end tag
+/// or at the end of the markup (ADR 0017 § 7).
+///
+/// # The document is lent to each step
+///
+/// The parser does not keep the document between steps, because between
+/// steps it is not the parser's: a page's script runs there, and by then the
+/// document may have moved into the page's heap (ADR 0017 § 2), which is its
+/// one owner from then on. So [`Parsing::start`] hands the document out, and
+/// each [`Parsing::resume`] is lent it — `&mut`, so nothing else can see it
+/// while the step lasts — and gives it back when the step ends.
+///
+/// html5ever's tree builder lives as long as the parse and can hold nothing
+/// borrowed, so inside a step the document is moved into the builder's sink
+/// and moved back before `resume` returns. The caller's exclusive borrow is
+/// held for the whole of it, so this is a borrow in all but its spelling: one
+/// owner at every moment, nothing else able to observe the document half
+/// way.
+///
+/// # What a script may have done between steps
+///
+/// Anything `alo-dom`'s operations allow, including taking out of the
+/// document an element the parser has open. The parser carries on inserting
+/// into it, as the HTML standard's does, and its operations here refuse
+/// rather than corrupt the tree when a script has made an insertion
+/// impossible. And nothing is released while the parse lasts
+/// ([`Document::is_being_parsed`], [`crate::release`]), so no node the parser
+/// holds can become a tombstone under it.
+pub struct Parsing {
+    parser: html5ever::Parser<Sink>,
+    ended: bool,
+}
+
+/// Where a step of a [`Parsing`] stopped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reached {
+    /// The end tag of this `<script>` element, which is now in the document
+    /// with everything before it and nothing after it. Whether it is a script
+    /// that runs is [`crate::scripts::prepared`]'s to say.
+    Script(NodeId),
+    /// The end of the markup: the document is whole, and every later step
+    /// stops here too.
+    End,
+}
+
+impl Parsing {
+    /// Begin parsing `html`, and the document it will build, empty until the
+    /// first [`Parsing::resume`] is lent it.
+    pub fn start(html: &str) -> (Self, Document) {
+        let parser = html5ever::parse_document(Sink::new(), ParseOpts::default());
+        parser.input_buffer.push_back(StrTendril::from_slice(html));
+        let mut document = Document::new();
+        document.set_being_parsed(true);
+        (
+            Self {
+                parser,
+                ended: false,
+            },
+            document,
+        )
+    }
+
+    /// Parse until the next script's end tag or the end of the markup, into
+    /// `document` — the one [`Parsing::start`] handed out, wherever it has
+    /// been since.
+    ///
+    /// A document that is not being parsed — another one, or this one after
+    /// its end — is not built into: the answer is [`Reached::End`] and the
+    /// document is left as it was.
+    pub fn resume(&mut self, document: &mut Document) -> Reached {
+        if self.ended || !document.is_being_parsed() {
+            return Reached::End;
+        }
+        core::mem::swap(self.document_mut(), document);
+        let reached = self.step();
+        core::mem::swap(self.document_mut(), document);
+        reached
+    }
+
+    /// Every `<meta>` element the parser has made since this was last asked,
+    /// in the order it made them — the elements that may state a page's
+    /// policy ([`crate::scripts::stated`]) before a later script runs.
+    pub fn take_metas(&mut self) -> Vec<NodeId> {
+        core::mem::take(self.parser.tokenizer.sink.sink.metas.get_mut())
+    }
+
+    /// The document in the sink: lent there for the length of a step, and
+    /// an empty stand-in otherwise.
+    fn document_mut(&mut self) -> &mut Document {
+        self.parser.tokenizer.sink.sink.document.get_mut()
+    }
+
+    fn step(&mut self) -> Reached {
+        loop {
+            match self.parser.tokenizer.feed(&self.parser.input_buffer) {
+                TokenizerResult::Done => break,
+                TokenizerResult::Script(script) => return Reached::Script(script),
+                // The input is text: whoever decoded the bytes decided the
+                // encoding, so a `<meta charset>` has nothing left to change.
+                TokenizerResult::EncodingIndicator(_) => {}
+            }
+        }
+        self.parser.tokenizer.end();
+        self.ended = true;
+        self.document_mut().set_being_parsed(false);
+        Reached::End
+    }
 }
 
 /// Parse a fragment as though it appeared inside `context`.
@@ -169,6 +285,8 @@ impl ElemName for SinkName {
 struct Sink {
     document: RefCell<Document>,
     line: Cell<u64>,
+    /// Every HTML `<meta>` made, in order, until [`Parsing::take_metas`].
+    metas: RefCell<Vec<NodeId>>,
 }
 
 impl Sink {
@@ -176,6 +294,7 @@ impl Sink {
         Self {
             document: RefCell::new(Document::new()),
             line: Cell::new(1),
+            metas: RefCell::new(Vec::new()),
         }
     }
 
@@ -269,6 +388,9 @@ impl TreeSink for Sink {
         }));
         if let Some(contents) = template_contents {
             self.document.borrow_mut().set_host(contents, element);
+        }
+        if name.ns == html5ever::ns!(html) && name.local == html5ever::local_name!("meta") {
+            self.metas.borrow_mut().push(element);
         }
         element
     }
