@@ -155,6 +155,15 @@ without describing them, so a job throwing for ever costs a counter. Item 243
 reading and added. 110 queue items are open (242 closed, 243 added); the next
 unused queue number is 244 and the next unused ADR 0017.
 
+Iteration 140 built item 243 (a ceiling on what a page's markup makes one
+load say, and every line at most 8192 characters) and cut item 244.
+Iteration 141 built item 244, the first eligible item for the same reasons
+as 242 and 243: a family longer than any font's can be (512 characters,
+`alo_text::LONGEST_NAME`) is not asked for and that is said, and the browser
+process answers one a renderer sends anyway absent without looking. 109 queue
+items are open; the next unused queue number is 245 and the next unused ADR
+0017.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

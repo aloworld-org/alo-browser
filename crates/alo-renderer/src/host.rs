@@ -276,6 +276,12 @@ impl Renderers {
         // the list: a renderer is the process that parsed a hostile page, so a
         // limit it applied to itself is not one this side may rely on.
         for family in families.iter().take(crate::families::MOST_WANTED) {
+            // The same for a name no font could have (queue item 244): it is
+            // not here, and saying so needs no look through every font file.
+            if !crate::families::could_be_a_family(family) {
+                absent.push(family.clone());
+                continue;
+            }
             let faces = crate::fonts::named(family);
             if faces.is_empty() {
                 absent.push(family.clone());

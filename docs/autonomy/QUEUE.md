@@ -3491,7 +3491,7 @@ The long pole, and the thing most of section E is unreachable without.
   the two long-line tests, the scripts' lines left unbounded fails the
   script one.
 
-- [ ] **244. The font names a load asks for, bounded in length.** *Found while
+- [x] **244. The font names a load asks for, bounded in length.** *Found while
   building 243, by reading, not yet by a run.* `FromRenderer::Loaded`'s
   `wanted` is at most `families::MOST_WANTED` (64) names, but each name is
   as long as the page wrote it, so a page near the wire's cap that names one
@@ -3503,6 +3503,35 @@ The long pole, and the thing most of section E is unreachable without.
   font), and it is the families module's. *Depends on 243. Closes when:* a
   page naming a family of tens of megabytes loads and its answer crosses the
   wire, with what was not asked for said.
+  **Done (iteration 141).** First found by a run: a page of 66479993 bytes
+  (under the wire's 67108864) naming a family of 63 MiB beside 254 pictures
+  each saying the longest line a load says made an answer of 68167392 bytes.
+  **The choice: not asked for, and said.** No font this engine reads states
+  a family longer than `alo_text::LONGEST_NAME` (512) characters — a `name`
+  record of more bytes is skipped, and decoding never makes more characters
+  than bytes — so `alo-renderer`'s `families::LONGEST_FAMILY` is that, and
+  `families::could_be_a_family` asks it counting no further than one past.
+  A longer name is left out of `Wanted::families` and said in the new
+  `Wanted::not_asked` (`a family beginning "…" and N characters long was not
+  asked for: …`, its first 32 characters quoted), chained into the issues
+  before the substitutions; a substitution names it the same way rather than
+  quoting it whole. The page's next choice is still asked for. Asking for it
+  cut was refused, because that asks for a different font. The browser
+  process's `Renderers::supply` answers such a name absent without a look
+  through the machine's fonts, bounding what a renderer sent as it already
+  bounds how many.
+  *Closed by:* `crates/alo-renderer/tests/a_family_no_font_could_have.rs`,
+  five tests — the closing clause (that page now answers no family asked for,
+  the not-asked line and the substitution said, under `LARGEST_MESSAGE` and
+  round-tripping the wire); 512 `a` and 512 `é` (1024 bytes) asked for and
+  513 `é` not; a too-long name skipped, `Inter` after it asked for; the
+  browser process answering a 513-character and a 20-million-character name
+  absent; every prefix of a page naming a 600-character family bounded and
+  sendable. `families.rs` two unit tests. One doctored run, restored byte for
+  byte: the renderer's check removed fails four of the five. **Not
+  discriminated by a test:** the browser process's check — without it the
+  name is still answered absent, after a look through every font file, so
+  only the cost differs; recorded rather than given a seam to observe it.
 
 - [ ] **79. `Intl`, rented** rather than written.
   *Depends on 73.*

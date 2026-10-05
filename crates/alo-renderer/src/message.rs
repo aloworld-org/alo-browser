@@ -116,6 +116,9 @@ pub enum FromRenderer {
         /// **It is a request, not an instruction.** The names come from a page
         /// a stranger wrote, so the browser process treats each as a string to
         /// look up among the fonts it already knows about — never as a path.
+        /// At most [`crate::families::MOST_WANTED`] names, each at most
+        /// [`crate::families::LONGEST_FAMILY`] characters (queue item 244): a
+        /// longer one is said among the issues rather than asked for.
         wanted: Vec<String>,
         /// Each time one of the page's header policies objected to a script
         /// written into the page, in the order they were met — whether the

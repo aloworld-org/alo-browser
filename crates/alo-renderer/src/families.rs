@@ -32,6 +32,23 @@
 //! built here names families and nothing else, which is one fewer place for
 //! `font-weight` to be parsed slightly differently from the two that already
 //! do it.
+//!
+//! # A name no font could have is not asked for
+//!
+//! The names are a stranger's, and as long as the stranger wrote them. A font
+//! is not: this engine reads a family from a font's `name` table only when
+//! the record is at most [`alo_text::LONGEST_NAME`] bytes, and no decoding
+//! makes more characters than bytes, so no font it holds or could be handed
+//! has a family longer than [`LONGEST_FAMILY`] characters. A name longer than
+//! that could only ever be answered *not here* — and asking costs the browser
+//! process a look through every font on the machine, and costs the load's
+//! answer the name itself, which a page near the wire's cap can make large
+//! enough that the answer is refused (queue item 244).
+//!
+//! So such a name is **not asked for, and that is said**. Asking for it cut
+//! short would be worse than not asking: it would ask for a different font,
+//! which the machine might have, and the page would be drawn in a family it
+//! never named.
 
 use alo_box::{BoxKind, BoxTree};
 use alo_style::StyleTree;
@@ -44,6 +61,27 @@ use alo_text::{FontDatabase, FontRequest, Instead};
 /// process a look through the machine's font directories. A bound, because the
 /// number is otherwise chosen by whoever wrote the page.
 pub const MOST_WANTED: usize = 64;
+
+/// The most characters a family can have and still be one a font could state.
+///
+/// A font's family is read only from a `name` record of at most
+/// [`alo_text::LONGEST_NAME`] bytes, and decoding never makes more characters
+/// than it was given bytes, so this is the longest family any font here can
+/// have. A page's name longer than it is not asked for ([`could_be_a_family`]).
+pub const LONGEST_FAMILY: usize = alo_text::LONGEST_NAME;
+
+/// How many characters of a name too long to ask for are quoted when it is
+/// said, so that somebody can find it in the page.
+const QUOTED_OF_A_NAME_TOO_LONG: usize = 32;
+
+/// Whether a font could state this family: whether, trimmed as both sides
+/// trim it, it is at most [`LONGEST_FAMILY`] characters.
+///
+/// Counts no further than one past the ceiling, so a name of tens of megabytes
+/// costs as much to refuse as one of a few hundred characters.
+pub fn could_be_a_family(name: &str) -> bool {
+    name.trim().chars().nth(LONGEST_FAMILY).is_none()
+}
 
 /// What a page asked for that a renderer does not have.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -64,6 +102,14 @@ pub struct Wanted {
     /// [`Wanted::families`] because they answer a different person's question:
     /// this one is read by somebody wondering why a page looks wrong.
     pub substitutions: Vec<String>,
+    /// One sentence per family the page named that is longer than any font's
+    /// could be ([`LONGEST_FAMILY`]), and so was not put in
+    /// [`Wanted::families`].
+    ///
+    /// Issues, like the substitutions: a page whose font was never looked for
+    /// should say why, and the name is quoted only by its beginning and its
+    /// length, because the whole of it is as long as the page made it.
+    pub not_asked: Vec<String>,
 }
 
 /// Every family a page's text asks for that these fonts cannot give it.
@@ -103,8 +149,16 @@ pub fn wanted(boxes: &BoxTree, styles: &StyleTree, fonts: &FontDatabase) -> Want
             ..FontRequest::default()
         });
         for family in absent.families.iter().cloned() {
+            if !could_be_a_family(&family) {
+                found.not_asked.push(format!(
+                    "{} was not asked for: no font states a family of more than \
+                     {LONGEST_FAMILY} characters",
+                    named(&family),
+                ));
+                continue;
+            }
             if found.families.len() >= MOST_WANTED {
-                break;
+                continue;
             }
             if !found
                 .families
@@ -136,15 +190,25 @@ pub fn wanted(boxes: &BoxTree, styles: &StyleTree, fonts: &FontDatabase) -> Want
 
 /// A list of families as a person would read it out.
 fn naming(families: &[String]) -> String {
-    let quoted: Vec<String> = families
-        .iter()
-        .map(|family| format!("{family:?}"))
-        .collect();
+    let quoted: Vec<String> = families.iter().map(|family| named(family)).collect();
     match quoted.split_last() {
         None => "nothing in particular".to_owned(),
         Some((last, [])) => last.clone(),
         Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
     }
+}
+
+/// One family as a person would read it: quoted whole when a font could have
+/// it, and by its beginning and its length when none could.
+fn named(family: &str) -> String {
+    if could_be_a_family(family) {
+        return format!("{family:?}");
+    }
+    let beginning: String = family.chars().take(QUOTED_OF_A_NAME_TOO_LONG).collect();
+    format!(
+        "a family beginning {beginning:?} and {} characters long",
+        family.chars().count()
+    )
 }
 
 #[cfg(test)]
@@ -306,6 +370,35 @@ mod tests {
         );
         let found = wanted(&rendered.boxes, &rendered.styles, &fonts);
         assert_eq!(found, Wanted::default());
+    }
+
+    #[test]
+    fn a_family_could_be_a_font_s_up_to_the_longest_a_font_states() {
+        assert!(could_be_a_family(&"a".repeat(LONGEST_FAMILY)));
+        assert!(!could_be_a_family(&"a".repeat(LONGEST_FAMILY + 1)));
+        // Characters, not bytes: a one-byte encoding decodes 512 bytes to 512
+        // characters, each of which may be two bytes here.
+        assert!(could_be_a_family(&"é".repeat(LONGEST_FAMILY)));
+        assert!(!could_be_a_family(&"é".repeat(LONGEST_FAMILY + 1)));
+        // Trimmed, as both sides trim before comparing.
+        assert!(could_be_a_family(&format!(
+            "  {}\t",
+            "a".repeat(LONGEST_FAMILY)
+        )));
+        assert!(could_be_a_family(""));
+    }
+
+    #[test]
+    fn a_family_too_long_to_ask_for_is_said_by_its_beginning_and_length() {
+        assert_eq!(named("Inter"), "\"Inter\"");
+        let long = format!("{}{}", "\u{1}".repeat(32), "z".repeat(1000));
+        assert_eq!(
+            named(&long),
+            format!(
+                "a family beginning {:?} and 1032 characters long",
+                "\u{1}".repeat(32)
+            ),
+        );
     }
 
     #[test]

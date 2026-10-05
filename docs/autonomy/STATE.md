@@ -11440,3 +11440,118 @@ and the struct says why in a comment so nobody reintroduces the clash.
 **Verified.** The gate is green on the result. The worker's eight tests are
 unchanged; only the type's name moved.
 
+
+---
+
+## Iteration 141 — queue item 244: the font names a load asks for, bounded in length
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Errors and stack traces* line,
+`docs/autonomy/REMAINING.md`, iterations 139 and 140 and their selection
+reasoning, queue items 78 and 241–244, and the code the change touches:
+`alo-renderer`'s `families.rs`, `pipeline.rs` (`each_issue`), `said.rs`,
+`renderer.rs` (`load`, `lay_out`), `message.rs` (`Loaded`), `wire.rs`
+(`LARGEST_MESSAGE`), `host.rs` (`supply`), `fonts.rs` (`named`), and
+`alo-text`'s `family_in`, `LONGEST_NAME` and `FontDatabase::absent`. No ADR
+governs this choice — the item names it the families module's, and ADR 0010
+(a renderer may not look for a font) and ADR 0005 (the renderer's answer must
+stay sendable) are unchanged by it. The feature is `docs/features.md`'s
+*font asked for by name* line and the *Errors and stack traces* line that
+carried 244 as owed. No `AGENTS.md` exists. No sibling repository was read or
+modified. The checkout was clean on entry at `b89f4dd`.
+
+**Selection.** Nothing landed in iteration 140 that unblocks an earlier
+item: the blockers iteration 139 listed stand (240 and 238 wait for a frozen
+page, 234 on 233, 233 on 81 or 92, 77 `needs design`, 78's remainder has no
+closing condition). **244 was the first eligible item**: its dependency, 243,
+is done, and its closing condition names no frozen page. Like 242 and 243 it
+was found by building, not opened by a page.
+
+**Found by a run first.** The item said *by reading, not yet by a run*. A
+probe before any change: a page of 66,479,993 bytes — under the wire's
+67,108,864 — naming one family of 63 MiB beside 254 pictures each saying the
+longest line a load says, made an answer of 68,167,392 bytes, which the wire
+refuses.
+
+**The choice, and why.** The item left open whether a name longer than any
+font's is *not asked for* or *asked for cut*. Cut asks for a different font —
+one the machine might have — and the page would be drawn in a family it never
+named, so: **not asked for, and said.** What "longer than any font's" means is
+not invented here: `alo-text`'s `family_in` skips every `name` record over
+`LONGEST_NAME` (512) bytes, and no decoding it does makes more characters than
+bytes, so no font it reads has a family over 512 characters.
+`families::LONGEST_FAMILY` is that constant, in characters (512 `é` is 1024
+bytes here and could be a Macintosh-encoded font's family), and
+`families::could_be_a_family` counts no further than one past it.
+
+**What was built.** `families::wanted` leaves a too-long name out of
+`Wanted::families` and says it in the new `Wanted::not_asked` — `a family
+beginning "<first 32 characters>" and N characters long was not asked for: no
+font states a family of more than 512 characters` — chained into
+`Rendered::each_issue` just before the substitutions, so `said::of_markup`
+bounds it with everything else. A substitution sentence names such a family
+the same way rather than quoting all of it, so the render no longer holds a
+debug-escaped copy of the name. The page's next choice is still asked for.
+The `MOST_WANTED` check became `continue` instead of `break` so a too-long
+name later in a list is still said; what is asked for is unchanged.
+`host::Renderers::supply` answers a too-long name absent without
+`fonts::named`'s look through every font file — bounding what a renderer sent
+as it already bounded how many. `message.rs`'s doc for `wanted` states both
+bounds.
+
+**Evidence.** `crates/alo-renderer/tests/a_family_no_font_could_have.rs`,
+five tests: the closing clause on the probe's page (no family asked for, the
+not-asked line and the substitution said as the last two of 256, the answer
+under `LARGEST_MESSAGE` and round-tripping the wire, the page message itself
+asserted under the cap); 512 `a` and 512 `é` asked for, 513 `é` not; a
+600-character name skipped and `Inter` after it asked for, the name twice in
+one list said once; the browser process answering a 513-character and a
+20,000,000-character name absent; every prefix of a page naming a
+600-character family asking for nothing over 512 characters and sendable.
+`families.rs` gains two unit tests (the boundary in characters and trimmed;
+the wording).
+
+**Doctored runs, two, each restored byte for byte (`cmp`)**: the renderer's
+check disabled fails four of the five tests. The browser process's check
+disabled fails **none** — without it the name is still answered absent, after
+a look through every font file, so only the cost differs. That guard is
+therefore not discriminated by a test, and that is recorded rather than
+hidden; adding a seam only to observe it was not done.
+
+**Roadmap.** The *Errors and stack traces* line's Built clause gains the
+bound (244, `families::LONGEST_FAMILY`) and its Owed clause drops 244. Not
+ticked: `error.stack`, source maps, developer tools and a non-error object
+described are still owed. `docs/features.md` (both lines), `CHANGELOG.md`,
+`REMAINING.md`, `message.rs`'s doc and the queue (244 ticked with its
+evidence) move with it.
+
+**Compliance review.** Law 1: nothing legacy. Law 2: unchanged. Law 3: no
+stub, `todo!`, or `unwrap` outside tests; what is not asked for is said; no
+speed claim — "without a look through every font file" is about work a page
+can cause, not a measurement. Law 4: no `unsafe`. LOOP stage 2 § 2: the
+name is bytes from a stranger, tested malformed (every prefix of the sheet)
+and at its extremes (63 MiB, and the exact boundary), refusing rather than
+panicking. One file, one responsibility: `families.rs` still decides which
+families a load asks for and what it says about them; `host.rs`'s change is
+one guard in the function that answers that ask. Nothing positions, sizes or
+paints differently, so no layout assertion or reference render applies;
+every existing reference render still matches (the gate's tests include
+them).
+
+**Gate.** `scripts/gate.sh` exited 0 on the second run, in the foreground.
+The first failed only `cargo fmt --check` on one assertion in the new test;
+`cargo fmt --all` fixed it, nothing allowed or silenced. Formatting clean,
+clippy silent, all tests pass, nothing stubbed, `unsafe` forbidden, licence
+notices present, every rented crate behind its boundary, no coordinate verb,
+the supervisor's stop rule holds, `CHANGELOG.md` changed. `cargo test
+--workspace` counts 2325 passed, 0 failed (2306 at iteration 139, iteration
+140's 12, this item's 7). `git diff --check` passes. Logs kept in this
+session's scratchpad, not committed.
+
+**Unresolved obligations.** The browser-side guard's lack of a
+discriminating test (above). 78's remainder; 77 needs design; 233, 234, 238
+and 240 are open and item 76 is not done; `violations::reports` is still
+called by nothing in the browser process on its own (item 203's dependency).
+No script can reach the document. 109 queue items are open (244 closed).
+Next unused queue number **245**; next ADR **0017**. This is one iteration,
+not a finished queue or roadmap.

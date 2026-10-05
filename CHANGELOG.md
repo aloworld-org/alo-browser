@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can no longer make its load report unsendable by naming one
+  enormous font.** A load asks the browser for the font families it lacks,
+  and each name was as long as the page wrote it: a page just under the size
+  limit naming a family of sixty-three megabytes made a report the renderer
+  could not send. No font has a family longer than 512 characters, so a
+  longer name is no longer asked for — the page says so instead, quoting the
+  name's beginning and its length — and the browser refuses one a renderer
+  sends anyway without searching the machine's fonts for it.
+
 - **An iteration no longer loses its work by waiting on its own gate.** A
   worker that started the gate in the background and then spent its remaining
   turns waiting for it ended while waiting, leaving a finished item

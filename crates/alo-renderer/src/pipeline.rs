@@ -92,10 +92,12 @@ impl Rendered {
             .chain(self.styles.issues().iter().map(shown))
             .chain(self.boxes.issues().iter().map(shown))
             .chain(self.layout.issues().iter().map(shown))
-            // Last, because a substituted font is the only thing in this list
-            // that is not something the engine *refused* — the page rendered,
-            // in the wrong typeface, and that reads better after the refusals
-            // than among them.
+            // Last, because a font is the only thing in this list that is not
+            // something the engine *refused* — the page rendered, in the wrong
+            // typeface, and that reads better after the refusals than among
+            // them. A family never asked for comes before what was drawn
+            // instead of it, because it is the reason.
+            .chain(self.wanted.not_asked.iter().map(shown))
             .chain(self.wanted.substitutions.iter().map(shown))
     }
 }

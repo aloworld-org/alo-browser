@@ -826,11 +826,12 @@ unreachable without it.
       markup** (queue item 243, `alo-renderer`'s `said.rs`) — 256 lines about
       what the markup made the engine say and then how many more, only those
       written out, and every line of a load's report at most 8192 characters
-      with the rest counted
+      with the rest counted; **the font names a load asks for, bounded**
+      (queue item 244, `alo-renderer`'s `families::LONGEST_FAMILY`) — a family
+      longer than any font's can be is not asked for, and that is said
       · Owed: `error.stack`, a trace taken where an error is made, and names
       in it (queue items 78 and 220); source maps; showing any of it to a
-      person (developer tools, 129); a non-error object described; the font
-      names a load asks for, which are as long as the page made them (244)
+      person (developer tools, 129); a non-error object described
 - [ ] Internationalisation (`Intl`), rented rather than written
 - [ ] Refused for now and recorded: a JIT, until there is a measured reason and an ADR weighing it against the attack surface it adds
       · Built: the recording, with its two conditions for re-opening named
