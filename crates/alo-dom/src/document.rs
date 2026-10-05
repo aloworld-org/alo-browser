@@ -5,23 +5,34 @@
 //! The document: the arena that owns every node, and the only thing that may
 //! change the links between them.
 //!
-//! Nodes live in one vector and refer to each other by [`NodeId`]. A slot is
-//! never freed and an id is never reused (ADR 0003), so a detached node keeps
-//! its identity and a stale id resolves to a node that is out of the tree
-//! rather than to some later node that is not the one that was meant.
+//! Nodes live in one vector and refer to each other by [`NodeId`]. An id is
+//! never reused (ADR 0003), so a detached node keeps its identity and a stale
+//! id resolves to a node that is out of the tree rather than to some later
+//! node that is not the one that was meant.
 //!
-//! # What may change, and what may not
+//! # What may change, and who decides
 //!
-//! **Attributes may change; the shape of the tree may not** — not yet. Stage 2
-//! opened attribute editing because an agent that can only describe what it
-//! would do is not an agent (queue item 42), and putting text into a field is
-//! setting an attribute. Adding and removing nodes is still `pub(crate)` and
-//! still the parser's alone; it arrives with the DOM APIs, in queue item 35.
+//! **Everything, through the DOM standard's own operations.** Attributes came
+//! first, because an agent that can only describe what it would do is not an
+//! agent (queue item 42). The shape of the tree followed with ADR 0017: insert,
+//! append, replace and remove are public in [`crate::mutation`], under the
+//! standard's validity rules in [`crate::validity`], because a script and an
+//! agent change one document and two copies of *what is a valid insertion* is
+//! how they come to disagree. The parser keeps the crate-private operations
+//! here, which the HTML parsing algorithm specifies differently and which
+//! never refuse.
 //!
-//! Changing an attribute keeps **every id valid**, which is exactly why it
-//! could come first: an agent reads a tree, names a node, and acts on it a
-//! moment later, and ADR 0003 promises that the id it names is the node it
-//! read or nothing at all.
+//! **Every change advances [`Document::change_count`]**, which is how a
+//! renderer that kept what it rendered knows it is stale (ADR 0017 § 6).
+//!
+//! # A slot is kept after its node is gone
+//!
+//! A detached tree nothing can reach any more is released
+//! ([`crate::release`]): its nodes' contents are dropped and their slots are
+//! left as **tombstones**, one pointer wide, so their ids answer nothing from
+//! then on and the next node is still numbered one past the highest ever
+//! made. That keeps ADR 0003's promise — no id is ever reused — once a script
+//! can make nodes without end, which the parser never could.
 
 use crate::node::{Element, Node, NodeId, NodeKind};
 
@@ -47,8 +58,11 @@ pub enum QuirksSignal {
 /// A tree of nodes, and everything the parser observed while building it.
 #[derive(Debug, Clone)]
 pub struct Document {
-    nodes: Vec<Node>,
+    /// Every node ever made, at its id. [`None`] is a tombstone: a node that
+    /// was released, whose id is never given out again.
+    nodes: Vec<Option<Box<Node>>>,
     root: NodeId,
+    changes: u64,
     quirks_signal: QuirksSignal,
     issues: Vec<crate::parse::ParseIssue>,
 }
@@ -57,8 +71,9 @@ impl Document {
     /// An empty document: one [`NodeKind::Document`] node and nothing else.
     pub fn new() -> Self {
         Self {
-            nodes: vec![Node::new(NodeKind::Document)],
+            nodes: vec![Some(Box::new(Node::new(NodeKind::Document)))],
             root: NodeId(0),
+            changes: 0,
             quirks_signal: QuirksSignal::NoQuirks,
             issues: Vec::new(),
         }
@@ -83,7 +98,8 @@ impl Document {
         &self.issues
     }
 
-    /// How many nodes this document has ever created, attached or not.
+    /// How many nodes this document has ever created, attached, detached or
+    /// released.
     ///
     /// This is also the id the next node would be given, which is what makes it
     /// worth asserting on in a test about identity.
@@ -91,9 +107,22 @@ impl Document {
         self.nodes.len()
     }
 
-    /// The node an id names, or [`None`] if the id came from somewhere else.
+    /// How many times the document has been changed since it was made.
+    ///
+    /// Every successful insertion, removal, replacement and attribute change
+    /// advances it by one; a refusal, making a node and releasing an
+    /// unreachable tree do not, since none of them changes a tree anything can
+    /// see. The parser's building does not count either: a document starts at
+    /// zero whatever its markup was. A renderer compares this number to the one
+    /// it rendered at to know whether what it holds is stale (ADR 0017 § 6).
+    pub fn change_count(&self) -> u64 {
+        self.changes
+    }
+
+    /// The node an id names, or [`None`] if the id came from somewhere else or
+    /// its node has been released.
     pub fn get(&self, id: NodeId) -> Option<&Node> {
-        self.nodes.get(id.0)
+        self.nodes.get(id.0).and_then(Option::as_deref)
     }
 
     /// What the node an id names *is*.
@@ -131,12 +160,23 @@ impl Document {
         self.get(id).and_then(|node| node.next_sibling)
     }
 
+    /// The template a `<template>`'s contents belong to, for the fragment
+    /// that holds them; [`None`] for every other node.
+    ///
+    /// The contents are not the template's children, but they are part of its
+    /// tree: the DOM standard's *host-including* ancestry walks through this
+    /// link, so a template cannot be put inside its own contents, and a
+    /// released template takes its contents with it.
+    pub fn host(&self, id: NodeId) -> Option<NodeId> {
+        self.get(id).and_then(|node| node.host)
+    }
+
     /// The element at this id, to change it.
     ///
-    /// Attributes only: see the module documentation for why the shape of the
-    /// tree is not changeable here yet.
-    pub fn element_mut(&mut self, id: NodeId) -> Option<&mut Element> {
-        match &mut self.nodes.get_mut(id.0)?.kind {
+    /// Crate-private so that nothing outside changes an element without
+    /// [`Document::change_count`] hearing of it.
+    pub(crate) fn element_mut(&mut self, id: NodeId) -> Option<&mut Element> {
+        match &mut self.node_mut(id)?.kind {
             NodeKind::Element(element) => Some(element),
             _ => None,
         }
@@ -147,14 +187,24 @@ impl Document {
     /// [`None`] for an id that is not an element, which is a real answer
     /// rather than a failure — a caller acting on a tree it read a moment ago
     /// may well name something that is no longer what it was.
+    ///
+    /// Setting an attribute is a change even when the value is the one it
+    /// already had, as it is in the standard.
     pub fn set_attribute(&mut self, id: NodeId, local: &str, value: &str) -> Option<()> {
         self.element_mut(id)?.set_attr(local, value);
+        self.note_change();
         Some(())
     }
 
     /// Take an attribute away from an element, and say whether there was one.
+    ///
+    /// Taking away one that was not there changes nothing, and is not counted.
     pub fn remove_attribute(&mut self, id: NodeId, local: &str) -> Option<bool> {
-        Some(self.element_mut(id)?.remove_attr(local))
+        let removed = self.element_mut(id)?.remove_attr(local);
+        if removed {
+            self.note_change();
+        }
+        Some(removed)
     }
 
     /// Whether a node is reachable from the root.
@@ -209,12 +259,37 @@ impl Document {
         out
     }
 
-    // --- building; `pub(crate)` because mutation is a stage 2 feature -------
+    // --- building; `pub(crate)`, the parser's and `mutation`'s ---------------
 
     pub(crate) fn create(&mut self, kind: NodeKind) -> NodeId {
         let id = NodeId(self.nodes.len());
-        self.nodes.push(Node::new(kind));
+        self.nodes.push(Some(Box::new(Node::new(kind))));
         id
+    }
+
+    /// Record one change. See [`Document::change_count`] for what counts.
+    pub(crate) fn note_change(&mut self) {
+        self.changes = self.changes.wrapping_add(1);
+    }
+
+    /// Say which template a contents fragment belongs to.
+    pub(crate) fn set_host(&mut self, fragment: NodeId, template: NodeId) {
+        if let Some(node) = self.node_mut(fragment) {
+            node.host = Some(template);
+        }
+    }
+
+    /// Drop a node's contents and leave its slot a tombstone, so that its id
+    /// answers nothing from now on and is never given out again. The caller
+    /// releases whole trees, so no live node is left linking to this one.
+    pub(crate) fn tombstone(&mut self, id: NodeId) {
+        if let Some(slot) = self.nodes.get_mut(id.0) {
+            *slot = None;
+        }
+    }
+
+    fn node_mut(&mut self, id: NodeId) -> Option<&mut Node> {
+        self.nodes.get_mut(id.0).and_then(Option::as_deref_mut)
     }
 
     pub(crate) fn set_quirks_signal(&mut self, signal: QuirksSignal) {
@@ -226,31 +301,31 @@ impl Document {
     }
 
     fn set_parent(&mut self, id: NodeId, parent: Option<NodeId>) {
-        if let Some(node) = self.nodes.get_mut(id.0) {
+        if let Some(node) = self.node_mut(id) {
             node.parent = parent;
         }
     }
 
     fn set_previous_sibling(&mut self, id: NodeId, sibling: Option<NodeId>) {
-        if let Some(node) = self.nodes.get_mut(id.0) {
+        if let Some(node) = self.node_mut(id) {
             node.previous_sibling = sibling;
         }
     }
 
     fn set_next_sibling(&mut self, id: NodeId, sibling: Option<NodeId>) {
-        if let Some(node) = self.nodes.get_mut(id.0) {
+        if let Some(node) = self.node_mut(id) {
             node.next_sibling = sibling;
         }
     }
 
     fn set_first_child(&mut self, id: NodeId, child: Option<NodeId>) {
-        if let Some(node) = self.nodes.get_mut(id.0) {
+        if let Some(node) = self.node_mut(id) {
             node.first_child = child;
         }
     }
 
     fn set_last_child(&mut self, id: NodeId, child: Option<NodeId>) {
-        if let Some(node) = self.nodes.get_mut(id.0) {
+        if let Some(node) = self.node_mut(id) {
             node.last_child = child;
         }
     }
@@ -258,7 +333,7 @@ impl Document {
     /// Take a node out of the tree, leaving its neighbours consistent. The node
     /// keeps its id and its own children.
     pub(crate) fn detach(&mut self, id: NodeId) {
-        let Some(node) = self.nodes.get(id.0) else {
+        let Some(node) = self.get(id) else {
             return;
         };
         let (parent, previous, next) = (node.parent, node.previous_sibling, node.next_sibling);
@@ -291,7 +366,7 @@ impl Document {
     /// A node cannot be appended to itself or to its own descendant; that
     /// request is refused and the tree is left alone, because a cycle in the
     /// tree is a hang in every traversal that follows.
-    pub(crate) fn append(&mut self, parent: NodeId, child: NodeId) -> bool {
+    pub(crate) fn attach_last(&mut self, parent: NodeId, child: NodeId) -> bool {
         if !self.may_hold(parent, child) {
             return false;
         }
@@ -311,7 +386,7 @@ impl Document {
     /// Put `new_node` immediately before `sibling`, detaching it from wherever
     /// it was first. Refused, leaving the tree alone, if `sibling` has no
     /// parent or if the move would make a cycle.
-    pub(crate) fn insert_before(&mut self, sibling: NodeId, new_node: NodeId) -> bool {
+    pub(crate) fn attach_before(&mut self, sibling: NodeId, new_node: NodeId) -> bool {
         let Some(parent) = self.parent(sibling) else {
             return false;
         };
@@ -334,7 +409,7 @@ impl Document {
     /// Move every child of `from` to the end of `to`, in order.
     pub(crate) fn reparent_children(&mut self, from: NodeId, to: NodeId) {
         while let Some(child) = self.first_child(from) {
-            if !self.append(to, child) {
+            if !self.attach_last(to, child) {
                 // Refused only by `may_hold`, which cannot change while this
                 // loop runs; detaching stops it from spinning on the same node.
                 self.detach(child);
@@ -347,38 +422,35 @@ impl Document {
     /// node, and every consumer downstream assumes it.
     pub(crate) fn append_text(&mut self, parent: NodeId, text: &str) {
         if let Some(last) = self.last_child(parent)
-            && let Some(node) = self.nodes.get_mut(last.0)
+            && let Some(node) = self.node_mut(last)
             && let NodeKind::Text(existing) = &mut node.kind
         {
             existing.push_str(text);
             return;
         }
         let id = self.create(NodeKind::Text(text.to_owned()));
-        self.append(parent, id);
+        self.attach_last(parent, id);
     }
 
     /// Insert text before `sibling`, merging into the previous sibling when
     /// that is already a text node.
     pub(crate) fn insert_text_before(&mut self, sibling: NodeId, text: &str) {
         if let Some(previous) = self.previous_sibling(sibling)
-            && let Some(node) = self.nodes.get_mut(previous.0)
+            && let Some(node) = self.node_mut(previous)
             && let NodeKind::Text(existing) = &mut node.kind
         {
             existing.push_str(text);
             return;
         }
         let id = self.create(NodeKind::Text(text.to_owned()));
-        self.insert_before(sibling, id);
+        self.attach_before(sibling, id);
     }
 
     /// Add attributes that the element does not already have, keeping the ones
     /// it does. The parser needs this for `<html>` and `<body>`, whose
     /// attributes can arrive on a second start tag.
     pub(crate) fn add_attrs_if_missing(&mut self, id: NodeId, attrs: Vec<crate::node::Attribute>) {
-        let Some(node) = self.nodes.get_mut(id.0) else {
-            return;
-        };
-        let NodeKind::Element(element) = &mut node.kind else {
+        let Some(element) = self.element_mut(id) else {
             return;
         };
         for attr in attrs {
@@ -496,8 +568,8 @@ mod tests {
         let b = element(&mut document, "b");
         assert_eq!((a, b), (NodeId(1), NodeId(2)));
 
-        document.append(document.root(), a);
-        document.append(document.root(), b);
+        document.attach_last(document.root(), a);
+        document.attach_last(document.root(), b);
         document.detach(a);
 
         // The detached node keeps its id, and the next node gets a fresh one.
@@ -519,7 +591,7 @@ mod tests {
             element(&mut document, "c"),
         );
         for id in [a, b, c] {
-            assert!(document.append(root, id));
+            assert!(document.attach_last(root, id));
         }
 
         assert_eq!(document.children(root).collect::<Vec<_>>(), vec![a, b, c]);
@@ -542,7 +614,7 @@ mod tests {
             element(&mut document, "c"),
         );
         for id in [a, b, c] {
-            document.append(root, id);
+            document.attach_last(root, id);
         }
         document.detach(b);
 
@@ -557,7 +629,7 @@ mod tests {
         let mut document = Document::new();
         let root = document.root();
         let a = element(&mut document, "a");
-        document.append(root, a);
+        document.attach_last(root, a);
         document.detach(a);
         assert_eq!(document.first_child(root), None);
         assert_eq!(document.last_child(root), None);
@@ -568,8 +640,8 @@ mod tests {
         let mut document = Document::new();
         let root = document.root();
         let (a, b) = (element(&mut document, "a"), element(&mut document, "b"));
-        document.append(root, a);
-        assert!(document.insert_before(a, b));
+        document.attach_last(root, a);
+        assert!(document.attach_before(a, b));
         assert_eq!(document.children(root).collect::<Vec<_>>(), vec![b, a]);
         assert_eq!(document.first_child(root), Some(b));
         assert_eq!(document.last_child(root), Some(a));
@@ -580,12 +652,15 @@ mod tests {
         let mut document = Document::new();
         let root = document.root();
         let (parent, child) = (element(&mut document, "p"), element(&mut document, "c"));
-        document.append(root, parent);
-        document.append(parent, child);
+        document.attach_last(root, parent);
+        document.attach_last(parent, child);
 
-        assert!(!document.append(child, parent), "an ancestor is refused");
-        assert!(!document.append(parent, parent), "itself is refused");
-        assert!(!document.insert_before(child, parent), "so is inserting it");
+        assert!(
+            !document.attach_last(child, parent),
+            "an ancestor is refused"
+        );
+        assert!(!document.attach_last(parent, parent), "itself is refused");
+        assert!(!document.attach_before(child, parent), "so is inserting it");
         assert_eq!(document.parent(parent), Some(root));
         assert_eq!(document.parent(child), Some(parent));
     }
@@ -594,7 +669,7 @@ mod tests {
     fn inserting_before_a_node_with_no_parent_is_refused() {
         let mut document = Document::new();
         let (a, b) = (element(&mut document, "a"), element(&mut document, "b"));
-        assert!(!document.insert_before(a, b));
+        assert!(!document.attach_before(a, b));
         assert_eq!(document.parent(b), None);
     }
 
@@ -627,7 +702,7 @@ mod tests {
         let root = document.root();
         document.append_text(root, "one ");
         let marker = element(&mut document, "b");
-        document.append(root, marker);
+        document.attach_last(root, marker);
         document.insert_text_before(marker, "two");
         assert_eq!(document.children(root).count(), 2);
         assert_eq!(document.text_content(root), "one two");
@@ -638,13 +713,13 @@ mod tests {
         let mut document = Document::new();
         let root = document.root();
         let (from, to) = (element(&mut document, "from"), element(&mut document, "to"));
-        document.append(root, from);
-        document.append(root, to);
+        document.attach_last(root, from);
+        document.attach_last(root, to);
         let children: Vec<_> = ["a", "b", "c"]
             .into_iter()
             .map(|local| {
                 let id = element(&mut document, local);
-                document.append(from, id);
+                document.attach_last(from, id);
                 id
             })
             .collect();
@@ -659,12 +734,12 @@ mod tests {
         let mut document = Document::new();
         let root = document.root();
         let outer = element(&mut document, "outer");
-        document.append(root, outer);
+        document.attach_last(root, outer);
         let inner = element(&mut document, "inner");
-        document.append(outer, inner);
+        document.attach_last(outer, inner);
         document.append_text(inner, "deep");
         let after = element(&mut document, "after");
-        document.append(outer, after);
+        document.attach_last(outer, after);
 
         let names: Vec<String> = document
             .descendants(outer)

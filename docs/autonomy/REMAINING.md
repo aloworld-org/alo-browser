@@ -176,6 +176,15 @@ re-render, item 80's closing condition) and 247 (a script at its own end
 tag). 112 queue items are open; the next unused queue number is 248 and the
 next unused ADR 0018.
 
+Iteration 143 built item 245, the first eligible item (no dependency):
+`alo-dom`'s insert, append, replace and remove under the DOM standard's
+names and validity rules, refusing by the standard's exception names with
+the tree unchanged; `createElement`'s name rule; a change count; and
+releasing a detached tree into tombstones whose ids are never reused. No
+script reaches it yet. 111 queue items are open; 246 (the bindings and the
+re-render) is next; the next unused queue number is 248 and the next unused
+ADR 0018.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

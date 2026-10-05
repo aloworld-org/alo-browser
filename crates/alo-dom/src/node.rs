@@ -141,8 +141,8 @@ pub enum NodeKind {
     },
     /// An element.
     Element(Element),
-    /// Character data. Adjacent text is merged into one node by the parser, so
-    /// two text nodes are never siblings.
+    /// Character data. The parser merges adjacent text into one node; a script
+    /// may still put two text nodes side by side, as it may in every browser.
     Text(String),
     /// A comment.
     Comment(String),
@@ -165,6 +165,9 @@ pub struct Node {
     pub(crate) last_child: Option<NodeId>,
     pub(crate) previous_sibling: Option<NodeId>,
     pub(crate) next_sibling: Option<NodeId>,
+    /// For a `<template>`'s contents, the template. See
+    /// [`crate::Document::host`].
+    pub(crate) host: Option<NodeId>,
 }
 
 impl Node {
@@ -176,6 +179,7 @@ impl Node {
             last_child: None,
             previous_sibling: None,
             next_sibling: None,
+            host: None,
         }
     }
 

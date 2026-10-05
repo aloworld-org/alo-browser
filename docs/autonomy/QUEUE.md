@@ -3557,7 +3557,7 @@ The long pole, and the thing most of section E is unreachable without.
   parser-inserted script runs at its own end tag. No code yet. It closes when
   245, 246 and 247 have, and the cut is in that order.
 
-- [ ] **245. `alo-dom`'s tree operations, public, under the standard's
+- [x] **245. `alo-dom`'s tree operations, public, under the standard's
   rules.** *Cut from 80 (ADR 0017 §§ 3 and 5). Depends on nothing.* Insert,
   append, replace and remove become public under the DOM standard's names,
   with its pre-insertion validity checks answered as a refusal that names the
@@ -3572,6 +3572,43 @@ The long pole, and the thing most of section E is unreachable without.
   unchanged; a created node after 40 parsed ones is `#40`; the count moves on
   every change and not on a refusal; and a released tree's ids answer `None`
   while the next created node's id is still one past the highest ever made.
+  **Done (iteration 143).** `alo-dom` gains three files, one rule each:
+  `validity.rs` (the standard's *ensure pre-insertion validity* and the
+  checks of *replace a child*, rule for rule, host-including through a
+  template's contents, plus `createElement`'s *valid element local name*;
+  `Refusal` names `HierarchyRequestError`, `NotFoundError` and
+  `InvalidCharacterError`), `mutation.rs` (`create_element`, lowercased, a
+  `<template>` made with its contents numbered after it;
+  `create_text_node`; `insert_before`, `append_child`, `replace_child`,
+  `remove_child` and `remove`, a fragment giving up its children in order)
+  and `release.rs` (a detached tree's root, never the document, a node with
+  a parent or a template's contents, released with every template's
+  contents inside it; slots become one-pointer tombstones). `Document` keeps
+  the arena, now `Option<Box<Node>>` per slot, a `host` link from contents
+  to template, and `change_count`, advanced once per successful insertion,
+  removal, replacement and attribute change and never by a refusal, by
+  making a node, by releasing, by removing an absent attribute or by the
+  parser. The parser's operations stay crate-private, renamed
+  `attach_last`/`attach_before` so the standard's names are the public
+  ones; `element_mut` became crate-private so no change skips the count.
+  The agent's `apply` already changed the document only through the public
+  `set_attribute`/`remove_attribute`, which now count; it has no tree
+  change to make.
+  *Closed by:* `crates/alo-dom/tests/mutation.rs`, 20 tests — every
+  insertion and replacement rule refusing by name with every link of every
+  node, the serialisation, the node count and the change count unchanged;
+  `#40` after a forty-node page; the count across ten operations (six
+  changes); a released tree's ids answering nothing, refusing as
+  `NotFoundError`, the next id one past the highest; and every id the page
+  has, and three it never made, in every position of every operation on a
+  cloned page, each refusing or leaving a tree
+  whose links agree and whose document holds at most one doctype before at
+  most one element and no text. Unit tests in `validity.rs` (names),
+  `mutation.rs` (numbering, a template's contents) and `release.rs`. One
+  doctored run per rule, each restored: every one of the nineteen refusals
+  in `validity.rs` disabled alone fails a test — the first run found *a
+  document goes nowhere* masked by the ancestor rule, and a case under a
+  detached parent was added so it is not.
 
 - [ ] **246. The bindings: a script changes the document and the next render
   shows it.** *Cut from 80 (ADR 0017 §§ 1–6). Depends on 245.* The

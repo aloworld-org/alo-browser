@@ -21,18 +21,24 @@
 //!   reference — which is why it is here in the first commit.
 //! - [`Node`], [`NodeKind`], [`Element`] and [`Attribute`] are what a node is.
 //! - [`QualifiedName`] and [`Namespace`] are how one is named.
+//! - [`Document::insert_before`], [`Document::append_child`],
+//!   [`Document::replace_child`], [`Document::remove_child`] and
+//!   [`Document::remove`] change a tree's shape under the DOM standard's
+//!   validity rules ([`mutation`], [`validity`]), answering a [`Refusal`] the
+//!   standard names rather than `false`; [`Document::release`] lets go of a
+//!   detached tree nothing reaches ([`release`]).
 //!
 //! # What is not here, by decision
 //!
-//! **Mutation.** `docs/features.md` puts it in stage 2. Stage 1's tree is built
-//! by the parser and read by everything else, so the building is `pub(crate)`
-//! and adding a node from outside the crate does not compile.
+//! **A JavaScript engine.** Script reaches these operations through the
+//! bindings (ADR 0017 § 1); this crate depends on no engine, so a page that
+//! never runs script never builds one.
 //!
 //! **Quirks mode.** Law 1 refuses it. What the parser thought is kept in
 //! [`Document::quirks_signal`] and never acted on.
 //!
-//! **The legacy DOM surface.** No `document.write`, no live collections. There
-//! is no scripting in stage 1 to want them.
+//! **The legacy DOM surface.** No `document.write`, no live collections (law
+//! 1; ADR 0017 § 8).
 //!
 //! # Example
 //!
@@ -57,14 +63,18 @@
 //! ```
 
 pub mod document;
+pub mod mutation;
 pub mod name;
 pub mod node;
 pub mod parse;
+pub mod release;
 pub mod scripts;
 pub mod serialize;
 pub mod sheets;
+pub mod validity;
 
 pub use document::{Children, Descendants, Document, QuirksSignal};
 pub use name::{Namespace, QualifiedName};
 pub use node::{Attribute, Element, Node, NodeId, NodeKind};
 pub use parse::{ParseIssue, parse_document, parse_fragment};
+pub use validity::Refusal;

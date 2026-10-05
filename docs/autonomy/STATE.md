@@ -11675,3 +11675,114 @@ process (item 203's dependency); the browser-side font-name guard of
 iteration 141 still has no discriminating test. 112 queue items are open (245,
 246 and 247 added). Next unused queue number **248**; next ADR **0018**. This
 is one iteration, not a finished queue or roadmap.
+
+
+---
+
+## Iteration 143 — item 245: `alo-dom`'s tree operations, public, under the standard's rules
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Mutation from script* line,
+`docs/autonomy/REMAINING.md`'s tail, iteration 142's entry and selection
+reasoning, queue items 80 and 245–247, ADR 0017 in full (§§ 3 and 5 are this
+item's), and the code it changes: `alo-dom`'s `lib.rs`, `document.rs`,
+`node.rs` and `parse.rs`, and `alo-agent`'s `apply.rs`. No `AGENTS.md`
+exists. No sibling repository was read or modified. The checkout was clean
+on entry at `f27e36c`.
+
+**Selection.** Iteration 142 left every earlier item blocked for reasons
+that still stand (79 on 73; 233, 234, 238, 240 on their dependencies or a
+frozen page; 77 `needs design`; 78's remainder with no closing condition)
+and named **245** next: cut from 80, it depends on nothing.
+
+**What was built.** In `alo-dom`, three new files with one reason each to
+change: `validity.rs` — the DOM standard's *ensure pre-insertion validity*
+and *replace a child* checks rule for rule, host-including ancestry through
+a template's contents (bounded by the arena's size, so a malformed chain
+refuses rather than spins), `createElement`'s *valid element local name*,
+and `Refusal`, naming `HierarchyRequestError`, `NotFoundError` and
+`InvalidCharacterError`; `mutation.rs` — `create_element` (lowercased; a
+`<template>` gets its contents fragment, numbered after it),
+`create_text_node`, `insert_before`, `append_child`, `replace_child`,
+`remove_child` and `remove`; `release.rs` — releasing a detached tree,
+template contents included, into tombstones. `document.rs` keeps the arena
+(now `Option<Box<Node>>` per slot, so a tombstone is one pointer), a `host`
+link from template contents to template (set by the parser and by
+`create_element`), and `change_count`. The parser's own operations stay
+crate-private, renamed `attach_last`/`attach_before` so the public names are
+the standard's; `element_mut` became crate-private so nothing outside the
+crate changes an element without the count hearing. A stale or foreign id
+refuses as `NotFoundError` (not a case the standard has; the message says
+so). What counts as a change is written on `change_count`: a successful
+insertion, removal, replacement or attribute change; not a refusal, making
+a node, releasing, removing an absent attribute, or parsing.
+
+The agent's `apply` needed no change: it alters the document only through
+the public `set_attribute`/`remove_attribute`, which now advance the count,
+and it makes no tree change. That is the queue item's *the agent's `apply`
+uses the public ones*, satisfied as it stood — recorded rather than
+manufactured into an edit.
+
+**Evidence.** `crates/alo-dom/tests/mutation.rs`, 20 tests, covering the
+closing condition clause by clause: every insertion and replacement rule
+refuses by name with every link of every node, the serialisation, the node
+count and the change count unchanged; a forty-node page's first made
+element is `#40` and the next text node `#41`; the count across ten
+operations moves six times, on exactly the successes; a released tree's
+ids answer `None`, refuse as `NotFoundError`, and the next id is one past
+the highest ever made. The hostile half (LOOP stage 2 § 2 — the ids and
+names will come from a stranger's script): every id the page has and three
+it never made, in every position of every operation on a clone of a page
+with a template, a comment, a doctype, a loose subtree and a released node,
+each refusing or leaving a tree whose links agree and whose document holds
+at most one doctype before at most one element and no text; a megabyte
+element name; names with NUL, `>`, `/`, spaces and a leading digit. Unit
+tests: two in `validity.rs`, two in `mutation.rs`, three in `release.rs`.
+**Doctored runs**, each restored and the file checked identical: every one
+of the nineteen refusals in `validity.rs` disabled alone. Eighteen failed a
+test the first time; *a document goes nowhere* did not, because the
+ancestor rule refused the same calls first — a case under a detached parent
+was added, and that rule disabled alone then failed
+`a_document_goes_nowhere`.
+
+**Compliance review.** Law 1: no legacy surface; the operations are the
+modern standard's, and no live collection or `document.write` exists. Law
+2: ids stay the agent's names — a made node is numbered on the parser's
+counter, a released id answers nothing rather than another node (ADR 0003).
+Law 3: no stub, `todo!` or `unwrap` outside tests; the arena's own
+`attach_*` refusal is unreachable after validity and is commented as such
+rather than silenced. No speed claim. Law 4: no `unsafe`. ADR 0017 § 5 is
+built as written (rules in `alo-dom`, the parser's operations kept apart,
+a counter rather than a list) and § 3's release half as far as `alo-dom`
+reaches; deciding *when* a tree is unreachable is the bindings' (246). One
+file, one responsibility: rules, operations, release and the arena are four
+files; `node.rs` gained one link field, `parse.rs` sets it. Nothing
+positions, sizes or paints differently, so no new layout assertion or
+reference render applies; every existing one still matches (the gate runs
+them). `docs/features.md`'s line now states the document's half and that no
+script reaches it.
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step: formatting clean, clippy silent (two earlier runs fixed, not
+silenced: missing `# Errors` sections, and test helpers that unwrapped
+outside a `#[test]`), all tests pass, nothing stubbed, `unsafe` forbidden,
+licence notices present, every rented crate behind its boundary, no
+coordinate verb, the supervisor's stop rule holds, `CHANGELOG.md` changed.
+`cargo test --workspace --all-features` counts 2352 passed, 0 failed (2325
+at iteration 141, this item's 27). `git diff --check` passes. The log was
+kept in this session's scratchpad, not committed.
+
+**Roadmap.** The *Mutation from script* line gains a Built clause naming
+`alo-dom` and item 245 and keeps an Owed clause for 246 and 247. Not
+ticked. Queue item 245 ticked with its evidence; `CHANGELOG.md`,
+`docs/features.md` and `REMAINING.md` moved with it.
+
+**Unresolved obligations.** Item 80 stays open until 246 and 247 close; no
+script can reach the document. The sweep's tree check does not by itself
+notice a document node given a parent (the named test does). 78's
+remainder; 77 needs design; 233, 234, 238 and 240 are open and item 76 is
+not done; `violations::reports` is still called by nothing in the browser
+process (item 203's dependency); iteration 141's browser-side font-name
+guard still has no discriminating test. 111 queue items are open. Next is
+**246**. Next unused queue number **248**; next ADR **0018**. This is one
+iteration, not a finished queue or roadmap.

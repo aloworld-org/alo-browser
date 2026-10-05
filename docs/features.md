@@ -398,7 +398,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
 
 ## The DOM as pages use it — stage 2
 
-- [2] Mutation from script, and the invalidation that has to follow it
+- [2] Mutation from script, and the invalidation that has to follow it. **The document's half is built** (`alo-dom`, queue item 245, ADR 0017 § 5): a page's tree can be changed — an element or text made, put in, moved, replaced or taken out — only in the ways the DOM standard allows, and a change it does not allow is refused by the standard's own name (`HierarchyRequestError`, `NotFoundError`, `InvalidCharacterError`) with nothing changed: no node inside itself, no second element or doctype under the document, no text directly under it, no template inside its own contents. A node made this way is numbered after every node the page already had, so an agent can name it like any other; every change is counted, so a renderer can tell what it drew is out of date; and a detached piece of the page nothing can reach any more can be let go, its numbers never handed out again. No script can reach any of it yet (246), and a page still runs its scripts after it is parsed (247)
 - [2] **Events**: capture and bubble, listeners, default actions
 - [2] **Forms**: the controls, constraint validation, submission, file inputs
 - [2] **Navigation and session history**: `pushState`, back and forward, and what survives each

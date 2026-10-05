@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's tree can be changed, under the DOM standard's rules.** Nothing a
+  page runs reaches this yet; it is the part a script's `appendChild` will
+  come down to. An element or text can be made, put in, moved, replaced or
+  taken out, and a change the standard forbids — a node inside itself, a
+  second root element, text directly under the document, a template inside
+  its own contents — is refused by the standard's name with the page left
+  exactly as it was. A node made this way is numbered after the page's own,
+  so an agent can name it like any other; every change is counted, so what
+  was drawn can be known to be stale; and a piece of the page nothing can
+  reach any more can be let go without its numbers ever being reused.
+
 - **How a script will change a page is decided (ADR 0017).** Nothing changes
   yet; this is the decision the code will be built against. Once a page runs
   script, its document is kept where the JavaScript engine's memory collector

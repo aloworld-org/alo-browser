@@ -260,13 +260,17 @@ impl TreeSink for Sink {
         flags: ElementFlags,
     ) -> NodeId {
         let template_contents = flags.template.then(|| self.create(NodeKind::Fragment));
-        self.create(NodeKind::Element(Element {
+        let element = self.create(NodeKind::Element(Element {
             name: from_qual_name(&name),
             attrs: from_attrs(attrs),
             template_contents,
             mathml_annotation_xml_integration_point: flags.mathml_annotation_xml_integration_point,
             had_duplicate_attributes: flags.had_duplicate_attributes,
-        }))
+        }));
+        if let Some(contents) = template_contents {
+            self.document.borrow_mut().set_host(contents, element);
+        }
+        element
     }
 
     fn create_comment(&self, text: StrTendril) -> NodeId {
@@ -285,7 +289,7 @@ impl TreeSink for Sink {
         self.append_node_or_text(
             child,
             |document, id| {
-                document.append(parent, id);
+                document.attach_last(parent, id);
             },
             |document, text| document.append_text(parent, text),
         );
@@ -296,7 +300,7 @@ impl TreeSink for Sink {
         self.append_node_or_text(
             new_node,
             |document, id| {
-                document.insert_before(sibling, id);
+                document.attach_before(sibling, id);
             },
             |document, text| document.insert_text_before(sibling, text),
         );
@@ -329,7 +333,7 @@ impl TreeSink for Sink {
         });
         let mut document = self.document.borrow_mut();
         let root = document.root();
-        document.append(root, doctype);
+        document.attach_last(root, doctype);
     }
 
     fn get_template_contents(&self, target: &NodeId) -> NodeId {
