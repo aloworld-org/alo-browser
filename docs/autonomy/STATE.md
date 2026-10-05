@@ -10397,3 +10397,113 @@ already stale before this iteration and were not recomputed; the per-iteration
 paragraph gives the current count. 105 items are open (104 before; 230 added
 closed, 231 open). Next unused queue number **232**; next ADR **0016**. This
 is one iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 132 — item 76's decision: the event loop is the renderer's, a job is the engine's
+
+The checkout was clean on entry at `d4c9c99`, with iteration 130's stash
+(`stash@{0}`, superseded `try` work) left where it is — dropping it is a
+person's call. Read `CLAUDE.md`, the complete `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its JavaScript lines, `REMAINING.md`,
+iterations 122 and 131, every open queue item through section E, ADR 0013 §§
+3–9 and its *What this does not decide*, ADR 0014 § 7 and its *What this does
+not decide*, ADR 0012 §§ 4–5, ADR 0005's *What runs where* and *Which way the
+boundary points*, ADR 0015 for the form an ADR-only iteration takes, both
+frozen scripts and their `origin.txt`, and the JavaScript lines of
+`docs/features.md`. No `AGENTS.md` exists in this repository. No sibling
+repository was read or modified.
+
+**Selection followed queue order, dependencies and the real-script rule.**
+157, 158, 187, 60, 169, 197, 201 and 203 keep their recorded blockers; 222 and
+207 are blocked on a frozen script; 223, 226, 228 and 231 wait for a
+real-script trigger or on 221; 224, 229, 213, 217 and 215 depend on 73, 211 or
+75; 211 has no frozen script reaching what it has left; 221 and 220 have no
+trigger. **73** has its dependencies met but no running real script reaches a
+builtin of it: the service worker stops at `self` before any, and the
+`Object.values`, `concat` and `Promise.all` it calls are inside handlers that
+run only as tasks. **74** has no running script reaching a regular expression:
+the theme generator has six, but it is a module (refused as `AModule`, item
+77) and a Node script whose `node:fs` imports no browser resolves. **75**
+depends on 76. **76** depends only on 72, which is done, and is on the
+service worker's path — `self` is item 91, which depends on 76 and 83, and
+every handler the worker registers is a task. But 76 could not name the
+decision it implements: ADR 0013 leaves *the task boundary* to it, ADR 0014
+*where a safepoint falls relative to a task or a microtask*, and ADR 0012 § 4
+the precise edge of the agent's window. `LOOP.md` stage 2 § 4 makes that
+decision its own iteration, before any code depends on it — iteration 122's
+precedent for item 207.
+
+**What was built: ADR 0016, accepted.**
+`docs/decisions/0016-the-event-loop-is-the-renderers-and-a-job-is-the-engines.md`.
+The loop lives in `alo-renderer`; the **job queue is `alo-js`'s**, in the
+heap, because a job is a function and arguments the collector must see and
+`HostEnqueuePromiseJob` is called mid-run, so a renderer-held queue would be a
+root per promise reaction and an embedder re-entered half way through an
+instruction; `queueMicrotask` asks the engine to queue one. A task held by the
+renderer holds its script by a `Root`. A task is one `ToRenderer` message or
+one thing the renderer scheduled — a timer, a finaliser's cleanup, and every
+response, so a network round trip is always two tasks. The next task is the
+oldest across all queues (deterministic; priority waits for a measurement). A
+microtask checkpoint follows every task and every call that leaves nothing
+running, never nests, and ends the job with `Heap::end_job`
+(`ClearKeptObjects`). A collection may still begin at any allocation; the
+quiet point between tasks is the only place the loop itself asks for one and
+where finaliser callbacks are queued as tasks. A frame is a message from the
+browser process carrying its time; `requestAnimationFrame` callbacks run in
+registration order, each followed by a checkpoint. An `Act` is one task and is
+answered only after its checkpoint, so a `setTimeout(0)`, a frame callback or
+a response's continuation is not the agent's, and a renderer holding its
+answer open is bounded by the browser process's `Stop` and made visible by
+recording the window's two ends with the action (written into item 203). A
+stopped task stops the page: the queues are dropped, not resumed. A worker's
+loop is the same loop without the frame. Spec facts were checked against what
+HTML's processing model says, not invented: the checkpoint's reentrancy flag,
+`ClearKeptObjects` at its end, *clean up after running script*, the
+user-agent-chosen task queue and rendering opportunity, and the
+listener-microtask ordering difference between a person's click and
+`element.click()`.
+
+**What is not built, and why it stops here.** No code, dependency or test was
+added. Item 76 stays unticked and now records that its ADR is written, what it
+says, its trigger, and that the first code cut is the job queue, the
+checkpoint and the task order closed by its table. Item 203 gains the window's
+two ends. `docs/features.md` is unchanged: no capability changed, and its
+event-loop line already describes the feature rather than claiming it.
+
+**Roadmap.** The event-loop line, which read as unstarted, gains an Owed
+clause saying the decision is made (ADR 0016) and that no code exists — the
+job queue, checkpoint, task order, rendering steps and
+`requestAnimationFrame` are all item 76. No Built clause, because a decision
+is not a crate or a capability (`ROADMAP.md`: *a Built clause that cannot name
+a crate or a landed capability is decoration*). Not ticked. `CHANGELOG.md`
+and `REMAINING.md` move with it.
+
+**Compliance review.** The four laws: law 1, nothing legacy; law 2, the
+agent's window is made precise rather than widened; law 3, no speed claim —
+the ADR says frame rate and input priority are measurements on hardware; law
+4, the ADR authorises no `unsafe` and `unsafe_code = "forbid"` is unchanged.
+*Settled decisions live in `docs/decisions/`*: ADRs 0005, 0012, 0013 and 0014
+were read before deciding and the new one stays inside each — the engine
+gains no clock, no I/O and no notion of a task (0013 §§ 5–6), the renderer
+never calls back and waits (0005), and finalisers run as tasks (0014 § 7).
+`LOOP.md`: one item, a decision as its own iteration, no tick for unfinished
+work, no gate or test changed, no page manufactured. Each edited file keeps
+its single responsibility. Nothing positions, sizes or paints, so layout
+assertions and reference renders do not apply. No push, no supervisor
+launch.
+
+**Gate.** `scripts/gate.sh` exited 0 (it runs under `set -o pipefail`, so its
+truncated `cargo test` output cannot mask a failure): formatting clean,
+clippy silent, all workspace tests pass, nothing stubbed, `unsafe` forbidden,
+Exhibit A on every file, every rented crate behind its boundary, no
+coordinate verb, the supervisor's stop rule holds; the documentation check
+reports no uncommitted code to judge, which is right for a documentation-only
+change. `git diff --check` passes. The log was kept in this session's
+scratchpad, not committed. That verifies the repository still meets its gate;
+it says nothing about an event loop that does not exist yet.
+
+**Unresolved obligations.** Item 76's code, all of it. 105 queue items are
+open (unchanged: none added, none closed). Next unused queue number remains
+**232**; next ADR is **0017**. This is one iteration, not a finished queue or
+roadmap.

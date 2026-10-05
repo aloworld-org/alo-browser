@@ -777,6 +777,12 @@ unreachable without it.
       item 75)
 - [ ] Modules: ESM, dynamic `import()`, and the loader that fetches them
 - [ ] **The event loop** — tasks, microtasks, the rendering steps, `requestAnimationFrame`. Where "it works, but the animation stutters" is decided
+      · Owed: all of it. The decision is made (ADR 0016: the loop lives in
+      `alo-renderer`, the job queue in `alo-js`'s heap, a task is one message
+      or one thing the renderer scheduled, a checkpoint follows every task and
+      ends the job, and a frame is the browser process's to call) and no code
+      exists — the job queue, the checkpoint, the task order, the rendering
+      steps and `requestAnimationFrame` are all queue item 76
 - [ ] Errors and stack traces good enough to debug somebody else's minified page
 - [ ] Internationalisation (`Intl`), rented rather than written
 - [ ] Refused for now and recorded: a JIT, until there is a measured reason and an ADR weighing it against the attack surface it adds

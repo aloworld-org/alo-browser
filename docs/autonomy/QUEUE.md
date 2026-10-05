@@ -1732,7 +1732,9 @@ wrong, which is the argument for the fourth.
   *Depends on 202, and on a browser process that has both. Closes when:* an
   action's file says what the verb did as well as what it fetched, and the
   outcome it says is the one the browser process recorded rather than one a
-  renderer or an agent stated.
+  renderer or an agent stated. ADR 0016 § 6 adds the window's two ends — when
+  the verb was sent and when the renderer answered it — to what that file
+  keeps, so a renderer holding its answer open is visible in the record.
 
 ## C. Pages that are not ours
 
@@ -3040,6 +3042,24 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on 72. Closes when:* the order of a table of interleaved tasks and
   microtasks is what the specification says, because that order is observable to
   every script on every page.
+  **Needs ADR, and it is written: ADR 0016, accepted** (iteration 132). The
+  item could not name the decision it implements — ADR 0013 left *the task
+  boundary* to it, ADR 0014 *where a safepoint falls*, and ADR 0012 § 4 the
+  edge of the agent's window — so the decision came first, as `LOOP.md`
+  stage 2 § 4 asks. In short: the loop lives in `alo-renderer`; the **job
+  queue is `alo-js`'s**, in the heap, and `queueMicrotask` asks the engine to
+  queue one; a task is one `ToRenderer` message or one thing the renderer
+  scheduled (a timer, a finaliser's cleanup, every response); the next task is
+  the oldest; a microtask checkpoint follows every task and every call that
+  leaves nothing running, never nests, and ends the job (`Heap::end_job`); a
+  frame is a message from the browser process carrying its time; an `Act` is
+  answered only after its task's checkpoint; a stopped task stops the page.
+  **No code is built and this item is not done.** Its trigger is the frozen
+  service worker: running it stops at `self` (item 91), which depends on this
+  item and on 83, and every handler it registers runs as a task. The first
+  code cut is the job queue, the checkpoint and the task order, closed by the
+  table above; the rendering steps and `requestAnimationFrame` may be cut
+  from it if the iteration that takes it finds them a second item.
 
 - [ ] **77. Modules**: ESM, dynamic `import()`, and the loader that fetches them.
   *Depends on 53, 72.*

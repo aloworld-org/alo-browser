@@ -78,6 +78,16 @@ no frozen script reaches any of them. 105 queue items are open (230 was added
 closed and 231 open); the next unused queue number is 232 and the next unused
 ADR remains 0016.
 
+Iteration 132 wrote item 76's decision, ADR 0016 (the event loop is the
+renderer's; the job queue is the engine's). No running frozen script reaches a
+builtin of 73 or a regular expression (74) — the service worker stops at
+`self`, and every handler it registers runs only as a task — and 75 depends on
+76, so 76 was the first item on that script's path whose dependencies are met.
+It could not be built before its decision, which ADRs 0012, 0013 and 0014 had
+each left to it. No code was written and 76 is not done; its first code cut is
+the job queue, the checkpoint and the task order. 105 queue items remain open;
+the next unused queue number remains 232 and the next unused ADR is 0017.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

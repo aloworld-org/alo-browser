@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How the event loop will work is decided (ADR 0016).** Nothing runs yet; this
+  is the decision the code will be built against. The loop belongs to the part
+  of the browser that renders a page, not to the JavaScript engine, which keeps
+  only the queue of small follow-up jobs a promise makes. Each message the
+  browser sends a page is one unit of work, every unit is followed by those
+  jobs, and a page draws only when the browser says it is time for a frame —
+  so the order a script sees is the one the specification gives and can be
+  tested without a clock. It also settles what an agent's action covers: the
+  work its click caused and the jobs that followed it, and not a timer the page
+  set to run afterwards.
+
 - **`for…of` works, and alo's service worker compiles whole.** A loop over an
   array visits every item in order, gives each pass its own `let` or `const`,
   and tells the thing it was walking when it leaves early — by `break`,
