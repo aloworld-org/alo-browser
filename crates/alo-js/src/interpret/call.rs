@@ -227,9 +227,29 @@ impl Engine {
         };
         self.write_at(run, this_at, this)?;
 
+        // A call is the other way a program can run for ever, now that a page
+        // can catch the `RangeError` that used to end a recursion (queue item
+        // 210): `function f() { try { f() } finally { f() } }` makes no
+        // backward jump at all and doubles its work at every level. So the
+        // embedder's switch is read here as well as on a backward jump.
+        if self.stop.asked() {
+            return Err(Escape::Interrupted);
+        }
         if run.calls() >= bounds::CALLS_ON_THE_STACK {
             return Err(Escape::range_error(
                 "this script calls more deeply than this engine will go",
+                at,
+            ));
+        }
+
+        // Before the environment is made and rooted: a `RangeError` is a thing
+        // a page may catch and carry on from (queue item 210), and a root made
+        // for a call that never began would be held for the engine's life.
+        let locals_at = height;
+        let base = locals_at.saturating_add(locals);
+        if base > bounds::VALUES_ON_THE_STACK {
+            return Err(Escape::range_error(
+                "this script needs more values at once than this engine will hold",
                 at,
             ));
         }
@@ -263,14 +283,6 @@ impl Engine {
             self.write_binding(made, slot, callee)?;
         }
 
-        let locals_at = height;
-        let base = locals_at.saturating_add(locals);
-        if base > bounds::VALUES_ON_THE_STACK {
-            return Err(Escape::range_error(
-                "this script needs more values at once than this engine will hold",
-                at,
-            ));
-        }
         let stack = run.stack;
         self.objects
             .with_slots(stack, |slots, _| slots.grow_to(base))
@@ -286,6 +298,7 @@ impl Engine {
             locals_at,
             base,
             pc: 0,
+            now: 0,
             after,
         });
         Ok(())

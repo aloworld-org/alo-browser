@@ -9,9 +9,10 @@
 //! # What opened it
 //!
 //! A real page's own script, at one remove. The frozen service worker
-//! (`crates/alo-corpus/scripts/alo-service-worker/`) is refused at byte 2853,
-//! the `try` of its push handler, which is item 210 — and item 210 waits on
-//! the `Error` objects a `catch` binds, which are these.
+//! (`crates/alo-corpus/scripts/alo-service-worker/`) was refused at byte 2853,
+//! the `try` of its push handler, which is item 210 — and item 210 waited on
+//! the `Error` objects a `catch` binds, which are these. Item 210 is built
+//! now, and `what_a_catch_catches.rs` is where a caught error is tested.
 //!
 //! # Every program runs twice
 //!

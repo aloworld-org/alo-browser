@@ -48,6 +48,7 @@ pub mod function;
 pub mod hoist;
 mod parameters;
 pub mod scope;
+mod try_statement;
 
 use std::fmt;
 
@@ -63,6 +64,7 @@ use crate::unit::Unit;
 
 use function::Naming;
 use scope::{Assignment, Scopes, Where};
+use try_statement::{Exit, Finally};
 
 /// Something the language has that this engine has not built.
 ///
@@ -79,8 +81,6 @@ pub enum What {
     AParameterForm,
     /// `` tag`a${b}` `` (queue item 215).
     ATaggedTemplate,
-    /// `try`, `catch` and `finally` (queue item 210).
-    ACatch,
     /// An array literal, a spread, a destructuring pattern, `for…in` or
     /// `for…of` (queue item 211).
     TakingAValueApart,
@@ -102,7 +102,6 @@ impl What {
             What::AClass => 223,
             What::AParameterForm => 213,
             What::ATaggedTemplate => 215,
-            What::ACatch => 210,
             What::TakingAValueApart => 211,
             What::ARegularExpression => 74,
             What::ABigInt => 207,
@@ -117,7 +116,6 @@ impl What {
             What::AClass => "a class, `super`, `new.target` or a private name",
             What::AParameterForm => "a parameter that is not a plain name, or `arguments`",
             What::ATaggedTemplate => "a tagged template",
-            What::ACatch => "`try`, `catch` and `finally`",
             What::TakingAValueApart => {
                 "an array literal, a spread, a destructuring pattern, `for…in` or `for…of`"
             }
@@ -209,6 +207,7 @@ fn here(program: &Program) -> Result<Unit, Refusal> {
         suspended: Vec::new(),
         scopes: Scopes::new(),
         environments: 0,
+        finallys: Vec::new(),
     };
     compiler.program(program)?;
     compiler.unit.finish(compiler.chunk);
@@ -240,6 +239,7 @@ struct Suspended {
     chains: Vec<Vec<usize>>,
     script: bool,
     environments: usize,
+    finallys: Vec<Finally>,
 }
 
 /// The compiler.
@@ -267,6 +267,11 @@ struct Compiler {
     /// `break` may only leave the body it is written in — so it is put aside
     /// with the rest of a suspended body.
     environments: usize,
+    /// The `finally` blocks the statement being compiled is inside, innermost
+    /// last (queue item 210). Put aside with a suspended body, because a
+    /// `return` in a function written inside a `try` leaves the function and
+    /// not the `try`.
+    finallys: Vec<Finally>,
 }
 
 impl Compiler {
@@ -410,12 +415,11 @@ impl Compiler {
                 self.chunk.emit(Op::Throw, at);
             }
             StatementKind::Return(value) => self.leave_function(value.as_ref(), at)?,
-            StatementKind::Try { .. } => {
-                return Err(Refusal::NotBuiltYet {
-                    what: What::ACatch,
-                    at,
-                });
-            }
+            StatementKind::Try {
+                block,
+                handler,
+                finalizer,
+            } => self.try_statement(block, handler.as_ref(), finalizer.as_deref(), at)?,
             StatementKind::Class(_) => {
                 return Err(Refusal::NotBuiltYet {
                     what: What::AClass,
@@ -456,8 +460,8 @@ impl Compiler {
                 self.chunk.emit(Op::Undefined, at);
             }
         }
-        self.chunk.emit(Op::Return, at);
-        Ok(())
+        // Through every `finally` between here and the function's edge.
+        self.exit(Exit::Return, at)
     }
 
     /// The value of an expression statement: a script's completion, or nothing
@@ -1016,6 +1020,13 @@ impl Compiler {
                 at,
             });
         };
+        // Through every `finally` between here and what it leaves.
+        self.exit(Exit::Jump { which, repeating }, at)
+    }
+
+    /// Jump out of the `which`th thing a `break` may leave, with no `finally`
+    /// in the way: leave the environments between, and go.
+    fn jump_out(&mut self, which: usize, repeating: bool, at: usize) -> Result<(), Refusal> {
         let Some(depth) = self.enclosing.get(which).map(|enclosing| enclosing.depth) else {
             return Err(lost(at));
         };
@@ -2222,7 +2233,6 @@ mod tests {
             ("function f() { return new.target; }", What::AClass),
             ("function f(a = 1) {}", What::AParameterForm),
             ("f`a`", What::ATaggedTemplate),
-            ("try { a; } catch {}", What::ACatch),
             ("[1, ...a]", What::TakingAValueApart),
             ("for (const a of b) {}", What::TakingAValueApart),
             ("/a/", What::ARegularExpression),

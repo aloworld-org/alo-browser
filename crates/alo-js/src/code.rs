@@ -56,6 +56,17 @@
 //! **No source text.** Every instruction carries the byte offset it came from
 //! ([`Chunk::at`]) and nothing else, which is what a `ReferenceError` points at
 //! today and what a stack trace (queue item 78) will be built from.
+//!
+//! # Where a throw lands is a table, not an instruction
+//!
+//! A `try` emits no instruction that says *a handler starts here* and none that
+//! says it ends (queue item 210). It writes a [`Handler`] into the chunk: these
+//! instructions are guarded, and a throw from any of them lands there. That is
+//! the choice that makes `break`, `continue` and `return` out of a `try` cost
+//! nothing at run time — there is no handler on a stack for them to remember to
+//! take off, because there is no stack of handlers at all. The table is
+//! searched only when something has been thrown, which is the one time its
+//! cost is not on the path every program takes.
 
 use crate::ast::Binary;
 use crate::operate::Simple;
@@ -272,6 +283,33 @@ pub enum Op {
     CompleteEmpty,
     /// `throw a`.
     Throw,
+    /// Push what the script evaluates to so far.
+    ///
+    /// Only a script's own chunk emits it, around a `finally`: a `finally`
+    /// that ends normally leaves the completion its `try` had, so the value is
+    /// put aside before the block runs and written back after (queue item
+    /// 210).
+    Completion,
+}
+
+/// Where a throw from a range of instructions lands (queue item 210).
+///
+/// The range is a `try` block, or a `catch` block that a `finally` guards.
+/// The landing finds the thrown value on the stack and nothing else above the
+/// frame's operands, and the environments in force are the ones that were in
+/// force when the `try` began: everything the throw interrupted has been taken
+/// down by the time it runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Handler {
+    /// The first instruction guarded.
+    pub start: usize,
+    /// The first instruction past the range.
+    pub end: usize,
+    /// Where a throw lands.
+    pub landing: usize,
+    /// How many block environments the frame had pushed when the `try` began,
+    /// which is how many it has when the landing runs.
+    pub environments: u32,
 }
 
 /// One body's compiled instructions.
@@ -289,6 +327,7 @@ pub struct Chunk {
     constructs: bool,
     vars: Vec<u32>,
     lexical: Vec<Lexical>,
+    handlers: Vec<Handler>,
     strict: bool,
 }
 
@@ -325,6 +364,7 @@ impl Chunk {
             constructs: false,
             vars: Vec::new(),
             lexical: Vec::new(),
+            handlers: Vec::new(),
             strict: false,
         }
     }
@@ -555,11 +595,29 @@ impl Chunk {
     pub fn declare_lexical(&mut self, name: u32, mutable: bool) {
         self.lexical.push(Lexical { name, mutable });
     }
+
+    /// Guard a range of instructions with a handler.
+    ///
+    /// A `try` inside another is finished first, so its handler is recorded
+    /// first — which is what lets [`Chunk::handler`] take the first range that
+    /// holds an instruction as the innermost one. The ranges nest rather than
+    /// overlap, because each is the code of one statement.
+    pub fn protect(&mut self, handler: Handler) {
+        self.handlers.push(handler);
+    }
+
+    /// The innermost handler guarding the instruction at `pc`, if one does.
+    pub fn handler(&self, pc: usize) -> Option<Handler> {
+        self.handlers
+            .iter()
+            .find(|handler| handler.start <= pc && pc < handler.end)
+            .copied()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Chunk, Op};
+    use super::{Chunk, Handler, Op};
 
     #[test]
     fn a_jump_is_patched_and_anything_else_refuses_to_be() {
@@ -584,6 +642,29 @@ mod tests {
         assert_eq!(chunk.name_at(5), Some(9));
         assert_eq!(chunk.name_at(3), None);
         assert_eq!(chunk.name_at(0), None);
+    }
+
+    #[test]
+    fn the_innermost_handler_is_the_one_recorded_first() {
+        let mut chunk = Chunk::new(false);
+        let inner = Handler {
+            start: 2,
+            end: 4,
+            landing: 9,
+            environments: 1,
+        };
+        let outer = Handler {
+            start: 0,
+            end: 6,
+            landing: 12,
+            environments: 0,
+        };
+        chunk.protect(inner);
+        chunk.protect(outer);
+        assert_eq!(chunk.handler(3), Some(inner));
+        assert_eq!(chunk.handler(4), Some(outer), "the end is not guarded");
+        assert_eq!(chunk.handler(0), Some(outer));
+        assert_eq!(chunk.handler(6), None);
     }
 
     #[test]

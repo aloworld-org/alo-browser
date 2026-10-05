@@ -146,7 +146,7 @@ impl Intrinsics {
     }
 
     /// The constructor of one family of errors, which the realm binds to its
-    /// name and item 210's `catch` makes an error this engine threw from
+    /// name and a `catch` makes an error this engine threw from
     /// (queue item 227).
     ///
     /// # Errors

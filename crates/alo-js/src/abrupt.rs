@@ -63,10 +63,11 @@ impl Kind {
 /// What a script threw.
 ///
 /// Either one of the language's own errors or a value the script threw itself.
-/// An error this engine throws is not an `Error` **object** yet: the
-/// constructors exist (queue item 227), and turning one of these into an
-/// instance of one is what a `catch` does, which is item 210. Until something
-/// can catch it, nothing can see the difference.
+/// An error this engine throws is not an `Error` **object** while it is
+/// unwinding: it becomes an instance of its kind's constructor (queue item
+/// 227) only when a `catch` lands it (item 210), because only then can a page
+/// see it — and an uncaught one is reported to the embedder as the kind and
+/// message it is.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Thrown {
     /// An error the language specifies.
@@ -259,7 +260,8 @@ impl fmt::Display for Internal {
 /// Every way running a program ends other than with a value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Escape {
-    /// The script threw. Its own `catch` is what survives this (queue item 210).
+    /// The script threw. Its own `catch` is what survives this (queue item
+    /// 210), and nothing else here is caught.
     Thrown(Thrown),
     /// The engine reached something it has not built.
     NotBuiltYet(Missing),
@@ -318,7 +320,7 @@ impl Escape {
     }
 
     /// Whether a page could have seen this — which is exactly the set a `catch`
-    /// will one day be able to reach (queue item 210).
+    /// reaches (queue item 210).
     pub const fn is_the_pages(&self) -> bool {
         matches!(self, Escape::Thrown(_))
     }

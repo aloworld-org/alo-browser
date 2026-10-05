@@ -413,7 +413,7 @@ fn what_the_language_says_and_this_engine_has_not_built() {
         ("function f(a, a) {}", "213"),
         ("function f() { return arguments; }", "213"),
         ("f`a`", "215"),
-        ("try { 1; } catch {}", "210"),
+        ("try {} catch ([a]) {}", "211"),
         ("[...a]", "211"),
         ("[1, ...a]", "211"),
         ("let [a] = b;", "211"),
@@ -843,9 +843,9 @@ fn an_object_becomes_a_primitive_through_the_prototype_it_now_has() {
 }
 
 #[test]
-fn a_script_may_throw_and_nothing_catches_it_yet() {
-    // `try`/`catch` is queue item 210. What a `throw` does today is end the
-    // script, which is what an uncaught one does anyway.
+fn a_throw_nothing_catches_ends_the_script() {
+    // `try`/`catch` is queue item 210's, and `what_a_catch_catches.rs` is
+    // where a caught one is tested. An uncaught one ends the script.
     assert!(value("throw 1;").starts_with("! the script threw a value"));
     assert!(value("let a = 0; while (1) { a++; if (a > 2) throw 'stop'; }").contains("threw"));
 }

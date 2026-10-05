@@ -87,6 +87,7 @@ impl Compiler {
             chains: std::mem::take(&mut self.chains),
             script: std::mem::replace(&mut self.script, false),
             environments: std::mem::take(&mut self.environments),
+            finallys: std::mem::take(&mut self.finallys),
         };
         self.suspended.push(suspended);
         self.scopes.open_function();
@@ -101,6 +102,7 @@ impl Compiler {
         self.chains = saved.chains;
         self.script = saved.script;
         self.environments = saved.environments;
+        self.finallys = saved.finallys;
         let finished = std::mem::replace(&mut self.chunk, saved.chunk);
         outcome?;
 

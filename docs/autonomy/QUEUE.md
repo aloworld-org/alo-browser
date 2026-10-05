@@ -2720,7 +2720,7 @@ The long pole, and the thing most of section E is unreachable without.
   right answer — which is why that case now declares a name in front of the one
   it reads.
 
-- [ ] **210. `try`, `catch` and `finally`.** Cut from 72, which throws and has
+- [x] **210. `try`, `catch` and `finally`.** Cut from 72, which throws and has
   nowhere for a throw to land: `Escape::Thrown` ends the script today, and what
   is owed is the handler. The hard half is **`finally`**, which runs on the way
   out of a `break`, a `continue`, a `return` and a throw alike, so a completion
@@ -2731,6 +2731,59 @@ The long pole, and the thing most of section E is unreachable without.
   Closes when:* each of the five ways out of a `try` runs its `finally` exactly
   once, in a test naming which way it left, and a `catch` binds what was thrown.
 
+  **Done, both of them: `crates/alo-js/tests/what_a_catch_catches.rs`**,
+  twenty-one tests, every program run ordinarily and with the collector at
+  every allocation except three runaway recursions, which run ordinarily only
+  as `an_engine_that_is_hostile.rs`'s do. One test per way out — normally, by
+  a throw, by a `return`, a `break` and a `continue` — each counting its
+  `finally`. Opened by a frozen real script: the service worker
+  (`crates/alo-corpus/scripts/alo-service-worker/script.js`) was refused at
+  byte 2853, the `try` of its push handler; it now compiles to byte 2922, the
+  `for (const account of …)` inside that `try`, which is item 211.
+
+  **The decision worth reading twice is that a throw lands through a table and
+  everything else through code.** A `try` emits no instruction at its start or
+  its end: it writes a handler into the chunk — these instructions are guarded,
+  a throw from them lands there — and the interpreter searches it only when
+  something is thrown, innermost frame outwards. A `break`, `continue` or
+  `return` the compiler can see, so each is compiled to go where it is going,
+  and one that crosses a `finally` writes *which way it was leaving* into a
+  frame slot and jumps into the block; at the block's end each way out is
+  compiled **again, from there**, which is how a `break` past two `finally`s
+  runs both, innermost first. A frame is searched by the instruction it is
+  **running** (`Frame::now`), not its program counter less one, because a
+  conversion rewinds the counter to run its instruction again. An error the
+  engine threw becomes an instance of its kind's constructor **only when a
+  `catch` lands it**, after the stack is cut, so nothing is in a Rust local
+  while it is made.
+
+  **Two consequences that are not about `try` at all.** A `RangeError` is now
+  something a page can catch and carry on from, so a call that is refused for
+  the value bound no longer roots an environment before it is refused — the
+  check moved ahead of the allocation, or each refused call would have held one
+  for the engine's life. And a recursion that catches its own `RangeError` can
+  run for ever **without a backward jump** —
+  `function f() { try { f() } finally { f() } }` doubles at every level — so the
+  embedder's stop switch is read on every call into a script function as well
+  as on a backward jump (ADR 0013 § 4).
+
+  **What was refused rather than built**: a pattern as the `catch` parameter is
+  item 211's, as every pattern is; and `catch (e) { var e; }`, which Annex B
+  allows for old pages, is not a program here — that relaxation is item 142's.
+  **Five doctored runs**: frames that keep their environment roots fail the
+  test that counts live cells after three catches of ten thousand frames
+  (`[20549, 41027, 61505]`); builtins left waiting fail one test; blocks left
+  standing failed **nothing** at first, because every binding the tests read
+  held the same value in the wrong environment as in the right one — three
+  cases with a different letter in every binding were added, and now fail
+  (`"yy"` for `"kk"`); no stop check on a call hangs the recursion test rather
+  than failing it, which is the defect it describes. The fifth — searching by
+  the program counter less one instead of `Frame::now` — fails nothing, and the
+  reason is real rather than luck: the instruction that rewinds always has its
+  operands' loads before it in the same guarded range, and the instruction at a
+  range's end is always a jump this compiler emitted. `now` is kept because it
+  is right by construction rather than by that argument.
+
 - [ ] **211. The forms that take a value apart.** Cut from 72, which refuses
   them together because they are one mechanism seen from four sides: an array
   literal and a spread *build* from an iterable, a destructuring pattern and
@@ -2740,7 +2793,9 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on 72, on 73 for the `Array` exotic object (the exotic part is
   `length`) and on 75 for the iteration protocol.* **Item 225 took the exotic
   object and the array literal without a spread**, so what is left here is
-  the spread, both patterns and both loops. *Closes when:* `[1, ...a]`,
+  the spread, both patterns and both loops. The frozen service worker reaches
+  one: after item 210 it is refused at byte 2922, `for (const account of …)`.
+  *Closes when:* `[1, ...a]`,
   `let [a, b] = c`, `let { a } = b` and both `for` loops produce what the
   specification says, in the same table item 72 uses, and a hole is not
   `undefined`.
@@ -3308,6 +3363,8 @@ its own sake, which is the thing this stage exists to refuse.
   before 2015.** *blocked: no page yet.*
 
 - [ ] **142. The sloppy-mode corners of JavaScript that only old code reaches.**
+  Among them Annex B's `var` of the same name as a `catch` parameter
+  (`catch (e) { var e; }`), which item 210 refuses as not a program.
   *blocked: no page yet. Depends on 72.*
 
 **There is no exit gate**, and that is the design. Stage 3 is a standing offer

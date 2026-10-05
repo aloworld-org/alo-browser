@@ -110,8 +110,8 @@ fn a_recursion_that_will_not_end_is_a_range_error_rather_than_a_stack_overflow()
     // sentence — *it never panics, not on any source text, not on any program*.
     //
     // The assertion is the error the language specifies, so a page that
-    // recurses on purpose can say what to do about it (queue item 210) rather
-    // than losing its tab.
+    // recurses on purpose can catch it (queue item 210) rather than losing its
+    // tab.
     for source in [
         "function f() { return f(); } f()",
         // Not a tail call, so nothing could quietly turn it into a loop.
@@ -233,7 +233,7 @@ fn every_shape_that_ends_a_script_early_is_a_refusal_rather_than_a_crash() {
     // One case per way out of `Escape`, so that a new way of ending a script
     // has to be added here to be complete.
     let cases = [
-        // The page's own, which its `catch` will survive (queue item 210).
+        // The page's own, which its `catch` survives (queue item 210).
         "nobody",
         "null.a",
         "const a = 1; a = 2;",
@@ -276,13 +276,13 @@ fn every_shape_that_ends_a_script_early_is_a_refusal_rather_than_a_crash() {
 
 #[test]
 fn a_program_the_compiler_refuses_never_reaches_the_interpreter() {
-    let Ok(program) = script("try { 1; } catch {}") else {
+    let Ok(program) = script("for (const a of b) {}") else {
         panic!("that parses");
     };
     match compile::compile(&program) {
         Err(compile::Refusal::NotBuiltYet { what, .. }) => {
-            assert_eq!(what.item(), 210, "`try` is queue item 210's");
+            assert_eq!(what.item(), 211, "`for…of` is queue item 211's");
         }
-        other => panic!("a `try` is refused by name: {other:?}"),
+        other => panic!("a `for…of` is refused by name: {other:?}"),
     }
 }

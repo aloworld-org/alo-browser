@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can catch an error.** `try`, `catch` and `finally` work in the
+  JavaScript engine: a `catch` receives what was thrown from any depth of call,
+  an error the engine raises itself — reading a property of `null`, a name that
+  does not exist, a recursion that goes too deep — arrives as a real
+  `TypeError`, `ReferenceError` or `RangeError` with its message, and a
+  `finally` runs exactly once however its block was left. Because a page can now
+  catch the error that used to end a runaway recursion, the browser's stop
+  switch is checked on every function call as well as in every loop. alo's own
+  service worker compiles past its `try` and stops at a `for…of`, which is the
+  next piece of work.
+
 - **A runaway worker is caught in an hour rather than four.** Processor time
   counts as evidence of work, which is what lets a long compile finish, but it
   also means a worker going round in circles never looks idle. A second bound

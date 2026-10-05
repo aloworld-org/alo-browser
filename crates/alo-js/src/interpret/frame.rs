@@ -181,6 +181,14 @@ pub(crate) struct Frame {
     pub(crate) base: usize,
     /// Which instruction it is on.
     pub(crate) pc: usize,
+    /// Which instruction it is running — or, for a frame that is not the
+    /// innermost, which instruction made the call it is waiting on.
+    ///
+    /// Not `pc` less one: an instruction that needs an object turned into a
+    /// primitive rewinds `pc` to itself so that it runs again, and a throw
+    /// from the `valueOf` it called would then be judged by the instruction
+    /// before. This is what a `try` is looked for by (queue item 210).
+    pub(crate) now: usize,
     /// What the caller wanted this call's answer for.
     pub(crate) after: After,
 }

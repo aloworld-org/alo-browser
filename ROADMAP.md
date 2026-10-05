@@ -587,14 +587,28 @@ unreachable without it.
       · Built: **the array literal** (queue item 225, cut from 211 and 73).
       `[a, , b]` makes an array of the literal's length with each element
       defined and each hole left out, so a hole is not `undefined` and `in`
-      can tell. Opened by the same frozen script at that literal, which now
-      compiles to the `try` on the next line (item 210)
+      can tell. Opened by the same frozen script at that literal, which then
+      compiled to the `try` on the next line (item 210)
+      · Built: **`try`, `catch` and `finally`** (queue item 210). A throw lands
+      in the nearest `try` around the instruction that threw, in its own call or
+      any call waiting on it, and an error the engine threw is caught as an
+      instance of its constructor. The decision is that **a throw lands through
+      a table and everything else through code**: a `try` emits no instruction
+      at its start or end but writes the range it guards into the chunk, so
+      leaving one normally costs nothing and the table is read only when
+      something is thrown; a `break`, `continue` or `return` that crosses a
+      `finally` is compiled to remember which way it was leaving, run the
+      block, and leave that way again from its end, which is how two
+      `finally`s run innermost first. Because a page can now catch the
+      `RangeError` that ended a runaway recursion, the embedder's stop switch is
+      read on every call as well as on every backward jump. The frozen service
+      worker compiles past its `try` to the `for…of` inside it (item 211)
       · Owed: the rest of the language, and each piece is refused **by name**
       rather than half-built — classes, `super`, `new.target` and private names
       (queue item 223), `instanceof` past its first two answers (224),
       `arguments` and the parameter forms that are not a plain name (213),
-      tagged templates (215),
-      `try`/`catch`/`finally` (210), spread, destructuring, `for…in` and
+      tagged templates (215), a `catch` parameter that is a pattern, spread,
+      destructuring, `for…in` and
       `for…of` (211), an object assigned to an array's `length`, which is
       converted twice (226), and a **proxy**, whose trap is the same re-entry as a
       getter and which nothing can make until a builtin `Proxy` constructor

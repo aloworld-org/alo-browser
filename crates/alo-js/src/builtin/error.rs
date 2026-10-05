@@ -4,9 +4,10 @@
 
 //! `Error` and the six native errors: what a `catch` binds (queue item 227).
 //!
-//! Cut from item 73 because item 210 — `try`, `catch` and `finally` — waits on
-//! exactly this, and item 210 is what the frozen service worker is refused at
-//! today (byte 2853). A thrown `TypeError` has had a kind and a message since
+//! Cut from item 73 because item 210 — `try`, `catch` and `finally` — waited
+//! on exactly this, and item 210 is what the frozen service worker was refused
+//! at (byte 2853). Item 210 is built now, and its `catch` makes an error this
+//! engine throws into one of these (`interpret/catch.rs`). A thrown `TypeError` has had a kind and a message since
 //! item 72 and has not been a **value**; these are the objects it becomes.
 //!
 //! # Seven constructors, seven prototypes, one body

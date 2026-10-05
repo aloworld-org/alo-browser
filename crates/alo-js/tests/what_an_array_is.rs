@@ -13,7 +13,9 @@
 //! is alo's offline-shell service worker, frozen with its provenance beside
 //! it, and after item 212 the first thing it could not compile was
 //! `let changedTypes = [];` at byte 2847. The last test in this file is that
-//! script compiling past it, to the `try` on the next line, which is item 210.
+//! script compiling past it. The `try` on the next line was item 210's, which
+//! is built now; where the script stops next is pinned in
+//! `what_a_catch_catches.rs`.
 //!
 //! # Every program runs twice
 //!
@@ -578,11 +580,11 @@ fn the_frozen_service_worker_compiles_past_the_array_that_stopped_it() {
     match alo_js::compile(&program) {
         Err(Refusal::NotBuiltYet { what, at }) => {
             assert!(at > 2847, "it gets past the array at 2847, to {at}");
-            // What stops it next is the `try` on the following line — queue
-            // item 210, and a different item.
-            assert_eq!(what, What::ACatch);
-            assert_eq!(at, 2853);
-            assert_eq!(source.get(at..at.saturating_add(3)), Some("try"));
+            // And past the `try` on the following line, which item 210
+            // built; what stops it now is that item's test's business, and
+            // is not an array.
+            assert!(at > 2853, "and past the try at 2853, to {at}");
+            assert_ne!(what, What::AClass);
         }
         other => panic!("expected the next unbuilt item, got {other:?}"),
     }

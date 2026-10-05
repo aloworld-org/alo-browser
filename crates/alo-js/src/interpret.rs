@@ -43,10 +43,15 @@
 //! finish is stopped by the embedder — the browser process decides that a tab
 //! has stopped answering, which is a person's judgement about a page and not an
 //! engine's timer.* [`Stop`] is that switch. It is checked on every **backward**
-//! jump, which is the only way a program can run for ever, and it costs a read
-//! of a flag per iteration rather than per instruction.
+//! jump and on every **call** into a script's function, which are the only two
+//! ways a program can run for ever, and it costs a read of a flag per iteration
+//! or per call rather than per instruction. Calls joined the list with queue
+//! item 210: before a `catch` existed, a recursion ended at the depth bound
+//! whether the page liked it or not, and now a page can catch that and recurse
+//! again.
 
 mod call;
+mod catch;
 mod construct;
 mod environment;
 mod frame;
@@ -305,6 +310,7 @@ impl Engine {
             locals_at: 2,
             base: 2_usize.saturating_add(locals),
             pc: 0,
+            now: 0,
             // Nothing is waiting for the script's own answer: the run ends.
             after: After::Answer,
         });
@@ -382,7 +388,9 @@ impl Engine {
             // becomes another turn of this loop instead of another Rust frame
             // (queue item 219, and see [`call`]'s module comment).
             if let Some(waiting) = run.ready() {
-                self.step_builtin(run, waiting)?;
+                if let Err(escape) = self.step_builtin(run, waiting) {
+                    self.land(run, escape)?;
+                }
                 continue;
             }
             let (op, at, pc) = {
@@ -401,8 +409,14 @@ impl Engine {
                 };
                 (op, chunk.at(pc), pc)
             };
-            run.frame_mut()?.pc = pc.saturating_add(1);
-            self.step(run, op, at, pc)?;
+            let frame = run.frame_mut()?;
+            frame.pc = pc.saturating_add(1);
+            frame.now = pc;
+            if let Err(escape) = self.step(run, op, at, pc) {
+                // A `try` around it, here or in a call that is waiting on
+                // this one, takes the page's own escapes (queue item 210).
+                self.land(run, escape)?;
+            }
         }
     }
 
@@ -515,6 +529,10 @@ impl Engine {
                 self.write_completion(run, value)?;
             }
             Op::CompleteEmpty => self.write_completion(run, Value::Undefined)?,
+            Op::Completion => {
+                let value = self.value_at(run, 0)?;
+                self.push(run, value)?;
+            }
             Op::Throw => {
                 let value = self.pop(run)?;
                 return Err(Escape::Thrown(Thrown::Value { value, at }));

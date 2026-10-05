@@ -10117,3 +10117,128 @@ nowhere in its output.
 iteration with a clean tree when it was stopped to apply this; nothing was
 lost.
 
+
+---
+
+## Iteration 130 — queue item 210: a page can catch an error
+
+The checkout was clean on entry at `7705c99`, with one stash
+(`stash@{0}`, "iteration interrupted 16:06 — partial try-statement work,
+superseded") left by iteration 127's interruption. Read `CLAUDE.md`, the
+complete `docs/autonomy/LOOP.md`, `ROADMAP.md`'s JavaScript lines,
+`REMAINING.md`, iterations 123–129, the open queue items in section D, ADR
+0013 (all of it) and ADR 0014 § 2, and the JavaScript lines of
+`docs/features.md`. No `AGENTS.md` exists in this repository. No sibling
+repository was read or modified.
+
+**Selection followed queue order and dependencies.** 157, 158, 187, 60, 169,
+197, 201 and 203 keep their recorded blockers; 222 and 207 are blocked on a
+frozen script; 223, 226 and 228 have no real-script trigger or an unbuilt
+dependency (221), and 224, 229, 213, 217 and 215 depend on 73 or 211/75. **210
+is next**: it depends on 72 and 227, both done, and the frozen service worker
+was refused at byte 2853 naming it — the trigger, from a real page.
+
+**The stash was read and not applied.** It held a sketch of the compiler half
+(a handler table in the chunk and `compile/try_statement.rs`) and nothing of
+the interpreter. Its design was taken as a starting point and rewritten in
+place; it missed suspending the `finally` stack across a nested function, so a
+`return` in a function written inside a `try` would have routed through the
+outer `finally`. That case now has a test. **The stash is left where it is** —
+it is preserved work, and dropping it is a person's call.
+
+**What was built.**
+`code.rs`: `Handler` (start, end, landing, environments) kept per chunk, and
+`Op::Completion`. `compile/try_statement.rs`: the statement, the `catch`
+parameter as a scope and an environment of its own, and the `finally` that
+carries a way out across its block in two frame slots and dispatches on it at
+the end; `break`, `continue` and `return` go through `exit`, which routes into
+a `finally` when one is in the way. `interpret/catch.rs`: on an escape from an
+instruction or a builtin, the loop looks for a handler around each frame's
+running instruction (`Frame::now`, new), takes down the calls, builtins and
+blocks above it, cuts the stack and lands the value — an engine error made
+into an instance of its constructor with its message, after the cut.
+`What::ACatch` is gone; nothing refuses a `try` any more.
+
+**Two changes outside `try`, both forced by it.** A `RangeError` is now
+catchable, and `enter_at` used to root a call's environment *before* the
+value-bound check, so each refused call would have kept one for the engine's
+life; the check moved ahead of the allocation. And a recursion that catches its
+own `RangeError` can run for ever without a backward jump
+(`function f() { try { f() } finally { f() } }`), so `Stop` is read on every
+call into a script function too. The module comment and ADR 0013 § 4's
+"points it defines" are what that serves.
+
+**Evidence.** `crates/alo-js/tests/what_a_catch_catches.rs`, twenty-one tests,
+every program run ordinarily and with the collector at every allocation and
+required to agree, except three runaway recursions which run ordinarily only:
+under stress ten thousand frames cost quadratic time (iteration 123 measured
+47 s), and the rooting they exercise is the shallow throw across frames that
+runs both ways. One test per way out of a `try`, each counting its `finally`;
+what a `catch` binds; engine errors of three kinds caught as instances
+(`constructor`, `__proto__`, own non-enumerable `message`, `[object Error]`);
+throws from a getter, a setter, a `valueOf`, a `toString`, `new`, and from
+inside a waiting builtin; blocks left; nested `finally`s innermost first; a
+`finally` that leaves its own way winning; completion values; the stop switch
+on a loop inside a `try` and on the doubling recursion (from another thread);
+live cells after three catches of ten thousand frames equal; and the early
+errors. Hostile input: every prefix cut of a program using every form, twenty
+thousand nested `try`s (refused by the parser's bound), two hundred nested on
+each way out, and two thousand in a row. The frozen script compiles past byte
+2853 to byte 2922, `for (const account of …)`, item 211; the test pins both.
+
+**Doctored runs, five**, each restored and the suite re-run green: frames
+keeping their roots fail the live-cell test (`[20549, 41027, 61505]`);
+builtins left waiting fail one test; no stop check on a call hangs the stop
+test (the defect it describes; the process was killed by hand). Blocks left
+standing **failed nothing at first** — every binding the tests read held the
+same value in the wrong environment as in the right one, the coincidence
+queue item 216's own doctored run warned about — so three cases with a different letter in
+every binding were added, and the doctored build now answers `"yy"` for
+`"kk"`. Searching by `pc - 1` instead of `Frame::now` fails nothing, and the
+reason is structural: a rewinding instruction always has its operand loads
+before it inside the same range, and the instruction at a range's end is always
+a jump this compiler emits. `now` is kept because it is right by construction
+rather than by that argument; no test distinguishes them, and that is recorded
+rather than implied.
+
+**Roadmap.** The interpreter line gains a Built clause for `try`, and its Owed
+clause loses 210 and names a pattern as a `catch` parameter (211); the
+standard-library line's sentence that an engine error "becomes one of these
+when `try`/`catch` arrives" is now true and reworded. Neither line is ticked.
+`docs/features.md`, `CHANGELOG.md`, `REMAINING.md`, and queue items 211
+(its new real-script trigger) and 142 (Annex B's catch `var`) move with it.
+
+**Compliance review.** Rules applied: law 1 — `catch (e) { var e; }`, which
+only Annex B allows, is refused as not a program and recorded in item 142
+rather than half-built; law 3 — no stub, no `todo!`, no `unwrap` outside
+tests; law 4 — no `unsafe`; ADR 0013 § 3 — a `catch` reaches only the page's
+escapes, never a full heap, an interruption, a lost reference or something not
+built; § 4 — never panics, every bound ours, interruptible on every way a
+program can run for ever; ADR 0014 § 2 — a thrown value is in a Rust local only
+across code that cannot allocate, checked under stress; LOOP stage 2 §§ 1–2 —
+opened and closed against a frozen real script, hostile tests and no panic.
+One file, one responsibility: the statement is its own compiler file and the
+landing its own interpreter file; `compile.rs`'s `leave` was split into finding
+the target and `jump_out`. Clippy's four findings were fixed by renaming and
+restructuring, not allowed. Tests asserting the old refusal were changed to the
+new truth (`compile.rs`'s unit test, `what_a_program_evaluates_to.rs`'s table
+and uncaught-throw test, `an_engine_that_is_hostile.rs`'s refusal test now on
+`for…of`, `what_an_array_is.rs`'s frozen-script test now asserting past 2853).
+Nothing positions, sizes or paints, so layout assertions and reference renders
+do not apply.
+
+**Gate.** `scripts/gate.sh` exited 0: formatting clean, clippy silent, all
+workspace tests pass, nothing stubbed, `unsafe` forbidden, Exhibit A on every
+file, every rented crate behind its boundary, no coordinate verb, the
+supervisor stop rule holds, `CHANGELOG.md` changed. `git diff --check`
+passes. The log was kept in this session's scratchpad, not committed.
+
+**Unresolved obligations.** An uncaught throw that passed through a `finally`
+is reported at the `try` and, for an engine error, as "the script threw a
+value" rather than its kind and message, because what leaves the `finally` is
+a rethrow of the object the error became; where it was first thrown is a stack
+trace's business, item 78. The service worker still cannot *run*: it needs
+`for…of` (211), `Object.values`/`keys` and `concat` (73), promises (75) and an
+embedder's `self`. 104 items are open (105 before; 210 closed). Next unused
+queue number **230**; next ADR **0016**. This is one iteration, not a finished
+queue or roadmap.

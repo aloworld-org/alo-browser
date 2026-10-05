@@ -58,6 +58,14 @@ eligible next. `Error.prototype.toString` of a message behind a call is cut to
 item 228 (on 221) and `AggregateError` to item 229, so 105 queue items are
 open. The next unused queue number is 230; the next unused ADR remains 0016.
 
+Iteration 130 built item 210, `try`/`catch`/`finally`, opened and closed
+against the same frozen script: the service worker now compiles past its `try`
+at 2853 to byte 2922, `for (const account of …)`, which is item 211. Item 211
+therefore has a real-script trigger, but its dependencies on 73 (beyond what
+225 took) and 75 are not met — the next iteration decides whether a cut of 211
+is takeable, as 225 was cut from it. 104 queue items are open; the next unused
+queue number remains 230 and the next unused ADR 0016.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;
