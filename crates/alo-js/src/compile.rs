@@ -33,7 +33,7 @@
 //!
 //! ADR 0013 § 3: *absent beats approximate*. Some of this language is not built
 //! yet — every one of them is a queue item — and a compiler that emitted
-//! something plausible for a `new`, a `try` or an array literal would produce a
+//! something plausible for a class, a `try` or an array literal would produce a
 //! program that runs and is wrong. So each is a [`Refusal`] that **names the
 //! item that builds it**, in one list a person can read, and nothing downstream
 //! has to wonder whether an instruction means what it says.
@@ -70,9 +70,9 @@ use scope::{Assignment, Scopes, Where};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum What {
-    /// `new`, a class, `super`, a private name, `new.target` — anything that
-    /// constructs (queue item 212).
-    AConstruction,
+    /// A class, `super`, `new.target` and a private name — the half of
+    /// construction that is more than `[[Construct]]` (queue item 223).
+    AClass,
     /// A parameter that is not a plain name: a default, a `...rest`, a pattern,
     /// a repeated name — and `arguments` (queue item 213).
     AParameterForm,
@@ -98,7 +98,7 @@ impl What {
     /// The queue item that builds it.
     pub const fn item(self) -> u16 {
         match self {
-            What::AConstruction => 212,
+            What::AClass => 223,
             What::AParameterForm => 213,
             What::ATaggedTemplate => 215,
             What::ACatch => 210,
@@ -113,7 +113,7 @@ impl What {
     /// What it is, in a person's words.
     const fn describe(self) -> &'static str {
         match self {
-            What::AConstruction => "`new`, a class, `super` or a private name",
+            What::AClass => "a class, `super`, `new.target` or a private name",
             What::AParameterForm => "a parameter that is not a plain name, or `arguments`",
             What::ATaggedTemplate => "a tagged template",
             What::ACatch => "`try`, `catch` and `finally`",
@@ -417,7 +417,7 @@ impl Compiler {
             }
             StatementKind::Class(_) => {
                 return Err(Refusal::NotBuiltYet {
-                    what: What::AConstruction,
+                    what: What::AClass,
                     at,
                 });
             }
@@ -1109,9 +1109,9 @@ impl Compiler {
             // arm each in [`not_built_yet`], so that the list of what is
             // missing is one list rather than a refusal scattered through the
             // compiler.
+            ExpressionKind::New { callee, arguments } => self.construct(callee, arguments, at)?,
             ExpressionKind::Array(_)
             | ExpressionKind::Class(_)
-            | ExpressionKind::New { .. }
             | ExpressionKind::TaggedTemplate { .. }
             | ExpressionKind::Super
             | ExpressionKind::NewTarget
@@ -1183,7 +1183,7 @@ impl Compiler {
             }
             ExpressionKind::Super => {
                 return Err(Refusal::NotBuiltYet {
-                    what: What::AConstruction,
+                    what: What::AClass,
                     at,
                 });
             }
@@ -1206,6 +1206,42 @@ impl Compiler {
             }
         }
         self.chunk.emit(Op::Call(argc), at);
+        Ok(())
+    }
+
+    /// `new f(a)`, and `new f` with no list at all.
+    ///
+    /// The stack it leaves is a call's — **the constructor, a place for its
+    /// `this`, and then the arguments** — with `undefined` in the place, because
+    /// the object that goes there is not made until the constructor has been
+    /// checked, and the specification checks it only after the arguments are
+    /// evaluated: `new 1(f())` calls `f` before it is a `TypeError`.
+    fn construct(
+        &mut self,
+        callee: &Expression,
+        arguments: &[Argument],
+        at: usize,
+    ) -> Result<(), Refusal> {
+        let mut argc = 0_u32;
+        for argument in arguments {
+            match argument {
+                Argument::Item(_) => argc = argc.saturating_add(1),
+                Argument::Spread(_) => {
+                    return Err(Refusal::NotBuiltYet {
+                        what: What::TakingAValueApart,
+                        at,
+                    });
+                }
+            }
+        }
+        self.expression(callee)?;
+        self.chunk.emit(Op::Undefined, at);
+        for argument in arguments {
+            if let Argument::Item(value) = argument {
+                self.expression(value)?;
+            }
+        }
+        self.chunk.emit(Op::Construct(argc), at);
         Ok(())
     }
 
@@ -1345,17 +1381,17 @@ impl Compiler {
                         crate::ast::MethodKind::Get => Define::Accessor(Half::Getter),
                         crate::ast::MethodKind::Set => Define::Accessor(Half::Setter),
                         // Only a class has one, and a class is refused whole
-                        // before this is reached (queue item 212).
+                        // before this is reached (queue item 223).
                         crate::ast::MethodKind::Constructor => {
                             return Err(Refusal::NotBuiltYet {
-                                what: What::AConstruction,
+                                what: What::AClass,
                                 at,
                             });
                         }
                     };
                     let function = &method.function;
                     self.define_property(&method.key, define, at, |compiler| {
-                        let which = compiler.function_chunk(function, Naming::Outside)?;
+                        let which = compiler.function_chunk(function, Naming::Method)?;
                         compiler.chunk.emit(Op::Closure(which), at);
                         Ok(())
                     })?;
@@ -1407,7 +1443,7 @@ impl Compiler {
             }
             Key::Private(_) => {
                 return Err(Refusal::NotBuiltYet {
-                    what: What::AConstruction,
+                    what: What::AClass,
                     at,
                 });
             }
@@ -1461,7 +1497,7 @@ impl Compiler {
                     }
                     Member::Private(_) => {
                         return Err(Refusal::NotBuiltYet {
-                            what: What::AConstruction,
+                            what: What::AClass,
                             at,
                         });
                     }
@@ -1702,7 +1738,7 @@ impl Compiler {
                 Ok(())
             }
             Member::Private(_) => Err(Refusal::NotBuiltYet {
-                what: What::AConstruction,
+                what: What::AClass,
                 at,
             }),
         }
@@ -1721,7 +1757,7 @@ impl Compiler {
                 Ok(())
             }
             Member::Private(_) => Err(Refusal::NotBuiltYet {
-                what: What::AConstruction,
+                what: What::AClass,
                 at,
             }),
         }
@@ -1908,10 +1944,9 @@ fn not_built_yet(kind: &ExpressionKind, at: usize) -> Refusal {
         // exotic part is its `length`.
         ExpressionKind::Array(_) => What::TakingAValueApart,
         ExpressionKind::Class(_)
-        | ExpressionKind::New { .. }
         | ExpressionKind::Super
         | ExpressionKind::NewTarget
-        | ExpressionKind::PrivateName(_) => What::AConstruction,
+        | ExpressionKind::PrivateName(_) => What::AClass,
         ExpressionKind::TaggedTemplate { .. } => What::ATaggedTemplate,
         ExpressionKind::RegularExpression(_) => What::ARegularExpression,
         ExpressionKind::BigInt { .. } => What::ABigInt,
@@ -2159,8 +2194,8 @@ mod tests {
     #[test]
     fn what_is_not_built_says_which_item_builds_it() {
         for (source, what) in [
-            ("new f()", What::AConstruction),
-            ("class A {}", What::AConstruction),
+            ("class A {}", What::AClass),
+            ("function f() { return new.target; }", What::AClass),
             ("function f(a = 1) {}", What::AParameterForm),
             ("f`a`", What::ATaggedTemplate),
             ("try { a; } catch {}", What::ACatch),

@@ -107,10 +107,10 @@ impl Engine {
         let unit = Rc::clone(&run.loaded()?.unit);
         let this_at = run.frame()?.this_at;
         let environment = self.environment_of(run)?;
-        let arrow = unit
+        let (arrow, constructs) = unit
             .chunk(which)
-            .ok_or(Escape::Broken(Internal::JumpIsWrong))?
-            .is_arrow();
+            .map(|chunk| (chunk.is_arrow(), chunk.constructs()))
+            .ok_or(Escape::Broken(Internal::JumpIsWrong))?;
         let above = self.realm.intrinsics().function_prototype(&self.objects)?;
         // An arrow takes the `this` that is in force here, and takes it whether
         // it writes `this` or not: an arrow nested inside it may, and by then
@@ -126,7 +126,13 @@ impl Engine {
             .objects
             .function(unit, which, environment, captured, Some(above))
             .map_err(|why| Escape::refused(why, at))?;
-        self.push(run, Value::Object(held))
+        // On the stack before anything else allocates, which is what keeps it
+        // while its `prototype` object is made.
+        self.push(run, Value::Object(held))?;
+        if constructs {
+            self.make_constructor(held, at)?;
+        }
+        Ok(())
     }
 
     /// `Op::Call`: the callee, its `this` and `argc` arguments are on the stack.
@@ -174,7 +180,7 @@ impl Engine {
     }
 
     /// Enter the call whose callee sits at `callee_at`.
-    fn enter_at(
+    pub(super) fn enter_at(
         &mut self,
         run: &mut Run,
         callee_at: usize,
@@ -442,6 +448,14 @@ impl Engine {
         value: Value,
     ) -> Result<(), Escape> {
         let stack = run.stack;
+        // `[[Construct]]`'s last step: a body that returned an object answers
+        // with it, and one that returned anything else answers with the object
+        // made for it — read out of the `this` slot before that slot goes.
+        let value = if after == After::Construct && !matches!(value, Value::Object(_)) {
+            self.value_at(run, callee_at.saturating_add(1))?
+        } else {
+            value
+        };
         if after == After::Discard {
             // A setter's answer is not what the assignment evaluates to, and
             // the value it does evaluate to is already below.
@@ -463,7 +477,7 @@ impl Engine {
         // Everything below reads the answer off the stack rather than out of a
         // local, because both of them allocate.
         match after {
-            After::Answer | After::Discard => Ok(()),
+            After::Answer | After::Discard | After::Construct => Ok(()),
             // The value has just been written into the builtin's answer slot,
             // which is exactly where `callee_at` was: nothing else to do but
             // say the builtin may run again.

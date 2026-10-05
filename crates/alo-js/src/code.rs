@@ -226,6 +226,11 @@ pub enum Op {
     /// through, and then this many arguments — and all of it is taken off and
     /// replaced by the answer.
     Call(u32),
+    /// Construct something: `new f(a)`. The stack holds the constructor, a
+    /// place for the object it will make, and then this many arguments — the
+    /// same shape a call has, so that entering the body is the same code — and
+    /// all of it is taken off and replaced by what was constructed.
+    Construct(u32),
     /// Leave a function with the value on top of the stack as its answer.
     Return,
 
@@ -269,6 +274,7 @@ pub struct Chunk {
     own_name: Option<u32>,
     own_slot: Option<u32>,
     arrow: bool,
+    constructs: bool,
     vars: Vec<u32>,
     lexical: Vec<Lexical>,
     strict: bool,
@@ -304,6 +310,7 @@ impl Chunk {
             own_name: None,
             own_slot: None,
             arrow: false,
+            constructs: false,
             vars: Vec::new(),
             lexical: Vec::new(),
             strict: false,
@@ -388,6 +395,22 @@ impl Chunk {
     /// Say that this body was written as an arrow.
     pub fn make_arrow(&mut self) {
         self.arrow = true;
+    }
+
+    /// Whether a function of this body has a `[[Construct]]` — whether `new`
+    /// may be written in front of it.
+    ///
+    /// It is decided by how the function was **written** rather than by what
+    /// it does, which is why it lives on the chunk: a plain `function`,
+    /// declared or as an expression, constructs; an arrow, a method, a getter
+    /// and a setter do not, however ordinary their bodies look.
+    pub fn constructs(&self) -> bool {
+        self.constructs
+    }
+
+    /// Say that a function of this body may be constructed.
+    pub fn make_constructor(&mut self) {
+        self.constructs = true;
     }
 
     /// The `var` names to put on the global object before anything runs. A

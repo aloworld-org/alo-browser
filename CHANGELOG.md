@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`new` works.** A function written with `function` now has a `prototype`,
+  and `new Thing(a, b)` makes an object that inherits from it, runs `Thing`
+  with that object as `this`, and hands it back — or hands back whatever object
+  `Thing` returned instead, as the language says. Arrows, methods and built-in
+  functions cannot be constructed and say so with the usual `TypeError`, after
+  the arguments are evaluated rather than before. alo's own service worker,
+  frozen in the corpus, used to stop at its first `new Request(…)`; it now
+  compiles past it to an array literal further down, which is separate work.
+  Classes, `super`, `new.target` and `instanceof` are still refused by name.
+
 - **How `BigInt` will work is decided (ADR 0015).** The arithmetic on numbers
   of any size is rented from `num-bigint`, the widely used pure-Rust library,
   behind one file — but the size of every result is worked out and checked by

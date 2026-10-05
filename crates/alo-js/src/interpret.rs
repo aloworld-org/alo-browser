@@ -47,6 +47,7 @@
 //! of a flag per iteration rather than per instruction.
 
 mod call;
+mod construct;
 mod environment;
 mod frame;
 mod primitive;
@@ -491,6 +492,7 @@ impl Engine {
                 self.push(run, value)?;
             }
             Op::Call(argc) => self.enter(run, argc, at)?,
+            Op::Construct(argc) => self.construct(run, argc, at)?,
             Op::Return => self.give_back(run)?,
 
             Op::Jump(to) => self.jump(run, to)?,

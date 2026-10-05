@@ -2307,7 +2307,7 @@ The long pole, and the thing most of section E is unreachable without.
   [`bounds::CALLS_ON_THE_STACK`] is the second, ten thousand, with the reason
   written beside it.
 
-- [ ] **212. `new`, classes, `super` and private members.** Cut from 209, which
+- [x] **212. `new`, classes, `super` and private members.** Cut from 209, which
   builds `[[Call]]` and no `[[Construct]]`: a function here has no `prototype`
   property, `new` is refused by name, and a class is refused whole. The order
   inside it is the specification's own dependency: `[[Construct]]` first
@@ -2322,6 +2322,81 @@ The long pole, and the thing most of section E is unreachable without.
   item 72 uses, `super.m()` finds the method on the home object rather than on
   `this`, and a `#name` is unreachable from outside the class in a test that
   tries.
+
+  **Done at the scope of its first step, `[[Construct]]` and `new`; classes,
+  `super`, `new.target` and private names are cut to item 223, and
+  `instanceof` to item 224.** The cut follows the item's own order — the
+  specification's dependency is `[[Construct]]` first — and it was taken
+  because a **frozen real script** asked for exactly that step: alo's own
+  service worker (`crates/alo-corpus/scripts/alo-service-worker/`) did not
+  compile, refused at byte 1438, `new Request(OFFLINE_URL, …)`. It now compiles
+  past that `new` and stops at byte 2847's `[]`, which is item 211's. Its other
+  `new` — `new Response(…)` at byte 4686 — lies beyond that array, so this
+  script does not yet show it compiling; the table does.
+  The dependency on 73 named *`Function.prototype`*, which item 218 built.
+  Closing evidence: `crates/alo-js/tests/what_new_makes.rs`, every case run
+  ordinarily and with the collector at every allocation except the two
+  runaway recursions, which run ordinarily as `an_engine_that_is_hostile.rs`'s
+  do — ten thousand frames each collecting the whole heap is quadratic, and a
+  fifty-deep nesting covers the same rooting under stress.
+
+  **Three things are decisions.** *What may be constructed is a fact about how
+  the function was written*, so it is a flag on the chunk
+  (`Chunk::constructs`): a plain `function`, declared or as an expression,
+  constructs; an arrow, a method, a getter, a setter and every builtin do not,
+  and say so with `TypeError: … is not a constructor` **after** the arguments
+  are evaluated, which a page can observe. *A construction is a call with a
+  different landing*: `Op::Construct` finds the stack in a call's shape with a
+  placeholder `this`, writes the instance there, and enters the body through
+  the same `enter_at` a call uses, so the frame, both bounds and the
+  `RangeError` are shared; `After::Construct` then answers with the body's
+  object if it returned one and with the instance from the `this` slot
+  otherwise, which is safe because nothing can assign to `this`. And
+  *`MakeConstructor` runs when the function is made*, not lazily: the
+  `prototype` (writable, not enumerable, not configurable) and its
+  `constructor` (writable, not enumerable, configurable) are ordinary
+  properties, and because `prototype` may not be reconfigured an accessor or a
+  missing one there is `Internal::ConstructorIsWrong` rather than a guess.
+
+  **Two doctored runs**: without the scope that holds the new `prototype`
+  object while its keys are interned, eight tests fail under stress; without
+  the instance substitution, five fail. `instanceof`'s refusal named this item
+  for a `prototype` that now exists, so it is re-pointed rather than left lying.
+
+- [ ] **223. Classes, `super`, `new.target` and private members.** Cut from 212
+  on the iteration that built `[[Construct]]`. The rest of that item, in its
+  own order: a class as sugar over a constructor — whose `prototype` is **not**
+  writable, which is one difference from a function's — then `super`, which
+  needs `[[HomeObject]]` on a method, then a derived constructor, whose `this`
+  is in its dead zone until `super()` returns and whose instance is made by
+  the parent rather than by `Op::Construct`. `new.target` is here because it is
+  only distinguishable from the callee once a derived class exists, and an
+  arrow inherits it as it inherits `this` — a second captured value on the
+  function. Private names are last and are their own mechanism, a name that is
+  not a property key at all. Each is refused today as `What::AClass`.
+  *Depends on 212. Closes when:* a class with a constructor and a method produces the values the
+  specification says in the same table item 72 uses, calling a class without
+  `new` is a `TypeError`, `super.m()` finds the method on the home object
+  rather than on `this`, `new.target` is the constructor `new` named and
+  `undefined` in a call, and a `#name` is unreachable from outside the class in
+  a test that tries. A frozen real script that uses a class opens it.
+
+- [ ] **224. `instanceof`, whole.** Cut from 212 on the iteration that built
+  `[[Construct]]`. Item 214 answered the two questions that come first — a
+  right-hand side that is not an object or not callable is a `TypeError`, and a
+  primitive on the left is `false` — and refused the rest naming 212, because a
+  function had no `prototype`. One has now. What remains is the operator as
+  specified: `GetMethod(C, @@hasInstance)` **before** anything else, which needs
+  the well-known symbols (item 73) and `Function.prototype[@@hasInstance]`;
+  then `OrdinaryHasInstance` — `Get(C, "prototype")`, which on a builtin may be
+  a getter and therefore a call (the re-entry item 214 built), a `TypeError`
+  when it is not an object, and the walk up the left-hand side's chain, bounded
+  as `Objects::reaches` is.
+  *Depends on 212, 214 and on 73 for the well-known symbols. Closes when:*
+  `new F() instanceof F` is `true` and `({}) instanceof F` is `false`, a
+  `prototype` that is not an object is a `TypeError`, a `Symbol.hasInstance`
+  method a page defines is called with the left-hand side, and a getter on a
+  builtin's `prototype` runs once.
 
 - [ ] **213. `arguments`, and the parameter forms that are not a plain name.**
   Cut from 209, which takes a plain list of distinct names and refuses the
@@ -2616,8 +2691,8 @@ The long pole, and the thing most of section E is unreachable without.
   every allocation. Array objects themselves remain part of item 73.
 
 - [ ] **220. A function's own `name` and `length`, its source text, and
-  `bind`.** Cut from 218. A function object has **no own properties at all**
-  today: `f.name` and `f.length` are `undefined`, and
+  `bind`.** Cut from 218. A function object has **no own properties** but the
+  `prototype` a constructor carries (item 212): `f.name` and `f.length` are `undefined`, and
   `Function.prototype.toString` refuses by name
   ([`Missing::AFunctionsSourceText`]) rather than letting
   `Object.prototype.toString` answer `"[object Function]"` — a sentence no
@@ -2637,7 +2712,9 @@ The long pole, and the thing most of section E is unreachable without.
   than the order the specification lists them.
   *Depends on 72, and on 218 for what a builtin is.* **Item 218 took the
   mechanism and the two prototypes**; what remains is the library — `Object`
-  and `Function` themselves (which are constructors and wait on item 212),
+  and `Function` themselves (which are constructors: item 212 built `new` for a
+  function a script wrote, and a **builtin** with a `[[Construct]]` is this
+  item's, since none exists yet),
   `Array`, `Math`, `JSON`, the `Error` objects a `catch` binds (item 210 waits
   on them), and the `String`, `Number` and `Boolean` wrappers that
   [`Missing::AWrapperObject`] names. This item should be **cut again** the next

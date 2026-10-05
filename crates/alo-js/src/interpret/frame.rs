@@ -82,6 +82,11 @@ pub(crate) enum After {
     /// It names no builtin because it does not have to — calls nest, so the one
     /// waiting is always the last of [`Run::builtins`].
     Builtin,
+    /// The call was `new f()`, so the answer is what the body returned **if it
+    /// is an object**, and otherwise the object that was made for it — which
+    /// is still in the `this` slot, because nothing can assign to `this`
+    /// (queue item 212).
+    Construct,
 }
 
 /// Where a conversion that had to call something has got to.

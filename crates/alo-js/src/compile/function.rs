@@ -46,20 +46,29 @@ use super::parameters::parameter_names;
 use super::scope::Assignment;
 use super::{Compiler, Refusal, Suspended};
 
-/// Whose the function's name is.
+/// Whose the function's name is — and so what kind of function it is.
 ///
 /// A declaration's name belongs to the scope around it — `function f() {}`
 /// declares `f` there, and `f = 1` inside the body assigns *that* one. A
 /// function **expression**'s name belongs to nobody else, so it is a binding
 /// only the body can see, and the language makes it unassignable: a
 /// `TypeError` in strict code and, for one of the language's older reasons,
-/// silence in sloppy code.
+/// silence in sloppy code. A **method**'s name is a property key and binds
+/// nothing at all.
+///
+/// The same three answers decide whether the function may be constructed,
+/// which is why that is not a second argument: a declaration and an
+/// expression written with `function` have a `[[Construct]]`, and a method,
+/// a getter and a setter never do (queue item 212).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Naming {
-    /// A declaration or a method: the scope around it holds the name.
+    /// A declaration: the scope around it holds the name.
     Outside,
     /// A function expression: it holds its own.
     Itself,
+    /// A method, a getter or a setter of an object literal: nobody holds the
+    /// name, and `new` may not be written in front of it.
+    Method,
 }
 
 impl Compiler {
@@ -112,6 +121,16 @@ impl Compiler {
         let at = function.start;
         if function.is_arrow {
             self.chunk.make_arrow();
+        }
+        // `MakeConstructor` is applied to exactly these: a plain `function`,
+        // written as a declaration or an expression. A generator and an
+        // `async` function never reach here (queue item 75), and an arrow and
+        // a method are callable and nothing more.
+        if !function.is_arrow
+            && naming != Naming::Method
+            && function.kind == crate::ast::FunctionKind::Plain
+        {
+            self.chunk.make_constructor();
         }
 
         // The parameters are bindings `0..parameters`, in the order they were

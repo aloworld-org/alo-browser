@@ -246,7 +246,14 @@ fn every_shape_that_ends_a_script_early_is_a_refusal_rather_than_a_crash() {
         // Not built yet, each naming its queue item.
         "'a'.length",
         "function f() { return this.a; } f.call",
+        "class A {}",
+        // `new` on things that do not construct, and one that does.
         "new f()",
+        "new 1",
+        "new (() => 1)",
+        "new ({ m() {} }).m",
+        "new ({}).toString",
+        "function f() { return new f(); } new f()",
         // Nonsense a program can still be made of.
         "let a = {}; a[a] = a; typeof a",
         "let a = ''; a += a; a += a; a.length",

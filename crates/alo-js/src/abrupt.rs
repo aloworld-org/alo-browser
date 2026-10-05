@@ -144,8 +144,13 @@ pub enum Missing {
     /// A property was read from a string, a number, a boolean or a symbol,
     /// which needs the wrapper objects the builtins bring (queue item 73).
     AWrapperObject,
-    /// `a instanceof f` reached `Get(f, "prototype")`, and a function has no
-    /// `prototype` property until it has a `[[Construct]]` (queue item 212).
+    /// `a instanceof f` reached `OrdinaryHasInstance`'s `Get(f, "prototype")`
+    /// and the walk up `a`'s chain (queue item 224).
+    ///
+    /// A constructor has its `prototype` now (queue item 212), and what is
+    /// still owed is the rest of the operator: the `Symbol.hasInstance` method
+    /// the specification consults *before* that, which is a well-known symbol
+    /// and item 73's, and a `prototype` that is a getter, which is a call.
     ///
     /// The two answers that come *before* it are given: a right-hand side that
     /// is not callable is the `TypeError` the language specifies, and a
@@ -169,7 +174,7 @@ impl fmt::Display for Missing {
             ),
             Missing::APrototype => write!(
                 out,
-                "'instanceof' needs the `prototype` property a constructor has, which is queue item 212"
+                "'instanceof' needs `Symbol.hasInstance` and `OrdinaryHasInstance`, which is queue item 224"
             ),
             Missing::AFunctionsSourceText => write!(
                 out,
@@ -198,6 +203,10 @@ pub enum Internal {
     /// A builtin was resumed somewhere it never suspended: it read the answer
     /// to a call it had not asked for, or was handed one it had no step for.
     BuiltinIsWrong,
+    /// A constructor's `prototype` was not a data property of its own, which
+    /// the attributes it was made with forbid: it is not configurable, so
+    /// nothing can delete it or turn it into an accessor.
+    ConstructorIsWrong,
 }
 
 impl fmt::Display for Internal {
@@ -215,6 +224,10 @@ impl fmt::Display for Internal {
             Internal::BuiltinIsWrong => {
                 write!(out, "a builtin was resumed at a step it never asked for")
             }
+            Internal::ConstructorIsWrong => write!(
+                out,
+                "a constructor's `prototype` was not the data property it was made as"
+            ),
         }
     }
 }
@@ -353,7 +366,7 @@ mod tests {
         assert!(
             Escape::NotBuiltYet(Missing::APrototype)
                 .to_string()
-                .contains("212")
+                .contains("224")
         );
         assert!(
             Escape::NotBuiltYet(Missing::AWrapperObject)

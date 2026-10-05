@@ -405,8 +405,9 @@ fn what_the_language_says_and_this_engine_has_not_built() {
     // ADR 0013 § 3: absent beats approximate. Each of these names the queue
     // item that builds it rather than producing something plausible.
     for (source, item) in [
-        ("new f()", "212"),
-        ("class A {}", "212"),
+        ("class A {}", "223"),
+        ("function f() { return new.target; }", "223"),
+        ("new f(...a)", "211"),
         ("function f(a = 1) {}", "213"),
         ("function f(...a) {}", "213"),
         ("function f(a, a) {}", "213"),
@@ -802,11 +803,16 @@ fn instanceof_answers_the_two_questions_it_can() {
         ("function f() {} 1 instanceof f", "false"),
         ("function f() {} 'a' instanceof f", "false"),
         ("function f() {} null instanceof f", "false"),
-        // What is left needs the `prototype` a constructor has, which is queue
-        // item 212 — and saying so is not the same as answering `false`.
+        // What is left is `Symbol.hasInstance` and `OrdinaryHasInstance`,
+        // which is queue item 224 — and saying so is not the same as answering
+        // `false`, even now that `f` has the `prototype` item 212 gave it.
         (
             "function f() {} ({}) instanceof f",
-            "! 'instanceof' needs the `prototype` property a constructor has, which is queue item 212",
+            "! 'instanceof' needs `Symbol.hasInstance` and `OrdinaryHasInstance`, which is queue item 224",
+        ),
+        (
+            "function f() {} new f() instanceof f",
+            "! 'instanceof' needs `Symbol.hasInstance` and `OrdinaryHasInstance`, which is queue item 224",
         ),
     ]);
 }

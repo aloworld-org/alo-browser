@@ -9677,3 +9677,91 @@ queue item after 207 in order is for the next iteration to determine — 212,
 213, 217, 215, 210 and 211 all name dependencies on 73, which is itself the
 item `REMAINING.md` says must be cut into bounded families when taken. This is
 one iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 123 — queue item 212, cut to `[[Construct]]`: `new` makes things
+
+The checkout was clean on entry at `976e2fc`. Read `CLAUDE.md`, the complete
+`docs/autonomy/LOOP.md`, `ROADMAP.md`'s stage 1 and JavaScript sections,
+`REMAINING.md`, iterations 114–122, the open queue items, ADR 0013 §§ 3 and 9,
+and the JavaScript section of `docs/features.md`. No `AGENTS.md` exists in this
+repository. No sibling repository was read or modified.
+
+**Selection followed queue order and dependencies.** 157, 158, 187, 60, 169,
+197, 201 and 203 keep the blockers iteration 122 recorded; 222 and 207 are
+blocked on a frozen script. **212 is next**: it depends on 209 (done) and on 73
+*for `Function.prototype`*, which item 218 built. Iterations 119 and 122 held
+that a code item in this stage needs a frozen real script that fails on it, so
+that was checked rather than assumed: compiling the frozen service worker
+(`crates/alo-corpus/scripts/alo-service-worker/script.js`, alo's own `sw.js`)
+refused at byte 1438 with *`new`, a class, `super` or a private name … queue
+item 212*. That is the trigger, from a real page, for exactly the first step of
+212's own order. The probe was a throwaway example file, deleted before any
+change.
+
+**What was built.** `new`: `Op::Construct`, `Chunk::constructs`,
+`After::Construct` and `interpret/construct.rs` (`MakeConstructor` when a plain
+`function` is made, `[[Construct]]` at `new`). A construction is a call with a
+different landing — the instance goes in the `this` slot and the body is
+entered by the same `enter_at` a call uses, so frames and both bounds are
+shared. Arrows, methods, getters, setters and builtins are not constructors and
+are a `TypeError` after the arguments are evaluated. `prototype` and
+`constructor` carry the specification's attributes, asserted from script with
+`hasOwnProperty`, `propertyIsEnumerable` and `delete`.
+
+**What was cut.** Classes, `super`, `new.target` and private names to **item
+223** (`What::AClass`); `instanceof` to **item 224**, because its refusal named
+212 for a `prototype` that now exists and what remains is `@@hasInstance`
+(item 73's well-known symbols) and `OrdinaryHasInstance`. 212 is ticked at the
+narrowed scope with both cuts written into it. 102 items are open (212 closed,
+two added). Next unused queue number **225**; next ADR **0016**.
+
+**Evidence.** `crates/alo-js/tests/what_new_makes.rs`, thirteen tests, every
+case run ordinarily and with the collector at every allocation and required to
+agree — except two runaway recursions, which run ordinarily only, as
+`an_engine_that_is_hostile.rs`'s do: under stress they took 47 s, quadratic in
+ten thousand frames, and a fifty-deep nesting covers the same rooting under
+stress instead. This is test timing on this machine, not a performance claim.
+The frozen script now compiles past byte 1438 and is refused at byte 2847,
+`let changedTypes = [];`, naming item 211; the test pins both bytes. **Its
+second `new`, `new Response(…)` at byte 4686, is beyond that array**, so the
+script does not show it compiling — a first draft of the docs said "past every
+`new`", which was checked, found false and corrected in all three places.
+Hostile input: non-constructors of every kind, a constructor that constructs
+itself for ever (`RangeError`), every prefix cut of a construction program, and
+a tower of twenty thousand `new`s (refused by the parser's bound). Two doctored
+runs: without the scope holding the new `prototype` object eight tests fail
+under stress; without the instance substitution five fail. Both restored.
+
+**Roadmap.** The interpreter line gains a Built clause for `new` and its Owed
+clause names 223 and 224 instead of 212; the standard-library line says a
+builtin `[[Construct]]` is item 73's. Neither is ticked. `docs/features.md`'s
+interpreter line, `CHANGELOG.md` and `REMAINING.md` move with it. Items 73 and
+220 had sentences that 212 made false and are corrected.
+
+**Compliance review.** Rules applied: law 1 (modern language only); law 3 — no
+stub, no `todo!`, no `unwrap` outside tests, and what is not built refuses by
+name (ADR 0013 § 3); law 4 — no `unsafe`; ADR 0013 § 9 and LOOP stage 2 § 1 —
+opened by a frozen real script and closed against the same script; LOOP § 2 —
+hostile tests and no panic; one item per iteration with the cut written into the
+queue. One file, one responsibility: construction is its own file;
+`call.rs` gained only the landing a `return` performs, which is leaving a call.
+No gate, lint or test was weakened; four existing tests asserting the old
+refusal text (two in `what_a_program_evaluates_to.rs`, and the unit tests in
+`compile.rs` and `abrupt.rs`) were updated to the new truth, and
+`an_engine_that_is_hostile.rs`'s list gained six `new` cases. Nothing positions, sizes or paints,
+so layout assertions and reference renders do not apply.
+
+**Gate.** `scripts/gate.sh` exited 0: formatting clean, clippy silent, all
+workspace tests pass, nothing stubbed, `unsafe` forbidden, Exhibit A on every
+file, every rented crate behind its boundary, no coordinate verb, the
+supervisor stop rule holds, `CHANGELOG.md` changed. `git diff --check` passes.
+The log was kept in this session's scratchpad, not committed.
+
+**Unresolved obligations.** Items 223 and 224 as written. The service worker
+cannot *run* — it needs arrays (211), `try` (210) and an embedder's `self` —
+so "the same page working" is met at compile time for the `new` that opened the
+item, and no more. The next eligible item is for the next iteration to
+determine; 211 now has a real-script trigger but depends on 73 and 75. This is
+one iteration, not a finished queue or roadmap.

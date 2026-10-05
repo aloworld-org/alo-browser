@@ -324,10 +324,10 @@ fn instance_of(objects: &Objects, left: Value, right: Value, at: usize) -> Resul
     if !matches!(left, Value::Object(_)) {
         return Ok(Value::Bool(false));
     }
-    // What comes next is `Get(C, "prototype")`, and a function in this engine
-    // has no `prototype` property yet: that is what `[[Construct]]` is for and
-    // it is queue item 212. Answering `false` here would be answering a
-    // question this engine did not ask.
+    // What comes next is `OrdinaryHasInstance` — and before it, in the
+    // specification's order, the `Symbol.hasInstance` method this engine has no
+    // well-known symbol to look up. Both are queue item 224. Answering `false`
+    // here would be answering a question this engine did not ask.
     Err(Escape::NotBuiltYet(Missing::APrototype).into())
 }
 

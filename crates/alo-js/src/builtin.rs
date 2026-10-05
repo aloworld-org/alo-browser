@@ -23,7 +23,9 @@
 //! # What is deliberately not here
 //!
 //! No `Object` and no `Function` on the global object: both are constructors,
-//! `new` is queue item 212, and a constructor that cannot construct is a stub.
+//! and `new` (queue item 212) constructs only a function a script wrote — a
+//! builtin with a `[[Construct]]` is item 73's, and a constructor that cannot
+//! construct is a stub.
 //! `Object.prototype` is still reachable from a script — `({}).__proto__` — so
 //! nothing here is untestable from the language it belongs to.
 //!

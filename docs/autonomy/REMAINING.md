@@ -32,6 +32,15 @@ Iteration 122 wrote item 207's decision, ADR 0015 (`BigInt` limbs rented from
 222 is: no frozen real script uses a `BigInt`. The next unused ADR is 0016;
 the next unused queue number remains 223.
 
+Iteration 123 built item 212 at its first step, `[[Construct]]` and `new`,
+opened by a frozen real script: alo's service worker, which now compiles past
+its `new Request(…)` and stops at an array literal (item 211). Classes,
+`super`, `new.target` and private names are cut to item 223 and `instanceof` to
+item 224, so 102 queue items are open. The next unused queue number is 225; the
+next unused ADR remains 0016. The service worker's next refusal names item 211,
+whose dependencies (73, 75) are not built — a real-script trigger for 211 is
+not the same as its dependencies being met.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

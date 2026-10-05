@@ -48,11 +48,15 @@
 //!
 //! # What a function has not got yet
 //!
-//! No `[[Construct]]`: `new`, classes and `super` are queue item 212. No
-//! `prototype`, and no own `name` or `length` — those are queue item 220, and a
-//! `length` without a `name` would be half an answer. `call`, `apply` and
-//! `bind` are methods of `Function.prototype` and each has to re-enter the
-//! script, which is queue item 219. ADR 0013 § 3, absent beats approximate.
+//! Whether a function has a `[[Construct]]` is not a field here: it is decided
+//! by how the function was written, so it is on the chunk
+//! ([`Chunk::constructs`](crate::code::Chunk::constructs)), and the `prototype`
+//! a constructor carries is an ordinary property the interpreter gives it when
+//! the function is made (queue item 212). A builtin never constructs yet —
+//! `Object` and `Function` are item 73's — and classes and `super` are item
+//! 223. No own `name` or `length` — those are queue item 220, and a `length`
+//! without a `name` would be half an answer; `bind` is there too, and `apply`
+//! is item 221. ADR 0013 § 3, absent beats approximate.
 
 use std::rc::Rc;
 

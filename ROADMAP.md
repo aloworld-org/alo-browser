@@ -570,15 +570,30 @@ unreachable without it.
       of three blocks emits three pops, because the blocks it skips will never
       reach their own. What is left of a frame slot is the compiler's
       temporaries, so nothing a script can name is one
+      · Built: **`new`** (queue item 212, cut on starting to `[[Construct]]`).
+      A plain `function` is given its `prototype` when it is made, and `new F()`
+      makes an instance from it, runs the body with the instance as `this`, and
+      answers with the instance unless the body returned an object. The
+      decision is that **a construction is a call with a different landing**:
+      the stack has a call's shape, the instance is written into the `this`
+      slot, and the body is entered by the same code a call uses, so the frame,
+      both bounds and the `RangeError` are shared — only what `return` does
+      with the answer differs. Whether something constructs is a fact about how
+      it was **written**, recorded on the chunk: an arrow, a method and every
+      builtin are a `TypeError`, raised after the arguments are evaluated
+      because a page can see the order. Opened by a **frozen real script** —
+      alo's own service worker, refused at its `new Request(…)` — which now
+      compiles past it to an array literal, item 211's
       · Owed: the rest of the language, and each piece is refused **by name**
-      rather than half-built — `new`, classes and `super` (queue item 212),
+      rather than half-built — classes, `super`, `new.target` and private names
+      (queue item 223), `instanceof` past its first two answers (224),
       `arguments` and the parameter forms that are not a plain name (213),
       tagged templates (215),
       `try`/`catch`/`finally` (210), arrays, spread, destructuring and
       `for…of` (211), and a **proxy**, whose trap is the same re-entry as a
-      getter and which nothing can make until `new` and the builtins exist
-      (217). A program using one of them does not compile, and says which item
-      builds it. The builtins that make a `{}` have a `toString` of its own
+      getter and which nothing can make until a builtin `Proxy` constructor
+      exists (217). A program using one of them does not compile — or, for
+      `instanceof`, stops where it is reached — and says which item builds it. The builtins that make a `{}` have a `toString` of its own
       were owed here and are built (queue item 218), on the standard library's
       own line
 - [ ] A garbage collector, and the object model underneath it
@@ -678,7 +693,9 @@ unreachable without it.
       `"[object Object]"` for the first time
       · Owed: `apply` and traced native scratch state (queue item 221), and
       the remaining library. `Object` and `Function`
-      themselves are constructors and wait on `new` (queue item 212); a
+      themselves are constructors, and `new` constructs only a function a
+      script wrote (queue item 212) — a builtin with a `[[Construct]]` is item
+      73's; a
       function's own `name` and `length` and its source text are 220; `Array`,
       `Math`, `JSON`, `Error`, the wrapper objects, the well-known symbols and
       the weak collections are still item 73, which is what remains of it
