@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page that throws in a loop can no longer lose its own load report.**
+  Everything a page load says about its scripts travels to the browser in one
+  message of bounded size, and a page throwing errors by the hundred thousand
+  could make that message too large to send — the tab then saw only a failed
+  renderer, with nothing said. A load now says at most 256 things about its
+  scripts, then how many more there were; the scripts themselves still all
+  run. A script that throws for ever now costs a counter rather than memory
+  while it is being stopped.
+
 - **An error a page did not catch now says where it happened.** The load
   report gives the script, line and column of the throw, and of each call it
   passed through on the way out — so an error in a function one script

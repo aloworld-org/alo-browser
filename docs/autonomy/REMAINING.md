@@ -146,6 +146,15 @@ how many reports one load carries) was found and added. 110 queue items are
 open (241 added closed, 242 added open); the next unused queue number is 243
 and the next unused ADR 0017.
 
+Iteration 139 built item 242, the first eligible item (233 and 234 wait on 81
+or 92 and on 233, 77 needs design, 78's remainder has no closing condition):
+a load says at most 256 lines about its scripts and then how many more, and
+a turn of the event loop keeps at most 256 reports and counts the rest
+without describing them, so a job throwing for ever costs a counter. Item 243
+(the same ceiling for the markup half of a load's issues) was found by
+reading and added. 110 queue items are open (242 closed, 243 added); the next
+unused queue number is 244 and the next unused ADR 0017.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -3418,7 +3418,7 @@ The long pole, and the thing most of section E is unreachable without.
   splitting `\r\n`, a one-line bundle, an unknown program) and `report.rs`
   one (the trace's words).
 
-- [ ] **242. A ceiling on what one load says about its scripts.** *Found
+- [x] **242. A ceiling on what one load says about its scripts.** *Found
   while building 241.* Each uncaught throw is one line in a load's issues,
   and a page can queue as many throwing jobs as it likes in one load: nothing
   counts the lines, and the whole answer crosses the wire in one message
@@ -3431,6 +3431,39 @@ The long pole, and the thing most of section E is unreachable without.
   `MOST_OBJECTIONS` already does for objections. *Depends on 236. Closes
   when:* a page queueing a hundred thousand throwing jobs loads, says the
   ceiling's worth, and says how many it left out.
+  **Done (iteration 139).** `alo-renderer/src/scripts.rs`: a load says at
+  most `MOST_SAID` (256) lines about its scripts — reports, refusals, scripts
+  not run, all of them — and then `N more things about this page's scripts
+  were not said: one load says at most 256`. The ceiling is on what is said,
+  never on what runs. It also had to hold **inside one turn**, which the item
+  did not name: a job that throws and requeues itself for ever made one
+  `Turn` grow by a described, placed report per job until the page was
+  stopped. So `alo-renderer/src/event_loop.rs` keeps at most `MOST_REPORTS`
+  (256) per turn and counts the rest in `Turn::unreported` **before**
+  describing them; `EventLoop::run_next_within(room)` lets the load hand a
+  turn only what room it has left.
+  *Closed by:* `crates/alo-renderer/tests/what_one_load_says.rs`, eight
+  tests — the closing clause through a real `Renderer` (256 lines, the first
+  256 throws in order and each placed, `99744 more`, all 100000 jobs run, the
+  answer under `LARGEST_MESSAGE` and round-tripping the wire); the ceiling
+  across 300 scripts (`script 2` to `script 257`, `44 more`, all run);
+  300 fetched scripts' "not run" lines counted the same way; exactly 256
+  throws said whole with no count; every prefix of a page throwing 400 jobs
+  within the ceiling; and, on the loop, a turn's 256 kept and 744 counted with
+  1000 jobs run, a room of 3 and of 0 (11 counted, 10 jobs run) and of
+  `usize::MAX` capped at 256, and a job throwing and requeueing itself for ever,
+  stopped from another thread, keeping 256 and counting the rest.
+
+- [ ] **243. A ceiling on what a page's markup makes one load say.** *Found
+  while building 242, by reading, not yet by a run.* The markup half of a
+  load's issues (`pipeline::Rendered::issues` — the document's, the sheets',
+  each picture's, the box tree's and layout's) has no ceiling either, and it
+  amplifies: `<img>` is five bytes of page and `an <img> with no src` is
+  twenty-eight bytes of answer with its eight-byte length, so a page of
+  about eleven and a half megabytes of them — well under the 64 MiB cap the
+  page itself crossed the wire in — would make an answer the wire refuses. *Depends on 242. Closes when:* a
+  page of a few million `<img>` elements loads and says a ceiling's worth of
+  them and how many more, under `LARGEST_MESSAGE`.
 
 - [ ] **79. `Intl`, rented** rather than written.
   *Depends on 73.*

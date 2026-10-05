@@ -818,11 +818,15 @@ unreachable without it.
       `interpret/unwound.rs` and `alo-renderer`'s `event_loop/source.rs`) —
       the script, line and column, in UTF-16 code units, of the throw and of
       every call it left, at most 32 with the rest counted, found in a
-      one-line bundle without re-reading it
+      one-line bundle without re-reading it; **a ceiling on what one load
+      says** (queue item 242, `alo-renderer`'s `scripts::MOST_SAID` and
+      `event_loop::MOST_REPORTS`) — 256 lines about a load's scripts and then
+      how many more, and a turn of the loop keeping at most 256 reports and
+      counting the rest without describing them
       · Owed: `error.stack`, a trace taken where an error is made, and names
       in it (queue items 78 and 220); source maps; showing any of it to a
-      person (developer tools, 129); a non-error object described; a ceiling
-      on how many reports one load carries (242)
+      person (developer tools, 129); a non-error object described; the same
+      ceiling for what a page's markup makes a load say (243)
 - [ ] Internationalisation (`Intl`), rented rather than written
 - [ ] Refused for now and recorded: a JIT, until there is a measured reason and an ADR weighing it against the attack surface it adds
       · Built: the recording, with its two conditions for re-opening named

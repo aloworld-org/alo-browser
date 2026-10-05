@@ -97,7 +97,9 @@ pub enum FromRenderer {
     /// looks wrong is nearly always a page that was told something the engine
     /// could not do, and the browser process is where a person can be shown.
     Loaded {
-        /// What was refused, in the order it was met.
+        /// What was refused, in the order it was met. What a page's scripts
+        /// did stops at [`crate::scripts::MOST_SAID`] lines and a count of the
+        /// rest (queue item 242); what its markup did is not bounded yet (243).
         issues: Vec<String>,
         /// The font families this page asked for by name and this renderer does
         /// not have, in the order it first asked.

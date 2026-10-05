@@ -49,6 +49,18 @@
 //! built while its script runs, and no script can see the document yet (no
 //! binding reaches it; queue item 80 is where one does).
 //!
+//! # How much a load says
+//!
+//! A page can throw as often as it likes, and every line said here crosses to
+//! the browser process in **one** message, which the wire caps at
+//! [`LARGEST_MESSAGE`](crate::wire::LARGEST_MESSAGE). A page that said more
+//! than that would have its whole answer refused, and the tab would see a
+//! renderer that failed with every issue lost and no reason given. So a load
+//! says at most [`MOST_SAID`] things about its scripts, and then **how many
+//! more** there were (queue item 242) — the way it says at most
+//! [`MOST_OBJECTIONS`] objections. The scripts run the same either way: a
+//! ceiling on what is said is not a ceiling on what is run.
+//!
 //! # A page whose script stops it
 //!
 //! A throw nothing caught is reported and the next script runs, as in every
@@ -62,9 +74,54 @@ use alo_dom::Document;
 use alo_dom::scripts::{Carried, Kind, Script, Source, carried};
 use alo_net::csp::{Content, Inline};
 
-use crate::event_loop::EventLoop;
+use crate::event_loop::{EventLoop, MOST_REPORTS};
 use crate::page::Page;
 use crate::violations::{MOST_OBJECTIONS, Objection};
+
+/// The most lines one load says about its scripts (queue item 242).
+///
+/// Each line is bounded — a report's strings at 1024 code units and its trace
+/// at 32 places, a refusal by the header it quotes — so this many is a few
+/// megabytes at the very worst, against a message cap of 64. It is the most
+/// one turn of the loop keeps, for the same reason: past it a page is saying
+/// the same thing in a loop, and the count says how long the loop was.
+pub const MOST_SAID: usize = MOST_REPORTS;
+
+/// What a load says about its scripts: the first [`MOST_SAID`] lines, and how
+/// many more there were.
+#[derive(Default)]
+struct Said {
+    lines: Vec<String>,
+    left_out: usize,
+}
+
+impl Said {
+    /// Say a line about script `number`, if there is room.
+    fn script(&mut self, number: usize, what: &str) {
+        if self.lines.len() < MOST_SAID {
+            self.lines.push(format!("script {number}: {what}"));
+        } else {
+            self.left_out = self.left_out.saturating_add(1);
+        }
+    }
+
+    /// How many more lines there is room for.
+    fn room(&self) -> usize {
+        MOST_SAID.saturating_sub(self.lines.len())
+    }
+
+    /// The lines, then the count of those left out, if any were.
+    fn into_issues(self, issues: &mut Vec<String>) {
+        issues.extend(self.lines);
+        if self.left_out > 0 {
+            issues.push(format!(
+                "{} more things about this page's scripts were not said: one load says at \
+                 most {MOST_SAID}",
+                self.left_out
+            ));
+        }
+    }
+}
 
 /// Run a page's scripts as it loads, oldest first, and answer the loop they
 /// ran in — [`None`] if nothing ran — with everything that did not run or
@@ -77,6 +134,7 @@ pub(crate) fn at_load(
     objections: &mut Vec<Objection>,
 ) -> Option<EventLoop> {
     let stated = page.stated();
+    let mut said = Said::default();
     let mut left_out = 0_usize;
     let mut policies = page.policies.clone();
     let mut looping: Option<EventLoop> = None;
@@ -91,9 +149,8 @@ pub(crate) fn at_load(
             Carried::Script(script) => script,
         };
         number = number.saturating_add(1);
-        let said = |what: &str| format!("script {number}: {what}");
         if ended {
-            issues.push(said("not run, because the page's script has stopped"));
+            said.script(number, "not run, because the page's script has stopped");
             continue;
         }
         if let (Kind::Classic, Source::Written(text)) = (&script.kind, &script.source) {
@@ -114,14 +171,14 @@ pub(crate) fn at_load(
                 // was a watched policy's, and the script will run regardless
                 // (unless a `<meta>` refuses it, which is said below).
                 for watched in stated.inline_violations(Inline::Script, nonce, content) {
-                    issues.push(said(&format!("runs, but {watched}")));
+                    said.script(number, &format!("runs, but {watched}"));
                 }
             }
         }
         let text = match allowed(&script, &policies) {
             Ok(text) => text,
             Err(why) => {
-                issues.push(said(&why));
+                said.script(number, &why);
                 continue;
             }
         };
@@ -130,25 +187,32 @@ pub(crate) fn at_load(
             None => match EventLoop::new() {
                 Ok(made) => looping.insert(made),
                 Err(escape) => {
-                    issues.push(said(&format!("not run: this page has no engine: {escape}")));
+                    said.script(
+                        number,
+                        &format!("not run: this page has no engine: {escape}"),
+                    );
                     ended = true;
                     continue;
                 }
             },
         };
         if let Err(stopped) = page_loop.queue_script(format!("script {number}"), text) {
-            issues.push(said(&format!("not run: {stopped}")));
+            said.script(number, &format!("not run: {stopped}"));
             ended = true;
             continue;
         }
-        while let Some(turn) = page_loop.run_next() {
-            issues.extend(turn.reports.iter().map(|report| said(&report.to_string())));
+        while let Some(turn) = page_loop.run_next_within(said.room()) {
+            for report in &turn.reports {
+                said.script(number, &report.to_string());
+            }
+            said.left_out = said.left_out.saturating_add(turn.unreported);
             if let Some(stopped) = turn.stopped {
-                issues.push(said(&stopped.to_string()));
+                said.script(number, &stopped.to_string());
                 ended = true;
             }
         }
     }
+    said.into_issues(issues);
     if left_out > 0 {
         issues.push(format!(
             "{left_out} more policy objections to this page's scripts were not passed on to be \

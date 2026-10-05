@@ -11284,3 +11284,117 @@ called by nothing in the browser process on its own (item 203's
 dependency). No script can reach the document. 110 queue items are open (241
 added closed, 242 added open). Next unused queue number **243**; next ADR
 **0017**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 139 — queue item 242: a ceiling on what one load says about its scripts
+
+The checkout was clean on entry at `f1d0a31`, with iteration 130's stash
+(`stash@{0}`) still left where it is — dropping it is a person's call. Read
+`CLAUDE.md`, the complete `docs/autonomy/LOOP.md`, `ROADMAP.md`'s conventions
+and its event-loop and errors lines, `docs/autonomy/REMAINING.md`,
+iterations 136–138 and their selection reasoning, queue items 233–242, ADR
+0016 (§§ 3 and 7, and *What this does not decide*'s **the numbers**: any
+ceiling the loop needs lands in the code with its reason, so no ADR was
+needed), the JavaScript lines of `docs/features.md`, and the code the change
+touches: `alo-renderer`'s `scripts.rs`, `event_loop.rs`,
+`event_loop/report.rs`, `renderer.rs` (`load`, `lay_out`), `message.rs`,
+`pipeline.rs`'s issues, `wire.rs` (`LARGEST_MESSAGE`, how a `Loaded` and a
+string are written) and `violations.rs`'s `MOST_OBJECTIONS`. No `AGENTS.md`
+exists in this repository. No sibling repository was read or modified.
+
+**Selection followed queue order and dependencies.** Nothing landed in
+iteration 138 that unblocks an earlier item: every blocker iteration 136
+listed stands; 240 and 238 wait for a frozen page; 234 depends on 233, which
+depends on 81 or 92; 77 is `needs design`; 78's remainder has no closing
+condition. **242 was the first eligible item**: its dependency, 236, is done,
+and its closing condition names no frozen page. Like 236–241 it was found by
+building rather than opened by a page, and that is recorded rather than
+papered over.
+
+**What was built.** `alo-renderer/src/scripts.rs`: everything `at_load` says
+about a page's scripts — reports, refusals, scripts not run — goes through
+`Said`, which keeps at most `MOST_SAID` (256) lines and counts the rest, and
+the load ends with `N more things about this page's scripts were not said:
+one load says at most 256`. The scripts run the same either way.
+**A second clause the item did not name, and why it is here:** the ceiling
+had to hold inside a single turn too. A job that throws and requeues itself
+for ever made one `Turn`'s `reports` grow by a described, placed report per
+job until the page was stopped — memory proportional to how long the browser
+waits. So `event_loop.rs` keeps at most `MOST_REPORTS` (256) per turn and
+counts the rest in the new `Turn::unreported`, asking *is there room* before
+describing or placing a throw; `EventLoop::run_next_within(room)` lets the
+load hand each turn only the room it has left (`run_next` is
+`run_next_within(MOST_REPORTS)`, and room above it is capped to it). The
+`Loaded` message's doc says which half of its issues is bounded.
+
+**Evidence.** `crates/alo-renderer/tests/what_one_load_says.rs`, eight tests.
+The closing clause through a real `Renderer`: 100000 throwing jobs give 256
+lines, the first 256 throws in order and each placed, then `99744 more`; `n`
+read back from the page's engine is 100000 (all ran); the answer is under
+`LARGEST_MESSAGE` and round-trips the wire. Around it: 300 throwing scripts
+said as `script 2` … `script 257` then `44 more`, all run; 300 fetched
+scripts' "not run" lines counted the same way; exactly 256 throws said whole
+with no count; every prefix of a page throwing 400 jobs within the ceiling
+and under the cap. On the loop: 1000 jobs keep 256 and count 744 with 1000
+run; a room of 3 (the script's own throw first) and of 0 (11 counted, 10 jobs
+run); `usize::MAX` capped at 256; a job throwing and requeueing itself for
+ever, stopped from another thread after 200 ms, keeping 256, counting the
+rest, and `n` agreeing with kept + counted to within the one job the stop
+interrupted. One of my hand-counted columns was wrong (61 for 62 — 11 + 19 +
+8 + 23 characters precede the `throw`); the code was right and the test now
+gives the count.
+
+**Doctored runs, four, each restored byte for byte (`cmp`)**: the load's
+ceiling removed fails one test; the checkpoint's turn ceiling removed fails
+three; a turn's count not added to the load's fails two; a room above
+`MOST_REPORTS` not capped fails one.
+
+**Found and not hidden.** The markup half of a load's issues
+(`pipeline::Rendered::issues`) has no ceiling either, and it amplifies: an
+`<img>` with no `src` is five bytes of page and 28 bytes of answer (20 of
+text, 8 of length), so about 11.5 MiB of them — well under the cap the page
+itself crossed in — would make an answer the wire refuses. Found by reading
+and arithmetic, **not yet by a run**; recorded as **item 243** rather than
+widened into this one, whose title and closing condition are about scripts.
+
+**Roadmap.** The *Errors and stack traces* line's Built clause gains the
+ceiling (242, `scripts::MOST_SAID` and `event_loop::MOST_REPORTS`) and its
+Owed clause replaces 242 with 243. Not ticked. `docs/features.md` (that
+line), `CHANGELOG.md`, `REMAINING.md`, `message.rs`'s doc, and the queue (242
+ticked with its evidence, 243 new) move with it.
+
+**Compliance review.** Law 1: nothing legacy. Law 2: unchanged. Law 3: no
+stub, `todo!` or `unwrap` outside tests; what is not said is counted and the
+count is said; no speed claim — "costs a counter rather than memory" is a
+bound on work a page can cause, not a performance claim. Law 4: no `unsafe`.
+ADR 0016 § 3: a job that queues a job for ever still never yields and is
+still answered by `Stop`; only what it costs to report is bounded. § 7 and
+*the numbers*: unchanged behaviour, both ceilings in the code with their
+reasons. ADR 0005: the renderer's answer must stay sendable; nothing new
+crosses the boundary. LOOP stage 2 § 2: what a page controls here is how
+often it throws — bounded per turn and per load, with a prefix-cut test.
+One file, one responsibility: `scripts.rs` still decides what a load says
+about its scripts, `event_loop.rs` what a turn keeps. Nothing positions,
+sizes or paints differently, so no layout assertion or reference render
+applies; every existing reference render still matches.
+
+**Gate.** `scripts/gate.sh` exited 0 on the second run (the first failed
+`cargo fmt --check` and clippy on the new test — `panic!` in two helpers and
+a `usize as f64` cast; the helpers now answer a value or `None` as their
+siblings do and the cast goes through `u32::try_from`, nothing allowed or
+silenced), and again after a doc-comment change: formatting clean, clippy
+silent, all workspace tests pass (2306 passed, 0 failed, counted with `cargo
+test --workspace`; 2298 before, the 8 new tests exactly), nothing stubbed,
+`unsafe` forbidden, the licence notice on every file, every rented crate
+behind its boundary, no coordinate verb, the supervisor's stop rule holds,
+`CHANGELOG.md` changed. `git diff --check` passes. `cargo doc` prints four
+private-link warnings in `event_loop` and `generic` that predate this change
+and are not the gate's. The logs were kept in this session's scratchpad, not
+committed.
+
+**Unresolved obligations.** 243 (the markup half's ceiling, found by reading,
+unverified by a run); 78's remainder; 77 needs design; 233, 234, 238 and 240
+are open and item 76 is not done; `violations::reports` is still called by
+nothing in the browser process on its own (item 203's dependency). No script
+can reach the document. 110 queue items are open (242 closed, 243 added).
+Next unused queue number **244**; next ADR **0017**. This is one iteration,
+not a finished queue or roadmap.

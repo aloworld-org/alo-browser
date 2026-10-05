@@ -43,6 +43,17 @@
 //! has the text that turns an offset into a line and a column, and the name
 //! a person would look for.
 //!
+//! # How much a turn says
+//!
+//! A job can queue a job that throws and queues another, so one task can end
+//! in more reports than anything should hold — and every one would be
+//! described, placed and kept until the turn ended. A turn keeps at most
+//! [`MOST_REPORTS`], and fewer if its caller has less room
+//! ([`EventLoop::run_next_within`]); past that a report is **counted and not
+//! described**, so a page that throws for ever costs a counter rather than
+//! memory. The page goes on running either way: a report kept or not, the
+//! next job and the next task run as they would have.
+//!
 //! # The quiet point
 //!
 //! ADR 0016 § 4. Between one task's last checkpoint and the next task, no
@@ -89,6 +100,15 @@ pub use source::{Place, Trace};
 pub use task::Seq;
 use task::{Tasks, Work};
 
+/// The most reports one turn keeps (queue item 242).
+///
+/// A report is bounded — a page's strings cut at 1024 code units, a trace at
+/// 32 places — so this is what bounds a turn: 256 reports of a few kilobytes
+/// each is well under a megabyte, and far more than a person reads before
+/// they stop reading. A page that throws more than this in one task is
+/// throwing in a loop, and the first 256 say what the loop is.
+pub const MOST_REPORTS: usize = 256;
+
 /// Why a page's loop has stopped for good.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stopped {
@@ -125,8 +145,12 @@ impl fmt::Display for Stopped {
 pub struct Turn {
     /// Which task it was.
     pub task: Seq,
-    /// Script that did not finish, in the order it happened.
+    /// Script that did not finish, in the order it happened — the first of
+    /// them, up to the room the turn was given.
     pub reports: Vec<Report>,
+    /// How many more did not finish and were counted rather than said,
+    /// because the turn had no room left for them.
+    pub unreported: usize,
     /// How many jobs ran in the checkpoints after its pieces of script.
     pub jobs: usize,
     /// Why the page stopped, if this task stopped it.
@@ -145,6 +169,8 @@ pub struct EventLoop {
     /// Every script this loop compiled, so a throw can be placed in the one
     /// it happened in (queue item 241).
     sources: Sources,
+    /// How many reports the turn running now may keep.
+    room: usize,
 }
 
 impl EventLoop {
@@ -166,6 +192,7 @@ impl EventLoop {
             stop,
             stopped: None,
             sources: Sources::default(),
+            room: MOST_REPORTS,
         })
     }
 
@@ -243,15 +270,26 @@ impl EventLoop {
     }
 
     /// Run the oldest task waiting, and say what it did — or [`None`] if
-    /// nothing is waiting or the page has stopped.
+    /// nothing is waiting or the page has stopped. At most [`MOST_REPORTS`]
+    /// reports are kept; the rest are counted in [`Turn::unreported`].
     pub fn run_next(&mut self) -> Option<Turn> {
+        self.run_next_within(MOST_REPORTS)
+    }
+
+    /// [`run_next`](Self::run_next), keeping at most `room` reports — fewer
+    /// than [`MOST_REPORTS`] when the caller's own ceiling spans several turns
+    /// and some of it is spent. Room of nothing keeps nothing and counts
+    /// everything; the task runs the same either way.
+    pub fn run_next_within(&mut self, room: usize) -> Option<Turn> {
         if self.stopped.is_some() {
             return None;
         }
         let task = self.tasks.pop()?;
+        self.room = room.min(MOST_REPORTS);
         let mut turn = Turn {
             task: task.seq,
             reports: Vec::new(),
+            unreported: 0,
             jobs: 0,
             stopped: None,
         };
@@ -305,14 +343,14 @@ impl EventLoop {
         let program = match script(text) {
             Ok(program) => program,
             Err(why) => {
-                turn.reports.push(Report::NotParsed(why.to_string()));
+                self.keep(turn, || Report::NotParsed(why.to_string()));
                 return Ok(());
             }
         };
         let unit = match compile(&program) {
             Ok(unit) => Rc::new(unit),
             Err(refusal) => {
-                turn.reports.push(Report::NotCompiled(refusal.to_string()));
+                self.keep(turn, || Report::NotCompiled(refusal.to_string()));
                 return Ok(());
             }
         };
@@ -330,20 +368,49 @@ impl EventLoop {
     /// Report a throw nothing caught, while what it threw is still alive and
     /// the engine still knows where it was.
     fn report(&mut self, thrown: &Thrown, turn: &mut Turn) {
+        if self.counted(turn) {
+            return;
+        }
         let trace = self.sources.trace(self.engine.unwound());
         turn.reports
             .push(Report::thrown(self.engine.objects(), thrown, trace));
     }
 
+    /// Keep a report the turn has room for, or count it.
+    fn keep(&self, turn: &mut Turn, report: impl FnOnce() -> Report) {
+        if !self.counted(turn) {
+            turn.reports.push(report());
+        }
+    }
+
+    /// Count a report the turn has no room for, answering whether it did —
+    /// asked before one is made, because describing and placing a throw is
+    /// the cost a page throwing in a loop would otherwise make us pay.
+    fn counted(&self, turn: &mut Turn) -> bool {
+        if turn.reports.len() < self.room {
+            false
+        } else {
+            turn.unreported = turn.unreported.saturating_add(1);
+            true
+        }
+    }
+
     /// A microtask checkpoint: every job, oldest first, including those jobs
     /// queue; then the job ends.
     fn checkpoint(&mut self, turn: &mut Turn) -> Result<(), Escape> {
+        let room = self.room.saturating_sub(turn.reports.len());
         let mut reports = Vec::new();
+        let mut unreported = 0_usize;
         let sources = &self.sources;
         let drained = self.engine.checkpoint(&mut |objects, thrown, unwound| {
-            reports.push(Report::thrown(objects, thrown, sources.trace(unwound)));
+            if reports.len() < room {
+                reports.push(Report::thrown(objects, thrown, sources.trace(unwound)));
+            } else {
+                unreported = unreported.saturating_add(1);
+            }
         });
         turn.reports.append(&mut reports);
+        turn.unreported = turn.unreported.saturating_add(unreported);
         let drained = drained?;
         turn.jobs = turn.jobs.saturating_add(drained.ran);
         Ok(())
