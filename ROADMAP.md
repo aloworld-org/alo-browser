@@ -784,11 +784,16 @@ unreachable without it.
       `Want::Job`, `Engine::checkpoint` running jobs oldest first including
       those jobs queue, reporting a throw and running on, dropping the queue
       when stopped and ending the job either way, and `Engine::call` for a
-      loop to call a listener with nothing running
-      · Owed: the renderer's loop — tasks, their order, the checkpoint after
-      each, `Act` answered after its jobs, `queueMicrotask` on the global
-      object (queue item 233) — and the rendering steps and
-      `requestAnimationFrame` (234); item 76 closes when both have
+      loop to call a listener with nothing running; and **the renderer's
+      loop** (`alo-renderer`'s `event_loop`, queue item 235) — one task queue
+      run oldest first, a task's script held by one root, a checkpoint after
+      every script and every listener call, `queueMicrotask` on the global
+      object, a throw reported and the loop running on, a stopped page's
+      tasks, roots and jobs dropped, and the quiet point between tasks checked
+      · Owed: the `Renderer` holding that loop — each `ToRenderer` message a
+      task, `Act` answered after its checkpoint, and the scripts a page
+      carries run under its policy (queue item 233) — and the rendering steps
+      and `requestAnimationFrame` (234); item 76 closes when both have
 - [ ] Errors and stack traces good enough to debug somebody else's minified page
 - [ ] Internationalisation (`Intl`), rented rather than written
 - [ ] Refused for now and recorded: a JIT, until there is a measured reason and an ADR weighing it against the attack surface it adds

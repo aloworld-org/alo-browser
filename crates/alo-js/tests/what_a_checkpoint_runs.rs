@@ -544,6 +544,47 @@ fn a_stopped_checkpoint_drops_what_was_waiting() {
     }
 }
 
+/// What a loop does when a *task* stopped the page rather than a job: the
+/// jobs it queued are dropped without one running, and the job is ended
+/// (ADR 0016 § 7) — a checkpoint would have run them.
+#[test]
+fn abandoning_drops_every_job_runs_none_and_ends_the_job() {
+    for stress in [false, true] {
+        let Some(mut engine) = engine(stress) else {
+            panic!("an empty heap holds an engine");
+        };
+        let queued = task(
+            &mut engine,
+            "var out = ''; var held = { v: 1 }; \
+             queueMicrotask(((h) => () => { out += h.v; })({ v: 2 })); \
+             queueMicrotask(queueMicrotask);",
+        );
+        assert!(queued.is_ok(), "{queued:?}");
+        assert_eq!(engine.jobs_waiting(), 2);
+        let Ok(Value::Object(kept)) = task(&mut engine, "({ kept: true })") else {
+            panic!("an object");
+        };
+        engine.objects().heap_mut().keep_alive(kept);
+        assert_eq!(engine.objects().heap().kept(), 1);
+
+        assert_eq!(engine.abandon(), Ok(()));
+        assert_eq!(engine.jobs_waiting(), 0, "every job dropped");
+        assert_eq!(engine.objects().heap().kept(), 0, "the job ended");
+
+        let out = task(&mut engine, "out").map(|value| show(&mut engine, value));
+        assert_eq!(out, Ok(String::new()), "and none of them ran");
+        engine.objects().heap_mut().collect();
+        assert!(
+            !engine.objects().heap().live_at(kept),
+            "nothing keeps what the ended job kept"
+        );
+        let (outcome, reports) = checkpoint(&mut engine);
+        assert_eq!(outcome, Ok(Drained::default()));
+        assert!(reports.is_empty());
+        assert_eq!(engine.objects().heap().check(), Ok(()));
+    }
+}
+
 #[test]
 fn a_job_that_never_ends_is_stopped_from_another_thread() {
     let Some(mut engine) = engine(false) else {

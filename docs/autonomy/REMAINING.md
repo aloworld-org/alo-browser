@@ -96,6 +96,17 @@ loop is item 233 and the rendering steps with `requestAnimationFrame` are 234;
 76 closes when both have. 107 queue items are open (232 added closed, 233 and
 234 open); the next unused queue number is 235 and the next unused ADR 0017.
 
+Iteration 134 cut item 233 again and built the loop itself as item 235:
+`alo-renderer`'s `event_loop` — one task queue run oldest first, a task's
+script held by one root, a checkpoint after every script and every listener
+call, `queueMicrotask` on the global object, throws reported, a stopped page's
+tasks, roots and jobs dropped, the quiet point checked. 233 keeps the
+`Renderer` holding it, which needs two things settled first: a way for a
+renderer to run its own due tasks outside a message's answer, and the page's
+`Content-Security-Policy` carried in before its own `<script>` elements run.
+107 queue items are open (235 added closed); the next unused queue number is
+236 and the next unused ADR 0017.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

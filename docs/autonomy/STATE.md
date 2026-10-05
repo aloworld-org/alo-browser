@@ -10635,3 +10635,125 @@ installed) and 234 (frames and `requestAnimationFrame`). No page runs a job
 yet. 107 queue items are open (105 before; 232 added closed, 233 and 234
 open). Next unused queue number **235**; next ADR **0017**. This is one
 iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 134 — queue item 235, cut from 233: the renderer's event loop itself
+
+The checkout was clean on entry at `8b7f1cf`, with iteration 130's stash
+(`stash@{0}`) still left where it is — dropping it is a person's call. Read
+`CLAUDE.md`, the complete `docs/autonomy/LOOP.md`, `ROADMAP.md`'s conventions
+and its JavaScript lines, iteration 133's entry, queue items 73–79 and
+232–234, ADR 0016 in full, and the parts of `alo-js` and `alo-renderer` the
+change touches (`interpret.rs`, `interpret/checkpoint.rs`, `job.rs`,
+`object/native.rs`, `heap.rs`, `abrupt.rs`, `renderer.rs`, `message.rs`,
+`page.rs`, `lib.rs`). ADR 0014 § 2 and § 7, ADR 0013 §§ 4–5 and ADR 0005
+were read as ADR 0016 quotes and depends on them. No `AGENTS.md` exists in
+this repository. No sibling repository was read or modified.
+
+**Selection followed queue order and dependencies.** Nothing landed since
+iteration 133, so every item before 76 keeps the blocker it recorded; 75
+depends on 76; 232 is done, so **233 was the first eligible item**.
+
+**233 was cut, because building it whole needs two things nobody has
+settled.** `Renderer::handle` answers each message synchronously, so a task a
+page queues for itself has no idle moment to run in, and ADR 0016 § 6 forbids
+running it inside an `Act`'s window — the boundary needs a way for the browser
+process to let a renderer run its due tasks. And the only task that can carry
+a page's script today is its own `<script>` elements at load: no timer (92),
+event (81) or response (83) exists. Running those obliges the renderer to
+know the page's `Content-Security-Policy` (item 165), which `Page` does not
+carry, and running inline script its author forbade is not a shortcut this
+loop may take. So, cutting scope and not depth, **item 235 is the loop
+itself**, built and ticked here, and 233 keeps the `Renderer` holding it with
+both questions written into it.
+
+**What was built.** `alo-renderer/src/event_loop.rs`: `EventLoop` owns an
+`Engine`; `queue_script` and `queue_calls` queue a task; `run_next` runs the
+oldest and answers a `Turn` (its number, its reports, the jobs it ran, and
+why it stopped the page if it did). A task is a script's text or callees
+called in turn with one `this` and argument list — a dispatch — with **a
+checkpoint after every piece**. A throw nothing caught, a script that does
+not parse, and one the engine will not compile are `Report`s and the loop runs
+on (`event_loop/report.rs`, describing a thrown value as it is thrown, before
+anything allocates). Any other escape stops the page: waiting tasks dropped
+and their roots released, jobs dropped, nothing more queued or run (ADR 0016
+§ 7). The `Stop` switch is read before every piece because a straight-line
+script never reads it. The quiet point after each task is checked — no open
+scope, nothing kept — and a noisy one stops the page (§ 4).
+`event_loop/task.rs`: one sequence number, oldest first, and a task that calls
+script holds `this`, the arguments and the callees **in one heap list under
+one `Root`** (§ 1's root per task). `event_loop/microtask.rs`:
+`queueMicrotask` on the global object, a builtin asking for `Want::Job`. In
+`alo-js`: `Engine::function` (an embedder's builtin inheriting the realm's
+`Function.prototype`) and `Engine::abandon` (drop every job, run none, end the
+job — what a loop does when a *task* stopped the page; `checkpoint` now uses
+it for its own escape).
+
+**Not built, and said so in the code and the queue:** asking for a collection
+at the quiet point (no reason exists yet) and queueing finaliser cleanups
+there (no `FinalizationRegistry` — item 73); a ceiling on waiting tasks (only
+the renderer queues tasks today; item 92 brings the first a page controls).
+
+**Evidence.** `crates/alo-renderer/tests/what_the_event_loop_runs.rs`,
+fourteen tests, tables run ordinarily and with the collector at every
+allocation and required to agree: a job after its task and before the next,
+jobs oldest first, jobs queued by jobs in the same checkpoint, `queueMicrotask`
+inheriting `Function.prototype`, tasks oldest first with their numbers and one
+job each, `1a2b` for a dispatch to two listeners against `12ab` for one script
+calling both and `2b1a` for the reverse order, `this` and the argument, a throw
+in a task, a job and a listener reported with the rest run, `queueMicrotask(1)`,
+a script that does not parse, a callee that is not a function; a waiting task's
+argument surviving a collection when nothing else holds it and collected after
+the task ran, with `Heap::check` clean; three rounds of five hundred two-listener
+tasks leaving the live cell count equal; a page stopped while idle (tasks and
+roots dropped, further queueing refused), mid-task from another thread with its
+job dropped, and in an endless requeue; a noisy quiet point; every prefix cut
+of a script that queues, reported or run, never panicking, with the next task
+running. Unit tests: `task.rs` two, `report.rs` two. `alo-js` gained
+`abandoning_drops_every_job_runs_none_and_ends_the_job`.
+
+**Doctored runs, nine attempted, eight counted**, each restored byte for byte
+(`cmp`) and the suite re-run green: one checkpoint per task rather than per
+call fails two tests; newest-first fails two; a stop that keeps waiting tasks
+fails two; a stop that keeps jobs fails one; no quiet-point check fails one; a
+task's root never released fails three; `abandon` not ending the job fails two
+in `alo-js`; no switch read before a piece **first passed** — the idle-stop
+test's first task was a call, which reads the switch itself — so the test was
+fixed to put a straight-line script first, and it then fails one. A doctored
+run dropping a waiting task's root did not compile and is not counted; the
+property is asserted directly by `a_waiting_task_holds_what_it_will_call_through_a_collection`.
+
+**Roadmap.** The event-loop line's Built clause gains the renderer's loop
+(item 235) and its Owed clause names what 233 keeps and 234; not ticked.
+`docs/features.md` (event loop line), `CHANGELOG.md`, `REMAINING.md`, and
+queue items 76, 233 and 235 move with it.
+
+**Compliance review.** Law 1: nothing legacy. Law 2: unchanged; the agent's
+window (§ 6) is 233's, and nothing here answers an `Act`. Law 3: no stub,
+`todo!` or `unwrap` outside tests; nothing claims speed. Law 4: no `unsafe`.
+ADR 0016 § 1: the loop is the renderer's and `alo-js` gained no task; the
+engine queues its own jobs. § 2: oldest first, one number. § 3: a checkpoint
+after every piece of script, never nested (the engine's borrow). § 4: the quiet
+point is checked, and collection there is not asked for without a reason. § 7:
+stopped means dropped. ADR 0014 § 2: a waiting task's values are under a root,
+and the caller's must be rooted while the task is made, which the API says.
+LOOP stage 2: a script is hostile input and the prefix and endless tests cover
+it; dependencies respected by cutting; the cut written into the queue with a
+closing condition. One file, one responsibility: the loop, its task queue,
+`queueMicrotask`, and the words for a report are four files. Clippy's
+`panic` findings in the new test's helpers were fixed by making them answer
+`Option` and `Result`. Nothing positions, sizes or paints, so layout
+assertions and reference renders do not apply.
+
+**Gate.** `scripts/gate.sh` exited 0: formatting clean, clippy silent, all
+workspace tests pass, nothing stubbed, `unsafe` forbidden, Exhibit A on every
+file, every rented crate behind its boundary, no coordinate verb, the
+supervisor's stop rule holds, `CHANGELOG.md` changed. `git diff --check`
+passes. The log was kept in this session's scratchpad, not committed.
+
+**Unresolved obligations.** Item 233 (the `Renderer` holding the loop, its two
+open questions above) and 234 (frames and `requestAnimationFrame`); item 76
+is not done. No page runs a job yet. 107 queue items are open (unchanged: 235
+added closed). Next unused queue number **236**; next ADR **0017**. This is
+one iteration, not a finished queue or roadmap.

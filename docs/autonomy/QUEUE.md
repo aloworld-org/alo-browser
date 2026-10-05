@@ -3067,6 +3067,7 @@ The long pole, and the thing most of section E is unreachable without.
   line: the engine's half is **item 232**, built; the renderer's loop is
   **item 233**; the rendering steps and `requestAnimationFrame` are **item
   234**. This item closes when 233 and 234 have, against its own table.
+  **Iteration 134 cut 233 again**: the loop itself is **item 235**, built.
 
 - [x] **232. The engine's half of the event loop: the job queue and the
   checkpoint.** *Cut from 76 (iteration 133); ADR 0016 §§ 1, 3, 4 and 7.*
@@ -3115,6 +3116,57 @@ The long pole, and the thing most of section E is unreachable without.
   *Closes when:* item 76's table of interleaved tasks and microtasks — in
   the order the specification gives — passes through the renderer's own
   loop, with `Act`'s answer arriving after its jobs.
+  **Iteration 134 cut the loop itself out as item 235**, built: the task
+  queue, its order, the root per task, the checkpoint after every piece of
+  script, `queueMicrotask`, the quiet point checked and a stopped page. What
+  is left here is **the `Renderer` holding it**, and it has two questions the
+  loop did not: (1) `Renderer::handle` answers each message synchronously,
+  so a task the page queues for itself has no idle moment to run in, and
+  ADR 0016 § 6 forbids running it inside an `Act`'s window — so the
+  boundary needs a way for the browser process to let a renderer run its own
+  due tasks; and (2) **the only task that can carry a page's script today is
+  the page's own `<script>` elements at load**, and running those obliges
+  the renderer to know the page's `Content-Security-Policy` (item 165), which
+  `Page` does not carry — running a page's inline script without its policy
+  would be running script its author forbade. No timer (92), event (81) or
+  response (83) exists to carry script otherwise. Both are the next cut's to
+  settle, before `Act` can be shown answered after its jobs.
+  *Depends on 235.*
+
+- [x] **235. The renderer's event loop itself: tasks, their order, and the
+  checkpoint after each piece of script.** *Cut from 233 (iteration 134);
+  ADR 0016 §§ 1–4 and 7. Depends on 232.* `alo-renderer/src/event_loop.rs`
+  owns an `Engine` with `queueMicrotask` on its global object
+  (`event_loop/microtask.rs`, a builtin asking for `Want::Job`, made with
+  the new `Engine::function`). `event_loop/task.rs` is the task queue: one
+  sequence number across everything, oldest first, and a task that calls
+  script holds `this`, its arguments and its callees **in one heap list
+  under one `Root`**, released when it has run or been dropped. A task is a
+  classic script's text or a list of callees called in turn with the same
+  arguments — a dispatch to listeners — and **a microtask checkpoint follows
+  every piece**. A throw nothing caught is a `Report` and the loop runs on,
+  as are a script that does not parse and one the engine will not compile;
+  anything else — the embedder's `Stop` (read before every piece, since a
+  straight-line script never reads it), a full heap, a thing not built, a bug
+  — stops the page: tasks dropped and their roots released, jobs dropped with
+  the new `Engine::abandon`, nothing more queued or run. The quiet point after
+  each task is checked (no open scope, nothing kept) and a noisy one stops
+  the page. Asking for a collection there and queueing finaliser cleanups
+  have no reason or registry yet (item 73), and no ceiling on waiting tasks
+  is set because nothing a page controls queues one yet (92 brings the first).
+  *Closed by:* `crates/alo-renderer/tests/what_the_event_loop_runs.rs` —
+  item 76's table through the renderer's loop: a job after its task and
+  before the next, jobs oldest first and jobs queued by jobs in the same
+  checkpoint, tasks oldest first with their numbers, `1a2b` for a dispatch to
+  two listeners against `12ab` for one script calling both, listener order,
+  `this` and the argument, throws in a task, a job and a listener reported
+  with the next run, `queueMicrotask(1)`, a script that does not parse, a
+  callee that is not a function; a waiting task's argument surviving a
+  collection and let go after it ran; fifteen hundred tasks of two listeners
+  leaking no cell; a page stopped while idle, mid-task from another thread
+  and in an endless requeue, with tasks, jobs and roots dropped; a noisy
+  quiet point; every prefix cut of a script that queues. Each table runs
+  ordinarily and with the collector at every allocation.
 
 - [ ] **234. The rendering steps and `requestAnimationFrame`.** *Cut from 76
   (iteration 133); ADR 0016 § 5. Depends on 233.* A frame is a message from

@@ -72,6 +72,7 @@ use crate::compile::{self, Refusal};
 use crate::convert::{self, Hint, Names, Primitive};
 use crate::heap::{Ref, Root};
 use crate::job::Jobs;
+use crate::object::native::Native;
 use crate::object::{Held, Key, Objects, Property, Value};
 use crate::operate::{self, Applied, Side, Simple};
 use crate::realm::{Assigned, Realm, Resolved};
@@ -205,6 +206,25 @@ impl Engine {
     /// [`Escape::Broken`] if the engine has lost it, which is its own bug.
     pub fn well_known(&self, which: crate::object::symbol::WellKnown) -> Result<Ref, Escape> {
         self.realm.intrinsics().well_known(&self.objects, which)
+    }
+
+    /// A function an embedder wrote, made the way the language's own are:
+    /// inheriting from this realm's `Function.prototype`.
+    ///
+    /// How `queueMicrotask` and every other host function reaches a page
+    /// (ADR 0016 § 1). The function is not rooted: the caller puts it
+    /// somewhere the collector walks — a property of the global object — before
+    /// anything else allocates.
+    ///
+    /// # Errors
+    ///
+    /// [`Escape::Full`] if the heap is at its ceiling; [`Escape::Broken`] if the
+    /// realm has lost its prototype, which is this engine's own bug.
+    pub fn function(&mut self, native: Native) -> Result<Ref, Escape> {
+        let prototype = self.realm.intrinsics().function_prototype(&self.objects)?;
+        self.objects
+            .native(native, Some(prototype))
+            .map_err(|why| Escape::refused(why, 0))
     }
 
     /// The switch that stops a script.

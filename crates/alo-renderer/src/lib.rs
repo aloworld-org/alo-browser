@@ -44,6 +44,7 @@
 //! corpus.
 
 pub mod answers;
+pub mod event_loop;
 pub mod face;
 pub mod families;
 pub mod fonts;
@@ -62,6 +63,7 @@ pub mod snapshot;
 pub mod tab;
 pub mod wire;
 
+pub use event_loop::EventLoop;
 pub use families::Wanted;
 pub use frame::Frame;
 pub use message::{Failure, FromRenderer, ToRenderer};

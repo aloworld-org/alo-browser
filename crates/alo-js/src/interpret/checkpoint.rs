@@ -154,11 +154,30 @@ impl Engine {
         &mut self,
         report: &mut dyn FnMut(&Objects, &Thrown),
     ) -> Result<Drained, Escape> {
-        let outcome = self.drain(report);
-        let outcome = match outcome {
-            Ok(drained) => Ok(drained),
-            Err(escape) => self.jobs.clear(&mut self.objects).and(Err(escape)),
-        };
+        match self.drain(report) {
+            Ok(drained) => {
+                self.objects.heap_mut().end_job();
+                Ok(drained)
+            }
+            Err(escape) => self.abandon().and(Err(escape)),
+        }
+    }
+
+    /// Drop every job waiting, run none of them, and end the job.
+    ///
+    /// What a loop does when a **task** ended some way other than a throw —
+    /// stopped, a full heap, a thing this engine has not built — and the page
+    /// is stopped with it (ADR 0016 § 7). A checkpoint does the same for
+    /// itself; this is the same rule for the run that came before one, where
+    /// a checkpoint would be the wrong thing to call because it would run the
+    /// jobs.
+    ///
+    /// # Errors
+    ///
+    /// [`Escape::Broken`] if the queue has lost its list. The job is ended
+    /// either way.
+    pub fn abandon(&mut self) -> Result<(), Escape> {
+        let outcome = self.jobs.clear(&mut self.objects);
         self.objects.heap_mut().end_job();
         outcome
     }

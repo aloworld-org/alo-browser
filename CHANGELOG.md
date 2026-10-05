@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The part of the browser that renders a page now has an event loop.** It
+  keeps the page's waiting work in one queue and always runs the oldest piece
+  next. After every piece of script it runs the small follow-up jobs that
+  script queued. A page now has `queueMicrotask`. When the browser hands one
+  click to several handlers, each handler's follow-up jobs run before the next
+  handler is called, as the specification says. An error nothing caught is
+  reported and the page carries on. A page the browser stops has its waiting
+  work dropped and the memory it held let go, rather than resumed half way.
+  The loop is not connected to pages yet. Turning the browser's messages into
+  this work, and running a page's own scripts, is the next piece.
+
 - **The JavaScript engine can run the follow-up jobs a page queues.** A script
   can ask for a small piece of work to run as soon as it finishes —
   `queueMicrotask` today, a promise's reactions once promises exist — and the
