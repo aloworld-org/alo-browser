@@ -62,6 +62,7 @@
 //!
 //! [`Renderer`]: crate::Renderer
 
+mod described;
 mod microtask;
 mod report;
 mod task;

@@ -11039,3 +11039,115 @@ dependency); 233, 234, 238 and 239 are open and item 76 is not done. No script
 can reach the document. 110 queue items are open (237 closed, 240 added). Next
 unused queue number **241**; next ADR **0017**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 137 — queue item 239: a thrown error object said by its name and message
+
+The checkout was clean on entry at `535e72d`, with iteration 130's stash
+(`stash@{0}`) still left where it is — dropping it is a person's call. Read
+`CLAUDE.md`, the complete `docs/autonomy/LOOP.md`, `ROADMAP.md`'s conventions
+and its event-loop and errors lines, `docs/autonomy/REMAINING.md`, iteration
+136's entry and its selection reasoning, queue items 76, 227, 228, 232–240
+and 77–93, ADR 0016 (§§ 1–3 and 7 on what a loop reports and that it runs
+on), the JavaScript lines of `docs/features.md`, and the code the change
+touches: `alo-renderer`'s `event_loop.rs`, `event_loop/report.rs`,
+`scripts.rs`, the wire's bound on a message (`LARGEST_MESSAGE`); `alo-js`'s
+`object.rs` (`is_error`, `existing_key`), `object/access.rs` (`get`,
+`Found`), `convert.rs` (`to_units`) and `builtin/error.rs`
+(`Error.prototype.toString`). No `AGENTS.md` exists in this repository. No
+sibling repository was read or modified.
+
+**Selection followed queue order and dependencies.** Nothing landed in
+iteration 136 that unblocks an earlier item: every blocker iteration 136
+recorded stands, 233 still depends on 81 or 92 for its closing condition, and
+240 and 238 are each opened only by a frozen page that does not exist. **239
+was the first eligible item**: its dependencies, 235 and 227, are both done,
+and its closing condition names no frozen page. Like 236 and 237 it was cut
+from a renderer test rather than opened by a page, and that is recorded
+rather than papered over.
+
+**What was built.** `alo-renderer/src/event_loop/described.rs` puts a thrown
+value into words reading the heap and nothing else (split from `report.rs`,
+which keeps the `Report` kinds and their display; this file is the reading of
+a page's heap). An object with `[[ErrorData]]` is said as
+`Error.prototype.toString` would join it — `name` defaulting to `Error`,
+`message` to empty, `": "` only when both are non-empty — with each read
+along the prototype chain through `Objects::existing_key` and
+`Objects::get`, so describing interns nothing, allocates nothing and runs
+nothing. A getter, an object (whose `toString` would run) and a symbol (which
+`ToString` refuses) are said in brackets, e.g. `Error (its message is a
+getter, which was not called)`. The page's own `Error.prototype.toString` is
+deliberately not consulted: a page replacing it would otherwise choose what
+its own failure says. A non-error object stays `an object` — which properties
+of an arbitrary object to trust is item 78's question.
+
+**A hostile-input clause the item did not name, and why it is here.** A page
+can make strings of up to 2^28 − 1 code units, and a load's whole answer,
+issues included, crosses the wire in one message capped at 64 MiB — so a
+thrown long string could already push a load's answer past the cap, and an
+error's message would add a second way. Every string a report repeats (a
+thrown string, a name, a message) is now cut at `LONGEST_SAID` (1024) code
+units, never half way through a surrogate pair, with the rest counted. This
+is the only change to existing behaviour besides the item's own.
+
+**Evidence.** `crates/alo-renderer/tests/an_error_said_by_its_name.rs`,
+fifteen tests through a real `Renderer`: the three closing clauses —
+`throw new TypeError('x')` said `TypeError: x`; a `name` reassigned on the
+instance (`NotFound: x`) and on a prototype (`Bounds: far`); a `message`
+getter on the error's chain never called (a counter read back from the
+page's engine is still `0`) — and around them a `name` getter never called,
+an object message's `toString` never run, all seven constructors, one called
+without `new`, empty name / empty message / both, a `name` deleted
+everywhere (`Error: anonymous`), number and boolean parts, a replaced
+`Error.prototype.toString` not run, a look-alike plain object still `an
+object`, an engine-thrown `TypeError` caught and rethrown, one thrown from a
+job, and a 2^13-unit message and thrown string each cut with 7168 counted.
+`described.rs` has six unit tests: short and long strings, a surrogate pair
+at the cut, primitives, a symbol `name` (made in the heap — no page can name
+a symbol yet, there is no `Symbol` global, item 73), and a heap where nothing
+has a `name` or `message` staying uninterned after describing. Two
+assertions in `a_page_runs_its_scripts.rs` that said `an object` now say
+`TypeError: no such thing` and `Error: broken`.
+
+**Doctored runs, four, each restored byte for byte (`cmp`) and the suite
+re-run green**: the error branch removed fails the symbol and uninterned unit
+tests; a getter read as absent fails both getter tests; the cut removed fails
+the cut and surrogate tests; `toString`'s empty-message rule broken fails the
+uninterned test.
+
+**Found and not hidden.** My first draft tested a symbol `name` through a
+page, and it failed with `'Symbol' is not defined` — the engine has no
+`Symbol` global. The test moved to a unit test that builds the error in the
+heap; the integration file does not claim a page can do it.
+
+**Roadmap.** The *Errors and stack traces* line gains a Built clause (an
+uncaught error said by name and message, item 239) and an Owed clause (stack
+traces and source positions, item 78; a non-error object described). Not
+ticked. `docs/features.md` (that line), `CHANGELOG.md`, `REMAINING.md` and
+queue item 239 (ticked, with its evidence) move with it.
+
+**Compliance review.** Law 1: nothing legacy. Law 2: unchanged. Law 3: no
+stub, `todo!` or `unwrap` outside tests; what is not said is said to be
+unsaid, in words; no speed claim. Law 4: no `unsafe`. ADR 0016 § 7: a throw
+is still reported and the loop runs on; describing it now cannot itself fail
+or run script. ADR 0013 § 3: absent beats approximate — a getter's value is
+not guessed. LOOP stage 2 § 2: what a page put in its heap is hostile input
+— no call, no allocation, a bound on length. One file, one responsibility:
+`report.rs` says which kind of report, `described.rs` reads a thrown value
+from the heap. Nothing positions, sizes or paints differently, so no layout
+assertion or reference render applies; every existing reference render still
+matches.
+
+**Gate.** `scripts/gate.sh` exited 0: formatting clean, clippy silent (one
+`needless_borrows_for_generic_args` in the new test fixed, not allowed),
+all workspace tests pass (2269 passed, 0 failed, counted with `cargo test
+--workspace`), nothing stubbed, `unsafe` forbidden, the licence notice on
+every file, every rented crate behind its boundary, no coordinate verb, the
+supervisor's stop rule holds, `CHANGELOG.md` changed. `git diff --check`
+passes. The log was kept in this session's scratchpad, not committed.
+
+**Unresolved obligations.** 233, 234, 238 and 240 are open and item 76 is not
+done; `violations::reports` is still called by nothing in the browser process
+on its own (item 203's dependency); stack traces are item 78. No script can
+reach the document. 109 queue items are open (239 closed). Next unused queue
+number **241**; next ADR **0017**. This is one iteration, not a finished
+queue or roadmap.

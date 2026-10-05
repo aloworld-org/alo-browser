@@ -130,6 +130,13 @@ could not have objected and no more than 64 per load. A `<meta>` policy's
 `report-to` is cut to item 240. 110 queue items are open (237 closed, 240
 added); the next unused queue number is 241 and the next unused ADR 0017.
 
+Iteration 137 built item 239, the first eligible item after 240 and 238 (both
+waiting on a frozen page): an uncaught error object is reported by its `name`
+and `message`, read from data properties along its chain without running any
+of the page's script, and every string a report repeats is cut at 1024 code
+units. 109 queue items are open; the next unused queue number is 241 and the
+next unused ADR 0017.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

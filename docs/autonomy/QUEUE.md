@@ -3294,7 +3294,7 @@ The long pole, and the thing most of section E is unreachable without.
   ones, one its policy refuses is not fetched at all, and a fetch that fails
   is said and the next script runs.
 
-- [ ] **239. A thrown error object said by its name and message.** *Cut from
+- [x] **239. A thrown error object said by its name and message.** *Cut from
   236.* A `TypeError` a script made and nothing caught is reported as
   `uncaught: an object`, because `Report::thrown` may not run script and the
   engine has no way to read a property without possibly calling a getter.
@@ -3304,6 +3304,34 @@ The long pole, and the thing most of section E is unreachable without.
   uncaught `new TypeError('x')` is reported `TypeError: x`, a subclass-like
   object whose `name` was reassigned uses the new name, and a `message`
   getter is never called.
+  **Done (iteration 137), all three clauses.** `alo-renderer`'s
+  `event_loop/described.rs` puts a thrown value into words reading the heap
+  and nothing else. An object with `[[ErrorData]]` is said as
+  `Error.prototype.toString` would say it — `name` (default `Error`), `": "`,
+  `message` (default empty), either left out when empty — with both read
+  along the prototype chain through `Objects::existing_key` and
+  `Objects::get`, so describing interns nothing and calls nothing. A getter,
+  an object (whose `toString` would run) and a symbol (which `ToString`
+  refuses) are each said in brackets instead, and a page's own
+  `Error.prototype.toString` is not consulted. Any other object is still
+  `an object`. Every string a page made — a thrown string, a name, a message —
+  is cut at `LONGEST_SAID` (1024) code units, never half a surrogate pair,
+  with the rest counted, because a page's strings run to some 268 million
+  units and a load's whole answer crosses the wire in one bounded message.
+  *Closed by:* `crates/alo-renderer/tests/an_error_said_by_its_name.rs`,
+  fifteen tests through a real `Renderer` — `TypeError: x`; a reassigned
+  `name` on the instance and on a prototype; a `message` getter and a `name`
+  getter never run (a counter read back from the page's engine stays 0); an
+  object message's `toString` never run; all seven constructors; one made
+  without `new`; empty name, empty message and both empty; a name deleted
+  everywhere; number and boolean parts; a replaced
+  `Error.prototype.toString` not run; a look-alike plain object still `an
+  object`; an engine-thrown `TypeError` caught and rethrown; one thrown from
+  a job; a 2^13-unit message and thrown string cut with 7168 counted.
+  `described.rs` has six unit tests (cuts, surrogate pairs, a symbol name
+  made in the heap — there is no `Symbol` global yet — and a heap where
+  nothing has a `name`, which stays uninterned). Two assertions in
+  `a_page_runs_its_scripts.rs` that said `an object` now say the error.
 
 - [ ] **234. The rendering steps and `requestAnimationFrame`.** *Cut from 76
   (iteration 133); ADR 0016 § 5. Depends on 233.* A frame is a message from

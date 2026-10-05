@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An error a page did not catch is reported by what it says.** Where the
+  load report used to say only that a script threw "an object", it now says
+  `TypeError: no such thing` — the error's own name, including one the page
+  gave it, and its message. Writing that runs none of the page's code: a name
+  or message only the page's own function could produce is said to be one
+  rather than asked for. A page's very long strings are repeated only to
+  their first 1024 characters, with the rest counted.
+
 - **A site is told when its own policy stopped an inline script — or would
   have.** A page sent with `Content-Security-Policy-Report-Only` runs its
   scripts as before, and the site now gets a report for each inline script the

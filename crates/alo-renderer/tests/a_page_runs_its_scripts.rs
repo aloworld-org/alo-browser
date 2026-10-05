@@ -108,9 +108,12 @@ fn a_throw_is_said_and_the_next_script_runs() {
     ));
     let said = about_scripts(&issues);
     assert_eq!(said.len(), 3, "{said:?}");
-    // A `TypeError` a script made is reported as the object it is: naming it
-    // by its `name` and `message` without running a getter is item 239.
-    assert_eq!(said.first(), Some(&"script 1: uncaught: an object"));
+    // A `TypeError` a script made is said by its `name` and `message`, read
+    // without running a getter (item 239).
+    assert_eq!(
+        said.first(),
+        Some(&"script 1: uncaught: TypeError: no such thing")
+    );
     assert_eq!(said.get(1), Some(&"script 1: uncaught: 4"));
     assert!(
         said.get(2)
@@ -417,7 +420,7 @@ fn a_page_still_renders_when_its_script_fails() {
     );
     assert_eq!(
         about_scripts(&issues),
-        vec!["script 1: uncaught: an object"]
+        vec!["script 1: uncaught: Error: broken"]
     );
     let Some(drawn) = renderer.rendered() else {
         panic!("nothing was rendered");

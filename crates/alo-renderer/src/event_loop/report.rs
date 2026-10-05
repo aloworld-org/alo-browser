@@ -16,12 +16,17 @@
 //! that does not parse — the `SyntaxError` a page would see — and one this
 //! engine will not compile because it uses something not built yet (ADR 0013
 //! § 3, *absent beats approximate*).
+//!
+//! What was thrown is put into words by [`described`], which reads the heap
+//! and runs nothing: an error object by its `name` and `message`, and any
+//! string a page made cut short.
 
 use core::fmt;
 
 use alo_js::abrupt::Thrown;
-use alo_js::numeric;
-use alo_js::object::{Objects, Value};
+use alo_js::object::Objects;
+
+use super::described;
 
 /// Script that did not finish, and why, in words.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,18 +44,7 @@ impl Report {
     pub fn thrown(objects: &Objects, thrown: &Thrown) -> Self {
         Report::Threw(match thrown {
             Thrown::Error { kind, message, .. } => format!("{}: {message}", kind.name()),
-            Thrown::Value { value, .. } => match value {
-                Value::Undefined => "undefined".to_owned(),
-                Value::Null => "null".to_owned(),
-                Value::Bool(is) => is.to_string(),
-                Value::Number(number) => numeric::text_of(*number),
-                Value::Text(held) => match objects.units(*held) {
-                    Some(units) => format!("{:?}", String::from_utf16_lossy(units)),
-                    None => "a string that has gone".to_owned(),
-                },
-                Value::Symbol(_) => "a symbol".to_owned(),
-                Value::Object(_) => "an object".to_owned(),
-            },
+            Thrown::Value { value, .. } => described::thrown(objects, *value),
         })
     }
 }
@@ -68,6 +62,7 @@ impl fmt::Display for Report {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alo_js::object::Value;
 
     #[test]
     fn a_report_says_which_of_the_three_it_is() {

@@ -809,6 +809,14 @@ unreachable without it.
       rendering steps and `requestAnimationFrame` (234); a page's fetched
       scripts (238); item 76 closes when 233 and 234 have
 - [ ] Errors and stack traces good enough to debug somebody else's minified page
+      · Built: **an uncaught error said by name and message** (queue item
+      239, `alo-renderer`'s `event_loop/described.rs`) — read from data
+      properties along the error's chain as `Error.prototype.toString` would
+      join them, with no getter called, no object converted and a page's own
+      `toString` not consulted; every string a report repeats cut at 1024
+      code units
+      · Owed: stack traces, source positions and a throw located in somebody
+      else's minified script (queue item 78); a non-error object described
 - [ ] Internationalisation (`Intl`), rented rather than written
 - [ ] Refused for now and recorded: a JIT, until there is a measured reason and an ADR weighing it against the attack surface it adds
       · Built: the recording, with its two conditions for re-opening named
