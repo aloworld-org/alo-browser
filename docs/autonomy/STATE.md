@@ -10757,3 +10757,148 @@ open questions above) and 234 (frames and `requestAnimationFrame`); item 76
 is not done. No page runs a job yet. 107 queue items are open (unchanged: 235
 added closed). Next unused queue number **236**; next ADR **0017**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 135 — queue item 236, cut from 233: a page's own scripts at load, under its policy
+
+The checkout was clean on entry at `38a3ccf`, with iteration 130's stash
+(`stash@{0}`) still left where it is — dropping it is a person's call. Read
+`CLAUDE.md`, the complete `docs/autonomy/LOOP.md`, `ROADMAP.md`'s conventions
+and its event-loop line, iterations 132–134, queue items 73–79 and 232–235,
+ADR 0016 in full, queue items 165 and 188 (CSP and its reporting), and the
+code the change touches: `alo-renderer`'s `renderer.rs`, `page.rs`,
+`message.rs`, `wire.rs`, `event_loop.rs` and its three files, `host.rs`'s
+patience bound and `a_renderer_that_stops_answering.rs`; `alo-dom`'s
+`sheets.rs`, `node.rs`, `document.rs` and `parse.rs`; `alo-net`'s `csp.rs`
+(`Policies`, `allows_inline`, `Content`); and html5ever's duplicate-attribute
+flag in `markup5ever`'s `ElementFlags`. ADR 0005 and ADR 0013 §§ 4–5 were read
+as ADR 0016 quotes them. No `AGENTS.md` exists in this repository. No sibling
+repository was read or modified.
+
+**Selection followed queue order and dependencies.** Nothing landed since
+iteration 134 that unblocks an earlier item, so every item before 76 keeps the
+blocker iterations 132–134 recorded; 75 depends on 76; 76 closes when 233 and
+234 have; 234 depends on 233. **233 was the first eligible item**: its
+dependency 235 is done, and iteration 134 wrote its two open questions into it
+as *the next cut's to settle*. Question (2) — the page's policy — needed
+nothing undecided: CSP is built (165), and `Policies::allows_inline` already
+takes a nonce and the content for a hash. Question (1) — the loop running
+between messages — and `Act` answered after its checkpoint cannot be closed by
+any test while no script runs in an `Act`'s task (no listener, item 81; no
+timer, 92). So, cutting scope and not depth, **item 236 is (2) and the
+`Renderer` holding the loop**, built and ticked here; 233 keeps (1) and the
+`Act` clause, now noted as depending on 81 or 92 for its closing condition.
+**No frozen page opened this**: the corpus has no page with a `<script>`, and
+the trigger is the one 76 inherited (the service worker). That is recorded
+rather than papered over; 238, which fetches scripts, is written to be opened
+by a frozen page.
+
+**What was built.** `alo-dom/src/scripts.rs`: `carried(document)` — HTML
+`<script>` elements and `<meta http-equiv="Content-Security-Policy">` in
+`<head>`, in one list in document order (a `<meta>` governs what follows it).
+HTML's *prepare the script element*: `type`, else `language` as `text/…`,
+else classic; the sixteen JavaScript MIME type essences without parameters;
+`module`; `importmap`; anything else a data block, left out; `nomodule` on a
+classic script skipped; `src` kept as written; a `<template>`'s and an SVG
+`<script>` left out; an empty script nothing, whitespace a script. A nonce is
+presented only where CSP's *is element nonceable* allows: no `<script` or
+`<style` in any attribute's name or value, and no repeated attribute — which
+the parser hides, so `Element::had_duplicate_attributes` now carries
+html5ever's own flag through `create_element`. `alo-renderer`: `Page::policies`
+— every enforced `Content-Security-Policy` header, filled by `from_response`,
+carried over the wire, parsed in the renderer by `alo-net`'s own rules
+(`Page::policies_of`). `scripts.rs`: `at_load` walks what the document
+carries, adds each `<meta>` policy to the headers as it passes it, asks each
+inline classic script `allows_inline(Inline::Script, nonce, Content::element)`,
+runs the allowed ones as one task each through a per-page `EventLoop`
+(created only when a script runs), and puts everything else into `Loaded`'s
+issues as `script N: …` — a refusal in the policy's words, a fetched script
+(238), a module or import map (77), every report, a stop, and every later
+script after a stop. `Renderer` holds `script: Option<EventLoop>`: a `Load`
+drops the last page's loop and runs the new page's scripts after rendering
+(no script can see the document, so the order relative to layout is not
+observable — item 80 changes that); a `Resize` re-renders through `lay_out`
+and runs nothing; `Renderer::event_loop` is a test accessor, not part of the
+boundary, as `rendered` is.
+
+**Evidence.** `crates/alo-renderer/tests/a_page_runs_its_scripts.rs`,
+twenty-one tests: order with each script's jobs and jobs' jobs before the next
+(`abcdefg`); throws in a script and in a job reported, an unparsable script
+reported, the next running; a stop (`Function.prototype.toString`, refused by
+name) stopping every later script; fetched, module and import-map scripts
+said; data blocks, `nomodule`, a template's script silent; four forbidding
+policies, four allowing ones (one a SHA-256 computed with `openssl` for the
+exact text), a hash of other text, two policies intersected, a nonce admitting
+only its own scripts, four injected-markup shapes refused, a `<meta>` policy
+governing only what follows, narrowing and never widening the header, and
+not counting outside `<head>`, an unreadable source refusing; a resize
+running nothing, proved by marking the realm; a new page's fresh realm and no
+loop for a page without script; **the page still laid out when its script
+throws — the paragraph's border box asserted as 184×20 at (8, 8)**; every
+prefix cut of a hostile page with scripts loading; and **an endless
+`while (true) {}` through the real renderer binary** given up on within eight
+times a 400 ms bound, with another site's renderer and the same site's next
+load working. `alo-dom`'s `scripts.rs` has eleven unit tests; the wire round
+trip now carries two policies; `page.rs` gained a test that report-only
+headers are not carried.
+
+**Doctored runs, eight attempted, seven counted**, each restored byte for
+byte (`cmp`) and the suite re-run green: `<meta>` policies ignored fails one;
+header policies ignored fails seven; a stop not honoured fails one; the
+duplicate-attribute rule removed fails one integration and one unit test;
+removing the per-load loop reset **by deleting a line passed** — the line is
+redundant with the assignment after it, so that was not a removal of the rule
+and is not counted; keeping the old loop when a page runs none fails one; a
+resize running the scripts again **first passed**, because a fresh realm
+re-running a script leaves the same `out` — the test was fixed to mark the
+existing realm and to make the script report, and it then fails one.
+
+**Found and not hidden.** A `TypeError` a script made is reported as
+`uncaught: an object`: `Report::thrown` may not run script and the engine has
+no call-free property read. The tests assert today's words with a comment, and
+the gap is **item 239**. My first test of an "unreadable" policy was wrong —
+`'sha256-not base64'` splits into several tokens and none is a hash, so
+`'unsafe-inline'` correctly stood, as it would in every browser; the test was
+replaced by misspelt-keyword and control-character sources, which refuse.
+
+**Roadmap.** The event-loop line's Built clause gains the `Renderer` holding a
+loop per page and a page's own scripts at load under its policy (item 236);
+its Owed clause names 233's remainder, 234 and 238. Not ticked.
+`docs/features.md` (event loop line), `CHANGELOG.md`, `REMAINING.md`, the
+module docs of `event_loop.rs`, and queue items 76, 233, 236–239 move with it.
+
+**Compliance review.** Law 1: nothing legacy; `nomodule` follows the
+specification for an engine with modules rather than running fallbacks.
+Law 2: unchanged; no script reaches the document or the agent tree. Law 3: no
+stub, `todo!` or `unwrap` outside tests; what is not run is said, by item;
+nothing claims speed. Law 4: no `unsafe`. ADR 0005: the renderer is handed
+the policy text, fetches nothing, and a runaway script is bounded by the
+browser process's existing patience — tested through the real binary. ADR
+0016 § 1: the loop is the renderer's, one per page; § 2: each script one
+task, oldest first; § 3: a checkpoint after each; § 7: a stopped page runs
+nothing more. CSP (item 165): a policy this engine cannot read stays stricter
+— parsing is `alo-net`'s alone, and unreadable sources were tested to refuse;
+an element's nonce is honoured only where *is element nonceable* allows.
+LOOP stage 2 § 2: a page and its scripts are hostile input — prefix cuts, an
+endless script, malformed nonces and policies. One file, one responsibility:
+what markup carries (`alo-dom/scripts.rs`) and which of it runs
+(`alo-renderer/scripts.rs`) are two files with two reasons to change; the
+renderer gained one field and one split (`lay_out`), not a second job. The
+layout assertion is in numbers; nothing paints differently — the corpus has
+no scripts and every reference render still matches, so no new reference
+render applies.
+
+**Gate.** `scripts/gate.sh` exited 0: formatting clean, clippy silent (two
+findings in the new test's helpers and one in `alo-dom` were fixed, not
+allowed), all workspace tests pass (2229 passed, 0 failed), nothing stubbed,
+`unsafe` forbidden, Exhibit A on every file, every rented crate behind its
+boundary, no coordinate verb, the supervisor's stop rule holds, `CHANGELOG.md`
+changed. `git diff --check` passes. The log was kept in this session's
+scratchpad, not committed.
+
+**Unresolved obligations.** Item 233 (the loop between messages, `Act` after
+its checkpoint — closable once 81 or 92 runs script in a task), 234 (frames),
+237 (report-only inline violations reported), 238 (fetched scripts), 239 (an
+error object said by name); item 76 is not done. No script can reach the
+document. 110 queue items are open (236 added closed; 237, 238 and 239 added
+open). Next unused queue number **240**; next ADR **0017**. This is one
+iteration, not a finished queue or roadmap.

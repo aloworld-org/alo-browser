@@ -77,6 +77,14 @@ pub struct Element {
     /// integration point. The parser asks us this back while parsing, so we
     /// have to remember what it told us.
     pub mathml_annotation_xml_integration_point: bool,
+    /// Whether the tag this came from named an attribute twice.
+    ///
+    /// The parser keeps the first and drops the rest, so the tree cannot show
+    /// it — and Content Security Policy needs to know: an element whose markup
+    /// repeated an attribute is the shape a dangling injection leaves when it
+    /// swallows a real tag's `nonce`, so such an element's nonce is not
+    /// honoured.
+    pub had_duplicate_attributes: bool,
 }
 
 impl Element {
@@ -218,6 +226,7 @@ mod tests {
             attrs: vec![Attribute::plain("type", "text")],
             template_contents: None,
             mathml_annotation_xml_integration_point: false,
+            had_duplicate_attributes: false,
         };
         assert_eq!(element.attr("type"), Some("text"));
         assert_eq!(element.attr("value"), None);

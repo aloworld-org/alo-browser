@@ -60,6 +60,7 @@ pub mod document;
 pub mod name;
 pub mod node;
 pub mod parse;
+pub mod scripts;
 pub mod serialize;
 pub mod sheets;
 

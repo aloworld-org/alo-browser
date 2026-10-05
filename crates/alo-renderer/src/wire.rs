@@ -268,6 +268,10 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
                 ColorScheme::Light => 0,
                 ColorScheme::Dark => 1,
             });
+            writer.number(page.policies.len() as u64);
+            for policy in &page.policies {
+                writer.text(policy);
+            }
         }
         ToRenderer::Resize(size) => {
             writer.tag(1);
@@ -790,11 +794,17 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
                 1 => ColorScheme::Dark,
                 other => return Err(unreadable(format!("a colour scheme tagged {other}"))),
             };
+            let how_many = reader.count()?;
+            let mut policies = Vec::new();
+            for _ in 0..how_many {
+                policies.push(reader.text()?);
+            }
             ToRenderer::Load(Box::new(Page {
                 html,
                 sheets,
                 viewport,
                 scheme,
+                policies,
             }))
         }
         1 => ToRenderer::Resize(Size {

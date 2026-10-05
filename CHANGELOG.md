@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's own scripts now run.** When a page loads, each script written
+  into it runs in the order the page wrote them, and the small follow-up jobs
+  a script queues run before the next script starts. Scripts run only where
+  the page's own Content Security Policy allows them — from the response's
+  headers or from a `<meta>` tag written before the script — and a nonce
+  counts only on markup an injection could not have produced. A script that
+  is fetched from elsewhere, a module, or one the policy refused is named in
+  what the load reports. Resizing does not run anything again, and each page
+  starts with fresh globals. A script that never finishes costs only its own
+  renderer, which the browser gives up on. Scripts cannot reach the page's
+  document yet.
+
 - **The part of the browser that renders a page now has an event loop.** It
   keeps the page's waiting work in one queue and always runs the oldest piece
   next. After every piece of script it runs the small follow-up jobs that

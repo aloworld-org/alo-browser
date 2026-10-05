@@ -3068,6 +3068,9 @@ The long pole, and the thing most of section E is unreachable without.
   **item 233**; the rendering steps and `requestAnimationFrame` are **item
   234**. This item closes when 233 and 234 have, against its own table.
   **Iteration 134 cut 233 again**: the loop itself is **item 235**, built.
+  **Iteration 135 cut 233 a third time**: the `Renderer` holding a loop per
+  page and running a page's own scripts at load under its policy is **item
+  236**, built.
 
 - [x] **232. The engine's half of the event loop: the job queue and the
   checkpoint.** *Cut from 76 (iteration 133); ADR 0016 §§ 1, 3, 4 and 7.*
@@ -3132,6 +3135,14 @@ The long pole, and the thing most of section E is unreachable without.
   response (83) exists to carry script otherwise. Both are the next cut's to
   settle, before `Act` can be shown answered after its jobs.
   *Depends on 235.*
+  **Iteration 135 settled (2) and cut it out as item 236**, built: the
+  `Renderer` holds one loop per page, and a page's own inline classic scripts
+  run at load under its policy. What is left here is (1) — the loop running
+  between messages for tasks a page queues for itself — and `Act` answered
+  after its checkpoint, which needs a script that runs in an `Act`'s task:
+  a listener (item 81) or a timer (92). Neither exists, so neither question
+  has a test that could close it yet. *Depends on 81 or 92 for its closing
+  condition.*
 
 - [x] **235. The renderer's event loop itself: tasks, their order, and the
   checkpoint after each piece of script.** *Cut from 233 (iteration 134);
@@ -3167,6 +3178,81 @@ The long pole, and the thing most of section E is unreachable without.
   and in an endless requeue, with tasks, jobs and roots dropped; a noisy
   quiet point; every prefix cut of a script that queues. Each table runs
   ordinarily and with the collector at every allocation.
+
+- [x] **236. A page's own scripts at load, under its policy, through its
+  loop.** *Cut from 233 (iteration 135); ADR 0016 §§ 1, 2, 3 and 7; CSP as
+  item 165 built it. Depends on 235 and 165.* `alo-dom/src/scripts.rs` reads
+  what a document carries — HTML `<script>` elements and `<meta
+  http-equiv="Content-Security-Policy">` in `<head>`, in one list in document
+  order — with HTML's *prepare the script element* rules for the type
+  (`type`, then `language`, JavaScript MIME type essences without
+  parameters, `module`, `importmap`, everything else a data block), `nomodule`
+  skipped, `src` kept as written, a `<template>`'s and SVG's scripts left out;
+  and a script's nonce only where CSP's *is element nonceable* allows (no
+  `<script`/`<style` in an attribute's name or value, no repeated attribute —
+  which the parser's flag now reaches `Element::had_duplicate_attributes`
+  for). `Page::policies` carries every enforced `Content-Security-Policy`
+  header across the boundary (and the wire), parsed in the renderer by
+  `alo-net`'s own rules. `alo-renderer/src/scripts.rs` asks each inline
+  classic script of the response's policies and every `<meta>` policy before
+  it, runs the allowed ones as one task each through a per-page `EventLoop`,
+  and says everything else in `Loaded`'s issues: a refusal in the policy's
+  words, a fetched script (238), a module or import map (77), each throw and
+  report, and every script after one that stopped the page. A `Resize` lays
+  out again and runs nothing; a new `Load` drops the last page's loop.
+  *Closed by:* `crates/alo-renderer/tests/a_page_runs_its_scripts.rs`,
+  twenty-one tests — document order with each script's jobs (and jobs'
+  jobs) before the next; throws in a script and a job reported, a script
+  that does not parse, the next script running; a stopped page stopping
+  every later script; fetched, module and import-map scripts said; data
+  blocks, `nomodule` and a template's script not run; a policy forbidding
+  inline script by `script-src`, `default-src`, `'none'` and a nonce
+  retiring `'unsafe-inline'`; `'unsafe-inline'`, a hash, an unrelated
+  directive allowing it; a hash of other text refused; two policies
+  intersected; a nonce letting in only its scripts; four injected-markup
+  shapes refused; a `<meta>` governing only what follows it, narrowing the
+  header and never widening it, and not counting outside `<head>`; an
+  unreadable source refusing; a resize running nothing (the realm marked);
+  a new page's fresh realm and no loop for a page without script; the page
+  still laid out, in numbers, when its script throws; every prefix cut of a
+  hostile page loading; and an endless script through the real renderer
+  binary given up on within its bound while another site's renderer and the
+  same site's next load work. `alo-dom`'s `scripts.rs` has eleven unit tests;
+  the wire round trip carries two policies.
+
+- [ ] **237. A report-only policy told about inline script it would have
+  refused.** *Cut from 236.* The renderer obeys only enforced policies, and
+  `Page` carries only those: a `Content-Security-Policy-Report-Only` forbids
+  nothing, and the violation report it asks for has to be posted, which a
+  renderer cannot do (ADR 0005). `Policies::inline_violations` already makes
+  the violation; what is missing is the renderer saying it and the browser
+  process posting it (item 188's `Pool::report`). *Depends on 236 and 188.
+  Closes when:* a page loaded under a report-only `script-src 'none'` runs
+  its inline script and the browser process posts one report naming
+  `script-src` and `inline`, and an enforced refusal is reported the same
+  way.
+
+- [ ] **238. A page's fetched classic scripts.** *Cut from 236.* A `<script
+  src>` is said not to have run, because a renderer cannot fetch and nothing
+  hands it the text. The browser process fetching each one — under the
+  page's policy with the element's nonce, mixed-content and CORS rules for
+  `crossorigin` — and the renderer running them in HTML's order, with
+  `defer` and `async` meaning what they say, is this item. *Depends on 236
+  and 53; opened by a frozen page whose script is fetched. Closes when:* a
+  frozen page's linked script runs in document order between its inline
+  ones, one its policy refuses is not fetched at all, and a fetch that fails
+  is said and the next script runs.
+
+- [ ] **239. A thrown error object said by its name and message.** *Cut from
+  236.* A `TypeError` a script made and nothing caught is reported as
+  `uncaught: an object`, because `Report::thrown` may not run script and the
+  engine has no way to read a property without possibly calling a getter.
+  An error object (`Objects::is_error`) whose `name` and `message` are data
+  properties on it or its prototype chain can be described without a call;
+  one whose are accessors says so. *Depends on 235 and 227. Closes when:* an
+  uncaught `new TypeError('x')` is reported `TypeError: x`, a subclass-like
+  object whose `name` was reassigned uses the new name, and a `message`
+  getter is never called.
 
 - [ ] **234. The rendering steps and `requestAnimationFrame`.** *Cut from 76
   (iteration 133); ADR 0016 § 5. Depends on 233.* A frame is a message from

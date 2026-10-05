@@ -52,12 +52,13 @@
 //!
 //! **Nothing in a page queues a task yet.** A timer firing is item 92, an
 //! event dispatched to listeners is item 81 and a response is item 83; each
-//! will queue through [`EventLoop::queue_calls`]. And the [`Renderer`]
-//! does not hold a loop yet: its messages becoming tasks, an `Act` answered
-//! only after its task's checkpoint, and the scripts a page carries are queue
-//! item 233. A ceiling on waiting tasks (ADR 0016's *the numbers*) arrives with
-//! the first task a page can queue for itself; today every task is queued by
-//! the renderer.
+//! will queue through [`EventLoop::queue_calls`]. The [`Renderer`] holds one
+//! loop per page and queues a task for each of the page's own scripts as it
+//! loads ([`crate::scripts`], item 236); the loop running between messages,
+//! for tasks a page queued itself, and an `Act` answered after its task's
+//! checkpoint are queue item 233. A ceiling on waiting tasks (ADR 0016's *the
+//! numbers*) arrives with the first task a page can queue for itself; today
+//! every task is queued by the renderer.
 //!
 //! [`Renderer`]: crate::Renderer
 

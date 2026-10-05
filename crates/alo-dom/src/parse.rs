@@ -265,6 +265,7 @@ impl TreeSink for Sink {
             attrs: from_attrs(attrs),
             template_contents,
             mathml_annotation_xml_integration_point: flags.mathml_annotation_xml_integration_point,
+            had_duplicate_attributes: flags.had_duplicate_attributes,
         }))
     }
 

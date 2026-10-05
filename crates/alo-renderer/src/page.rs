@@ -28,6 +28,22 @@ pub struct Page {
     pub viewport: Size,
     /// Light or dark, which the browser process knows and a page does not.
     pub scheme: ColorScheme,
+    /// Every `Content-Security-Policy` header the response carried, as it
+    /// carried them.
+    ///
+    /// The renderer is where a page's inline script is found and run, so it is
+    /// where the page's policy has to be asked whether it may be (queue item
+    /// 236) — running a page's script without its policy would be running
+    /// script its author forbade. The text crosses rather than a parsed
+    /// policy, and the renderer parses it with the same `alo-net` rules the
+    /// browser process uses: a policy is a stranger's sentence either way, and
+    /// the rule that one this engine cannot read makes things stricter lives in
+    /// one place.
+    ///
+    /// Only the enforced header. A report-only policy forbids nothing, and
+    /// telling its author about inline script it would have refused is a
+    /// report the renderer has no channel to send (queue item 237).
+    pub policies: Vec<String>,
 }
 
 impl Page {
@@ -41,6 +57,7 @@ impl Page {
             sheets: Vec::new(),
             viewport,
             scheme: ColorScheme::Light,
+            policies: Vec::new(),
         }
     }
 
@@ -49,6 +66,31 @@ impl Page {
     pub fn with_sheet(mut self, css: impl Into<String>) -> Self {
         self.sheets.push(css.into());
         self
+    }
+
+    /// The same page under one more `Content-Security-Policy`.
+    #[must_use]
+    pub fn with_policy(mut self, policy: impl Into<String>) -> Self {
+        self.policies.push(policy.into());
+        self
+    }
+
+    /// The policies this page is under, parsed.
+    ///
+    /// Each header is its own policy and a page is under all of them at once —
+    /// an intersection, so a second header can only narrow the first.
+    pub fn policies(&self) -> alo_net::Policies {
+        Self::policies_of(&self.policies)
+    }
+
+    /// Policies' text, parsed as though each were a `Content-Security-Policy`
+    /// header — which is also what a `<meta>` policy is read as.
+    pub fn policies_of(texts: &[String]) -> alo_net::Policies {
+        let mut headers = alo_net::Headers::new();
+        for policy in texts {
+            headers.add("Content-Security-Policy", policy.as_str());
+        }
+        alo_net::Policies::stated_by(&headers)
     }
 
     /// The same page in the dark.
@@ -72,6 +114,11 @@ impl Page {
             sheets: Vec::new(),
             viewport,
             scheme: ColorScheme::Light,
+            policies: response
+                .headers
+                .all("Content-Security-Policy")
+                .map(ToOwned::to_owned)
+                .collect(),
         }
     }
 }
@@ -104,6 +151,30 @@ mod tests {
                 .get(1)
                 .is_some_and(|sheet| sheet.contains("blue"))
         );
+    }
+
+    #[test]
+    fn a_page_is_under_every_policy_its_response_stated_and_no_other() {
+        let url = alo_url::parse("https://example.com/").expect("a URL");
+        let mut response = alo_net::Response::ok(url, b"<p>hello</p>".to_vec());
+        response
+            .headers
+            .add("Content-Security-Policy", "script-src 'self'");
+        response
+            .headers
+            .add("Content-Security-Policy", "default-src 'none'");
+        response
+            .headers
+            .add("Content-Security-Policy-Report-Only", "script-src 'none'");
+        let page = Page::from_response(&response, Size::new(1.0, 1.0));
+        assert_eq!(
+            page.policies,
+            vec![
+                "script-src 'self'".to_owned(),
+                "default-src 'none'".to_owned()
+            ],
+        );
+        assert_eq!(page.policies().len(), 2);
     }
 
     #[test]

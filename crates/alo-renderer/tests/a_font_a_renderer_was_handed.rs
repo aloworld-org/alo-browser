@@ -58,6 +58,7 @@ fn a_page() -> ToRenderer {
             height: 60.0,
         },
         scheme: ColorScheme::Light,
+        policies: Vec::new(),
     }))
 }
 
@@ -405,6 +406,7 @@ fn a_page_is_drawn_with_a_font_that_came_from_this_machine() {
                 height: 60.0,
             },
             scheme: ColorScheme::Light,
+            policies: Vec::new(),
         })),
     );
     assert!(

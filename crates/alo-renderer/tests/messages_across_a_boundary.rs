@@ -83,6 +83,10 @@ fn every_message_to_a_renderer_survives_the_crossing() {
                 height: 600.0,
             },
             scheme: ColorScheme::Dark,
+            policies: vec![
+                "script-src 'self' 'nonce-abc'".to_owned(),
+                "default-src 'none'".to_owned(),
+            ],
         })),
         ToRenderer::Resize(Size {
             width: 320.5,

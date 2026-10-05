@@ -130,6 +130,7 @@ fn a_renderer_that_renders_was_confined_before_it_read_anything() {
                 height: 50.0,
             },
             scheme: ColorScheme::Light,
+            policies: Vec::new(),
         })),
     );
     assert!(

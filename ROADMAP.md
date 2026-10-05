@@ -789,11 +789,18 @@ unreachable without it.
       run oldest first, a task's script held by one root, a checkpoint after
       every script and every listener call, `queueMicrotask` on the global
       object, a throw reported and the loop running on, a stopped page's
-      tasks, roots and jobs dropped, and the quiet point between tasks checked
-      · Owed: the `Renderer` holding that loop — each `ToRenderer` message a
-      task, `Act` answered after its checkpoint, and the scripts a page
-      carries run under its policy (queue item 233) — and the rendering steps
-      and `requestAnimationFrame` (234); item 76 closes when both have
+      tasks, roots and jobs dropped, and the quiet point between tasks checked;
+      and **the `Renderer` holding one loop per page** (queue item 236) — a
+      page's own inline classic scripts run as it loads, in document order,
+      each a task with its checkpoint, each asked first of the page's
+      `Content-Security-Policy` (the response's headers, carried in `Page`, and
+      every `<meta>` policy in `<head>` before it, with nonces only from markup
+      CSP calls nonceable); a resize runs nothing again and a new page gets a
+      new realm
+      · Owed: the loop running between messages for tasks a page queues
+      itself, and `Act` answered after its checkpoint (queue item 233); the
+      rendering steps and `requestAnimationFrame` (234); a page's fetched
+      scripts (238); item 76 closes when 233 and 234 have
 - [ ] Errors and stack traces good enough to debug somebody else's minified page
 - [ ] Internationalisation (`Intl`), rented rather than written
 - [ ] Refused for now and recorded: a JIT, until there is a measured reason and an ADR weighing it against the attack surface it adds

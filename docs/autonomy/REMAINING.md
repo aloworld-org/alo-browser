@@ -107,6 +107,19 @@ renderer to run its own due tasks outside a message's answer, and the page's
 107 queue items are open (235 added closed); the next unused queue number is
 236 and the next unused ADR 0017.
 
+Iteration 135 settled the second of those and built it as item 236: the
+`Renderer` holds one `EventLoop` per page, `Page` carries the response's
+enforced `Content-Security-Policy` headers across the boundary, and a page's
+own inline classic scripts run at load in document order, each a task with
+its checkpoint, each asked first of the headers and of every `<meta>` policy
+in `<head>` before it (`alo-dom`'s `scripts.rs` reads both, with CSP's
+nonceable rule). 233 keeps the loop running between messages and `Act`
+answered after its checkpoint, which no test can close until a listener (81)
+or a timer (92) runs script in an `Act`'s task. Cut alongside: 237
+(report-only inline violations reported), 238 (fetched scripts), 239 (a thrown
+error object said by name and message). 110 queue items are open; the next
+unused queue number is 240 and the next unused ADR 0017.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

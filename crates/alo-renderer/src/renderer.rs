@@ -16,13 +16,28 @@
 //! Fonts are the interesting case: a sandboxed renderer cannot open a font
 //! file, so in the split they are handed to it by the browser process. They
 //! are a constructor argument here for that reason rather than for tidiness.
+//!
+//! # A page's script
+//!
+//! Each page loaded gets its own [`EventLoop`], and so its own engine and
+//! realm: a renderer serves one site (ADR 0005), and the globals one of its
+//! pages left behind are not the next page's to find. A `Load` is one task
+//! per script the page carries (ADR 0016 § 2, [`crate::scripts`]), and its
+//! answer comes after every one of them and their jobs. A `Resize` lays the
+//! same page out again **without** running its script a second time.
+//!
+//! What is not here yet is the loop running between messages — a task a
+//! page queues for itself has no idle moment to run in, and an `Act` runs no
+//! script because nothing listens for one (queue items 233 and 81).
 
+use crate::event_loop::EventLoop;
 use crate::face::Face;
 use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::pipeline::{Rendered, render, render_document};
+use crate::scripts;
 use crate::snapshot::Snapshot;
 use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Target, Verb};
@@ -37,6 +52,8 @@ pub struct Renderer {
     page: Option<Page>,
     /// What the last render produced.
     rendered: Option<Rendered>,
+    /// The page's event loop, once a script of its has run.
+    script: Option<EventLoop>,
 }
 
 impl Renderer {
@@ -46,6 +63,7 @@ impl Renderer {
             fonts,
             page: None,
             rendered: None,
+            script: None,
         }
     }
 
@@ -100,7 +118,7 @@ impl Renderer {
             ToRenderer::UseGenerics(generics) => self.use_generics(&generics),
             ToRenderer::Load(page) => self.load(*page),
             ToRenderer::Resize(viewport) => match self.page.clone() {
-                Some(page) => self.load(Page { viewport, ..page }),
+                Some(page) => self.lay_out(Page { viewport, ..page }),
                 None => FromRenderer::Failed(Failure::NothingLoaded),
             },
             ToRenderer::Paint => self.paint(),
@@ -118,6 +136,14 @@ impl Renderer {
     /// tests stay single-process.
     pub fn rendered(&self) -> Option<&Rendered> {
         self.rendered.as_ref()
+    }
+
+    /// The loaded page's event loop, if any script of its ran, for a test that
+    /// reads what the script left behind.
+    ///
+    /// Not part of the boundary, for the reason [`Renderer::rendered`] is not.
+    pub fn event_loop(&mut self) -> Option<&mut EventLoop> {
+        self.script.as_mut()
     }
 
     /// Decide what a verb does, carry it into the document, and render again.
@@ -170,7 +196,32 @@ impl Renderer {
         FromRenderer::Acted(outcome)
     }
 
+    /// A new page: rendered, and then its scripts run, each a task.
+    ///
+    /// The loop the last page ran in goes with it, whatever this page turns
+    /// out to carry.
     fn load(&mut self, page: Page) -> FromRenderer {
+        self.script = None;
+        let mut said = Vec::new();
+        let answer = self.lay_out(page);
+        if let (Some(rendered), Some(page)) = (&self.rendered, &self.page) {
+            self.script = scripts::at_load(&rendered.document, page, &mut said);
+        }
+        match answer {
+            FromRenderer::Loaded { mut issues, wanted } => {
+                issues.append(&mut said);
+                FromRenderer::Loaded { issues, wanted }
+            }
+            other => other,
+        }
+    }
+
+    /// Render a page and keep it, running none of its script.
+    ///
+    /// The document is parsed again each time, which is safe only while no
+    /// script can change one: once one can (queue item 80), a resize lays out
+    /// the document the page has rather than the markup it arrived as.
+    fn lay_out(&mut self, page: Page) -> FromRenderer {
         let sheets = page.sheets.join("\n");
         let rendered = render(&page.html, &sheets, page.viewport, &self.fonts);
         let issues = rendered.issues();
