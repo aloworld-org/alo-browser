@@ -567,7 +567,12 @@ for (( i = 1; i <= wanted; i++ )); do
     # cannot hide a hung worker, and no provider-private transcript path is used.
     bytes=$(wc -c < "$transcript")
     cpu=$(tree_cpu "$worker")
-    if [ "$bytes" -ne "$previous_bytes" ] || [ "$cpu" -gt "$previous_cpu" ]; then
+    # Changed, in either direction, rather than grown. A tree's total falls
+    # when a child exits, and a child exiting is work finishing, not a worker
+    # hanging — measured on a live tree, which went from 16 to 13 hundredths
+    # across eight seconds as the gate's processes came and went. Only a
+    # frozen set of processes burning a frozen amount is doing nothing.
+    if [ "$bytes" -ne "$previous_bytes" ] || [ "$cpu" -ne "$previous_cpu" ]; then
       newest=$now
     fi
     previous_bytes=$bytes

@@ -10026,3 +10026,41 @@ this guard exists to avoid is killing honest long work on a timer.
 which is not a completable unit, so it was stashed rather than finished or
 thrown away, and the next iteration will take the item properly.
 
+---
+
+## Iteration 128 — a tree's processor time goes down as well as up
+
+Not a queue item. A defect in iteration 127, found by watching the thing it
+had just built instead of trusting it.
+
+Eight seconds of sampling a live worker tree returned **16 hundredths of a
+processor second, then 13**. The total fell. `tree_cpu` sums only processes
+that are alive, so when a child exits its time leaves the total with it — and
+the gate spawns and reaps children constantly.
+
+The rule said a worker was working when its processor time had *grown*. So a
+poll in which a busy child finished read as a worker doing nothing.
+
+**The rule is now "changed", not "grown".** A total that falls means a child
+exited, and a child exiting is work finishing. Only a frozen set of processes
+burning a frozen amount is doing nothing.
+
+**What this did and did not risk.** It could not have caused a wrongful kill.
+A fall resets the baseline lower, so the next poll sees growth again and the
+window clears; at worst a genuine hang was noticed one poll late. The honest
+description is a rule that was wrong about what it was measuring while
+arriving at acceptable answers — which is the kind of thing that stays wrong
+until it meets a case it cannot absorb.
+
+**Test coverage, stated accurately.** The `busy` and `timeout` pair still
+covers the two directions that matter: no bytes with processor time survives,
+no bytes without it is killed. The falling-total case is **not** covered by a
+fixture case. I could not construct one that isolates a decrease-only window
+without depending on process timings fine enough to be flaky, and a flaky
+check in the gate is worse than an honest gap. This change rests on a
+measurement on a real tree and on the reasoning above, and that is recorded
+here rather than implied by a green suite.
+
+**Cost of the interruption.** The loop was thirty seconds into an iteration
+with a clean tree; nothing was lost.
+
