@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An iteration no longer loses its work by waiting on its own gate.** A
+  worker that started the gate in the background and then spent its remaining
+  turns waiting for it ended while waiting, leaving a finished item
+  uncommitted and never reading the one error the gate had found. Workers are
+  now told to run it in the foreground.
+
 - **A page's markup can no longer make its own load report unsendable.**
   The other half of the report — what the page's markup, style sheets,
   pictures and fonts made the engine say — had no ceiling, and it could say

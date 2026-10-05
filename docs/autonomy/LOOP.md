@@ -311,6 +311,12 @@ exits 8; 2 stays for the things a person typed wrongly, including an expired
 login, because "that flag is a typo" and "this machine has nothing to run an
 iteration with" are different things to go and fix.
 
+**Run the gate in the foreground.** An iteration that starts it in the
+background and then waits for it spends its remaining turns holding a door
+open, and when the session ends the work is uncommitted and the gate's answer
+is never read. That is not hypothetical: iteration 140 was recovered by hand
+for exactly this, and the one error it never saw was a real one.
+
 **Start with `--items 5`.** "Run until the queue is empty" is a large thing to
 agree to on faith, and it is the same loop either way — only the number differs.
 Five iterations is enough to see what it does to the repository and to read the
