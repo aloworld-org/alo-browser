@@ -40,10 +40,19 @@ pub struct Page {
     /// the rule that one this engine cannot read makes things stricter lives in
     /// one place.
     ///
-    /// Only the enforced header. A report-only policy forbids nothing, and
-    /// telling its author about inline script it would have refused is a
-    /// report the renderer has no channel to send (queue item 237).
+    /// Only the enforced header: a report-only policy forbids nothing, and is
+    /// [`Page::watching`].
     pub policies: Vec<String>,
+    /// Every `Content-Security-Policy-Report-Only` header, as it was carried.
+    ///
+    /// It forbids nothing, so nothing here decides whether a script runs by
+    /// it. It crosses because its author still wants to be told what it
+    /// *would* have refused — the whole point of watching a policy for a week
+    /// before enforcing it — and only the renderer sees the inline script it
+    /// would have refused. The renderer names the objecting policy by its
+    /// place ([`Page::stated`]); the browser process writes and posts the
+    /// report (queue item 237, [`crate::violations`]).
+    pub watching: Vec<String>,
 }
 
 impl Page {
@@ -58,6 +67,7 @@ impl Page {
             viewport,
             scheme: ColorScheme::Light,
             policies: Vec::new(),
+            watching: Vec::new(),
         }
     }
 
@@ -73,6 +83,32 @@ impl Page {
     pub fn with_policy(mut self, policy: impl Into<String>) -> Self {
         self.policies.push(policy.into());
         self
+    }
+
+    /// The same page with one more `Content-Security-Policy-Report-Only`.
+    #[must_use]
+    pub fn watched_by(mut self, policy: impl Into<String>) -> Self {
+        self.watching.push(policy.into());
+        self
+    }
+
+    /// Every policy the response's headers stated, enforced and watched, in
+    /// the order [`alo_net::Policies::stated_by`] reads them.
+    ///
+    /// **The list a violation is named against.** A renderer says *the policy
+    /// at this place objected* and the browser process, holding the same
+    /// page, reads the same place in the same list — so both must be made by
+    /// this one function from the same two fields, and a `<meta>` policy,
+    /// which only the renderer has seen, is never in it.
+    pub fn stated(&self) -> alo_net::Policies {
+        let mut headers = alo_net::Headers::new();
+        for policy in &self.policies {
+            headers.add("Content-Security-Policy", policy.as_str());
+        }
+        for policy in &self.watching {
+            headers.add("Content-Security-Policy-Report-Only", policy.as_str());
+        }
+        alo_net::Policies::stated_by(&headers)
     }
 
     /// The policies this page is under, parsed.
@@ -117,6 +153,11 @@ impl Page {
             policies: response
                 .headers
                 .all("Content-Security-Policy")
+                .map(ToOwned::to_owned)
+                .collect(),
+            watching: response
+                .headers
+                .all("Content-Security-Policy-Report-Only")
                 .map(ToOwned::to_owned)
                 .collect(),
         }
@@ -175,6 +216,16 @@ mod tests {
             ],
         );
         assert_eq!(page.policies().len(), 2);
+        assert_eq!(
+            page.watching,
+            vec!["script-src 'none'".to_owned()],
+            "a report-only policy was enforced or lost",
+        );
+        assert_eq!(
+            page.stated().len(),
+            3,
+            "the list a violation is named against left one out"
+        );
     }
 
     #[test]

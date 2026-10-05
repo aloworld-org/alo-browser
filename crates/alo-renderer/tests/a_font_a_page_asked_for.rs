@@ -57,6 +57,7 @@ fn asking_for(family: &str) -> ToRenderer {
         },
         scheme: ColorScheme::Light,
         policies: Vec::new(),
+        watching: Vec::new(),
     }))
 }
 
@@ -80,7 +81,7 @@ fn a_renderer_says_which_family_it_wanted_and_did_not_have() {
     let site = Site::of(&url("https://example.com/"));
 
     let answer = renderers.ask(&site, &asking_for(NOWHERE));
-    let Ok(FromRenderer::Loaded { issues, wanted }) = answer else {
+    let Ok(FromRenderer::Loaded { issues, wanted, .. }) = answer else {
         panic!("the page did not load: {answer:?}");
     };
     assert!(
@@ -105,7 +106,7 @@ fn a_family_a_renderer_already_holds_is_wanted_by_nobody() {
     let site = Site::of(&url("https://example.com/"));
 
     let answer = renderers.ask(&site, &asking_for(&family));
-    let Ok(FromRenderer::Loaded { issues, wanted }) = answer else {
+    let Ok(FromRenderer::Loaded { issues, wanted, .. }) = answer else {
         panic!("the page did not load: {answer:?}");
     };
     assert!(
@@ -151,7 +152,7 @@ fn the_browser_process_answers_with_a_family_the_machine_has() {
     // second time is the *caller's* decision, which is why `supply` does not
     // do it — see its own documentation.
     let answer = renderers.ask(&site, &asking_for(&family));
-    let Ok(FromRenderer::Loaded { issues, wanted }) = answer else {
+    let Ok(FromRenderer::Loaded { issues, wanted, .. }) = answer else {
         panic!("the page did not load a second time: {answer:?}");
     };
     assert!(

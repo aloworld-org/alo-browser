@@ -62,6 +62,7 @@ pub mod serve;
 pub mod site;
 pub mod snapshot;
 pub mod tab;
+pub mod violations;
 pub mod wire;
 
 pub use event_loop::EventLoop;

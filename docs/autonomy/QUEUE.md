@@ -3220,7 +3220,7 @@ The long pole, and the thing most of section E is unreachable without.
   same site's next load work. `alo-dom`'s `scripts.rs` has eleven unit tests;
   the wire round trip carries two policies.
 
-- [ ] **237. A report-only policy told about inline script it would have
+- [x] **237. A report-only policy told about inline script it would have
   refused.** *Cut from 236.* The renderer obeys only enforced policies, and
   `Page` carries only those: a `Content-Security-Policy-Report-Only` forbids
   nothing, and the violation report it asks for has to be posted, which a
@@ -3231,6 +3231,57 @@ The long pole, and the thing most of section E is unreachable without.
   its inline script and the browser process posts one report naming
   `script-src` and `inline`, and an enforced refusal is reported the same
   way.
+  **Done (iteration 136), both clauses.** `Page::watching` carries the
+  report-only headers (and the wire), and `Page::stated` is the one list —
+  every header policy, both dispositions, in `Policies::stated_by`'s order —
+  that a violation is named against. The renderer asks each inline classic
+  script of that list (`Policies::objecting_to_inline`) and answers
+  `Loaded::objections`: a policy's **place** and the content's kind, never a
+  report — a renderer is the process a hostile page may be steering, and a
+  report it wrote could name any collector. The browser process's half is
+  `alo-renderer/src/violations.rs`: `reports(page, about, objections)` writes
+  each report from its own copy of the headers with
+  `Policies::inline_violation_of`, which builds the violation from the policy
+  alone (nothing in an inline refusal depends on the content —
+  `Policy::refuses_some_inline` was factored out of `objects_to_inline` to say
+  so) and answers `None` for a place with no policy or a policy that lets every
+  inline script in, which is said as *disbelieved* rather than posted. At most
+  `MOST_OBJECTIONS` (64) per load: the renderer stops there and says how many
+  it left out, the wire refuses a load claiming more, and `reports` takes no
+  more. A watched objection to a script that runs is also said in the issues.
+  A `<meta>` policy's objections do not cross (CSP drops `report-uri` from
+  markup, and the browser process has not seen the markup): item 240.
+  *Closed by:* `crates/alo-renderer/tests/a_policys_author_is_told.rs`, ten
+  tests — the two closing clauses through the real `alo-render` binary in a
+  tab, `violations::reports` and `Pool::report` to a loopback collector
+  (`script-src`, `inline`, `report` / `enforce`, the document's URL), with the
+  script's running asserted in-process; `report-to` resolved against the
+  response's own `Reporting-Endpoints`; only the objecting policy named; nonce
+  and hash allowed scripts not objected to; each script and each policy its
+  own objection; a `<meta>` refusal obeyed and not passed on; no objection
+  after the page stopped; seventy scripts carrying 64 objections and saying
+  six left out; every prefix cut of a page with three policies objecting only
+  to policies the browser process believes. `violations.rs` has four unit
+  tests (the browser's own copy, a claim that could not have happened, the
+  flood, a page with no policy), `csp.rs` three (places agree with
+  `inline_violations`, a policy that could not have objected, a hash's part
+  in a refusal written from a place), the wire two (a flood refused whole, a
+  strange kind tag and trailing bytes refused) and its round trips carry
+  `watching` and objections.
+
+- [ ] **240. A `<meta>` policy's `report-to`.** *Cut from 237.* CSP removes
+  `report-uri`, `frame-ancestors` and `sandbox` from a policy delivered in a
+  `<meta>` element, but not `report-to`, so a page's markup can still ask for
+  violations to be reported to a group its response's `Reporting-Endpoints`
+  defined. The browser process has never seen the markup, so it cannot name
+  such a policy by place the way item 237 names a header's, and a policy text
+  the renderer sends is the page talking. Deciding what the browser process may
+  accept — the policy's text as `original-policy`, an endpoint only from its
+  own headers — is this item. *Depends on 237. Closes when:* a page whose
+  `<meta>` policy says `script-src 'none'; report-to g` under a response
+  defining `g` gets one report posted to `g`'s URL, a `<meta>` `report-uri` is
+  never posted to, and a group the response did not define posts nothing.
+  Opened by a frozen page that does it, and not before.
 
 - [ ] **238. A page's fetched classic scripts.** *Cut from 236.* A `<script
   src>` is said not to have run, because a renderer cannot fetch and nothing

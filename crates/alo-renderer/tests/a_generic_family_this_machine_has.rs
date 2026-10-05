@@ -77,6 +77,7 @@ fn asking_for(family: &str) -> ToRenderer {
         },
         scheme: ColorScheme::Light,
         policies: Vec::new(),
+        watching: Vec::new(),
     }))
 }
 
@@ -98,7 +99,7 @@ fn a_renderer_is_told_what_the_generics_mean_when_it_is_given_its_fonts() {
     // The very first thing asked of it is a page written in a generic, and it
     // can already answer — so the mapping arrived before any page did.
     let answer = renderers.ask(&site, &asking_for("sans-serif"));
-    let Ok(FromRenderer::Loaded { issues, wanted }) = answer else {
+    let Ok(FromRenderer::Loaded { issues, wanted, .. }) = answer else {
         panic!("the page did not load: {answer:?}");
     };
     assert!(
@@ -119,7 +120,7 @@ fn a_page_asking_on_a_machine_with_no_sans_serif_is_still_told() {
     let site = Site::of(&url("https://example.com/"));
 
     let answer = renderers.ask(&site, &asking_for("sans-serif"));
-    let Ok(FromRenderer::Loaded { issues, wanted }) = answer else {
+    let Ok(FromRenderer::Loaded { issues, wanted, .. }) = answer else {
         panic!("the page did not load: {answer:?}");
     };
     assert!(

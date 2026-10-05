@@ -17,11 +17,13 @@ use alo_box::state::{Checked, Current, States};
 use alo_box::tree::BoxId;
 use alo_css::media::ColorScheme;
 use alo_layout::geometry::{Point, Rect, Size};
+use alo_net::csp::Inline;
 use alo_renderer::frame::Frame;
 use alo_renderer::generic::{Generics, MOST_PAIRS};
 use alo_renderer::message::{Failure, FromRenderer, ToRenderer};
 use alo_renderer::page::Page;
 use alo_renderer::snapshot::{Snapshot, SnapshotNode};
+use alo_renderer::violations::{MOST_OBJECTIONS, Objection};
 use alo_renderer::wire::{
     DEEPEST_TREE, read_from_renderer, read_to_renderer, write_from_renderer, write_to_renderer,
 };
@@ -87,6 +89,7 @@ fn every_message_to_a_renderer_survives_the_crossing() {
                 "script-src 'self' 'nonce-abc'".to_owned(),
                 "default-src 'none'".to_owned(),
             ],
+            watching: vec!["script-src 'none'; report-uri /csp".to_owned()],
         })),
         ToRenderer::Resize(Size {
             width: 320.5,
@@ -136,6 +139,16 @@ fn every_message_from_a_renderer_survives_the_crossing() {
         FromRenderer::Loaded {
             issues: vec!["refused `float: left`".to_owned()],
             wanted: vec!["Inter".to_owned()],
+            objections: vec![
+                Objection {
+                    policy: 0,
+                    kind: Inline::Script,
+                },
+                Objection {
+                    policy: 3,
+                    kind: Inline::Style,
+                },
+            ],
         },
         FromRenderer::Painted(Frame {
             width: 2,
@@ -322,6 +335,10 @@ fn a_load_that_stops_part_way_through_is_refused() {
     let whole = write_from_renderer(&FromRenderer::Loaded {
         issues: vec!["refused `float: left`".to_owned()],
         wanted: vec!["Inter".to_owned()],
+        objections: vec![Objection {
+            policy: 1,
+            kind: Inline::Script,
+        }],
     });
     for cut in 1..whole.len() {
         assert!(
@@ -433,4 +450,77 @@ fn a_tag_nobody_knows_is_refused_rather_than_ignored() {
 fn an_empty_message_is_refused() {
     assert!(read_to_renderer(&[]).is_err());
     assert!(read_from_renderer(&[]).is_err());
+}
+
+/// Queue item 237: every objection a renderer says is a report the browser
+/// process posts, so a load claiming more than an honest renderer sends is
+/// refused whole rather than read and trimmed — it is the page talking.
+#[test]
+fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
+    let honest = FromRenderer::Loaded {
+        issues: Vec::new(),
+        wanted: Vec::new(),
+        objections: vec![
+            Objection {
+                policy: 0,
+                kind: Inline::Script,
+            };
+            MOST_OBJECTIONS
+        ],
+    };
+    assert_eq!(
+        read_from_renderer(&write_from_renderer(&honest)).as_ref(),
+        Ok(&honest)
+    );
+    let flood = FromRenderer::Loaded {
+        issues: Vec::new(),
+        wanted: Vec::new(),
+        objections: vec![
+            Objection {
+                policy: 0,
+                kind: Inline::Script,
+            };
+            MOST_OBJECTIONS + 1
+        ],
+    };
+    let refused = read_from_renderer(&write_from_renderer(&flood));
+    assert!(
+        refused
+            .as_ref()
+            .is_err_and(|why| why.why.contains("objections")),
+        "{refused:?}"
+    );
+}
+
+/// An objection is a number and a tag, and both are a stranger's: inline
+/// content of a kind nobody has is refused, and so is a place no machine could
+/// index.
+#[test]
+fn an_objection_that_is_not_one_is_refused() {
+    let one = write_from_renderer(&FromRenderer::Loaded {
+        issues: Vec::new(),
+        wanted: Vec::new(),
+        objections: vec![Objection {
+            policy: 0,
+            kind: Inline::Style,
+        }],
+    });
+    // The last byte is the kind's tag.
+    let mut strange = one.clone();
+    if let Some(last) = strange.last_mut() {
+        *last = 9;
+    }
+    let refused = read_from_renderer(&strange);
+    assert!(
+        refused
+            .as_ref()
+            .is_err_and(|why| why.why.contains("tagged 9")),
+        "{refused:?}"
+    );
+    let mut longer = one;
+    longer.push(0);
+    assert!(
+        read_from_renderer(&longer).is_err(),
+        "a load with bytes after its objections was read as a whole one"
+    );
 }

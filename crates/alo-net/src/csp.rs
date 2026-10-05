@@ -523,12 +523,7 @@ impl Policy {
         nonce: Option<&str>,
         content: Content<'_>,
     ) -> Option<(Name, Refusal)> {
-        let wanted = match kind {
-            Inline::Script => Name::Script,
-            Inline::Style => Name::Style,
-        };
-        let strict = matches!(kind, Inline::Script);
-        let directive = self.deciding(&wanted)?;
+        let (wanted, directive, refusal) = self.refuses_some_inline(kind, content.placement)?;
         if nonce.is_some_and(|nonce| directive.names_nonce(nonce)) {
             return None;
         }
@@ -539,28 +534,60 @@ impl Policy {
             Placement::Element => true,
             Placement::Attribute => directive.says_unsafe_hashes(),
         };
-        // A hash is checked before `'unsafe-inline'` and separately from
-        // `'strict-dynamic'`: the keyword says to ignore every host and scheme
-        // in the directive, and a hash is neither.
+        // A hash is checked separately from `'strict-dynamic'`: the keyword
+        // says to ignore every host and scheme in the directive, and a hash is
+        // neither.
         if hashes_apply && directive.names_the_hash_of(content.text) {
             return None;
         }
+        Some((wanted, refusal))
+    }
+
+    /// What this policy says to inline content of a kind and placement that
+    /// no nonce or hash in it lets in — or nothing, when it lets in every such
+    /// content whatever it says.
+    ///
+    /// **Nothing in the answer depends on the content**, and that is what it
+    /// is for: the refusal names the directive, what it allows and what a hash
+    /// in it had to do with things, none of which is the text. So a process
+    /// that holds the policy and not the page — the browser process, told by a
+    /// renderer which policy objected (queue item 237) — can write the same
+    /// report the renderer would have, and can refuse to believe a renderer
+    /// that names a policy which could not have objected at all.
+    ///
+    /// `'unsafe-inline'` lets everything in only where the directive names no
+    /// nonce or hash, and, for script, says no `'strict-dynamic'`: either of
+    /// those has the keyword ignored, which is the specification's rule and the
+    /// one sites rely on (see [`Directive::names_a_secret`]).
+    fn refuses_some_inline(
+        &self,
+        kind: Inline,
+        placement: Placement,
+    ) -> Option<(Name, &Directive, Refusal)> {
+        let wanted = match kind {
+            Inline::Script => Name::Script,
+            Inline::Style => Name::Style,
+        };
+        let strict = matches!(kind, Inline::Script);
+        let directive = self.deciding(&wanted)?;
         if directive.says_unsafe_inline()
             && !directive.names_a_secret()
             && !(strict && directive.is_strict())
         {
             return None;
         }
-        Some((
-            wanted,
-            Refusal::Inline {
-                kind,
-                placement: content.placement,
-                directive: directive.written.clone(),
-                allows: directive.as_written(),
-                by_hash: ByHash::of(directive.names_a_hash(), hashes_apply),
-            },
-        ))
+        let hashes_apply = match placement {
+            Placement::Element => true,
+            Placement::Attribute => directive.says_unsafe_hashes(),
+        };
+        let refusal = Refusal::Inline {
+            kind,
+            placement,
+            directive: directive.written.clone(),
+            allows: directive.as_written(),
+            by_hash: ByHash::of(directive.names_a_hash(), hashes_apply),
+        };
+        Some((wanted, directive, refusal))
     }
 
     /// Whether this policy permits inline content.
@@ -708,6 +735,49 @@ impl Policies {
                 Some(policy.violation(&effective, refusal, Blocked::Inline))
             })
             .collect()
+    }
+
+    /// Which policies object to this inline content, by their place in the
+    /// list — report-only ones included, as [`Policies::inline_violations`].
+    ///
+    /// A place rather than a [`Violation`], for the process that does not hold
+    /// the policies' text and must not be handed it: a renderer says *the
+    /// second policy objected to my third script*, and the browser process,
+    /// which parsed the same headers into the same list, turns that into a
+    /// report with [`Policies::inline_violation_of`]. Where a report goes and
+    /// what it says is then decided by the side that holds the network.
+    pub fn objecting_to_inline(
+        &self,
+        kind: Inline,
+        nonce: Option<&str>,
+        content: Content<'_>,
+    ) -> Vec<usize> {
+        self.held
+            .iter()
+            .enumerate()
+            .filter(|(_, policy)| policy.objects_to_inline(kind, nonce, content).is_some())
+            .map(|(place, _)| place)
+            .collect()
+    }
+
+    /// The violation the policy at `place` reports when it objects to inline
+    /// content of this kind and placement — or [`None`] when there is no such
+    /// policy, or it lets in every such content and so could not have
+    /// objected.
+    ///
+    /// What the content was is not asked, because nothing a report says
+    /// depends on it: see [`Policy::refuses_some_inline`]. What is asked is
+    /// whether an objection was **possible**, which is the half of a claim a
+    /// process without the page can still check.
+    pub fn inline_violation_of(
+        &self,
+        place: usize,
+        kind: Inline,
+        placement: Placement,
+    ) -> Option<Violation> {
+        let policy = self.held.get(place)?;
+        let (effective, _, refusal) = policy.refuses_some_inline(kind, placement)?;
+        Some(policy.violation(&effective, refusal, Blocked::Inline))
     }
 
     /// The directives these policies contain that this engine does not act on.
@@ -1099,6 +1169,92 @@ mod tests {
         let one = violations.first().expect("a violation");
         assert_eq!(one.blocked, Blocked::Inline);
         assert_eq!(one.directive, "script-src");
+    }
+
+    /// Item 237: a renderer names a policy by its place, and the browser
+    /// process writes the report. The two have to agree, so the place is the
+    /// one in the list both made from the same headers, report-only included.
+    #[test]
+    fn the_policies_objecting_to_inline_content_are_named_by_their_place() {
+        let mut headers = Headers::new();
+        headers.add("Content-Security-Policy", "script-src 'unsafe-inline'");
+        headers.add(
+            "Content-Security-Policy",
+            "img-src 'none', script-src 'none'",
+        );
+        headers.add("Content-Security-Policy-Report-Only", "script-src 'self'");
+        let policies = Policies::stated_by(&headers);
+        assert_eq!(policies.len(), 4);
+        let content = Content::element("alert(1)");
+        assert_eq!(
+            policies.objecting_to_inline(Inline::Script, None, content),
+            vec![2, 3],
+            "the first allows inline script and the second has nothing to say about it",
+        );
+        let named: Vec<Option<Violation>> = [2, 3]
+            .iter()
+            .map(|place| policies.inline_violation_of(*place, Inline::Script, Placement::Element))
+            .collect();
+        assert_eq!(
+            named,
+            policies
+                .inline_violations(Inline::Script, None, content)
+                .into_iter()
+                .map(Some)
+                .collect::<Vec<_>>(),
+            "the report written from a place differs from the one written from the content",
+        );
+    }
+
+    /// The half of a renderer's claim the browser process can check without
+    /// the page: a policy that lets every inline script in could not have
+    /// objected to one, and a place past the end is no policy at all.
+    #[test]
+    fn a_policy_that_could_not_have_objected_writes_no_violation() {
+        let policies = enforcing(
+            "img-src 'none', script-src 'unsafe-inline', script-src 'unsafe-inline' 'nonce-a', \
+             script-src 'unsafe-inline' 'strict-dynamic'",
+        );
+        let at = |place| policies.inline_violation_of(place, Inline::Script, Placement::Element);
+        assert!(
+            at(0).is_none(),
+            "a policy with no script directive objected"
+        );
+        assert!(at(1).is_none(), "'unsafe-inline' alone objected");
+        assert!(
+            at(2).is_some(),
+            "a nonce retires 'unsafe-inline', so it can object"
+        );
+        assert!(
+            at(3).is_some(),
+            "'strict-dynamic' retires 'unsafe-inline' for script, so it can object",
+        );
+        assert!(at(4).is_none(), "a place past the end named a policy");
+        assert!(at(usize::MAX).is_none());
+    }
+
+    /// Nothing in the refusal is the content, so the same objection written
+    /// both ways says the same words — including what a hash had to do with it.
+    #[test]
+    fn a_violation_written_from_a_place_says_what_a_hash_had_to_do_with_it() {
+        let policies = enforcing("style-src 'sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='");
+        let element = policies.inline_violation_of(0, Inline::Style, Placement::Element);
+        let attribute = policies.inline_violation_of(0, Inline::Style, Placement::Attribute);
+        assert_eq!(
+            element.map(|one| one.refusal),
+            policies
+                .inline_violations(Inline::Style, None, Content::element("p{}"))
+                .into_iter()
+                .next()
+                .map(|one| one.refusal),
+        );
+        assert!(matches!(
+            attribute.map(|one| one.refusal),
+            Some(Refusal::Inline {
+                by_hash: ByHash::NotWithoutTheKeyword,
+                ..
+            })
+        ));
     }
 
     /// A report is not a load the page asked for, and a policy that governed

@@ -10902,3 +10902,140 @@ error object said by name); item 76 is not done. No script can reach the
 document. 110 queue items are open (236 added closed; 237, 238 and 239 added
 open). Next unused queue number **240**; next ADR **0017**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 136 — queue item 237: a policy's author is told about inline script it refused or would have
+
+The checkout was clean on entry at `1b145b1`, with iteration 130's stash
+(`stash@{0}`) still left where it is — dropping it is a person's call. Read
+`CLAUDE.md`, the complete `docs/autonomy/LOOP.md`, `ROADMAP.md`'s conventions
+and its CSP and event-loop lines, `docs/autonomy/REMAINING.md`, iteration
+135's entry and the selection reasoning of 131–132, every open queue item from
+157 to 93, queue items 165, 188, 236 and 237, ADR 0005's *What runs where* and
+*Which way the boundary points*, the CSP lines of `docs/features.md`, and the
+code the change touches: `alo-net`'s `csp.rs` and `csp_report.rs`, `pool.rs`'s
+`report`, `a_violation_a_page_reports.rs`; `alo-renderer`'s `page.rs`,
+`scripts.rs`, `renderer.rs`, `message.rs`, `wire.rs`, `tab.rs` and the tests
+that construct a `Page` or a `Loaded`. No `AGENTS.md` exists in this
+repository. No sibling repository was read or modified.
+
+**Selection followed queue order and dependencies.** Nothing landed since
+iteration 135 that unblocks an earlier item: 157, 158, 187, 60, 169, 197, 201
+and 203 keep their recorded blockers; 222 and 207 are blocked on a frozen
+script; 223, 226, 228 and 231 wait for a real-script trigger or on 221; 224,
+229, 213, 217 and 215 depend on 73, 211 or 75; 211, 221 and 220 have no
+trigger; 73 and 74 have no running script reaching them; 75 depends on 76;
+76 closes when 233 and 234 have; **233 now depends on 81 or 92** for its
+closing condition, as iteration 135 wrote. **237 was the first eligible
+item**: its dependencies, 236 and 188, are both done, and its closing
+condition names no frozen page. Like 236 it was opened by no page — the
+corpus has no page with a `<script>` — and that is recorded rather than
+papered over. 238 needs a frozen page with a fetched script; 239 comes after
+237 in the file.
+
+**The design decision, and why it is not an ADR.** Only the renderer sees an
+inline script; only the browser process may post (ADR 0005). A renderer
+handing over a finished report would be the page choosing a collector and a
+body for the browser's network stack, so what crosses is an **objection** —
+the place of the objecting policy in a list both processes build from the
+same headers (`Page::stated`), and the content's kind — and the browser
+process writes the report from its own copy. This is ADR 0005's existing rule
+(*the renderer's word is a claim*) applied, not a new decision, and the wire's
+module docs already state it for every message from a renderer.
+
+**What was built.** `alo-net/src/csp.rs`: `Policy::refuses_some_inline`,
+factored out of `objects_to_inline` — the refusal a policy gives inline
+content of a kind and placement that no nonce or hash lets in, or `None` when
+`'unsafe-inline'` lets everything in; nothing in it depends on the content.
+`Policies::objecting_to_inline` (places) and `Policies::inline_violation_of`
+(the violation for a place, or `None` for no such policy or one that could not
+have objected). `alo-renderer`: `Page::watching` carries
+`Content-Security-Policy-Report-Only` headers (filled by `from_response`,
+carried on the wire) and `Page::stated` parses both into the list objections
+are named against. `scripts.rs` asks each inline classic script of that list
+and pushes an `Objection` per objecting policy, at most `MOST_OBJECTIONS` (64)
+per load, saying how many it left out; a watched objection to a script that
+runs is said in the issues as `script N: runs, but …`. `FromRenderer::Loaded`
+gained `objections`; the wire reads them through `Reader::objections`, which
+refuses a load claiming more than 64 and a kind it does not know.
+`violations.rs` is the browser process's half: `reports(page, about,
+objections)` → posts, unusable endpoints, and claims it disbelieves (a place
+with no policy, a policy that could not have objected, anything past 64).
+Nothing in the browser process calls it on its own yet — no part of it holds
+both a `Pool` and `Tabs` (item 203's dependency) — so the closing tests
+compose the two exactly as such a part would.
+
+**Evidence.** `crates/alo-renderer/tests/a_policys_author_is_told.rs`, ten
+tests. The two closing clauses run the real `alo-render` binary in a tab,
+build the reports with `violations::reports` from what it answered and post
+them with `Pool::report` to a collector on `127.0.0.1`: under report-only
+`script-src 'none'` the script runs (`out == "ran"`, read in-process) and one
+POST arrives with `"effective-directive":"script-src"`,
+`"blocked-uri":"inline"`, `"disposition":"report"` and the document's URL;
+under the same policy enforced, the script does not run and the POST says
+`"disposition":"enforce"`. Also: `report-to` resolved against the response's
+own `Reporting-Endpoints` (Reporting API document to `/reports`); only the
+objecting policy named; nonce- and hash-allowed scripts not objected to (the
+hash computed with `openssl` for the exact text); each script and each policy
+its own objection; a `<meta>` refusal obeyed and not passed on; no objection
+after the page stopped; seventy scripts carrying 64 objections and saying six
+were left out; every prefix cut of a page with three policies objecting only
+to places the browser process believes. Unit tests: four in `violations.rs`,
+three in `csp.rs`, two new wire tests, and the existing round trips and prefix
+cut extended to carry `watching` and objections.
+
+**Doctored runs, six, each restored byte for byte (`cmp`) and the suite
+re-run green**: the renderer sending no objection fails seven integration
+tests; `inline_violation_of` believing any place fails the disbelief unit
+test; the wire's ceiling removed fails the flood test; a watched header read
+as enforced fails the browser's-own-copy unit test; the browser's own ceiling
+removed fails the flood unit test; the watched objection not said in the
+issues fails the first closing test.
+
+**Found and not hidden.** My first draft of one test used `out += 'b'` in a
+page where an earlier script had been refused, so `out` was never declared
+and the script threw a `ReferenceError`; the test was wrong, not the engine,
+and now assigns. Clippy's line limit on `read_from_renderer` was met by moving
+the objections into a `Reader` method, as `outcome` and `refusal` already
+are, not by allowing the lint.
+
+**Roadmap.** The CSP line's Built clause gains inline script violations
+reported across the boundary (item 237); its Owed clause gains a `<meta>`
+policy's `report-to` (item 240). Not ticked — a nested document and event
+handlers are still owed. `docs/features.md` (a new CSP line), `CHANGELOG.md`,
+`REMAINING.md`, and queue items 237 (ticked, with its evidence) and 240 (new)
+move with it.
+
+**Compliance review.** Law 1: nothing legacy. Law 2: unchanged. Law 3: no
+stub, `todo!` or `unwrap` outside tests; what is not reported is said (meta
+policies, objections past the ceiling, disbelieved claims); no speed claim.
+Law 4: no `unsafe`. ADR 0005: the browser process parses no page — it parses
+the response's headers, which its network stack already does to enforce CSP
+on fetches — and treats the renderer's objections as claims, bounded and
+checked against its own copy. ADR 0012 § 2: a report carries the cause of the
+load it is about (the tab's document). Item 165's rule: obeying is unchanged —
+a report-only policy still forbids nothing, an unreadable source still
+refuses. Item 188's rules (stripping, `report-to` over `report-uri`, a failed
+post not failing a load) are reused, not restated. LOOP stage 2 § 2: the
+renderer's answer is hostile input — a flood refused at the wire, a strange
+tag and trailing bytes refused, impossible places disbelieved, prefix cuts.
+One file, one responsibility: `csp.rs` decides (two new questions about the
+same decision), `violations.rs` is the browser's turning of claims into
+reports, `scripts.rs` still asks a page's policies about its scripts. Nothing
+positions, sizes or paints differently, so no layout assertion or reference
+render applies; every existing reference render still matches.
+
+**Gate.** `scripts/gate.sh` exited 0: formatting clean, clippy silent (one
+`too_many_lines` fixed by extraction, not allowed), all workspace tests pass
+(2248 passed, 0 failed), nothing stubbed, `unsafe` forbidden, the licence
+notice on every file, every rented crate behind its boundary, no coordinate
+verb, the supervisor's stop rule holds, `CHANGELOG.md` changed.
+`git diff --check` passes. The log was kept in this session's scratchpad, not
+committed.
+
+**Unresolved obligations.** Item 240 (a `<meta>` policy's `report-to`, opened
+by a frozen page); nothing in the browser process calls `violations::reports`
+on its own until a part of it holds both a `Pool` and `Tabs` (item 203's
+dependency); 233, 234, 238 and 239 are open and item 76 is not done. No script
+can reach the document. 110 queue items are open (237 closed, 240 added). Next
+unused queue number **241**; next ADR **0017**. This is one iteration, not a
+finished queue or roadmap.

@@ -357,8 +357,15 @@ unreachable without it.
       grants nothing on its own, does not reach out of the directive it was
       written in, and a policy without it refuses an attribute whose digest it
       names, because content with no element of its own is the shape an
-      injection takes
-      · Owed: **a nested document**, which is what `frame-src` needs and which
+      injection takes. **An inline script a policy refused, or a watched one
+      would have, is reported** (queue item 237): the renderer, the only
+      process that sees the script, names the objecting header policy by its
+      place, and the browser process writes the report from its own copy of
+      the headers and posts it — so a renderer can neither choose where a
+      report goes nor what it says, a claim naming a policy that could not have
+      objected is not believed, and one load carries at most 64
+      · Owed: a `<meta>` policy's `report-to` (queue item 240);
+      **a nested document**, which is what `frame-src` needs and which
       nothing here can yet tell from a link click (queue item 86); and an
       **event handler** matched by its hash, which is the same rule as the
       `style` attribute and waits only for there to be handlers (queue item 81)

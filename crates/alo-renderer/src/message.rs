@@ -27,6 +27,7 @@ use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::page::Page;
 use crate::snapshot::Snapshot;
+use crate::violations::Objection;
 use alo_agent::{Outcome, Refusal, Target, Verb};
 use alo_layout::Size;
 use core::fmt;
@@ -112,6 +113,16 @@ pub enum FromRenderer {
         /// a stranger wrote, so the browser process treats each as a string to
         /// look up among the fonts it already knows about — never as a path.
         wanted: Vec<String>,
+        /// Each time one of the page's header policies objected to a script
+        /// written into the page, in the order they were met — whether the
+        /// policy refused it or was only watching.
+        ///
+        /// **A claim, not a report.** It names the policy by its place in
+        /// [`Page::stated`] and says nothing about where to post or what, and
+        /// the browser process writes any report from its own copy of the
+        /// page's headers ([`crate::violations::reports`]). At most
+        /// [`crate::violations::MOST_OBJECTIONS`].
+        objections: Vec<Objection>,
     },
     /// A picture.
     Painted(Frame),

@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A site is told when its own policy stopped an inline script — or would
+  have.** A page sent with `Content-Security-Policy-Report-Only` runs its
+  scripts as before, and the site now gets a report for each inline script the
+  policy would have refused; an enforced policy that refused one reports it the
+  same way. The report goes where the page's own headers said, and is written
+  and sent by the part of the browser that fetched the page, from the headers
+  it read itself, so the process drawing the page cannot change where a report
+  goes or what it says. One page load sends at most 64. A policy written into
+  the page with `<meta>` is obeyed but not yet reported.
+
 - **A page's own scripts now run.** When a page loads, each script written
   into it runs in the order the page wrote them, and the small follow-up jobs
   a script queues run before the next script starts. Scripts run only where

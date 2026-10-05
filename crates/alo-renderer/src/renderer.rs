@@ -203,14 +203,24 @@ impl Renderer {
     fn load(&mut self, page: Page) -> FromRenderer {
         self.script = None;
         let mut said = Vec::new();
+        let mut objected = Vec::new();
         let answer = self.lay_out(page);
         if let (Some(rendered), Some(page)) = (&self.rendered, &self.page) {
-            self.script = scripts::at_load(&rendered.document, page, &mut said);
+            self.script = scripts::at_load(&rendered.document, page, &mut said, &mut objected);
         }
         match answer {
-            FromRenderer::Loaded { mut issues, wanted } => {
+            FromRenderer::Loaded {
+                mut issues,
+                wanted,
+                mut objections,
+            } => {
                 issues.append(&mut said);
-                FromRenderer::Loaded { issues, wanted }
+                objections.append(&mut objected);
+                FromRenderer::Loaded {
+                    issues,
+                    wanted,
+                    objections,
+                }
             }
             other => other,
         }
@@ -232,7 +242,12 @@ impl Renderer {
         let wanted = rendered.wanted.families.clone();
         self.page = Some(page);
         self.rendered = Some(rendered);
-        FromRenderer::Loaded { issues, wanted }
+        // Nothing runs here, so nothing can have been objected to.
+        FromRenderer::Loaded {
+            issues,
+            wanted,
+            objections: Vec::new(),
+        }
     }
 
     fn paint(&self) -> FromRenderer {

@@ -28,6 +28,16 @@
 //! why the policies are gathered as the walk goes rather than up front. A
 //! refusal is said with the policy's own words for it.
 //!
+//! # And telling the policy's author
+//!
+//! Each script written into the page is also asked of every policy the
+//! response's **headers** stated, report-only ones included, and each that
+//! objects is an [`Objection`] in the load's answer: the browser process posts
+//! the report (queue item 237, [`crate::violations`]). A report-only policy
+//! refuses nothing, so a script it objects to still runs, and that it would
+//! have been refused is said in the issues as well. A `<meta>` policy's
+//! objections do not cross — see [`crate::violations`] for why.
+//!
 //! # One task per script
 //!
 //! HTML runs a parser-inserted script in the middle of the parsing task and
@@ -54,15 +64,20 @@ use alo_net::csp::{Content, Inline};
 
 use crate::event_loop::EventLoop;
 use crate::page::Page;
+use crate::violations::{MOST_OBJECTIONS, Objection};
 
 /// Run a page's scripts as it loads, oldest first, and answer the loop they
 /// ran in — [`None`] if nothing ran — with everything that did not run or
-/// did not finish added to `issues`.
+/// did not finish added to `issues`, and every header policy's objection to a
+/// script written into the page added to `objections`.
 pub(crate) fn at_load(
     document: &Document,
     page: &Page,
     issues: &mut Vec<String>,
+    objections: &mut Vec<Objection>,
 ) -> Option<EventLoop> {
+    let stated = page.stated();
+    let mut left_out = 0_usize;
     let mut policies = page.policies.clone();
     let mut looping: Option<EventLoop> = None;
     let mut ended = false;
@@ -80,6 +95,28 @@ pub(crate) fn at_load(
         if ended {
             issues.push(said("not run, because the page's script has stopped"));
             continue;
+        }
+        if let (Kind::Classic, Source::Written(text)) = (&script.kind, &script.source) {
+            let content = Content::element(text);
+            let nonce = script.nonce.as_deref();
+            for place in stated.objecting_to_inline(Inline::Script, nonce, content) {
+                if objections.len() < MOST_OBJECTIONS {
+                    objections.push(Objection {
+                        policy: place,
+                        kind: Inline::Script,
+                    });
+                } else {
+                    left_out = left_out.saturating_add(1);
+                }
+            }
+            if stated.allows_inline(Inline::Script, nonce, content).is_ok() {
+                // Every enforced header policy allows it, so any objection
+                // was a watched policy's, and the script will run regardless
+                // (unless a `<meta>` refuses it, which is said below).
+                for watched in stated.inline_violations(Inline::Script, nonce, content) {
+                    issues.push(said(&format!("runs, but {watched}")));
+                }
+            }
         }
         let text = match allowed(&script, &policies) {
             Ok(text) => text,
@@ -111,6 +148,12 @@ pub(crate) fn at_load(
                 ended = true;
             }
         }
+    }
+    if left_out > 0 {
+        issues.push(format!(
+            "{left_out} more policy objections to this page's scripts were not passed on to be \
+             reported: one load carries at most {MOST_OBJECTIONS}"
+        ));
     }
     looping
 }

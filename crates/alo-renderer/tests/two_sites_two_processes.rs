@@ -47,6 +47,7 @@ fn a_page(text: &str) -> ToRenderer {
         },
         scheme: ColorScheme::Light,
         policies: Vec::new(),
+        watching: Vec::new(),
     }))
 }
 

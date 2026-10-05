@@ -36,12 +36,14 @@ use crate::generic::Generics;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::snapshot::{Snapshot, SnapshotNode};
+use crate::violations::{MOST_OBJECTIONS, Objection};
 use alo_agent::verb::{Outcome, Refusal, ScrollBy, Target, Verb};
 use alo_box::role::{KnownRole, Role};
 use alo_box::state::{Checked, Current, States};
 use alo_box::tree::BoxId;
 use alo_css::media::ColorScheme;
 use alo_layout::geometry::{Point, Rect, Size};
+use alo_net::csp::Inline;
 use alo_text::{Slant, Weight};
 
 /// The most bytes one message may be.
@@ -272,6 +274,10 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             for policy in &page.policies {
                 writer.text(policy);
             }
+            writer.number(page.watching.len() as u64);
+            for policy in &page.watching {
+                writer.text(policy);
+            }
         }
         ToRenderer::Resize(size) => {
             writer.tag(1);
@@ -314,7 +320,11 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
                 writer.text(generic);
             }
         }
-        FromRenderer::Loaded { issues, wanted } => {
+        FromRenderer::Loaded {
+            issues,
+            wanted,
+            objections,
+        } => {
             writer.tag(0);
             writer.number(issues.len() as u64);
             for issue in issues {
@@ -323,6 +333,14 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.number(wanted.len() as u64);
             for family in wanted {
                 writer.text(family);
+            }
+            writer.number(objections.len() as u64);
+            for objection in objections {
+                writer.number(objection.policy as u64);
+                writer.tag(match objection.kind {
+                    Inline::Script => 0,
+                    Inline::Style => 1,
+                });
             }
         }
         FromRenderer::Painted(frame) => {
@@ -750,6 +768,33 @@ impl<'a> Reader<'a> {
         })
     }
 
+    /// A load's objections (queue item 237).
+    ///
+    /// Bounded here as well as by the renderer that sent them: each one is a
+    /// report the browser process will post, and a renderer claiming more
+    /// than an honest one sends is the page talking.
+    fn objections(&mut self) -> Result<Vec<Objection>, Unreadable> {
+        let how_many = self.count()?;
+        if how_many > MOST_OBJECTIONS {
+            return Err(unreadable(format!(
+                "{how_many} policy objections in one load, more than the {MOST_OBJECTIONS} \
+                 one may carry"
+            )));
+        }
+        let mut objections = Vec::new();
+        for _ in 0..how_many {
+            let policy = usize::try_from(self.number()?)
+                .map_err(|_| unreadable("a policy's place larger than this machine can hold"))?;
+            let kind = match self.tag()? {
+                0 => Inline::Script,
+                1 => Inline::Style,
+                other => return Err(unreadable(format!("inline content tagged {other}"))),
+            };
+            objections.push(Objection { policy, kind });
+        }
+        Ok(objections)
+    }
+
     /// Nothing may be left over.
     ///
     /// Trailing bytes mean the two ends disagree about the message, and a
@@ -799,12 +844,18 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
             for _ in 0..how_many {
                 policies.push(reader.text()?);
             }
+            let how_many = reader.count()?;
+            let mut watching = Vec::new();
+            for _ in 0..how_many {
+                watching.push(reader.text()?);
+            }
             ToRenderer::Load(Box::new(Page {
                 html,
                 sheets,
                 viewport,
                 scheme,
                 policies,
+                watching,
             }))
         }
         1 => ToRenderer::Resize(Size {
@@ -886,7 +937,12 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
             for _ in 0..how_many {
                 wanted.push(reader.text()?);
             }
-            FromRenderer::Loaded { issues, wanted }
+            let objections = reader.objections()?;
+            FromRenderer::Loaded {
+                issues,
+                wanted,
+                objections,
+            }
         }
         1 => {
             let width = u32::try_from(reader.number()?)

@@ -229,6 +229,15 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **A policy a site is only watching blocks nothing** —
   `Content-Security-Policy-Report-Only` is read as what it is, and what it
   objected to is reported rather than acted on
+- [2] **A page's author is told about inline script their policy refused** —
+  or, under a policy they are only watching, would have refused: the script
+  runs, and a report naming `script-src` and `inline` is posted to wherever
+  the page's own headers said. Only the part of the browser that holds the
+  network writes and sends a report, from the headers it fetched itself, so a
+  page that has taken over the process drawing it cannot point a report
+  anywhere else or make it say anything else, and cannot make the browser send
+  more than 64 for one load. A policy written into the page's markup with
+  `<meta>` is obeyed but not yet reported (queue item 240)
 - [2] **Inline content allowed by its hash** — `'sha256-…'`, `'sha384-…'` and
   `'sha512-…'` computed over the content and compared with what the policy
   named, in either base64 alphabet. A digest that mixes the two alphabets, sets

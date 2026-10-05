@@ -120,6 +120,16 @@ or a timer (92) runs script in an `Act`'s task. Cut alongside: 237
 error object said by name and message). 110 queue items are open; the next
 unused queue number is 240 and the next unused ADR 0017.
 
+Iteration 136 built item 237, the first item whose dependencies were met
+after 233 (which waits on 81 or 92): an inline script a header policy refused,
+or a report-only one would have, is reported. The renderer names the
+objecting policy by its place in `Page::stated`; the browser process writes
+the report from its own copy of the headers (`alo-renderer`'s
+`violations.rs`) and posts it with `Pool::report`, believing no place that
+could not have objected and no more than 64 per load. A `<meta>` policy's
+`report-to` is cut to item 240. 110 queue items are open (237 closed, 240
+added); the next unused queue number is 241 and the next unused ADR 0017.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;
