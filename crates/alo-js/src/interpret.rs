@@ -213,6 +213,17 @@ impl Engine {
         self.realm.intrinsics().well_known(&self.objects, which)
     }
 
+    /// This realm's intrinsics, beside the heap they are read through.
+    ///
+    /// An embedder that makes prototypes of its own hangs them from the
+    /// language's: the DOM's interfaces inherit from `Object.prototype`, their
+    /// members from `Function.prototype`, and `DOMException` from
+    /// `Error.prototype` (ADR 0017 § 5). Read, never written, as a builtin's
+    /// are ([`Call::intrinsics`](crate::object::native::Call::intrinsics)).
+    pub fn intrinsics(&self) -> (&crate::builtin::Intrinsics, &Objects) {
+        (self.realm.intrinsics(), &self.objects)
+    }
+
     /// A function an embedder wrote, made the way the language's own are:
     /// inheriting from this realm's `Function.prototype`.
     ///

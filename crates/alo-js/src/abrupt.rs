@@ -191,6 +191,16 @@ pub enum Missing {
     /// every later `next` sees as `done`. An iterator that skipped either would
     /// answer a page that can tell.
     AnIteratedValueBehindACall,
+    /// A builtin's second argument that must be turned into a primitive by
+    /// running the script, when its first already was (queue item 221).
+    ///
+    /// A native keeps a step number and nothing else across a call it asks
+    /// for, and the first argument's converted value is in the one slot the
+    /// second conversion's answer is written to. Converting the first again
+    /// afterwards would be a second `toString` a page can count, so
+    /// `el.setAttribute(a, b)` with an object for both is refused by name
+    /// until item 221 gives a native traced scratch state to keep it in.
+    ASecondArgumentBehindACall,
 }
 
 impl fmt::Display for Missing {
@@ -219,6 +229,10 @@ impl fmt::Display for Missing {
             Missing::AnIteratedValueBehindACall => write!(
                 out,
                 "an array iterator reading an element or a length through a getter or a conversion is queue item 231"
+            ),
+            Missing::ASecondArgumentBehindACall => write!(
+                out,
+                "a second argument converted by running script after the first was is queue item 221"
             ),
         }
     }
@@ -413,6 +427,11 @@ mod tests {
             Escape::NotBuiltYet(Missing::AWrapperObject)
                 .to_string()
                 .contains("73")
+        );
+        assert!(
+            Escape::NotBuiltYet(Missing::ASecondArgumentBehindACall)
+                .to_string()
+                .contains("221")
         );
     }
 }

@@ -27,6 +27,12 @@
 //!   validity rules ([`mutation`], [`validity`]), answering a [`Refusal`] the
 //!   standard names rather than `false`; [`Document::release`] lets go of a
 //!   detached tree nothing reaches ([`release`]).
+//! - [`Document::attribute_by_name`], [`Document::set_attribute_by_name`]
+//!   and [`Document::remove_attribute_by_name`] are an element's attributes
+//!   as a script names them — a qualified name, lowercased on an HTML
+//!   element, refused when no attribute can have it ([`by_name`]);
+//!   [`Document::set_data`] and [`Document::replace_all_with_text`] are what
+//!   `textContent` writes.
 //! - [`Document::footprint`] is what the document owns, kept as a sum as
 //!   nodes change, so the heap a scripted page's document moves into can
 //!   count it at no cost per change (ADR 0017 § 2; [`footprint`]).
@@ -65,6 +71,7 @@
 //! );
 //! ```
 
+pub mod by_name;
 pub mod document;
 pub mod footprint;
 pub mod mutation;

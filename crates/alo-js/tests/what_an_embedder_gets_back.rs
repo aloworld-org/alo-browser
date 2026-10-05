@@ -174,3 +174,32 @@ fn a_reference_stored_through_the_borrow_is_traced() {
     }
     objects.heap_mut().release(root);
 }
+
+#[test]
+fn an_embedder_reads_the_realms_intrinsics_as_a_script_sees_them() {
+    use alo_js::builtin::error::Family;
+    use alo_js::interpret::Engine;
+    use alo_js::object::{Found, Value};
+    use alo_js::script;
+
+    let mut engine = ok!(Engine::new());
+    let mut seen = |source: &str| match engine.evaluate(&ok!(script(source))) {
+        Ok(Value::Object(held)) => held,
+        other => panic!("{source} answered {other:?}"),
+    };
+    let object = seen("({}).__proto__");
+    let function = seen("(function () {}).__proto__");
+    let error = seen("Error.prototype");
+
+    let (intrinsics, objects) = engine.intrinsics();
+    assert_eq!(intrinsics.object_prototype(objects), Ok(object));
+    assert_eq!(intrinsics.function_prototype(objects), Ok(function));
+    let constructor = ok!(intrinsics.error_constructor(objects, Family::Error));
+    let Some(key) = objects.existing_key(&"prototype".encode_utf16().collect::<Vec<_>>()) else {
+        panic!("`prototype` is interned by the realm");
+    };
+    assert_eq!(
+        objects.get(constructor, key),
+        Ok(Found::Value(Value::Object(error)))
+    );
+}

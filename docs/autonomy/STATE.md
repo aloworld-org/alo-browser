@@ -11955,3 +11955,127 @@ design; 233, 234, 238 and 240 are open and item 76 is not done;
 has no discriminating test. 113 queue items are open. Next is **249**. Next
 unused queue number **251**; next ADR **0018**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 145 — item 249: the interfaces a script calls
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Mutation from script* line, iteration
+144's entry, queue items 80, 221, 228 and 246–250, ADR 0017 in full, and the
+code this builds on: `alo-bindings` (all of it), `alo-js`'s `realm.rs`,
+`interpret.rs`'s embedder surface, `abrupt.rs`, `object/native.rs`,
+`builtin/error.rs`, `interpret/catch.rs` and the renderer's
+`event_loop/microtask.rs` for how an embedder installs a native; `alo-dom`'s
+`document.rs`, `node.rs`, `name.rs`, `mutation.rs` and `validity.rs`. No
+`AGENTS.md` exists. No sibling repository was read or modified. The checkout
+was clean on entry at `a4367b1`.
+
+**Selection.** Iteration 144 named **249** next and its dependency, 248, is
+done; every earlier open item is still blocked for the reasons iteration 144
+recorded.
+
+**What was built.** `alo-bindings`: `interface.rs` lists the ten interfaces
+in the DOM standard's chain (`Node`; `CharacterData` with `Text`, `Comment`,
+`ProcessingInstruction`; `Element`, `Document`, `DocumentType`,
+`DocumentFragment`; `DOMException` from `Error.prototype`), which a node of
+each kind is, and holds their prototypes — **in the document cell**, as
+strong edges, because a native is handed only its `this`, and the wrapper it
+is called on holds that cell. One file per interface with members:
+`interface/node.rs`, `element.rs`, `document.rs`, `child_node.rs` (the
+mixin's `remove()`, on `Element`, `CharacterData` and `DocumentType`) and
+`dom_exception.rs` (an embedder cell; `name` and `message` are prototype
+getters, as Web IDL has them). `idl.rs` is Web IDL's half: the brand check,
+the argument count, a `Node` argument of the same document, `ToString` asked
+of the interpreter for an object. `define.rs` is Web IDL's property
+attributes; `install.rs` makes the prototypes (`furnish`) and puts
+`document` on the global object (`install`). `alo-dom`: `by_name.rs`
+(attributes by qualified name, lowercased on an HTML element, refused by the
+*valid attribute local name* rule, the first match only), `set_data` in
+`document.rs` and `replace_all_with_text` in `mutation.rs` (*string replace
+all*, counted once). `alo-js`: `Engine::intrinsics` (the realm's intrinsics
+beside the heap, so an embedder can hang prototypes from them) and
+`Missing::ASecondArgumentBehindACall`. Text has no item-80 member, so its
+file was not written; `Text.prototype` is in the chain, empty, and
+`interface.rs` says why.
+
+**Decisions taken inside the item, none changing ADR 0017's rules.**
+(1) The prototypes live in the document cell: the ADR says a native reaches
+its node through its `this`; this applies the same to what it must make.
+(2) `document` is a non-writable, non-configurable **data** property, not
+Web IDL's accessor: a getter native would be handed only the global object,
+an ordinary object with nowhere to keep the document. Every member a script
+has today observes the two alike; a descriptor would not. Queue item **251**
+added. (3) `setAttribute` with **both** arguments objects is refused by name
+rather than converting the first twice (a native keeps a step number only,
+and the first answer is overwritten by the second); item 221 now owes it.
+(4) A lone surrogate becomes U+FFFD crossing into `alo-dom`'s UTF-8, as it
+does from the parser. (5) No interface object (`Node`, `DOMException`) on
+the global object; absent, like every member outside item 80's list.
+
+**Evidence.** `crates/alo-bindings/tests/what_a_script_does_to_its_document.rs`,
+8 tests; `a_script_that_is_hostile_to_its_document.rs`, 4 tests (stage 2 § 2:
+a node into its own child six ways, refused; a loop appending a mebibyte of
+text until the heap's ceiling, stopped with `Full` after more than 500 nodes
+and the heap unbroken; a million `createElement`s released — a million trees,
+one wrapper left, the next id past them all; every member run with the
+collector at every allocation); `alo-dom`: 2 unit tests in `by_name.rs`, 1 in
+`validity.rs`, 2 in `tests/mutation.rs`; `alo-js`: 1 in
+`tests/what_an_embedder_gets_back.rs` and an assertion in `abrupt.rs`. The
+queue entry lists what each asserts. The two long hostile tests take about 19
+and 14 seconds in a debug build; that is a statement about the test, not a
+speed claim.
+
+**Doctored runs**, each restored and checked identical by hash: twenty-one
+rules disabled alone (listed in the queue entry), each failing at least one
+test. The first pass found two gaps, both closed before committing:
+`insertBefore(node, null)` was never exercised (the main-test script now
+uses it) and one pattern had moved under `cargo fmt` (rerun, discriminated).
+
+**Measured, and left as it is:** the heap's ceiling is enforced where it
+allocates, and a document change is a write — so the write that adds the
+last node can take the heap past the ceiling by that one change (a mebibyte
+in the test, asserted as the bound) before the next allocation stops the
+script. ADR 0017 § 2's rule — counted, collected, stopped with a reason —
+holds; how far past one write may go is a question for the heap's own
+items, recorded here rather than solved inside this one.
+
+**Compliance review.** Law 1: nothing legacy — no live collections, no
+`document.write`, no `code` on `DOMException`; every other member absent and
+tested absent. Law 2: script-made nodes take the parser's counter and every
+parsed id survives (tested); the agent's tree is unchanged. Law 3: no stub,
+`todo!` or `unwrap` outside tests; what is not built is refused by name.
+Law 4: no `unsafe`. One file, one responsibility: one per interface,
+conversions apart from definitions apart from installation; `alo-dom`'s
+by-name rules in a file of their own. Test helpers panic only through macros
+expanded inside `#[test]` functions, matching existing tests, rather than
+silencing the lint. Nothing positions, sizes or paints differently, so no
+layout assertion or reference render applies, and every existing one still
+matches (the gate runs them). `docs/features.md`'s item says what a script
+can now do and what is still owed.
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step: formatting clean, clippy silent (one round fixed, not silenced:
+`similar_names` on `cell`/`call`, renamed to `owner`; panics in test helpers
+moved into macros), all tests pass, nothing stubbed, `unsafe` forbidden,
+every file carries the licence notice, every rented crate behind its
+boundary, no coordinate verb, the supervisor's stop rule holds,
+`CHANGELOG.md` changed. `cargo test --workspace --all-features` counts 2392
+passed, 0 failed (2374 at iteration 144, this item's 18). `git diff --check`
+passes. The log was kept in this session's scratchpad, not committed.
+
+**Roadmap.** The *Mutation from script* line's Built clause gains the
+interfaces a script calls (item 249); its Owed clause now names 250 and 247.
+Not ticked. Queue: 249 ticked with its evidence, 221 extended, 251 added;
+`CHANGELOG.md`, `docs/features.md` and `REMAINING.md` moved with it.
+
+**Unresolved obligations.** Item 80 and 246 stay open until 250 and 247
+close: no page's script reaches the document yet. `document`'s shape is item
+251. Two object arguments to `setAttribute` are item 221's. The one-write
+overshoot of the heap's ceiling is measured, not bounded below one change.
+Inserting at depth *d* still costs *d* (the standard's ancestor check); the
+hostile tests here append flat. 248's budget-overrun fallback is still
+undiscriminated. 78's remainder; 77 needs design; 233, 234, 238 and 240 are
+open and item 76 is not done; `violations::reports` is still called by
+nothing in the browser process (item 203's dependency); iteration 141's
+browser-side font-name guard still has no discriminating test. 113 queue
+items are open. Next is **250**. Next unused queue number **252**; next ADR
+**0018**. This is one iteration, not a finished queue or roadmap.

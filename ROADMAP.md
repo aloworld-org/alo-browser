@@ -859,11 +859,16 @@ unreachable without it.
       wrapper is one object kept while its tree is reachable (the
       document's always, a detached tree's while any of its wrappers is),
       and a detached tree nothing holds is released at a collection,
-      without allocating.
-      · Owed: everything a script calls — the interfaces, `DOMException`
-      and `document` on the global object (249), the renderer handing its
-      document over and rendering it again (250), and a script at its own
-      end tag (247). The decision is made (ADR 0017): the document
+      without allocating. **The interfaces a script calls** (queue item
+      249) — `Node`, `Element`, `Document` and the `ChildNode` mixin with
+      item 80's members only, the standard's prototype chain, Web IDL's
+      brand check and argument rules as a `TypeError`, every refusal thrown
+      as the `DOMException` it names with `Error.prototype` on its chain,
+      `document` on the global object, and every other member absent;
+      proven by scripts the engine runs against an adopted document.
+      · Owed: no page reaches it yet — the renderer handing its document
+      over and rendering it again (250), and a script at its own end tag
+      (247). The decision is made (ADR 0017): the document
       moves into the page's heap when it first runs script; a node's wrapper
       lives while its tree is reachable and an unreachable detached tree is
       freed, its ids never reused; every change goes through `alo-dom` under

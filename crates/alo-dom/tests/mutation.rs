@@ -684,3 +684,79 @@ fn every_id_in_every_position_refuses_or_keeps_a_tree() {
     }
     assert!(moved > 0, "some of them were allowed");
 }
+
+#[test]
+fn text_content_replaces_every_child_with_one_text_node_as_one_change() {
+    let mut document = parse_document("<p>a<b>b</b><!--c-->d</p><template>t</template>");
+    let element = |document: &Document, name: &str| {
+        document
+            .descendants(document.root())
+            .find(|id| document.element(*id).is_some_and(|e| e.name.is_html(name)))
+            .unwrap()
+    };
+    let p = element(&document, "p");
+    let b = element(&document, "b");
+    let before = document.node_count();
+
+    let made = document.replace_all_with_text(p, "new").unwrap().unwrap();
+    assert_eq!(made.as_usize(), before, "the text node takes the next id");
+    assert_eq!(document.children(p).collect::<Vec<_>>(), [made]);
+    assert_eq!(document.text_content(p), "new");
+    assert_eq!(
+        document.change_count(),
+        1,
+        "four children went in one change"
+    );
+    assert_eq!(document.parent(b), None, "a child taken away is detached");
+    assert_eq!(document.text_content(b), "b", "and keeps its own children");
+
+    assert_eq!(document.replace_all_with_text(p, ""), Some(None));
+    assert_eq!(document.first_child(p), None, "empty text leaves no node");
+    assert_eq!(document.change_count(), 2);
+    assert_eq!(document.replace_all_with_text(p, ""), Some(None));
+    assert_eq!(document.change_count(), 2, "nothing taken and nothing put");
+
+    // A template's contents are a fragment, and take text like an element.
+    let contents = document
+        .element(element(&document, "template"))
+        .and_then(|template| template.template_contents)
+        .unwrap();
+    assert!(document.replace_all_with_text(contents, "u").is_some());
+    assert_eq!(document.text_content(contents), "u");
+
+    // Neither the document nor character data is replaced this way.
+    let root = document.root();
+    let count = document.change_count();
+    assert_eq!(document.replace_all_with_text(root, "x"), None);
+    assert_eq!(document.replace_all_with_text(made, "x"), None);
+    assert_eq!(document.change_count(), count);
+}
+
+#[test]
+fn character_data_is_replaced_whole_and_nothing_else_is() {
+    let mut document = parse_document("<p>a<!--c--></p>");
+    let p = document
+        .descendants(document.root())
+        .find(|id| document.element(*id).is_some_and(|e| e.name.is_html("p")))
+        .unwrap();
+    let text = document.first_child(p).unwrap();
+    let comment = document.last_child(p).unwrap();
+
+    assert_eq!(document.set_data(text, "b"), Some(()));
+    assert_eq!(document.kind(text), Some(&NodeKind::Text("b".to_owned())));
+    assert_eq!(document.set_data(comment, "d"), Some(()));
+    assert_eq!(
+        document.kind(comment),
+        Some(&NodeKind::Comment("d".to_owned()))
+    );
+    assert_eq!(document.set_data(text, "b"), Some(()));
+    assert_eq!(
+        document.change_count(),
+        3,
+        "the same data again is a change"
+    );
+
+    assert_eq!(document.set_data(p, "x"), None);
+    assert_eq!(document.set_data(document.root(), "x"), None);
+    assert_eq!(document.change_count(), 3);
+}

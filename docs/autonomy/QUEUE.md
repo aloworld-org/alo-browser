@@ -2974,6 +2974,12 @@ The long pole, and the thing most of section E is unreachable without.
   getters execute once in order, getter exceptions propagate, and excessive
   lengths are bounded before allocating. All cases must survive collection at
   every allocation. Array objects themselves remain part of item 73.
+  **Also owed here (iteration 145):** `el.setAttribute(a, b)` with an
+  object for both arguments is refused by name
+  (`Missing::ASecondArgumentBehindACall`), since the first argument's string
+  is in the slot the second conversion's answer is written to; the same
+  scratch state closes it, with a test that each `toString` runs once, in
+  order.
 
 - [ ] **220. A function's own `name` and `length`, its source text, and
   `bind`.** Cut from 218. A function object has **no own properties** but the
@@ -3699,7 +3705,7 @@ The long pole, and the thing most of section E is unreachable without.
   discriminated:** the overrun fallback, which a document `alo-dom`'s
   validity rules allow cannot reach.
 
-- [ ] **249. The interfaces a script calls.** *Cut from 246 (ADR 0017 §§ 1, 4,
+- [x] **249. The interfaces a script calls.** *Cut from 246 (ADR 0017 §§ 1, 4,
   5 and 8). Depends on 248.* One file per interface in `alo-bindings` —
   `Node`, `Element`, `Document`, `Text` — each with its prototype, its
   attributes as accessors whose halves are natives and its operations as
@@ -3721,6 +3727,65 @@ The long pole, and the thing most of section E is unreachable without.
   and the hostile half — a node inserted into its own child, a script
   appending to itself in a loop until the heap's ceiling, a million detached
   nodes made and dropped — refuses or collects and never panics.
+  **Done (iteration 145).** `alo-bindings` gains `interface.rs` (the ten
+  interfaces in the standard's chain — `Node`; `CharacterData` and its
+  `Text`, `Comment` and `ProcessingInstruction`; `Element`, `Document`,
+  `DocumentType`, `DocumentFragment`; `DOMException` from `Error.prototype`
+  — which one a node of each kind is, and their prototypes as strong edges
+  of the document cell, since a native reaches nothing but its `this`),
+  one file per interface with members — `interface/node.rs` (the five
+  neighbours, `textContent` both ways, the four changes),
+  `interface/element.rs` (`getAttribute`, `setAttribute`,
+  `removeAttribute`), `interface/document.rs` (`documentElement`,
+  `createElement`, `createTextNode`), `interface/child_node.rs` (`remove()`
+  on `Element`, `CharacterData` and `DocumentType`, as the mixin is) and
+  `interface/dom_exception.rs` (the exception as an embedder cell, `name`
+  and `message` as prototype getters, as Web IDL has them) — with
+  `idl.rs` (the brand check, argument count, a `Node` argument of the same
+  document, `ToString` asked of the interpreter for an object),
+  `define.rs` (Web IDL's property attributes) and `install.rs` (`furnish`,
+  and `install`, which puts `document` on the global object). `alo-dom`
+  gains `by_name.rs` (attributes by qualified name, lowercased on an HTML
+  element, the *valid attribute local name* rule), `set_data` and
+  `replace_all_with_text` (*string replace all*, one change). `alo-js`
+  gains `Engine::intrinsics` and `Missing::ASecondArgumentBehindACall`.
+  Text has no item-80 member, so `Text.prototype` is in the chain, empty.
+  **Deviations, recorded:** `document` is a non-writable, non-configurable
+  data property rather than Web IDL's accessor (item 251); a lone surrogate
+  becomes U+FFFD in the document, as when the parser reads one; two object
+  arguments to `setAttribute` are refused by name (item 221); and no
+  interface object (`Node`, `DOMException`) is on the global object.
+  *Closed by:* `crates/alo-bindings/tests/what_a_script_does_to_its_document.rs`
+  (8 tests: every member made, inserted, moved, replaced, removed and read
+  back, with the serialisation, eleven changes and four new ids asserted;
+  the next id after the parsed ones and every parsed id kept; twelve
+  refusals each the named `DOMException` with `Error.prototype` on its
+  chain and the tree and count untouched; sixteen wrong `this`es and
+  arguments — a plain object, a fake inheriting `Element.prototype`, a
+  `Text` for an `Element`, the document for `remove`, a missing argument,
+  a node of a second document as argument or as `this` — each a
+  `TypeError`; one node through seven members one object, its expando
+  through three collections; `textContent` on every kind; an object
+  argument's `toString` run once each, six in all, and two objects refused
+  by name; fourteen absent members) and
+  `a_script_that_is_hostile_to_its_document.rs` (4: a node into its own
+  child, itself or its ancestor six ways, refused; appending a mebibyte of
+  text in a loop until the heap's ceiling stops the script with `Full`,
+  over 500 nodes in, the heap unbroken; a million `createElement`s
+  released, a million trees counted, only the document's wrapper left and
+  the next id past all of them; every member run with the collector at
+  every allocation). Doctored runs, each restored and checked identical by
+  hash: twenty-one rules disabled alone — the three brand checks, the same
+  document, the argument count, `null` as no node, the exception's
+  prototype, its inheriting `Error.prototype`, the prototypes traced,
+  `null` as the empty string, the second-argument refusal, `document`
+  read-only, `replaceChild` answering its child, a text node's interface,
+  HTML lowercasing, the attribute-name rule and its `=`, prefix matching,
+  *replace all* counted once, a comment's data, and the prototype held
+  before its members are made — each fails at least one test.
+  **Measured:** the ceiling is enforced where the heap allocates, so the
+  write that adds the last node can take it past by that one change (a
+  mebibyte here) before the next allocation is refused.
 
 - [ ] **250. The renderer hands its document to script and renders what script
   left.** *Cut from 246 (ADR 0017 §§ 2 and 6). Depends on 249.* The document
@@ -3735,6 +3800,17 @@ The long pole, and the thing most of section E is unreachable without.
   have it, in numbers, with a reference render; the agent names the node the
   script made and acts on it; every parsed node keeps its id; and a page that
   changes its document ten thousand times in one task is rendered once.
+
+- [ ] **251. `document` as Web IDL's accessor, on a global object that is a
+  `Window`.** *Cut from 249.* Web IDL makes `document` an unforgeable accessor
+  on the window; its getter is a native handed only its `this`, and today's
+  global object is an ordinary one with nowhere to find the document, so 249
+  made it a non-writable, non-configurable data property — the same to every
+  member a script has, different to a property descriptor. *Depends on 250,
+  and is observable only once `Object.getOwnPropertyDescriptor` exists (item
+  73). Closes when:* the global object is an embedder cell that holds its
+  document, `document` is an accessor whose getter reads it, and a
+  descriptor reads as Web IDL's.
 
 - [ ] **247. A parser-inserted script sees the document up to its own
   element.** *Cut from 80 (ADR 0017 § 7). Depends on 246.* The parser stops

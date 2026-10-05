@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A script handed a page's document can now read and change it.** No page
+  reaches this yet; the renderer handing its document over is next. Given a
+  document, a script can find the page's root element and walk from any
+  element to its parent, children and neighbours; make elements and text;
+  put them in, move them, swap them or take them out; read and set
+  attributes; and read or replace text. A change the standard forbids — an
+  element inside its own child, a second root element — reaches the script
+  as the named error it can catch, and the page is left as it was. A member
+  called on the wrong kind of node, or given another page's node, is a type
+  error. Everything a page might reach for beyond these is absent rather
+  than half-built, so a page that checks first reads the truth.
+
 - **A page's elements can now be kept or freed by the same tidy-up as its
   scripts' objects.** Nothing a page runs reaches this yet; it is what a
   script holding an element will stand on. Once a page runs script its

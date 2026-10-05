@@ -51,6 +51,8 @@ use crate::tree;
 
 impl Trace for DocumentCell {
     fn trace(&self, tracer: &mut Tracer) {
+        // The prototypes are the page's, alive as long as its document is.
+        self.interfaces.trace(tracer);
         let document = &self.document;
         let mut whole = walk(document, document.root(), |node| {
             if let Some(wrapper) = self.wrapper(node) {

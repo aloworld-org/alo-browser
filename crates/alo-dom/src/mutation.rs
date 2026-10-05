@@ -156,6 +156,38 @@ impl Document {
         true
     }
 
+    /// Replace every child of `parent` with one text node holding `data`, or
+    /// with nothing when `data` is empty — the standard's *string replace
+    /// all*, behind `textContent` on an element or a fragment. Answers the
+    /// text node made, if one was.
+    ///
+    /// One change, counted once however many children went, and not at all
+    /// when there was nothing to take away and nothing to put. The children
+    /// taken away keep their ids and their own children, detached. [`None`]
+    /// for any `parent` that is not an element or a fragment, which changes
+    /// nothing — the standard's setter does nothing on a document or a
+    /// doctype, and character data has its own ([`Document::set_data`]).
+    pub fn replace_all_with_text(&mut self, parent: NodeId, data: &str) -> Option<Option<NodeId>> {
+        if !matches!(
+            self.kind(parent),
+            Some(NodeKind::Element(_) | NodeKind::Fragment)
+        ) {
+            return None;
+        }
+        let had_children = self.first_child(parent).is_some();
+        while let Some(child) = self.first_child(parent) {
+            self.detach(child);
+        }
+        let made = (!data.is_empty()).then(|| self.create_text_node(data));
+        if let Some(text) = made {
+            self.attach_last(parent, text);
+        }
+        if had_children || made.is_some() {
+            self.note_change();
+        }
+        Some(made)
+    }
+
     /// The standard's *insert*, once validity is settled: `node`, or a
     /// fragment's children, into `parent` before `reference`.
     fn insert(&mut self, node: NodeId, parent: NodeId, reference: Option<NodeId>) {

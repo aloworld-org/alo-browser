@@ -21,6 +21,11 @@
 //! arena rather than in a heap slot, and a script that made nodes the heap did
 //! not count could fill a renderer below the heap's ceiling.
 //!
+//! And it holds **the prototype of every interface** a node can be seen as
+//! ([`crate::interface`]): a native reaches nothing but its `this`, so the
+//! prototype `createElement`'s wrapper inherits from must be reachable from
+//! the wrapper it was called on, and this is the cell every wrapper holds.
+//!
 //! It is an object only because everything in the heap that is not the
 //! engine's own is one. No script is ever handed it — the document *node* a
 //! page sees is a wrapper like any other — so as an object it is the plainest
@@ -29,6 +34,8 @@
 use alo_dom::{Document, NodeId};
 use alo_js::heap::{Barrier, Ref};
 use alo_js::object::{Exotic, Internal, Key, Property};
+
+use crate::interface::Interfaces;
 
 /// One slot of the table: the node, and its wrapper.
 pub(crate) type Entry = Option<(NodeId, Ref)>;
@@ -43,6 +50,9 @@ pub struct DocumentCell {
     /// that making the wrapper may cause, since nothing else holds it yet.
     pub(crate) pending: Option<NodeId>,
     pub(crate) released: Released,
+    /// The prototype of each interface, once [`crate::install`] has made
+    /// them.
+    pub(crate) interfaces: Interfaces,
 }
 
 /// What collections have let go of, counted.
@@ -62,6 +72,7 @@ impl DocumentCell {
             table: Vec::new(),
             pending: None,
             released: Released::default(),
+            interfaces: Interfaces::default(),
         }
     }
 
@@ -88,6 +99,11 @@ impl DocumentCell {
     /// How many nodes have a wrapper.
     pub fn wrapped(&self) -> usize {
         self.table.iter().flatten().count()
+    }
+
+    /// The prototype of each interface a node can be seen as.
+    pub const fn interfaces(&self) -> &Interfaces {
+        &self.interfaces
     }
 
     /// What collections have let go of, so far.

@@ -194,6 +194,16 @@ ring-and-sweep that keeps a wrapper as long as its tree. No script reaches
 it yet. 113 queue items are open; 249 is next; the next unused queue number
 is 251 and the next unused ADR 0018.
 
+Iteration 145 built 249: the interfaces a script calls, in `alo-bindings` —
+`Node`, `Element`, `Document`, the `ChildNode` mixin and `DOMException`,
+item 80's members only, in the standard's prototype chain, behind Web IDL's
+brand check, with `document` on the global object — and the attribute
+operations by name, *replace data* and *string replace all* in `alo-dom`.
+Proven by scripts the engine runs against an adopted document; no page's
+script reaches it until 250. It added 251 (`document` as Web IDL's
+accessor). 113 queue items are open; 250 is next; the next unused queue
+number is 252 and the next unused ADR 0018.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

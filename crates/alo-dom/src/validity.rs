@@ -227,6 +227,20 @@ pub(crate) fn is_valid_element_local_name(name: &str) -> bool {
         })
 }
 
+/// Whether `name` is a *valid attribute local name*, which `setAttribute`
+/// requires and refuses with `InvalidCharacterError` otherwise.
+///
+/// The standard's current rule, looser than an element's because an
+/// attribute's name is never the start of a tag: at least one character, and
+/// none of ASCII whitespace, NUL, `/`, `=` and `>` — the characters the HTML
+/// tokenizer ends an attribute name on.
+pub(crate) fn is_valid_attribute_local_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name
+            .chars()
+            .any(|c| c.is_ascii_whitespace() || matches!(c, '\0' | '/' | '=' | '>'))
+}
+
 const SECOND_ELEMENT: Refusal = Refusal::HierarchyRequest("a document can hold only one element");
 const SECOND_DOCTYPE: Refusal = Refusal::HierarchyRequest("a document can hold only one doctype");
 const ONE_ELEMENT_NO_TEXT: Refusal = Refusal::HierarchyRequest(
@@ -372,6 +386,16 @@ mod tests {
             "", "a b", "a/b", "a>b", "a\0", "1a", "-a", ".a", "_x y", "\u{e9}!",
         ] {
             assert!(!is_valid_element_local_name(bad), "{bad:?} is not a name");
+        }
+    }
+
+    #[test]
+    fn attribute_names_follow_the_standards_looser_rule() {
+        for good in ["id", "data-x", "1a", "-a", "xlink:href", "a\"b", "\u{e9}!"] {
+            assert!(is_valid_attribute_local_name(good), "{good:?} is a name");
+        }
+        for bad in ["", "a b", "a\tb", "a/b", "a=b", "a>b", "a\0"] {
+            assert!(!is_valid_attribute_local_name(bad), "{bad:?} is not a name");
         }
     }
 }

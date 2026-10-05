@@ -235,6 +235,26 @@ impl Document {
         Some(removed)
     }
 
+    /// Replace all the data of a text node, a comment or a processing
+    /// instruction with `data` — the standard's *replace data* over the whole
+    /// of it, behind `textContent` on character data.
+    ///
+    /// A change, counted, even when the data is what it was, as in the
+    /// standard. [`None`] for any other node, which changes nothing.
+    pub fn set_data(&mut self, id: NodeId, data: &str) -> Option<()> {
+        self.edit(id, |node| match &mut node.kind {
+            NodeKind::Text(held)
+            | NodeKind::Comment(held)
+            | NodeKind::ProcessingInstruction { data: held, .. } => {
+                data.clone_into(held);
+                Some(())
+            }
+            _ => None,
+        })??;
+        self.note_change();
+        Some(())
+    }
+
     /// Whether a node is reachable from the root.
     ///
     /// A node the parser built and then discarded stays in the arena keeping

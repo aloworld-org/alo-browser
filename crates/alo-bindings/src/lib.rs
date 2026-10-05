@@ -24,24 +24,37 @@
 //!   are how a caller puts the document in, has a node's one object, asks what
 //!   node an object is (§ 4), and reads or changes the document through
 //!   `alo-dom`'s own operations (§ 5).
+//! - [`interface`] is what a script sees: one file per interface — `Node`,
+//!   `Element`, `Document`, the `ChildNode` mixin and `DOMException` — each
+//!   with its prototype and its members (§§ 1, 5 and 8), all of them natives
+//!   that reach their node through their `this` and nothing else, behind
+//!   Web IDL's brand check, argument count and conversions (`idl.rs`).
+//! - [`install()`] makes the prototypes in an engine's realm and puts the
+//!   document on its global object as `document`; [`furnish()`] makes them
+//!   without the global, for a second document.
 //!
 //! # What is not here yet
 //!
-//! **No script can reach any of it.** The interfaces — `Node`, `Element`,
-//! `Document`, `Text`, each in a file of its own with its prototype and its
-//! members — `DOMException`, the brand check's `TypeError` and `document` on
-//! the global object are queue item 249; the renderer moving a page's
-//! document in when its first script runs, and rendering again when the
-//! change count says what it holds is stale, are item 250. This crate is the
-//! part both stand on: what a wrapper is and how long it lives, which is the
-//! clause a script can observe and the one that had to be right first.
+//! **No renderer hands a page's document over.** The renderer moving a
+//! page's document in when its first script runs, and rendering again when
+//! the change count says what it holds is stale, are queue item 250; a
+//! parser-inserted script running at its own end tag is item 247. The
+//! members are item 80's and no more — everything else a page reaches for is
+//! absent, so `typeof` answers `"undefined"` (ADR 0017 § 8).
 
+mod define;
 pub mod document_cell;
 pub mod embed;
+mod idl;
+pub mod install;
+pub mod interface;
 pub mod liveness;
 pub mod tree;
 pub mod wrapper;
 
 pub use document_cell::{DocumentCell, Released};
 pub use embed::{Wrapping, adopt, change_document, document, node_of, wrap};
+pub use install::{furnish, install};
+pub use interface::dom_exception::DomException;
+pub use interface::{Interface, Interfaces, prototype_of};
 pub use wrapper::Wrapper;
