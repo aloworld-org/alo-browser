@@ -32,6 +32,13 @@ case "${7:-}" in
   *AGENTS.md*CLAUDE.md*LOOP.md*ROADMAP.md*"review compliance"*"report the blocker and stop"*) ;;
   *) exit 98 ;;
 esac
+exec worker-modes
+WORKER
+# What a worker does once its arguments are accepted, shared by both stubs so
+# that a selection test cannot pass by accident against a worker that behaves
+# differently from the one it replaced.
+cat > bin/worker-modes <<'MODES'
+#!/usr/bin/env bash
 case "$TEST_MODE" in
   fail) echo preserved > work; exit 42 ;;
   timeout) echo preserved > work; /bin/sleep 30; exit 0 ;;
@@ -47,7 +54,20 @@ if [ "$TEST_MODE" = complete ]; then
 fi
 git add .
 git commit -qm 'test: complete fixture'
-WORKER
+MODES
+# The other worker the supervisor knows. Its argument shape is checked just as
+# strictly: a fallback that invoked Claude Code wrongly would be a fallback
+# that never ran, and the fixture would not notice.
+cat > bin/claude <<'CLAUDE'
+#!/usr/bin/env bash
+[ "${1:-}" = -p ] && [ -n "${2:-}" ] || exit 98
+[ "${3:-}" = --dangerously-skip-permissions ] || exit 98
+case "${2:-}" in
+  *AGENTS.md*CLAUDE.md*LOOP.md*ROADMAP.md*"review compliance"*"report the blocker and stop"*) ;;
+  *) exit 98 ;;
+esac
+exec worker-modes
+CLAUDE
 # Avoid the production thirty-second observation interval in fixture runs.
 cat > bin/sleep <<'SLEEP'
 #!/usr/bin/env bash
@@ -107,3 +127,36 @@ TEST_MODE=success scripts/loop.sh --once > result 2>&1 || code=$?
 [ "$code" = 3 ] && [ -d .git/alo-loop.lock ]
 rmdir .git/alo-loop.lock
 printf 'ok    existing lock refused\n'
+
+# Which worker runs, and what happens when none can. Absence falls through to
+# the other worker; a login that has expired does not (`unauthenticated`
+# above), because a machine that never had Codex and a Codex nobody is signed
+# in to are different problems and only one of them is solved by using
+# something else.
+git reset --hard -q "$base"
+rm -f work broken bin/clock
+mkdir -p bin/parked
+mv bin/codex bin/parked/
+code=0
+TEST_MODE=success scripts/loop.sh --once > result 2>&1 || code=$?
+[ "$code" = 0 ] || { cat result; exit 1; }
+grep -q 'worker:     claude' result
+grep -q 'Completed fixture' docs/autonomy/STATE.md
+printf 'ok    no codex falls through to claude\n'
+
+# And a worker demanded by name that is not installed. Asked for rather than
+# merely absent, because the real `claude` on the machine running this test is
+# still on PATH behind the fixture's own bin and cannot be hidden by moving a
+# stub — so "neither is installed" is not a state this fixture can honestly
+# stage, while "the one you asked for is not here" is.
+git reset --hard -q "$base"
+rm -f work broken bin/clock
+code=0
+TEST_MODE=success ALO_LOOP_WORKER=codex scripts/loop.sh --once > result 2>&1 \
+  || code=$?
+[ "$code" = 8 ] || { cat result; exit 1; }
+grep -q 'no codex on PATH' result
+[ ! -d .git/alo-loop.lock ]
+git diff --quiet HEAD
+printf 'ok    a worker asked for and absent refuses before taking the lock\n'
+mv bin/parked/codex bin/

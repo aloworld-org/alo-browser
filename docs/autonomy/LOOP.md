@@ -265,6 +265,24 @@ outside it looked like the loop had stopped of its own accord. "Run this while
 you watch" and "run this overnight" are different instructions, and only the
 first was written down.
 
+**It runs on whichever worker this machine has.** Codex when it is installed
+and logged in, Claude Code when Codex is not installed at all;
+`ALO_LOOP_WORKER=codex` or `ALO_LOOP_WORKER=claude` demands one and is told
+plainly if it is absent rather than quietly handed the other.
+
+A Codex that is *installed but not logged in* stops the run instead of falling
+through. Absence and misconfiguration look alike from here and are not alike:
+one is a machine that never had Codex, the other is a login somebody let
+expire, and substituting a different worker for the second turns something to
+fix into a silent change of who wrote the next commit.
+
+`--dry-run` looks for the worker rather than describing it. It used to print a
+fixed line naming a program it had never checked was installed — every
+precondition reported except the one that stops a run dead. A missing worker
+exits 8; 2 stays for the things a person typed wrongly, including an expired
+login, because "that flag is a typo" and "this machine has nothing to run an
+iteration with" are different things to go and fix.
+
 **Start with `--items 5`.** "Run until the queue is empty" is a large thing to
 agree to on faith, and it is the same loop either way — only the number differs.
 Five iterations is enough to see what it does to the repository and to read the

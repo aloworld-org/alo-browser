@@ -9558,3 +9558,48 @@ labelled. The engine defect it names is still there.
 **The gate.** Documentation only — no source, tests, dependencies or gate
 scripts changed.
 
+---
+
+## Iteration 121 — the supervisor could not have run at all
+
+Not a queue item. Starting the loop after retiring the halt found that
+`scripts/loop.sh` names a worker this machine does not have: the preflight's
+`command -v codex` fails, so every iteration would have stopped at once.
+
+Worse, `--dry-run` said otherwise. It printed a fixed line — *"would run: codex
+exec …"* — naming a program it had never looked for, and reported the gate, the
+stop marker, the open count, the guards and the log beside it. Every
+precondition it checked was true and the one it did not check was the one that
+stops a run dead. A dry run that reports readiness it never tested is worse
+than no dry run, because it is believed.
+
+**The worker is now chosen rather than assumed.** Codex where it is installed
+and logged in, which keeps the owner's choice wherever that choice works;
+Claude Code where Codex is not installed at all. `ALO_LOOP_WORKER` demands one
+by name and is told plainly when it is absent.
+
+**The distinction that took a second attempt.** The first version fell back
+whenever Codex was unusable, including when it was installed but not logged in
+— and the existing fixture caught it, because `check unauthenticated 2` asserts
+that an expired login stops the run. The fixture was right. Absence and
+misconfiguration look alike from the supervisor and are not alike: one is a
+machine that never had Codex, the other is a login somebody let expire, and
+quietly using a different worker for the second turns something to fix into a
+silent change of who wrote the next commit. Only absence falls through now.
+
+That first version also took exit 4 for "no worker", which the same fixture
+already uses for "the gate is not met". A missing worker exits 8; 2 keeps the
+things a person typed wrongly, an expired login among them.
+
+**Tests.** `--self-test` gains a case asserting a dry run never says "would
+run" about a worker it has not found, and its argument cases now read an
+accepted argument as "not refused" rather than "exit 0", so a machine with no
+worker reports that fact instead of nine red argument failures. `test-loop.sh`
+gains two: a parked `codex` falls through to a `claude` stub and the stub
+actually runs — asserted on the journal line only that stub writes, so the real
+`claude` on PATH cannot pass the test for it — and a worker demanded by name
+and absent refuses with 8 before taking the lock, leaving the tree clean.
+
+**What is not claimed.** No queue item is touched. The loop has still not run
+an iteration under this supervisor; it is now capable of starting one.
+

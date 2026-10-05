@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/loop.sh — the build loop's supervisor, for macOS (ADR 0006).
 #
-# One `codex exec` invocation per queue item, until the journal says to stop.
+# One worker invocation per queue item, until the journal says to stop.
 # `docs/autonomy/LOOP.md` is what an iteration reads; this file only decides
 # when to start one and when to stop starting them.
 #
@@ -10,6 +10,9 @@
 #   scripts/loop.sh --items 5       # five iterations, then exit
 #   scripts/loop.sh --dry-run       # say what it would do, start nothing
 #   scripts/loop.sh --self-test     # check the stop-marker rule, start nothing
+#
+# ALO_LOOP_WORKER names the worker explicitly — `codex` or `claude`. Unset, it
+# takes whichever is here.
 #
 # Everything it does is written to docs/autonomy/loop.log as well as to the
 # terminal, so a run you walked away from is a run you can still read.
@@ -23,7 +26,66 @@ cd "$(dirname "$0")/.."
 JOURNAL="docs/autonomy/STATE.md"
 QUEUE="docs/autonomy/QUEUE.md"
 PROMPT="Follow all applicable system, developer and user instructions and repository rules. Before choosing or changing anything, read applicable AGENTS.md files, CLAUDE.md (the repository constitution), docs/autonomy/LOOP.md, ROADMAP.md, and the latest journal entry; read the selected item’s relevant ADRs and feature contract. Execute exactly ONE eligible iteration. Treat every applicable rule as mandatory: never weaken the gate, disable tests, add stubs, bypass dependency or stage gates, or claim unverified completion. Preserve unfinished work and keep sibling repositories read-only. Before committing, review compliance with the rules you read, run the complete mechanical gate and applicable manual checks, and record the evidence and any unresolved obligation in the journal. Update the queue, roadmap, features and changelog as applicable. Commit verified iteration changes locally before exiting. Do not push or launch another supervisor. If a rule cannot be met, report the blocker and stop rather than bypassing it. A blocked queue is not a finished roadmap."
-WORKER=(codex exec --sandbox danger-full-access -c 'approval_policy="never"' --json "$PROMPT")
+
+# Which program runs an iteration, and whether it is actually on this machine.
+#
+# Codex first, because that is what the owner chose; Claude Code when Codex is
+# not here, because a supervisor that runs on one person's machine is a
+# supervisor that mostly does not run. `ALO_LOOP_WORKER` names one explicitly
+# and is then told plainly that it is missing, rather than quietly handed the
+# other — a loop that silently swapped workers would make every journal entry
+# after it ambiguous about who wrote it.
+WORKER=()
+WORKER_NAME=""
+WORKER_WHY=""
+WORKER_STATUS=0
+choose_worker() {
+  local wanted="${ALO_LOOP_WORKER:-}"
+  case "$wanted" in
+    '' | codex | claude) ;;
+    *)
+      WORKER_WHY="ALO_LOOP_WORKER=$wanted names no worker this script knows"
+      WORKER_STATUS=2
+      return 1
+      ;;
+  esac
+
+  if [ "$wanted" != claude ] && command -v codex >/dev/null; then
+    # Installed but not logged in stops here rather than reaching for the
+    # other worker. Absence and misconfiguration are not the same thing: one
+    # is a machine that never had Codex, the other is a login somebody let
+    # expire, and quietly substituting a different worker for the second turns
+    # a thing to fix into a silent change of who wrote the next commit.
+    if ! codex login status >/dev/null 2>&1; then
+      WORKER_WHY="Codex is not logged in; run codex login before starting."
+      WORKER_STATUS=2
+      return 1
+    fi
+    WORKER=(codex exec --sandbox danger-full-access \
+      -c 'approval_policy="never"' --json "$PROMPT")
+    WORKER_NAME=codex
+    return 0
+  fi
+
+  if [ "$wanted" = codex ]; then
+    WORKER_WHY="no codex on PATH"
+    WORKER_STATUS=8
+    return 1
+  fi
+
+  if ! command -v claude >/dev/null; then
+    if [ "$wanted" = claude ]; then
+      WORKER_WHY="no claude on PATH"
+    else
+      WORKER_WHY="no worker on PATH: neither codex nor claude"
+    fi
+    WORKER_STATUS=8
+    return 1
+  fi
+  WORKER=(claude -p "$PROMPT" --dangerously-skip-permissions)
+  WORKER_NAME=claude
+  return 0
+}
 
 # How long a worker may be *silent* before it is presumed hung, and the
 # absolute ceiling regardless of how busy it looks. Idle rather than duration,
@@ -265,10 +327,27 @@ nothing to report"
       failures=1
     fi
   }
-  expect "a number of items is accepted" 0 --items 5
-  expect "the same, written with an equals sign" 0 --items=5
-  expect "no arguments at all is accepted" 0
-  expect "--once is accepted" 0 --once
+  # An accepted argument exits 0 where a worker is installed and 4 where none
+  # is. That second thing is not what these cases ask about, so both read as
+  # accepted and only an argument refusal fails them — otherwise every one of
+  # them would go red on a machine that simply has no worker yet, which is a
+  # misleading way to report a missing program.
+  accepts() {
+    local name="$1"
+    shift
+    local got
+    got="$(args "$@")"
+    if [ "$got" != 2 ]; then
+      printf '\033[32mok\033[0m    %s\n' "$name"
+    else
+      printf '\033[31mFAIL\033[0m  %s — the argument was refused\n' "$name"
+      failures=1
+    fi
+  }
+  accepts "a number of items is accepted" --items 5
+  accepts "the same, written with an equals sign" --items=5
+  accepts "no arguments at all is accepted"
+  accepts "--once is accepted" --once
   expect "a number that is not one is refused" 2 --items abc
   expect "zero items is refused" 2 --items 0
   expect "--items with nothing after it is refused" 2 --items
@@ -279,6 +358,22 @@ nothing to report"
   # argument, and every refusal used to land in the real log — so a run that
   # genuinely failed sat among a dozen failures that were tests passing. A log
   # somebody has to filter before reading is a log they stop reading.
+  # What the dry run says about a worker that is not there. It used to print a
+  # confident "would run: codex ..." whatever the machine had on it, so the one
+  # failure that stops every iteration was the one it did not look for.
+  absent="$( ALO_LOOP_LOG=/dev/null ALO_LOOP_WORKER=nonsense-worker \
+    "$0" --dry-run 2>&1 )"
+  absent_status=$?
+  if [ "$absent_status" = 2 ] && ! printf '%s' "$absent" | grep -q 'would run: '
+  then
+    printf '\033[32mok\033[0m    %s\n' \
+      "a dry run claims no worker it has not found"
+  else
+    printf '\033[31mFAIL\033[0m  %s — exit %s, said %s\n' \
+      "a dry run claims no worker it has not found" "$absent_status" "$absent"
+    failures=1
+  fi
+
   real="docs/autonomy/loop.log"
   before=$( [ -f "$real" ] && wc -l < "$real" || echo 0 )
   ( ALO_LOOP_LOG=/dev/null "$0" --items abc --dry-run >/dev/null 2>&1 )
@@ -296,21 +391,31 @@ nothing to report"
 fi
 
 if [ "$dry" -eq 1 ]; then
-  say 'would run: codex exec --sandbox danger-full-access -c approval_policy="never" --json "$PROMPT"'
+  # The worker is looked for rather than described. This line used to be a
+  # fixed string naming a program the dry run had never checked was installed,
+  # so it reported every precondition except the only one that stops a run
+  # dead — and said "would run" about a command that could not.
+  if choose_worker; then
+    say "would run:  ${WORKER[*]//"$PROMPT"/\$PROMPT}"
+  else
+    bad "would run nothing: $WORKER_WHY"
+  fi
   marker="$(stop_marker)"
   say "journal:    $JOURNAL  (stop marker: ${marker:-none})"
   say "queue:      $(open_items) items still open"
   say "guards:     silent for ${IDLE_KILL_MIN}m, or ${CEILING_MIN}m total"
   say "iterations:  $wanted at most"
   say "log:         $LOG"
+  [ -n "$WORKER_NAME" ] || exit "$WORKER_STATUS"
   exit 0
 fi
 
-command -v codex >/dev/null || { bad "no codex on PATH"; exit 2; }
-if ! codex login status >/dev/null 2>&1; then
-  bad "Codex is not logged in; run codex login before starting."
-  exit 2
-fi
+# Exit 8 where no worker is installed, keeping 2 for the things a person typed
+# wrongly — a bad flag, a worker name that is not one, a Codex login that has
+# expired. "This machine has nothing to run an iteration with" is a different
+# thing to go and fix, and a caller reading only the status can tell them apart.
+choose_worker || { bad "$WORKER_WHY"; exit "$WORKER_STATUS"; }
+say "worker:     $WORKER_NAME"
 
 # Claim the checkout atomically before the gate or any worker. A stale lock
 # requires inspection: guessing its owner is dead can start rival workers.

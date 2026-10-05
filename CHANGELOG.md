@@ -6,6 +6,21 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The build loop runs on whichever worker the machine has.** Codex when it is
+  installed and logged in, Claude Code when Codex is absent, and
+  `ALO_LOOP_WORKER` names one explicitly and reports it missing rather than
+  silently substituting the other. A Codex that is installed but not logged in
+  still stops the run, because a login that expired is a thing to fix and not a
+  reason to change who writes the commits. A dry run now looks for the worker
+  instead of printing a fixed line naming a program it had never checked for,
+  and a missing worker exits 8, distinct from the 2 a mistyped argument uses.
+
+- **Item 222 is recorded as blocked rather than re-derived.** The named function
+  expression binding defect is real, but no permitted frozen script
+  demonstrates it — the obvious candidate fails earlier on an unbuilt feature —
+  so the item says so in the form the selection rule reads, and the loop passes
+  over it.
+
 - **Function-binding work retains its real-script evidence gate.** Iteration
   119 records the missing frozen failure for item 222 and halts before
   implementation; no function capability or roadmap completion is claimed.
