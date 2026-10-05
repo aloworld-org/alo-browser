@@ -82,7 +82,17 @@ choose_worker() {
     WORKER_STATUS=8
     return 1
   fi
-  WORKER=(claude -p "$PROMPT" --dangerously-skip-permissions)
+  # `--output-format stream-json --verbose` is not a preference. Without it
+  # `claude -p` buffers its whole response and writes the transcript once, at
+  # the end — zero bytes from the first second to the last — and the idle
+  # guard below, which presumes a worker that writes as it goes, reads every
+  # iteration as silent from the start. It then stops being a hang detector
+  # and becomes a flat IDLE_KILL_MIN wall clock on all work. That is not a
+  # theory: it killed iteration 125 mid-item, and the three before it finished
+  # one to two minutes inside the window without anyone noticing how close
+  # they were.
+  WORKER=(claude -p "$PROMPT" --dangerously-skip-permissions \
+    --output-format stream-json --verbose)
   WORKER_NAME=claude
   return 0
 }

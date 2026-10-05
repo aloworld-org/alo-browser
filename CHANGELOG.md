@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The build loop stopped capping every iteration at twenty minutes.** Its
+  idle guard presumes a worker that writes as it works; the Claude worker was
+  invoked in a mode that buffers everything until the end, so every iteration
+  looked silent from its first second and was killed on the guard's timer
+  rather than on any evidence of a hang. The worker now streams, and the
+  supervisor's fixture asserts both that it is asked to and that a worker
+  writing throughout a long iteration is left alone.
+
 - **Errors are things a page can make.** `Error`, `TypeError`, `RangeError`,
   `ReferenceError`, `SyntaxError`, `EvalError` and `URIError` now exist:
   `new TypeError("bad")` carries its message, an optional `{ cause }` is kept,

@@ -276,6 +276,17 @@ one is a machine that never had Codex, the other is a login somebody let
 expire, and substituting a different worker for the second turns something to
 fix into a silent change of who wrote the next commit.
 
+The Claude worker is asked for `--output-format stream-json --verbose`, and
+that is a requirement rather than a taste. The idle guard below presumes a
+worker that writes to its transcript as it goes — a hung one stops writing
+while an honest long one carries on. `claude -p` on its own buffers everything
+and writes once at the end, so its transcript is zero bytes from the first
+second to the last, and the guard reads every iteration as silent from the
+start. It stops detecting hangs at all and becomes a flat twenty-minute wall
+clock on all work. That is how iteration 125 was killed mid-item, and the
+three iterations before it finished one to two minutes inside the window
+without anybody noticing how close they were.
+
 `--dry-run` looks for the worker rather than describing it. It used to print a
 fixed line naming a program it had never checked was installed — every
 precondition reported except the one that stops a run dead. A missing worker

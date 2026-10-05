@@ -46,6 +46,14 @@ case "$TEST_MODE" in
   halt) printf '\nLOOP HALT\n' >> docs/autonomy/STATE.md; exit 0 ;;
   dirty) echo preserved > work; exit 0 ;;
   badgate) touch broken ;;
+  # Writes as it goes and takes longer than the idle window, which is the one
+  # thing the guard must not treat as a hang.
+  streaming)
+    for n in 1 2 3 4 5 6 7 8 9 10 11 12; do
+      printf '{"type":"event","n":%s}\n' "$n"
+      /bin/sleep 0.15
+    done
+    ;;
 esac
 printf '\n## Iteration 1\nCompleted fixture.\n' >> docs/autonomy/STATE.md
 printf '%s\n' '- [x] **1. Fixture.**' > docs/autonomy/QUEUE.md
@@ -62,6 +70,11 @@ cat > bin/claude <<'CLAUDE'
 #!/usr/bin/env bash
 [ "${1:-}" = -p ] && [ -n "${2:-}" ] || exit 98
 [ "${3:-}" = --dangerously-skip-permissions ] || exit 98
+# The streaming flags are part of the contract, not a preference: without them
+# this worker writes its transcript once at the end and the idle guard reads
+# every iteration as silent from the first second.
+[ "${4:-}" = --output-format ] && [ "${5:-}" = stream-json ] || exit 98
+[ "${6:-}" = --verbose ] || exit 98
 case "${2:-}" in
   *AGENTS.md*CLAUDE.md*LOOP.md*ROADMAP.md*"review compliance"*"report the blocker and stop"*) ;;
   *) exit 98 ;;
@@ -75,9 +88,15 @@ cat > bin/sleep <<'SLEEP'
 SLEEP
 cat > bin/date <<'DATE'
 #!/usr/bin/env bash
-if [ "$TEST_MODE" = timeout ] && [ "${1:-}" = +%s ]; then
+if { [ "$TEST_MODE" = timeout ] || [ "$TEST_MODE" = streaming ]; } \
+  && [ "${1:-}" = +%s ]; then
   count=$(cat bin/clock 2>/dev/null || echo 0)
-  count=$((count + 60))
+  # Coarse enough in `timeout` to cross the idle window in one observation;
+  # finer in `streaming` so the window is crossed only by a worker that has
+  # genuinely stopped writing, rather than by the clock outrunning it.
+  step=60
+  [ "$TEST_MODE" = streaming ] && step=5
+  count=$((count + step))
   echo "$count" > bin/clock
   echo "$count"
 else
@@ -113,6 +132,9 @@ check dirty 6
 check badgate 4
 check complete 0
 check success 0
+# The regression that cost iteration 125: a worker writing all the way through
+# an iteration longer than the idle window is working, not hung.
+check streaming 0
 # A pre-existing change must never reach a worker.
 git reset --hard -q "$base"
 echo original > work

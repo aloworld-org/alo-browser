@@ -9942,3 +9942,49 @@ finished, not an item written.
 **Next.** The supervisor's worker invocation is wrong and is fixed in its own
 change, not this one.
 
+---
+
+## Iteration 126 — the guard was asking a question the worker could not answer
+
+Not a queue item. The supervisor defect that killed iteration 125.
+
+`scripts/loop.sh` watches each worker's transcript and kills one that has
+written nothing for `IDLE_KILL_MIN` minutes. The reasoning is sound and is
+written in the file: a hung worker stops writing while an honest long one
+keeps writing. It is true of `codex exec --json`, which the guard was built
+around.
+
+It is false of `claude -p`. That mode buffers the whole response and writes it
+once, at the end. The transcript is zero bytes from the first second to the
+last, so the guard saw silence from the start of every iteration and killed on
+its timer. The evidence is in the run directory: iterations 1 to 3 wrote their
+transcripts at 14:49, 15:09 and 15:28 — each about a minute before finishing —
+and iteration 4's file is still zero bytes.
+
+So the guard was not detecting hangs for this worker. It was a twenty-minute
+wall clock on all work, and nothing reported it as one, because an iteration
+that finishes inside the window looks exactly like one the guard approves of.
+Seven, nineteen and eighteen minutes: two of those cleared it by a minute.
+
+**The fix is the invocation, not the guard.** The worker now runs with
+`--output-format stream-json --verbose`, which emits an event per tool call
+and result. Measured rather than assumed: a probe writing over a run of two
+eight-second commands grew its output steadily throughout instead of arriving
+in one piece at the end.
+
+**Two tests, because the flag is easy to drop and the symptom is invisible.**
+The fixture's Claude stub now refuses any invocation without the streaming
+flags, so removing them fails the suite rather than quietly restoring a wall
+clock. And a new `streaming` mode runs a worker that writes all the way
+through an iteration longer than the idle window and asserts it is not killed
+— the opposite case to `timeout`, which asserts that one which stops writing
+is. The fixture's clock advances in finer steps for that mode, so the window
+can only be crossed by a worker that has genuinely gone quiet rather than by
+the clock outrunning it.
+
+**What this does not fix.** A single tool call longer than the idle window is
+still silence, because the stream carries a tool's result and not its
+progress. The gate is comfortably inside twenty minutes today. If it ever is
+not, the guard will be right about what it sees and wrong about what it means,
+exactly as it was here.
+
