@@ -229,7 +229,9 @@ another repository — so both are this loop's to close.
 ## The corpus
 
 `crates/alo-corpus/cases/` holds the small cases this engine is checked against
-on every run — twenty-three of them today. Each is a directory with what to render
+on every run — twenty-five of them today. A case whose page carries script is
+loaded the way a page is, so its script runs and the expectations are the page
+it left (`a-script-grows-a-list`); every other case is its markup, rendered. Each is a directory with what to render
 and five expectations beside it, so a change that moves a box says which box, in
 which case, on which line.
 

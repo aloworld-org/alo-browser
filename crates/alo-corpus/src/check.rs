@@ -11,8 +11,9 @@
 //! everything that differs is reported together.
 
 use crate::case::Case;
+use alo_dom::Document;
 use alo_paint::{Canvas, from_png, to_png};
-use alo_renderer::Rendered;
+use alo_renderer::Drawing;
 use core::fmt;
 
 /// One expectation that did not hold.
@@ -36,26 +37,25 @@ fn updating() -> bool {
     std::env::var_os("ALO_UPDATE_REFERENCES").is_some()
 }
 
-/// Check a rendered case against its committed expectations.
+/// Check a case's drawing of `document` against its committed expectations.
 ///
 /// Returns everything that differs. An empty list is a case that holds.
-pub fn check(case: &Case, rendered: &Rendered) -> Vec<Difference> {
+pub fn check(case: &Case, document: &Document, drawing: &Drawing) -> Vec<Difference> {
     let mut differences = Vec::new();
     let expectations = [
-        ("boxes.txt", rendered.boxes.to_outline()),
-        ("layout.txt", rendered.layout.to_outline(&rendered.boxes)),
-        ("display.txt", rendered.display.to_outline()),
+        ("boxes.txt", drawing.boxes.to_outline()),
+        ("layout.txt", drawing.layout.to_outline(&drawing.boxes)),
+        ("display.txt", drawing.display.to_outline()),
         // ADR 0002: *"Reference renders can assert the tree, not just
         // pixels."* This is that — what an agent reads, pinned beside what a
         // person sees, so the two cannot drift apart unnoticed.
         (
             "agent.txt",
-            alo_agent::AgentTree::new(&rendered.document, &rendered.boxes, &rendered.layout)
-                .to_outline(),
+            alo_agent::AgentTree::new(document, &drawing.boxes, &drawing.layout).to_outline(),
         ),
         (
             "issues.txt",
-            format!("{}\n", rendered.issues().join("\n"))
+            format!("{}\n", drawing.issues(document).join("\n"))
                 .trim_start()
                 .to_owned(),
         ),
@@ -65,7 +65,7 @@ pub fn check(case: &Case, rendered: &Rendered) -> Vec<Difference> {
             differences.push(difference);
         }
     }
-    if let Some(difference) = check_picture(case, &rendered.canvas) {
+    if let Some(difference) = check_picture(case, &drawing.canvas) {
         differences.push(difference);
     }
     differences

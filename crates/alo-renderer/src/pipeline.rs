@@ -31,10 +31,24 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::sync::Arc;
 
-/// Everything one render produced.
+/// Everything one render produced, and the document it was produced from.
+///
+/// What the corpus renders: markup in, every tree out. A renderer whose page
+/// has run script keeps no `Rendered` — its document is in the page's heap
+/// (ADR 0017 § 2) — and keeps the [`Drawing`] alone.
 pub struct Rendered {
     /// The document.
     pub document: Document,
+    /// What was drawn from it.
+    pub drawing: Drawing,
+}
+
+/// Everything one render of a document produced, without the document.
+///
+/// Its own type because the document is not always the render's to own: once
+/// a page's script has run, the document lives in the page's heap and is only
+/// lent for as long as a render reads it (ADR 0017 § 2).
+pub struct Drawing {
     /// The style of every element.
     pub styles: StyleTree,
     /// The boxes.
@@ -72,7 +86,14 @@ impl Rendered {
     /// than pages being refused anything. What the list has in common is that
     /// every line in it explains something a person can see.
     pub fn issues(&self) -> Vec<String> {
-        self.each_issue().map(ToString::to_string).collect()
+        self.drawing.issues(&self.document)
+    }
+}
+
+impl Drawing {
+    /// [`Rendered::issues`], for a drawing of `document`.
+    pub fn issues(&self, document: &Document) -> Vec<String> {
+        self.each_issue(document).map(ToString::to_string).collect()
     }
 
     /// The same list, one line at a time and none of it written out yet.
@@ -80,11 +101,14 @@ impl Rendered {
     /// What crosses the boundary is bounded ([`crate::said::of_markup`]), and
     /// a page can make millions of these: written out only when somebody asks
     /// for a line, the ones past the bound cost nothing to count.
-    pub fn each_issue(&self) -> impl Iterator<Item = &dyn fmt::Display> {
+    pub fn each_issue<'a>(
+        &'a self,
+        document: &'a Document,
+    ) -> impl Iterator<Item = &'a dyn fmt::Display> {
         fn shown<T: fmt::Display>(issue: &T) -> &dyn fmt::Display {
             issue
         }
-        self.document
+        document
             .issues()
             .iter()
             .map(shown)
@@ -178,6 +202,24 @@ pub fn render_document_with(
     linked: &[(String, String)],
     resources: &[(String, Vec<u8>)],
 ) -> Rendered {
+    let drawing = draw(&document, css, size, fonts, linked, resources);
+    Rendered { document, drawing }
+}
+
+/// Draw a document that is only lent: style, boxes, layout and paint.
+///
+/// **Every render is this.** The document is borrowed for exactly as long as
+/// the drawing takes, which is what lets a renderer draw a page whose
+/// document lives in its heap (ADR 0017 § 2): the borrow is out of the heap,
+/// and it ends before anything could run script.
+pub fn draw(
+    document: &Document,
+    css: &str,
+    size: Size,
+    fonts: &FontDatabase,
+    linked: &[(String, String)],
+    resources: &[(String, Vec<u8>)],
+) -> Drawing {
     let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
     // A page's own `<style>` elements, then whatever the caller supplied. In
     // that order because a later sheet overrides an earlier one, and a caller
@@ -188,7 +230,7 @@ pub fn render_document_with(
     // its whole style sheet inside itself, which is what pages do and which the
     // corpus never showed because the corpus was ours.
     let mut missing = Vec::new();
-    let mut parsed: Vec<_> = alo_dom::sheets::asked_for(&document)
+    let mut parsed: Vec<_> = alo_dom::sheets::asked_for(document)
         .into_iter()
         .map(|sheet| match sheet {
             alo_dom::sheets::Sheet::Written(text) => parse_stylesheet(&text),
@@ -223,13 +265,13 @@ pub fn render_document_with(
         .map(ToString::to_string)
         .collect();
     sheet_issues.extend(missing);
-    let styles = alo_style::resolve(&document, &sheets, &device);
-    let mut boxes = alo_box::build(&document, &styles);
+    let styles = alo_style::resolve(document, &sheets, &device);
+    let mut boxes = alo_box::build(document, &styles);
 
     // Pictures, before layout, because a picture's own size is what an `<img>`
     // with no width lays out at — so the size has to be known before anything
     // is measured.
-    let (pictures, picture_issues) = pictures_for(&document, &mut boxes, resources);
+    let (pictures, picture_issues) = pictures_for(document, &mut boxes, resources);
     sheet_issues.extend(picture_issues);
 
     let measurer = TextMeasurer::new(fonts);
@@ -253,8 +295,7 @@ pub fn render_document_with(
     // that decides which families a page really asked for.
     let wanted = crate::families::wanted(&boxes, &styles, fonts);
 
-    Rendered {
-        document,
+    Drawing {
         styles,
         boxes,
         layout,
@@ -390,11 +431,14 @@ mod tests {
             Size::new(20.0, 10.0),
             &no_fonts(),
         );
-        assert!(rendered.boxes.root().is_some());
-        assert!(!rendered.layout.is_empty());
-        assert!(!rendered.display.is_empty());
+        assert!(rendered.drawing.boxes.root().is_some());
+        assert!(!rendered.drawing.layout.is_empty());
+        assert!(!rendered.drawing.display.is_empty());
         assert_eq!(
-            (rendered.canvas.width(), rendered.canvas.height()),
+            (
+                rendered.drawing.canvas.width(),
+                rendered.drawing.canvas.height()
+            ),
             (20, 10)
         );
     }
@@ -423,7 +467,7 @@ mod tests {
             &no_fonts(),
         );
         assert_eq!(
-            rendered.wanted.families,
+            rendered.drawing.wanted.families,
             vec!["system-ui".to_owned(), "sans-serif".to_owned()],
         );
         assert!(

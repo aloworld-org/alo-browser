@@ -204,6 +204,16 @@ script reaches it until 250. It added 251 (`document` as Web IDL's
 accessor). 113 queue items are open; 250 is next; the next unused queue
 number is 252 and the next unused ADR 0018.
 
+Iteration 146 built 250: the renderer hands a page's document to its script
+(`held.rs`) and draws from what the script left — again whole when the
+change count has moved, at a paint, a tree read or an act, once at the end
+of a load, and from the document it has at a resize — and the corpus loads
+a case that carries script through a renderer (`a-script-grows-a-list`).
+It ticked 246, whose condition 248–250 met together, and added 252 (a
+thrown `DOMException` reported by its name). Item 80 waits only on 247.
+112 queue items are open; 247 is next; the next unused queue number is 253
+and the next unused ADR 0018.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

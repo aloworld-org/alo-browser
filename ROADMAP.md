@@ -865,10 +865,18 @@ unreachable without it.
       brand check and argument rules as a `TypeError`, every refusal thrown
       as the `DOMException` it names with `Error.prototype` on its chain,
       `document` on the global object, and every other member absent;
-      proven by scripts the engine runs against an adopted document.
-      · Owed: no page reaches it yet — the renderer handing its document
-      over and rendering it again (250), and a script at its own end tag
-      (247). The decision is made (ADR 0017): the document
+      proven by scripts the engine runs against an adopted document. **A
+      page's script reaches it, and the page is drawn from what it left**
+      (`alo-renderer`, queue item 250) — the document moves into the
+      page's heap when its first script that may run is about to, every
+      render borrows it wherever it is, and the page is drawn again whole
+      when the change count has moved, at `Paint`, `ReadTree` and an
+      `Act`, once at the end of a `Load` and from the document it has at a
+      `Resize`; a page that runs no script builds no heap; proven by the
+      corpus case `a-script-grows-a-list`, loaded through a renderer, and
+      `what_a_script_left.rs`.
+      · Owed: a script at its own end tag, seeing the document parsed so
+      far (247) — item 80's last cut. The decision is made (ADR 0017): the document
       moves into the page's heap when it first runs script; a node's wrapper
       lives while its tree is reachable and an unreachable detached tree is
       freed, its ids never reused; every change goes through `alo-dom` under

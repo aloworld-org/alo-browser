@@ -202,6 +202,13 @@ impl EventLoop {
         &mut self.engine
     }
 
+    /// The engine's objects, to read — how the renderer borrows a document
+    /// that lives in this loop's heap (ADR 0017 § 2) without running anything.
+    pub fn objects(&self) -> &alo_js::Objects {
+        let (_, objects) = self.engine.intrinsics();
+        objects
+    }
+
     /// The switch that stops this page's script, from any thread.
     pub fn stop_switch(&self) -> Stop {
         self.stop.clone()

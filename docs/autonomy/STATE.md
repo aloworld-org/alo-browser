@@ -12079,3 +12079,110 @@ nothing in the browser process (item 203's dependency); iteration 141's
 browser-side font-name guard still has no discriminating test. 113 queue
 items are open. Next is **250**. Next unused queue number **252**; next ADR
 **0018**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 146 — item 250: the renderer hands its document to script and renders what script left
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Mutation from script* line, iteration
+145's entry, queue items 80, 246–251 and 247, ADR 0017 in full, and the code
+this changes: `alo-renderer`'s `renderer.rs`, `pipeline.rs`, `scripts.rs`,
+`said.rs`, `event_loop.rs`; `alo-bindings`' `embed.rs`, `install.rs`,
+`document_cell.rs`; `alo-js`'s `heap.rs` allocation and `object.rs`'s
+`foreign`; `alo-dom`'s change count; `alo-agent`'s `apply`; `alo-corpus`'s
+harness. No `AGENTS.md` exists. No sibling repository was read or modified.
+The checkout was clean on entry at `4fcb038`.
+
+**Selection.** Iteration 145 named **250** next; its dependency, 249, is
+done, and every earlier open item is still blocked for the reasons iteration
+144 recorded.
+
+**What was built.** `alo-renderer/src/held.rs`: `Held` is where a page's
+document is — `Parsed` (the renderer's) until the page's first script that
+may run is about to, then `Scripted` (an event loop whose heap holds the
+document cell, behind one `Root`). Every reader borrows it, `apply` changes
+it through it, and `scripted()` makes the loop, adopts, roots and installs.
+`pipeline::draw` borrows a document and answers a `Drawing`; `Rendered` is
+a parsed document and its drawing. `Renderer` keeps the held document, the
+last drawing and the change count it was drawn at, and draws again whole
+when the count has moved — at `Paint`, `ReadTree`, before an `Act`'s
+decision and after its change; once at the end of a `Load`, after its
+scripts; and from the document it has at a `Resize` (no more re-parse).
+`alo-js`: `Heap::allocate_or_back`, `Objects::foreign_or_back`,
+`Typed::into_any` — a refused cell goes back to its maker, and the heap now
+checks a slot can be named before placing a cell rather than after.
+`alo_bindings::adopt` answers `Unadopted` with the document. `alo-corpus`:
+`rendering.rs` loads a case that carries script through a `Renderer`;
+`check` takes a document and its drawing; new case `a-script-grows-a-list`.
+
+**Decisions taken inside the item, none changing ADR 0017's rules.**
+(1) `Rendered` keeps its document for the corpus, and the renderer keeps a
+`Drawing` alone — the ADR's *`Rendered` stops owning it* applied to the
+renderer, where the document can be in the heap, rather than to markup the
+corpus renders. (2) A document the heap refuses is handed back and the page
+is drawn as one that ran no script, with the refusal said; the engine gained
+the hand-back rather than the renderer re-parsing, which would mint the same
+ids only by the accident of a deterministic parser. (3) The corpus loads a
+scripted case through the renderer, since a reference render of markup
+whose script never ran is a page nobody sees; such a case may not link a
+sheet or picture yet (`Page` has no room for them), refused by name.
+(4) `Act` now redraws by the change count rather than by `apply`'s answer,
+since the count is the ADR's contract and `apply` changes only through
+counted operations.
+
+**Evidence.** `crates/alo-corpus/cases/a-script-grows-a-list` (reference
+render looked at: three rows, the third green, the second's text changed,
+the paragraph gone; `layout.txt` has the new row at (8, 89.875)
+184×25.296875); `crates/alo-renderer/tests/what_a_script_left.rs`, 11 tests
+(listed in the queue entry, the layout asserted box by box);
+`crates/alo-corpus/src/rendering.rs`, 3 unit tests;
+`crates/alo-js/tests/what_an_embedder_gets_back.rs`, 1 test. Doctored runs,
+each restored and checked identical by hash: nine rules disabled alone, each
+failing at least one test (the queue entry names them). One first pass was
+not a real doctoring — it drew twice rather than before the scripts — and
+was redone; cargo stops at the first failing test binary, so the counts in
+the scratchpad log are lower bounds.
+
+**Found.** A thrown `DOMException` is reported as `uncaught: an object`:
+`described.rs` names only the engine's own errors. Queue item **252**.
+
+**Compliance review.** Law 1: nothing legacy added. Law 2: the agent reads
+the tree drawn from the script's document; a script-made node is `#N` past
+every parsed one and acted on by name. Law 3: no stub, `todo!` or `unwrap`
+outside tests; the two "not reached" answers (a heap returning a different
+cell, a parsed page not becoming scripted) are answered, not assumed.
+Law 4: no `unsafe`. One file, one responsibility: where the document is
+(`held.rs`) apart from answering messages (`renderer.rs`); how a corpus case
+is rendered (`rendering.rs`) apart from checking it (`check.rs`). Clippy's
+`large_enum_variant` on `Held` was fixed by boxing, not silenced. Layout
+assertion in numbers and a reference render: both, above. Every existing
+reference render still matches (the gate runs the corpus). Stage 2 § 2: the
+hostile half is a script that throws mid-change and one that removes its
+root element; both drawn, and every message still answered.
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step: formatting clean, clippy silent, all tests pass, nothing stubbed,
+`unsafe` forbidden, every file carries the licence notice, every rented
+crate behind its boundary, no coordinate verb, the supervisor's stop rule
+holds, `CHANGELOG.md` changed. `cargo test --workspace --all-features`
+counts 2407 passed, 0 failed (2392 at iteration 145, this item's 15).
+`git diff --check` passes. The log was kept in this session's scratchpad.
+
+**Roadmap.** The *Mutation from script* line's Built clause gains a page's
+script reaching the document and the page drawn from what it left (item
+250); its Owed clause now names only 247. Not ticked: item 80 closes when
+247 has. Queue: 250 and 246 ticked with their evidence, 252 added;
+`CHANGELOG.md`, `docs/features.md`, `docs/conformance.md` and `REMAINING.md`
+moved with it.
+
+**Unresolved obligations.** The renderer's path for a document the heap
+refuses is not discriminated by a test (it needs a document over the heap's
+1 GiB ceiling); its engine half is. Every script still sees the whole parsed
+document (247). A thrown `DOMException` is not named in a report (252).
+`document`'s shape is item 251. Carried from before: the one-write overshoot
+of the heap's ceiling; 248's undiscriminated overrun fallback; 78's
+remainder; 77 needs design; 233, 234, 238 and 240 open and item 76 not done;
+`violations::reports` still called by nothing in the browser process (item
+203's dependency); iteration 141's browser-side font-name guard still has no
+discriminating test. 112 queue items are open. Next is **247**. Next unused
+queue number **253**; next ADR **0018**. This is one iteration, not a
+finished queue or roadmap.

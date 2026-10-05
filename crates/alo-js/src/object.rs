@@ -464,6 +464,31 @@ impl Objects {
         Ok(self.heap.allocate(Cell::Foreign(exotic))?)
     }
 
+    /// [`foreign`](Self::foreign), handing the object back when the heap
+    /// refuses it — for an embedder's object that owns what cannot be made
+    /// again, such as a page's document (ADR 0017 § 2).
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] and the object, unchanged, when the heap is at its
+    /// ceiling. The object is [`None`] only if the heap handed back a cell
+    /// other than the one it was given, which it does not: answered rather
+    /// than assumed.
+    pub fn foreign_or_back<T: Exotic>(
+        &mut self,
+        exotic: T,
+    ) -> Result<Ref, (Refused, Option<Box<T>>)> {
+        self.heap
+            .allocate_or_back(Cell::Foreign(Box::new(exotic)))
+            .map_err(|(full, cell)| {
+                let back = match cell {
+                    Cell::Foreign(exotic) => exotic.into_any().downcast::<T>().ok(),
+                    _ => None,
+                };
+                (Refused::Full(full), back)
+            })
+    }
+
     /// The embedder's object `held` names, borrowed as the embedder's own
     /// type — or [`None`] if it names anything else (ADR 0017 § 4).
     ///

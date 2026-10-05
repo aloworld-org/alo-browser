@@ -9,13 +9,11 @@
 //! differs, with **every** expectation that differs in it. A run that fails
 //! tells you the whole story rather than the first sentence of it.
 
-use alo_corpus::{Case, cases_directory, check, corpus_fonts, render_with_resources};
-use alo_layout::Size;
+use alo_corpus::{Case, Rendering, cases_directory, check};
 use core::fmt::Write as _;
 
 #[test]
 fn every_case_renders_the_way_it_is_committed_to() {
-    let fonts = corpus_fonts();
     let cases = Case::read_all(&cases_directory());
     assert!(
         !cases.is_empty(),
@@ -24,15 +22,13 @@ fn every_case_renders_the_way_it_is_committed_to() {
 
     let mut report = String::new();
     for case in &cases {
-        let rendered = render_with_resources(
-            &case.html,
-            &case.css,
-            Size::new(case.size.0, case.size.1),
-            &fonts,
-            &case.linked,
-            &case.resources,
-        );
-        let differences = check(case, &rendered);
+        let differences = match Rendering::of(case) {
+            Ok(rendering) => match (rendering.document(), rendering.drawing()) {
+                (Some(document), Some(drawing)) => check(case, document, drawing),
+                _ => vec![unrendered(case, "it has no document or no drawing")],
+            },
+            Err(why) => vec![unrendered(case, &why)],
+        };
         if differences.is_empty() {
             continue;
         }
@@ -56,25 +52,13 @@ fn every_case_is_rendered_the_same_way_twice() {
     // A corpus is only worth committing if it is deterministic. This is the
     // test that says so, and it is separate because a failure here means
     // something quite different from a failure above.
-    let fonts = corpus_fonts();
     for case in Case::read_all(&cases_directory()) {
-        let size = Size::new(case.size.0, case.size.1);
-        let first = render_with_resources(
-            &case.html,
-            &case.css,
-            size,
-            &fonts,
-            &case.linked,
-            &case.resources,
-        );
-        let second = render_with_resources(
-            &case.html,
-            &case.css,
-            size,
-            &fonts,
-            &case.linked,
-            &case.resources,
-        );
+        let (Ok(first), Ok(second)) = (Rendering::of(&case), Rendering::of(&case)) else {
+            panic!("{} could not be rendered", case.name);
+        };
+        let (Some(first), Some(second)) = (first.drawing(), second.drawing()) else {
+            panic!("{} drew nothing", case.name);
+        };
         assert_eq!(
             first.display.to_outline(),
             second.display.to_outline(),
@@ -95,5 +79,13 @@ fn every_case_is_rendered_the_same_way_twice() {
                 case.name,
             );
         }
+    }
+}
+
+/// A case that could not be rendered at all, as the one difference it has.
+fn unrendered(case: &Case, why: &str) -> alo_corpus::Difference {
+    alo_corpus::Difference {
+        expectation: "page.html".to_owned(),
+        detail: format!("{} could not be rendered: {why}", case.name),
     }
 }

@@ -136,7 +136,8 @@ fn the_snapshot_reads_exactly_as_the_tree_it_came_from() {
         other => panic!("expected a tree, got {other:?}"),
     };
     let inside = renderer.rendered().expect("a render");
-    let tree = AgentTree::new(&inside.document, &inside.boxes, &inside.layout);
+    let document = renderer.document().expect("a document");
+    let tree = AgentTree::new(document, &inside.boxes, &inside.layout);
     assert_eq!(snapshot.to_outline(), tree.to_outline());
     assert!(!snapshot.is_empty());
     assert!(snapshot.nodes().len() > 3, "{}", snapshot.to_outline());

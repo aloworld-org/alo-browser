@@ -31,6 +31,8 @@ macro_rules! embedded {
             own: Ordinary,
             count: u32,
             held: Option<Ref>,
+            /// What it says it owns beyond its slot.
+            weighs: usize,
         }
 
         impl Internal for $name {
@@ -67,6 +69,9 @@ macro_rules! embedded {
                     tracer.edge(held);
                 }
             }
+            fn footprint(&self) -> usize {
+                self.weighs
+            }
         }
 
         impl Exotic for $name {
@@ -81,6 +86,7 @@ macro_rules! embedded {
                     own: Ordinary::with_prototype(None),
                     count,
                     held: None,
+                    weighs: 0,
                 }
             }
         }
@@ -202,4 +208,32 @@ fn an_embedder_reads_the_realms_intrinsics_as_a_script_sees_them() {
         objects.get(constructor, key),
         Ok(Found::Value(Value::Object(error)))
     );
+}
+
+#[test]
+fn an_object_the_heap_refuses_goes_back_whole_to_whoever_made_it() {
+    // ADR 0017 § 2: a page's document moves into the heap as one object, and
+    // a heap too full to take it must not destroy the only copy. An object
+    // that says it owns more than the whole heap may hold is refused at once,
+    // and comes back as its maker's own type with everything it held.
+    let mut objects = Objects::new();
+    let mut huge = Mine::new(7);
+    huge.weighs = alo_js::bounds::HEAP_CEILING;
+    let Err((refused, back)) = objects.foreign_or_back(huge) else {
+        panic!("an object weighing the whole heap was taken");
+    };
+    assert!(
+        matches!(refused, alo_js::object::Refused::Full(_)),
+        "{refused}"
+    );
+    let Some(back) = back else {
+        panic!("the object was lost rather than handed back");
+    };
+    assert_eq!((back.count, back.weighs), (7, alo_js::bounds::HEAP_CEILING));
+
+    // And one that fits is taken, as `foreign` takes it.
+    let taken = ok!(objects
+        .foreign_or_back(Mine::new(8))
+        .map_err(|(why, _)| why));
+    assert_eq!(objects.embedded::<Mine>(taken).map(|m| m.count), Some(8));
 }

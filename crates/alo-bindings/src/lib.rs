@@ -35,12 +35,13 @@
 //!
 //! # What is not here yet
 //!
-//! **No renderer hands a page's document over.** The renderer moving a
-//! page's document in when its first script runs, and rendering again when
-//! the change count says what it holds is stale, are queue item 250; a
-//! parser-inserted script running at its own end tag is item 247. The
-//! members are item 80's and no more — everything else a page reaches for is
-//! absent, so `typeof` answers `"undefined"` (ADR 0017 § 8).
+//! The renderer hands a page's document over when its first script is about
+//! to run, and draws again when the change count says what it holds is stale
+//! (`alo-renderer`'s `held.rs`, queue item 250). **A parser-inserted script
+//! running at its own end tag** is item 247: today every script sees the
+//! whole parsed document. The members are item 80's and no more — everything
+//! else a page reaches for is absent, so `typeof` answers `"undefined"`
+//! (ADR 0017 § 8).
 
 mod define;
 pub mod document_cell;
@@ -53,7 +54,7 @@ pub mod tree;
 pub mod wrapper;
 
 pub use document_cell::{DocumentCell, Released};
-pub use embed::{Wrapping, adopt, change_document, document, node_of, wrap};
+pub use embed::{Unadopted, Wrapping, adopt, change_document, document, node_of, wrap};
 pub use install::{furnish, install};
 pub use interface::dom_exception::DomException;
 pub use interface::{Interface, Interfaces, prototype_of};

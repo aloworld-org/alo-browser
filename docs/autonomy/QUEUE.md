@@ -3616,7 +3616,7 @@ The long pole, and the thing most of section E is unreachable without.
   document goes nowhere* masked by the ancestor rule, and a case under a
   detached parent was added so it is not.
 
-- [ ] **246. The bindings: a script changes the document and the next render
+- [x] **246. The bindings: a script changes the document and the next render
   shows it.** *Cut from 80 (ADR 0017 §§ 1–6). Depends on 245.* The
   `alo-bindings` crate; the typed borrow of an embedder's own cell in
   `alo-js`; the document cell (rooted by the renderer, its footprint the
@@ -3646,6 +3646,10 @@ The long pole, and the thing most of section E is unreachable without.
   every member stands on), the members a script calls, and the renderer
   handing its document over and rendering it again. It closes when they have,
   on its own condition above — which is 250's.
+  **Done (iteration 146)**, by 248, 249 and 250 together: every clause of its
+  condition is one of theirs — the render, the agent and the ids are 250's,
+  one object and its expando 248's and 249's, the freed and held trees
+  248's, and the hostile half 248's, 249's and 250's.
 
 - [x] **248. The document in the heap, and a wrapper that lives as long as its
   tree.** *Cut from 246 (ADR 0017 §§ 2–4). Depends on 245.* The typed borrow
@@ -3787,7 +3791,7 @@ The long pole, and the thing most of section E is unreachable without.
   write that adds the last node can take it past by that one change (a
   mebibyte here) before the next allocation is refused.
 
-- [ ] **250. The renderer hands its document to script and renders what script
+- [x] **250. The renderer hands its document to script and renders what script
   left.** *Cut from 246 (ADR 0017 §§ 2 and 6). Depends on 249.* The document
   moves into the page's heap when its first script is about to run, rooted by
   the renderer, and every reader — style, layout, paint, the agent's tree,
@@ -3800,6 +3804,59 @@ The long pole, and the thing most of section E is unreachable without.
   have it, in numbers, with a reference render; the agent names the node the
   script made and acts on it; every parsed node keeps its id; and a page that
   changes its document ten thousand times in one task is rendered once.
+  **Done (iteration 146).** `alo-renderer` gains `held.rs`: `Held` is where
+  a page's document is — `Parsed`, the renderer's, until its first script
+  that may run is about to; then `Scripted`, the page's heap's, behind one
+  `Root` — and every reader borrows it (`document`), `apply` changes it
+  (`change`), and `scripted` makes the event loop, adopts the document,
+  roots it and installs `document`. `scripts::at_load` takes the held
+  document and calls `scripted` only for a script that may run, so a page
+  none of whose scripts may run never builds a heap. The pipeline's core is
+  `pipeline::draw`, which **borrows** a document and answers a `Drawing`
+  (styles, boxes, layout, display, canvas, the sheets' issues, the fonts
+  wanted); `Rendered` is a parsed document and its drawing, for the corpus.
+  `Renderer` keeps the held document, the last drawing and the change count
+  it was drawn at, and draws again whole when the count has moved, at
+  `Paint`, `ReadTree` and an `Act`'s decision (and after its change); a
+  `Load` draws once, after its scripts; a `Resize` draws the document the
+  page has, never its markup again. `Renderer::document`,
+  `Renderer::rendered` (now a `Drawing`) and `Renderer::draws` are for
+  tests, outside the boundary. **A heap that will not take the document
+  hands it back**: `alo-js` gains `Heap::allocate_or_back`,
+  `Objects::foreign_or_back` and `Typed::into_any` (the heap now asks whether
+  a slot can be named before placing a cell, so nothing it refuses is
+  dropped), and `alo_bindings::adopt` answers `Unadopted` with the
+  document, which stays `Parsed` and is still drawn. The corpus renders a
+  case whose page carries script **through a renderer** (`rendering.rs`),
+  refusing by name one that also links a sheet or a picture; `check` takes
+  a document and its drawing.
+  *Closed by:* the corpus case `a-script-grows-a-list` — a script appends a
+  row with a class, changes a row's text and removes a paragraph, and the
+  committed `boxes.txt`, `layout.txt`, `agent.txt` and `render.png` have the
+  third row at (8, 89.875) 184×25.296875, the changed text and no
+  paragraph; `crates/alo-renderer/tests/what_a_script_left.rs` (11 tests: a
+  field the script inserted laid out between two blocks, every box in
+  numbers, and the serialisation; the agent naming it, its node `#N` past
+  every parsed one, and putting text into it in the heap's document; every
+  parsed element keeping its id; 10000 changes in one script drawn once, and
+  a `Paint` and a `ReadTree` of an unchanged page drawing nothing; a task
+  run after the load drawn by the next `Paint`, read by the next `ReadTree`
+  and decided against by the next `Act`; a resize at 150 wide keeping the
+  script's field and the agent's text, the script not run again; a page
+  whose only scripts are refused building no heap; and the hostile half —
+  what a script changed before it threw is drawn, and a page whose script
+  removed its root element is drawn empty and still answers every
+  message); `crates/alo-corpus/src/rendering.rs` (3 unit tests);
+  `crates/alo-js/tests/what_an_embedder_gets_back.rs` (an object weighing
+  the whole heap refused and handed back whole). Doctored runs, each
+  restored and checked identical by hash: nine rules disabled alone — the
+  fresh check at `Paint`, at `ReadTree`, before an `Act`'s decision and
+  after its change, the staleness comparison, drawing after the scripts
+  rather than before, a resize from the held document rather than the
+  markup, a change reaching the heap's document, a heap only when a script
+  may run — each fails at least one test. **Not discriminated:** the
+  renderer's path for a document the heap refuses, which needs a document
+  over the heap's 1 GiB ceiling; the engine half of it is tested.
 
 - [ ] **251. `document` as Web IDL's accessor, on a global object that is a
   `Window`.** *Cut from 249.* Web IDL makes `document` an unforgeable accessor
@@ -3811,6 +3868,19 @@ The long pole, and the thing most of section E is unreachable without.
   73). Closes when:* the global object is an embedder cell that holds its
   document, `document` is an accessor whose getter reads it, and a
   descriptor reads as Web IDL's.
+
+- [ ] **252. A thrown `DOMException` is reported by its name.** *Found by 250.*
+  A script that lets a refusal escape — `appendChild(document)` — is said in
+  the load's issues as `uncaught: an object`: `described.rs` names the
+  engine's own errors and calls every other object *an object* (which
+  object to trust is item 78's), and a `DOMException` is an embedder cell
+  of `alo-bindings`, not one of the engine's errors. A page's author needs
+  `HierarchyRequestError` and its message there, and the renderer can ask
+  for them by type (`Objects::embedded::<DomException>`) without running a
+  getter. *Depends on nothing. Closes when:* every `DOMException` a member
+  of item 80's throws is reported with its name and message, read without
+  running any of the page's code, and every other object is reported as
+  now.
 
 - [ ] **247. A parser-inserted script sees the document up to its own
   element.** *Cut from 80 (ADR 0017 § 7). Depends on 246.* The parser stops

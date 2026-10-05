@@ -239,7 +239,7 @@ mod tests {
             Size::new(200.0, 100.0),
             fonts,
         );
-        wanted(&rendered.boxes, &rendered.styles, fonts)
+        wanted(&rendered.drawing.boxes, &rendered.drawing.styles, fonts)
     }
 
     #[test]
@@ -329,7 +329,7 @@ mod tests {
             Size::new(200.0, 100.0),
             &fonts,
         );
-        let found = wanted(&rendered.boxes, &rendered.styles, &fonts);
+        let found = wanted(&rendered.drawing.boxes, &rendered.drawing.styles, &fonts);
         assert_eq!(
             found.families,
             vec!["Inter".to_owned(), "Helvetica".to_owned()],
@@ -352,7 +352,7 @@ mod tests {
             Size::new(200.0, 100.0),
             &fonts,
         );
-        let found = wanted(&rendered.boxes, &rendered.styles, &fonts);
+        let found = wanted(&rendered.drawing.boxes, &rendered.drawing.styles, &fonts);
         assert!(
             found.families.is_empty(),
             "a run of spaces is not evidence a family was wanted: {found:?}",
@@ -368,7 +368,7 @@ mod tests {
             Size::new(200.0, 100.0),
             &fonts,
         );
-        let found = wanted(&rendered.boxes, &rendered.styles, &fonts);
+        let found = wanted(&rendered.drawing.boxes, &rendered.drawing.styles, &fonts);
         assert_eq!(found, Wanted::default());
     }
 

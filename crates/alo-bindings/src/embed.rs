@@ -59,6 +59,26 @@ impl From<Refused> for Wrapping {
     }
 }
 
+/// A document the heap would not take, and the document, handed back.
+#[derive(Debug)]
+pub struct Unadopted {
+    /// Why the heap refused it.
+    pub refused: Refused,
+    /// The document, as it was given — [`None`] only if the heap lost it,
+    /// which [`Objects::foreign_or_back`] says it does not.
+    pub document: Option<Document>,
+}
+
+impl fmt::Display for Unadopted {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            out,
+            "the page's document could not be put in its heap: {}",
+            self.refused
+        )
+    }
+}
+
 /// Move `document` into the heap, as the one cell that owns it from now on.
 ///
 /// The caller roots the answer (ADR 0017 § 2: the renderer holds it by one
@@ -67,10 +87,17 @@ impl From<Refused> for Wrapping {
 ///
 /// # Errors
 ///
-/// [`Refused`] when the heap cannot hold the cell — a document already larger
-/// than the heap's ceiling is one, since the cell's footprint is its size.
-pub fn adopt(objects: &mut Objects, document: Document) -> Result<Ref, Refused> {
-    objects.foreign(Box::new(DocumentCell::new(document)))
+/// [`Unadopted`] when the heap cannot hold the cell — a document already
+/// larger than the heap's ceiling is one, since the cell's footprint is its
+/// size — **with the document**: a page that cannot run script is still a
+/// page, and the refusal must not take its only copy with it.
+pub fn adopt(objects: &mut Objects, document: Document) -> Result<Ref, Unadopted> {
+    objects
+        .foreign_or_back(DocumentCell::new(document))
+        .map_err(|(refused, cell)| Unadopted {
+            refused,
+            document: cell.map(|cell| cell.document),
+        })
 }
 
 /// The wrapper of `node`, in the document `cell` holds — the one it already

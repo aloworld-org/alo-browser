@@ -44,10 +44,12 @@
 
 pub mod case;
 pub mod check;
+pub mod rendering;
 
 pub use alo_renderer::pipeline::{Rendered, render, render_with, render_with_resources};
 pub use case::Case;
 pub use check::{Difference, check};
+pub use rendering::Rendering;
 
 use std::path::PathBuf;
 

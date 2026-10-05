@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's own script can now change the page, and the page shows it.**
+  When a page's first script runs it is handed the page, and from then on
+  what a person sees and what an agent reads are the page as its script
+  left it: an element a script adds is laid out, drawn and named in the
+  agent's tree, and the agent can act on it like anything else. The page is
+  drawn again only when something looks at it, so a script that changes the
+  page ten thousand times costs one drawing; resizing the window lays out
+  the page as it now is, keeping what its script and the agent changed,
+  rather than the markup it arrived as. A page whose scripts are all
+  forbidden never has a script engine made for it. Scripts still see the
+  whole page rather than the page up to themselves; that is next.
+
 - **A script handed a page's document can now read and change it.** No page
   reaches this yet; the renderer handing its document over is next. Given a
   document, a script can find the page's root element and walk from any

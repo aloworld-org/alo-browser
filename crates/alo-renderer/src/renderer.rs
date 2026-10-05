@@ -23,8 +23,20 @@
 //! realm: a renderer serves one site (ADR 0005), and the globals one of its
 //! pages left behind are not the next page's to find. A `Load` is one task
 //! per script the page carries (ADR 0016 § 2, [`crate::scripts`]), and its
-//! answer comes after every one of them and their jobs. A `Resize` lays the
-//! same page out again **without** running its script a second time.
+//! answer comes after every one of them and their jobs.
+//!
+//! # The page's document, and when it is drawn again
+//!
+//! ADR 0017 §§ 2 and 6. The document is the renderer's until the page's
+//! first script is about to run, and then the page's heap's ([`Held`]);
+//! every render **borrows** it, wherever it is. What was drawn is kept with
+//! the document's change count at the time, and the page is **drawn again
+//! whole, from the same document**, whenever something reads its rendering
+//! and the count has moved: a `Paint`, a `ReadTree`, an `Act`'s decision.
+//! A `Load` draws once, after its last script, so what it reports is about
+//! the page its scripts left; a `Resize` draws the document the page has,
+//! never its markup again. **Never inside a task**: a page that changes its
+//! document ten thousand times in one script is drawn once.
 //!
 //! What is not here yet is the loop running between messages — a task a
 //! page queues for itself has no idle moment to run in, and an `Act` runs no
@@ -34,14 +46,16 @@ use crate::event_loop::EventLoop;
 use crate::face::Face;
 use crate::frame::Frame;
 use crate::generic::Generics;
+use crate::held::Held;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
-use crate::pipeline::{Rendered, render, render_document};
+use crate::pipeline::{Drawing, draw};
 use crate::said;
 use crate::scripts;
 use crate::snapshot::Snapshot;
 use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Target, Verb};
+use alo_dom::Document;
 use alo_layout::Size;
 use alo_text::Font;
 use alo_text::FontDatabase;
@@ -49,12 +63,16 @@ use alo_text::FontDatabase;
 /// Everything that touches a page.
 pub struct Renderer {
     fonts: FontDatabase,
-    /// The page as it was sent, kept so that a resize can render it again.
+    /// The page as it was sent: its sheets and its size, which every drawing
+    /// of it is made with.
     page: Option<Page>,
-    /// What the last render produced.
-    rendered: Option<Rendered>,
-    /// The page's event loop, once a script of its has run.
-    script: Option<EventLoop>,
+    /// The page's document, and its script once it has run.
+    held: Option<Held>,
+    /// What the last drawing produced, and the document's change count when
+    /// it was made.
+    drawn: Option<(Drawing, u64)>,
+    /// How many times a page has been drawn, for a test that asks how often.
+    draws: u64,
 }
 
 impl Renderer {
@@ -63,11 +81,11 @@ impl Renderer {
         Self {
             fonts,
             page: None,
-            rendered: None,
-            script: None,
+            held: None,
+            drawn: None,
+            draws: 0,
         }
     }
-
     /// Take a font the browser process handed over.
     ///
     /// A confined renderer cannot go and find one (ADR 0010), so this is the
@@ -118,25 +136,28 @@ impl Renderer {
             ToRenderer::UseFont(face) => self.use_font(&face),
             ToRenderer::UseGenerics(generics) => self.use_generics(&generics),
             ToRenderer::Load(page) => self.load(*page),
-            ToRenderer::Resize(viewport) => match self.page.clone() {
-                Some(page) => self.lay_out(Page { viewport, ..page }),
-                None => FromRenderer::Failed(Failure::NothingLoaded),
-            },
+            ToRenderer::Resize(viewport) => self.resize(viewport),
             ToRenderer::Paint => self.paint(),
             ToRenderer::ReadTree => self.read_tree(),
             ToRenderer::Act { target, verb } => self.act(&target, &verb),
         }
     }
 
-    /// What the last render produced, for a test that asserts on the engine's
-    /// insides.
+    /// What the last drawing produced, for a test that asserts on the
+    /// engine's insides.
     ///
     /// Not part of the boundary and never sent anywhere: a display list is not
     /// something a browser process asks for. The corpus reaches in because it
     /// is a test of the engine rather than of the browser, and ADR 0005 says
     /// tests stay single-process.
-    pub fn rendered(&self) -> Option<&Rendered> {
-        self.rendered.as_ref()
+    pub fn rendered(&self) -> Option<&Drawing> {
+        self.drawn.as_ref().map(|(drawing, _)| drawing)
+    }
+
+    /// The loaded page's document, wherever it is — for a test, for the
+    /// reason [`Renderer::rendered`] is one.
+    pub fn document(&self) -> Option<&Document> {
+        self.held.as_ref().and_then(Held::document)
     }
 
     /// The loaded page's event loop, if any script of its ran, for a test that
@@ -144,79 +165,97 @@ impl Renderer {
     ///
     /// Not part of the boundary, for the reason [`Renderer::rendered`] is not.
     pub fn event_loop(&mut self) -> Option<&mut EventLoop> {
-        self.script.as_mut()
+        self.held.as_mut().and_then(Held::event_loop)
+    }
+
+    /// How many times a page has been drawn since this renderer was made —
+    /// for a test that asks whether reading a rendering drew it again, and a
+    /// change inside a task did not (ADR 0017 § 6).
+    ///
+    /// Not part of the boundary, for the reason [`Renderer::rendered`] is not.
+    pub const fn draws(&self) -> u64 {
+        self.draws
+    }
+
+    /// Draw the page again, whole, from the document it has.
+    fn draw(&mut self) {
+        let (Some(page), Some(document)) =
+            (&self.page, self.held.as_ref().and_then(Held::document))
+        else {
+            return;
+        };
+        let sheets = page.sheets.join("\n");
+        let drawing = draw(document, &sheets, page.viewport, &self.fonts, &[], &[]);
+        self.drawn = Some((drawing, document.change_count()));
+        self.draws = self.draws.saturating_add(1);
+    }
+
+    /// Draw the page again if its document has changed since it was last
+    /// drawn — the one question every reader of a rendering asks first.
+    fn fresh(&mut self) {
+        let now = self
+            .held
+            .as_ref()
+            .and_then(Held::document)
+            .map(Document::change_count);
+        let then = self.drawn.as_ref().map(|(_, count)| *count);
+        if now.is_some() && now != then {
+            self.draw();
+        }
     }
 
     /// Decide what a verb does, carry it into the document, and render again.
     ///
     /// Three steps, in that order, and they cannot be fewer. The **decision**
-    /// is made against the tree the agent read; the **change** is made to the
-    /// document, which the tree was borrowing and so could not touch; and the
-    /// page is **rendered again**, because a document that changed and a
-    /// layout that did not are two structures that disagree.
+    /// is made against the tree the agent read — drawn again first if the
+    /// page's script changed the document since — the **change** is made to
+    /// the document, wherever it lives, and the page is **drawn again** if the
+    /// change count moved, because a document that changed and a layout that
+    /// did not are two structures that disagree.
     fn act(&mut self, target: &Target, verb: &Verb) -> FromRenderer {
-        let Some(rendered) = &self.rendered else {
+        self.fresh();
+        let (Some(held), Some((drawing, _))) = (&mut self.held, &self.drawn) else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
-        let tree = AgentTree::new(&rendered.document, &rendered.boxes, &rendered.layout);
+        let Some(document) = held.document() else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        let tree = AgentTree::new(document, &drawing.boxes, &drawing.layout);
         let outcome = match perform(&tree, target, verb) {
             Ok(outcome) => outcome,
             Err(refusal) => return FromRenderer::Refused(refusal),
         };
-
-        let Some(mut rendered) = self.rendered.take() else {
-            return FromRenderer::Failed(Failure::NothingLoaded);
-        };
-        let changed = apply(&mut rendered.document, &rendered.boxes, &outcome)
-            .iter()
-            .any(|change| *change != alo_agent::Change::Nothing);
-        if changed {
-            // The whole page again, from the **same document**. Correct before
-            // fast: working out what a changed attribute could possibly have
-            // affected is a cache, and a wrong cache is a wrong pixel nobody
-            // can find. Re-parsing would be worse than slow — it would mint new
-            // node ids and break every snapshot anybody was holding.
-            let sheets = self
-                .page
-                .as_ref()
-                .map(|page| page.sheets.join("\n"))
-                .unwrap_or_default();
-            let viewport = self
-                .page
-                .as_ref()
-                .map_or(rendered.layout.viewport(), |page| page.viewport);
-            self.rendered = Some(render_document(
-                rendered.document,
-                &sheets,
-                viewport,
-                &self.fonts,
-            ));
-        } else {
-            self.rendered = Some(rendered);
-        }
+        // From the **same document**: working out what a changed attribute
+        // could possibly have affected is a cache, and a wrong cache is a
+        // wrong pixel nobody can find. Re-parsing would be worse than slow —
+        // it would mint new node ids and break every snapshot anybody was
+        // holding.
+        held.change(|document| apply(document, &drawing.boxes, &outcome));
+        self.fresh();
         FromRenderer::Acted(outcome)
     }
 
-    /// A new page: rendered, and then its scripts run, each a task.
+    /// A new page: parsed, its scripts run, each a task, and then drawn once.
     ///
     /// The loop the last page ran in goes with it, whatever this page turns
     /// out to carry.
     fn load(&mut self, page: Page) -> FromRenderer {
-        self.script = None;
+        self.held = None;
+        self.drawn = None;
+        let mut held = Held::Parsed(alo_dom::parse_document(&page.html));
         let mut said = Vec::new();
-        let mut objected = Vec::new();
-        let answer = self.lay_out(page);
-        if let (Some(rendered), Some(page)) = (&self.rendered, &self.page) {
-            self.script = scripts::at_load(&rendered.document, page, &mut said, &mut objected);
-        }
-        match answer {
+        let mut objections = Vec::new();
+        scripts::at_load(&mut held, &page, &mut said, &mut objections);
+        self.held = Some(held);
+        self.page = Some(page);
+        // After the scripts, so what the load says — its issues, the fonts it
+        // wants — is about the page they left (ADR 0017 § 6).
+        self.draw();
+        match self.loaded() {
             FromRenderer::Loaded {
-                mut issues,
-                wanted,
-                mut objections,
+                mut issues, wanted, ..
             } => {
                 issues.append(&mut said);
-                objections.append(&mut objected);
                 FromRenderer::Loaded {
                     issues,
                     wanted,
@@ -227,49 +266,59 @@ impl Renderer {
         }
     }
 
-    /// Render a page and keep it, running none of its script.
-    ///
-    /// The document is parsed again each time, which is safe only while no
-    /// script can change one: once one can (queue item 80), a resize lays out
-    /// the document the page has rather than the markup it arrived as.
-    fn lay_out(&mut self, page: Page) -> FromRenderer {
-        let sheets = page.sheets.join("\n");
-        let rendered = render(&page.html, &sheets, page.viewport, &self.fonts);
+    /// The same page at another size: the document it has, drawn again,
+    /// running none of its script — never its markup parsed again, which
+    /// would lose everything its script and the agent changed.
+    fn resize(&mut self, viewport: Size) -> FromRenderer {
+        let Some(page) = &mut self.page else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        page.viewport = viewport;
+        self.draw();
+        self.loaded()
+    }
+
+    /// What the page's markup and its drawing say, as a load answers it.
+    fn loaded(&self) -> FromRenderer {
+        let (Some(document), Some((drawing, _))) = (self.document(), &self.drawn) else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
         // What the markup made the engine say, as much of it as one load
         // says (queue item 243).
-        let issues = said::of_markup(&rendered);
+        let issues = said::of_markup(document, drawing);
         // A renderer may not go and find a font (ADR 0010), so saying which
         // families it wanted and did not have is the whole of what it can do
         // about one — and the browser process, which may look, is exactly who
         // is listening.
-        let wanted = rendered.wanted.families.clone();
-        self.page = Some(page);
-        self.rendered = Some(rendered);
-        // Nothing runs here, so nothing can have been objected to.
+        let wanted = drawing.wanted.families.clone();
         FromRenderer::Loaded {
             issues,
             wanted,
+            // Nothing runs in a drawing, so nothing can have been objected
+            // to; a load adds what its scripts were.
             objections: Vec::new(),
         }
     }
 
-    fn paint(&self) -> FromRenderer {
-        let Some(rendered) = &self.rendered else {
+    fn paint(&mut self) -> FromRenderer {
+        self.fresh();
+        let Some((drawing, _)) = &self.drawn else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
-        if rendered.canvas.is_empty() {
+        if drawing.canvas.is_empty() {
             return FromRenderer::Failed(Failure::Unpaintable {
                 why: "the window has no size".to_owned(),
             });
         }
-        FromRenderer::Painted(Frame::from_canvas(&rendered.canvas))
+        FromRenderer::Painted(Frame::from_canvas(&drawing.canvas))
     }
 
-    fn read_tree(&self) -> FromRenderer {
-        let Some(rendered) = &self.rendered else {
+    fn read_tree(&mut self) -> FromRenderer {
+        self.fresh();
+        let (Some(document), Some((drawing, _))) = (self.document(), &self.drawn) else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
-        let tree = AgentTree::new(&rendered.document, &rendered.boxes, &rendered.layout);
+        let tree = AgentTree::new(document, &drawing.boxes, &drawing.layout);
         FromRenderer::Tree(Box::new(Snapshot::of(&tree)))
     }
 

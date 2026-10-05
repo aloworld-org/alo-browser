@@ -1,0 +1,9 @@
+fill box#1 rgb(255 255 255) at (0, 0) 200×123.171875
+text box#4 "Invoices" rgb(16 16 20) 20px at (8, 26.564453)
+fill box#6 rgb(212 212 216) at (8, 63.578125) 184×1
+text box#7 "Invoice 11" rgb(16 16 20) 14px at (12, 56.276367)
+fill box#8 rgb(212 212 216) at (8, 88.875) 184×1
+text box#9 "Invoice 12, paid" rgb(16 16 20) 14px at (12, 81.57324)
+fill box#10 rgb(220 252 231) at (8, 89.875) 184×25.296875
+fill box#10 rgb(212 212 216) at (8, 114.171875) 184×1
+text box#11 "Invoice 13" rgb(16 16 20) 14px at (12, 106.87012)

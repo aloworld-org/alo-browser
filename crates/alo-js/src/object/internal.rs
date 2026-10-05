@@ -141,6 +141,10 @@ pub trait Typed: std::any::Any {
 
     /// The same, to be written through.
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+
+    /// The same, owned — how an object the heap refused goes back to the
+    /// embedder that made it as its own type.
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any>;
 }
 
 impl<T: std::any::Any> Typed for T {
@@ -149,6 +153,10 @@ impl<T: std::any::Any> Typed for T {
     }
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
         self
     }
 }

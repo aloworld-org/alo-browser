@@ -333,49 +333,63 @@ impl<T: Trace> Heap<T> {
     /// [`Full`] when the live heap is at [`bounds::HEAP_CEILING`] and a
     /// collection did not bring it under.
     pub fn allocate(&mut self, cell: T) -> Result<Ref, Full> {
+        self.allocate_or_back(cell).map_err(|(full, _)| full)
+    }
+
+    /// [`allocate`](Self::allocate), handing the cell back when it is refused.
+    ///
+    /// For a cell that owns something its maker cannot make again — a page's
+    /// document, which a refusal must not destroy (ADR 0017 § 2).
+    ///
+    /// # Errors
+    ///
+    /// [`Full`] and the cell, unchanged, as [`allocate`](Self::allocate)
+    /// refuses.
+    pub fn allocate_or_back(&mut self, cell: T) -> Result<Ref, (Full, T)> {
         let cost = size_of::<T>().saturating_add(cell.footprint());
         let over = self.held.saturating_add(cost) > bounds::HEAP_CEILING;
         if self.stress || over || self.since >= bounds::COLLECT_AFTER {
             self.collect_with(Some(&cell));
         }
         if self.held.saturating_add(cost) > bounds::HEAP_CEILING {
-            return Err(Full {
+            let full = Full {
                 asked: cost,
                 held: self.held,
                 ceiling: bounds::HEAP_CEILING,
-            });
+            };
+            return Err((full, cell));
         }
 
         let reused = self
             .free
             .pop()
             .filter(|at| self.cells.get(*at).is_some_and(Option::is_none));
-        let at = if let Some(at) = reused {
-            if let Some(slot) = self.cells.get_mut(at) {
-                *slot = Some(cell);
-            }
-            at
-        } else {
-            self.cells.push(Some(cell));
-            self.generations.push(0);
-            self.marks.push(false);
-            self.cells.len().saturating_sub(1)
-        };
-
+        let at = reused.unwrap_or(self.cells.len());
         let Ok(slot) = u32::try_from(at) else {
             // More slots than a reference can name. The byte ceiling stops a
             // heap long before this, and answering it with a refusal rather
             // than with a truncated index is the difference between a page that
-            // stopped and a reference that names the wrong object.
-            if let Some(cell) = self.cells.get_mut(at) {
-                *cell = None;
+            // stopped and a reference that names the wrong object. Asked
+            // before the cell is placed, so it goes back whole.
+            if let Some(at) = reused {
+                self.free.push(at);
             }
-            return Err(Full {
+            let full = Full {
                 asked: cost,
                 held: self.held,
                 ceiling: bounds::HEAP_CEILING,
-            });
+            };
+            return Err((full, cell));
         };
+        if reused.is_some() {
+            if let Some(place) = self.cells.get_mut(at) {
+                *place = Some(cell);
+            }
+        } else {
+            self.cells.push(Some(cell));
+            self.generations.push(0);
+            self.marks.push(false);
+        }
 
         self.held = self.held.saturating_add(cost);
         self.since = self.since.saturating_add(cost);

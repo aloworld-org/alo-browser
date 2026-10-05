@@ -45,9 +45,17 @@
 //! because nothing else is running. Each script here is a task of the
 //! page's [`EventLoop`] and each is followed by a checkpoint, which is the
 //! same order — the script, its jobs, the next script — and is the order a
-//! page can see. What a page could tell apart is the document being half
-//! built while its script runs, and no script can see the document yet (no
-//! binding reaches it; queue item 80 is where one does).
+//! page can see. What a page can still tell apart is the document being half
+//! built while its script runs: every script here sees the whole parsed
+//! document, and running each at its own end tag is queue item 247.
+//!
+//! # The document goes to the script
+//!
+//! When the first script that may run is about to, the page's document moves
+//! into its heap and `document` appears on its global object (ADR 0017 § 2,
+//! [`Held::scripted`]). Not before: a page none of whose scripts may run
+//! never builds a heap. The page is rendered once, after its last script
+//! (§ 6) — by the renderer, not here.
 //!
 //! # How much a load says
 //!
@@ -72,11 +80,11 @@
 //! not come and the tab says what happened ([`crate::answers`]) — the bound
 //! that already holds for a renderer that stops answering for any reason.
 
-use alo_dom::Document;
 use alo_dom::scripts::{Carried, Kind, Script, Source, carried};
 use alo_net::csp::{Content, Inline};
 
-use crate::event_loop::{EventLoop, MOST_REPORTS};
+use crate::event_loop::MOST_REPORTS;
+use crate::held::Held;
 use crate::page::Page;
 use crate::said;
 use crate::violations::{MOST_OBJECTIONS, Objection};
@@ -128,24 +136,28 @@ impl Said {
     }
 }
 
-/// Run a page's scripts as it loads, oldest first, and answer the loop they
-/// ran in — [`None`] if nothing ran — with everything that did not run or
-/// did not finish added to `issues`, and every header policy's objection to a
-/// script written into the page added to `objections`.
+/// Run a page's scripts as it loads, oldest first, against the document
+/// `held` — moved into the page's heap before the first of them runs — with
+/// everything that did not run or did not finish added to `issues`, and every
+/// header policy's objection to a script written into the page added to
+/// `objections`.
 pub(crate) fn at_load(
-    document: &Document,
+    held: &mut Held,
     page: &Page,
     issues: &mut Vec<String>,
     objections: &mut Vec<Objection>,
-) -> Option<EventLoop> {
+) {
     let stated = page.stated();
     let mut said = Said::default();
     let mut left_out = 0_usize;
     let mut policies = page.policies.clone();
-    let mut looping: Option<EventLoop> = None;
     let mut ended = false;
     let mut number = 0_usize;
-    for found in carried(document) {
+    // Gathered before any of them runs: a script that moves or removes a
+    // later `<script>` does not change what the page carried as it arrived.
+    // Which scripts run at all as the parser reaches them is item 247's.
+    let found = held.document().map(carried).unwrap_or_default();
+    for found in found {
         let script = match found {
             Carried::Policy(policy) => {
                 policies.push(policy);
@@ -187,19 +199,13 @@ pub(crate) fn at_load(
                 continue;
             }
         };
-        let page_loop = match &mut looping {
-            Some(page_loop) => page_loop,
-            None => match EventLoop::new() {
-                Ok(made) => looping.insert(made),
-                Err(escape) => {
-                    said.script(
-                        number,
-                        &format!("not run: this page has no engine: {escape}"),
-                    );
-                    ended = true;
-                    continue;
-                }
-            },
+        let page_loop = match held.scripted() {
+            Ok(page_loop) => page_loop,
+            Err(why) => {
+                said.script(number, &format!("not run: {why}"));
+                ended = true;
+                continue;
+            }
         };
         if let Err(stopped) = page_loop.queue_script(format!("script {number}"), text) {
             said.script(number, &format!("not run: {stopped}"));
@@ -224,7 +230,6 @@ pub(crate) fn at_load(
              reported: one load carries at most {MOST_OBJECTIONS}"
         ));
     }
-    looping
 }
 
 /// The text of a script that may run here, or why it may not.

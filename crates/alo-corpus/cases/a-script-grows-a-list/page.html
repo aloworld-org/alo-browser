@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html><body><main><h1>Invoices</h1><ul aria-label="Invoices"><li>Invoice 11</li><li>Invoice 12</li></ul><p>Loading…</p><script>
+// Item 80's members only: no getElementById, so the page is walked.
+const main = document.documentElement.lastChild.firstChild;
+const list = main.firstChild.nextSibling;
+const row = document.createElement('li');
+row.setAttribute('class', 'new');
+row.appendChild(document.createTextNode('Invoice 13'));
+list.appendChild(row);
+list.firstChild.nextSibling.textContent = 'Invoice 12, paid';
+list.nextSibling.remove();
+</script></main></body></html>

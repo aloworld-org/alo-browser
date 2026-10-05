@@ -17,10 +17,10 @@
 //!
 //! # How a test sees what a script did
 //!
-//! No script can reach the document yet (queue item 80), so what a script
-//! leaves behind is read from the page's own engine through
-//! [`Renderer::event_loop`], which is not part of the boundary — the reason
-//! [`Renderer::rendered`] is not.
+//! What a script leaves in its globals is read from the page's own engine
+//! through [`Renderer::event_loop`], which is not part of the boundary — the
+//! reason [`Renderer::rendered`] is not. What it leaves in its document, and
+//! the page drawn from it, is `what_a_script_left.rs` (queue item 250).
 
 use std::time::{Duration, Instant};
 
@@ -429,7 +429,7 @@ fn a_page_still_renders_when_its_script_fails() {
         about_scripts(&issues),
         vec!["script 1: uncaught: Error: broken (at script 1, line 1, column 1)"]
     );
-    let Some(drawn) = renderer.rendered() else {
+    let (Some(drawn), Some(document)) = (renderer.rendered(), renderer.document()) else {
         panic!("nothing was rendered");
     };
     let paragraph = drawn.boxes.ids().find(|id| {
@@ -437,7 +437,7 @@ fn a_page_still_renders_when_its_script_fails() {
             .boxes
             .get(*id)
             .and_then(|boxed| boxed.kind.node())
-            .and_then(|node| drawn.document.element(node))
+            .and_then(|node| document.element(node))
             .is_some_and(|element| element.name.is_html("p"))
     });
     let Some(laid) = paragraph.and_then(|id| drawn.layout.border_box(id)) else {

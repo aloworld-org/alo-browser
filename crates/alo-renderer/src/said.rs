@@ -28,7 +28,8 @@
 
 use std::fmt::{self, Display, Write};
 
-use crate::pipeline::Rendered;
+use crate::pipeline::Drawing;
+use alo_dom::Document;
 
 /// The most lines one load says about its markup.
 ///
@@ -76,10 +77,10 @@ pub fn line(what: &dyn Display) -> String {
 ///
 /// Only the lines said are written out; the rest are counted, so a page of
 /// three million refusals costs three million steps and no memory.
-pub fn of_markup(rendered: &Rendered) -> Vec<String> {
+pub fn of_markup(document: &Document, drawing: &Drawing) -> Vec<String> {
     let mut said = Vec::new();
     let mut left_out = 0_usize;
-    for issue in rendered.each_issue() {
+    for issue in drawing.each_issue(document) {
         if said.len() < MOST_SAID_OF_MARKUP {
             said.push(line(issue));
         } else {
