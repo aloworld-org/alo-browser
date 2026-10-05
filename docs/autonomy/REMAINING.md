@@ -50,6 +50,14 @@ item 226. 225 was added already closed and 226 was added open, so 103 queue
 items are open. The next
 unused queue number is 227; the next unused ADR remains 0016.
 
+Iteration 125 took the piece of item 73 that item 210 waits on: item 227, the
+seven error constructors, their prototypes, `Error.prototype.toString` and the
+first builtin `[[Construct]]`. Item 210's dependency now names 227 rather than
+73, so `try`/`catch`/`finally` — the service worker's refusal at byte 2853 — is
+eligible next. `Error.prototype.toString` of a message behind a call is cut to
+item 228 (on 221) and `AggregateError` to item 229, so 105 queue items are
+open. The next unused queue number is 230; the next unused ADR remains 0016.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

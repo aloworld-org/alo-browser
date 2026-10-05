@@ -25,10 +25,18 @@
 //! # What may be constructed is decided where it was written
 //!
 //! A plain `function`, declared or as an expression, has a `[[Construct]]`. An
-//! arrow, a method, a getter and a setter are callable and nothing more, and a
-//! builtin does not construct yet — `Object` and `Function` are queue item 73's.
+//! arrow, a method, a getter and a setter are callable and nothing more.
 //! [`Chunk::constructs`](crate::code::Chunk::constructs) records which, so
 //! the check is one question rather than a list of exceptions.
+//!
+//! A builtin constructs when it was made as one
+//! ([`Native::instance`](crate::object::Native::instance)), and the `Error`
+//! constructors are the first that are (queue item 227); `Object` and
+//! `Function` are still item 73's. Its instance is made by
+//! [`Engine::make_instance`] rather than by [`Engine::construct`], because a
+//! builtin constructor called **without** `new` is given one too — `TypeError('x')`
+//! is the same object as `new TypeError('x')` — and making it in the one place
+//! both paths pass through is what keeps the two from differing.
 //!
 //! # What is not here
 //!
@@ -39,6 +47,7 @@
 
 use crate::abrupt::{Escape, Internal};
 use crate::heap::Ref;
+use crate::object::native::Instance;
 use crate::object::{Code, Found, Property, Value};
 
 use super::Engine;
@@ -59,12 +68,16 @@ impl Engine {
             .filter(|place| *place >= run.base().unwrap_or(usize::MAX))
             .ok_or(Escape::Broken(Internal::StackIsWrong))?;
         let callee = self.value_at(run, callee_at)?;
-        let Some(constructor) = self.constructor(callee) else {
+        let Some((constructor, native)) = self.constructor(callee) else {
             return Err(Escape::type_error(
                 format!("{} is not a constructor", self.describe(callee)),
                 at,
             ));
         };
+        if native {
+            // Entering it makes its instance, as calling it would.
+            return self.enter_at(run, callee_at, argc, at, After::Construct);
+        }
 
         // `OrdinaryCreateFromConstructor`: the instance inherits from the
         // constructor's `prototype` if that is an object, and from
@@ -150,18 +163,52 @@ impl Engine {
         Ok(key)
     }
 
-    /// The function `value` is, if it has a `[[Construct]]`.
-    fn constructor(&self, value: Value) -> Option<Ref> {
+    /// The function `value` is if it has a `[[Construct]]`, and whether it is
+    /// a builtin.
+    fn constructor(&self, value: Value) -> Option<(Ref, bool)> {
         let Value::Object(held) = value else {
             return None;
         };
         match self.objects.callable(held)?.code() {
             Code::Compiled { unit, chunk, .. } => {
                 unit.chunk(*chunk).filter(|chunk| chunk.constructs())?;
-                Some(held)
+                Some((held, false))
             }
-            Code::Native(_) => None,
+            Code::Native(native) => native.instance().map(|_| (held, true)),
         }
+    }
+
+    /// Give a builtin constructor at `callee_at` its instance, in the `this`
+    /// slot above it (queue item 227).
+    ///
+    /// `OrdinaryCreateFromConstructor` with the constructor itself as
+    /// `NewTarget`, which is the only `NewTarget` this engine can have: a
+    /// different one needs `Reflect.construct` or a derived class, and those
+    /// are queue items 73 and 223. A builtin constructor's `prototype` is
+    /// neither writable nor configurable, so it is always the object it was
+    /// made with, and anything else there is this engine's own bug — the same
+    /// argument [`Engine::construct`] makes for a script's.
+    pub(super) fn make_instance(
+        &mut self,
+        run: &mut Run,
+        callee_at: usize,
+        constructor: Ref,
+        instance: Instance,
+        at: usize,
+    ) -> Result<(), Escape> {
+        let key = self
+            .objects
+            .key(&units("prototype"))
+            .map_err(|why| Escape::refused(why, at))?;
+        let Found::Value(Value::Object(above)) = self.objects.get(constructor, key)? else {
+            return Err(Escape::Broken(Internal::ConstructorIsWrong));
+        };
+        // A safepoint. The constructor is on the stack and holds `above`.
+        let made = match instance {
+            Instance::Error => self.objects.error(Some(above)),
+        }
+        .map_err(|why| Escape::refused(why, at))?;
+        self.write_at(run, callee_at.saturating_add(1), Value::Object(made))
     }
 }
 

@@ -5,11 +5,13 @@
 //! The objects a realm has before a script has run a line (queue item 218).
 //!
 //! ADR 0013 § 3 — *absent beats approximate* — is why there were none of these
-//! until now, and it is also why there are exactly three: `Object.prototype`,
-//! `Function.prototype` and `Array.prototype`. Those are not a library, they
-//! are **what an ordinary object, an ordinary function and an array are**. Until they existed, `{}` had
-//! no prototype at all, so `({}) + ''` was a `TypeError` rather than
-//! `"[object Object]"` and no page could have run.
+//! until item 218, and it is also why there are so few: `Object.prototype`,
+//! `Function.prototype` and `Array.prototype`, which are not a library but
+//! **what an ordinary object, an ordinary function and an array are**, and the
+//! seven error constructors ([`error`], queue item 227), which are what a
+//! `catch` binds. Until the first three existed, `{}` had no prototype at all,
+//! so `({}) + ''` was a `TypeError` rather than `"[object Object]"` and no page
+//! could have run.
 //!
 //! # An intrinsic is rooted, and everything else hangs off it
 //!
@@ -35,11 +37,12 @@
 //! `Object.prototype` is still reachable from a script — `({}).__proto__` — so
 //! nothing here is untestable from the language it belongs to.
 //!
-//! No `Array` constructor and no array method, no `Math`, `JSON`, `Error`,
-//! `String`, `Number` or `Boolean`, no well-known symbols and no weak
-//! collections. Each is named in the queue
-//! rather than half-built here.
+//! No `Array` constructor and no array method, no `Math`, `JSON`, `String`,
+//! `Number` or `Boolean`, no `AggregateError` (queue item 229), no well-known
+//! symbols and no weak collections. Each is named in the queue rather than
+//! half-built here.
 
+pub mod error;
 pub mod function_prototype;
 pub mod object_prototype;
 
@@ -47,6 +50,7 @@ use crate::abrupt::Escape;
 use crate::heap::{Ref, Root};
 use crate::object::native::Body;
 use crate::object::{Fault, Native, Objects, Property, Value};
+pub use error::Family;
 
 /// The objects a realm owns.
 #[derive(Debug)]
@@ -57,6 +61,9 @@ pub struct Intrinsics {
     function: Root,
     /// `Array.prototype`.
     array: Root,
+    /// The seven error constructors, in [`Family::ALL`]'s order. Each holds its
+    /// prototype, which may be neither changed nor deleted.
+    errors: Vec<Root>,
 }
 
 impl Intrinsics {
@@ -96,10 +103,17 @@ impl Intrinsics {
             .map_err(|why| Escape::refused(why, 0))?;
         let array_prototype = objects.heap_mut().root(array_prototype);
 
+        let functions = objects
+            .heap()
+            .holding(&function_prototype)
+            .ok_or_else(|| Escape::fault(Fault::Gone))?;
+        let errors = error::make(objects, above, functions)?;
+
         let intrinsics = Self {
             object: object_prototype,
             function: function_prototype,
             array: array_prototype,
+            errors,
         };
         object_prototype::furnish(objects, &intrinsics)?;
         function_prototype::furnish(objects, &intrinsics)?;
@@ -128,6 +142,20 @@ impl Intrinsics {
         objects
             .heap()
             .holding(&self.array)
+            .ok_or_else(|| Escape::fault(Fault::Gone))
+    }
+
+    /// The constructor of one family of errors, which the realm binds to its
+    /// name and item 210's `catch` makes an error this engine threw from
+    /// (queue item 227).
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn error_constructor(&self, objects: &Objects, family: Family) -> Result<Ref, Escape> {
+        self.errors
+            .get(family.index())
+            .and_then(|root| objects.heap().holding(root))
             .ok_or_else(|| Escape::fault(Fault::Gone))
     }
 

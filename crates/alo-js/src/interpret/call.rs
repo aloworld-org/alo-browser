@@ -87,7 +87,7 @@ use crate::abrupt::{Escape, Internal, Missing};
 use crate::bounds;
 use crate::convert::{Hint, Primitive};
 use crate::heap::Ref;
-use crate::object::native::{Answer, Body, Call, Want};
+use crate::object::native::{Answer, Body, Call, Instance, Want};
 use crate::object::{Code, Value};
 use crate::unit::Unit;
 
@@ -207,7 +207,12 @@ impl Engine {
             // A builtin needs no frame at all: it is written down as waiting,
             // and the loop runs its body. See the module comment on why it is
             // not simply run here.
-            Some(Called::Native(body)) => {
+            Some(Called::Native(body, instance)) => {
+                if let Some(instance) = instance {
+                    // A builtin constructor is given its instance, called or
+                    // constructed alike (queue item 227).
+                    self.make_instance(run, callee_at, held, instance, at)?;
+                }
                 return Self::wait(run, callee_at, argc, at, after, body);
             }
             Some(Called::Compiled(compiled)) => compiled,
@@ -538,7 +543,7 @@ impl Engine {
                 environment.get(),
                 captured.as_ref().map(crate::object::Stored::get),
             ))),
-            Code::Native(native) => Some(Called::Native(native.body())),
+            Code::Native(native) => Some(Called::Native(native.body(), native.instance())),
         }
     }
 
@@ -608,8 +613,8 @@ pub(super) struct Ask<'a> {
 enum Called {
     /// A chunk of a compiled program, its environment and its captured `this`.
     Compiled(Compiled),
-    /// A builtin's body.
-    Native(Body),
+    /// A builtin's body, and the instance it is given if it is a constructor.
+    Native(Body, Option<Instance>),
 }
 
 /// A compiled function's code, read off its cell.

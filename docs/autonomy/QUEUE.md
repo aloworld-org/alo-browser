@@ -2467,6 +2467,74 @@ The long pole, and the thing most of section E is unreachable without.
   specification gives, and a `valueOf` that throws leaves the array unchanged.
   Opened by a frozen real script that does it, and not before.
 
+- [x] **227. `Error` and the six native errors: what a `catch` binds.** Cut
+  from item 73 on the iteration that took it, by the real failure rather than
+  by taste: the frozen service worker is refused at byte 2853, the `try` of its
+  push handler, and item 210 — the `try` — waits on 73 for exactly these.
+  *Depends on 218, 219 and 212. Closes when:* `Error`, `EvalError`,
+  `RangeError`, `ReferenceError`, `SyntaxError`, `TypeError` and `URIError`
+  are constructors on the global object (writable, configurable, not
+  enumerable); each prototype has `constructor`, `name` and an empty `message`,
+  the six inherit from `Error.prototype` and their constructors from `Error`;
+  a constructor called without `new` makes the same object as with it; a
+  `message` is converted with `ToString` — an object's own `toString` run —
+  and is own and not enumerable, and `undefined` gives none; `options.cause`
+  is installed when `HasProperty` says so, a getter run once and after the
+  message; `Error.prototype.toString` answers the specification's string;
+  `Object.prototype.toString` says `[object Error]` for an instance and not
+  for a prototype; a builtin not made as a constructor is still not one; and a
+  constructor or conversion that recurses for ever is a `RangeError`.
+
+  **Done, all of them: `crates/alo-js/tests/what_an_error_is.rs`**, eighteen
+  tests, every program run ordinarily and with the collector at every
+  allocation, plus `builtin/error.rs`'s test that builds the seven with the
+  collector at every allocation. The frozen script's refusal does not move —
+  it is item 210's `try` — and that is the honest scope: this item is what 210
+  needed, not what the script needed directly.
+
+  **The decision worth reading twice is that a builtin constructor is given its
+  instance.** A native keeps a step number and nothing else across the script
+  it asks to run (item 219), and an error constructor may ask twice — a
+  `toString` on its message, a getter for its `cause`. So the interpreter does
+  `OrdinaryCreateFromConstructor` from the constructor's own fixed `prototype`
+  and writes the instance into the `this` slot, which the collector walks, in
+  the one place a call and a `new` both pass through (`Engine::make_instance`).
+  `Native::constructor` says which kind of instance; `Native::new` still makes
+  a builtin with no `[[Construct]]`. A different `NewTarget` needs
+  `Reflect.construct` or a derived class (items 73, 223) and cannot occur yet.
+  An instance is `Cell::Error`: an ordinary object whose kind is the
+  `[[ErrorData]]` slot.
+
+  **What was cut**: `Error.prototype.toString` of a `message` that is a getter
+  or an object, to **item 228**; `AggregateError` to **item 229**. Turning an
+  error this engine throws into an instance is item 210's `catch`, which now
+  has `Intrinsics::error_constructor` and `Family::from(Kind)` to do it with.
+  **Five doctored runs**: without the hold on a new prototype the stress build
+  fails; without the instance on a call fourteen tests fail; an enumerable
+  message fails two; no `[object Error]` tag fails two. The fifth — dropping
+  the hold on each `name`/`message` string — failed nothing, and the reason is
+  real: nothing allocates between making the string and the property that owns
+  it. The hold was removed and that reason written beside it.
+
+- [ ] **228. `Error.prototype.toString` of a `message` behind a call.** Cut
+  from 227. When `message` is a getter, or an object whose own `toString` must
+  run, `name` has already been read and converted, and a native has nowhere
+  traced to keep it across the call; reading `name` again afterwards is a
+  second getter call a page can count. Refused by name today
+  ([`Missing::AMessageBehindACall`]).
+  *Depends on 221's traced native scratch state. Closes when:* a `message`
+  getter runs once, after `name`'s, an object `message` is converted with its
+  own `toString`, and a `name` getter that counts its calls is called once in
+  both cases. Opened by a frozen real script that does it, and not before.
+
+- [ ] **229. `AggregateError`.** Cut from 227. Its first argument is an
+  iterable of errors, made into an array with `IterableToList`, so it needs the
+  iteration protocol rather than an array-like walk.
+  *Depends on 227, 211 and 75. Closes when:* `new AggregateError([a, b], 'm')`
+  has an own `errors` array of the two, not enumerable, after `message` and
+  `cause`; it inherits from `Error`; and an iterator that throws ends the
+  construction with what it threw.
+
 - [ ] **213. `arguments`, and the parameter forms that are not a plain name.**
   Cut from 209, which takes a plain list of distinct names and refuses the
   rest — a default, a `...rest`, a destructuring pattern, a repeated name, and
@@ -2657,8 +2725,9 @@ The long pole, and the thing most of section E is unreachable without.
   is owed is the handler. The hard half is **`finally`**, which runs on the way
   out of a `break`, a `continue`, a `return` and a throw alike, so a completion
   has to be carried across a jump rather than only propagated up.
-  *Depends on 72, and on 73 for the `Error` objects a `catch` binds — until
-  then a thrown `TypeError` has a kind and a message and is not yet a value.
+  *Depends on 72, and on 227 (cut from 73) for the `Error` objects a `catch`
+  binds — a thrown `TypeError` has a kind and a message and becomes an
+  instance of `Intrinsics::error_constructor(Family::from(kind))` when caught.
   Closes when:* each of the five ways out of a `try` runs its `finally` exactly
   once, in a test naming which way it left, and a `catch` binds what was thrown.
 
@@ -2787,9 +2856,9 @@ The long pole, and the thing most of section E is unreachable without.
   function a script wrote, and a **builtin** with a `[[Construct]]` is this
   item's, since none exists yet),
   `Array` (whose exotic object and prototype item 225 built — what remains is
-  the constructor, `Array.isArray` and every method), `Math`, `JSON`, the
-  `Error` objects a `catch` binds (item 210 waits
-  on them), and the `String`, `Number` and `Boolean` wrappers that
+  the constructor, `Array.isArray` and every method), `Math`, `JSON` (the
+  `Error` family is item 227, with 228 and 229 cut from it), and the `String`,
+  `Number` and `Boolean` wrappers that
   [`Missing::AWrapperObject`] names. This item should be **cut again** the next
   time it is taken: a closing condition that names one family is an item, and
   the whole of a standard library is not.

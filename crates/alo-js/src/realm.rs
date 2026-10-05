@@ -44,15 +44,18 @@
 //! what an object and a function *are*. The global object is an ordinary object
 //! and inherits from the first of them like any other.
 //!
-//! No **named** builtin is here yet: no `Object`, no `Array`, no `Math`, no
-//! `console`. ADR 0013 § 3 — *absent beats approximate* — and each is a queue
-//! item. An embedder may put its own things on the global object today, which
-//! is how a test harness reaches a script.
+//! The first **named** builtins are the seven error constructors (queue item
+//! 227): `Error`, `TypeError` and the rest, writable and configurable and not
+//! enumerable, as every constructor on the global object is. There is still no
+//! `Object`, no `Array`, no `Math` and no `console`. ADR 0013 § 3 — *absent
+//! beats approximate* — and each is a queue item. An embedder may put its own
+//! things on the global object today, which is how a test harness reaches a
+//! script.
 
 use std::collections::HashMap;
 
 use crate::abrupt::Escape;
-use crate::builtin::Intrinsics;
+use crate::builtin::{Family, Intrinsics};
 use crate::heap::{Ref, Root};
 use crate::object::{Found, Held, Objects, Property, Refused, Set, Value};
 
@@ -136,6 +139,7 @@ impl Realm {
         realm
             .name_the_values(objects)
             .map_err(|why| Escape::refused(why, 0))?;
+        realm.name_the_errors(objects)?;
         Ok(realm)
     }
 
@@ -172,6 +176,28 @@ impl Realm {
             key,
             Property::data(Value::Object(global), true, false, true),
         );
+        Ok(())
+    }
+
+    /// The seven error constructors, each bound to its name (queue item 227).
+    ///
+    /// A constructor on the global object is writable and configurable and not
+    /// enumerable, so a page may replace or delete `TypeError` — and the
+    /// intrinsic, which the realm roots, is unaffected by either.
+    fn name_the_errors(&self, objects: &mut Objects) -> Result<(), Escape> {
+        let global = self.global(objects)?;
+        for family in Family::ALL {
+            // The constructor is rooted by the intrinsics, so it survives the
+            // interning below.
+            let constructor = self.intrinsics.error_constructor(objects, family)?;
+            let units: Vec<u16> = family.name().encode_utf16().collect();
+            let key = objects.key(&units).map_err(|why| Escape::refused(why, 0))?;
+            objects.define(
+                global,
+                key,
+                Property::data(Value::Object(constructor), true, false, true),
+            )?;
+        }
         Ok(())
     }
 

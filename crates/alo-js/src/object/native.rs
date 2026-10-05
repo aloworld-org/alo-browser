@@ -124,11 +124,31 @@ pub enum Want {
     },
 }
 
+/// What a builtin constructor is given before its body runs (queue item 227).
+///
+/// A constructor this engine wrote is told its instance rather than making it,
+/// because a body that made its own would have nowhere to keep it while it
+/// asked the script for something: a native keeps a step number and nothing
+/// else. So the interpreter does `OrdinaryCreateFromConstructor` — reading the
+/// constructor's own `prototype`, which on a builtin is fixed — and puts the
+/// instance in the `this` slot, which the collector walks and the body reads
+/// with [`Call::this`], exactly as a script's constructor gets its instance
+/// (queue item 212). This says which kind of object that is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Instance {
+    /// An object with the `[[ErrorData]]` slot. The `Error` constructors make
+    /// one whether they are called or constructed, which is the
+    /// specification's: `TypeError('x')` and `new TypeError('x')` are the same
+    /// object.
+    Error,
+}
+
 /// A function this engine wrote.
 #[derive(Debug, Clone, Copy)]
 pub struct Native {
     name: &'static str,
     body: Body,
+    instance: Option<Instance>,
 }
 
 impl Native {
@@ -139,7 +159,27 @@ impl Native {
     /// item 220, and giving one of them a value here would be inventing the
     /// other.
     pub const fn new(name: &'static str, body: Body) -> Self {
-        Self { name, body }
+        Self {
+            name,
+            body,
+            instance: None,
+        }
+    }
+
+    /// A native that is also a constructor, and is given an instance of this
+    /// kind in its `this` slot before its body runs (queue item 227).
+    pub const fn constructor(name: &'static str, body: Body, instance: Instance) -> Self {
+        Self {
+            name,
+            body,
+            instance: Some(instance),
+        }
+    }
+
+    /// The instance it is given, which is [`Some`] exactly when it has a
+    /// `[[Construct]]`.
+    pub const fn instance(&self) -> Option<Instance> {
+        self.instance
     }
 
     /// What it is called, for a message.

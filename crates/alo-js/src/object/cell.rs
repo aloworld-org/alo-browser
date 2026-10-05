@@ -10,10 +10,10 @@
 //! nothing in that file changes when it does.* This is that enumeration, and
 //! nothing in `heap.rs` changed.
 //!
-//! # Eight kinds, and two of them are not a script's
+//! # Nine kinds, and two of them are not a script's
 //!
-//! An [`Ordinary`] object, an [`Array`] (queue item 225), a [`Function`], a
-//! [`Text`], a [`Symbol`] — and
+//! An [`Ordinary`] object, an [`Array`] (queue item 225), an error (queue item
+//! 227), a [`Function`], a [`Text`], a [`Symbol`] — and
 //! [`Cell::Foreign`], which is an [`Exotic`] an embedder supplied. That one is
 //! ADR 0013 § 6 and ADR 0014 § 6 in a single line of code: the DOM is **in this
 //! heap**, traced by this collector, in the same graph as the closure that
@@ -52,6 +52,14 @@ pub enum Cell {
     /// An array: an ordinary object whose `length` keeps up with its indices
     /// (queue item 225).
     Array(Array),
+    /// An object an `Error` constructor made: an ordinary object with the
+    /// `[[ErrorData]]` slot (queue item 227).
+    ///
+    /// The slot holds nothing and is only ever asked whether it is there —
+    /// which is what `Object.prototype.toString` asks before it answers
+    /// `"[object Error]"` — so it is a kind of cell rather than a field, and
+    /// everything else about the object is the ordinary answer.
+    Error(Ordinary),
     /// A function, which is an ordinary object that can also be called (queue
     /// item 209).
     Function(Function),
@@ -80,7 +88,7 @@ impl Cell {
     /// property of an ordinary object.
     pub fn internal(&self) -> Option<&dyn Internal> {
         match self {
-            Cell::Object(object) => Some(object),
+            Cell::Object(object) | Cell::Error(object) => Some(object),
             Cell::Array(array) => Some(array),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_ref()),
@@ -91,7 +99,7 @@ impl Cell {
     /// The same, to be written through.
     pub fn internal_mut(&mut self) -> Option<&mut dyn Internal> {
         match self {
-            Cell::Object(object) => Some(object),
+            Cell::Object(object) | Cell::Error(object) => Some(object),
             Cell::Array(array) => Some(array),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_mut()),
@@ -135,6 +143,11 @@ impl Cell {
             Cell::Array(array) => Some(array),
             _ => None,
         }
+    }
+
+    /// Whether this cell has the `[[ErrorData]]` slot (queue item 227).
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Cell::Error(_))
     }
 
     /// The function this cell is, if it is one — which is what the interpreter
@@ -183,6 +196,7 @@ impl Cell {
         match self {
             Cell::Object(_) => "an object",
             Cell::Array(_) => "an array",
+            Cell::Error(_) => "an error",
             Cell::Function(_) => "a function",
             Cell::Text(_) => "a string",
             Cell::Symbol(_) => "a symbol",
@@ -196,7 +210,7 @@ impl Cell {
 impl Trace for Cell {
     fn trace(&self, tracer: &mut Tracer) {
         match self {
-            Cell::Object(object) => object.trace(tracer),
+            Cell::Object(object) | Cell::Error(object) => object.trace(tracer),
             Cell::Array(array) => array.trace(tracer),
             Cell::Function(function) => function.trace(tracer),
             Cell::Symbol(symbol) => symbol.trace(tracer),
@@ -212,7 +226,7 @@ impl Trace for Cell {
 
     fn footprint(&self) -> usize {
         match self {
-            Cell::Object(object) => object.footprint(),
+            Cell::Object(object) | Cell::Error(object) => object.footprint(),
             Cell::Array(array) => array.footprint(),
             Cell::Function(function) => function.footprint(),
             Cell::Text(text) => text.footprint(),

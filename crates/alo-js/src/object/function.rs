@@ -52,9 +52,10 @@
 //! by how the function was written, so it is on the chunk
 //! ([`Chunk::constructs`](crate::code::Chunk::constructs)), and the `prototype`
 //! a constructor carries is an ordinary property the interpreter gives it when
-//! the function is made (queue item 212). A builtin never constructs yet —
-//! `Object` and `Function` are item 73's — and classes and `super` are item
-//! 223. No own `name` or `length` — those are queue item 220, and a `length`
+//! the function is made (queue item 212). A builtin constructs when its
+//! [`Native`] was made as a constructor — the error constructors are the first
+//! (queue item 227); `Object` and `Function` are item 73's — and classes and
+//! `super` are item 223. No own `name` or `length` — those are queue item 220, and a `length`
 //! without a `name` would be half an answer; `bind` is there too, and `apply`
 //! is item 221. ADR 0013 § 3, absent beats approximate.
 

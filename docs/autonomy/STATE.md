@@ -9891,3 +9891,54 @@ more. The next refusal, `try` at 2853, names 210, which depends on 73 for the
 **0016**. 103 items are open (102 before; 225 was added already closed and 226
 added open). This is one iteration, not a finished queue or
 roadmap.
+
+---
+
+## Iteration 125 — queue item 227: errors are things a page can make
+
+`Error` and the six native errors exist. `new TypeError("bad")` carries its
+message, an optional `{ cause }` is kept only when `options` has one,
+`"" + error` reads `"TypeError: bad"`, and `TypeError("bad")` without `new`
+makes the same object. They are the first built-in functions that work with
+`new`, and they are what `try`/`catch` was waiting for, since a caught error
+has to be one of these.
+
+Cut, as 225 was: `Error.prototype.toString` of a `message` behind a call is
+**item 228**, and `AggregateError` is **item 229**.
+
+**This entry is written after the fact, and by the supervisor rather than by
+the worker that did the work.** That is unusual enough to say plainly.
+
+The worker built the whole item — eighteen tests, the implementation, the
+queue, the changelog, the features list and the roadmap — and was killed by
+the supervisor's idle guard before it wrote this entry. Its changes were
+preserved, which is what the guard is built to do. Nothing here was rebuilt or
+reconstructed: the tree is the worker's, unmodified, and this entry and the
+commit are the only things added.
+
+**Why it was killed, which is a supervisor defect and not a worker one.**
+The guard presumes a worker that writes to its transcript as it goes: a hung
+one stops writing while an honest long one keeps writing. That is true of
+`codex exec --json`. It is false of `claude -p`, which buffers everything and
+writes once at the end — so its transcript is zero bytes from the first second
+to the last, and the guard reads every iteration as silent from the start.
+
+It was therefore not a hang detector at all for this worker. It was a
+twenty-minute wall clock on every iteration. The three iterations before this
+one took seven, nineteen and eighteen minutes and survived by a minute or two
+without anybody noticing how close they were. This one needed longer.
+
+The guard was right to preserve the work and right about what it saw. It was
+asking a question the worker had no way to answer.
+
+**Verified before committing.** `scripts/gate.sh` green on the preserved tree,
+and the tests read rather than counted: they cover the refusal paths, the order
+in which a message is converted before a cause is read, a getter that throws
+part-way through construction, an error made for ever becoming a `RangeError`
+rather than a process that stops, errors with causes surviving the collector,
+and a page replacing the global leaving the intrinsic alone. That is an item
+finished, not an item written.
+
+**Next.** The supervisor's worker invocation is wrong and is fixed in its own
+change, not this one.
+

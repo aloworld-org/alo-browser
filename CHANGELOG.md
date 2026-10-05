@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Errors are things a page can make.** `Error`, `TypeError`, `RangeError`,
+  `ReferenceError`, `SyntaxError`, `EvalError` and `URIError` now exist:
+  `new TypeError("bad")` carries its message, an optional `{ cause }` is kept,
+  `"" + error` reads `"TypeError: bad"`, and `TypeError("bad")` without `new`
+  makes the same object, as the language says. They are the first built-in
+  functions that work with `new`. This is the piece `try`/`catch` was waiting
+  for — a caught error has to be one of these — and `try` is what alo's own
+  service worker stops at today. Two corners are refused by name rather than
+  half-done: an error's `toString` when its message is a getter, and
+  `AggregateError`.
+
 - **Arrays exist.** `[1, 2, 3]` makes an array, and `[1, , 3]` makes one that
   is three long with genuinely nothing in the middle, so `1 in [1, , 3]` is
   `false` as it is in every browser. Writing past the end makes an array

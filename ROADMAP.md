@@ -707,14 +707,24 @@ unreachable without it.
       `[[DefineOwnProperty]]` would go round every exotic object's rules — an
       array's and an embedder's alike. A length a value is not is a
       `RangeError`; an object as a length is refused by name (item 226)
+      · Built: **the errors a `catch` binds** (queue item 227) — `Error` and
+      the six native errors, as constructors on the global object, with their
+      prototypes, `constructor`, `name`, an empty `message`, the `cause`
+      option and `Error.prototype.toString`; `Object.prototype.toString` says
+      `[object Error]`. They are the **first builtins with a `[[Construct]]`**,
+      and the decision worth reading is that a builtin constructor is *given*
+      its instance in the traced `this` slot, called or constructed alike,
+      because a native keeps nothing else across the script it asks to run.
+      An error this engine throws is not yet an instance of one: turning it
+      into one is what item 210's `catch` does
       · Owed: `apply` and traced native scratch state (queue item 221), and
-      the remaining library. `Object` and `Function`
-      themselves are constructors, and `new` constructs only a function a
-      script wrote (queue item 212) — a builtin with a `[[Construct]]` is item
-      73's; a
+      the remaining library. `Error.prototype.toString` of a `message` that is
+      a getter or an object is refused by name (item 228, on 221), and
+      `AggregateError` is item 229. `Object` and `Function` themselves are
+      constructors item 73 has not built; a
       function's own `name` and `length` and its source text are 220; the
       `Array` constructor, `Array.isArray` and every array method,
-      `Math`, `JSON`, `Error`, the wrapper objects, the well-known symbols and
+      `Math`, `JSON`, the wrapper objects, the well-known symbols and
       the weak collections are still item 73, which is what remains of it
 - [ ] Regular expressions, with the syntax the language actually has
 - [ ] Promises, the microtask queue, `async`/`await`, generators and iterators

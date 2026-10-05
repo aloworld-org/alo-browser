@@ -42,8 +42,9 @@
 //! ADR 0013 § 3. There are no builtins here, no realm and no global object
 //! (item 73) and there is no `BigInt` (item 207). A [`Function`] is here — it
 //! is an ordinary object with a `[[Call]]`'s worth of code beside it (item 209)
-//! — and so is the [`Environment`] a closure keeps, and the [`Array`] whose
-//! `length` keeps up with its indices (item 225). Everything else is absent
+//! — and so is the [`Environment`] a closure keeps, the [`Array`] whose
+//! `length` keeps up with its indices (item 225), and an error, which is an
+//! ordinary object with one slot that holds nothing (item 227). Everything else is absent
 //! rather than stubbed, because a stub is the one answer that defeats a page's
 //! own feature test.
 
@@ -203,6 +204,26 @@ impl Objects {
     /// `IsArray`, for an object that is not a proxy (item 217 is the proxy).
     pub fn as_array(&self, held: Ref) -> Option<&Array> {
         self.heap.get(held)?.array()
+    }
+
+    /// Make an error with this prototype and no properties of its own: the
+    /// object `OrdinaryCreateFromConstructor` makes for an `Error` constructor,
+    /// with the `[[ErrorData]]` slot (queue item 227).
+    ///
+    /// **This is a safepoint**, and the prototype is the caller's to have
+    /// rooted, as [`Objects::object`]'s is.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn error(&mut self, prototype: Option<Ref>) -> Result<Ref, Refused> {
+        let object = Ordinary::with_prototype(prototype);
+        Ok(self.heap.allocate(Cell::Error(object))?)
+    }
+
+    /// Whether a reference names an object with the `[[ErrorData]]` slot.
+    pub fn is_error(&self, held: Ref) -> bool {
+        self.heap.get(held).is_some_and(Cell::is_error)
     }
 
     /// Make a string of these code units.

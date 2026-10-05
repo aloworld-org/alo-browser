@@ -37,7 +37,8 @@
 //!
 //! `Symbol.toStringTag`, which `toString` consults before anything else, needs
 //! the well-known symbols (queue item 73). An array is `"[object Array]"`
-//! (queue item 225); the builtin tags for an error, a date and the three
+//! (queue item 225) and an error `"[object Error]"` (item 227); the builtin
+//! tags for a date and the three
 //! wrapper kinds each need that builtin to exist, and until then every other
 //! object that is not a function is `"[object Object]"`, which is what it
 //! genuinely is.
@@ -90,6 +91,8 @@ fn to_string(call: &mut Call<'_>) -> Result<Answer, Escape> {
         Value::Object(held) => {
             if call.seen().as_array(held).is_some() {
                 "[object Array]"
+            } else if call.seen().is_error(held) {
+                "[object Error]"
             } else if call.seen().callable(held).is_some() {
                 "[object Function]"
             } else {

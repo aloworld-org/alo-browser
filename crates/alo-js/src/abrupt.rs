@@ -50,7 +50,7 @@ pub enum Kind {
 }
 
 impl Kind {
-    /// The name a page would see on the error object (queue item 73).
+    /// The name a page would see on the error object (queue item 227).
     pub const fn name(self) -> &'static str {
         match self {
             Kind::TypeError => "TypeError",
@@ -63,9 +63,10 @@ impl Kind {
 /// What a script threw.
 ///
 /// Either one of the language's own errors or a value the script threw itself.
-/// There is no `Error` **object** here, because a constructor is a builtin and
-/// builtins are queue item 73 — so what is decided now is the part a page can
-/// see either way: which error it is, what it says, and where it happened.
+/// An error this engine throws is not an `Error` **object** yet: the
+/// constructors exist (queue item 227), and turning one of these into an
+/// instance of one is what a `catch` does, which is item 210. Until something
+/// can catch it, nothing can see the difference.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Thrown {
     /// An error the language specifies.
@@ -171,6 +172,13 @@ pub enum Missing {
     /// rather than to the number it became. Converting it once in place, which
     /// is what every other operator here does, would get both wrong.
     AnObjectAsALength,
+    /// `Error.prototype.toString` on an error whose `message` is a getter or
+    /// an object whose own `toString` must run (queue item 228).
+    ///
+    /// By then `name` has been read and converted, and keeping it across a
+    /// call is the traced scratch state of item 221; reading `name` again
+    /// afterwards would be a second getter call a page can count.
+    AMessageBehindACall,
 }
 
 impl fmt::Display for Missing {
@@ -191,6 +199,10 @@ impl fmt::Display for Missing {
             Missing::AnObjectAsALength => write!(
                 out,
                 "an object assigned to an array's length, which converts it twice, is queue item 226"
+            ),
+            Missing::AMessageBehindACall => write!(
+                out,
+                "Error.prototype.toString of a message that is a getter or an object is queue item 228"
             ),
         }
     }
