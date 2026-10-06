@@ -127,6 +127,15 @@ CEILING_MIN="${CEILING_MIN:-240}"
 # honest tool call answers in minutes. An hour of heat and no output is a
 # runaway, and the ceiling is too blunt an instrument to be the only one.
 SILENT_KILL_MIN="${SILENT_KILL_MIN:-60}"
+
+# Whether a verified iteration is published to origin.
+#
+# On by default. An unattended run that only commits locally is a run nobody
+# can see until somebody thinks to look, and a night's work sits on one
+# machine where a disk is the only copy. The worker is forbidden to push, by
+# its own prompt, so this is the single place a commit leaves here and the
+# single place to check that it did. `ALO_LOOP_PUSH=0` keeps a run local.
+PUSH="${ALO_LOOP_PUSH:-1}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-500}"
 
 
@@ -214,6 +223,10 @@ for guard in IDLE_KILL_MIN SILENT_KILL_MIN CEILING_MIN; do
 done
 # A silence bound under the idle bound would retire the idle guard without
 # saying so: everything it catches, the shorter one would have caught first.
+case "$PUSH" in
+  0 | 1) ;;
+  *) bad "ALO_LOOP_PUSH wants 0 or 1"; exit 2 ;;
+esac
 if [ "$SILENT_KILL_MIN" -lt "$IDLE_KILL_MIN" ]; then
   bad "SILENT_KILL_MIN below IDLE_KILL_MIN leaves the idle guard nothing to do"
   exit 2
@@ -443,6 +456,11 @@ if [ "$dry" -eq 1 ]; then
   say "journal:    $JOURNAL  (stop marker: ${marker:-none})"
   say "queue:      $(open_items) items still open"
   say "guards:     idle ${IDLE_KILL_MIN}m, no output ${SILENT_KILL_MIN}m, ceiling ${CEILING_MIN}m"
+  if [ "$PUSH" = 1 ]; then
+    say "publish:    every verified iteration, to $(git remote get-url origin 2>/dev/null || echo 'no origin configured')"
+  else
+    say "publish:    nothing; this run stays local"
+  fi
   say "iterations:  $wanted at most"
   say "log:         $LOG"
   [ -n "$WORKER_NAME" ] || exit "$WORKER_STATUS"
@@ -647,6 +665,26 @@ $(( quiet / 60 )) minutes"
     exit 4
   fi
   rm -f "$LOCK/gate.log"
+
+  # Publish what has just been verified, and only that. After the independent
+  # gate rather than after the worker's commit, so what reaches origin is what
+  # passed verification on this machine, not what a worker believed it had
+  # finished.
+  #
+  # A failure here does not stop the run. The commits are safe locally and
+  # `git push` sends everything outstanding, so the next iteration carries
+  # them; losing a night of work to one refused connection would be the worse
+  # trade. It is said loudly instead, every time, so a remote that has been
+  # refusing for hours cannot look like silence.
+  if [ "$PUSH" = 1 ]; then
+    if git push --quiet origin HEAD >>"$LOG" 2>&1; then
+      say "published to origin."
+    else
+      bad "push to origin failed. The work is committed here and the next \
+iteration will carry it; if this repeats, the remote needs attention."
+    fi
+  fi
+
   if [ "$(stop_marker)" = COMPLETE ]; then
     say "available work exhausted; read the journal's remaining gates."
     finished "$i"

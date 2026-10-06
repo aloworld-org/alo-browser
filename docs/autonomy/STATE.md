@@ -14389,3 +14389,43 @@ stop rule holds, and `CHANGELOG.md` changed with the code. `git diff
 --check` passes. The log is in this session's scratchpad and is not
 committed. The only later change was this journal entry, which is
 documentation.
+
+---
+
+## Iteration 155 — a verified iteration publishes itself
+
+Not a queue item. The owner asked that every finished task reach GitHub.
+
+It was not reaching it. Twenty-four commits — a whole night's work, from the
+DOM tree operations through to the fieldset borders — were sitting on this
+machine only, because the worker prompt forbids pushing and nothing else was
+doing it. They went out by hand before this change, and the backlog is the
+argument for the change: an unattended run that only commits locally is a run
+nobody can see until somebody thinks to look, and a disk is a single copy.
+
+**The supervisor pushes, not the worker.** The prompt's rule stands as
+written. Pushing from one place means there is one place to check that it
+happened, and one place where it can be turned off.
+
+**After the independent gate, not after the worker's commit.** The supervisor
+already re-runs the whole gate on the finished tree before accepting an
+iteration. Publishing sits after that, so what reaches origin is what passed
+verification here rather than what a worker believed it had finished.
+
+**A refused push does not stop the run.** The commits are safe locally and
+`git push` sends everything outstanding, so the next iteration carries them;
+losing a night to one refused connection would be the worse trade. It is said
+loudly every time instead, so a remote that has been refusing for hours cannot
+read as quiet.
+
+**Three checks, and a real remote to check against.** The fixture now has a
+bare repository to push to, which makes the question "did the commit arrive"
+rather than "was the command spelled correctly". A verified iteration reaches
+origin; `ALO_LOOP_PUSH=0` leaves origin where it was; and a remote pointed at
+nothing is reported while the iteration still counts and the tree stays clean.
+Run against the supervisor before this change, the first of those fails
+exactly where it should: *"origin did not receive the verified iteration"*.
+
+Twenty-one fixture checks, from eighteen. The loop was stopped with a clean
+tree and nothing uncommitted; nothing was lost.
+

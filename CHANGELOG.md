@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The build loop publishes every iteration it verifies.** Work used to
+  accumulate as local commits until somebody pushed by hand — a night's output
+  existing on one disk, invisible to anybody else. The supervisor now pushes
+  after its own gate, so what reaches the remote is what passed verification.
+  A refused push is reported and the run continues, since the commits are safe
+  and the next push carries them.
+
 - **A dashed, dotted or double fieldset border is drawn round its name.**
   It used to be left out entirely wherever a legend sat in it. It is now
   drawn as the same box's border would be without a legend, and cut where

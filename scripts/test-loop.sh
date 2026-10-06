@@ -11,7 +11,7 @@ cd "$fixture"
 git init -q
 git config user.name 'Loop test'
 git config user.email 'loop-test@example.invalid'
-printf '%s\n' 'docs/autonomy/loop.log' bin > .gitignore
+printf '%s\n' 'docs/autonomy/loop.log' bin origin.git > .gitignore
 printf '%s\n' '- [ ] **1. Fixture.**' > docs/autonomy/QUEUE.md
 printf '%s\n' '## Iteration 0' > docs/autonomy/STATE.md
 cat > scripts/gate.sh <<'GATE'
@@ -144,6 +144,12 @@ exec /bin/ps "$@"
 PS
 chmod +x scripts/gate.sh bin/*
 export PATH="$fixture/bin:$PATH"
+# Somewhere to publish to. A bare repository on the same disk is a real
+# remote as far as `git push` is concerned, and it means the check can ask the
+# question that matters — did the commit arrive — rather than whether a
+# command was spelled correctly.
+git init -q --bare "$fixture/origin.git"
+git remote add origin "$fixture/origin.git"
 git add .
 git commit -qm 'test: initial fixture'
 base="$(git rev-parse HEAD)"
@@ -250,4 +256,41 @@ SILENT_KILL_MIN=1 IDLE_KILL_MIN=5 scripts/loop.sh --dry-run > result 2>&1 \
 [ "$code" = 2 ] || { cat result; exit 1; }
 grep -q 'leaves the idle guard nothing to do' result
 printf 'ok    a silence bound under the idle bound is refused\n'
+
+# Publishing. The worker is forbidden to push, so the supervisor is the only
+# thing that can, and an unattended night's work existing on one disk only is
+# the failure this prevents.
+git reset --hard -q "$base"
+rm -f work broken bin/clock bin/cpu
+git push -q --force origin "$base":refs/heads/main
+code=0
+TEST_MODE=success scripts/loop.sh --once > result 2>&1 || code=$?
+[ "$code" = 0 ] || { cat result; exit 1; }
+[ "$(git rev-parse HEAD)" = "$(git -C "$fixture/origin.git" rev-parse main)" ] \
+  || { echo 'origin did not receive the verified iteration'; exit 1; }
+grep -q 'published to origin' result
+printf 'ok    a verified iteration reaches origin\n'
+
+# And a run told to stay local stays local, including its commits.
+git reset --hard -q "$base"
+rm -f work broken bin/clock bin/cpu
+git push -q --force origin "$base":refs/heads/main
+code=0
+TEST_MODE=success ALO_LOOP_PUSH=0 scripts/loop.sh --once > result 2>&1 || code=$?
+[ "$code" = 0 ] || { cat result; exit 1; }
+[ "$(git -C "$fixture/origin.git" rev-parse main)" = "$base" ] \
+  || { echo 'origin moved on a run told to stay local'; exit 1; }
+printf 'ok    a run told to stay local does not publish\n'
+
+# A remote that refuses must not cost the run its work.
+git reset --hard -q "$base"
+rm -f work broken bin/clock bin/cpu
+git remote set-url origin "$fixture/not-a-repository"
+code=0
+TEST_MODE=success scripts/loop.sh --once > result 2>&1 || code=$?
+git remote set-url origin "$fixture/origin.git"
+[ "$code" = 0 ] || { cat result; exit 1; }
+grep -q 'push to origin failed' result
+git diff --quiet HEAD
+printf 'ok    a refused push is reported and the iteration still counts\n'
 mv bin/parked/codex bin/

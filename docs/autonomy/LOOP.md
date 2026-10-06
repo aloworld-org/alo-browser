@@ -317,6 +317,17 @@ open, and when the session ends the work is uncommitted and the gate's answer
 is never read. That is not hypothetical: iteration 140 was recovered by hand
 for exactly this, and the one error it never saw was a real one.
 
+**Every verified iteration is published.** The supervisor pushes to origin
+after its own independent gate, so what reaches the remote is what passed
+verification here rather than what a worker believed it had finished. The
+worker is forbidden to push by its own prompt, which keeps that to one place
+that can be checked.
+
+A refused push does not stop the run: the commits are safe locally and `git
+push` sends everything outstanding, so the next iteration carries them. It is
+reported loudly every time instead, so a remote that has been refusing for
+hours cannot be mistaken for quiet. `ALO_LOOP_PUSH=0` keeps a run local.
+
 **Start with `--items 5`.** "Run until the queue is empty" is a large thing to
 agree to on faith, and it is the same loop either way — only the number differs.
 Five iterations is enough to see what it does to the repository and to read the
