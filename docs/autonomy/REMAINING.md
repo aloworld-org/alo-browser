@@ -420,6 +420,14 @@ segments per path. 273 (strokes, closing on alo's offline screen) is next.
 117 queue items are open; the next unused queue number is 280 and the next
 unused ADR 0023.
 
+Iteration 172 built 273: strokes, every `stroke-*` property, outlined by the
+rented stroker in user space and transformed with their shape, dashes bounded
+before they are cut. It froze alo's offline screen as `alo-offline` with its
+hand drawn, which closes 107. The page showed three layout faults, queued as
+280–282 (an atomic inline under `text-align`, its margins in its line, and
+the `place-*` shorthands), and 280 is next. 118 queue items are open; the
+next unused queue number is 283 and the next unused ADR 0023.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

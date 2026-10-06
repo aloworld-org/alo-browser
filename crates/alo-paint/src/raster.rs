@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Shapes into coverage.
+//! Shapes into coverage, and strokes into shapes.
 //!
 //! **This is the only file that names `tiny-skia`.** Filling a path with
 //! anti-aliasing is a scanline rasteriser with a great deal of care in it, and
@@ -19,10 +19,19 @@
 //! on white and white text on black, and why a mask can be reused for a
 //! shadow. The type itself lives in [`crate::coverage`]; this file only makes
 //! them.
+//!
+//! # Strokes are outlines
+//!
+//! A stroke is drawn by finding **the shape it covers** — the path offset
+//! half a width each way, with its caps and joins, after dashing — and filling
+//! that ([`outline`]). That offsetting is the same kind of physics as filling,
+//! with a great many degenerate cases in it, and ADR 0022 § 2 rents it from the
+//! same crate rather than writing a second rasteriser's worth of geometry.
 
 use crate::coverage::Coverage;
 use crate::fill_rule::FillRule;
 use crate::path::{Path, Point, Segment};
+use crate::stroke::{LineCap, LineJoin, Stroke};
 
 /// Fill a path and report how much of each pixel it covers.
 ///
@@ -91,6 +100,82 @@ fn covered(path: &Path, rule: FillRule, page: Option<(u32, u32)>) -> Coverage {
     )
 }
 
+/// The shape a stroke along a path covers, to be filled by the non-zero rule.
+///
+/// Dashed first when the stroke has dashes, and then outlined, in the path's
+/// own coordinates. `resolution` is how many pixels one of those units will
+/// become, so a curve drawn small and scaled up is offset finely enough to
+/// stay smooth.
+///
+/// [`None`] when the stroke covers nothing: a width that is not a positive
+/// finite number, a path with no length that has no caps to draw, a dash
+/// pattern that is not one (an odd count, a negative length, a sum of
+/// nothing, a non-finite offset — the maker is meant to have settled those),
+/// or an outline whose points would not be finite.
+///
+/// A dash pattern is **not** bounded here. A maker that hands a stranger's
+/// pattern to this function must have counted the dashes first: the rented
+/// dasher gives up only past a million, which is far more than a page should
+/// be allowed to make a renderer build.
+pub fn outline(path: &Path, stroke: &Stroke, resolution: f32) -> Option<Path> {
+    if !(stroke.width.is_finite() && stroke.width > 0.0) {
+        return None;
+    }
+    let resolution = if resolution.is_finite() && resolution > 0.0 {
+        resolution
+    } else {
+        1.0
+    };
+    let mut built = build(path)?;
+    if let Some(dashes) = &stroke.dashes {
+        let pattern = tiny_skia::StrokeDash::new(dashes.lengths.clone(), dashes.offset)?;
+        built = built.dash(&pattern, resolution)?;
+    }
+    let rented = tiny_skia::Stroke {
+        width: stroke.width,
+        // A limit under one is a miter that is always beveled, which is what
+        // the rented stroker does with one anyway; held here so a stranger's
+        // value means one thing.
+        miter_limit: if stroke.miter_limit.is_finite() {
+            stroke.miter_limit.max(1.0)
+        } else {
+            4.0
+        },
+        line_cap: match stroke.cap {
+            LineCap::Butt => tiny_skia::LineCap::Butt,
+            LineCap::Round => tiny_skia::LineCap::Round,
+            LineCap::Square => tiny_skia::LineCap::Square,
+        },
+        line_join: match stroke.join {
+            LineJoin::Miter => tiny_skia::LineJoin::Miter,
+            LineJoin::Round => tiny_skia::LineJoin::Round,
+            LineJoin::Bevel => tiny_skia::LineJoin::Bevel,
+        },
+        dash: None,
+    };
+    let stroked = built.stroke(&rented, resolution)?;
+    let mut outline = Path::new();
+    for segment in stroked.segments() {
+        match segment {
+            tiny_skia::PathSegment::MoveTo(to) => outline.move_to(ours(to)?),
+            tiny_skia::PathSegment::LineTo(to) => outline.line_to(ours(to)?),
+            tiny_skia::PathSegment::QuadTo(control, to) => {
+                outline.quad_to(ours(control)?, ours(to)?);
+            }
+            tiny_skia::PathSegment::CubicTo(first, second, to) => {
+                outline.cubic_to(ours(first)?, ours(second)?, ours(to)?);
+            }
+            tiny_skia::PathSegment::Close => outline.close(),
+        }
+    }
+    (!outline.is_empty()).then_some(outline)
+}
+
+/// A rented point as ours, if it is a point at all.
+fn ours(point: tiny_skia::Point) -> Option<Point> {
+    (point.x.is_finite() && point.y.is_finite()).then(|| Point::new(point.x, point.y))
+}
+
 fn build(path: &Path) -> Option<tiny_skia::Path> {
     let mut builder = tiny_skia::PathBuilder::new();
     for segment in path.segments() {
@@ -140,6 +225,7 @@ fn to_whole(value: f32) -> i32 {
 mod tests {
     use super::*;
     use crate::path::Point;
+    use crate::stroke::{LineCap, LineJoin, Stroke};
 
     #[test]
     fn nothing_covers_nothing() {
@@ -299,5 +385,255 @@ mod tests {
         assert!(fill_on_page(&path, FillRule::NonZero, (0, 0)).is_empty());
         let off = Path::rectangle(100.0, 100.0, 4.0, 4.0);
         assert!(fill_on_page(&off, FillRule::NonZero, (6, 6)).is_empty());
+    }
+
+    fn line(from: (f32, f32), to: (f32, f32)) -> Path {
+        let mut path = Path::new();
+        path.move_to(Point::new(from.0, from.1));
+        path.line_to(Point::new(to.0, to.1));
+        path
+    }
+
+    fn stroked(width: f32, cap: LineCap, join: LineJoin) -> Stroke {
+        Stroke {
+            width,
+            cap,
+            join,
+            ..Stroke::default()
+        }
+    }
+
+    fn bounds_of(path: &Path, stroke: &Stroke) -> (f32, f32, f32, f32) {
+        outline(path, stroke, 1.0)
+            .and_then(|outline| outline.bounds())
+            .expect("an outline")
+    }
+
+    fn near(found: (f32, f32, f32, f32), wanted: (f32, f32, f32, f32)) -> bool {
+        let close = |a: f32, b: f32| (a - b).abs() < 0.01;
+        close(found.0, wanted.0)
+            && close(found.1, wanted.1)
+            && close(found.2, wanted.2)
+            && close(found.3, wanted.3)
+    }
+
+    #[test]
+    fn a_line_is_outlined_half_its_width_each_side_and_capped_by_its_cap() {
+        let path = line((0.0, 5.0), (10.0, 5.0));
+        let butt = bounds_of(&path, &stroked(2.0, LineCap::Butt, LineJoin::Miter));
+        assert!(near(butt, (0.0, 4.0, 10.0, 6.0)), "{butt:?}");
+        // Round and square both reach a half width past each end.
+        for cap in [LineCap::Round, LineCap::Square] {
+            let capped = bounds_of(&path, &stroked(2.0, cap, LineJoin::Miter));
+            assert!(near(capped, (-1.0, 4.0, 11.0, 6.0)), "{cap}: {capped:?}");
+        }
+        // And they differ at the corner: a square cap covers it, a round one
+        // only part of it.
+        let corner = |cap| {
+            let outline =
+                outline(&path, &stroked(4.0, cap, LineJoin::Miter), 1.0).expect("an outline");
+            page_at(&outline, 10, 3)
+        };
+        assert_eq!(corner(LineCap::Square), 255);
+        assert!(corner(LineCap::Round) < 255);
+        assert_eq!(corner(LineCap::Butt), 0);
+    }
+
+    #[test]
+    fn a_corner_is_mitered_rounded_or_beveled() {
+        // A right angle at (10, 2), turning down: the outer corner of a
+        // two-wide stroke is (11, 1) when mitered.
+        let mut path = line((0.0, 2.0), (10.0, 2.0));
+        path.line_to(Point::new(10.0, 12.0));
+        let at_corner = |join| {
+            let outline =
+                outline(&path, &stroked(2.0, LineCap::Butt, join), 1.0).expect("an outline");
+            page_at(&outline, 10, 1)
+        };
+        assert_eq!(at_corner(LineJoin::Miter), 255, "a miter fills the corner");
+        let round = at_corner(LineJoin::Round);
+        let bevel = at_corner(LineJoin::Bevel);
+        assert!(bevel < round && round < 255, "bevel {bevel}, round {round}");
+        let mitered = bounds_of(&path, &stroked(2.0, LineCap::Butt, LineJoin::Miter));
+        assert!(near(mitered, (0.0, 1.0, 11.0, 12.0)), "{mitered:?}");
+    }
+
+    #[test]
+    fn a_miter_past_its_limit_is_beveled() {
+        // A spike turning back at twenty degrees: its miter is about
+        // 1 / sin(10°) = 5.8 widths long, past a limit of four.
+        let mut path = line((0.0, 0.0), (20.0, 0.0));
+        path.line_to(Point::new(0.0, 7.28));
+        let reach = |limit| {
+            let stroke = Stroke {
+                width: 2.0,
+                miter_limit: limit,
+                ..Stroke::default()
+            };
+            bounds_of(&path, &stroke).2
+        };
+        let beveled = reach(4.0);
+        let mitered = reach(10.0);
+        assert!(beveled < 21.0, "{beveled}");
+        assert!(mitered > 25.0, "{mitered}");
+        assert!(
+            (reach(0.5) - beveled).abs() < 0.01,
+            "a limit under one is one"
+        );
+    }
+
+    #[test]
+    fn dashes_alternate_from_the_start_of_each_subpath() {
+        let mut path = line((0.0, 2.0), (12.0, 2.0));
+        path.move_to(Point::new(0.0, 8.0));
+        path.line_to(Point::new(12.0, 8.0));
+        let stroke = Stroke {
+            width: 2.0,
+            dashes: Some(crate::stroke::Dashes {
+                lengths: vec![3.0, 3.0],
+                offset: 0.0,
+            }),
+            ..Stroke::default()
+        };
+        let outline = outline(&path, &stroke, 1.0).expect("dashes");
+        for y in [1, 7] {
+            for (x, inked) in [(1, true), (4, false), (7, true), (10, false)] {
+                assert_eq!(page_at(&outline, x, y) == 255, inked, "pixel {x},{y}");
+            }
+        }
+        // An offset moves the pattern along.
+        let moved = Stroke {
+            dashes: Some(crate::stroke::Dashes {
+                lengths: vec![3.0, 3.0],
+                offset: 3.0,
+            }),
+            ..stroke
+        };
+        let moved = outline_or_nothing(&path, &moved);
+        assert_eq!(page_at(&moved, 1, 1), 0);
+        assert_eq!(page_at(&moved, 4, 1), 255);
+    }
+
+    /// How much of the page's pixel `(x, y)` a shape covers.
+    fn page_at(path: &Path, x: i32, y: i32) -> u8 {
+        let coverage = fill_on_page(path, FillRule::NonZero, (32, 32));
+        let (left, top) = coverage.origin();
+        match (u32::try_from(x - left), u32::try_from(y - top)) {
+            (Ok(x), Ok(y)) => coverage.at(x, y),
+            _ => 0,
+        }
+    }
+
+    fn outline_or_nothing(path: &Path, stroke: &Stroke) -> Path {
+        outline(path, stroke, 1.0).unwrap_or_default()
+    }
+
+    #[test]
+    fn a_dash_of_nothing_under_a_round_cap_is_a_dot() {
+        let path = line((2.0, 4.0), (14.0, 4.0));
+        let dotted = Stroke {
+            width: 2.0,
+            cap: LineCap::Round,
+            dashes: Some(crate::stroke::Dashes {
+                lengths: vec![0.0, 4.0],
+                offset: 0.0,
+            }),
+            ..Stroke::default()
+        };
+        let dots = outline_or_nothing(&path, &dotted);
+        // Dots at 2, 6, 10 and 14, a unit round, and nothing between them.
+        for x in [1, 2, 5, 6, 9, 10] {
+            assert!(page_at(&dots, x, 3) > 100, "a dot at {x}");
+        }
+        assert_eq!(page_at(&dots, 4, 3), 0);
+        assert_eq!(page_at(&dots, 8, 3), 0);
+    }
+
+    #[test]
+    fn a_subpath_of_no_length_is_a_dot_only_under_a_cap() {
+        let mut point = Path::new();
+        point.move_to(Point::new(4.0, 4.0));
+        point.line_to(Point::new(4.0, 4.0));
+        let mut closed = Path::new();
+        closed.move_to(Point::new(4.0, 4.0));
+        closed.close();
+        for path in [&point, &closed] {
+            assert!(outline(path, &stroked(2.0, LineCap::Butt, LineJoin::Miter), 1.0).is_none());
+            let round = bounds_of(path, &stroked(2.0, LineCap::Round, LineJoin::Miter));
+            assert!(near(round, (3.0, 3.0, 5.0, 5.0)), "{round:?}");
+            let square = bounds_of(path, &stroked(2.0, LineCap::Square, LineJoin::Miter));
+            assert!(near(square, (3.0, 3.0, 5.0, 5.0)), "{square:?}");
+        }
+        let mut alone = Path::new();
+        alone.move_to(Point::new(4.0, 4.0));
+        assert!(
+            outline(&alone, &stroked(2.0, LineCap::Round, LineJoin::Miter), 1.0).is_none(),
+            "a move on its own is not a subpath to stroke",
+        );
+    }
+
+    #[test]
+    fn a_stroke_that_is_not_one_covers_nothing() {
+        let path = line((0.0, 0.0), (10.0, 0.0));
+        for width in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+            assert!(outline(&path, &stroked(width, LineCap::Butt, LineJoin::Miter), 1.0).is_none());
+        }
+        for (lengths, offset) in [
+            (vec![1.0], 0.0),
+            (vec![1.0, 2.0, 3.0], 0.0),
+            (vec![1.0, -1.0], 0.0),
+            (vec![0.0, 0.0], 0.0),
+            (vec![1.0, f32::INFINITY], 0.0),
+            (vec![1.0, 1.0], f32::NAN),
+        ] {
+            let stroke = Stroke {
+                dashes: Some(crate::stroke::Dashes { lengths, offset }),
+                ..Stroke::default()
+            };
+            assert!(outline(&path, &stroke, 1.0).is_none());
+        }
+        assert!(outline(&Path::new(), &Stroke::default(), 1.0).is_none());
+    }
+
+    #[test]
+    fn hostile_strokes_never_panic_and_never_make_a_point_that_is_not_one() {
+        let paths = [
+            line((0.0, 0.0), (1.0e30, 1.0e30)),
+            line((-3.0e38, 0.0), (3.0e38, 0.0)),
+            line((0.0, 0.0), (1.0e-30, 0.0)),
+        ];
+        for path in &paths {
+            for width in [1.0e-30, 1.0, 1.0e30, f32::MAX] {
+                for cap in [LineCap::Butt, LineCap::Round, LineCap::Square] {
+                    for join in [LineJoin::Miter, LineJoin::Round, LineJoin::Bevel] {
+                        for resolution in [0.0, -1.0, f32::NAN, 1.0e-30, 1.0e30] {
+                            let stroke = Stroke {
+                                width,
+                                cap,
+                                join,
+                                miter_limit: f32::MAX,
+                                dashes: None,
+                            };
+                            if let Some(outline) = outline(path, &stroke, resolution) {
+                                assert!(
+                                    outline.segments().iter().all(|segment| match *segment {
+                                        Segment::MoveTo(p) | Segment::LineTo(p) => {
+                                            p.x.is_finite() && p.y.is_finite()
+                                        }
+                                        Segment::QuadTo(a, b) => [a, b]
+                                            .iter()
+                                            .all(|p| p.x.is_finite() && p.y.is_finite()),
+                                        Segment::CubicTo(a, b, c) => [a, b, c]
+                                            .iter()
+                                            .all(|p| p.x.is_finite() && p.y.is_finite()),
+                                        Segment::Close => true,
+                                    })
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

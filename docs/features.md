@@ -440,8 +440,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   `fill-rule`, `fill-opacity` and `opacity`, with presentation attributes in
   the cascade and `currentColor` from the text around the icon. **Path data
   is drawn** (item 272): `<path>`, every command, arcs as cubic curves, drawn
-  up to its first error. Strokes are 273, and alo's offline screen is the
-  page they close on; a
+  up to its first error. **Strokes are drawn** (item 273): `stroke`, its
+  width, caps, joins, miter limit, opacity and dashes, outlined by the rented
+  stroker and squashed with their shape under a transform, so alo's offline
+  screen draws its hand. A
   nested `<svg>` is 278, and the `transform` property and relative `width`
   attributes on SVG elements are 279
 - [2] Canvas 2D

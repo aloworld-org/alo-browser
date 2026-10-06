@@ -1,0 +1,7 @@
+body { margin: 0; font-family: 'DejaVu Sans'; font-size: 12px }
+p { margin: 4px }
+.row { display: flex; gap: 4px }
+svg { width: 40px; height: 40px; background: #f1ede4 }
+.guide { fill: none; stroke: #102a43; stroke-width: 0.25 }
+.teal { color: #2a9d8f; display: flex }
+.styled { stroke: #264653 }

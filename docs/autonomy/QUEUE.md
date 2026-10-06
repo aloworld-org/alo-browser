@@ -4727,6 +4727,38 @@ The long pole, and the thing most of section E is unreachable without.
   again fails 3 there and 1 in `banded.rs`; no hole fails 5. Corpus case
   `fieldset-patterns` is the reference render; no other reference moved.
 
+- [ ] **280. `text-align` moves an atomic inline.** *Opened by `alo-offline`
+  (iteration 172).* alo's offline screen is centred by `text-align: center` on
+  its `body`, and its `<svg>` and `<button>` are each the only thing on their
+  line. The engine aligns text runs and leaves an atomic inline where the line
+  starts, so both sit at the left of `main` (x = 24) where every browser
+  centres them (the hand at x = 204, the button at x = 173.5 in a 416-wide
+  `main`).
+  *Depends on nothing.* *Closes when:* `alo-offline`'s layout assertion puts
+  both at the centre of their line, a unit test does the same for `right` and
+  `start`/`end`, and a line of text and an inline-block together moves as one.
+
+- [ ] **281. An atomic inline's margins count in its line's height.** *Opened
+  by `alo-offline` (iteration 172).* The offline screen's `<svg>` has
+  `margin-bottom: 20px`; its line is laid out 56 tall and the heading starts
+  straight under the hand, where browsers leave the margin (and the strut's
+  descent) below it. The margin box, not the border box, is what sits on the
+  baseline.
+  *Depends on nothing.* *Closes when:* `alo-offline`'s layout assertion puts
+  the heading below the hand's margin and the line's descent, and a unit test
+  pins an inline-block's top and bottom margins in its line's height.
+
+- [ ] **282. `place-items`, `place-self` and `place-content` as shorthands.**
+  *Opened by `alo-offline` (iteration 172).* The offline screen centres `main`
+  with `body { display: grid; place-items: center }`. No shorthand of the
+  `place-*` family is expanded, so the declaration is kept and ignored and
+  `main` stretches to the grid's whole height (352 where it should be about 235
+  and centred). Each is one or two keywords split into `align-*` and
+  `justify-*` — counting, as item 184's shorthands are, not parsing.
+  *Depends on nothing.* *Closes when:* `alo-offline`'s layout assertion has
+  `main` its content's height and centred in the grid both ways, and a test
+  splits one- and two-value forms of all three.
+
 - [ ] **94. Animations and transitions.** Stage 1 reads them and they change
   nothing, which is correct for a still picture; this is the clock.
   *Depends on 76.*
@@ -4967,7 +4999,7 @@ The long pole, and the thing most of section E is unreachable without.
   choice. Until then an AVIF is refused, and § 6 says the browser never
   claims a format it does not decode.
 
-- [ ] **107. SVG** — *"a second rendering model inside the first, and far larger
+- [x] **107. SVG** — *"a second rendering model inside the first, and far larger
   than its one line here suggests."* **Cut this before starting it**; it is
   several iterations and nobody should discover that halfway through.
 
@@ -4980,6 +5012,11 @@ The long pole, and the thing most of section E is unreachable without.
   arcs. Today it is a 56 × 56 hole. 107 is not built itself. It is the eight
   items below, and it closes when 270–273 have closed. 274–277 open only when
   a page needs them. ADR 0022 § 7 lists what stays refused.
+
+  **Closed (iteration 172)**, as its own text says, by 270–273 closing: the
+  offline screen's hand is drawn. What SVG still owes is items 274–279, each
+  with its own closing condition, and `ROADMAP.md`'s *SVG* line stays open
+  for them.
 
 - [x] **270. The `<svg>` box.** *Cut from 107 (ADR 0022 §§ 1, 4).* An
   outermost `<svg>` laid out as a replaced element through item 176's path. Its
@@ -5104,7 +5141,7 @@ The long pole, and the thing most of section E is unreachable without.
   are gone, as they should be: the offline hand's paths are `fill="none"`,
   so nothing new is drawn there until 273 strokes them.
 
-- [ ] **273. Strokes, and alo's offline screen.** *Cut from 107 (ADR 0022
+- [x] **273. Strokes, and alo's offline screen.** *Cut from 107 (ADR 0022
   §§ 2, 5, 6).* `stroke`, `stroke-width`, `stroke-linecap`,
   `stroke-linejoin`, `stroke-miterlimit`, `stroke-opacity`,
   `stroke-dasharray` and `stroke-dashoffset`, through `tiny-skia`'s stroker
@@ -5114,6 +5151,45 @@ The long pole, and the thing most of section E is unreachable without.
   as an alo case, with its hand drawn. Its reference render and box tree are
   committed. A reference render covers every cap, join and a dash pattern.
   A dash array that would make millions of dashes is refused, with a test.
+
+  **Done (iteration 172).** `alo-paint`'s new `stroke.rs` is paint's
+  vocabulary for a stroke (width, `LineCap`, `LineJoin`, miter limit,
+  `Dashes`), and `raster.rs`'s new `outline` is the rented half: `tiny-skia`'s
+  dasher and stroker, still named nowhere else, turning a path into the
+  outline it covers. A stroke reaches paint as **the fill of that outline**,
+  so `DrawingItem` and the display list gained nothing. `alo-svg` outlines in
+  **user space** and transforms the outline with the shape, so a stroke under
+  `scale(2 1)` is squashed with it; the resolution handed to the stroker is
+  the transform's larger axis, so a 24-unit icon drawn at 56 px is offset
+  finely enough. New files: `paint.rs` (`<paint>`, lifted out of `fill.rs` and
+  shared by `fill` and `stroke`), `stroke.rs` (every `stroke-*` property from
+  the computed style; a value in error is its initial value, recorded),
+  `dashes.rs` (`stroke-dasharray`: commas or spaces, an odd list written
+  twice, a sum of nothing solid, a negative length an error, percentages of
+  the viewport's diagonal over √2). `alo-style` gained the eight stroke
+  presentation attributes, each held to its grammar, and all eight inherit.
+  `<line>` is now a path (stroked, never filled), and path data of moves and
+  closes is kept so `M5 5Z` under a round or square cap is a dot. A shape
+  with a fill and a stroke under `opacity` is one group, as 271 promised;
+  with one of them, the opacity is folded into its colour. `paint-order` and
+  `vector-effect` are recorded and not applied. **Bounds**, each tested at
+  its edge: 256 lengths per `stroke-dasharray` (read no further than that),
+  16 384 dashes per path counted *before* dashing along the path's control
+  points (never fewer than the dashes laid), and every outline's segments
+  counted toward the drawing's 262 144; past any of them the drawing is
+  refused whole. Corpus case `svg-strokes` is the reference render: the three
+  caps and three joins with guide lines, a spike beveled at the default
+  miter limit and mitered at ten, a zigzag, dots from a zero-length `<line>`
+  and `M Z`, a fill under its stroke, a squashed circle, even, odd and offset
+  dashes, a dotted circle, dashes restarting per subpath, a dashed curve,
+  `currentColor`, a stylesheet beating `stroke="red"`, `stroke-opacity`,
+  `opacity` as one group beside the same faded alone, and a per-cent width.
+  **Corpus case `alo-offline` is alo's offline screen, frozen byte for byte**
+  from `alo-workplace` (origin and hash in its `origin.txt`), with its
+  reference render, box tree and layout committed: the hand is four
+  terracotta outlines in its 56 × 56 box, and `an-svg-box`'s hand (now on the
+  offline canvas colour, so it can be seen) moved with it. The page also
+  showed three layout faults that are not strokes; they are items 280–282.
 
 - [ ] **274. `<defs>`, `<symbol>` and `<use>`.** *Cut from 107 (ADR 0022
   §§ 5, 6).* The icon sprite. Expansion is bounded and cycles are refused,

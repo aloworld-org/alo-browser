@@ -12,8 +12,14 @@
 //!
 //! The vocabulary is paint's because the thing being described is paint's: a
 //! path, what fills it, and which parts are faded together. It is small on
-//! purpose. A stroke arrives with item 273 and a paint server with item 275,
-//! and each is a new word here rather than a new seam.
+//! purpose, and a new kind of paint is a new word here rather than a new seam.
+//!
+//! **A stroke is a fill** (item 273). Its maker outlines it in the shape's own
+//! coordinates with [`crate::raster::outline`] — before the shape's transform,
+//! because a stroke squashed by a transform must be squashed with it — and
+//! hands over the outline, filled by the non-zero rule. Paint therefore draws
+//! one thing, and a stroke and a fill of the same colour can never disagree
+//! about anti-aliasing.
 //!
 //! # Where a drawing is
 //!

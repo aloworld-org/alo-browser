@@ -1,0 +1,52 @@
+<!-- Queue item 273: strokes (ADR 0022 §§ 2, 5). Each <svg> is a 20-unit
+     viewBox drawn at 40 px, on a pale ground so its box can be seen. A thin
+     dark line marks where a stroke's path ends or turns, so what a cap or a
+     join adds past it can be seen. -->
+<p class=row>
+  <!-- The three caps on a line from 5 to 15, four units wide. -->
+  <svg viewBox="0 0 20 20" aria-label="Butt cap"><path d="M5 10H15" stroke="#e76f51" stroke-width="4" stroke-linecap="butt"/><path class=guide d="M5 10H15"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Round cap"><path d="M5 10H15" stroke="#e76f51" stroke-width="4" stroke-linecap="round"/><path class=guide d="M5 10H15"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Square cap"><path d="M5 10H15" stroke="#e76f51" stroke-width="4" stroke-linecap="square"/><path class=guide d="M5 10H15"/></svg>
+  <!-- The three joins on a right angle. -->
+  <svg viewBox="0 0 20 20" aria-label="Miter join"><path d="M4 16V5H15" fill="none" stroke="#2a9d8f" stroke-width="4" stroke-linejoin="miter"/><path class=guide d="M4 16V5H15"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Round join"><path d="M4 16V5H15" fill="none" stroke="#2a9d8f" stroke-width="4" stroke-linejoin="round"/><path class=guide d="M4 16V5H15"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Bevel join"><path d="M4 16V5H15" fill="none" stroke="#2a9d8f" stroke-width="4" stroke-linejoin="bevel"/><path class=guide d="M4 16V5H15"/></svg>
+</p>
+<!-- A sharp turn: its miter is about 5.8 widths long, so the initial limit
+     of four bevels it and a limit of ten does not. Then a zigzag polyline, and
+     a <line> from a point to itself, which a round cap draws as a dot and a
+     square cap as a square. -->
+<p class=row>
+  <svg viewBox="0 0 20 20" aria-label="Past the miter limit"><path d="M2 6.55L12 8.3L2 10.05" fill="none" stroke="#264653" stroke-width="2"/><path class=guide d="M2 6.55L12 8.3L2 10.05"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Within a larger limit"><path d="M2 6.55L12 8.3L2 10.05" fill="none" stroke="#264653" stroke-width="2" stroke-miterlimit="10"/><path class=guide d="M2 6.55L12 8.3L2 10.05"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Zigzag"><polyline points="2 14 6 6 10 14 14 6 18 14" fill="none" stroke="#e9c46a" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Dots"><line x1="6" y1="10" x2="6" y2="10" stroke="#e63946" stroke-width="6" stroke-linecap="round"/><path d="M14 10Z" stroke="#e63946" stroke-width="6" stroke-linecap="square"/></svg>
+  <!-- A fill and its stroke: the stroke straddles the edge, half over the
+       fill, drawn after it. -->
+  <svg viewBox="0 0 20 20" aria-label="Fill and stroke"><rect x="4" y="4" width="12" height="12" rx="3" fill="#e9c46a" stroke="#264653" stroke-width="2"/></svg>
+  <!-- A stroke under a transform that squashes it is squashed with it. -->
+  <svg viewBox="0 0 20 20" aria-label="Squashed"><circle cx="5" cy="10" r="4" fill="none" stroke="#8ab17d" stroke-width="2" transform="scale(2 1)"/></svg>
+</p>
+<!-- Dashes: an even list; an odd list, written twice; an offset that moves
+     the pattern along; dots of no length under round caps around a circle;
+     a pattern starting again at each subpath; and a dashed curve. -->
+<p class=row>
+  <svg viewBox="0 0 20 20" aria-label="Dashes"><path d="M2 10H18" stroke="#264653" stroke-width="2" stroke-dasharray="4 2"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Odd dashes"><path d="M2 10H18" stroke="#264653" stroke-width="2" stroke-dasharray="3 1 1"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Offset dashes"><path d="M2 6H18" stroke="#264653" stroke-width="2" stroke-dasharray="4 2"/><path d="M2 14H18" stroke="#264653" stroke-width="2" stroke-dasharray="4 2" stroke-dashoffset="3"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Dotted circle"><circle cx="10" cy="10" r="7" fill="none" stroke="#e76f51" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="0 4.398"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Each subpath"><path d="M2 5H18M2 10H18M6 15H18" stroke="#2a9d8f" stroke-width="2" stroke-dasharray="3 3"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Dashed curve"><path d="M2 16C2 2 18 2 18 16" fill="none" stroke="#8ab17d" stroke-width="2" stroke-dasharray="2 1.5" stroke-linecap="round"/></svg>
+</p>
+<!-- What a stroke is painted with: currentColor from the text around it; a
+     stylesheet beating a presentation attribute; stroke-opacity over its own
+     fill; and opacity over a fill and a stroke as one group, beside each
+     faded alone, where the fill shows through the stroke's inner half. -->
+<p class=row>
+  <span class=teal><svg viewBox="0 0 20 20" aria-label="Current colour"><path d="M4 10l4 4 8-8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+  <svg viewBox="0 0 20 20" aria-label="Stylesheet wins"><circle class=styled cx="10" cy="10" r="6" fill="none" stroke="red" stroke-width="3"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Stroke opacity"><rect x="4" y="4" width="12" height="12" fill="#264653" stroke="#e9c46a" stroke-width="4" stroke-opacity="0.5"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="One group"><rect x="4" y="4" width="12" height="12" fill="#264653" stroke="#e76f51" stroke-width="4" opacity="0.5"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Faded alone"><rect x="4" y="4" width="12" height="12" fill="#264653" fill-opacity="0.5" stroke="#e76f51" stroke-width="4" stroke-opacity="0.5"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Percentage width"><rect x="5" y="5" width="10" height="10" fill="none" stroke="#e63946" stroke-width="10%"/></svg>
+</p>

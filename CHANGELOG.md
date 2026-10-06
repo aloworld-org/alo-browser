@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Outlines inside an `<svg>` are drawn, so alo's offline screen shows its
+  hand.** `stroke` now draws, with its width, round or square ends, round or
+  beveled corners, the miter limit, its own opacity, and dashed or dotted
+  patterns. An outline is squashed with its shape when the shape is
+  stretched, as in other browsers. The offline screen is now part of the
+  reference set exactly as alo ships it; three layout faults it shows — its
+  picture and button are not centred, and the space below the picture is
+  lost — are queued to fix next. A dash pattern written to make the browser
+  cut millions of dashes is refused whole.
+
 - **`<path>` inside an `<svg>` is drawn, filled.** Path data — lines, curves,
   smooth curves and elliptical arcs, written absolutely or relative to the
   pen — now draws, so most filled icons appear. Data with a mistake in it is

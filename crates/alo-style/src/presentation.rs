@@ -16,8 +16,8 @@
 //! # Which attributes
 //!
 //! Only those whose property this engine draws, which is a list that grows
-//! with the items that draw them: item 271's fills, and the properties that
-//! decide whether anything is drawn at all. An attribute not in the list is an
+//! with the items that draw them: item 271's fills, item 273's strokes, and
+//! the properties that decide whether anything is drawn at all. An attribute not in the list is an
 //! attribute and nothing more, which is the state every SVG attribute was in
 //! before this file. Geometry — `x`, `r`, `d`, `points` — is read by `alo-svg`
 //! as attributes, and so is `transform`, whose attribute grammar is not CSS's.
@@ -42,6 +42,14 @@ pub const PRESENTATION_PROPERTIES: &[&str] = &[
     "fill-opacity",
     "fill-rule",
     "opacity",
+    "stroke",
+    "stroke-dasharray",
+    "stroke-dashoffset",
+    "stroke-linecap",
+    "stroke-linejoin",
+    "stroke-miterlimit",
+    "stroke-opacity",
+    "stroke-width",
     "visibility",
 ];
 
@@ -94,10 +102,19 @@ fn valid(property: &str, value: &str) -> bool {
         return true;
     }
     match property {
-        "fill" => paint(value),
+        "fill" | "stroke" => paint(value),
         "color" => alo_value::parse_color(value).is_some(),
-        "fill-opacity" | "opacity" => alpha(value),
+        "fill-opacity" | "opacity" | "stroke-opacity" => alpha(value),
         "fill-rule" => one_of(value, &["nonzero", "evenodd"]),
+        "stroke-width" => length(value).is_some_and(|length| length >= 0.0),
+        "stroke-dashoffset" => length(value).is_some(),
+        "stroke-dasharray" => dashes(value),
+        "stroke-linecap" => one_of(value, &["butt", "round", "square"]),
+        // SVG 2's `miter-clip` and `arcs` are not drawn by any browser, and a
+        // page that writes one is given the join it would get elsewhere: the
+        // one it inherits.
+        "stroke-linejoin" => one_of(value, &["miter", "round", "bevel"]),
+        "stroke-miterlimit" => alo_value::parse_number(value).is_some_and(|limit| limit >= 1.0),
         "visibility" => one_of(value, &["visible", "hidden", "collapse"]),
         "display" => value
             .split_ascii_whitespace()
@@ -124,6 +141,43 @@ fn alpha(value: &str) -> bool {
             alo_value::parse_length_percentage(value),
             Some(alo_value::LengthPercentage::Percentage(_))
         )
+}
+
+/// A length, a percentage or a plain number, which SVG reads as user units,
+/// and enough of its value to know its sign, which is all a grammar asks.
+///
+/// A length's sign is its number's, whatever it is measured in. A `calc()` has
+/// no sign until it is used, and CSS clamps it then rather than refusing it
+/// now, so it is read as zero: valid wherever a length that is not negative
+/// is.
+fn length(value: &str) -> Option<f32> {
+    if let Some(number) = alo_value::parse_number(value) {
+        return Some(number);
+    }
+    Some(match alo_value::parse_length_percentage(value)? {
+        alo_value::LengthPercentage::Percentage(percent) => percent,
+        alo_value::LengthPercentage::Length(length) => length.value,
+        alo_value::LengthPercentage::Calc(_) => 0.0,
+    })
+}
+
+/// `none`, or a list of lengths none of them negative, separated by commas
+/// or spaces.
+fn dashes(value: &str) -> bool {
+    if value.eq_ignore_ascii_case("none") {
+        return true;
+    }
+    let mut any = false;
+    for part in value.split(|c: char| c == ',' || c.is_ascii_whitespace()) {
+        if part.is_empty() {
+            continue;
+        }
+        if !length(part).is_some_and(|length| length >= 0.0) {
+            return false;
+        }
+        any = true;
+    }
+    any
 }
 
 fn one_of(value: &str, words: &[&str]) -> bool {
@@ -228,6 +282,63 @@ mod tests {
             ),
             "{issues:?}",
         );
+    }
+
+    #[test]
+    fn a_strokes_attributes_are_declarations() {
+        let (found, issues) = hints_of(
+            r##"<svg><path stroke="#e76f51" stroke-width="2" stroke-linecap="round" stroke-linejoin="bevel" stroke-miterlimit="10" stroke-opacity=".5" stroke-dasharray="4 2, 1" stroke-dashoffset="-3"/></svg>"##,
+            "path",
+        );
+        assert_eq!(
+            found,
+            vec![
+                "stroke: #e76f51",
+                "stroke-dasharray: 4 2, 1",
+                "stroke-dashoffset: -3",
+                "stroke-linecap: round",
+                "stroke-linejoin: bevel",
+                "stroke-miterlimit: 10",
+                "stroke-opacity: .5",
+                "stroke-width: 2",
+            ],
+        );
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn a_strokes_values_are_held_to_their_grammar() {
+        for (property, value) in [
+            ("stroke-width", "0"),
+            ("stroke-width", "1.5px"),
+            ("stroke-width", "10%"),
+            ("stroke-width", "calc(100% - 4px)"),
+            ("stroke-dasharray", "none"),
+            ("stroke-dasharray", "5,5"),
+            ("stroke-dasharray", "1em 2% 0"),
+            ("stroke-dashoffset", "-2em"),
+            ("stroke-miterlimit", "1"),
+            ("stroke", "url(#g) none"),
+        ] {
+            assert!(valid(property, value), "{property}: {value}");
+        }
+        for (property, value) in [
+            ("stroke-width", "-1"),
+            ("stroke-width", "thick"),
+            ("stroke-dasharray", "4 -2"),
+            ("stroke-dasharray", ","),
+            ("stroke-dasharray", "4 dashes"),
+            ("stroke-dashoffset", "far"),
+            ("stroke-linecap", "flat"),
+            ("stroke-linejoin", "miter-clip"),
+            ("stroke-linejoin", "arcs"),
+            ("stroke-miterlimit", "0.5"),
+            ("stroke-miterlimit", "4px"),
+            ("stroke-opacity", "opaque"),
+            ("stroke", "bogus"),
+        ] {
+            assert!(!valid(property, value), "{property}: {value}");
+        }
     }
 
     #[test]

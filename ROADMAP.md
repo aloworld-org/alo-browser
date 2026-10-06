@@ -1030,10 +1030,16 @@ unreachable without it.
       case `svg-shapes-filled`; path data (item 272) — `<path>` drawn from
       `alo-svg`'s `path_data.rs` (every command, drawn up to its first error,
       65 536 segments per path) with arcs as cubic curves by `arc.rs`; corpus
-      case `svg-path-data`
-      · Owed: strokes and the offline screen (273); a nested
-      `<svg>` (278, when a page needs it); the `transform` property and
-      per-cent or `em` `width` attributes (279).
+      case `svg-path-data`; strokes (item 273) — `stroke` and every
+      `stroke-*` property read by `alo-svg`'s `stroke.rs` and `dashes.rs`,
+      outlined in user space by `tiny-skia`'s stroker and dasher behind
+      `alo-paint`'s `raster.rs` (`outline`), dashes counted and bounded before
+      they are cut; corpus cases `svg-strokes` and `alo-offline`, alo's own
+      offline screen frozen byte for byte with its hand drawn
+      · Owed: the `transform` property and per-cent or `em` `width`
+      attributes (279); a nested `<svg>` (278), `<use>` (274), SVG paint
+      servers (275), `<text>` (276) and an SVG file as a picture (277), each
+      when a page needs it.
       Decided in ADR 0022. An `<svg>` is one
       replaced box with no boxes inside it, and its contents become a drawing
       of paths, made by a new crate `alo-svg` after layout and handed to paint

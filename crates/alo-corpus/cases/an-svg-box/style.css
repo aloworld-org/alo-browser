@@ -1,11 +1,13 @@
 body { margin: 0; font-family: 'DejaVu Sans'; font-size: 12px }
 p, main { margin: 4px 0 }
 /* Each <svg> has a background so the reference render shows its box. Since
-   queue item 271 the rect inside .attributes is drawn, black by default; the
-   hand's paths wait for items 272 and 273. */
+   queue item 271 the rect inside .attributes is drawn, black by default, and
+   since item 273 the hand's four paths are stroked in terracotta — so the
+   hand's box takes the offline screen's own canvas colour rather than the
+   terracotta it would vanish into. */
 svg { background: #e76f51 }
-/* The offline screen's own rule. */
-.hand { width: 56px; height: 56px }
+/* The offline screen's own rule, and its canvas. */
+.hand { width: 56px; height: 56px; background: #f4f1ec }
 .attributes { background: #2a9d8f }
 .half { background: #264653 }
 /* Made inline by an author: still one replaced box on the line. */

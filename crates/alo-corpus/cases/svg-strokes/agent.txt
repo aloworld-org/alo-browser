@@ -1,0 +1,29 @@
+document at (0, 0) 280×180
+  paragraph at (4, 4) 272×40
+    image "Butt cap" at (4, 4) 40×40
+    image "Round cap" at (48, 4) 40×40
+    image "Square cap" at (92, 4) 40×40
+    image "Miter join" at (136, 4) 40×40
+    image "Round join" at (180, 4) 40×40
+    image "Bevel join" at (224, 4) 40×40
+  paragraph at (4, 48) 272×40
+    image "Past the miter limit" at (4, 48) 40×40
+    image "Within a larger limit" at (48, 48) 40×40
+    image "Zigzag" at (92, 48) 40×40
+    image "Dots" at (136, 48) 40×40
+    image "Fill and stroke" at (180, 48) 40×40
+    image "Squashed" at (224, 48) 40×40
+  paragraph at (4, 92) 272×40
+    image "Dashes" at (4, 92) 40×40
+    image "Odd dashes" at (48, 92) 40×40
+    image "Offset dashes" at (92, 92) 40×40
+    image "Dotted circle" at (136, 92) 40×40
+    image "Each subpath" at (180, 92) 40×40
+    image "Dashed curve" at (224, 92) 40×40
+  paragraph at (4, 136) 272×40
+    image "Current colour" at (4, 136) 40×40
+    image "Stylesheet wins" at (48, 136) 40×40
+    image "Stroke opacity" at (92, 136) 40×40
+    image "One group" at (136, 136) 40×40
+    image "Faded alone" at (180, 136) 40×40
+    image "Percentage width" at (224, 136) 40×40

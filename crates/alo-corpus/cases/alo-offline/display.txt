@@ -1,0 +1,13 @@
+fill box#2 rgb(244 241 236) at (0, 0) 480×400
+clip box#6 to (24, 24) 56×56
+fill box#6 rgb(231 111 81) at (54.33333, 31) 14×21
+fill box#6 rgb(231 111 81) at (44.999996, 26.333334) 14.000004×23.33333
+fill box#6 rgb(231 111 81) at (35.666664, 31) 14×28
+fill box#6 rgb(231 111 81) at (26.015633, 35.666664) 51.65103×42
+unclip
+text box#9 "You're offline" rgb(16 42 67) 22px at (150.67627, 100.4209)
+text box#12 "alo can't reach the server right now. Your mail is" rgb(72 101 129) 16px at (38.804688, 130.46094)
+text box#12 "safe and will be waiting as soon as the connection" rgb(72 101 129) 16px at (30.492188, 149.08594)
+text box#12 "returns." rgb(72 101 129) 16px at (200.82813, 167.71094)
+fill box#14 rgb(231 111 81) at (24, 195.48438) 116.90625×39.199997
+text box#15 "Try again" rgb(255 255 255) 16px at (46, 220.62344)

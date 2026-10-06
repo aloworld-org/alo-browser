@@ -1,0 +1,43 @@
+alo-workplace, web/public/offline.html — alo's own offline screen.
+
+Taken 2026-10-06 from the `alo-workplace` repository checked out beside this
+one, at its commit be147ae147daa6ab88a09c14df9029ddc9bbeb8f (the file's last
+change, 2026-08-27). The bytes in page.html are that file exactly as it stands,
+unedited: SHA-256 21cb792aa4adc5afeca6fc5e990f48629a32181bb06e81c637c9b5b46cda2f05.
+`alo-workplace` is read-only reference; nothing was written back to it.
+
+Why this page. It is the page ADR 0022 named as the one that closes queue item
+273: its only picture is an inline <svg> of the alo hand — four <path>s with
+arcs, stroked in terracotta at two units of a 24-unit viewBox, fill="none",
+round caps and round joins — drawn into a 56-pixel square. Before item 273 that
+square was empty. The page is ours, so freezing it needs nobody's leave, and
+anybody can re-derive it from the commit above.
+
+It is fully self-contained on purpose (its own comment says why: offline is
+exactly when a second request would fail), so the case needs no linked.txt. It
+carries a script, so the corpus loads it through a renderer and the script
+runs; the script picks a language from `navigator.language` and, finding
+English, leaves the markup's English as it is. The issues list is empty.
+
+Rendered at 480 × 400, about a phone held sideways.
+
+## What it found
+
+**The hand is drawn**, which is what the page was frozen for: four outlines
+in rgb(231 111 81) inside the <svg>'s 56 × 56 content box, each two units ×
+56/24 = 4⅔ pixels wide with round ends and corners (display.txt). Its geometry
+is pinned in numbers by `alo-svg`'s walk test
+`the_offline_screens_hand_is_four_terracotta_strokes_inside_its_box`.
+
+**Three layout faults around it**, none of them the hand's, each queued rather
+than fixed in the iteration that found them:
+
+- `text-align: center` does not move an atomic inline, so the <svg> and the
+  <button> sit at the left of `main` where browsers centre them — item 280.
+- The <svg>'s `margin-bottom: 20px` is not in its line's height, so the
+  heading starts straight under the hand — item 281.
+- `place-items: center` is a shorthand nothing expands, so `main` stretches to
+  the grid's height instead of being centred in it — item 282.
+
+The reference render pins the page as it renders today, faults included, so
+that each of those items moves it and says so.

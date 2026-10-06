@@ -62,6 +62,14 @@ const INHERITED: &[&str] = &[
     "list-style-type",
     "overflow-wrap",
     "quotes",
+    "stroke",
+    "stroke-dasharray",
+    "stroke-dashoffset",
+    "stroke-linecap",
+    "stroke-linejoin",
+    "stroke-miterlimit",
+    "stroke-opacity",
+    "stroke-width",
     "tab-size",
     "text-align",
     "text-align-last",
@@ -119,6 +127,25 @@ mod tests {
             "line-height",
             "text-align",
             "visibility",
+        ] {
+            assert!(inherits_named(name), "{name} should inherit");
+        }
+    }
+
+    #[test]
+    fn svgs_paint_properties_inherit_so_a_group_can_set_them_once() {
+        for name in [
+            "fill",
+            "fill-opacity",
+            "fill-rule",
+            "stroke",
+            "stroke-dasharray",
+            "stroke-dashoffset",
+            "stroke-linecap",
+            "stroke-linejoin",
+            "stroke-miterlimit",
+            "stroke-opacity",
+            "stroke-width",
         ] {
             assert!(inherits_named(name), "{name} should inherit");
         }

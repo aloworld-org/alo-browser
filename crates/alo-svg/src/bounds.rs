@@ -56,3 +56,19 @@ pub const DEEPEST: usize = 256;
 /// back, so each level open at once costs a page of pixels. Sixteen is far past
 /// anything a designer nests and far short of a gigabyte.
 pub const MOST_GROUPS_DEEP: usize = 16;
+
+/// Lengths written in one `stroke-dasharray`.
+///
+/// A dashed line has two and an elaborate one six or eight. A pattern of
+/// thousands is not a pattern anybody can see; it is a way to make the dasher
+/// walk a list the size of an attribute for every dash it lays.
+pub const MOST_DASH_LENGTHS: usize = 256;
+
+/// Dashes one stroked path may be cut into, counted before it is cut.
+///
+/// ADR 0022 § 5's decompression bomb: a 0.0001-unit dash along a long path is
+/// millions of dashes, each a subpath to outline. A dashed rule across a wide
+/// page is some hundreds; sixteen thousand, each outlined in a dozen segments,
+/// still fits inside [`MOST_SEGMENTS`], so one path at this bound cannot by
+/// itself refuse a drawing that would otherwise be drawn.
+pub const MOST_DASHES: usize = 16_384;

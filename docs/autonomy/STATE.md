@@ -15250,3 +15250,139 @@ what was done), `docs/features.md`, `docs/conformance.md`, `CHANGELOG.md`,
 117 queue items are open (one closed). The first eligible item in file order
 is now **273**. The next unused queue number is **280** and the next ADR is
 **0023**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 172 — item 273: strokes, and alo's offline screen
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s header and *SVG* line, iteration 171's entry, the queue's
+section H (107, 270–279) and section F, ADR 0022 in full, `docs/features.md`'s
+SVG line, and the code 273 touches: `alo-svg` (`lib.rs`, `walk.rs`, `fill.rs`,
+`shape.rs`, `bounds.rs`, `length.rs`, its `walking.rs` tests), `alo-paint`'s
+`drawing.rs`, `raster.rs`, `fill_rule.rs`, `build.rs`'s `drawing_of`,
+`display.rs` and `render.rs`; `alo-style`'s `presentation.rs` and
+`inheritance.rs`; `alo-corpus`'s `case.rs` and `rendering.rs`; and
+`tiny-skia-path` 0.12's stroker, dasher and path builder. No `AGENTS.md`
+exists. `alo-workplace/web/public/offline.html` was read and copied, never
+written; that checkout's `git status` is empty after the iteration. The
+checkout here was clean on entry at `108a4fd`.
+
+**Selection.** Iteration 171 recorded 273 as the first eligible item, and
+nothing before it changed: 43 waits on 81, 179 on a page, 269 on a `rav1d`
+release; 272, 273's one dependency, is done.
+
+**What was built.**
+- `alo-paint`: `stroke.rs`, a stroke's vocabulary (`Stroke`, `LineCap`,
+  `LineJoin`, `Dashes`, SVG's initial values as `Default`); `raster.rs`'s
+  `outline`, `tiny-skia`'s dasher then stroker turning a path into the
+  outline it covers, refusing a width or pattern that is not one and any
+  non-finite point. A stroke reaches paint as **the fill of its outline**:
+  `DrawingItem`, the display list and `render.rs` are unchanged.
+- `alo-svg`: `paint.rs` (`<paint>`, lifted from `fill.rs`, shared by `fill`
+  and `stroke`); `stroke.rs` (every `stroke-*` property from the computed
+  style, in user units, a value in error its initial value and recorded);
+  `dashes.rs` (`stroke-dasharray` as SVG 2 reads it, and `count`, an upper
+  bound on the dashes a pattern lays, measured along control points). The
+  walk fills then strokes, outlines in user space and transforms the outline
+  (a stroke under `scale(2 1)` is squashed with it), hands the stroker the
+  transform's larger axis as its resolution, groups a fill and a stroke under
+  a shape's `opacity` (271's promise), and records `paint-order` and
+  `vector-effect`. `<line>` is a path, never filled; path data of moves and
+  closes is kept, so `M5 5Z` under a round cap is a dot.
+- Bounds (`bounds.rs`): `MOST_DASH_LENGTHS` 256 (read no further), and
+  `MOST_DASHES` 16 384 per path, counted before dashing; every outline's
+  segments count toward the drawing's 262 144. Past any, the drawing is
+  refused whole.
+- `alo-style`: the eight stroke presentation attributes, each held to its
+  grammar (`miter-clip` and `arcs` refused, as no browser draws them), and all
+  eight inherit.
+
+**Gate, mechanical.** The first `scripts/gate.sh` run failed on clippy alone:
+a negated float comparison in `walk.rs` and six pedantic `float_cmp` /
+`cast_precision_loss` findings in new tests (`cargo test` had not built with
+those lints). Each was fixed in the code, none silenced. The second run exited
+0 in 7 min 30 s, run in the foreground and read in the same step: fmt clean,
+clippy silent, every test passes (the corpus among them, so every committed
+reference reproduces), no stubs, no `unsafe`, every rented crate behind its
+boundary (`tiny_skia` named only in `alo-paint/src/raster.rs`; none added),
+no verb takes a coordinate, the stop rule holds, `CHANGELOG.md` changed.
+`git diff --check` passes. The logs are in this session's scratchpad. Only
+this entry changed after the gate ran.
+
+**Gate, manual.**
+- Reference render: new case `svg-strokes`, looked at enlarged — the three
+  caps and three joins with guide lines, a spike beveled at the default miter
+  limit and mitered at ten (17.8 units against 12.2, as 1/sin 9.9° says), a
+  zigzag, dots from a zero-length `<line>` and `M Z`, a fill under its stroke,
+  a squashed circle, even, odd and offset dashes, a dotted circle, dashes
+  restarting per subpath, a dashed curve, `currentColor`, a stylesheet beating
+  `stroke="red"`, `stroke-opacity`, `opacity` as one group beside the same
+  faded alone, and a per-cent width. The first version of the miter pair was
+  wrong (a 2.9-width miter, under both limits, so the pair was identical); its
+  geometry was corrected and re-rendered before commit.
+- **The offline screen**, new case `alo-offline`: the page frozen byte for
+  byte (SHA-256 and source commit in its `origin.txt`), its reference render,
+  box tree, layout, display list and agent tree committed. The hand is four
+  terracotta outlines in its 56 × 56 box and, enlarged, is the shape its
+  source draws. Its script runs (it is loaded by a renderer) and its issues
+  list is empty. `an-svg-box`'s hand now draws too; its box was terracotta on
+  terracotta, so that case's `.hand` now has the offline canvas colour and its
+  render moved, as it should. No other reference moved.
+- Numbers: unit tests pin caps, joins, the miter limit, dashes and offsets,
+  zero-length dots, every refusal, and the dash count. Walk tests pin a stroke
+  ring at ±1 unit, a square-capped line, a 4 px stroke from a 24-unit
+  viewBox, the squash, the group, the dot, and the offline hand's first
+  finger to within 0.05 px of (13, 3)–(19, 12) units × 56/24.
+- Hostile bytes: a 3e38 width, coordinates past a float, a 1e-38 width,
+  enormous miter limits and offsets, 1e-45 dashes, zero and enormous
+  transforms, repeated `M Z` under square caps — never a panic; `outline`
+  never returns a non-finite point. Each bound is tested at its edge and one
+  past it (256 and 257 lengths, 16 384 and 16 385 dashes, a million-entry
+  list read no further than the bound, four paths at their bound refused
+  once stroked), and a 0.00001 dash along 100 units is refused.
+- One responsibility per file: grammar (`dashes.rs`), properties
+  (`stroke.rs`), the shared paint value (`paint.rs`), vocabulary
+  (`alo-paint`'s `stroke.rs`) and the rented stroker (`raster.rs`, whose
+  responsibility stays "the one file that names `tiny-skia`").
+- `docs/features.md`'s SVG line says strokes are drawn.
+
+**What the offline screen found.** Three layout faults that are not strokes:
+`text-align: center` does not move an atomic inline (the `<svg>` and the
+button sit at x = 24, not centred); an atomic inline's margins are not in its
+line's height (the heading starts under the hand, its 20 px margin lost); and
+`place-items` is an unexpanded shorthand (`main` is stretched to 352 px rather
+than centred). One item per iteration, so they are queued as **280, 281 and
+282** in section F, each closing on `alo-offline`'s layout assertion, and
+`docs/conformance.md` gives the offline screen a row that says **nearly**. The
+committed reference pins today's render, faults included, so each of those
+items will move it and say so.
+
+**For a reviewer.**
+- ADR 0022 § 2 says `alo-svg` uses `alo-paint` "only for paint's vocabulary
+  of shape". It now also calls `alo_paint::raster::outline`, because § 2 also
+  says strokes go through the stroker named in `raster.rs` and nowhere else,
+  and stroking must happen in user space, before the transform, which only
+  `alo-svg` holds. No crate edge was added. A person may want § 2's wording
+  corrected along with iteration 170's dependency-list note.
+- ADR 0022's "how we will know if this was wrong" compares the hand with
+  Firefox and Chromium. Neither was run here; the hand was compared by eye
+  with its source shape and pinned in numbers. A side-by-side with a real
+  browser is still a person's check.
+
+**Roadmap.** The *SVG* line stays an empty box. Its `Built:` clause gains
+strokes (273, `stroke.rs`, `dashes.rs`, `raster::outline`, `svg-strokes`,
+`alo-offline`); its `Owed:` clause is now 279, and 274–278 each when a page
+needs it. Queue: 273 ticked with what was done; **107 ticked**, because its
+own text closes it when 270–273 have; 280–282 opened. Also updated:
+`docs/features.md`, `docs/conformance.md`, `CHANGELOG.md`, `REMAINING.md`.
+
+**Unresolved obligations.**
+- 280–282 (the offline screen's layout) are eligible now; 279 too.
+- ADR 0022 § 2's wording (above, and iteration 170's note) and § 4's name
+  order remain a person's call; so does a browser side-by-side of the hand.
+- Carried, unchanged: 269 blocked on a `rav1d` release; the `image-webp`
+  panic upstream report (a person's call); 109, 179, a picture ignoring a
+  clip in force, and 82, 83, 85–89, 95–99, 104, 105 needing their designs.
+
+118 queue items are open (two closed, three opened). The first eligible item
+in file order is now **280**. The next unused queue number is **283** and the
+next ADR is **0023**. This is one iteration, not a finished queue or roadmap.

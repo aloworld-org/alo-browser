@@ -1,0 +1,17 @@
+block flow · document
+  block grid · generic
+    block flow · main
+      anonymous block
+        text " "
+        inline flow-root · image [hidden]
+        text " "
+      block flow · heading [level=1]
+        text "You're offline"
+      block flow · paragraph
+        text " alo can't reach the server right now. Your mail is safe and will be waiting as soon as the connection returns. "
+      anonymous block
+        text " "
+        inline flow-root · button
+          anonymous block
+            text "Try again"
+        text " "

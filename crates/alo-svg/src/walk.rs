@@ -10,7 +10,8 @@
 //!
 //! - **a container** (`<g>`, and `<a>`, which draws as one): its children are
 //!   drawn under its transform, faded together if it has an `opacity`;
-//! - **a basic shape or a `<path>`**: filled, if its style says so;
+//! - **a basic shape or a `<path>`**: filled, then stroked, as its style says
+//!   (SVG's paint order, which `paint-order` could change and does not yet);
 //! - **something that is never drawn where it stands** (`<defs>`, `<title>`,
 //!   a gradient, a clip path): skipped, silently, because skipping it is what
 //!   drawing it correctly means;
@@ -20,13 +21,15 @@
 //! The walk keeps its own stack rather than recursing, and every count a page
 //! could inflate is bounded before the work it causes ([`crate::bounds`]).
 
-use crate::bounds::{DEEPEST, MOST_ELEMENTS, MOST_GROUPS_DEEP, MOST_SEGMENTS};
-use crate::fill::{alpha, fill_of};
+use crate::bounds::{DEEPEST, MOST_DASHES, MOST_ELEMENTS, MOST_GROUPS_DEEP, MOST_SEGMENTS};
+use crate::fill::fill_of;
 use crate::length::Viewport;
-use crate::shape::{Geometry, Refusal};
+use crate::paint::alpha;
+use crate::shape::{Geometry, Refusal, fills};
+use crate::stroke::stroke_of;
 use crate::viewport::AspectRatio;
 use alo_dom::{Document, Element, Namespace, NodeId};
-use alo_paint::{Drawing, DrawingItem};
+use alo_paint::{Drawing, DrawingItem, FillRule, Path};
 use alo_style::{ComputedStyle, StyleTree};
 use alo_value::{Matrix, Rgba};
 
@@ -262,8 +265,13 @@ impl Walk<'_> {
         }
     }
 
-    /// A basic shape or a `<path>`, filled, if it is visible and its style
-    /// fills it.
+    /// A basic shape or a `<path>`, filled and then stroked, as its style
+    /// says, if it is visible.
+    ///
+    /// The stroke is outlined in **user space** and the outline transformed
+    /// with the shape, so a stroke under a squashing or skewing transform is
+    /// squashed and skewed with it, as SVG says, rather than drawn at an even
+    /// width over a transformed path.
     fn draw_shape(
         &mut self,
         element: &Element,
@@ -275,9 +283,10 @@ impl Walk<'_> {
             let visibility = visibility.trim();
             visibility.eq_ignore_ascii_case("hidden") || visibility.eq_ignore_ascii_case("collapse")
         });
-        if hidden {
+        if hidden || opacity <= 0.0 {
             return Ok(());
         }
+        let name = &*element.name.local;
         let geometry = Geometry {
             element,
             viewport: self.viewport,
@@ -292,29 +301,99 @@ impl Walk<'_> {
             }
             Err(Refusal::Drawing(why)) => return Err(why),
         };
-        let Some(fill) = fill_of(style, &mut self.issues) else {
-            return Ok(());
+        let fill = if fills(name, &path) {
+            fill_of(style, &mut self.issues)
+        } else {
+            None
         };
+        let stroke = stroke_of(style, self.viewport, &mut self.issues)?;
+        if fill.is_none() && stroke.is_none() {
+            return Ok(());
+        }
+        self.not_applied(element, style);
+        self.count(&path)?;
+
+        let outline = match stroke {
+            None => None,
+            Some(stroke) => {
+                if let Some(dashes) = &stroke.stroke.dashes {
+                    let dashes = crate::dashes::count(&path, &dashes.lengths);
+                    #[expect(
+                        clippy::cast_precision_loss,
+                        reason = "a bound of a few thousand is exact in a double"
+                    )]
+                    let most = MOST_DASHES as f64;
+                    // A count that is not a number is one nobody can vouch
+                    // for, and is refused with the ones that are too large.
+                    if dashes.is_nan() || dashes > most {
+                        return Err(format!(
+                            "<{name}>: a stroke-dasharray that would cut one path into more than {MOST_DASHES} dashes"
+                        ));
+                    }
+                }
+                alo_paint::raster::outline(&path, &stroke.stroke, resolution(matrix))
+                    .map(|outline| (outline, stroke.color))
+            }
+        };
+        if let Some((outline, _)) = &outline {
+            self.count(outline)?;
+        }
+
+        // A shape's own `opacity` fades what it draws as one. With one thing
+        // drawn that is the same as fading its colour, and costs no page of
+        // pixels; with a fill and a stroke, which overlap, it is a group, or
+        // the fill would show through the stroke's inner half.
+        let grouped = opacity < 1.0 && fill.is_some() && outline.is_some();
+        let fade = if grouped {
+            self.open_group(opacity)?;
+            1.0
+        } else {
+            opacity
+        };
+        if let Some(fill) = fill {
+            self.paint(path.transformed(matrix), fill.color, fill.rule, fade);
+        }
+        if let Some((outline, color)) = outline {
+            self.paint(outline.transformed(matrix), color, FillRule::NonZero, fade);
+        }
+        if grouped {
+            self.close_group();
+        }
+        Ok(())
+    }
+
+    /// One shape, filled, faded by `fade`, unless that leaves nothing to see.
+    fn paint(&mut self, path: Path, color: Rgba, rule: FillRule, fade: f32) {
+        let color = Rgba {
+            alpha: color.alpha * fade,
+            ..color
+        };
+        if !color.is_invisible() {
+            self.drawing.push(DrawingItem::Fill { path, color, rule });
+        }
+    }
+
+    /// Count a path the drawing is about to hold against the drawing's bound.
+    fn count(&mut self, path: &Path) -> Result<(), String> {
         self.segments += path.segments().len();
         if self.segments > MOST_SEGMENTS {
             return Err(format!("more than {MOST_SEGMENTS} path segments"));
         }
-        // A shape's own `opacity` fades its one fill, which is the same as a
-        // group of one and costs no page of pixels. When a shape has a stroke
-        // as well (item 273) the two overlap, and this becomes a group.
-        let color = Rgba {
-            alpha: fill.color.alpha * opacity,
-            ..fill.color
-        };
-        if color.is_invisible() {
-            return Ok(());
-        }
-        self.drawing.push(DrawingItem::Fill {
-            path: path.transformed(matrix),
-            color,
-            rule: fill.rule,
-        });
         Ok(())
+    }
+
+    /// Record what a drawn shape asks for that changes how it is painted and
+    /// is not applied: the order of its fill and stroke, and a stroke that
+    /// keeps its width whatever the transform.
+    fn not_applied(&mut self, element: &Element, style: &ComputedStyle) {
+        let name = &*element.name.local;
+        for (property, ordinary) in [("paint-order", "normal"), ("vector-effect", "none")] {
+            let value = element.attr(property).or_else(|| style.get(property));
+            if value.is_some_and(|value| !value.trim().eq_ignore_ascii_case(ordinary)) {
+                self.issues
+                    .push(format!("<{name} {property}>: not applied yet"));
+            }
+        }
     }
 
     fn open_group(&mut self, opacity: f32) -> Result<(), String> {
@@ -345,6 +424,13 @@ impl Walk<'_> {
             self.drawing.push(DrawingItem::PopGroup);
         }
     }
+}
+
+/// How many pixels one user unit becomes along the longer of its two axes,
+/// which is how finely a stroke's offset curves must be made to look smooth
+/// once they are drawn.
+fn resolution(matrix: Matrix) -> f32 {
+    matrix.a.hypot(matrix.b).max(matrix.c.hypot(matrix.d))
 }
 
 /// Why an element that is not a container or a basic shape is not drawn, or

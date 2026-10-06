@@ -1,0 +1,6 @@
+document at (0, 0) 480×400
+  main at (24, 24) 416×352
+    heading "You're offline" [level=1] at (24, 80) 416×25.609375
+    paragraph at (24, 115.609375) 416×55.875
+      text "alo can't reach the server right now. Your mail is safe and will be waiting as soon as the connection returns." at (30.492188, 115.609375) 403.01563×55.875 in 3 pieces
+    button "Try again" at (24, 195.48438) 116.90625×39.2

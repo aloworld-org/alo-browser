@@ -13,8 +13,10 @@ authors.workspace = true
 # that the box and the drawing never disagree about either.
 alo-box = { path = "../alo-box" }
 alo-dom = { path = "../alo-dom" }
-# Paint's vocabulary only — `Path`, `Drawing`, `FillRule` — so that there is one
-# path type in this engine (ADR 0022 § 2). Paint does not depend on this crate.
+# Paint's vocabulary — `Path`, `Drawing`, `FillRule`, `Stroke` — so that there is
+# one path type in this engine (ADR 0022 § 2), and paint's `raster::outline`,
+# because a stroke is outlined by the stroker paint rents and nowhere else.
+# Paint does not depend on this crate.
 alo-paint = { path = "../alo-paint" }
 alo-style = { path = "../alo-style" }
 alo-value = { path = "../alo-value" }

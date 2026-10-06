@@ -11,8 +11,10 @@
 //! `currentColor` is the colour of the text beside it, which is the point.
 //!
 //! `opacity` is not here: it fades a group, not a fill, and the walk opens
-//! the group.
+//! the group. What a `fill` value can be is [`crate::paint`]'s, because a
+//! `stroke` is written the same way.
 
+use crate::paint::{faded, paint_of};
 use alo_paint::FillRule;
 use alo_style::ComputedStyle;
 use alo_value::Rgba;
@@ -29,69 +31,16 @@ pub struct Fill {
 /// The fill a style asks for, or [`None`] for `fill: none` and for anything
 /// that comes to nothing.
 ///
-/// A paint this engine does not draw — a reference to a gradient or a pattern
-/// (item 275), or a context keyword — is recorded. A reference with a fallback
-/// colour is drawn in the fallback, which is what SVG says to do when a
-/// reference cannot be used.
+/// Nothing written is black ([`paint_of`] says what else a paint can be, and
+/// what is recorded about it).
 pub fn fill_of(style: &ComputedStyle, issues: &mut Vec<String>) -> Option<Fill> {
-    let color = match style.get("fill").map(str::trim) {
-        // The initial value: black.
-        None => Rgba::BLACK,
-        Some(text) if text.eq_ignore_ascii_case("none") => return None,
-        Some(text) if starts_with_ignoring_case(text, "url(") => {
-            let fallback = text.find(')').and_then(|close| text.get(close + 1..));
-            match fallback.map(str::trim).filter(|rest| !rest.is_empty()) {
-                Some(rest) if rest.eq_ignore_ascii_case("none") => return None,
-                Some(rest) => {
-                    issues.push(format!(
-                        "fill: {text}: a paint server is not drawn yet (item 275); its fallback is"
-                    ));
-                    alo_value::parse_color(rest)?.resolve(style.current_color())
-                }
-                None => {
-                    issues.push(format!(
-                        "fill: {text}: a paint server is not drawn yet (item 275), and there is no fallback"
-                    ));
-                    return None;
-                }
-            }
-        }
-        Some(text) if starts_with_ignoring_case(text, "context-") => {
-            issues.push(format!(
-                "fill: {text}: context paint belongs to <use> and markers, not drawn"
-            ));
-            return None;
-        }
-        Some(_) => style.color("fill")?,
-    };
-    let opacity = alpha(style.get("fill-opacity")).unwrap_or(1.0);
-    let color = Rgba {
-        alpha: color.alpha * opacity,
-        ..color
-    };
-    if color.is_invisible() {
-        return None;
-    }
+    let color = paint_of(style, "fill", Some(Rgba::BLACK), issues)?;
+    let color = faded(color, style.get("fill-opacity"))?;
     let rule = style
         .get("fill-rule")
         .and_then(FillRule::parse)
         .unwrap_or_default();
     Some(Fill { color, rule })
-}
-
-/// An opacity: a number or a percentage, held to between nothing and one.
-pub fn alpha(text: Option<&str>) -> Option<f32> {
-    let text = text?.trim();
-    let value = match alo_value::parse_length_percentage(text) {
-        Some(alo_value::LengthPercentage::Percentage(percent)) => percent / 100.0,
-        _ => alo_value::parse_number(text)?,
-    };
-    value.is_finite().then(|| value.clamp(0.0, 1.0))
-}
-
-fn starts_with_ignoring_case(text: &str, start: &str) -> bool {
-    text.get(..start.len())
-        .is_some_and(|head| head.eq_ignore_ascii_case(start))
 }
 
 #[cfg(test)]
@@ -192,15 +141,5 @@ mod tests {
         let (found, issues) = fill(r#"<svg><rect id=x fill="context-fill"/></svg>"#, "");
         assert_eq!(found, None);
         assert_eq!(issues.len(), 1);
-    }
-
-    #[test]
-    fn an_alpha_is_a_number_or_a_percentage_held_to_one() {
-        assert_eq!(alpha(Some("0.25")), Some(0.25));
-        assert_eq!(alpha(Some("25%")), Some(0.25));
-        assert_eq!(alpha(Some("7")), Some(1.0));
-        assert_eq!(alpha(Some("-1")), Some(0.0));
-        assert_eq!(alpha(Some("half")), None);
-        assert_eq!(alpha(None), None);
     }
 }

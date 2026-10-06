@@ -1,0 +1,31 @@
+block flow · document
+  block flow · generic
+    block flex · paragraph
+      inline flow-root · image "Butt cap"
+      inline flow-root · image "Round cap"
+      inline flow-root · image "Square cap"
+      inline flow-root · image "Miter join"
+      inline flow-root · image "Round join"
+      inline flow-root · image "Bevel join"
+    block flex · paragraph
+      inline flow-root · image "Past the miter limit"
+      inline flow-root · image "Within a larger limit"
+      inline flow-root · image "Zigzag"
+      inline flow-root · image "Dots"
+      inline flow-root · image "Fill and stroke"
+      inline flow-root · image "Squashed"
+    block flex · paragraph
+      inline flow-root · image "Dashes"
+      inline flow-root · image "Odd dashes"
+      inline flow-root · image "Offset dashes"
+      inline flow-root · image "Dotted circle"
+      inline flow-root · image "Each subpath"
+      inline flow-root · image "Dashed curve"
+    block flex · paragraph
+      block flex · generic
+        inline flow-root · image "Current colour"
+      inline flow-root · image "Stylesheet wins"
+      inline flow-root · image "Stroke opacity"
+      inline flow-root · image "One group"
+      inline flow-root · image "Faded alone"
+      inline flow-root · image "Percentage width"

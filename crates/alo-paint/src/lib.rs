@@ -14,8 +14,9 @@
 //!
 //! - **Reading a font's outlines** is `ttf-parser`, and [`glyph`] is the only
 //!   file that names it.
-//! - **Filling a path with anti-aliasing** is `tiny-skia`, and [`raster`] is
-//!   the only file that names it.
+//! - **Filling a path with anti-aliasing**, and **stroking and dashing one**
+//!   into the outline to fill, is `tiny-skia`, and [`raster`] is the only file
+//!   that names it.
 //! - **Decoding a picture a page sent** is four crates, one file each: `png`
 //!   in [`encode`], and `jpeg-decoder`, `gif` and `image-webp` in files of
 //!   their own behind [`picture::read`], which is the only way in and holds the
@@ -61,6 +62,7 @@ pub mod pattern;
 pub mod picture;
 pub mod raster;
 pub mod render;
+pub mod stroke;
 pub mod tone;
 mod webp_picture;
 
@@ -79,3 +81,4 @@ pub use paint::Paint;
 pub use path::{Path, Point, Segment};
 pub use raster::{fill, fill_on_page};
 pub use render::render;
+pub use stroke::{Dashes, LineCap, LineJoin, Stroke};

@@ -7,9 +7,13 @@
 //! A `<path>` is its data, read by [`crate::path_data`]; every other shape is
 //! built here. SVG 2 defines every basic shape as an equivalent path — where it starts,
 //! which way it runs, where its arcs are — and this file builds exactly that
-//! path. The direction matters even before strokes do: under `evenodd` it does
-//! not, but under `nonzero` two shapes in one path wound opposite ways cancel,
-//! and a dash pattern (item 273) starts where the path starts.
+//! path. The direction matters: under `evenodd` it does not, but under
+//! `nonzero` two shapes in one path wound opposite ways cancel, and a dash
+//! pattern starts where the path starts and runs the way it runs.
+//!
+//! A path is what is **stroked**; whether it is also filled is [`fills`]'s
+//! question, because a `<line>` and a subpath of no length have an outline and
+//! no inside.
 //!
 //! An elliptical quarter arc is a cubic curve with its handles at
 //! 0.552 284 75 of the radius, the standard approximation, which is within
@@ -70,10 +74,23 @@ impl Geometry<'_> {
             "polygon" => self.points(true, issues),
             "polyline" => self.points(false, issues),
             "path" => Ok(self.data(issues)?),
-            // A line has no inside, so a fill draws nothing; its stroke is
-            // item 273's.
+            "line" => self.line(),
             _ => Ok(None),
         }
+    }
+
+    /// SVG 2's line: from (`x1`, `y1`) to (`x2`, `y2`), each zero when not
+    /// written. A line from a point to itself is still a line, and a round cap
+    /// draws it as a dot.
+    fn line(&self) -> Result<Option<Path>, Refusal> {
+        let x1 = self.length("x1", Axis::Horizontal, 0.0)?;
+        let y1 = self.length("y1", Axis::Vertical, 0.0)?;
+        let x2 = self.length("x2", Axis::Horizontal, 0.0)?;
+        let y2 = self.length("y2", Axis::Vertical, 0.0)?;
+        let mut path = Path::new();
+        path.move_to(Point::new(x1, y1));
+        path.line_to(Point::new(x2, y2));
+        Ok(Some(path))
     }
 
     /// An attribute in user units, `fallback` when it is not written.
@@ -212,9 +229,11 @@ impl Geometry<'_> {
 
     /// A `<path>`: its `d`, drawn up to its first error, which is recorded.
     ///
-    /// Data with nothing drawn in it — no `d`, `d="none"`, or only moves and
-    /// closes — fills nothing. (A zero-length subpath does draw a dot under a
-    /// round cap; that is a stroke, and item 273's.)
+    /// No `d` and `d="none"` are no path. Data of only moves is no path
+    /// either, because a move on its own is not a subpath anything draws; data
+    /// of moves and closes is kept, because `M 5 5 Z` is a subpath of no
+    /// length that a round or square cap draws as a dot — though [`fills`]
+    /// finds nothing inside it.
     fn data(&self, issues: &mut Vec<String>) -> Result<Option<Path>, Refusal> {
         let Some(text) = self.element.attr("d") else {
             return Ok(None);
@@ -233,19 +252,33 @@ impl Geometry<'_> {
                 truncated(text),
             ));
         }
-        let drawn = parsed.path.segments().iter().any(|segment| {
-            matches!(
-                segment,
-                Segment::LineTo(_) | Segment::QuadTo(..) | Segment::CubicTo(..)
-            )
-        });
+        let drawn = parsed
+            .path
+            .segments()
+            .iter()
+            .any(|segment| !matches!(segment, Segment::MoveTo(_)));
         Ok(drawn.then_some(parsed.path))
     }
 }
 
+/// Whether a shape's path has an inside to fill.
+///
+/// Not a `<line>`, which SVG says has none, and not a path with nothing in it
+/// but moves and closes; everything else is filled, even a polyline of two
+/// points, whose inside is nothing and fills nothing.
+pub fn fills(name: &str, path: &Path) -> bool {
+    name != "line"
+        && path.segments().iter().any(|segment| {
+            matches!(
+                segment,
+                Segment::LineTo(_) | Segment::QuadTo(..) | Segment::CubicTo(..)
+            )
+        })
+}
+
 /// The first few dozen characters of an attribute, for an issue that quotes
 /// it: a million-point list is not worth repeating in full.
-fn truncated(text: &str) -> &str {
+pub(crate) fn truncated(text: &str) -> &str {
     let end = text
         .char_indices()
         .nth(48)
@@ -468,7 +501,6 @@ mod tests {
             r#"<rect width="10"/>"#,
             r#"<circle r="0"/>"#,
             "<circle/>",
-            r#"<line x2="10" y2="10"/>"#,
             r#"<polygon points=""/>"#,
             "<g/>",
         ] {
@@ -488,6 +520,37 @@ mod tests {
         // A negative radius on a rect is `auto`, not an error.
         let path = drawn(r#"<rect width="10" height="10" rx="-2"/>"#);
         assert_eq!(path, Path::rectangle(0.0, 0.0, 10.0, 10.0));
+    }
+
+    #[test]
+    fn a_line_is_a_path_with_nothing_inside_it() {
+        let path = drawn(r#"<line x1="1" y1="2" x2="50%" y2="10"/>"#);
+        assert_eq!(
+            path.segments(),
+            [
+                Segment::MoveTo(Point::new(1.0, 2.0)),
+                Segment::LineTo(Point::new(50.0, 10.0)),
+            ]
+        );
+        assert!(!fills("line", &path));
+        // A line from a point to itself is kept, for a cap to draw.
+        let point = drawn("<line/>");
+        assert_eq!(point.segments().len(), 2);
+        assert!(matches!(
+            path_of(r#"<line x2="far"/>"#).0,
+            Err(Refusal::Shape(_))
+        ));
+    }
+
+    #[test]
+    fn moves_and_closes_are_kept_for_a_cap_and_have_nothing_to_fill() {
+        assert!(matches!(path_of(r#"<path d="M 5 5"/>"#).0, Ok(None)));
+        assert!(matches!(path_of(r#"<path d="M 5 5 M 6 6"/>"#).0, Ok(None)));
+        let dot = drawn(r#"<path d="M 5 5 Z"/>"#);
+        assert!(!fills("path", &dot));
+        let drawn_line = drawn(r#"<path d="M 5 5 L 6 6"/>"#);
+        assert!(fills("path", &drawn_line));
+        assert!(fills("polyline", &drawn(r#"<polyline points="0 0 4 4"/>"#)));
     }
 
     #[test]

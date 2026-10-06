@@ -193,8 +193,12 @@ attribute, a `viewBox` and `preserveAspectRatio`, by `fill`, `fill-rule`,
 `fill-opacity` and `opacity`, and in `currentColor` (corpus case
 `svg-shapes-filled`). **A `<path>` is drawn filled** — every command of its
 data, arcs included, up to its first error (corpus case `svg-path-data`).
-**No stroke is drawn yet** (queue item 273), so the offline screen's hand,
-four stroked paths, is still an empty square. A nested `<svg>`, `<use>`, `<text>`, gradients and the
+**Strokes are drawn** — `stroke` and every `stroke-*` property: width, the
+three caps, the three joins, the miter limit, `stroke-opacity`, and dashes with
+their offset, a stroke squashed with its shape under a transform (corpus case
+`svg-strokes`) — so alo's offline screen draws its hand (`alo-offline`).
+SVG 2's `miter-clip` and `arcs` joins are not understood, as in every browser,
+and `paint-order` and `vector-effect` are reported and not applied. A nested `<svg>`, `<use>`, `<text>`, gradients and the
 `transform` *property* on an SVG element are not drawn and are reported; a
 `width` in per cent or `em` on an `<svg>` is recorded and not used (item 279). Most targets below are still
 `not yet`, because they are alo's own screens rather than pages we wrote to test
@@ -218,6 +222,7 @@ it lives in.
 | alo Settings | **yes** — `alo-workplace`'s, likewise, and its narrow-screen `@media` block evaluated rather than assumed away |
 | An agent reading Settings as a tree and activating a row by name | **yes** — `crates/alo-renderer/tests/an_agent_on_settings.rs`, against that same screen, by name and never by position |
 | alo agent overlay | not yet — the screen is not written in `alo-workplace` either |
+| alo offline screen | **nearly** — `alo-workplace`'s `offline.html`, frozen byte for byte as `alo-offline`, its hand drawn (item 273); its `<svg>` and button are not centred (items 280, 282) and the hand's bottom margin is lost (281) |
 
 **One thing is true of both screens and is not a defect in either**: the corpus
 renders in DejaVu Sans, and the app loads Inter. Inter is narrower, so alo's

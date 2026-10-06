@@ -2,7 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! SVG, drawn: what an `<svg>` in a page holds, as a list of filled paths.
+//! SVG, drawn: what an `<svg>` in a page holds, as a list of filled paths —
+//! strokes included, as the outlines they cover.
 //!
 //! ADR 0022 decided the shape of this. An outermost `<svg>` is **one replaced
 //! box** (`alo-box`'s `svg.rs`), and nothing inside it is a box. What is
@@ -20,10 +21,13 @@
 //! `ellipse`, `polygon`, `polyline`, and `line`, whose fill is nothing), `<g>`,
 //! the `transform` attribute, `viewBox` and `preserveAspectRatio`, and `fill`,
 //! `fill-rule`, `fill-opacity` and `opacity` — all computed by the one cascade,
-//! presentation attributes included (`alo-style`'s `presentation.rs`); and,
-//! with item 272, `<path>` and its data, every command, arcs included.
-//! Strokes are item 273 and a nested `<svg>` 278; each of those, and
-//! everything ADR 0022 § 7 refuses, is left out **and recorded**.
+//! presentation attributes included (`alo-style`'s `presentation.rs`); with
+//! item 272, `<path>` and its data, every command, arcs included; and with
+//! item 273, strokes: `stroke` and every `stroke-*` property, dashes counted
+//! and bounded before they are cut. A stroke reaches paint as the fill of its
+//! outline, made by the rented stroker in `alo-paint`'s `raster.rs`. A nested
+//! `<svg>` is item 278; that, and everything ADR 0022 § 7 refuses, is left out
+//! **and recorded**.
 //!
 //! # The bytes are a stranger's
 //!
@@ -39,6 +43,9 @@
 //! - [`path_data`] — the `d` grammar, drawn up to its first error;
 //! - [`arc`] — an elliptical arc as cubic curves;
 //! - [`fill`] — the fill a computed style asks for;
+//! - [`stroke`] — the stroke a computed style asks for;
+//! - [`dashes`] — `stroke-dasharray`, and how many dashes it would cut;
+//! - [`paint`] — what `fill` and `stroke` are written as;
 //! - [`viewport`] — `viewBox` and `preserveAspectRatio` as one transform;
 //! - [`transform`] — the `transform` attribute's grammar;
 //! - [`length`] — geometry attributes as user units;
@@ -47,11 +54,14 @@
 
 pub mod arc;
 pub mod bounds;
+pub mod dashes;
 pub mod fill;
 pub mod length;
 pub mod number;
+pub mod paint;
 pub mod path_data;
 pub mod shape;
+pub mod stroke;
 pub mod transform;
 pub mod viewport;
 pub mod walk;

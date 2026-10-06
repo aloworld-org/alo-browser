@@ -3,14 +3,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! The walk from an `<svg>` to a drawing, end to end: in numbers, and against
-//! input written to make it spend.
+//! input written to make it spend. Strokes are at the end.
 
 use alo_css::{MediaContext, parse_stylesheet};
 use alo_dom::{Document, NodeId, parse_document};
 use alo_paint::{DrawingItem, FillRule};
 use alo_style::{Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET};
 use alo_svg::bounds::{
-    DEEPEST, MOST_ELEMENTS, MOST_GROUPS_DEEP, MOST_PATH_SEGMENTS, MOST_SEGMENTS,
+    DEEPEST, MOST_DASH_LENGTHS, MOST_DASHES, MOST_ELEMENTS, MOST_GROUPS_DEEP, MOST_PATH_SEGMENTS,
+    MOST_SEGMENTS,
 };
 use alo_svg::walk::MOST_GROUPS;
 use alo_svg::{Drawn, draw};
@@ -445,6 +446,276 @@ fn hostile_numbers_never_panic() {
         r#"<svg><rect width="-0" height="NaN"/></svg>"#,
         r#"<svg><ellipse rx="auto" ry="-5"/></svg>"#,
         r#"<svg preserveAspectRatio=""><rect width="1" height="1"/></svg>"#,
+    ] {
+        let _ = drawn(markup, (10.0, 10.0));
+    }
+}
+
+// Strokes (item 273).
+
+/// The offline screen's terracotta, `#e76f51`.
+fn terracotta() -> Rgba {
+    Rgba::from_rgba8(0xe7, 0x6f, 0x51, 255)
+}
+
+#[test]
+fn a_stroke_is_drawn_after_the_fill_as_the_outline_it_covers() {
+    let drawn = drawn(
+        r#"<svg><rect x="4" y="4" width="10" height="10" fill="blue" stroke="red" stroke-width="2"/></svg>"#,
+        (20.0, 20.0),
+    );
+    assert_eq!(
+        fills(&drawn),
+        vec![
+            (
+                (4.0, 4.0, 14.0, 14.0),
+                Rgba::from_rgba8(0, 0, 255, 255),
+                FillRule::NonZero
+            ),
+            (
+                (3.0, 3.0, 15.0, 15.0),
+                Rgba::from_rgba8(255, 0, 0, 255),
+                FillRule::NonZero
+            ),
+        ],
+        "the fill, then a ring one unit either side of its edge",
+    );
+    assert!(drawn.issues.is_empty(), "{:?}", drawn.issues);
+}
+
+#[test]
+fn a_line_is_stroked_and_never_filled() {
+    let drawn = drawn(
+        r#"<svg><line x1="2" y1="5" x2="18" y2="5" stroke="black" stroke-width="4" stroke-linecap="square"/></svg>"#,
+        (20.0, 20.0),
+    );
+    let seen = fills(&drawn);
+    assert_eq!(seen.len(), 1, "only the stroke");
+    assert_eq!(rounded(seen[0].0), (0.0, 3.0, 20.0, 7.0));
+}
+
+#[test]
+fn a_stroke_is_as_wide_as_the_viewbox_scales_it() {
+    // The offline screen's arithmetic: two units of a 24-unit viewBox drawn
+    // at 48 pixels is four pixels.
+    let drawn = drawn(
+        r#"<svg viewBox="0 0 24 24"><path d="M4 12H20" fill="none" stroke="black" stroke-width="2"/></svg>"#,
+        (48.0, 48.0),
+    );
+    assert_eq!(
+        fills(&drawn)
+            .into_iter()
+            .map(|fill| rounded(fill.0))
+            .collect::<Vec<_>>(),
+        vec![(8.0, 22.0, 40.0, 26.0)],
+    );
+}
+
+#[test]
+fn a_stroke_is_outlined_before_it_is_transformed_so_a_squash_squashes_it() {
+    // Scaled twice across and not down: a horizontal stroke keeps its height
+    // and a vertical one doubles its width.
+    let drawn = drawn(
+        r#"<svg><g transform="scale(2 1)" fill="none" stroke="black" stroke-width="2">
+            <path d="M1 2H5"/><path d="M8 4V10"/></g></svg>"#,
+        (40.0, 20.0),
+    );
+    assert_eq!(
+        fills(&drawn)
+            .into_iter()
+            .map(|fill| rounded(fill.0))
+            .collect::<Vec<_>>(),
+        vec![(2.0, 1.0, 10.0, 3.0), (14.0, 4.0, 18.0, 10.0)],
+    );
+}
+
+#[test]
+fn a_shapes_opacity_over_a_fill_and_a_stroke_is_one_group() {
+    let drawn = drawn(
+        r#"<svg><rect width="10" height="10" fill="blue" stroke="red" opacity="0.5"/>
+            <rect width="10" height="10" fill="none" stroke="red" stroke-opacity="0.5" opacity="0.5"/></svg>"#,
+        (20.0, 20.0),
+    );
+    let items = drawn.drawing.items();
+    assert_eq!(
+        items.first(),
+        Some(&DrawingItem::PushGroup { opacity: 0.5 })
+    );
+    assert!(matches!(items.get(3), Some(DrawingItem::PopGroup)));
+    // Inside the group, both at full strength; after it, a stroke alone
+    // folds both opacities into its colour.
+    let alphas: Vec<f32> = fills(&drawn).into_iter().map(|fill| fill.1.alpha).collect();
+    assert_eq!(alphas, vec![1.0, 1.0, 0.25]);
+    assert_eq!(items.len(), 5);
+}
+
+#[test]
+fn a_subpath_of_no_length_is_a_dot_under_a_round_cap_and_nothing_under_a_butt() {
+    let dot = drawn(
+        r#"<svg><path d="M5 5 Z" stroke="black" stroke-width="4" stroke-linecap="round"/></svg>"#,
+        (20.0, 20.0),
+    );
+    assert_eq!(
+        fills(&dot)
+            .into_iter()
+            .map(|fill| rounded(fill.0))
+            .collect::<Vec<_>>(),
+        vec![(3.0, 3.0, 7.0, 7.0)],
+    );
+    let nothing = drawn(
+        r#"<svg><path d="M5 5 Z" stroke="black" stroke-width="4"/></svg>"#,
+        (20.0, 20.0),
+    );
+    assert!(nothing.drawing.is_empty());
+}
+
+#[test]
+fn the_offline_screens_hand_is_four_terracotta_strokes_inside_its_box() {
+    // alo-workplace/web/public/offline.html's <svg>, as it writes it.
+    let drawn = drawn(
+        r##"<svg viewBox="0 0 24 24" fill="none" stroke="#e76f51" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+        <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
+        <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
+        <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+      </svg>"##,
+        (56.0, 56.0),
+    );
+    assert!(drawn.issues.is_empty(), "{:?}", drawn.issues);
+    let seen = fills(&drawn);
+    assert_eq!(seen.len(), 4, "four strokes and no fill");
+    for (bounds, color, rule) in &seen {
+        assert_eq!((*color, *rule), (terracotta(), FillRule::NonZero));
+        assert!(
+            bounds.0 >= 0.0 && bounds.1 >= 0.0 && bounds.2 <= 56.0 && bounds.3 <= 56.0,
+            "{bounds:?}"
+        );
+    }
+    // The first finger: from x = 14 − 1 to 18 + 1 units and y = 2 − 1… (the
+    // top of its arc is y = 4, less a unit of stroke) to 11 + 1, at 56/24 a
+    // unit. Round caps reach a unit past each end.
+    let unit = 56.0 / 24.0;
+    let first = seen[0].0;
+    for (found, wanted) in [
+        (first.0, 13.0 * unit),
+        (first.1, 3.0 * unit),
+        (first.2, 19.0 * unit),
+        (first.3, 12.0 * unit),
+    ] {
+        assert!((found - wanted).abs() < 0.05, "{first:?}");
+    }
+}
+
+#[test]
+fn dashes_cut_the_stroke_and_are_counted_before_they_are_cut() {
+    let dashed = drawn(
+        r#"<svg><path d="M0 5H20" fill="none" stroke="black" stroke-dasharray="4 2"/></svg>"#,
+        (20.0, 10.0),
+    );
+    assert_eq!(fills(&dashed).len(), 1, "one outline holding every dash");
+    let subpaths = |drawn: &Drawn| match drawn.drawing.items().first() {
+        Some(DrawingItem::Fill { path, .. }) => path
+            .segments()
+            .iter()
+            .filter(|segment| matches!(segment, alo_paint::Segment::MoveTo(_)))
+            .count(),
+        _ => 0,
+    };
+    assert_eq!(subpaths(&dashed), 4, "dashes at 0, 6, 12 and 18");
+}
+
+#[test]
+fn dashes_past_their_bound_refuse_the_drawing_and_dashes_at_it_do_not() {
+    // A line of 2n units with dashes of one on, one off is counted as n + 1.
+    let line = |length: usize| {
+        format!(
+            r#"<svg fill="none"><path d="M0 0H{length}" stroke="black" stroke-dasharray="1"/></svg>"#
+        )
+    };
+    let at = drawn(&line(2 * (MOST_DASHES - 1)), (10.0, 10.0));
+    assert_eq!(fills(&at).len(), 1, "{:?}", at.issues);
+    refused(&drawn(&line(2 * MOST_DASHES), (10.0, 10.0)), "dashes");
+    // And a dash too small to see along a short path is millions of dashes.
+    refused(
+        &drawn(
+            r#"<svg><path d="M0 0H100" stroke="black" stroke-dasharray="0.00001"/></svg>"#,
+            (10.0, 10.0),
+        ),
+        "dashes",
+    );
+}
+
+#[test]
+fn a_dash_list_longer_than_its_bound_refuses_the_drawing() {
+    let at = vec!["1"; MOST_DASH_LENGTHS].join(",");
+    let fine = drawn(
+        &format!(
+            r#"<svg fill="none"><path d="M0 0H10" stroke="black" stroke-dasharray="{at}"/></svg>"#
+        ),
+        (10.0, 10.0),
+    );
+    assert_eq!(fills(&fine).len(), 1);
+    let past = vec!["1"; MOST_DASH_LENGTHS + 1].join(",");
+    refused(
+        &drawn(
+            &format!(r#"<svg><path d="M0 0H10" stroke="black" stroke-dasharray="{past}"/></svg>"#),
+            (10.0, 10.0),
+        ),
+        "stroke-dasharray",
+    );
+}
+
+#[test]
+fn an_outline_counts_toward_the_drawings_bound() {
+    // Four paths at their own bound fill the drawing's exactly when filled;
+    // stroking one of them as well adds its outline, which is past it.
+    let path = format!(
+        r#"<path d="M0 0{}"/>"#,
+        " 1 1".repeat(MOST_PATH_SEGMENTS - 1)
+    );
+    let under = MOST_SEGMENTS / MOST_PATH_SEGMENTS;
+    let fits = format!("<svg>{}</svg>", path.repeat(under));
+    assert_eq!(fills(&drawn(&fits, (20.0, 20.0))).len(), under);
+    let stroked = format!(r#"<svg stroke="black">{}</svg>"#, path.repeat(under));
+    refused(&drawn(&stroked, (20.0, 20.0)), "segments");
+}
+
+#[test]
+fn a_stroke_value_in_error_is_its_initial_value_and_says_so() {
+    let drawn = drawn_with(
+        r#"<svg fill="none"><path d="M2 5H18" stroke="black"/></svg>"#,
+        "path { stroke-width: -4; stroke-linecap: flat }",
+        (20.0, 10.0),
+    );
+    assert_eq!(
+        fills(&drawn)
+            .into_iter()
+            .map(|fill| rounded(fill.0))
+            .collect::<Vec<_>>(),
+        vec![(2.0, 4.5, 18.0, 5.5)],
+        "one unit wide, butt ends",
+    );
+    assert_eq!(drawn.issues.len(), 2, "{:?}", drawn.issues);
+}
+
+#[test]
+fn hostile_strokes_never_panic() {
+    for markup in [
+        r#"<svg><path d="M0 0H10" stroke="black" stroke-width="3e38"/></svg>"#,
+        r#"<svg><path d="M0 0L1e38 1e38" stroke="black" stroke-linecap="round"/></svg>"#,
+        r#"<svg><path d="M0 0H10" stroke="black" stroke-width="1e-38"/></svg>"#,
+        r#"<svg><path d="M0 0H10V10" stroke="black" stroke-miterlimit="3e38"/></svg>"#,
+        r#"<svg><path d="M0 0H10" stroke="black" stroke-dasharray="1" stroke-dashoffset="3e38"/></svg>"#,
+        r#"<svg><path d="M0 0H10" stroke="black" stroke-dasharray="1" stroke-dashoffset="-3e38"/></svg>"#,
+        r#"<svg><path d="M0 0H10" stroke="black" stroke-dasharray="3e38 3e38"/></svg>"#,
+        r#"<svg><path d="M0 0H10" stroke="black" stroke-dasharray="1e-45 1e-45"/></svg>"#,
+        r#"<svg><path d="M0 0H10" stroke="black" stroke-dasharray="0 1" stroke-linecap="round"/></svg>"#,
+        r#"<svg><g transform="scale(1e38)"><path d="M0 0H10" stroke="black"/></g></svg>"#,
+        r#"<svg><g transform="scale(1e-38)"><path d="M0 0H10" stroke="black"/></g></svg>"#,
+        r#"<svg><g transform="matrix(0 0 0 0 0 0)"><path d="M0 0H10" stroke="black"/></g></svg>"#,
+        r#"<svg><path d="M0 0 Z M0 0 Z M0 0 Z" stroke="black" stroke-linecap="square"/></svg>"#,
+        r#"<svg><path d="M0 0 A 1e38 1e38 0 1 1 1 1" stroke="black"/></svg>"#,
+        r#"<svg><line x2="1e99999" stroke="black"/></svg>"#,
     ] {
         let _ = drawn(markup, (10.0, 10.0));
     }
