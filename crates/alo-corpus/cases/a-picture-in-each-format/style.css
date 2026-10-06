@@ -1,0 +1,6 @@
+/* A coloured page behind the pictures, so a transparent stripe shows as the
+   page rather than as white that could be the picture's own. */
+body { margin: 0; background: #f0e0a0 }
+.row { display: flex; gap: 8px; padding: 8px }
+/* Twice their own size, so each is big enough to look at. */
+img { width: 48px }

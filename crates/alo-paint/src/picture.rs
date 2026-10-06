@@ -4,9 +4,12 @@
 
 //! Reading a picture a page sent, in whatever format it turns out to be.
 //!
-//! **This is the only file that names `jpeg_decoder`.** PNG lives in
-//! [`crate::encode`], because that file already rented `png` for reference
-//! renders and a rented crate belongs to one file (ADR 0001).
+//! This file decides **which** format a run of bytes is and holds the one
+//! bound every format answers to. It names no decoder: each rented one lives in
+//! a file of its own (ADR 0001) — PNG in [`crate::encode`], because that file
+//! already rented `png` for reference renders, and JPEG, GIF and WebP in
+//! `jpeg_picture.rs`, `gif_picture.rs` and `webp_picture.rs`. A decoder is a
+//! reason to change, and four of them in one file would be four.
 //!
 //! # The format comes from the bytes, not from the name
 //!
@@ -17,14 +20,25 @@
 //!
 //! # Every format, the same bounds
 //!
-//! The reason JPEG and PNG are one item and not two: a second decoder with its
-//! own limits, or none, would be a second way in. Both go through
-//! [`MOST_PIXELS`], both refuse a picture of no size, and both are checked
-//! **before** the allocation rather than after.
+//! The reason the formats are one item and not four: a decoder with its own
+//! limits, or none, would be a second way in. Every one goes through
+//! [`agreed_size`], so every one refuses a picture of no size and one larger
+//! than [`MOST_PIXELS`], and every one asks **before** the allocation rather
+//! than after.
+//!
+//! # What is not read
+//!
+//! AVIF. Its pixels are an AV1 frame, and no AV1 decoder was found that this
+//! engine could rent without `unsafe` it would have to answer for — which one,
+//! and on what terms, is a decision for an ADR rather than a line in a
+//! manifest (queue item 269). Until then an AVIF is refused like any other format this engine
+//! does not read.
 
 use crate::canvas::Canvas;
 use crate::encode::{MOST_PIXELS, PictureError, picture_from_png};
-use alo_value::Rgba;
+use crate::gif_picture::from_gif;
+use crate::jpeg_picture::from_jpeg;
+use crate::webp_picture::from_webp;
 
 /// What a run of bytes turns out to be.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,6 +47,10 @@ pub enum Format {
     Png,
     /// A JPEG.
     Jpeg,
+    /// A GIF, of either version.
+    Gif,
+    /// A WebP: lossy, lossless or extended.
+    WebP,
 }
 
 impl Format {
@@ -51,6 +69,17 @@ impl Format {
         if bytes.starts_with(&[0xff, 0xd8, 0xff]) {
             return Some(Format::Jpeg);
         }
+        // Both versions there are, and only those: a signature with any other
+        // version is a file this engine has never seen described.
+        if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+            return Some(Format::Gif);
+        }
+        // A RIFF container says what it holds in bytes eight to twelve; the
+        // four between are its length. RIFF also carries WAV and AVI, which is
+        // why `RIFF` alone is not enough.
+        if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP".as_slice()) {
+            return Some(Format::WebP);
+        }
         None
     }
 
@@ -59,11 +88,16 @@ impl Format {
         match self {
             Format::Png => "PNG",
             Format::Jpeg => "JPEG",
+            Format::Gif => "GIF",
+            Format::WebP => "WebP",
         }
     }
 }
 
 /// A canvas from the bytes of a picture on a page, whatever format it is in.
+///
+/// An animated picture comes back as its **first frame**: a still picture is a
+/// better answer than a gap while playback is outstanding (queue item 109).
 ///
 /// # Errors
 ///
@@ -73,32 +107,26 @@ pub fn read(bytes: &[u8]) -> Result<Canvas, PictureError> {
     match Format::of(bytes) {
         Some(Format::Png) => picture_from_png(bytes),
         Some(Format::Jpeg) => from_jpeg(bytes),
+        Some(Format::Gif) => from_gif(bytes),
+        Some(Format::WebP) => from_webp(bytes),
         None => Err(PictureError::Unreadable(
             "bytes in no picture format this engine reads".to_owned(),
         )),
     }
 }
 
-/// A canvas from a JPEG.
+/// Whether a size a file declared is one this engine will hold.
+///
+/// The one bound, for every format. It is asked of a size the file **said**,
+/// before a decoder reserves anything for it, because a hundred-byte file that
+/// parses perfectly can declare seventeen gigabytes.
 ///
 /// # Errors
 ///
-/// [`PictureError::Unreadable`], with the same bounds PNG has — see this
-/// module's own note about why that is the point rather than a coincidence.
-fn from_jpeg(bytes: &[u8]) -> Result<Canvas, PictureError> {
-    let mut decoder = jpeg_decoder::Decoder::new(bytes);
-    // The header alone, first, so the size is known before anything is
-    // reserved. A JPEG's dimensions are in its frame header and the pixels
-    // come after; reading the whole thing to find out how big it is would be
-    // reading a file to decide whether to read it.
-    decoder
-        .read_info()
-        .map_err(|error| PictureError::Unreadable(error.to_string()))?;
-    let info = decoder
-        .info()
-        .ok_or_else(|| PictureError::Unreadable("a JPEG with no frame in it".to_owned()))?;
-
-    let pixels = u64::from(info.width) * u64::from(info.height);
+/// [`PictureError::Unreadable`] for a size with no pixels in it, and for one
+/// with more than [`MOST_PIXELS`].
+pub(crate) fn agreed_size(width: u64, height: u64) -> Result<(), PictureError> {
+    let pixels = width.saturating_mul(height);
     if pixels == 0 {
         return Err(PictureError::Unreadable(
             "a picture with no pixels in it".to_owned(),
@@ -109,48 +137,45 @@ fn from_jpeg(bytes: &[u8]) -> Result<Canvas, PictureError> {
             "a picture of {pixels} pixels, which is more than the {MOST_PIXELS} this engine holds"
         )));
     }
+    Ok(())
+}
 
-    let data = decoder
-        .decode()
-        .map_err(|error| PictureError::Unreadable(error.to_string()))?;
-    let channels = match info.pixel_format {
-        jpeg_decoder::PixelFormat::L8 => 1,
-        jpeg_decoder::PixelFormat::RGB24 => 3,
-        // Sixteen-bit greyscale and CMYK exist and are rare on the web. Refused
-        // by name rather than approximated, because a wrong conversion is a
-        // picture in the wrong colours and nobody would know which of the two
-        // it was.
-        other => {
-            return Err(PictureError::Unreadable(format!(
-                "a JPEG in {other:?}, which this engine does not convert"
-            )));
-        }
-    };
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let mut canvas = Canvas::new(info.width.into(), info.height.into(), Rgba::TRANSPARENT);
-    for y in 0..u32::from(info.height) {
-        for x in 0..u32::from(info.width) {
-            let at = ((y as usize) * (info.width as usize) + (x as usize)) * channels;
-            let Some(sample) = data.get(at..at + channels) else {
-                continue;
-            };
-            // A JPEG has no alpha: every pixel is opaque, which is why a JPEG
-            // with a transparent background is a thing people ask for and never
-            // get.
-            let colour = match channels {
-                1 => {
-                    let grey = sample.first().copied().unwrap_or(0);
-                    Rgba::from_rgba8(grey, grey, grey, 255)
-                }
-                _ => Rgba::from_rgba8(
-                    sample.first().copied().unwrap_or(0),
-                    sample.get(1).copied().unwrap_or(0),
-                    sample.get(2).copied().unwrap_or(0),
-                    255,
-                ),
-            };
-            canvas.blend(x, y, colour, 255);
-        }
+    #[test]
+    fn a_gif_is_known_by_either_version_and_no_other() {
+        assert_eq!(Format::of(b"GIF87a..."), Some(Format::Gif));
+        assert_eq!(Format::of(b"GIF89a..."), Some(Format::Gif));
+        assert_eq!(Format::of(b"GIF90a..."), None);
+        assert_eq!(Format::of(b"GIF8"), None);
     }
-    Ok(canvas)
+
+    #[test]
+    fn a_riff_file_is_a_webp_only_when_it_says_so() {
+        assert_eq!(Format::of(b"RIFF\0\0\0\0WEBPVP8 "), Some(Format::WebP));
+        // The same container holding a sound, and one cut before it says.
+        assert_eq!(Format::of(b"RIFF\0\0\0\0WAVEfmt "), None);
+        assert_eq!(Format::of(b"RIFF\0\0\0\0WEB"), None);
+    }
+
+    #[test]
+    fn an_avif_is_refused_rather_than_attempted() {
+        let avif = b"\0\0\0\x1cftypavif\0\0\0\0avifmif1";
+        assert_eq!(Format::of(avif), None);
+        assert!(read(avif).is_err());
+    }
+
+    #[test]
+    fn the_bound_refuses_nothing_and_too_much_and_nothing_between() {
+        assert!(agreed_size(0, 10).is_err());
+        assert!(agreed_size(10, 0).is_err());
+        assert!(agreed_size(1, 1).is_ok());
+        assert!(agreed_size(8192, 8192).is_ok());
+        assert!(agreed_size(8192, 8193).is_err());
+        // A product that would overflow is still a refusal, not a wrap to
+        // something small.
+        assert!(agreed_size(u64::MAX, u64::MAX).is_err());
+    }
 }

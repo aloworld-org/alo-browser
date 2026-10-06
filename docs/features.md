@@ -144,6 +144,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (queue item 178); sampled nearest-neighbour inside (item 179)
 - [2] **PNG and JPEG from a page**, with the format taken from the bytes rather
   than the name, and the same bounds either way
+- [2] **GIF and WebP from a page** (queue item 180): GIF87a and GIF89a with
+  transparency, and lossy, lossless and extended WebP with alpha. An animated
+  one shows its first frame rather than nothing. Each size a file declares is
+  bounded before the decoder reserves memory for it, including a GIF frame
+  larger than its screen and a lossy bitstream larger than its WebP canvas. A
+  WebP frame whose picture is not the frame's own size is refused rather than
+  allowed to panic the rented decoder. AVIF is refused until its decoder is
+  decided (269)
 - [2] **PNG pictures from a page**, read tolerantly and bounded before anything
   is allocated — a hundred-byte file cannot ask for seventeen gigabytes
 - [2] **A wrapped inline is more than one rectangle** — and offscreen only when
@@ -419,7 +427,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
 
 ## Pictures and media — stage 2
 
-- [2] Image codecs, rented: PNG, JPEG, GIF, WebP, AVIF
+- [2] Image codecs, rented: PNG, JPEG, GIF, WebP, AVIF. **All but AVIF are
+  built** (queue items 106, 177, 180), each behind one file and one size bound;
+  AVIF waits on an ADR (269)
 - [2] **SVG** — a second rendering model inside the first, and far larger than one line suggests
 - [2] Canvas 2D
 - [2] Audio and video playback through rented decoders

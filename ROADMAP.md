@@ -1003,6 +1003,18 @@ unreachable without it.
 ### Pictures, and things that move
 
 - [ ] Image codecs, rented: PNG, JPEG, GIF, WebP, AVIF
+      · Built: PNG (queue item 106), JPEG (177), and GIF and WebP (180), in
+      `alo-paint` behind `picture::read`. Each rented decoder is pure Rust,
+      named in one file, and `scripts/gate.sh` checks that. The format comes
+      from the bytes rather than the name. One size bound, `agreed_size`, is
+      asked of every size a file declares before anything is reserved for it:
+      a GIF's screen and its frame, and a WebP's canvas and each lossy
+      bitstream inside it. An animated GIF or WebP is drawn as its first frame.
+      Frozen files in corpus cases `a-picture` and `a-picture-in-each-format`
+      go through one list of truncation and corruption tests
+      · Owed: AVIF (269, needs an ADR: no AV1 decoder was found that can be
+      rented without `unsafe` this engine would have to answer for); playback
+      of an animation (109)
 - [ ] **SVG** — a second rendering model inside the first, and far larger than its one line here suggests
 - [ ] Canvas 2D
 - [ ] Audio and video playback through rented decoders

@@ -14545,3 +14545,171 @@ stays behind its boundary, no verb takes a coordinate, the stop rule
 holds, and `CHANGELOG.md` changed with the code. `git diff --check`
 passes. The log is in this session's scratchpad and is not committed. The
 only later change was this journal entry, which is documentation.
+
+
+---
+
+## Iteration 166 — item 180 built for GIF and WebP; AVIF cut to 269
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md` (its conventions and the *Pictures, and things that move*
+section), iteration 165's entry, the queue's section H in full and sections
+I–K for eligibility, and the code item 180 names: `alo-paint`'s `picture.rs`,
+`encode.rs` (`MOST_PIXELS`, `picture_from_png`), `canvas.rs`, the two-format
+test, `alo-renderer`'s picture loading in `pipeline.rs`, `alo-corpus`'s
+`case.rs`, and corpus cases `a-picture` and `web-a-form` (for `origin.txt`).
+I also read the source of the two rented decoders where they allocate:
+`gif` 0.14.2's `reader/mod.rs`, and `image-webp` 0.2.4's `decoder.rs`,
+`vp8.rs` and `lossless.rs`. Item 180 names no ADR of its own. It rents under
+ADR 0001, decodes untrusted bytes in the renderer under ADR 0005, and is
+pure Rust for ADR 0010's reason, as `jpeg-decoder` was. Its feature home is
+`docs/features.md`'s pictures lines. No `AGENTS.md` exists. No sibling
+repository was read or modified. The checkout was clean on entry at
+`3586ebd`.
+
+**Selection.** Nothing before 179 has changed since iteration 165 recorded
+it blocked or `needs design`. 179 waits on a page by its own closing
+condition. 180 depends on 177, which is done, and has a closing condition, so
+it is the first eligible item.
+
+**Scope cut.** AVIF went to new item **269**, marked *needs ADR*. Its pixels
+are an AV1 frame. `dav1d` is C, and `rav1d` keeps a great deal of `unsafe`.
+I found no AV1 decoder that is pure Rust and free of `unsafe`. That is a
+survey for the ADR to redo, not a settled fact. Choosing a decoder is a
+decision, so per `LOOP.md` § 4 it gets its own iteration. GIF and WebP are
+built whole.
+
+**What was built.**
+- **Rented**: `gif` 0.14 (without default features) and `image-webp` 0.2. Both
+  are pure Rust and `#![forbid(unsafe_code)]`, as are `weezl` and
+  `byteorder-lite`. `quick-error` contains no `unsafe` at all but does not
+  declare the forbid. All are MIT or Apache-2.0. `scripts/gate.sh` gained
+  two boundaries, and `jpeg_decoder`'s boundary moved.
+- **Split for one responsibility**: `picture.rs` would have held three
+  decoders. JPEG moved to `jpeg_picture.rs`, and GIF and WebP got
+  `gif_picture.rs` and `webp_picture.rs`. `picture.rs` keeps format sniffing,
+  dispatch and the one bound, `agreed_size`. PNG's reader now calls that
+  bound too, with identical messages, so the bound lives in one place.
+- **GIF**: the screen is bounded first. Then the first frame's own rectangle,
+  read from its descriptor, is bounded before any pixel is decoded. Bounding
+  the screen alone would let a 1×1 GIF carry a 65535² frame. The frame is laid
+  on a transparent screen at its offset and cut at the screen's edge. A frame
+  of no size gives a clear picture of the screen's size. The decoder's memory
+  limit is set to our bound instead of its own 50 MB default.
+- **WebP**: before the decoder sees a byte, a walk over the RIFF chunks bounds
+  every lossy bitstream's declared size. That covers top-level `VP8 ` chunks
+  and the lossy bitstream in every `ANMF` frame. The walk exists because
+  `image-webp`'s VP8 decoder reserves luma and chroma planes by the
+  bitstream's own header (`vp8.rs:1200`, up to 16383², about 400 MB) and
+  only afterwards compares that with the canvas. That was established by
+  reading the source. RSS does not show it because zeroed allocations are
+  committed lazily. Lossless needs no walk: `lossless.rs:107` compares sizes
+  before it reserves anything.
+- **Animated pictures** are drawn as their first frame, for both formats.
+
+**A panic in the rented WebP decoder, found and guarded.** I ran a throwaway
+mutation search in the scratchpad: random byte changes and truncations through
+`picture::read`, with overflow checks on. It found
+`index out of bounds` at `image-webp` 0.2.4 `decoder.rs:858`, in 1 of
+300 000 inputs. In an animation frame with an `ALPH` chunk, the decoder walks
+the lossy picture's size over an alpha plane of the frame's size and never
+compares the two. I added that comparison to the walk. A second search, a
+million inputs on another seed, found the same line again. The cause this
+time: after `ALPH`, the decoder decodes the next chunk as lossy **whatever its
+name**, so a walk that looked for `VP8 ` by name let it through. The walk now
+follows the decoder's rule: the first chunk if it is `VP8 `, or the second if
+the first is `ALPH`.
+
+After both fixes, the search ran six seeds of a million inputs each, with
+splices and deletions added and PNG and JPEG included: no panics. 0.2.4 is the
+newest release. The two captured inputs were overwritten by later runs and
+are not kept. The regression tests rebuild both variants from the frozen
+`stripes-moving.webp`, and each panics at `decoder.rs:858` when the check is
+doctored out. **Upstream has not been told.** Filing an issue is outward-facing
+and is a person's call.
+
+**Compliance review.**
+- Law 1: nothing legacy.
+- Law 2: agent surface unchanged; the coordinate check passes.
+- Law 3: no stubs, `todo!` or `unwrap` outside tests. No `#[expect]` was added
+  and no lint was lowered. The gate's stub check caught a test chunk named
+  `XXXX`, which I renamed to `JUNK` instead of touching the check.
+- Law 4: no `unsafe`, and every new crate is `unsafe`-free.
+- One file, one responsibility: the split above.
+- Bytes from outside (`LOOP.md` stage 2 § 2): every byte of all nine frozen
+  files is flipped, and every prefix is cut, through `read`. A refusal is
+  checked for each claimed size, and the WebP walk has unit tests for lengths
+  that lie and headers cut short.
+- Layout assertion: `a-picture-in-each-format/layout.txt` pins seven images
+  at 48×48, at x = 8, 64, 120 … 344 and y = 8, in a 400×64 page. `display.txt`
+  says each picture is 24×24, which is the decoded size.
+- Reference render: `render.png` is the new corpus case. I looked at it
+  upscaled 3×. All seven show red, green and blue top to bottom. Both `-clear`
+  pictures show the page's colour where blue was. Both animated ones show the
+  first frame, red on top, not the flipped second frame. The lossy WebPs blur
+  slightly at the stripe edges. `issues.txt` is empty. `ALO_UPDATE_REFERENCES=1`
+  changed no other case.
+- Frozen files: made by Pillow 10.4.0 with libwebp 1.4.0 from `a-picture`'s
+  stripes. The encoder shares no code with the decoders. The script, the
+  reason no page was used, and SHA-256 sums (re-verified) are in `origin.txt`.
+
+**Tests.** 4 unit tests in `picture.rs`: sniffing for both GIF versions,
+WebP only when RIFF says `WEBP`, AVIF refused, and the bound's edges and
+overflow. 7 in `gif_picture.rs`, over hand-written GIFs: a frame placed by
+its rectangle, cut at the screen, of no size, a screen of no size, and a
+65535² frame on a 1×1 screen refused *for its size*. 9 in `webp_picture.rs`:
+a one-pixel canvas carrying a 16383² bitstream, the same inside an animation
+frame, an 83 MP canvas, a frame of another size, the chunk after `ALPH`
+whatever its name, the scale bits, short bitstreams, and the chunk walk's
+padding, lying lengths and cut headers. The integration test
+`pictures_in_two_formats.rs` is now `pictures_in_every_format.rs`, with 12
+tests over one list of seven files plus two transparent ones.
+
+Two premises in the inherited tests were corrected rather than bent.
+- *A corrupt byte never changes the size* holds only where the size is
+  repeated or checksummed. A GIF's screen and an animated WebP's canvas are
+  stated once. The every-seventh-byte sampling never hit them; every byte
+  does. The test now says what is true: refused, the same size, or a new size
+  only when the flipped byte is the size field (`size_field`, per format).
+- Two of my own first tests were wrong. 16 000 000 × 4 is under the bound,
+  and the `gif` crate refuses a frameless GIF in `read_info`. Both were fixed
+  to say what they mean.
+
+Doctored, each test was run with its check removed: without the walk, 2 WebP
+unit tests fail. Without the frame comparison, or with a name-only rule, the
+regression test panics inside the crate. Each check was restored, and the
+restore is in the tree the gate ran on.
+
+**Roadmap.** *Image codecs, rented* gained its first Built/Owed clause, which
+iteration 165 noted was missing: PNG (106), JPEG (177), GIF and WebP (180)
+built; AVIF (269) and playback (109) owed. It stays an empty box because AVIF
+is not built. Also updated: `docs/features.md` (a GIF and WebP line, and the
+stage 2 codecs line), `docs/conformance.md`, `CHANGELOG.md`, `Cargo.toml`
+(with why each crate), `QUEUE.md` (180 ticked with its evidence, 269 opened)
+and `REMAINING.md`.
+
+**Unresolved obligations.**
+- The `image-webp` panic should go upstream. A person decides whether and how.
+- AVIF (269) needs its ADR as its own iteration.
+- An animation does not move (109). Sampling is still nearest-neighbour
+  (179). A picture still ignores a clip in force (iteration 165).
+- Carried unchanged: 82, 83, 85–89, 95–99, 104 and 105 need their designs.
+
+110 queue items are open (180 closed, 269 opened). In file order, the next
+candidates after 180 are 269 (an ADR iteration, eligible since 180 is done),
+107 (SVG, which must be cut before starting) and 108 (Canvas 2D, which
+depends on 72). The next iteration takes the first eligible item as
+`LOOP.md` says. The next unused queue number is **270** and the next ADR is
+**0021**. This is one iteration, not a finished queue or roadmap.
+
+**Final gate run.** `scripts/gate.sh` exited 0 on this tree (442 s), run in
+the foreground and read in the same step, after `cargo fmt --all`. The run
+before it failed only the stub check, on the `XXXX` test chunk. Formatting
+is clean, clippy is silent, and all tests pass, corpus included, with
+`a-picture-in-each-format` new and every other reference unchanged. Nothing
+is stubbed, `unsafe` is forbidden, and all 21 rented crates stay behind their
+boundaries, `gif` and `image_webp` among them. No verb takes a coordinate,
+the stop rule holds, and `CHANGELOG.md` changed with the code.
+`git diff --check` passes. The log is in this session's scratchpad and is not
+committed. The only later change was this journal entry, which is
+documentation.

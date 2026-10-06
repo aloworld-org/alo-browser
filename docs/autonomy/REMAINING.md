@@ -379,6 +379,15 @@ whole-pixel path. Corpus case `a-turned-picture`. Items 95–98, 104 and 105
 are marked `needs design`. 110 queue items are open; the next unused queue
 number is 269 and the next unused ADR 0021.
 
+Iteration 166 built item 180 for GIF and WebP. Both are rented as pure Rust,
+each behind one file, and every format answers to one size bound,
+`agreed_size`. An animated one is drawn as its first frame. Corpus case
+`a-picture-in-each-format`. Mutation testing found a panic in `image-webp`
+0.2.4 (a WebP animation frame whose picture is larger than the frame), and it
+is now refused in front of the decoder. AVIF is cut to item 269, which needs an
+ADR. 110 queue items are open; the next unused queue number is 270 and the next
+unused ADR 0021.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

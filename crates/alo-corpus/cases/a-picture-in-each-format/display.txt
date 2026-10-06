@@ -1,0 +1,8 @@
+fill box#1 rgb(240 224 160) at (0, 0) 400×64
+picture box#4 24×24 at (8, 8) 48×48
+picture box#6 24×24 at (64, 8) 48×48
+picture box#8 24×24 at (120, 8) 48×48
+picture box#10 24×24 at (176, 8) 48×48
+picture box#12 24×24 at (232, 8) 48×48
+picture box#14 24×24 at (288, 8) 48×48
+picture box#16 24×24 at (344, 8) 48×48

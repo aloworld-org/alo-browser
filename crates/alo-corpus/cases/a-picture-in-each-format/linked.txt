@@ -1,0 +1,10 @@
+# What the page named, and the file beside this case holding it. Every one is
+# the stripes from `a-picture`, in another format; `origin.txt` says how each
+# was made.
+/stripes.gif stripes.gif
+/stripes-clear.gif stripes-clear.gif
+/stripes-moving.gif stripes-moving.gif
+/stripes.webp stripes.webp
+/stripes-lossless.webp stripes-lossless.webp
+/stripes-clear.webp stripes-clear.webp
+/stripes-moving.webp stripes-moving.webp

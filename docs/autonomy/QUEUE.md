@@ -4903,12 +4903,56 @@ The long pole, and the thing most of section E is unreachable without.
   overruling them. Two things went to the queue: 190, and the note that a
   fieldset with a `border-radius` and a legend has square corners.
 
-- [ ] **180. GIF, WebP and AVIF.** Rented. The same bound and the same refusals
+- [x] **180. GIF, WebP and AVIF.** Rented. The same bound and the same refusals
   as PNG and JPEG, added to the one list the tests already walk.
   *Depends on 177. Closes when:* each decodes a frozen file and each is refused
   the same way — and an animated GIF shows its first frame rather than nothing,
   because a still picture is a better answer than a gap while item 109 is
   outstanding.
+  *Scope cut on starting: AVIF went to item 269.* Its pixels are an AV1 frame,
+  and no AV1 decoder was found that could be rented without `unsafe` this
+  engine would have to answer for. Choosing one is a decision, so it needs an ADR, not a line in a
+  manifest.
+
+  **Done for GIF and WebP (iteration 166).** `gif` and `image-webp`, both pure
+  Rust and both `#![forbid(unsafe_code)]`, each named in one file of
+  `alo-paint`: `gif_picture.rs` and `webp_picture.rs`. JPEG moved to
+  `jpeg_picture.rs` in the same change, so `picture.rs` is only the format
+  sniffing and the one bound, `agreed_size`, which PNG now uses too.
+  Seven frozen files in corpus case `a-picture-in-each-format`, made by Pillow
+  from `a-picture`'s stripes, with the script in `origin.txt`. The cases cover
+  plain, transparent and animated GIF, and lossy, lossless, extended-with-alpha
+  and animated WebP. Both animated files show their first frame.
+  Two size claims are bounded that the decoders would otherwise act on first:
+  a GIF frame bigger than its screen, and an extended WebP's lossy bitstream
+  bigger than its canvas. For the second, `image-webp` reserves memory by the
+  bitstream's own header, up to 16 383 square, before comparing.
+  **Mutation testing found a panic in `image-webp` 0.2.4, its newest release.**
+  In an animation frame with an alpha chunk, the decoder never checks the
+  lossy picture against the frame's size. After an `ALPH` chunk it also
+  decodes the next chunk as that picture whatever it is named. A picture
+  larger than its frame then indexes past the alpha plane and panics. Both
+  variants were found and are refused in front of the decoder. Each has a
+  regression test built from the frozen file, and each test panics inside the
+  crate when the check is doctored out.
+  Every byte of all nine frozen files is flipped through `read`. A corrupt file
+  either is refused, or keeps its size, or changes size only because the
+  flipped byte was the size field. A GIF screen and an animated WebP canvas
+  repeat their size nowhere else, so a flip there can do that honestly.
+  Still owed: AVIF (269); upstream has not been told about the panic, which
+  is a person's call to make.
+
+- [ ] **269. AVIF.** Cut from 180. An AVIF is an AV1 frame in an ISO-BMFF
+  box, and the box is the easy half. The AV1 decoder is the hard half: `dav1d`
+  is C, `rav1d` is a Rust translation of it that keeps a great deal of
+  `unsafe`, and iteration 166 found no AV1 decoder that is both pure Rust and
+  free of `unsafe` (a survey to redo in the ADR, not a settled fact). ADR 0005 says untrusted
+  bytes are decoded in the least privileged process that can do it, and law 4
+  says `unsafe` needs a named, reviewed boundary. Which decoder, on what
+  licence, behind what boundary, is the decision.
+  *Depends on 180. Needs ADR*, as its own iteration. *Closes when:* an AVIF
+  decodes from a frozen file, through `picture::read` and `agreed_size` like
+  the other four, and is refused the same way.
 
 - [ ] **107. SVG** — *"a second rendering model inside the first, and far larger
   than its one line here suggests."* **Cut this before starting it**; it is

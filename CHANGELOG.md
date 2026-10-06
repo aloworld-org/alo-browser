@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **GIF and WebP pictures are shown.** An `<img>` pointing at a GIF or a WebP
+  used to be an empty box; both formats are now read, transparency included.
+  An animated one shows its first frame rather than nothing, until animation
+  is built. A malformed WebP that crashed the WebP decoder we use is now
+  refused before the decoder sees it. AVIF is still refused, until a decoder
+  for it is chosen.
+
 - **A rotated picture is drawn rotated.** An `<img>` under `rotate()` used to
   be drawn upright, stretched over the area the rotation would have covered;
   a mirrored one was drawn the right way round. Both now turn with their box,

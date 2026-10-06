@@ -1,0 +1,72 @@
+Made here, 2026-10-06, rather than taken from a page.
+
+Why not a page. Item 180 is the same stripes in two more formats, judged by the
+same tests as `a-picture`'s PNG and JPEG — so the picture must be the one those
+tests already know, red, green and blue in eight-row bands, and a picture a
+site happened to serve would not be. Nothing here touches the network, and
+anybody can re-derive every file from the script below.
+
+What made them. Pillow 10.4.0 with libwebp 1.4.0, run on `a-picture`'s
+`stripes.png` — an encoder that shares no code with the decoders this engine
+rents (`gif`, `image-webp`), so a mistake the two sides of one library agree on
+cannot hide here. The script, exactly as run:
+
+```python
+import sys
+from PIL import Image
+
+src, out = sys.argv[1], sys.argv[2]
+stripes = Image.open(src).convert("RGBA")
+red, green, blue = (220, 40, 40), (40, 180, 60), (40, 80, 220)
+
+# The blue stripe see-through: a picture with transparency in it.
+clear = stripes.copy()
+for y in range(16, 24):
+    for x in range(24):
+        clear.putpixel((x, y), (0, 0, 0, 0))
+
+# A second frame that is unmistakably not the first: the stripes upside down.
+flipped = stripes.transpose(Image.FLIP_TOP_BOTTOM)
+
+stripes.convert("RGB").save(f"{out}/stripes.gif")
+clear.save(f"{out}/stripes-clear.gif")
+stripes.convert("RGB").save(
+    f"{out}/stripes-moving.gif", save_all=True,
+    append_images=[flipped.convert("RGB")], duration=500, loop=0,
+)
+stripes.convert("RGB").save(f"{out}/stripes.webp", quality=90)
+stripes.convert("RGB").save(f"{out}/stripes-lossless.webp", lossless=True)
+clear.save(f"{out}/stripes-clear.webp", quality=90)
+stripes.convert("RGB").save(
+    f"{out}/stripes-moving.webp", save_all=True,
+    append_images=[flipped.convert("RGB")], duration=500, loop=0, quality=90,
+)
+```
+
+run as `python3 -I freeze.py ../a-picture/stripes.png .`.
+
+What each is for.
+
+- `stripes.gif` — GIF87a, a palette of three. The plain case.
+- `stripes-clear.gif` — GIF89a with a transparent index: the blue stripe is
+  see-through, and the page's colour shows where it was.
+- `stripes-moving.gif` — two frames, the second the stripes upside down. Drawn
+  as its first frame, so red is on top.
+- `stripes.webp` — lossy, the simple kind: one `VP8 ` chunk.
+- `stripes-lossless.webp` — lossless, the simple kind: one `VP8L` chunk.
+- `stripes-clear.webp` — the extended kind: `VP8X`, an `ALPH` chunk and a
+  `VP8 ` one, blue stripe see-through.
+- `stripes-moving.webp` — extended and animated: `ANIM` and two `ANMF` frames,
+  the second upside down. Drawn as its first frame.
+
+SHA-256, so a file that changed says so:
+
+```
+3ac73bb1ef8896b845e55ca5f9a259249834fedf74064a2e9cb24ae821a831fe  stripes-clear.gif
+712e5e5ff369ab6ef7ca10821c264e9674e3c308b227d39f66c0966854678ed6  stripes-moving.gif
+4220552ea1d9e0042940c2b76a6501459131869aa7f2bfe5afdbf7288df05e7b  stripes.gif
+ee51c9934d148ba235b4812bcd7314d4bcb8450665304427b05e89e22fa7602e  stripes-clear.webp
+24c05356d7b5b68dced4c6e9e68ffc599715af7e8ab5915cf4e337e620baff37  stripes-lossless.webp
+2f29eee01a8cd9219b324af5bc3c085878652187d90d9f060478e08310c1b9f0  stripes-moving.webp
+919d1a99b17c045ebcf0f75096800517a60d5534d4d3183cb9a6bcb9fd3942f0  stripes.webp
+```

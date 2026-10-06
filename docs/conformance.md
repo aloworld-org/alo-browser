@@ -181,7 +181,10 @@ the two axes, because a blur radius is one number. A picture under a
 rotation, skew or mirror is drawn turned with its box and its outline is
 smooth, but it is sampled nearest-neighbour, so the stripes *inside* a turned
 or scaled picture have stepped edges; and a picture ignores a clip in force,
-so one inside `overflow: hidden` is drawn whole. Most targets below are still
+so one inside `overflow: hidden` is drawn whole. A picture is read as PNG,
+JPEG, GIF or WebP. An animated GIF or WebP is drawn as its first frame and
+does not move. AVIF is refused and the `<img>` keeps the box its style asked
+for, as with any picture that did not arrive. Most targets below are still
 `not yet`, because they are alo's own screens rather than pages we wrote to test
 with — and the sign-in screen, which is alo's, is *nearly* rather than done: the
 four substitutions in its case are four things this engine has yet to implement.

@@ -49,6 +49,16 @@ ruzstd = "0.8"
 # Servo and `image` use, and it forbids `unsafe` outside an optional SIMD
 # feature this does not enable.
 jpeg-decoder = { version = "0.3", default-features = false }
+# GIF and WebP, rented (ADR 0001), for the same reason and on the same terms:
+# both pure Rust, both the crates `image` uses, and both `#![forbid(unsafe_code)]`
+# throughout, as are two of the three small crates they bring (`weezl` for
+# GIF's LZW, `byteorder-lite` for WebP's integers); the third, `quick-error`, is
+# an error-declaring macro with no `unsafe` in it. All are MIT or Apache-2.0.
+# GIF without its default features, which add an encoder's colour quantiser
+# nobody here asked for. `image-webp` is not trusted on one point and is
+# guarded in front of it: see `alo-paint`'s `webp_picture.rs`.
+gif = { version = "0.14", default-features = false, features = ["std"] }
+image-webp = "0.2"
 # A digest, rented (ADR 0001): a hash function is physics, and one somebody
 # wrote themselves is the kind of code that is wrong in a way nothing notices
 # until a policy allows content it should not. `sha2` is the RustCrypto one —

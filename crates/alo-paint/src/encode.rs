@@ -109,17 +109,7 @@ pub fn picture_from_png(bytes: &[u8]) -> Result<Canvas, PictureError> {
 
     // Before anything is reserved. The header is the file talking.
     let info = reader.info();
-    let pixels = u64::from(info.width) * u64::from(info.height);
-    if pixels == 0 {
-        return Err(PictureError::Unreadable(
-            "a picture with no pixels in it".to_owned(),
-        ));
-    }
-    if pixels > MOST_PIXELS {
-        return Err(PictureError::Unreadable(format!(
-            "a picture of {pixels} pixels, which is more than the {MOST_PIXELS} this engine holds"
-        )));
-    }
+    crate::picture::agreed_size(info.width.into(), info.height.into())?;
     read_frame(reader)
 }
 

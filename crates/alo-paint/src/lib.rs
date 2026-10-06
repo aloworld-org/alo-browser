@@ -16,8 +16,12 @@
 //!   file that names it.
 //! - **Filling a path with anti-aliasing** is `tiny-skia`, and [`raster`] is
 //!   the only file that names it.
+//! - **Decoding a picture a page sent** is four crates, one file each: `png`
+//!   in [`encode`], and `jpeg-decoder`, `gif` and `image-webp` in files of
+//!   their own behind [`picture::read`], which is the only way in and holds the
+//!   one bound all four answer to.
 //!
-//! `scripts/gate.sh` checks both on every run.
+//! `scripts/gate.sh` checks every one of them on every run.
 //!
 //! # A picture, end to end
 //!
@@ -45,7 +49,9 @@ pub mod coverage;
 pub mod display;
 pub mod drawn_picture;
 pub mod encode;
+mod gif_picture;
 pub mod glyph;
+mod jpeg_picture;
 pub mod mitre;
 pub mod paint;
 pub mod path;
@@ -54,6 +60,7 @@ pub mod picture;
 pub mod raster;
 pub mod render;
 pub mod tone;
+mod webp_picture;
 
 pub use blur::blurred;
 pub use build::{PaintContext, build};
