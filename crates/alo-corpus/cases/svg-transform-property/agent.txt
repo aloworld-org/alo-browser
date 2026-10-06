@@ -1,0 +1,7 @@
+document at (0, 0) 330×68
+  paragraph at (4, 4) 322×60
+    image "About its own box" at (4, 4) 60×60
+    image "About the origin" at (68, 4) 60×60
+    image "Stylesheet replaces attribute" at (132, 4) 60×60
+    image "Composed under a group" at (196, 4) 60×60
+    image "Attribute and property agree" at (260, 4) 60×60

@@ -215,6 +215,9 @@ fn what_is_not_drawn_yet_is_recorded_and_what_never_draws_is_not() {
             <animate/><blink/><rect width="1" height="1" clip-path="url(x)" transform="spin(3)"/></svg>"#,
         (20.0, 20.0),
     );
+    // `transform="spin(3)"` is an invalid presentation attribute, ignored and
+    // recorded by the cascade (`alo-style`'s `presentation.rs`) rather than
+    // here: by the time the walk reads `transform`, it is the property.
     assert_eq!(
         fills(&drawn).len(),
         2,
@@ -230,11 +233,10 @@ fn what_is_not_drawn_yet_is_recorded_and_what_never_draws_is_not() {
         "SMIL",
         "<blink>",
         "clip-path",
-        "spin(3)",
     ] {
         assert!(said.contains(expected), "{expected} missing from:\n{said}");
     }
-    assert_eq!(drawn.issues.len(), 9, "{said}");
+    assert_eq!(drawn.issues.len(), 8, "{said}");
 }
 
 #[test]
@@ -719,4 +721,194 @@ fn hostile_strokes_never_panic() {
     ] {
         let _ = drawn(markup, (10.0, 10.0));
     }
+}
+
+// The `transform` property (item 287).
+
+/// A fill's bounds, rounded, in drawing order.
+fn boxes(drawn: &Drawn) -> Vec<(f32, f32, f32, f32)> {
+    fills(drawn)
+        .into_iter()
+        .map(|fill| rounded(fill.0))
+        .collect()
+}
+
+#[test]
+fn a_stylesheets_transform_replaces_the_attribute_rather_than_composing_with_it() {
+    let markup = r#"<svg viewBox="0 0 20 20"><rect id="r" transform="translate(10 0)" width="4" height="2"/></svg>"#;
+    assert_eq!(
+        boxes(&drawn(markup, (20.0, 20.0))),
+        vec![(10.0, 0.0, 14.0, 2.0)],
+        "the attribute alone",
+    );
+    let replaced = drawn_with(markup, "#r { transform: translate(0, 5px) }", (20.0, 20.0));
+    assert_eq!(
+        boxes(&replaced),
+        vec![(0.0, 5.0, 4.0, 7.0)],
+        "moved down by the sheet and not across by the attribute",
+    );
+    assert!(replaced.issues.is_empty(), "{:?}", replaced.issues);
+    let none = drawn_with(markup, "rect { transform: none }", (20.0, 20.0));
+    assert_eq!(
+        boxes(&none),
+        vec![(0.0, 0.0, 4.0, 2.0)],
+        "`none` takes it away"
+    );
+}
+
+#[test]
+fn a_childs_property_is_composed_inside_its_groups_attribute() {
+    let drawn = drawn_with(
+        r#"<svg viewBox="0 0 40 40"><g transform="translate(20 10)"><rect class="c" width="4" height="2"/></g></svg>"#,
+        ".c { transform: scale(2) }",
+        (40.0, 40.0),
+    );
+    // Scaled about the rect's user-space origin, then moved by the group.
+    assert_eq!(boxes(&drawn), vec![(20.0, 10.0, 28.0, 14.0)]);
+}
+
+#[test]
+fn the_property_turns_about_the_origin_of_user_space_unless_told_otherwise() {
+    let markup =
+        r#"<svg viewBox="0 0 20 20"><rect class="r" x="10" y="8" width="6" height="2"/></svg>"#;
+    let origin = drawn_with(markup, ".r { transform: rotate(90deg) }", (20.0, 20.0));
+    assert_eq!(
+        boxes(&origin),
+        vec![(-10.0, 10.0, -8.0, 16.0)],
+        "SVG's initial origin is 0 0, not CSS's 50% 50%",
+    );
+    let own_box = drawn_with(
+        markup,
+        ".r { transform: rotate(90deg); transform-box: fill-box; transform-origin: center }",
+        (20.0, 20.0),
+    );
+    assert_eq!(
+        boxes(&own_box),
+        vec![(12.0, 6.0, 14.0, 12.0)],
+        "turned about its own middle, (13, 9)",
+    );
+    assert!(own_box.issues.is_empty(), "{:?}", own_box.issues);
+    let view_box = drawn_with(
+        markup,
+        ".r { transform: rotate(90deg); transform-origin: 50% 50% }",
+        (20.0, 20.0),
+    );
+    assert_eq!(
+        boxes(&view_box),
+        vec![(10.0, 10.0, 12.0, 16.0)],
+        "50% of the view box is (10, 10)",
+    );
+}
+
+#[test]
+fn a_fill_box_is_the_shapes_geometry_and_not_its_handles_or_stroke() {
+    // A hump from (0, 10) to (10, 10) peaking at y = 2.5, whose control
+    // points reach y = 0. Turned half round about its own centre, (5, 6.25),
+    // its base lands at y = 2.5 and its peak at 10 — upside down, in the
+    // same box. (The control points, which the bounds below include, land at
+    // 12.5.) About the centre of its handles, (5, 5), the base would be at 0.
+    let drawn = drawn_with(
+        r#"<svg viewBox="0 0 20 20"><path class="p" d="M0 10C0 0 10 0 10 10Z" stroke="black" stroke-width="4"/></svg>"#,
+        ".p { transform: rotate(180deg); transform-box: fill-box; transform-origin: center }",
+        (20.0, 20.0),
+    );
+    let fill = boxes(&drawn).first().copied().expect("a fill");
+    assert_eq!((fill.0, fill.2), (0.0, 10.0), "the same across");
+    assert!(
+        (fill.1 - 2.5).abs() < 0.01 && (fill.3 - 12.5).abs() < 0.01,
+        "{fill:?}"
+    );
+}
+
+#[test]
+fn a_translations_percentages_are_of_the_reference_box() {
+    let markup =
+        r#"<svg viewBox="0 0 40 20"><rect class="r" x="2" y="2" width="10" height="4"/></svg>"#;
+    let view = drawn_with(
+        markup,
+        ".r { transform: translate(50%, 50%) }",
+        (40.0, 20.0),
+    );
+    assert_eq!(boxes(&view), vec![(22.0, 12.0, 32.0, 16.0)], "of 40 × 20");
+    let fill = drawn_with(
+        markup,
+        ".r { transform: translate(50%, 50%); transform-box: fill-box }",
+        (40.0, 20.0),
+    );
+    assert_eq!(boxes(&fill), vec![(7.0, 4.0, 17.0, 8.0)], "of 10 × 4");
+}
+
+#[test]
+fn what_cannot_be_measured_yet_is_recorded_and_measured_as_near_as_it_can_be() {
+    let drawn = drawn_with(
+        r#"<svg viewBox="0 0 20 20"><g class="g"><rect width="2" height="2"/></g><rect class="s" x="4" y="4" width="2" height="2" stroke="red"/><rect class="w" width="2" height="2"/><rect class="o" width="2" height="2"/></svg>"#,
+        ".g { transform: rotate(90deg); transform-box: fill-box }
+         .s { transform: scale(2); transform-box: stroke-box; transform-origin: center }
+         .w { transform: scale(2); transform-box: sideways }
+         .o { transform: scale(2); transform-origin: nowhere }",
+        (20.0, 20.0),
+    );
+    let said = drawn.issues.join("\n");
+    for expected in [
+        "<g>: transform-box: fill-box on a container is not measured yet (item 288)",
+        "<rect>: transform-box: stroke-box is not measured yet (item 288)",
+        r#"transform-box "sideways" is not a box"#,
+        r#"transform-origin "nowhere" is not a point"#,
+    ] {
+        assert!(said.contains(expected), "{expected} missing from:\n{said}");
+    }
+    let boxes = boxes(&drawn);
+    assert_eq!(
+        boxes.first(),
+        Some(&(-2.0, 0.0, 0.0, 2.0)),
+        "the group, about the view box's 0 0"
+    );
+    assert_eq!(
+        boxes.get(1),
+        Some(&(3.0, 3.0, 7.0, 7.0)),
+        "the stroked rect's fill, about its fill box's middle"
+    );
+}
+
+/// `LOOP.md` stage 2 § 2: whatever a stylesheet writes as a transform, its
+/// box or its origin, the drawing is made or refused, never a panic, and a
+/// transform that does not come out finite is ignored and recorded.
+#[test]
+fn a_hostile_transform_property_never_panics_and_an_infinite_one_is_refused() {
+    for css in [
+        "rect { transform: scale(1e38) scale(1e38) }",
+        "rect { transform: translate(1e38px) translate(1e38px) translate(1e38px) translate(1e38px) }",
+        "rect { transform: matrix(0, 0, 0, 0, 0, 0) }",
+        "rect { transform: rotate(1e30deg) }",
+        "rect { transform: rotateX(30deg) }",
+        "rect { transform: scale(2); transform-origin: 1e38px 1e38px }",
+        "rect { transform: translate(100%); transform-box: fill-box }",
+        "rect { transform: translate(calc(100% + 1em)); transform-box: fill-box; transform-origin: calc(50% - 1e38px) }",
+        "rect { transform: skewX(90deg) }",
+        "rect { transform: ; transform-box: ; transform-origin: }",
+    ] {
+        let _ = drawn_with(
+            r#"<svg viewBox="0 0 10 10"><rect width="1e38" height="1e38"/><path d="M0 0h0"/></svg>"#,
+            css,
+            (10.0, 10.0),
+        );
+    }
+    let infinite = drawn_with(
+        r#"<svg><rect width="1" height="1"/></svg>"#,
+        "rect { transform: scale(1e38) scale(1e38) }",
+        (10.0, 10.0),
+    );
+    assert!(
+        infinite
+            .issues
+            .iter()
+            .any(|issue| issue.contains("does not come to a finite transform")),
+        "{:?}",
+        infinite.issues
+    );
+    assert_eq!(
+        boxes(&infinite),
+        vec![(0.0, 0.0, 1.0, 1.0)],
+        "drawn as though it had none"
+    );
 }

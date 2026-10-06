@@ -21,6 +21,7 @@
 //! The walk keeps its own stack rather than recursing, and every count a page
 //! could inflate is bounded before the work it causes ([`crate::bounds`]).
 
+use crate::bbox::object_bounding_box;
 use crate::bounds::{DEEPEST, MOST_DASHES, MOST_ELEMENTS, MOST_GROUPS_DEEP, MOST_SEGMENTS};
 use crate::fill::fill_of;
 use crate::length::Viewport;
@@ -206,10 +207,11 @@ impl Walk<'_> {
             return Ok(());
         }
 
-        let matrix = self.own_transform(element, style, matrix);
+        self.refused(element, style);
         let opacity = alpha(style.get("opacity")).unwrap_or(1.0);
 
         if container {
+            let matrix = self.under_own_transform(name, style, None, matrix);
             if opacity <= 0.0 {
                 return Ok(());
             }
@@ -223,21 +225,25 @@ impl Walk<'_> {
         self.draw_shape(element, style, matrix, opacity)
     }
 
-    /// The transform an element draws under: its own `transform` attribute
-    /// inside what its ancestors built up. Also records what the element asks
-    /// for that is not applied, because this is where it is first read.
-    fn own_transform(
+    /// The transform an element draws under: its own `transform` property —
+    /// the attribute, unless a stylesheet replaced it — inside what its
+    /// ancestors built up. `fill_box` is a shape's object bounding box, which
+    /// `transform-box: fill-box` measures against.
+    fn under_own_transform(
         &mut self,
-        element: &Element,
+        name: &str,
         style: &ComputedStyle,
+        fill_box: Option<crate::bbox::Rect>,
         matrix: Matrix,
     ) -> Matrix {
+        crate::transform::own(name, style, self.viewport, fill_box, &mut self.issues)
+            .map_or(matrix, |own| own.then(matrix))
+    }
+
+    /// Record what an element asks for that ADR 0022 § 7 refuses, because this
+    /// is where it is first read.
+    fn refused(&mut self, element: &Element, style: &ComputedStyle) {
         let name = &*element.name.local;
-        if style.get("transform").is_some() {
-            self.issues.push(format!(
-                "<{name}>: the transform property on an element inside an <svg> is not applied yet (item 287)"
-            ));
-        }
         for refused in [
             "clip-path",
             "mask",
@@ -251,17 +257,6 @@ impl Walk<'_> {
                 self.issues
                     .push(format!("<{name} {refused}>: not applied (ADR 0022 § 7)"));
             }
-        }
-        let Some(text) = element.attr("transform") else {
-            return matrix;
-        };
-        if let Some(own) = crate::transform::parse(text) {
-            own.then(matrix)
-        } else {
-            self.issues.push(format!(
-                "<{name} transform={text:?}>: not a transform list, ignored"
-            ));
-            matrix
         }
     }
 
@@ -301,6 +296,9 @@ impl Walk<'_> {
             }
             Err(Refusal::Drawing(why)) => return Err(why),
         };
+        // Measured before anything else can be refused, because the box is the
+        // shape's own geometry, untransformed and unstroked.
+        let matrix = self.under_own_transform(name, style, object_bounding_box(&path), matrix);
         let fill = if fills(name, &path) {
             fill_of(style, &mut self.issues)
         } else {

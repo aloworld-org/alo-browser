@@ -1,0 +1,8 @@
+block flow · document
+  block flow · generic
+    block flex · paragraph
+      inline flow-root · image "About its own box"
+      inline flow-root · image "About the origin"
+      inline flow-root · image "Stylesheet replaces attribute"
+      inline flow-root · image "Composed under a group"
+      inline flow-root · image "Attribute and property agree"

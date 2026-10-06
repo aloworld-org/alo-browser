@@ -1,0 +1,8 @@
+block flow · document → 330×68 at (0, 0)
+  block flow · generic → 330×60 at (0, 4)
+    block flex · paragraph → 322×60 at (4, 4)
+      inline flow-root · image "About its own box" → 60×60 at (4, 4)
+      inline flow-root · image "About the origin" → 60×60 at (68, 4)
+      inline flow-root · image "Stylesheet replaces attribute" → 60×60 at (132, 4)
+      inline flow-root · image "Composed under a group" → 60×60 at (196, 4)
+      inline flow-root · image "Attribute and property agree" → 60×60 at (260, 4)

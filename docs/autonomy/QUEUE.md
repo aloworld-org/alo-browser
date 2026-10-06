@@ -5478,7 +5478,7 @@ The long pole, and the thing most of section E is unreachable without.
   not settled here, so nothing asserts either number; written into the
   journal to be checked before it is relied on.
 
-- [ ] **287. The `transform` property on SVG elements.** *Cut from 279 on
+- [x] **287. The `transform` property on SVG elements.** *Cut from 279 on
   the iteration that built its sizing half (ADR 0022 §§ 2, 3).* The CSS
   `transform` property on an element inside an `<svg>`, with
   `transform-box` and `transform-origin` as SVG 2 defines them (an SVG
@@ -5497,6 +5497,44 @@ The long pole, and the thing most of section E is unreachable without.
   transform-origin: center`), a stylesheet's `transform` replacing an
   element's attribute, and a property on a child composed under a `<g>`'s
   attribute; and a hostile-input test of every value the hint can carry.
+  **Built (iteration 179).** *Decided, and said in the code:* the hint is
+  turned into a CSS value the cascade can hold. The attribute's grammar
+  moved, with SVG's number scanner, from `alo-svg` to `alo-value`
+  (`svg_transform.rs`, `svg_number.rs`) — the rule ADR 0022 already gives
+  for path data that becomes a CSS value, and the one way `alo-style` can
+  read it without depending on `alo-svg`. `presentation.rs` lists
+  `transform` (on every SVG element but an `<svg>`, whose own attribute is
+  left as it was) and writes it as the one `matrix()` it comes to — exact,
+  because the attribute has no units or per cents and an origin applies
+  about the whole list; an invalid one is ignored and recorded by the
+  cascade. `alo-svg`'s new `transform.rs` reads the computed property:
+  `transform-box` `view-box` (initial; at the user-space origin, the
+  `viewBox`'s size) or `fill-box`/`content-box`, a shape's **object
+  bounding box** from the new `bbox.rs` (curve turning points, not control
+  points); `transform-origin` `0 0` unless set; `translate` per cents of
+  that box; a non-finite result ignored and recorded. *It found:* two
+  finite attribute functions could multiply to an infinity (`scale(1e38)
+  scale(1e38)`), which the old parser passed on; the list is now refused.
+  Tests: `svg_transform.rs` 1 new (the CSS text reads back as the same
+  matrix) and the overflow case; `presentation.rs` 3 new (a declaration in
+  CSS grammar, `inherit` kept; not on an `<svg>`; seventeen hostile values
+  ignored and recorded, a million-argument `matrix` and `1e99999` among
+  them, and a 100 000-function list read in one pass); `bbox.rs` 5;
+  `walking.rs` 6 new (replaces, `none` too; composed under a `<g>`; origin
+  `0 0`, `fill-box center`, `50% 50%` of the view box; a fill box that is
+  neither handles nor stroke; per cents of each box; what is cut is
+  recorded; ten hostile stylesheet values, an infinite one refused).
+  Doctored: paint's loose bounds as the fill box, a `50%` default origin,
+  and the hint switched off each fail their tests. Corpus case
+  **`svg-transform-property`** is the reference render; no other case moved.
+
+- [ ] **288. `transform-box: fill-box` on a container, and `stroke-box`.**
+  *Cut from 287.* A `<g>`'s fill box is the union of what it holds under
+  their own transforms, which needs a measuring walk of its own, bounded as
+  the drawing's is; a stroke box adds each stroke as SVG 2 defines it. Until
+  then each is recorded and measured against the view box (a container) or
+  the fill box (a shape, whose centre an even stroke does not move).
+  *Depends on 287. Opened only by a frozen page that needs it*, as 278 is.
 
 - [ ] **108. Canvas 2D.** The rasteriser exists; this is the API over it and the
   compositing rules around it.

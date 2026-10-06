@@ -454,8 +454,11 @@ The reason this exists rather than a faster fork of somebody else's engine.
   screen draws its hand. **Relative sizes work** (item 279): `width` and
   `height` on an `<svg>` are presentation attributes, so `width="50%"` and
   `height="2em"` size its box through the cascade, and any stylesheet rule
-  beats them. A nested `<svg>` is 278, and the `transform` property on SVG
-  elements is 287
+  beats them. **The `transform` property works** (item 287): the attribute is
+  its presentation attribute, so a stylesheet's `transform` replaces it, and
+  `transform-box` (`view-box`, or `fill-box` on a shape) and
+  `transform-origin` (`0 0` unless set) say what it turns about. A nested
+  `<svg>` is 278, and `fill-box` on a `<g>` and `stroke-box` are 288
 - [2] Canvas 2D
 - [2] Audio and video playback through rented decoders
 - [2] Media Source Extensions, without which most video sites do not play at all

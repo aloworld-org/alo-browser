@@ -1039,8 +1039,14 @@ unreachable without it.
       (item 279) — `width` and `height` on an `<svg>` are presentation
       attributes in `presentation.rs`, so a per cent or an `em` sizes the box
       through the cascade and a stylesheet beats it; corpus case
-      `svg-relative-size`
-      · Owed: the `transform` property on SVG elements (287); a per cent on
+      `svg-relative-size`; the `transform` property (item 287) — the
+      attribute is its presentation attribute, read by `alo-value`'s
+      `svg_transform.rs` and held by the cascade as a `matrix()`, so a
+      stylesheet replaces it; `alo-svg`'s `transform.rs` measures it against
+      `transform-box` (`view-box`, or a shape's object bounding box from
+      `bbox.rs`) about `transform-origin`; corpus case
+      `svg-transform-property`
+      · Owed: `fill-box` on a `<g>` and `stroke-box` (288); a per cent on
       an inline-level `<svg>`, resolved twice like any inline-block's (284);
       a nested `<svg>` (278), `<use>` (274), SVG paint servers (275),
       `<text>` (276) and an SVG file as a picture (277), each when a page

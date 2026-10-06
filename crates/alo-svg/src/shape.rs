@@ -27,11 +27,11 @@
 
 use crate::bounds::{MOST_PATH_SEGMENTS, MOST_POINTS};
 use crate::length::{Axis, Viewport, user_units};
-use crate::number::Numbers;
 use crate::path_data::{self, TooMany};
 use alo_dom::Element;
 use alo_paint::{Path, Point, Segment};
 use alo_value::FontMetrics;
+use alo_value::svg_number::Numbers;
 
 /// How far along the radius an arc's handles sit, for a quarter ellipse.
 const KAPPA: f32 = 0.552_284_8;

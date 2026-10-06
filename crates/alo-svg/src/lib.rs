@@ -25,9 +25,12 @@
 //! item 272, `<path>` and its data, every command, arcs included; and with
 //! item 273, strokes: `stroke` and every `stroke-*` property, dashes counted
 //! and bounded before they are cut. A stroke reaches paint as the fill of its
-//! outline, made by the rented stroker in `alo-paint`'s `raster.rs`. A nested
-//! `<svg>` is item 278; that, and everything ADR 0022 § 7 refuses, is left out
-//! **and recorded**.
+//! outline, made by the rented stroker in `alo-paint`'s `raster.rs`. With item
+//! 287, the `transform` *property*, of which the attribute is the
+//! presentation attribute, measured against `transform-box` about
+//! `transform-origin` ([`transform`]). A nested `<svg>` is item 278; that,
+//! `fill-box` on a `<g>` and `stroke-box` (item 288), and everything ADR 0022
+//! § 7 refuses, are left out **and recorded**.
 //!
 //! # The bytes are a stranger's
 //!
@@ -47,17 +50,21 @@
 //! - [`dashes`] — `stroke-dasharray`, and how many dashes it would cut;
 //! - [`paint`] — what `fill` and `stroke` are written as;
 //! - [`viewport`] — `viewBox` and `preserveAspectRatio` as one transform;
-//! - [`transform`] — the `transform` attribute's grammar;
+//! - [`transform`] — the `transform` property: its box and its origin;
+//! - [`bbox`] — a shape's object bounding box, which `fill-box` is;
 //! - [`length`] — geometry attributes as user units;
-//! - [`number`] — SVG's numbers, in lists;
 //! - [`bounds`] — how much one drawing may ask for.
+//!
+//! SVG's number lists and the `transform` attribute's grammar are
+//! `alo-value`'s `svg_number` and `svg_transform`, because the cascade reads
+//! the attribute as a presentation attribute before this crate does.
 
 pub mod arc;
+pub mod bbox;
 pub mod bounds;
 pub mod dashes;
 pub mod fill;
 pub mod length;
-pub mod number;
 pub mod paint;
 pub mod path_data;
 pub mod shape;

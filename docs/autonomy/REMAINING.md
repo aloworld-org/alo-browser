@@ -470,6 +470,14 @@ A per cent on an inline-level `<svg>` is 284's double resolution. 117 queue
 items are open; the next unused queue number is 288 and the next unused ADR
 0023.
 
+Iteration 179 built 287: the `transform` property on SVG elements. The
+attribute is its presentation attribute — its grammar moved to `alo-value`
+so the cascade can read it, written there as a `matrix()` — and `alo-svg`
+measures the property against `transform-box` and `transform-origin`
+(corpus case `svg-transform-property`). `fill-box` on a `<g>` and
+`stroke-box` are cut to 288, opened by a page. 117 queue items are open;
+the next unused queue number is 289 and the next unused ADR 0023.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

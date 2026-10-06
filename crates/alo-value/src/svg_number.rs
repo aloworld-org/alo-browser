@@ -6,9 +6,13 @@
 //!
 //! SVG's number grammar is narrower than Rust's float parser — no `inf`, no
 //! `NaN`, no `_` — and wider than a split on whitespace: `10-20` is two
-//! numbers, and so is `.5.5`. `points`, `transform` and path data
-//! (`path_data.rs`) all share it, so it is read once, here, by a scanner that
-//! walks the text and allocates nothing.
+//! numbers, and so is `.5.5`. The `transform` attribute ([`crate::svg_transform`])
+//! and `alo-svg`'s `points` and path data all share it, so it is read once,
+//! here, by a scanner that walks the text and allocates nothing.
+//!
+//! It is in this crate rather than `alo-svg` because the `transform` attribute
+//! is a presentation attribute (item 287), so `alo-style` reads it too, and
+//! `alo-svg` depends on `alo-style` rather than the other way round.
 //!
 //! **Every number is finite or it is an error.** An exponent that overflows a
 //! float (`1e99999`) is not a very large coordinate; it is a stranger's input
@@ -109,9 +113,9 @@ pub fn number(text: &str) -> Option<f32> {
 /// One number starting at byte `at`, and the byte after it, or [`None`] if
 /// what is there is not one — or is one that does not come out finite.
 ///
-/// The scanner beneath [`Numbers`], shared with path data (`path_data.rs`),
+/// The scanner beneath [`Numbers`], shared with `alo-svg`'s path data,
 /// whose grammar puts command letters and arc flags between its numbers.
-pub(crate) fn scan(bytes: &[u8], at: usize) -> Option<(f32, usize)> {
+pub fn scan(bytes: &[u8], at: usize) -> Option<(f32, usize)> {
     let digits = |from: usize| {
         bytes.get(from..).map_or(0, |rest| {
             rest.iter().take_while(|b| b.is_ascii_digit()).count()
@@ -149,7 +153,7 @@ pub(crate) fn scan(bytes: &[u8], at: usize) -> Option<(f32, usize)> {
 }
 
 /// SVG's whitespace, which is XML's: space, tab, line feed, carriage return.
-pub(crate) fn is_whitespace(byte: u8) -> bool {
+pub fn is_whitespace(byte: u8) -> bool {
     matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'\x0c')
 }
 

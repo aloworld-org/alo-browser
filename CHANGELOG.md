@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A stylesheet can turn the shapes inside an SVG icon.** CSS `transform`
+  on a shape or group inside an `<svg>` used to be ignored. It now moves,
+  turns and scales it, and replaces the element's own `transform` attribute
+  rather than adding to it, as in other browsers. `transform-box: fill-box`
+  with `transform-origin: center` turns a shape about its own middle; by
+  default it turns about the corner of the drawing, as SVG says. Measuring
+  a whole group's box, or a box that includes the stroke, is not done yet:
+  it is reported and measured as nearly as it can be.
+
 - **An SVG icon can be sized in per cent or in `em`.** `<svg width="50%">`
   and `<svg height="2em">` used to be ignored, so the picture fell back to
   its shape or to 300 × 150. They now size it — half the width it sits in,

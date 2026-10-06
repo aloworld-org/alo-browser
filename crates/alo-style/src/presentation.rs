@@ -20,7 +20,17 @@
 //! the properties that decide whether anything is drawn at all. An attribute not in the list is an
 //! attribute and nothing more, which is the state every SVG attribute was in
 //! before this file. Geometry — `x`, `r`, `d`, `points` — is read by `alo-svg`
-//! as attributes, and so is `transform`, whose attribute grammar is not CSS's.
+//! as attributes.
+//!
+//! `transform` is one (item 287), so a stylesheet's `transform` **replaces** an
+//! element's attribute and the two compose only across ancestors. Its grammar
+//! is SVG's rather than CSS's — `rotate(45 12 12)`, unitless and comma
+//! separated — so it is read by `alo_value::svg_transform`, the one place that
+//! grammar lives, and written into the declaration as the CSS `matrix()` it
+//! comes to. Everything downstream then reads one property in one grammar,
+//! whichever of the two wrote it. Not on an `<svg>`: an outermost one is a box,
+//! whose transform paint applies about the middle of its border box, and SVG 2
+//! and the browsers do not yet agree on what its attribute means there.
 //!
 //! `width` and `height` are the exception, and only on an `<svg>` (item 279).
 //! There they size a box, so `width="50%"` and `height="2em"` have to reach
@@ -61,6 +71,7 @@ pub const PRESENTATION_PROPERTIES: &[&str] = &[
     "stroke-miterlimit",
     "stroke-opacity",
     "stroke-width",
+    "transform",
     "visibility",
     "width",
 ];
@@ -104,9 +115,14 @@ pub fn hints(element: &Element, issues: &mut Vec<StyleIssue>) -> Vec<Declaration
 }
 
 /// Whether an attribute is a presentation attribute on this element: every
-/// one in the list is, on every SVG element, except the two that size a box.
+/// one in the list is, on every SVG element, except the two that size a box,
+/// which are on an `<svg>` only, and `transform`, which is on everything but.
 fn applies(property: &str, local: &str) -> bool {
-    !matches!(property, "width" | "height") || local == "svg"
+    match property {
+        "width" | "height" => local == "svg",
+        "transform" => local != "svg",
+        _ => true,
+    }
 }
 
 /// The value as a declaration's: a size written as a plain number is that
@@ -114,6 +130,9 @@ fn applies(property: &str, local: &str) -> bool {
 fn as_css(property: &str, value: &str) -> String {
     match (property, alo_value::parse_number(value)) {
         ("width" | "height", Some(number)) => format!("{number}px"),
+        ("transform", _) => {
+            alo_value::svg_transform::as_css(value).unwrap_or_else(|| value.to_owned())
+        }
         _ => value.to_owned(),
     }
 }
@@ -147,6 +166,7 @@ fn valid(property: &str, value: &str) -> bool {
         "stroke-linejoin" => one_of(value, &["miter", "round", "bevel"]),
         "stroke-miterlimit" => alo_value::parse_number(value).is_some_and(|limit| limit >= 1.0),
         "visibility" => one_of(value, &["visible", "hidden", "collapse"]),
+        "transform" => alo_value::svg_transform::parse(value).is_some(),
         // Finite as well as not negative: `width="1e39px"` is a length CSS
         // can write, and an infinity is not a size layout can be handed.
         "width" | "height" => {
@@ -414,6 +434,76 @@ mod tests {
             assert!(found.is_empty(), "{bad:?} became {found:?}");
             assert_eq!(issues.len(), 1, "{bad:?} was not recorded");
         }
+    }
+
+    /// SVG's grammar in the attribute, CSS's in the declaration: the cascade
+    /// holds one property in one grammar, whoever wrote it (item 287).
+    #[test]
+    fn a_transform_attribute_is_a_declaration_in_css_grammar() {
+        let (found, issues) = hints_of(
+            r#"<svg><g transform="translate(10, 5) scale(2)"><rect transform="rotate(90 12 12)"/></g></svg>"#,
+            "g",
+        );
+        assert_eq!(found, vec!["transform: matrix(2, 0, 0, 2, 10, 5)"]);
+        assert!(issues.is_empty());
+        let (found, _) = hints_of(r#"<svg><rect transform="rotate(90 12 12)"/></svg>"#, "rect");
+        let declared = found.first().expect("a declaration");
+        let css = declared.strip_prefix("transform: ").expect("a transform");
+        let matrix = alo_value::parse_transform(css)
+            .expect("CSS can read it")
+            .matrix(
+                alo_value::FontMetrics::estimated(16.0, 16.0),
+                (0.0, 0.0),
+                (0.0, 0.0),
+            );
+        let (x, y) = matrix.apply(13.0, 12.0);
+        assert!((x - 12.0).abs() < 1e-4 && (y - 13.0).abs() < 1e-4, "{css}");
+        let (found, _) = hints_of(r#"<svg><rect transform="inherit"/></svg>"#, "rect");
+        assert_eq!(found, vec!["transform: inherit"]);
+    }
+
+    /// An outermost `<svg>` is a box, and its attribute is not a declaration.
+    #[test]
+    fn an_svgs_own_transform_attribute_is_not_a_declaration() {
+        let (found, issues) = hints_of(r#"<svg transform="scale(2)"></svg>"#, "svg");
+        assert!(found.is_empty(), "{found:?}");
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    /// `LOOP.md` stage 2 § 2: every value the hint can carry that is not a
+    /// transform list is ignored and recorded, and none of them reaches the
+    /// cascade as text CSS would read some other way.
+    #[test]
+    fn a_hostile_transform_attribute_is_ignored_and_recorded() {
+        let million = format!("matrix({})", "1 ".repeat(1_000_000));
+        let deep = "translate(1)".repeat(100_000);
+        for bad in [
+            "translate(10",
+            "translate(10) bogus(1)",
+            "rotate()",
+            "scale(1 2 3)",
+            "translate(1e99999)",
+            "scale(1e38) scale(1e38)",
+            "rotate(45deg)",
+            "translate(10px)",
+            "translate 10",
+            "rotate(NaN)",
+            "rotate(inf)",
+            "unset",
+            "",
+            "  ",
+            ")(",
+            "rotate(1);x",
+            million.as_str(),
+        ] {
+            let (found, issues) =
+                hints_of(&format!("<svg><rect transform='{bad}'/></svg>"), "rect");
+            assert!(found.is_empty(), "{bad:?} became {found:?}");
+            assert_eq!(issues.len(), 1, "{bad:?} was not recorded");
+        }
+        let (found, issues) = hints_of(&format!("<svg><rect transform='{deep}'/></svg>"), "rect");
+        assert_eq!(found, vec!["transform: matrix(1, 0, 0, 1, 100000, 0)"]);
+        assert!(issues.is_empty());
     }
 
     #[test]

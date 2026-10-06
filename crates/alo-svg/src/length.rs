@@ -11,7 +11,7 @@
 //! SVG's way of giving a percentage one meaning whichever way the viewport is
 //! turned.
 
-use crate::number;
+use alo_value::svg_number as number;
 use alo_value::{FontMetrics, LengthPercentage};
 
 /// Which side of the viewport a percentage is a share of.

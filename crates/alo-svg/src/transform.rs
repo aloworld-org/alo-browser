@@ -2,178 +2,145 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! The `transform` attribute.
+//! The `transform` property on an element inside an `<svg>` (item 287): the
+//! box it is measured against and the point it turns about.
 //!
-//! Its grammar is SVG's, not CSS's: numbers without units, angles in degrees
-//! without `deg`, `rotate` that takes a centre, and functions separated by
-//! commas as well as by whitespace. `transform="rotate(45 12 12)"` is not a
-//! CSS value at all, which is why `alo_value::parse_transform` is not asked.
+//! **One property, one grammar.** The `transform` attribute is the property's
+//! presentation attribute, and the cascade holds it as the CSS `matrix()` it
+//! comes to (`alo-style`'s `presentation.rs`), so what is read here is the
+//! computed property whoever wrote it. A stylesheet's `transform` therefore
+//! *replaces* the element's attribute; the two compose only across
+//! ancestors, where a child's transform is drawn inside its parent's.
 //!
-//! A list with an error in it is **ignored whole**, as an invalid declaration
-//! is: drawing a shape under half of the transform its author wrote would put
-//! it somewhere nobody asked for.
+//! **What SVG changes about CSS's transform** is where it is measured, because
+//! an element inside an `<svg>` has no CSS box:
+//!
+//! - `transform-box` is the box: `view-box` (the initial value), the nearest
+//!   viewport at the origin of its user space and the size of its `viewBox`;
+//!   or `fill-box`, the element's object bounding box ([`crate::bbox`]).
+//!   `content-box` is `fill-box` and `border-box` is `stroke-box`, as CSS
+//!   Transforms says for an element with no CSS box.
+//! - `transform-origin` is a point in that box, `0 0` unless the author says
+//!   otherwise — not CSS's `50% 50%` — so `rotate(90deg)` turns a shape about
+//!   the origin of its user space, as the attribute always has.
+//! - A `translate`'s percentages are of that box's size.
+//!
+//! **Not yet:** `fill-box` on a container (`<g>`), whose box is the union of
+//! everything it holds under their own transforms, and `stroke-box`, which
+//! adds the stroke. Each is recorded, item 288, and measured against the
+//! nearest box this engine can give — the view box for a container, the fill
+//! box for a shape, whose centre a stroke of even width does not move.
 
-use crate::number::Numbers;
-use alo_value::Matrix;
+use crate::bbox::Rect;
+use crate::length::Viewport;
+use alo_style::ComputedStyle;
+use alo_value::{LengthPercentage, Matrix};
 
-/// The most arguments any function takes: `matrix`'s six.
-const MOST_ARGUMENTS: usize = 6;
-
-/// A `transform` attribute as one matrix, or [`None`] if it has an error.
+/// The transform an element's own `transform` property draws it under, in its
+/// parent's user space, or [`None`] when it has none, or none that can be
+/// drawn — which is recorded.
 ///
-/// Functions apply right to left — `translate(10) scale(2)` scales first —
-/// which is what writing them left to right means.
-pub fn parse(text: &str) -> Option<Matrix> {
-    let mut matrix = Matrix::IDENTITY;
-    let mut rest = text.trim_start_matches(is_separator);
-    while !rest.is_empty() {
-        let open = rest.find('(')?;
-        let name = rest.get(..open)?.trim_end_matches(is_whitespace);
-        let after = rest.get(open + 1..)?;
-        let close = after.find(')')?;
-        let arguments = arguments(after.get(..close)?)?;
-        matrix = function(name, &arguments)?.then(matrix);
-        rest = after.get(close + 1..)?.trim_start_matches(is_separator);
+/// `fill_box` is the element's object bounding box, when it is a shape and has
+/// one; a container passes [`None`].
+pub fn own(
+    name: &str,
+    style: &ComputedStyle,
+    viewport: Viewport,
+    fill_box: Option<Rect>,
+    issues: &mut Vec<String>,
+) -> Option<Matrix> {
+    let text = style.get("transform")?;
+    let Some(transform) = alo_value::parse_transform(text) else {
+        issues.push(format!(
+            "<{name}>: transform {text:?} is not a transform this engine draws, so it is ignored"
+        ));
+        return None;
+    };
+    if transform.is_empty() {
+        return None;
+    }
+    let reference = reference_box(name, style, viewport, fill_box, issues);
+    let (across, down) = origin(name, style, issues);
+    let metrics = style.metrics();
+    let origin = (
+        reference.x + across.to_px(metrics, reference.width),
+        reference.y + down.to_px(metrics, reference.height),
+    );
+    let matrix = transform.matrix(metrics, (reference.width, reference.height), origin);
+    let finite = [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f]
+        .iter()
+        .all(|value| value.is_finite());
+    if !finite {
+        issues.push(format!(
+            "<{name}>: transform {text:?} does not come to a finite transform, so it is ignored"
+        ));
+        return None;
     }
     Some(matrix)
 }
 
-/// A function's arguments, or [`None`] if there are more than any function
-/// takes or one is not a number. Bounded before anything is kept, so an
-/// argument list of a million numbers is refused after reading seven.
-fn arguments(text: &str) -> Option<Vec<f32>> {
-    let mut numbers = Numbers::new(text);
-    let mut found = Vec::with_capacity(MOST_ARGUMENTS);
-    for value in numbers.by_ref() {
-        if found.len() == MOST_ARGUMENTS {
-            return None;
+/// The box `transform-box` names, as SVG 2 measures it for an element with no
+/// CSS box.
+fn reference_box(
+    name: &str,
+    style: &ComputedStyle,
+    viewport: Viewport,
+    fill_box: Option<Rect>,
+    issues: &mut Vec<String>,
+) -> Rect {
+    // The view box sits at the origin of the user space the `viewBox` set up,
+    // not at the `viewBox`'s own corner, and is the `viewBox`'s size.
+    let view_box = Rect {
+        x: 0.0,
+        y: 0.0,
+        width: viewport.width,
+        height: viewport.height,
+    };
+    let Some(text) = style.get("transform-box") else {
+        return view_box;
+    };
+    let word = text.trim().to_ascii_lowercase();
+    match word.as_str() {
+        "view-box" => view_box,
+        "fill-box" | "content-box" => fill_box.unwrap_or_else(|| {
+            issues.push(format!(
+                "<{name}>: transform-box: {word} on a container is not measured yet (item 288), so the view box is"
+            ));
+            view_box
+        }),
+        "stroke-box" | "border-box" => {
+            issues.push(format!(
+                "<{name}>: transform-box: {word} is not measured yet (item 288), so the fill box is"
+            ));
+            fill_box.unwrap_or(view_box)
         }
-        found.push(value);
-    }
-    (!numbers.failed()).then_some(found)
-}
-
-fn function(name: &str, arguments: &[f32]) -> Option<Matrix> {
-    Some(match (name, arguments) {
-        ("matrix", &[across, down_x, across_y, down, move_x, move_y]) => Matrix {
-            a: across,
-            b: down_x,
-            c: across_y,
-            d: down,
-            e: move_x,
-            f: move_y,
-        },
-        ("translate", &[x]) => Matrix::translation(x, 0.0),
-        ("translate", &[x, y]) => Matrix::translation(x, y),
-        ("scale", &[both]) => scale(both, both),
-        ("scale", &[x, y]) => scale(x, y),
-        ("rotate", &[angle]) => rotation(angle),
-        ("rotate", &[angle, x, y]) => Matrix::translation(-x, -y)
-            .then(rotation(angle))
-            .then(Matrix::translation(x, y)),
-        ("skewX", &[angle]) => Matrix {
-            c: angle.to_radians().tan(),
-            ..Matrix::IDENTITY
-        },
-        ("skewY", &[angle]) => Matrix {
-            b: angle.to_radians().tan(),
-            ..Matrix::IDENTITY
-        },
-        _ => return None,
-    })
-    .filter(|matrix| {
-        [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f]
-            .iter()
-            .all(|value| value.is_finite())
-    })
-}
-
-fn scale(x: f32, y: f32) -> Matrix {
-    Matrix {
-        a: x,
-        d: y,
-        ..Matrix::IDENTITY
-    }
-}
-
-/// A turn, clockwise on the page because `y` runs down it.
-fn rotation(degrees: f32) -> Matrix {
-    let (sin, cos) = degrees.to_radians().sin_cos();
-    Matrix {
-        a: cos,
-        b: sin,
-        c: -sin,
-        d: cos,
-        e: 0.0,
-        f: 0.0,
-    }
-}
-
-fn is_whitespace(c: char) -> bool {
-    matches!(c, ' ' | '\t' | '\n' | '\r' | '\x0c')
-}
-
-fn is_separator(c: char) -> bool {
-    c == ',' || is_whitespace(c)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn at(text: &str, x: f32, y: f32) -> (f32, f32) {
-        let (x, y) = parse(text).expect("a transform").apply(x, y);
-        // Rounded, because a rotation by a whole number of degrees is not
-        // exact in floating point.
-        ((x * 1000.0).round() / 1000.0, (y * 1000.0).round() / 1000.0)
-    }
-
-    #[test]
-    fn each_function_moves_a_point_as_svg_says() {
-        assert_eq!(at("translate(10)", 1.0, 1.0), (11.0, 1.0));
-        assert_eq!(at("translate(10, -5)", 1.0, 1.0), (11.0, -4.0));
-        assert_eq!(at("scale(2)", 3.0, 4.0), (6.0, 8.0));
-        assert_eq!(at("scale(2 3)", 3.0, 4.0), (6.0, 12.0));
-        assert_eq!(
-            at("rotate(90)", 1.0, 0.0),
-            (0.0, 1.0),
-            "clockwise on a page"
-        );
-        assert_eq!(at("rotate(90 10 10)", 11.0, 10.0), (10.0, 11.0));
-        assert_eq!(at("skewX(45)", 0.0, 2.0), (2.0, 2.0));
-        assert_eq!(at("skewY(45)", 2.0, 0.0), (2.0, 2.0));
-        assert_eq!(at("matrix(1 0 0 1 5 6)", 0.0, 0.0), (5.0, 6.0));
-    }
-
-    #[test]
-    fn a_list_applies_right_to_left() {
-        // Scale first, then move: (1, 1) → (2, 2) → (12, 2).
-        assert_eq!(at("translate(10) scale(2)", 1.0, 1.0), (12.0, 2.0));
-        // Move first, then scale: (1, 1) → (11, 1) → (22, 2).
-        assert_eq!(at("scale(2),translate(10)", 1.0, 1.0), (22.0, 2.0));
-        assert_eq!(at("  ", 3.0, 4.0), (3.0, 4.0), "nothing is the identity");
-    }
-
-    #[test]
-    fn a_list_with_an_error_in_it_is_ignored_whole() {
-        for text in [
-            "translate(10",
-            "translate(10) bogus(1)",
-            "rotate()",
-            "scale(1 2 3)",
-            "translate(1e99999)",
-            "matrix(1 0 0 1 0 0 0)",
-            "translate(10px)",
-            "rotate(45deg)",
-            "translate 10",
-        ] {
-            assert_eq!(parse(text), None, "{text}");
+        _ => {
+            issues.push(format!(
+                "<{name}>: transform-box {text:?} is not a box, so the view box is used"
+            ));
+            view_box
         }
     }
+}
 
-    #[test]
-    fn a_function_with_a_million_arguments_is_refused_after_seven() {
-        let text = format!("matrix({})", "1 ".repeat(1_000_000));
-        assert_eq!(parse(&text), None);
-    }
+/// `transform-origin`, or `0 0` — SVG's initial value for an element with no
+/// CSS box — when there is none or it cannot be read.
+fn origin(
+    name: &str,
+    style: &ComputedStyle,
+    issues: &mut Vec<String>,
+) -> (LengthPercentage, LengthPercentage) {
+    let zero = (
+        LengthPercentage::Percentage(0.0),
+        LengthPercentage::Percentage(0.0),
+    );
+    let Some(text) = style.get("transform-origin") else {
+        return zero;
+    };
+    alo_value::parse_transform_origin(text).unwrap_or_else(|| {
+        issues.push(format!(
+            "<{name}>: transform-origin {text:?} is not a point, so 0 0 is used"
+        ));
+        zero
+    })
 }

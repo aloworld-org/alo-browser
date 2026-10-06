@@ -220,9 +220,14 @@ three caps, the three joins, the miter limit, `stroke-opacity`, and dashes with
 their offset, a stroke squashed with its shape under a transform (corpus case
 `svg-strokes`) — so alo's offline screen draws its hand (`alo-offline`).
 SVG 2's `miter-clip` and `arcs` joins are not understood, as in every browser,
-and `paint-order` and `vector-effect` are reported and not applied. A nested `<svg>`, `<use>`, `<text>`, gradients and the
-`transform` *property* on an SVG element are not drawn and are reported (the
-property is item 287). **A `width` or `height` attribute in per cent or `em`
+and `paint-order` and `vector-effect` are reported and not applied. A nested
+`<svg>`, `<use>`, `<text>` and gradients are not drawn and are reported. **The
+`transform` property on an SVG element is applied** — a stylesheet's replaces
+the element's `transform` attribute, a child's composes inside its group's,
+and `transform-box: fill-box` with `transform-origin` turns a shape about its
+own box (corpus case `svg-transform-property`); `fill-box` on a `<g>` and
+`stroke-box` are reported and measured as near as they can be (item 288).
+**A `width` or `height` attribute in per cent or `em`
 sizes its `<svg>`** through the cascade, beaten by any stylesheet rule (corpus
 case `svg-relative-size`); a per cent on an inline-level `<svg>` is resolved
 twice, as on any inline-block (item 284), and is right on a block-level one.

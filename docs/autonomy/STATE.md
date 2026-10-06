@@ -15971,3 +15971,154 @@ updated: `CHANGELOG.md`, `docs/features.md`, `docs/conformance.md`,
 117 queue items are open (279 closed, 287 opened). The next unused queue
 number is **288** and the next ADR is **0023**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 179 — item 287: the `transform` property on SVG elements
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and the *SVG* line), iteration 178's entry, queue items 278,
+279, 284 and 287, ADR 0022 in full, `docs/features.md`'s SVG line and
+`docs/conformance.md`. No `AGENTS.md` exists in this repository. ADR 0022
+§§ 2–3 govern this: the `transform` attribute and property compose under the
+viewport transform, and presentation attributes are author declarations of
+specificity zero. Its "What this does not decide" already says an SVG
+grammar that becomes a CSS value **moves to `alo-value`** (written for path
+data); this iteration applies that rule to the transform grammar, so no new
+ADR was needed.
+
+**Selection.** Iteration 178 recorded 287 as the first eligible item in file
+order, and nothing before it has changed since. It depends on 271, which is done.
+
+**The decision 287 asked for, made and said in the code.** The hint is
+turned into a CSS value the cascade can hold. It is not left in SVG grammar
+for `alo-svg` to recognise. `alo-svg`'s `transform.rs` (the attribute
+grammar) and `number.rs` (SVG's number scanner, which it needs) moved to
+`alo-value` as `svg_transform.rs` and `svg_number.rs` (`git mv`, history
+kept). `alo-svg`'s `length.rs`, `shape.rs` and `path_data.rs` now import
+the scanner from there. `svg_transform::as_css` writes an attribute as the
+single `matrix()` it comes to. That is exact: the attribute has no units or
+per cents, and an origin applied about the whole list equals one applied
+about each function. A test reads the CSS text back through
+`parse_transform` and gets the same matrix.
+
+**Built.**
+- `alo-style`'s `presentation.rs`: `transform` is a presentation attribute
+  on every SVG element **except an `<svg>`**. An outermost one is a box that
+  paint transforms about its border box's middle, and its attribute stays
+  ignored, as before. An invalid value is ignored and recorded by the
+  cascade. That record used to come from the walk, so `walking.rs`'s
+  not-drawn test no longer expects `spin(3)` there and counts 8 issues.
+- `alo-svg`'s new `transform.rs` reads the computed property. Its
+  `transform-box` is `view-box` (the initial value: the user-space origin,
+  the `viewBox`'s size), or `fill-box`/`content-box`, a shape's object
+  bounding box. `transform-origin` is `0 0` unless set. `translate` per cents
+  are of that box. A non-finite result is ignored and recorded. An unknown
+  box or an unreadable origin is recorded and the initial value used.
+- `alo-svg`'s new `bbox.rs`: the tight object bounding box, from each
+  curve's turning points rather than its control points. Paint's
+  `Path::bounds` is deliberately loose and would put `center` in the wrong
+  place on any curve that is not a circle.
+- `walk.rs`: refusals (`clip-path`, `mask`…) are recorded in their own
+  method. A container's transform is applied on entry, and a shape's once its
+  path, and so its fill box, exists.
+
+**What it found, fixed.** Two attribute functions that are each finite
+could multiply to an infinity (`scale(1e38) scale(1e38)`), and the old
+parser handed that on to the walk. `svg_transform::parse` now refuses a
+list whose product is not finite, and a test covers it in both crates.
+
+**Cut (scope, not depth).** `transform-box: fill-box` on a `<g>` (the union
+of what it holds under their transforms, which needs a bounded measuring
+walk) and `stroke-box` are **288**, opened only by a page that needs them.
+Until then each is recorded and measured against the view box (a container)
+or the fill box (a shape, whose centre an even stroke does not move).
+
+**Gate, mechanical.** I ran `scripts/gate.sh` in the foreground; it exited
+0 in 9 min 38 s with "The gate is met.". That covers: fmt clean, clippy
+silent with `-D warnings`, all tests pass (corpus included), no stubs, no
+`unsafe`, licence notices, every rented crate behind its boundary, no
+coordinate verbs, the stop rule, and `CHANGELOG.md` changed. `git diff
+--check` passes.
+
+**Gate, manual.**
+- Layout assertions in numbers (`walking.rs`, 6 new; the drawing's
+  geometry, not a box's):
+  - The attribute `translate(10 0)` puts a 4 × 2 rect at (10, 0)–(14, 2).
+    A sheet's `translate(0, 5px)` puts it at (0, 5)–(4, 7), and `none` at
+    (0, 0)–(4, 2).
+  - `scale(2)` on a child under `translate(20 10)` gives (20, 10)–(28, 14).
+  - `rotate(90deg)` on (10, 8, 6 × 2) gives (−10, 10)–(−8, 16) about `0 0`,
+    (12, 6)–(14, 12) with `fill-box center`, and (10, 10)–(12, 16) about the
+    view box's `50% 50%`.
+  - A stroked hump turned 180° about its fill box keeps its base-to-peak span.
+  - `translate(50%, 50%)` moves by 20 × 10 of the view box, or by 5 × 2 of
+    the fill box.
+  - The cuts are recorded at the positions stated.
+- Doctored, each failing its tests, then restored and compared with saved
+  copies:
+  - paint's loose bounds as the fill box fails the fill-box test;
+  - a `50%` default origin fails 5;
+  - the `transform` hint switched off fails 4, among them "replaces" and
+    "composed".
+- Hostile input (`LOOP.md` stage 2 § 2):
+  - `presentation.rs`: seventeen bad attribute values, among them a
+    million-argument `matrix`, `1e99999`, `NaN`, `unset` and an overflowing
+    product. Each is ignored and recorded. A 100 000-function list is read
+    in one pass.
+  - `walking.rs`: ten hostile stylesheet transforms, boxes and origins, and
+    none panics. An infinite one is refused and the shape drawn
+    untransformed.
+- Reference render: new corpus case **`svg-transform-property`** (330 ×
+  70), five 60 px icons:
+  - a rect turned 60° about its own centre (`fill-box`, `center`), on its
+    outline;
+  - one turned 30° about the view box's corner, swinging down past the
+    left edge, where the `<svg>` clips it;
+  - an attribute `translate(10 0)` replaced by a sheet's `translate(0,
+    8px)`: moved down only;
+  - a child's `scale(2)` inside a `<g transform="translate(8 0)">`: at
+    10–20 × 4–12;
+  - the attribute `rotate(45 10 10)` and the property `rotate(45deg)` about
+    `10px 10px`, landing on each other.
+
+  I looked at the render, upscaled, and each icon matches its arithmetic.
+  The first draft had no doctype (`issues.txt` held html5ever's "Unexpected
+  token") and its row was shrunk to 59.2 px icons, so both were fixed. Its
+  `issues.txt` is empty and `layout.txt` pins each `<svg>` at 60 × 60.
+  `ALO_UPDATE_REFERENCES=1` changed no other case.
+- One responsibility per file. The attribute's grammar is
+  `svg_transform.rs`'s, the number scanner `svg_number.rs`'s, the property's
+  box and origin `alo-svg`'s `transform.rs`'s, the object bounding box
+  `bbox.rs`'s, and the order of drawing `walk.rs`'s. `walk.rs` lost its
+  transform parsing rather than gaining a responsibility.
+- `docs/features.md`, `docs/conformance.md`, `CHANGELOG.md`, the crate docs
+  of `alo-svg`, `alo-value` and `presentation.rs` say what works and what
+  is 288's.
+
+**Roadmap.** The *SVG* line's Built clause gains the `transform` property
+(item 287: `alo-value`'s `svg_transform.rs`, `presentation.rs`, `alo-svg`'s
+`transform.rs` and `bbox.rs`, corpus case `svg-transform-property`). Its
+Owed clause names 288 instead of 287. It stays an empty box. Queue: 287
+ticked with what was built, and 288 opened. Also updated: `REMAINING.md`.
+
+**Unresolved obligations.**
+- An `<svg>`'s own `transform` attribute is still ignored on an outermost
+  `<svg>`, as before. SVG 2 makes it the property there too, but I could not
+  settle here whether browsers apply it about the box's middle, so nothing
+  claims it. To be checked against a real browser if a page uses it.
+- `transform-origin` and `transform-box` are not read as presentation
+  attributes (`transform-origin="12 12"`). SVG 2 lists the first, and it
+  will be added when a page writes one.
+- 288 waits on a page. After 287, the next unticked item in file order is
+  108 (Canvas 2D, depending on 72, which is done). This iteration did not
+  assess whether a page opens it.
+- Carried from 178: the block-level replaced `width: auto` stretch, not yet
+  checked against a browser; 284 (an inline-level `<svg>`'s per cent) and
+  286 wait on a page; the forced break on an empty line in `end_line`;
+  ADR 0022 § 2's wording and § 4's name order, and a side-by-side of the
+  hand with a real browser (a person's call); 269 blocked on a `rav1d`
+  release; the `image-webp` upstream report; 109, 179, and 82, 83, 85–89,
+  95–99, 104 and 105 still needing their designs.
+
+117 queue items are open (287 closed, 288 opened). The next unused queue
+number is **289** and the next ADR is **0023**. This is one iteration, not a
+finished queue or roadmap.

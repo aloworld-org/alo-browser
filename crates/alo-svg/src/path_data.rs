@@ -26,8 +26,8 @@
 
 use crate::arc::{self, Arc};
 use crate::bounds::MOST_PATH_SEGMENTS;
-use crate::number::{is_whitespace, scan};
 use alo_paint::{Path, Point};
+use alo_value::svg_number::{is_whitespace, scan};
 
 /// What path data drew, and where it stopped if it stopped early.
 #[derive(Debug, Clone, PartialEq)]

@@ -25,6 +25,11 @@
 //!   this layer could not come before the cascade — until the cascade has run
 //!   there is no font size to be relative to.
 //!
+//! - [`svg_number`] and [`svg_transform`]: SVG's own number lists and its
+//!   `transform` attribute, whose grammars are not CSS's. They are here and
+//!   not in `alo-svg` because the attribute is a presentation attribute, so
+//!   the cascade reads it before `alo-svg` ever does.
+//!
 //! # What is not here
 //!
 //! **Colours.** They are queue item 14, because they block paint rather than
@@ -42,6 +47,8 @@ pub mod length;
 pub mod parse;
 pub mod shadow;
 pub mod shorthand;
+pub mod svg_number;
+pub mod svg_transform;
 pub mod transform;
 pub mod unit;
 

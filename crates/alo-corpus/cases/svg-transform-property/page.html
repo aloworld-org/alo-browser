@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- Queue item 287: the transform property on SVG elements (ADR 0022 §§ 2,
+     3). Each <svg> is a 20-unit viewBox drawn at 60 px on a pale ground. A
+     thin dark outline marks where the shape would be with no transform. -->
+<p class=row>
+  <!-- Turned a sixth of a turn by the property about its own middle
+       (transform-box: fill-box; transform-origin: center), so it stays
+       centred on its outline. -->
+  <svg viewBox="0 0 20 20" aria-label="About its own box"><rect class="spin" x="4" y="7" width="12" height="6" fill="#e76f51"/><rect class=guide x="4" y="7" width="12" height="6"/></svg>
+  <!-- The same property with SVG's initial box and origin: the view box's
+       top-left corner, so it swings down and out past the left edge, where
+       the <svg>'s box clips it. -->
+  <svg viewBox="0 0 20 20" aria-label="About the origin"><rect class="swing" x="4" y="7" width="12" height="6" fill="#e9c46a"/><rect class=guide x="4" y="7" width="12" height="6"/></svg>
+  <!-- An attribute that would move it right, replaced by a stylesheet that
+       moves it down: down only, not both. -->
+  <svg viewBox="0 0 20 20" aria-label="Stylesheet replaces attribute"><rect class="down" x="2" y="2" width="8" height="8" fill="#2a9d8f" transform="translate(10 0)"/><rect class=guide x="2" y="2" width="8" height="8"/></svg>
+  <!-- A group's attribute moves everything in it 8 across; a child's
+       property doubles it about the child's origin first. -->
+  <svg viewBox="0 0 20 20" aria-label="Composed under a group"><g transform="translate(8 0)"><rect class="grow" x="1" y="2" width="5" height="4" fill="#264653"/></g><rect class=guide x="1" y="2" width="5" height="4"/></svg>
+  <!-- The attribute alone, rotate(45 10 10), and the property written as
+       CSS with the same centre: the two land on top of each other. -->
+  <svg viewBox="0 0 20 20" aria-label="Attribute and property agree"><rect x="5" y="8" width="10" height="4" fill="#8ab17d" transform="rotate(45 10 10)"/><rect class="agree" x="5" y="8" width="10" height="4" fill="none" stroke="#102a43" stroke-width="0.5"/></svg>
+</p>
