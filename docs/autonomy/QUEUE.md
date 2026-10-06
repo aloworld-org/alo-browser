@@ -4083,7 +4083,7 @@ The long pole, and the thing most of section E is unreachable without.
   to the pressed row); its reference render must not move, which shows the
   script changed nothing at load. It closes when 254, 255 and 256 have.
 
-- [ ] **254. Events from script: `EventTarget`, `Event`, `CustomEvent` and
+- [x] **254. Events from script: `EventTarget`, `Event`, `CustomEvent` and
   the dispatch algorithm.** *Cut from 81 (ADR 0018 §§ 1–3, 8). Depends on
   nothing.* `Node.prototype` inherits from `EventTarget.prototype`; a
   wrapper holds its listener list, traced and counted in its footprint;
@@ -4099,6 +4099,36 @@ The long pole, and the thing most of section E is unreachable without.
   `passive`, both stops and a throwing listener (reported, dispatch carrying
   on) are asserted — through `alo-bindings` tests and a corpus case whose
   script writes the order it saw into the page, with its layout in numbers.
+  **Built (iteration 151).** `alo-js`: `Want::Report`, a call a builtin asks
+  for whose throw nothing inside it catches **stops at it** (`catch.rs`), is
+  set aside rooted with its trace (`interpret/reported.rs`, bounded by
+  `REPORTS_SET_ASIDE` = 256 with the rest counted), and answers the builtin
+  `undefined` with `Call::reported()`; the embedder takes them with
+  `Engine::hand_over_reported` after a run or call, and a checkpoint hands a
+  job's to its own report before the job's throw (`Drained::reported`,
+  `unreported`); and `Instance::Made`, an embedder's constructor given its
+  instance only by `new` (`Call::constructing()`). `alo-bindings`:
+  `listeners.rs` (a wrapper's list, ids for the *removed* flag, counted in
+  its footprint), `event.rs` (the event cell holding the dispatch's
+  `Progress`), `dispatch.rs` (the stepper), `dictionary.rs`, and
+  `interface/event_target.rs`, `event.rs`, `custom_event.rs`; `EventTarget`
+  heads a node's chain; `Event` and `CustomEvent` are the only interface
+  objects on the global; a dispatch's path is kept by the document cell
+  (`on_path`) until it ends; `InvalidStateError` for a second dispatch.
+  `alo-renderer` reports a listener's throw after its script, placed in it.
+  **Cut, by scope:** `isTrusted` is item 260 — Web IDL makes it
+  `[LegacyUnforgeable]`, and a prototype accessor would be approximate; the
+  flag is kept and set. Tests: `alo-js/tests/what_a_reported_call_reports.rs`
+  (7), `alo-bindings/tests/what_an_event_does.rs` (12, every script both
+  ordinarily and collecting at every allocation),
+  `alo-renderer/tests/what_a_listener_hears.rs` (2: the paragraphs in
+  numbers, and the throw reported at script 1, line 16, column 70 on each
+  dispatch); corpus case **`a-script-hears-an-event`**, reference render
+  looked at. Doctored runs, each restored and checked identical: the path
+  not kept, `once` not removed, `passive` ignored,
+  `stopImmediatePropagation` ignored, the bubble pass skipping the target,
+  no reporting boundary, and the renderer not handing over — each fails a
+  test.
 
 - [ ] **255. A dispatch from the browser is a task.** *Cut from 81 (ADR 0018
   § 3, ADR 0016 §§ 3 and 6). Depends on 254.* A `Work` kind beside `Script`
@@ -4111,9 +4141,10 @@ The long pole, and the thing most of section E is unreachable without.
   `dispatchEvent` do not.
 
 - [ ] **256. `Activate` is a keyboard's click.** *Cut from 81 (ADR 0018 §§ 4–7).
-  Depends on 255.* `UIEvent`, `MouseEvent` and `PointerEvent` with the members
-  § 5 names; `alo-dom`'s `activation.rs` (before, cancelled, after) for a
-  checkbox, a radio and a link; `HTMLElement` between `Element` and an HTML
+  Depends on 255 and 260* (an agent's click is trusted, § 4). `UIEvent`,
+  `MouseEvent` and `PointerEvent` with the members § 5 names; `alo-dom`'s
+  `activation.rs` (before, cancelled, after) for a checkbox, a radio and a
+  link; `HTMLElement` between `Element` and an HTML
   element, and `click()`; `apply` stops toggling, and stops changing
   `aria-checked` on a scripted page; the agent's answer comes after the
   task. *Closes when:* item 81's closing condition — `alo-settings`' script,
@@ -4141,6 +4172,20 @@ The long pole, and the thing most of section E is unreachable without.
   `csp::Inline::Script` with `csp::Content::attribute` (item 191's shape),
   and `el.onclick = f`. *Depends on 254. Opened by a page* that fails
   without them, as `ROADMAP.md` asks of stage 2.
+
+- [ ] **260. `isTrusted`, as Web IDL's `[LegacyUnforgeable]` attribute.**
+  *Cut from 254 (ADR 0018 §§ 4 and 8). Depends on nothing.* An own accessor
+  on every `Event` instance, neither configurable nor writable, whose getter
+  is **one function per realm** shared by every instance — which needs a
+  place the constructor and the browser's dispatch can find that getter
+  (the document cell's interfaces, or the engine giving an embedder's
+  constructor more than its prototype). The flag is already kept and set:
+  `false` for `dispatchEvent`, `true` for the browser's dispatch (255). A
+  getter on `Event.prototype` instead would be the approximate member ADR
+  0013 § 3 refuses. *Closes when:* `e.isTrusted` is `false` after a script's
+  `dispatchEvent` and `true` in a listener for the browser's, its property
+  is the instance's own and the same getter on two events, and a page
+  cannot replace it.
 
 - [ ] **82. Forms**: the controls, constraint validation, submission, file
   inputs.

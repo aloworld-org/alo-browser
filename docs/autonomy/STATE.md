@@ -12644,3 +12644,140 @@ browser process (item 203's dependency); iteration 141's browser-side
 font-name guard still has no discriminating test. 115 queue items are
 open. Next is **254**. Next unused queue number **260**; next ADR **0019**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 151 — item 254: events from script
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Events* line, iteration 150's entry, queue
+items 81 and 254–259, ADR 0018 in full, ADR 0017 §§ 1–5 and 8, ADR 0016 §§ 1,
+3 and 7, ADR 0014 §§ 2, 5, 7–9 and ADR 0013 §§ 3 and 6; and the code it
+builds on — `alo-js`'s `object/native.rs`, `interpret/call.rs`, `catch.rs`,
+`checkpoint.rs`, `construct.rs`, `frame.rs`, `unwound.rs`; `alo-bindings`'
+every file; `alo-renderer`'s `event_loop.rs` and `event_loop/report.rs`; the
+`alo-corpus` case format. No `AGENTS.md` exists. No sibling repository was
+read or modified. The checkout was clean on entry at `7a40d83`.
+
+**Selection.** Iteration 150 named **254** next; it depends on nothing, and
+every earlier open item is still blocked for the reasons iteration 144
+recorded. Its ADR (0018) and feature line (*Events*) exist.
+
+**What was built.** *The engine* (`alo-js`, generic, ADR 0013 § 6 holds):
+`Want::Report`, a call a builtin asks for whose throw nothing inside it
+catches **stops at that call** — `land` searches only the frames inside the
+innermost reporting builtin, takes them down, sets the throw aside rooted
+with a trace of those frames only (`interpret/reported.rs`, at most
+`bounds::REPORTS_SET_ASIDE` = 256 kept between hand-overs, the rest counted)
+and answers the builtin `undefined` with `Call::reported()` true; only the
+page's own escapes are reported, a stop still ends the run. The embedder
+takes them with `Engine::hand_over_reported` after a run or a call; a
+checkpoint hands a job's set-aside throws to its own report before the
+job's own throw (`Drained::reported`, `Drained::unreported`). And
+`Instance::Made`, an embedder's constructor given its instance only by
+`new` (`Call::constructing()`), so a constructor that suspends to run a
+dictionary getter keeps what it converted in its instance. `Waiting`'s
+`answered` became a three-state `Slot` (clippy's bool limit, and clearer).
+*The bindings* (`alo-bindings`): `listeners.rs` (a wrapper's list, an id per
+listener standing for the *removed* flag, counted in the footprint);
+`event.rs` (the event cell, the dispatch's `Progress` held in it, the
+dispatch flag being having one); `dispatch.rs` (the stepper: path computed
+at the start, capture then bubble, `AT_TARGET` both passes, lists copied as
+ids at each target's turn, `once`, `passive`, both stops, `finish`);
+`dictionary.rs`; `interface/event_target.rs`, `event.rs`,
+`custom_event.rs`. `EventTarget` heads a node's chain; `Event` and
+`CustomEvent` are the only interface objects on the global, each with
+`prototype`, `constructor` back, `CustomEvent` inheriting from `Event`, the
+phase constants on both `Event` and its prototype; `InvalidStateError` for
+a second dispatch (`DomException::named`); `signal` the Web IDL
+`TypeError`; the default passive value for scroll-blocking types. A node on
+a dispatch's path is kept, tree and wrapper, until it ends (`DocumentCell`'s
+`on_path`, traced in `liveness.rs`), as the standard's path keeps it.
+`alo-dom`'s `document_element` became public, for the default passive
+value. *The renderer* hands over set-aside throws after every script and
+call, before the piece's own throw, and adds a checkpoint's uncounted ones.
+
+**Cut, by scope, never depth:** `isTrusted` is **queue item 260** — Web IDL
+makes it `[LegacyUnforgeable]`, an own accessor on every instance sharing
+one getter per realm, which needs a place the constructor can find that
+getter; a prototype accessor would be the approximate member ADR 0013 § 3
+refuses. The flag is kept and set. 256 now depends on 260 as well.
+
+**Tests and manual checks.** `alo-js/tests/what_a_reported_call_reports.rs`
+(7 tests, both ordinarily and collecting at every allocation: carrying on,
+order, a `try` inside versus around, the trace stopping at the call, a
+non-function and a throwing builtin reported, nesting, a stop not reported,
+the bound — 256 kept and 44 counted — a checkpoint's order, and
+`Instance::Made` only by `new`). `alo-bindings/tests/what_an_event_does.rs`
+(12 tests, every script run both ways: the order across document, html,
+body, div, p and span with each phase and `currentTarget`; non-bubbling;
+`once`; `passive` and its default; both stops; a throwing listener reported
+with dispatch carrying on and the outer `try` not reached;
+`InvalidStateError` caught and uncaught; nested dispatch; the list changed
+during its own dispatch; `handleEvent` objects, getters and the
+not-callable `TypeError`; argument conversion and getter order; the
+constructors, constants and chain; `composedPath()` during and after; the
+absent members; **a node on the path kept** through collections at every
+allocation; a listener released with its detached tree; and hostile
+scripts — a path five thousand deep, a runaway nested dispatch ending in
+one reported `RangeError` with no Rust recursion, a thousand throwing
+listeners). `alo-renderer/tests/what_a_listener_hears.rs` (2 tests: the two
+paragraphs **in numbers** — 304×24.296875 at (8, 44.800003) and at (8,
+77.09688), their text "section1 div1 button2 n once div3 true" and
+"section1 div1 button2 n div3 true" — and the listener's throw reported as
+`script 1: uncaught: Error: a listener threw (at script 1, line 16, column
+70)` on each dispatch, the column checked by hand to be the `throw`). Corpus
+case **`a-script-hears-an-event`**, read by the renderer test so the two
+cannot drift; its **reference render looked at**: the *Pick* button and two
+lavender lines saying what was heard. **Doctored runs**, each restored and
+checked identical: the path not kept (the stressed run loses `a` and
+`root`), `once` not removed, `passive` ignored, `stopImmediatePropagation`
+ignored, the bubble pass skipping the target, no reporting boundary in the
+engine, and the renderer not handing over — each fails at least one test.
+
+**Compliance review.** Law 1: `returnValue`, `cancelBubble`, `srcElement`,
+`initEvent`, `createEvent`, `initCustomEvent` asserted absent. Law 2: no
+agent surface changed; nothing the browser does dispatches yet (255, 256).
+Law 3: no stub, no `unwrap` outside tests; the cut is a queue item with a
+closing condition. Law 4: no `unsafe`. ADR 0018 §§ 1–3 and 8 as written,
+except the stated cut; § 1's *never makes a wrapper to find out* holds — a
+dispatch asks the cell's table, and only `composedPath()` wraps. ADR 0014
+§ 9: listener entries, a dispatch's path and its listener copy, and the
+cell's `on_path` are counted in footprints; the new bound has its reason.
+Stage 2 § 2, hostile bytes: a script is the hostile input here, and the
+hostile cases return or report, never panic. One file, one responsibility:
+each new file has one rule. Layout assertion in numbers and reference
+render: above. `docs/features.md`'s *Events* line names what is built.
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step (6 min 44 s): formatting clean, clippy silent, all tests pass,
+nothing stubbed, `unsafe` forbidden, licence notices, every rented crate
+behind its boundary, no coordinate verb, the stop rule holds, `CHANGELOG.md`
+changed. A first run failed only `cargo fmt` on two new test files; they
+were formatted and the whole gate run again. `git diff --check` passes. Log
+kept in this session's scratchpad, not committed.
+
+**Roadmap.** The *Events* line moves from *Owed: all of the code* to a
+Built clause (events from script, corpus case) and an Owed clause (255,
+256, 260, 257–259). Not a tick. `CHANGELOG.md`, `docs/features.md`,
+`docs/conformance.md` (twenty-eight cases) and `REMAINING.md` moved with it.
+
+**Unresolved obligations.** New: `isTrusted` (260); `addEventListener` with
+an object type *and* an options getter refused by name
+(`ASecondArgumentBehindACall`, item 221), as `setAttribute` with two objects
+is; a dispatch abandoned by a non-page escape (a stop, a full heap) leaves
+its event flagged as dispatching and its path kept — the event loop stops
+the page in exactly that case, but an embedder driving `alo-bindings` alone
+keeps the path until the page goes; an embedder that never calls
+`hand_over_reported` holds up to 256 roots. Carried: item 81's remaining
+code (255, 256, 257, 258 needs design, 259); `document.head` and every
+other absent member wait for a page or an item; any other object a page
+throws is said as `an object` (item 78); a `<meta>` policy a script inserts
+is not applied; detached trees a script drops during a load wait for the
+first collection after the parse; the renderer's path for a document the
+heap refuses is not discriminated; the one-write overshoot of the heap's
+ceiling; 248's undiscriminated overrun fallback; 78's remainder; 77 needs
+design; 233, 234, 238 and 240 open and item 76 not done;
+`violations::reports` still called by nothing in the browser process (item
+203's dependency); iteration 141's browser-side font-name guard still has
+no discriminating test. 115 queue items are open. Next is **255** (its
+dependency 254 is done). Next unused queue number **261**; next ADR
+**0019**. This is one iteration, not a finished queue or roadmap.

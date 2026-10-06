@@ -92,7 +92,7 @@ use crate::object::{Code, Value};
 use crate::unit::Unit;
 
 use super::Engine;
-use super::frame::{After, Frame, Loaded, Run, Then, Waiting};
+use super::frame::{After, Frame, Loaded, Run, Slot, Then, Waiting};
 
 impl Engine {
     /// `Op::Closure`: a function of a chunk of the running program, over the
@@ -214,9 +214,12 @@ impl Engine {
             // and the loop runs its body. See the module comment on why it is
             // not simply run here.
             Some(Called::Native(body, instance)) => {
-                if let Some(instance) = instance {
+                if let Some(instance) = instance
+                    && (instance.when_called() || after == After::Construct)
+                {
                     // A builtin constructor is given its instance, called or
-                    // constructed alike (queue item 227).
+                    // constructed alike (queue item 227) — an embedder's
+                    // only when constructed.
                     self.make_instance(run, callee_at, held, instance, at)?;
                 }
                 return Self::wait(run, callee_at, argc, at, after, body);
@@ -338,7 +341,8 @@ impl Engine {
             after,
             step: 0,
             ready: true,
-            answered: false,
+            answer: Slot::Empty,
+            reporting: false,
         });
         Ok(())
     }
@@ -360,15 +364,21 @@ impl Engine {
         }
         // Read from the slot rather than kept from the step before: the body is
         // about to allocate, and the stack is what roots this.
-        let answered = if waiting.answered {
-            Some(self.value_at(run, waiting.answer_at())?)
-        } else {
+        let answered = if waiting.answer == Slot::Empty {
             None
+        } else {
+            Some(self.value_at(run, waiting.answer_at())?)
         };
         let mut call = Call::new(&mut self.objects, this, &arguments, waiting.at)
             .within(self.realm.intrinsics());
+        if waiting.after == After::Construct {
+            call = call.constructed();
+        }
         if let Some(value) = answered {
             call.resume(waiting.step, value);
+            if waiting.answer == Slot::Reported {
+                call.was_reported();
+            }
         }
         let answer = (waiting.body)(&mut call)?;
         match answer {
@@ -399,9 +409,15 @@ impl Engine {
             .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
         mine.step = step;
         mine.ready = false;
-        mine.answered = true;
+        mine.answer = Slot::Answered;
+        mine.reporting = matches!(want, Want::Report { .. });
         match want {
             Want::Call {
+                callee,
+                receiver,
+                arguments,
+            }
+            | Want::Report {
                 callee,
                 receiver,
                 arguments,

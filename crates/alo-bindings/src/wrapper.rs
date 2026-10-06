@@ -11,6 +11,10 @@
 //! everything it is as a node comes from asking the document cell about its
 //! id.
 //!
+//! And it holds the node's **listener list** (ADR 0018 § 1,
+//! [`crate::listeners`]): a listener is held by its target's wrapper, so it
+//! lives exactly as long as the wrapper does.
+//!
 //! It holds its document **strongly**: a node a script holds keeps the page's
 //! document, which is what makes `node.ownerDocument` an answer rather than a
 //! hope. What keeps the wrapper is not here but in the document cell, which
@@ -20,12 +24,15 @@ use alo_dom::NodeId;
 use alo_js::heap::{Barrier, Field, Ref, Trace, Tracer};
 use alo_js::object::{Exotic, Internal, Key, Ordinary, Property};
 
+use crate::listeners::Listeners;
+
 /// A node's one object (ADR 0014 § 6: one per node for as long as it lives).
 #[derive(Debug)]
 pub struct Wrapper {
     node: NodeId,
     document: Field,
     own: Ordinary,
+    listeners: Listeners,
 }
 
 impl Wrapper {
@@ -36,7 +43,19 @@ impl Wrapper {
             node,
             document: Field::holding(document),
             own: Ordinary::with_prototype(prototype),
+            listeners: Listeners::default(),
         }
+    }
+
+    /// Its node's listeners.
+    pub const fn listeners(&self) -> &Listeners {
+        &self.listeners
+    }
+
+    /// The same, to change — each change through the barrier its methods
+    /// take.
+    pub const fn listeners_mut(&mut self) -> &mut Listeners {
+        &mut self.listeners
     }
 
     /// The node this is the wrapper of.
@@ -88,10 +107,13 @@ impl Trace for Wrapper {
     fn trace(&self, tracer: &mut Tracer) {
         self.document.trace(tracer);
         self.own.trace(tracer);
+        self.listeners.trace(tracer);
     }
 
     fn footprint(&self) -> usize {
-        self.own.footprint()
+        self.own
+            .footprint()
+            .saturating_add(self.listeners.footprint())
     }
 }
 

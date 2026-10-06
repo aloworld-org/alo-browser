@@ -1,0 +1,11 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      block flow · generic
+        inline flow-root · button
+          anonymous block
+            text "Pick"
+    block flow · paragraph
+      text "section1 div1 button2 n once div3 true"
+    block flow · paragraph
+      text "section1 div1 button2 n div3 true"

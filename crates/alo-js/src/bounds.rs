@@ -181,6 +181,17 @@ pub const CALLS_ON_THE_STACK: usize = 10 * 1024;
 /// has been cut by it.
 pub const PLACES_IN_A_TRACE: usize = 32;
 
+/// How many throws a builtin asked to have reported are kept between two
+/// hand-overs to the embedder (ADR 0018 § 3, queue item 254).
+///
+/// Two hundred and fifty-six, which is the most one turn of the renderer's
+/// event loop says (its `MOST_REPORTS`): keeping more here than the embedder
+/// will ever describe would root thrown objects nobody reads. Each kept throw
+/// holds a root and a trace of at most [`PLACES_IN_A_TRACE`] places until it
+/// is handed over; past this a throw is counted, so a script dispatching to a
+/// throwing listener a million times costs a counter, and the count is said.
+pub const REPORTS_SET_ASIDE: usize = 256;
+
 /// The most a page's objects may hold, in bytes.
 ///
 /// One gibibyte. ADR 0014 § 9: reaching it collects first and fails second, and

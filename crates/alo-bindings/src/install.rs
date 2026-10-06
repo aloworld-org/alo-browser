@@ -9,6 +9,15 @@
 //! ([`crate::interface`]). [`install`] does that and puts the document on the
 //! global object as `document`: the moment a page's script can reach it.
 //!
+//! It also puts the two interface objects a page constructs with on the
+//! global object — `Event` and `CustomEvent` (ADR 0018 § 8), since a page
+//! cannot make an event any other way. Each is a constructor whose
+//! `prototype` is the interface's prototype the document cell holds, neither
+//! writable nor configurable, with a `constructor` pointing back;
+//! `CustomEvent` inherits from `Event`, and `Event` carries the four phase
+//! constants as its prototype does. Called without `new`, each is a
+//! `TypeError`.
+//!
 //! # `document` is a value, not yet a getter
 //!
 //! Web IDL makes `document` an unforgeable **accessor** on the window. Its
@@ -25,12 +34,14 @@
 use alo_js::builtin::error::Family;
 use alo_js::heap::Ref;
 use alo_js::interpret::Engine;
-use alo_js::object::{Found, Property, Value};
+use alo_js::object::native::{Body, Instance, Make, Native};
+use alo_js::object::{Found, Objects, Property, Value};
 use alo_js::{Escape, Fault};
 
 use crate::document_cell::DocumentCell;
 use crate::embed::{self, Wrapping};
-use crate::interface::{Inherits, Interface};
+use crate::event::{make_custom_event, make_event};
+use crate::interface::{Inherits, Interface, custom_event, event};
 
 /// Make every interface's prototype in `engine`'s realm and give them to the
 /// document `cell` holds.
@@ -90,6 +101,7 @@ pub fn furnish(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
 /// wrapper.
 pub fn install(engine: &mut Engine, cell: Ref) -> Result<Ref, Escape> {
     furnish(engine, cell)?;
+    constructors(engine, cell)?;
     let global = engine.global()?;
     let objects = engine.objects();
     let root = embed::document(objects, cell)
@@ -114,4 +126,92 @@ pub fn install(engine: &mut Engine, cell: Ref) -> Result<Ref, Escape> {
         Ok(false) => Err(Escape::type_error("this realm already has a document", 0)),
         Err(named) => Err(Escape::named(named, 0)),
     }
+}
+
+/// Put `Event` and `CustomEvent` on `engine`'s global object.
+///
+/// **A safepoint.** Each constructor is held in a scope until the global
+/// object owns it, and each prototype is held by the document cell, which the
+/// caller roots.
+fn constructors(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
+    let global = engine.global()?;
+    let (intrinsics, objects) = engine.intrinsics();
+    let mut above = intrinsics.function_prototype(objects)?;
+    let made: [(Interface, Body, Make); 2] = [
+        (Interface::Event, event::construct, make_event),
+        (
+            Interface::CustomEvent,
+            custom_event::construct,
+            make_custom_event,
+        ),
+    ];
+    for (interface, body, make) in made {
+        let objects = engine.objects();
+        let prototype = objects
+            .embedded::<DocumentCell>(cell)
+            .and_then(|held| held.interfaces().prototype(interface))
+            .ok_or(Escape::fault(Fault::Gone))?;
+        let scope = objects.heap_mut().open();
+        let outcome = constructor(objects, global, prototype, above, interface, body, make);
+        objects.heap_mut().close(scope);
+        // `CustomEvent` inherits from `Event`, which the global object holds.
+        above = outcome?;
+    }
+    Ok(())
+}
+
+/// One interface object, with the scope open, answering it.
+fn constructor(
+    objects: &mut Objects,
+    global: Ref,
+    prototype: Ref,
+    above: Ref,
+    interface: Interface,
+    body: Body,
+    make: Make,
+) -> Result<Ref, Escape> {
+    let name = interface.name();
+    let function = objects
+        .native(
+            Native::constructor(name, body, Instance::Made(make)),
+            Some(above),
+        )
+        .map_err(|why| Escape::refused(why, 0))?;
+    objects.heap_mut().hold(function);
+    let named = |text: &str| -> Vec<u16> { text.encode_utf16().collect() };
+    let properties = [
+        (
+            function,
+            named("prototype"),
+            Property::data(Value::Object(prototype), false, false, false),
+        ),
+        (
+            prototype,
+            named("constructor"),
+            Property::data(Value::Object(function), true, false, true),
+        ),
+        (
+            global,
+            named(name),
+            Property::data(Value::Object(function), true, false, true),
+        ),
+    ];
+    for (object, units, property) in properties {
+        match objects.define_named(object, &units, property) {
+            Ok(true) => {}
+            // A page has had no chance to run: the global refusing is an
+            // embedder installing twice.
+            Ok(false) => {
+                return Err(Escape::type_error(
+                    format!("this realm already has '{name}'"),
+                    0,
+                ));
+            }
+            Err(named) => return Err(Escape::named(named, 0)),
+        }
+    }
+    if interface == Interface::Event {
+        event::constants(objects, function)?;
+    }
+    Ok(function)
 }

@@ -30,18 +30,31 @@
 //! is the approximate answer ADR 0013 § 3 refuses. A member is added to its
 //! interface's file when a page or an item needs it (ADR 0017 § 8).
 //!
+//! # Events are interfaces too
+//!
+//! `EventTarget` is at the top of a node's chain (ADR 0018 § 1), and `Event`
+//! and `CustomEvent` are the interfaces of the event objects a script makes
+//! and dispatches. Their prototypes are the document cell's like every
+//! other, so the browser's own dispatch (queue item 255) finds them where a
+//! node's native finds `Element.prototype`.
+//!
 //! # What is not here
 //!
-//! **No interface object is on the global object** — no `Node`, no
-//! `Element`, no `DOMException` constructor — so `typeof Node` is
-//! `"undefined"`, `instanceof` has nothing to name, and neither prototype
-//! has a `constructor`. No `Symbol.toStringTag` either. Each is a member of
-//! its own, added when something needs it.
+//! **Only `Event` and `CustomEvent` have an interface object on the global
+//! object**, because a page cannot make an event any other way
+//! ([`crate::install`]). There is no `Node`, `Element`, `EventTarget` or
+//! `DOMException` constructor, so `typeof Node` is `"undefined"`,
+//! `instanceof` has nothing to name, and their prototypes have no
+//! `constructor`. No `Symbol.toStringTag` either. Each is a member of its
+//! own, added when something needs it.
 
 pub mod child_node;
+pub mod custom_event;
 pub mod document;
 pub mod dom_exception;
 pub mod element;
+pub mod event;
+pub mod event_target;
 pub mod node;
 
 use alo_dom::{NodeId, NodeKind};
@@ -54,6 +67,8 @@ use crate::document_cell::DocumentCell;
 /// One interface a script can see an object as.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Interface {
+    /// What a listener is added to and an event dispatched at: every node.
+    EventTarget,
     /// Every node: its place in the tree, its text and the four changes.
     Node,
     /// Text, comments and processing instructions.
@@ -75,6 +90,10 @@ pub enum Interface {
     DocumentFragment,
     /// The error a refused change throws (ADR 0017 § 5).
     DomException,
+    /// An event (ADR 0018 § 8).
+    Event,
+    /// An event carrying a page's own `detail`.
+    CustomEvent,
 }
 
 /// What an interface's prototype inherits from.
@@ -91,7 +110,8 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 13] = [
+        Self::EventTarget,
         Self::Node,
         Self::CharacterData,
         Self::Text,
@@ -102,11 +122,14 @@ impl Interface {
         Self::DocumentType,
         Self::DocumentFragment,
         Self::DomException,
+        Self::Event,
+        Self::CustomEvent,
     ];
 
     /// Its name, as the standard spells it.
     pub const fn name(self) -> &'static str {
         match self {
+            Self::EventTarget => "EventTarget",
             Self::Node => "Node",
             Self::CharacterData => "CharacterData",
             Self::Text => "Text",
@@ -117,13 +140,17 @@ impl Interface {
             Self::DocumentType => "DocumentType",
             Self::DocumentFragment => "DocumentFragment",
             Self::DomException => "DOMException",
+            Self::Event => "Event",
+            Self::CustomEvent => "CustomEvent",
         }
     }
 
     /// What its prototype inherits from.
     pub const fn inherits(self) -> Inherits {
         match self {
-            Self::Node => Inherits::Object,
+            Self::EventTarget | Self::Event => Inherits::Object,
+            Self::Node => Inherits::Interface(Self::EventTarget),
+            Self::CustomEvent => Inherits::Interface(Self::Event),
             Self::DomException => Inherits::Error,
             Self::Text | Self::Comment | Self::ProcessingInstruction => {
                 Inherits::Interface(Self::CharacterData)
@@ -152,16 +179,19 @@ impl Interface {
     /// Where it is in [`Interface::ALL`].
     const fn index(self) -> usize {
         match self {
-            Self::Node => 0,
-            Self::CharacterData => 1,
-            Self::Text => 2,
-            Self::Comment => 3,
-            Self::ProcessingInstruction => 4,
-            Self::Element => 5,
-            Self::Document => 6,
-            Self::DocumentType => 7,
-            Self::DocumentFragment => 8,
-            Self::DomException => 9,
+            Self::EventTarget => 0,
+            Self::Node => 1,
+            Self::CharacterData => 2,
+            Self::Text => 3,
+            Self::Comment => 4,
+            Self::ProcessingInstruction => 5,
+            Self::Element => 6,
+            Self::Document => 7,
+            Self::DocumentType => 8,
+            Self::DocumentFragment => 9,
+            Self::DomException => 10,
+            Self::Event => 11,
+            Self::CustomEvent => 12,
         }
     }
 
@@ -181,6 +211,9 @@ impl Interface {
         function_prototype: Ref,
     ) -> Result<(), Escape> {
         match self {
+            Self::EventTarget => event_target::furnish(objects, prototype, function_prototype),
+            Self::Event => event::furnish(objects, prototype, function_prototype),
+            Self::CustomEvent => custom_event::furnish(objects, prototype, function_prototype),
             Self::Node => node::furnish(objects, prototype, function_prototype),
             Self::Element => element::furnish(objects, prototype, function_prototype),
             Self::Document => document::furnish(objects, prototype, function_prototype),

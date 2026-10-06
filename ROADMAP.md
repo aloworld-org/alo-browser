@@ -899,18 +899,19 @@ unreachable without it.
       whole when its rendering is read; and a parser-inserted script sees the
       document up to its own element
 - [ ] **Events**: capture and bubble, listeners, default actions
-      · Owed: all of the code. The decision is made (ADR 0018): the DOM's
-      dispatch algorithm is written once, in `alo-bindings`, with its state
-      in the event, and driven by a script's `dispatchEvent` and by the
-      renderer's event loop, which checkpoints after every listener; a
-      listener lives in its target's wrapper; an agent's verb is trusted and
-      unmarked, and `Activate` is the one `click` keyboard activation fires,
-      with no coordinate; activation behaviour is `alo-dom`'s, so a
-      cancelled click undoes a checkbox's toggle. Built as queue items 254
-      (events from script), 255 (a dispatch from the browser as a task) and
-      256 (`Activate` as a click, which closes the line's queue item 81);
-      257 (`PutText`'s input events), 258 (focus) and 259 (event handler
-      attributes) follow
+      · Built: **events from script** (queue item 254, ADR 0018 §§ 1–3, 8)
+      — `EventTarget` heads every node's chain, a listener lives in its
+      target's wrapper, and the DOM's dispatch algorithm is written once in
+      `alo-bindings` (`dispatch.rs`) with its state in the event, driven by
+      `dispatchEvent`: capture and bubble, `once`, `passive`, both stops, a
+      listener's throw reported by the engine (`alo-js`'s `Want::Report`)
+      and the dispatch carrying on; `Event` and `CustomEvent` constructed by
+      a page. Corpus case `a-script-hears-an-event` · Owed: the browser's
+      dispatch as a task with a checkpoint after every listener (255);
+      `Activate` as a keyboard's click with activation behaviour in
+      `alo-dom` (256, which closes the line's queue item 81); `isTrusted`
+      (260); `PutText`'s input events (257), focus (258) and event handler
+      attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
       · Built: **a control draws its own state** (queue item 182) — a tick in a
       checked box, a dot in a chosen radio, a dash in one that is neither, in

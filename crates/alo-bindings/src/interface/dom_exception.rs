@@ -46,9 +46,17 @@ pub struct DomException {
 impl DomException {
     /// The exception `refusal` is, inheriting from `prototype`.
     pub fn new(refusal: Refusal, prototype: Option<Ref>) -> Self {
+        Self::named(refusal.name(), refusal.message(), prototype)
+    }
+
+    /// An exception of this name — one the standard names, never a page's —
+    /// and message, inheriting from `prototype`: what a refusal that is not
+    /// a tree's throws, such as dispatching an event already being
+    /// dispatched (`InvalidStateError`, ADR 0018 § 2).
+    pub fn named(name: &'static str, message: &'static str, prototype: Option<Ref>) -> Self {
         Self {
-            name: refusal.name(),
-            message: refusal.message(),
+            name,
+            message,
             own: Ordinary::with_prototype(prototype),
         }
     }
@@ -122,6 +130,16 @@ impl Exotic for DomException {
 /// Rust local from here until the interpreter lands it, so nothing may
 /// allocate in between (`interpret/catch.rs`).
 pub(crate) fn thrown(call: &mut Call<'_>, owner: Ref, refusal: Refusal) -> Escape {
+    thrown_named(call, owner, refusal.name(), refusal.message())
+}
+
+/// [`thrown`], for an exception named rather than refused by `alo-dom`.
+pub(crate) fn thrown_named(
+    call: &mut Call<'_>,
+    owner: Ref,
+    name: &'static str,
+    message: &'static str,
+) -> Escape {
     let at = call.at();
     let prototype = match idl::owner_cell(call, owner) {
         Ok(held) => held.interfaces.prototype(Interface::DomException),
@@ -129,7 +147,7 @@ pub(crate) fn thrown(call: &mut Call<'_>, owner: Ref, refusal: Refusal) -> Escap
     };
     match call
         .objects()
-        .foreign(Box::new(DomException::new(refusal, prototype)))
+        .foreign(Box::new(DomException::named(name, message, prototype)))
     {
         Ok(exception) => Escape::Thrown(Thrown::Value {
             value: Value::Object(exception),

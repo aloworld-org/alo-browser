@@ -1,0 +1,398 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! The DOM standard's *dispatch*, written once (ADR 0018 § 2, queue item
+//! 254).
+//!
+//! It is a **stepper**: [`begin`] a dispatch, then ask [`next`] what to do —
+//! *call this listener, with this `this`* or *done* — and say [`returned`]
+//! when the call has finished. Its state is the event's ([`Progress`], held
+//! by the [`Event`] cell), so whoever drives it keeps nothing but a step
+//! number across a call: a script's `dispatchEvent` drives it from a native
+//! that suspends once per listener ([`crate::interface::event_target`]), and
+//! the renderer's event loop will drive the same steps with a microtask
+//! checkpoint after each (ADR 0018 § 3, queue item 255).
+//!
+//! # The algorithm, as the standard has it
+//!
+//! - The **path** is the target and its ancestors up to the root of its
+//!   tree, computed when the dispatch begins and not changed by a listener
+//!   moving anything. It ends at the document: the global object is not an
+//!   event target until it is a `Window` (item 251). There are no shadow
+//!   trees and so no retargeting (item 87).
+//! - The **capture pass** goes root to target, the **bubble pass** target to
+//!   root — the second skipping every ancestor when the event does not
+//!   bubble. At the target the phase is `AT_TARGET` in both, its capture
+//!   listeners called in the first and the rest in the second.
+//! - Each target's listeners are **copied when its turn comes**, as ids
+//!   ([`crate::listeners`]): one added to it during its turn does not run,
+//!   one removed does not either, and a `once` listener is removed before it
+//!   is called.
+//! - `stopPropagation` ends the dispatch at the next target;
+//!   `stopImmediatePropagation` after the current listener.
+//! - At the end the phase is `NONE`, `currentTarget` is `null`, the dispatch
+//!   and stop flags are unset, and the answer is whether it was cancelled.
+//!
+//! # A node on the path is kept for as long as the dispatch
+//!
+//! The standard's path holds its targets strongly, so a listener that
+//! detaches an ancestor and drops every reference to it still has that
+//! ancestor's bubble listeners called. A node here is an id, so the document
+//! cell is told which nodes are on a dispatch's path and keeps their trees and
+//! wrappers through any collection until the dispatch ends
+//! ([`DocumentCell`](crate::DocumentCell), [`crate::liveness`]).
+
+use alo_dom::NodeId;
+use alo_js::heap::{Barrier, Field, Ref, Tracer};
+use alo_js::object::Objects;
+use alo_js::{Escape, Fault};
+
+use crate::document_cell::DocumentCell;
+use crate::embed;
+use crate::event::{Event, Phase};
+use crate::tree;
+use crate::wrapper::Wrapper;
+
+/// Which of the two passes along the path a dispatch is in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Pass {
+    Capturing,
+    Bubbling,
+}
+
+/// A dispatch in progress: the event holds it.
+#[derive(Debug)]
+pub struct Progress {
+    /// The document cell whose nodes the path is.
+    document: Field,
+    /// The target, then each ancestor up to its tree's root.
+    path: Vec<NodeId>,
+    pass: Pass,
+    /// Where on the path the dispatch is; [`None`] before the first target.
+    at: Option<usize>,
+    /// The ids of the current target's listeners for this type, copied when
+    /// its turn came.
+    listeners: Vec<u64>,
+    /// The next of them to call.
+    next: usize,
+    /// The callback being called, held while it runs — a `once` listener is
+    /// already out of its list, and its `handleEvent` is read after.
+    invoking: Field,
+}
+
+impl Progress {
+    /// Its references, as edges of the event that holds it.
+    pub fn trace(&self, tracer: &mut Tracer) {
+        self.document.trace(tracer);
+        self.invoking.trace(tracer);
+    }
+
+    /// The bytes it owns: the path and the copy of a target's listeners.
+    pub fn footprint(&self) -> usize {
+        self.path
+            .capacity()
+            .saturating_mul(size_of::<NodeId>())
+            .saturating_add(self.listeners.capacity().saturating_mul(size_of::<u64>()))
+    }
+
+    /// The path, target first.
+    pub fn path(&self) -> &[NodeId] {
+        &self.path
+    }
+
+    /// The document cell the path is in.
+    pub const fn document(&self) -> Option<Ref> {
+        self.document.get()
+    }
+
+    /// The callback being called.
+    pub const fn invoking(&self) -> Option<Ref> {
+        self.invoking.get()
+    }
+
+    /// Drop its references, as the dispatch ends.
+    pub(crate) fn let_go(&mut self, barrier: &mut Barrier) {
+        self.document.set(barrier, None);
+        self.invoking.set(barrier, None);
+    }
+}
+
+/// Why a dispatch could not begin.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Refusal {
+    /// The event is being dispatched already: `InvalidStateError`.
+    Dispatching,
+    /// The object given is not an event.
+    NotAnEvent,
+    /// The target is not a node's wrapper.
+    NotATarget,
+}
+
+/// What the driver is to do next.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Next {
+    /// Call this listener's callback — a function, or an object whose
+    /// `handleEvent` is called — with `this` as the current target, then say
+    /// [`returned`].
+    Call {
+        /// The callback.
+        callback: Ref,
+        /// The current target's wrapper.
+        this: Ref,
+    },
+    /// The dispatch is over; `canceled` is whether a listener cancelled it.
+    Done {
+        /// `defaultPrevented`, which `dispatchEvent` answers the opposite of.
+        canceled: bool,
+    },
+}
+
+/// Begin dispatching `event` to `target`, a node's wrapper — `trusted` when
+/// the browser dispatches it (ADR 0018 § 4).
+///
+/// Allocates nothing in the heap.
+///
+/// # Errors
+///
+/// [`Refusal`]: an event already being dispatched, or a value that is not an
+/// event or not a node's wrapper.
+pub fn begin(objects: &mut Objects, event: Ref, target: Ref, trusted: bool) -> Result<(), Refusal> {
+    let (cell, node) = embed::node_of(objects, target).ok_or(Refusal::NotATarget)?;
+    match objects.embedded::<Event>(event) {
+        Some(held) if held.dispatching() => return Err(Refusal::Dispatching),
+        Some(_) => {}
+        None => return Err(Refusal::NotAnEvent),
+    }
+    let document = embed::document(objects, cell).ok_or(Refusal::NotATarget)?;
+    let mut path = vec![node];
+    let limit = tree::budget(document);
+    let mut at = node;
+    while let Some(parent) = document.parent(at) {
+        if path.len() > limit {
+            // A cycle, which `alo-dom`'s validity rules make impossible: the
+            // path stops rather than going round for ever.
+            break;
+        }
+        path.push(parent);
+        at = parent;
+    }
+    objects.write_embedded::<DocumentCell, _>(cell, |held, _| held.enter_path(&path));
+    let started = objects.write_embedded::<Event, _>(event, |held, barrier| {
+        let mut document = Field::empty();
+        document.set(barrier, Some(cell));
+        let progress = Progress {
+            document,
+            path,
+            pass: Pass::Capturing,
+            at: None,
+            listeners: Vec::new(),
+            next: 0,
+            invoking: Field::empty(),
+        };
+        held.start(barrier, target, trusted, progress);
+    });
+    started.ok_or(Refusal::NotAnEvent)
+}
+
+/// What to do next in `event`'s dispatch.
+///
+/// Allocates nothing in the heap, so the driver may build its call from
+/// what this answers.
+///
+/// # Errors
+///
+/// A fault if `event` is not an event being dispatched, which the driver
+/// began.
+pub fn next(objects: &mut Objects, event: Ref) -> Result<Next, Escape> {
+    loop {
+        let (cell, current, pending) = {
+            let held = objects
+                .embedded::<Event>(event)
+                .ok_or(Escape::fault(Fault::NotAnObject))?;
+            let progress = held.progress().ok_or(Escape::fault(Fault::Gone))?;
+            let cell = progress.document().ok_or(Escape::fault(Fault::Gone))?;
+            (
+                cell,
+                held.current_target(),
+                progress.listeners.get(progress.next).copied(),
+            )
+        };
+
+        if let Some(id) = pending {
+            if let Some(called) = take_listener(objects, event, current, id)? {
+                return Ok(called);
+            }
+            continue;
+        }
+
+        if !advance(objects, event, cell)? {
+            return finish(objects, event, cell);
+        }
+    }
+}
+
+/// A listener the driver was told to call has returned, or thrown and been
+/// reported: the passive flag is unset, and `stopImmediatePropagation`
+/// ends the current target's turn.
+pub fn returned(objects: &mut Objects, event: Ref) {
+    objects.write_embedded::<Event, _>(event, |held, barrier| {
+        held.calling(false);
+        let immediate = held.stopped_immediately();
+        if let Some(progress) = held.progress_mut() {
+            progress.invoking.set(barrier, None);
+            if immediate {
+                progress.next = progress.listeners.len();
+            }
+        }
+    });
+}
+
+/// The listener `id` of the current target, if it is to be called now: its
+/// turn taken, a `once` listener removed, the passive flag set.
+fn take_listener(
+    objects: &mut Objects,
+    event: Ref,
+    current: Option<Ref>,
+    id: u64,
+) -> Result<Option<Next>, Escape> {
+    let pass = objects
+        .write_embedded::<Event, _>(event, |held, _| {
+            held.progress_mut().map(|progress| {
+                progress.next = progress.next.saturating_add(1);
+                progress.pass
+            })
+        })
+        .flatten()
+        .ok_or(Escape::fault(Fault::Gone))?;
+    let Some(wrapper) = current else {
+        return Ok(None);
+    };
+    let Some((callback, capture, once, passive)) = objects
+        .embedded::<Wrapper>(wrapper)
+        .and_then(|held| held.listeners().get(id))
+        .and_then(|listener| {
+            Some((
+                listener.callback()?,
+                listener.capture(),
+                listener.once(),
+                listener.passive(),
+            ))
+        })
+    else {
+        // Removed since its target's turn began.
+        return Ok(None);
+    };
+    let wanted = match pass {
+        Pass::Capturing => capture,
+        Pass::Bubbling => !capture,
+    };
+    if !wanted {
+        return Ok(None);
+    }
+    if once {
+        objects.write_embedded::<Wrapper, _>(wrapper, |held, barrier| {
+            held.listeners_mut().remove_id(barrier, id);
+        });
+    }
+    objects.write_embedded::<Event, _>(event, |held, barrier| {
+        held.calling(passive);
+        if let Some(progress) = held.progress_mut() {
+            progress.invoking.set(barrier, Some(callback));
+        }
+    });
+    Ok(Some(Next::Call {
+        callback,
+        this: wrapper,
+    }))
+}
+
+/// Move to the next target on the path, copying its listeners, and say
+/// whether there was one — none after `stopPropagation`, or past the end.
+fn advance(objects: &mut Objects, event: Ref, cell: Ref) -> Result<bool, Escape> {
+    loop {
+        let (stopped, bubbles, pass, at, length) = {
+            let held = objects
+                .embedded::<Event>(event)
+                .ok_or(Escape::fault(Fault::NotAnObject))?;
+            let progress = held.progress().ok_or(Escape::fault(Fault::Gone))?;
+            (
+                held.propagation_stopped(),
+                held.init(crate::event::Init::Bubbles),
+                progress.pass,
+                progress.at,
+                progress.path.len(),
+            )
+        };
+        if stopped {
+            return Ok(false);
+        }
+        let (pass, at) = match (pass, at) {
+            (Pass::Capturing, None) => (Pass::Capturing, length.saturating_sub(1)),
+            (Pass::Capturing, Some(0)) => (Pass::Bubbling, 0),
+            (Pass::Capturing, Some(at)) => (Pass::Capturing, at.saturating_sub(1)),
+            (Pass::Bubbling, Some(at)) => (Pass::Bubbling, at.saturating_add(1)),
+            (Pass::Bubbling, None) => return Err(Escape::fault(Fault::Gone)),
+        };
+        if at >= length {
+            return Ok(false);
+        }
+        let phase = match (pass, at) {
+            (_, 0) => Phase::AtTarget,
+            (Pass::Capturing, _) => Phase::Capturing,
+            (Pass::Bubbling, _) => Phase::Bubbling,
+        };
+
+        // Where the dispatch is, recorded first, so that an ancestor skipped
+        // because the event does not bubble is passed rather than reached.
+        let node = objects
+            .write_embedded::<Event, _>(event, |held, _| {
+                held.progress_mut().and_then(|progress| {
+                    progress.pass = pass;
+                    progress.at = Some(at);
+                    progress.listeners.clear();
+                    progress.next = 0;
+                    progress.path.get(at).copied()
+                })
+            })
+            .flatten()
+            .ok_or(Escape::fault(Fault::Gone))?;
+        if phase == Phase::Bubbling && !bubbles {
+            continue;
+        }
+
+        let kind = objects
+            .embedded::<Event>(event)
+            .map(|held| held.kind().to_vec())
+            .unwrap_or_default();
+        let wrapper = objects
+            .embedded::<DocumentCell>(cell)
+            .and_then(|held| held.wrapper(node));
+        let listeners = wrapper
+            .and_then(|wrapper| objects.embedded::<Wrapper>(wrapper))
+            .map(|held| held.listeners().matching(&kind))
+            .unwrap_or_default();
+        objects.write_embedded::<Event, _>(event, |held, barrier| {
+            held.reach(barrier, phase, wrapper);
+            if let Some(progress) = held.progress_mut() {
+                progress.listeners = listeners;
+            }
+        });
+        return Ok(true);
+    }
+}
+
+/// End the dispatch, let the document cell stop keeping its path, and say
+/// whether it was cancelled.
+fn finish(objects: &mut Objects, event: Ref, cell: Ref) -> Result<Next, Escape> {
+    let (canceled, progress) = objects
+        .write_embedded::<Event, _>(event, |held, barrier| {
+            let progress = held.finish(barrier);
+            (held.canceled(), progress)
+        })
+        .ok_or(Escape::fault(Fault::NotAnObject))?;
+    if let Some(progress) = progress {
+        objects.write_embedded::<DocumentCell, _>(cell, |held, _| held.leave_path(&progress.path));
+    }
+    Ok(Next::Done { canceled })
+}

@@ -16,6 +16,12 @@
 //!   ADR 0014 § 7's fixpoint marks the whole ring the moment any one is
 //!   marked. A ring of *n* wrappers is *n* pairs, not *n²*.
 //!
+//! A node on the **path of a dispatch in progress** is kept as the standard's
+//! path keeps it (ADR 0018 § 2): its wrapper is a strong edge wherever its
+//! tree is, and its tree is not released, until the dispatch ends — so a
+//! listener that detaches an ancestor and drops it still has that ancestor's
+//! bubble listeners called.
+//!
 //! And at the sweep, it lets go of what did not survive: a wrapper that died
 //! leaves the table, and every detached tree **none** of whose nodes still has
 //! a wrapper is released from `alo-dom` — its nodes dropped, their ids left as
@@ -67,6 +73,9 @@ impl Trace for DocumentCell {
             let mut previous: Option<Ref> = None;
             whole &= walk(document, root, |node| {
                 if let Some(wrapper) = self.wrapper(node) {
+                    if self.on_path(node) {
+                        tracer.edge(wrapper);
+                    }
                     match previous {
                         Some(before) => tracer.ephemeron(before, wrapper),
                         None => first = Some(wrapper),
@@ -92,6 +101,7 @@ impl Trace for DocumentCell {
         self.document
             .footprint()
             .saturating_add(self.table.len().saturating_mul(size_of::<Entry>()))
+            .saturating_add(self.on_path.len().saturating_mul(size_of::<u32>()))
     }
 
     fn clear_weak(&mut self, survivors: &Survivors) {
@@ -106,7 +116,9 @@ impl Trace for DocumentCell {
             after = Some(root);
             let mut held = false;
             let whole = walk(&self.document, root, |node| {
-                held |= self.pending == Some(node) || self.wrapper(node).is_some();
+                held |= self.pending == Some(node)
+                    || self.wrapper(node).is_some()
+                    || self.on_path(node);
             });
             if whole
                 && !held

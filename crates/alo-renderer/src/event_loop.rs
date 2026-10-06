@@ -28,7 +28,10 @@
 //! see each other's microtasks run between them, and the same two called by a
 //! script's `element.click()` do not.
 //!
-//! A throw nothing caught is [reported](Report) and the loop runs on. Anything
+//! A throw nothing caught is [reported](Report) and the loop runs on — and so
+//! is a throw a builtin asked to have reported, a listener's inside a
+//! script's `dispatchEvent` (ADR 0018 § 3), handed over by the engine after
+//! the piece of script it happened in and said before that piece's own. Anything
 //! else that ends a piece of script — the embedder's [`Stop`], a full heap, a
 //! thing the engine has not built, its bug — **stops the page** (§ 7): every
 //! task waiting is dropped and its roots released, the job queue is emptied,
@@ -327,7 +330,9 @@ impl EventLoop {
                 for which in 0..*callees {
                     self.awake()?;
                     let (call, values) = task::call(&mut self.engine, list, *arguments, which)?;
-                    match self.engine.call(call.callee, call.this, &values) {
+                    let outcome = self.engine.call(call.callee, call.this, &values);
+                    self.reported(turn);
+                    match outcome {
                         Ok(_) => {}
                         Err(Escape::Thrown(thrown)) => self.report(&thrown, turn),
                         Err(escape) => return Err(escape),
@@ -362,7 +367,9 @@ impl EventLoop {
             }
         };
         self.sources.keep(&unit, name, text);
-        match self.engine.run(&unit) {
+        let outcome = self.engine.run(&unit);
+        self.reported(turn);
+        match outcome {
             Ok(_) => Ok(()),
             Err(Escape::Thrown(thrown)) => {
                 self.report(&thrown, turn);
@@ -381,6 +388,34 @@ impl EventLoop {
         let trace = self.sources.trace(self.engine.unwound());
         turn.reports
             .push(Report::thrown(self.engine.objects(), thrown, trace));
+    }
+
+    /// Report every throw a builtin asked to have reported during the piece
+    /// of script that has just ended — a listener's, inside a script's
+    /// `dispatchEvent` (ADR 0018 § 3) — before that piece's own throw, since
+    /// they happened first.
+    ///
+    /// Handing them over allocates nothing, so a thrown value the caller is
+    /// still holding survives it.
+    fn reported(&mut self, turn: &mut Turn) {
+        let room = self.room.saturating_sub(turn.reports.len());
+        let mut reports = Vec::new();
+        let mut unreported = 0_usize;
+        let sources = &self.sources;
+        let more = self
+            .engine
+            .hand_over_reported(&mut |objects, thrown, unwound| {
+                if reports.len() < room {
+                    reports.push(Report::thrown(objects, thrown, sources.trace(unwound)));
+                } else {
+                    unreported = unreported.saturating_add(1);
+                }
+            });
+        turn.reports.append(&mut reports);
+        turn.unreported = turn
+            .unreported
+            .saturating_add(unreported)
+            .saturating_add(more);
     }
 
     /// Keep a report the turn has room for, or count it.
@@ -419,6 +454,7 @@ impl EventLoop {
         turn.reports.append(&mut reports);
         turn.unreported = turn.unreported.saturating_add(unreported);
         let drained = drained?;
+        turn.unreported = turn.unreported.saturating_add(drained.unreported);
         turn.jobs = turn.jobs.saturating_add(drained.ran);
         Ok(())
     }

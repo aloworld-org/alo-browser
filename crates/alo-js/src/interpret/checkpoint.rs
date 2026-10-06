@@ -33,6 +33,11 @@
 //! to the embedder as it happens, before anything else allocates, because a
 //! thrown value is a reference that nothing roots once its job has gone.
 //!
+//! A builtin inside a job may have asked for a call whose throw is reported
+//! rather than propagated — `dispatchEvent` in a microtask — and those throws
+//! go to the same report, after their job and before its own throw
+//! ([`reported`](super::reported)).
+//!
 //! Anything else that ends a job — the embedder's [`Stop`](super::Stop), a
 //! full heap, a thing this engine has not built, its own bug — ends the
 //! checkpoint, and **the queue is emptied** rather than kept: ADR 0016 § 7, a
@@ -63,6 +68,12 @@ pub struct Drained {
     pub ran: usize,
     /// How many of them threw, each reported as it did.
     pub threw: usize,
+    /// How many throws a builtin inside them asked to have reported, each
+    /// handed to the same report before its job's own (ADR 0018 § 3).
+    pub reported: usize,
+    /// How many more of those were counted rather than kept, past
+    /// [`REPORTS_SET_ASIDE`](crate::bounds::REPORTS_SET_ASIDE).
+    pub unreported: usize,
 }
 
 impl Engine {
@@ -198,7 +209,20 @@ impl Engine {
                 return Err(Escape::Interrupted);
             }
             drained.ran = drained.ran.saturating_add(1);
-            match self.run_job() {
+            let outcome = self.run_job();
+            // What the job's builtins set aside happened before the job's own
+            // throw, and handing it over allocates nothing, so the thrown
+            // value in `outcome` survives it.
+            let mut counted = 0_usize;
+            let unreported =
+                self.set_aside
+                    .hand_over(&mut self.objects, &mut |objects, thrown, unwound| {
+                        counted = counted.saturating_add(1);
+                        report(objects, thrown, unwound);
+                    });
+            drained.reported = drained.reported.saturating_add(counted);
+            drained.unreported = drained.unreported.saturating_add(unreported);
+            match outcome {
                 Ok(()) => {}
                 Err(Escape::Thrown(thrown)) => {
                     drained.threw = drained.threw.saturating_add(1);

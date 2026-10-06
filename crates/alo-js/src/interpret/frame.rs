@@ -221,8 +221,24 @@ pub(crate) struct Waiting {
     pub(crate) step: u32,
     /// Whether its body runs next, rather than a call it is waiting for.
     pub(crate) ready: bool,
-    /// Whether the slot at [`Waiting::answer_at`] holds an answer for it.
-    pub(crate) answered: bool,
+    /// What the slot at [`Waiting::answer_at`] holds for it.
+    pub(crate) answer: Slot,
+    /// Whether the call it is waiting on was asked for with
+    /// [`Want::Report`](crate::object::native::Want), so that a throw nothing
+    /// inside that call catches stops here, is set aside for the embedder, and
+    /// answers it `undefined` (ADR 0018 § 3). True only while that call runs.
+    pub(crate) reporting: bool,
+}
+
+/// What a waiting builtin's answer slot holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Slot {
+    /// Nothing yet: it has asked for nothing, or is waiting on what it asked.
+    Empty,
+    /// What the call or conversion it asked for answered.
+    Answered,
+    /// The `undefined` a reported throw left, in place of an answer.
+    Reported,
 }
 
 impl Waiting {
@@ -278,6 +294,9 @@ impl Run {
             .last_mut()
             .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
         waiting.ready = true;
+        // The call it asked for is over, so a throw from here on is the
+        // builtin's own, and goes where any builtin's throw goes.
+        waiting.reporting = false;
         Ok(())
     }
 

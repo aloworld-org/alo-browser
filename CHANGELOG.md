@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's script can now listen for events and send its own.** A
+  script can add a listener to any part of the page and send an event —
+  a plain one, or one carrying whatever the page wants — and every
+  listener hears it in the order the standard gives: down from the page to
+  the target, then back up. A listener can stop it there, ask to be called
+  only once, or promise not to cancel it, and the sender learns whether
+  anyone did cancel it. A listener that fails is reported, with where it
+  failed, and the rest still hear the event. Nothing the browser does sends
+  an event yet; an agent pressing a button still changes what it changed
+  before.
+
 - **How a page will hear a click is decided (ADR 0018).** Nothing changes
   yet; this is the decision the code will be built against. A page's
   listeners run in the order the standard gives, by one set of rules

@@ -96,10 +96,18 @@ impl Unwound {
 
     /// The calls of `run`, innermost first, read before any is given back.
     pub(super) fn of(run: &Run) -> Result<Self, Escape> {
-        let frames = run.frames.len();
+        Self::of_from(run, 0)
+    }
+
+    /// The calls of `run` from frame `first` inwards, innermost first — what
+    /// a throw left inside a call a builtin asked to have reported, which is
+    /// where its trace ends (ADR 0018 § 3).
+    pub(super) fn of_from(run: &Run, first: usize) -> Result<Self, Escape> {
+        let inside = run.frames.get(first..).unwrap_or_default();
+        let frames = inside.len();
         let kept = frames.min(bounds::PLACES_IN_A_TRACE);
         let mut places = Vec::with_capacity(kept);
-        for frame in run.frames.iter().rev().take(kept) {
+        for frame in inside.iter().rev().take(kept) {
             let unit = &run
                 .units
                 .get(frame.unit)

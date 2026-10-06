@@ -79,7 +79,7 @@ impl Document {
     }
 
     /// The document element: the document's one element child.
-    fn document_element(&self) -> Option<NodeId> {
+    pub fn document_element(&self) -> Option<NodeId> {
         self.children(self.root())
             .find(|child| self.element(*child).is_some())
     }

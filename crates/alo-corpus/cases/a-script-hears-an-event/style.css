@@ -1,0 +1,6 @@
+:root { --ink: #101014; --surface: #ffffff; --heard: #e0e7ff }
+body { margin: 0; padding: 8px; background: var(--surface); color: var(--ink);
+       font-family: system-ui; font-size: 14px }
+section, div { padding: 2px }
+button { font-size: 14px }
+p { margin: 8px 0 0 0; padding: 4px; background: var(--heard) }

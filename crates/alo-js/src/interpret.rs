@@ -59,6 +59,7 @@ mod frame;
 mod iterate;
 mod primitive;
 mod property;
+mod reported;
 mod unwound;
 
 use std::rc::Rc;
@@ -154,6 +155,9 @@ pub struct Engine {
     last: Option<Root>,
     /// Where the last throw nothing caught had got to (queue item 241).
     unwound: Unwound,
+    /// Throws a builtin asked to have reported, waiting for the embedder
+    /// (ADR 0018 § 3).
+    set_aside: reported::SetAside,
 }
 
 impl Engine {
@@ -176,6 +180,7 @@ impl Engine {
             jobs,
             last: None,
             unwound: Unwound::default(),
+            set_aside: reported::SetAside::default(),
         })
     }
 
@@ -286,6 +291,25 @@ impl Engine {
     /// from nothing unwound. A run that ended any other way leaves it empty.
     pub fn unwound(&self) -> &Unwound {
         &self.unwound
+    }
+
+    /// Hand every throw a builtin asked to have reported since the last
+    /// hand-over to `report`, oldest first, and answer how many more were
+    /// counted rather than kept (ADR 0018 § 3).
+    ///
+    /// Call it after every [`Engine::run`] and [`Engine::call`], whatever they
+    /// answered and **before** saying their own throw: what was set aside
+    /// happened first. A checkpoint hands its jobs' over itself.
+    pub fn hand_over_reported(
+        &mut self,
+        report: &mut dyn FnMut(&Objects, &Thrown, &Unwound),
+    ) -> usize {
+        self.set_aside.hand_over(&mut self.objects, report)
+    }
+
+    /// How many reported throws are waiting to be handed over.
+    pub fn reported_waiting(&self) -> usize {
+        self.set_aside.waiting()
     }
 
     /// A rooted stack and a rooted list of constants, for a run.

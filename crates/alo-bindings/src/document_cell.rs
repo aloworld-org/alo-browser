@@ -53,6 +53,10 @@ pub struct DocumentCell {
     /// The prototype of each interface, once [`crate::install`] has made
     /// them.
     pub(crate) interfaces: Interfaces,
+    /// How many dispatches in progress have each node on their path, at the
+    /// node's id: a node on one is kept, tree and wrapper, until they end
+    /// ([`crate::dispatch`]). Empty until the first dispatch.
+    pub(crate) on_path: Vec<u32>,
 }
 
 /// What collections have let go of, counted.
@@ -73,6 +77,7 @@ impl DocumentCell {
             pending: None,
             released: Released::default(),
             interfaces: Interfaces::default(),
+            on_path: Vec::new(),
         }
     }
 
@@ -109,6 +114,36 @@ impl DocumentCell {
     /// What collections have let go of, so far.
     pub const fn released(&self) -> Released {
         self.released
+    }
+
+    /// Whether `node` is on the path of a dispatch in progress.
+    pub fn on_path(&self, node: NodeId) -> bool {
+        self.on_path
+            .get(node.as_usize())
+            .is_some_and(|count| *count > 0)
+    }
+
+    /// A dispatch has begun along `path`: keep each node on it.
+    pub(crate) fn enter_path(&mut self, path: &[NodeId]) {
+        for node in path {
+            let at = node.as_usize();
+            if self.on_path.len() <= at {
+                self.on_path
+                    .resize(self.document.node_count().max(at.saturating_add(1)), 0);
+            }
+            if let Some(count) = self.on_path.get_mut(at) {
+                *count = count.saturating_add(1);
+            }
+        }
+    }
+
+    /// The dispatch along `path` has ended.
+    pub(crate) fn leave_path(&mut self, path: &[NodeId]) {
+        for node in path {
+            if let Some(count) = self.on_path.get_mut(node.as_usize()) {
+                *count = count.saturating_sub(1);
+            }
+        }
     }
 
     /// Record that `wrapper` is `node`'s, through the barrier every store of

@@ -108,7 +108,9 @@ impl Answer {
 /// is a search over two names and may be two calls or none. That algorithm
 /// lives in [`convert`](crate::convert) and the interpreter drives it; a
 /// builtin spelling it out again would be a second copy of a rule that has to
-/// agree with the first. A job is the third, and runs nothing now at all.
+/// agree with the first. A job is the third, and runs nothing now at all. A
+/// reported call is the fourth: a call, but one whose throw the builtin never
+/// sees (ADR 0018 § 3).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Want {
     /// Call `callee` with `receiver` as its `this`, and answer with what it
@@ -147,6 +149,25 @@ pub enum Want {
         /// Its arguments, in order. Its `this` is `undefined`.
         arguments: Vec<Value>,
     },
+    /// Call `callee` as [`Want::Call`] does, but **report** a throw rather
+    /// than propagate it (ADR 0018 § 3): the throw is set aside for the
+    /// embedder exactly as a job's is, and the builtin is answered
+    /// `undefined` with [`Call::reported`] true.
+    ///
+    /// HTML's *report the exception* inside a builtin — what
+    /// `dispatchEvent` does with a listener that throws, and what a promise
+    /// reaction or a registry's cleanup will ask for. Only the page's own
+    /// escapes are reported: a stop, a full heap or this engine's bug still
+    /// ends the run, as it would have ended the job.
+    Report {
+        /// What to call. Not being callable is the `TypeError` any call of a
+        /// non-function is, and it is reported like any other throw.
+        callee: Value,
+        /// Its `this`.
+        receiver: Value,
+        /// Its arguments, in order.
+        arguments: Vec<Value>,
+    },
 }
 
 /// What a builtin constructor is given before its body runs (queue item 227).
@@ -159,13 +180,35 @@ pub enum Want {
 /// instance in the `this` slot, which the collector walks and the body reads
 /// with [`Call::this`], exactly as a script's constructor gets its instance
 /// (queue item 212). This says which kind of object that is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub enum Instance {
     /// An object with the `[[ErrorData]]` slot. The `Error` constructors make
     /// one whether they are called or constructed, which is the
     /// specification's: `TypeError('x')` and `new TypeError('x')` are the same
     /// object.
     Error,
+    /// An embedder's object, made by this function from the constructor's
+    /// `prototype` — **only when constructed**. A Web IDL constructor called
+    /// without `new` is a `TypeError`, which its body throws on seeing
+    /// [`Call::constructing`] false, and an instance made for a call that
+    /// throws would be garbage before it was seen.
+    ///
+    /// A function pointer for [`Native`]'s reason: it holds no edge. The
+    /// instance is made before the body runs, in the `this` slot the collector
+    /// walks, so a body that suspends to convert an argument keeps what it
+    /// has converted *in its instance* rather than in a step number.
+    Made(Make),
+}
+
+/// How an embedder's constructor makes its instance: from the prototype it
+/// inherits from, the object, not yet in the heap.
+pub type Make = fn(Option<crate::heap::Ref>) -> Box<dyn super::Exotic>;
+
+impl Instance {
+    /// Whether a plain call, without `new`, is given one too.
+    pub const fn when_called(self) -> bool {
+        matches!(self, Self::Error)
+    }
 }
 
 /// A function this engine wrote.
@@ -228,6 +271,8 @@ pub struct Call<'a> {
     at: usize,
     step: u32,
     answer: Option<Value>,
+    reported: bool,
+    constructing: bool,
 }
 
 impl<'a> Call<'a> {
@@ -246,7 +291,23 @@ impl<'a> Call<'a> {
             at,
             step: 0,
             answer: None,
+            reported: false,
+            constructing: false,
         }
+    }
+
+    /// The same call, made by `new` rather than called.
+    #[must_use]
+    pub const fn constructed(mut self) -> Self {
+        self.constructing = true;
+        self
+    }
+
+    /// Whether it was made by `new` — Web IDL's *`NewTarget` is not
+    /// `undefined`*. A constructor that is [`Instance::Made`] finds its
+    /// instance in [`Call::this`] exactly when this is true.
+    pub const fn constructing(&self) -> bool {
+        self.constructing
     }
 
     /// The same call, in a realm whose intrinsics it may read.
@@ -275,6 +336,18 @@ impl<'a> Call<'a> {
     pub const fn resume(&mut self, step: u32, answer: Value) {
         self.step = step;
         self.answer = Some(answer);
+    }
+
+    /// Say that the call it asked for with [`Want::Report`] threw, and that
+    /// the throw was reported: its answer is `undefined`.
+    pub const fn was_reported(&mut self) {
+        self.reported = true;
+    }
+
+    /// Whether the call it asked for threw and was reported rather than
+    /// answering — always false for anything but [`Want::Report`].
+    pub const fn reported(&self) -> bool {
+        self.reported
     }
 
     /// Which step this is: zero the first time, and afterwards whatever the

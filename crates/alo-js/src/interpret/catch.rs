@@ -11,6 +11,17 @@
 //! the throw interrupted and lands the thrown value where the compiler said
 //! (see [`try_statement`](crate::compile)).
 //!
+//! # A reported call is as far as a throw goes
+//!
+//! A builtin that asked for a call with
+//! [`Want::Report`](crate::object::native::Want) — `dispatchEvent` calling a
+//! listener — is a wall: a `try` inside that call may catch the throw, and a
+//! `try` around the `dispatchEvent` may not, because the standard reports a
+//! listener's throw and carries on (ADR 0018 § 3). So the search stops at the
+//! innermost such call, and a throw that reaches it is taken down to it, set
+//! aside for the embedder ([`reported`](super::reported)) and answered as
+//! `undefined`.
+//!
 //! # Only the page's own escapes are caught
 //!
 //! A `catch` reaches exactly [`Escape::is_the_pages`]: a value a script threw,
@@ -50,7 +61,7 @@ use crate::code::Handler;
 use crate::object::{Found, Property, Value};
 
 use super::Engine;
-use super::frame::Run;
+use super::frame::{Run, Slot, Waiting};
 use super::unwound::Unwound;
 
 impl Engine {
@@ -66,7 +77,19 @@ impl Engine {
         let Escape::Thrown(thrown) = escape else {
             return Err(escape);
         };
-        let Some((which, handler)) = Self::guarding(run)? else {
+        // A builtin waiting on a call it asked to have reported is as far out
+        // as this throw may go: only the frames inside that call may catch it.
+        let boundary = Self::reporting(run);
+        let first = boundary.map_or(0, |place| {
+            run.frames
+                .iter()
+                .position(|frame| frame.callee_at >= place)
+                .unwrap_or(run.frames.len())
+        });
+        let Some((which, handler)) = Self::guarding(run, first)? else {
+            if let Some(place) = boundary {
+                return self.set_aside(run, first, place, thrown);
+            }
             // The last moment the calls it left exist: the run gives them back
             // on its way out (queue item 241).
             self.unwound = Unwound::of(run)?;
@@ -89,10 +112,70 @@ impl Engine {
         Ok(())
     }
 
-    /// The innermost frame with a `try` around the instruction it is running,
-    /// and that `try`'s handler.
-    fn guarding(run: &Run) -> Result<Option<(usize, Handler)>, Escape> {
+    /// Where the answer of the innermost call a builtin asked to have
+    /// reported lands — its callee's place — if one is running.
+    fn reporting(run: &Run) -> Option<usize> {
+        run.builtins
+            .iter()
+            .rev()
+            .find(|waiting| waiting.reporting)
+            .map(Waiting::answer_at)
+    }
+
+    /// Stop a throw at the reported call whose callee sits at `place`: take
+    /// down every call inside it, set the throw aside with where it had got
+    /// to, and answer the builtin that asked `undefined` (ADR 0018 § 3).
+    ///
+    /// A thrown value is in a Rust local until it is rooted, and nothing
+    /// between allocates: releasing roots and cutting a list do not, and a
+    /// root is an entry in the root list rather than a cell.
+    fn set_aside(
+        &mut self,
+        run: &mut Run,
+        first: usize,
+        place: usize,
+        thrown: Thrown,
+    ) -> Result<(), Escape> {
+        let unwound = Unwound::of_from(run, first)?;
+        while run.frames.len() > first {
+            let Some(frame) = run.frames.pop() else {
+                return Err(Escape::Broken(Internal::StackIsWrong));
+            };
+            if let Some(root) = frame.environment {
+                self.objects.heap_mut().release(root);
+            }
+        }
+        while run
+            .builtins
+            .last()
+            .is_some_and(|waiting| waiting.callee_at >= place)
+        {
+            run.builtins.pop();
+        }
+        self.set_aside.keep(&mut self.objects, thrown, unwound);
+        let stack = run.stack;
+        self.objects
+            .with_slots(stack, |slots, _| {
+                slots.truncate(place);
+                slots.push(Value::Undefined);
+            })
+            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        let waiting = run
+            .builtins
+            .last_mut()
+            .filter(|waiting| waiting.reporting && waiting.answer_at() == place)
+            .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
+        waiting.answer = Slot::Reported;
+        run.answered()
+    }
+
+    /// The innermost frame from `first` inwards with a `try` around the
+    /// instruction it is running, and that `try`'s handler.
+    fn guarding(run: &Run, first: usize) -> Result<Option<(usize, Handler)>, Escape> {
         for (which, frame) in run.frames.iter().enumerate().rev() {
+            if which < first {
+                break;
+            }
             let chunk = run
                 .units
                 .get(frame.unit)

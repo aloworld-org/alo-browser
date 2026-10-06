@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html><body><section><div><button>Pick</button></div></section><p>Not heard</p><p>Not heard</p><script>
+// Events from script (queue item 254, ADR 0018). Capture and bubble listeners
+// on a section, a div and a button inside them; a CustomEvent dispatched at
+// the button twice; and what each listener heard written into the page. One
+// listener throws, which is reported and the dispatch carries on; one runs
+// once; one is passive, so its preventDefault does nothing; and the div's
+// bubble listener stops the event before it reaches the section.
+const section = document.body.firstChild;
+const div = section.firstChild;
+const button = div.firstChild;
+let heard = '';
+function say(what) { heard += (heard === '' ? '' : ' ') + what; }
+section.addEventListener('pick', e => say('section' + e.eventPhase), true);
+div.addEventListener('pick', e => { say('div' + e.eventPhase); e.preventDefault(); },
+                     { capture: true, passive: true });
+button.addEventListener('pick', e => { say('button' + e.eventPhase); throw new Error('a listener threw'); });
+button.addEventListener('pick', e => say(e.detail));
+button.addEventListener('pick', () => say('once'), { once: true });
+div.addEventListener('pick', e => { say('div' + e.eventPhase); e.stopPropagation(); });
+section.addEventListener('pick', () => say('never'));
+function pick(into) {
+  heard = '';
+  const answered = button.dispatchEvent(
+    new CustomEvent('pick', { bubbles: true, cancelable: true, detail: 'n' }));
+  into.firstChild.remove();
+  into.appendChild(document.createTextNode(heard + ' ' + answered));
+}
+pick(section.nextSibling);
+pick(section.nextSibling.nextSibling);
+</script></body></html>

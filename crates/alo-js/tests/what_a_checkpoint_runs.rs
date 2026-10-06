@@ -304,7 +304,14 @@ fn a_checkpoint_follows_each_callback_a_loop_calls_but_not_each_a_script_calls()
             let answer = engine.call(callee, Value::Undefined, &[]);
             assert_eq!(answer, Ok(Value::Undefined));
             let (outcome, reports) = checkpoint(&mut engine);
-            assert_eq!(outcome, Ok(Drained { ran: 1, threw: 0 }));
+            assert_eq!(
+                outcome,
+                Ok(Drained {
+                    ran: 1,
+                    threw: 0,
+                    ..Drained::default()
+                })
+            );
             assert!(reports.is_empty());
         }
         // The same two from a script — `element.click()` — are one call, and
@@ -317,7 +324,14 @@ fn a_checkpoint_follows_each_callback_a_loop_calls_but_not_each_a_script_calls()
             Ok(Value::Undefined)
         );
         let (outcome, _) = checkpoint(&mut engine);
-        assert_eq!(outcome, Ok(Drained { ran: 2, threw: 0 }));
+        assert_eq!(
+            outcome,
+            Ok(Drained {
+                ran: 2,
+                threw: 0,
+                ..Drained::default()
+            })
+        );
         let out = task(&mut engine, "out").map(|value| show(&mut engine, value));
         assert_eq!(out, Ok("1a2b12ab".to_owned()));
     }
@@ -450,7 +464,15 @@ fn an_embedder_queues_a_job_with_arguments_and_the_queue_keeps_them() {
     engine.objects().heap_mut().collect();
     assert_eq!(engine.jobs_waiting(), 1);
     let (outcome, reports) = checkpoint(&mut engine);
-    assert_eq!(outcome, Ok(Drained { ran: 1, threw: 0 }), "{reports:?}");
+    assert_eq!(
+        outcome,
+        Ok(Drained {
+            ran: 1,
+            threw: 0,
+            ..Drained::default()
+        }),
+        "{reports:?}"
+    );
     let out = task(&mut engine, "out").map(|value| show(&mut engine, value));
     assert_eq!(out, Ok("kept7".to_owned()));
     assert_eq!(engine.objects().heap().check(), Ok(()));
@@ -482,7 +504,14 @@ fn a_checkpoint_keeps_what_the_last_run_answered() {
         other => panic!("an object: {other:?}"),
     };
     let (outcome, _) = checkpoint(&mut engine);
-    assert_eq!(outcome, Ok(Drained { ran: 50, threw: 0 }));
+    assert_eq!(
+        outcome,
+        Ok(Drained {
+            ran: 50,
+            threw: 0,
+            ..Drained::default()
+        })
+    );
     engine.objects().heap_mut().collect();
     assert!(engine.objects().heap().live_at(answered));
 }
@@ -663,7 +692,8 @@ fn checkpoints_leave_nothing_behind_that_a_collection_cannot_take() {
             outcome,
             Ok(Drained {
                 ran: 2000,
-                threw: 286
+                threw: 286,
+                ..Drained::default()
             })
         );
         assert_eq!(reports.len(), 286);

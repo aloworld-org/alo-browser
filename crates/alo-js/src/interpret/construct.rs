@@ -36,7 +36,10 @@
 //! [`Engine::make_instance`] rather than by [`Engine::construct`], because a
 //! builtin constructor called **without** `new` is given one too — `TypeError('x')`
 //! is the same object as `new TypeError('x')` — and making it in the one place
-//! both paths pass through is what keeps the two from differing.
+//! both paths pass through is what keeps the two from differing. An
+//! embedder's constructor ([`Instance::Made`], ADR 0018 § 8's `Event`) is
+//! given one only when constructed, since Web IDL makes calling it without
+//! `new` a `TypeError`.
 //!
 //! # What is not here
 //!
@@ -206,6 +209,7 @@ impl Engine {
         // A safepoint. The constructor is on the stack and holds `above`.
         let made = match instance {
             Instance::Error => self.objects.error(Some(above)),
+            Instance::Made(make) => self.objects.foreign(make(Some(above))),
         }
         .map_err(|why| Escape::refused(why, at))?;
         self.write_at(run, callee_at.saturating_add(1), Value::Object(made))

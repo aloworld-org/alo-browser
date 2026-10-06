@@ -251,6 +251,17 @@ by the agent on a scripted page). No code. Its code is cut as 254, 255 and
 queue items are open; 254 is next (it depends on nothing); the next unused
 queue number is 260 and the next unused ADR 0019.
 
+Iteration 151 built item 254, events from script: `alo-js` gained a call a
+builtin asks to have reported (`Want::Report`, its throw stopped at the call,
+set aside rooted and handed over with the run's result) and an embedder's
+constructor given its instance only by `new`; `alo-bindings` gained
+`EventTarget`, `Event`, `CustomEvent`, listener lists in wrappers and the
+dispatch stepper; the renderer reports a listener's throw placed in its
+script. Corpus case `a-script-hears-an-event`. `isTrusted` was cut as 260,
+which 256 now also depends on. 115 queue items are open; 255 is next (its
+dependency 254 is done); the next unused queue number is 261 and the next
+unused ADR 0019.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;
