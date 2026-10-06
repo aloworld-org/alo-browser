@@ -16496,3 +16496,63 @@ this machine. Re-taking 296 without it would fail the same way, and 297–300
 depend on it.
 
 LOOP HALT
+
+---
+
+## Iteration 183 — the halt is right about 296 and wrong about the queue
+
+Not a queue item. Iteration 182's halt, checked rather than taken on trust,
+and retired by appending.
+
+**Its blocker is real, and now has evidence beyond the worker's word.**
+`screencapture -x` to a plain file fails here too: *"could not create image
+from display"*, exit 1, no file written. It is not the `-l` form, the window
+id or the sandbox. The system TCC database names the cause exactly:
+
+```
+com.microsoft.VSCode|0
+com.google.Chrome|2
+```
+
+`0` is denied, `2` is allowed. The loop runs under Visual Studio Code — the
+process tree goes `zsh` → `claude` → `Code Helper (Plugin)` → `Visual Studio
+Code.app` — and that application is explicitly denied Screen Recording. No
+amount of retrying 296 will capture a pixel, and the worker was right to
+refuse to claim otherwise. Clause 3 of its closing condition stands unmet,
+296 stays open and marked blocked, and 297–300 stay behind it.
+
+**But 296 was not the only eligible item, and the loop should not have
+stopped.** `LOOP.md` keeps two different marks apart. An item marked **needs
+design** is passed over — step 2 says to mark it and take the next one — and
+twenty open items are in that state. An item marked **needs ADR** is *work*:
+rule 4 says it "gets the ADR as its own iteration", which is how ADRs 0015 to
+0024 came to be written by this loop.
+
+Seven open items carry **needs ADR** while being neither blocked nor needing
+design, and their dependencies are done:
+
+| item | | dependencies |
+| --- | --- | --- |
+| 76 | the event loop: tasks, microtasks, the rendering steps | none |
+| 90 | storage, and one quota policy over all of it | 72, 66 — done |
+| 93 | permissions as capabilities | 63, 67 — done |
+| 124 | viewing a PDF, or saying plainly that we hand it on | none |
+| 126 | autofill, and credentials held by the operating system | none |
+| 132 | across frames, without becoming a way around same-origin | none |
+| 277 | an SVG file as a picture | 273 — done |
+
+Each is a decision of exactly the kind rule 4 describes — a quota is a policy
+about somebody's disk; a permission prompt is the one dialogue most people
+ever have with a browser. None of them needs a screen capture.
+
+**So the halt is retired and the loop restarted.** 296 remains blocked in the
+queue's own words, so selection passes over it rather than re-deriving this.
+Nothing about iteration 182's work is undone: the window is built, its four
+reference renders are committed, and its unverified clause is still unverified.
+
+**What is owed to a person, unchanged.** Screen Recording for whichever
+application runs the loop, then 296's three steps. Granting it to Visual
+Studio Code requires restarting Visual Studio Code, which ends the session
+that is running this; starting the loop from Terminal instead avoids that, and
+macOS will prompt the first time it captures.
+
