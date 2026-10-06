@@ -5629,6 +5629,12 @@ The long pole, and the thing most of section E is unreachable without.
 
 - [ ] **111. Web Audio.**
   *Depends on 72.*
+  *Needs design (iteration 181):* its dependency is done, but it names no
+  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
+  not ready to build. It also consumes ADR 0023's decoded samples and device
+  (289, 292), so a graph that plays anything waits on those; one that only
+  computes (an `OfflineAudioContext`) does not, and is the likelier first
+  cut. No frozen page uses it.
 
 - [ ] **112. WebGL, then WebGPU.** Both large, both late, and neither before the
   software path is right. **Needs hardware to verify**, and says so.
@@ -5645,6 +5651,15 @@ a claim measured on hardware or not made**.
   page and one somebody can use."*
   *Depends on 80. Closes when:* a changed attribute restyles a subtree rather
   than a document, shown by a count rather than by a stopwatch.
+  ***blocked:** no measurement yet (iteration 181).* ADR 0017 § 6 decided a
+  changed document is rendered again **whole**, rejected incremental style
+  and layout *"now"* as *"a cache built before the behaviour it caches is
+  settled"*, and wrote that this item *"waits for a measurement"*: a page
+  janking on every change, measured on hardware. None has been taken, and
+  replacing § 6 without one would be re-deciding an accepted ADR inside a
+  code commit. Lifted by that measurement — most likely once a person uses
+  the window (118) — and then it needs its own ADR on what is invalidated
+  and how a test proves the incremental answer equals the whole one.
 
 - [ ] **114. Compositing layers, and scrolling that does not repaint the world.**
   *Depends on 113.*
@@ -5660,12 +5675,97 @@ a claim measured on hardware or not made**.
   measured, in CI. **Needs hardware**, and until it exists no item in this
   section may claim a speed.
   *Depends on 68.*
+  *Needs design (iteration 181):* its dependency is done, but it names no
+  pages, no budget and no closing condition, and this repository has no CI
+  to measure in. Which pages, on what machine, measured how and failing at
+  what number are decisions, written down before a number is.
 
 ## J. The browser itself
 
 What stage 2's exit gate actually measures: a person using it.
 
 - [ ] **118. A window, tabs, and a tab strip.** *Depends on 63, 64.*
+  **Decided: ADR 0024 (iteration 181).** The window is rented — `winit`
+  0.30 in `alo-window`'s `window.rs`, `softbuffer` 0.4 in its `present.rs`,
+  both through safe interfaces, no `unsafe` of ours (§ 1); the event loop
+  never calls a renderer, a *conductor* thread owns `Tabs`, and the window is
+  **composed** by a function with a reference render from the frames it was
+  last sent (§ 2); device pixels are the renderer's, and until 299 the
+  window replicates pixels to the integer scale factor (§ 3); the **tab strip
+  is a document we ship**, built from the browser's state as data — a title
+  is a text node, never markup — and rendered in a sandboxed renderer of its
+  own, so the agent reads tabs as it reads a page (§ 4); a person's pointer
+  is the only coordinate that reaches a renderer, hit-tested there, and what
+  a click on the strip means is claimed by its renderer and decided by the
+  browser process (§ 5); a person opens a tab, and a page only by
+  `target="_blank"` on a link a person activated (§ 6). No code was written.
+  Cut as 296–300; 118 closes when all five have.
+  *Opened by* stage 2's exit gate — *"a person uses it as their browser for
+  a week"* — which nobody can begin without a window; the frozen alo pages
+  in the corpus are what it shows first.
+
+- [ ] **296. The window shows a tab.** *Cut from 118 (ADR 0024 §§ 1–3).* A new
+  crate, `alo-window`, binary `alo`: `winit` named only in `window.rs`,
+  `softbuffer` only in `present.rs`, both added to `gate.sh`'s boundary list;
+  the safety of every function called checked in the crates' source first
+  (§ 1's stop rule); the conductor thread owning `Tabs`, talking to the event
+  loop only through messages and `winit`'s proxy; composition as a function
+  of the window's size, the selected tab's frame or its sentence, and the
+  background; a window resize sent as a `Resize`; integer pixel replication
+  at the scale factor; closing the window closes every tab. *Depends on 63,
+  64. Closes when:* the composition's reference renders (a frozen alo page;
+  a resize before its new frame; a gone tab's sentence) are committed; a
+  test shows a renderer that never answers leaves the composition answering
+  with its last frame; and `alo` started on this macOS machine shows a
+  frozen page, captured with `screencapture -l` and compared to the
+  composed reference, recorded in the journal.
+
+- [ ] **297. The tab strip.** *Cut from 118 (ADR 0024 §§ 4, 6).* Its own
+  renderer at an internal site no page can name, under the renderer's
+  sandbox profile; a typed message of the strip's state (tabs in order,
+  each title, address, selected, loading or gone); a document built by
+  `alo-dom`'s operations from a compiled-in template, each title a text node;
+  a stylesheet after alo's design; `Tabs` gaining an order and a selected
+  tab; the browser's own keys (a new tab, close this one, the next and
+  previous) read by the browser process before any page. *Depends on 296.
+  Closes when:* reference renders of one, four and a gone tab's strip; a
+  layout assertion of each tab's box; the agent tree reads *"four tabs, the
+  second selected"* with each title; and hostile titles — `<b>`, `</style>`,
+  a NUL, 100 000 characters, a right-to-left override — each stay text in
+  the tree and in the render, a long one truncated by the stylesheet, none
+  panicking.
+
+- [ ] **298. A person's pointer.** *Cut from 118 (ADR 0024 § 5; ADR 0018
+  § 3).* The browser process decides which frame a point falls in from its
+  own composition and sends it in that frame's CSS pixels as a person's
+  pointer event; the renderer hit-tests against its layout tree and
+  dispatches through ADR 0018's browser driver; the strip's renderer answers
+  a click with a claim (select, close, open a tab) the browser process acts
+  on only for a tab it holds, answering a pointer event it sent. *Depends on
+  296, 297. Closes when:* a person's click on a link in a frozen page follows
+  it, the same as the agent's `Activate` on it; a click on a strip tab
+  selects it; a claim about a tab not held, or with no pointer event behind
+  it, is refused; hit-testing has layout assertions at box edges, inside a
+  transform and under an overflow clip; and no message an agent can cause
+  carries a point.
+
+- [ ] **299. Device pixels.** *Cut from 118 (ADR 0024 § 3).* The renderer lays
+  out in CSS pixels and paints at the window's scale factor; `Resize` carries
+  it; `devicePixelRatio` and the `resolution` media feature are read from it;
+  the window stops replicating pixels. *Depends on 296. Opened by:* this
+  machine's window at scale 2. *Closes when:* reference renders of the same
+  frozen page at scale 1 and 2, with layout identical in CSS pixels, and
+  every existing reference render unchanged at scale 1.
+
+- [ ] **300. A link opens a tab.** *Cut from 118 (ADR 0024 § 6; ADR 0020
+  § 2).* `target="_blank"` on a link a person activated becomes a decided
+  ask that opens a tab beside its opener, under ADR 0020 § 3's rules for the
+  address; a script's `window.open` and a named target stay refused by name.
+  *Depends on 297, 298. Opened by* a frozen page with such a link. *Closes
+  when:* that page's link opens a tab with the address decided by the
+  browser process, and a `_blank` link activated by a script with no person
+  behind it is refused. Whether an agent's `Activate` (ADR 0018's keyboard
+  click) counts as a person's is decided with item 133's grants, not here.
 - [ ] **119. The address bar**: what somebody typed, what it means, and a search
   that **phones nobody by default**. *Depends on 50, 118.*
 - [ ] **120. History, bookmarks, downloads.** *Depends on 118.*

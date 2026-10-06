@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How the browser's window and tabs will work is decided, and there is no
+  window yet.** ADR 0024 rents the window from the Rust crates every Rust
+  application uses for one, keeps it responsive when a site stops answering,
+  and draws the tab strip with the browser's own engine from a list of tabs
+  rather than by hand — so an agent can read which tabs are open the way it
+  reads a page, and a page's title can only ever show up as text. A page can
+  open a new tab only through a link a person clicked.
+
 - **How audio and video will be played is decided, and nothing plays yet.**
   ADR 0023 decodes media in a locked-down process of its own for each site,
   separate from the page, and starts with the formats a Rust decoder can be

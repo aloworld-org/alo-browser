@@ -16215,3 +16215,121 @@ as 0022's did, and is not ticked), `CHANGELOG.md`, `QUEUE.md` and
 124 queue items are open (none closed; 289–295 opened). The next unused
 queue number is **296** and the next ADR is **0024**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 181 — items 111 and 117 marked `needs design`, 113 blocked on its measurement; item 118 decided: ADR 0024, a window is rented and the tab strip is a page we render
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states, *Making it fast enough to use* and *The browser itself*),
+iteration 180's entry, `REMAINING.md`'s continuation order, queue items
+108–131 in full, ADR 0005 in full, ADR 0017 §§ 6–8 and its *What this costs*,
+*Alternatives* and *How we will know*, ADR 0018's *What this does not
+decide*, ADR 0020 § 2, ADR 0023 (as the format), and the headers of
+`alo-renderer`'s `host.rs`, `tab.rs`, `frame.rs`, `site.rs`, `navigate.rs`
+and `bin/alo-render.rs`. No `AGENTS.md` exists. No sibling repository was
+read or touched. The checkout was clean on entry at `fb653ec`.
+
+**Selection.** Iteration 180 named 110, 111 and 113 as the next candidates.
+- 110 depends on 109, which is not done.
+- **111** (Web Audio) has its dependency (72) but no ADR, contract or
+  closing condition, so by `LOOP.md` step 2 it is marked `needs design`.
+- 112 depends on 116.
+- **113** (incremental style and layout) has its dependency (80), but ADR
+  0017 § 6 decided the whole re-render, rejected incremental layout "now",
+  and wrote that 113 "waits for a measurement". None has been taken, and
+  replacing an accepted ADR's section inside a code commit is what
+  `CLAUDE.md` forbids. It is marked **blocked: no measurement yet**, with
+  what lifts it.
+- 114–116 depend on 113.
+- **117** (a performance budget) has its dependency (68) but names no pages,
+  no budget and no closing condition, and there is no CI. It is marked
+  `needs design`.
+- **118** (a window, tabs and a tab strip) has its dependencies (63, 64)
+  done. It is opened by stage 2's exit gate, which no person can begin
+  without a window. It cannot be built before four decisions are made:
+  which crate goes into the privileged process, who draws the strip
+  (ADR 0002), where a stranger's title is shaped (ADR 0005), and how a
+  person's coordinate reaches a renderer (deferred by ADR 0018). `LOOP.md`
+  stage 2 § 4 makes a decision its own iteration, and this is that
+  iteration.
+
+**What was decided (ADR 0024).** No code changed.
+- **The window is rented**: `winit` 0.30.13 and `softbuffer` 0.4.8, named in
+  one file each of a new `alo-window` crate and used through safe
+  interfaces. **No `unsafe` of ours.** That those functions are safe is the
+  crates' documentation's claim. The building commit checks it in source
+  and stops if it is false. `winit` 0.31 is in beta and not taken.
+- **The event loop never calls a renderer.** A conductor thread owns
+  `Tabs`. The window is **composed** by a function from the frames it was
+  last sent, tested by reference render. That the pixels reach a screen is
+  checked by starting `alo` here and capturing it with `screencapture -l`,
+  not deferred as "needs hardware".
+- **Device pixels are the renderer's** (299). Until then the window
+  replicates pixels to the integer scale factor, and `devicePixelRatio`
+  stays absent.
+- **The tab strip is a document we ship**, built from the browser's state as
+  data with each title a text node. It is rendered by the engine in a
+  sandboxed renderer of its own, so the agent reads tabs (ADR 0002) and a
+  stranger's title is never shaped in the browser process (ADR 0005).
+- **A person's pointer** is the one coordinate that reaches a renderer. It
+  is hit-tested there and dispatched through ADR 0018's browser driver. A
+  click on the strip is a claim the browser process decides (ADR 0020's
+  shape).
+- **A page opens a tab** only by `target="_blank"` on a link a person
+  activated. `window.open` and named targets stay refused.
+
+The crate survey was taken from the crates.io API on 2026-10-06. Versions,
+dates and licences are as it gives them. Licences are Apache-2.0 for
+`winit`, and MIT OR Apache-2.0 for `softbuffer` and `raw-window-handle`. All
+sit beside MPL-2.0 (ADR 0009).
+
+**Queue.** 118 records the decision and stays open. It closes when 296–300
+have. These were opened:
+- 296: the window shows a tab. **Eligible now.**
+- 297: the tab strip.
+- 298: a person's pointer.
+- 299: device pixels.
+- 300: a link opens a tab, opened by a frozen page with such a link.
+
+111 and 117 are marked `needs design`, and 113 is marked blocked.
+
+**Gate, mechanical.** I ran `scripts/gate.sh` in the foreground with the
+documentation changes in place. It ran past the tool's 10-minute foreground
+ceiling and the harness moved it to the background. I then blocked in a
+foreground wait on its output and read the result before writing this
+entry. It exited 0 with "The gate is met.":
+- fmt clean, clippy silent, every test passing, with no `FAILED`, `warning`
+  or `error` line in the log;
+- no stubs, `unsafe` forbidden, licence notices present;
+- every rented crate behind its boundary, no coordinate verbs, the stop rule
+  holding.
+
+`git diff --check` passes.
+
+**Gate, manual.** Nothing positions, sizes or draws, so no layout assertion
+or reference render applies. No source file changed, so one responsibility
+per file is untouched. One more check: ADR 0024 § 5 brings a person's
+pointer, a coordinate, to a renderer. It keeps ADR 0002's rule by saying
+no message an agent can cause carries a point, and 298's closing condition
+tests that. Updated:
+- `docs/features.md`, `CHANGELOG.md`, `QUEUE.md` and `REMAINING.md` say what
+  was decided and that nothing is built.
+- `ROADMAP.md`'s *A window, tabs, and a tab strip* line now reads "not
+  started: nothing is built. Decided in ADR 0024 … Owed: all of it
+  (296–300)", and is not ticked.
+- The *Incremental style and layout*, *Web Audio* and *performance budget*
+  lines are unchanged, because nothing was built or decided for them. Their
+  queue items only record why they cannot be taken.
+
+**Unresolved obligations.**
+- **296 is eligible next.** Its first step is § 1's stop rule: check in
+  `winit`'s and `softbuffer`'s source that every function it calls is safe.
+- 113 waits on a measurement. 111, 117 and 108 need their designs.
+- Carried from 180: 289–292 wait on a frozen page that plays a file, and
+  293–295 on decoders. 288, 284 and 286 wait on a page, and 269 on a `rav1d`
+  release. The `image-webp` upstream report and ADR 0022's wording are a
+  person's calls.
+- Still needing designs: 82, 83, 85–89, 95–99, 104, 105, 179 and 258.
+
+129 queue items are open (none closed; 296–300 opened). The next unused
+queue number is **301** and the next ADR is **0025**. This is one
+iteration, not a finished queue or roadmap.

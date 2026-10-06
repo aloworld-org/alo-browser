@@ -488,6 +488,20 @@ code. Its code is cut as 289–295: 289–292 are opened by a frozen page that
 plays a file, 293–295 are blocked on decoders. 124 queue items are open; the
 next unused queue number is 296 and the next unused ADR 0024.
 
+Iteration 181 marked 111 (Web Audio) and 117 (a performance budget) `needs
+design`, and 113 (incremental style and layout) blocked on the measurement
+ADR 0017 § 6 says it waits for. It wrote item 118's decision, ADR 0024: the
+window is rented (`winit`, `softbuffer`, safe interfaces, a new `alo-window`
+crate) and composed from the frames the browser process was last sent, never
+waiting on a renderer; the tab strip is a document we ship, built from data
+and rendered by the engine in a sandboxed renderer of its own, so the agent
+reads it; a person's pointer is hit-tested in the renderer, and a strip
+click is claimed there and decided by the browser process. No code. Its code
+is cut as 296–300, and **296 (the window shows a tab) is eligible now**: its
+dependencies are done and its closing conditions are a reference render, a
+test and a capture on this machine. 129 queue items are open; the next unused
+queue number is 301 and the next unused ADR 0025.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;
