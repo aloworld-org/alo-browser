@@ -76,6 +76,17 @@ unicode-id-start = "1.4"
 unicode-linebreak = "0.1"
 unicode-script = "0.5"
 dejavu = "2.37"
+# The window, rented (ADR 0024 § 1). `winit` is the window and its events and
+# `softbuffer` puts CPU-drawn pixels in it; both reach the window server through
+# `unsafe` of their own (on macOS, the `objc2` crates), which is ADR 0010's
+# "the crate's, not ours" — every function this repository calls on them is a
+# safe one, checked in their source by the commit that added them. Each is
+# named in one file of `alo-window`. `winit` 0.31 is in beta and not taken.
+winit = "0.30.13"
+softbuffer = "0.4.8"
+# The two traits `softbuffer` bounds a window by, named in `present.rs` so that
+# `winit` stays in `window.rs`. Already beneath both crates at this version.
+raw-window-handle = "0.6"
 taffy = { version = "0.14", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size", "calc"] }
 
 # Law 4 of CLAUDE.md, enforced by the compiler rather than by review: `unsafe`

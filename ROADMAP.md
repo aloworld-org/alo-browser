@@ -1090,17 +1090,20 @@ items where being right and being unusable are the same outcome.
 ### The browser itself
 
 - [ ] A window, tabs, and a tab strip
-      — not started: nothing is built. Decided in ADR 0024. The window is
-      rented (`winit` and `softbuffer`, through safe interfaces, in a new
-      `alo-window` crate) and composed by the browser process from the frames
-      it was last sent, so one silent site never freezes it; the tab strip is
-      a document we ship, built from the browser's state as data and rendered
-      by the engine in a sandboxed renderer of its own, so the agent reads
-      tabs as it reads a page and a page's title is never more than text; a
-      person's pointer is hit-tested in the renderer, and what a click on the
-      strip means is claimed there and decided by the browser process. Owed:
-      all of it — the window (296), the strip (297), a person's pointer (298),
-      device pixels (299) and a link opening a tab (300)
+      · Built: the window (296, `alo-window`, binary `alo`, decided in ADR
+      0024). `winit` and `softbuffer` are rented through safe functions
+      checked in their source, each named in one file. A conductor thread
+      owns `Tabs` and is the only thing that waits on a renderer. The window
+      is composed by a function from the frames it was last sent, with four
+      reference renders. A test shows a renderer stopped with `kill -STOP`
+      leaves the window composing its last frame at once and then its
+      sentence. Pixels are replicated to the scale factor's whole part.
+      Closing the window stops every renderer. `--frozen-fonts` makes a
+      renderer process paint a frozen alo page identical to the corpus's
+      committed render. · Owed: 296's capture of the window on this machine
+      with `screencapture -l`, refused because this machine has not granted
+      the build Screen Recording; the strip (297); a person's pointer (298);
+      device pixels (299); a link opening a tab (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads
 - [ ] Find in page, zoom, and per-site settings that stick

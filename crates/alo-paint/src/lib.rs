@@ -80,5 +80,5 @@ pub use glyph::{Glyph, outline};
 pub use paint::Paint;
 pub use path::{Path, Point, Segment};
 pub use raster::{fill, fill_on_page};
-pub use render::render;
+pub use render::{outlined_run, render};
 pub use stroke::{Dashes, LineCap, LineJoin, Stroke};

@@ -1,0 +1,26 @@
+[package]
+name = "alo-window"
+description = "The alo browser's window: the browser process a person starts, composing what its renderers sent."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+winit.workspace = true
+softbuffer.workspace = true
+raw-window-handle.workspace = true
+dejavu.workspace = true
+alo-box = { path = "../alo-box" }
+alo-layout = { path = "../alo-layout" }
+alo-net = { path = "../alo-net" }
+alo-paint = { path = "../alo-paint" }
+alo-renderer = { path = "../alo-renderer" }
+alo-text = { path = "../alo-text" }
+alo-url = { path = "../alo-url" }
+alo-value = { path = "../alo-value" }
+
+[lints]
+workspace = true

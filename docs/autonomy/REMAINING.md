@@ -502,6 +502,17 @@ dependencies are done and its closing conditions are a reference render, a
 test and a capture on this machine. 129 queue items are open; the next unused
 queue number is 301 and the next unused ADR 0025.
 
+Iteration 182 built item 296, the window. `alo-window` is a crate with
+binary `alo`. It holds `winit` and `softbuffer` behind one file each, and a
+conductor thread that alone waits on renderers. Composition is a function
+with four reference renders. A real renderer stopped with `kill -STOP`
+leaves the window showing its last frame and then saying why. 296 stays
+open on one clause: the capture of the window with `screencapture -l`. This
+machine refuses it because the process running the loop has no Screen
+Recording permission, which only a person can grant. 297 depends on 296,
+so the window's line waits on that permission. The loop halted to say so.
+The next unused queue number is still 301 and the next unused ADR 0025.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

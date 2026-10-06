@@ -16333,3 +16333,166 @@ tests that. Updated:
 129 queue items are open (none closed; 296–300 opened). The next unused
 queue number is **301** and the next ADR is **0025**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 182 — item 296, the window shows a tab: built, and held open on its capture
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and *The browser itself*), iteration 181's entry, queue items
+118 and 296–300, ADR 0024 in full, and the parts of `alo-renderer` it
+builds on: `tab.rs`, `frame.rs`, `host.rs`, `message.rs`, `renderer.rs`
+(`resize`, `paint`), `page.rs`, `face.rs`, `generic.rs` and
+`bin/alo-render.rs`. Also `alo-corpus`'s `rendering.rs`, `check.rs` and
+`corpus_fonts`, `alo-paint`'s display list and `render.rs`, and
+`scripts/gate.sh`. No `AGENTS.md` exists. `alo-workplace`'s `tokens.css`
+was read for the window's colours and not written. The checkout was clean
+on entry at `172a448`.
+
+**Selection.** Iteration 181 left 296 as the one eligible item. Its
+dependencies, 63 and 64, are done.
+
+**ADR 0024 § 1's stop rule, checked first.** The crates were fetched and
+their source was read before any code was written. Every function called
+is a plain safe `pub fn`:
+- `winit` 0.30.13: `EventLoop::with_user_event`, `build`, `run_app`,
+  `create_proxy`, `EventLoopProxy::send_event`,
+  `ActiveEventLoop::create_window` and `exit`, and `Window::inner_size`,
+  `scale_factor` and `request_redraw`;
+- `softbuffer` 0.4.8: `Context::new`, `Surface::new`, `resize`,
+  `buffer_mut`, `Buffer::present`, and its `DerefMut` to `[u32]`.
+
+The rental stands. Licences:
+- `winit`: Apache-2.0.
+- `softbuffer`: MIT OR Apache-2.0.
+- `raw-window-handle`: MIT OR Apache-2.0 OR Zlib.
+- Below them on macOS, `objc2-*`, `core-graphics` and `dpi`: MIT and/or
+  Apache-2.0.
+
+All sit beside MPL-2.0 (ADR 0009). `softbuffer` does not re-export its
+window-handle traits, so `raw-window-handle` 0.6 is named in `present.rs`
+to keep `winit` out of it. It was already in the tree at that version, and
+all three crates are on `gate.sh`'s boundary list.
+
+**What was built** (`crates/alo-window`, binary `alo`, one responsibility a
+file):
+- `window.rs` holds the event loop. It is the only `winit` file, and it
+  never calls a renderer.
+- `present.rs` copies pixels into `softbuffer`.
+- `conductor.rs` is a thread that owns `Tabs` and is the only thing that
+  waits on a renderer. It takes a page opened before the window has a size
+  and loads it when the size arrives. A burst of resizes becomes the last
+  one. It answers a gone renderer with `tab.rs`'s own sentence. Closing, or
+  every sender going, closes every tab.
+- `message.rs` holds `Order` and `News`.
+- `showing.rs` is what the window was last sent.
+- `compose.rs` makes the window's pixels from that.
+- `place.rs` is the geometry, in numbers, with integer replication at the
+  scale factor's whole part.
+- `notice.rs` draws the sentence in compiled-in DejaVu Sans, cut with an
+  ellipsis.
+- `colours.rs` holds alo's tokens.
+- `opening.rs` reads the command line and the files.
+- `fonts.rs` holds the frozen fonts.
+- `beside.rs` says where `alo-render` is.
+
+`alo-paint`'s `outlined_run` became public, so the window's sentence is
+outlined by the same code as a page's text rather than a copy. The window
+is titled "alo" and never a page's title (ADR 0024 § 4).
+
+**A finding on the way.** `--frozen-fonts` first handed renderers the
+corpus's three faces and no generics, which my own documentation wrongly
+said the corpus states. The corpus maps `sans-serif` and `system-ui` to
+DejaVu Sans and `serif` to DejaVu Serif. Without those, the frozen page's
+heading fell to a face chosen without its weight and lost its bold. The
+test comparing the renderer process's frame with the corpus's
+`render.png` caught it. `fonts::frozen` now returns faces and generics
+together, and that test passes pixel for pixel.
+
+**Closing condition, clause by clause.**
+1. *The composition's reference renders are committed*: met.
+   `tests/references/` holds four, each looked at before committing:
+   - the frozen `alo-offline` page at scale two (960×800);
+   - a resize to 560×460 before its new frame;
+   - a gone tab's sentence over its frame;
+   - a tab gone before it painted, at scale two.
+
+   Layout assertions in numbers are in `place.rs` (11 tests).
+2. *A renderer that never answers leaves the composition answering with its
+   last frame*: met by `tests/a_renderer_that_never_answers.rs`.
+   - It runs the real `alo-render` beside `alo` with `--frozen-fonts`'
+     machine. Its first frame equals the corpus's `render.png`.
+   - The renderer is stopped with `kill -STOP` and the window is resized.
+     Composition then returns at once and equals the resize composition of
+     that frame, pixel for pixel. Nothing is said before the bound.
+   - At the bound the sentence arrives, "is gone … said nothing". The frame
+     is kept, the notice is drawn, and no renderer is left running.
+   - `tests/closing_the_window.rs` shows two sites' renderers stopped by
+     `CloseEverything`, and again when every sender of orders goes.
+3. *`alo` started on this macOS machine shows a frozen page, captured with
+   `screencapture -l` and compared to the composed reference*: **not met.**
+   - `target/debug/alo --frozen-fonts
+     crates/alo-corpus/cases/alo-offline/page.html` started. The window
+     server listed its window, id 11971, 1000×732 points.
+     `pgrep -P` showed one `alo-render` under it.
+   - `screencapture -l 11971 -o -x` answered "could not create image from
+     window", in the tool's sandbox and again outside it. macOS says that
+     when the capturing process lacks Screen Recording permission.
+   - `kill -TERM` on `alo` left neither process running.
+   - No pixel of the window was seen. Nothing here claims they reach the
+     screen.
+
+**Gate, mechanical.** I first compiled the workspace's tests, then ran
+`scripts/gate.sh` in the foreground. It passed the tool's 10-minute ceiling
+and the harness moved it to the background, as in iteration 181. I blocked
+in a foreground wait on its log and read the result before writing this
+entry. It exited 0 with "The gate is met.":
+- fmt clean, clippy silent, every test passing, with no `FAILED`, `warning`
+  or `error` line;
+- no stubs, `unsafe` forbidden, licence notices present;
+- all 24 rented crates behind their boundary, `winit`, `softbuffer` and
+  `raw_window_handle` among them;
+- no coordinate verbs, and the stop rule holding.
+
+`git diff --cached --check` passes.
+
+**Gate, manual.**
+- One responsibility per file, as listed above. `render.rs` gained a
+  `pub`, not a reason to change.
+- Layout assertions in `place.rs`. Reference renders as in clause 1.
+- No `unsafe` and no `#[allow]`. Two `#[expect(clippy::cast_precision_loss)]`
+  carry reasons, as elsewhere in the repository.
+- The bytes this reads are files a person named on the command line, read
+  in the browser process. A missing one or a non-UTF-8 one is an error, and
+  is tested.
+- Documentation updated:
+  - `docs/features.md` says what a person can now do and that the screen
+    is unchecked.
+  - `ROADMAP.md`'s *A window, tabs, and a tab strip* moved from "not
+    started" to `· Built: … · Owed: …`, not ticked.
+  - `CHANGELOG.md`, `QUEUE.md` (296 left open, with its blocker and the
+    exact steps that remain) and `REMAINING.md`.
+
+**Unresolved obligations.**
+- **296's capture needs a person.** Grant Screen Recording to the terminal
+  or app that runs the loop, in System Settings → Privacy & Security →
+  Screen Recording. Then, in one iteration:
+  1. Start `alo --frozen-fonts crates/alo-corpus/cases/alo-offline/page.html`.
+  2. Capture it with `screencapture -l <id> -o`.
+  3. Compare its content area with `compose` of the same page at the
+     window's size and scale.
+
+  Then 296 can close, and 297 becomes eligible.
+- 297–300 depend on 296. Carried from 181: 113 waits on a measurement; 108,
+  111 and 117 need designs; 289–292 wait on a page that plays a file; 293–295
+  on decoders; 284, 286 and 288 on a page; 269 on a `rav1d` release.
+- `text` in the window is coarse at scale two until 299.
+
+129 queue items are open, none closed. The next unused queue number is
+**301** and the next ADR is **0025**. This is one iteration, not a finished
+queue or roadmap.
+
+The loop halts because a decision is needed that is not ours. The one
+eligible item's last clause needs a permission only a person can grant on
+this machine. Re-taking 296 without it would fail the same way, and 297–300
+depend on it.
+
+LOOP HALT

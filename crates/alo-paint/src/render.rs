@@ -158,7 +158,12 @@ fn moved(path: &Path, transform: Matrix) -> Path {
 /// One path rather than one per glyph because a shadow is blurred from it: two
 /// letters that touch would otherwise be blurred separately and composited on
 /// top of one another, which is darker where they overlap.
-fn outlined_run(
+///
+/// Public because the browser's own words are drawn with it too: `alo-window`
+/// says what happened to a tab in a sentence that belongs to no document, and
+/// a second copy of how a run becomes a shape would be a second place for the
+/// letters to land somewhere else.
+pub fn outlined_run(
     text: &str,
     font: &Font,
     size: f32,

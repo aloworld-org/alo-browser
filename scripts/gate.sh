@@ -53,6 +53,9 @@ declare -a BOUNDARIES=(
   "ruzstd:crates/alo-net/src/decompress.rs"
   "sha2:crates/alo-net/src/digest.rs"
   "unicode_id_start:crates/alo-js/src/unicode.rs"
+  "winit:crates/alo-window/src/window.rs"
+  "softbuffer:crates/alo-window/src/present.rs"
+  "raw_window_handle:crates/alo-window/src/present.rs"
 )
 
 step "cargo fmt"

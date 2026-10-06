@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser has a window.** `alo page.html style.css` opens a window
+  showing the page, rendered by the browser's own engine in a locked-down
+  process of its own. If that process stops answering, the window does not
+  freeze: it keeps the page's last picture and says along the bottom what
+  happened. Closing the window stops every process under it. There is one
+  tab and no tab strip yet, clicks do not reach the page yet, and on a Retina
+  screen text is coarse until the engine paints at the screen's density.
+
 - **How the browser's window and tabs will work is decided, and there is no
   window yet.** ADR 0024 rents the window from the Rust crates every Rust
   application uses for one, keeps it responsive when a site stops answering,

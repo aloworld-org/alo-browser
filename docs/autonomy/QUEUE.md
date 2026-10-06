@@ -5720,6 +5720,43 @@ What stage 2's exit gate actually measures: a person using it.
   frozen page, captured with `screencapture -l` and compared to the
   composed reference, recorded in the journal.
 
+  **Built (iteration 182), and not closed.** `alo-window` exists. `winit`
+  0.30.13 is named only in `window.rs`, and `softbuffer` 0.4.8 and
+  `raw-window-handle` 0.6 only in `present.rs`. All three are on `gate.sh`'s
+  boundary list. Every function called on them was checked safe in their
+  source first. The conductor (`conductor.rs`) owns `Tabs` and speaks to the
+  event loop only in `message.rs`'s `Order` and `News`. Composition
+  (`compose.rs`, placed by `place.rs`, the sentence drawn by `notice.rs`) has
+  four committed reference renders in `tests/references`:
+  - the frozen `alo-offline` page at scale two;
+  - a resize before its new frame;
+  - a gone tab's sentence over its frame;
+  - a tab gone before it painted.
+
+  `tests/a_renderer_that_never_answers.rs` uses the real `alo-render` and
+  stops it with `kill -STOP`. The window keeps composing its last frame at
+  once, pixel for pixel; the sentence arrives at the bound; the renderer is
+  stopped. `tests/closing_the_window.rs` shows closing, or the window going
+  without a word, leaves no renderer running. `alo --frozen-fonts
+  …/alo-offline/page.html` was started on this machine and showed a window
+  (id 11971, 1000×732 points) with one confined `alo-render` under it. On
+  `kill -TERM` both were gone.
+
+  ***blocked:** the capture.* `screencapture -l 11971 -o` answered "could not
+  create image from window", inside the tool sandbox and outside it. macOS
+  says that when the capturing process has no **Screen Recording**
+  permission. A person grants it to the terminal or app that runs the loop
+  (System Settings → Privacy & Security → Screen Recording). No API reads
+  another process's window without it, by design. Once it is granted, the
+  remaining work is:
+  1. Start `alo --frozen-fonts crates/alo-corpus/cases/alo-offline/page.html`.
+  2. Capture its window.
+  3. Compare the content area with `compose` of the same page at the
+     window's size and scale.
+  4. Record the result here.
+
+  Nothing else of 296 is owed.
+
 - [ ] **297. The tab strip.** *Cut from 118 (ADR 0024 §§ 4, 6).* Its own
   renderer at an internal site no page can name, under the renderer's
   sandbox profile; a typed message of the strip's state (tabs in order,

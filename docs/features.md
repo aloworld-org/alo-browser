@@ -480,13 +480,27 @@ The reason this exists rather than a faster fork of somebody else's engine.
 ## The browser itself — stage 2
 
 - [2] A window, tabs, and a tab strip.
-  Decided in ADR 0024 and not built: one window, drawn from the last picture
-  each tab sent so a site that stops answering never freezes it; a tab strip
-  drawn by the engine itself from the browser's own list of tabs, so an agent
-  can read which tabs are open and a page's title can only ever appear as
-  text; a click on a page or a tab handled by the page's own process and
-  decided by the browser; and a new tab opened by a person, or by a link with
-  `target="_blank"` that a person clicked (296–300)
+  Decided in ADR 0024. **A window shows a page** (`alo-window`, queue item
+  296): `alo PAGE.html STYLE.css` opens a window with one tab showing the
+  page, drawn by its own locked-down renderer process; with nothing named it
+  opens an empty tab. The window is drawn only from the last picture the tab
+  sent, so a site that stops answering never freezes it: after a resize it
+  shows the old picture at its old size until the new one arrives, and a tab
+  whose renderer has stopped keeps its picture with a line along the bottom
+  saying what happened, in the browser's own words. The page is laid out at
+  the window's size in CSS pixels; on a high-density screen each pixel is
+  doubled until the renderer paints at the screen's density (299), so shapes
+  are right and text is coarse. Closing the window closes every tab and stops
+  every renderer. `--frozen-fonts` draws with the reference corpus's fonts, so
+  a frozen alo page in the window is the corpus's picture of it, pixel for
+  pixel. Not yet checked: that the picture reaches the screen, because this
+  machine has not let the build capture a window (see the queue). Still to
+  come: the tab strip drawn by the engine from the browser's own list of tabs,
+  so an agent can read which tabs are open and a page's title can only ever
+  appear as text (297); a click on a page or a tab handled by the page's own
+  process and decided by the browser (298); painting at the screen's density
+  (299); and a new tab opened by a link with `target="_blank"` that a person
+  clicked (300)
 - [2] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [2] History, bookmarks, downloads
 - [2] Find in page, zoom, and per-site settings that stick
