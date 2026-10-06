@@ -1017,6 +1017,14 @@ unreachable without it.
       release offers only a C interface this repository could call only with
       `unsafe` of its own); playback of an animation (109)
 - [ ] **SVG** — a second rendering model inside the first, and far larger than its one line here suggests
+      — not started: nothing is built. Decided in ADR 0022. An `<svg>` is one
+      replaced box with no boxes inside it, and its contents become a drawing
+      of paths, made by a new crate `alo-svg` after layout and handed to paint
+      by box. Strokes go through the `tiny-skia` already rented. Cut into queue
+      items 270–273 (the box, filled shapes, path data, strokes), which close
+      on alo's own offline screen and its inline `<svg>` hand. Items 274–277
+      (`<use>`, gradients, `<text>`, and an SVG file as a picture, which needs
+      its own ADR because it is XML) open when a page needs them
 - [ ] Canvas 2D
 - [ ] Audio and video playback through rented decoders
 - [ ] Media Source Extensions, without which most video sites do not play at all

@@ -14830,3 +14830,121 @@ started), then 108 (Canvas 2D, depends on 72) and later items. The next
 iteration takes the first eligible item as `LOOP.md` says. The next unused
 queue number is **270** and the next ADR is **0022**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 168 — item 107 cut: ADR 0022, SVG is a picture we draw and its insides are not boxes
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md` (its conventions and the *Pictures* lines), iterations 166 and
+167, the queue's section H in full and its item list for eligibility, ADRs
+0001, 0002 and 0021 in full and the heads of 0004 and 0005,
+`docs/features.md`'s pictures lines, and the code the decision is about:
+`alo-box`'s `role.rs` (an `<svg>` is already an image), `tree.rs` and
+`semantics.rs`; `alo-style`'s user-agent sheet (`<svg>` is `inline-block`);
+`alo-paint`'s `raster.rs`, `path.rs` and `build.rs` (`PaintContext::pictures`);
+`alo-dom`'s `scripts.rs`; the crate dependency lists; and `tiny-skia-path`
+0.12's `stroker.rs` and `dash.rs` in the local registry. Item 107 names no
+ADR or contract beyond `docs/features.md`'s SVG line. No `AGENTS.md` exists.
+`alo-workplace` was **read only**: `web/public/offline.html` and three
+`web/public/icons/*.svg`. Nothing in any sibling repository was modified.
+The checkout was clean on entry at `37a3580`.
+
+**Selection.** Nothing before 179 has changed since iteration 167 recorded
+it. 179 waits on a page by its own closing condition, 180 is done, and 269 is
+blocked on a `rav1d` release. 107 is next and eligible, and its own text
+says *"Cut this before starting it"*. How SVG is drawn is a decision (who
+owns the tree, what is rented, what the agent reads), so under `LOOP.md`
+stage 2 § 4 the cut and its decision are this iteration's work, with no
+engine code.
+
+**The page that opens it** (stage 2 § 1): alo's own offline screen,
+`alo-workplace/web/public/offline.html`. Its only picture is an inline
+`<svg>` of the alo hand: four `<path>`s with arcs, `fill="none"`, stroked
+`#e76f51` with round caps and joins, in a 24-unit `viewBox` drawn into a
+56 px square by its stylesheet. Read from the code, today it is a 56 × 56
+`inline-block` box with four empty inline boxes inside it, so the hand is
+missing. No case was frozen this iteration. 273 freezes it as the closing
+case.
+
+**What was decided** (ADR 0022):
+- § 1: an outermost `<svg>` is a replaced box sized through item 176's path.
+  CSS sets the size first, then the attributes, then the `viewBox` ratio,
+  then 300 × 150. **Nothing inside it is a CSS box.**
+- § 2: a new crate `alo-svg` makes a drawing after layout: paths in
+  `alo-paint`'s own `Path` vocabulary, with transforms and paint. The
+  pipeline hands it to paint by box id beside `PaintContext::pictures`, and
+  neither `alo-paint` nor `alo-box` depends on it. Geometry and the path
+  grammar are ours. `svgtypes` was the close call, refused on size,
+  the error rule and the bounds. Strokes and dashes are rented from
+  `tiny-skia`, which is already rented, through `raster.rs` only, so no new
+  crate and no boundary change.
+- § 3: SVG paint properties go through the one cascade. Presentation
+  attributes are author declarations of specificity zero, and
+  `currentColor` inherits from the HTML around the `<svg>`.
+- § 4: the agent tree gets one image node, named by `aria-label`,
+  `aria-labelledby`, then `<title>`. It is absent under `aria-hidden`, which
+  covers the offline screen's icon. No name is guessed from shapes.
+- § 5: path segments, dashes, nesting and (later) `<use>` expansion are
+  bounded before the work happens. A refusal leaves an empty box and never
+  panics. The values belong to the building commits.
+- § 6: the cut. **270** the box, **271** filled shapes, **272** path data and
+  **273** strokes, which closes on the offline screen frozen as an alo case.
+  Then **274** `<use>`, **275** gradients, **276** `<text>`, each opened only
+  by a page, and **277** an SVG file as a picture, which *needs ADR* because
+  a standalone SVG file is XML and XML is stage 3's item 139.
+- § 7: refused until a page asks: `clipPath`, `mask`, `filter`, `marker`,
+  `<image>`, `<foreignObject>`, SMIL, events inside the drawing. SVG fonts
+  are refused for good, and SVG `<script>` stays unrun.
+
+**Decisions a reviewer may want to look at.**
+- Refusing `usvg`/`resvg`. It is the cheapest route to the offline icon, and
+  it is refused because it owns its own tree and cascade (ADRs 0001 and
+  0004).
+- Writing our own path parser instead of renting `svgtypes`. The ADR says
+  what reopens that.
+- Putting `alo-svg` above `alo-paint` so that there is one path type.
+
+**Compliance review.**
+- Law 1: nothing legacy enters, and SVG fonts are refused by name.
+- Law 2: one tree is kept. The drawing is a box's content, and no verb
+  reaches into it or takes a coordinate.
+- Law 3: no code, so no stubs. 107 is not ticked. It stays open until
+  270–273 close.
+- Law 4: no `unsafe`. The one rented capability added later (the stroker)
+  is in a crate already behind its boundary.
+- ADRs 0001, 0002, 0004 and 0005 are applied, not amended.
+- One file, one responsibility: the only source change is a module comment
+  in `alo-dom`'s `scripts.rs`. It sent SVG `<script>` to item 107, which is
+  now wrong, and now cites ADR 0022 § 7.
+- Layout assertions and reference renders: nothing positions, sizes or draws
+  in this change. 270–273 each name theirs.
+- Bytes from outside: nothing new reads them. § 5 states the hostile-input
+  tests the building items owe.
+
+**Gate.** `scripts/gate.sh` exited 0 on this tree (455 s), run in the
+foreground and read in the same step. Formatting is clean, clippy is silent
+and all tests pass. Nothing is stubbed, `unsafe` is forbidden, every source
+file carries Exhibit A, all 21 rented crates stay behind their boundaries,
+no verb takes a coordinate, the stop rule holds, and `CHANGELOG.md` changed.
+`git diff --check` passes. The log is in this session's scratchpad and is not
+committed. The only later change was this journal entry, which is
+documentation.
+
+**Roadmap.** The *SVG* line stays an empty box, because nothing is built. It
+now says so, names ADR 0022 and items 270–277, and names the offline screen
+as the page they close on. Also updated: `QUEUE.md` (107's decision and cut,
+and 270–277 opened), `docs/features.md`, `CHANGELOG.md`, `REMAINING.md`, and
+`scripts.rs`'s module comment. `docs/conformance.md` is unchanged because
+what renders has not changed.
+
+**Unresolved obligations.**
+- 270–273 are to be built, in order. 270 is eligible now.
+- 277 needs its ADR before any code, once 273 is done.
+- Carried from 167, unchanged: 269 is blocked on a `rav1d` release, and the
+  `image-webp` panic should go upstream (a person's call). Also 109, 179, a
+  picture ignoring a clip in force, and 82, 83, 85–89, 95–99, 104 and 105,
+  which need their designs.
+
+118 queue items are open (eight opened, none closed). The first eligible
+item in file order is now **270**. The next unused queue number is **278**
+and the next ADR is **0023**. This is one iteration, not a finished queue or
+roadmap.

@@ -32,8 +32,9 @@
 //!   it. This engine is one that will (queue item 77), so it skips it now
 //!   rather than run a page's fallback today and its module tomorrow.
 //! - **`src`** makes it a script to fetch, whatever its text says.
-//! - **Only HTML's `<script>`.** An SVG `<script>` is queue item 107's, and a
-//!   `<script>` inside `<template>` is inert, as a template's contents are.
+//! - **Only HTML's `<script>`.** An SVG `<script>` does not run, and drawing
+//!   SVG does not change that (ADR 0022 § 7). A `<script>` inside
+//!   `<template>` is inert, as a template's contents are.
 //!
 //! # The nonce, and when markup cannot be trusted with one
 //!

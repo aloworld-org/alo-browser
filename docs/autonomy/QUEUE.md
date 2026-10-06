@@ -4971,6 +4971,87 @@ The long pole, and the thing most of section E is unreachable without.
   than its one line here suggests."* **Cut this before starting it**; it is
   several iterations and nobody should discover that halfway through.
 
+  **Decided and cut: ADR 0022 (iteration 168).** An outermost `<svg>` is one
+  replaced box, nothing inside it is a CSS box, and its contents become a
+  drawing of filled and stroked paths, made by a new crate `alo-svg` after
+  layout and handed to paint by box, as a picture is. The page that opens it
+  is **alo's own offline screen** (`alo-workplace/web/public/offline.html`),
+  whose only picture is an inline `<svg>` hand: four stroked `<path>`s with
+  arcs. Today it is a 56 × 56 hole. 107 is not built itself. It is the eight
+  items below, and it closes when 270–273 have closed. 274–277 open only when
+  a page needs them. ADR 0022 § 7 lists what stays refused.
+
+- [ ] **270. The `<svg>` box.** *Cut from 107 (ADR 0022 §§ 1, 4).* An
+  outermost `<svg>` laid out as a replaced element through item 176's path. Its
+  size comes from CSS, then from the `width` and `height` attributes, then from
+  a ratio from the `viewBox`, then 300 × 150. Its ratio comes from the
+  `viewBox`. Its descendants produce no boxes, and `display: none` inside it
+  only hides. In the agent tree it is one image node named by `aria-label`,
+  `aria-labelledby`, then its first child `<title>`, and it is absent under
+  `aria-hidden`.
+  *Depends on 176. Closes when:* a layout assertion pins the offline screen's
+  `<svg>` at 56 × 56 with no child boxes, and an `<svg>` sized only by
+  attributes, one sized only by a `viewBox`, and one with neither each have
+  the size § 1 gives. A test shows the agent node's name from each source and
+  its absence under `aria-hidden`.
+
+- [ ] **271. Shapes, filled.** *Cut from 107 (ADR 0022 §§ 2, 3).* The crate
+  `alo-svg` and the drawing handed to paint by box id, beside
+  `PaintContext::pictures`. Also: `viewBox` and `preserveAspectRatio` as one
+  transform, `rect` (with `rx`/`ry`), `circle`, `ellipse`, `line`, `polyline`,
+  `polygon`, `<g>`, a nested `<svg>` viewport, the `transform` attribute,
+  `fill`, `fill-rule`, `fill-opacity` and `opacity`. Presentation attributes
+  enter the cascade as author declarations of specificity zero, and
+  `currentColor` inherits from the HTML around the `<svg>`.
+  *Depends on 270. Closes when:* a reference render shows each shape filled,
+  including `evenodd` against `nonzero`, a `currentColor` icon taking its
+  paragraph's colour, and a stylesheet overriding a presentation attribute.
+  Shape geometry and the viewport transform have unit tests in numbers. Every
+  count § 5 names for these elements is bounded and tested hostile.
+
+- [ ] **272. Path data.** *Cut from 107 (ADR 0022 §§ 2, 5).* The `d` grammar,
+  every command, absolute and relative, with arcs converted to cubic curves
+  by SVG 2's implementation notes. A path is drawn up to its first error and
+  no further. Segments per path and per drawing are bounded.
+  *Depends on 271. Closes when:* unit tests pin each command's segments in
+  numbers, including arcs whose radii need correcting and arcs of zero
+  radius. A reference render shows a path of every command. Malformed,
+  truncated and adversarial data (huge counts, non-finite numbers, exponent
+  overflow) is refused or cut at the error, and never panics.
+
+- [ ] **273. Strokes, and alo's offline screen.** *Cut from 107 (ADR 0022
+  §§ 2, 5, 6).* `stroke`, `stroke-width`, `stroke-linecap`,
+  `stroke-linejoin`, `stroke-miterlimit`, `stroke-opacity`,
+  `stroke-dasharray` and `stroke-dashoffset`, through `tiny-skia`'s stroker
+  and dasher, named only in `alo-paint`'s `raster.rs`. Dashes are bounded
+  before they are made.
+  *Depends on 272. Closes when:* the offline screen is frozen into the corpus
+  as an alo case, with its hand drawn. Its reference render and box tree are
+  committed. A reference render covers every cap, join and a dash pattern.
+  A dash array that would make millions of dashes is refused, with a test.
+
+- [ ] **274. `<defs>`, `<symbol>` and `<use>`.** *Cut from 107 (ADR 0022
+  §§ 5, 6).* The icon sprite. Expansion is bounded and cycles are refused,
+  because `<use>` is SVG's billion laughs.
+  *Depends on 273. Opened only by a frozen page that needs it*, as 179 is.
+
+- [ ] **275. Gradients and patterns as SVG paint.** *Cut from 107 (ADR 0022
+  § 6).* `linearGradient` and `radialGradient` through the gradients paint
+  already draws (item 19), and `pattern`.
+  *Depends on 273. Opened only by a frozen page that needs it.*
+
+- [ ] **276. `<text>` in SVG.** *Cut from 107 (ADR 0022 § 6).* Text placed by
+  coordinates and shaped by `alo-text`.
+  *Depends on 273. Opened only by a frozen page that needs it.*
+
+- [ ] **277. An SVG file as a picture.** *Cut from 107 (ADR 0022 § 6).*
+  `<img src="…svg">` and SVG in `background-image`. A standalone SVG file is
+  XML, and XML is stage 3's item 139. *Needs ADR*, as its own iteration: which
+  parser is rented, how it is held to SVG documents only, and the secure
+  static mode (no script, no animation, no fetch of anything outside the
+  file).
+  *Depends on 273.*
+
 - [ ] **108. Canvas 2D.** The rasteriser exists; this is the API over it and the
   compositing rules around it.
   *Depends on 72.*

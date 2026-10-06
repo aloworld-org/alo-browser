@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How SVG will be drawn is decided, and nothing new is drawn yet.**
+  ADR 0022 makes an `<svg>` in a page one box, sized like a picture, and
+  draws what is inside it as shapes rather than laying it out as boxes.
+  The work is cut into steps. The first four end with alo's offline screen
+  showing the hand icon that is an empty square today. An agent reads an
+  `<svg>` as one named picture, and never as a pile of shapes.
+
 - **How AVIF pictures will be read is decided, and they still are not.**
   ADR 0021 chooses `rav1d`, a Rust AV1 decoder, through its safe Rust API.
   That API is not in a release yet, so an AVIF stays refused rather than

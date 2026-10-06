@@ -395,6 +395,13 @@ so 269 is **blocked on a `rav1d` release** rather than built on a git pin or
 on FFI of our own. 110 queue items are open; the next unused queue number is
 270 and the next unused ADR 0022.
 
+Iteration 168 wrote ADR 0022 and cut item 107, SVG, as 107 asked before it was
+started. An `<svg>` is a replaced box whose contents become a drawing of paths
+made by a new crate, `alo-svg`. 270–273 (the box, filled shapes, path data,
+strokes) close on alo's offline screen. 274–277 wait on a page, and 277 also
+needs its own ADR. 107 stays open until 270–273 close. 118 queue items are
+open; the next unused queue number is 278 and the next unused ADR 0023.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;
