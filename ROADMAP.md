@@ -944,8 +944,11 @@ unreachable without it.
       `Outcome::TextCanceled` (wire tag 4); otherwise the text, put by
       `alo-dom`'s `field.rs` (the rule `apply` now asks too), then `input`
       and `change` (`alo-renderer`'s `event_loop/typed.rs` and `put.rs`) ·
-      Owed: a script's click following a link (263), each element's own
-      interface (262), focus (258) and event handler attributes (259)
+      Owed: a script's click following a link (263, whose decision is
+      ADR 0020: a page's navigation is a claim in a renderer's answer the
+      browser process judges and attributes; no code yet), a link's
+      download (264), each element's own interface (262), focus (258) and
+      event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
       · Built: **a control draws its own state** (queue item 182) — a tick in a
       checked box, a dot in a chosen radio, a dash in one that is neither, in

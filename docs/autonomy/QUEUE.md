@@ -4339,6 +4339,38 @@ The long pole, and the thing most of section E is unreachable without.
   0012 do not already decide it. *Closes when:* a page's `a.click()` on a
   link nobody cancelled reaches the browser process as a navigation that
   says the page's script caused it.
+  **Its decision is ADR 0020 (iteration 158)**, written because ADR 0005
+  decides only the direction and ADR 0012 only who names the cause: a
+  renderer's navigation is a **claim in the answer** to the message whose
+  work made it, recorded meanwhile in the document cell (HTML's ongoing
+  navigation, one, the last, with a count of those it replaced); the URL
+  resolved by the renderer against the document's base, so `Page` gains
+  its URL; the browser process parses it again, refuses by name what a
+  page may not send its tab to (`data:`, `javascript:`, `blob:`, other
+  schemes, `file:` from a non-`file:` document, unparseable or over
+  2 MiB, a `target` naming another window), and assigns the cause from
+  which message it answered — `Cause::Agent` in an `Act`'s answer,
+  `Cause::Document` otherwise — with *a script's click* kept as the ask's
+  claim beside it. An agent's own link answers through the same ask.
+  `<a download>` is cut to item 264. No code yet. **Closing, made exact
+  by the ADR:** a script at load calling `a.click()` reaches `Tabs::load`'s
+  caller as a navigation with `Cause::Document` and the claim *a script's
+  click*; inside an agent's `Activate`, the same click carries
+  `Cause::Agent` and the same claim; a refused scheme is said and
+  navigates nowhere.
+
+- [ ] **264. A link's download.** *Cut from 263 (ADR 0020 § 6).* A click
+  on an `<a download>` asks for a file, not a page: honoured for the
+  document's own origin, `data:` and `blob:`, otherwise a navigation; the
+  suggested name a claim the browser process cleans; a `blob:` URL's bytes
+  taken at activation and carried with the ask, bounded; nothing written
+  where the person did not choose. alo's `FilesView.tsx` and
+  `TaskDetail.tsx` are the pages. *Depends on 263, on 120 for where a file
+  goes, and on `Blob` (no item yet; `URL.createObjectURL` with it) for its
+  `blob:` half. Closes when:* alo's download pattern — `blob:` URL,
+  `a.download`, `a.click()`, `URL.revokeObjectURL` — reaches the browser
+  process as a download of the blob's bytes under a cleaned name, and a
+  cross-origin `download` is a navigation.
 
 - [x] **260. `isTrusted`, as Web IDL's `[LegacyUnforgeable]` attribute.**
   *Cut from 254 (ADR 0018 §§ 4 and 8). Depends on nothing.* An own accessor

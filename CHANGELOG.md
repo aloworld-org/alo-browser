@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: how a page asks to go somewhere** (ADR 0020). When a page's
+  script clicks a link, the page's process only *asks*, in its answer to
+  whatever it was doing, and the browser decides: it re-reads the address,
+  refuses by name anything a page may not send a tab to — a local file
+  from a web page, a `data:` page, a `javascript:` URL, another program's
+  scheme, a new window — and records who caused it from what it had asked
+  the page to do, never from what the page says. A page that clicks three
+  links goes to the last. Downloads (`<a download>`) are decided too, and
+  wait for somewhere a person chooses to put the file. Nothing is built
+  yet; this is the decision the code will follow.
+
 - **A page now hears an agent type.** On a page that runs script, an
   agent putting text into a field asks the page first, with the same
   `beforeinput` event a browser sends when a field's text is replaced, and

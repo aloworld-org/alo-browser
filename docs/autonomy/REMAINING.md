@@ -315,6 +315,16 @@ Of the events group, 258 needs design, 259 and 262 wait on a page, and 263
 needs its ADR first (a decision, its own iteration). The next unused queue
 number is 264 and the next unused ADR 0020.
 
+Iteration 158 wrote item 263's decision, ADR 0020: a renderer's navigation
+is a claim in the answer to the message whose work made it, held meanwhile
+in the document cell (one, the last); the renderer resolves the URL against
+the document's base (`Page` gains its URL) and the browser process parses
+it again, refuses by name the schemes and targets a page may not send its
+tab to, and assigns the cause from which message it answered. No code.
+`<a download>` is cut to item 264 (on 263, 120 and `Blob`). 113 queue items
+are open; **263** is next, now buildable; the next unused queue number is
+265 and the next unused ADR 0021.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

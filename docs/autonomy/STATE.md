@@ -13577,3 +13577,108 @@ passed: formatting clean, clippy silent, all tests pass, nothing stubbed,
 boundary, no coordinate verb, the stop rule holds, and `CHANGELOG.md`
 changed with the code. The log is in this session's scratchpad, not
 committed.
+
+## Iteration 158 — item 263's decision: ADR 0020, a page asks to go somewhere and the browser process decides
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Events* and *Navigation* lines,
+iteration 157's entry, `REMAINING.md`'s continuation order, every open queue
+item's dependency line (233, 234, 251 and 258–263 in full, and 43 and 190),
+ADRs 0005, 0012 and 0018 in full and 0019's head, and the code the decision
+is about: `alo-renderer`'s `message.rs`, `page.rs`, `tab.rs`, `press.rs` and
+`renderer.rs` (`act`); `alo-agent`'s `verb.rs`; `alo-dom`'s `activation.rs`;
+`alo-bindings`' `interface/html_element.rs`; `alo-net`'s `cause.rs`,
+`chain.rs`, `schemes.rs` and `download.rs`'s head. No `AGENTS.md` exists.
+`alo-workplace/web/src/tasks/FilesView.tsx` and `TaskDetail.tsx` were read,
+read-only, for their `a.click()`; no sibling repository was modified. The
+checkout was clean on entry at `b31efce`.
+
+**Selection.** In file order, every open item before 263 is blocked on an
+unbuilt dependency, needs design, waits on a frozen page, or (233) owes only
+the loop running between messages, which no task source yet exists to
+exercise — as iterations 155–157 recorded. 263's one code dependency, 261,
+is done, and its other dependency is a decision it names as **needs ADR if
+ADR 0005 and 0012 do not already decide it**. They do not: 0005 decides the
+direction (no call back) and 0012 who names the cause, but neither what a
+renderer may ask to navigate to, where the URL is resolved, what several
+asks in one task come to, or what a download is. `LOOP.md` stage 2 § 4: a
+decision is its own iteration. So this iteration is ADR 0020, and no code.
+(Item 190, ready and small, is after 263 in the file.)
+
+**What was decided** (ADR 0020):
+- § 1: a navigation is a **claim in the answer** to the message whose work
+  made it (`Loaded`, `Acted`, and 233's message when it exists), as `wanted`
+  and `objections` already are; never a call, never awaited, never answered.
+  While script runs it is held in the document cell, reached by `click()`
+  through `[[HostDefined]]` (ADR 0019) — HTML's ongoing navigation. An
+  agent's own link goes through the same ask; `Outcome::Followed` stays what
+  the agent is told.
+- § 2: the renderer resolves the URL against the document's base, so `Page`
+  gains its URL, stated by the browser process. The ask also says how it
+  arose (the browser's click or a script's) and the link's referrer policy —
+  *what*, never *who*. A `target` naming another window is refused by name.
+- § 3: the browser process parses the URL again; refuses one that does not
+  parse or is over 2 MiB (Chromium's limit for the same check); navigates
+  `http`, `https`, `about:blank`; `file:` only from a `file:` document;
+  refuses `data:`, `javascript:`, `blob:`, every other scheme and its own.
+  A refusal is said and recorded under ADR 0012; the page is told nothing.
+- § 4: the cause is assigned from which message was answered — `Act` →
+  `Cause::Agent`, otherwise `Cause::Document` — applying ADR 0012 § 4
+  rather than amending it; the claim *a script's click* is kept beside it.
+- § 5: one ask per answer, the last, with a count of those replaced.
+- § 6: `<a download>` is a different ask (own origin, `data:`, `blob:`;
+  cross-origin is a navigation; a cleaned name; `blob:` bytes cross with it;
+  nothing written where the person did not choose), **cut to item 264**.
+
+**Decisions a reviewer may want to look at.** The scheme table in § 3 is
+policy: in particular refusing page-initiated `data:` navigations and
+allowing `file:` only from `file:` documents. Both follow what Chromium and
+Gecko ship, cited in the ADR, but they are choices, and they are written
+down so they can be argued with. § 6's "`ping` is never sent" is stated
+under *What this does not decide* as absent, with adding it a decision.
+
+**Compliance review.**
+- Law 1: nothing legacy enters; `javascript:` URLs and `ping` stay absent.
+- Law 2: no verb is added or changed; the agent's surface is unchanged.
+- Law 3: no code, so no stubs. The closing condition of 263 was made exact
+  in the queue rather than loosened.
+- Law 4: no `unsafe`.
+- ADRs: 0005 and 0012 are applied, not amended; 0018 § 6's
+  `activation.rs` keeps saying what follows a click.
+- One file, one responsibility: no source file changed.
+- Layout assertions, reference renders: nothing positions, sizes or draws.
+- Bytes from outside: none read yet. The ADR requires the URL to be parsed
+  as hostile in the browser process, which is 263's code to test with
+  malformed and oversized input.
+- `docs/features.md` is not changed: its *Events* line already promises a
+  script's link click (263) and *Navigation* is unchanged; a decision is
+  not a built feature. `ROADMAP.md`'s *Events* Owed clause names ADR 0020
+  and 264; nothing is ticked. The *Navigation* line is not moved because
+  nothing on it is built.
+
+**Gate.** `scripts/gate.sh` exited 0 on the tree committed here, run in
+the foreground and read in the same step (6 min 54 s): formatting clean,
+clippy silent, all tests pass (the script runs under `pipefail`), nothing
+stubbed, `unsafe` forbidden, licence notices, every rented crate behind its
+boundary, no coordinate verb, the stop rule holds, and documentation
+changed with the code (no code changed). `git diff --check` passes. The log
+is in this session's scratchpad, not committed.
+
+**Roadmap.** The *Events* line's Owed clause now says 263's decision is
+ADR 0020 and adds 264. It is not ticked.
+
+**Unresolved obligations.**
+- New from this iteration: 263's code (now buildable: `Page`'s URL, the
+  ask in the cell and in `Loaded`/`Acted` with a wire tag, the browser's
+  parse, scheme table and cause, hostile-URL tests); 264 waits on 120 and
+  on a `Blob` item that does not exist yet.
+- Carried from iteration 157, unchanged: `Outcome::TextCanceled` decided in
+  code; `change` timing pending focus (258); a field's text is its `value`
+  attribute (82); `beforeinput`/`input` have no `view` (251); 262; an
+  abandoned `click()`'s flag; `click()`'s missing `view`; 233 still owes the
+  loop between messages; 78's remainder; 77 needs design; 234, 238 and 240
+  open and 76 not done.
+
+113 queue items are open (264 added). **263** is next, now buildable. The
+next unused queue number is **265** and the next ADR **0021**. This is one
+iteration, not a finished queue or roadmap.
