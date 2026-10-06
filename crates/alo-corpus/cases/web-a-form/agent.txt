@@ -1,4 +1,4 @@
-document at (0, 0) 600×668.5047
+document at (0, 0) 600×664.73126
   paragraph at (8, 16) 584×26.973438
     textbox "Customer name:" at (146.65625, 16) 166×23.2
   paragraph at (8, 58.97344) 584×26.973438
@@ -27,5 +27,5 @@ document at (0, 0) 600×668.5047
     generic "Preferred delivery time:" at (202.48438, 508.7844) 166×23.2
   paragraph at (8, 551.7578) 584×57.773438
     textbox "Delivery instructions:" at (183.67188, 551.7578) 166×54
-  paragraph at (8, 625.53125) 584×26.973438
+  paragraph at (8, 625.53125) 584×23.2
     button "Submit order" at (8, 625.53125) 118.50781×23.2

@@ -1,6 +1,6 @@
 document at (0, 0) 480×400
-  main at (32, 80.88438) 416×238.23125
-    heading "You're offline" [level=1] at (32, 160.6578) 416×25.609375
-    paragraph at (32, 196.26718) 416×55.875
-      text "alo can't reach the server right now. Your mail is safe and will be waiting as soon as the connection returns." at (38.492188, 196.26718) 403.01563×55.875 in 3 pieces
-    button "Try again" at (181.54688, 276.14218) 116.90625×39.2
+  main at (32, 82.771095) 416×234.45781
+    heading "You're offline" [level=1] at (32, 162.54453) 416×25.609375
+    paragraph at (32, 198.1539) 416×55.875
+      text "alo can't reach the server right now. Your mail is safe and will be waiting as soon as the connection returns." at (38.492188, 198.1539) 403.01563×55.875 in 3 pieces
+    button "Try again" at (181.54688, 278.0289) 116.90625×39.2

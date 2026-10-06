@@ -4881,7 +4881,7 @@ The long pole, and the thing most of section E is unreachable without.
   `numbers.rs` assertion has a 50%-wide inline-block in 400 px drawn 200
   wide, with and without margins, and the line's next text right after it.
 
-- [ ] **285. An inline-block's baseline is its last line's.** *Opened by
+- [x] **285. An inline-block's baseline is its last line's.** *Opened by
   `alo-offline`, `web-a-form` and `a-script-hears-an-event` (iteration
   176).* The engine gives every atomic inline box a baseline at its bottom
   margin edge (`engine.rs`'s `lay_out_subtree` reports the border box's
@@ -4906,6 +4906,59 @@ The long pole, and the thing most of section E is unreachable without.
   grid container's
   baseline (its items', not its last line's) is out of scope: say so where
   it is refused, and queue it if a page needs it.
+  **Built (iteration 177).** A new `alo-layout` file, `baseline.rs`,
+  holds the rule: the engine records where the last line of every inline
+  formatting context in an atomic box's subtree stands (`place_inline_content`,
+  after a control's label is centred), and `baseline::last_line` walks the
+  box's in-flow block children last first to the first such line. `None`
+  — no line, or the box's own `overflow` not `visible` — is the bottom
+  margin edge, which `atomic_item` measures because only it has the
+  margins; a line's baseline is measured from the margin box's top without
+  the bottom margin added. A picture or an SVG has no lines; an absolutely
+  positioned child is skipped. **Refused**, ending the search at the
+  bottom margin edge (said in the module comment and in
+  `docs/conformance.md`): a flex or grid container, whose baseline is its
+  items', and a scroll container below the box, on whose baseline browsers
+  differ. Tests: `numbers.rs` 3 new, through the engine with `ScaledFont`
+  (16 px: 12 up, 4 down) — an inline-block of "cd" alone in a block is
+  16×16 and the block 16; beside "ab " both at y 0 in a 16 line; two lines
+  in it put "ab " at 16 in a 32 line; margins 6/10 put both at 6 in a 32
+  line; with `overflow: hidden` the text drops to 4 in a 20 line; an empty
+  20×20 box puts it at 8 in a 24 line; `inline-flex` at 4 in 20; a button
+  with no edges is 19.2 tall, the text beside it at 1.6 and the line 19.2.
+  Doctored: `last_line` always `None` fails the two baseline tests; no
+  overflow check fails the bottom-edge test. Moved tests, each to the
+  number this item named: `reading_an_interface`'s form 44.90176,
+  `what_a_listener_hears`' paragraphs 44.800003 and 77.09688; and one it
+  did not name, `an_agents_text`'s echo 55.2 → 52.625 — an `<output>`
+  beside a text field, now level with the field's value (both at 52.625,
+  18.625 tall), which is this item's text-field case. Corpus:
+  `a-script-hears-an-event` and `web-a-form` are byte for byte their
+  references from before the strut (283); `alo-offline`'s button line is
+  39.2, the button's height, and `main` 234.45781 at (32, 82.771095) — the
+  hand line keeps 283's descent. No other case moved. *What it exposed:*
+  an author's `inline-block` holding a `<p>` is broken around it by
+  `alo-box` as if it were a `<span>`, so the search through blocks is
+  tested only through a button's anonymous label box; that is **286**.
+
+- [ ] **286. An inline-block holding a block is not broken around it.**
+  *Found by iteration 177, not opened by a page.* `alo-box`'s
+  `build_one` (`tree.rs`, the `holds_a_block` branch) splits any box whose
+  `display` is inline-level around a block-level child — right for an
+  inline box (`display: inline`, inside `flow`), wrong for an
+  `inline-block`, `inline-flex` or `inline-grid`, which establish their own
+  formatting context and hold a block like any block container. A
+  `<span id=i><p>cd</p><p>ef</p></span>` under `#i { display:
+  inline-block }` came out as a 0×0 rectangle on its line rather than one
+  atomic box holding two paragraphs. The fix is the branch
+  asking for `Inside::Flow` as well; it moves every case that has such a
+  box, and each move is to be read. *Depends on nothing. Blocked: no page
+  yet* — no corpus page writes an `inline-block`, `inline-flex` or
+  `inline-grid` at all (checked iteration 177), so a page that puts a
+  block in one opens it. *Closes when:* a box-tree test has an inline-block
+  holding two paragraphs as one box with two block children, and a
+  `numbers.rs` assertion has it standing on its second paragraph's
+  baseline beside text (`baseline.rs`'s search through blocks, end to end).
 
 - [ ] **94. Animations and transitions.** Stage 1 reads them and they change
   nothing, which is correct for a still picture; this is the clock.

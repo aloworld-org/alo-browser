@@ -1240,3 +1240,135 @@ fn aligning_a_line_moves_an_inline_blocks_margin_box() {
     let found = rect_of(&boxes, &layout, "i", html).left();
     assert!(close(found, 90.0), "at {found}");
 }
+
+#[test]
+fn an_inline_block_of_text_stands_on_its_last_lines_baseline() {
+    // Sixteen-pixel text at eight pixels a character, twelve of it above the
+    // baseline and four below, inside and outside the box alike.
+    let css = "#i { display: inline-block } p { margin: 0 }";
+
+    // Alone in a block of the same font, a line of text in an inline-block
+    // makes a line exactly as tall as the inline-block: its baseline is its
+    // text's, and the strut's descent is already under it.
+    let html = "<body><div id=w><span id=i>cd</span></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "i", html),
+        Rect::new(0.0, 0.0, 16.0, 16.0)
+    );
+    let block = rect_of(&boxes, &layout, "w", html);
+    assert!(close(block.size.height, 16.0), "{block:?}");
+
+    // Beside text, it stands on the text's baseline: both at the top of a
+    // 16-pixel line rather than the text a descent below the box.
+    let html = "<body><div id=w><span id=t>ab </span><span id=i>cd</span></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html),
+        Rect::new(0.0, 0.0, 24.0, 16.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "i", html),
+        Rect::new(24.0, 0.0, 16.0, 16.0)
+    );
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 16.0));
+
+    // Two lines in it: the *last* one is on the outer line's baseline, 28
+    // down, so the text beside it is at 16 and the line is 32.
+    let narrow = format!("{css} #i {{ width: 16px }}");
+    let html = "<body><div id=w><span id=t>ab </span><span id=i>cd ef</span></div></body>";
+    let (boxes, layout) = lay_out_measured(html, &narrow, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "i", html),
+        Rect::new(24.0, 0.0, 16.0, 32.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html),
+        Rect::new(0.0, 16.0, 24.0, 16.0)
+    );
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 32.0));
+
+    // Its margins: the baseline is 6 + 12 below the top of the margin box,
+    // and 4 + 10 of it hang below — a 32-pixel line, the box 6 down.
+    let spaced = format!("{css} #i {{ margin: 6px 0 10px }}");
+    let html = "<body><div id=w><span id=t>ab </span><span id=i>cd</span></div></body>";
+    let (boxes, layout) = lay_out_measured(html, &spaced, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "i", html),
+        Rect::new(24.0, 6.0, 16.0, 16.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html),
+        Rect::new(0.0, 6.0, 24.0, 16.0)
+    );
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 32.0));
+}
+
+#[test]
+fn an_inline_block_with_no_line_or_hidden_overflow_stands_on_its_bottom_edge() {
+    // With text and `overflow: hidden`, the box's bottom margin edge is its
+    // baseline: 16 down, so the text beside it sits 4 lower and the line is
+    // 16 + 4.
+    let css = "#i { display: inline-block; overflow: hidden }";
+    let html = "<body><div id=w><span id=t>ab </span><span id=i>cd</span></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "i", html),
+        Rect::new(24.0, 0.0, 16.0, 16.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html),
+        Rect::new(0.0, 4.0, 24.0, 16.0)
+    );
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 20.0));
+
+    // An empty one has no line to stand on at all.
+    let css = "#i { display: inline-block; width: 20px; height: 20px }";
+    let html = "<body><div id=w><span id=t>ab </span><span id=i></span></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "i", html),
+        Rect::new(24.0, 0.0, 20.0, 20.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html),
+        Rect::new(0.0, 8.0, 24.0, 16.0)
+    );
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 24.0));
+
+    // A flex container's baseline is its items', which this engine does not
+    // work out: refused, it stands where every atomic box used to.
+    let css = "#i { display: inline-flex }";
+    let html = "<body><div id=w><span id=t>ab </span><span id=i>cd</span></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html),
+        Rect::new(0.0, 4.0, 24.0, 16.0)
+    );
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 20.0));
+}
+
+#[test]
+fn a_button_stands_on_its_labels_baseline() {
+    // A button with no edges is its label's line: beside text, both at the
+    // top, and alone in a block it adds no descent of the strut's under it.
+    // Its label is in a block nobody wrote, so this is also the search for a
+    // line going down through a block. (An author's `inline-block` holding
+    // blocks cannot show that yet: the box tree breaks it around them as if
+    // it were a `<span>`, which is queue item 286.)
+    let css = "#b { padding: 0; border: 0; margin: 0 }";
+    let html = "<body><div id=w><span id=t>ab </span><button id=b>Go</button></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    // The button is one `normal` line tall, 19.2, with its 16-pixel label
+    // centred 1.6 down — so the label's baseline is 13.6 down, and the text
+    // beside it stands there too. Its bottom edge would have put the text at
+    // 7.2 and the line at 23.2.
+    assert_eq!(
+        rect_of(&boxes, &layout, "b", html),
+        Rect::new(24.0, 0.0, 16.0, 19.2)
+    );
+    let text = rect_of(&boxes, &layout, "t", html);
+    assert!(close(text.top(), 1.6), "{text:?}");
+    let block = rect_of(&boxes, &layout, "w", html);
+    assert!(close(block.size.height, 19.2), "{block:?}");
+}

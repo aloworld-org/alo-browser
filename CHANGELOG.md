@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A button sits level with the text beside it.** A button, a text field
+  and an inline-block of text used to stand on their bottom edge, so text
+  next to them sat low and a line holding only a button was a little too
+  tall — on alo's offline screen, the space under "Try again". They now
+  stand on the baseline of their own last line of text, the label's or the
+  value's, as in other browsers. A picture, an empty box and a box that
+  clips its overflow still stand on their bottom edge, which is right for
+  them.
+
 - **A line is never shorter than its font.** A line holding only a picture
   used to be exactly as tall as the picture, so the next paragraph sat
   against its bottom edge, and small text in a large-font block made a

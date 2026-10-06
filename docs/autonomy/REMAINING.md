@@ -454,6 +454,14 @@ line is now one descent too tall; that is 285, eligible and next. 117 queue
 items are open; the next unused queue number is 286 and the next unused ADR
 0023.
 
+Iteration 177 built 285: an atomic inline box stands on its last line's
+baseline — a button on its label's, a text field on its value's — so the
+button lines 283 made too tall are the button's height again, and two of
+three corpus cases are back to their pre-strut references byte for byte.
+It found an inline-block holding a block broken around it by the box tree;
+that is 286, blocked until a page needs it, like 284. 117 queue items are
+open; the next unused queue number is 287 and the next unused ADR 0023.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

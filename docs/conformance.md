@@ -42,11 +42,16 @@ and `end` wait on writing modes (item 98). An image or inline-block sits on
 the line by its **margin box**: its margins take room across the line and
 make the line taller. Every line starts with a **strut** — its container's
 font's ascent and descent — so a line of only a picture has the font's
-descent below it, as in other browsers. An atomic box's own baseline is
-always its bottom margin edge, though, which is right for an image, an SVG
-and a checkbox and wrong for a button or an inline-block with text in it,
-whose baseline is its last line's: so a line holding only a button is one
-descent taller than in other browsers (item 285). A percentage width on an
+descent below it, as in other browsers. An atomic box stands on the
+baseline of its **last line** — a button on its label's, a text field on its
+value's, an inline-block on its last line of text — and on its bottom margin
+edge when it has no line or its `overflow` is not `visible`, which is where an
+image, an SVG and a checkbox stand. The line is found through the blocks
+inside the box, last first; a flex or grid container, or a scroll container,
+met on the way is **refused**, and the box stands on its bottom margin edge
+instead — a flex or grid container's baseline is its items', which is not
+worked out yet. An author's `inline-block` holding blocks is broken around
+them by the box tree as if it were a `<span>` (item 286). A percentage width on an
 inline-block is drawn against the room the line gave it rather than its
 container (item 284).
 
@@ -239,7 +244,7 @@ it lives in.
 | alo Settings | **yes** — `alo-workplace`'s, likewise, and its narrow-screen `@media` block evaluated rather than assumed away |
 | An agent reading Settings as a tree and activating a row by name | **yes** — `crates/alo-renderer/tests/an_agent_on_settings.rs`, against that same screen, by name and never by position |
 | alo agent overlay | not yet — the screen is not written in `alo-workplace` either |
-| alo offline screen | **nearly** — `alo-workplace`'s `offline.html`, frozen byte for byte as `alo-offline`, its hand drawn (item 273), it and the button centred across (item 280) and the hand's bottom margin kept (item 281), the whole screen centred down the window by `place-items` (item 282), and the font's descent under the hand (item 283); the button's line is one descent too tall, because a button's baseline is taken as its bottom edge rather than its label's (285) |
+| alo offline screen | **nearly** — `alo-workplace`'s `offline.html`, frozen byte for byte as `alo-offline`, its hand drawn (item 273), it and the button centred across (item 280) and the hand's bottom margin kept (item 281), the whole screen centred down the window by `place-items` (item 282), the font's descent under the hand (item 283), and the button standing on its label's baseline so its line is the button's height (item 285) |
 
 **One thing is true of both screens and is not a defect in either**: the corpus
 renders in DejaVu Sans, and the app loads Inter. Inter is narrower, so alo's

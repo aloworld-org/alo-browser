@@ -40,6 +40,7 @@
 //!   than where anything is. That belongs with paint, queue item 7.
 
 pub(crate) mod arena;
+pub(crate) mod baseline;
 pub mod engine;
 pub mod geometry;
 pub mod inline;

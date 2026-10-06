@@ -41,6 +41,7 @@
 //! refused; now it is a number.
 
 use crate::arena::{Arena, NodeKind, Unresolved};
+use crate::baseline;
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::inline::{self, Fragment, InlineItem, InlineLayout};
 use crate::keyword::{
@@ -93,9 +94,25 @@ pub fn compute(
 /// One formatting context, laid out on its own.
 struct LaidOut {
     size: Size,
-    baseline: f32,
+    /// How far below the top of its border box the baseline of its last line
+    /// sits, or `None` when it has no line to stand on; see
+    /// [`crate::baseline`].
+    baseline: Option<f32>,
     geometry: BTreeMap<BoxId, BoxGeometry>,
     fragments: BTreeMap<BoxId, Vec<Fragment>>,
+}
+
+/// Where everything in one formatting context ended up, filled in as it is
+/// placed.
+#[derive(Default)]
+struct Placed {
+    /// Every box's rectangle.
+    geometry: BTreeMap<BoxId, BoxGeometry>,
+    /// Every piece of every box laid out in a line.
+    fragments: BTreeMap<BoxId, Vec<Fragment>>,
+    /// Where the baseline of each inline formatting context's last line
+    /// stands; see [`crate::baseline`].
+    lines: BTreeMap<BoxId, f32>,
 }
 
 /// Lay out a subtree as its own formatting context, with its own engine tree.
@@ -120,40 +137,28 @@ fn lay_out_subtree(
     // how "Remember me" once became two lines in a box wide enough for one.
     arena.compute(root_node, available);
 
-    let mut geometry = BTreeMap::new();
-    let mut fragments = BTreeMap::new();
+    let mut placed = Placed::default();
     read_back(
         &arena,
         &ours_to_theirs,
         boxes,
         root,
         Point::ZERO,
-        &mut geometry,
+        &mut placed.geometry,
     );
     // Before anything is placed inside a box, and after every box has a
     // rectangle: a fieldset's legend sits in its block-start border rather
     // than under it, and the lines of text in it have to be laid out against
     // where it ends up. See `crate::legend`.
-    legend::raise(boxes, styles, &mut geometry, issues);
-    place_inline_content(
-        boxes,
-        styles,
-        root,
-        measure,
-        &mut geometry,
-        &mut fragments,
-        issues,
-    );
+    legend::raise(boxes, styles, &mut placed.geometry, issues);
+    place_inline_content(boxes, styles, root, measure, &mut placed, issues);
 
-    let root_geometry = geometry.get(&root).copied().unwrap_or_default();
+    let root_geometry = placed.geometry.get(&root).copied().unwrap_or_default();
     Some(LaidOut {
         size: root_geometry.border_box.size,
-        // A box's baseline is the last line inside it, or its bottom edge when
-        // there is no line — which is what CSS says an empty inline-block sits
-        // on.
-        baseline: root_geometry.border_box.size.height,
-        geometry,
-        fragments,
+        baseline: baseline::last_line(boxes, styles, root, &placed.lines, &placed.geometry),
+        geometry: placed.geometry,
+        fragments: placed.fragments,
     })
 }
 
@@ -491,13 +496,22 @@ fn atomic_item(
         .as_ref()
         .and_then(|held| held.geometry.get(&id))
         .map_or(Edges::ZERO, |held| held.margin);
+    let size = laid_out.as_ref().map_or(Size::ZERO, |held| held.size);
+    // The baseline is measured from the top of the margin box, which is what
+    // sits on the line: its last line's, or with no line its bottom margin
+    // edge — where an empty inline-block, a picture and a scroll container
+    // stand.
+    let baseline = laid_out
+        .as_ref()
+        .and_then(|held| held.baseline)
+        .map_or(margin.top + size.height + margin.bottom, |line| {
+            margin.top + line
+        });
     InlineItem::Atomic {
         box_id: id,
-        size: laid_out.as_ref().map_or(Size::ZERO, |held| held.size),
+        size,
         margin,
-        // The baseline is measured from the top of the margin box, which is
-        // what sits on the line.
-        baseline: margin.top + laid_out.as_ref().map_or(0.0, |held| held.baseline) + margin.bottom,
+        baseline,
     }
 }
 
@@ -508,12 +522,11 @@ fn place_inline_content(
     styles: &StyleTree,
     id: BoxId,
     measure: &impl MeasureText,
-    geometry: &mut BTreeMap<BoxId, BoxGeometry>,
-    fragments: &mut BTreeMap<BoxId, Vec<Fragment>>,
+    out: &mut Placed,
     issues: &mut Vec<StyleIssue>,
 ) {
     if is_inline_formatting_context(boxes, id) {
-        let Some(container) = geometry.get(&id).copied() else {
+        let Some(container) = out.geometry.get(&id).copied() else {
             return;
         };
         let content = container.content_box();
@@ -539,12 +552,17 @@ fn place_inline_content(
             0.0
         };
         let origin = Point::new(content.origin.x, content.origin.y + centred_by);
+        // Where its last line stands, for the atomic box this context may be
+        // the last line of; see `crate::baseline`.
+        if let Some(last) = layout.lines.last() {
+            out.lines.insert(id, origin.y + last.top + last.baseline);
+        }
         for fragment in layout.fragments() {
             let placed = Fragment {
                 rect: fragment.rect.translated(origin),
                 ..fragment.clone()
             };
-            fragments
+            out.fragments
                 .entry(placed.box_id)
                 .or_default()
                 .push(placed.clone());
@@ -556,14 +574,15 @@ fn place_inline_content(
         // pieces at all falls back to the union of what is under it, which is
         // the answer to "where is this" for something that draws nothing.
         for inner in boxes.descendants(id) {
-            let own = fragments
+            let own = out
+                .fragments
                 .get(&inner)
                 .and_then(|pieces| pieces.iter().map(|piece| piece.rect).reduce(union_rects));
-            let Some(rect) = own.or_else(|| union_of_subtree(boxes, inner, fragments)) else {
+            let Some(rect) = own.or_else(|| union_of_subtree(boxes, inner, &out.fragments)) else {
                 continue;
             };
             let (border, padding) = inline_edges(boxes, styles, inner, issues);
-            geometry.entry(inner).or_insert(BoxGeometry {
+            out.geometry.entry(inner).or_insert(BoxGeometry {
                 border_box: rect,
                 border,
                 padding,
@@ -573,7 +592,7 @@ fn place_inline_content(
         // An atomic box brought a whole layout of its own with it; place it.
         for item in &items {
             if let InlineItem::Atomic { box_id, margin, .. } = item
-                && let Some(placed) = fragments.get(box_id).and_then(|pieces| pieces.first())
+                && let Some(placed) = out.fragments.get(box_id).and_then(|pieces| pieces.first())
             {
                 let offset = placed.rect.origin;
                 // The room it is given is its margin box: a block takes its
@@ -596,7 +615,7 @@ fn place_inline_content(
                 ) {
                     for (inner, mut held) in sub.geometry {
                         held.border_box = held.border_box.translated(offset);
-                        geometry.insert(inner, held);
+                        out.geometry.insert(inner, held);
                     }
                     for (inner, pieces) in sub.fragments {
                         let moved: Vec<Fragment> = pieces
@@ -606,7 +625,7 @@ fn place_inline_content(
                                 ..piece
                             })
                             .collect();
-                        fragments.insert(inner, moved);
+                        out.fragments.insert(inner, moved);
                     }
                 }
             }
@@ -616,7 +635,7 @@ fn place_inline_content(
 
     let children: Vec<BoxId> = boxes.children(id).collect();
     for child in children {
-        place_inline_content(boxes, styles, child, measure, geometry, fragments, issues);
+        place_inline_content(boxes, styles, child, measure, out, issues);
     }
 }
 

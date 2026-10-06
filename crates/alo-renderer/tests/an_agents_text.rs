@@ -157,8 +157,10 @@ fn a_pages_input_listener_echoes_the_text_and_the_agent_reads_the_echo() {
     }
 }
 
-/// Where the echo's text is laid out, as the layout outline says it.
-const ECHO_LAID: &str = "text \"You typed 12.50\" → 129.45313×18.625 at (174, 55.2)";
+/// Where the echo's text is laid out, as the layout outline says it: level
+/// with the field's value, because a text field stands on its value's
+/// baseline (item 285) rather than on its bottom edge.
+const ECHO_LAID: &str = "text \"You typed 12.50\" → 129.45313×18.625 at (174, 52.625)";
 
 #[test]
 fn beforeinput_then_input_then_change_each_trusted_and_each_with_its_members() {

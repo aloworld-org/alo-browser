@@ -15755,3 +15755,113 @@ exposed, and 285 opened. Also updated: `CHANGELOG.md`, `docs/features.md`,
 117 queue items are open (one closed, one opened). The first eligible item in
 file order is now **285**. The next unused queue number is **286** and the
 next ADR is **0023**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 177 — item 285: an inline-block's baseline is its last line's
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and every stage line), iteration 176's entry, queue items
+280–285, `docs/features.md`'s layout section and `docs/conformance.md`. No
+`AGENTS.md` exists in this repository. ADR 0004 (we own the layout tree;
+`taffy` owns the algorithms) applies and is unchanged: the baseline rule is
+ours, in a file that does not name `taffy`. Nothing is decided, so no ADR.
+
+**Selection.** Iteration 176 recorded 285 as the first eligible item in file
+order; nothing before it changed since. It depends on nothing.
+
+**What was built.** A new file, `alo-layout/src/baseline.rs`, holds the rule
+and nothing else: an atomic inline box stands on the baseline of its **last
+line box in normal flow**, found by walking its in-flow block children last
+first; with no line, or its own `overflow` not `visible`, it stands on its
+bottom margin edge. A picture or an SVG has no lines, and an absolutely
+positioned child is skipped. A flex or grid container (whose baseline is its
+items') and a scroll container met below the box are **refused**: the search
+ends and the box stands on its bottom margin edge, the old answer — said in
+the module comment and `docs/conformance.md`, as the item asked. The engine
+records where each inline formatting context's last line stands as it places
+it (after a control's label is centred), and `atomic_item` measures a line
+baseline from the margin box's top without adding the bottom margin, which it
+used to add in every case. `place_inline_content` would have taken an eighth
+argument; clippy refused it, and rather than silence that the three maps it
+fills (geometry, fragments, lines) became one struct, `Placed`.
+
+**What it exposed, and did not fix.** An author's `inline-block` holding a
+`<p>` is broken around it by `alo-box` (`build_one`'s `holds_a_block`
+branch asks only whether the box is inline-level, not whether its inside is
+`flow`), so it came out as a 0×0 rectangle. The search through blocks is
+therefore tested end to end only through a button's anonymous label box.
+That is **286**, blocked like 284 until a page needs it: no corpus page
+writes an `inline-block`, `inline-flex` or `inline-grid` at all.
+
+**Gate, mechanical.** `scripts/gate.sh` exited 0 — "The gate is met.":
+fmt clean, clippy silent, tests pass (corpus included), no stubs, no
+`unsafe`, licence notices, rented crates behind their boundaries, no
+coordinate verbs, the stop rule, `CHANGELOG.md` changed. `git diff --check`
+passes. *Process note:* the first run failed clippy on one error,
+`too_many_arguments` on `place_inline_content` (8/7), which this change
+caused; it was fixed by the `Placed` struct, not allowed. The second run
+started in the foreground, outlived the tool's ten-minute foreground limit
+and was moved to the background by the harness; I waited on its log and
+read its result (exit 0) before committing. Only this entry changed after
+the gate ran.
+
+**Gate, manual.**
+- Layout assertions in numbers (`numbers.rs`, 3 new, `ScaledFont`, 16 px:
+  12 up, 4 down). An inline-block of "cd" alone in a block is 16×16 and the
+  block 16 — its own height, no extra descent; beside "ab " both at y 0 in a
+  16 line; with two lines in it the text beside sits at 16 in a 32 line; with
+  margins 6/10 both at 6 in a 32 line. With `overflow: hidden` the text
+  beside drops to 4 in a 20 line; an empty 20×20 box puts it at 8 in a 24
+  line; `inline-flex` (refused) at 4 in 20. A button with no edges is 19.2
+  tall, the text beside at 1.6 and the line 19.2 (its bottom edge would have
+  made 7.2 and 23.2). Doctored: `last_line` always `None` fails the two
+  baseline tests; the overflow check removed fails the bottom-edge test.
+  (Making the overflow branch answer `Nothing` instead of `Refused` failed
+  nothing — at the root both mean the bottom edge — so that doctoring was the
+  wrong one, and removing the check is what showed the test bites.) Restored
+  and compared byte for byte.
+- Moved tests, read and updated. `alo-agent`'s `reading_an_interface`: the
+  form back to 44.90176, as 285 named. `alo-renderer`'s
+  `what_a_listener_hears`: the paragraphs back to 44.800003 and 77.09688, as
+  named. One it did not name, `alo-renderer`'s `an_agents_text`: the echo
+  `<output>` beside a text field moved 55.2 → 52.625. I dumped the layout:
+  the field's value and the echo are both at y 52.625, 18.625 tall, in one
+  font — one baseline, which is this item's text-field case. The comments in
+  the first two that said "item 285 moves them back" now say why they are
+  where they are.
+- Reference renders: three cases moved, the three 285 named, and no other.
+  `a-script-hears-an-event` (layout, display list, agent tree, picture) and
+  `web-a-form` (layout, agent tree) are now byte for byte their references
+  from before the strut (`HEAD~1`). `alo-offline`'s button line is 39.2,
+  the button's height; the hand line keeps 283's 79.77; `main` is
+  234.45781 at (32, 82.771095), 3.77 taller than before the strut and
+  centred 1.89 higher. I looked at the render: hand, heading, text and
+  button centred, and the screen reads as before.
+- One responsibility per file: the rule is `baseline.rs`'s alone; the
+  engine only records lines and asks it. `Placed` is the engine's own
+  bookkeeping. No file gained a second reason to change.
+- `docs/features.md` gains the baseline line; `docs/conformance.md` says
+  what stands where, what is refused and 286, and its offline-screen row no
+  longer lists 285 as owed.
+
+**Roadmap.** This item served **no open roadmap line**, and `ROADMAP.md` is
+left unchanged on purpose, for the reason iterations 173–176 gave: it
+corrects inline layout under stage 1's ticked *Layout* line, and no stage 2
+line covers line-box geometry. Queue: 285 ticked with what was built, and 286
+opened. Also updated: `CHANGELOG.md`, `docs/features.md`,
+`docs/conformance.md`, `REMAINING.md`.
+
+**Unresolved obligations.**
+- 286 (an inline-block holding a block) and 284 (a percentage width on an
+  inline-block) wait on a page. 279 was recorded eligible by iteration 176;
+  the next iteration takes the first eligible item in file order.
+- Carried from 176: a forced break on an empty line returns early in
+  `end_line` though its comment says a blank line is kept — to check before
+  trusting either when `white-space: pre` is next touched.
+- Carried, unchanged: ADR 0022 § 2's wording and § 4's name order, and a
+  side-by-side of the hand with a real browser (a person's call); 269
+  blocked on a `rav1d` release; the `image-webp` upstream report; 109, 179,
+  and 82, 83, 85–89, 95–99, 104 and 105 still needing their designs.
+
+117 queue items are open (one closed, one opened). The next unused queue
+number is **287** and the next ADR is **0023**. This is one iteration, not a
+finished queue or roadmap.
