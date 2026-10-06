@@ -19,6 +19,7 @@
 //! the full painting order, which `docs/features.md` reaches for with
 //! transforms and opacity.
 
+use crate::border::{self, DrawnSide, Line, Side};
 use crate::canvas::Canvas;
 use crate::control::{self, Mark};
 use crate::corner::{Corners, between, ring, rounded_rectangle};
@@ -434,9 +435,13 @@ impl Builder<'_> {
     /// with a thick border and a large radius, and the alternative is four
     /// mitred trapezoids, which is queue item 19's kind of work.
     ///
-    /// Only `solid` is drawn either way. `none` and `hidden` draw nothing
-    /// whatever their width, which is what CSS says and is why a width alone
-    /// never shows a border; every other style is not implemented, and drawing
+    /// A border with any side `inset`, `outset`, `groove` or `ridge` is drawn
+    /// by [`border::draw_mitred`] instead: two tones of one colour, with each
+    /// side mitred so that the corners are split where the colours change.
+    ///
+    /// `none` and `hidden` draw nothing whatever their width, which is what
+    /// CSS says and is why a width alone never shows a border. `dashed`,
+    /// `dotted` and `double` are not implemented (queue item 266), and drawing
     /// a dashed border as a solid one would be a wrong pixel that looks nearly
     /// right.
     fn draw_borders(
@@ -471,6 +476,15 @@ impl Builder<'_> {
                 path: ring(border_box, corners, geometry.border),
                 paint: Paint::Solid(color),
             });
+            return;
+        }
+        if let Some(sides) = Self::two_toned(style) {
+            let widths = alo_layout::Edges {
+                left: if first { geometry.border.left } else { 0.0 },
+                right: if last { geometry.border.right } else { 0.0 },
+                ..geometry.border
+            };
+            border::draw_mitred(id, border_box, corners, widths, &sides, out);
             return;
         }
         let sides = [
@@ -565,6 +579,11 @@ impl Builder<'_> {
     /// a hole in it; the shape that answers that properly is queue item 19's
     /// kind of work, and drawing an approximation of it would be a wrong pixel
     /// on the one element this code exists for.
+    ///
+    /// **Only `solid` is drawn here.** A two-toned side beside a legend is a
+    /// mitred wedge with a hole cut in it, and that is queue item 267 —
+    /// which is also why the user-agent sheet still gives a fieldset a solid
+    /// border rather than the `groove` other browsers give it.
     fn draw_banded_border(
         &self,
         id: BoxId,
@@ -633,6 +652,34 @@ impl Builder<'_> {
         );
         fill(before, color);
         fill(after, color);
+    }
+
+    /// Every side a border draws, when any of them is drawn in two tones.
+    ///
+    /// `None` for a border that is solid wherever it is drawn, which keeps
+    /// its rectangles; one two-toned side is enough to draw all four mitred,
+    /// since a rectangle beside a mitred side would take its corner.
+    fn two_toned(style: &alo_style::ComputedStyle) -> Option<Vec<DrawnSide>> {
+        let sides: Vec<DrawnSide> = [
+            (Side::Top, "top"),
+            (Side::Right, "right"),
+            (Side::Bottom, "bottom"),
+            (Side::Left, "left"),
+        ]
+        .into_iter()
+        .filter_map(|(side, name)| {
+            let line = border_style(style, name).as_deref().and_then(Line::of)?;
+            Some(DrawnSide {
+                side,
+                line,
+                color: border_color(style, name),
+            })
+        })
+        .collect();
+        sides
+            .iter()
+            .any(|drawn| drawn.line != Line::Solid)
+            .then_some(sides)
     }
 
     /// The colour of a border that is the same on all four sides, if it is.

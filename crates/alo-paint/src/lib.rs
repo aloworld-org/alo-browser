@@ -35,6 +35,7 @@
 //! mask can be reused for a shadow rather than rasterised twice.
 
 pub mod blur;
+pub mod border;
 pub mod build;
 pub mod canvas;
 pub mod control;

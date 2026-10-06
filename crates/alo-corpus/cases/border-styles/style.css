@@ -1,0 +1,16 @@
+/* The four two-toned border styles side by side, so that a change which made
+   any two of them alike shows in the picture: inset, outset, groove and ridge
+   in a grey, then a rounded groove and an uneven ridge in a blue — the blue
+   to show the tones keep their hue, the radius to show a groove's halves
+   following the curve, the uneven widths to show the corners split on their
+   mitres rather than down the middle. */
+body { margin: 8px; background: #ffffff; display: flex; flex-wrap: wrap;
+  gap: 8px }
+div { width: 32px; height: 24px; border-width: 6px; border-color: #808080 }
+#inset { border-style: inset }
+#outset { border-style: outset }
+#groove { border-style: groove }
+#ridge { border-style: ridge }
+#rounded { border-style: groove; border-color: #3b82f6; border-radius: 14px }
+#uneven { border-style: ridge; border-color: #3b82f6;
+  border-width: 2px 10px 6px 4px }

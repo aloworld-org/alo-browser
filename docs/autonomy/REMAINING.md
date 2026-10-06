@@ -340,6 +340,15 @@ and the cross-origin half of the `*-when-cross-origin` policies, with a
 port and an IPv6 host kept in the origin's form. 112 queue items are
 open; the next unused queue number is 266 and the next unused ADR 0021.
 
+Iteration 161 built item 190: `inset`, `outset`, `groove` and `ridge` are
+drawn in two tones of the border's colour (`alo-paint`'s `border.rs`), each
+side the mitred wedge of the box nearest it, clipped to the border's ring;
+corpus case `border-styles`. `dashed`, `dotted` and `double` are cut to 266
+and a fieldset's legend-broken groove to 267. Items 82, 83 and 85–89 have
+their dependencies but no ADR, contract or closing condition, and are now
+marked `needs design` in the queue. 113 queue items are open; the next
+unused queue number is 268 and the next unused ADR 0021.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

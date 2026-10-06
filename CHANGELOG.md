@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Bevelled borders are drawn.** `inset`, `outset`, `groove` and `ridge`
+  borders used to be left out entirely; they now draw as two tones of the
+  border's colour, lit from the top left, so a sunk box looks sunk and a
+  raised one raised. Corners split on the diagonal where the tones change,
+  and a rounded groove keeps its two halves along the curve. `dashed`,
+  `dotted` and `double` are still not drawn, and a fieldset with a legend
+  still gets a plain border rather than a groove.
+
 - **The address a site is told you came from now ends in `/`.** When only
   the site is passed on rather than the page — the default whenever one
   site loads something from another — it now goes out as

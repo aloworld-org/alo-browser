@@ -24,8 +24,9 @@ use crate::parse::{parse_color, parse_length_percentage};
 
 /// The border-style keywords CSS has.
 ///
-/// All of them are recognised even though only `solid` is drawn: recognising
-/// `dashed` is what lets it be reported as not implemented, where failing to
+/// All of them are recognised even though `dashed`, `dotted` and `double` are
+/// not drawn: recognising `dashed` is what lets it be reported as not
+/// implemented, where failing to
 /// recognise it would make `border: 1px dashed red` look like a border with a
 /// broken colour.
 const STYLES: &[&str] = &[

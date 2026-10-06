@@ -92,9 +92,19 @@ border is drawn in the two pieces the legend leaves, which is what writes the
 group's name into the line around it. The band the legend sits in *replaces* the
 block-start border rather than adding to it, so a fieldset is exactly as tall as
 a browser draws one. The border is `solid` where every other browser draws a
-`groove`, because this engine draws only solid borders and a style drawn as a
-different style is a wrong pixel that looks nearly right; `groove`, `ridge`,
-`inset` and `outset` are queue item 190.
+`groove`: this engine draws a groove on an ordinary box, but not yet on a
+border with a legend in it, and a style drawn as a different style is a wrong
+pixel that looks nearly right. The fieldset's `groove` is queue item 267.
+
+**Two-toned borders.** `inset`, `outset`, `groove` and `ridge` are drawn in a
+darker and a lighter tone of the border's colour, lit from the top left, with
+each side mitred so a corner splits where the tones change and a groove's
+halves follow a rounded corner's curve (corpus case `border-styles`). The
+exact tones are ours, which CSS allows.
+Where two different tones meet on a corner's diagonal, the page shows faintly
+through that one line of anti-aliased pixels. `dashed`, `dotted` and `double`
+are not drawn at all — a side with one is left empty rather than drawn as
+something else — and are queue item 266.
 
 **There is still no focus ring**, which is the rest of queue item 43: a focused
 field looks exactly like an unfocused one. Nothing in this stage has focus to

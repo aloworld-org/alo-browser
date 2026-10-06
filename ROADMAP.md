@@ -966,8 +966,10 @@ unreachable without it.
       rather than above it, so the border is drawn in the two pieces the legend
       leaves. Corpus case `fieldset-group` · Owed: everything a control **does**,
       which needs events
-      (queue item 81) — constraint validation, submission, file inputs — and the
-      focus ring, which needs something to have focus (queue item 43)
+      (queue item 81) — constraint validation, submission, file inputs — the
+      focus ring, which needs something to have focus (queue item 43), and the
+      fieldset's `groove` where its legend breaks the border (queue item 267;
+      a groove on an ordinary box is drawn, item 190)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
 - [ ] `iframe`s and the sandbox attribute — a document inside a document, where a great many security bugs live
 - [ ] Shadow DOM and custom elements; component frameworks are not optional on the modern web

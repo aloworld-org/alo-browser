@@ -4486,10 +4486,18 @@ The long pole, and the thing most of section E is unreachable without.
 - [ ] **82. Forms**: the controls, constraint validation, submission, file
   inputs.
   *Depends on 81.*
+  *Needs design (iteration 161):* its dependencies are done, but it names no
+  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
+  not ready to build. Cutting a first item from it, with those written, is
+  the work that opens it.
 
 - [ ] **83. `fetch()` and `XMLHttpRequest`**, over the same stack as everything
   else rather than beside it.
   *Depends on 61, 72.*
+  *Needs design (iteration 161):* its dependencies are done, but it names no
+  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
+  not ready to build. Cutting a first item from it, with those written, is
+  the work that opens it.
 
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
@@ -4497,20 +4505,40 @@ The long pole, and the thing most of section E is unreachable without.
 - [ ] **85. Navigation and session history**: `pushState`, back and forward, and
   what survives each.
   *Depends on 80.*
+  *Needs design (iteration 161):* its dependencies are done, but it names no
+  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
+  not ready to build. Cutting a first item from it, with those written, is
+  the work that opens it.
 
 - [ ] **86. `iframe`s and the sandbox attribute** — a document inside a
   document, *"where a great many security bugs live"*.
   *Depends on 61, 63.*
+  *Needs design (iteration 161):* its dependencies are done, but it names no
+  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
+  not ready to build. Cutting a first item from it, with those written, is
+  the work that opens it.
 
 - [ ] **87. Shadow DOM and custom elements.** Component frameworks are not
   optional on the modern web.
   *Depends on 80.*
+  *Needs design (iteration 161):* its dependencies are done, but it names no
+  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
+  not ready to build. Cutting a first item from it, with those written, is
+  the work that opens it.
 
 - [ ] **88. Selection and ranges.**
   *Depends on 80.*
+  *Needs design (iteration 161):* its dependencies are done, but it names no
+  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
+  not ready to build. Cutting a first item from it, with those written, is
+  the work that opens it.
 
 - [ ] **89. CSSOM** — styles readable and writable from script.
   *Depends on 80.*
+  *Needs design (iteration 161):* its dependencies are done, but it names no
+  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
+  not ready to build. Cutting a first item from it, with those written, is
+  the work that opens it.
 
 - [ ] **90. Storage**: `localStorage`, `sessionStorage`, IndexedDB, the Cache
   API, and **one quota policy over all of them**.
@@ -4563,7 +4591,7 @@ The long pole, and the thing most of section E is unreachable without.
   **Done.** No corpus case moved except the one the disabled rule was written
   for, which is the evidence that nothing was relying on the old behaviour.
 
-- [ ] **190. The border styles that are two tones**: `groove`, `ridge`, `inset`
+- [x] **190. The border styles that are two tones**: `groove`, `ridge`, `inset`
   and `outset`. Cut from 183, which draws a fieldset's border `solid` where
   every other browser draws a `groove` — and says so in the user-agent sheet,
   because a substitution nobody wrote down is one nobody re-checks. Each is the
@@ -4573,6 +4601,48 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on nothing. Closes when:* each draws in a reference render and none
   of them is another one — a `groove` and a `ridge` that came out identical
   would be a test passing on a picture nobody looked at.
+  **Built (iteration 161)**, scope cut twice and written down as 266 and 267.
+  `alo-paint`'s `border.rs`: `Line` (the styles drawn), `tones` (the darker
+  tone a third off the brightest channel, the lighter a third on, hue kept,
+  never equal), `colors_of` (lit from the top left; a groove is an `inset`
+  outer half and an `outset` inner half, a ridge the reverse) and
+  `draw_mitred` — each side the wedge of the box it is fewest of its own
+  widths from, which is the mitre at each corner and a straight cut between
+  opposite sides, filled by colour inside the border's ring, and the outer
+  half again inside the ring half as thick. `build.rs` takes that path when
+  any side is two-toned, so a solid border keeps its rectangles and no
+  existing reference moved. Tests: `border.rs` 13 (tones never equal over
+  every grey and a few hues, a third either way, black and white, alpha
+  kept, which side is which, no two styles alike, the wedges cover the box
+  exactly once and wind clockwise, a side with no width gives up its
+  corners, the display items' order); `tests/two_toned_borders.rs` 10 in
+  pixels (each style's sides, outer and inner half; no two pictures alike
+  nor any like `solid`; a corner split on its diagonal; no seam where both
+  sides are one tone; a rounded groove's halves meeting on the curve; a
+  solid side beside a two-toned one mitred; a `dashed` side left empty).
+  Corpus case `border-styles` is the reference render.
+  A first version stopped each side at the padding box's rectangle and left
+  a hole in every rounded corner, and a second bounded each side only by its
+  two mitres and so overlapped the side opposite on uneven widths; both were
+  caught by tests above before the commit.
+
+- [ ] **266. `dashed`, `dotted` and `double`.** *Cut from 190 on the
+  iteration that built it.* The same file's work, but each is a pattern
+  along a side rather than a tone across it: dashes and dots spaced so a
+  side starts and ends on one, round dots for `dotted`, and `double` as two
+  lines a third of the width each. Today a side with any of them is left
+  empty, which is said in `docs/conformance.md`. *Depends on nothing.
+  Closes when:* each draws in a reference render, a dotted side's dots are
+  round, and neither a dashed nor a double side is drawn as solid.
+
+- [ ] **267. A fieldset's `groove`.** *Cut from 190 on the iteration that
+  built it.* `draw_banded_border` draws only `solid`, so the user-agent sheet
+  still gives a fieldset `2px solid #c0c0c0` where other browsers give it a
+  groove. Two-toned sides there are the mitred wedges of `border.rs` with the
+  legend's gap cut out of the block-start one, and then the sheet can say
+  `groove`. *Depends on nothing. Closes when:* `fieldset-group` draws a
+  groove broken by its legend, `a_border_a_legend_breaks.rs` asserts the
+  pieces in both tones, and the user-agent sheet's comment about it is gone.
 
 - [ ] **94. Animations and transitions.** Stage 1 reads them and they change
   nothing, which is correct for a still picture; this is the clock.

@@ -89,6 +89,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] **A software rasteriser to a PNG.** Deterministic and diffable, needing no GPU and no window — which is what makes every item testable from the first one
 - [1] Rounded corners, and clipping to them — one question asked twice: what shape is this box
 - [1] **Shadows and gradients**: `box-shadow` (with `inset`), `text-shadow`, `linear-gradient`, `radial-gradient` — a shadow is coverage blurred, so what is behind it is not blurred with it
+- [2] **Two-toned borders**: `inset`, `outset`, `groove` and `ridge`, in a darker and a lighter tone of the border's colour, each side mitred so that a corner splits where the tones change, and a groove's halves following a rounded corner (queue item 190; `dashed`, `dotted` and `double` are 266, and a fieldset's legend-broken groove 267)
 - [1] **Transforms and opacity**: `translate`, `scale`, `rotate`, `skew`, `matrix`, about a `transform-origin`; `opacity` as a group drawn once and composited once, never box by box
 - [1] **Reference renders**: a committed corpus, each with its expected image *and* its expected box tree
 - [1] Hardware acceleration — after the software path is correct, never before

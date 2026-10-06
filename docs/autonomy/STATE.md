@@ -13918,3 +13918,112 @@ boundary. No verb takes a coordinate, the stop rule holds, and
 `CHANGELOG.md` changed with the code. `git diff --check` passes. The log is
 in this session's scratchpad and is not committed. The only later change
 was this journal entry, which is documentation.
+
+## Iteration 161 — item 190 built: `inset`, `outset`, `groove` and `ridge`
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions, its *CSS beyond what alo needed* section and its
+*Forms* line, iterations 158–160's entries, `REMAINING.md`'s continuation
+order, queue items 157–265 for eligibility and item 190 in full, and the code
+it names: `alo-paint`'s `build.rs` (`draw_borders`, `draw_banded_border`,
+`uniform_border`, `border_style`, `border_color`), `corner.rs` (`ring`,
+`Corners`), `display.rs`, `render.rs`'s clip, `alo-style`'s user-agent sheet,
+`alo-value`'s `shorthand.rs`, and `alo-corpus`'s case layout. Item 190 names
+no ADR; its feature home is `docs/features.md`'s *Paint* section, where this
+change adds its line. No `AGENTS.md` exists. No sibling repository was read
+or modified. The checkout was clean on entry at `a81835a`.
+
+**Selection.** In file order, everything before 263 keeps its recorded
+blocker (iterations 155–160). After it: 264 waits on 120 and `Blob`; 84 on
+76; 43's remainder on focus (258). Items 82, 83 and 85–89 have every
+dependency done, but each is a one-line capability naming no ADR, feature
+contract or closing condition — `LOOP.md` step 2 says such an item is not
+ready, so each is now marked `needs design` in the queue rather than left
+for the next iteration to re-derive. 190 depends on nothing and has a
+closing condition; iteration 158 had already named it ready. It is the
+first eligible item.
+
+**What was built.** `alo-paint`'s new `border.rs`, one responsibility —
+what a two-toned border is drawn as:
+- `Line`: the styles drawn (`solid` and the four); anything else is `None`
+  and left undrawn rather than drawn as something else.
+- `tones`: the darker tone takes a third off the brightest channel and
+  scales the others with it (hue kept), the lighter adds a third up to
+  white; black lightens to a third-grey. Never equal for any colour; alpha
+  kept. CSS leaves the colours to the browser, and the changelog and
+  conformance page say ours are ours rather than claiming another engine's.
+- `colors_of`: lit from the top left. `inset` dark top/left, `outset` the
+  reverse, `groove` an inset outer half and outset inner half, `ridge` the
+  reverse.
+- `draw_mitred`: each side is the **wedge of the box it is fewest of its own
+  widths from** — the mitre at each corner, a proportional straight cut
+  between opposite sides, so the four wedges are the whole box exactly once
+  — filled one path per colour inside the border's ring, then the outer
+  halves again inside the ring half as thick, so a groove's halves follow a
+  rounded corner.
+`build.rs` takes that path when any side is two-toned (a solid side beside
+one is mitred too); an all-solid border keeps its rectangles and ring, so no
+existing reference moved.
+
+**Two wrong versions, caught before the commit.** The first stopped each
+side at the padding box's rectangle and left a hole in every rounded corner
+(the rounded-groove pixel test failed; a dump of the corner showed it). The
+second bounded each side by its two mitres only, which overlapped the side
+opposite on uneven widths (the area-sum test failed: 5416.7 of 5000).
+
+**Scope cut, written into the queue.** 266: `dashed`, `dotted`, `double` —
+patterns along a side, not tones across it. 267: a fieldset's legend-broken
+groove — `draw_banded_border` stays solid-only, so the user-agent sheet
+still says `solid`, and its comment now names 267 rather than 190.
+
+**Compliance review.**
+- Law 1: nothing legacy. Law 2: the agent surface is unchanged. Law 3: no
+  stubs, `todo!` or `unwrap` outside tests; two-toned sides that are not
+  implemented are left empty, never approximated. Law 4: no `unsafe`.
+- One file, one responsibility: `border.rs` is the two-toned border;
+  `build.rs` gained only the dispatch to it (`two_toned`), not the drawing.
+- Layout assertions: nothing new is positioned or sized; the case's
+  `layout.txt` records its boxes (44×36, and 46×32 for the uneven widths).
+- Reference render: corpus case `border-styles` (172×96: the four styles in
+  grey, a rounded groove and an uneven ridge in blue), looked at upscaled
+  before committing. `ALO_UPDATE_REFERENCES=1` changed no other case.
+- Bytes from outside: no new parsing; the inputs are computed styles and
+  laid-out rectangles.
+
+**Tests.** `border.rs` 13, `tests/two_toned_borders.rs` 10 (listed under
+item 190 in the queue). Doctored runs, each restored: groove's halves
+swapped (3 unit tests fail), the outer half clipped to the full ring instead
+of half (3 pixel tests fail), only `groove` routed to the mitred path (8
+pixel tests fail).
+
+**Roadmap.** Item 190 served no roadmap line of its own: border styles are
+not a line in *CSS beyond what alo needed*, and the item was cut from 183,
+which served *Forms*. That line is not ticked; its Owed clause now names the
+fieldset's groove (267) and says a groove on an ordinary box is drawn (190).
+`docs/features.md` (*Paint*: two-toned borders), `docs/conformance.md`,
+`CHANGELOG.md`, `QUEUE.md` (190 ticked with its evidence; 266 and 267 added;
+82, 83, 85–89 marked `needs design`) and `REMAINING.md` moved with it.
+
+**Unresolved obligations.**
+- New: 266, 267. Where two different tones meet on a corner's diagonal the
+  page shows faintly through one line of anti-aliased pixels (said in
+  `border.rs` and `conformance.md`); 82, 83, 85–89 need their designs.
+- Carried from iterations 158–160 unchanged: going where the browser decided
+  (85), downloads (264), windows (118), CSP `base-uri` (no item), what an
+  agent is told when the page it acted on goes somewhere (134), and the
+  iteration 158 carry-overs.
+
+113 queue items are open (190 closed; 266 and 267 added). The next iteration
+takes the first eligible item as `LOOP.md` says; 266 and 267 depend on
+nothing. The next unused queue number is **268** and the next ADR **0021**.
+This is one iteration, not a finished queue or roadmap.
+
+**Final gate run.** `scripts/gate.sh` exited 0 on this tree, run in the
+foreground and read in the same step (7 min 20 s): formatting clean, clippy
+silent, all tests pass (the corpus included, every existing reference
+unchanged and `border-styles` new), nothing stubbed, `unsafe` forbidden,
+licence notices present, every rented crate behind its boundary, no
+coordinate verb, the stop rule holds, and `CHANGELOG.md` changed with the
+code. `git diff --check` passes. The log is in this session's scratchpad and
+is not committed. The only later change was this journal entry, which is
+documentation.
