@@ -1,0 +1,2 @@
+# What the page named, and the file beside this case holding it.
+/stripes.png stripes.png

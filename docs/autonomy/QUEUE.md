@@ -4732,17 +4732,27 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on 76.*
 
 - [ ] **95. Container queries, `:has()`, cascade layers, `@property`.**
+  *Needs design (iteration 165):* no dependency, but four capabilities with
+  no ADR, feature contract or closing condition — `LOOP.md` step 2.
 
 - [ ] **96. Filters, `backdrop-filter`, blend modes, masks, `clip-path`.**
+  *Needs design (iteration 165):* as 95 — no closing condition, and no page
+  in the corpus that fails for want of any of them.
 
 - [ ] **97. `position: sticky`, multi-column, scroll snap, overscroll
   behaviour.**
+  *Needs design (iteration 165):* as 95; sticky and scroll snap also need a
+  scroll position, which a still render does not have.
 
 - [ ] **98. Writing modes, and layout that is right-to-left** rather than
   mirrored afterwards.
+  *Needs design (iteration 165):* as 95 — no ADR, contract or closing
+  condition.
 
 - [ ] **99. Paged media and print styles.**
   *Depends on 98 for anything that is not left-to-right.*
+  *Needs design (iteration 165):* as 95 — no ADR, contract or closing
+  condition.
 
 ## G. Text, properly
 
@@ -4762,12 +4772,17 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on 80, 101.*
 
 - [ ] **104. Hyphenation, `text-wrap: balance`.**
+  *Needs design (iteration 165):* as 95 — and hyphenation needs a decision
+  on whose dictionaries are rented.
 
 - [ ] **105. Web fonts as pages ship them**: WOFF2, variable fonts, and loading
   that does not flash. **This is also what closes the last honest gap in stage
   1's screens** — the corpus renders in DejaVu Sans and alo loads Inter, so its
   headline wraps one line more here.
-  *Depends on 53.*
+  *Depends on 53.* *Needs design (iteration 165):* 53 is done, but this is
+  three capabilities — a rented WOFF2 decoder, `@font-face` fetched over the
+  network stack, and a loading policy — with no ADR for the rental and no
+  closing condition. Cut it into those before starting.
 
 ## H. Pictures, and things that move
 
@@ -4799,12 +4814,29 @@ The long pole, and the thing most of section E is unreachable without.
   to be a `taffy` aspect ratio because a leaf's measure is asked *before* the
   style width is applied.
 
-- [ ] **178. A rotated picture is drawn rotated.** Today only the rectangle's
+- [x] **178. A rotated picture is drawn rotated.** Today only the rectangle's
   corners are transformed, so a picture under a `rotate()` draws upright inside
   the right area. Wrong and visible, which is why it was preferred to drawing
   nothing.
   *Depends on 176. Closes when:* a picture under a rotation is drawn rotated, and
   a reference render says so.
+
+  **Done (iteration 165).** `alo-paint`'s new `drawn_picture.rs`, split from
+  `render.rs`. A transform that only moves and grows the rectangle keeps the
+  exact whole-pixel path, so no scaled picture in the corpus moved. Anything
+  else — a rotation, a skew, and a **mirror**, which the old path also drew
+  the wrong way round — rasterises the rectangle as a transformed shape, so
+  its outline is anti-aliased, and samples each covered pixel's centre back
+  through the inverted transform. 11 unit tests: a quarter turn, a half turn
+  and a mirror each move four distinct quarters to the right corners; an
+  eighth of a turn is a diamond whose points reach past the square while the
+  square's own corners stay white; the outline is blended; an upright scale
+  still fills whole pixels; a flattening or non-finite transform draws
+  nothing without failing. Doctored with the old upright-only path, 7 of them
+  fail and so does the corpus. Corpus case `a-turned-picture` is the
+  reference render (30°, 90° and `scaleY(-1)`); no other reference moved.
+  Still nearest-neighbour inside (179), and a picture still ignores a clip
+  in force — found reading the renderer, no page fails on it, no item opened.
 
 - [ ] **179. Sampling a picture that is not at its own size.** Nearest-neighbour
   today: exact at one-to-one, coarse anywhere else.

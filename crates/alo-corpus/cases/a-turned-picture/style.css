@@ -1,0 +1,16 @@
+body { margin: 0; background: #ffffff }
+/* Three pictures side by side, far enough apart that turning one cannot
+   reach its neighbour: a transform moves what is drawn, never the layout. */
+#row { display: flex; gap: 32px; padding: 40px 28px }
+img { width: 48px }
+/* Turned about the picture's centre, which is transform-origin's default. The
+   stripes slope down to the right, the outline is a smooth tilted square, and
+   the corners of the upright box it came from are left white. */
+#eighth { transform: rotate(30deg) }
+/* A quarter turn clockwise: the red stripe that was on top is now on the
+   right, and the stripes stand up. */
+#quarter { transform: rotate(90deg) }
+/* Upside down by a mirror rather than a turn: blue on top, and the picture's
+   own bounding box is unchanged — which is how it used to be drawn
+   unmirrored. */
+#mirrored { transform: scaleY(-1) }

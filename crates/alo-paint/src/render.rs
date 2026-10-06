@@ -13,11 +13,11 @@ use crate::blur::blurred;
 use crate::canvas::Canvas;
 use crate::coverage::Coverage;
 use crate::display::{DisplayItem, DisplayList};
+use crate::drawn_picture::draw_picture;
 use crate::glyph::outline;
 use crate::paint::Paint;
 use crate::path::{Path, Point};
 use crate::raster::fill;
-use alo_layout::Rect;
 use alo_text::{Direction, Font, shape};
 use alo_value::{Matrix, Rgba};
 
@@ -309,7 +309,7 @@ fn multiply(left: u8, right: u8) -> u8 {
 
 /// The middle of a pixel, which is where a gradient is sampled: sampling at
 /// the corner would shift the whole gradient half a pixel.
-fn pixel_centre(position: u32) -> f32 {
+pub(crate) fn pixel_centre(position: u32) -> f32 {
     #[expect(
         clippy::cast_precision_loss,
         reason = "a canvas is at most a few thousand pixels across"
@@ -325,72 +325,9 @@ fn back(position: u32, origin: i32) -> Option<u32> {
 
 /// Where a pixel of the mask lands on the canvas, or [`None`] when it is off
 /// the left or top edge.
-fn place(base: i32, step: u32) -> Option<u32> {
+pub(crate) fn place(base: i32, step: u32) -> Option<u32> {
     let step = i32::try_from(step).ok()?;
     u32::try_from(base.checked_add(step)?).ok()
-}
-
-/// Draw a picture into a rectangle, scaled.
-///
-/// # Two things named rather than left to be discovered
-///
-/// **Nearest-neighbour sampling.** Exact at one-to-one — which is what an
-/// `<img>` with no width does, and most of what a page has — and coarse
-/// anywhere else. A resampler is worth building when a page needs one rather
-/// than guessing at it now.
-///
-/// **Only a transform without rotation or skew is honoured exactly.** The
-/// rectangle's corners are transformed and the picture is drawn into the box
-/// they make, which is right for a translation or a scale and is the *bounding
-/// box* for a rotation. A rotated picture therefore draws upright inside the
-/// right area rather than rotated. It is wrong, it is visible, and it is queue
-/// item 178 — the alternative was drawing nothing, which is wrong and invisible.
-fn draw_picture(target: &mut Canvas, picture: &Canvas, rect: Rect, transform: Matrix) {
-    // The corners, transformed once. Everything after this is integers, so that
-    // the per-pixel arithmetic cannot lose anything and does not need a cast
-    // this crate's lints refuse.
-    let (left, top) = transform.apply(rect.left(), rect.top());
-    let (right, bottom) = transform.apply(rect.right(), rect.bottom());
-    let (left, right) = (left.min(right), left.max(right));
-    let (top, bottom) = (top.min(bottom), top.max(bottom));
-
-    let across = whole(right - left);
-    let down = whole(bottom - top);
-    let at_x = whole(left);
-    let at_y = whole(top);
-    let wide = picture.width();
-    let tall = picture.height();
-    if across == 0 || down == 0 || wide == 0 || tall == 0 {
-        return;
-    }
-
-    for y in 0..down {
-        // Which row of the picture this row comes from, in whole numbers: the
-        // destination row scaled by the picture's height over the box's.
-        let from_y = (y * tall / down).min(tall - 1);
-        for x in 0..across {
-            let from_x = (x * wide / across).min(wide - 1);
-            let Some(colour) = picture.at(from_x, from_y) else {
-                continue;
-            };
-            target.blend(at_x + x, at_y + y, colour, 255);
-        }
-    }
-}
-
-/// A length as a whole number of pixels, never negative.
-///
-/// The same shape as `alo_renderer`'s: a float-to-integer cast is what this
-/// crate's lints refuse, and counting up to the value is the way that needs no
-/// cast. Called a handful of times per picture rather than per pixel, which is
-/// what makes counting acceptable.
-fn whole(value: f32) -> u32 {
-    let clamped = value.round().clamp(0.0, 16_384.0);
-    let mut whole = 0u32;
-    while f32::from(u16::try_from(whole).unwrap_or(u16::MAX)) + 1.0 <= clamped {
-        whole += 1;
-    }
-    whole
 }
 
 #[cfg(test)]

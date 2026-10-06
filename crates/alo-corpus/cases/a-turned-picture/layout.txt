@@ -1,0 +1,6 @@
+block flow · document → 240×128 at (0, 0)
+  block flow · generic → 240×128 at (0, 0)
+    block flex · generic → 240×128 at (0, 0)
+      inline flow-root · image → 48×48 at (28, 40)
+      inline flow-root · image → 48×48 at (108, 40)
+      inline flow-root · image → 48×48 at (188, 40)

@@ -372,6 +372,13 @@ legend's edge falls on is cut there. Corpus case `fieldset-patterns`. 111
 queue items are open; the next unused queue number is 269 and the next
 unused ADR 0021.
 
+Iteration 165 built item 178: a picture under a rotation, skew or mirror is
+drawn turned with its box, the outline anti-aliased and each pixel sampled
+back through the inverted transform; an upright picture keeps the exact
+whole-pixel path. Corpus case `a-turned-picture`. Items 95–98, 104 and 105
+are marked `needs design`. 110 queue items are open; the next unused queue
+number is 269 and the next unused ADR 0021.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

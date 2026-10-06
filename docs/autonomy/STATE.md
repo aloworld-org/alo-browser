@@ -14429,3 +14429,119 @@ exactly where it should: *"origin did not receive the verified iteration"*.
 Twenty-one fixture checks, from eighteen. The loop was stopped with a clean
 tree and nothing uncommitted; nothing was lost.
 
+
+---
+
+## Iteration 165 — item 178 built: a rotated picture is drawn rotated
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md` (its conventions and the *Pictures, and things that move*
+section), iterations 164 and 155's entries, the queue's sections F, G and H
+in full for eligibility, and the code item 178 names: `alo-paint`'s
+`render.rs` (`draw_picture`, `draw_coverage`, the clip and transform
+stacks), `display.rs`'s `Picture` item, `picture.rs`, `canvas.rs`'s
+`blend`, `raster.rs`'s `fill` and its checked casts, `alo-value`'s
+`Matrix`, and corpus cases `a-picture` and `turned-and-faded` with
+`alo-corpus`'s `case.rs`. Item 178 names no ADR; its feature home is
+`docs/features.md`'s pictures lines, where this change adds one. No
+`AGENTS.md` exists. No sibling repository was read or modified. The
+checkout was clean on entry at `f428c42`.
+
+**Selection.** Iteration 164 recorded every item before 268 as blocked or
+`needs design`, and nothing has changed since. After 268, in file order:
+94 waits on 76; 95–99 and 104 name no ADR, contract or closing condition,
+and 105 (its dependency 53 is done) is three capabilities with no ADR for
+its rental and no closing condition — `LOOP.md` step 2, so each is now
+marked `needs design` in the queue rather than left to be re-derived. 100
+and 101 wait on 88, 102 on 101, 103 on 101. 178 depends on 176, which is
+done, and has a closing condition: it is the first eligible item.
+
+**What was built.** `alo-paint`'s new `drawn_picture.rs`, split from
+`render.rs` in the change that gave picture drawing a second path — the
+renderer walks a list; this is how one kind of item becomes pixels.
+- **Upright**: a transform with nothing crossing axes and neither axis
+  reversed keeps the old whole-pixel integer path, unchanged.
+- **Turned**: anything else — rotation, skew, and a **mirror**, which the
+  old path also drew the wrong way round — rasterises the rectangle as a
+  transformed shape (an anti-aliased outline, as any edge), and samples
+  each covered pixel's centre back through the inverted transform. A
+  flattening transform has no inverse and draws nothing.
+- Why two paths rather than one: centre sampling picks different source
+  pixels from the old corner sampling whenever a picture is scaled, so a
+  single path would have moved every scaled picture in `a-picture`. That
+  is item 179's question, decided when a page asks it.
+`render.rs` lost the function and exposes `place` and `pixel_centre` to
+the crate; nothing else in it changed.
+
+**Compliance review.**
+- Law 1: nothing legacy. Law 2: the agent surface is unchanged (no
+  `agent.txt` moved; the coordinate check passes). Law 3: no stubs, `todo!`
+  or `unwrap` outside tests; the two casts carry `#[expect]` with a reason,
+  after a range check, exactly as `raster.rs` does — no lint was lowered.
+  Law 4: no `unsafe`.
+- One file, one responsibility: picture drawing moved out of `render.rs`
+  into its own file rather than growing it.
+- Layout assertion: nothing is newly positioned or sized — a transform
+  changes what is drawn, not the layout. `a-turned-picture/layout.txt`
+  pins all three images at 48×48 at (28, 40), (108, 40) and (188, 40), the
+  same as unturned.
+- Reference render: new corpus case `a-turned-picture` — the 24×24 stripes
+  at 48px under `rotate(30deg)`, `rotate(90deg)` and `scaleY(-1)`. I looked
+  at it upscaled. The first is a tilted square with a smooth outline,
+  stripes sloping down to the right and the upright box's corners white;
+  the second has red on the right and the stripes standing up; the third
+  has blue on top. The first draft had no doctype, and html5ever recorded
+  `line 1: Unexpected token` in `issues.txt`; the case now has one and its
+  `issues.txt` is empty. `ALO_UPDATE_REFERENCES=1` changed no other case.
+- Bytes from outside: no new parsing. A non-finite transform is tested to
+  draw nothing and not fail.
+
+**Tests.** 11 unit tests in `drawn_picture.rs` over a 2×2 picture of four
+distinct quarters: upright; a quarter turn, a half turn and a mirror each
+put every quarter in the right corner; an eighth of a turn is a diamond
+whose points reach past the square while the square's own corners stay
+white, with each quarter where the turn puts it; the outline is blended;
+an upright 2× scale still fills whole pixels to the canvas edge; a
+flattening transform and a NaN or infinite one draw nothing; a picture
+turned partly off the page draws the part on it; and `source` keeps a
+fraction inside the picture and refuses NaN. Doctored with every transform
+sent down the old upright path: 7 of the 11 fail, and so does the corpus
+(`a-turned-picture`). Restored afterwards.
+
+**Roadmap.** Item 178 served no `ROADMAP.md` line, and no line moved. The
+nearest, *Image codecs, rented*, is about decoding; this is drawing an
+already-decoded picture under a transform, which is stage 1's
+*Transforms* feature applied to a stage 2 `<img>`. Noticed and left alone,
+because it is not this item's line: *Image codecs* has no Built clause
+although PNG (106) and JPEG (177) are built — the next iteration that
+serves it should add one. Also updated: `docs/features.md` (a new pictures
+line), `docs/conformance.md`, `CHANGELOG.md`, `QUEUE.md` (178 ticked with
+its evidence; 95–99, 104, 105 marked `needs design`) and `REMAINING.md`.
+
+**Unresolved obligations.**
+- **A picture ignores a clip in force.** Found reading `render.rs`: the
+  `Picture` branch never receives the clip stack, so an `<img>` inside
+  `overflow: hidden` or a rounded clip is drawn whole. Written into
+  `conformance.md`. No queue item is opened, because no page fails on it,
+  as with iteration 164's rounded fieldset corner.
+- Inside a turned or scaled picture, sampling is still nearest-neighbour
+  (179, waiting on a page).
+- Carried unchanged: 82, 83 and 85–89 need their designs, and now 95–99,
+  104 and 105; the iteration 164 carry-overs.
+
+110 queue items are open (178 closed). The next eligible candidates in
+file order are 179 (waits on a page, by its own closing condition) and 180
+(GIF, WebP, AVIF; depends on 177, done). The next iteration takes the
+first eligible item as `LOOP.md` says. The next unused queue number is
+**269** and the next ADR **0021**. This is one iteration, not a finished
+queue or roadmap.
+
+**Final gate run.** `scripts/gate.sh` exited 0 on this tree (7 min 19 s),
+run in the foreground and read in the same step, after `cargo fmt --all`.
+Formatting is clean, clippy is silent and all tests pass. The corpus is
+included, with `a-turned-picture` new and every other reference
+unchanged. Nothing is stubbed, `unsafe` is forbidden, every rented crate
+stays behind its boundary, no verb takes a coordinate, the stop rule
+holds, and `CHANGELOG.md` changed with the code. `git diff --check`
+passes. The log is in this session's scratchpad and is not committed. The
+only later change was this journal entry, which is documentation.

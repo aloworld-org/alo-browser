@@ -6,6 +6,11 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A rotated picture is drawn rotated.** An `<img>` under `rotate()` used to
+  be drawn upright, stretched over the area the rotation would have covered;
+  a mirrored one was drawn the right way round. Both now turn with their box,
+  with a smooth outline, and an unrotated picture is drawn exactly as before.
+
 - **The build loop publishes every iteration it verifies.** Work used to
   accumulate as local commits until somebody pushed by hand — a night's output
   existing on one disk, invisible to anybody else. The supervisor now pushes

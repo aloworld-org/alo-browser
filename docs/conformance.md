@@ -177,7 +177,11 @@ What does not exist: any transform with a third dimension in it — `rotate3d`,
 `matrix3d`, `perspective` — which is refused rather than flattened. A border
 with four different widths still turns its inner corner squarer than CSS draws
 it. A blur under a non-uniform scale or a skew is softened by the average of
-the two axes, because a blur radius is one number. Most targets below are still
+the two axes, because a blur radius is one number. A picture under a
+rotation, skew or mirror is drawn turned with its box and its outline is
+smooth, but it is sampled nearest-neighbour, so the stripes *inside* a turned
+or scaled picture have stepped edges; and a picture ignores a clip in force,
+so one inside `overflow: hidden` is drawn whole. Most targets below are still
 `not yet`, because they are alo's own screens rather than pages we wrote to test
 with — and the sign-in screen, which is alo's, is *nearly* rather than done: the
 four substitutions in its case are four things this engine has yet to implement.

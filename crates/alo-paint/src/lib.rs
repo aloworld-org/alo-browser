@@ -43,6 +43,7 @@ pub mod control;
 pub mod corner;
 pub mod coverage;
 pub mod display;
+pub mod drawn_picture;
 pub mod encode;
 pub mod glyph;
 pub mod mitre;

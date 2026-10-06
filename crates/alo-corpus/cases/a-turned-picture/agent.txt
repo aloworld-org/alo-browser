@@ -1,0 +1,4 @@
+document at (0, 0) 240×128
+  image at (28, 40) 48×48
+  image at (108, 40) 48×48
+  image at (188, 40) 48×48
