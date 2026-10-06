@@ -964,14 +964,14 @@ unreachable without it.
       `control-states`. **A group of controls looks like a group** (queue item
       183) — a fieldset draws its border, and its legend sits *in* that border
       rather than above it, so the border is drawn in the two pieces the legend
-      leaves. Corpus case `fieldset-group` · Owed: everything a control **does**,
+      leaves. Corpus case `fieldset-group`. **Its border is a `groove`**, as
+      other browsers draw it, with the legend's part cut out (queue item 267,
+      `alo-paint`'s `banded.rs`) · Owed: everything a control **does**,
       which needs events
       (queue item 81) — constraint validation, submission, file inputs — the
-      focus ring, which needs something to have focus (queue item 43), and the
-      fieldset's `groove` where its legend breaks the border (queue item 267;
-      a groove on an ordinary box is drawn, item 190), and a dashed, dotted
-      or double fieldset's border there (268; on an ordinary box they are
-      drawn, item 266)
+      focus ring, which needs something to have focus (queue item 43), and a
+      dashed, dotted or double fieldset's border where its legend breaks it
+      (268; on an ordinary box they are drawn, item 266)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
 - [ ] `iframe`s and the sandbox attribute — a document inside a document, where a great many security bugs live
 - [ ] Shadow DOM and custom elements; component frameworks are not optional on the modern web

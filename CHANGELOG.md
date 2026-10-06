@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A fieldset's border is a groove.** It used to be a plain grey line,
+  standing in for the bevelled `groove` every other browser draws round a
+  group of form controls. It is now that groove — a dark edge and a light
+  one, cut into the page — still broken where the group's name sits in it.
+  A name wider than the group no longer takes the border's corners with it.
+  A dashed, dotted or double border there is still not drawn.
+
 - **Dashed, dotted and double borders are drawn.** They used to be left out
   entirely. Dashes and dots are spaced so each side starts and ends on one,
   dots are round, the dot or dash in a corner is one shape rather than two

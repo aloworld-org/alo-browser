@@ -175,13 +175,9 @@ input[type="button"], input[type="submit"], input[type="reset"] {
  * specification's own, and the legend is what makes them interesting — it sits
  * **in** the border rather than above it, which is `alo_layout::legend`.
  *
- * `solid` rather than the `groove` every other browser uses. A groove is two
- * tones of one colour, a light edge and a dark one, and `alo_paint` draws one
- * on an ordinary box (queue item 190) — but not yet on a border with a legend
- * in it, which is the only border a fieldset showing a legend has, and a
- * style drawn as a different style is a wrong pixel that looks nearly right.
- * So the border is the colour a groove is made of, drawn the one way we can
- * draw it honestly there, and the fieldset's `groove` is queue item 267.
+ * A `groove`, as every other browser draws it: two tones of one colour, cut
+ * into the page, with the legend's part of the line left out —
+ * `alo_paint::banded`.
  *
  * The legend's width is `fit-content(100%)` rather than the bare `fit-content`
  * the specification writes, which is the same thing for a block in flow — as
@@ -193,7 +189,7 @@ fieldset {
   margin-left: 2px;
   margin-right: 2px;
   padding: 0.35em 0.75em 0.625em;
-  border: 2px solid #c0c0c0;
+  border: 2px groove #c0c0c0;
 }
 legend {
   padding-left: 2px;

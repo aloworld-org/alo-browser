@@ -12,15 +12,18 @@
 //!
 //! The numbers are asserted in `alo-layout`'s `numbers.rs`, which is where a
 //! layout assertion belongs. This is about what is **drawn**: how many pieces
-//! the border comes in, and where they stop.
+//! the border comes in, and where they stop — for a `solid` border, from the
+//! display list, and for the `groove` the user-agent sheet gives a fieldset,
+//! in pixels, in both its tones.
 
 use alo_box::build as build_boxes;
 use alo_css::{MediaContext, parse_stylesheet};
 use alo_dom::parse_document;
 use alo_layout::{Size, compute};
-use alo_paint::{DisplayList, PaintContext, build};
+use alo_paint::{Canvas, DisplayList, PaintContext, build, render};
 use alo_style::{Origin, SourcedSheet, USER_AGENT_STYLE_SHEET, resolve};
 use alo_text::{Font, FontDatabase, Slant, TextMeasurer, Weight};
+use alo_value::Rgba;
 
 fn fonts() -> FontDatabase {
     let mut database = FontDatabase::new();
@@ -36,10 +39,17 @@ fn fonts() -> FontDatabase {
     database
 }
 
+/// A solid border, which is drawn as rectangles that can be counted.
+const SOLID: &str = "fieldset { border-style: solid }";
+
 fn draw(html: &str) -> DisplayList {
+    draw_with(html, SOLID, Size::new(300.0, 200.0))
+}
+
+fn draw_with(html: &str, css: &str, viewport: Size) -> DisplayList {
     let document = parse_document(html);
     let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
-    let author = parse_stylesheet("");
+    let author = parse_stylesheet(css);
     let sheets = [
         SourcedSheet::new(Origin::UserAgent, &agent),
         SourcedSheet::new(Origin::Author, &author),
@@ -48,7 +58,7 @@ fn draw(html: &str) -> DisplayList {
     let boxes = build_boxes(&document, &styles);
     let database = fonts();
     let measurer = TextMeasurer::new(&database);
-    let layout = compute(&boxes, &styles, Size::new(300.0, 200.0), &measurer);
+    let layout = compute(&boxes, &styles, viewport, &measurer);
     build::build(
         &boxes,
         &layout,
@@ -190,5 +200,132 @@ fn the_border_is_drawn_through_the_middle_of_the_legend() {
     assert!(
         text.contains("at (") && !text.is_empty(),
         "and the legend is drawn over it: {text}",
+    );
+}
+
+/// A fieldset 96 wide whose 8px groove of `#808080` has a 40 by 16 legend in
+/// it, with no words to get in the way of a pixel.
+///
+/// The border box runs from 12 across (the body's 10 and the fieldset's own
+/// 2) to 108, and from 10 down. The band is the legend's 16 tall, so the
+/// stroke is 4 below the top: rows 14 to 22, the outer half 14 to 18 and the
+/// inner half 18 to 22. The legend starts at 32 (12, the 8px border and 12px
+/// of padding) and ends at 72. The groove's tones are about `#2b2b2b` and
+/// `#d5d5d5`.
+fn draw_groove(legend: &str) -> Canvas {
+    let list = draw_with(
+        "<body><fieldset><legend></legend><div></div></fieldset></body>",
+        &format!(
+            "body {{ margin: 10px }}
+             fieldset {{ border-width: 8px; border-color: #808080; padding: 0 12px 4px }}
+             legend {{ width: 40px; height: 16px; padding: 0; {legend} }}
+             div {{ height: 20px }}"
+        ),
+        Size::new(120.0, 70.0),
+    );
+    let mut canvas = Canvas::new(120, 70, Rgba::WHITE);
+    render(&list, &mut canvas);
+    canvas
+}
+
+/// What a pixel is: `D` (the darker tone), `L` (the lighter one), `W` (the
+/// page) or `?` (anything else, which no assertion here expects).
+fn tone(canvas: &Canvas, x: u32, y: u32) -> char {
+    match canvas.at(x, y).map(Rgba::to_rgba8) {
+        Some((red, green, blue, _)) if red == green && green == blue => match red {
+            0..=60 => 'D',
+            190..=230 => 'L',
+            255 => 'W',
+            _ => '?',
+        },
+        _ => '?',
+    }
+}
+
+/// The block-start border at one point across: its outer half, then its
+/// inner half.
+fn across(canvas: &Canvas, x: u32) -> (char, char) {
+    (tone(canvas, x, 15), tone(canvas, x, 20))
+}
+
+#[test]
+fn a_groove_is_drawn_in_both_tones_either_side_of_the_legend() {
+    let canvas = draw_groove("");
+    // Cut in: dark outside and light inside, before the legend and after it.
+    assert_eq!(across(&canvas, 25), ('D', 'L'), "before the legend");
+    assert_eq!(across(&canvas, 90), ('D', 'L'), "after it");
+    // And nothing where the legend is, across the stroke's whole depth.
+    for x in [33, 50, 70] {
+        assert_eq!(across(&canvas, x), ('W', 'W'), "in the gap at {x}");
+    }
+}
+
+#[test]
+fn the_gap_ends_exactly_where_the_legend_does() {
+    let canvas = draw_groove("");
+    assert_eq!(across(&canvas, 31), ('D', 'L'), "the last pixel before it");
+    assert_eq!(across(&canvas, 32), ('W', 'W'), "the legend's first");
+    assert_eq!(across(&canvas, 71), ('W', 'W'), "the legend's last");
+    assert_eq!(across(&canvas, 72), ('D', 'L'), "the first pixel after it");
+}
+
+#[test]
+fn the_other_three_sides_are_a_groove_from_the_line_down() {
+    let canvas = draw_groove("");
+    // The left is dark outside and light inside, like the top; the right and
+    // the bottom are the other way round, which is what makes it a groove.
+    assert_eq!((tone(&canvas, 14, 40), tone(&canvas, 18, 40)), ('D', 'L'));
+    assert_eq!((tone(&canvas, 106, 40), tone(&canvas, 102, 40)), ('L', 'D'));
+    assert_eq!((tone(&canvas, 60, 56), tone(&canvas, 60, 52)), ('L', 'D'));
+    // Starting at the line through the legend, not at the top of the box.
+    assert_eq!(tone(&canvas, 14, 12), 'W', "above the line");
+    assert_eq!(tone(&canvas, 106, 12), 'W', "above the line");
+}
+
+#[test]
+fn a_legend_wider_than_the_box_leaves_the_far_corner_drawn() {
+    // 120 wide from 32 is past the fieldset's right edge at 108, over the
+    // whole of the right border. The border's corner stays; the legend takes
+    // only the top side's part of the line.
+    let canvas = draw_groove("width: 120px");
+    assert_eq!(across(&canvas, 90), ('W', 'W'), "the legend's part");
+    assert_eq!(across(&canvas, 99), ('W', 'W'), "up to the right border");
+    assert_eq!(
+        tone(&canvas, 101, 15),
+        'D',
+        "the corner, the top's outer half inside the right border"
+    );
+    assert_eq!(
+        tone(&canvas, 106, 21),
+        'L',
+        "and the right's outer half below it"
+    );
+}
+
+#[test]
+fn the_user_agent_sheet_gives_a_fieldset_a_groove() {
+    // `2px groove #c0c0c0`: two tones of that grey, and never the grey itself,
+    // which is what the border was drawn in while it was a stand-in `solid`.
+    let outline = draw_with(
+        "<body><fieldset><legend>Size</legend><p>one</p></fieldset></body>",
+        "",
+        Size::new(300.0, 200.0),
+    )
+    .to_outline();
+    let fills: Vec<&str> = outline
+        .lines()
+        .filter(|line| line.starts_with("fill "))
+        .collect();
+    assert!(
+        fills.iter().any(|line| line.contains("rgb(107 107 107)")),
+        "the darker tone: {fills:?}",
+    );
+    assert!(
+        fills.iter().any(|line| line.contains("rgb(255 255 255)")),
+        "the lighter tone: {fills:?}",
+    );
+    assert!(
+        !outline.contains("rgb(192 192 192)"),
+        "and not the grey itself: {outline}",
     );
 }

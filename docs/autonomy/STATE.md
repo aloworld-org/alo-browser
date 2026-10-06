@@ -14169,3 +14169,113 @@ stop rule holds, and `CHANGELOG.md` changed with the code. `git diff
 --check` passes. The log is in this session's scratchpad and is not
 committed. The only later change was this journal entry, which is
 documentation.
+
+## Iteration 163 — item 267 built: a fieldset's `groove`
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md` (its conventions and the *Forms* line), iterations 161 and
+162's entries, the queue's section F for eligibility and items 190, 266, 267
+and 268 in full, and the code item 267 names: `alo-paint`'s `build.rs`
+(`draw_borders`, `draw_banded_border`, `mitred_sides`), `border.rs`
+(`draw_mitred`), `mitre.rs`, `tone.rs`, `corner.rs`, `coverage.rs`,
+`render.rs`'s clip stack (clips intersect; non-zero fill), `alo-layout`'s
+`legend.rs` (`Band`), `alo-style`'s user-agent sheet, the test
+`a_border_a_legend_breaks.rs` and corpus case `fieldset-group`. Item 267
+names no ADR; its feature home is `docs/features.md`'s *Paint* section, whose
+two-toned line it already named. No `AGENTS.md` exists. No sibling repository
+was read or modified. The checkout was clean on entry at `0a4f17a`.
+
+**Selection.** Iteration 162 recorded every item before 267 as blocked or
+`needs design`, and nothing has changed since. 267 depends on nothing and
+comes before 268 in file order, so it is the first eligible item.
+
+**What was built.**
+- `alo-paint`'s new `banded.rs`, one responsibility: the border a legend
+  breaks. `draw_banded_border` moved out of `build.rs` into it, since adding
+  tones to it would have given `build.rs` another reason to change.
+  `build.rs` gains `drawn_sides` (which `mitred_sides` now uses) and only
+  dispatches.
+- Solid wherever drawn: the same five rectangles as before, in the same
+  order.
+- Any two-toned side: `border::draw_mitred` on the area below the band's
+  inset, with the band's stroke as the top width, inside one clip. The
+  clip is the area wound clockwise and the hole the other way round, so
+  under the non-zero rule the hole is outside. The hole is the band's gap
+  across the stroke's depth, **clamped to the side borders' inner edges**.
+  So a legend wider than the box leaves the corners drawn, as the solid
+  pieces always did. This matches how Chrome's fieldset painter cuts it (a
+  clip-out of the legend's span); no clip is pushed when the hole is empty.
+- `dashed`, `dotted` and `double` beside a legend stay undrawn (268). The
+  module comment says so, and so do the queue and the conformance page.
+- The user-agent sheet says `2px groove #c0c0c0`. Its comment about the
+  `solid` stand-in is gone, replaced by one line naming `banded.rs`.
+
+**Found on the way, not a defect of this change.** The layout's band gap is
+the legend's *margin box*, so a negative margin shrinks the gap rather than
+moving it. The first draft of the corner test pulled the legend left and so
+tested nothing. It now uses a legend wider than the fieldset. Whether the gap
+should be the margin box or the border box is `alo-layout`'s question. It is
+not this item's, and nothing is changed for it.
+
+**Compliance review.**
+- Law 1: nothing legacy. Law 2: the agent surface is unchanged (the
+  coordinate check passes; the corpus's `agent.txt` files did not move).
+  Law 3: no stubs, `todo!` or `unwrap` outside tests; an undrawn style is
+  left empty, never approximated. Law 4: no `unsafe`.
+- One file, one responsibility: `banded.rs` is the legend-broken border,
+  and `build.rs` lost that responsibility rather than gaining a second.
+- Layout assertions: nothing is newly positioned or sized. The band's
+  numbers stay asserted in `alo-layout`'s `numbers.rs`, and the
+  `layout.txt` and `boxes.txt` files of both moved cases are unchanged.
+- Reference render: `fieldset-group` and `web-a-form` moved (display list
+  and picture only). I looked at `fieldset-group` upscaled 4× beside the
+  old one: a groove broken by "Pizza size", the top and left dark outside
+  and light inside, the right and bottom the reverse.
+  `ALO_UPDATE_REFERENCES=1` changed no other case.
+- Bytes from outside: no new parsing. The gap and widths come from layout;
+  `max`/`min` clamping and the `ends > starts` test cover inverted or
+  out-of-box gaps (unit tests).
+
+**Tests.** `banded.rs` 8 unit tests. `a_border_a_legend_breaks.rs` has 5 new
+pixel tests: both tones either side of the legend and nothing in the gap;
+the gap's edges to the pixel; the other three sides a groove from the line
+down; a legend wider than the box leaving the far corner; the sheet's two
+tones (`rgb(107 107 107)`, `rgb(255 255 255)`) and never `#c0c0c0` itself.
+Its 4 older tests now ask for `solid` by name, since they count rectangles.
+Doctored runs, each restored afterwards: with no hole cut, 3 tests fail;
+with the hole unclamped, 1 fails.
+
+**Roadmap.** *Forms* is not ticked. Its Built clause now names the groove
+(267, `banded.rs`); its Owed clause drops 267 and keeps 268, everything a
+control does (81) and the focus ring (43). `docs/features.md` (*Paint*,
+two-toned borders), `docs/conformance.md`, `CHANGELOG.md`, `QUEUE.md` (267
+ticked with its evidence, 268's text now pointing at `banded.rs`) and
+`REMAINING.md` moved with it.
+
+**Unresolved obligations.**
+- 268 is unchanged in scope. Its open question is now only where a dash
+  falls beside the gap, because the clip that would cut it exists.
+- A rounded corner on a fieldset showing a legend is still drawn square
+  (said in `banded.rs` and `conformance.md`, as before).
+- New, for whoever owns `alo-layout`'s legend: the gap is the margin box
+  (above). No queue item is opened, because no page fails on it.
+- Carried unchanged from iteration 162: 82, 83 and 85–89 need their
+  designs. Also going where the browser decided (85), downloads (264),
+  windows (118), CSP `base-uri` (no item), what an agent is told when the
+  page it acted on goes somewhere (134), and the iteration 158 carry-overs.
+
+112 queue items are open (267 closed). The next iteration takes the first
+eligible item as `LOOP.md` says; 268 depends on nothing. The next unused
+queue number is **269** and the next ADR **0021**. This is one iteration,
+not a finished queue or roadmap.
+
+**Final gate run.** `scripts/gate.sh` exited 0 on this tree (7 min 31 s). It
+ran in the foreground and was read in the same step. Formatting is clean,
+clippy is silent and all tests pass: the corpus is included, with
+`fieldset-group` and `web-a-form` updated and every other reference
+unchanged. Nothing is stubbed, `unsafe` is forbidden, the licence notices
+are present, and every rented crate stays behind its boundary. No verb
+takes a coordinate, the stop rule holds, and `CHANGELOG.md` changed with
+the code. `git diff --check` passes. The log is in this session's scratchpad
+and is not committed. The only later change was this journal entry, which
+is documentation.

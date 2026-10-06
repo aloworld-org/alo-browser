@@ -357,6 +357,14 @@ wedges there so a dashed corner has no seam; `border.rs` is split into
 same styles beside a legend are cut to 268. 113 queue items are open; the
 next unused queue number is 269 and the next unused ADR 0021.
 
+Iteration 163 built item 267: a fieldset's border is the `groove` other
+browsers give it. `alo-paint`'s new `banded.rs` draws the border a legend
+breaks — five rectangles when solid, otherwise the mitred sides inside a
+clip with the legend's part of the block-start line cut out, clamped to the
+side borders so the corners stay. Corpus cases `fieldset-group` and
+`web-a-form` moved. 112 queue items are open; the next unused queue number
+is 269 and the next unused ADR 0021.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -19,6 +19,7 @@
 //! the full painting order, which `docs/features.md` reaches for with
 //! transforms and opacity.
 
+use crate::banded;
 use crate::border::{self, DrawnSide, Line, Side};
 use crate::canvas::Canvas;
 use crate::control::{self, Mark};
@@ -440,6 +441,8 @@ impl Builder<'_> {
     /// [`border::draw_mitred`] instead, with each side mitred so that the
     /// corners are split where the sides differ.
     ///
+    /// A border with a legend sitting in it is [`banded::draw`]'s.
+    ///
     /// `none` and `hidden` draw nothing whatever their width, which is what
     /// CSS says and is why a width alone never shows a border.
     fn draw_borders(
@@ -457,7 +460,8 @@ impl Builder<'_> {
             return;
         };
         if let Some(band) = geometry.band {
-            self.draw_banded_border(id, border_box, band, style, out);
+            let sides = Self::drawn_sides(style);
+            banded::draw(id, border_box, band, self.border_of(id), &sides, out);
             return;
         }
         let corners = Corners::of(style, Self::extent_of(geometry.border_box));
@@ -558,102 +562,6 @@ impl Builder<'_> {
         }
     }
 
-    /// The border of a box whose block-start border has something sitting in
-    /// it: a `<fieldset>` showing a legend, which is the only such box in CSS.
-    ///
-    /// The border is drawn **through** the band rather than above it, so the
-    /// three ordinary sides start at the line the block-start border is on
-    /// rather than at the top of the border box — the box above that line is
-    /// the legend's, and a border either side of it would box the legend in.
-    ///
-    /// And the block-start border is drawn in the **two pieces the legend
-    /// leaves**, which is the whole point of the exercise: a group of controls
-    /// with its name written into the line around them. Either piece can be
-    /// nothing — a legend wide enough leaves no border at all, and one at the
-    /// very edge leaves only the piece on the other side.
-    ///
-    /// **A radius is ignored here**, where every other border follows one. A
-    /// rounded corner is a curve between two sides, and one of these sides has
-    /// a hole in it; the shape that answers that properly is queue item 19's
-    /// kind of work, and drawing an approximation of it would be a wrong pixel
-    /// on the one element this code exists for.
-    ///
-    /// **Only `solid` is drawn here.** A two-toned side beside a legend is a
-    /// mitred wedge with a hole cut in it, and that is queue item 267 —
-    /// which is also why the user-agent sheet still gives a fieldset a solid
-    /// border rather than the `groove` other browsers give it. A `dashed`,
-    /// `dotted` or `double` side here is left undrawn for the same reason,
-    /// and is queue item 268.
-    fn draw_banded_border(
-        &self,
-        id: BoxId,
-        border_box: Rect,
-        band: alo_layout::Band,
-        style: &alo_style::ComputedStyle,
-        out: &mut Vec<DisplayItem>,
-    ) {
-        let inset = band.inset();
-        let area = Rect::new(
-            border_box.left(),
-            border_box.top() + inset,
-            border_box.size.width,
-            (border_box.size.height - inset).max(0.0),
-        );
-        let border = self.border_of(id);
-        let mut fill = |rect: Rect, color: Rgba| {
-            if rect.size.width > 0.0 && rect.size.height > 0.0 {
-                out.push(DisplayItem::Fill {
-                    box_id: id,
-                    path: rect_path(rect),
-                    paint: Paint::Solid(color),
-                });
-            }
-        };
-        for (side, width) in [
-            ("right", border.right),
-            ("bottom", border.bottom),
-            ("left", border.left),
-        ] {
-            let color = border_color(style, side);
-            if width <= 0.0
-                || border_style(style, side).is_none_or(|kind| kind != "solid")
-                || color.is_invisible()
-            {
-                continue;
-            }
-            let rect = match side {
-                "right" => Rect::new(area.right() - width, area.top(), width, area.size.height),
-                "bottom" => Rect::new(area.left(), area.bottom() - width, area.size.width, width),
-                _ => Rect::new(area.left(), area.top(), width, area.size.height),
-            };
-            fill(rect, color);
-        }
-
-        let color = border_color(style, "top");
-        if band.stroke <= 0.0
-            || border_style(style, "top").is_none_or(|kind| kind != "solid")
-            || color.is_invisible()
-        {
-            return;
-        }
-        let (gap_starts, gap_ends) = band.gap;
-        let before = Rect::new(
-            area.left(),
-            area.top(),
-            gap_starts.clamp(0.0, area.size.width),
-            band.stroke,
-        );
-        let after_starts = area.left() + gap_ends.clamp(0.0, area.size.width);
-        let after = Rect::new(
-            after_starts,
-            area.top(),
-            (area.right() - after_starts).max(0.0),
-            band.stroke,
-        );
-        fill(before, color);
-        fill(after, color);
-    }
-
     /// Every side a border draws, when any of them is drawn as anything but
     /// `solid`.
     ///
@@ -661,7 +569,17 @@ impl Builder<'_> {
     /// its rectangles; one side of any other style is enough to draw all four
     /// mitred, since a rectangle beside a mitred side would take its corner.
     fn mitred_sides(style: &alo_style::ComputedStyle) -> Option<Vec<DrawnSide>> {
-        let sides: Vec<DrawnSide> = [
+        let sides = Self::drawn_sides(style);
+        sides
+            .iter()
+            .any(|drawn| drawn.line != Line::Solid)
+            .then_some(sides)
+    }
+
+    /// Every side a border's style draws, with the line and colour it asks
+    /// for — whatever its width, which is the layout's to say.
+    fn drawn_sides(style: &alo_style::ComputedStyle) -> Vec<DrawnSide> {
+        [
             (Side::Top, "top"),
             (Side::Right, "right"),
             (Side::Bottom, "bottom"),
@@ -676,11 +594,7 @@ impl Builder<'_> {
                 color: border_color(style, name),
             })
         })
-        .collect();
-        sides
-            .iter()
-            .any(|drawn| drawn.line != Line::Solid)
-            .then_some(sides)
+        .collect()
     }
 
     /// The colour of a border that is the same on all four sides, if it is.

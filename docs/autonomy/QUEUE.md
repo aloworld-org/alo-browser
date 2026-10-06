@@ -4664,7 +4664,7 @@ The long pole, and the thing most of section E is unreachable without.
   huge boxes bounded). Corpus case `border-patterns` is the reference
   render; no other reference moved.
 
-- [ ] **267. A fieldset's `groove`.** *Cut from 190 on the iteration that
+- [x] **267. A fieldset's `groove`.** *Cut from 190 on the iteration that
   built it.* `draw_banded_border` draws only `solid`, so the user-agent sheet
   still gives a fieldset `2px solid #c0c0c0` where other browsers give it a
   groove. Two-toned sides there are the mitred wedges of `mitre.rs` with the
@@ -4672,13 +4672,38 @@ The long pole, and the thing most of section E is unreachable without.
   `groove`. *Depends on nothing. Closes when:* `fieldset-group` draws a
   groove broken by its legend, `a_border_a_legend_breaks.rs` asserts the
   pieces in both tones, and the user-agent sheet's comment about it is gone.
+  **Built (iteration 163).** The border a legend breaks moved out of
+  `build.rs` into `alo-paint`'s new `banded.rs`, which `build.rs` only
+  dispatches to. A border that is solid wherever it is drawn keeps its five
+  rectangles. One with a two-toned side is `border::draw_mitred` on the
+  area below the band's inset, with the band's stroke as the top width,
+  inside one clip: the area wound clockwise and the legend's hole the other
+  way round, so under the non-zero rule the hole is outside. The hole is the
+  band's gap across the stroke's depth, clamped to the side borders' inner
+  edges, so a legend wider than the fieldset leaves the corners drawn,
+  exactly as the solid pieces do. That is how Chrome's fieldset painter
+  cuts it too (a clip-out of the legend's span). The user-agent sheet now
+  says `2px groove #c0c0c0`, and its comment says so rather than naming a
+  substitution. Tests: `banded.rs` 8 (the hole's geometry, its clamping, an
+  empty gap or stroke cutting nothing, the clip's coverage in and out of
+  the hole, solid as five rectangles and no clip, a groove's layers inside
+  the clip, no clip when the gap cuts nothing, a patterned side left
+  undrawn); `a_border_a_legend_breaks.rs` 5 new in pixels (both tones
+  either side of the legend and nothing in the gap, the gap's edges to the
+  pixel, the other three sides a groove from the line down, a legend wider
+  than the box leaving the far corner, the sheet's two tones and never the
+  grey itself), and its 4 counting tests now ask for `solid` by name.
+  Doctored: no hole fails 3, an unclamped hole fails 1. Corpus cases
+  `fieldset-group` and `web-a-form` moved (display list and picture only;
+  layout, boxes and agent tree unchanged), and no other reference did.
 
 - [ ] **268. `dashed`, `dotted` and `double` beside a legend.** *Cut from
-  266 on the iteration that built it.* `draw_banded_border` draws only
-  `solid`, so a fieldset whose border is patterned is left without one
-  where a legend sits in it — said in its comment and in
-  `docs/conformance.md`. The same pieces as 267's, with the legend's gap
-  cut out of the block-start side's dashes, dots or lines. *Depends on
+  266 on the iteration that built it.* `alo-paint`'s `banded.rs` (267)
+  leaves a `dashed`, `dotted` or `double` side undrawn where a legend sits
+  in the border — said in its module comment and in `docs/conformance.md`.
+  The clip with the legend's hole that 267 built would cut them as it cuts
+  a groove; what is open is whether a dash or dot cut off by the legend is
+  the right answer, or the pattern should be spaced on each piece. *Depends on
   nothing; best taken with or after 267. Closes when:* a corpus case draws
   a dashed fieldset broken by its legend and `a_border_a_legend_breaks.rs`
   asserts the pieces either side of the gap.

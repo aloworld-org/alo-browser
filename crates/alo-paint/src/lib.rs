@@ -34,6 +34,7 @@
 //! glyph mask serves black text on white and white text on black, and why a
 //! mask can be reused for a shadow rather than rasterised twice.
 
+pub mod banded;
 pub mod blur;
 pub mod border;
 pub mod build;

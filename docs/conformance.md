@@ -91,10 +91,13 @@ its `<legend>` sits **in** that border rather than above it: the block-start
 border is drawn in the two pieces the legend leaves, which is what writes the
 group's name into the line around it. The band the legend sits in *replaces* the
 block-start border rather than adding to it, so a fieldset is exactly as tall as
-a browser draws one. The border is `solid` where every other browser draws a
-`groove`: this engine draws a groove on an ordinary box, but not yet on a
-border with a legend in it, and a style drawn as a different style is a wrong
-pixel that looks nearly right. The fieldset's `groove` is queue item 267.
+a browser draws one. The border is a `groove` of `#c0c0c0`, as every other
+browser gives a fieldset: the mitred two-toned sides, with the legend's part of
+the block-start line cut out of them, across the line's depth and no further
+out than the side borders — so a legend wider than the fieldset leaves its
+corners drawn (corpus cases `fieldset-group` and `web-a-form`). A rounded
+corner on a fieldset showing a legend is still drawn square, and a `dashed`,
+`dotted` or `double` side there is left undrawn (queue item 268).
 
 **Two-toned borders.** `inset`, `outset`, `groove` and `ridge` are drawn in a
 darker and a lighter tone of the border's colour, lit from the top left, with
