@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`place-items`, `place-self` and `place-content` now work.** Each was
+  kept and ignored, so a grid centred with `place-items: center` put its
+  content at the top, stretched to the full height. They now set the
+  `align-*` and `justify-*` pair they stand for — one value for both, or
+  block then inline — and alo's offline screen is centred down the window
+  as well as across it.
+
 - **The space around a picture or button on a line is kept.** Margins on an
   image, an inline-block or a button sharing a line used to be ignored: the
   line was only as tall as the thing itself and the next paragraph sat

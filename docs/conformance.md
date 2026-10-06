@@ -24,7 +24,10 @@ layout can give it.
 
 Boxes are laid out. Block, flexbox and grid all work, with the box model,
 positioning, overflow and percentages, and the whole layout of a small
-interface is asserted as numbers rather than looked at.
+interface is asserted as numbers rather than looked at. The `place-*`
+shorthands split into their `align-*` and `justify-*` pair; of the values,
+the engine reads the single keywords, so `safe center` reaches the longhand
+and is refused there.
 
 Text is real. Fonts load, text is shaped — including Arabic, which joins and
 runs right to left — lines break by UAX #14, and a paragraph in a narrow window
@@ -231,7 +234,7 @@ it lives in.
 | alo Settings | **yes** — `alo-workplace`'s, likewise, and its narrow-screen `@media` block evaluated rather than assumed away |
 | An agent reading Settings as a tree and activating a row by name | **yes** — `crates/alo-renderer/tests/an_agent_on_settings.rs`, against that same screen, by name and never by position |
 | alo agent overlay | not yet — the screen is not written in `alo-workplace` either |
-| alo offline screen | **nearly** — `alo-workplace`'s `offline.html`, frozen byte for byte as `alo-offline`, its hand drawn (item 273), it and the button centred across (item 280) and the hand's bottom margin kept (item 281); the screen is not centred down (282) and the line under the hand lacks the font's descent (283) |
+| alo offline screen | **nearly** — `alo-workplace`'s `offline.html`, frozen byte for byte as `alo-offline`, its hand drawn (item 273), it and the button centred across (item 280) and the hand's bottom margin kept (item 281), and the whole screen centred down the window by `place-items` (item 282); the line under the hand lacks the font's descent (283) |
 
 **One thing is true of both screens and is not a defect in either**: the corpus
 renders in DejaVu Sans, and the app loads Inter. Inter is narrower, so alo's

@@ -42,6 +42,7 @@ pub mod matching;
 pub mod media;
 pub mod parse;
 pub mod selector;
+mod shorthand;
 pub mod state;
 pub mod stylesheet;
 

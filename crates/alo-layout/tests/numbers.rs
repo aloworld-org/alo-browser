@@ -243,6 +243,62 @@ fn minmax_holds_a_track_between_its_two_ends() {
     );
 }
 
+/// `place-items` is `align-items` and then `justify-items`: one value both
+/// ways, two values block axis first. A 100×40 item in one 300×200 cell.
+#[test]
+fn place_items_aligns_an_item_in_its_cell_both_ways() {
+    let html = "<body><div id=grid><div id=item></div></div></body>";
+    for (place, x, y) in [
+        ("center", 100.0, 80.0),
+        ("end start", 0.0, 160.0),
+        ("start end", 200.0, 0.0),
+        ("center; justify-items: start", 0.0, 80.0),
+    ] {
+        let css = format!(
+            "#grid {{ display: grid; width: 300px; height: 200px; place-items: {place} }} \
+             #item {{ width: 100px; height: 40px }}"
+        );
+        let (boxes, layout) = lay_out(html, &css, Size::new(400.0, 300.0));
+        assert_eq!(
+            rect_of(&boxes, &layout, "item", html),
+            Rect::new(x, y, 100.0, 40.0),
+            "place-items: {place}",
+        );
+    }
+}
+
+/// `place-self` on the item overrides the container's `place-items`.
+#[test]
+fn place_self_overrides_the_containers_place_items() {
+    let html = "<body><div id=grid><div id=item></div></div></body>";
+    let css = "#grid { display: grid; width: 300px; height: 200px; place-items: start } \
+               #item { width: 100px; height: 40px; place-self: end center }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "item", html),
+        Rect::new(100.0, 160.0, 100.0, 40.0)
+    );
+}
+
+/// `place-content` moves the tracks, not the item in its cell: a 100×40
+/// track in a 300×200 grid.
+#[test]
+fn place_content_moves_the_grids_tracks_both_ways() {
+    let html = "<body><div id=grid><div id=item></div></div></body>";
+    for (place, x, y) in [("center", 100.0, 80.0), ("end start", 0.0, 160.0)] {
+        let css = format!(
+            "#grid {{ display: grid; width: 300px; height: 200px; \
+             grid-template-columns: 100px; grid-template-rows: 40px; place-content: {place} }}"
+        );
+        let (boxes, layout) = lay_out(html, &css, Size::new(400.0, 300.0));
+        assert_eq!(
+            rect_of(&boxes, &layout, "item", html),
+            Rect::new(x, y, 100.0, 40.0),
+            "place-content: {place}",
+        );
+    }
+}
+
 #[test]
 fn a_percentage_width_is_of_the_containing_block() {
     let html = "<body><div id=outer><div id=inner></div></div></body>";

@@ -4788,7 +4788,7 @@ The long pole, and the thing most of section E is unreachable without.
   width test. Corpus: `alo-offline` moved — the line 416×76, the heading
   at (24, 100), everything under it 20 px down — and no other case.
 
-- [ ] **282. `place-items`, `place-self` and `place-content` as shorthands.**
+- [x] **282. `place-items`, `place-self` and `place-content` as shorthands.**
   *Opened by `alo-offline` (iteration 172).* The offline screen centres `main`
   with `body { display: grid; place-items: center }`. No shorthand of the
   `place-*` family is expanded, so the declaration is kept and ignored and
@@ -4798,6 +4798,29 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on nothing.* *Closes when:* `alo-offline`'s layout assertion has
   `main` its content's height and centred in the grid both ways, and a test
   splits one- and two-value forms of all three.
+  **Built (iteration 175).** Shorthand expansion moved out of
+  `alo-css`'s `declaration.rs` into its own `shorthand.rs`, because a second
+  family of shorthands is a second reason for that file to change; the
+  sided family moved unchanged with its tests. The new family, `PAIRED`,
+  splits by counting *values*, not words: `safe`/`unsafe` take the next
+  word and `first`/`last` take `baseline` in the block axis, and the
+  inline axis may also be `legacy` with a direction in either order. One
+  value is both axes, two are block then inline, anything else is left
+  whole. CSS's two exceptions are kept: `place-content` with only a
+  baseline gives `justify-content: start`, and `legacy` first is not a
+  shorthand at all. The longhands go in at the shorthand's position, so a
+  longhand written after it still wins. Tests: `shorthand.rs` 6 new (all
+  three in one and two values and three refused; two-word values incl.
+  `center legacy left`; the baseline exception; `legacy` first left whole;
+  a `var()` copied; a longhand after it wins in a block). `numbers.rs` 3
+  (a 100×40 item in a 300×200 cell at 100,80 / 0,160 / 200,0 for
+  `center`, `end start`, `start end`, and 0,80 with `justify-items: start`
+  after; `place-self: end center` beats `place-items: start` at 100,160;
+  `place-content` puts a 100×40 track at 100,80 and 0,160). Doctored: the
+  `PAIRED` branch disabled fails all three `numbers.rs` tests. Corpus:
+  `alo-offline` moved — `main` 416×230.68437 at (32, 84.657814), 60.66 px
+  inside the padding above and below and 8 px either side — and no other
+  case.
 
 - [ ] **283. The strut: every line starts as tall as its container's font.**
   *Cut from 281 (iteration 174).* CSS gives each line box a zero-width

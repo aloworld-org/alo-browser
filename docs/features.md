@@ -173,6 +173,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   before anybody styles it
 - [2] **Shorthands compete with longhands in the cascade**, so an author's
   `padding: 0` beats a user agent's `padding-left`
+- [2] **`place-items`, `place-self` and `place-content`** set their `align-*`
+  and `justify-*` pair — one value for both, two for block then inline, a
+  two-word value such as `safe center` counted as one — so a grid centred
+  with `place-items: center` is centred
 - [2] **Fonts handed across the boundary** — the browser process opens the
   files, the renderer opens nothing
 - [2] **A font a page asked for by name, fetched on demand** — a renderer says

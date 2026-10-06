@@ -15563,3 +15563,86 @@ updated: `CHANGELOG.md`, `docs/features.md`, `docs/conformance.md`,
 118 queue items are open (one closed, two opened). The first eligible item in
 file order is now **282**. The next unused queue number is **285** and the
 next ADR is **0023**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 175 — item 282: the `place-*` shorthands
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and the *CSS beyond what alo needed* lines), iteration 174's
+entry, queue items 184 and 280–284, `docs/features.md`'s style section and
+`docs/conformance.md`. No `AGENTS.md` exists in this repository. No ADR
+governs shorthand expansion; ADR 0004 (we own the layout tree, `taffy` owns
+the algorithms) applies and is unchanged — the longhands already reached
+`taffy`, only the shorthand never became them. Nothing is decided, so no ADR.
+
+**Selection.** Iteration 174 recorded 282 as the first eligible item in file
+order, and nothing before it changed since. It depends on nothing.
+
+**What was built.** `alo-css` splits `place-items`, `place-self` and
+`place-content` into `align-*` then `justify-*` as a block is written, the
+same place and for the same reason as `margin` (item 184: shorthand and
+longhand must compete as one property). Values are counted, not words —
+`safe center`, `last baseline`, `legacy left` are one each — one value is
+both axes, two are block then inline, anything else is left whole to be
+refused where it is read. CSS's two exceptions hold: `place-content:
+baseline` gives `justify-content: start`, and `legacy` leading is not a
+place shorthand. The engine's `Alignment` reads single keywords only, so a
+two-word value reaches its longhand and is refused there, as before.
+
+**One file, one responsibility.** A second family of shorthands is a
+second reason for `declaration.rs` to change, so expansion moved to a new
+`shorthand.rs` in this change: `SIDED`, its splitter and its tests moved
+unchanged (the tests still pass), and `PAIRED` was added beside them.
+`declaration.rs` keeps what a declaration and a block are, and calls
+`shorthand::expand` from `DeclarationBlock::push`.
+
+**Gate, mechanical.** `scripts/gate.sh` exited 0 — "The gate is met.":
+fmt clean, clippy silent, tests pass (corpus included), no stubs, no
+`unsafe`, licence notices, rented crates behind their boundaries, no
+coordinate verbs, the stop rule, `CHANGELOG.md` changed. `git diff --check`
+passes. *Process note:* the run outlasted the tool's 600 s foreground limit,
+so, as in iteration 174, this iteration blocked on its log until it wrote
+`GATE EXIT 0` and read the result before writing this entry. Only this
+entry changed after the gate ran.
+
+**Gate, manual.**
+- Layout assertions in numbers (`numbers.rs`, 3 new): a 100×40 item in a
+  300×200 grid cell at (100, 80), (0, 160), (200, 0) for `place-items:
+  center`, `end start`, `start end`, and (0, 80) when `justify-items: start`
+  follows; `place-self: end center` over `place-items: start` at (100,
+  160); `place-content: center` and `end start` move a 100×40 track to
+  (100, 80) and (0, 160). Unit tests (`shorthand.rs`, 6 new) split all three
+  in one and two values and leave three alone, count two-word values, keep
+  the baseline and `legacy` exceptions, copy a `var()`, and let a later
+  longhand win. Doctored: the `PAIRED` branch disabled fails all three
+  `numbers.rs` tests; restored.
+- Reference render: `alo-offline` moved, no other case did. `main` is
+  416×230.68437 at (32, 84.657814) — its content's height, 60.66 px inside
+  the body's padding above and below and 8 px either side, centred both
+  ways; layout, display list, agent tree and picture re-committed. I looked
+  at the render: the hand, heading, text and button sit in the middle of
+  the window. The hand's clip reads 56×55.999992, float rounding from the
+  fractional top, not a change in size.
+- `docs/features.md` gains the `place-*` line; `docs/conformance.md` says
+  the shorthands split and that two-word values are refused at the
+  longhand, and its offline-screen row no longer lists 282.
+
+**Roadmap.** This item served **no open roadmap line**, and `ROADMAP.md` is
+deliberately unchanged. It makes alo's own page lay out as written — grid
+alignment sits under stage 1's ticked *Layout* line — and none of the
+*CSS beyond what alo needed* lines (animations, container queries, filters,
+sticky, writing modes, paged media) covers alignment shorthands. Ticking or
+annotating one to discharge this would be the erosion `LOOP.md` warns
+against. Queue: 282 ticked with what was built. Also updated:
+`CHANGELOG.md`, `docs/features.md`, `docs/conformance.md`, `REMAINING.md`.
+
+**Unresolved obligations.**
+- 283 (the strut) is the first eligible item in file order; 279 is
+  eligible too. 284 waits on a page.
+- Carried, unchanged: ADR 0022 § 2's wording and § 4's name order, and a
+  side-by-side of the hand with a real browser (a person's call); 269
+  blocked on a `rav1d` release; the `image-webp` upstream report; 109, 179,
+  and 82, 83, 85–89, 95–99, 104 and 105 still needing their designs.
+
+117 queue items are open. The first eligible item in file order is now
+**283**. The next unused queue number is **285** and the next ADR is
+**0023**. This is one iteration, not a finished queue or roadmap.

@@ -441,6 +441,12 @@ rather than its container is 284, blocked until a page needs it. 282 (the
 `place-*` shorthands) is next. 118 queue items are open; the next unused
 queue number is 285 and the next unused ADR 0023.
 
+Iteration 175 built 282: `place-items`, `place-self` and `place-content`
+split into their `align-*` and `justify-*` pair, so alo's offline screen is
+centred down the window as well as across. 283 (the strut) is next. 117
+queue items are open; the next unused queue number is 285 and the next
+unused ADR 0023.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;
