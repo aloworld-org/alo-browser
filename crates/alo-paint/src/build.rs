@@ -435,15 +435,13 @@ impl Builder<'_> {
     /// with a thick border and a large radius, and the alternative is four
     /// mitred trapezoids, which is queue item 19's kind of work.
     ///
-    /// A border with any side `inset`, `outset`, `groove` or `ridge` is drawn
-    /// by [`border::draw_mitred`] instead: two tones of one colour, with each
-    /// side mitred so that the corners are split where the colours change.
+    /// A border with any side that is not `solid` — `inset`, `outset`,
+    /// `groove`, `ridge`, `dashed`, `dotted` or `double` — is drawn by
+    /// [`border::draw_mitred`] instead, with each side mitred so that the
+    /// corners are split where the sides differ.
     ///
     /// `none` and `hidden` draw nothing whatever their width, which is what
-    /// CSS says and is why a width alone never shows a border. `dashed`,
-    /// `dotted` and `double` are not implemented (queue item 266), and drawing
-    /// a dashed border as a solid one would be a wrong pixel that looks nearly
-    /// right.
+    /// CSS says and is why a width alone never shows a border.
     fn draw_borders(
         &self,
         id: BoxId,
@@ -478,7 +476,7 @@ impl Builder<'_> {
             });
             return;
         }
-        if let Some(sides) = Self::two_toned(style) {
+        if let Some(sides) = Self::mitred_sides(style) {
             let widths = alo_layout::Edges {
                 left: if first { geometry.border.left } else { 0.0 },
                 right: if last { geometry.border.right } else { 0.0 },
@@ -583,7 +581,9 @@ impl Builder<'_> {
     /// **Only `solid` is drawn here.** A two-toned side beside a legend is a
     /// mitred wedge with a hole cut in it, and that is queue item 267 —
     /// which is also why the user-agent sheet still gives a fieldset a solid
-    /// border rather than the `groove` other browsers give it.
+    /// border rather than the `groove` other browsers give it. A `dashed`,
+    /// `dotted` or `double` side here is left undrawn for the same reason,
+    /// and is queue item 268.
     fn draw_banded_border(
         &self,
         id: BoxId,
@@ -654,12 +654,13 @@ impl Builder<'_> {
         fill(after, color);
     }
 
-    /// Every side a border draws, when any of them is drawn in two tones.
+    /// Every side a border draws, when any of them is drawn as anything but
+    /// `solid`.
     ///
     /// `None` for a border that is solid wherever it is drawn, which keeps
-    /// its rectangles; one two-toned side is enough to draw all four mitred,
-    /// since a rectangle beside a mitred side would take its corner.
-    fn two_toned(style: &alo_style::ComputedStyle) -> Option<Vec<DrawnSide>> {
+    /// its rectangles; one side of any other style is enough to draw all four
+    /// mitred, since a rectangle beside a mitred side would take its corner.
+    fn mitred_sides(style: &alo_style::ComputedStyle) -> Option<Vec<DrawnSide>> {
         let sides: Vec<DrawnSide> = [
             (Side::Top, "top"),
             (Side::Right, "right"),

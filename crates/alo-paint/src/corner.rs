@@ -102,6 +102,22 @@ impl Corners {
         }
     }
 
+    /// The corners of the shape this many pixels in from each side.
+    ///
+    /// Each radius less the distance in from its side, and never less than
+    /// square, which is what makes a border of even thickness all the way
+    /// round a curve: the inside of a ring, and the line through the middle
+    /// of a `double` border.
+    #[must_use]
+    pub fn inside(self, widths: alo_layout::Edges) -> Self {
+        Self {
+            top_left: inset(self.top_left, widths.left, widths.top),
+            top_right: inset(self.top_right, widths.right, widths.top),
+            bottom_right: inset(self.bottom_right, widths.right, widths.bottom),
+            bottom_left: inset(self.bottom_left, widths.left, widths.bottom),
+        }
+    }
+
     /// Read `border-radius` and the four per-corner longhands from a style.
     ///
     /// The shorthand takes one to four values in the same order as every other
@@ -194,18 +210,9 @@ const ARC: f32 = 0.552_284_7;
 /// corners over a rounded background, which is what it looked like before this
 /// existed.
 pub fn ring(outer: Rect, corners: Corners, widths: alo_layout::Edges) -> Path {
-    let inner_rect = outer.shrunk_by(widths);
-    // The inner shape's corners are the outer ones less the border, which is
-    // what makes a border of even thickness all the way round a curve.
-    let inner_corners = Corners {
-        top_left: inset(corners.top_left, widths.left, widths.top),
-        top_right: inset(corners.top_right, widths.right, widths.top),
-        bottom_right: inset(corners.bottom_right, widths.right, widths.bottom),
-        bottom_left: inset(corners.bottom_left, widths.left, widths.bottom),
-    };
     between(
         &rounded_rectangle(outer, corners),
-        &rounded_rectangle(inner_rect, inner_corners),
+        &rounded_rectangle(outer.shrunk_by(widths), corners.inside(widths)),
     )
 }
 

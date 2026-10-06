@@ -44,11 +44,14 @@ pub mod coverage;
 pub mod display;
 pub mod encode;
 pub mod glyph;
+pub mod mitre;
 pub mod paint;
 pub mod path;
+pub mod pattern;
 pub mod picture;
 pub mod raster;
 pub mod render;
+pub mod tone;
 
 pub use blur::blurred;
 pub use build::{PaintContext, build};

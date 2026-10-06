@@ -209,9 +209,9 @@ fn a_solid_side_beside_a_two_toned_one_is_mitred_too() {
 
 #[test]
 fn a_side_whose_style_is_not_drawn_leaves_its_place_empty() {
-    // A dashed bottom is not implemented, and is not drawn as anything else;
-    // its neighbours still stop where it begins.
-    let canvas = draw("border: 8px inset #808080; border-bottom-style: dashed");
+    // A hidden bottom draws nothing, and is not drawn as anything else; its
+    // neighbours still stop where it begins.
+    let canvas = draw("border: 8px inset #808080; border-bottom-style: hidden");
     assert_eq!(tone(&canvas, 38, 44), 'W', "no bottom");
     assert_eq!(tone(&canvas, 11, 28), 'D', "the left is still there");
     // The bottom left corner's diagonal runs from (10, 46) to (18, 38): the

@@ -2,48 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! The borders that are more than one colour: `inset`, `outset`, `groove` and
-//! `ridge`.
+//! A border drawn side by side: each side the mitred wedge of the box that is
+//! its own ([`crate::mitre`]), so that a corner splits where two sides differ.
 //!
-//! Each is one colour drawn as two tones, a darker and a lighter, and which
-//! side gets which is the whole of what makes it look raised or sunk. The
-//! light is taken to come from the top left, the convention bevelled
-//! interfaces have long used:
+//! Every border style but a plain `solid` one is drawn this way. Four of them
+//! are two tones of one colour — `inset`, `outset`, `groove` and `ridge`,
+//! whose colours are [`crate::tone`]'s — and three are a pattern along the
+//! side — `dashed`, `dotted` and `double`, whose spacing is
+//! [`crate::pattern`]'s. This file is what each side is drawn as, and in
+//! what order.
 //!
-//! - **`inset`** is sunk into the page: its top and left are in shadow (the
-//!   darker tone), its bottom and right catch the light (the lighter one).
-//! - **`outset`** is raised: the other way round.
-//! - **`groove`** is a channel cut into the page: its **outer half** is drawn
-//!   as `inset` and its **inner half** as `outset`.
-//! - **`ridge`** is a groove turned inside out: outer half `outset`, inner
-//!   half `inset`.
+//! # The toned four
 //!
-//! So no two of the four are the same picture, and a test can say so.
-//!
-//! # The two tones
-//!
-//! CSS leaves the exact colours to the browser. Ours, in [`tones`]: the
-//! darker tone takes a third off the brightest channel and scales the others
-//! with it, so a blue border goes dark blue rather than grey; the lighter tone
-//! adds a third, up to white. Black has no hue to keep, and lightens to a grey
-//! a third of the way to white. The two tones are **never the same colour**,
-//! for any colour — a bevel whose halves came out equal would be a solid
-//! border nobody asked for.
-//!
-//! # The shape
-//!
-//! Where two sides of different colours meet, the corner is split along the
-//! line through the border box's corner and the padding box's — a **mitre**.
-//! Each side is the **wedge** of the box nearest it, counted in that side's
-//! widths (see `wedge`), filled inside the ring the border makes: on a square
-//! box that is a trapezoid, and on a rounded one it reaches as far into the
-//! corner as the curve does, which is further than the padding box's
-//! rectangle — a first version that stopped at that rectangle left a hole in
-//! every rounded corner. Four overlapping rectangles, which is how a solid
-//! border of differing sides is drawn, would give one side the whole corner,
-//! and with two tones that is visible.
-//!
-//! Sides of the same colour are filled as **one** shape, so that the diagonal
+//! Each side is its wedge, filled inside the ring the border makes. Sides of
+//! the same colour are filled as **one** shape, so that the diagonal
 //! between, say, an `inset` border's top and left is not a seam. Where two
 //! different colours meet on the diagonal, each edge is anti-aliased on its
 //! own, and the page shows faintly through that one line of pixels.
@@ -51,24 +23,40 @@
 //! A groove or ridge's outer half is clipped to the ring **half as thick** —
 //! so the line between the halves follows a rounded corner's curve rather
 //! than cutting across it.
+//!
+//! # The patterned three
+//!
+//! - A **dash** is the side's wedge cut across at the dash's two ends, so the
+//!   first and last dash of a side are the corners' mitred halves.
+//! - A **dot** is a circle on the line through the middle of the side,
+//!   clipped to the wedges of every dotted side of its colour together — so a
+//!   dot centred on a corner's mitre, which is where two sides of one width
+//!   both put one, is one round dot rather than two halves with a seam.
+//! - A **`double`** side is its wedge clipped to two rings each a third as
+//!   thick as the border: the outer third, and the inner third, whose outer
+//!   edge's corners are the border box's less two thirds of the border — so
+//!   both lines follow a rounded corner.
+//!
+//! Along a rounded corner a dash or a dot is still placed on the straight
+//! side, and the curve clips it; spacing them along the curve itself is not
+//! done.
 
-use crate::corner::{Corners, ring};
+use crate::corner::{Corners, ring, rounded_rectangle};
 use crate::display::DisplayItem;
+use crate::mitre::{Joints, kept, polygon_path, wedge, width_of};
 use crate::paint::Paint;
-use crate::path::{Path, Point};
+use crate::path::Path;
+use crate::pattern;
+use crate::tone::colors_of;
 use alo_box::BoxId;
 use alo_layout::{Edges, Rect};
 use alo_value::Rgba;
 
-/// How far either tone moves from the colour it is made of, as a share of the
-/// whole range of a channel.
-const SHIFT: f32 = 1.0 / 3.0;
-
 /// The kinds of line this engine draws a border side with.
 ///
-/// `none` and `hidden` draw nothing, and `dashed`, `dotted` and `double` are
-/// not implemented (queue item 266) — so none of them is here, and a side
-/// with one of them is left undrawn rather than drawn as something else.
+/// `none` and `hidden` draw nothing, so neither is here, and a side with one
+/// of them — or with a keyword this engine does not know — is left undrawn
+/// rather than drawn as something else.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Line {
     /// One colour.
@@ -81,6 +69,12 @@ pub enum Line {
     Groove,
     /// Standing up: an `outset` outer half and an `inset` inner one.
     Ridge,
+    /// Dashes, starting and ending on one.
+    Dashed,
+    /// Round dots, starting and ending on one.
+    Dotted,
+    /// Two lines, a third of the width each.
+    Double,
 }
 
 impl Line {
@@ -94,30 +88,15 @@ impl Line {
             "outset" => Some(Self::Outset),
             "groove" => Some(Self::Groove),
             "ridge" => Some(Self::Ridge),
+            "dashed" => Some(Self::Dashed),
+            "dotted" => Some(Self::Dotted),
+            "double" => Some(Self::Double),
             _ => None,
         }
     }
 }
 
-/// One side of a box.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Side {
-    /// The top.
-    Top,
-    /// The right.
-    Right,
-    /// The bottom.
-    Bottom,
-    /// The left.
-    Left,
-}
-
-impl Side {
-    /// Whether this side faces the light, which comes from the top left.
-    fn faces_the_light(self) -> bool {
-        matches!(self, Self::Top | Self::Left)
-    }
-}
+pub use crate::mitre::Side;
 
 /// One side to draw: which, with what line, in what colour.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -130,44 +109,17 @@ pub struct DrawnSide {
     pub color: Rgba,
 }
 
-/// The darker and the lighter tone of a colour, in that order.
-///
-/// Alpha is kept: a translucent border's bevel is as translucent as it is.
-pub fn tones(color: Rgba) -> (Rgba, Rgba) {
-    let brightest = color.red.max(color.green).max(color.blue);
-    if brightest <= 0.0 {
-        return (color, Rgba::new(SHIFT, SHIFT, SHIFT, color.alpha));
-    }
-    let darker = (brightest - SHIFT).max(0.0) / brightest;
-    let lighter = (brightest + SHIFT).min(1.0) / brightest;
-    (scaled(color, darker), scaled(color, lighter))
-}
-
-/// The colours one side is drawn in: its outer half, then its inner half.
-///
-/// The same colour twice for every line but `groove` and `ridge`.
-pub fn colors_of(drawn: DrawnSide) -> (Rgba, Rgba) {
-    let (darker, lighter) = tones(drawn.color);
-    let (sunk, raised) = if drawn.side.faces_the_light() {
-        (darker, lighter)
-    } else {
-        (lighter, darker)
-    };
-    match drawn.line {
-        Line::Solid => (drawn.color, drawn.color),
-        Line::Inset => (sunk, sunk),
-        Line::Outset => (raised, raised),
-        Line::Groove => (sunk, raised),
-        Line::Ridge => (raised, sunk),
-    }
-}
-
 /// The display items for a border drawn as mitred sides.
 ///
 /// `widths` are the border's own on every side, including those not drawn: a
 /// side that is not drawn still has its width, and the sides beside it still
 /// stop where it begins. A side with no width is not drawn whatever it asks
 /// for, and its neighbours take the corner.
+///
+/// In four layers, each one clip and one fill per colour: the sides drawn
+/// across their whole width (solid, the toned sides' inner colour, and
+/// dashes); the toned sides' outer halves; the two lines of `double`; and
+/// the dots.
 pub fn draw_mitred(
     box_id: BoxId,
     border_box: Rect,
@@ -184,274 +136,222 @@ pub fn draw_mitred(
     if sides.is_empty() {
         return;
     }
-    // Every side across its whole width, in the colour of its inner half.
-    // The clip is what makes a wedge a side: the ring the border makes.
-    let whole: Vec<(Side, Rgba)> = sides
-        .iter()
-        .map(|drawn| (drawn.side, colors_of(*drawn).1))
-        .collect();
-    out.push(DisplayItem::PushClip {
-        box_id,
-        path: ring(border_box, corners, widths),
-    });
-    fill_by_color(box_id, border_box, widths, &whole, out);
-    out.push(DisplayItem::PopClip);
+    let whole = ring(border_box, corners, widths);
 
-    // Then the outer half over it, where that is a different colour. The
-    // clip is what makes it a half: the ring half as thick as the border.
-    let outer: Vec<(Side, Rgba)> = sides
-        .iter()
-        .filter_map(|drawn| {
-            let (outer, inner) = colors_of(*drawn);
-            (outer != inner).then_some((drawn.side, outer))
-        })
-        .collect();
-    if outer.is_empty() {
-        return;
+    // Across the whole width, inside the ring the border makes: the clip is
+    // what makes a wedge a side. Where a dash is cut off on a mitre, the
+    // point is put into both wedges that meet there (see `joined`).
+    let joints = joints(&sides, border_box, widths);
+    let mut across = Vec::new();
+    for drawn in &sides {
+        let own = wedge(drawn.side, border_box, widths);
+        let shape = match drawn.line {
+            Line::Dashed => dashed(drawn.side, &own, &joints, border_box, widths),
+            Line::Dotted | Line::Double => continue,
+            _ => polygon_path(&joints.join(drawn.side, &own, border_box, widths)),
+        };
+        add(&mut across, colors_of(*drawn).1, &shape);
     }
-    let half = Edges {
-        top: widths.top / 2.0,
-        right: widths.right / 2.0,
-        bottom: widths.bottom / 2.0,
-        left: widths.left / 2.0,
-    };
-    out.push(DisplayItem::PushClip {
-        box_id,
-        path: ring(border_box, corners, half),
-    });
-    fill_by_color(box_id, border_box, widths, &outer, out);
-    out.push(DisplayItem::PopClip);
-}
+    clipped(box_id, &whole, &across, out);
 
-/// One fill per colour, each the union of that colour's sides.
-///
-/// In the order each colour first appears, so the display list is the same
-/// every time.
-fn fill_by_color(
-    box_id: BoxId,
-    outer: Rect,
-    widths: Edges,
-    sides: &[(Side, Rgba)],
-    out: &mut Vec<DisplayItem>,
-) {
-    let mut groups: Vec<(Rgba, Path)> = Vec::new();
-    for (side, color) in sides {
-        let shape = wedge(*side, outer, widths);
-        if let Some((_, path)) = groups.iter_mut().find(|(held, _)| held == color) {
-            path.extend(&shape);
-        } else {
-            groups.push((*color, shape));
+    // The toned sides' outer halves over that, where they are a different
+    // colour. The clip is what makes it a half: the ring half as thick.
+    let mut outer = Vec::new();
+    for drawn in &sides {
+        let (outside, inside) = colors_of(*drawn);
+        if outside != inside {
+            let shape = polygon_path(&wedge(drawn.side, border_box, widths));
+            add(&mut outer, outside, &shape);
         }
     }
-    for (color, path) in groups {
-        out.push(DisplayItem::Fill {
+    let half = scaled_edges(widths, 0.5);
+    clipped(box_id, &ring(border_box, corners, half), &outer, out);
+
+    // The two lines of `double`: the outer third ring and the inner one, as
+    // one clip.
+    let mut double = Vec::new();
+    for drawn in sides.iter().filter(|drawn| drawn.line == Line::Double) {
+        let shape = polygon_path(&wedge(drawn.side, border_box, widths));
+        add(&mut double, drawn.color, &shape);
+    }
+    if !double.is_empty() {
+        let third = pattern::third(widths);
+        let two_thirds = scaled_edges(widths, 2.0 / 3.0);
+        let mut lines = ring(border_box, corners, third);
+        lines.extend(&ring(
+            border_box.shrunk_by(two_thirds),
+            corners.inside(two_thirds),
+            third,
+        ));
+        clipped(box_id, &lines, &double, out);
+    }
+
+    // The dots, inside the ring and inside the wedges of their colour.
+    let mut dots: Vec<(Rgba, Path, Path)> = Vec::new();
+    for drawn in sides.iter().filter(|drawn| drawn.line == Line::Dotted) {
+        let shape = dotted(drawn.side, border_box, widths);
+        let owned = polygon_path(&wedge(drawn.side, border_box, widths));
+        if let Some((_, held, wedges)) = dots.iter_mut().find(|(color, ..)| *color == drawn.color) {
+            held.extend(&shape);
+            wedges.extend(&owned);
+        } else {
+            dots.push((drawn.color, shape, owned));
+        }
+    }
+    if !dots.is_empty() {
+        out.push(DisplayItem::PushClip {
             box_id,
-            path,
-            paint: Paint::Solid(color),
+            path: whole,
         });
+        for (color, shape, wedges) in dots {
+            clipped(box_id, &wedges, &[(color, shape)], out);
+        }
+        out.push(DisplayItem::PopClip);
     }
 }
 
-/// The part of the box that belongs to one side.
+/// A shape added to the fill of its colour, or as a new one.
 ///
-/// A point belongs to the side it is **fewest of that side's widths** from.
-/// Between two sides that meet, the line where those are equal is the mitre:
-/// it runs through the border box's corner and the padding box's. Between
-/// two opposite sides it is a straight line across the box, the depths of the
-/// two borders apart in proportion. So the four wedges are the whole box,
-/// none overlaps another, and a side with no width has none — its neighbours
-/// take its corners.
-///
-/// Every wedge is wound the same way round as the box, clockwise, so that
-/// sides filled together are their union rather than cancelling where they
-/// touch.
-fn wedge(side: Side, outer: Rect, widths: Edges) -> Path {
-    let (left, top, right, bottom) = (outer.left(), outer.top(), outer.right(), outer.bottom());
-    // How far a point is in from each side's outer edge.
-    let depth = move |of: Side, (x, y): (f32, f32)| match of {
-        Side::Top => y - top,
-        Side::Right => right - x,
-        Side::Bottom => bottom - y,
-        Side::Left => x - left,
-    };
-    let own = width_of(widths, side);
-    let mut polygon = vec![(left, top), (right, top), (right, bottom), (left, bottom)];
-    for other in SIDES.into_iter().filter(|other| *other != side) {
-        let theirs = width_of(widths, other);
-        // Nearer this side, in widths, than the other: depth / own is at
-        // most depth / theirs, written without dividing by a width of zero.
-        polygon = kept(&polygon, |point| {
-            own * depth(other, point) - theirs * depth(side, point)
+/// In the order each colour first appears, so the display list is the same
+/// every time. An empty shape adds nothing.
+fn add(fills: &mut Vec<(Rgba, Path)>, color: Rgba, shape: &Path) {
+    if shape.is_empty() {
+        return;
+    }
+    if let Some((_, path)) = fills.iter_mut().find(|(held, _)| *held == color) {
+        path.extend(shape);
+    } else {
+        fills.push((color, shape.clone()));
+    }
+}
+
+/// One fill per colour, inside a clip — or nothing at all, clip included,
+/// when there is nothing to fill.
+fn clipped(box_id: BoxId, clip: &Path, fills: &[(Rgba, Path)], out: &mut Vec<DisplayItem>) {
+    if fills.is_empty() {
+        return;
+    }
+    out.push(DisplayItem::PushClip {
+        box_id,
+        path: clip.clone(),
+    });
+    for (color, path) in fills {
+        out.push(DisplayItem::Fill {
+            box_id,
+            path: path.clone(),
+            paint: Paint::Solid(*color),
         });
     }
+    out.push(DisplayItem::PopClip);
+}
 
-    let mut path = Path::new();
-    let mut points = polygon.into_iter();
-    let Some((x, y)) = points.next() else {
-        return path;
+/// Where a side starts, how long it is, and how far along it a point is —
+/// across for the top and bottom, down for the left and right.
+fn run_of(side: Side, outer: Rect) -> (f32, f32, impl Fn((f32, f32)) -> f32) {
+    let across = matches!(side, Side::Top | Side::Bottom);
+    let (start, length) = if across {
+        (outer.left(), outer.size.width)
+    } else {
+        (outer.top(), outer.size.height)
     };
-    path.move_to(Point::new(x, y));
-    for (x, y) in points {
-        path.line_to(Point::new(x, y));
+    (
+        start,
+        length,
+        move |(x, y): (f32, f32)| {
+            if across { x } else { y }
+        },
+    )
+}
+
+/// A dashed side: its wedge, cut across at each dash's ends.
+///
+/// Each piece's corners on a mitre are the joints there, so that a piece
+/// and whatever lies across the mitre share their edge (see
+/// [`Joints`]).
+fn dashed(side: Side, own: &[(f32, f32)], joints: &Joints, outer: Rect, widths: Edges) -> Path {
+    let (start, length, along) = run_of(side, outer);
+    let mut path = Path::new();
+    for (from, to) in pattern::dashes(length, width_of(widths, side)) {
+        let (from, to) = (start + from, start + to);
+        let piece = kept(own, |point| along(point) - from);
+        let mut piece = kept(&piece, |point| to - along(point));
+        Joints::snap(side, from, &mut piece, outer, widths);
+        Joints::snap(side, to, &mut piece, outer, widths);
+        path.extend(&polygon_path(&joints.join(side, &piece, outer, widths)));
     }
-    path.close();
     path
 }
 
-/// The four sides, in the order CSS lists them.
-const SIDES: [Side; 4] = [Side::Top, Side::Right, Side::Bottom, Side::Left];
-
-/// The part of a convex polygon where a linear measure is not negative.
-///
-/// One edge of the polygon at a time: a corner on the kept side stays, and an
-/// edge that crosses the line where the measure is zero is cut there. The
-/// measure is linear, so where along the edge it crosses is exact.
-fn kept(polygon: &[(f32, f32)], measure: impl Fn((f32, f32)) -> f32) -> Vec<(f32, f32)> {
-    let mut kept = Vec::with_capacity(polygon.len() + 1);
-    let ends = polygon
+/// Every point where a dash is cut off on a mitre, for both wedges that
+/// meet there to share.
+fn joints(sides: &[DrawnSide], outer: Rect, widths: Edges) -> Joints {
+    let cuts: Vec<(Side, Vec<f32>)> = sides
         .iter()
-        .copied()
-        .zip(polygon.iter().copied().cycle().skip(1));
-    for (from, to) in ends {
-        let (here, there) = (measure(from), measure(to));
-        if here >= 0.0 {
-            kept.push(from);
-        }
-        if (here > 0.0 && there < 0.0) || (here < 0.0 && there > 0.0) {
-            let share = here / (here - there);
-            kept.push((
-                from.0 + (to.0 - from.0) * share,
-                from.1 + (to.1 - from.1) * share,
-            ));
-        }
-    }
-    kept
+        .filter(|drawn| drawn.line == Line::Dashed)
+        .map(|drawn| {
+            let (start, length, _) = run_of(drawn.side, outer);
+            let cuts = pattern::dashes(length, width_of(widths, drawn.side))
+                .into_iter()
+                .flat_map(|(from, to)| [start + from, start + to])
+                .collect();
+            (drawn.side, cuts)
+        })
+        .collect();
+    Joints::new(&cuts, outer, widths)
 }
 
-fn width_of(widths: Edges, side: Side) -> f32 {
-    match side {
-        Side::Top => widths.top,
-        Side::Right => widths.right,
-        Side::Bottom => widths.bottom,
-        Side::Left => widths.left,
+/// A dotted side: a circle as wide as the side for each dot, centred on the
+/// line through the middle of the side.
+fn dotted(side: Side, outer: Rect, widths: Edges) -> Path {
+    let width = width_of(widths, side);
+    let radius = width / 2.0;
+    let (start, length, _) = run_of(side, outer);
+    let mut path = Path::new();
+    for at in pattern::dots(length, width) {
+        let (x, y) = match side {
+            Side::Top => (start + at, outer.top() + radius),
+            Side::Bottom => (start + at, outer.bottom() - radius),
+            Side::Left => (outer.left() + radius, start + at),
+            Side::Right => (outer.right() - radius, start + at),
+        };
+        path.extend(&rounded_rectangle(
+            Rect::new(x - radius, y - radius, width, width),
+            Corners::all(radius),
+        ));
     }
+    path
 }
 
-fn scaled(color: Rgba, by: f32) -> Rgba {
-    Rgba::new(
-        color.red * by,
-        color.green * by,
-        color.blue * by,
-        color.alpha,
-    )
+fn scaled_edges(widths: Edges, by: f32) -> Edges {
+    Edges {
+        top: widths.top * by,
+        right: widths.right * by,
+        bottom: widths.bottom * by,
+        left: widths.left * by,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const LINES: [Line; 4] = [Line::Inset, Line::Outset, Line::Groove, Line::Ridge];
-    fn grey(level: u8) -> Rgba {
-        Rgba::from_rgba8(level, level, level, 255)
-    }
-
-    #[test]
-    fn the_two_tones_are_never_the_same_colour() {
-        for level in 0..=255_u8 {
-            let (darker, lighter) = tones(grey(level));
-            assert_ne!(darker, lighter, "grey {level}");
-        }
-        for color in [
-            Rgba::from_rgba8(255, 0, 0, 255),
-            Rgba::from_rgba8(0, 0, 255, 255),
-            Rgba::from_rgba8(1, 0, 0, 255),
-            Rgba::from_rgba8(0, 128, 255, 128),
-        ] {
-            let (darker, lighter) = tones(color);
-            assert_ne!(darker, lighter, "{color:?}");
-        }
-    }
-
-    #[test]
-    fn the_tones_are_a_third_either_way_and_keep_the_hue() {
-        let (darker, lighter) = tones(grey(153)); // 0.6
-        assert_eq!(darker.to_rgba8(), (68, 68, 68, 255));
-        assert_eq!(lighter.to_rgba8(), (238, 238, 238, 255));
-
-        // Blue stays blue: the channels keep their proportions.
-        let (darker, lighter) = tones(Rgba::from_rgba8(0, 51, 204, 255));
-        assert_eq!(darker.to_rgba8(), (0, 30, 119, 255));
-        assert_eq!(lighter.to_rgba8(), (0, 64, 255, 255));
-    }
-
-    #[test]
-    fn black_lightens_to_a_grey_and_white_darkens_to_one() {
-        assert_eq!(
-            tones(Rgba::BLACK),
-            (Rgba::BLACK, Rgba::new(SHIFT, SHIFT, SHIFT, 1.0))
-        );
-        let (darker, lighter) = tones(Rgba::WHITE);
-        assert_eq!(darker.to_rgba8(), (170, 170, 170, 255));
-        assert_eq!(lighter, Rgba::WHITE);
-    }
-
-    #[test]
-    fn a_translucent_border_keeps_its_alpha() {
-        let (darker, lighter) = tones(Rgba::from_rgba8(100, 150, 200, 64));
-        assert_eq!(darker.to_rgba8().3, 64);
-        assert_eq!(lighter.to_rgba8().3, 64);
-    }
-
-    #[test]
-    fn inset_is_dark_at_the_top_left_and_outset_the_other_way() {
-        let color = grey(128);
-        let (darker, lighter) = tones(color);
-        let of = |line, side| colors_of(DrawnSide { side, line, color });
-        for side in [Side::Top, Side::Left] {
-            assert_eq!(of(Line::Inset, side), (darker, darker));
-            assert_eq!(of(Line::Outset, side), (lighter, lighter));
-            assert_eq!(of(Line::Groove, side), (darker, lighter));
-            assert_eq!(of(Line::Ridge, side), (lighter, darker));
-        }
-        for side in [Side::Bottom, Side::Right] {
-            assert_eq!(of(Line::Inset, side), (lighter, lighter));
-            assert_eq!(of(Line::Outset, side), (darker, darker));
-            assert_eq!(of(Line::Groove, side), (lighter, darker));
-            assert_eq!(of(Line::Ridge, side), (darker, lighter));
-        }
-        assert_eq!(of(Line::Solid, Side::Top), (color, color));
-    }
-
-    #[test]
-    fn no_two_lines_are_drawn_alike() {
-        let color = grey(128);
-        let picture = |line| SIDES.map(|side| colors_of(DrawnSide { side, line, color }));
-        for (index, first) in LINES.iter().enumerate() {
-            for second in LINES.iter().skip(index + 1) {
-                assert_ne!(picture(*first), picture(*second), "{first:?} {second:?}");
-            }
-        }
-    }
+    use crate::mitre::SIDES;
+    use crate::path::Point;
+    use crate::tone::tones;
 
     #[test]
     fn only_the_lines_drawn_are_recognised() {
         assert_eq!(Line::of("groove"), Some(Line::Groove));
         assert_eq!(Line::of("solid"), Some(Line::Solid));
-        for keyword in ["none", "hidden", "dashed", "dotted", "double", "GROOVE"] {
+        assert_eq!(Line::of("dashed"), Some(Line::Dashed));
+        assert_eq!(Line::of("dotted"), Some(Line::Dotted));
+        assert_eq!(Line::of("double"), Some(Line::Double));
+        for keyword in ["none", "hidden", "wavy", "GROOVE", ""] {
             assert_eq!(Line::of(keyword), None, "{keyword}");
         }
     }
 
-    fn corners_of(path: &Path) -> Vec<(f32, f32)> {
-        path.segments()
-            .iter()
-            .filter_map(|segment| match segment {
-                crate::path::Segment::MoveTo(at) | crate::path::Segment::LineTo(at) => {
-                    Some((at.x, at.y))
-                }
-                _ => None,
-            })
-            .collect()
+    fn grey(level: u8) -> Rgba {
+        Rgba::from_rgba8(level, level, level, 255)
     }
 
     /// Twice a polygon's area, positive when it is wound clockwise on a page
@@ -476,88 +376,16 @@ mod tests {
         left: 10.0,
     };
 
-    #[test]
-    fn a_side_is_cut_by_the_mitres_at_its_ends_and_by_the_side_opposite() {
-        let outer = Rect::new(0.0, 0.0, 100.0, 50.0);
-        // The top's mitres run from (0, 0) through (10, 4), and from
-        // (100, 0) through (94, 4). The top and the bottom split the height
-        // four to eight, at 16.67.
-        let top = corners_of(&wedge(Side::Top, outer, UNEVEN));
-        assert!(
-            near(
-                &top,
-                &[
-                    (0.0, 0.0),
-                    (100.0, 0.0),
-                    (75.0, 50.0 / 3.0),
-                    (125.0 / 3.0, 50.0 / 3.0)
-                ],
-            ),
-            "{top:?}",
-        );
-        // The left's mitres, from (0, 50) through (10, 42) and from (0, 0)
-        // through (10, 4); the left and the right split the width ten to
-        // six, at 62.5 — which is further in than the mitres meet.
-        let left = corners_of(&wedge(Side::Left, outer, UNEVEN));
-        assert!(
-            left.contains(&(0.0, 50.0)) && left.contains(&(0.0, 0.0)),
-            "{left:?}"
-        );
-    }
-
-    #[test]
-    fn the_four_sides_are_the_whole_box_and_none_overlaps_another() {
-        for (outer, widths) in [
-            (Rect::new(0.0, 0.0, 100.0, 50.0), UNEVEN),
-            (Rect::new(3.0, 7.0, 40.0, 30.0), Edges::all(5.0)),
-            // Borders deeper than the box is wide: the cut between the left
-            // and the right is what keeps their wedges apart.
-            (
-                Rect::new(0.0, 0.0, 30.0, 200.0),
-                Edges {
-                    top: 2.0,
-                    right: 15.0,
-                    bottom: 2.0,
-                    left: 15.0,
-                },
-            ),
-        ] {
-            let total: f32 = SIDES
-                .iter()
-                .map(|side| twice_area(&corners_of(&wedge(*side, outer, widths))) / 2.0)
-                .sum();
-            let whole = outer.size.width * outer.size.height;
-            assert!((total - whole).abs() < 0.01, "{total} of {whole}");
-        }
-    }
-
-    #[test]
-    fn every_side_is_wound_clockwise() {
-        let outer = Rect::new(0.0, 0.0, 40.0, 30.0);
-        for widths in [Edges::all(5.0), UNEVEN] {
-            for side in SIDES {
-                let points = corners_of(&wedge(side, outer, widths));
-                assert!(twice_area(&points) > 0.0, "{side:?}: {points:?}");
-            }
-        }
-    }
-
-    #[test]
-    fn a_side_with_no_width_gives_its_corners_to_its_neighbours() {
-        let outer = Rect::new(0.0, 0.0, 40.0, 30.0);
-        let widths = Edges {
-            top: 0.0,
-            ..Edges::all(5.0)
-        };
-        // With no top, the left's mitre at the top left is along the top
-        // edge, so the left reaches the box's very corner.
-        let left = corners_of(&wedge(Side::Left, outer, widths));
-        assert!(left.contains(&(0.0, 0.0)), "{left:?}");
-        let top = corners_of(&wedge(Side::Top, outer, widths));
-        assert!(
-            twice_area(&top).abs() < 0.001,
-            "the top has nothing: {top:?}"
-        );
+    fn corners_of(path: &Path) -> Vec<(f32, f32)> {
+        path.segments()
+            .iter()
+            .filter_map(|segment| match segment {
+                crate::path::Segment::MoveTo(at) | crate::path::Segment::LineTo(at) => {
+                    Some((at.x, at.y))
+                }
+                _ => None,
+            })
+            .collect()
     }
 
     #[test]
@@ -640,5 +468,269 @@ mod tests {
                 "pop",
             ],
         );
+    }
+
+    /// Each closed outline in a path, as the points its segments end at.
+    fn outlines(path: &Path) -> Vec<Vec<(f32, f32)>> {
+        use crate::path::Segment;
+        let mut found: Vec<Vec<(f32, f32)>> = Vec::new();
+        for segment in path.segments() {
+            match segment {
+                Segment::MoveTo(at) => found.push(vec![(at.x, at.y)]),
+                Segment::LineTo(at) | Segment::QuadTo(_, at) | Segment::CubicTo(_, _, at) => {
+                    found.last_mut().unwrap().push((at.x, at.y));
+                }
+                Segment::Close => {}
+            }
+        }
+        found
+    }
+
+    fn kinds(out: &[DisplayItem]) -> Vec<&'static str> {
+        out.iter()
+            .map(|item| match item {
+                DisplayItem::PushClip { .. } => "clip",
+                DisplayItem::PopClip => "pop",
+                DisplayItem::Fill { .. } => "fill",
+                _ => "other",
+            })
+            .collect()
+    }
+
+    fn all_sides(line: Line, color: Rgba) -> [DrawnSide; 4] {
+        SIDES.map(|side| DrawnSide { side, line, color })
+    }
+
+    #[test]
+    fn a_dashed_side_is_its_wedge_cut_across_and_its_ends_take_the_corners() {
+        let outer = Rect::new(0.0, 0.0, 100.0, 50.0);
+        let widths = Edges::all(2.0);
+        let own = wedge(Side::Top, outer, widths);
+        let pieces = outlines(&dashed(Side::Top, &own, &Joints::default(), outer, widths));
+        // 100 long and 2 wide is nine dashes (see `pattern`).
+        assert_eq!(pieces.len(), 9);
+        let first = corners_of(&dashed(Side::Top, &own, &Joints::default(), outer, widths));
+        assert!(
+            first.contains(&(0.0, 0.0)),
+            "the top left corner: {first:?}"
+        );
+        assert!(first.contains(&(100.0, 0.0)), "the top right: {first:?}");
+        // The first dash is the mitred corner: the wedge's corner up to the
+        // dash's end, 100 / 17 along. The ring clips it to the border's
+        // depth when it is drawn.
+        let unit = 100.0 / 17.0;
+        let start = pieces.first().unwrap();
+        assert!(
+            near(start, &[(0.0, 0.0), (unit, 0.0), (unit, unit)]),
+            "{start:?}"
+        );
+        // Every piece is wound clockwise, like the wedge it was cut from.
+        for piece in &pieces {
+            assert!(twice_area(piece) > 0.0, "{piece:?}");
+        }
+    }
+
+    #[test]
+    fn dashes_cover_less_than_their_side_and_never_overlap_another() {
+        let outer = Rect::new(0.0, 0.0, 120.0, 60.0);
+        for widths in [Edges::all(3.0), UNEVEN] {
+            let mut total = 0.0;
+            for side in SIDES {
+                let wedge_area = twice_area(&wedge(side, outer, widths)) / 2.0;
+                let own = wedge(side, outer, widths);
+                let dash_area: f32 =
+                    outlines(&dashed(side, &own, &Joints::default(), outer, widths))
+                        .iter()
+                        .map(|piece| twice_area(piece) / 2.0)
+                        .sum();
+                assert!(
+                    dash_area > 0.2 * wedge_area && dash_area < 0.8 * wedge_area,
+                    "{side:?}: {dash_area} of {wedge_area}",
+                );
+                total += dash_area;
+            }
+            assert!(total < outer.size.width * outer.size.height, "{total}");
+        }
+    }
+
+    #[test]
+    fn a_dotted_side_is_one_circle_per_dot_on_its_middle_line() {
+        let outer = Rect::new(10.0, 20.0, 42.0, 30.0);
+        let path = dotted(Side::Top, outer, Edges::all(2.0));
+        // Each circle is a move, four arcs and a close.
+        let circles = path
+            .segments()
+            .iter()
+            .filter(|segment| matches!(segment, crate::path::Segment::MoveTo(_)))
+            .count();
+        assert_eq!(circles, pattern::dots(42.0, 2.0).len());
+        assert_eq!(path.bounds(), Some((10.0, 20.0, 52.0, 22.0)));
+        let left = dotted(Side::Left, outer, Edges::all(2.0));
+        assert_eq!(left.bounds(), Some((10.0, 20.0, 12.0, 50.0)));
+    }
+
+    #[test]
+    fn dots_are_clipped_to_the_ring_and_then_to_the_wedges_of_their_colour() {
+        let mut out = Vec::new();
+        let mut sides = all_sides(Line::Dotted, grey(0)).to_vec();
+        if let Some(bottom) = sides.get_mut(2) {
+            bottom.color = grey(200);
+        }
+        draw_mitred(
+            BoxId::from_index_for_tests(0),
+            Rect::new(0.0, 0.0, 40.0, 40.0),
+            Corners::all(0.0),
+            Edges::all(4.0),
+            &sides,
+            &mut out,
+        );
+        assert_eq!(
+            kinds(&out),
+            ["clip", "clip", "fill", "pop", "clip", "fill", "pop", "pop"]
+        );
+    }
+
+    #[test]
+    fn a_double_border_is_one_fill_inside_two_rings_a_third_thick() {
+        let mut out = Vec::new();
+        draw_mitred(
+            BoxId::from_index_for_tests(0),
+            Rect::new(0.0, 0.0, 30.0, 30.0),
+            Corners::all(0.0),
+            Edges::all(6.0),
+            &all_sides(Line::Double, grey(0)),
+            &mut out,
+        );
+        assert_eq!(kinds(&out), ["clip", "fill", "pop"]);
+        // Two rings, each an outline and a hole: four outlines, the outer
+        // ring from 0 to 2 in and the inner from 4 to 6.
+        let Some(DisplayItem::PushClip { path, .. }) = out.first() else {
+            panic!("{out:?}");
+        };
+        let edges: Vec<Option<(f32, f32, f32, f32)>> = outlines(path)
+            .iter()
+            .map(|outline| {
+                let mut each = Path::new();
+                each.move_to(Point::new(outline[0].0, outline[0].1));
+                for (x, y) in outline {
+                    each.line_to(Point::new(*x, *y));
+                }
+                each.bounds()
+            })
+            .collect();
+        assert_eq!(
+            edges,
+            [
+                Some((0.0, 0.0, 30.0, 30.0)),
+                Some((2.0, 2.0, 28.0, 28.0)),
+                Some((4.0, 4.0, 26.0, 26.0)),
+                Some((6.0, 6.0, 24.0, 24.0)),
+            ]
+        );
+    }
+
+    #[test]
+    fn sides_of_every_kind_together_are_drawn_in_their_own_layers() {
+        let mut out = Vec::new();
+        let color = grey(128);
+        draw_mitred(
+            BoxId::from_index_for_tests(0),
+            Rect::new(0.0, 0.0, 40.0, 40.0),
+            Corners::all(0.0),
+            Edges::all(6.0),
+            &[
+                DrawnSide {
+                    side: Side::Top,
+                    line: Line::Groove,
+                    color,
+                },
+                DrawnSide {
+                    side: Side::Right,
+                    line: Line::Dashed,
+                    color,
+                },
+                DrawnSide {
+                    side: Side::Bottom,
+                    line: Line::Double,
+                    color,
+                },
+                DrawnSide {
+                    side: Side::Left,
+                    line: Line::Dotted,
+                    color,
+                },
+            ],
+            &mut out,
+        );
+        assert_eq!(
+            kinds(&out),
+            [
+                // The groove's inner half and the dashes.
+                "clip", "fill", "fill", "pop", // The groove's outer half.
+                "clip", "fill", "pop", // The double.
+                "clip", "fill", "pop", // The dots.
+                "clip", "clip", "fill", "pop", "pop",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_dash_cut_off_on_a_mitre_shares_its_corner_to_the_bit_with_the_side_across() {
+        // Awkward numbers, so that cutting a wedge rounds: every corner of a
+        // top dash that lies on the top right mitre must be exactly a corner
+        // of the right side's wedge, or the two edges along the mitre are
+        // different edges and the rasteriser leaves a seam between them.
+        let outer = Rect::new(0.3, 0.7, 97.1, 41.3);
+        let widths = Edges {
+            top: 2.7,
+            right: 3.3,
+            bottom: 1.9,
+            left: 4.1,
+        };
+        let sides = [
+            DrawnSide {
+                side: Side::Top,
+                line: Line::Dashed,
+                color: Rgba::BLACK,
+            },
+            DrawnSide {
+                side: Side::Right,
+                line: Line::Solid,
+                color: Rgba::BLACK,
+            },
+        ];
+        let joints = joints(&sides, outer, widths);
+        let top = dashed(
+            Side::Top,
+            &wedge(Side::Top, outer, widths),
+            &joints,
+            outer,
+            widths,
+        );
+        let right = joints.join(
+            Side::Right,
+            &wedge(Side::Right, outer, widths),
+            outer,
+            widths,
+        );
+        // The mitre from (97.4, 0.7) inwards by 3.3 across for 2.7 down.
+        let on_mitre = |(x, y): (f32, f32)| {
+            let across = (97.4 - x) / 3.3;
+            let down = (y - 0.7) / 2.7;
+            (across - down).abs() < 0.001 && across > 0.0001
+        };
+        let mut checked = 0;
+        for point in outlines(&top)
+            .into_iter()
+            .flatten()
+            .filter(|point| on_mitre(*point))
+        {
+            assert!(
+                right.contains(&point),
+                "{point:?} is not a corner of {right:?}"
+            );
+            checked += 1;
+        }
+        assert!(checked > 0, "no dash was cut off on the mitre");
     }
 }

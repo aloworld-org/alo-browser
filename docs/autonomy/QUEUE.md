@@ -4626,7 +4626,7 @@ The long pole, and the thing most of section E is unreachable without.
   two mitres and so overlapped the side opposite on uneven widths; both were
   caught by tests above before the commit.
 
-- [ ] **266. `dashed`, `dotted` and `double`.** *Cut from 190 on the
+- [x] **266. `dashed`, `dotted` and `double`.** *Cut from 190 on the
   iteration that built it.* The same file's work, but each is a pattern
   along a side rather than a tone across it: dashes and dots spaced so a
   side starts and ends on one, round dots for `dotted`, and `double` as two
@@ -4634,15 +4634,54 @@ The long pole, and the thing most of section E is unreachable without.
   empty, which is said in `docs/conformance.md`. *Depends on nothing.
   Closes when:* each draws in a reference render, a dotted side's dots are
   round, and neither a dashed nor a double side is drawn as solid.
+  **Built (iteration 162)**, with one cut written down as 268 (the same
+  styles beside a fieldset's legend). `alo-paint`'s new `pattern.rs` is the
+  spacing: dashes about three widths long with equal gaps, stretched so a
+  side starts and ends on one; round dots a width across, about a width
+  apart, the end ones centred in the corners; `double` in thirds; and at
+  most 16 384 pieces a side, so a page cannot ask for unbounded work.
+  `border.rs` draws them in the mitred wedges, in layers: a dash is its
+  wedge cut across; dots are clipped to the wedges of their colour
+  together, so a corner dot is one dot; a `double` side is its wedge inside
+  the outer and inner third rings, so both lines follow a rounded corner.
+  Found and fixed on the way, both caught before the commit: a seam of the
+  page's colour along every dashed corner's mitre, where two dashes cut off
+  at different points on it made two different edges along one line — now
+  every cut on a mitre is a joint both wedges share, to the bit; and the
+  first fix for that put every joint into every wedge, which took 81 s to
+  build a hair-thin dashed border round a large box — now each piece takes
+  only the joints beside it, measured along its own side (0.2 s, debug
+  build, this machine; not a performance claim). `border.rs` had gained
+  three reasons to change, so it is split: `tone.rs` (the two tones),
+  `mitre.rs` (which part of the box is each side's, and the joints), and
+  `border.rs` (what each side is drawn as, in what order). `corner.rs`
+  gains `Corners::inside`. Tests: `pattern.rs` 9, `mitre.rs` 9 (5 new),
+  `border.rs` 10 (7 new), `tone.rs` 6 (moved);
+  `tests/patterned_borders.rs` 10 in pixels (dashes' gaps and ends, no seam
+  in a dashed corner, round and apart dots, a corner dot without a seam,
+  `double`'s thirds and their rounded corner, none of the three solid or
+  alike, a patterned side beside a solid one mitred, hair-thin borders on
+  huge boxes bounded). Corpus case `border-patterns` is the reference
+  render; no other reference moved.
 
 - [ ] **267. A fieldset's `groove`.** *Cut from 190 on the iteration that
   built it.* `draw_banded_border` draws only `solid`, so the user-agent sheet
   still gives a fieldset `2px solid #c0c0c0` where other browsers give it a
-  groove. Two-toned sides there are the mitred wedges of `border.rs` with the
+  groove. Two-toned sides there are the mitred wedges of `mitre.rs` with the
   legend's gap cut out of the block-start one, and then the sheet can say
   `groove`. *Depends on nothing. Closes when:* `fieldset-group` draws a
   groove broken by its legend, `a_border_a_legend_breaks.rs` asserts the
   pieces in both tones, and the user-agent sheet's comment about it is gone.
+
+- [ ] **268. `dashed`, `dotted` and `double` beside a legend.** *Cut from
+  266 on the iteration that built it.* `draw_banded_border` draws only
+  `solid`, so a fieldset whose border is patterned is left without one
+  where a legend sits in it — said in its comment and in
+  `docs/conformance.md`. The same pieces as 267's, with the legend's gap
+  cut out of the block-start side's dashes, dots or lines. *Depends on
+  nothing; best taken with or after 267. Closes when:* a corpus case draws
+  a dashed fieldset broken by its legend and `a_border_a_legend_breaks.rs`
+  asserts the pieces either side of the gap.
 
 - [ ] **94. Animations and transitions.** Stage 1 reads them and they change
   nothing, which is correct for a still picture; this is the clock.

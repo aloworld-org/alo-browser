@@ -102,9 +102,18 @@ each side mitred so a corner splits where the tones change and a groove's
 halves follow a rounded corner's curve (corpus case `border-styles`). The
 exact tones are ours, which CSS allows.
 Where two different tones meet on a corner's diagonal, the page shows faintly
-through that one line of anti-aliased pixels. `dashed`, `dotted` and `double`
-are not drawn at all — a side with one is left empty rather than drawn as
-something else — and are queue item 266.
+through that one line of anti-aliased pixels.
+
+**Patterned borders.** `dashed`, `dotted` and `double` are drawn (corpus case
+`border-patterns`): dashes about three widths long with equal gaps, and round
+dots a width across, each spaced so a side starts and ends on one; `double` as
+two lines a third of the width each, both following a rounded corner. The
+spacing is ours, which CSS allows. Along a rounded corner a dash or a dot is
+placed on the straight side and clipped by the curve rather than spaced along
+it, and where sides of different widths meet, a corner dot is clipped to its
+own side's share of the corner. A side is drawn with at most 16 384 dashes or
+dots; past that they are spaced further apart. Beside a fieldset's legend
+none of the three is drawn yet (queue item 268).
 
 **There is still no focus ring**, which is the rest of queue item 43: a focused
 field looks exactly like an unfocused one. Nothing in this stage has focus to

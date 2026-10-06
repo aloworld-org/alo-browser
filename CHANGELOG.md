@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Dashed, dotted and double borders are drawn.** They used to be left out
+  entirely. Dashes and dots are spaced so each side starts and ends on one,
+  dots are round, the dot or dash in a corner is one shape rather than two
+  halves with a faint line between them, and a double border's two lines
+  follow a rounded corner. A page asking for a hair-thin dotted border
+  round an enormous box gets its dots spaced further apart rather than
+  making the browser draw millions of them. Beside a fieldset's legend
+  these styles are still not drawn.
+
 - **Bevelled borders are drawn.** `inset`, `outset`, `groove` and `ridge`
   borders used to be left out entirely; they now draw as two tones of the
   border's colour, lit from the top left, so a sunk box looks sunk and a

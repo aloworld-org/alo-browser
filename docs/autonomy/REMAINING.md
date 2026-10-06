@@ -349,6 +349,14 @@ their dependencies but no ADR, contract or closing condition, and are now
 marked `needs design` in the queue. 113 queue items are open; the next
 unused queue number is 268 and the next unused ADR 0021.
 
+Iteration 162 built item 266: `dashed`, `dotted` and `double` are drawn in
+the mitred wedges (`alo-paint`'s `pattern.rs` for the spacing, `border.rs`
+for the layers), with the joints every cut on a mitre makes shared by both
+wedges there so a dashed corner has no seam; `border.rs` is split into
+`tone.rs`, `mitre.rs` and `border.rs`. Corpus case `border-patterns`. The
+same styles beside a legend are cut to 268. 113 queue items are open; the
+next unused queue number is 269 and the next unused ADR 0021.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

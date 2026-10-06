@@ -14027,3 +14027,145 @@ coordinate verb, the stop rule holds, and `CHANGELOG.md` changed with the
 code. `git diff --check` passes. The log is in this session's scratchpad and
 is not committed. The only later change was this journal entry, which is
 documentation.
+
+## Iteration 162 — item 266 built: `dashed`, `dotted` and `double`
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md` (its conventions, *Forms* and *CSS beyond what alo needed*),
+iteration 161's entry, `REMAINING.md`'s continuation order, the queue's
+open items for eligibility and items 190, 266 and 267 in full, and the code
+item 266 names: `alo-paint`'s `border.rs`, `build.rs` (`draw_borders`,
+`draw_banded_border`, `border_style`, `border_color`), `corner.rs`,
+`display.rs`, `path.rs`, `render.rs`'s clip, `raster.rs`'s fill rule
+(non-zero), `tests/two_toned_borders.rs`, and `alo-corpus`'s case layout.
+Item 266 names no ADR; its feature home is `docs/features.md`'s *Paint*
+section, where this change adds its line. No `AGENTS.md` exists. No sibling
+repository was read or modified. The checkout was clean on entry at
+`ab5f39b`.
+
+**Selection.** Iteration 161 recorded every item before 266 as blocked or
+`needs design` and named 266 and 267 as depending on nothing; nothing has
+changed since. 266 comes first in file order, so it is the first eligible
+item.
+
+**What was built.**
+- `pattern.rs` (new): the spacing alone. Dashes are about three widths
+  long with equal gaps, stretched so a side starts and ends on a dash.
+  Dots are round and a width across, about a width apart, with the end ones
+  centred half a width in, which is in the corners. `double` is cut in
+  thirds. `MAX_PIECES` (16 384) caps a side's dashes or dots, and a side
+  with a non-finite or non-positive length or width gets none.
+- `border.rs`: `Line` gains the three styles, and `draw_mitred` draws in
+  four layers, each one clip with one fill per colour. The first is sides
+  across their whole width (solid, the toned sides' inner colour, dashes).
+  Then the toned sides' outer halves, then `double` inside the outer and
+  inner third rings (as one clip), then dots inside the ring and the
+  wedges of their colour. A dash is its wedge cut across, and a corner dot
+  is one dot because both sides' wedges clip it together.
+- `build.rs`: any non-`solid` side takes the mitred path (`mitred_sides`,
+  renamed from `two_toned`). `draw_banded_border` is still solid-only, and
+  its comment names 268.
+- `corner.rs`: `Corners::inside`, used by `ring` and by `double`'s inner
+  ring.
+
+**Two defects, found and fixed before the commit.**
+1. *A seam of the page's colour along every dashed corner's mitre*, seen
+   in the first reference render (pixel 101 where the dash is 51). The top's
+   last dash and the right's first are cut off at different points on the
+   shared mitre, which gives two different edges along one line. The
+   rasteriser rounds each one separately, and its samples lie exactly on
+   that 45° line. Fix: every point where a dash is cut off on a mitre
+   becomes a joint (`mitre::Joints`). The piece cut there is snapped onto
+   the joint exactly, and the joint is put into whatever lies across the
+   mitre, so both sides share their edges to the bit.
+2. *The first version of that fix was a denial of service.* It put every
+   joint into every wedge before cutting, which is quadratic: a 0.01px
+   dashed border round a 100 000px box took 81 s to build, debug, on this
+   machine. Now each piece takes only the joints beside it, from sorted
+   lists by binary search. The first version of *that* measured the range
+   across rather than along the side, so a deep left or right wedge still
+   took every joint (24 s). Measured along each side's own axis, the worst
+   cases tried build in 0.1–0.2 s (debug, this machine). These timings are
+   diagnostics, not a performance claim.
+
+**One file, one responsibility.** `border.rs` had gained three reasons to
+change, so this change splits it. `tone.rs` holds the two tones (`tones`,
+`colors_of`) and their six tests, moved. `mitre.rs` holds which part of the
+box is each side's (`Side`, `wedge`, `kept`, `polygon_path`) and the joints,
+with four tests moved and five new. `border.rs` keeps what each side is drawn
+as and in what order: `Line`, `DrawnSide`, `draw_mitred`, dashes and dots.
+
+**Scope cut, written into the queue.** 268: the three styles beside a
+fieldset's legend, where `draw_banded_border` still draws only `solid`.
+
+**Compliance review.**
+- Law 1: nothing legacy. Law 2: the agent surface is unchanged (the gate's
+  coordinate check passes). Law 3: no stubs, `todo!` or `unwrap` outside
+  tests, and a style that is not drawn is left empty, never approximated.
+  Law 4: no `unsafe`.
+- Bytes from outside: the inputs are computed styles and laid-out
+  rectangles, which come from the page in stage 2. Non-finite, zero and
+  negative lengths and widths give no pieces (unit test). Piece counts are
+  bounded (unit tests at 1e30 and 1e9). Two pixel tests draw hair-thin
+  dotted and dashed borders round 100 000px boxes, and they draw rather
+  than panic or run away.
+- Layout assertions: nothing new is positioned or sized. The case's
+  `layout.txt` records its six boxes (44×36, and 42×34 for the mixed one).
+- Reference render: corpus case `border-patterns` (172×96: dashed, dotted
+  and double in grey; thin blue dashes; a rounded double; one box with a
+  different style on each side). I looked at it upscaled before committing,
+  and the seam above was found that way. `ALO_UPDATE_REFERENCES=1` changed
+  no other case, so `border-styles` is unmoved.
+
+**Tests.** `pattern.rs` 9, `mitre.rs` 9 (5 new), `border.rs` 10 (7 new),
+`tone.rs` 6 (moved), `tests/patterned_borders.rs` 10 in pixels.
+`two_toned_borders.rs`'s last test now uses `hidden` for its undrawn side,
+since `dashed` is drawn. Each doctored run was restored afterwards:
+- Joint ranges measured across: `a_piece_takes_only_the_joints_beside_it`
+  fails.
+- Snapping removed: `a_dash_cut_off_on_a_mitre_shares_its_corner_…` fails.
+- Joints empty: that test and the pixel `a_dashed_corner_has_no_seam` fail.
+- Square dots: `a_dotted_sides_dots_are_round_and_apart` fails.
+- `double` clipped to the whole ring: `a_double_border_is_one_fill_…`
+  fails.
+
+The first draft of the selectivity and snapping tests did *not* fail when
+doctored. They checked output that later code filters again. Both were
+rewritten until they did.
+
+**Roadmap.** Item 266 served no roadmap line of its own, for the same
+reason as 190: border styles are not a line in *CSS beyond what alo
+needed*, and the chain was cut from 183, which served *Forms*. That line is
+not ticked. Its Owed clause now also names 268 and says these styles are
+drawn on an ordinary box (266). `docs/features.md` (*Paint*: patterned
+borders), `docs/conformance.md`, `CHANGELOG.md`, `QUEUE.md` (266 ticked
+with its evidence, 268 added, 267's text pointing at `mitre.rs`) and
+`REMAINING.md` moved with it.
+
+**Unresolved obligations.**
+- New: 268. Along a rounded corner, dashes and dots are placed on the
+  straight side and clipped rather than spaced along the curve. Where
+  sides of different widths meet, a corner dot is clipped to its own
+  side's share. Both are stated in `border.rs` and `conformance.md`.
+- Carried unchanged from iteration 161: 267, and 82, 83 and 85–89 need
+  their designs. Also going where the browser decided (85), downloads
+  (264), windows (118), CSP `base-uri` (no item), what an agent is told
+  when the page it acted on goes somewhere (134), and the iteration 158
+  carry-overs.
+
+113 queue items are open (266 closed, 268 added). The next iteration takes
+the first eligible item as `LOOP.md` says. 267 depends on nothing, and 268
+is best taken with or after it. The next unused queue number is **269** and
+the next ADR **0021**. This is one iteration, not a finished queue or
+roadmap.
+
+**Final gate run.** `scripts/gate.sh` exited 0 on this tree. It ran in the
+foreground and was read in the same step (7 min 25 s). Formatting is
+clean, clippy is silent, and all tests pass, the corpus included with
+every existing reference unchanged and `border-patterns` new. Nothing is
+stubbed, `unsafe` is forbidden, the licence notices are present, and every
+rented crate stays behind its boundary. No verb takes a coordinate, the
+stop rule holds, and `CHANGELOG.md` changed with the code. `git diff
+--check` passes. The log is in this session's scratchpad and is not
+committed. The only later change was this journal entry, which is
+documentation.
