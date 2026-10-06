@@ -388,6 +388,13 @@ is now refused in front of the decoder. AVIF is cut to item 269, which needs an
 ADR. 110 queue items are open; the next unused queue number is 270 and the next
 unused ADR 0021.
 
+Iteration 167 wrote ADR 0021 for item 269: AVIF is to be read by `avif-parse`
+and `rav1d`, through `rav1d`'s safe Rust API, with the colour conversion ours.
+That API is merged but unreleased, and `rav1d` 1.1.0 offers only a C interface,
+so 269 is **blocked on a `rav1d` release** rather than built on a git pin or
+on FFI of our own. 110 queue items are open; the next unused queue number is
+270 and the next unused ADR 0022.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

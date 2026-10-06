@@ -14713,3 +14713,120 @@ the stop rule holds, and `CHANGELOG.md` changed with the code.
 `git diff --check` passes. The log is in this session's scratchpad and is not
 committed. The only later change was this journal entry, which is
 documentation.
+
+## Iteration 167 — item 269's decision: ADR 0021, AVIF waits for a decoder we can call without `unsafe`
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md` (its conventions and the *Pictures, and things that move*
+section), iteration 166's entry and those of the earlier ADR iterations (158)
+for their form, the queue's section H in full, ADRs 0005, 0009, 0010 and 0015
+in full and 0020's head, `docs/features.md`'s picture lines,
+`docs/conformance.md`'s picture paragraph, `REMAINING.md`'s tail, and the
+code the decision is about: `alo-paint`'s `picture.rs` and the boundary list
+in `scripts/gate.sh`. Item 269 names no feature contract beyond
+`docs/features.md`'s codec lines. No `AGENTS.md` exists. No sibling
+repository was read or modified. The checkout was clean on entry at
+`56ba9e7`.
+
+**Selection.** Nothing before 179 has changed since iteration 166 recorded
+it. 179 waits on a page by its own closing condition, and 180 is done. 269
+depends only on 180 and is marked *needs ADR*. Under `LOOP.md` stage 2 § 4
+the ADR is its own iteration, so this iteration is ADR 0021 and no code.
+
+**The survey** (crates.io and each crate's published source, downloaded to
+this session's scratchpad and read, never built into the workspace):
+- `rav1d` 1.1.0 (May 2025, BSD-2-Clause) is the newest release. Its only
+  public interface is dav1d's C ABI (`pub unsafe extern "C" fn dav1d_*`).
+  It has 510 `unsafe` occurrences in about 55k lines, and its assembly is
+  behind the `asm` features. Its safe Rust API, `src/rust_api.rs`, was merged
+  on `main` on 2026-04-04 (#1439), and #1484 made it stop forcing panics on
+  2026-05-05. Neither is released, and `main` still says 1.1.0.
+- `dav1d`/`dav1d-sys` are bindings to C. `re_rav1d` (Rerun's fork, with a
+  safe API) has been archived since October 2024. `rav1d-safe` and `zenavif`
+  forbid `unsafe` by default but are AGPL-3.0 or commercial.
+  `oxideav-av1` is MIT and has no `unsafe`, but it is six months old with
+  about 6k downloads, and its crate docs call it a scaffold whose pipeline
+  "is not wired up yet", which disagrees with its README. `gamut-avif` is
+  the container only. `avif-parse` 2.1.0 is MPL-2.0 and a fork of Firefox's
+  mp4parse. Its only `unsafe` is its feature-gated C API, it refuses grids
+  by name, and it exposes the sequence header's maximum frame size.
+
+**What was decided** (ADR 0021):
+- § 1: `rav1d` decodes the frame, through its safe Rust API only. Default
+  features off except the two bit depths, with no assembly, one thread, no
+  frame delay, and `frame_size_limit` from `MOST_PIXELS`. It goes in one
+  file, `avif_picture.rs`, with a `gate.sh` boundary added in the same
+  commit.
+- § 2: the API must come from a crates.io release. A git pin is refused for
+  three reasons: no reach, advisories name versions, and there is no git
+  dependency anywhere in the workspace. FFI of our own to 1.1.0 is refused
+  because it would be the repository's first `unsafe`, written to avoid
+  waiting. **So 269 is blocked on a `rav1d` release.**
+- § 3: `avif-parse` reads the box, named in the same file. `gamut-avif` is
+  the named alternative.
+- § 4: `ispe` and the sequence header's maximum size both go through
+  `agreed_size`. The alpha item must match the primary item's size, and the
+  decoded picture must be the agreed size. Every byte is flipped and every
+  prefix cut, as for the other formats.
+- § 5: the colour conversion is ours, with matrices 0, 1, 5, 6 and 9. Any
+  other matrix is refused by name, and so are PQ and HLG. The upsampling
+  filter and the bit-depth rounding are left to the commit that builds them.
+  ICC is not applied, as for the other formats.
+- § 6: until then an AVIF is refused exactly as today. Any list of formats
+  the browser states (an image `Accept`, `<picture>` `type`) is derived from
+  what `picture.rs` decodes. Nothing states such a list today, so no code is
+  owed for this now.
+- § 7: a grid stays refused. A sequence shows its still primary item.
+
+**Decisions a reviewer may want to look at.** Refusing a git pin of `rav1d`
+is the call that costs the most: AVIF stays unread for an unknown time.
+The ADR's last section leaves re-weighing it to a person, prompted by a
+frozen page that needs AVIF. Also look at the refusal of PQ/HLG and of
+unlisted matrices, and at the choice of `avif-parse` over `gamut-avif` on
+reach.
+
+**Compliance review.**
+- Law 1: nothing legacy enters.
+- Law 2: the agent surface is unchanged.
+- Law 3: no code, so no stubs. 269's closing condition is unchanged and the
+  item is not ticked. It is marked blocked, with what lifts the block.
+- Law 4: no `unsafe`. The ADR refuses the one route that would have
+  introduced it.
+- ADRs 0005, 0009, 0010 and 0015 are applied, not amended.
+- One file, one responsibility: the only source change is `picture.rs`'s
+  module comment, which now cites ADR 0021. That file's responsibility is
+  unchanged.
+- Layout assertions and reference renders: nothing positions, sizes or draws.
+- Bytes from outside: none are read by anything new. § 4 states the hostile
+  input tests 269's code owes.
+- `docs/features.md`: both codec lines now say AVIF is decided and blocked.
+  A decision is not a built feature, so nothing is promoted.
+
+**Gate.** `scripts/gate.sh` exited 0 on this tree (443 s), run in the
+foreground and read in the same step. Formatting is clean, clippy is silent
+and all tests pass. Nothing is stubbed, `unsafe` is forbidden, every source
+file carries Exhibit A, all 21 rented crates stay behind their boundaries,
+no verb takes a coordinate, the stop rule holds, and `CHANGELOG.md` changed.
+`git diff --check` passes. The log is in this session's scratchpad and is not
+committed. The only later change was this journal entry, which is
+documentation.
+
+**Roadmap.** The *Image codecs, rented* Owed clause now says AVIF is decided
+in ADR 0021 and blocked on a `rav1d` release, and why. It is not ticked.
+Also updated: `QUEUE.md` (269's decision and block), `docs/features.md`,
+`REMAINING.md`, `CHANGELOG.md`, and `picture.rs`'s module comment.
+`docs/conformance.md` is unchanged because what renders has not changed.
+
+**Unresolved obligations.**
+- 269's code, once `rav1d` releases its Rust API. Watching for that release
+  is a person's job or a later iteration's check. Nothing here polls for it.
+- Carried from 166, unchanged: the `image-webp` panic should go upstream (a
+  person's call). Also 109, 179, a picture ignoring a clip in force, and
+  82, 83, 85–89, 95–99, 104 and 105, which need their designs.
+
+110 queue items are open, none closed or opened. 269 is now blocked. In file
+order the next candidates are 107 (SVG, which must be cut before it is
+started), then 108 (Canvas 2D, depends on 72) and later items. The next
+iteration takes the first eligible item as `LOOP.md` says. The next unused
+queue number is **270** and the next ADR is **0022**. This is one
+iteration, not a finished queue or roadmap.

@@ -4954,6 +4954,19 @@ The long pole, and the thing most of section E is unreachable without.
   decodes from a frozen file, through `picture::read` and `agreed_size` like
   the other four, and is refused the same way.
 
+  **Decided: ADR 0021 (iteration 167).** `avif-parse` for the box and `rav1d`
+  for the frame, through **`rav1d`'s own safe Rust API**, with its assembly
+  off, one thread, and both named in `alo-paint`'s `avif_picture.rs`; the
+  colour conversion is ours (§ 5). The survey was redone and found the same
+  answer for a sharper reason: `rav1d` 1.1.0, the newest release, offers only
+  dav1d's C ABI, so calling it would be `unsafe` in this repository. Its Rust
+  API was merged on `main` in April 2026 (rav1d #1439, #1484) and is
+  unreleased; a git pin and our own FFI are both refused (§ 2).
+  ***blocked:** a `rav1d` release carrying `rust_api.rs`.* Lifted by that
+  release and nothing else; ADR 0021's last section says what reopens the
+  choice. Until then an AVIF is refused, and § 6 says the browser never
+  claims a format it does not decode.
+
 - [ ] **107. SVG** — *"a second rendering model inside the first, and far larger
   than its one line here suggests."* **Cut this before starting it**; it is
   several iterations and nobody should discover that halfway through.

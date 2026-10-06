@@ -28,11 +28,11 @@
 //!
 //! # What is not read
 //!
-//! AVIF. Its pixels are an AV1 frame, and no AV1 decoder was found that this
-//! engine could rent without `unsafe` it would have to answer for — which one,
-//! and on what terms, is a decision for an ADR rather than a line in a
-//! manifest (queue item 269). Until then an AVIF is refused like any other format this engine
-//! does not read.
+//! AVIF. Its pixels are an AV1 frame. ADR 0021 chose `rav1d` to decode it,
+//! through `rav1d`'s own safe Rust API, and that API is not in any release yet:
+//! the newest release offers only a C interface, which this engine could call
+//! only with `unsafe` of its own (queue item 269). Until the release, an AVIF
+//! is refused like any other format this engine does not read.
 
 use crate::canvas::Canvas;
 use crate::encode::{MOST_PIXELS, PictureError, picture_from_png};

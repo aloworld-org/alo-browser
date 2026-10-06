@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How AVIF pictures will be read is decided, and they still are not.**
+  ADR 0021 chooses `rav1d`, a Rust AV1 decoder, through its safe Rust API.
+  That API is not in a release yet, so an AVIF stays refused rather than
+  decoded through `unsafe` code of our own or an unreleased commit. The
+  browser will not tell a site it accepts AVIF until it can decode it.
+
 - **GIF and WebP pictures are shown.** An `<img>` pointing at a GIF or a WebP
   used to be an empty box; both formats are now read, transparency included.
   An animated one shows its first frame rather than nothing, until animation

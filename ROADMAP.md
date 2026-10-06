@@ -1012,9 +1012,10 @@ unreachable without it.
       bitstream inside it. An animated GIF or WebP is drawn as its first frame.
       Frozen files in corpus cases `a-picture` and `a-picture-in-each-format`
       go through one list of truncation and corruption tests
-      · Owed: AVIF (269, needs an ADR: no AV1 decoder was found that can be
-      rented without `unsafe` this engine would have to answer for); playback
-      of an animation (109)
+      · Owed: AVIF (269: decided in ADR 0021, `avif-parse` and `rav1d`'s safe
+      Rust API; blocked until `rav1d` releases that API, because its newest
+      release offers only a C interface this repository could call only with
+      `unsafe` of its own); playback of an animation (109)
 - [ ] **SVG** — a second rendering model inside the first, and far larger than its one line here suggests
 - [ ] Canvas 2D
 - [ ] Audio and video playback through rented decoders
