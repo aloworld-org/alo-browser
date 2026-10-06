@@ -978,6 +978,17 @@ unreachable without it.
 - [ ] Selection and ranges
 - [ ] CSSOM — styles readable and writable from script
 - [ ] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them
+      — not started: nothing is built. Decided in ADR 0025. All four kinds
+      of storage use one bucket per origin and top-level site, held only by the
+      browser process, and an opaque origin has none. One fixed 1 GiB quota
+      covers each bucket. It is reported the same on every machine and in
+      private browsing, and `localStorage` is capped at 5 MiB within it. Past
+      the profile's own unreported bound, whole buckets are evicted, least
+      recently used first, never one in use. `sessionStorage` is never written
+      to a disk, and a corrupt bucket is set aside, never served in part. Cut
+      into queue items 301–305: the store, `localStorage` and
+      `sessionStorage`, `navigator.storage`, IndexedDB (whose store needs its
+      own ADR) and the Cache API
 - [ ] Workers: dedicated, shared, and service workers with their fetch interception
 - [ ] Timers, clipboard, drag and drop
 - [ ] ★ **Permissions as capabilities** — camera, microphone, location, notifications, in the shape of `alo-os` ADR 0001: enumerated, visible, revocable, expiring, recorded. A browser is where most people meet a permission prompt, and every other one is a dialogue nobody can audit afterwards

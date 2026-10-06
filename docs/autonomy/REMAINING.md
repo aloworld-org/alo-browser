@@ -513,6 +513,25 @@ Recording permission, which only a person can grant. 297 depends on 296,
 so the window's line waits on that permission. The loop halted to say so.
 The next unused queue number is still 301 and the next unused ADR 0025.
 
+Iteration 183 retired that halt by appending. 296 stays blocked on the
+permission, and the queue still had decision work to do. Iteration 184 wrote
+item 90's decision, ADR 0025: one bucket per origin and top-level site across
+all four storage APIs, held only by the browser process; one fixed 1 GiB
+quota that is the same on every machine and in private browsing; whole-bucket
+eviction under a profile bound that is never reported; `sessionStorage`
+never written to a disk; and a corrupt bucket set aside rather than served in
+part. No code. Its code is cut as 301–305:
+- **301**, the browser process's store, has its dependencies done and is
+  eligible next.
+- 302 (`localStorage` and `sessionStorage` in a page) is opened by a frozen
+  page.
+- 303 (`navigator.storage`) waits on 75.
+- 304 (IndexedDB) needs its store's ADR.
+- 305 (the Cache API) waits on 83 and 91.
+
+134 queue items are open. The next unused queue number is 306 and the next
+unused ADR 0026.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

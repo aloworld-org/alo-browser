@@ -16556,3 +16556,104 @@ Studio Code requires restarting Visual Studio Code, which ends the session
 that is running this; starting the loop from Terminal instead avoids that, and
 macOS will prompt the first time it captures.
 
+
+---
+
+## Iteration 184 — item 90 decided: ADR 0025, storage is the browser process's, and one quota covers it
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the
+stage 2 DOM section's storage line, and its format for a decided line),
+iterations 180–183, `REMAINING.md`, items 76, 233–236, 82–93 and 155–157 in
+`QUEUE.md`, ADRs 0005, 0007 and 0011 in full, and the storage-relevant
+passages of 0012, 0013 § 7, 0014 and 0016 §§ 2–3. Also read:
+`docs/features.md`'s storage line, `alo-net`'s `Partition` and
+`alo-renderer`'s `Page`. No `AGENTS.md` exists. `alo-workplace` was read and
+never written; its `git status` is empty. The checkout was clean on entry at
+`649c25e`.
+
+**Selection.** Iteration 183's table listed 76 first among items that need
+an ADR. That was out of date: ADR 0016 was written for 76 in iteration 132,
+and 76 now waits on 233 and 234. Those wait on 92 and 81, and 92 waits on 76.
+296 is blocked on Screen Recording, and 297–300 sit behind it. Items 82–89
+need design. **90** comes next. Its dependencies, 72 and 66, are done, and it
+is marked *needs ADR*. `LOOP.md` stage 2 § 4 makes that ADR its own
+iteration, and this is that iteration.
+
+**What was decided (ADR 0025).** No code changed.
+- **The storage key** is the origin plus ADR 0007's top-level `Partition`,
+  for all four APIs. An opaque origin has no storage, which covers every
+  `file:`, `data:` and `about:` document. Storage must never be keyed by
+  `Partition`'s shared `"opaque"` value alone.
+- **One quota of 1 GiB per bucket**, fixed and reported the same everywhere,
+  private browsing included. This means `estimate()` reveals neither the
+  disk nor a private session. `localStorage` and each `sessionStorage` area
+  are capped at 5 MiB, counted as UTF-16 bytes.
+- **The profile's bound** is the smaller of 8 GiB and a fifth of the free
+  space at start, and it is never reported to a page. When it is reached,
+  **whole buckets** are evicted, least recently used first by a counter. The
+  bucket being written is never evicted, nor one in use, nor one a person
+  kept.
+- **The browser process holds every bucket.** It serves only storage keys it
+  loaded into the asking renderer. A synchronous `localStorage` call is
+  forbidden by ADR 0005, so `localStorage` is a renderer-held copy sent with
+  the load, and its writes are posted back and re-checked.
+- **`sessionStorage` is never written to a disk.** alo's sign-in relies on
+  exactly this.
+- **IndexedDB** values are bytes the browser process never parses, and its
+  keys use our own encoding that sorts as bytes.
+- **The Cache API** counts opaque responses at a fixed padded size.
+- **A corrupt bucket** is set aside whole and recorded, never served in
+  part.
+- **Clearing a site** clears cookies, cache and every bucket at once.
+- **`persist()`** answers `false` until item 93.
+- **Left open:** what IndexedDB's store is built on.
+
+Each number was chosen here, with reasons. None comes from a measurement,
+and the ADR says how a measurement would change it. Claims about other
+browsers are kept general and unquantified.
+
+**Queue.** 90 records the decision and stays open. It closes when 301–305 do:
+- **301**, the browser-process store, has its dependencies done and is
+  eligible next.
+- 302 (`localStorage`/`sessionStorage`) is opened by a frozen page.
+- 303 (`navigator.storage`) waits on 75.
+- 304 (IndexedDB) needs its store's ADR.
+- 305 (the Cache API) waits on 75, 83 and 91.
+
+**Roadmap.** The *Storage* line now reads "not started: nothing is built.
+Decided in ADR 0025 …", as 0023's did. It is not ticked. `docs/features.md`,
+`CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Gate, mechanical.** I ran `scripts/gate.sh` in the foreground. It passed
+the tool's 10-minute ceiling, as in iterations 180–182, so the harness moved
+it to the background. I blocked in a foreground wait on its log and read the
+result before writing this entry. It exited 0 with "The gate is met.":
+- fmt clean and clippy silent;
+- every test passing, with no `FAILED`, `warning` or `error` line;
+- no stubs, `unsafe` forbidden, and licence notices present;
+- every rented crate behind its boundary, no coordinate verbs, and the stop
+  rule holding.
+
+`git diff --check` passes.
+
+**Gate, manual.** Nothing positions, sizes or draws, so no layout assertion
+or reference render applies. No source file changed, so one responsibility
+per file is untouched. The item's feature line exists and now says it is
+decided and not built. No tick was made.
+
+**Unresolved obligations.**
+- 296's capture still needs a person to grant Screen Recording to the
+  application that runs the loop (iteration 183), and 297–300 wait on it.
+- 304 needs an ADR for its store. 302 needs a frozen page that keeps a
+  preference.
+- Carried from 182: 113 waits on a measurement; 108, 111 and 117 need
+  designs; 289–292 wait on a page that plays a file; 293–295 on decoders;
+  284, 286 and 288 on a page; 269 on a `rav1d` release.
+- Iteration 183's other ADR candidates remain: 93, 124, 126, 132 and 277.
+  301 sits right after 90 in file order, so it comes before all of them.
+  It is the first eligible item unless the next iteration finds an earlier
+  one.
+
+134 queue items are open: none closed, and 301–305 opened. The next unused
+queue number is **306** and the next ADR is **0026**. This is one iteration,
+not a finished queue or roadmap.

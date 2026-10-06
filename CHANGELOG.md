@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How sites will store data on your computer is decided, and nothing is
+  stored yet.** ADR 0025 gives each site one allowance of 1 GiB for
+  everything it keeps. The allowance is the same on every computer, so a
+  site cannot use it to learn how big your disk is or whether you are
+  browsing privately. A site embedded inside another site gets separate
+  storage there, so it cannot follow you between them. Data a site keeps
+  for one tab is never written to disk. Clearing a site's data clears all of
+  it at once.
+
 - **The browser has a window.** `alo page.html style.css` opens a window
   showing the page, rendered by the browser's own engine in a locked-down
   process of its own. If that process stops answering, the window does not

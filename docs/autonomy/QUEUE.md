@@ -4543,6 +4543,92 @@ The long pole, and the thing most of section E is unreachable without.
 - [ ] **90. Storage**: `localStorage`, `sessionStorage`, IndexedDB, the Cache
   API, and **one quota policy over all of them**.
   *Depends on 72, 66. Needs ADR* — a quota is a policy about somebody's disk.
+  **The ADR is written: ADR 0025, accepted** (iteration 184). No code is
+  built and this item is not done. In short:
+  - Every API uses one bucket per **storage key**: the origin and ADR 0007's
+    top-level `Partition`. An opaque origin has no storage.
+  - **One fixed quota of 1 GiB** covers each bucket, and it is reported the
+    same on every machine and in private browsing. `localStorage` and each
+    `sessionStorage` area are capped at 5 MiB, counted as UTF-16 bytes.
+  - The profile's own bound is the smaller of 8 GiB and a fifth of the free
+    space at start, and is never reported to a page. Past it, **whole
+    buckets** are evicted, least recently used by a counter, never one in use
+    or kept by a person.
+  - The **browser process** holds every bucket. It serves a renderer only the
+    storage keys it loaded into that renderer. `localStorage` is a copy sent
+    with the load, whose writes are posted back and checked again.
+  - `sessionStorage` is **never written to a disk**.
+  - IndexedDB values are bytes the browser process never parses. Keys use an
+    encoding of ours that sorts as bytes. An opaque response in the Cache API
+    counts at a fixed padded size.
+  - A bucket that fails its check is **set aside whole** and recorded, never
+    served in part. Clearing a site clears everything it stored in one act.
+  - `persist()` answers `false` until item 93.
+
+  It is cut five ways, and **this item closes when 301–305 have**.
+
+- [ ] **301. The storage store, in the browser process.** *Cut from 90
+  (ADR 0025 §§ 1–4, 6 and 8). Depends on 66 and 155.* Buckets keyed by
+  origin and `Partition`. A type that cannot hold an opaque origin. The
+  ledger that counts each bucket against 1 GiB and the profile against its
+  bound. Whole-bucket eviction by a use counter, never the bucket writing or
+  one marked in use. `localStorage` areas as the first thing it stores, in
+  records under ADR 0011 § 4's rules. The set-aside rule. Clearing a site.
+  The application-data directory, private to its owner. A session-scoped
+  profile that opens no directory. No page reaches it yet. Like item 155, it
+  is the browser process's half, built first so the page's half has something
+  real to post to.
+  *Closes when:* an area survives a restart (the store dropped and reopened on
+  the same directory). A write past a bucket's quota is refused and changes
+  nothing. A write past the profile's bound evicts whole buckets in least
+  recently used order, sparing the writer and any bucket in use, and is
+  refused when that is not enough. Every truncation and every flipped byte of
+  a record sets its bucket aside without a panic, and the store records it.
+  A session-scoped profile leaves no file. Clearing a site removes every
+  bucket of it under every partition, set-aside ones included. Each is
+  asserted in numbers: counted bytes, bucket counts, files on disk.
+
+- [ ] **302. `localStorage` and `sessionStorage` in a page.** *Cut from 90
+  (ADR 0025 §§ 3 and 5). Depends on 301, 80 and 236.* `Window.localStorage`
+  and `Window.sessionStorage`, served from the renderer's copy. The area
+  goes with a load to a renderer that does not hold it. Every write is posted
+  and checked again by the browser process, which refuses a storage key it
+  did not load into that renderer and a write past the cap. Opaque origins
+  throw `SecurityError`, and 5 MiB throws `QuotaExceededError`
+  synchronously. `sessionStorage` is held per tab in browser-process memory.
+  The `storage` event to the key's other documents needs item 81's dispatch.
+  *Opened by* a frozen page that keeps a preference in `localStorage`, as
+  alo's `i18n/locale.ts` does. *Closes when:* that page's stored value is
+  read back after a restart. A `sessionStorage` value survives a reload and a
+  navigation away and back, does not survive closing the tab, and appears in
+  no file. A renderer's write for another key is refused.
+
+- [ ] **303. `navigator.storage`: `estimate()`, `persist()` and
+  `persisted()`.** *Cut from 90 (ADR 0025 §§ 3 and 7). Depends on 301, 302
+  and 75.* `estimate()` reports the fixed quota and the bucket's counted
+  usage, the same in a session-scoped profile. `persist()` and `persisted()`
+  answer `false` until item 93 gives the grant. *Closes when:* `estimate()`
+  gives the same `quota` under two profiles on volumes of different free
+  space and in a session-scoped one, and `usage` moves by the counted bytes
+  of a write.
+
+- [ ] **304. IndexedDB.** *Cut from 90 (ADR 0025 § 5). Depends on 301, 76
+  and 81. Needs ADR:* what its ordered, transactional store is built on.
+  ADR 0025 left that question open and named the conditions: rented only in
+  Rust, a licence beside MPL-2.0, files read as untrusted. The rest is
+  decided: values as structured-clone bytes the browser process never
+  parses, keys in an encoding of ours that sorts as bytes, index keys
+  extracted in the renderer, `complete` after the hand-off to the operating
+  system and `strict` after a flush. *Opened by* a frozen page that opens a
+  database. alo's quote studio does, once, to move an old copy to its server.
+
+- [ ] **305. The Cache API.** *Cut from 90 (ADR 0025 § 5). Depends on 301,
+  75, 83 and 91.* `caches` in secure contexts. What the page put in it is
+  stored and counted, and an opaque response counts at a fixed padded size.
+  *Opened by* alo's frozen service worker, which precaches `offline.html`.
+  *Closes when:* that worker's install stores the page, its activate deletes
+  the old version's cache, an offline navigation is answered from it, and an
+  opaque response's `usage` does not depend on its length.
 
 - [ ] **91. Workers**: dedicated, shared, and service workers with their fetch
   interception.

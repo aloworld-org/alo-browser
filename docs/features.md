@@ -428,7 +428,13 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] Shadow DOM and custom elements — component frameworks are not optional on the modern web
 - [2] Selection and ranges
 - [2] CSSOM — styles readable and writable from script
-- [2] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them
+- [2] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them.
+  Decided in ADR 0025 and not built: one bucket per origin and top-level site,
+  kept by the browser process; one fixed 1 GiB quota per bucket, the same on
+  every machine and in private browsing, with `localStorage` capped at 5 MiB;
+  whole buckets evicted, least recently used first, never one in use;
+  `sessionStorage` never written to a disk; a site's data cleared in one act
+  (301–305)
 - [2] Workers: dedicated, shared, and service workers with their fetch interception
 - [2] Timers, clipboard, drag and drop
 - [2] ★ **Permissions as capabilities** — camera, microphone, location, notifications, in the shape of `alo-os` ADR 0001: enumerated, visible, revocable, expiring, recorded. A browser is where most people meet a permission prompt, and every other one is a dialogue nobody can audit afterwards
