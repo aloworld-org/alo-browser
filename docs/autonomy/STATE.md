@@ -12529,3 +12529,118 @@ left to it, so the next iteration should judge whether it needs an ADR of
 its own first (LOOP.md, stage 2 § 4). 251 still waits on item 73. Next
 unused queue number **254**; next ADR **0018**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 150 — item 81's decision: one dispatch, two drivers, and an agent's verb is a keyboard's click
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Events* and *Forms* lines, iteration
+149's entry and iteration 142's (the form an ADR-only iteration takes),
+queue items 43, 80, 81–93, 131, 191, 233 and 251, ADR 0017 in full, ADR
+0016 §§ 3 and 6 and its *What this does not decide*, ADR 0013 §§ 3 and 6
+and its *What this does not decide*, ADR 0002's no-coordinate rule, and the
+code the decision is about: `alo-js`'s `object/native.rs` (`Answer::Want`,
+`Want::Call`), `interpret/call.rs` (how a want is taken), `interpret/catch.rs`
+(a throw unwinds through a waiting builtin), `interpret/checkpoint.rs` (a
+job's throw reported through the embedder's closure); `alo-bindings`'
+`wrapper.rs` and its bound members; `alo-renderer`'s `renderer.rs` (`act`),
+`event_loop.rs`, `event_loop/task.rs` (`Work::Calls`), `held.rs`;
+`alo-agent`'s `apply.rs` (`toggle`, which flips `checked` and
+`aria-checked`) and `verb.rs`; `alo-net`'s `csp.rs` (`Inline`,
+`Content::attribute`); the `alo-settings` corpus case and the test
+`what_a_row_does_next_needs_a_script_and_this_says_so`. Read-only, for what
+"correct" means: `alo-workplace/web/src/shell/SettingsModal.tsx`, whose nav
+row's `onClick` moves `aria-current` and the `navItemOn` class. No
+`AGENTS.md` exists. No sibling repository was modified. The checkout was
+clean on entry at `f3e9936`.
+
+**Selection.** Iteration 149 named **81** next (its dependency 80 is done)
+and asked this iteration to judge whether it needs an ADR first. Every
+earlier open item is still blocked for the reasons iteration 144 recorded,
+and 251 waits on item 73. It does: ADR 0017 and ADR 0016 each name
+dispatch, capture and default actions as item 81's to decide, and the code
+makes each question real rather than formal — a builtin calls script only
+by suspending at a numbered step and a throw unwinds through it (so
+`dispatchEvent`'s *report and carry on* has no mechanism), the loop's
+`Work::Calls` fixes its callees when queued (so `stopPropagation` cannot be
+honoured by it), `apply` toggles a checkbox itself (so a cancelled click
+cannot undo it and `el.click()` would need a second copy), and `apply`
+flips `aria-checked` (which a page's own listener would flip back).
+`LOOP.md` stage 2 § 4 makes the decision its own iteration.
+
+**What was built: ADR 0018, accepted.**
+`docs/decisions/0018-one-dispatch-two-drivers-and-an-agents-verb-is-a-keyboards-click.md`.
+§ 1 `EventTarget` in `alo-bindings`; a listener list in the wrapper, traced
+and counted; `signal` converted as Web IDL does (a `TypeError` until
+`AbortSignal` exists); the global object not a target until item 251. § 2
+the DOM standard's dispatch written once as a stepper whose state lives in
+the event cell; dispatch flag. § 3 two drivers — a native via
+`Answer::Want` (no checkpoint between listeners) with `alo-js` gaining a
+call whose throw is reported, and the event loop's new `Work` kind with a
+checkpoint after every listener; a page that never ran script dispatched to
+by nobody. § 4 an agent's verb is trusted and unmarked; who may act is a
+permission (items 93, 133). § 5 `Activate` is the one `click` keyboard
+activation fires — `PointerEvent`, `pointerId` −1, `pointerType` `""`, every
+coordinate 0, no key events; `PutText` fires `beforeinput`, `input`,
+`change`; a link's `Activate` is followed only if not cancelled. § 6
+activation behaviour (before, cancelled, after) in `alo-dom` for the agent
+and `el.click()` alike. § 7 on a scripted page the agent changes no ARIA
+state; the scriptless flip is kept as a stated stage 1 accommodation. § 8
+the surface, law 1's absences (`returnValue`, `cancelBubble`, `srcElement`,
+`initEvent`, `createEvent`, `window.event`), and `timeStamp` absent until
+item 92 decides the clock. **Facts checked rather than assumed:** there is
+no `Follow` verb (a link's `Activate` yields `Outcome::Followed`; a first
+draft named one and was corrected); a throw does unwind through a waiting
+builtin (`catch.rs` pops `run.builtins`); item 43 owns the focus *ring*,
+not focus, and defers focus to 81 — so focus is cut as its own item 258
+rather than pointed at 43, which a first draft did.
+
+**What is not built, and why it stops here.** No code, dependency or test.
+Item 81 stays unticked and records its ADR and its closing page: the
+`alo-settings` case gains a plain-DOM script mirroring `SettingsModal.tsx`'s
+nav click, whose reference render must not move. Its code is cut as **254**
+(events from script; depends on nothing, so next), **255** (a browser
+dispatch as a task), **256** (`Activate` as a click — closes 81), **257**
+(`PutText`'s input events), **258** (focus; needs design) and **259** (event
+handler attributes; opened by a page), each with a closing condition.
+`docs/features.md` is unchanged, by iteration 142's precedent: no
+capability changed, and its *Events* line describes the feature without
+claiming it. `docs/conformance.md` is unchanged: nothing renders
+differently.
+
+**Compliance review.** Law 1: the ADR names every legacy event member it
+refuses. Law 2: § 4 is the decision that keeps the agent on the ordinary
+path and unsingled-out. Law 3: no code, so no stub; every cut item carries
+a closing condition with tests, and 256's names a layout assertion in
+numbers and an unchanged reference render. Law 4: the engine change § 3
+asks for is safe Rust and generic (ADR 0013 § 6 holds). ADR 0002: no verb
+gains a coordinate, and § 5 refuses to invent one inside the event.
+`CLAUDE.md`'s *read the ADR before proposing an alternative*: ADRs 0013,
+0016 and 0017 are extended where they deferred, contradicted nowhere. One
+file, one responsibility: the ADR names one file per new interface and
+`dispatch.rs`/`activation.rs` each for one rule. No layout assertion or
+reference render applies to a document-only change.
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step (6 min 28 s): formatting clean, clippy silent, all tests pass,
+nothing stubbed, `unsafe` forbidden, licence notices, every rented crate
+behind its boundary, no coordinate verb, the stop rule holds, no
+uncommitted code to judge. `git diff --check` passes. Log kept in this
+session's scratchpad, not committed.
+
+**Roadmap.** The *Events* line, which read as unstarted, gains an Owed
+clause naming ADR 0018 and items 254–259. Not a tick. `CHANGELOG.md` and
+`REMAINING.md` moved with it.
+
+**Unresolved obligations.** All of item 81's code (254–259). Carried from
+before: `document.head` and every other absent member wait for a page or an
+item; any other object a page throws is said as `an object` (item 78); a
+`<meta>` policy a script inserts is not applied; detached trees a script
+drops during a load wait for the first collection after the parse; the
+renderer's path for a document the heap refuses is not discriminated; the
+one-write overshoot of the heap's ceiling; 248's undiscriminated overrun
+fallback; 78's remainder; 77 needs design; 233, 234, 238 and 240 open and
+item 76 not done; `violations::reports` still called by nothing in the
+browser process (item 203's dependency); iteration 141's browser-side
+font-name guard still has no discriminating test. 115 queue items are
+open. Next is **254**. Next unused queue number **260**; next ADR **0019**.
+This is one iteration, not a finished queue or roadmap.

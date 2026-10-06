@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How a page will hear a click is decided (ADR 0018).** Nothing changes
+  yet; this is the decision the code will be built against. A page's
+  listeners run in the order the standard gives, by one set of rules
+  whether the page's own script sent the event or the browser did — and
+  when the browser did, whatever each listener left waiting runs before the
+  next one starts. When an agent presses a button, the page receives
+  exactly what a person pressing it from the keyboard would send: one
+  click, from the browser, with no made-up pointer position and nothing
+  that marks it as an agent's — so a page that works for keyboard users
+  works for an agent, and a page cannot single an agent out. Ticking a box
+  happens before the page's listeners hear the click and is undone if one
+  of them cancels it, the same whether an agent or the page's own script
+  clicked it.
+
 - **A page's script can now find the page's body, and replace it.**
   `document.body` is the page's body — or nothing, for a script that runs
   before the page has one — and assigning a new body puts it where the old

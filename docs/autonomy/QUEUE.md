@@ -4064,6 +4064,83 @@ The long pole, and the thing most of section E is unreachable without.
   about not doing since stage 1.
   *Depends on 80. Closes when:* `alo-renderer`'s test that a nav row changes
   nothing fails, and is rewritten to assert what it now does.
+  **Its decision is ADR 0018 (iteration 150)**, written first because ADR 0017
+  and ADR 0016 each left dispatch, capture and default actions to this item by
+  name, and the code made the gap real: a builtin calls script only by
+  suspending at a numbered step and a throw unwinds through it, the loop's
+  `Work::Calls` fixes its callees when queued, and `apply` toggles a checkbox
+  and `aria-checked` itself. The dispatch algorithm is one stepper in
+  `alo-bindings` whose state lives in the event, driven by a native for
+  `dispatchEvent`/`click()` (the engine gains a call whose throw is reported)
+  and by the loop for the browser, checkpointing after every listener;
+  listeners live in their target's wrapper; an agent's verb is trusted and
+  unmarked; `Activate` is the one `click` keyboard activation fires —
+  `PointerEvent`, `pointerId` −1, no coordinate; activation behaviour lives in
+  `alo-dom` and a cancelled click undoes a checkbox's toggle; on a scripted
+  page the agent no longer changes ARIA state. No code yet. **The closing
+  page:** `alo-settings` gains a plain-DOM script doing what alo-workplace's
+  `SettingsModal.tsx` does on a nav click (`aria-current` and `navItemOn` move
+  to the pressed row); its reference render must not move, which shows the
+  script changed nothing at load. It closes when 254, 255 and 256 have.
+
+- [ ] **254. Events from script: `EventTarget`, `Event`, `CustomEvent` and
+  the dispatch algorithm.** *Cut from 81 (ADR 0018 §§ 1–3, 8). Depends on
+  nothing.* `Node.prototype` inherits from `EventTarget.prototype`; a
+  wrapper holds its listener list, traced and counted in its footprint;
+  `addEventListener`'s options converted as Web IDL's dictionary (a `signal`
+  that is not `undefined` the conversion's `TypeError`), a listener a
+  function or a `handleEvent` object; the stepper in `dispatch.rs` with its
+  state in the event cell; `dispatchEvent` as a native driving it through
+  `Answer::Want`; `alo-js` gains a call a builtin may ask for whose throw is
+  reported, not propagated; the dispatch flag's `InvalidStateError`; the
+  members § 8 names and none it calls absent. *Closes when:* a page's script
+  adds capture and bubble listeners on a nested tree, dispatches a
+  `CustomEvent`, and the order, `eventPhase`, `currentTarget`, `once`,
+  `passive`, both stops and a throwing listener (reported, dispatch carrying
+  on) are asserted — through `alo-bindings` tests and a corpus case whose
+  script writes the order it saw into the page, with its layout in numbers.
+
+- [ ] **255. A dispatch from the browser is a task.** *Cut from 81 (ADR 0018
+  § 3, ADR 0016 §§ 3 and 6). Depends on 254.* A `Work` kind beside `Script`
+  and `Calls` holding the event by its task's root and stepping 254's
+  stepper, a microtask checkpoint after every listener, a throw reported and
+  the dispatch carrying on, a stop stopping the page; a page that never ran
+  script dispatched to by nobody and given no heap. *Closes when:* two
+  listeners on one target, dispatched from the renderer, each see the other's
+  microtasks run between them, and the same two dispatched by a script's
+  `dispatchEvent` do not.
+
+- [ ] **256. `Activate` is a keyboard's click.** *Cut from 81 (ADR 0018 §§ 4–7).
+  Depends on 255.* `UIEvent`, `MouseEvent` and `PointerEvent` with the members
+  § 5 names; `alo-dom`'s `activation.rs` (before, cancelled, after) for a
+  checkbox, a radio and a link; `HTMLElement` between `Element` and an HTML
+  element, and `click()`; `apply` stops toggling, and stops changing
+  `aria-checked` on a scripted page; the agent's answer comes after the
+  task. *Closes when:* item 81's closing condition — `alo-settings`' script,
+  the nav row test rewritten to assert *Sharing* is `aria-current` and
+  *General* is not, with the moved highlight's box asserted in numbers and
+  the reference render unchanged at load — and a cancelled click on a
+  checkbox leaving it unticked.
+
+- [ ] **257. `PutText` fires `beforeinput`, `input` and `change`.** *Cut from
+  81 (ADR 0018 § 5). Depends on 256* (for `UIEvent`). `InputEvent` with
+  `inputType` `"insertReplacementText"` and `data`; a cancelled
+  `beforeinput` changes nothing. *Closes when:* a page's `input` listener
+  echoes a field's text elsewhere and the agent reads the echo.
+
+- [ ] **258. Focus.** *Cut from 81 (ADR 0018 § 5 and *What this does not
+  decide*).* What has focus, `focus`/`blur`/`focusin`/`focusout`, a
+  focusable target focused before `Activate`'s click as a keyboard user's
+  was, and `:focus`/`:focus-visible` matching it — which is what item 43's
+  focus ring is waiting for. *Depends on 256. Needs design* until somebody
+  decides what an agent's `PutText` does to focus and whether it is ever
+  keystrokes.
+
+- [ ] **259. Event handler attributes and properties.** *Cut from 81 (ADR
+  0018 § 8).* `onclick="…"` compiled under the page's policy as
+  `csp::Inline::Script` with `csp::Content::attribute` (item 191's shape),
+  and `el.onclick = f`. *Depends on 254. Opened by a page* that fails
+  without them, as `ROADMAP.md` asks of stage 2.
 
 - [ ] **82. Forms**: the controls, constraint validation, submission, file
   inputs.

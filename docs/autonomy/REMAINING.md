@@ -240,6 +240,17 @@ accessor in `alo-bindings`). Corpus case `a-script-gives-a-new-body`.
 still waits on item 73; the next unused queue number is 254 and the next
 unused ADR 0018.
 
+Iteration 150 wrote item 81's decision, ADR 0018 (one dispatch algorithm in
+`alo-bindings` with its state in the event, driven by a native for a
+script's `dispatchEvent` and by the event loop for the browser, with a
+checkpoint after every listener; listeners in their target's wrapper; an
+agent's verb trusted and unmarked, `Activate` the one `click` keyboard
+activation fires; activation behaviour in `alo-dom`; no ARIA state changed
+by the agent on a scripted page). No code. Its code is cut as 254, 255 and
+256, which close 81, and 257, 258 (needs design) and 259 after them. 115
+queue items are open; 254 is next (it depends on nothing); the next unused
+queue number is 260 and the next unused ADR 0019.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;
