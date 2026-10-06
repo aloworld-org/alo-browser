@@ -966,12 +966,12 @@ unreachable without it.
       rather than above it, so the border is drawn in the two pieces the legend
       leaves. Corpus case `fieldset-group`. **Its border is a `groove`**, as
       other browsers draw it, with the legend's part cut out (queue item 267,
-      `alo-paint`'s `banded.rs`) · Owed: everything a control **does**,
+      `alo-paint`'s `banded.rs`), and a `dashed`, `dotted` or `double` one is
+      cut the same way, its pattern laid along the whole side (queue item
+      268, corpus case `fieldset-patterns`) · Owed: everything a control **does**,
       which needs events
       (queue item 81) — constraint validation, submission, file inputs — the
-      focus ring, which needs something to have focus (queue item 43), and a
-      dashed, dotted or double fieldset's border where its legend breaks it
-      (268; on an ordinary box they are drawn, item 266)
+      focus ring, which needs something to have focus (queue item 43)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
 - [ ] `iframe`s and the sandbox attribute — a document inside a document, where a great many security bugs live
 - [ ] Shadow DOM and custom elements; component frameworks are not optional on the modern web

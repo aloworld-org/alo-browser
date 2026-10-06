@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A dashed, dotted or double fieldset border is drawn round its name.**
+  It used to be left out entirely wherever a legend sat in it. It is now
+  drawn as the same box's border would be without a legend, and cut where
+  the group's name is — so the dashes and dots keep the spacing the whole
+  side gives them, and one the name's edge falls on is cut there.
+
 - **A fieldset's border is a groove.** It used to be a plain grey line,
   standing in for the bevelled `groove` every other browser draws round a
   group of form controls. It is now that groove — a dark edge and a light

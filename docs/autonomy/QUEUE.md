@@ -4697,7 +4697,7 @@ The long pole, and the thing most of section E is unreachable without.
   `fieldset-group` and `web-a-form` moved (display list and picture only;
   layout, boxes and agent tree unchanged), and no other reference did.
 
-- [ ] **268. `dashed`, `dotted` and `double` beside a legend.** *Cut from
+- [x] **268. `dashed`, `dotted` and `double` beside a legend.** *Cut from
   266 on the iteration that built it.* `alo-paint`'s `banded.rs` (267)
   leaves a `dashed`, `dotted` or `double` side undrawn where a legend sits
   in the border — said in its module comment and in `docs/conformance.md`.
@@ -4707,6 +4707,25 @@ The long pole, and the thing most of section E is unreachable without.
   nothing; best taken with or after 267. Closes when:* a corpus case draws
   a dashed fieldset broken by its legend and `a_border_a_legend_breaks.rs`
   asserts the pieces either side of the gap.
+  **Built (iteration 164).** The open question is answered as: **laid
+  along the whole side, then cut.** `pattern.rs` spaces a side so it starts
+  and ends on a dash at its corners, and a legend moves neither corner;
+  spacing each piece afresh would make every dash on the line depend on
+  how long the legend's words are. So `banded.rs` no longer filters the
+  three styles out: they go through `border::draw_mitred` inside the same
+  clip 267 built, and a dash or dot the legend's edge falls on is cut there.
+  This is also how Chromium and Firefox paint a fieldset (a clip-out of the
+  legend over an ordinary border), recalled rather than re-read this
+  iteration. Tests: `banded.rs` (a patterned border's items inside the
+  hole's clip are exactly `draw_mitred`'s for the same area, for all three
+  styles; replaces the test that they were left undrawn);
+  `a_border_a_legend_breaks.rs` 3 new in pixels (the block-start stroke is,
+  pixel for pixel, the same box's stroke with no legend everywhere outside
+  the legend's 30–70 and white inside it, all three styles and the whole
+  depth; ink on both sides of the gap, the corner, the left side and the
+  bottom; a dot spanning 68–74 cut at 70). Doctored: patterns filtered
+  again fails 3 there and 1 in `banded.rs`; no hole fails 5. Corpus case
+  `fieldset-patterns` is the reference render; no other reference moved.
 
 - [ ] **94. Animations and transitions.** Stage 1 reads them and they change
   nothing, which is correct for a still picture; this is the clock.

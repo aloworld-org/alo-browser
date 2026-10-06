@@ -16,18 +16,26 @@
 //! wide enough leaves no border along the top at all, and one at the very
 //! edge leaves only the piece on the other side.
 //!
-//! # Solid, and two-toned
+//! # Solid, and everything else
 //!
 //! A border that is `solid` wherever it is drawn is five rectangles: the
 //! three ordinary sides, and the block-start side in the two pieces the
 //! legend leaves.
 //!
-//! A border with a two-toned side — `groove`, which is what the user-agent
-//! sheet gives a fieldset, and `ridge`, `inset` and `outset` — is drawn as
-//! the mitred sides every other two-toned border is ([`draw_mitred`]), inside
-//! a clip with the legend's part of the block-start stroke cut out of it.
-//! That is how other engines cut it too: the legend's span, across the
-//! stroke's depth, is left out of the border's painting.
+//! Any other border — `groove`, which is what the user-agent sheet gives a
+//! fieldset, `ridge`, `inset` and `outset`, and the patterns `dashed`,
+//! `dotted` and `double` — is drawn as the mitred sides every other such
+//! border is ([`draw_mitred`]), inside a clip with the legend's part of the
+//! block-start stroke cut out of it. That is how other engines cut it too:
+//! the legend's span, across the stroke's depth, is left out of the
+//! border's painting.
+//!
+//! So **a pattern is laid along the whole side and then cut**, never spaced
+//! afresh on each piece. A side's dashes are spaced so that it starts and
+//! ends on one at its corners, and the legend moves neither corner; spacing
+//! each piece instead would make every dash on the line depend on how long
+//! the legend's words are. A dash or dot the legend's edge falls on is cut
+//! off there, as a dash running under any other box in front of it would be.
 //!
 //! The cut **stops at the side borders' inner edges**. A legend pulled into a
 //! corner does not take the corner with it, exactly as the solid pieces
@@ -40,11 +48,6 @@
 //! it; the shape that answers that properly is queue item 19's kind of work,
 //! and drawing an approximation of it would be a wrong pixel on the one
 //! element this code exists for.
-//!
-//! **A `dashed`, `dotted` or `double` side is left undrawn**, and is queue
-//! item 268: where a dash falls beside the legend's gap is a question of its
-//! own, and a pattern clipped off mid-dash by a legend is not obviously the
-//! answer.
 
 use crate::border::{DrawnSide, Line, draw_mitred};
 use crate::corner::Corners;
@@ -79,18 +82,13 @@ pub fn draw(
         top: band.stroke,
         ..border
     };
-    let sides: Vec<DrawnSide> = sides
-        .iter()
-        .copied()
-        .filter(|drawn| !matches!(drawn.line, Line::Dashed | Line::Dotted | Line::Double))
-        .collect();
     if sides.iter().all(|drawn| drawn.line == Line::Solid) {
-        draw_solid(box_id, area, widths, band.gap, &sides, out);
+        draw_solid(box_id, area, widths, band.gap, sides, out);
         return;
     }
 
     let mut drawn = Vec::new();
-    draw_mitred(box_id, area, Corners::SQUARE, widths, &sides, &mut drawn);
+    draw_mitred(box_id, area, Corners::SQUARE, widths, sides, &mut drawn);
     if drawn.is_empty() {
         return;
     }
@@ -347,16 +345,43 @@ mod tests {
     }
 
     #[test]
-    fn a_patterned_side_beside_a_legend_is_left_undrawn() {
-        let mut out = Vec::new();
-        draw(
-            BoxId::from_index_for_tests(0),
-            area(),
-            band((20.0, 60.0)),
-            Edges::all(2.0),
-            &all_sides(Line::Dashed),
-            &mut out,
-        );
-        assert!(out.is_empty(), "{out:?}");
+    fn a_pattern_is_laid_along_the_whole_side_and_cut_by_the_hole() {
+        // Inside the hole's clip is exactly the border the box would have
+        // with no legend at all: the same dashes, dots or lines, spaced on
+        // the whole side, so that only the clip says where the legend is.
+        for line in [Line::Dashed, Line::Dotted, Line::Double] {
+            let mut out = Vec::new();
+            draw(
+                BoxId::from_index_for_tests(0),
+                area(),
+                band((20.0, 60.0)),
+                Edges::all(2.0),
+                &all_sides(line),
+                &mut out,
+            );
+            let mut whole = Vec::new();
+            draw_mitred(
+                BoxId::from_index_for_tests(0),
+                area(),
+                Corners::SQUARE,
+                Edges::all(2.0),
+                &all_sides(line),
+                &mut whole,
+            );
+            assert!(!whole.is_empty(), "{line:?} draws");
+
+            let Some((DisplayItem::PushClip { path, .. }, rest)) = out.split_first() else {
+                panic!("{line:?}: {out:?}");
+            };
+            assert_eq!(
+                *path,
+                around(area(), Rect::new(30.0, 20.0, 40.0, 2.0)),
+                "{line:?} is cut by the hole",
+            );
+            let Some((DisplayItem::PopClip, inside)) = rest.split_last() else {
+                panic!("{line:?}: {out:?}");
+            };
+            assert_eq!(format!("{inside:?}"), format!("{whole:?}"), "{line:?}");
+        }
     }
 }

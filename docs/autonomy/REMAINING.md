@@ -365,6 +365,13 @@ side borders so the corners stay. Corpus cases `fieldset-group` and
 `web-a-form` moved. 112 queue items are open; the next unused queue number
 is 269 and the next unused ADR 0021.
 
+Iteration 164 built item 268: a `dashed`, `dotted` or `double` fieldset
+border is drawn round its legend, laid along the whole side exactly as
+without a legend and cut by the clip 267 built, so a dash or dot the
+legend's edge falls on is cut there. Corpus case `fieldset-patterns`. 111
+queue items are open; the next unused queue number is 269 and the next
+unused ADR 0021.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

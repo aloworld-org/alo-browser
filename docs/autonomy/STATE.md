@@ -14279,3 +14279,113 @@ takes a coordinate, the stop rule holds, and `CHANGELOG.md` changed with
 the code. `git diff --check` passes. The log is in this session's scratchpad
 and is not committed. The only later change was this journal entry, which
 is documentation.
+
+## Iteration 164 — item 268 built: patterned borders beside a legend
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md` (its conventions and the *Forms* line), iteration 163's entry,
+the queue's section F (items 43, 190, 266, 267 and 268 in full), and the
+code item 268 names: `alo-paint`'s `banded.rs`, `build.rs`'s border
+dispatch (`draw_borders`, `drawn_sides`, `mitred_sides`), `border.rs`'s
+`draw_mitred`, `alo-layout`'s `Band::inset`, the test
+`a_border_a_legend_breaks.rs`, and corpus cases `border-patterns` and
+`fieldset-group` with `alo-corpus`'s `case.rs`. Item 268 names no ADR; its
+feature home is `docs/features.md`'s *Paint* section, the patterned-borders
+line, which already named it. No `AGENTS.md` exists. No sibling repository
+was read or modified. The checkout was clean on entry at `61488c4`.
+
+**Selection.** Iteration 163 recorded every item before 268 as blocked or
+`needs design`, and nothing has changed since. 268 depends on nothing and
+is the first eligible item.
+
+**The open question, and its answer.** The item asked whether a dash or dot
+cut off by the legend is right, or whether the pattern should be spaced on
+each piece. The answer is **laid along the whole side, then cut**:
+`pattern.rs` spaces a side so it starts and ends on a dash at its corners,
+and a legend moves neither corner. Spacing each piece afresh would make
+every dash on the line depend on how long the legend's words are. That is
+a paint detail inside an existing module, not a decision that needed an
+ADR. It is written into `banded.rs`'s module comment and the queue.
+Chromium and Firefox paint a fieldset the same way, with a clip-out of the
+legend over an ordinary border. **That is from memory and was not re-read
+this iteration.** The argument above does not rest on it.
+
+**What was built.** `banded.rs` no longer filters `dashed`, `dotted` and
+`double` out. Any border that is not solid wherever it is drawn now goes
+through `border::draw_mitred` inside the clip 267 built, so the three
+patterns are cut exactly as the groove is. The module comment's section on
+what is not drawn now names only the radius.
+
+**Compliance review.**
+- Law 1: nothing legacy. Law 2: the agent surface is unchanged (the
+  coordinate check passes; no `agent.txt` moved). Law 3: no stubs, `todo!`
+  or `unwrap` outside tests. Law 4: no `unsafe`.
+- One file, one responsibility: `banded.rs` is still the legend-broken
+  border and lost code rather than gaining a responsibility.
+- Layout assertions: nothing is newly positioned or sized. The band's
+  numbers stay asserted in `alo-layout`'s `numbers.rs`, and no existing
+  `layout.txt` or `boxes.txt` moved.
+- Reference render: new corpus case `fieldset-patterns`, with three
+  fieldsets (dashed, dotted, and double at 6px) each broken by its legend.
+  I looked at it upscaled 4×. Each line is broken by its legend's words,
+  the dotted one has a half-dot cut at each of the legend's edges, and both
+  of the double's lines are cut. The first draft used the `font` shorthand,
+  which this engine does not apply, and the legends came out 16px. It now
+  uses `font-size` and `font-family`. `ALO_UPDATE_REFERENCES=1` changed no
+  other case.
+- Bytes from outside: no new parsing.
+
+**Tests.** `banded.rs`: one test replaces the one asserting patterns were
+left undrawn. For all three styles, it checks that the hole's clip is the
+first item and that what is inside it is exactly `draw_mitred`'s output for
+the same area. `a_border_a_legend_breaks.rs` gains 3 pixel tests:
+- Over the stroke's whole depth, all three styles: white inside the
+  legend's 30–70, and everywhere else the same box's stroke with no legend,
+  pixel for pixel.
+- Ink before the gap, after it, in the corner, down the left side and along
+  the bottom.
+- A dot spanning 68–74 is cut at 70.
+
+Doctored runs, each restored afterwards:
+- Patterns filtered out again: 3 of the new pixel tests fail, and so does
+  the new `banded.rs` test.
+- No hole cut: 5 pixel tests fail.
+
+**Roadmap.** *Forms* is not ticked. Its Built clause now names 268 and
+`fieldset-patterns`. Its Owed clause drops 268 and keeps everything a
+control does (81) and the focus ring (43). Also updated:
+`docs/features.md` (*Paint*, patterned borders), `docs/conformance.md`
+(two paragraphs), `CHANGELOG.md`, `QUEUE.md` (268 ticked with its evidence)
+and `REMAINING.md`.
+
+**Unresolved obligations.**
+- A rounded corner on a fieldset showing a legend is still drawn square
+  (said in `banded.rs` and `conformance.md`). No queue item is opened,
+  because no page fails on it.
+- Carried from iteration 163: the legend's band gap is its margin box
+  (`alo-layout`'s question; no page fails on it).
+- Carried unchanged: 82, 83 and 85–89 need their designs. Also going where
+  the browser decided (85), downloads (264), windows (118), CSP `base-uri`
+  (no item), what an agent is told when the page it acted on goes somewhere
+  (134), and the iteration 158 carry-overs.
+- Not verified this iteration: the claim about what Chromium and Firefox do
+  (above).
+
+111 queue items are open (268 closed). Section F's next open item is 94,
+which, like 95–99, has no ADR or closing condition written yet. The next
+iteration takes the first eligible item as `LOOP.md` says. The next unused
+queue number is **269** and the next ADR **0021**. This is one iteration,
+not a finished queue or roadmap.
+
+**Final gate run.** `scripts/gate.sh` exited 0 on this tree (7 min 3 s). It
+ran in the foreground and was read in the same step. The first run failed
+only on `cargo fmt`: the new test code was unformatted. `cargo fmt --all`
+touched only that file, and the second run was fully green. Formatting is
+clean, clippy is silent and all tests pass. The corpus is included, with
+`fieldset-patterns` new and every other reference unchanged. Nothing is
+stubbed, `unsafe` is forbidden, the licence notices are present, and every
+rented crate stays behind its boundary. No verb takes a coordinate, the
+stop rule holds, and `CHANGELOG.md` changed with the code. `git diff
+--check` passes. The log is in this session's scratchpad and is not
+committed. The only later change was this journal entry, which is
+documentation.

@@ -95,9 +95,12 @@ a browser draws one. The border is a `groove` of `#c0c0c0`, as every other
 browser gives a fieldset: the mitred two-toned sides, with the legend's part of
 the block-start line cut out of them, across the line's depth and no further
 out than the side borders — so a legend wider than the fieldset leaves its
-corners drawn (corpus cases `fieldset-group` and `web-a-form`). A rounded
-corner on a fieldset showing a legend is still drawn square, and a `dashed`,
-`dotted` or `double` side there is left undrawn (queue item 268).
+corners drawn (corpus cases `fieldset-group` and `web-a-form`). Any other
+style is cut the same way: a `dashed`, `dotted` or `double` block-start side
+is laid out along the whole side, exactly as it would be with no legend, and
+then cut where the legend is, so a dash or dot the legend's edge falls on is
+cut there rather than moved (corpus case `fieldset-patterns`). A rounded
+corner on a fieldset showing a legend is still drawn square.
 
 **Two-toned borders.** `inset`, `outset`, `groove` and `ridge` are drawn in a
 darker and a lighter tone of the border's colour, lit from the top left, with
@@ -116,7 +119,7 @@ placed on the straight side and clipped by the curve rather than spaced along
 it, and where sides of different widths meet, a corner dot is clipped to its
 own side's share of the corner. A side is drawn with at most 16 384 dashes or
 dots; past that they are spaced further apart. Beside a fieldset's legend
-none of the three is drawn yet (queue item 268).
+each is cut where the legend is (above).
 
 **There is still no focus ring**, which is the rest of queue item 43: a focused
 field looks exactly like an unfocused one. Nothing in this stage has focus to

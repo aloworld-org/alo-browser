@@ -1,0 +1,21 @@
+fill box#1 rgb(255 255 255) at (8, 8) 224×38.804688
+clip box#3 to (8, 12.402344) 68×34.402344
+clip box#3 to (8, 12.402344) 68×34.402344
+fill box#3 rgb(51 51 51) at (8, 12.402344) 68×34.402344
+unclip
+unclip
+text box#5 "Dashed" rgb(0 0 0) 11px at (20, 18.21045)
+clip box#8 to (84, 12.402344) 68×34.402344
+clip box#8 to (84, 12.402344) 68×34.402344
+clip box#8 to (84, 12.402344) 68×34.402344
+fill box#8 rgb(51 51 51) at (84, 12.402344) 68×34.402344
+unclip
+unclip
+unclip
+text box#10 "Dotted" rgb(0 0 0) 11px at (96, 18.21045)
+clip box#13 to (160, 11.402344) 72×35.402344
+clip box#13 to (160, 11.402344) 72×35.402344
+fill box#13 rgb(51 51 51) at (160, 11.402344) 72×35.402344
+unclip
+unclip
+text box#15 "Double" rgb(0 0 0) 11px at (174, 18.21045)

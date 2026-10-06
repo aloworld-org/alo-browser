@@ -1,0 +1,14 @@
+block flow · document
+  block flex · generic
+    block flow · group "Dashed"
+      block flow · generic
+        text "Dashed"
+      block flow · generic
+    block flow · group "Dotted"
+      block flow · generic
+        text "Dotted"
+      block flow · generic
+    block flow · group "Double"
+      block flow · generic
+        text "Double"
+      block flow · generic

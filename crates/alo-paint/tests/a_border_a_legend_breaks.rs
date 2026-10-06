@@ -13,8 +13,9 @@
 //! The numbers are asserted in `alo-layout`'s `numbers.rs`, which is where a
 //! layout assertion belongs. This is about what is **drawn**: how many pieces
 //! the border comes in, and where they stop — for a `solid` border, from the
-//! display list, and for the `groove` the user-agent sheet gives a fieldset,
-//! in pixels, in both its tones.
+//! display list; for the `groove` the user-agent sheet gives a fieldset, in
+//! pixels, in both its tones; and for `dashed`, `dotted` and `double`, in
+//! pixels against the same box with no legend.
 
 use alo_box::build as build_boxes;
 use alo_css::{MediaContext, parse_stylesheet};
@@ -328,4 +329,103 @@ fn the_user_agent_sheet_gives_a_fieldset_a_groove() {
         !outline.contains("rgb(192 192 192)"),
         "and not the grey itself: {outline}",
     );
+}
+
+/// A fieldset like [`draw_groove`]'s with a 6px border of `#333333` in
+/// `style`, with or without its 40 by 16 legend.
+///
+/// The border box runs from 12 across to 108 and from 10 down. With the
+/// legend the stroke is 5 below the top, rows 15 to 21, and the legend is 30
+/// (12, the 6px border and 12px of padding) to 70 across; without it the
+/// stroke is along the top, rows 10 to 16.
+fn draw_patterned(style: &str, legend: bool) -> Canvas {
+    let list = draw_with(
+        if legend {
+            "<body><fieldset><legend></legend><div></div></fieldset></body>"
+        } else {
+            "<body><fieldset><div></div></fieldset></body>"
+        },
+        &format!(
+            "body {{ margin: 10px }}
+             fieldset {{ border: 6px {style} #333333; padding: 0 12px 4px }}
+             legend {{ width: 40px; height: 16px; padding: 0 }}
+             div {{ height: 20px }}"
+        ),
+        Size::new(120.0, 70.0),
+    );
+    let mut canvas = Canvas::new(120, 70, Rgba::WHITE);
+    render(&list, &mut canvas);
+    canvas
+}
+
+/// Whether a pixel has any of the border in it.
+fn inked(canvas: &Canvas, x: u32, y: u32) -> bool {
+    canvas.at(x, y).map(Rgba::to_rgba8) != Some((255, 255, 255, 255))
+}
+
+#[test]
+fn a_pattern_is_the_whole_sides_cut_where_the_legend_is() {
+    // The block-start side beside the legend is the side the same box draws
+    // with no legend at all, to the pixel: its dashes, dots or lines spaced
+    // on the whole side, from corner to corner. Only where the legend is,
+    // across the stroke's whole depth, is there nothing.
+    for style in ["dashed", "dotted", "double"] {
+        let broken = draw_patterned(style, true);
+        let whole = draw_patterned(style, false);
+        for depth in 0..6 {
+            for x in 0..120 {
+                let here = broken.at(x, 15 + depth).map(Rgba::to_rgba8);
+                if (30..70).contains(&x) {
+                    assert_eq!(
+                        here,
+                        Some((255, 255, 255, 255)),
+                        "{style}: nothing where the legend is, at {x}, {depth} down",
+                    );
+                } else {
+                    assert_eq!(
+                        here,
+                        whole.at(x, 10 + depth).map(Rgba::to_rgba8),
+                        "{style}: the whole side's pattern at {x}, {depth} down",
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn a_patterned_border_is_drawn_either_side_of_the_legend() {
+    // Not left undrawn, which it was while only `solid` and the two-toned
+    // styles were cut round a legend.
+    for style in ["dashed", "dotted", "double"] {
+        let canvas = draw_patterned(style, true);
+        let inked_in = |columns: core::ops::Range<u32>| {
+            columns
+                .flat_map(|x| (15..21).map(move |y| (x, y)))
+                .any(|(x, y)| inked(&canvas, x, y))
+        };
+        assert!(inked_in(18..30), "{style}: before the legend");
+        assert!(inked_in(70..102), "{style}: after it");
+        // And the other three sides, from the line down.
+        assert!(inked_in(12..18), "{style}: the corner");
+        assert!(
+            (21..56).any(|y| inked(&canvas, 14, y)),
+            "{style}: the left side"
+        );
+        assert!(
+            (12..108).any(|x| inked(&canvas, x, 53)),
+            "{style}: the bottom"
+        );
+    }
+}
+
+#[test]
+fn a_dash_or_dot_the_legends_edge_falls_on_is_cut_there() {
+    // With this box's spacing a dot runs from 68 to 74 across: it is cut at
+    // the legend's end, 70, rather than moved clear of it or dropped.
+    let whole = draw_patterned("dotted", false);
+    let broken = draw_patterned("dotted", true);
+    assert!(inked(&whole, 69, 13), "the dot, with no legend");
+    assert!(!inked(&broken, 69, 18), "the legend's part of it");
+    assert!(inked(&broken, 71, 18), "and the rest");
 }

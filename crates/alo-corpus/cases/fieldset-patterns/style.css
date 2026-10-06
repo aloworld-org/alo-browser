@@ -1,0 +1,14 @@
+/* The three patterned border styles on a fieldset, each broken by its
+   legend. The pattern is laid along the whole block-start side and then cut
+   where the legend is, so a dash or dot the legend's edge falls on is cut
+   there rather than moved; a change that spaced each piece afresh, drew any
+   of them solid, or drew the line through the legend shows in the picture. */
+body { margin: 8px; background: #ffffff; display: flex; gap: 8px;
+  font-size: 11px; font-family: system-ui }
+fieldset { width: 48px; margin: 0; padding: 0 6px 4px; border-width: 4px;
+  border-color: #333333 }
+legend { padding: 0 2px }
+div { height: 16px }
+#dashed { border-style: dashed }
+#dotted { border-style: dotted }
+#double { border-style: double; border-width: 6px }
