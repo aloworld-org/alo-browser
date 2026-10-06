@@ -1,0 +1,16 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      block flow · image
+    block flow · generic
+      block flow · image
+    block flow · paragraph
+      text "em "
+      inline flow-root · image
+      text " em"
+    block flow · generic
+      block flow · image
+    block flow · generic
+      block flow · image
+    block flow · paragraph
+      inline flow-root · image

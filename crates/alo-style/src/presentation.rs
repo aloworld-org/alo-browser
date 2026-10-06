@@ -22,6 +22,16 @@
 //! before this file. Geometry — `x`, `r`, `d`, `points` — is read by `alo-svg`
 //! as attributes, and so is `transform`, whose attribute grammar is not CSS's.
 //!
+//! `width` and `height` are the exception, and only on an `<svg>` (item 279).
+//! There they size a box, so `width="50%"` and `height="2em"` have to reach
+//! layout as the declarations they are, where the page's stylesheet can beat
+//! them and layout knows what fifty per cent is of. On a `<rect>` or an
+//! `<image>` SVG 2 makes them properties too, but nothing there is a box:
+//! `alo-svg` reads them as geometry, and they are declarations when a page
+//! sets one from a stylesheet (ADR 0022 § 3). A plain number is user units,
+//! which on an outermost `<svg>` are CSS pixels, and is written as pixels so
+//! that the declaration is one CSS can read.
+//!
 //! # Invalid values
 //!
 //! An invalid presentation attribute is ignored, as an invalid declaration is:
@@ -41,6 +51,7 @@ pub const PRESENTATION_PROPERTIES: &[&str] = &[
     "fill",
     "fill-opacity",
     "fill-rule",
+    "height",
     "opacity",
     "stroke",
     "stroke-dasharray",
@@ -51,6 +62,7 @@ pub const PRESENTATION_PROPERTIES: &[&str] = &[
     "stroke-opacity",
     "stroke-width",
     "visibility",
+    "width",
 ];
 
 /// Where a presentation attribute was written, for an issue: nowhere in any
@@ -68,11 +80,15 @@ pub fn hints(element: &Element, issues: &mut Vec<StyleIssue>) -> Vec<Declaration
     }
     let mut found = Vec::new();
     for property in PRESENTATION_PROPERTIES {
+        if !applies(property, &element.name.local) {
+            continue;
+        }
         let Some(value) = element.attr(property) else {
             continue;
         };
         if valid(property, value) {
-            found.push(Declaration::new(property, value, Importance::Normal));
+            let value = as_css(property, value);
+            found.push(Declaration::new(property, &value, Importance::Normal));
         } else {
             issues.push(StyleIssue {
                 kind: IssueKind::InvalidDeclaration,
@@ -85,6 +101,21 @@ pub fn hints(element: &Element, issues: &mut Vec<StyleIssue>) -> Vec<Declaration
         }
     }
     found
+}
+
+/// Whether an attribute is a presentation attribute on this element: every
+/// one in the list is, on every SVG element, except the two that size a box.
+fn applies(property: &str, local: &str) -> bool {
+    !matches!(property, "width" | "height") || local == "svg"
+}
+
+/// The value as a declaration's: a size written as a plain number is that
+/// many pixels, because a plain number is not a CSS length.
+fn as_css(property: &str, value: &str) -> String {
+    match (property, alo_value::parse_number(value)) {
+        ("width" | "height", Some(number)) => format!("{number}px"),
+        _ => value.to_owned(),
+    }
 }
 
 /// Whether a presentation attribute's value is one its property can take.
@@ -116,6 +147,12 @@ fn valid(property: &str, value: &str) -> bool {
         "stroke-linejoin" => one_of(value, &["miter", "round", "bevel"]),
         "stroke-miterlimit" => alo_value::parse_number(value).is_some_and(|limit| limit >= 1.0),
         "visibility" => one_of(value, &["visible", "hidden", "collapse"]),
+        // Finite as well as not negative: `width="1e39px"` is a length CSS
+        // can write, and an infinity is not a size layout can be handed.
+        "width" | "height" => {
+            one_of(value, &["auto"])
+                || length(value).is_some_and(|length| length.is_finite() && length >= 0.0)
+        }
         "display" => value
             .split_ascii_whitespace()
             .all(|word| word.bytes().all(|b| b.is_ascii_alphabetic() || b == b'-')),
@@ -338,6 +375,44 @@ mod tests {
             ("stroke", "bogus"),
         ] {
             assert!(!valid(property, value), "{property}: {value}");
+        }
+    }
+
+    #[test]
+    fn an_svgs_size_is_a_declaration_and_a_plain_number_is_pixels() {
+        let (found, issues) = hints_of(r#"<svg width="48" height=" 2.5 "></svg>"#, "svg");
+        assert_eq!(found, vec!["height: 2.5px", "width: 48px"]);
+        assert!(issues.is_empty());
+        let (found, issues) = hints_of(
+            r#"<svg width="50%" height="2em" viewBox="0 0 4 1"></svg>"#,
+            "svg",
+        );
+        assert_eq!(found, vec!["height: 2em", "width: 50%"]);
+        assert!(issues.is_empty());
+        let (found, _) = hints_of(r#"<svg width="auto" height="inherit"></svg>"#, "svg");
+        assert_eq!(found, vec!["height: inherit", "width: auto"]);
+    }
+
+    /// A `<rect>`'s `width` is its geometry, which `alo-svg` reads as an
+    /// attribute; it sizes no box and is not a declaration (ADR 0022 § 3).
+    #[test]
+    fn a_shapes_size_is_geometry_and_not_a_declaration() {
+        let (found, issues) = hints_of(r#"<svg><rect width="50%" height="bogus"/></svg>"#, "rect");
+        assert!(found.is_empty(), "{found:?}");
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    /// `LOOP.md` stage 2 § 2: what a stranger wrote as a size is refused and
+    /// recorded, never handed to layout as a negative or an infinity.
+    #[test]
+    fn a_hostile_svg_size_is_ignored_and_recorded() {
+        for bad in [
+            "-1", "-1px", "inf", "NaN", "1e39", "1e39px", "1e39%", "twelve", "12 12", "48;", "",
+            "unset",
+        ] {
+            let (found, issues) = hints_of(&format!("<svg width='{bad}'></svg>"), "svg");
+            assert!(found.is_empty(), "{bad:?} became {found:?}");
+            assert_eq!(issues.len(), 1, "{bad:?} was not recorded");
         }
     }
 

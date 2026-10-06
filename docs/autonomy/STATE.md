@@ -15865,3 +15865,109 @@ opened. Also updated: `CHANGELOG.md`, `docs/features.md`,
 117 queue items are open (one closed, one opened). The next unused queue
 number is **287** and the next ADR is **0023**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 178 — item 279, its sizing half: relative sizes on an `<svg>`
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and the *SVG* line), iteration 177's entry, queue items 271,
+278, 279, 284 and 285, ADR 0022 in full, `docs/features.md`'s SVG line and
+`docs/conformance.md`. No `AGENTS.md` exists in this repository. ADR 0022
+§ 3 governs this (presentation attributes are author declarations of
+specificity zero; geometry attributes are attributes until a page styles
+one) and is unchanged. Nothing new is decided, so no ADR.
+
+**Selection.** Iteration 177 recorded 279 as eligible and every item before
+it in file order as blocked or waiting on a page or a design; nothing
+changed since. 279 depends on 271, done.
+
+**Cut.** 279 was two halves sharing a reason and no code: relative sizes on
+an outermost `<svg>`, and the CSS `transform` property inside one. The
+second needs a decision about the attribute's grammar inside the cascade
+(SVG's `rotate(45 12 12)` is not a CSS value, and `alo-style` cannot call
+`alo-svg`'s `transform.rs`, which depends on it). Per `LOOP.md` step 3 the
+scope was cut, not the depth: 279 is retitled to its sizing half and closed,
+and the property is **287**, eligible, with its own closing condition.
+
+**Built.** `alo-style`'s `presentation.rs` gains `width` and `height`, as
+presentation attributes on an `<svg>` element only (on a `<rect>` they are
+geometry `alo-svg` reads, per ADR 0022 § 3). A plain number becomes pixels in
+the declaration; `auto` and `inherit` are kept; a negative, non-finite
+(`1e39px`, `1e39%`) or non-length value is ignored and recorded as an
+invalid declaration. `alo-box`'s `svg.rs` keeps reading absolute attributes
+as the natural size and no longer records relative ones (they are used) or
+invalid ones (the cascade records them once). `alo-svg`'s transform-property
+issue now names 287.
+
+**Gate, mechanical.** `scripts/gate.sh` exited 0 — "The gate is met.":
+fmt clean, clippy silent, tests pass (corpus included), no stubs, no
+`unsafe`, licence notices, rented crates behind their boundaries, no
+coordinate verbs, the stop rule, `CHANGELOG.md` changed. `git diff --check`
+passes. *Process note:* it was started in the foreground and outlived the
+tool's ten-minute limit (18 min 52 s), so the harness moved it to the
+background; I waited on its exit with a monitor and read its result before
+committing. This entry's draft was appended while it ran; only this
+paragraph and the closing lines changed after it, and neither is code.
+
+**Gate, manual.**
+- Layout assertions in numbers (`numbers.rs`, 3 new): `width=50%
+  height=2em` in a 400 px block, 10 px font → 200 × 20; `50%` with a 4:1
+  `viewBox` → 200 × 50; inline `3em × 2em` → 30 × 20 (the `<svg>`'s font,
+  not the paragraph's 20 px); `48` × `0.25in` → 48 × 24; `* { width: 30px }`
+  → 30 × 20, `svg { height: 7px }` → 200 × 7, `#s { width: 25%; height:
+  3em }` → 100 × 30; `-10`, `1e39px`, `twelve`, `NaN` as width → 300 × 20.
+  Doctored: the hint switched off for `width`/`height` fails both sizing
+  tests; the finiteness and sign check removed fails the hostile tests in
+  `alo-style` and `alo-layout` (`-10` became a 0-wide box). Restored, and
+  the restored file compared with the saved copy.
+- Hostile input (`LOOP.md` stage 2 § 2): `presentation.rs` feeds twelve
+  hostile sizes, each ignored and recorded, none panicking; `svg.rs`'s
+  hostile-size test still holds with no natural size from any of them.
+- Reference render: new corpus case **`svg-relative-size`** (200 × 180):
+  100 × 20, 50 × 25 (a circle centred), an inline 60 × 20 between two
+  words, 40 × 30 and 100 × 30 beaten by the stylesheet, and an invalid
+  width at 300 × 12 running past the 200 px column. I looked at the render:
+  every shape fills the box it was given. Every other case is byte for byte
+  unchanged (the corpus ran green before the case was added).
+- One responsibility per file: which attributes are declarations stays
+  `presentation.rs`'s; the natural size stays `svg.rs`'s. No file gained a
+  second reason to change.
+- `docs/features.md` and `docs/conformance.md` say what works and what is
+  284's.
+
+**What it found, not fixed.**
+- A per cent on an **inline-level** `<svg>` hits 284 (reserved 200, drawn
+  100), so the per-cent tests and the case use block-level `<svg>`s; 284
+  now names the case, which should gain an inline `<svg>` when 284 closes.
+- A block-level replaced box with `width: auto` and no natural width or
+  ratio fills its container (400 in a 400 px block; an `<img>` with
+  `display: block; height: 20px` does too), where CSS 2 § 10.3.4's rule in
+  `replaced.rs` gives 300. SVG 2 may treat an outermost `<svg>`'s `auto`
+  as 100%, so for an `<svg>` the stretch may be right and for an `<img>`
+  it may not; I could not settle it here, so no test asserts either
+  number. To be checked against a real browser before anybody relies on
+  it, and queued if a page shows it wrong.
+
+**Roadmap.** The *SVG* line's Built clause gains relative sizes (item 279,
+`presentation.rs`, corpus case `svg-relative-size`); its Owed clause now
+names 287 and 284's inline case instead of 279. It stays an empty box.
+Queue: 279 ticked with what was built, 287 opened, 284 annotated. Also
+updated: `CHANGELOG.md`, `docs/features.md`, `docs/conformance.md`,
+`REMAINING.md`.
+
+**Unresolved obligations.**
+- 287 (the `transform` property on SVG elements) is eligible and the first
+  eligible item in file order after this one, by iteration 177's reading of
+  everything before 279, which nothing here changed.
+- 284 (inline-block per cent) and 286 wait on a page; `svg-relative-size`
+  should gain an inline `<svg width="50%">` when 284 closes.
+- The block-level replaced `width: auto` stretch above, unchecked against a
+  browser.
+- Carried from 177: a forced break on an empty line returns early in
+  `end_line`; ADR 0022 § 2's wording and § 4's name order, and a
+  side-by-side of the hand with a real browser (a person's call); 269
+  blocked on a `rav1d` release; the `image-webp` upstream report; 109, 179,
+  and 82, 83, 85–89, 95–99, 104 and 105 still needing their designs.
+
+117 queue items are open (279 closed, 287 opened). The next unused queue
+number is **288** and the next ADR is **0023**. This is one iteration, not a
+finished queue or roadmap.

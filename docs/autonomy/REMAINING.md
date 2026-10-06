@@ -462,6 +462,14 @@ It found an inline-block holding a block broken around it by the box tree;
 that is 286, blocked until a page needs it, like 284. 117 queue items are
 open; the next unused queue number is 287 and the next unused ADR 0023.
 
+Iteration 178 built the sizing half of 279: `width` and `height` on an
+`<svg>` are presentation attributes, so a per cent or an `em` sizes the box
+through the cascade and a stylesheet beats it (corpus case
+`svg-relative-size`). Its `transform`-property half is cut to 287, eligible.
+A per cent on an inline-level `<svg>` is 284's double resolution. 117 queue
+items are open; the next unused queue number is 288 and the next unused ADR
+0023.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

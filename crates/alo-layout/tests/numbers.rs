@@ -1372,3 +1372,83 @@ fn a_button_stands_on_its_labels_baseline() {
     let block = rect_of(&boxes, &layout, "w", html);
     assert!(close(block.size.height, 19.2), "{block:?}");
 }
+
+/// Item 279: an outermost `<svg>`'s `width` and `height` attributes are
+/// presentation attributes, so a per cent is a share of the containing block
+/// and an `em` is the `<svg>`'s own font size — through the cascade, not
+/// guessed by the box.
+///
+/// The `<svg>`s sized by a per cent are made blocks. An inline-level one is
+/// an atomic inline, and a per-cent width on one of those is resolved twice —
+/// reserved at 200 and drawn at 100 — which is item 284's, not this one's:
+/// it is the same for a stylesheet's `width: 50%` on an `inline-block`.
+#[test]
+fn an_svgs_relative_size_attributes_size_its_box() {
+    let css = "#d { width: 400px } svg { font-size: 10px; display: block }";
+    let html = "<body><div id=d><svg id=s width=50% height=2em></svg></div></body>";
+    let (boxes, layout) = lay_out(html, css, Size::new(800.0, 600.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "s", html).size,
+        Size::new(200.0, 20.0)
+    );
+
+    // A per-cent width and a `viewBox`'s shape: the height follows.
+    let html = "<body><div id=d><svg id=s width=50% viewBox='0 0 4 1'></svg></div></body>";
+    let (boxes, layout) = lay_out(html, css, Size::new(800.0, 600.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "s", html).size,
+        Size::new(200.0, 50.0)
+    );
+
+    // Inline, as the user-agent sheet leaves it: an `em` on each axis, and
+    // the `<svg>`'s own font size rather than its parent's.
+    let html = "<body><p id=d><svg id=s width=3em height=2em></svg></p></body>";
+    let (boxes, layout) = lay_out(
+        html,
+        "p { font-size: 20px } svg { font-size: 10px }",
+        Size::new(800.0, 600.0),
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "s", html).size,
+        Size::new(30.0, 20.0)
+    );
+
+    // A plain number is still pixels, and an absolute unit converts.
+    let html = "<body><svg id=s width=48 height=0.25in></svg></body>";
+    let (boxes, layout) = lay_out(html, "", Size::new(800.0, 600.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "s", html).size,
+        Size::new(48.0, 24.0)
+    );
+}
+
+/// A presentation attribute is an author declaration of specificity zero, so
+/// any stylesheet rule beats it — even `*`, and even for one axis alone.
+#[test]
+fn a_stylesheet_beats_an_svgs_size_attributes() {
+    let html = "<body><div id=d><svg id=s width=50% height=2em></svg></div></body>";
+    let sizes = [
+        ("* { width: 30px }", Size::new(30.0, 20.0)),
+        ("svg { height: 7px }", Size::new(200.0, 7.0)),
+        ("#s { width: 25%; height: 3em }", Size::new(100.0, 30.0)),
+    ];
+    for (rule, expected) in sizes {
+        let css = format!("#d {{ width: 400px }} svg {{ font-size: 10px; display: block }} {rule}");
+        let (boxes, layout) = lay_out(html, &css, Size::new(800.0, 600.0));
+        assert_eq!(rect_of(&boxes, &layout, "s", html).size, expected, "{rule}");
+    }
+}
+/// A size attribute that is not a size is ignored, as an invalid declaration
+/// is, and the box is what it would have been without it.
+#[test]
+fn a_hostile_svg_size_attribute_is_as_though_unwritten() {
+    for bad in ["-10", "1e39px", "twelve", "NaN"] {
+        let html = format!("<body><svg id=s width='{bad}' height=20></svg></body>");
+        let (boxes, layout) = lay_out(&html, "", Size::new(800.0, 600.0));
+        assert_eq!(
+            rect_of(&boxes, &layout, "s", &html).size,
+            Size::new(300.0, 20.0),
+            "{bad:?}",
+        );
+    }
+}

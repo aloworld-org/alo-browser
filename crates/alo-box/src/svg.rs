@@ -15,27 +15,31 @@
 //! # Its size
 //!
 //! CSS first, and that half is layout's: a stylesheet's `width` is a definite
-//! size, and a definite size wins over anything here. Then what the element
-//! says of itself, which this file reads into a [`NaturalSize`]:
+//! size, and a definite size wins over anything here. The `width` and
+//! `height` attributes are in that half too. They are presentation attributes
+//! (SVG 2, item 279), declarations in the cascade (`alo-style`'s
+//! `presentation.rs`) that any stylesheet beats, so `width="50%"` is fifty per
+//! cent of what layout knows it is of and `height="2em"` is two of the
+//! `<svg>`'s own font size. Then what the element says of itself, which this
+//! file reads into a [`NaturalSize`]:
 //!
 //! - the `width` and `height` attributes, when they are absolute lengths;
 //! - a ratio from them when there are both, and otherwise from the `viewBox`;
 //! - and nothing at all when there is neither, which layout turns into CSS's
 //!   default of 300 × 150.
 //!
-//! A `width` in per cent or in `em` is a size relative to something this file
-//! cannot see. SVG 2 makes those attributes presentation attributes; item 271
-//! put presentation attributes into the cascade for what paint reads, and cut
-//! these two out to item 279, because as declarations they size the box and
-//! change layout. Until then such a value is **recorded and not used**, rather
-//! than guessed at.
+//! A `width` in per cent or in `em` is not a natural size — it is a share of
+//! something outside the picture — and so is not one here. It is not lost: it
+//! reached layout through the cascade. A value that is not a size at all was
+//! recorded by the cascade when it ignored the declaration, and is not
+//! recorded twice.
 //!
 //! # The bytes are a stranger's
 //!
 //! Every number here came from an attribute anybody can write. A value that is
-//! not a finite, non-negative number is refused and the element is sized as
-//! though it had not been written — never a panic, never an infinity handed to
-//! layout. The parsing below allocates nothing in proportion to its input.
+//! not a finite, non-negative number is no natural size, and the element is
+//! sized as though it had not been written — never a panic, never an infinity
+//! handed to layout. The parsing below allocates nothing in proportion to its input.
 
 use crate::natural::NaturalSize;
 use alo_dom::{Document, Element, Namespace, NodeId};
@@ -60,18 +64,8 @@ pub fn is_outermost(document: &Document, id: NodeId, element: &Element) -> bool 
 /// this engine did not use.
 pub fn natural_size(element: &Element) -> (NaturalSize, Vec<String>) {
     let mut refused = Vec::new();
-    let mut dimension = |name: &str| {
-        let text = element.attr(name)?;
-        match attribute_length(text) {
-            Ok(pixels) => Some(pixels),
-            Err(why) => {
-                refused.push(format!("<svg {name}={text:?}>: {why}"));
-                None
-            }
-        }
-    };
-    let width = dimension("width");
-    let height = dimension("height");
+    let width = element.attr("width").and_then(attribute_length);
+    let height = element.attr("height").and_then(attribute_length);
     let stated_ratio = match element.attr("viewBox").map(view_box) {
         None => None,
         Some(Some(view)) => view.ratio(),
@@ -180,37 +174,25 @@ fn svg_number(word: &str) -> Option<f32> {
     word.parse::<f32>().ok().filter(|value| value.is_finite())
 }
 
-/// A `width` or `height` attribute as CSS pixels, or why it was not used.
+/// A `width` or `height` attribute as CSS pixels, if it is an absolute size.
 ///
 /// A plain number is user units, which on an outermost `<svg>` are CSS pixels.
-/// A length in an absolute unit is converted. A percentage or a font-relative
-/// length is a real value this engine does not resolve yet (see the module
-/// comment), and anything else is not a length.
-fn attribute_length(text: &str) -> Result<f32, &'static str> {
+/// A length in an absolute unit is converted. A percentage, a font-relative
+/// length or a `calc()` is a share of something outside the picture, which
+/// layout resolves from the declaration (see the module comment), and anything
+/// else is not a size.
+fn attribute_length(text: &str) -> Option<f32> {
     let text = text.trim();
-    let pixels = if let Some(number) = svg_number(text) {
-        number
-    } else {
-        match alo_value::parse_length_percentage(text) {
-            Some(alo_value::LengthPercentage::Length(length)) => length
-                .to_absolute_px()
-                .ok_or("a length relative to a font, which waits for item 279")?,
-            Some(alo_value::LengthPercentage::Percentage(_)) => {
-                return Err("a percentage, which waits for item 279");
+    let pixels = match svg_number(text) {
+        Some(number) => number,
+        None => match alo_value::parse_length_percentage(text)? {
+            alo_value::LengthPercentage::Length(length) => length.to_absolute_px()?,
+            alo_value::LengthPercentage::Percentage(_) | alo_value::LengthPercentage::Calc(_) => {
+                return None;
             }
-            Some(alo_value::LengthPercentage::Calc(_)) => {
-                return Err("a calc() expression, which waits for item 279");
-            }
-            None => return Err("not a length"),
-        }
+        },
     };
-    if !pixels.is_finite() {
-        return Err("not a finite length");
-    }
-    if pixels < 0.0 {
-        return Err("a negative size");
-    }
-    Ok(pixels)
+    (pixels.is_finite() && pixels >= 0.0).then_some(pixels)
 }
 
 #[cfg(test)]
@@ -281,15 +263,17 @@ mod tests {
         assert!(refused.is_empty());
     }
 
+    /// A relative size is layout's, through the cascade, and is neither a
+    /// natural size nor something this file refused.
     #[test]
-    fn a_relative_size_is_recorded_and_not_guessed() {
+    fn a_relative_size_is_not_a_natural_size() {
         let (size, refused) = natural("width=50% height=2em viewBox='0 0 4 1'");
         assert_eq!(size.width, None);
         assert_eq!(size.height, None);
         assert_eq!(size.ratio(), Some(4.0), "the viewBox still gives the shape");
-        assert_eq!(refused.len(), 2, "{refused:?}");
-        assert!(refused.iter().any(|why| why.contains("percentage")));
-        assert!(refused.iter().any(|why| why.contains("font")));
+        assert!(refused.is_empty(), "{refused:?}");
+        let (size, _) = natural("width='calc(10px + 1em)'");
+        assert_eq!(size.width, None);
     }
 
     #[test]
@@ -346,8 +330,10 @@ mod tests {
         );
     }
 
+    /// The cascade records a hostile size when it ignores the declaration;
+    /// here it is only not a natural size.
     #[test]
-    fn hostile_sizes_are_refused_and_recorded() {
+    fn hostile_sizes_are_no_natural_size() {
         for bad in [
             "-1",
             "inf",
@@ -361,7 +347,7 @@ mod tests {
         ] {
             let (size, refused) = natural(&format!("width='{bad}'"));
             assert_eq!(size.width, None, "{bad:?}");
-            assert_eq!(refused.len(), 1, "{bad:?} was not recorded");
+            assert!(refused.is_empty(), "{bad:?} was recorded twice");
         }
     }
 

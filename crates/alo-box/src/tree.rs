@@ -755,7 +755,7 @@ fn build_one(
 /// Whatever its `display` says about its inside, it gets **no children**:
 /// what is inside an `<svg>` is drawn, not laid out, so a `<path>` makes no
 /// box any more than a pixel of an `<img>` does. Its natural size comes from
-/// its own attributes, and what it wrote that could not be used is recorded.
+/// its own attributes, and a `viewBox` that could not be read is recorded.
 fn svg_box(
     document: &Document,
     id: NodeId,
@@ -1146,15 +1146,14 @@ mod tests {
         );
     }
 
+    /// A per-cent `width` is used now, by layout through the cascade (item
+    /// 279), so the box no longer records it; a `viewBox` it cannot read it
+    /// still does.
     #[test]
     fn what_an_svg_wrote_that_was_not_used_is_recorded() {
         let tree = boxes("<svg width=50% viewBox='0 0 -1 1'></svg>", "");
         let issues: Vec<String> = tree.issues().iter().map(ToString::to_string).collect();
-        assert_eq!(issues.len(), 2, "{issues:?}");
-        assert!(
-            issues.iter().any(|issue| issue.contains("width")),
-            "{issues:?}"
-        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
         assert!(
             issues.iter().any(|issue| issue.contains("viewBox")),
             "{issues:?}"

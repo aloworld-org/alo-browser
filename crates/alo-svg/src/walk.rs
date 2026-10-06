@@ -235,7 +235,7 @@ impl Walk<'_> {
         let name = &*element.name.local;
         if style.get("transform").is_some() {
             self.issues.push(format!(
-                "<{name}>: the transform property on an element inside an <svg> is not applied yet (item 279)"
+                "<{name}>: the transform property on an element inside an <svg> is not applied yet (item 287)"
             ));
         }
         for refused in [

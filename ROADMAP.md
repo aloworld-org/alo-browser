@@ -1035,11 +1035,16 @@ unreachable without it.
       outlined in user space by `tiny-skia`'s stroker and dasher behind
       `alo-paint`'s `raster.rs` (`outline`), dashes counted and bounded before
       they are cut; corpus cases `svg-strokes` and `alo-offline`, alo's own
-      offline screen frozen byte for byte with its hand drawn
-      · Owed: the `transform` property and per-cent or `em` `width`
-      attributes (279); a nested `<svg>` (278), `<use>` (274), SVG paint
-      servers (275), `<text>` (276) and an SVG file as a picture (277), each
-      when a page needs it.
+      offline screen frozen byte for byte with its hand drawn; relative sizes
+      (item 279) — `width` and `height` on an `<svg>` are presentation
+      attributes in `presentation.rs`, so a per cent or an `em` sizes the box
+      through the cascade and a stylesheet beats it; corpus case
+      `svg-relative-size`
+      · Owed: the `transform` property on SVG elements (287); a per cent on
+      an inline-level `<svg>`, resolved twice like any inline-block's (284);
+      a nested `<svg>` (278), `<use>` (274), SVG paint servers (275),
+      `<text>` (276) and an SVG file as a picture (277), each when a page
+      needs it.
       Decided in ADR 0022. An `<svg>` is one
       replaced box with no boxes inside it, and its contents become a drawing
       of paths, made by a new crate `alo-svg` after layout and handed to paint

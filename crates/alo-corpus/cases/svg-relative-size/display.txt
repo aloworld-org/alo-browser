@@ -1,0 +1,24 @@
+fill box#1 rgb(244 241 236) at (0, 4) 200×162.66016
+fill box#3 rgb(233 196 106) at (0, 4) 100×20
+clip box#3 to (0, 4) 100×20
+fill box#3 rgb(38 70 83) at (0, 4) 100×20
+unclip
+fill box#7 rgb(233 196 106) at (0, 28) 50×25
+clip box#7 to (0, 28) 50×25
+fill box#7 rgb(38 70 83) at (12.5, 28) 25×25
+unclip
+text box#11 "em" rgb(0 0 0) 12px at (0, 77)
+fill box#12 rgb(233 196 106) at (22.886719, 57) 60×20
+clip box#12 to (22.886719, 57) 60×20
+fill box#12 rgb(38 70 83) at (22.886719, 57) 60×20
+unclip
+text box#13 "em" rgb(0 0 0) 12px at (86.70117, 77)
+fill box#17 rgb(233 196 106) at (0, 83.83008) 40×30
+clip box#17 to (0, 83.83008) 40×30
+fill box#17 rgb(231 111 81) at (0, 83.83008) 40×30
+unclip
+fill box#21 rgb(233 196 106) at (0, 117.83008) 100×30
+clip box#21 to (0, 117.83008) 100×30
+fill box#21 rgb(42 157 143) at (0, 117.83008) 100×30
+unclip
+fill box#25 rgb(233 196 106) at (0, 151.83008) 300×12

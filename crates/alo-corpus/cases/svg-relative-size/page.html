@@ -1,0 +1,18 @@
+<!-- Queue item 279: an outermost <svg>'s width and height attributes are
+     presentation attributes. A per cent is a share of the containing block,
+     an em is the <svg>'s own font size, and any stylesheet rule beats them.
+     Each rect fills its viewBox, so the drawing shows the box it was given. -->
+<!-- 50% of the 200px column by 2em of 10px: 100 by 20. -->
+<div><svg class=block width="50%" height="2em" viewBox="0 0 10 2" preserveAspectRatio="none"><rect width="10" height="2" /></svg></div>
+<!-- A per cent and only a viewBox: 25% is 50 wide, and the 2:1 shape makes it 25 tall. -->
+<div><svg class=block width="25%" viewBox="0 0 2 1"><circle cx="1" cy=".5" r=".5" /></svg></div>
+<!-- Inline, in ems alone: 6em by 2em of 10px. -->
+<p>em <svg width="6em" height="2em" viewBox="0 0 6 2" preserveAspectRatio="none"><rect width="6" height="2" /></svg> em</p>
+<!-- The same attributes as the first, beaten by the stylesheet on both axes. -->
+<div><svg class="block beaten" width="50%" height="2em" viewBox="0 0 10 2" preserveAspectRatio="none"><rect width="10" height="2" /></svg></div>
+<!-- Beaten on one axis only: the stylesheet's height, the attribute's width. -->
+<div><svg class="block taller" width="50%" height="2em" viewBox="0 0 10 2" preserveAspectRatio="none"><rect width="10" height="2" /></svg></div>
+<!-- Not a size: ignored as an invalid declaration is, and recorded. The
+     height is the attribute's 12 and the width CSS's default 300, past the
+     edge of the 200px column as a 300px picture would be. -->
+<p><svg width="-10" height="12"></svg></p>

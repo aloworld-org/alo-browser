@@ -4877,6 +4877,9 @@ The long pole, and the thing most of section E is unreachable without.
   second pass should be handed the box's size rather than room to find one
   in. *Depends on nothing. Blocked: no page yet* — nothing in alo writes a
   percentage width on an inline-level box, so a page that does opens it.
+  An inline `<svg width="50%">` hits it the same way (iteration 178, item
+  279), which is why `svg-relative-size` asks its per cents of block-level
+  `<svg>`s; that case should gain an inline one when this closes.
   *Closes when:* a
   `numbers.rs` assertion has a 50%-wide inline-block in 400 px drawn 200
   wide, with and without margins, and the line's next text right after it.
@@ -5215,7 +5218,8 @@ The long pole, and the thing most of section E is unreachable without.
   a page needs them. ADR 0022 § 7 lists what stays refused.
 
   **Closed (iteration 172)**, as its own text says, by 270–273 closing: the
-  offline screen's hand is drawn. What SVG still owes is items 274–279, each
+  offline screen's hand is drawn. What SVG still owes is items 274–278 and
+  287 (279 closed by iteration 178), each
   with its own closing condition, and `ROADMAP.md`'s *SVG* line stays open
   for them.
 
@@ -5303,7 +5307,8 @@ The long pole, and the thing most of section E is unreachable without.
   in its attribute-sized `<svg>` is now drawn black, and its four paths are
   recorded for 272. **Cut:** a nested `<svg>` viewport (278), and the
   `transform` property on SVG elements with per-cent and `em` `width` and
-  `height` on an outermost `<svg>` (279).
+  `height` on an outermost `<svg>` (279; its `transform` half later cut
+  again, to 287).
 
 - [x] **272. Path data.** *Cut from 107 (ADR 0022 §§ 2, 5).* The `d` grammar,
   every command, absolute and relative, with arcs converted to cubic curves
@@ -5424,19 +5429,74 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on 271. Opened only by a frozen page that needs it*, as 179 is;
   until then a nested `<svg>` is left out and recorded.
 
-- [ ] **279. The `transform` property and relative sizes on SVG elements.**
-  *Cut from 271 (ADR 0022 §§ 1, 3).* Two halves of "presentation attributes
-  that are geometry". The CSS `transform` property on an element inside an
-  `<svg>`, with `transform-box` and `transform-origin` as SVG 2 defines them,
-  composed with the `transform` attribute (which becomes its presentation
-  attribute). And `width` and `height` on an outermost `<svg>` as
-  presentation attributes, so `width="50%"` or `height="2em"` size the box
-  through the cascade instead of being recorded and ignored by `alo-box`'s
-  `svg.rs`.
+- [x] **279. Relative sizes on an outermost `<svg>`.** *Cut from 271 (ADR
+  0022 §§ 1, 3).* *Retitled by iteration 178*, which cut its other half —
+  the `transform` property — to **287**: the two halves share a reason
+  ("presentation attributes that are geometry") and no code, and the
+  property needs its own grammar decision (below). `width` and `height` on
+  an outermost `<svg>` as presentation attributes, so `width="50%"` or
+  `height="2em"` size the box through the cascade instead of being recorded
+  and ignored by `alo-box`'s `svg.rs`.
   *Depends on 271. Closes when:* a layout assertion sizes an `<svg>` from a
-  per-cent and an `em` attribute, and a stylesheet beats each; a reference
-  render shows a shape turned by the property about its own box, and the
-  property and the attribute together.
+  per-cent and an `em` attribute, and a stylesheet beats each.
+  **Built (iteration 178).** `alo-style`'s `presentation.rs` lists `width`
+  and `height`, as presentation attributes **on an `<svg>` only**: on a
+  `<rect>` or an `<image>` SVG 2 makes them properties too, but nothing
+  there is a box and `alo-svg` reads them as geometry, as ADR 0022 § 3
+  says until a page sets one from a stylesheet. A plain number is written
+  into the declaration as pixels (`width="48"` is `width: 48px`), `auto`
+  and `inherit` are kept, and a value that is negative, not finite
+  (`1e39px`), or not a length is ignored and recorded as an invalid
+  declaration, so layout is never handed an infinity. `alo-box`'s
+  `svg.rs` still reads an absolute attribute as the **natural** size, and a
+  relative one is no longer recorded there: it is used, through the
+  cascade, and an invalid one is recorded once, by the cascade. Tests:
+  `presentation.rs` 3 new (an `<svg>`'s size is a declaration and a number
+  is pixels; a `<rect>`'s is not; twelve hostile values ignored and
+  recorded, `1e39px` and `1e39%` among them); `svg.rs`'s relative-size and
+  hostile-size tests now say they are not natural sizes and not recorded
+  there; `tree.rs`'s recorded-issues test is down to the `viewBox`.
+  `numbers.rs` 3 new: `width=50% height=2em` in a 400 px block with a
+  10 px font is 200 × 20; `50%` and a 4:1 `viewBox` is 200 × 50; inline,
+  `3em × 2em` is 30 × 20 (the `<svg>`'s own font, not the paragraph's
+  20 px); `48` and `0.25in` are 48 × 24; `* { width: 30px }` beats the
+  per cent (30 × 20), `svg { height: 7px }` the `em` alone (200 × 7), and
+  `#s { width: 25%; height: 3em }` both (100 × 30); `-10`, `1e39px`,
+  `twelve` and `NaN` as a width leave a 300 × 20 box. Doctored: hints
+  off for `width`/`height` fails the two sizing tests; the finiteness and
+  sign check removed fails the hostile one in both crates. Corpus case
+  **`svg-relative-size`** is the reference render: a per-cent and `em`
+  box, a per cent with a `viewBox`'s shape, an inline `em` box beside
+  text, one beaten on both axes and one on its height alone, and an
+  invalid width at the default 300. No other case moved.
+  *What it found:* a per cent on an **inline-level** `<svg>` is item 284's
+  double resolution (reserved 200, drawn 100), so the per-cent tests and
+  case use block-level `<svg>`s and 284 now names this case too. And a
+  block-level replaced box with an `auto` width and no natural width or
+  ratio fills its container (an `<img>` does the same) where CSS 2
+  § 10.3.4 gives 300 — whether browsers stretch a block `<svg>` there is
+  not settled here, so nothing asserts either number; written into the
+  journal to be checked before it is relied on.
+
+- [ ] **287. The `transform` property on SVG elements.** *Cut from 279 on
+  the iteration that built its sizing half (ADR 0022 §§ 2, 3).* The CSS
+  `transform` property on an element inside an `<svg>`, with
+  `transform-box` and `transform-origin` as SVG 2 defines them (an SVG
+  element's initial origin is `0 0` and its box the `view-box`), and the
+  `transform` attribute as its presentation attribute — so a stylesheet's
+  `transform` **replaces** the attribute on that element, and the two
+  compose only across ancestors. What has to be decided while building it,
+  and said in the code: the attribute's grammar is SVG's (unitless
+  numbers, `rotate(a x y)`, comma separators), not CSS's, so the hint is
+  either turned into a CSS value the cascade can hold or marked as the
+  attribute's so `alo-svg` reads it by its own grammar; and `alo-style`
+  cannot call `alo-svg`'s `transform.rs`, which depends on it. Today the
+  property is recorded and not applied (`walk.rs`).
+  *Depends on 271. Closes when:* a reference render shows a shape turned
+  by the property about its own box (`transform-box: fill-box;
+  transform-origin: center`), a stylesheet's `transform` replacing an
+  element's attribute, and a property on a child composed under a `<g>`'s
+  attribute; and a hostile-input test of every value the hint can carry.
 
 - [ ] **108. Canvas 2D.** The rasteriser exists; this is the API over it and the
   compositing rules around it.

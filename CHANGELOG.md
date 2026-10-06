@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An SVG icon can be sized in per cent or in `em`.** `<svg width="50%">`
+  and `<svg height="2em">` used to be ignored, so the picture fell back to
+  its shape or to 300 × 150. They now size it — half the width it sits in,
+  twice its own font size — and a stylesheet's `width` or `height` still
+  wins over the attribute, as in other browsers. A per-cent width on an SVG
+  that sits inside a line of text is still drawn at the wrong width, as it
+  is for any inline-block; that is queued.
+
 - **A button sits level with the text beside it.** A button, a text field
   and an inline-block of text used to stand on their bottom edge, so text
   next to them sat low and a line holding only a button was a little too

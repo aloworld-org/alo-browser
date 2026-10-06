@@ -1,0 +1,10 @@
+body { margin: 0; font-family: 'DejaVu Sans'; font-size: 12px; width: 200px; background: #f4f1ec }
+div, p { margin: 4px 0 }
+/* Every <svg> has a background so the render shows its box, and the shape
+   inside it is drawn in a second colour so it shows the drawing filled it. */
+svg { font-size: 10px; background: #e9c46a; fill: #264653 }
+/* Per cents are asked of block-level <svg>s: on an inline one a per-cent
+   width is resolved twice, which is queue item 284 and not this case's. */
+.block { display: block }
+.beaten { width: 40px; height: 30px; fill: #e76f51 }
+.taller { height: 3em; fill: #2a9d8f }

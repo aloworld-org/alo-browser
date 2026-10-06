@@ -1,0 +1,2 @@
+line 6: Unexpected token
+0:0: invalid declaration, dropped: presentation attribute <svg width="-10">

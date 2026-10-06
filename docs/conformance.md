@@ -221,8 +221,12 @@ their offset, a stroke squashed with its shape under a transform (corpus case
 `svg-strokes`) — so alo's offline screen draws its hand (`alo-offline`).
 SVG 2's `miter-clip` and `arcs` joins are not understood, as in every browser,
 and `paint-order` and `vector-effect` are reported and not applied. A nested `<svg>`, `<use>`, `<text>`, gradients and the
-`transform` *property* on an SVG element are not drawn and are reported; a
-`width` in per cent or `em` on an `<svg>` is recorded and not used (item 279). Most targets below are still
+`transform` *property* on an SVG element are not drawn and are reported (the
+property is item 287). **A `width` or `height` attribute in per cent or `em`
+sizes its `<svg>`** through the cascade, beaten by any stylesheet rule (corpus
+case `svg-relative-size`); a per cent on an inline-level `<svg>` is resolved
+twice, as on any inline-block (item 284), and is right on a block-level one.
+Most targets below are still
 `not yet`, because they are alo's own screens rather than pages we wrote to test
 with — and the sign-in screen, which is alo's, is *nearly* rather than done: the
 four substitutions in its case are four things this engine has yet to implement.

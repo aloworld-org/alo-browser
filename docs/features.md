@@ -451,9 +451,11 @@ The reason this exists rather than a faster fork of somebody else's engine.
   up to its first error. **Strokes are drawn** (item 273): `stroke`, its
   width, caps, joins, miter limit, opacity and dashes, outlined by the rented
   stroker and squashed with their shape under a transform, so alo's offline
-  screen draws its hand. A
-  nested `<svg>` is 278, and the `transform` property and relative `width`
-  attributes on SVG elements are 279
+  screen draws its hand. **Relative sizes work** (item 279): `width` and
+  `height` on an `<svg>` are presentation attributes, so `width="50%"` and
+  `height="2em"` size its box through the cascade, and any stylesheet rule
+  beats them. A nested `<svg>` is 278, and the `transform` property on SVG
+  elements is 287
 - [2] Canvas 2D
 - [2] Audio and video playback through rented decoders
 - [2] Media Source Extensions, without which most video sites do not play at all
