@@ -33,6 +33,11 @@
 //! the renderer dispatches to the page's listeners, around which it runs the
 //! same rule itself — and a listener may cancel it.
 //!
+//! **Text put into a field is `alo-dom`'s rule too** ([`alo_dom::field`]),
+//! and the same split holds: here on a page that never ran script, and on
+//! one that has, the renderer runs it between a `beforeinput` the page may
+//! cancel and the `input` that says it happened (ADR 0018 § 5).
+//!
 //! **`aria-checked` is changed here, and only here**, as a stage 1
 //! accommodation (ADR 0018 § 7): on a page without script nobody else keeps
 //! that promise, and alo's own scriptless screens were tested against it. On
@@ -47,6 +52,7 @@
 use crate::verb::Outcome;
 use alo_box::{BoxId, BoxTree};
 use alo_dom::activation::{self, Activation};
+use alo_dom::field;
 use alo_dom::{Document, NodeId};
 
 /// What changing the document actually did.
@@ -88,19 +94,24 @@ pub fn apply(document: &mut Document, boxes: &BoxTree, outcome: &Outcome) -> Vec
     };
     match outcome {
         Outcome::TextPut { text, .. } => {
-            // A field's text is its `value`, which is where it was going to be
-            // read from anyway — an `<input>` shows what it holds.
-            document.set_attribute(node, "value", text);
+            // `alo-dom`'s rule, which the renderer runs on a page with script.
+            if !field::put_text(document, node, text) {
+                return vec![Change::Nothing];
+            }
             vec![Change::Set {
                 node,
-                attribute: "value".to_owned(),
+                attribute: field::TEXT.to_owned(),
                 value: text.clone(),
             }]
         }
         Outcome::Activated { .. } => activate(document, node),
         // Where a page goes is the browser process's, and scrolling is a fact
         // about the view rather than about the document.
-        Outcome::Followed { .. } | Outcome::Scrolled { .. } => vec![Change::Nothing],
+        // And text a page cancelled is text it did not take; only a page
+        // with script, which this is never asked about, can cancel it.
+        Outcome::Followed { .. } | Outcome::Scrolled { .. } | Outcome::TextCanceled { .. } => {
+            vec![Change::Nothing]
+        }
     }
 }
 

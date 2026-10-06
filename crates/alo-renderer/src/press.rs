@@ -9,9 +9,8 @@
 //! agent read. On a page whose document is in its heap that decision is
 //! **not** carried into the document by `alo-agent`'s `apply`: it is a
 //! `click`, queued as one task on the page's loop ([`Held::activate`]), and
-//! the page's listeners decide what it does. This runs that task — and any
-//! task queued before it, oldest first, since one order holds across all of
-//! them (ADR 0016 § 2) — and says what it came to: whether a link is to be
+//! the page's listeners decide what it does. This runs that task
+//! ([`crate::run_to`]) and says what it came to: whether a link is to be
 //! followed, and what the page's script said while it ran.
 //!
 //! # A page whose script has stopped
@@ -21,20 +20,13 @@
 //! is still ticked, a link still followed — because that is `alo-dom`'s rule,
 //! not the page's script; nobody hears it, and the answer says so. It does
 //! not change ARIA state either: that promise was the page's (ADR 0018 § 7).
-//!
-//! # How much it says
-//!
-//! What one `Act` says crosses in one message, so it is bounded as a load's
-//! is ([`crate::scripts`]): at most [`MOST_REPORTS`] lines, each at most
-//! [`LONGEST_LINE`](crate::said::LONGEST_LINE) characters, and then how many
-//! more there were.
 
 use alo_dom::NodeId;
 use alo_dom::activation::{self, Follows};
 
-use crate::event_loop::{MOST_REPORTS, Unqueued};
+use crate::event_loop::Unqueued;
 use crate::held::Held;
-use crate::said;
+use crate::run_to::{Said, run_to};
 
 /// What pressing a node on a page that runs script came to.
 #[derive(Debug, Default)]
@@ -46,65 +38,33 @@ pub(crate) struct Pressed {
     pub(crate) issues: Vec<String>,
 }
 
-impl Pressed {
-    /// Say `what` about the click, if there is room, or count it.
-    fn say(&mut self, what: &dyn core::fmt::Display, left_out: &mut usize) {
-        if self.issues.len() < MOST_REPORTS {
-            self.issues
-                .push(said::line(&format_args!("the click: {what}")));
-        } else {
-            *left_out = left_out.saturating_add(1);
-        }
-    }
-}
-
 /// Press `node` on a page whose document is in its heap: queue the click's
 /// task and run the loop until it has run. [`None`] for a page that has never
 /// run script, which `alo-agent`'s `apply` acts on instead.
 pub(crate) fn press(held: &mut Held, node: NodeId) -> Option<Pressed> {
-    let mut pressed = Pressed::default();
-    let mut left_out = 0_usize;
-    let seq = match held.activate(node) {
-        Ok(Some(seq)) => seq,
+    let mut said = Said::about("the click");
+    let mut follow = None;
+    match held.activate(node) {
+        Ok(Some(seq)) => {
+            if let Some(turn) = run_to(held, seq, &mut said) {
+                follow = followed(turn.clicked.map(|clicked| clicked.follows));
+            }
+        }
         Ok(None) => return None,
         Err(Unqueued::Stopped(why)) => {
             let follows = held.change(|document| {
                 let done = activation::before(document, node);
                 activation::after(document, &done)
             });
-            pressed.follow = followed(follows);
-            pressed.say(&format_args!("nobody heard it: {why}"), &mut left_out);
-            return Some(pressed);
+            follow = followed(follows);
+            said.say(&format_args!("nobody heard it: {why}"));
         }
-        Err(why @ (Unqueued::NoSuchNode(_) | Unqueued::NotADocument)) => {
-            pressed.say(&why, &mut left_out);
-            return Some(pressed);
-        }
-    };
-    let Some(page_loop) = held.event_loop() else {
-        return Some(pressed);
-    };
-    let room = |pressed: &Pressed| MOST_REPORTS.saturating_sub(pressed.issues.len());
-    while let Some(turn) = page_loop.run_next_within(room(&pressed)) {
-        for report in &turn.reports {
-            pressed.say(report, &mut left_out);
-        }
-        left_out = left_out.saturating_add(turn.unreported);
-        if let Some(stopped) = &turn.stopped {
-            pressed.say(stopped, &mut left_out);
-        }
-        if turn.task == seq {
-            pressed.follow = followed(turn.clicked.map(|clicked| clicked.follows));
-            break;
-        }
+        Err(why @ (Unqueued::NoSuchNode(_) | Unqueued::NotADocument)) => said.say(&why),
     }
-    if left_out > 0 {
-        pressed.issues.push(format!(
-            "{left_out} more things the click's script said were not said: one action says at \
-             most {MOST_REPORTS}"
-        ));
-    }
-    Some(pressed)
+    Some(Pressed {
+        follow,
+        issues: said.lines(),
+    })
 }
 
 /// Where `follows` says to go, if anywhere.

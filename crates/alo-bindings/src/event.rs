@@ -8,7 +8,8 @@
 //! state — its type, its three init flags, its phase, its target and current
 //! target, the flags its listeners set — and an ordinary object's part for
 //! whatever a page hangs off it. A `CustomEvent` is the same cell with its
-//! `detail`, and a `PointerEvent` the same cell with its [`Shape`] saying so.
+//! `detail`, a `PointerEvent` the same cell with its [`Shape`] saying so, and
+//! an `InputEvent` the same cell with its `inputType` and `data`.
 //!
 //! # A dispatch's state lives here
 //!
@@ -24,7 +25,8 @@
 //!
 //! A page makes its events with `new Event(…)`; the browser makes its own
 //! with [`create`], the standard's *create an event*: an `Event` — or a
-//! `PointerEvent`, for a click (queue item 256) — inheriting from the
+//! `PointerEvent`, for a click (queue item 256), or an `InputEvent`, for text
+//! an agent put into a field (queue item 257) — inheriting from the
 //! prototype the page's document cell holds, its type and init flags as the
 //! browser gives them ([`Firing`]), and nothing else. Its dispatch is
 //! the event loop's (queue item 255), and is trusted (ADR 0018 § 4).
@@ -110,6 +112,19 @@ pub enum Shape {
     /// no modifier, `pointerId` `-1`, `pointerType` `""`. A pointer that
     /// really points brings fields with it, with the window that has one.
     Pointer,
+    /// An `InputEvent`, and so a `UIEvent` (ADR 0018 § 5): the browser's
+    /// for an agent's `PutText`, whose `inputType` and `data` it holds
+    /// (`Typing`). No composition is ever in progress, so `isComposing`
+    /// is `false` and is not held.
+    Input,
+}
+
+/// What an `InputEvent` says was typed: its `inputType` and its `data`.
+/// Empty, and unread, on every other shape.
+#[derive(Debug, Default)]
+struct Typing {
+    input_type: Vec<u16>,
+    data: Option<Vec<u16>>,
 }
 
 /// How far a listener has stopped a dispatch.
@@ -142,6 +157,7 @@ pub struct Event {
     target: Field,
     current_target: Field,
     detail: Stored,
+    typing: Typing,
     progress: Option<Progress>,
 }
 
@@ -163,6 +179,7 @@ impl Event {
             current_target: Field::empty(),
             // A `CustomEvent`'s `detail` defaults to `null`.
             detail: Stored::holding(Value::Null),
+            typing: Typing::default(),
             progress: None,
         }
     }
@@ -172,10 +189,26 @@ impl Event {
         self.shape == Shape::Custom
     }
 
-    /// Whether it is a `PointerEvent` — and so a `MouseEvent` and a
-    /// `UIEvent`, since no other instance of either is ever made.
+    /// Whether it is a `PointerEvent` — and so a `MouseEvent`, since no
+    /// other instance of one is ever made, and a `UIEvent`.
     pub fn is_pointer(&self) -> bool {
         self.shape == Shape::Pointer
+    }
+
+    /// Whether it is an `InputEvent` — and so a `UIEvent`.
+    pub fn is_input(&self) -> bool {
+        self.shape == Shape::Input
+    }
+
+    /// An `InputEvent`'s `inputType`, as code units: empty on any other.
+    pub fn input_type(&self) -> &[u16] {
+        &self.typing.input_type
+    }
+
+    /// An `InputEvent`'s `data`, as code units, or [`None`] for `null` —
+    /// which is what any other event has.
+    pub fn data(&self) -> Option<&[u16]> {
+        self.typing.data.as_deref()
     }
 
     /// Its type, as the code units it was made with.
@@ -371,6 +404,13 @@ impl Trace for Event {
         self.own
             .footprint()
             .saturating_add(self.kind.capacity().saturating_mul(2))
+            .saturating_add(self.typing.input_type.capacity().saturating_mul(2))
+            .saturating_add(
+                self.typing
+                    .data
+                    .as_ref()
+                    .map_or(0, |data| data.capacity().saturating_mul(2)),
+            )
             .saturating_add(self.progress.as_ref().map_or(0, Progress::footprint))
     }
 }
@@ -381,6 +421,7 @@ impl Exotic for Event {
             Shape::Event => "an Event",
             Shape::Custom => "a CustomEvent",
             Shape::Pointer => "a PointerEvent",
+            Shape::Input => "an InputEvent",
         }
     }
 }
@@ -397,20 +438,28 @@ pub fn make_custom_event(prototype: Option<Ref>) -> Box<dyn Exotic> {
 
 /// Which interface an event the browser fires is an instance of.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Fired {
+pub enum Fired<'a> {
     /// `Event`: what HTML's *fire an event* makes — an `input` or a
     /// `change`, say.
     Event,
     /// `PointerEvent`: a `click` (ADR 0018 § 5).
     PointerEvent,
+    /// `InputEvent`: what text put into a field fires (ADR 0018 § 5).
+    InputEvent {
+        /// Its `inputType` — `"insertReplacementText"`, say.
+        input_type: &'a str,
+        /// Its `data`: the text, or [`None`] for `null`.
+        data: Option<&'a str>,
+    },
 }
 
-impl Fired {
+impl Fired<'_> {
     /// The interface, and the event's shape.
-    const fn interface(self) -> (Interface, Shape) {
+    const fn interface(&self) -> (Interface, Shape) {
         match self {
             Self::Event => (Interface::Event, Shape::Event),
             Self::PointerEvent => (Interface::PointerEvent, Shape::Pointer),
+            Self::InputEvent { .. } => (Interface::InputEvent, Shape::Input),
         }
     }
 }
@@ -420,7 +469,7 @@ impl Fired {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Firing<'a> {
     /// Its interface.
-    pub interface: Fired,
+    pub interface: Fired<'a>,
     /// Its type — `"click"`, say.
     pub kind: &'a str,
     /// `bubbles`.
@@ -463,6 +512,45 @@ impl Firing<'static> {
     };
 }
 
+impl<'a> Firing<'a> {
+    /// The `beforeinput` an agent's `PutText` fires before it replaces a
+    /// field's text with `text` (ADR 0018 § 5): an `InputEvent` whose
+    /// `inputType` is `"insertReplacementText"` and whose `data` is the
+    /// text — bubbling, composed, and cancelable, since cancelling it is
+    /// how a page refuses the text.
+    pub const fn before_replacing(text: &'a str) -> Self {
+        Self {
+            interface: Fired::InputEvent {
+                input_type: REPLACEMENT,
+                data: Some(text),
+            },
+            kind: "beforeinput",
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+        }
+    }
+
+    /// The `input` that follows, once the text is in: the same, except
+    /// that it is not cancelable — the change has happened.
+    pub const fn replaced(text: &'a str) -> Self {
+        Self {
+            interface: Fired::InputEvent {
+                input_type: REPLACEMENT,
+                data: Some(text),
+            },
+            kind: "input",
+            bubbles: true,
+            cancelable: false,
+            composed: true,
+        }
+    }
+}
+
+/// The `inputType` of text replacing a field's text whole, which is what an
+/// agent's `PutText` does (Input Events' table).
+const REPLACEMENT: &str = "insertReplacementText";
+
 /// Make the event `firing` describes, inheriting from its interface's
 /// prototype as the document `cell` holds it and with the unforgeable
 /// members of that interface and those it inherits — the standard's *create
@@ -489,6 +577,12 @@ pub fn create(objects: &mut Objects, cell: Ref, firing: &Firing<'_>) -> Result<R
     event.set_init(Init::Bubbles, firing.bubbles);
     event.set_init(Init::Cancelable, firing.cancelable);
     event.set_init(Init::Composed, firing.composed);
+    if let Fired::InputEvent { input_type, data } = firing.interface {
+        event.typing = Typing {
+            input_type: input_type.encode_utf16().collect(),
+            data: data.map(|data| data.encode_utf16().collect()),
+        };
+    }
     let made = objects
         .foreign(Box::new(event))
         .map_err(|why| Escape::refused(why, 0))?;

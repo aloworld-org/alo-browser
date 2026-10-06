@@ -61,6 +61,9 @@
 //! A script's `el.click()` (queue item 261) is `HTMLElement`'s, driven from
 //! its native as `dispatchEvent`'s is (`scripted.rs`), with the same
 //! activation rule around it (`clicking.rs` holds what it keeps).
+//! An agent's `PutText` is one too: a `beforeinput` and an `input` that are
+//! `InputEvent`s ([`Firing::before_replacing`], [`Firing::replaced`], queue
+//! item 257), inheriting `UIEvent`, also without a constructor.
 
 mod clicking;
 mod define;

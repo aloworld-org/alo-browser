@@ -934,10 +934,18 @@ unreachable without it.
       element's click is in progress, otherwise an untrusted `PointerEvent`
       `click` driven from the native as `dispatchEvent` drives one
       (`scripted.rs`), no checkpoint between listeners, with the same
-      `activation.rs` around it and `input` and `change` inside the call ·
+      `activation.rs` around it and `input` and `change` inside the call.
+      **An agent's `PutText` fires what replacing a field's text fires**
+      (queue item 257, ADR 0018 § 5): on a page that runs script, one task
+      — a trusted `beforeinput`, an `InputEvent` (`alo-bindings`'
+      `interface/input_event.rs`, inheriting `UIEvent`) whose `inputType` is
+      `"insertReplacementText"` and whose `data` is the text; a cancelled
+      one leaves the field as it was and answers the new
+      `Outcome::TextCanceled` (wire tag 4); otherwise the text, put by
+      `alo-dom`'s `field.rs` (the rule `apply` now asks too), then `input`
+      and `change` (`alo-renderer`'s `event_loop/typed.rs` and `put.rs`) ·
       Owed: a script's click following a link (263), each element's own
-      interface (262), `PutText`'s input events (257), focus (258) and
-      event handler attributes (259)
+      interface (262), focus (258) and event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
       · Built: **a control draws its own state** (queue item 182) — a tick in a
       checked box, a dot in a chosen radio, a dash in one that is neither, in

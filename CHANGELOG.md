@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page now hears an agent type.** On a page that runs script, an
+  agent putting text into a field asks the page first, with the same
+  `beforeinput` event a browser sends when a field's text is replaced, and
+  the page can say no: the field stays as it was, and the agent is told the
+  page refused rather than told the text went in. When the page accepts,
+  the text goes in and the page hears `input` and then `change`, so a page
+  that echoes, formats or checks what is typed now does it for an agent
+  too. Pages without script take the text exactly as before.
+
 - **A page's script can click things.** Every HTML element now has
   `click()`, which does what a person clicking it would — a checkbox
   ticks, a radio is chosen, and the page hears `input` and `change` — but

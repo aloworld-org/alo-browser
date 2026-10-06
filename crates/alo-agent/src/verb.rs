@@ -27,12 +27,14 @@
 //!
 //! # What a verb does, and what it does not
 //!
-//! Stage 1 has no scripting and no mutation — `docs/features.md` puts both in
-//! stage 2 — so a verb **validates and reports** rather than changing the
-//! document. `Activate` on a link comes back with where it goes; `PutText`
-//! comes back with the field and the text. Applying that is the host's, and
-//! the outcome is the record of what was asked for, which is the guarantee
-//! `alo-os` rests on.
+//! A verb **validates and reports** here rather than changing the document.
+//! `Activate` on a link comes back with where it goes; `PutText` comes back
+//! with the field and the text. Carrying that into the document is the
+//! host's — [`apply`](crate::apply::apply) on a page that never ran script, the page's own
+//! listeners on one that has (ADR 0018) — and the outcome is the record of
+//! what was asked for, which is the guarantee `alo-os` rests on. A page that
+//! runs script may cancel text it is offered, and the host then answers
+//! [`Outcome::TextCanceled`] instead.
 
 use crate::tree::{AgentNode, AgentTree};
 use alo_box::{BoxId, KnownRole, Role};
@@ -130,6 +132,18 @@ pub enum Outcome {
         /// What was put in it.
         text: String,
     },
+    /// The page cancelled the `beforeinput` that asked whether this text
+    /// may go into a field, and the field is as it was (ADR 0018 § 5).
+    ///
+    /// Only a page that runs script can answer this way. It is not a
+    /// [`Refusal`]: the verb was carried out — the page was asked, as it
+    /// is asked when a person types — and the page said no.
+    TextCanceled {
+        /// Which node.
+        node: BoxId,
+        /// What the page would not take.
+        text: String,
+    },
     /// Something was scrolled.
     Scrolled {
         /// Which node.
@@ -146,6 +160,7 @@ impl Outcome {
             Outcome::Activated { node, .. }
             | Outcome::Followed { node, .. }
             | Outcome::TextPut { node, .. }
+            | Outcome::TextCanceled { node, .. }
             | Outcome::Scrolled { node, .. } => *node,
         }
     }
@@ -160,6 +175,9 @@ impl fmt::Display for Outcome {
             },
             Outcome::Followed { node, to } => write!(f, "followed {node} to {to:?}"),
             Outcome::TextPut { node, text } => write!(f, "put {text:?} into {node}"),
+            Outcome::TextCanceled { node, text } => {
+                write!(f, "the page cancelled putting {text:?} into {node}")
+            }
             Outcome::Scrolled { node, by } => write!(f, "scrolled {node} {by}"),
         }
     }
@@ -438,6 +456,14 @@ mod tests {
             }
             .to_string(),
             "put \"12.50\" into box#7",
+        );
+        assert_eq!(
+            Outcome::TextCanceled {
+                node,
+                text: "12.50".to_owned(),
+            }
+            .to_string(),
+            "the page cancelled putting \"12.50\" into box#7",
         );
         assert_eq!(
             Outcome::Scrolled {

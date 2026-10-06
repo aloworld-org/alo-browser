@@ -190,6 +190,13 @@ fn every_message_from_a_renderer_survives_the_crossing() {
             },
             issues: Vec::new(),
         },
+        FromRenderer::Acted {
+            outcome: Outcome::TextCanceled {
+                node: id(7),
+                text: "refused".to_owned(),
+            },
+            issues: vec!["the text: the page cancelled it".to_owned()],
+        },
         FromRenderer::Refused(Refusal::NotFound {
             target: Target::Named("Nowhere".to_owned()),
         }),

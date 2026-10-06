@@ -4,11 +4,13 @@
 
 //! `UIEvent` (ADR 0018 §§ 5 and 8, queue item 256).
 //!
-//! Between `Event` and `MouseEvent` in a click's chain. Its one member here
+//! Between `Event` and `MouseEvent` in a click's chain, and between `Event`
+//! and `InputEvent` in what text put into a field fires. Its one member here
 //! is `detail`, read-only, which for a click is how many times the pointer
 //! was pressed in quick succession — `0` for a click keyboard activation
-//! fires, which is the only `UIEvent` this engine makes
-//! ([`Shape::Pointer`](crate::event::Shape)).
+//! fires — and which is `0` for every `InputEvent`, as UI Events gives it.
+//! Those are the only `UIEvent`s this engine makes
+//! ([`Shape::Pointer`](crate::event::Shape) and `Shape::Input`).
 //!
 //! **Absent**: `view`, a `Window`, which the global object is not until
 //! item 251; `which`, law 1's; and the constructor, since a page makes no
@@ -39,8 +41,8 @@ pub(super) fn furnish(
     )
 }
 
-/// Web IDL's brand check for a member of `UIEvent`, `MouseEvent` or
-/// `PointerEvent`, whose instances are all [`Shape::Pointer`] events:
+/// Web IDL's brand check for a member of `MouseEvent` or `PointerEvent`,
+/// whose instances are all [`Shape::Pointer`] events:
 /// `this` must be one, or the member's `TypeError`.
 ///
 /// [`Shape::Pointer`]: crate::event::Shape::Pointer
@@ -63,8 +65,18 @@ pub(super) fn pointer(
     })
 }
 
-/// `get detail`: `0`, for a click nothing pressed.
+/// `get detail`: `0`, for a click nothing pressed and for text put in.
 fn detail(call: &mut Call<'_>) -> Result<Answer, Escape> {
-    pointer(call, "detail", "UIEvent")?;
+    match call.this() {
+        Value::Object(held) => call.seen().embedded::<Event>(held),
+        _ => None,
+    }
+    .filter(|event| event.is_pointer() || event.is_input())
+    .ok_or_else(|| {
+        Escape::type_error(
+            "'detail' was read from something that is not a UIEvent",
+            call.at(),
+        )
+    })?;
     Ok(Answer::Value(Value::Number(0.0)))
 }

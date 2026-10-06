@@ -21,10 +21,11 @@
 //!
 //! [`Held::dispatch`] is how the browser fires an event at a node (ADR 0018
 //! § 3): on a page whose document is in its heap, a task on its loop — and
-//! [`Held::activate`] is how an agent's `Activate` is one (§§ 5–6). **A page
-//! that has never run script is dispatched to by nobody** — it has no heap,
-//! so no wrapper and no listener, and it is not given a heap to find that out.
-//! Stage 1's pages behave exactly as they did.
+//! [`Held::activate`] is how an agent's `Activate` is one (§§ 5–6), and
+//! [`Held::put_text`] how its `PutText` is (§ 5). **A page that has never
+//! run script is dispatched to by nobody** — it has no heap, so no wrapper
+//! and no listener, and it is not given a heap to find that out. Stage 1's
+//! pages behave exactly as they did.
 //!
 //! # A heap that will not take the document
 //!
@@ -38,7 +39,7 @@ use core::fmt;
 use alo_bindings::{Firing, Unadopted, adopt, change_document, document, install};
 use alo_dom::{Document, NodeId};
 use alo_js::Escape;
-use alo_js::heap::Root;
+use alo_js::heap::{Ref, Root};
 use alo_js::object::Refused;
 
 use crate::event_loop::{EventLoop, Seq, Unqueued};
@@ -137,18 +138,7 @@ impl Held {
     /// task; the document has no such node; or the renderer's root on the
     /// document has stopped naming it, which is the engine's bug.
     pub fn dispatch(&mut self, node: NodeId, firing: &Firing<'_>) -> Result<Option<Seq>, Unqueued> {
-        match self {
-            Held::Parsed(_) => Ok(None),
-            Held::Scripted(scripted) => {
-                let cell = scripted
-                    .script
-                    .objects()
-                    .heap()
-                    .holding(&scripted.cell)
-                    .ok_or(Unqueued::NotADocument)?;
-                scripted.script.queue_dispatch(cell, node, firing).map(Some)
-            }
-        }
+        self.queue(|page_loop, cell| page_loop.queue_dispatch(cell, node, firing))
     }
 
     /// Queue an agent's `Activate` of `node` as a task on the page's loop —
@@ -162,6 +152,30 @@ impl Held {
     ///
     /// As [`Held::dispatch`].
     pub fn activate(&mut self, node: NodeId) -> Result<Option<Seq>, Unqueued> {
+        self.queue(|page_loop, cell| page_loop.queue_activation(cell, node))
+    }
+
+    /// Queue an agent's `PutText` of `text` into the field `node` as a task
+    /// on the page's loop — a trusted `beforeinput` the page may cancel, then
+    /// the text, `input` and `change` (ADR 0018 § 5) — answering which task,
+    /// or [`None`] on a page that has never run script, where nobody listens
+    /// and `alo-agent`'s `apply` puts the text in instead.
+    ///
+    /// Nothing runs here: the task runs when the loop reaches it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Held::dispatch`].
+    pub fn put_text(&mut self, node: NodeId, text: &str) -> Result<Option<Seq>, Unqueued> {
+        self.queue(|page_loop, cell| page_loop.queue_put_text(cell, node, text))
+    }
+
+    /// Queue a task with `queue`, handed the page's loop and its document
+    /// cell — [`None`] on a page that has never run script.
+    fn queue(
+        &mut self,
+        queue: impl FnOnce(&mut EventLoop, Ref) -> Result<Seq, Unqueued>,
+    ) -> Result<Option<Seq>, Unqueued> {
         match self {
             Held::Parsed(_) => Ok(None),
             Held::Scripted(scripted) => {
@@ -171,7 +185,7 @@ impl Held {
                     .heap()
                     .holding(&scripted.cell)
                     .ok_or(Unqueued::NotADocument)?;
-                scripted.script.queue_activation(cell, node).map(Some)
+                queue(&mut scripted.script, cell).map(Some)
             }
         }
     }

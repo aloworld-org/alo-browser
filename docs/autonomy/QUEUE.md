@@ -4215,11 +4215,47 @@ The long pole, and the thing most of section E is unreachable without.
   **Cut, by scope:** `HTMLElement` and `click()` are item 261 — the
   activation rule's second caller; the rule itself is built for both.
 
-- [ ] **257. `PutText` fires `beforeinput`, `input` and `change`.** *Cut from
+- [x] **257. `PutText` fires `beforeinput`, `input` and `change`.** *Cut from
   81 (ADR 0018 § 5). Depends on 256* (for `UIEvent`). `InputEvent` with
   `inputType` `"insertReplacementText"` and `data`; a cancelled
   `beforeinput` changes nothing. *Closes when:* a page's `input` listener
   echoes a field's text elsewhere and the agent reads the echo.
+  **Built (iteration 157).** `alo-bindings`: `Interface::InputEvent`
+  (`InputEvent`, inheriting `UIEvent`, no interface object on the global)
+  and `interface/input_event.rs` — `data`, `inputType` and `isComposing`
+  (`false`), read-only and brand-checked; `dataTransfer`,
+  `getTargetRanges()` and the constructor absent. The event cell's
+  `Shape::Input` holds the `inputType` and `data`, counted in its
+  footprint; `Fired::InputEvent`, with `Firing::before_replacing` (a
+  cancelable, bubbling, composed `beforeinput`) and `Firing::replaced`
+  (the `input`, not cancelable). `UIEvent`'s `detail` answers `0` for an
+  `InputEvent` too. `alo-dom`: `field.rs`, what text put into a field does
+  (its `value` attribute until item 82), now the one rule both `alo-agent`'s
+  `apply` and the renderer run. `alo-agent`: `Outcome::TextCanceled` —
+  the verb was carried out and the page said no, so it is an outcome, not
+  a refusal. `alo-renderer`: `Work::PutText` and `event_loop/typed.rs` —
+  the `beforeinput`; if cancelled, nothing more; otherwise the text, then
+  `input` and `change` at the field, all one task, a checkpoint after
+  every listener, what it came to written into `Turn::typed` as each step
+  happens so a page that stops partway is still answered truly;
+  `Held::put_text`; `put.rs`, which answers `TextPut` or `TextCanceled`
+  and puts the text into a stopped page's field, as a stopped page's box
+  is still ticked; `run_to.rs`, the loop-running and bounded saying taken
+  out of `press.rs` so both verbs share it; the wire's outcome tag 4.
+  *Closing condition met:* in `an_agents_text.rs`, a page's `input`
+  listener writes *You typed 12.50* into an `<output>`, the agent's
+  `ReadTree` reads it, and the echo's text is laid out at (174, 55.2)
+  129.45313×18.625 — ordinarily and collecting at every allocation.
+  Tests: `alo-renderer/tests/an_agents_text.rs` (9: order and members,
+  bubbling to the document, a job between listeners, cancelling, passive
+  and uncancelable, the chain and brand checks, a throwing listener, a
+  field removed mid-task, a stopped page, a scriptless page), `alo-dom`'s
+  `field.rs` unit tests (2), the `TextCanceled` outcome's display and its
+  wire round-trip. Doctored runs, each restored, touched and rebuilt: the
+  cancel ignored, the text put before `beforeinput`, no `change`, `input`
+  cancelable, a page stopped mid-task not given the text, `data` not held,
+  a cancel answered as `TextPut`, and `UIEvent`'s `detail` refusing an
+  `InputEvent` — each fails a test.
 
 - [ ] **258. Focus.** *Cut from 81 (ADR 0018 § 5 and *What this does not
   decide*).* What has focus, `focus`/`blur`/`focusin`/`focusout`, a

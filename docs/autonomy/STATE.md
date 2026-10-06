@@ -13429,3 +13429,151 @@ with it.
 depends only on 256). 262 and 263 wait on a page and a decision
 respectively. The next unused queue number is **264** and the next ADR
 **0020**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 157 — item 257 built: `PutText` fires `beforeinput`, `input` and `change`
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Events* line, iteration 156's entry,
+`REMAINING.md`'s continuation order, queue items 81 and 254–263, ADR 0018 in
+full (§ 5 is this item's decision), and the code it touches: `alo-agent`'s
+`verb.rs` and `apply.rs`; `alo-dom`'s `activation.rs` and `lib.rs`;
+`alo-bindings`' `event.rs`, `interface.rs`, `interface/ui_event.rs`,
+`mouse_event.rs`, `pointer_event.rs`, `element.rs` and `lib.rs`;
+`alo-renderer`'s `renderer.rs`, `press.rs`, `held.rs`, `event_loop.rs`,
+`event_loop/task.rs`, `activated.rs`, `dispatched.rs`, `wire.rs`; and the
+renderer's agent tests. No `AGENTS.md` exists. No sibling repository was
+read or modified. The checkout was clean on entry at `ca91e9e`.
+
+**Selection.** Iteration 156 and `REMAINING.md` named **257** next; its one
+dependency, 256, is done; its decision is ADR 0018 § 5 (*`PutText` fires
+what replacing a field's text fires*), its feature line *Events*. Like 261
+it was cut with a closing condition rather than opened by a frozen page, so
+no corpus case was added and none is claimed.
+
+**What was built.**
+- `alo-bindings`: `InputEvent` (inheriting `UIEvent`, no interface object
+  on the global, as for the rest of its family) with `data`, `inputType`
+  and `isComposing` (`false`); `dataTransfer`, `getTargetRanges()` and the
+  constructor are absent, said in `interface/input_event.rs`. The event
+  cell's `Shape::Input` holds the `inputType` and `data`, counted in its
+  footprint. `Fired` gains a lifetime and `InputEvent { input_type, data }`.
+  `Firing::before_replacing` is cancelable; `Firing::replaced` is the
+  `input`, not cancelable. `UIEvent`'s `detail` is `0` for an `InputEvent`.
+- `alo-dom`: `field.rs`, what text put into a field does (the `value`
+  attribute until item 82). It has two callers, `apply` and the renderer,
+  so for ADR 0017 § 5's reason it lives once, as `activation.rs` does.
+- `alo-agent`: `Outcome::TextCanceled`. **This is a decision made inside a
+  code commit, and a reviewer may want it written down.** The ADR says a
+  cancelled `beforeinput` changes nothing, but not what the agent is told.
+  Answering `TextPut` would be false. It is not a `Refusal`, because the
+  verb was carried out and the page said no. It crosses the wire as
+  outcome tag 4.
+- `alo-renderer`: `Work::PutText`, run by `event_loop/typed.rs`: the
+  `beforeinput`, then nothing more if it was cancelled, otherwise the text,
+  `input` and `change`, all one task with a checkpoint after every listener.
+  The task writes what it came to into `Turn::typed` *as each step
+  happens*, so a page that stops partway still gets a true answer.
+  `Held::put_text` (the three queueing methods now share one helper).
+  `put.rs` answers `TextPut` or `TextCanceled`. On a page that stopped,
+  before or during the task without answering the `beforeinput`, the text
+  still goes in and nobody is told, as a stopped page's box is still
+  ticked. `run_to.rs` holds the loop-running and the bounded saying, taken
+  out of `press.rs` so both verbs share it; the wording of a click's lines
+  is unchanged and its tests pass.
+
+**Closing condition, met.** In `an_agents_text.rs`, a page's `input`
+listener writes *You typed 12.50* into an `<output>` and the agent's
+`ReadTree` reads it, ordinarily and collecting at every allocation. The
+echo's text is laid out at (174, 55.2) 129.45313×18.625, asserted in
+numbers.
+
+**Tests.** `an_agents_text.rs` has 9 tests:
+- the order, with every member read: `beforeinput` sees the old text with
+  the new in `data`, and its job runs before the text goes in;
+- each event bubbling to the document;
+- a cancelled `beforeinput` answering `TextCanceled` and leaving the
+  field's box as it was;
+- a passive listener unable to cancel, and `input` uncancelable;
+- the chain and brand checks;
+- a throwing listener said as `the text: …` while the text still goes in;
+- a field removed by a `beforeinput` listener, which still takes the text
+  and hears `input` and `change`, while the document hears nothing;
+- a stopped page;
+- a scriptless page, which builds no heap.
+
+`field.rs` adds 2 unit tests. The outcome's display has a unit test and its
+wire round-trip is in `messages_across_a_boundary.rs`.
+
+**Doctored runs.** Each of these fails a test:
+- the cancel ignored;
+- the text put before `beforeinput`;
+- no `change`;
+- `input` cancelable;
+- a page stopped mid-task not given the text;
+- `data` not held;
+- a cancel answered as `TextPut`;
+- `UIEvent`'s `detail` refusing an `InputEvent`.
+
+**A note for whoever doctors next.** The first pass restored each file by
+moving a copy back. That gives the file an mtime older than the doctored
+build, so cargo kept the doctored binary: later runs reported failures the
+code did not have, and one test failed on clean sources until the files
+were touched. Every result above is from a second pass that touched each
+file on restore, with the clean tree passing 9/9 before and after. Restore
+with a fresh mtime, or the evidence is about the wrong binary.
+
+**Compliance review.**
+- Law 1: nothing legacy.
+- Law 2: no verb added or changed in what it takes; the coordinate check
+  passes. A page still cannot tell an agent's text from a person's (§ 4).
+- Law 3: no stubs, and no `unwrap` outside tests.
+- Law 4: no `unsafe`.
+- One file, one responsibility: the interface (`input_event.rs`), the
+  field rule (`field.rs`), the task (`typed.rs`), the verb's answer
+  (`put.rs`), and running to a task (`run_to.rs`, split out of `press.rs`
+  in this change because it gained a second caller).
+- Positions and sizes: the echo's box is asserted in numbers.
+- Reference renders: nothing about how anything is drawn changed. The
+  corpus, `alo-settings` included, passes with every reference unchanged.
+- Bytes from outside: none newly read. The text comes from the agent
+  through the existing wire reader.
+
+**Gate.** The first `scripts/gate.sh` run failed on `cargo fmt` alone:
+clippy, tests and every other check passed. After `cargo fmt` (formatting
+only) and three doc-comment link fixes, it was run again in the foreground
+on the tree being committed and read in the same step; that run is
+recorded in this entry's last lines. `git diff --check` passes.
+`cargo doc` warns exactly as often as before the change: `alo-bindings` 5,
+`alo-renderer` 9, `alo-dom` 1, `alo-agent` 0, compared against a stash of
+the change.
+
+**Roadmap.** The *Events* line's Built clause gains `PutText`'s events. Its
+Owed clause is now 263, 262, 258 and 259. It is not ticked.
+`docs/features.md`, `CHANGELOG.md`, `QUEUE.md` (257 ticked with its note)
+and `REMAINING.md` moved with it.
+
+**Unresolved obligations.**
+- New from this item:
+  - `Outcome::TextCanceled` is an agent-surface addition decided in code
+    (above).
+  - `change` follows `input` at once, as § 5 says. When focus exists
+    (258), when a field is committed may need revisiting.
+  - A field's text is still its `value` attribute (82).
+  - The `beforeinput` and `input` have no `view` (251).
+- Carried from iteration 156, unchanged: 263 and 262; an abandoned
+  `click()`'s flag; `click()`'s missing `view`; and the whole list in that
+  entry.
+
+112 queue items are open. Of the events group, 258 needs design, 259 and
+262 wait on a page, and 263 needs its ADR as its own iteration. The next
+iteration takes the first eligible item as `LOOP.md` says. The next unused
+queue number is **264** and the next ADR **0020**. This is one iteration,
+not a finished queue or roadmap.
+
+**Final gate run.** `scripts/gate.sh` exited 0 on the tree committed here,
+run in the foreground and read in the same step (7 min 26 s). Every check
+passed: formatting clean, clippy silent, all tests pass, nothing stubbed,
+`unsafe` forbidden, licence notices, every rented crate behind its
+boundary, no coordinate verb, the stop rule holds, and `CHANGELOG.md`
+changed with the code. The log is in this session's scratchpad, not
+committed.

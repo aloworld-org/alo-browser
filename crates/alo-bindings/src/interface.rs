@@ -47,10 +47,12 @@
 //! `EventTarget` is at the top of a node's chain (ADR 0018 § 1), and `Event`
 //! and `CustomEvent` are the interfaces of the event objects a script makes
 //! and dispatches. `UIEvent`, `MouseEvent` and `PointerEvent` are a click's
-//! chain (§ 5, queue item 256): only the browser makes one, for an agent's
-//! `Activate`, so none has an interface object yet. Their prototypes are the document cell's like every
-//! other, so the browser's own dispatch (queue item 255) finds them where a
-//! node's native finds `Element.prototype`.
+//! chain (§ 5, queue item 256), and `InputEvent`, inheriting `UIEvent`, is
+//! what an agent's `PutText` fires (queue item 257): only the browser makes
+//! one of these, for an agent's verb, so none has an interface object yet.
+//! Their prototypes are the document cell's like every other, so the
+//! browser's own dispatch (queue item 255) finds them where a node's native
+//! finds `Element.prototype`.
 //!
 //! # An unforgeable member is on the instance
 //!
@@ -81,6 +83,7 @@ pub mod element;
 pub mod event;
 pub mod event_target;
 pub mod html_element;
+pub mod input_event;
 pub mod mouse_event;
 pub mod node;
 pub mod pointer_event;
@@ -131,6 +134,8 @@ pub enum Interface {
     MouseEvent,
     /// What a `click` is: an event a pointer, or nothing pointing, causes.
     PointerEvent,
+    /// What text going into a field fires (queue item 257).
+    InputEvent,
 }
 
 /// What an interface's prototype inherits from.
@@ -147,7 +152,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 17] = [
+    pub const ALL: [Self; 18] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -165,6 +170,7 @@ impl Interface {
         Self::MouseEvent,
         Self::PointerEvent,
         Self::HtmlElement,
+        Self::InputEvent,
     ];
 
     /// Its name, as the standard spells it.
@@ -187,6 +193,7 @@ impl Interface {
             Self::MouseEvent => "MouseEvent",
             Self::PointerEvent => "PointerEvent",
             Self::HtmlElement => "HTMLElement",
+            Self::InputEvent => "InputEvent",
         }
     }
 
@@ -196,7 +203,7 @@ impl Interface {
             Self::EventTarget | Self::Event => Inherits::Object,
             Self::Node => Inherits::Interface(Self::EventTarget),
             Self::CustomEvent | Self::UiEvent => Inherits::Interface(Self::Event),
-            Self::MouseEvent => Inherits::Interface(Self::UiEvent),
+            Self::MouseEvent | Self::InputEvent => Inherits::Interface(Self::UiEvent),
             Self::PointerEvent => Inherits::Interface(Self::MouseEvent),
             Self::HtmlElement => Inherits::Interface(Self::Element),
             Self::DomException => Inherits::Error,
@@ -247,6 +254,7 @@ impl Interface {
             Self::MouseEvent => 14,
             Self::PointerEvent => 15,
             Self::HtmlElement => 16,
+            Self::InputEvent => 17,
         }
     }
 
@@ -299,6 +307,7 @@ impl Interface {
             Self::UiEvent => ui_event::furnish(objects, prototype, function_prototype),
             Self::MouseEvent => mouse_event::furnish(objects, prototype, function_prototype),
             Self::PointerEvent => pointer_event::furnish(objects, prototype, function_prototype),
+            Self::InputEvent => input_event::furnish(objects, prototype, function_prototype),
             Self::Node => node::furnish(objects, prototype, function_prototype),
             Self::Element => element::furnish(objects, prototype, function_prototype),
             Self::HtmlElement => html_element::furnish(objects, prototype, function_prototype),

@@ -306,6 +306,15 @@ download link). 113 queue items are open; **257** is next (it depends
 only on 256); the next unused queue number is 264 and the next unused ADR
 0020.
 
+Iteration 157 built item 257: an agent's `PutText` on a page that runs
+script is one task — a trusted `beforeinput` `InputEvent`
+(`insertReplacementText`, the text as `data`) a page may cancel, which
+answers the new `Outcome::TextCanceled`; otherwise the text, put by
+`alo-dom`'s `field.rs`, then `input` and `change`. 112 queue items are open.
+Of the events group, 258 needs design, 259 and 262 wait on a page, and 263
+needs its ADR first (a decision, its own iteration). The next unused queue
+number is 264 and the next unused ADR 0020.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

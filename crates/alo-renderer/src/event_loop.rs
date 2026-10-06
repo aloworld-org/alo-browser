@@ -78,10 +78,10 @@
 //! response is item 83; each will queue through [`EventLoop::queue_calls`].
 //! The browser's dispatch is queued through [`Held::dispatch`], and an
 //! agent's `Activate` on a page that runs script is one ([`Held::activate`],
-//! [`activated`], item 256), run before the `Act` is answered. The
-//! [`Renderer`] holds one
-//! loop per page and queues a task for each of the page's own scripts as it
-//! loads ([`crate::scripts`], item 236); the loop running between messages,
+//! [`activated`], item 256), run before the `Act` is answered, and so is its
+//! `PutText` ([`Held::put_text`], `typed.rs`, item 257). The [`Renderer`]
+//! holds one loop per page and queues a task for each of the page's own
+//! scripts as it loads ([`crate::scripts`], item 236); the loop running between messages,
 //! for tasks a page queued itself, and an `Act` answered after its task's
 //! checkpoint are queue item 233. A ceiling on waiting tasks (ADR 0016's *the
 //! numbers*) arrives with the first task a page can queue for itself; today
@@ -90,6 +90,7 @@
 //! [`Renderer`]: crate::Renderer
 //! [`Held::dispatch`]: crate::held::Held::dispatch
 //! [`Held::activate`]: crate::held::Held::activate
+//! [`Held::put_text`]: crate::held::Held::put_text
 
 mod activated;
 mod described;
@@ -98,6 +99,7 @@ mod microtask;
 mod report;
 mod source;
 mod task;
+mod typed;
 
 use core::fmt;
 
@@ -115,6 +117,7 @@ use source::Sources;
 pub use source::{Place, Trace};
 pub use task::Seq;
 use task::{Tasks, Unmade, Work};
+pub use typed::Typed;
 
 /// The most reports one turn keeps (queue item 242).
 ///
@@ -207,6 +210,10 @@ pub struct Turn {
     /// What an activation task's click came to, if this was one and it ran
     /// to its end.
     pub clicked: Option<Clicked>,
+    /// What a `PutText` task's text came to, if this was one, as far as it
+    /// got — [`None`] if the page stopped before it answered the
+    /// `beforeinput`.
+    pub typed: Option<Typed>,
 }
 
 /// A page's event loop, and the engine its script runs in.
@@ -376,6 +383,29 @@ impl EventLoop {
         self.queue_listed(cell, node, &Firing::CLICK, |list| Work::Activate { list })
     }
 
+    /// Queue an agent's `PutText` of `text` into the field `node`, in the
+    /// document `cell` holds (ADR 0018 § 5): one task that dispatches a
+    /// trusted `beforeinput` — an `InputEvent` whose `inputType` is
+    /// `"insertReplacementText"` and whose `data` is `text` — and, unless a
+    /// listener cancels it, replaces the field's text and fires `input` and
+    /// `change`. What it came to is the task's [`Turn::typed`].
+    ///
+    /// `cell` must be rooted by the caller.
+    ///
+    /// # Errors
+    ///
+    /// As [`EventLoop::queue_dispatch`].
+    pub fn queue_put_text(&mut self, cell: Ref, node: NodeId, text: &str) -> Result<Seq, Unqueued> {
+        if let Some(stopped) = &self.stopped {
+            return Err(Unqueued::Stopped(stopped.clone()));
+        }
+        let before = Firing::before_replacing(text);
+        self.queue_listed(cell, node, &before, |list| Work::PutText {
+            list,
+            text: text.to_owned(),
+        })
+    }
+
     /// Queue the work `work` makes of a rooted list of `node`'s wrapper and
     /// the event `firing` describes.
     fn queue_listed(
@@ -421,6 +451,7 @@ impl EventLoop {
             jobs: 0,
             stopped: None,
             clicked: None,
+            typed: None,
         };
         let outcome = self.perform(&task.work, &mut turn);
         Tasks::release(&mut self.engine, task.work);
@@ -465,6 +496,7 @@ impl EventLoop {
                 turn.clicked = Some(self.activate(list, turn)?);
                 Ok(())
             }
+            Work::PutText { list, text } => self.put_text(list, text, turn),
         }
     }
 

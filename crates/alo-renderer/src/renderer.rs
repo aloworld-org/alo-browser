@@ -57,6 +57,7 @@ use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::pipeline::{Drawing, draw};
 use crate::press::press;
+use crate::put::put;
 use crate::said;
 use crate::scripts;
 use crate::snapshot::Snapshot;
@@ -223,7 +224,10 @@ impl Renderer {
     /// On a page that runs script, `Activate` is a `click` the page's
     /// listeners hear, as one task run to its end before this answers
     /// ([`crate::press`], ADR 0018 §§ 3–7): what the document becomes is the
-    /// page's, and a link is followed only if nobody cancelled the click. On
+    /// page's, and a link is followed only if nobody cancelled the click.
+    /// `PutText` is likewise one task ([`crate::put`], § 5) — a
+    /// `beforeinput` the page may cancel, which answers
+    /// [`Outcome::TextCanceled`], or else the text, `input` and `change`. On
     /// a page that never ran script, `alo-agent`'s `apply` carries the
     /// decision in, as it did in stage 1.
     fn act(&mut self, target: &Target, verb: &Verb) -> FromRenderer {
@@ -249,22 +253,34 @@ impl Renderer {
             .boxes
             .get(outcome.node())
             .and_then(|held| held.kind.node());
-        let pressed = match (&outcome, node) {
-            (Outcome::Activated { .. } | Outcome::Followed { .. }, Some(node)) => press(held, node),
+        let ran = match (&outcome, node) {
+            (Outcome::Activated { .. } | Outcome::Followed { .. }, Some(node)) => press(held, node)
+                .map(|pressed| {
+                    let outcome = match pressed.follow {
+                        Some(to) => Outcome::Followed {
+                            node: outcome.node(),
+                            to,
+                        },
+                        None => Outcome::Activated {
+                            node: outcome.node(),
+                            name,
+                        },
+                    };
+                    (outcome, pressed.issues)
+                }),
+            (Outcome::TextPut { node: id, text }, Some(node)) => put(held, node, text).map(|put| {
+                let (node, text) = (*id, text.clone());
+                let outcome = if put.canceled {
+                    Outcome::TextCanceled { node, text }
+                } else {
+                    Outcome::TextPut { node, text }
+                };
+                (outcome, put.issues)
+            }),
             _ => None,
         };
-        let (outcome, issues) = if let Some(pressed) = pressed {
-            let outcome = match pressed.follow {
-                Some(to) => Outcome::Followed {
-                    node: outcome.node(),
-                    to,
-                },
-                None => Outcome::Activated {
-                    node: outcome.node(),
-                    name,
-                },
-            };
-            (outcome, pressed.issues)
+        let (outcome, issues) = if let Some(ran) = ran {
+            ran
         } else {
             // From the **same document**: working out what a changed
             // attribute could possibly have affected is a cache, and a wrong

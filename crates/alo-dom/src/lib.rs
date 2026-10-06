@@ -37,6 +37,11 @@
 //!   checkbox or radio changed before the listeners run and put back if one
 //!   cancels, a link to follow after (ADR 0018 § 6) — for both of a click's
 //!   callers.
+//! - [`field`] is what an agent's `PutText` does to the field it names —
+//!   its text replaced (ADR 0018 § 5) — for both of its callers: the
+//!   agent's own `apply` on a page that never ran script, and the
+//!   renderer's task, between the `beforeinput` and the `input`, on one
+//!   that has.
 //! - [`Document::body`] and [`Document::set_body`] are HTML's *the body
 //!   element*, read and replaced as `document.body` does ([`body`]).
 //! - [`Parsing`] parses a document a step at a time, stopping at each
@@ -85,6 +90,7 @@ pub mod activation;
 pub mod body;
 pub mod by_name;
 pub mod document;
+pub mod field;
 pub mod footprint;
 pub mod mutation;
 pub mod name;

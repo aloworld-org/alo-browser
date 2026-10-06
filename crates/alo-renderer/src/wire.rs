@@ -413,6 +413,11 @@ impl Writer {
                 writer.id(*node);
                 writer.scroll(*by);
             }
+            Outcome::TextCanceled { node, text } => {
+                writer.tag(4);
+                writer.id(*node);
+                writer.text(text);
+            }
         }
     }
 
@@ -700,6 +705,10 @@ impl<'a> Reader<'a> {
             3 => Ok(Outcome::Scrolled {
                 node: self.id()?,
                 by: self.scroll()?,
+            }),
+            4 => Ok(Outcome::TextCanceled {
+                node: self.id()?,
+                text: self.text()?,
             }),
             other => Err(unreadable(format!("an outcome tagged {other}"))),
         }

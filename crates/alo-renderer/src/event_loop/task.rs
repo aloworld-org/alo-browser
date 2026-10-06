@@ -85,6 +85,17 @@ pub(super) enum Work {
         /// rooted list.
         list: Root,
     },
+    /// An agent's `PutText` (ADR 0018 § 5, queue item 257): a `beforeinput`
+    /// the browser made, and — unless a listener cancels it — the field's
+    /// text replaced and an `input` and a `change` fired after it.
+    PutText {
+        /// The field's wrapper, then the `beforeinput` — and, as the task
+        /// runs, the field's wrapper again and each event it fires — in one
+        /// rooted list.
+        list: Root,
+        /// The text, which is Rust's and needs no root.
+        text: String,
+    },
 }
 
 /// A task waiting its turn.
@@ -143,7 +154,10 @@ impl Tasks {
     pub(super) fn release(engine: &mut Engine, work: Work) {
         match work {
             Work::Script { .. } => {}
-            Work::Calls { list, .. } | Work::Dispatch { list } | Work::Activate { list } => {
+            Work::Calls { list, .. }
+            | Work::Dispatch { list }
+            | Work::Activate { list }
+            | Work::PutText { list, .. } => {
                 engine.objects().heap_mut().release(list);
             }
         }
@@ -281,7 +295,8 @@ pub(super) fn listed(
 /// `node`'s wrapper in the document `cell` holds, made if it has none, and
 /// the event `firing` describes, each added to the end of the task's rooted
 /// `list` as it is made — for an activation task firing at the activation
-/// target. Answers them, the wrapper first.
+/// target, or for a `PutText` task firing at its field. Answers them, the
+/// wrapper first.
 ///
 /// # Errors
 ///
@@ -344,7 +359,8 @@ fn push(objects: &mut Objects, list: &Root, value: Ref) -> Result<(), Escape> {
 }
 
 /// The event and the target's wrapper a [`Work::Dispatch`] task holds — or
-/// the click and its target, first in a [`Work::Activate`]'s list.
+/// the click and its target, first in a [`Work::Activate`]'s list, or the
+/// `beforeinput` and its field, first in a [`Work::PutText`]'s.
 ///
 /// # Errors
 ///
