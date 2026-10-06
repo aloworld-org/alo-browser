@@ -263,8 +263,64 @@ fn another_site_is_not_told_which_page_you_were_reading() {
     );
     assert_eq!(
         sent.as_deref(),
-        Some("https://clinic.example"),
+        Some("https://clinic.example/"),
         "the path and query went to a third party"
+    );
+}
+
+/// The origin goes out written as a URL, `https://example.com/`, which is what
+/// the Referrer Policy standard serialises and what every other engine sends.
+/// Without the `/` a server comparing `Referer` against its own origin refuses
+/// every cross-origin request from here, under the default policy.
+#[test]
+fn the_origin_a_site_is_told_is_written_as_a_url() {
+    let cases = [
+        // The scheme's own port is not written, and any other port is.
+        ("https://example.com/a/b?c=d#e", "https://example.com/"),
+        ("https://example.com:443/a", "https://example.com/"),
+        ("https://example.com:8443/a", "https://example.com:8443/"),
+        ("http://example.com:8080/a", "http://example.com:8080/"),
+        // An IPv6 host keeps its brackets.
+        ("https://[::1]:8443/a", "https://[::1]:8443/"),
+        ("https://[2001:db8::1]/a", "https://[2001:db8::1]/"),
+    ];
+    let elsewhere = url("https://elsewhere.example/");
+    for (from, expected) in cases {
+        for policy in [
+            Policy::Origin,
+            Policy::StrictOrigin,
+            Policy::OriginWhenCrossOrigin,
+            Policy::StrictOriginWhenCrossOrigin,
+        ] {
+            assert_eq!(
+                for_request(policy, &url(from), &elsewhere).as_deref(),
+                Some(expected),
+                "{policy:?} from {from}"
+            );
+        }
+    }
+    // `origin` and `strict-origin` send only the origin to your own site too.
+    for policy in [Policy::Origin, Policy::StrictOrigin] {
+        assert_eq!(
+            for_request(
+                policy,
+                &url("https://example.com/private?q=1"),
+                &url("https://example.com/next")
+            )
+            .as_deref(),
+            Some("https://example.com/"),
+            "{policy:?} to its own site"
+        );
+    }
+    // And `origin` across a downgrade, the one origin-only policy that sends.
+    assert_eq!(
+        for_request(
+            Policy::Origin,
+            &url("https://example.com/private"),
+            &url("http://example.com/")
+        )
+        .as_deref(),
+        Some("https://example.com/")
     );
 }
 

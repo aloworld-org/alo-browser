@@ -219,7 +219,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **Mixed-content blocking** — a script refused outright, an image tried
   over TLS first, and `http://localhost` treated as secure because it is
 - [2] **Referrer policy**, defaulting to origin-only across sites and nothing at
-  all across a downgrade
+  all across a downgrade. The origin goes out written as a URL,
+  `https://example.com/`, as every other engine sends it
 - [2] **The same-origin policy, CORS and preflight** — a page may send almost
   anywhere and may read almost nowhere, and a wildcard never covers a request
   that carried credentials. A request is unsafe by the *value* of its

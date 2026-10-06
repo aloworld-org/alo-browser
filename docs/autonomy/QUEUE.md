@@ -742,7 +742,7 @@ first. Nothing here needs JavaScript.
   after it, a server that answers a final status is not sent the body at all,
   and a server that says nothing is sent the body after a bound a test can name.
 
-- [ ] **265. An origin-only `Referer` ends in `/`.** *Found by item 263.*
+- [x] **265. An origin-only `Referer` ends in `/`.** *Found by item 263.*
   `alo-net`'s `referrer::for_request` writes the origin-only referrer as
   the origin's serialisation, `https://example.com`, where the Referrer
   Policy standard strips the URL to its origin and serialises it *as a
@@ -752,6 +752,14 @@ first. Nothing here needs JavaScript.
   cross-origin half of the `*-when-cross-origin` policies answer
   `https://example.com/`, `referrer.rs`' tests and `alo-renderer`'s
   `navigate.rs` test say so, and a port and an IPv6 host keep their form.
+
+  **Done.** One function, `origin_only`, writes the origin and its `/` for
+  all four policies, so they cannot drift apart. `referrer.rs`' tests live in
+  `alo-net/tests/what_a_page_may_reach.rs`, where the new one walks every
+  origin-only policy over a default port written out, another port, `http`
+  with a port and two IPv6 hosts. An opaque origin sends nothing rather than
+  `null/`; nothing reaches that from `http` or `https` today, and the
+  function's comment says so rather than a test pretending otherwise.
 
 - [ ] **60. HTTP/3 and QUIC**, once both of those are.
   *Depends on 59. Needs design:* name the QUIC rental boundary, transport

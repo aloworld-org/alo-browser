@@ -13839,3 +13839,82 @@ reference unchanged), nothing stubbed, `unsafe` forbidden, licence
 notices, every rented crate behind its boundary, no coordinate verb, the
 stop rule holds, and `CHANGELOG.md` changed with the code. `git diff
 --check` passes. The log is in this session's scratchpad, not committed.
+
+## Iteration 160 — item 265 built: an origin-only `Referer` ends in `/`
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Content Security Policy, referrer
+policy, HSTS, mixed-content blocking* line, iteration 159's entry,
+`REMAINING.md`'s continuation order, item 265 in full, and the code it
+names: `alo-net`'s `referrer.rs` and its tests in
+`tests/what_a_page_may_reach.rs`, `alo-renderer`'s `navigate.rs`, and
+`alo-url`'s `origin.rs` (the origin's `Display`). Item 265 names no ADR;
+it serves `docs/features.md`'s *Referrer policy* line (queue item 62's).
+No `AGENTS.md` exists. No sibling repository was read or modified. The
+checkout was clean on entry at `9980822`.
+
+**Selection.** In file order, 157, 158 and 187 keep their recorded
+blockers (an interface to ask in, an interface to choose in, an upload
+caller), and 265 depends on nothing. It is the first eligible item.
+
+**What was built.** `referrer.rs` gains `origin_only`: the origin of the
+referring URL, by `alo-url`'s `Origin` serialisation, followed by `/`.
+`origin`, `strict-origin` and the cross-origin half of
+`origin-when-cross-origin` and `strict-origin-when-cross-origin` all go
+through it, so the four cannot drift apart. An opaque origin sends
+nothing rather than `null/`. `for_request` only reaches it from `http`
+and `https`, whose origins are never opaque, and the comment says so
+rather than a test pretending to reach it.
+
+**Decision a reviewer may want to look at.** The trailing `/` follows
+what other engines send, which the queue item named as the target. A
+strictly literal reading of the URL serialiser over a path set to the
+empty list would give no `/`. Browsers do not send that form, and this
+iteration did not settle the reading against the specification text.
+That is why the changelog says "the form other browsers send" and does
+not cite the standard.
+
+**Compliance review.**
+- Law 1: nothing legacy. Law 2: the agent surface is unchanged. Law 3: no
+  stubs, `todo!` or `unwrap` outside tests. Law 4: no `unsafe`.
+- One file, one responsibility: `referrer.rs` still answers one question,
+  what `Referer` says. The new function is part of that answer.
+- Layout assertions, reference renders: nothing positions, sizes or draws.
+  The corpus passes with every reference unchanged.
+- Bytes from outside: no new parsing. The input is a `Url` that was already
+  parsed, and the hostile-URL tests in `navigate.rs` still pass.
+
+**Tests.** `the_origin_a_site_is_told_is_written_as_a_url` covers each
+origin-only policy across sites, from a default port written out, another
+port, `http` with a port and two IPv6 hosts. It also checks `origin` and
+`strict-origin` to the same site, and `origin` across a downgrade. The
+existing default-policy test and `navigate.rs`' referrer test now assert
+`https://example.com/`, and the comment pointing at 265 is gone. Doctored
+run: with the `/` removed, 2 `alo-net` tests and 1 `alo-renderer` test
+failed; the source was then restored.
+
+**Roadmap.** The *Content Security Policy, referrer policy, HSTS,
+mixed-content blocking* line's Built clause now says the origin-only form
+is written as a URL (item 265). It is not ticked; its Owed clause is
+unchanged. `docs/features.md`, `CHANGELOG.md`, `QUEUE.md` (265 ticked with
+its note) and `REMAINING.md` changed with it.
+
+**Unresolved obligations.** None new. Carried from iteration 159 unchanged:
+going where the browser decided (85), downloads (264), windows (118), CSP
+`base-uri` (no item), and what an agent is told when the page it acted on
+goes somewhere (134). The iteration 158 carry-overs also stand.
+
+112 queue items are open. Iteration 158 noted 190 as ready and small; the
+next iteration takes the first eligible item as `LOOP.md` says. The next
+unused queue number is **266** and the next ADR **0021**. This is one
+iteration, not a finished queue or roadmap.
+
+**Final gate run.** `scripts/gate.sh` exited 0 on this tree. It ran in the
+foreground and was read in the same step (7 min 12 s). Formatting is
+clean, clippy is silent, and all tests pass, the corpus included with
+every reference unchanged. Nothing is stubbed, `unsafe` is forbidden, the
+licence notices are present, and every rented crate stays behind its
+boundary. No verb takes a coordinate, the stop rule holds, and
+`CHANGELOG.md` changed with the code. `git diff --check` passes. The log is
+in this session's scratchpad and is not committed. The only later change
+was this journal entry, which is documentation.

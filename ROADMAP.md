@@ -335,7 +335,9 @@ unreachable without it.
       · Built: HSTS, mixed content and referrer policy (queue item 62) — a
       `Strict-Transport-Security` over plain HTTP ignored so it cannot be used
       as a weapon, a script refused outright where an image is retried over TLS,
-      and a referrer that never survives a downgrade. **CSP is enforced** (queue
+      and a referrer that never survives a downgrade — its origin-only form
+      written as a URL, `https://example.com/`, as other engines send it
+      (queue item 265). **CSP is enforced** (queue
       item 165): `default-src`, `script-src`, `style-src`, `img-src` and
       `connect-src`, the source expressions pages use, nonces and
       `'strict-dynamic'` — and the rule the whole thing is built around, that a

@@ -102,12 +102,12 @@ pub fn for_request(policy: Policy, from: &Url, to: &Url) -> Option<String> {
                 None
             }
         }
-        Policy::Origin => Some(Origin::of(from).to_string()),
+        Policy::Origin => origin_only(from),
         Policy::StrictOrigin => {
             if downgrading {
                 None
             } else {
-                Some(Origin::of(from).to_string())
+                origin_only(from)
             }
         }
         Policy::NoReferrerWhenDowngrade => {
@@ -121,7 +121,7 @@ pub fn for_request(policy: Policy, from: &Url, to: &Url) -> Option<String> {
             if same_origin {
                 Some(stripped(from))
             } else {
-                Some(Origin::of(from).to_string())
+                origin_only(from)
             }
         }
         Policy::StrictOriginWhenCrossOrigin => {
@@ -130,9 +130,30 @@ pub fn for_request(policy: Policy, from: &Url, to: &Url) -> Option<String> {
             } else if same_origin {
                 Some(stripped(from))
             } else {
-                Some(Origin::of(from).to_string())
+                origin_only(from)
             }
         }
+    }
+}
+
+/// The origin of `from`, written as a URL: `https://example.com/`.
+///
+/// Not the origin's own serialisation, which has no `/`. The Referrer Policy
+/// standard strips the URL down to its origin and then sends it *as a URL*,
+/// which is what every other engine puts on the wire, and a server that
+/// compares `Referer` against `https://example.com/` would otherwise refuse
+/// every cross-origin request from here. A port that is not the scheme's own
+/// and an IPv6 host keep the form the origin gives them.
+///
+/// An opaque origin names nothing a server could check, so it sends nothing
+/// rather than `null/`. [`for_request`] only reaches here from `http` and
+/// `https`, whose origins never are; this is the answer if that changes.
+fn origin_only(from: &Url) -> Option<String> {
+    let origin = Origin::of(from);
+    if origin.is_opaque() {
+        None
+    } else {
+        Some(format!("{origin}/"))
     }
 }
 

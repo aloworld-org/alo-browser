@@ -405,12 +405,9 @@ mod tests {
                 Decided::Refused(refusal) => panic!("{refusal}"),
             }
         };
-        // `alo-net` writes an origin without its trailing `/`, which the
-        // standard's serialisation has; that is queue item 265's, and this
-        // asserts only that the policy was applied here.
         assert_eq!(
             go(None, "https://other.example/").as_deref(),
-            Some("https://example.com"),
+            Some("https://example.com/"),
             "the default is strict-origin-when-cross-origin",
         );
         assert_eq!(

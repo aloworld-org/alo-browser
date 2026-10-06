@@ -334,6 +334,12 @@ message it answered (`Tabs::navigation`). Item 265 (an origin-only
 `Referer` lacks its `/`, found by 263) is new. 113 queue items are open;
 the next unused queue number is 266 and the next unused ADR 0021.
 
+Iteration 160 built item 265: an origin-only `Referer` is the origin
+written as a URL, `https://example.com/`, under `origin`, `strict-origin`
+and the cross-origin half of the `*-when-cross-origin` policies, with a
+port and an IPv6 host kept in the origin's form. 112 queue items are
+open; the next unused queue number is 266 and the next unused ADR 0021.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

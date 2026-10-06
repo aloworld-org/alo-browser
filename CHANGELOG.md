@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The address a site is told you came from now ends in `/`.** When only
+  the site is passed on rather than the page — the default whenever one
+  site loads something from another — it now goes out as
+  `https://example.com/`, the form other browsers send, instead of
+  `https://example.com`. A server that checked
+  the header against its own address would have turned those requests
+  away.
+
 - **A clicked link now asks the browser to go there.** When a page's
   script clicks a link, or an agent presses one, the page works out the
   full address and asks; the browser re-reads the address itself and
