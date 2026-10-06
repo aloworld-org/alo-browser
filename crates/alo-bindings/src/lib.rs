@@ -32,7 +32,9 @@
 //! - Events (ADR 0018, queue item 254): `EventTarget` at the top of every
 //!   node's chain, a [`listeners`] list in each wrapper, the [`Event`] cell
 //!   holding a dispatch's state, and the DOM standard's [`dispatch`]
-//!   algorithm written once as a stepper that `dispatchEvent` drives.
+//!   algorithm written once as a stepper that `dispatchEvent` drives — and
+//!   that the renderer's event loop drives for an event the browser makes
+//!   with [`event::create`] (queue item 255).
 //! - [`install()`] makes the prototypes in an engine's realm and puts the
 //!   document on its global object as `document`; [`furnish()`] makes them
 //!   without the global, for a second document.
@@ -46,8 +48,9 @@
 //! the document back to the parser between them (queue item 247). The
 //! members are item 80's and item 254's and no more — everything else a page
 //! reaches for is absent, so `typeof` answers `"undefined"` (ADR 0017 § 8).
-//! Nothing the browser does dispatches an event yet: that is queue item 255,
-//! which drives the same stepper from the renderer's event loop.
+//! The browser's dispatch is a task the renderer's event loop runs (queue
+//! item 255), but nothing the browser does fires one yet: an agent's
+//! `Activate` is queue item 256.
 
 mod define;
 mod dictionary;
@@ -65,7 +68,7 @@ pub mod wrapper;
 
 pub use document_cell::{DocumentCell, Released};
 pub use embed::{Unadopted, Wrapping, adopt, change_document, document, node_of, wrap};
-pub use event::Event;
+pub use event::{Event, Firing};
 pub use install::{furnish, install};
 pub use interface::dom_exception::DomException;
 pub use interface::{Interface, Interfaces, prototype_of};

@@ -906,9 +906,13 @@ unreachable without it.
       `dispatchEvent`: capture and bubble, `once`, `passive`, both stops, a
       listener's throw reported by the engine (`alo-js`'s `Want::Report`)
       and the dispatch carrying on; `Event` and `CustomEvent` constructed by
-      a page. Corpus case `a-script-hears-an-event` · Owed: the browser's
-      dispatch as a task with a checkpoint after every listener (255);
-      `Activate` as a keyboard's click with activation behaviour in
+      a page. Corpus case `a-script-hears-an-event`. **The browser's
+      dispatch** (queue item 255, ADR 0018 § 3): a `Work::Dispatch` task in
+      `alo-renderer`'s event loop holding a browser-made event and its
+      target by one root, stepping the same stepper with a microtask
+      checkpoint after every listener; a page that never ran script given
+      no heap (`Held::dispatch`) · Owed: something the browser does that
+      fires one, and `Activate` as a keyboard's click with activation behaviour in
       `alo-dom` (256, which closes the line's queue item 81); `isTrusted`
       (260); `PutText`'s input events (257), focus (258) and event handler
       attributes (259)

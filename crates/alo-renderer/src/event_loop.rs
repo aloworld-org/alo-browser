@@ -20,13 +20,15 @@
 //!
 //! [`EventLoop::run_next`] takes the **oldest** task (ADR 0016 § 2 — one
 //! sequence number across everything, [`task`]) and runs it. A task is one or
-//! more pieces of script: a classic script's text, or a list of callees called
-//! one after another with the same arguments, as a dispatch from the browser
-//! process calls each listener in turn. **After every piece, the loop performs
-//! a microtask checkpoint** (§ 3), because each one leaves the engine with
-//! nothing running — which is why two listeners on a button a *person* clicked
-//! see each other's microtasks run between them, and the same two called by a
-//! script's `element.click()` do not.
+//! more pieces of script: a classic script's text, a list of callees called
+//! one after another with the same arguments, or a **dispatch from the
+//! browser** ([`EventLoop::queue_dispatch`], [`dispatched`]), which steps
+//! `alo-bindings`' one dispatch algorithm and calls each listener it names.
+//! **After every piece, the loop performs a microtask checkpoint** (§ 3),
+//! because each one leaves the engine with nothing running — which is why two
+//! listeners on a button a *person* clicked see each other's microtasks run
+//! between them, and the same two dispatched by a script's `dispatchEvent` or
+//! `element.click()` do not.
 //!
 //! A throw nothing caught is [reported](Report) and the loop runs on — and so
 //! is a throw a builtin asked to have reported, a listener's inside a
@@ -72,9 +74,11 @@
 //!
 //! # What is not here yet
 //!
-//! **Nothing in a page queues a task yet.** A timer firing is item 92, an
-//! event dispatched to listeners is item 81 and a response is item 83; each
-//! will queue through [`EventLoop::queue_calls`]. The [`Renderer`] holds one
+//! **Nothing in a page queues a task yet.** A timer firing is item 92 and a
+//! response is item 83; each will queue through [`EventLoop::queue_calls`].
+//! The browser's dispatch is queued through [`Held::dispatch`], and nothing
+//! the browser does fires one yet: an agent's `Activate` is item 256. The
+//! [`Renderer`] holds one
 //! loop per page and queues a task for each of the page's own scripts as it
 //! loads ([`crate::scripts`], item 236); the loop running between messages,
 //! for tasks a page queued itself, and an `Act` answered after its task's
@@ -83,8 +87,10 @@
 //! every task is queued by the renderer.
 //!
 //! [`Renderer`]: crate::Renderer
+//! [`Held::dispatch`]: crate::held::Held::dispatch
 
 mod described;
+mod dispatched;
 mod microtask;
 mod report;
 mod source;
@@ -94,6 +100,9 @@ use core::fmt;
 
 use std::rc::Rc;
 
+use alo_bindings::Firing;
+use alo_dom::NodeId;
+use alo_js::heap::Ref;
 use alo_js::interpret::{Engine, Stop};
 use alo_js::{Escape, Thrown, Value, compile, script};
 
@@ -101,7 +110,7 @@ pub use report::Report;
 use source::Sources;
 pub use source::{Place, Trace};
 pub use task::Seq;
-use task::{Tasks, Work};
+use task::{Tasks, Unmade, Work};
 
 /// The most reports one turn keeps (queue item 242).
 ///
@@ -139,6 +148,39 @@ impl fmt::Display for Stopped {
                 "the page stopped: between tasks, {scoped} references were still in scopes \
                  and {kept} still kept for an ended job"
             ),
+        }
+    }
+}
+
+/// Why the browser's dispatch was not queued.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Unqueued {
+    /// The page has stopped — before this, or because the heap was too full
+    /// to hold the task, which stops it here.
+    Stopped(Stopped),
+    /// The document has no such node: it was removed, or never existed.
+    NoSuchNode(NodeId),
+    /// What was given as the document is not a document cell, which is the
+    /// caller's bug.
+    NotADocument,
+}
+
+impl fmt::Display for Unqueued {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Unqueued::Stopped(stopped) => stopped.fmt(out),
+            Unqueued::NoSuchNode(node) => {
+                write!(
+                    out,
+                    "nothing was dispatched: node {node} is not in the page"
+                )
+            }
+            Unqueued::NotADocument => {
+                write!(
+                    out,
+                    "nothing was dispatched: that is not the page's document"
+                )
+            }
         }
     }
 }
@@ -279,6 +321,45 @@ impl EventLoop {
         }
     }
 
+    /// Queue the browser's dispatch of the event `firing` describes to `node`,
+    /// in the document `cell` holds (ADR 0018 § 3): one task, which makes
+    /// `node`'s wrapper if it has none and the event — trusted, since the
+    /// browser fires it (§ 4) — and holds both by one root until it has run
+    /// or been dropped.
+    ///
+    /// When it runs, each listener the dispatch reaches is called with nothing
+    /// else running and **followed by a microtask checkpoint**, before the
+    /// dispatch decides who is next. A throw is reported and the dispatch
+    /// carries on; anything else stops the page.
+    ///
+    /// `cell` must be rooted by the caller, as the renderer roots a page's
+    /// document ([`crate::held`]).
+    ///
+    /// # Errors
+    ///
+    /// [`Unqueued`]: the page has stopped, or the heap could not hold the task
+    /// and so stops it here; no such node; or no document.
+    pub fn queue_dispatch(
+        &mut self,
+        cell: Ref,
+        node: NodeId,
+        firing: &Firing<'_>,
+    ) -> Result<Seq, Unqueued> {
+        if let Some(stopped) = &self.stopped {
+            return Err(Unqueued::Stopped(stopped.clone()));
+        }
+        match task::dispatch(&mut self.engine, cell, node, firing) {
+            Ok(work) => Ok(self.tasks.push(work)),
+            Err(Unmade::NoSuchNode(node)) => Err(Unqueued::NoSuchNode(node)),
+            Err(Unmade::NotADocument) => Err(Unqueued::NotADocument),
+            Err(Unmade::Escaped(escape)) => {
+                let why = Stopped::Escaped(escape);
+                self.stop(why.clone());
+                Err(Unqueued::Stopped(why))
+            }
+        }
+    }
+
     /// Run the oldest task waiting, and say what it did — or [`None`] if
     /// nothing is waiting or the page has stopped. At most [`MOST_REPORTS`]
     /// reports are kept; the rest are counted in [`Turn::unreported`].
@@ -341,6 +422,7 @@ impl EventLoop {
                 }
                 Ok(())
             }
+            Work::Dispatch { list } => self.dispatch(list, turn),
         }
     }
 

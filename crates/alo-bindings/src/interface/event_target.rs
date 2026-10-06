@@ -40,14 +40,14 @@
 use alo_js::abrupt::{Internal, Missing};
 use alo_js::convert::{self, Hint, Primitive};
 use alo_js::heap::Ref;
+use alo_js::object::Objects;
 use alo_js::object::native::{Answer, Call, Want};
-use alo_js::object::{Found, Objects};
 use alo_js::{Escape, Value};
 
 use super::dom_exception;
 use crate::define;
 use crate::dictionary::{self, Member};
-use crate::dispatch::{self, Next, Refusal};
+use crate::dispatch::{self, Invoke, Next, Refusal};
 use crate::event::Event;
 use crate::idl::{self, Brand, This};
 use crate::listeners::Wanted;
@@ -394,36 +394,16 @@ fn drive(call: &mut Call<'_>, event: Ref) -> Result<Answer, Escape> {
         Next::Done { canceled } => return Ok(Answer::Value(Value::Bool(!canceled))),
         Next::Call { callback, this } => (callback, this),
     };
-    if call.seen().callable(callback).is_some() {
-        return Ok(Answer::want(
-            Want::Report {
-                callee: Value::Object(callback),
-                receiver: Value::Object(this),
-                arguments: vec![Value::Object(event)],
-            },
-            RETURNED,
-        ));
-    }
-    // A callback object's `handleEvent`, looked up now: a getter is a call
-    // of its own, and its throw is reported like the listener's would be.
-    let name: Vec<u16> = "handleEvent".encode_utf16().collect();
-    let found = match call.seen().existing_key(&name) {
-        Some(key) => call.seen().get(callback, key)?,
-        None => Found::Missing,
-    };
-    let (callee, step, arguments) = match found {
-        Found::Value(value) => (value, RETURNED, vec![Value::Object(event)]),
-        Found::Getter(getter) if getter != Value::Undefined => (getter, HANDLE_EVENT, Vec::new()),
-        // Not there: calling `undefined` is the `TypeError` the standard
-        // reports for a `handleEvent` that is not callable.
-        Found::Missing | Found::Getter(_) => {
-            (Value::Undefined, RETURNED, vec![Value::Object(event)])
-        }
+    let (callee, receiver, step, arguments) = match dispatch::invoke(call.seen(), callback, this)? {
+        Invoke::Call { callee, this } => (callee, this, RETURNED, vec![Value::Object(event)]),
+        // A getter is a call of its own, and its throw is reported like the
+        // listener's would be.
+        Invoke::Get { getter, this } => (getter, Value::Object(this), HANDLE_EVENT, Vec::new()),
     };
     Ok(Answer::want(
         Want::Report {
             callee,
-            receiver: Value::Object(callback),
+            receiver,
             arguments,
         },
         step,

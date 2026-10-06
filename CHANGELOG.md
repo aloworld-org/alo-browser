@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser can now send a page an event, the way a person's click
+  would arrive.** When the browser sends an event, each listener runs on
+  its own, and whatever it left waiting runs before the next listener
+  starts. When a page's own script sends the same event, those things
+  wait until the script has finished, which is the standard's difference
+  and the one real pages rely on. A listener that fails is reported and
+  the rest still hear the event. A page that has never run script is not
+  sent anything, and no script machinery is started for it. Nothing the
+  browser does sends an event yet: an agent pressing a button is the next
+  step.
+
 - **A page's script can now listen for events and send its own.** A
   script can add a listener to any part of the page and send an event —
   a plain one, or one carrying whatever the page wants — and every

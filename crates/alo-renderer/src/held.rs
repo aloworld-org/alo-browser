@@ -17,6 +17,14 @@
 //! there is one owner at every moment, and a borrow out of the heap is an
 //! ordinary Rust borrow that ends before anything could run script.
 //!
+//! # The browser's dispatch
+//!
+//! [`Held::dispatch`] is how the browser fires an event at a node (ADR 0018
+//! § 3): on a page whose document is in its heap, a task on its loop. **A page
+//! that has never run script is dispatched to by nobody** — it has no heap,
+//! so no wrapper and no listener, and it is not given a heap to find that out.
+//! Stage 1's pages behave exactly as they did.
+//!
 //! # A heap that will not take the document
 //!
 //! A document larger than the heap's ceiling cannot be adopted, since the
@@ -26,13 +34,13 @@
 
 use core::fmt;
 
-use alo_bindings::{Unadopted, adopt, change_document, document, install};
-use alo_dom::Document;
+use alo_bindings::{Firing, Unadopted, adopt, change_document, document, install};
+use alo_dom::{Document, NodeId};
 use alo_js::Escape;
 use alo_js::heap::Root;
 use alo_js::object::Refused;
 
-use crate::event_loop::EventLoop;
+use crate::event_loop::{EventLoop, Seq, Unqueued};
 
 /// A page's document, wherever it is.
 #[derive(Debug)]
@@ -112,6 +120,33 @@ impl Held {
         match self {
             Held::Parsed(_) => None,
             Held::Scripted(scripted) => Some(&mut scripted.script),
+        }
+    }
+
+    /// Queue the browser's dispatch of the event `firing` describes to
+    /// `node`, as a task on the page's loop, answering which task — or
+    /// [`None`] on a page that has never run script, which nobody is
+    /// listening to and which is not given a heap to find that out.
+    ///
+    /// Nothing runs here: the task runs when the loop reaches it.
+    ///
+    /// # Errors
+    ///
+    /// [`Unqueued`]: the page has stopped, or its heap could not hold the
+    /// task; the document has no such node; or the renderer's root on the
+    /// document has stopped naming it, which is the engine's bug.
+    pub fn dispatch(&mut self, node: NodeId, firing: &Firing<'_>) -> Result<Option<Seq>, Unqueued> {
+        match self {
+            Held::Parsed(_) => Ok(None),
+            Held::Scripted(scripted) => {
+                let cell = scripted
+                    .script
+                    .objects()
+                    .heap()
+                    .holding(&scripted.cell)
+                    .ok_or(Unqueued::NotADocument)?;
+                scripted.script.queue_dispatch(cell, node, firing).map(Some)
+            }
         }
     }
 

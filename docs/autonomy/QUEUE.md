@@ -4130,7 +4130,7 @@ The long pole, and the thing most of section E is unreachable without.
   no reporting boundary, and the renderer not handing over — each fails a
   test.
 
-- [ ] **255. A dispatch from the browser is a task.** *Cut from 81 (ADR 0018
+- [x] **255. A dispatch from the browser is a task.** *Cut from 81 (ADR 0018
   § 3, ADR 0016 §§ 3 and 6). Depends on 254.* A `Work` kind beside `Script`
   and `Calls` holding the event by its task's root and stepping 254's
   stepper, a microtask checkpoint after every listener, a throw reported and
@@ -4139,6 +4139,23 @@ The long pole, and the thing most of section E is unreachable without.
   listeners on one target, dispatched from the renderer, each see the other's
   microtasks run between them, and the same two dispatched by a script's
   `dispatchEvent` do not.
+  **Built (iteration 152).** `alo-renderer`: `Work::Dispatch` (`task.rs`), one
+  rooted list of the target's wrapper — made if the node had none — and an
+  event the browser made (`alo-bindings`' `event::create`, a `Firing`'s type
+  and init flags); `EventLoop::queue_dispatch` (`Unqueued`: stopped, no such
+  node, no document); the driver in `event_loop/dispatched.rs`, which begins
+  the dispatch trusted, calls each listener with nothing else running, hands
+  over set-aside throws, reports its own, runs the checkpoint, and **only
+  then** tells the stepper it returned — the standard's *inner invoke*, so a
+  microtask's `stopImmediatePropagation` stops the next listener and its
+  `preventDefault` after a passive listener does nothing; `Held::dispatch`,
+  which answers `None` for a page that never ran script and builds no heap.
+  `alo-bindings`: `dispatch::invoke`, how a callback is called (itself, its
+  `handleEvent`, or its `handleEvent` getter's answer), now asked by both
+  drivers. Tests: `alo-renderer/tests/a_dispatch_from_the_browser.rs` (13,
+  most run ordinarily and collecting at every allocation). Doctored runs,
+  each restored: no checkpoint per listener (5 tests fail), the stepper told
+  before the checkpoint (1), the task not rooting its target (1).
 
 - [ ] **256. `Activate` is a keyboard's click.** *Cut from 81 (ADR 0018 §§ 4–7).
   Depends on 255 and 260* (an agent's click is trusted, § 4). `UIEvent`,

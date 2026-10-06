@@ -20,8 +20,9 @@
 //! and this queue is outside it, so each task that holds script holds it by a
 //! [`Root`] — one per *task*, never one per value: a list in the heap holding
 //! `this`, the arguments and every callee, rooted when the task is queued and
-//! released when it has run or been dropped. A script task holds its source
-//! text, which is Rust's and needs no root.
+//! released when it has run or been dropped. A dispatch from the browser holds
+//! its event and its target the same way, in one rooted list of two. A script
+//! task holds its source text, which is Rust's and needs no root.
 //!
 //! **A [`Root`] is not released by being dropped**, so nothing here lets a task
 //! go except through [`Tasks::release`], which every path that ends a task
@@ -29,7 +30,11 @@
 
 use std::collections::VecDeque;
 
-use alo_js::object::Held;
+use alo_bindings::event::{self, Firing};
+use alo_bindings::{Wrapping, prototype_of, wrap};
+use alo_dom::NodeId;
+use alo_js::heap::Ref;
+use alo_js::object::{Held, Objects};
 use alo_js::{Engine, Escape, Fault, Root, Value};
 
 /// Which task: its place in the one order every task is run in.
@@ -53,8 +58,10 @@ pub(super) enum Work {
         /// The text.
         text: String,
     },
-    /// Call each callee in turn with the same `this` and arguments — one
-    /// listener after another for one event, or a timer's one callback.
+    /// Call each callee in turn with the same `this` and arguments — a
+    /// timer's one callback, or anything else whose calls are known when it
+    /// is queued. Not an event's listeners: whether one runs depends on what
+    /// the one before it did, which is [`Work::Dispatch`].
     Calls {
         /// `this`, then the arguments, then the callees, in one rooted list.
         list: Root,
@@ -62,6 +69,12 @@ pub(super) enum Work {
         arguments: usize,
         /// How many callees there are.
         callees: usize,
+    },
+    /// Dispatch an event the browser made to a node, stepping `alo-bindings`'
+    /// dispatch with a checkpoint after every listener (ADR 0018 § 3).
+    Dispatch {
+        /// The target's wrapper, then the event, in one rooted list.
+        list: Root,
     },
 }
 
@@ -121,7 +134,9 @@ impl Tasks {
     pub(super) fn release(engine: &mut Engine, work: Work) {
         match work {
             Work::Script { .. } => {}
-            Work::Calls { list, .. } => engine.objects().heap_mut().release(list),
+            Work::Calls { list, .. } | Work::Dispatch { list } => {
+                engine.objects().heap_mut().release(list);
+            }
         }
     }
 }
@@ -195,6 +210,105 @@ pub(super) fn call(
     }
     let callee = value(arguments.saturating_add(1).saturating_add(which))?;
     Ok((Call { callee, this }, values))
+}
+
+/// Why a dispatch's work could not be made.
+#[derive(Debug)]
+pub(super) enum Unmade {
+    /// The document has no such node.
+    NoSuchNode(NodeId),
+    /// What was given as the document is not a document cell.
+    NotADocument,
+    /// The heap could not hold the work, or the engine lost what it made.
+    Escaped(Escape),
+}
+
+impl From<Escape> for Unmade {
+    fn from(escape: Escape) -> Self {
+        Unmade::Escaped(escape)
+    }
+}
+
+/// The work of dispatching the event `firing` describes to `node`, in the
+/// document `cell` holds, the node's wrapper made if it has none.
+///
+/// The list is made and rooted first, so the wrapper and the event, each an
+/// allocation, are held by it from the moment they exist. `cell` must be
+/// rooted by the caller.
+///
+/// # Errors
+///
+/// [`Unmade`]: no such node, no document, or a heap too full to hold them.
+pub(super) fn dispatch(
+    engine: &mut Engine,
+    cell: Ref,
+    node: NodeId,
+    firing: &Firing<'_>,
+) -> Result<Work, Unmade> {
+    let objects = engine.objects();
+    let list = objects.slots().map_err(|why| Escape::refused(why, 0))?;
+    let list = objects.heap_mut().root(list);
+    match fill(objects, &list, cell, node, firing) {
+        Ok(()) => Ok(Work::Dispatch { list }),
+        Err(why) => {
+            objects.heap_mut().release(list);
+            Err(why)
+        }
+    }
+}
+
+/// Put the target's wrapper, then the event, in the rooted `list`.
+fn fill(
+    objects: &mut Objects,
+    list: &Root,
+    cell: Ref,
+    node: NodeId,
+    firing: &Firing<'_>,
+) -> Result<(), Unmade> {
+    let prototype = prototype_of(objects, cell, node);
+    let target = match wrap(objects, cell, node, prototype) {
+        Ok(target) => target,
+        Err(Wrapping::NoSuchNode(node)) => return Err(Unmade::NoSuchNode(node)),
+        Err(Wrapping::NotADocument) => return Err(Unmade::NotADocument),
+        Err(Wrapping::Refused(refused)) => return Err(Escape::refused(refused, 0).into()),
+    };
+    // Nothing allocates between making the wrapper and the list holding it.
+    push(objects, list, target)?;
+    let made = event::create(objects, cell, firing)?;
+    push(objects, list, made)?;
+    Ok(())
+}
+
+/// Add `value` to the end of the rooted `list`, which allocates nothing.
+fn push(objects: &mut Objects, list: &Root, value: Ref) -> Result<(), Escape> {
+    let held = objects
+        .heap()
+        .holding(list)
+        .ok_or(Escape::fault(Fault::Gone))?;
+    objects
+        .with_slots(held, |slots, _| slots.push(Value::Object(value)))
+        .ok_or(Escape::fault(Fault::Gone))
+}
+
+/// The event and the target's wrapper a [`Work::Dispatch`] task holds.
+///
+/// # Errors
+///
+/// [`Escape::Broken`] if the list has gone or does not hold two objects,
+/// which is the engine's bug or ours.
+pub(super) fn dispatched(engine: &mut Engine, list: &Root) -> Result<(Ref, Ref), Escape> {
+    let objects = engine.objects();
+    let held = objects
+        .heap()
+        .holding(list)
+        .ok_or(Escape::fault(Fault::Gone))?;
+    let object = |at: usize| match objects.slot(held, at) {
+        Some(Held::Value(Value::Object(object))) => Ok(object),
+        Some(Held::Value(_) | Held::Uninitialized) | None => Err(Escape::fault(Fault::Gone)),
+    };
+    let target = object(0)?;
+    let made = object(1)?;
+    Ok((made, target))
 }
 
 #[cfg(test)]

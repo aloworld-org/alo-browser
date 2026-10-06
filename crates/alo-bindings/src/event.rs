@@ -20,6 +20,14 @@
 //! native that drives a dispatch keep nothing across a suspension but a step
 //! number, as `alo-js`'s natives must ([`crate::dispatch`]).
 //!
+//! # An event the browser fires
+//!
+//! A page makes its events with `new Event(…)`; the browser makes its own
+//! with [`create`], the standard's *create an event*: an `Event` inheriting
+//! from the prototype the page's document cell holds, its type and init flags
+//! as the browser gives them ([`Firing`]), and nothing else. Its dispatch is
+//! the event loop's (queue item 255), and is trusted (ADR 0018 § 4).
+//!
 //! # What is not here
 //!
 //! `isTrusted` is queue item 260: Web IDL makes it `[LegacyUnforgeable]`, an
@@ -31,9 +39,12 @@
 //! law 1's.
 
 use alo_js::heap::{Barrier, Field, Ref, Trace, Tracer};
-use alo_js::object::{Exotic, Internal, Key, Ordinary, Property, Stored, Value};
+use alo_js::object::{Exotic, Internal, Key, Objects, Ordinary, Property, Stored, Value};
+use alo_js::{Escape, Fault};
 
 use crate::dispatch::Progress;
+use crate::document_cell::DocumentCell;
+use crate::interface::Interface;
 
 /// Which phase a dispatch is in, as `eventPhase` answers it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -366,4 +377,46 @@ pub fn make_event(prototype: Option<Ref>) -> Box<dyn Exotic> {
 /// How the `CustomEvent` constructor makes its instance.
 pub fn make_custom_event(prototype: Option<Ref>) -> Box<dyn Exotic> {
     Box::new(Event::new(prototype, true))
+}
+
+/// An event the browser fires: its type and its three init flags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Firing<'a> {
+    /// Its type — `"click"`, say.
+    pub kind: &'a str,
+    /// `bubbles`.
+    pub bubbles: bool,
+    /// `cancelable`.
+    pub cancelable: bool,
+    /// `composed`.
+    pub composed: bool,
+}
+
+/// Make the event `firing` describes, inheriting from `Event.prototype` as
+/// the document `cell` holds it — the standard's *create an event*, for the
+/// browser's own dispatch.
+///
+/// **A safepoint.** `cell` must be rooted by the caller, and the event
+/// answered is held by nothing: the caller holds it before anything else
+/// allocates.
+///
+/// # Errors
+///
+/// [`Escape::Full`] when the heap cannot hold it; a fault when `cell` is not
+/// a document cell whose interfaces have been made.
+pub fn create(objects: &mut Objects, cell: Ref, firing: &Firing<'_>) -> Result<Ref, Escape> {
+    let prototype = objects
+        .embedded::<DocumentCell>(cell)
+        .ok_or(Escape::fault(Fault::NotAnObject))?
+        .interfaces()
+        .prototype(Interface::Event)
+        .ok_or(Escape::fault(Fault::Gone))?;
+    let mut event = Event::new(Some(prototype), false);
+    event.set_kind(firing.kind.encode_utf16().collect());
+    event.set_init(Init::Bubbles, firing.bubbles);
+    event.set_init(Init::Cancelable, firing.cancelable);
+    event.set_init(Init::Composed, firing.composed);
+    objects
+        .foreign(Box::new(event))
+        .map_err(|why| Escape::refused(why, 0))
 }

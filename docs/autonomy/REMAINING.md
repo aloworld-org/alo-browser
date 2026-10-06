@@ -262,6 +262,15 @@ which 256 now also depends on. 115 queue items are open; 255 is next (its
 dependency 254 is done); the next unused queue number is 261 and the next
 unused ADR 0019.
 
+Iteration 152 built item 255, the browser's dispatch as a task: a
+`Work::Dispatch` in `alo-renderer`'s event loop holds a browser-made event
+and its target by one root and steps `alo-bindings`' one dispatch algorithm,
+with a microtask checkpoint after every listener and before the stepper
+hears it returned; a page that never ran script is given no heap. Nothing
+the browser does fires one yet. 114 queue items are open; 256 waits on 260,
+so **260** is next (it depends on nothing); the next unused queue number is
+261 and the next unused ADR 0019.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -12781,3 +12781,131 @@ design; 233, 234, 238 and 240 open and item 76 not done;
 no discriminating test. 115 queue items are open. Next is **255** (its
 dependency 254 is done). Next unused queue number **261**; next ADR
 **0019**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 152 — item 255: a dispatch from the browser is a task
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Events* line, iteration 151's entry,
+queue items 81 and 254–260, ADR 0018 in full and ADR 0016 in full (§§ 3, 6
+and 7 apply); and the code it builds on — `alo-bindings`' `dispatch.rs`,
+`event.rs`, `interface/event_target.rs`, `interface.rs`, `install.rs`,
+`embed.rs`; `alo-renderer`'s `event_loop.rs`, `event_loop/task.rs`,
+`event_loop/report.rs`, `held.rs`; `alo-js`'s `Engine` (`run`, `call`,
+`checkpoint`, `hand_over_reported`). No `AGENTS.md` exists. No sibling
+repository was read or modified. The checkout was clean on entry at
+`8daddf8`.
+
+**Selection.** Iteration 151 named **255** next; its one dependency, 254, is
+done, and every earlier open item is still blocked for the reasons
+iteration 144 recorded. Its ADR (0018 § 3, with ADR 0016 §§ 3 and 6) and
+its feature line (*Events*) exist.
+
+**What was built.** *The bindings* (`alo-bindings`): `event::create` and
+`Firing` — the standard's *create an event* for the browser, an `Event`
+inheriting from the prototype the page's document cell holds, its type and
+three init flags as given; and `dispatch::invoke`, how a listener's
+callback is called (the function, its `handleEvent`, or a `handleEvent`
+getter to call first), now asked by `dispatchEvent`'s native **and** the
+loop, so the two drivers cannot disagree about it. *The renderer*
+(`alo-renderer`): `Work::Dispatch` (`event_loop/task.rs`), one list rooted
+before anything else is allocated, holding the target's wrapper — made if
+the node had none, since `event.target` must be an object — then the event;
+`EventLoop::queue_dispatch` with its error `Unqueued` (stopped, which a
+full heap also causes, as for `queue_calls`; no such node; not a document);
+the driver, `event_loop/dispatched.rs`, which begins the dispatch
+**trusted** (ADR 0018 § 4), checks the stop switch before every listener,
+calls each with nothing else running, hands over set-aside throws, reports
+its own, runs the **microtask checkpoint, and only then** tells the stepper
+the listener returned. That order is the standard's *inner invoke* (calling
+is *clean up after running script*, which checkpoints, before the passive
+flag is unset and `stopImmediatePropagation` is looked at), and the tests
+pin it. `Held::dispatch` is the renderer's entry: `None` for a page that
+never ran script, which is given no heap (ADR 0018 § 3).
+
+**Tests and manual checks.** `alo-renderer/tests/a_dispatch_from_the_browser.rs`
+(13 tests; the table cases each run ordinarily and collecting at every
+allocation and must agree): the **closing condition** — two listeners
+dispatched from the renderer give `1a2b`, and the same two by a script's
+`dispatchEvent` give `12ab`; the path and phases, with document, div and
+button listeners and non-bubbling; the event's type and init flags as the
+browser made them, and `eventPhase` 0, `currentTarget` `null`, empty
+`composedPath()` after; a microtask's `stopImmediatePropagation` and
+`stopPropagation` between listeners, and `preventDefault` from a passive
+listener's microtask doing nothing; a throwing listener reported with the
+dispatch and its jobs carrying on; `InvalidStateError` for the same event
+dispatched again from a listener and from a microtask; `handleEvent`
+objects, a getter, a throwing getter and a missing one (reported
+`TypeError`), and the same objects through a script's dispatch; listeners
+removed, added and `once` during the dispatch; **a waiting dispatch holding
+its target** after the page detached it and dropped every reference and a
+collection ran (`heap().check()` sound before and after); a target never
+wrapped given one; a page that never ran script given no heap; a node from
+another document refused as `NoSuchNode` with the page running on; a stop
+during an endless listener stopping the page, dropping the task queued
+behind it, and refusing the next dispatch; a thousand throwing listeners
+keeping `MOST_REPORTS` (256) reports and counting 744. **Doctored runs**,
+each restored and the file checked identical: no checkpoint per listener
+(5 tests fail), the stepper told before the checkpoint (1 fails), the task
+not rooting its target (1 fails). Nothing here positions, sizes or draws,
+so there is no layout assertion and no reference render to make, and no
+corpus case: nothing the browser does fires an event yet (256), so no page
+can observe the difference this makes.
+
+**Compliance review.** Law 1: nothing legacy added. Law 2: no agent surface
+changed; `Activate` dispatching is 256. Law 3: no stub, no `todo!`, no
+`unwrap` outside tests; a dispatch refused at run time — which only a bug
+of ours could cause, since the task made both objects — stops the page as
+the engine's bug, stated in the code. Law 4: no `unsafe`. ADR 0018 § 3 as
+written; § 4's trusted flag is set (`isTrusted` itself is 260); § 1's
+*never makes a wrapper to find out nobody listens* holds for the path,
+which the stepper reads from the cell's table — only the target is wrapped,
+because the event must name it. ADR 0016 § 3 (a checkpoint after every
+callback) and § 7 (a stop is a stopped page) hold. Stage 2 § 2: the hostile
+input is a page's script — an endless listener, a thousand throwing ones, a
+listener re-dispatching its own event — and each returns, reports or stops
+the page, never panics. One file, one responsibility: the browser's driver
+is its own file; `task.rs` gains what a dispatch task holds, which is its
+existing reason (what a waiting task holds); `event.rs` gains the
+browser's way of making an event beside the page's. Rented crates: none new.
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step (7 min 2 s): formatting clean, clippy silent, all tests pass,
+nothing stubbed, `unsafe` forbidden, licence notices, every rented crate
+behind its boundary, no coordinate verb, the stop rule holds, `CHANGELOG.md`
+changed. A first run failed only `cargo fmt` (clippy and tests passed in
+it); the code was formatted and the whole gate run again. `git diff --check`
+passes. Logs kept in this session's scratchpad, not committed.
+
+**Roadmap.** The *Events* line's Built clause gains the browser's dispatch
+(255); its Owed clause now leads with something the browser does that fires
+one, and `Activate` (256). Not a tick. `CHANGELOG.md`, `docs/features.md`,
+`docs/autonomy/QUEUE.md` (255 ticked with what was built) and
+`REMAINING.md` moved with it. `docs/conformance.md` lists corpus cases and
+none was added.
+
+**Unresolved obligations.** New: nothing in the browser fires a dispatch
+yet — 256 (`Activate`) and item 233 (the loop running between messages, an
+`Act` answered after its task's checkpoint) are where it is reached; the
+`trusted` flag is set but unreadable until 260; a page whose script never
+touched a node still gets that node's wrapper when the browser dispatches
+to it, even with nobody listening anywhere on the path — correct, and a
+cost worth measuring only when it shows; ADR 0016's ceiling on waiting
+tasks still waits on the first task a page can queue for itself. Carried:
+`isTrusted` (260); `addEventListener` with an object type and an options
+getter refused by name (item 221); a dispatch abandoned by a non-page
+escape leaves its event flagged and path kept — now true of the browser's
+driver too, where the page is stopped in exactly that case; an embedder
+that never calls `hand_over_reported` holds up to 256 roots; item 81's
+remaining code (256, 257, 258 needs design, 259); `document.head` and every
+other absent member wait for a page or an item; any other object a page
+throws is said as `an object` (item 78); a `<meta>` policy a script inserts
+is not applied; detached trees a script drops during a load wait for the
+first collection after the parse; the renderer's path for a document the
+heap refuses is not discriminated; the one-write overshoot of the heap's
+ceiling; 248's undiscriminated overrun fallback; 78's remainder; 77 needs
+design; 233, 234, 238 and 240 open and item 76 not done;
+`violations::reports` still called by nothing in the browser process (item
+203's dependency); iteration 141's browser-side font-name guard still has
+no discriminating test. 114 queue items are open. 256 depends on 260, so
+next is **260** (it depends on nothing). Next unused queue number **261**;
+next ADR **0019**. This is one iteration, not a finished queue or roadmap.

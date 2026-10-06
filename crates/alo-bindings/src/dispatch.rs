@@ -11,8 +11,12 @@
 //! by the [`Event`] cell), so whoever drives it keeps nothing but a step
 //! number across a call: a script's `dispatchEvent` drives it from a native
 //! that suspends once per listener ([`crate::interface::event_target`]), and
-//! the renderer's event loop will drive the same steps with a microtask
-//! checkpoint after each (ADR 0018 § 3, queue item 255).
+//! the renderer's event loop drives the same steps for the browser, with a
+//! microtask checkpoint after each (ADR 0018 § 3, queue item 255).
+//!
+//! How a listener's callback is called — itself if it is a function, its
+//! `handleEvent` if it is not — is [`invoke`], which both drivers ask, so
+//! the two cannot come to disagree about it either.
 //!
 //! # The algorithm, as the standard has it
 //!
@@ -45,7 +49,7 @@
 
 use alo_dom::NodeId;
 use alo_js::heap::{Barrier, Field, Ref, Tracer};
-use alo_js::object::Objects;
+use alo_js::object::{Found, Objects, Value};
 use alo_js::{Escape, Fault};
 
 use crate::document_cell::DocumentCell;
@@ -146,6 +150,71 @@ pub enum Next {
         /// `defaultPrevented`, which `dispatchEvent` answers the opposite of.
         canceled: bool,
     },
+}
+
+/// How to call a listener's callback: the standard's *call a user object's
+/// operation*, for `EventListener`'s one operation, `handleEvent`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Invoke {
+    /// Call `callee` with `this` and the event. A callee that is not a
+    /// function — a callback object with no `handleEvent` — is the
+    /// `TypeError` calling it throws, which the standard reports.
+    Call {
+        /// What to call.
+        callee: Value,
+        /// Its `this`.
+        this: Value,
+    },
+    /// `handleEvent` is a getter on the callback object: call `getter` with
+    /// `this` and nothing else, then call what it answered with the same
+    /// `this` and the event. A getter that throws is the listener throwing.
+    Get {
+        /// The getter.
+        getter: Value,
+        /// The callback object, the `this` of both calls.
+        this: Ref,
+    },
+}
+
+/// How to call `callback`, a listener [`next`] answered, whose current target
+/// is `this`: a function is called with the current target as its `this`,
+/// and any other object's `handleEvent` — looked up now, as the standard
+/// says — with the object as its `this`.
+///
+/// Allocates nothing in the heap and runs nothing: a getter is answered for
+/// the driver to call.
+///
+/// # Errors
+///
+/// A fault for a reference this engine has lost.
+pub fn invoke(objects: &Objects, callback: Ref, this: Ref) -> Result<Invoke, Escape> {
+    if objects.callable(callback).is_some() {
+        return Ok(Invoke::Call {
+            callee: Value::Object(callback),
+            this: Value::Object(this),
+        });
+    }
+    let name: Vec<u16> = "handleEvent".encode_utf16().collect();
+    let found = match objects.existing_key(&name) {
+        Some(key) => objects.get(callback, key)?,
+        None => Found::Missing,
+    };
+    Ok(match found {
+        Found::Value(callee) => Invoke::Call {
+            callee,
+            this: Value::Object(callback),
+        },
+        Found::Getter(getter) if getter != Value::Undefined => Invoke::Get {
+            getter,
+            this: callback,
+        },
+        // Not there: calling `undefined` is the `TypeError` the standard
+        // reports for a `handleEvent` that is not callable.
+        Found::Missing | Found::Getter(_) => Invoke::Call {
+            callee: Value::Undefined,
+            this: Value::Object(callback),
+        },
+    })
 }
 
 /// Begin dispatching `event` to `target`, a node's wrapper — `trusted` when
