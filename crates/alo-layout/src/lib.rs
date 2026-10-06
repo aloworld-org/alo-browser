@@ -61,7 +61,7 @@ pub use keyword::{
     Positioning,
 };
 pub use legend::Band;
-pub use measure::{BlockFont, MeasureText, NoText, TextStyle};
+pub use measure::{BlockFont, MeasureText, NoText, ScaledFont, TextStyle};
 pub use placement::{GridLine, GridPlacement};
 pub use sizing::{AutoLength, Sizing};
 pub use style::LayoutStyle;

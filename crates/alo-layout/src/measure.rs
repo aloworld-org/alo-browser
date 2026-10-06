@@ -153,15 +153,7 @@ impl MeasureText for BlockFont {
     }
 
     fn break_opportunities(&self, text: &str) -> Vec<usize> {
-        let mut points: Vec<usize> = text
-            .char_indices()
-            .filter(|(_, character)| *character == ' ')
-            .map(|(offset, character)| offset + character.len_utf8())
-            .collect();
-        if points.last() != Some(&text.len()) {
-            points.push(text.len());
-        }
-        points
+        after_spaces(text)
     }
 
     fn ascender(&self, _style: &TextStyle) -> f32 {
@@ -171,6 +163,57 @@ impl MeasureText for BlockFont {
     fn descender(&self, _style: &TextStyle) -> f32 {
         4.0
     }
+}
+
+/// A measurer for tests that need the font's **size** to matter: half the
+/// font size a character, a line as tall as the font, three quarters of it
+/// above the baseline, breaking at spaces.
+///
+/// [`BlockFont`] answers the same for every size, which is what most layout
+/// tests want and exactly what a test about *which* font a line was measured
+/// in cannot use — a line in a 40-pixel block and one in a 10-pixel block
+/// would come out the same. It does not wrap inside a measurement; the line
+/// builder breaks text itself, between the opportunities this reports.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ScaledFont;
+
+impl MeasureText for ScaledFont {
+    fn measure(&self, text: &str, style: &TextStyle, _available_width: Option<f32>) -> Size {
+        if text.is_empty() {
+            return Size::ZERO;
+        }
+        let characters = f32::from(u16::try_from(text.chars().count()).unwrap_or(u16::MAX));
+        Size::new(
+            characters * (style.size / 2.0 + style.letter_spacing),
+            style.size,
+        )
+    }
+
+    fn break_opportunities(&self, text: &str) -> Vec<usize> {
+        after_spaces(text)
+    }
+
+    fn ascender(&self, style: &TextStyle) -> f32 {
+        style.size * 0.75
+    }
+
+    fn descender(&self, style: &TextStyle) -> f32 {
+        style.size * 0.25
+    }
+}
+
+/// The offsets just after every space, and the end of the text: where the
+/// test measurers let a line break.
+fn after_spaces(text: &str) -> Vec<usize> {
+    let mut points: Vec<usize> = text
+        .char_indices()
+        .filter(|(_, character)| *character == ' ')
+        .map(|(offset, character)| offset + character.len_utf8())
+        .collect();
+    if points.last() != Some(&text.len()) {
+        points.push(text.len());
+    }
+    points
 }
 
 #[cfg(test)]
@@ -230,6 +273,22 @@ mod tests {
         );
         assert!((NoText.ascender(&style) - 0.0).abs() < f32::EPSILON);
         assert!((NoText.descender(&style) - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn the_scaled_test_font_grows_with_the_font_size() {
+        let large = TextStyle {
+            size: 40.0,
+            ..TextStyle::default()
+        };
+        assert_eq!(
+            ScaledFont.measure("abc", &large, None),
+            Size::new(60.0, 40.0)
+        );
+        assert!((ScaledFont.ascender(&large) - 30.0).abs() < f32::EPSILON);
+        assert!((ScaledFont.descender(&large) - 10.0).abs() < f32::EPSILON);
+        assert_eq!(ScaledFont.measure("", &large, None), Size::ZERO);
+        assert_eq!(ScaledFont.break_opportunities("one two"), vec![4, 7]);
     }
 
     #[test]

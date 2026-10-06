@@ -36,6 +36,21 @@
 //! [`InlineItem::Open`] and an [`InlineItem::Close`] around its content rather
 //! than as one item, and why it gets **one fragment per line it is on** like
 //! anything else that wraps.
+//!
+//! # Every line starts as tall as its container's font
+//!
+//! CSS begins each line box with a **strut**: a zero-width inline box in the
+//! font of the block that holds the lines. Nothing draws it and nothing can
+//! be placed against it, but its ascent and descent count towards the line's
+//! height like anything else on it. That is why a line holding only a picture
+//! still has the font's descent below the picture's bottom edge — the room a
+//! descender would need, were there text — and why a line of small text in a
+//! block set large is as tall as the large font. Without it, a line is only
+//! as tall as what happens to be on it, and the same block grows and shrinks
+//! with its content's font rather than its own.
+//!
+//! The strut does not make a line exist. A line with nothing on it worth a
+//! line box is still no line at all, strut or not.
 
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::measure::{MeasureText, TextStyle};
@@ -244,7 +259,8 @@ impl TextAlignment {
     }
 }
 
-/// Lay items into lines no wider than `available_width`.
+/// Lay items into lines no wider than `available_width`, in a block set in
+/// the default font.
 ///
 /// `available_width` of [`None`] is the max-content question — how wide it
 /// would like to be — and puts everything on one line.
@@ -253,17 +269,25 @@ pub fn lay_out(
     available_width: Option<f32>,
     measurer: &impl MeasureText,
 ) -> InlineLayout {
-    lay_out_aligned(items, available_width, TextAlignment::Start, measurer)
+    lay_out_aligned(
+        items,
+        available_width,
+        TextAlignment::Start,
+        &TextStyle::default(),
+        measurer,
+    )
 }
 
-/// The same, with the lines sitting where `text-align` says.
+/// The same, with the lines sitting where `text-align` says, in a block whose
+/// font is `strut` — the font every line starts at least as tall as.
 pub fn lay_out_aligned(
     items: &[InlineItem],
     available_width: Option<f32>,
     alignment: TextAlignment,
+    strut: &TextStyle,
     measurer: &impl MeasureText,
 ) -> InlineLayout {
-    let mut builder = Builder::new(available_width, measurer);
+    let mut builder = Builder::new(available_width, strut, measurer);
     builder.alignment = alignment;
     for item in items {
         match item {
@@ -311,6 +335,10 @@ struct Builder<'a, M: MeasureText> {
     pen: f32,
     ascent: f32,
     descent: f32,
+    /// How far the container's font reaches above and below the baseline,
+    /// which is where every line's ascent and descent start.
+    strut_ascent: f32,
+    strut_descent: f32,
 }
 
 /// A nested inline box that has started and not yet finished.
@@ -333,7 +361,9 @@ struct OpenBox {
 }
 
 impl<'a, M: MeasureText> Builder<'a, M> {
-    fn new(available_width: Option<f32>, measurer: &'a M) -> Self {
+    fn new(available_width: Option<f32>, strut: &TextStyle, measurer: &'a M) -> Self {
+        let strut_ascent = measurer.ascender(strut);
+        let strut_descent = measurer.descender(strut);
         Self {
             available_width,
             measurer,
@@ -343,9 +373,18 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             open: Vec::new(),
             content: false,
             pen: 0.0,
-            ascent: 0.0,
-            descent: 0.0,
+            ascent: strut_ascent,
+            descent: strut_descent,
+            strut_ascent,
+            strut_descent,
         }
+    }
+
+    /// Begin a new line: back at the left edge, and as tall as the strut.
+    fn start_line(&mut self) {
+        self.pen = 0.0;
+        self.ascent = self.strut_ascent;
+        self.descent = self.strut_descent;
     }
 
     /// Whether something of this width still fits on the line being built.
@@ -578,9 +617,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             // says is a zero-height line box, treated as not existing. Either
             // way there is no line, and any open box carries on to the next.
             self.current.clear();
-            self.pen = 0.0;
-            self.ascent = 0.0;
-            self.descent = 0.0;
+            self.start_line();
             for held in &mut self.open {
                 held.start = 0.0;
                 held.from = 0;
@@ -644,9 +681,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             height,
             top,
         });
-        self.pen = 0.0;
-        self.ascent = 0.0;
-        self.descent = 0.0;
+        self.start_line();
         self.content = false;
     }
 
@@ -947,8 +982,13 @@ mod tests {
             (TextAlignment::Center, 80.0, 72.0 + 16.0),
             (TextAlignment::End, 160.0, 144.0 + 16.0),
         ] {
-            let layout =
-                lay_out_aligned(&[atomic(1, 40.0, 20.0)], Some(200.0), alignment, &BlockFont);
+            let layout = lay_out_aligned(
+                &[atomic(1, 40.0, 20.0)],
+                Some(200.0),
+                alignment,
+                &TextStyle::default(),
+                &BlockFont,
+            );
             assert_eq!(
                 lines_of(&layout),
                 vec![vec![format!("1@{alone}")]],
@@ -959,6 +999,7 @@ mod tests {
                 &[text(1, "ab"), atomic(2, 40.0, 20.0)],
                 Some(200.0),
                 alignment,
+                &TextStyle::default(),
                 &BlockFont,
             );
             let start = after_text - 16.0;
@@ -1021,6 +1062,7 @@ mod tests {
                 core::slice::from_ref(&boxed),
                 Some(200.0),
                 alignment,
+                &TextStyle::default(),
                 &BlockFont,
             );
             assert_eq!(
@@ -1029,7 +1071,9 @@ mod tests {
                 "{alignment:?}"
             );
             assert!(close(layout.size.width, 54.0), "{alignment:?}");
-            assert!(close(layout.size.height, 34.0), "{alignment:?}");
+            // The margin box above the baseline, and the strut's descent
+            // below it: the line is not only as tall as the box.
+            assert!(close(layout.size.height, 38.0), "{alignment:?}");
         }
     }
 
@@ -1053,6 +1097,119 @@ mod tests {
             lines_of(&layout),
             vec![vec!["1@0".to_owned()], vec!["2@10".to_owned()]],
         );
+    }
+
+    #[test]
+    fn a_line_of_only_a_picture_has_the_fonts_descent_below_it() {
+        // A 20-pixel box alone in a 16-pixel block: the box's bottom edge is
+        // the baseline, and the strut's 4-pixel descent hangs below it.
+        let layout = lay_out(&[atomic(1, 20.0, 20.0)], Some(200.0), &BlockFont);
+        let line = layout.lines.first().expect("one line");
+        assert!(close(line.baseline, 20.0), "{}", line.baseline);
+        assert!(close(line.height, 24.0), "{}", line.height);
+        assert_eq!(
+            line.fragments.first().map(|fragment| fragment.rect),
+            Some(Rect::new(0.0, 0.0, 20.0, 20.0)),
+            "the box sits at the top of its line, on the baseline",
+        );
+
+        // A box taller than the font still sets the ascent; a box shorter
+        // than it does not, and the line is the strut's 16.
+        let layout = lay_out(&[atomic(1, 20.0, 6.0)], Some(200.0), &BlockFont);
+        let line = layout.lines.first().expect("one line");
+        assert!(close(line.baseline, 12.0), "{}", line.baseline);
+        assert!(close(line.height, 16.0), "{}", line.height);
+        assert_eq!(
+            line.fragments.first().map(|fragment| fragment.rect),
+            Some(Rect::new(0.0, 6.0, 20.0, 6.0)),
+        );
+    }
+
+    #[test]
+    fn a_line_of_small_text_in_a_large_block_is_as_tall_as_the_large_font() {
+        use crate::measure::ScaledFont;
+        let small = InlineItem::Text {
+            box_id: box_id(1),
+            text: "ab".to_owned(),
+            style: TextStyle {
+                size: 10.0,
+                ..TextStyle::default()
+            },
+        };
+        let large = TextStyle {
+            size: 40.0,
+            ..TextStyle::default()
+        };
+        let layout = lay_out_aligned(
+            core::slice::from_ref(&small),
+            Some(200.0),
+            TextAlignment::Start,
+            &large,
+            &ScaledFont,
+        );
+        let line = layout.lines.first().expect("one line");
+        assert!(close(line.baseline, 30.0), "{}", line.baseline);
+        assert!(close(line.height, 40.0), "{}", line.height);
+        assert_eq!(
+            line.fragments.first().map(|fragment| fragment.rect),
+            Some(Rect::new(0.0, 22.5, 10.0, 10.0)),
+            "the small text stands on the large font's baseline",
+        );
+
+        // Every line, not only the first: two lines are 80.
+        let two = InlineItem::Text {
+            box_id: box_id(1),
+            text: "ab cd".to_owned(),
+            style: TextStyle {
+                size: 10.0,
+                ..TextStyle::default()
+            },
+        };
+        let layout = lay_out_aligned(
+            &[two],
+            Some(12.0),
+            TextAlignment::Start,
+            &large,
+            &ScaledFont,
+        );
+        assert_eq!(layout.lines.len(), 2);
+        assert!(close(layout.size.height, 80.0), "{}", layout.size.height);
+    }
+
+    #[test]
+    fn the_strut_does_not_make_an_empty_line_exist() {
+        let large = TextStyle {
+            size: 40.0,
+            ..TextStyle::default()
+        };
+        // A bracket with no edges, and a lone space: nothing worth a line.
+        for items in [
+            vec![
+                InlineItem::Open {
+                    box_id: box_id(1),
+                    edge: 0.0,
+                    style: TextStyle::default(),
+                    over: 0.0,
+                    under: 0.0,
+                },
+                InlineItem::Close {
+                    box_id: box_id(1),
+                    edge: 0.0,
+                },
+            ],
+            vec![text(1, " ")],
+            vec![],
+        ] {
+            let layout = lay_out_aligned(
+                &items,
+                Some(200.0),
+                TextAlignment::Start,
+                &large,
+                &BlockFont,
+            );
+            assert!(layout.lines.is_empty(), "{items:?}");
+            assert_eq!(layout.size, Size::ZERO, "{items:?}");
+        }
     }
 
     fn close(left: f32, right: f32) -> bool {

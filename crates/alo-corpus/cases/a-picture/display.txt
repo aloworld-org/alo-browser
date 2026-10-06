@@ -1,5 +1,5 @@
 picture box#3 24×24 at (0, 4) 24×24
-picture box#6 24×24 at (0, 32) 80×80
-picture box#9 24×24 at (0, 116) 30×30
-picture box#15 24×24 at (0, 174) 80×80
-picture box#18 24×24 at (0, 258) 80×80
+picture box#6 24×24 at (0, 34.83008) 80×80
+picture box#9 24×24 at (0, 121.66016) 30×30
+picture box#15 24×24 at (0, 185.32031) 80×80
+picture box#18 24×24 at (0, 272.1504) 80×80

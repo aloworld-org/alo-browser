@@ -1,11 +1,11 @@
-document at (0, 0) 320×387.96875
-  main at (0, 4) 320×56
-  paragraph at (0, 64) 320×24
-    image "Attributes" at (0, 64) 48×24
-  paragraph at (0, 92) 320×40
-    image "Half" at (0, 92) 80×40
-  paragraph at (0, 136) 320×93.96875
-    text "Ratio" at (0, 136) 30.808594×13.96875
-    image "Ratio" at (0, 149.96875) 320×80
-  paragraph at (0, 233.96875) 320×150
-    image at (0, 233.96875) 300×150
+document at (0, 0) 320×402.11914
+  main at (0, 4) 320×58.83008
+  paragraph at (0, 66.83008) 320×26.830078
+    image "Attributes" at (0, 66.83008) 48×24
+  paragraph at (0, 97.66016) 320×42.83008
+    image "Half" at (0, 97.66016) 80×40
+  paragraph at (0, 144.49023) 320×96.79883
+    text "Ratio" at (0, 144.49023) 30.808594×13.96875
+    image "Ratio" at (0, 158.45898) 320×80
+  paragraph at (0, 245.28906) 320×152.83008
+    image at (0, 245.28906) 300×150

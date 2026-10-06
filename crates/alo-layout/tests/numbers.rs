@@ -17,7 +17,7 @@
 use alo_box::{BoxId, BoxTree, build};
 use alo_css::{MediaContext, parse_stylesheet};
 use alo_dom::parse_document;
-use alo_layout::{BlockFont, LayoutTree, NoText, Rect, Size, compute};
+use alo_layout::{BlockFont, LayoutTree, MeasureText, NoText, Rect, ScaledFont, Size, compute};
 use alo_style::{Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET, resolve};
 
 /// Equal to within far less than a pixel. A layout assertion is about the
@@ -27,6 +27,17 @@ fn close(left: f32, right: f32) -> bool {
 }
 
 fn lay_out(html: &str, css: &str, viewport: Size) -> (BoxTree, LayoutTree) {
+    lay_out_measured(html, css, viewport, &BlockFont)
+}
+
+/// The same, measuring text with a given measurer — for the tests where the
+/// font's size has to matter, which [`BlockFont`] deliberately ignores.
+fn lay_out_measured(
+    html: &str,
+    css: &str,
+    viewport: Size,
+    measure: &impl MeasureText,
+) -> (BoxTree, LayoutTree) {
     let document = parse_document(html);
     let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
     // Every test here is about where flex, grid and `calc` put a box, and the
@@ -42,7 +53,7 @@ fn lay_out(html: &str, css: &str, viewport: Size) -> (BoxTree, LayoutTree) {
     ];
     let styles: StyleTree = resolve(&document, &sheets, &MediaContext::default());
     let boxes = build(&document, &styles);
-    let layout = compute(&boxes, &styles, viewport, &BlockFont);
+    let layout = compute(&boxes, &styles, viewport, measure);
     (boxes, layout)
 }
 
@@ -1135,8 +1146,9 @@ fn a_line_of_text_and_an_inline_block_move_together() {
 fn an_inline_blocks_margins_count_in_its_lines_height() {
     // alo's offline screen: a picture with `margin-bottom: 20px` alone on its
     // line, and a heading after it. The margin box is what sits on the line,
-    // so the line is 6 + 20 + 20 tall and the next block starts under the
-    // margin rather than straight against the picture.
+    // and the strut's descent hangs below its baseline, so the line is
+    // 6 + 20 + 20 + 4 tall and the next block starts under the margin *and*
+    // the descent rather than straight against the picture.
     let html = "<body><div id=w><span id=i></span><p id=after>x</p></div></body>";
     let css = "p { margin: 0 } \
                #i { display: inline-block; width: 40px; height: 20px; \
@@ -1151,10 +1163,55 @@ fn an_inline_blocks_margins_count_in_its_lines_height() {
     );
     let after = rect_of(&boxes, &layout, "after", html);
     assert!(
-        close(after.top(), 46.0),
-        "the next block starts below the bottom margin: {}",
+        close(after.top(), 50.0),
+        "the next block starts below the bottom margin and the descent: {}",
         after.top(),
     );
+}
+
+#[test]
+fn every_line_starts_as_tall_as_its_containers_font() {
+    // The strut is the font of the block holding the lines, not the default
+    // and not whatever is on the line. Half the font size a character, three
+    // quarters of it above the baseline.
+    let css = "#w { font-size: 40px } #s { font-size: 10px } \
+               #i { display: inline-block; width: 20px; height: 20px }";
+
+    // Small text in a 40-pixel block: the line is the large font's 40, and
+    // the text stands on its baseline at 30 — so its top is at 22.5.
+    let html = "<body><div id=w><span id=s>ab</span></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    let block = rect_of(&boxes, &layout, "w", html);
+    assert!(close(block.size.height, 40.0), "{block:?}");
+    let small = rect_of(&boxes, &layout, "s", html);
+    assert_eq!(small, Rect::new(0.0, 22.5, 10.0, 10.0));
+
+    // A 20-pixel picture alone in the same block: its bottom edge on the
+    // baseline at 30, and the font's 10-pixel descent below.
+    let html = "<body><div id=w><span id=i></span></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    let block = rect_of(&boxes, &layout, "w", html);
+    assert!(close(block.size.height, 40.0), "{block:?}");
+    let picture = rect_of(&boxes, &layout, "i", html);
+    assert_eq!(picture, Rect::new(0.0, 10.0, 20.0, 20.0));
+
+    // In a 16-pixel block the same picture sets the ascent: 20, and 4 below.
+    let html = "<body><div><span id=i></span><p id=after>x</p></div></body>";
+    let css = "p { margin: 0 } #i { display: inline-block; width: 20px; height: 20px }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    let after = rect_of(&boxes, &layout, "after", html);
+    assert!(close(after.top(), 24.0), "{after:?}");
+
+    // And a block with nothing worth a line in it is no taller for its font.
+    let html = "<body><div id=w><span id=s></span></div></body>";
+    let (boxes, layout) = lay_out_measured(
+        html,
+        "#w { font-size: 40px }",
+        Size::new(400.0, 300.0),
+        &ScaledFont,
+    );
+    let block = rect_of(&boxes, &layout, "w", html);
+    assert!(close(block.size.height, 0.0), "{block:?}");
 }
 
 #[test]

@@ -4822,7 +4822,7 @@ The long pole, and the thing most of section E is unreachable without.
   inside the padding above and below and 8 px either side — and no other
   case.
 
-- [ ] **283. The strut: every line starts as tall as its container's font.**
+- [x] **283. The strut: every line starts as tall as its container's font.**
   *Cut from 281 (iteration 174).* CSS gives each line box a zero-width
   inline box with the block container's font and line height, so a line of
   only a picture still has the font's descent below its baseline and a line
@@ -4840,6 +4840,32 @@ The long pole, and the thing most of section E is unreachable without.
   small text in a large-font block as tall as the large font, and an empty
   line still no line; `alo-offline`'s layout assertion puts the heading
   under the hand's margin *and* the descent.
+  **Built (iteration 176).** `alo-layout`'s line builder takes the
+  container's font as a strut and starts every line — the first, each
+  wrapped one, each forced one — at that font's ascent and descent; a line
+  with nothing worth a line box is still no line. The engine passes the
+  font of the box holding the lines (`text_style_for`) both when it sizes
+  that box and when it places the lines, so the two passes agree. A new
+  test measurer, `ScaledFont`, grows with the font size, because
+  `BlockFont` answers the same for every size and could not tell the
+  container's font from the default. Tests: `inline.rs` 3 (a 20 px box
+  alone in a 16 px block: baseline 20, line 24, and a 6 px box: line 16,
+  the box at 6; "ab" at 10 px in a 40 px block: baseline 30, line 40, the
+  text at 22.5, and two lines 80; a bracket, a lone space and nothing are
+  still no line), the 281 margin-box test moved 34 → 38. `numbers.rs` 1
+  new (the same three through the engine with `ScaledFont`, and an empty
+  40 px block 0 tall), and the 281 test's next block moved 46 → 50.
+  `measure.rs` 1 (the scaled font). Doctored: the engine passing the
+  default font fails the new `numbers.rs` test; the builder starting lines
+  at zero fails three `inline.rs` and two `numbers.rs` tests. Corpus: six
+  cases moved, each read. `a-picture`, `an-svg-box` and `a-filled-form`'s
+  checkbox line gain the descent under a picture, an SVG or a checkbox,
+  as browsers do; `alo-offline`'s hand line is 79.77 (56 + 20 + 3.77), the
+  heading under it. *What it exposed:* `alo-offline`'s, `web-a-form`'s and
+  `a-script-hears-an-event`'s **button** lines also gained a descent, which
+  browsers do not add — a button's baseline is its label's, and the engine
+  takes every atomic box's as its bottom edge. That is a separate fault the
+  strut uncovered rather than caused, and it is **285**.
 
 - [ ] **284. A percentage width on an inline-block resolves against its
   containing block, both times.** *Found by iteration 174, not opened by a
@@ -4854,6 +4880,32 @@ The long pole, and the thing most of section E is unreachable without.
   *Closes when:* a
   `numbers.rs` assertion has a 50%-wide inline-block in 400 px drawn 200
   wide, with and without margins, and the line's next text right after it.
+
+- [ ] **285. An inline-block's baseline is its last line's.** *Opened by
+  `alo-offline`, `web-a-form` and `a-script-hears-an-event` (iteration
+  176).* The engine gives every atomic inline box a baseline at its bottom
+  margin edge (`engine.rs`'s `lay_out_subtree` reports the border box's
+  height). That is CSS's rule for a picture, an SVG and a box with no line
+  in it, and wrong for a `<button>`, a text field with a value and an
+  `inline-block` holding text: CSS puts their baseline on their **last line
+  box in normal flow** (the bottom margin edge only when there is none or
+  `overflow` is not `visible`). Since the strut (283), a line holding only
+  a button is one font-descent taller than in browsers — 3.77 px under
+  alo's offline screen's "Try again", whose label's descent should have
+  covered it — and a button beside text sits a descent too high.
+  *Depends on nothing.* *Closes when:* a `numbers.rs` assertion has an
+  inline-block holding a line of text, alone in a block of the same font,
+  making a line exactly its own height, and stand on the baseline of the
+  text beside it; an empty inline-block and one with `overflow: hidden`
+  still sit on their bottom margin edge; `alo-offline`'s button line is the
+  button's height, and `web-a-form`'s and `a-script-hears-an-event`'s
+  button lines move back by the descent, as does `alo-agent`'s
+  `reading_an_interface` outline (its form back to 44.90176) and
+  `alo-renderer`'s `what_a_listener_hears` (its paragraphs back to 44.8
+  and 77.09688). A flex or
+  grid container's
+  baseline (its items', not its last line's) is out of scope: say so where
+  it is refused, and queue it if a page needs it.
 
 - [ ] **94. Animations and transitions.** Stage 1 reads them and they change
   nothing, which is correct for a still picture; this is the clock.

@@ -171,6 +171,7 @@ pub(crate) fn measure_inline(
         &items,
         available_width,
         alignment_of(boxes, styles, id),
+        &text_style_for(boxes, styles, id),
         measure,
     )
 }
@@ -518,10 +519,14 @@ fn place_inline_content(
         let content = container.content_box();
         let items =
             collect_inline_items(boxes, styles, id, Some(content.size.width), measure, issues);
+        // The strut is the font of the box that holds the lines, and it is
+        // the same one `measure_inline` sized this box with — two different
+        // struts would give the box one height and its lines another.
         let layout = inline::lay_out_aligned(
             &items,
             Some(content.size.width),
             alignment_of(boxes, styles, id),
+            &text_style_for(boxes, styles, id),
             measure,
         );
 

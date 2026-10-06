@@ -61,6 +61,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] Inline formatting: a line of text and the boxes in it, with breaking and baselines
 - [1] **`text-align`** `start`, `left`, `center`, `end` and `right`: a line, text and inline-blocks together, moves as one, and a line in a box nobody wrote inherits its container's alignment
 - [1] **An image or inline-block's margins on its line**: its margin box takes room across the line, stands on the baseline and makes the line taller, so the space an author writes under a picture is kept
+- [1] **The strut**: every line starts as tall as its container's font, so a line of only a picture keeps the font's descent below it and small text in a large-font block makes a line as tall as the large font; a line with nothing worth a line box is still no line
 - [1] **`letter-spacing`**, applied where the text is measured — it changes what a run is worth and so where every line breaks
 - [1] **`white-space`**: `normal`, `pre`, `pre-wrap`, `pre-line`, `nowrap` — runs of whitespace collapsed when the box is built, and where a line may break decided when the line is built
 - [1] Layout is asserted in **numbers** — the computed box — never by eyeballing an image

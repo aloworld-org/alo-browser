@@ -5,11 +5,11 @@ fill box#4 rgb(231 111 81) at (20.999996, 6.333333) 14.000004×23.333332
 fill box#4 rgb(231 111 81) at (11.666665, 11) 14.000001×28
 fill box#4 rgb(231 111 81) at (2.0156329, 15.666666) 51.65103×42
 unclip
-fill box#9 rgb(42 157 143) at (0, 64) 48×24
-clip box#9 to (0, 64) 48×24
-fill box#9 rgb(0 0 0) at (0, 64) 48×24
+fill box#9 rgb(42 157 143) at (0, 66.83008) 48×24
+clip box#9 to (0, 66.83008) 48×24
+fill box#9 rgb(0 0 0) at (0, 66.83008) 48×24
 unclip
-fill box#13 rgb(38 70 83) at (0, 92) 80×40
-text box#17 "Ratio" rgb(0 0 0) 12px at (0, 147.13867)
-fill box#18 rgb(233 196 106) at (0, 149.96875) 320×80
-fill box#22 rgb(138 177 125) at (0, 233.96875) 300×150
+fill box#13 rgb(38 70 83) at (0, 97.66016) 80×40
+text box#17 "Ratio" rgb(0 0 0) 12px at (0, 155.6289)
+fill box#18 rgb(233 196 106) at (0, 158.45898) 320×80
+fill box#22 rgb(138 177 125) at (0, 245.28906) 300×150

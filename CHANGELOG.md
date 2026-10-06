@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A line is never shorter than its font.** A line holding only a picture
+  used to be exactly as tall as the picture, so the next paragraph sat
+  against its bottom edge, and small text in a large-font block made a
+  line as small as the text. Every line now starts as tall as the font of
+  the block it is in, as in other browsers — which is the small gap under a
+  picture, and the gap under the hand on alo's offline screen. A line
+  holding only a button is now that gap too tall, because a button is
+  still taken to sit on its bottom edge rather than on its label; that is
+  queued.
+
 - **`place-items`, `place-self` and `place-content` now work.** Each was
   kept and ignored, so a grid centred with `place-items: center` put its
   content at the top, stretched to the full height. They now set the

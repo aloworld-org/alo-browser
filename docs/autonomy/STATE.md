@@ -15646,3 +15646,112 @@ against. Queue: 282 ticked with what was built. Also updated:
 117 queue items are open. The first eligible item in file order is now
 **283**. The next unused queue number is **285** and the next ADR is
 **0023**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 176 — item 283: the strut
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and the stage 2 lines), iteration 175's entry, queue items
+280–284, `docs/features.md`'s layout section and `docs/conformance.md`. No
+`AGENTS.md` exists in this repository. ADR 0004 (we own the layout tree;
+`taffy` owns the algorithms) applies and is unchanged: the strut is in our
+own line builder, which `taffy` never sees. Nothing is decided, so no ADR.
+
+**Selection.** Iteration 175 recorded 283 as the first eligible item in file
+order, and nothing before it changed since. It depends on nothing.
+
+**What was built.** `alo-layout`'s line builder takes the container's font
+as a strut (`lay_out_aligned` gains a `strut: &TextStyle`), and every line
+it starts — the first, a wrapped one, a forced one — begins at that font's
+ascent and descent rather than at zero. A line with nothing worth a line
+box is still no line. The engine passes the font of the box holding the
+lines (`text_style_for`) in both places it lays them out, sizing and
+placing, so the box and its lines agree on a height. `lay_out` keeps its
+three arguments and means "in a block set in the default font". A second
+test measurer, `ScaledFont`, sits beside `BlockFont` in `measure.rs`
+(whose one job is measurers): `BlockFont` answers the same for every size,
+so no test using it could tell the container's font from the default.
+
+**What it exposed, and did not fix.** Six corpus cases moved and I read each.
+Pictures, SVGs and a checkbox alone on a line gain the font's descent under
+them — `a-picture`, `an-svg-box`, `a-filled-form` — which is what browsers
+do. `alo-offline`'s hand line is 79.77 (56 + 20 + 3.77), the heading under
+the hand's margin and the descent: the item's closing condition. But the
+**button** lines in `alo-offline`, `web-a-form` and
+`a-script-hears-an-event` gained a descent too, and browsers do not add one.
+A button's baseline is its label's, and the engine takes every atomic box's
+baseline as its bottom margin edge (`lay_out_subtree`). Before the strut
+that fault was invisible on a line holding only a button; now such a line
+is one descent too tall. Fixing it is a second item — finding a box's last
+line box in normal flow, the `overflow` exception, and leaving flex and
+grid baselines out on purpose — so it is **285**, eligible and next in
+file order, and named in `docs/conformance.md`, in the offline-screen row
+and in the two tests whose numbers it moved
+(`alo-agent`'s `reading_an_interface` and `alo-renderer`'s
+`what_a_listener_hears`, each now with a comment saying why it is 3.3 px off
+and what 285 moves it back to). A net trade: three lines that were right by
+accident are now wrong for a named reason, and four that were wrong are now right.
+
+**Gate, mechanical.** `scripts/gate.sh` exited 0 — "The gate is met.":
+fmt clean, clippy silent, tests pass (corpus included), no stubs, no
+`unsafe`, licence notices, rented crates behind their boundaries, no
+coordinate verbs, the stop rule, `CHANGELOG.md` changed. `git diff --check`
+passes. *Process note:* the first two runs failed `cargo test`, each on one
+test this change moved (`reading_an_interface`, then
+`what_a_listener_hears`, both on a button line, both 285). Each was read,
+not suppressed: the expectation was updated with a comment naming the cause
+and the item that reverses it. Then `cargo test --workspace
+--no-fail-fast` passed, and the gate ran a third time from the start, in the
+foreground, and its result was read in the same step. Only this entry changed
+after the gate ran.
+
+**Gate, manual.**
+- Layout assertions in numbers. `inline.rs` 3 new: a 20 px box alone in a
+  16 px block on baseline 20 in a 24 px line, and a 6 px box in a 16 px line
+  at y 6; "ab" at 10 px in a 40 px block on baseline 30, line 40, the text
+  at y 22.5, and two such lines 80; a bracket, a lone space and nothing are
+  still no line. One moved: 281's margin-box test, from 34 to 38.
+  `numbers.rs` 1 new, through the engine with `ScaledFont`: the 40 px block
+  is 40 with small text at (0, 22.5) 10×10; a 20 px inline-block in it is
+  at y 10 with the block 40; a 20 px one in a 16 px block puts the next
+  block at 24; and a block with nothing in it is 0. One moved: 281's
+  next-block test, from 46 to 50. `measure.rs` 1 new (the scaled font).
+  Doctored: the engine passing the default font fails the new `numbers.rs`
+  test; the builder starting lines at zero fails three `inline.rs` and two
+  `numbers.rs` tests. Both restored.
+- Reference renders: the six cases above re-committed (layout, display
+  list, agent tree, picture; `web-a-form` has no picture). I looked at
+  `alo-offline`'s new render: the gap under the hand is a little larger,
+  everything is still centred, and the screen reads as before.
+- One responsibility per file: the strut lives in `inline.rs` with the
+  rest of the line's geometry; which font the strut is stays in `engine.rs`,
+  where the items are made; the new measurer is in `measure.rs`, which
+  holds measurers. No file gained a second reason to change.
+- `docs/features.md` gains the strut line; `docs/conformance.md` says what
+  the strut does and what 285 still gets wrong, and its offline-screen row
+  names 283 as done and 285 as owed.
+
+**Roadmap.** This item served **no open roadmap line**, and `ROADMAP.md` is
+left unchanged on purpose, for the reason iterations 173–175 gave. It
+corrects inline layout under stage 1's ticked *Layout* line, and no stage 2
+line covers line-box geometry. *CSS beyond what alo needed* lists new
+capability, not this. Queue: 283 ticked with what was built and what it
+exposed, and 285 opened. Also updated: `CHANGELOG.md`, `docs/features.md`,
+`docs/conformance.md`, `REMAINING.md`.
+
+**Unresolved obligations.**
+- 285 (an inline-block's baseline is its last line's) is the first eligible
+  item in file order and owes three corpus cases and two tests their
+  button lines back. 279 is eligible too. 284 waits on a page.
+- A forced break on an empty line (`break_line` with nothing laid down)
+  returns early in `end_line` and makes no line, though its comment says a
+  blank line is kept. Seen while reading, not tested or changed here: the
+  next iteration that touches `white-space: pre` should check it against
+  the comment before trusting either.
+- Carried, unchanged: ADR 0022 § 2's wording and § 4's name order, and a
+  side-by-side of the hand with a real browser (a person's call); 269
+  blocked on a `rav1d` release; the `image-webp` upstream report; 109, 179,
+  and 82, 83, 85–89, 95–99, 104 and 105 still needing their designs.
+
+117 queue items are open (one closed, one opened). The first eligible item in
+file order is now **285**. The next unused queue number is **286** and the
+next ADR is **0023**. This is one iteration, not a finished queue or roadmap.

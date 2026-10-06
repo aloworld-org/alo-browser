@@ -447,6 +447,13 @@ centred down the window as well as across. 283 (the strut) is next. 117
 queue items are open; the next unused queue number is 285 and the next
 unused ADR 0023.
 
+Iteration 176 built 283: every line starts as tall as its container's font,
+so alo's offline screen has the font's descent under its hand. That exposed
+an atomic box's baseline taken as its bottom edge even for a button, whose
+line is now one descent too tall; that is 285, eligible and next. 117 queue
+items are open; the next unused queue number is 286 and the next unused ADR
+0023.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;
