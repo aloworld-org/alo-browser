@@ -4235,7 +4235,7 @@ The long pole, and the thing most of section E is unreachable without.
   and `el.onclick = f`. *Depends on 254. Opened by a page* that fails
   without them, as `ROADMAP.md` asks of stage 2.
 
-- [ ] **261. `HTMLElement` and `click()`.** *Cut from 256 (ADR 0018 § 6).
+- [x] **261. `HTMLElement` and `click()`.** *Cut from 256 (ADR 0018 § 6).
   Depends on 256.* An element in the HTML namespace gets the `HTMLElement`
   interface between `Element` and its own; `HTMLElement.prototype.click()`
   is the standard's: nothing on a disabled form control, nothing while that
@@ -4248,6 +4248,61 @@ The long pole, and the thing most of section E is unreachable without.
   `isTrusted` `false`, and no microtask between them; a listener's
   `preventDefault` leaves the box as it was; and a second `click()` from
   inside the first's listener does nothing.
+  **Built (iteration 156).** `alo-bindings`: `Interface::HtmlElement`
+  (`HTMLElement`, inheriting `Element`) is the interface of every element
+  in the HTML namespace, so `Interface::of` and the brand check
+  (`Brand::HtmlElement`) ask the namespace; an SVG element stays an
+  `Element`. `interface/html_element.rs`: `click()` — nothing on a
+  `button`, `input`, `select` or `textarea` that `:disabled` matches
+  (`alo-css`' `state::is_disabled`, so one rule for both), nothing while
+  the element's click is in progress, otherwise an untrusted
+  `PointerEvent` `click` made by `event::create` and dispatched with
+  `alo-dom`'s `activation.rs` around it, `input` and `change` after, all
+  inside the call. `clicking.rs`: the click in progress flag is the
+  wrapper holding a `Clicking` — the event being dispatched, the
+  activation target's wrapper and the pre-activation's record — traced as
+  the wrapper's edges, so the native keeps nothing across a listener but
+  its step. `scripted.rs`: the native driver, taken out of
+  `dispatchEvent` so both natives drive the stepper one way, each from a
+  base step. A click nobody cancelled on a **link** is refused by name
+  after its listeners (`alo-js`' new `Missing::InTheEmbedder`, the
+  embedder's own words; item 263). Tests:
+  `alo-renderer/tests/a_scripts_click.rs` (10, run from an agent's press
+  so the script's `click()` is inside the browser's dispatch, each page
+  pressed ordinarily and collecting at every allocation and required to
+  agree) and `html_element.rs`' unit test of which controls are disabled
+  form controls. Doctored runs, each restored: `Clicking` not traced, no
+  click in progress flag, a cancelled click not undone, the click
+  trusted, a disabled control clicked, a link silently not followed, and
+  no `input`/`change` — each fails a test.
+  **Cut, by scope:** the interface of each element's own name is item
+  262; a script's click following a link is item 263.
+
+- [ ] **262. Each HTML element's own interface.** *Cut from 261.* An
+  `<input>` is an `HTMLInputElement`, a `<div>` an `HTMLDivElement`, an
+  element HTML does not name an `HTMLUnknownElement`, each inheriting
+  `HTMLElement` — the chain HTML's table gives, with empty prototypes
+  where no member is built, as `Text` and `Comment` are today. Until then
+  an HTML element's prototype is `HTMLElement.prototype` itself, a link
+  short and said so in `alo-bindings`' `interface.rs`. *Depends on 261.
+  Opened by a page* whose script reads a member of one of them, or tells
+  one element's interface from another's. *Closes when:* an `<input>`'s
+  and a `<div>`'s prototypes differ and both inherit `HTMLElement`'s
+  `click`.
+
+- [ ] **263. A script's `click()` follows a link.** *Cut from 261 (ADR
+  0018 § 6).* A click nobody cancelled on an `a` or `area` with an `href`
+  follows it, which is the page navigating itself: the renderer must ask
+  the browser process to navigate, as `Act` answers `Followed` for an
+  agent's press — and an `<a download>`'s activation is a download rather
+  than a navigation. alo uses both: `alo-workplace`'s `FilesView.tsx` and
+  `TaskDetail.tsx` make an `<a download>` and call `a.click()` on it.
+  Until then the case is refused by name after the click's listeners have
+  run. *Depends on 261*, and on a decision about what a renderer may ask
+  the browser process to navigate to, which **needs ADR** if ADR 0005 and
+  0012 do not already decide it. *Closes when:* a page's `a.click()` on a
+  link nobody cancelled reaches the browser process as a navigation that
+  says the page's script caused it.
 
 - [x] **260. `isTrusted`, as Web IDL's `[LegacyUnforgeable]` attribute.**
   *Cut from 254 (ADR 0018 §§ 4 and 8). Depends on nothing.* An own accessor

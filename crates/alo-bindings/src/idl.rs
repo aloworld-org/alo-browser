@@ -25,7 +25,7 @@
 //! replacement character. Holding the document's text as UTF-16 is the cure,
 //! and it waits for a page that needs it.
 
-use alo_dom::{Document, NodeId, NodeKind};
+use alo_dom::{Document, Namespace, NodeId, NodeKind};
 use alo_js::abrupt::Internal;
 use alo_js::convert::{self, Hint, Primitive};
 use alo_js::heap::Ref;
@@ -46,6 +46,8 @@ pub(crate) enum Brand {
     Node,
     /// An element.
     Element,
+    /// An element in the HTML namespace.
+    HtmlElement,
     /// The document node.
     Document,
     /// A node the `ChildNode` mixin is on: an element, a doctype or
@@ -60,6 +62,7 @@ impl Brand {
             Self::EventTarget => "EventTarget",
             Self::Node => "Node",
             Self::Element => "Element",
+            Self::HtmlElement => "HTMLElement",
             Self::Document => "Document",
             Self::ChildNode => "ChildNode",
         }
@@ -70,6 +73,10 @@ impl Brand {
         match self {
             Self::EventTarget | Self::Node => true,
             Self::Element => matches!(kind, NodeKind::Element(_)),
+            Self::HtmlElement => matches!(
+                kind,
+                NodeKind::Element(element) if matches!(element.name.ns, Namespace::Html)
+            ),
             Self::Document => matches!(kind, NodeKind::Document),
             Self::ChildNode => matches!(
                 kind,
@@ -197,9 +204,8 @@ pub(crate) fn nullable_node(
 /// element, and anything else must be an element in the HTML namespace of
 /// `this`'s document.
 ///
-/// There is no `HTMLElement` interface yet — every element is an `Element`
-/// to a script — so the conversion asks the node's namespace, which is
-/// exactly what being one is.
+/// The conversion asks the node's namespace, which is exactly what being
+/// an `HTMLElement` is ([`crate::interface`]).
 ///
 /// # Errors
 ///
@@ -220,7 +226,7 @@ pub(crate) fn nullable_html_element(
         let node = node(call, which, this, member)?;
         let is_html = embed::document(call.seen(), this.owner)
             .and_then(|document| document.element(node))
-            .is_some_and(|element| element.name.ns == alo_dom::Namespace::Html);
+            .is_some_and(|element| element.name.ns == Namespace::Html);
         if is_html {
             return Ok(Some(node));
         }

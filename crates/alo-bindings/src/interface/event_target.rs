@@ -16,7 +16,7 @@
 //!   a dictionary of `capture`.
 //! - `dispatchEvent(event)` — the event dispatched to this target, untrusted,
 //!   its listeners called by this native one at a time through the stepper
-//!   ([`crate::dispatch`]); a listener that throws is **reported** and the
+//!   ([`crate::dispatch`]), driven as `scripted.rs` drives it; a listener that throws is **reported** and the
 //!   next one runs, and the answer is whether nobody cancelled it.
 //!
 //! # `signal` is a `TypeError`
@@ -47,10 +47,11 @@ use alo_js::{Escape, Value};
 use super::dom_exception;
 use crate::define;
 use crate::dictionary::{self, Member};
-use crate::dispatch::{self, Invoke, Next, Refusal};
+use crate::dispatch::{self, Refusal};
 use crate::event::Event;
 use crate::idl::{self, Brand, This};
 use crate::listeners::Wanted;
+use crate::scripted::{self, Driven};
 use crate::wrapper::Wrapper;
 
 /// `EventTarget.prototype`'s members.
@@ -322,12 +323,6 @@ fn target(call: &Call<'_>) -> Result<Ref, Escape> {
     }
 }
 
-/// Step 1 of `dispatchEvent`: a listener returned or was reported.
-const RETURNED: u32 = 1;
-
-/// Step 2: a callback object's `handleEvent` getter answered.
-const HANDLE_EVENT: u32 = 2;
-
 /// `dispatchEvent(event)`.
 fn dispatch_event(call: &mut Call<'_>) -> Result<Answer, Escape> {
     let member = "dispatchEvent";
@@ -342,70 +337,28 @@ fn dispatch_event(call: &mut Call<'_>) -> Result<Answer, Escape> {
             ));
         }
     };
-    match call.step() {
-        0 => {
-            let wrapper = target(call)?;
-            match dispatch::begin(call.objects(), event, wrapper, false) {
-                Ok(()) => {}
-                Err(Refusal::Dispatching) => {
-                    return Err(dom_exception::thrown_named(
-                        call,
-                        this.owner,
-                        "InvalidStateError",
-                        "the event is already being dispatched",
-                    ));
-                }
-                Err(Refusal::NotAnEvent | Refusal::NotATarget) => {
-                    return Err(Escape::Broken(Internal::BuiltinIsWrong));
-                }
+    let driven = if call.step() == 0 {
+        let wrapper = target(call)?;
+        match dispatch::begin(call.objects(), event, wrapper, false) {
+            Ok(()) => {}
+            Err(Refusal::Dispatching) => {
+                return Err(dom_exception::thrown_named(
+                    call,
+                    this.owner,
+                    "InvalidStateError",
+                    "the event is already being dispatched",
+                ));
+            }
+            Err(Refusal::NotAnEvent | Refusal::NotATarget) => {
+                return Err(Escape::Broken(Internal::BuiltinIsWrong));
             }
         }
-        RETURNED => dispatch::returned(call.objects(), event),
-        HANDLE_EVENT if call.reported() => dispatch::returned(call.objects(), event),
-        HANDLE_EVENT => {
-            // The getter answered `handleEvent`: call it on the object.
-            let receiver = call
-                .seen()
-                .embedded::<Event>(event)
-                .and_then(Event::progress)
-                .and_then(dispatch::Progress::invoking)
-                .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
-            return Ok(Answer::want(
-                Want::Report {
-                    callee: call.answer()?,
-                    receiver: Value::Object(receiver),
-                    arguments: vec![Value::Object(event)],
-                },
-                RETURNED,
-            ));
-        }
-        _ => return Err(Escape::Broken(Internal::BuiltinIsWrong)),
-    }
-    drive(call, event)
-}
-
-/// Ask the stepper what is next, and ask the interpreter for it.
-///
-/// Nothing allocates between the stepper's answer and the call being asked
-/// for: the callback is held by the event while it runs, and its `this` by
-/// the document cell.
-fn drive(call: &mut Call<'_>, event: Ref) -> Result<Answer, Escape> {
-    let (callback, this) = match dispatch::next(call.objects(), event)? {
-        Next::Done { canceled } => return Ok(Answer::Value(Value::Bool(!canceled))),
-        Next::Call { callback, this } => (callback, this),
+        scripted::drive(call, event, 0)?
+    } else {
+        scripted::resume(call, event, 0)?
     };
-    let (callee, receiver, step, arguments) = match dispatch::invoke(call.seen(), callback, this)? {
-        Invoke::Call { callee, this } => (callee, this, RETURNED, vec![Value::Object(event)]),
-        // A getter is a call of its own, and its throw is reported like the
-        // listener's would be.
-        Invoke::Get { getter, this } => (getter, Value::Object(this), HANDLE_EVENT, Vec::new()),
-    };
-    Ok(Answer::want(
-        Want::Report {
-            callee,
-            receiver,
-            arguments,
-        },
-        step,
-    ))
+    Ok(match driven {
+        Driven::Asked(asked) => asked,
+        Driven::Done { canceled } => Answer::Value(Value::Bool(!canceled)),
+    })
 }

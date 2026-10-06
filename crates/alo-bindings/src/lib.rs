@@ -58,8 +58,11 @@
 //! item 255), and an agent's `Activate` is one: a `click` that is a
 //! `PointerEvent` ([`Firing::CLICK`], queue item 256), its chain `UIEvent`,
 //! `MouseEvent` and `PointerEvent`, none with a constructor on the global.
-//! `HTMLElement` and `click()` are queue item 261.
+//! A script's `el.click()` (queue item 261) is `HTMLElement`'s, driven from
+//! its native as `dispatchEvent`'s is (`scripted.rs`), with the same
+//! activation rule around it (`clicking.rs` holds what it keeps).
 
+mod clicking;
 mod define;
 mod dictionary;
 pub mod dispatch;
@@ -71,6 +74,7 @@ pub mod install;
 pub mod interface;
 pub mod listeners;
 pub mod liveness;
+mod scripted;
 pub mod tree;
 mod unforgeable;
 pub mod wrapper;

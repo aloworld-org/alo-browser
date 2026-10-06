@@ -30,6 +30,18 @@
 //! is the approximate answer ADR 0013 § 3 refuses. A member is added to its
 //! interface's file when a page or an item needs it (ADR 0017 § 8).
 //!
+//! # An HTML element is an `HTMLElement`
+//!
+//! An element in the HTML namespace inherits from `HTMLElement.prototype`,
+//! between `Element` and the interface of its own name (queue item 261,
+//! ADR 0018 § 6), and `click()` is the one member it has. An element in
+//! another namespace — an `<svg>` the parser put in SVG's — is an `Element`
+//! and no more until its own interfaces are built. **The interface of each
+//! HTML element's own name** — `HTMLInputElement`, `HTMLButtonElement`,
+//! `HTMLUnknownElement` and the rest — is not in the chain yet, so an
+//! `<input>`'s prototype is `HTMLElement.prototype` itself: a link short,
+//! said here rather than hidden, and queue item 262's to add.
+//!
 //! # Events are interfaces too
 //!
 //! `EventTarget` is at the top of a node's chain (ADR 0018 § 1), and `Event`
@@ -68,12 +80,13 @@ pub mod dom_exception;
 pub mod element;
 pub mod event;
 pub mod event_target;
+pub mod html_element;
 pub mod mouse_event;
 pub mod node;
 pub mod pointer_event;
 pub mod ui_event;
 
-use alo_dom::{NodeId, NodeKind};
+use alo_dom::{Namespace, NodeId, NodeKind};
 use alo_js::Escape;
 use alo_js::heap::{Barrier, Field, Ref, Tracer};
 use alo_js::object::Objects;
@@ -98,6 +111,8 @@ pub enum Interface {
     ProcessingInstruction,
     /// An element.
     Element,
+    /// An element in the HTML namespace (queue item 261).
+    HtmlElement,
     /// The document node.
     Document,
     /// A doctype.
@@ -132,7 +147,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 17] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -149,6 +164,7 @@ impl Interface {
         Self::UiEvent,
         Self::MouseEvent,
         Self::PointerEvent,
+        Self::HtmlElement,
     ];
 
     /// Its name, as the standard spells it.
@@ -170,6 +186,7 @@ impl Interface {
             Self::UiEvent => "UIEvent",
             Self::MouseEvent => "MouseEvent",
             Self::PointerEvent => "PointerEvent",
+            Self::HtmlElement => "HTMLElement",
         }
     }
 
@@ -181,6 +198,7 @@ impl Interface {
             Self::CustomEvent | Self::UiEvent => Inherits::Interface(Self::Event),
             Self::MouseEvent => Inherits::Interface(Self::UiEvent),
             Self::PointerEvent => Inherits::Interface(Self::MouseEvent),
+            Self::HtmlElement => Inherits::Interface(Self::Element),
             Self::DomException => Inherits::Error,
             Self::Text | Self::Comment | Self::ProcessingInstruction => {
                 Inherits::Interface(Self::CharacterData)
@@ -199,6 +217,9 @@ impl Interface {
             NodeKind::Document => Self::Document,
             NodeKind::Fragment => Self::DocumentFragment,
             NodeKind::Doctype { .. } => Self::DocumentType,
+            NodeKind::Element(element) if matches!(element.name.ns, Namespace::Html) => {
+                Self::HtmlElement
+            }
             NodeKind::Element(_) => Self::Element,
             NodeKind::Text(_) => Self::Text,
             NodeKind::Comment(_) => Self::Comment,
@@ -225,6 +246,7 @@ impl Interface {
             Self::UiEvent => 13,
             Self::MouseEvent => 14,
             Self::PointerEvent => 15,
+            Self::HtmlElement => 16,
         }
     }
 
@@ -279,6 +301,7 @@ impl Interface {
             Self::PointerEvent => pointer_event::furnish(objects, prototype, function_prototype),
             Self::Node => node::furnish(objects, prototype, function_prototype),
             Self::Element => element::furnish(objects, prototype, function_prototype),
+            Self::HtmlElement => html_element::furnish(objects, prototype, function_prototype),
             Self::Document => document::furnish(objects, prototype, function_prototype),
             Self::DomException => dom_exception::furnish(objects, prototype, function_prototype),
             // `ChildNode.remove()` is the one member these have, as a mixin.

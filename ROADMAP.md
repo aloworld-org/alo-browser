@@ -927,8 +927,16 @@ unreachable without it.
       after the task, with what its script said in `Acted`'s issues; the
       agent changes no ARIA state there. `alo-settings` carries
       `SettingsModal.tsx`'s nav script, and pressing *Sharing* makes it the
-      open row · Owed: `HTMLElement` and `click()`, the activation rule's
-      second caller (261); `PutText`'s input events (257), focus (258) and
+      open row. **A script's `el.click()`** (queue item 261, ADR 0018 § 6):
+      `HTMLElement` between `Element` and every HTML element
+      (`alo-bindings`' `interface/html_element.rs`), and `click()` the
+      standard's — nothing on a disabled form control or while the
+      element's click is in progress, otherwise an untrusted `PointerEvent`
+      `click` driven from the native as `dispatchEvent` drives one
+      (`scripted.rs`), no checkpoint between listeners, with the same
+      `activation.rs` around it and `input` and `change` inside the call ·
+      Owed: a script's click following a link (263), each element's own
+      interface (262), `PutText`'s input events (257), focus (258) and
       event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
       · Built: **a control draws its own state** (queue item 182) — a tick in a

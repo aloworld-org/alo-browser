@@ -15,6 +15,10 @@
 //! [`crate::listeners`]): a listener is held by its target's wrapper, so it
 //! lives exactly as long as the wrapper does.
 //!
+//! And while the node's `click()` runs, its `Clicking`: HTML's click in
+//! progress flag, and what that native made and must keep across its
+//! listeners (queue item 261).
+//!
 //! It holds its document **strongly**: a node a script holds keeps the page's
 //! document, which is what makes `node.ownerDocument` an answer rather than a
 //! hope. What keeps the wrapper is not here but in the document cell, which
@@ -24,6 +28,7 @@ use alo_dom::NodeId;
 use alo_js::heap::{Barrier, Field, Ref, Trace, Tracer};
 use alo_js::object::{Exotic, Internal, Key, Ordinary, Property};
 
+use crate::clicking::Clicking;
 use crate::listeners::Listeners;
 
 /// A node's one object (ADR 0014 § 6: one per node for as long as it lives).
@@ -33,6 +38,7 @@ pub struct Wrapper {
     document: Field,
     own: Ordinary,
     listeners: Listeners,
+    clicking: Option<Clicking>,
 }
 
 impl Wrapper {
@@ -44,6 +50,7 @@ impl Wrapper {
             document: Field::holding(document),
             own: Ordinary::with_prototype(prototype),
             listeners: Listeners::default(),
+            clicking: None,
         }
     }
 
@@ -56,6 +63,28 @@ impl Wrapper {
     /// take.
     pub const fn listeners_mut(&mut self) -> &mut Listeners {
         &mut self.listeners
+    }
+
+    /// Its node's `click()` in progress, if there is one.
+    pub const fn clicking(&self) -> Option<&Clicking> {
+        self.clicking.as_ref()
+    }
+
+    /// The same, to change.
+    pub(crate) const fn clicking_mut(&mut self) -> Option<&mut Clicking> {
+        self.clicking.as_mut()
+    }
+
+    /// Begin its node's `click()`: the click in progress flag set.
+    pub(crate) fn begin_click(&mut self, clicking: Clicking) {
+        self.clicking = Some(clicking);
+    }
+
+    /// End its node's `click()`: the flag unset and what it held let go.
+    pub(crate) fn end_click(&mut self, barrier: &mut Barrier) {
+        if let Some(mut clicking) = self.clicking.take() {
+            clicking.let_go(barrier);
+        }
     }
 
     /// The node this is the wrapper of.
@@ -108,12 +137,16 @@ impl Trace for Wrapper {
         self.document.trace(tracer);
         self.own.trace(tracer);
         self.listeners.trace(tracer);
+        if let Some(clicking) = &self.clicking {
+            clicking.trace(tracer);
+        }
     }
 
     fn footprint(&self) -> usize {
         self.own
             .footprint()
             .saturating_add(self.listeners.footprint())
+            .saturating_add(self.clicking.as_ref().map_or(0, Clicking::footprint))
     }
 }
 

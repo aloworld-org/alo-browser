@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's script can click things.** Every HTML element now has
+  `click()`, which does what a person clicking it would — a checkbox
+  ticks, a radio is chosen, and the page hears `input` and `change` — but
+  says a script did it, and runs every listener before it returns. A
+  listener that cancels the click puts the box back, a disabled control
+  ignores it, and clicking an element again from inside its own click does
+  nothing. A script clicking a link that nobody cancels is refused, by
+  name, rather than pretending the page went somewhere: following it
+  needs the page to ask the browser to navigate, which is still to come.
+
 - **An agent pressing a button now does what pressing it does.** On a
   page that runs script, an agent's press reaches the page as the one
   click a person pressing Enter would send — no pointer, no position, and

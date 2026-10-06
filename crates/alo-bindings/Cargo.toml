@@ -9,6 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+alo-css = { path = "../alo-css" }
 alo-dom = { path = "../alo-dom" }
 alo-js = { path = "../alo-js" }
 

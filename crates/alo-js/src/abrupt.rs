@@ -201,6 +201,14 @@ pub enum Missing {
     /// `el.setAttribute(a, b)` with an object for both is refused by name
     /// until item 221 gives a native traced scratch state to keep it in.
     ASecondArgumentBehindACall,
+    /// Something an **embedder's** native reached and its embedder has not
+    /// built, in the embedder's own words — which name the embedder's queue
+    /// item, as every other variant names this engine's.
+    ///
+    /// The engine never makes one and knows nothing of what it says (ADR
+    /// 0013 § 6): a browser's `a.click()` on a link that would navigate is
+    /// one (queue item 263), and the words are the browser's.
+    InTheEmbedder(&'static str),
 }
 
 impl fmt::Display for Missing {
@@ -234,6 +242,7 @@ impl fmt::Display for Missing {
                 out,
                 "a second argument converted by running script after the first was is queue item 221"
             ),
+            Missing::InTheEmbedder(what) => out.write_str(what),
         }
     }
 }

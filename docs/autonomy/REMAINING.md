@@ -297,6 +297,15 @@ to the new item 261. 112 queue items are open; **261** is next (it depends
 only on 256), then 257; the next unused queue number is 262 and the next
 unused ADR 0020.
 
+Iteration 156 built item 261: `HTMLElement` between `Element` and every
+HTML element, and `click()` — an untrusted click driven from the native
+with `alo-dom`'s `activation.rs` around it. Each element's own interface
+is cut to item 262 and a script's click following a link to item 263
+(alo's own `FilesView.tsx` and `TaskDetail.tsx` call `a.click()` on a
+download link). 113 queue items are open; **257** is next (it depends
+only on 256); the next unused queue number is 264 and the next unused ADR
+0020.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

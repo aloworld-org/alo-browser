@@ -13265,3 +13265,167 @@ with notes, 261 added, a note on 233) and `REMAINING.md` moved with it.
 112 queue items are open. Next is **261** or **257**, both depending only
 on 256. The next unused queue number is **262** and the next ADR **0020**.
 This is one iteration, not a finished queue or roadmap.
+
+## Iteration 156 — item 261 built: `HTMLElement`, and a script's `el.click()`
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Events* line, iteration 155's entry,
+`REMAINING.md`'s continuation order, queue items 254–263, ADR 0018 in full;
+and the code it touches — `alo-dom`'s `activation.rs`; `alo-bindings`'
+`interface.rs`, `interface/element.rs`, `interface/event_target.rs`,
+`event.rs`, `dispatch.rs`, `wrapper.rs`, `idl.rs`, `embed.rs`,
+`liveness.rs`, `unforgeable.rs`, `tree.rs`, `lib.rs`; `alo-js`'
+`object/native.rs` and `abrupt.rs`; `alo-css`' `state.rs`; `alo-renderer`'s
+`event_loop/activated.rs`, `event_loop/task.rs` and `dispatched.rs`; and the
+renderer's and bindings' event tests. No `AGENTS.md` exists.
+`alo-workplace/web/src` was searched, read-only, for `.click()`; no sibling
+repository was modified. The checkout was clean on entry at `525e3bb`.
+
+**Selection.** `REMAINING.md` and iteration 155 named **261** next; its one
+dependency, 256, is done; its decision is ADR 0018 § 6, its feature line
+*Events*. It was cut from 256 with a closing condition, not opened by a
+frozen page — no corpus case was added, and none is claimed.
+
+**Scope cut, not depth.** Two pieces are cut to new items:
+- **262**, each HTML element's own interface (`HTMLInputElement`…). Until
+  then an HTML element's prototype is `HTMLElement.prototype` itself, a
+  link short, said in `interface.rs`.
+- **263**, a script's click following a link. That needs the renderer to
+  ask the browser process to navigate, and may need an ADR. alo's own
+  `FilesView.tsx` and `TaskDetail.tsx` call `a.click()` on an
+  `<a download>`, so it has real pages waiting.
+
+**What was built.**
+- `alo-bindings`:
+  - `Interface::HtmlElement` inherits `Element` and is every HTML-namespace
+    element's interface. `Brand::HtmlElement` asks the namespace, so an SVG
+    element stays an `Element`.
+  - `interface/html_element.rs`: `click()`. It does nothing on a disabled
+    `button`/`input`/`select`/`textarea` (`alo-css`' `is_disabled`, which
+    is now one rule for `:disabled` and `click()`; `alo-bindings` gains
+    `alo-css` as a dependency for it). It does nothing while the element's
+    click is in progress. Otherwise it fires an untrusted `PointerEvent`
+    `click` with `activation.rs` around it, then `input` and `change`, all
+    inside the call.
+  - `clicking.rs`: the click in progress flag is the wrapper holding a
+    `Clicking` — the current event, the activation target's wrapper and the
+    pre-activation record — traced as the wrapper's edges.
+  - `scripted.rs`: the native driver, moved out of `dispatchEvent` so that
+    both natives drive the stepper one way, each from a base step.
+- `alo-js`: `Missing::InTheEmbedder(&'static str)`, a refusal in the
+  embedder's own words, so the engine still knows nothing of the DOM. An
+  uncancelled link click from script is refused with it, after its
+  listeners have run. **This is a small engine API addition made inside a
+  code commit.** It decides nothing about events, but a reviewer may want
+  it as an ADR note.
+
+**Closing condition, met.** In `a_scripts_click.rs`, a page's script calls
+`box.click()`. Its listeners read the box ticked, `isTrusted` `false`,
+`pointerId` `-1`; `input` and `change` are untrusted and run before
+`click()` returns `undefined`; and a job queued in the first listener runs
+after the script, not between listeners. A `preventDefault` leaves the box
+as it was, with no `input`/`change`. A second `click()` from inside the
+first's listener answers `undefined` and does nothing, and the flag is down
+again afterwards.
+
+**Tests.** `alo-renderer/tests/a_scripts_click.rs` has 10 tests. Each
+scenario runs from an agent's press of *Go*, so the script's `click()`
+nests inside the browser's trusted dispatch after the heap is set to
+collect at every allocation. Each page is pressed both ways and must
+agree. Besides the closing condition, the tests cover:
+- a click on another element from inside a listener;
+- disabled controls, including a disabled fieldset's legend;
+- a cancelled radio;
+- a box removed by its listener, which changes and tells nobody;
+- a throwing listener reported while the click carries on, plus
+  `handleEvent` objects and a `handleEvent` getter on `input`/`change`
+  (the driver's offset steps);
+- a cancelled link click through a span, and an uncancelled one refused
+  as item 263;
+- `click` present on HTML elements and absent on SVG ones, the
+  `HTMLElement` link in the chain, and `TypeError` on the wrong `this`.
+
+`html_element.rs` adds a unit test of which elements count as disabled
+form controls.
+
+An agent's `Activate` already refuses a disabled control in `alo-agent`,
+before the renderer is reached. It uses `alo-box`'s state, which is the same
+`alo-css` rule plus `aria-disabled`, so the two callers agree on native
+controls.
+
+**Doctored runs**, each restored from a copy and diffed back. Each of these
+fails a test:
+- `Clicking` not traced (fails under stress);
+- no click in progress flag;
+- a cancelled click not undone;
+- the click trusted;
+- a disabled control clicked;
+- a link silently not followed;
+- no `input`/`change`.
+
+**Compliance review.**
+- Law 1: nothing legacy — no `HTMLElement` global, no other members.
+- Law 2: no verb added or changed; the gate's coordinate check passes.
+- Law 3: no stubs and no `unwrap` outside tests. The link case is refused
+  by name rather than faked.
+- Law 4: no `unsafe`.
+- One file, one responsibility: the interface (`html_element.rs`), what
+  the click keeps (`clicking.rs`), and how a native drives a dispatch
+  (`scripted.rs`, which removed a copy from `event_target.rs`).
+- Positions and sizes: nothing positions or sizes. The corpus, including
+  `alo-settings` and `a-script-hears-an-event`, passes with every
+  reference unchanged now that every HTML element's chain has gained
+  `HTMLElement`.
+- Bytes from outside: none newly read. `click()` takes no arguments.
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step (7 min 18 s). Every check passed: formatting clean, clippy
+silent, all tests pass, nothing stubbed, `unsafe` forbidden, licence
+notices, every rented crate behind its boundary, no coordinate verb, the
+stop rule holds, and `CHANGELOG.md` changed with the code.
+`git diff --check` passes. `cargo doc -p alo-bindings` warns exactly as
+often as before the change (6, none from this item's files). The log is in
+this session's scratchpad, not committed.
+
+**Roadmap.** The *Events* line's Built clause gains a script's `el.click()`.
+Its Owed clause is now 263, 262, 257, 258 and 259. It is not ticked.
+`docs/features.md`, `CHANGELOG.md`, `QUEUE.md` (261 ticked with its note;
+262 and 263 added), `REMAINING.md` and `alo-bindings`' crate docs moved
+with it.
+
+**Unresolved obligations.**
+- New from this item:
+  - A script's click on a link (263) and each element's own interface
+    (262).
+  - A `click()` abandoned by a non-page escape inside a listener (a stop,
+    a full heap, something not built yet) leaves that element's click in
+    progress flag set, as an abandoned `dispatchEvent` leaves its event
+    flagged. Later `click()`s on that element then do nothing.
+  - `click()`'s event has no `view` (no `Window`, item 251).
+- Carried from iteration 155, unchanged:
+  - the scriptless-page link difference, radio form owners and
+    checkedness (82);
+  - a stopped click task's changed box;
+  - absent `getModifierState`, coordinates and constructors;
+  - 233 still owes the loop between messages;
+  - several realms in one heap, and a second document cell's
+    unforgeables;
+  - `document` as an accessor (251), and node constructors;
+  - 221's refusals;
+  - an abandoned dispatch's flag;
+  - `hand_over_reported`'s 256 roots;
+  - other thrown objects said as `an object` (78);
+  - a script-inserted `<meta>` policy;
+  - detached trees waiting for the first collection;
+  - the undiscriminated heap-refused document path;
+  - the heap ceiling's overshoot;
+  - 248's fallback;
+  - 78's remainder; 77 needs design; 233, 234, 238 and 240 are open, and
+    76 is not done;
+  - `violations::reports` uncalled (203);
+  - iteration 141's font-name guard.
+
+113 queue items are open. Next is **257** (`PutText`'s input events, which
+depends only on 256). 262 and 263 wait on a page and a decision
+respectively. The next unused queue number is **264** and the next ADR
+**0020**. This is one iteration, not a finished queue or roadmap.
