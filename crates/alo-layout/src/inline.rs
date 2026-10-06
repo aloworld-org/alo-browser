@@ -915,6 +915,38 @@ mod tests {
     }
 
     #[test]
+    fn an_atomic_box_is_aligned_with_the_line_it_is_on() {
+        // A box alone on its line, and a box after text: the line is aligned
+        // as one thing, so the box moves exactly as far as the line does.
+        for (alignment, alone, after_text) in [
+            (TextAlignment::Start, 0.0, 16.0),
+            (TextAlignment::Center, 80.0, 72.0 + 16.0),
+            (TextAlignment::End, 160.0, 144.0 + 16.0),
+        ] {
+            let layout =
+                lay_out_aligned(&[atomic(1, 40.0, 20.0)], Some(200.0), alignment, &BlockFont);
+            assert_eq!(
+                lines_of(&layout),
+                vec![vec![format!("1@{alone}")]],
+                "{alignment:?}"
+            );
+
+            let layout = lay_out_aligned(
+                &[text(1, "ab"), atomic(2, 40.0, 20.0)],
+                Some(200.0),
+                alignment,
+                &BlockFont,
+            );
+            let start = after_text - 16.0;
+            assert_eq!(
+                lines_of(&layout),
+                vec![vec![format!("1@{start}"), format!("2@{after_text}")]],
+                "{alignment:?}",
+            );
+        }
+    }
+
+    #[test]
     fn a_fragment_names_the_bytes_of_the_text_it_drew() {
         let text_of = "one two";
         let layout = lay_out(&[text(1, text_of)], Some(1000.0), &BlockFont);

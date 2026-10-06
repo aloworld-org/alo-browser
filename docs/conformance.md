@@ -32,6 +32,10 @@ takes more lines than the same paragraph in a wide one.
 
 Lines are real too: text wraps between words across inline boxes, everything on
 a line sits on one baseline, and a link broken over two lines is two rectangles.
+`text-align` moves a whole line — text, images and inline-blocks together —
+including a line in an anonymous block, which inherits its container's value.
+`justify` is not implemented and is read as `start`; right-to-left `start`
+and `end` wait on writing modes (item 98).
 
 Colours are channels, `currentColor` included, so the engine now knows what
 colour everything is.
@@ -222,7 +226,7 @@ it lives in.
 | alo Settings | **yes** — `alo-workplace`'s, likewise, and its narrow-screen `@media` block evaluated rather than assumed away |
 | An agent reading Settings as a tree and activating a row by name | **yes** — `crates/alo-renderer/tests/an_agent_on_settings.rs`, against that same screen, by name and never by position |
 | alo agent overlay | not yet — the screen is not written in `alo-workplace` either |
-| alo offline screen | **nearly** — `alo-workplace`'s `offline.html`, frozen byte for byte as `alo-offline`, its hand drawn (item 273); its `<svg>` and button are not centred (items 280, 282) and the hand's bottom margin is lost (281) |
+| alo offline screen | **nearly** — `alo-workplace`'s `offline.html`, frozen byte for byte as `alo-offline`, its hand drawn (item 273) and it and the button centred across (item 280); the screen is not centred down (282) and the hand's bottom margin is lost (281) |
 
 **One thing is true of both screens and is not a defect in either**: the corpus
 renders in DejaVu Sans, and the app loads Inter. Inter is narrower, so alo's

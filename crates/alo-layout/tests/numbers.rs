@@ -1034,3 +1034,43 @@ fn a_fieldset_with_no_legend_has_an_ordinary_border() {
          with its border back: {fieldset:?}",
     );
 }
+
+/// The `left` of the element `i` inside a 200-pixel container `w`, the
+/// container aligned as `align` says.
+fn left_of_i_aligned(html: &str, align: &str) -> f32 {
+    let css = format!(
+        "#w {{ width: 200px; text-align: {align} }} p {{ margin: 0 }} \
+         #i {{ display: inline-block; width: 40px; height: 20px }}"
+    );
+    let (boxes, layout) = lay_out(html, &css, Size::new(400.0, 300.0));
+    rect_of(&boxes, &layout, "i", html).left()
+}
+
+#[test]
+fn text_align_moves_an_atomic_inline_in_a_line_nobody_wrote() {
+    // The `<p>` beside it means the inline-block's line is an anonymous block,
+    // which has no style of its own and inherits the container's `text-align`.
+    // alo's offline screen is exactly this, and its picture and its button
+    // were drawn against the left edge.
+    let html = "<body><div id=w><span id=i></span><p>x</p></div></body>";
+    for (align, left) in [
+        ("start", 0.0),
+        ("left", 0.0),
+        ("center", 80.0),
+        ("end", 160.0),
+        ("right", 160.0),
+    ] {
+        let found = left_of_i_aligned(html, align);
+        assert!(close(found, left), "{align}: at {found}, not {left}");
+    }
+}
+
+#[test]
+fn a_line_of_text_and_an_inline_block_move_together() {
+    // "ab" is sixteen pixels and the box forty: a fifty-six pixel line, and
+    // aligning it moves the whole line rather than each piece on its own.
+    let html = "<body><div id=w>ab<span id=i></span><p>x</p></div></body>";
+    assert!(close(left_of_i_aligned(html, "start"), 16.0));
+    assert!(close(left_of_i_aligned(html, "center"), 72.0 + 16.0));
+    assert!(close(left_of_i_aligned(html, "right"), 144.0 + 16.0));
+}

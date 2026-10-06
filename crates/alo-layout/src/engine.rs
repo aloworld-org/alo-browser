@@ -180,21 +180,31 @@ pub(crate) fn measure_inline(
 /// `text-align` inherits, and a box's own value is already the inherited one by
 /// the time it is asked — so this asks the box that holds the lines, which is
 /// the box whose width they are aligned in.
+///
+/// A box nobody wrote — the anonymous block a container wraps a run of inline
+/// boxes in — has no style of its own and **inherits** from the box it is in,
+/// so it asks the nearest element above it. Reading only its own style once
+/// left every such line at the start: alo's offline screen is a `text-align:
+/// center` page whose picture and button each sit in one, and both were drawn
+/// against the left edge.
 fn alignment_of(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> inline::TextAlignment {
-    // A button's label sits in the middle of it. The box it sits in is
-    // anonymous and has no style to read `text-align` from, so the box tree's
-    // own word for why it exists is the answer.
+    // The box a form control holds what it shows in is anonymous too, but it
+    // does not inherit: a button's label sits in the middle of it and a
+    // field's at the start whatever the page around them says, so the box
+    // tree's own word for why it exists is the answer.
     if let Some(BoxKind::Anonymous {
-        purpose: alo_box::Purpose::Control { centred: true },
+        purpose: alo_box::Purpose::Control { centred },
         ..
     }) = boxes.get(id).map(|node| &node.kind)
     {
-        return inline::TextAlignment::Center;
+        return if *centred {
+            inline::TextAlignment::Center
+        } else {
+            inline::TextAlignment::Start
+        };
     }
     boxes
-        .get(id)
-        .and_then(|node| node.kind.node())
-        .and_then(|source| styles.get(source))
+        .nearest_style(styles, id)
         .and_then(|style| style.get("text-align"))
         .and_then(inline::TextAlignment::parse)
         .unwrap_or_default()

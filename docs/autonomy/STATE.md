@@ -15386,3 +15386,82 @@ own text closes it when 270–273 have; 280–282 opened. Also updated:
 118 queue items are open (two closed, three opened). The first eligible item
 in file order is now **280**. The next unused queue number is **283** and the
 next ADR is **0023**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 173 — item 280: `text-align` moves an atomic inline
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and the stage 2 lines), iteration 172's entry, queue item 280,
+`docs/features.md`'s layout section and `docs/conformance.md`. No
+`AGENTS.md` exists in this repository. ADR 0004 (we own the layout tree;
+`taffy` owns the algorithms) applies and is unchanged: the fix is in our
+inline layout, `taffy` is not touched. No ADR is needed; nothing is decided.
+
+**Selection.** Iteration 172 recorded 280 as the first eligible item, and
+nothing before it changed: 43 waits on 81, 179 on a page, 269 on a `rav1d`
+release, and the needs-design items still need designs. 280 depends on
+nothing.
+
+**What was built.** The line builder (`inline.rs`) already moved every
+fragment of a line by its alignment, atomic boxes included. The fault was
+which alignment it was given: both of the offline screen's lines are
+anonymous blocks (the `<svg>` and the button each sit beside block-level
+siblings), and `engine.rs`'s `alignment_of` read `text-align` only from a
+box's own element, so a box nobody wrote always got `start`. It now asks
+`BoxTree::nearest_style`, because an anonymous box inherits from its parent.
+A control's internal box still answers from its `Purpose`: a button's label
+is centred and a field's sits at the start, whatever the page says. That is
+today's behaviour, now stated outright, where before it fell through by
+accident.
+
+**Gate, mechanical.** `scripts/gate.sh` exited 0, read in the same step:
+fmt clean, clippy silent, every test passes (the corpus included, so every
+committed reference reproduces), no stubs, no `unsafe`, every rented crate
+behind its boundary, no verb takes a coordinate, the stop rule holds,
+`CHANGELOG.md` changed. `git diff --check` passes.
+*Process note:* the run took longer than the 600 s foreground limit, so the
+tool moved it to the background. This iteration then waited for it in the
+foreground (a blocking wait on the process) and read the result, exit 0,
+before writing this entry or committing. Only this entry changed after the
+gate ran. The log is in this session's scratchpad.
+
+**Gate, manual.**
+- Layout assertions in numbers (`alo-layout/tests/numbers.rs`, 2 new): an
+  inline-block alone in an anonymous line of a 200 px container is at 0, 0,
+  80, 160 and 160 for `start`, `left`, `center`, `end` and `right`; "ab" (16
+  px) and a 40 px box move as one line, the box at 16, 88 and 160.
+  `inline.rs` adds 1 unit test: an atomic box alone and after text under all
+  three alignments. Doctored: the old `alignment_of` fails both
+  `numbers.rs` tests.
+- Reference render: `alo-offline` moved, and no other case did. The hand is
+  now at (204, 24) and the button at (173.54688, 195.48438), the exact
+  numbers the queue item named. Its layout, display list, agent tree and
+  picture are re-committed. I looked at the new render: hand and button
+  centred across; the hand still touches the heading (281) and the screen is
+  not centred down the page (282), as expected.
+- One responsibility per file: the change stays in `engine.rs`'s question of
+  which alignment a context has; no file gained a second reason to change.
+- `docs/features.md` gains a `text-align` line; `docs/conformance.md` says
+  what aligns, that `justify` is read as `start`, and that right-to-left
+  `start`/`end` wait on 98; its offline-screen row now names only 281 and
+  282.
+
+**Roadmap.** This item served **no open roadmap line**, and `ROADMAP.md` is
+deliberately unchanged. It corrects inline layout, which sits under stage
+1's ticked *Layout* line. alo's offline screen found the fault, but no stage
+2 line covers it: the *SVG* line's Owed clause never listed it, and *CSS
+beyond what alo needed* is new capabilities, not a fix to existing ones.
+Ticking or annotating a line to discharge this would be the erosion
+`LOOP.md` warns against. Queue: 280 ticked with what was done. Also updated:
+`CHANGELOG.md`, `docs/features.md`, `docs/conformance.md`, `REMAINING.md`.
+
+**Unresolved obligations.**
+- 281 and 282 (the offline screen's vertical layout) are eligible; 281 is
+  first in file order. 279 is eligible too.
+- Carried, unchanged: ADR 0022 § 2's wording and § 4's name order, and a
+  side-by-side of the hand with a real browser (a person's call); 269 blocked
+  on a `rav1d` release; the `image-webp` upstream report; 109, 179, and 82,
+  83, 85–89, 95–99, 104 and 105 still needing their designs.
+
+117 queue items are open. The first eligible item in file order is now
+**281**. The next unused queue number is **283** and the next ADR is
+**0023**. This is one iteration, not a finished queue or roadmap.

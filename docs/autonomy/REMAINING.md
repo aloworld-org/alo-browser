@@ -428,6 +428,12 @@ hand drawn, which closes 107. The page showed three layout faults, queued as
 the `place-*` shorthands), and 280 is next. 118 queue items are open; the
 next unused queue number is 283 and the next unused ADR 0023.
 
+Iteration 173 built 280: a line in an anonymous block takes `text-align`
+from the nearest element above it, so alo's offline screen centres its hand
+and its button. 281 (an atomic inline's margins in its line) is next. 117
+queue items are open; the next unused queue number is 283 and the next unused
+ADR 0023.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

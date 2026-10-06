@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`text-align` now centres pictures and buttons that share a line with
+  nothing written.** A line made only of images, inline-blocks or buttons
+  next to block-level siblings was always drawn against the left edge,
+  whatever `text-align` said. It now moves like any other line, so alo's
+  offline screen has its hand and its "Try again" button centred, as in
+  other browsers. Its content still is not centred down the page, and the
+  space below the hand is still lost; both are queued.
+
 - **Outlines inside an `<svg>` are drawn, so alo's offline screen shows its
   hand.** `stroke` now draws, with its width, round or square ends, round or
   beveled corners, the miter limit, its own opacity, and dashed or dotted

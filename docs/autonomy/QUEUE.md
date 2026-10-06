@@ -4727,7 +4727,7 @@ The long pole, and the thing most of section E is unreachable without.
   again fails 3 there and 1 in `banded.rs`; no hole fails 5. Corpus case
   `fieldset-patterns` is the reference render; no other reference moved.
 
-- [ ] **280. `text-align` moves an atomic inline.** *Opened by `alo-offline`
+- [x] **280. `text-align` moves an atomic inline.** *Opened by `alo-offline`
   (iteration 172).* alo's offline screen is centred by `text-align: center` on
   its `body`, and its `<svg>` and `<button>` are each the only thing on their
   line. The engine aligns text runs and leaves an atomic inline where the line
@@ -4737,6 +4737,22 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on nothing.* *Closes when:* `alo-offline`'s layout assertion puts
   both at the centre of their line, a unit test does the same for `right` and
   `start`/`end`, and a line of text and an inline-block together moves as one.
+  **Built (iteration 173).** The line builder already aligned every
+  fragment, atomic ones included; the fault was in *which* alignment it was
+  given. Each of the offline screen's two lines is an **anonymous block**
+  (the `<svg>` and the button sit beside block-level siblings), and
+  `alo-layout`'s `alignment_of` read `text-align` only from a box's own
+  element, so a box nobody wrote always got `start`. It now asks
+  `BoxTree::nearest_style`, as an anonymous box inherits from its parent;
+  a control's internal box still answers from its purpose (a button's
+  label centred, a field's at the start whatever the page says). Tests:
+  `numbers.rs` 2 (an inline-block alone in an anonymous line at 0, 0, 80,
+  160, 160 for `start`, `left`, `center`, `end`, `right` in 200 px; "ab"
+  and a 40 px box moving as one, the box at 16, 88 and 160); `inline.rs` 1
+  (an atomic box alone and after text under all three alignments).
+  Doctored: the old `alignment_of` fails both `numbers.rs` tests. Corpus:
+  `alo-offline` moved — the hand to (204, 24) and the button to
+  (173.54688, 195.48438), exactly the queue's numbers — and no other case.
 
 - [ ] **281. An atomic inline's margins count in its line's height.** *Opened
   by `alo-offline` (iteration 172).* The offline screen's `<svg>` has
