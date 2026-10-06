@@ -30,6 +30,7 @@
 //! write down. Writing it down also means the wire format is a thing somebody
 //! can read, which matters for a boundary that is a security boundary.
 
+use crate::ask::{Asked, By};
 use crate::face::Face;
 use crate::frame::Frame;
 use crate::generic::Generics;
@@ -44,6 +45,7 @@ use alo_box::tree::BoxId;
 use alo_css::media::ColorScheme;
 use alo_layout::geometry::{Point, Rect, Size};
 use alo_net::csp::Inline;
+use alo_net::referrer::Policy;
 use alo_text::{Slant, Weight};
 
 /// The most bytes one message may be.
@@ -259,6 +261,7 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
         }
         ToRenderer::Load(page) => {
             writer.tag(0);
+            writer.text(&page.url.serialised);
             writer.text(&page.html);
             writer.number(page.sheets.len() as u64);
             for sheet in &page.sheets {
@@ -324,6 +327,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             issues,
             wanted,
             objections,
+            navigation,
         } => {
             writer.tag(0);
             writer.number(issues.len() as u64);
@@ -342,6 +346,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
                     Inline::Style => 1,
                 });
             }
+            writer.navigation(navigation.as_ref());
         }
         FromRenderer::Painted(frame) => {
             writer.tag(1);
@@ -359,13 +364,18 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
                 None => writer.bool(false),
             }
         }
-        FromRenderer::Acted { outcome, issues } => {
+        FromRenderer::Acted {
+            outcome,
+            issues,
+            navigation,
+        } => {
             writer.tag(3);
             writer.outcome(outcome);
             writer.number(issues.len() as u64);
             for issue in issues {
                 writer.text(issue);
             }
+            writer.navigation(navigation.as_ref());
         }
         FromRenderer::Refused(refusal) => {
             writer.tag(4);
@@ -389,7 +399,40 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
     writer.out
 }
 
+/// A referrer policy's tag, `0` being none. By number, since the list is
+/// the standard's and closed.
+const POLICIES: [Policy; 8] = [
+    Policy::NoReferrer,
+    Policy::NoReferrerWhenDowngrade,
+    Policy::Origin,
+    Policy::OriginWhenCrossOrigin,
+    Policy::SameOrigin,
+    Policy::StrictOrigin,
+    Policy::StrictOriginWhenCrossOrigin,
+    Policy::UnsafeUrl,
+];
+
 impl Writer {
+    /// Where the page asked to go, if anywhere (ADR 0020).
+    fn navigation(&mut self, navigation: Option<&Asked>) {
+        let Some(asked) = navigation else {
+            self.bool(false);
+            return;
+        };
+        self.bool(true);
+        self.text(&asked.url);
+        self.tag(match asked.by {
+            By::Browser => 0,
+            By::Script => 1,
+        });
+        let policy = asked
+            .referrer
+            .and_then(|policy| POLICIES.iter().position(|known| *known == policy))
+            .and_then(|at| u8::try_from(at + 1).ok());
+        self.tag(policy.unwrap_or(0));
+        self.number(u64::from(asked.replaced));
+    }
+
     fn outcome(&mut self, outcome: &Outcome) {
         let writer = self;
         match outcome {
@@ -554,6 +597,16 @@ impl<'a> Reader<'a> {
     fn text(&mut self) -> Result<String, Unreadable> {
         String::from_utf8(self.bytes()?)
             .map_err(|_| unreadable("text that is not text this engine can read"))
+    }
+
+    /// A count, and that many texts.
+    fn texts(&mut self) -> Result<Vec<String>, Unreadable> {
+        let how_many = self.count()?;
+        let mut texts = Vec::new();
+        for _ in 0..how_many {
+            texts.push(self.text()?);
+        }
+        Ok(texts)
     }
 
     fn maybe_text(&mut self) -> Result<Option<String>, Unreadable> {
@@ -808,6 +861,38 @@ impl<'a> Reader<'a> {
         Ok(objections)
     }
 
+    /// Where a page asked to go (ADR 0020): every part a claim. The URL is
+    /// read as text and nothing more — the browser process parses it, and
+    /// bounds it, when it decides ([`crate::navigate`]).
+    fn navigation(&mut self) -> Result<Option<Asked>, Unreadable> {
+        if !self.bool()? {
+            return Ok(None);
+        }
+        let url = self.text()?;
+        let by = match self.tag()? {
+            0 => By::Browser,
+            1 => By::Script,
+            other => return Err(unreadable(format!("a navigation's cause tagged {other}"))),
+        };
+        let referrer = match self.tag()? {
+            0 => None,
+            tag => Some(
+                POLICIES
+                    .get(usize::from(tag) - 1)
+                    .copied()
+                    .ok_or_else(|| unreadable(format!("a referrer policy tagged {tag}")))?,
+            ),
+        };
+        let replaced = u32::try_from(self.number()?)
+            .map_err(|_| unreadable("more replaced navigations than any task makes"))?;
+        Ok(Some(Asked {
+            url,
+            by,
+            referrer,
+            replaced,
+        }))
+    }
+
     /// Nothing may be left over.
     ///
     /// Trailing bytes mean the two ends disagree about the message, and a
@@ -837,6 +922,8 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
     let mut reader = Reader::new(bytes);
     let message = match reader.tag()? {
         0 => {
+            let url = alo_url::parse(&reader.text()?)
+                .map_err(|why| unreadable(format!("a page whose address {why}")))?;
             let html = reader.text()?;
             let how_many = reader.count()?;
             let mut sheets = Vec::new();
@@ -863,6 +950,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
                 watching.push(reader.text()?);
             }
             ToRenderer::Load(Box::new(Page {
+                url,
                 html,
                 sheets,
                 viewport,
@@ -940,21 +1028,15 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
     let mut reader = Reader::new(bytes);
     let message = match reader.tag()? {
         0 => {
-            let how_many = reader.count()?;
-            let mut issues = Vec::new();
-            for _ in 0..how_many {
-                issues.push(reader.text()?);
-            }
-            let how_many = reader.count()?;
-            let mut wanted = Vec::new();
-            for _ in 0..how_many {
-                wanted.push(reader.text()?);
-            }
+            let issues = reader.texts()?;
+            let wanted = reader.texts()?;
             let objections = reader.objections()?;
+            let navigation = reader.navigation()?;
             FromRenderer::Loaded {
                 issues,
                 wanted,
                 objections,
+                navigation,
             }
         }
         1 => {
@@ -992,12 +1074,13 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
         }
         3 => {
             let outcome = reader.outcome()?;
-            let how_many = reader.count()?;
-            let mut issues = Vec::new();
-            for _ in 0..how_many {
-                issues.push(reader.text()?);
+            let issues = reader.texts()?;
+            let navigation = reader.navigation()?;
+            FromRenderer::Acted {
+                outcome,
+                issues,
+                navigation,
             }
-            FromRenderer::Acted { outcome, issues }
         }
         4 => FromRenderer::Refused(reader.refusal()?),
         5 => {

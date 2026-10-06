@@ -51,6 +51,7 @@ fn a_face() -> Face {
 
 fn a_page() -> ToRenderer {
     ToRenderer::Load(Box::new(Page {
+        url: alo_url::Url::about_blank(),
         html: "<p>text needs a font</p>".to_owned(),
         sheets: vec!["p { font-family: 'DejaVu Sans'; font-size: 16px }".to_owned()],
         viewport: Size {
@@ -400,6 +401,7 @@ fn a_page_is_drawn_with_a_font_that_came_from_this_machine() {
     let loaded = renderers.ask(
         &site,
         &ToRenderer::Load(Box::new(Page {
+            url: alo_url::Url::about_blank(),
             html: "<p>drawn with this machine's own font</p>".to_owned(),
             sheets: vec![format!("p {{ font-family: '{family}'; font-size: 16px }}")],
             viewport: Size {

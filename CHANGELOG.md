@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A clicked link now asks the browser to go there.** When a page's
+  script clicks a link, or an agent presses one, the page works out the
+  full address and asks; the browser re-reads the address itself and
+  decides. It allows the web and `about:blank` (a local file only from a
+  local file), refuses a `data:` page, a `javascript:` URL or another
+  program's scheme by name, and records who caused it from what it had
+  asked the page to do — an agent's press stays the agent's even when the
+  page's own script does the clicking. A link that opens a new window or
+  asks for a download is not followed yet and says so; actually loading
+  the next page is still to come.
+
 - **Decided: how a page asks to go somewhere** (ADR 0020). When a page's
   script clicks a link, the page's process only *asks*, in its answer to
   whatever it was doing, and the browser decides: it re-reads the address,

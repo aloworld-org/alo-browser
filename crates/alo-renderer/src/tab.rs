@@ -52,6 +52,18 @@
 //! attributes anything* a property of the design rather than a rule somebody
 //! keeps.
 //!
+//! # Where a page asks to go
+//!
+//! A renderer's answer may carry an ask (ADR 0020): where the page wants its
+//! tab to go. It is decided **here**, as the answer passes —
+//! [`crate::navigate::decide`], against this tab's own copy of where its
+//! document is — with the cause assigned from **which message was answered**
+//! (§ 4): a `Load`'s ask is [`Cause::Document`], naming the document that
+//! load made; an `Act`'s is [`Cause::Agent`], naming the action
+//! [`Tabs::act`] minted, whoever on the page clicked. The decision waits on
+//! the tab for its caller ([`Tabs::navigation`]), because going there —
+//! session history, what survives — is item 85's.
+//!
 //! # One process per site, and one document per process
 //!
 //! Two tabs on one site share a renderer (ADR 0005), and a [`crate::Renderer`]
@@ -66,6 +78,7 @@
 use crate::frame::Frame;
 use crate::host::{Gone, Renderers};
 use crate::message::{FromRenderer, ToRenderer};
+use crate::navigate::{self, Decided};
 use crate::page::Page;
 use crate::site::Site;
 use alo_agent::{Target, Verb};
@@ -98,6 +111,11 @@ pub struct Tab {
     url: Url,
     site: Site,
     document: Option<DocumentId>,
+    /// Where the document it is showing is, as this process stated it.
+    address: Option<Url>,
+    /// Where the last answer that could carry an ask said the page wanted
+    /// to go, decided.
+    decided: Option<Decided>,
     painted: Option<Frame>,
     gone: Option<Gone>,
 }
@@ -130,6 +148,13 @@ impl Tab {
     /// that document and the requests it made are still that document's.
     pub fn document(&self) -> Option<DocumentId> {
         self.document
+    }
+
+    /// Where the document it is showing is: the URL the page it loaded was
+    /// stated to be at, which is this process's copy and never a
+    /// renderer's word. [`None`] until a page has loaded.
+    pub fn address(&self) -> Option<&Url> {
+        self.address.as_ref()
     }
 
     /// The last frame it painted, if it ever painted one.
@@ -327,6 +352,8 @@ impl Tabs {
             url,
             site,
             document: None,
+            address: None,
+            decided: None,
             painted: None,
             gone: None,
         });
@@ -414,6 +441,12 @@ impl Tabs {
     /// once the renderer says it loaded, because a tab shows a page rather than
     /// an attempt at one.
     ///
+    /// # Where its scripts asked to go
+    ///
+    /// Decided as the answer passes, with [`Cause::Document`] naming the
+    /// document made here — a load's scripts are the page's own, whatever
+    /// caused the load — and waiting on the tab ([`Tabs::navigation`]).
+    ///
     /// # Errors
     ///
     /// [`Lost::NoSuchTab`] for an id nobody opened, and [`Lost::Gone`] when the
@@ -424,11 +457,17 @@ impl Tabs {
         // that never existed.
         let _ = self.site_of(id)?;
         let document = self.documents.opened(&mut self.identities, cause);
+        let address = page.url.clone();
         let answer = self.ask(id, &ToRenderer::Load(Box::new(page)))?;
-        if matches!(answer, FromRenderer::Loaded { .. })
-            && let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id)
-        {
-            tab.document = Some(document);
+        if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
+            tab.decided = None;
+            if let FromRenderer::Loaded { navigation, .. } = &answer {
+                tab.document = Some(document);
+                tab.decided = navigation
+                    .as_ref()
+                    .map(|asked| navigate::decide(asked, &address, Cause::Document { document }));
+                tab.address = Some(address);
+            }
         }
         Ok(answer)
     }
@@ -449,6 +488,14 @@ impl Tabs {
     /// record that only named the verbs that worked could not answer *what did
     /// it try*.
     ///
+    /// # Where the page asked to go
+    ///
+    /// Decided as the answer passes, with [`Cause::Agent`] naming this action
+    /// and the tab's document — the agent's own link and a listener's
+    /// `click()` alike, since the page's script ran inside the agent's task
+    /// (ADR 0020 § 4) — and waiting on the tab ([`Tabs::navigation`]). An
+    /// answer that carries no ask leaves none waiting.
+    ///
     /// # Errors
     ///
     /// As [`Tabs::ask`].
@@ -461,7 +508,39 @@ impl Tabs {
         let _ = self.site_of(id)?;
         let action = self.identities.an_action();
         let answer = self.ask(id, &ToRenderer::Act { target, verb })?;
+        if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
+            let navigation = match &answer {
+                FromRenderer::Acted { navigation, .. } => navigation.as_ref(),
+                _ => None,
+            };
+            tab.decided = match (navigation, tab.document, &tab.address) {
+                (Some(asked), Some(document), Some(address)) => Some(navigate::decide(
+                    asked,
+                    address,
+                    Cause::Agent { action, document },
+                )),
+                // A tab showing no document cannot have acted; an ask from
+                // one is a renderer's claim with nobody to attribute it to,
+                // and is not believed.
+                _ => None,
+            };
+        }
         Ok((action, answer))
+    }
+
+    /// Where the page in a tab last asked to go, as this process decided it
+    /// — taken, so it is handed over once.
+    ///
+    /// Set by each `Loaded` [`Tabs::load`] passes and each `Acted`
+    /// [`Tabs::act`] passes, to the decision of the ask it carried or to
+    /// nothing. Going there is the caller's (item 85); a
+    /// [`Decided::Refused`] is said to the person in its own words and
+    /// recorded with [`crate::navigate::Refusal::record`].
+    pub fn navigation(&mut self, id: TabId) -> Option<Decided> {
+        self.list
+            .iter_mut()
+            .find(|tab| tab.id == id)
+            .and_then(|tab| tab.decided.take())
     }
 
     /// The cause of a request this tab's page makes for itself.

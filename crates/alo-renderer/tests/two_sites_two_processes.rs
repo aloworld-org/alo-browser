@@ -39,6 +39,7 @@ fn site(text: &str) -> Site {
 
 fn a_page(text: &str) -> ToRenderer {
     ToRenderer::Load(Box::new(Page {
+        url: alo_url::Url::about_blank(),
         html: format!("<p>{text}</p>"),
         sheets: vec!["p { margin: 8px; font-size: 16px }".to_owned()],
         viewport: Size {

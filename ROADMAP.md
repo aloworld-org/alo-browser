@@ -943,12 +943,17 @@ unreachable without it.
       one leaves the field as it was and answers the new
       `Outcome::TextCanceled` (wire tag 4); otherwise the text, put by
       `alo-dom`'s `field.rs` (the rule `apply` now asks too), then `input`
-      and `change` (`alo-renderer`'s `event_loop/typed.rs` and `put.rs`) ·
-      Owed: a script's click following a link (263, whose decision is
-      ADR 0020: a page's navigation is a claim in a renderer's answer the
-      browser process judges and attributes; no code yet), a link's
-      download (264), each element's own interface (262), focus (258) and
-      event handler attributes (259)
+      and `change` (`alo-renderer`'s `event_loop/typed.rs` and `put.rs`).
+      **A followed link is an ask** (queue item 263, ADR 0020): a script's
+      `click()` and the agent's own link record the page's ongoing
+      navigation in the document cell (`alo-bindings`' `navigating.rs`,
+      resolved against the document's base; one, the last), it crosses in
+      `Loaded` and `Acted` (`alo-renderer`'s `ask.rs`, `Page::url`), and the
+      browser process decides it (`navigate.rs`: parsed again, the scheme
+      table, `Referer` from its own copy) with the cause from which message
+      it answered (`Tabs::load`, `Tabs::act`, `Tabs::navigation`) · Owed:
+      going there (85), a link's download (264), each element's own
+      interface (262), focus (258) and event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
       · Built: **a control draws its own state** (queue item 182) — a tick in a
       checked box, a dot in a chosen radio, a dash in one that is neither, in

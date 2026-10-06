@@ -43,6 +43,7 @@ dependencies = [
  "alo-css",
  "alo-dom",
  "alo-js",
+ "alo-url",
 ]
 
 [[package]]

@@ -19,8 +19,10 @@
 //!    box back; or else **after**, which says what follows — for a box
 //!    still in its document, an `input` and then a `change` at it, each
 //!    dispatched the same way, inside **this same task** as the standard
-//!    has them; for a link, the link is followed, which is the browser
-//!    process's to do and so is said in the answer ([`Clicked`]).
+//!    has them; for a link, the link is followed — which is the browser
+//!    process's to do, so it is **asked**: kept in the document cell beside
+//!    any ask a listener's `click()` made before it (ADR 0020 §§ 1 and 5),
+//!    and said in the answer.
 //!
 //! All of it is one task (ADR 0016 § 6), so no other task runs between the
 //! box changing and its listeners hearing about it, and the agent's answer
@@ -33,6 +35,7 @@
 //! The renderer's stage 1 accommodation applies only to a page that never
 //! ran script, which never reaches this.
 
+use alo_bindings::navigating::{self, By};
 use alo_bindings::{Firing, change_document, document, node_of};
 use alo_dom::activation::{self, Follows};
 use alo_js::{Escape, Fault, Root};
@@ -49,6 +52,11 @@ pub struct Clicked {
     /// `change` that were fired at a box; or a link for the browser process
     /// to follow.
     pub follows: Follows,
+    /// Whether following the link started a navigation: kept in the
+    /// document cell as the page's ongoing one. `false` for a link that was
+    /// not followed — a download, another window, an `href` that goes
+    /// nowhere — which the cell says why of.
+    pub navigated: bool,
 }
 
 impl EventLoop {
@@ -72,6 +80,7 @@ impl EventLoop {
             return Ok(Clicked {
                 canceled,
                 follows: Follows::Nothing,
+                navigated: false,
             });
         }
 
@@ -86,6 +95,17 @@ impl EventLoop {
                 self.dispatch_event(event, target, turn)?;
             }
         }
-        Ok(Clicked { canceled, follows })
+        let navigated = match &follows {
+            Follows::Link { node, .. } => {
+                navigating::start(self.engine.objects(), cell, *node, By::Browser)
+                    .ok_or(Escape::fault(Fault::NotAnObject))?
+            }
+            Follows::Nothing | Follows::InputAndChange(_) => false,
+        };
+        Ok(Clicked {
+            canceled,
+            follows,
+            navigated,
+        })
     }
 }

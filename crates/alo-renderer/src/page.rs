@@ -12,10 +12,19 @@
 
 use alo_css::ColorScheme;
 use alo_layout::Size;
+use alo_url::Url;
 
 /// Everything needed to render one page.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Page {
+    /// Where the page is: the URL of the response it came from, stated by
+    /// the browser process (ADR 0020 § 2).
+    ///
+    /// The one fact about its own address a page is entitled to, and the
+    /// one a renderer needs to resolve a link against — the browser process
+    /// keeps its own copy, and never takes a renderer's word for it.
+    /// `about:blank` for a page nobody fetched.
+    pub url: Url,
     /// The markup.
     pub html: String,
     /// The author's style sheets, in the order they were written.
@@ -62,6 +71,7 @@ impl Page {
     /// the value afterwards.
     pub fn new(html: impl Into<String>, viewport: Size) -> Self {
         Self {
+            url: Url::about_blank(),
             html: html.into(),
             sheets: Vec::new(),
             viewport,
@@ -69,6 +79,13 @@ impl Page {
             policies: Vec::new(),
             watching: Vec::new(),
         }
+    }
+
+    /// The same page, at `url`.
+    #[must_use]
+    pub fn at(mut self, url: Url) -> Self {
+        self.url = url;
+        self
     }
 
     /// The same page with a style sheet added.
@@ -146,6 +163,7 @@ impl Page {
     /// string" has already lost the chance to get that right.
     pub fn from_response(response: &alo_net::Response, viewport: Size) -> Self {
         Self {
+            url: response.url.clone(),
             html: response.text().text,
             sheets: Vec::new(),
             viewport,
@@ -172,6 +190,7 @@ mod tests {
     fn a_page_is_markup_and_a_size_and_nothing_it_has_to_go_and_find() {
         let page = Page::new("<p>hello</p>", Size::new(800.0, 600.0));
         assert_eq!(page.html, "<p>hello</p>");
+        assert_eq!(page.url.serialised, "about:blank");
         assert!(page.sheets.is_empty());
         assert_eq!(page.scheme, ColorScheme::Light);
     }
@@ -208,6 +227,7 @@ mod tests {
             .headers
             .add("Content-Security-Policy-Report-Only", "script-src 'none'");
         let page = Page::from_response(&response, Size::new(1.0, 1.0));
+        assert_eq!(page.url.serialised, "https://example.com/");
         assert_eq!(
             page.policies,
             vec![

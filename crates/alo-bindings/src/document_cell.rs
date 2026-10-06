@@ -29,6 +29,11 @@
 //! and it is the realm's `[[HostDefined]]`, which is how a constructor —
 //! whose `this` is a fresh instance holding nothing — finds it (§ 2).
 //!
+//! And it holds where the document **is** — its URL, stated by the browser
+//! process — and where the page has **asked to go** since the renderer last
+//! answered ([`crate::navigating`], ADR 0020 § 1): HTML's ongoing navigation
+//! is a fact about the page's one navigable, which here is this document's.
+//!
 //! It is an object only because everything in the heap that is not the
 //! engine's own is one. No script is ever handed it — the document *node* a
 //! page sees is a wrapper like any other — so as an object it is the plainest
@@ -37,8 +42,10 @@
 use alo_dom::{Document, NodeId};
 use alo_js::heap::{Barrier, Ref};
 use alo_js::object::{Exotic, Internal, Key, Property};
+use alo_url::Url;
 
 use crate::interface::Interfaces;
+use crate::navigating::Ongoing;
 
 /// One slot of the table: the node, and its wrapper.
 pub(crate) type Entry = Option<(NodeId, Ref)>;
@@ -60,6 +67,11 @@ pub struct DocumentCell {
     /// node's id: a node on one is kept, tree and wrapper, until they end
     /// ([`crate::dispatch`]). Empty until the first dispatch.
     pub(crate) on_path: Vec<u32>,
+    /// The document's URL: `about:blank` until the browser process says
+    /// otherwise ([`crate::navigating::locate`]).
+    pub(crate) url: Url,
+    /// Where the page has asked to go since the renderer last took it.
+    pub(crate) ongoing: Ongoing,
 }
 
 /// What collections have let go of, counted.
@@ -81,6 +93,8 @@ impl DocumentCell {
             released: Released::default(),
             interfaces: Interfaces::default(),
             on_path: Vec::new(),
+            url: Url::about_blank(),
+            ongoing: Ongoing::default(),
         }
     }
 
@@ -93,6 +107,16 @@ impl DocumentCell {
     /// § 5), whose validity rules hold for every caller alike.
     pub const fn document_mut(&mut self) -> &mut Document {
         &mut self.document
+    }
+
+    /// The document's URL.
+    pub const fn url(&self) -> &Url {
+        &self.url
+    }
+
+    /// Where the page has asked to go since the renderer last took it.
+    pub const fn ongoing(&self) -> &Ongoing {
+        &self.ongoing
     }
 
     /// The wrapper `node` has, if it has one.

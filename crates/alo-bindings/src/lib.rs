@@ -60,7 +60,9 @@
 //! `MouseEvent` and `PointerEvent`, none with a constructor on the global.
 //! A script's `el.click()` (queue item 261) is `HTMLElement`'s, driven from
 //! its native as `dispatchEvent`'s is (`scripted.rs`), with the same
-//! activation rule around it (`clicking.rs` holds what it keeps).
+//! activation rule around it (`clicking.rs` holds what it keeps); a link
+//! it activates is followed by asking, kept in the document cell until the
+//! renderer answers ([`navigating`], ADR 0020, queue item 263).
 //! An agent's `PutText` is one too: a `beforeinput` and an `input` that are
 //! `InputEvent`s ([`Firing::before_replacing`], [`Firing::replaced`], queue
 //! item 257), inheriting `UIEvent`, also without a constructor.
@@ -77,6 +79,7 @@ pub mod install;
 pub mod interface;
 pub mod listeners;
 pub mod liveness;
+pub mod navigating;
 mod scripted;
 pub mod tree;
 mod unforgeable;

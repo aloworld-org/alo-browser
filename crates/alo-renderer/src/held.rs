@@ -27,6 +27,16 @@
 //! and no listener, and it is not given a heap to find that out. Stage 1's
 //! pages behave exactly as they did.
 //!
+//! # Where the page has asked to go
+//!
+//! A page whose document is in its heap keeps its ongoing navigation in the
+//! cell (ADR 0020 § 1), where a script's `click()` records it; the browser's
+//! own click on such a page records it there too ([`Held::follow`]), so one
+//! order holds across both, and the renderer takes it when the message's
+//! work is done ([`Held::take_navigation`]). A page that has never run script
+//! has no cell and nothing that could ask behind the renderer's back, so the
+//! renderer asks for it directly.
+//!
 //! # A heap that will not take the document
 //!
 //! A document larger than the heap's ceiling cannot be adopted, since the
@@ -36,11 +46,13 @@
 
 use core::fmt;
 
+use alo_bindings::navigating::{self, By, Ongoing};
 use alo_bindings::{Firing, Unadopted, adopt, change_document, document, install};
 use alo_dom::{Document, NodeId};
 use alo_js::Escape;
 use alo_js::heap::{Ref, Root};
 use alo_js::object::Refused;
+use alo_url::Url;
 
 use crate::event_loop::{EventLoop, Seq, Unqueued};
 
@@ -170,6 +182,37 @@ impl Held {
         self.queue(|page_loop, cell| page_loop.queue_put_text(cell, node, text))
     }
 
+    /// Follow the link `link` as the browser's click, keeping the ask in the
+    /// document cell beside any the page's script made: whether a navigation
+    /// started — [`None`] on a page that has never run script, whose ask the
+    /// renderer makes itself, or if the root has stopped naming a document.
+    pub fn follow(&mut self, link: NodeId) -> Option<bool> {
+        match self {
+            Held::Parsed(_) => None,
+            Held::Scripted(scripted) => {
+                let objects = scripted.script.engine().objects();
+                let cell = objects.heap().holding(&scripted.cell)?;
+                navigating::start(objects, cell, link, By::Browser)
+            }
+        }
+    }
+
+    /// Where the page has asked to go since this was last called, leaving
+    /// nothing — always nothing on a page that has never run script.
+    pub fn take_navigation(&mut self) -> Ongoing {
+        match self {
+            Held::Parsed(_) => Ongoing::default(),
+            Held::Scripted(scripted) => {
+                let objects = scripted.script.engine().objects();
+                objects
+                    .heap()
+                    .holding(&scripted.cell)
+                    .and_then(|cell| navigating::take(objects, cell))
+                    .unwrap_or_default()
+            }
+        }
+    }
+
     /// Queue a task with `queue`, handed the page's loop and its document
     /// cell — [`None`] on a page that has never run script.
     fn queue(
@@ -191,7 +234,8 @@ impl Held {
     }
 
     /// The page's event loop, making it — and moving the document into its
-    /// heap, with `document` on its global object — if no script has run yet.
+    /// heap, at `url`, with `document` on its global object — if no script
+    /// has run yet.
     ///
     /// **Called when the page's first script is about to run**, and not
     /// before: a page none of whose scripts may run never builds a heap.
@@ -201,7 +245,7 @@ impl Held {
     /// [`NoScript`] if the page cannot run script. Its document stays where
     /// it was readable from — handed back when the heap refused it, in the
     /// heap when it was adopted and its interfaces could not be made.
-    pub fn scripted(&mut self) -> Result<&mut EventLoop, NoScript> {
+    pub fn scripted(&mut self, url: &Url) -> Result<&mut EventLoop, NoScript> {
         if let Held::Parsed(parsed) = self {
             let mut script = EventLoop::new().map_err(NoScript::Engine)?;
             let taken = core::mem::take(parsed);
@@ -216,6 +260,9 @@ impl Held {
                     return Err(NoScript::Refused(refused));
                 }
             };
+            // Before any of the page's script can read it. Not a document
+            // cell only if `adopt` made something else, which it does not.
+            navigating::locate(engine.objects(), made, url.clone());
             let cell = engine.objects().heap_mut().root(made);
             let installed = install(engine, made);
             *self = Held::Scripted(Box::new(Scripted { script, cell }));

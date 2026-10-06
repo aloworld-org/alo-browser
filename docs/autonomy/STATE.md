@@ -13682,3 +13682,160 @@ ADR 0020 and adds 264. It is not ticked.
 113 queue items are open (264 added). **263** is next, now buildable. The
 next unused queue number is **265** and the next ADR **0021**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 159 — item 263: a script's `click()` follows a link, by asking
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Events* line, iteration 158's entry,
+`REMAINING.md`'s continuation order, item 263 and 264 in full, ADR 0020 in
+full (item 263's decision) and the code it names: `alo-renderer`'s
+`message.rs`, `page.rs`, `tab.rs`, `press.rs`, `renderer.rs`, `held.rs`,
+`run_to.rs`, `wire.rs` and `event_loop/activated.rs`; `alo-bindings`'
+`interface/html_element.rs`, `document_cell.rs` and `embed.rs`;
+`alo-dom`'s `activation.rs`; `alo-net`'s `referrer.rs`, `activity.rs`,
+`request.rs` and `cause.rs`; `alo-url`'s `parts.rs` and `parse.rs`. No
+`AGENTS.md` exists. No sibling repository was read or modified. The
+checkout was clean on entry at `ec2cd25`.
+
+**Selection.** Iteration 158 left 263 next and buildable: its code
+dependency 261 is done and its decision is ADR 0020. Every open item
+before it in file order is blocked, needs design, or waits on a page, as
+iterations 155–158 recorded.
+
+**What was built** (ADR 0020 §§ 1–5):
+- `alo-url`: `Url::about_blank()` and `Url::is_about_blank()`, the made
+  one tested equal to the parsed one.
+- `alo-bindings`' new `navigating.rs` (one responsibility: where a page has
+  asked to go): `follow` — a `download` link and a target naming another
+  window (the link's `target`, else the first `<base target>`; `""`,
+  `_self`, `_parent`, `_top` are this tab) are not followed; the `href` is
+  resolved against the first `<base href>` (resolved against the
+  document's URL) or the document's URL; one that does not resolve goes
+  nowhere — and `Ongoing`, the page's ongoing navigation: one, the last, a
+  count of those replaced, at most `MOST_NOT_FOLLOWED` (16) reasons kept
+  and the rest counted. `DocumentCell` holds the document's URL and the
+  `Ongoing`. A script's `click()` records its link there after its
+  listeners and returns; on an `<a download>` it is refused by name for
+  item 264, as ADR 0020 § 6 says.
+- `alo-renderer`: `Page::url` (`about:blank` by `Page::new`,
+  `response.url` by `from_response`, `Page::at`), stated to the cell by
+  `Held::scripted(url)` before any script runs; the browser's click records
+  its link in the same cell (`event_loop/activated.rs`, `Held::follow` on a
+  stopped page), so a listener's `click()` and the agent's own link are one
+  order and the agent's, coming after its listeners, is the last; a page
+  that never ran script is asked for in `Renderer::act` itself. New
+  `ask.rs`: `Asked` (URL serialised, `By`, referrer policy from
+  `referrerpolicy` or `rel=noreferrer`, replaced count), carried as
+  `navigation` in `Loaded` and `Acted`, with the reasons and the replaced
+  count said among the issues. `Outcome::Followed` is answered only when
+  following started a navigation. The wire carries the page's URL (parsed
+  on arrival) and the ask (every tag checked, the URL as text).
+- Browser side, new `navigate.rs`: `decide` parses the ask's URL again,
+  refuses one over `LONGEST_URL` (2 MiB) or unparsed, navigates `http`,
+  `https`, `about:blank` and `file:` only from a `file:` document, refuses
+  every other scheme by name (`Rule`), works out `Referer` with `alo-net`'s
+  `referrer::for_request` from its own copy of the document's URL;
+  `Refusal::record` writes the refusal into an `Activity` as ADR 0012 asks
+  (not for a URL that did not parse, which names nothing a line can hold —
+  it is only said). `Tabs::load` decides a `Loaded`'s ask with
+  `Cause::Document` naming the document it made; `Tabs::act` an `Acted`'s
+  with `Cause::Agent` naming its action and the tab's document;
+  `Tabs::navigation` hands the decision over once; `Tab::address` is the
+  browser's copy of the document's URL.
+
+**Decisions made in code a reviewer may want to look at.**
+- *Not followed* (a download from the browser's click, another window, an
+  unresolvable `href`) replaces no ongoing navigation, following HTML, and
+  is said rather than thrown. A script's click on a download is still
+  *thrown* by name (`Missing::InTheEmbedder`), because ADR 0020 § 6 says it
+  stays refused as every link was.
+- An agent's `Activate` on a link that was not followed now answers
+  `Outcome::Activated` (it answered `Followed` before); a link on a page at
+  `about:blank` with a relative `href` therefore no longer answers
+  `Followed`. Three existing tests' pages were given an address
+  (`what_an_agent_set_off.rs`, `an_agents_click.rs`); their assertions are
+  unchanged.
+- An `Act`'s ask in a tab with no document is not decided (nobody to
+  attribute it to). A failed load or a refused act clears any decision
+  waiting.
+- The ask's `referrerpolicy` is read with `alo-net`'s `Policy::named`
+  (trimmed, any case), slightly looser than HTML's enumerated attribute.
+- A page's CSP `base-uri` is not enforced on `<base>`; there is no item.
+
+**Found, not fixed.** `alo-net`'s `referrer::for_request` writes an
+origin-only `Referer` as `https://example.com`, without the `/` the
+standard's URL serialisation has. Queued as **item 265**;
+`navigate.rs`' test asserts the current value and names 265.
+
+**Compliance review.**
+- Law 1: nothing legacy; `javascript:` URLs, `ping` and windows stay
+  absent and are refused by name.
+- Law 2: the agent's surface gains no verb; `Followed` now means a
+  navigation was asked for.
+- Law 3: no stubs, `todo!`, or `unwrap` outside tests. Going there (85),
+  downloads (264) and windows (118) are named absences.
+- Law 4: no `unsafe`.
+- ADRs: 0020 is applied as written; 0005 (no call back: the ask is a field
+  of an answer, never awaited), 0012 § 4 (the cause from the message), 0018
+  § 6 (`activation.rs` still says what follows; the callers record).
+- One file, one responsibility: `navigating.rs` (renderer-side following
+  and the ongoing ask), `ask.rs` (the ask as it crosses), `navigate.rs`
+  (the browser process's decision). `wire.rs` gained a `texts` helper to
+  stay within clippy's function length rather than an `allow`; one wire
+  round-trip test was split for the same reason.
+- Layout assertions, reference renders: nothing positions, sizes or
+  draws. The corpus passes with every reference unchanged.
+- Bytes from outside: the ask's URL is parsed in the browser process as
+  hostile — empty, nonsense, an unclosed IPv6 host, a space in a host, a
+  NUL, one byte over 2 MiB (refused, said at 200 characters) and exactly
+  2 MiB (navigated) are tested; the wire refuses an unknown cause or
+  policy tag, a replaced count over `u32`, every truncation of an `Acted`
+  carrying an ask, and a page whose address is not a URL.
+- `cargo doc` warns exactly as often as before: `alo-url` 2 (both
+  pre-existing), `alo-bindings` 5, `alo-renderer` 9.
+
+**Tests.** `alo-renderer/tests/a_page_asks_to_go_somewhere.rs` (14; the
+scripted pages pressed ordinarily and collecting at every allocation; three
+drive real `Tabs` over the confined `alo-render` binary and are 263's
+closing condition: a load-time `a.click()` reaches `Tabs::navigation` as
+`Cause::Document` and *a script's click*; inside an agent's `Activate` the
+same click is `Cause::Agent` with the same claim; `data:`, `javascript:`
+and `file:` from the web are refused, said, recorded, and go nowhere).
+Unit tests: `navigating.rs` 8, `ask.rs` 3, `navigate.rs` 7, `parts.rs` 1;
+wire: a round trip of every policy and claim, and the refusals above.
+Doctored runs, each restored: the first ask kept instead of the last (5
+failures), `data:`/`javascript:`/`file:` navigated (6), an `Act`'s ask
+attributed to the document (2), the browser's click not recorded (4), the
+base target ignored (1, in `alo-bindings`), the base href ignored (2).
+
+**Roadmap.** The *Events* line's Built clause gains *a followed link is an
+ask*; its Owed clause drops 263 and gains going there (85). It is not
+ticked. The *Navigation and session history* line is not moved: nothing
+loads the decided navigation yet (85). `docs/features.md`, `CHANGELOG.md`,
+`QUEUE.md` (263 ticked with its note, 265 added) and `REMAINING.md` moved
+with it.
+
+**Unresolved obligations.**
+- New from this item: going where the browser decided (85); downloads
+  (264); windows (118); 265; CSP `base-uri` (no item); what an agent is
+  told when the page it acted on goes somewhere (134).
+- Carried from iteration 158, unchanged: `Outcome::TextCanceled` decided
+  in code; `change` timing pending focus (258); a field's text is its
+  `value` attribute (82); `beforeinput`/`input` have no `view` (251); 262;
+  an abandoned `click()`'s flag; `click()`'s missing `view`; 233 still owes
+  the loop between messages; 78's remainder; 77 needs design; 234, 238 and
+  240 open and 76 not done.
+
+113 queue items are open (263 closed, 265 added). The next iteration takes
+the first eligible item as `LOOP.md` says (iteration 158 noted 190, ready
+and small; 265 is ready too). The next unused queue number is **266** and
+the next ADR **0021**. This is one iteration, not a finished queue or
+roadmap.
+
+**Final gate run.** `scripts/gate.sh` exited 0 on the tree committed here,
+run in the foreground and read in the same step (7 min 24 s): formatting
+clean, clippy silent, all tests pass (the corpus included, every
+reference unchanged), nothing stubbed, `unsafe` forbidden, licence
+notices, every rented crate behind its boundary, no coordinate verb, the
+stop rule holds, and `CHANGELOG.md` changed with the code. `git diff
+--check` passes. The log is in this session's scratchpad, not committed.

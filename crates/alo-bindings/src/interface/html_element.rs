@@ -36,14 +36,18 @@
 //! must keep across a listener is held by the element's wrapper
 //! (`clicking.rs`) — which is also the click in progress flag.
 //!
-//! # A link is not followed from script yet
+//! # A link is followed by asking
 //!
 //! A click nobody cancelled on a link follows it, which is the page
-//! navigating itself: a request for the browser process that no script can
-//! make yet. So that one case is refused **by name, after its listeners
-//! have run** — they see the click and may cancel it, and a cancelled one
-//! needs nothing more — rather than answered as if the page had gone
-//! somewhere (queue item 263).
+//! navigating itself — the browser process's to decide (ADR 0020). So the
+//! link is followed **after its listeners have run**, by recording the ask
+//! in the document cell ([`crate::navigating::start`]), which the renderer
+//! puts in its answer; the script carries on, as it does in every browser,
+//! and the page is never told whether the browser went.
+//!
+//! **A link's download is not built** (ADR 0020 § 6, queue item 264): a
+//! script's click on an `<a download>` is refused by name after its
+//! listeners, rather than navigating to what was meant to be saved.
 //!
 //! # What is not here
 //!
@@ -67,6 +71,7 @@ use crate::embed::{self, Wrapping};
 use crate::event::{self, Firing};
 use crate::idl::{self, Brand, This};
 use crate::interface;
+use crate::navigating::{self, By};
 use crate::scripted::{self, Driven, STEPS};
 use crate::wrapper::Wrapper;
 
@@ -88,9 +93,8 @@ const INPUT: u32 = STEPS;
 /// The base step of the `change` after it.
 const CHANGE: u32 = 2 * STEPS;
 
-/// What a link's activation from script is refused as.
-const FOLLOWING: &str =
-    "a script's click() following a link, which navigates the page, is queue item 263";
+/// What a link's download from script is refused as.
+const DOWNLOADING: &str = "a script's click() on a link's download is queue item 264";
 
 /// `click()`.
 fn click(call: &mut Call<'_>) -> Result<Answer, Escape> {
@@ -172,9 +176,17 @@ fn finished(
                     let target = wrap(call, this.owner, at)?;
                     fire(call, this, wrapper, target, INPUT)
                 }
-                Follows::Link { .. } => {
+                Follows::Link { node, .. } => {
                     end(call, wrapper)?;
-                    Err(Escape::NotBuiltYet(Missing::InTheEmbedder(FOLLOWING)))
+                    let downloads = idl::read(call, this.owner)?
+                        .element(node)
+                        .is_some_and(|element| element.attr("download").is_some());
+                    if downloads {
+                        return Err(Escape::NotBuiltYet(Missing::InTheEmbedder(DOWNLOADING)));
+                    }
+                    navigating::start(call.objects(), this.owner, node, By::Script)
+                        .ok_or(Escape::fault(Fault::NotAnObject))?;
+                    Ok(Answer::Value(Value::Undefined))
                 }
             }
         }

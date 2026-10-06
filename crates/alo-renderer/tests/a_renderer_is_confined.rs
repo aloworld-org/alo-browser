@@ -123,6 +123,7 @@ fn a_renderer_that_renders_was_confined_before_it_read_anything() {
     let loaded = renderers.ask(
         &site,
         &ToRenderer::Load(Box::new(Page {
+            url: alo_url::Url::about_blank(),
             html: "<p>rendered inside a sandbox</p>".to_owned(),
             sheets: vec!["p { margin: 4px }".to_owned()],
             viewport: Size {

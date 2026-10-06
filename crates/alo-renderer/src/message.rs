@@ -22,6 +22,7 @@
 //! single caller. The transport itself is queue item 29's, and inventing a wire
 //! format before there is a process to send it to would be inventing.
 
+use crate::ask::Asked;
 use crate::face::Face;
 use crate::frame::Frame;
 use crate::generic::Generics;
@@ -130,6 +131,14 @@ pub enum FromRenderer {
         /// page's headers ([`crate::violations::reports`]). At most
         /// [`crate::violations::MOST_OBJECTIONS`].
         objections: Vec<Objection>,
+        /// Where the page's scripts asked to go while it loaded, if they
+        /// did: the last ask, and how many it replaced (ADR 0020).
+        ///
+        /// **A claim, never a call**: the renderer is not told what became of
+        /// it. The browser process parses the URL again, decides by its own
+        /// rules whether a page may send its tab there, and names the cause
+        /// itself — a load's ask is the document's ([`crate::navigate`]).
+        navigation: Option<Asked>,
     },
     /// A picture.
     Painted(Frame),
@@ -145,7 +154,17 @@ pub enum FromRenderer {
         /// [`crate::event_loop::MOST_REPORTS`] lines, each at most
         /// [`crate::said::LONGEST_LINE`] characters, and a count of the rest.
         /// Empty on a page that has never run script, where nothing listens.
+        /// After them, what the verb's task says about where the page asked
+        /// to go: the links it did not follow, at most `alo-bindings`'
+        /// `MOST_NOT_FOLLOWED` and a count, and how many asks the last
+        /// replaced.
         issues: Vec<String>,
+        /// Where the page asked to go during the verb's task — the agent's
+        /// own link or a listener's `click()`, the last of them (ADR 0020).
+        ///
+        /// A claim, as a load's is; an `Act`'s ask is the agent's
+        /// ([`crate::navigate`]), whoever made it.
+        navigation: Option<Asked>,
     },
     /// A verb was refused. **Not a failure**: ADR 0002 makes refusing a
     /// result, because acting on the wrong row is worse than acting on none.

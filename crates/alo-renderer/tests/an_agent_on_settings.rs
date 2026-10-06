@@ -173,7 +173,9 @@ fn pressing_a_row_runs_the_screens_own_script_and_the_tree_says_which_is_open_no
         verb: Verb::Activate,
     });
     match &answer {
-        FromRenderer::Acted { outcome, issues } => {
+        FromRenderer::Acted {
+            outcome, issues, ..
+        } => {
             assert!(issues.is_empty(), "the screen's script said: {issues:?}");
             assert!(outcome.to_string().contains("Sharing"), "{outcome}");
         }

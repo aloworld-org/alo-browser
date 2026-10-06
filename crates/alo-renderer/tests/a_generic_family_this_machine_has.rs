@@ -66,6 +66,7 @@ fn a_machine_with_a_sans_serif() -> Generics {
 
 fn asking_for(family: &str) -> ToRenderer {
     ToRenderer::Load(Box::new(Page {
+        url: alo_url::Url::about_blank(),
         html: format!("<p>{TEXT}</p>"),
         sheets: vec![format!(
             "html, body, p {{ margin: 0; padding: 0 }} \

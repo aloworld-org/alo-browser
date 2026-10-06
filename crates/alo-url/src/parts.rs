@@ -85,6 +85,30 @@ impl Url {
     pub fn is_special(&self) -> bool {
         default_port(&self.scheme).is_some() || self.scheme == "file"
     }
+
+    /// `about:blank`: the address of a document nobody fetched.
+    ///
+    /// Made rather than parsed, so that having one is not a [`Result`] —
+    /// HTML gives every document a URL, and this is the one a document has
+    /// when nothing said otherwise. That it is exactly what the parser makes
+    /// of `about:blank` is a test.
+    pub fn about_blank() -> Self {
+        Self {
+            scheme: "about".to_owned(),
+            host: None,
+            port: None,
+            path: "blank".to_owned(),
+            query: None,
+            fragment: None,
+            serialised: "about:blank".to_owned(),
+        }
+    }
+
+    /// Whether this is `about:blank`, as HTML matches it: the scheme and the
+    /// path, whatever query or fragment follows.
+    pub fn is_about_blank(&self) -> bool {
+        self.scheme == "about" && self.host.is_none() && self.path == "blank"
+    }
 }
 
 /// The port a scheme uses when nobody wrote one.
@@ -118,6 +142,19 @@ mod tests {
         // `file` has no port and is still special, which is the one place the
         // two questions come apart.
         assert_eq!(default_port("file"), None);
+    }
+
+    #[test]
+    fn about_blank_is_what_the_parser_makes_of_it() {
+        assert_eq!(
+            crate::parse("about:blank").ok(),
+            Some(Url::about_blank()),
+            "the made one and the parsed one disagree",
+        );
+        assert!(Url::about_blank().is_about_blank());
+        assert!(crate::parse("about:blank#top").is_ok_and(|url| url.is_about_blank()));
+        assert!(!crate::parse("about:srcdoc").is_ok_and(|url| url.is_about_blank()));
+        assert!(!crate::parse("https://blank/").is_ok_and(|url| url.is_about_blank()));
     }
 
     #[test]

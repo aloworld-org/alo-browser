@@ -18,6 +18,8 @@ use alo_box::tree::BoxId;
 use alo_css::media::ColorScheme;
 use alo_layout::geometry::{Point, Rect, Size};
 use alo_net::csp::Inline;
+use alo_net::referrer::Policy;
+use alo_renderer::ask::{Asked, By};
 use alo_renderer::frame::Frame;
 use alo_renderer::generic::{Generics, MOST_PAIRS};
 use alo_renderer::message::{Failure, FromRenderer, ToRenderer};
@@ -78,6 +80,7 @@ fn a_node(children: Vec<SnapshotNode>) -> SnapshotNode {
 fn every_message_to_a_renderer_survives_the_crossing() {
     let messages = vec![
         ToRenderer::Load(Box::new(Page {
+            url: alo_url::parse("https://example.com/a/b?c#d").unwrap(),
             html: "<p>hello</p>".to_owned(),
             sheets: vec!["p { color: red }".to_owned(), "p { margin: 0 }".to_owned()],
             viewport: Size {
@@ -149,6 +152,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
                     kind: Inline::Style,
                 },
             ],
+            navigation: None,
         },
         FromRenderer::Painted(Frame {
             width: 2,
@@ -165,23 +169,17 @@ fn every_message_from_a_renderer_survives_the_crossing() {
                 name: Some("Save".to_owned()),
             },
             issues: Vec::new(),
+            navigation: None,
         },
-        FromRenderer::Acted {
-            outcome: Outcome::Followed {
-                node: id(4),
-                to: "https://example.com/next".to_owned(),
-            },
-            issues: vec![
-                "click: uncaught: Error: a listener threw".to_owned(),
-                String::new(),
-            ],
-        },
+        // A followed link's act is in
+        // `where_a_page_asked_to_go_survives_the_crossing`, with its ask.
         FromRenderer::Acted {
             outcome: Outcome::TextPut {
                 node: id(5),
                 text: "12 May".to_owned(),
             },
             issues: Vec::new(),
+            navigation: None,
         },
         FromRenderer::Acted {
             outcome: Outcome::Scrolled {
@@ -189,6 +187,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
                 by: ScrollBy::ToStart,
             },
             issues: Vec::new(),
+            navigation: None,
         },
         FromRenderer::Acted {
             outcome: Outcome::TextCanceled {
@@ -196,6 +195,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
                 text: "refused".to_owned(),
             },
             issues: vec!["the text: the page cancelled it".to_owned()],
+            navigation: None,
         },
         FromRenderer::Refused(Refusal::NotFound {
             target: Target::Named("Nowhere".to_owned()),
@@ -346,6 +346,53 @@ fn a_mapping_that_stops_part_way_through_is_refused() {
     }
 }
 
+/// ADR 0020: where a page asked to go crosses in a load's answer and in an
+/// act's, with every referrer policy and either claim of how it arose.
+#[test]
+fn where_a_page_asked_to_go_survives_the_crossing() {
+    let policies = [
+        None,
+        Some(Policy::NoReferrer),
+        Some(Policy::NoReferrerWhenDowngrade),
+        Some(Policy::Origin),
+        Some(Policy::OriginWhenCrossOrigin),
+        Some(Policy::SameOrigin),
+        Some(Policy::StrictOrigin),
+        Some(Policy::StrictOriginWhenCrossOrigin),
+        Some(Policy::UnsafeUrl),
+    ];
+    for (at, referrer) in policies.into_iter().enumerate() {
+        let navigation = Some(Asked {
+            url: "https://example.com/next".to_owned(),
+            by: if at % 2 == 0 { By::Script } else { By::Browser },
+            referrer,
+            replaced: u32::MAX - 1,
+        });
+        for original in [
+            FromRenderer::Loaded {
+                issues: Vec::new(),
+                wanted: Vec::new(),
+                objections: Vec::new(),
+                navigation: navigation.clone(),
+            },
+            FromRenderer::Acted {
+                outcome: Outcome::Followed {
+                    node: id(4),
+                    to: "/next".to_owned(),
+                },
+                issues: vec![
+                    "click: uncaught: Error: a listener threw".to_owned(),
+                    String::new(),
+                ],
+                navigation,
+            },
+        ] {
+            let back = read_from_renderer(&write_from_renderer(&original));
+            assert_eq!(back.as_ref(), Ok(&original), "{original:?}");
+        }
+    }
+}
+
 /// Every prefix of a load is a load that did not arrive.
 ///
 /// Asked of this message in particular because it is the one that grew a second
@@ -361,6 +408,12 @@ fn a_load_that_stops_part_way_through_is_refused() {
             policy: 1,
             kind: Inline::Script,
         }],
+        navigation: Some(Asked {
+            url: "https://example.com/next".to_owned(),
+            by: By::Script,
+            referrer: Some(Policy::Origin),
+            replaced: 1,
+        }),
     });
     for cut in 1..whole.len() {
         assert!(
@@ -446,6 +499,12 @@ fn a_message_that_stops_in_the_middle_is_refused() {
             to: "https://example.com/next".to_owned(),
         },
         issues: Vec::new(),
+        navigation: Some(Asked {
+            url: "https://example.com/next".to_owned(),
+            by: By::Browser,
+            referrer: None,
+            replaced: 0,
+        }),
     });
     for cut in 1..whole.len() {
         assert!(
@@ -492,6 +551,7 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
             };
             MOST_OBJECTIONS
         ],
+        navigation: None,
     };
     assert_eq!(
         read_from_renderer(&write_from_renderer(&honest)).as_ref(),
@@ -507,6 +567,7 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
             };
             MOST_OBJECTIONS + 1
         ],
+        navigation: None,
     };
     let refused = read_from_renderer(&write_from_renderer(&flood));
     assert!(
@@ -529,11 +590,14 @@ fn an_objection_that_is_not_one_is_refused() {
             policy: 0,
             kind: Inline::Style,
         }],
+        navigation: None,
     });
-    // The last byte is the kind's tag.
+    // The byte before the last is the kind's tag; the last says there is no
+    // navigation.
     let mut strange = one.clone();
-    if let Some(last) = strange.last_mut() {
-        *last = 9;
+    let at = strange.len() - 2;
+    if let Some(kind) = strange.get_mut(at) {
+        *kind = 9;
     }
     let refused = read_from_renderer(&strange);
     assert!(
@@ -547,5 +611,75 @@ fn an_objection_that_is_not_one_is_refused() {
     assert!(
         read_from_renderer(&longer).is_err(),
         "a load with bytes after its objections was read as a whole one"
+    );
+}
+
+/// ADR 0020: where a page asked to go crosses as a claim, and every part of
+/// it is a stranger's. A cause or a referrer policy nobody has is refused, so
+/// is a count no task could make; and the URL is carried as text, never
+/// parsed or trusted here — the browser process does that when it decides.
+#[test]
+fn a_navigation_that_is_not_one_is_refused() {
+    let asked = |url: &str| FromRenderer::Acted {
+        outcome: Outcome::Activated {
+            node: id(1),
+            name: None,
+        },
+        issues: Vec::new(),
+        navigation: Some(Asked {
+            url: url.to_owned(),
+            by: By::Script,
+            referrer: Some(Policy::SameOrigin),
+            replaced: 0,
+        }),
+    };
+    // Nonsense crosses as text: refusing it is the browser process's.
+    let nonsense = asked("javascript:alert(1)");
+    assert_eq!(
+        read_from_renderer(&write_from_renderer(&nonsense)).as_ref(),
+        Ok(&nonsense)
+    );
+
+    let whole = write_from_renderer(&asked("https://example.com/"));
+    // From the end: eight bytes of count, one of policy, one of cause.
+    let (count, policy, cause) = (whole.len() - 8, whole.len() - 9, whole.len() - 10);
+    for (at, value, said) in [
+        (cause, 2u8, "cause tagged 2"),
+        (policy, 9, "policy tagged 9"),
+    ] {
+        let mut strange = whole.clone();
+        if let Some(byte) = strange.get_mut(at) {
+            *byte = value;
+        }
+        let refused = read_from_renderer(&strange);
+        assert!(
+            refused.as_ref().is_err_and(|why| why.why.contains(said)),
+            "{refused:?}"
+        );
+    }
+    let mut too_many = whole.clone();
+    if let Some(high) = too_many.get_mut(count) {
+        *high = 1;
+    }
+    assert!(
+        read_from_renderer(&too_many).is_err(),
+        "a count of replaced navigations past u32 was read"
+    );
+}
+
+/// A page's address is the browser process's to state, and one that does not
+/// parse is a message that is not one.
+#[test]
+fn a_page_whose_address_is_not_a_url_is_refused() {
+    let mut bytes = vec![0u8];
+    let nonsense = b"not a url";
+    bytes.extend_from_slice(&(nonsense.len() as u64).to_be_bytes());
+    bytes.extend_from_slice(nonsense);
+    let refused = read_to_renderer(&bytes);
+    assert!(
+        refused
+            .as_ref()
+            .is_err_and(|why| why.why.contains("address")),
+        "{refused:?}"
     );
 }

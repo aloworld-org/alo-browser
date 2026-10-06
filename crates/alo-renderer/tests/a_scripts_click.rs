@@ -290,7 +290,7 @@ fn a_listener_that_throws_is_reported_and_the_click_carries_on() {
 }
 
 #[test]
-fn a_link_cancelled_needs_nothing_and_a_link_followed_from_script_is_refused_by_name() {
+fn a_link_cancelled_needs_nothing_and_a_download_from_script_is_refused_by_name() {
     let (_, said) = heard_both_ways(
         "<a href=/next><span>Next</span></a>",
         "first.addEventListener('click', e => { say('click'); e.preventDefault(); });",
@@ -298,15 +298,17 @@ fn a_link_cancelled_needs_nothing_and_a_link_followed_from_script_is_refused_by_
     );
     assert_eq!(said, "- click after", "the span's click is the link's");
 
+    // A link followed from script asks to navigate (queue item 263,
+    // `a_page_asks_to_go_somewhere.rs`); a link's download is not built.
     let (renderer, issues) = press(
-        "<a href=/next>Next</a>",
+        "<a href=/next download>Next</a>",
         "first.addEventListener('click', () => say('click'));",
         "first.click(); say('not reached');",
         false,
     );
     assert_eq!(heard(&renderer), "- click", "its listeners ran first");
     assert!(
-        issues.iter().any(|issue| issue.contains("queue item 263")),
+        issues.iter().any(|issue| issue.contains("queue item 264")),
         "{issues:?}"
     );
 }

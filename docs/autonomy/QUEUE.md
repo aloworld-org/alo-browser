@@ -742,6 +742,17 @@ first. Nothing here needs JavaScript.
   after it, a server that answers a final status is not sent the body at all,
   and a server that says nothing is sent the body after a bound a test can name.
 
+- [ ] **265. An origin-only `Referer` ends in `/`.** *Found by item 263.*
+  `alo-net`'s `referrer::for_request` writes the origin-only referrer as
+  the origin's serialisation, `https://example.com`, where the Referrer
+  Policy standard strips the URL to its origin and serialises it *as a
+  URL*: `https://example.com/`, which is what Chromium and Gecko send.
+  Every cross-origin request under the default policy says it.
+  *Depends on nothing. Closes when:* `origin`, `strict-origin` and the
+  cross-origin half of the `*-when-cross-origin` policies answer
+  `https://example.com/`, `referrer.rs`' tests and `alo-renderer`'s
+  `navigate.rs` test say so, and a port and an IPv6 host keep their form.
+
 - [ ] **60. HTTP/3 and QUIC**, once both of those are.
   *Depends on 59. Needs design:* name the QUIC rental boundary, transport
   integration, frozen protocol fixtures and bounded closing conditions before
@@ -4326,7 +4337,7 @@ The long pole, and the thing most of section E is unreachable without.
   and a `<div>`'s prototypes differ and both inherit `HTMLElement`'s
   `click`.
 
-- [ ] **263. A script's `click()` follows a link.** *Cut from 261 (ADR
+- [x] **263. A script's `click()` follows a link.** *Cut from 261 (ADR
   0018 § 6).* A click nobody cancelled on an `a` or `area` with an `href`
   follows it, which is the page navigating itself: the renderer must ask
   the browser process to navigate, as `Act` answers `Followed` for an
@@ -4358,6 +4369,44 @@ The long pole, and the thing most of section E is unreachable without.
   click*; inside an agent's `Activate`, the same click carries
   `Cause::Agent` and the same claim; a refused scheme is said and
   navigates nowhere.
+  **Built (iteration 159).** `alo-bindings`' `navigating.rs`: following a
+  link (an `<a download>` or a target naming another window is not
+  followed and says why, an `href` is resolved against the document's
+  first `<base href>` or its URL, `rel=noreferrer` and `referrerpolicy`
+  kept) and the page's ongoing navigation — one, the last, a count of
+  those replaced, at most 16 links not followed said and the rest
+  counted — held in the document cell beside the document's URL
+  (`Url::about_blank()` until `Held::scripted` states it). A script's
+  `click()` records its link there and returns; on an `<a download>` it
+  is refused by name for item 264. The browser's click records its link
+  there too (`event_loop/activated.rs`, `Held::follow` for a stopped
+  page), so a listener's `click()` and the agent's own link are one
+  order; a page that never ran script asks in `Renderer::act` itself.
+  `alo-renderer`: `Page::url` (stated by the browser process,
+  `from_response`'s `response.url`, on the wire as text it parses);
+  `ask.rs`' `Asked` (URL, `By`, referrer policy, replaced) in `Loaded` and
+  `Acted` (`navigation`, wire-encoded, every tag checked) with the lines
+  it says among the issues; `Outcome::Followed` only when following
+  started a navigation. Browser side, `navigate.rs`: `decide` parses the
+  URL again (refused unparsed or over `LONGEST_URL`, 2 MiB), navigates
+  `http`, `https`, `about:blank`, `file:` only from a `file:` document,
+  refuses every other scheme by name, works out `Referer` from its own
+  copy of the document's URL; `Refusal::record` writes the line under
+  ADR 0012. `Tabs::load` decides a `Loaded`'s ask as `Cause::Document`
+  (the document it made), `Tabs::act` an `Acted`'s as `Cause::Agent`
+  (its action), and `Tabs::navigation` hands the decision over once;
+  `Tab::address` is the browser's copy. Tests:
+  `alo-renderer/tests/a_page_asks_to_go_somewhere.rs` (14, scripted
+  pages pressed ordinarily and collecting at every allocation, three
+  driving real `Tabs` over the confined binary), `navigate.rs` (7),
+  `ask.rs` (3), `navigating.rs` (8), wire round trips and refusals.
+  Doctored runs, each restored: the first ask kept instead of the last,
+  `data:`/`javascript:`/`file:` navigated, an `Act`'s ask attributed to
+  the document, the browser's click not recorded, a base target and a
+  base href ignored — each fails a test. **Not here:** going there
+  (item 85), what the agent is told when the page goes (134), downloads
+  (264), the `Referer` origin's trailing `/` (265), and a page's CSP
+  `base-uri` (no item; `<base>` is the page's own markup).
 
 - [ ] **264. A link's download.** *Cut from 263 (ADR 0020 § 6).* A click
   on an `<a download>` asks for a file, not a page: honoured for the

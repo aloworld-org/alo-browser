@@ -65,9 +65,9 @@ fn url(text: &str) -> alo_url::Url {
     })
 }
 
-/// A page with one link on it, which is all this needs to be a page an agent
-/// can act on.
-fn a_page_with_a_link(text: &str, to: &str, name: &str) -> Page {
+/// A page at `at` with one link on it, which is all this needs to be a page
+/// an agent can act on — at an address, so its link resolves (ADR 0020 § 2).
+fn a_page_with_a_link(at: &str, text: &str, to: &str, name: &str) -> Page {
     Page::new(
         format!(r#"<p>{text}</p><a href="{to}">{name}</a>"#),
         Size {
@@ -76,6 +76,7 @@ fn a_page_with_a_link(text: &str, to: &str, name: &str) -> Page {
         },
     )
     .with_sheet("p, a { display: block; margin: 8px; height: 20px }")
+    .at(url(at))
 }
 
 /// Load a page into a tab, and say which assertion it was that failed if the
@@ -100,7 +101,12 @@ fn a_fetch_by_a_page_an_agent_opened_leads_back_to_the_action() {
     load(
         &mut tabs,
         shopping,
-        a_page_with_a_link("two hats and a lamp", "/basket", "Basket"),
+        a_page_with_a_link(
+            "https://shop.example/things",
+            "two hats and a lamp",
+            "/basket",
+            "Basket",
+        ),
         Cause::Person { tab: shopping },
     );
     let first = tabs.tab(shopping).and_then(Tab::document);
@@ -130,7 +136,7 @@ fn a_fetch_by_a_page_an_agent_opened_leads_back_to_the_action() {
     load(
         &mut tabs,
         shopping,
-        a_page_with_a_link("one hat", "/pay", "Pay"),
+        a_page_with_a_link("https://shop.example/basket", "one hat", "/pay", "Pay"),
         opening,
     );
     let second = tabs.tab(shopping).and_then(Tab::document);
@@ -176,7 +182,12 @@ fn a_fetch_by_a_page_the_person_opened_is_nobodys_action() {
     load(
         &mut tabs,
         news,
-        a_page_with_a_link("nothing happened", "/tomorrow", "Tomorrow"),
+        a_page_with_a_link(
+            "https://news.example/today",
+            "nothing happened",
+            "/tomorrow",
+            "Tomorrow",
+        ),
         Cause::Person { tab: news },
     );
 
@@ -202,13 +213,23 @@ fn an_action_in_one_tab_does_not_reach_into_another() {
     load(
         &mut tabs,
         shopping,
-        a_page_with_a_link("two hats", "/basket", "Basket"),
+        a_page_with_a_link(
+            "https://shop.example/things",
+            "two hats",
+            "/basket",
+            "Basket",
+        ),
         Cause::Person { tab: shopping },
     );
     load(
         &mut tabs,
         news,
-        a_page_with_a_link("nothing happened", "/tomorrow", "Tomorrow"),
+        a_page_with_a_link(
+            "https://news.example/today",
+            "nothing happened",
+            "/tomorrow",
+            "Tomorrow",
+        ),
         Cause::Person { tab: news },
     );
 
@@ -243,7 +264,12 @@ fn a_dead_renderer_does_not_take_what_caused_its_page_with_it() {
     load(
         &mut tabs,
         shopping,
-        a_page_with_a_link("two hats", "/basket", "Basket"),
+        a_page_with_a_link(
+            "https://shop.example/things",
+            "two hats",
+            "/basket",
+            "Basket",
+        ),
         Cause::Person { tab: shopping },
     );
     let Some(by_the_page) = tabs.a_page_fetching(shopping) else {

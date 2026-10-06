@@ -325,6 +325,15 @@ tab to, and assigns the cause from which message it answered. No code.
 are open; **263** is next, now buildable; the next unused queue number is
 265 and the next unused ADR 0021.
 
+Iteration 159 built item 263: a followed link — a script's `click()` or
+the agent's own — is the page's ongoing navigation, held in the document
+cell (`alo-bindings`' `navigating.rs`), resolved against the document's
+base (`Page::url`), asked for in `Loaded` and `Acted`, and decided by the
+browser process (`alo-renderer`'s `navigate.rs`) with the cause from which
+message it answered (`Tabs::navigation`). Item 265 (an origin-only
+`Referer` lacks its `/`, found by 263) is new. 113 queue items are open;
+the next unused queue number is 266 and the next unused ADR 0021.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

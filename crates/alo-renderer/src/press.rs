@@ -10,8 +10,10 @@
 //! **not** carried into the document by `alo-agent`'s `apply`: it is a
 //! `click`, queued as one task on the page's loop ([`Held::activate`]), and
 //! the page's listeners decide what it does. This runs that task
-//! ([`crate::run_to`]) and says what it came to: whether a link is to be
-//! followed, and what the page's script said while it ran.
+//! ([`crate::run_to`]) and says what it came to: whether a link was
+//! followed — asked for in the document cell, beside whatever the page's
+//! script asked for (ADR 0020 § 1) — and what the page's script said while
+//! it ran.
 //!
 //! # A page whose script has stopped
 //!
@@ -31,8 +33,9 @@ use crate::run_to::{Said, run_to};
 /// What pressing a node on a page that runs script came to.
 #[derive(Debug, Default)]
 pub(crate) struct Pressed {
-    /// Where the click said to go, if nobody cancelled it and its
-    /// activation target is a link.
+    /// Where the click said to go — the link's `href`, as written — if
+    /// nobody cancelled it, its activation target is a link, and following
+    /// the link started a navigation.
     pub(crate) follow: Option<String>,
     /// What the page's script said while the click ran.
     pub(crate) issues: Vec<String>,
@@ -47,7 +50,10 @@ pub(crate) fn press(held: &mut Held, node: NodeId) -> Option<Pressed> {
     match held.activate(node) {
         Ok(Some(seq)) => {
             if let Some(turn) = run_to(held, seq, &mut said) {
-                follow = followed(turn.clicked.map(|clicked| clicked.follows));
+                follow = turn
+                    .clicked
+                    .filter(|clicked| clicked.navigated)
+                    .and_then(|clicked| href(clicked.follows));
             }
         }
         Ok(None) => return None,
@@ -56,7 +62,11 @@ pub(crate) fn press(held: &mut Held, node: NodeId) -> Option<Pressed> {
                 let done = activation::before(document, node);
                 activation::after(document, &done)
             });
-            follow = followed(follows);
+            if let Some(Follows::Link { node: link, href }) = follows
+                && held.follow(link) == Some(true)
+            {
+                follow = Some(href);
+            }
             said.say(&format_args!("nobody heard it: {why}"));
         }
         Err(why @ (Unqueued::NoSuchNode(_) | Unqueued::NotADocument)) => said.say(&why),
@@ -67,10 +77,10 @@ pub(crate) fn press(held: &mut Held, node: NodeId) -> Option<Pressed> {
     })
 }
 
-/// Where `follows` says to go, if anywhere.
-fn followed(follows: Option<Follows>) -> Option<String> {
+/// The `href` of the link `follows` says to follow, if it says one.
+fn href(follows: Follows) -> Option<String> {
     match follows {
-        Some(Follows::Link { href, .. }) => Some(href),
-        Some(Follows::Nothing | Follows::InputAndChange(_)) | None => None,
+        Follows::Link { href, .. } => Some(href),
+        Follows::Nothing | Follows::InputAndChange(_) => None,
     }
 }

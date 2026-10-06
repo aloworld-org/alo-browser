@@ -49,6 +49,7 @@ fn url(text: &str) -> alo_url::Url {
 /// A page whose text asks for one family and names no fallback.
 fn asking_for(family: &str) -> ToRenderer {
     ToRenderer::Load(Box::new(Page {
+        url: alo_url::Url::about_blank(),
         html: "<p>text needs a font</p>".to_owned(),
         sheets: vec![format!("p {{ font-family: '{family}'; font-size: 16px }}")],
         viewport: Size {

@@ -41,10 +41,15 @@ fn fonts() -> FontDatabase {
 /// from then on if `stress`.
 fn loaded(body: &str, stress: bool) -> Renderer {
     let mut renderer = Renderer::new(fonts());
-    let answer = renderer.handle(ToRenderer::Load(Box::new(Page::new(
-        format!("<!doctype html><body>{body}</body>"),
-        Size::new(400.0, 300.0),
-    ))));
+    let answer = renderer.handle(ToRenderer::Load(Box::new(
+        Page::new(
+            format!("<!doctype html><body>{body}</body>"),
+            Size::new(400.0, 300.0),
+        )
+        // An address, so a link resolves (ADR 0020 § 2); `about:blank`, where
+        // none does, only if the text were wrong.
+        .at(alo_url::parse("https://example.com/").unwrap_or_else(|_| alo_url::Url::about_blank())),
+    )));
     assert!(
         matches!(&answer, FromRenderer::Loaded { issues, .. } if issues.is_empty()),
         "the page loads and says nothing: {answer:?}"
@@ -62,7 +67,9 @@ fn activate(renderer: &mut Renderer, name: &str) -> Result<(Outcome, Vec<String>
         target: Target::Named(name.to_owned()),
         verb: Verb::Activate,
     }) {
-        FromRenderer::Acted { outcome, issues } => Ok((outcome, issues)),
+        FromRenderer::Acted {
+            outcome, issues, ..
+        } => Ok((outcome, issues)),
         other => Err(format!("{name} should be operable: {other:?}")),
     }
 }

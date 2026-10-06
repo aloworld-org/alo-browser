@@ -62,7 +62,9 @@ fn put(renderer: &mut Renderer, name: &str, text: &str) -> Result<(Outcome, Vec<
         target: Target::Named(name.to_owned()),
         verb: Verb::PutText(text.to_owned()),
     }) {
-        FromRenderer::Acted { outcome, issues } => Ok((outcome, issues)),
+        FromRenderer::Acted {
+            outcome, issues, ..
+        } => Ok((outcome, issues)),
         other => Err(format!("{name} should take text: {other:?}")),
     }
 }

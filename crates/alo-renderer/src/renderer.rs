@@ -45,9 +45,18 @@
 //! loop, its listeners called and its activation steps run, and the `Act`
 //! answered after it with what the page's script said ([`crate::press`]).
 //!
+//! # Where a page asks to go
+//!
+//! A navigation is a claim in the answer to the message whose work made it
+//! (ADR 0020 § 1): a `Load`'s scripts' clicks in its `Loaded`, an `Act`'s
+//! link — the agent's own, or a listener's `click()` — in its `Acted`. The
+//! page's ongoing navigation is taken when the work is done ([`crate::ask`])
+//! and the renderer never learns what became of it.
+//!
 //! What is not here yet is the loop running between messages — a task a
 //! page queues for itself has no idle moment to run in (queue item 233).
 
+use crate::ask;
 use crate::event_loop::EventLoop;
 use crate::face::Face;
 use crate::frame::Frame;
@@ -63,6 +72,7 @@ use crate::scripts;
 use crate::snapshot::Snapshot;
 use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Outcome, Target, Verb};
+use alo_bindings::navigating::{self, By};
 use alo_dom::{Document, Parsing};
 use alo_layout::Size;
 use alo_text::Font;
@@ -229,10 +239,17 @@ impl Renderer {
     /// `beforeinput` the page may cancel, which answers
     /// [`Outcome::TextCanceled`], or else the text, `input` and `change`. On
     /// a page that never ran script, `alo-agent`'s `apply` carries the
-    /// decision in, as it did in stage 1.
+    /// decision in, as it did in stage 1 — and a link it follows is asked
+    /// for here, since such a page has no cell to ask in.
+    ///
+    /// A link answers [`Outcome::Followed`] only when following it started
+    /// a navigation; one that asks for a download, names another window or
+    /// goes nowhere was activated, and the answer says why.
     fn act(&mut self, target: &Target, verb: &Verb) -> FromRenderer {
         self.fresh();
-        let (Some(held), Some((drawing, _))) = (&mut self.held, &self.drawn) else {
+        let (Some(page), Some(held), Some((drawing, _))) =
+            (&self.page, &mut self.held, &self.drawn)
+        else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
         let Some(document) = held.document() else {
@@ -263,7 +280,7 @@ impl Renderer {
                         },
                         None => Outcome::Activated {
                             node: outcome.node(),
-                            name,
+                            name: name.clone(),
                         },
                     };
                     (outcome, pressed.issues)
@@ -279,7 +296,8 @@ impl Renderer {
             }),
             _ => None,
         };
-        let (outcome, issues) = if let Some(ran) = ran {
+        let mut ongoing = held.take_navigation();
+        let (outcome, mut issues) = if let Some(ran) = ran {
             ran
         } else {
             // From the **same document**: working out what a changed
@@ -288,10 +306,27 @@ impl Renderer {
             // worse than slow — it would mint new node ids and break every
             // snapshot anybody was holding.
             held.change(|document| apply(document, &drawing.boxes, &outcome));
+            let outcome = match (outcome, node, held.document()) {
+                (Outcome::Followed { node: id, to }, Some(link), Some(document)) => {
+                    let followed = navigating::follow(document, &page.url, link, By::Browser);
+                    if ongoing.start(followed) {
+                        Outcome::Followed { node: id, to }
+                    } else {
+                        Outcome::Activated { node: id, name }
+                    }
+                }
+                (outcome, ..) => outcome,
+            };
             (outcome, Vec::new())
         };
+        let (navigation, mut said) = ask::answer(&ongoing);
+        issues.append(&mut said);
         self.fresh();
-        FromRenderer::Acted { outcome, issues }
+        FromRenderer::Acted {
+            outcome,
+            issues,
+            navigation,
+        }
     }
 
     /// A new page: parsed, each of its scripts run as a task when the parser
@@ -312,6 +347,13 @@ impl Renderer {
         // After the scripts, so what the load says — its issues, the fonts it
         // wants — is about the page they left (ADR 0017 § 6).
         self.draw();
+        let ongoing = self
+            .held
+            .as_mut()
+            .map(Held::take_navigation)
+            .unwrap_or_default();
+        let (navigation, mut asked) = ask::answer(&ongoing);
+        said.append(&mut asked);
         match self.loaded() {
             FromRenderer::Loaded {
                 mut issues, wanted, ..
@@ -321,6 +363,7 @@ impl Renderer {
                     issues,
                     wanted,
                     objections,
+                    navigation,
                 }
             }
             other => other,
@@ -356,8 +399,9 @@ impl Renderer {
             issues,
             wanted,
             // Nothing runs in a drawing, so nothing can have been objected
-            // to; a load adds what its scripts were.
+            // to, or asked for; a load adds what its scripts did.
             objections: Vec::new(),
+            navigation: None,
         }
     }
 
