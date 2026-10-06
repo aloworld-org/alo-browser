@@ -1,0 +1,2 @@
+line 4: Unexpected token
+<path d="M 2 2 H 18 V 18 oops L 2 18 Z">: drawn up to its first error, at byte 16

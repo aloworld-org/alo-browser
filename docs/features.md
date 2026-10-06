@@ -438,8 +438,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   `alo-svg`): `rect`, `circle`, `ellipse`, `polygon`, `polyline`, `<g>`, the
   `transform` attribute, `viewBox` and `preserveAspectRatio`, `fill`,
   `fill-rule`, `fill-opacity` and `opacity`, with presentation attributes in
-  the cascade and `currentColor` from the text around the icon. Path data is
-  272 and strokes 273, and alo's offline screen is the page they close on; a
+  the cascade and `currentColor` from the text around the icon. **Path data
+  is drawn** (item 272): `<path>`, every command, arcs as cubic curves, drawn
+  up to its first error. Strokes are 273, and alo's offline screen is the
+  page they close on; a
   nested `<svg>` is 278, and the `transform` property and relative `width`
   attributes on SVG elements are 279
 - [2] Canvas 2D

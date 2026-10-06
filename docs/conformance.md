@@ -191,9 +191,10 @@ Inside it, **filled basic shapes are drawn** — rectangles (rounded too),
 circles, ellipses, polygons and polylines, in groups, under the `transform`
 attribute, a `viewBox` and `preserveAspectRatio`, by `fill`, `fill-rule`,
 `fill-opacity` and `opacity`, and in `currentColor` (corpus case
-`svg-shapes-filled`). **A `<path>` and every stroke are not drawn yet** (queue
-items 272 and 273), so the offline screen's hand, four stroked paths, is still
-an empty square. A nested `<svg>`, `<use>`, `<text>`, gradients and the
+`svg-shapes-filled`). **A `<path>` is drawn filled** — every command of its
+data, arcs included, up to its first error (corpus case `svg-path-data`).
+**No stroke is drawn yet** (queue item 273), so the offline screen's hand,
+four stroked paths, is still an empty square. A nested `<svg>`, `<use>`, `<text>`, gradients and the
 `transform` *property* on an SVG element are not drawn and are reported; a
 `width` in per cent or `em` on an `<svg>` is recorded and not used (item 279). Most targets below are still
 `not yet`, because they are alo's own screens rather than pages we wrote to test

@@ -414,6 +414,12 @@ under `transform`, `viewBox` and `preserveAspectRatio`. It cut a nested `<svg>`
 (279) into items of their own. 272 (path data) is next. 118 queue items are
 open; the next unused queue number is 280 and the next unused ADR 0023.
 
+Iteration 171 built 272: `<path>` and its data, every command, with arcs
+turned into cubic curves, drawn up to its first error and bounded at 65 536
+segments per path. 273 (strokes, closing on alo's offline screen) is next.
+117 queue items are open; the next unused queue number is 280 and the next
+unused ADR 0023.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

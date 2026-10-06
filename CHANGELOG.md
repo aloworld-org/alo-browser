@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`<path>` inside an `<svg>` is drawn, filled.** Path data — lines, curves,
+  smooth curves and elliptical arcs, written absolutely or relative to the
+  pen — now draws, so most filled icons appear. Data with a mistake in it is
+  drawn up to the mistake and no further, as other browsers do, and the
+  mistake is reported. Outlines (strokes) are still not drawn, so the offline
+  screen's hand, which is four outlined paths, is still an empty square until
+  the next step. A path written to make the browser do a great deal of work
+  is refused whole.
+
 - **Shapes inside an `<svg>` are drawn, filled.** Rectangles, rounded
   rectangles, circles, ellipses, polygons and polylines now appear in their
   colours, scaled by the `viewBox`, placed by `transform` and faded by

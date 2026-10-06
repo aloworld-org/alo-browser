@@ -9,7 +9,9 @@ use alo_css::{MediaContext, parse_stylesheet};
 use alo_dom::{Document, NodeId, parse_document};
 use alo_paint::{DrawingItem, FillRule};
 use alo_style::{Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET};
-use alo_svg::bounds::{DEEPEST, MOST_ELEMENTS, MOST_GROUPS_DEEP, MOST_SEGMENTS};
+use alo_svg::bounds::{
+    DEEPEST, MOST_ELEMENTS, MOST_GROUPS_DEEP, MOST_PATH_SEGMENTS, MOST_SEGMENTS,
+};
 use alo_svg::walk::MOST_GROUPS;
 use alo_svg::{Drawn, draw};
 use alo_value::Rgba;
@@ -212,10 +214,13 @@ fn what_is_not_drawn_yet_is_recorded_and_what_never_draws_is_not() {
             <animate/><blink/><rect width="1" height="1" clip-path="url(x)" transform="spin(3)"/></svg>"#,
         (20.0, 20.0),
     );
-    assert_eq!(fills(&drawn).len(), 1, "only the last rect, untransformed");
+    assert_eq!(
+        fills(&drawn).len(),
+        2,
+        "the path, and the last rect untransformed"
+    );
     let said = drawn.issues.join("\n");
     for expected in [
-        "item 272",
         "item 274",
         "item 276",
         "item 278",
@@ -228,7 +233,97 @@ fn what_is_not_drawn_yet_is_recorded_and_what_never_draws_is_not() {
     ] {
         assert!(said.contains(expected), "{expected} missing from:\n{said}");
     }
-    assert_eq!(drawn.issues.len(), 10, "{said}");
+    assert_eq!(drawn.issues.len(), 9, "{said}");
+}
+
+#[test]
+fn a_path_is_filled_in_the_boxs_coordinates_by_its_rule() {
+    // A 10-unit square with a 4-unit square hole, in a viewBox drawn doubled.
+    let markup = r#"<svg viewBox="0 0 20 20"><path fill-rule="evenodd" fill="rgb(1 2 3)"
+        d="M 2 2 h 10 v 10 h -10 z m 3 3 h 4 v 4 h -4 z"/></svg>"#;
+    let drawn = drawn(markup, (40.0, 40.0));
+    assert_eq!(
+        fills(&drawn)
+            .into_iter()
+            .map(|(bounds, color, rule)| (rounded(bounds), color, rule))
+            .collect::<Vec<_>>(),
+        vec![(
+            (4.0, 4.0, 24.0, 24.0),
+            Rgba::from_rgba8(1, 2, 3, 255),
+            FillRule::EvenOdd
+        )]
+    );
+    assert!(drawn.issues.is_empty(), "{:?}", drawn.issues);
+}
+
+#[test]
+fn a_path_is_drawn_up_to_its_first_error_and_says_so() {
+    let markup = r#"<svg><path d="M 0 0 L 10 0 L 10 10 L oops 0"/></svg>"#;
+    let cut = drawn(markup, (20.0, 20.0));
+    assert_eq!(
+        fills(&cut)
+            .into_iter()
+            .map(|fill| rounded(fill.0))
+            .collect::<Vec<_>>(),
+        vec![(0.0, 0.0, 10.0, 10.0)]
+    );
+    assert_eq!(cut.issues.len(), 1);
+    assert!(
+        cut.issues
+            .iter()
+            .any(|issue| issue.contains("first error, at byte 23")),
+        "{:?}",
+        cut.issues
+    );
+
+    // Nothing drawn before the error, or nothing but moves, fills nothing.
+    for nothing in [
+        r#"<path d="L 10 10"/>"#,
+        r#"<path d="M 1 1 M 2 2 Z"/>"#,
+        r#"<path d="none"/>"#,
+        "<path/>",
+    ] {
+        let empty = drawn(&format!("<svg>{nothing}</svg>"), (20.0, 20.0));
+        assert!(empty.drawing.is_empty(), "{nothing}");
+    }
+}
+
+#[test]
+fn path_data_past_its_bound_refuses_the_drawing_and_data_at_it_does_not() {
+    let at = format!(
+        r#"<svg><path d="M0 0{}"/></svg>"#,
+        " 1 1".repeat(MOST_PATH_SEGMENTS - 1)
+    );
+    assert_eq!(fills(&drawn(&at, (20.0, 20.0))).len(), 1);
+
+    let past = format!(
+        r#"<svg><rect width="5" height="5"/><path d="M0 0{}"/></svg>"#,
+        " 1 1".repeat(MOST_PATH_SEGMENTS)
+    );
+    let drawn = drawn(&past, (20.0, 20.0));
+    assert!(drawn.drawing.is_empty(), "refused whole, not cut short");
+    assert!(
+        drawn
+            .issues
+            .iter()
+            .any(|issue| issue.contains("was not drawn at all")),
+        "{:?}",
+        drawn.issues
+    );
+}
+
+#[test]
+fn paths_count_toward_the_drawings_own_bound() {
+    // Four paths each at their own bound pass the drawing's.
+    let path = format!(
+        r#"<path d="M0 0{}"/>"#,
+        " 1 1".repeat(MOST_PATH_SEGMENTS - 1)
+    );
+    let under = MOST_SEGMENTS / MOST_PATH_SEGMENTS;
+    let fits = format!("<svg>{}</svg>", path.repeat(under));
+    assert_eq!(fills(&drawn(&fits, (20.0, 20.0))).len(), under);
+    let over = format!("<svg>{}</svg>", path.repeat(under + 1));
+    assert!(drawn(&over, (20.0, 20.0)).drawing.is_empty());
 }
 
 #[test]

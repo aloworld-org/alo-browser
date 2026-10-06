@@ -6,9 +6,9 @@
 //!
 //! SVG's number grammar is narrower than Rust's float parser — no `inf`, no
 //! `NaN`, no `_` — and wider than a split on whitespace: `10-20` is two
-//! numbers, and so is `.5.5`. `points`, `transform` and (with item 272) path
-//! data all share it, so it is read once, here, by a scanner that walks the
-//! text and allocates nothing.
+//! numbers, and so is `.5.5`. `points`, `transform` and path data
+//! (`path_data.rs`) all share it, so it is read once, here, by a scanner that
+//! walks the text and allocates nothing.
 //!
 //! **Every number is finite or it is an error.** An exponent that overflows a
 //! float (`1e99999`) is not a very large coordinate; it is a stranger's input
@@ -19,7 +19,7 @@
 /// Reading stops at the first thing that is not a number where one should be:
 /// [`Numbers::next`] then answers [`None`] and [`Numbers::failed`] says so,
 /// which is what lets a list be used *up to its first error* (SVG 2's rule for
-/// `points`, and item 272's for path data).
+/// `points`).
 #[derive(Debug, Clone)]
 pub struct Numbers<'a> {
     bytes: &'a [u8],
@@ -68,48 +68,11 @@ impl<'a> Numbers<'a> {
         }
     }
 
-    fn skip_digits(&mut self) -> usize {
-        let start = self.at;
-        while self.peek().is_some_and(|b| b.is_ascii_digit()) {
-            self.at += 1;
-        }
-        self.at - start
-    }
-
     /// One number, if the text here is one.
     fn number(&mut self) -> Option<f32> {
-        let start = self.at;
-        if matches!(self.peek(), Some(b'+' | b'-')) {
-            self.at += 1;
-        }
-        let whole = self.skip_digits();
-        let mut fraction = 0;
-        if self.peek() == Some(b'.') {
-            self.at += 1;
-            fraction = self.skip_digits();
-        }
-        if whole == 0 && fraction == 0 {
-            self.at = start;
-            return None;
-        }
-        // An exponent only counts if it has digits: `2em` is the number 2
-        // followed by something else, not a malformed exponent.
-        if matches!(self.peek(), Some(b'e' | b'E')) {
-            let mark = self.at;
-            self.at += 1;
-            if matches!(self.peek(), Some(b'+' | b'-')) {
-                self.at += 1;
-            }
-            if self.skip_digits() == 0 {
-                self.at = mark;
-            }
-        }
-        let text = core::str::from_utf8(self.bytes.get(start..self.at)?).ok()?;
-        let value = text.parse::<f32>().ok().filter(|value| value.is_finite());
-        if value.is_none() {
-            self.at = start;
-        }
-        value
+        let (value, end) = scan(self.bytes, self.at)?;
+        self.at = end;
+        Some(value)
     }
 }
 
@@ -143,8 +106,50 @@ pub fn number(text: &str) -> Option<f32> {
     numbers.at_end().then_some(value)
 }
 
+/// One number starting at byte `at`, and the byte after it, or [`None`] if
+/// what is there is not one — or is one that does not come out finite.
+///
+/// The scanner beneath [`Numbers`], shared with path data (`path_data.rs`),
+/// whose grammar puts command letters and arc flags between its numbers.
+pub(crate) fn scan(bytes: &[u8], at: usize) -> Option<(f32, usize)> {
+    let digits = |from: usize| {
+        bytes.get(from..).map_or(0, |rest| {
+            rest.iter().take_while(|b| b.is_ascii_digit()).count()
+        })
+    };
+    let mut end = at;
+    if matches!(bytes.get(end), Some(b'+' | b'-')) {
+        end += 1;
+    }
+    let whole = digits(end);
+    end += whole;
+    let mut fraction = 0;
+    if bytes.get(end) == Some(&b'.') {
+        fraction = digits(end + 1);
+        end += 1 + fraction;
+    }
+    if whole == 0 && fraction == 0 {
+        return None;
+    }
+    // An exponent only counts if it has digits: `2em` is the number 2
+    // followed by something else, not a malformed exponent.
+    if matches!(bytes.get(end), Some(b'e' | b'E')) {
+        let mut exponent = end + 1;
+        if matches!(bytes.get(exponent), Some(b'+' | b'-')) {
+            exponent += 1;
+        }
+        let count = digits(exponent);
+        if count > 0 {
+            end = exponent + count;
+        }
+    }
+    let text = core::str::from_utf8(bytes.get(at..end)?).ok()?;
+    let value = text.parse::<f32>().ok().filter(|value| value.is_finite())?;
+    Some((value, end))
+}
+
 /// SVG's whitespace, which is XML's: space, tab, line feed, carriage return.
-fn is_whitespace(byte: u8) -> bool {
+pub(crate) fn is_whitespace(byte: u8) -> bool {
     matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'\x0c')
 }
 

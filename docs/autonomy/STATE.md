@@ -15152,3 +15152,101 @@ ticked with what was done; 278 and 279 opened), `docs/features.md`,
 118 queue items are open (one closed, two opened). The first eligible item in
 file order is now **272**. The next unused queue number is **280** and the
 next ADR is **0023**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 171 — item 272: path data
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s *SVG* line, iteration 170's entry, the queue's section H
+(107, 270–279), ADR 0022 in full, `docs/features.md`'s SVG line, and the
+code 272 touches: `alo-svg`'s `walk.rs`, `shape.rs`, `number.rs`,
+`bounds.rs` and its `walking.rs` tests; `alo-paint`'s `path.rs`; and
+`alo-renderer`'s `drawings.rs`. No `AGENTS.md` exists. No sibling repository
+was read or modified. The checkout was clean on entry at `2e176ce`.
+
+**Selection.** Iteration 170 recorded 272 as the first eligible item, and
+nothing before it changed: 179 waits on a page, 269 on a `rav1d` release, 107
+is closed by 270–273, and 271, 272's one dependency, is done.
+
+**What was built.**
+- `alo-svg`'s new `path_data.rs`: SVG 2's `d` grammar, every command in both
+  cases, pairs after a move as lines, `S`/`T` reflecting only a curve of
+  their own kind, packed arc flags, and a new subpath at the same start for
+  anything after `Z` (written into the path as an explicit move). Drawn up to
+  the last complete command before the first error, whose byte is recorded;
+  data not beginning with a move draws nothing; a half-written set is not
+  drawn.
+- `alo-svg`'s new `arc.rs`: SVG 2's implementation notes F.6.2 and F.6.5 in
+  `f64` — zero-length arc omitted, zero radius a line, negative radius its
+  size, small radii scaled up keeping their ratio, at most four cubics with
+  `4/3 · tan(θ/4)` handles, the last ending exactly at the written endpoint.
+  An arc made aside, so one refused part way leaves nothing in the path.
+- `bounds::MOST_PATH_SEGMENTS` (65 536, an arc counted as every curve it
+  makes, closes counted), checked as the path is made, under the drawing's
+  existing 262 144; past either the drawing is refused whole.
+- `number.rs`'s scanner became the shared `scan`, so `points`, `transform`
+  and `d` read numbers one way.
+- `shape.rs` gives `<path>` its data (`d` absent, `none`, or only moves and
+  closes fills nothing); `walk.rs` draws `<path>` as a shape.
+
+**Gate, mechanical.** The first `scripts/gate.sh` run failed one test:
+`alo-renderer`'s `drawings::each_svg_box_draws_into_its_content_box` counted
+the "path data is item 272" issue that no longer exists. Its second `<svg>`
+now holds `<path d="M0 0 oops">`, which draws nothing and records its error,
+so the test asserts what it always meant. The second run exited 0 in
+7 min 20 s, run in the foreground and read in the same step: fmt clean,
+clippy silent, every test passes, no stubs, no `unsafe`, every rented crate
+behind its boundary (none added), no verb takes a coordinate, the stop rule
+holds, `CHANGELOG.md` changed. `git diff --check` passes. The log is in this
+session's scratchpad. Only this entry changed after the gate ran.
+
+**Gate, manual.**
+- Reference render: new corpus case `svg-path-data`, looked at enlarged. A
+  house absolute and relative (identical), a `C`/`S` wave whose second hump
+  is the first reflected, a `q`/`t` wave, a heart of packed-flag arcs, an
+  `evenodd` ring of four arcs, the four flag pairs between the same two
+  points (small below, small above, large below, large above), a half disc
+  from radii 1 scaled to 8 over a zero-radius line, a 9 × 4 ellipse turned
+  45°, a path cut at `oops` drawn as a triangle, and a relative line after
+  `Z` starting at the subpath's start. `an-svg-box` changed only in
+  `issues.txt`: its four "item 272" lines are gone; the hand's paths are
+  `fill="none"`, so its pixels did not move. No other reference moved.
+- Numbers: `svg-path-data/display.txt` pins each fill's bounds (e.g. the
+  small arcs' sagitta at 5.367 px = 6 − √11 user units doubled). Unit tests
+  pin every command's segments, a quarter circle's handles at 5.5228, the
+  four flag combinations' midpoints and piece counts, radius correction to a
+  half circle and a 10 × 5 half ellipse, rotation, every midpoint of a
+  three-quarter arc within 0.003 of the radius, and the after-`Z` move.
+  Nothing is laid out, so no `layout.txt` changed.
+- Hostile bytes: overflowing exponents, `inf`, `NaN`, a relative sum past
+  `f32`, a reflected handle past `f32`, an arc reaching past `f32`, a
+  100 000-digit number, 10 000 `M`s, control characters and non-ASCII digits
+  are cut at the error or refused, never a panic; extreme radii, rotations
+  and endpoints across every flag pair never produce a non-finite point. The
+  per-path bound is tested at its edge and one past it (lines, arcs, closes)
+  and through the walk, and four paths at their bound fill the drawing's
+  bound while five refuse it.
+- One responsibility per file: grammar (`path_data.rs`) and arc geometry
+  (`arc.rs`) are separate files; `shape.rs` only maps `<path>` to its data.
+- `docs/features.md`'s SVG line says path data is drawn.
+
+**Roadmap.** The *SVG* line stays an empty box; its `Built:` clause gains
+path data (272, `path_data.rs`, `arc.rs`, `svg-path-data`) and its `Owed:`
+clause is now 273, 278 and 279. Also updated: `QUEUE.md` (272 ticked with
+what was done), `docs/features.md`, `docs/conformance.md`, `CHANGELOG.md`,
+`REMAINING.md`.
+
+**Unresolved obligations.**
+- 273 (strokes, closing on the offline screen) is eligible now; 107 stays
+  open until it closes. A zero-length subpath under a round cap draws a dot
+  in other browsers; `shape.rs` returns no path for data with only moves and
+  closes, and 273 must revisit that when strokes exist.
+- ADR 0022 § 5 says "a bound on segments per path, and on segments per
+  drawing"; both now exist. ADR 0022 § 2's dependency list and § 4's name
+  order remain a person's call, as iteration 170 recorded.
+- Carried, unchanged: 269 blocked on a `rav1d` release; the `image-webp`
+  panic upstream report (a person's call); 109, 179, a picture ignoring a
+  clip in force, and 82, 83, 85–89, 95–99, 104, 105 needing their designs.
+
+117 queue items are open (one closed). The first eligible item in file order
+is now **273**. The next unused queue number is **280** and the next ADR is
+**0023**. This is one iteration, not a finished queue or roadmap.

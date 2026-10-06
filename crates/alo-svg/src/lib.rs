@@ -20,8 +20,9 @@
 //! `ellipse`, `polygon`, `polyline`, and `line`, whose fill is nothing), `<g>`,
 //! the `transform` attribute, `viewBox` and `preserveAspectRatio`, and `fill`,
 //! `fill-rule`, `fill-opacity` and `opacity` — all computed by the one cascade,
-//! presentation attributes included (`alo-style`'s `presentation.rs`). Path
-//! data is item 272, strokes 273, and a nested `<svg>` 278; each of those, and
+//! presentation attributes included (`alo-style`'s `presentation.rs`); and,
+//! with item 272, `<path>` and its data, every command, arcs included.
+//! Strokes are item 273 and a nested `<svg>` 278; each of those, and
 //! everything ADR 0022 § 7 refuses, is left out **and recorded**.
 //!
 //! # The bytes are a stranger's
@@ -34,7 +35,9 @@
 //! # Files
 //!
 //! - [`walk`] — the tree, in paint order, and what each element is;
-//! - [`shape`] — a basic shape's path, as SVG 2 defines it;
+//! - [`shape`] — a basic shape's path, as SVG 2 defines it, and a `<path>`'s;
+//! - [`path_data`] — the `d` grammar, drawn up to its first error;
+//! - [`arc`] — an elliptical arc as cubic curves;
 //! - [`fill`] — the fill a computed style asks for;
 //! - [`viewport`] — `viewBox` and `preserveAspectRatio` as one transform;
 //! - [`transform`] — the `transform` attribute's grammar;
@@ -42,10 +45,12 @@
 //! - [`number`] — SVG's numbers, in lists;
 //! - [`bounds`] — how much one drawing may ask for.
 
+pub mod arc;
 pub mod bounds;
 pub mod fill;
 pub mod length;
 pub mod number;
+pub mod path_data;
 pub mod shape;
 pub mod transform;
 pub mod viewport;

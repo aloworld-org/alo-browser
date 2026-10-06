@@ -1,0 +1,19 @@
+block flow · document
+  block flow · generic
+    block flex · paragraph
+      inline flow-root · image "Lines"
+      inline flow-root · image "Relative lines"
+      inline flow-root · image "Cubic"
+      inline flow-root · image "Quadratic"
+      inline flow-root · image "Arcs"
+      inline flow-root · image "Ring"
+    block flex · paragraph
+      inline flow-root · image "Small, anticlockwise"
+      inline flow-root · image "Small, clockwise"
+      inline flow-root · image "Large, anticlockwise"
+      inline flow-root · image "Large, clockwise"
+      inline flow-root · image "Radii corrected"
+      inline flow-root · image "Turned ellipse"
+    block flex · paragraph
+      inline flow-root · image "Cut at an error"
+      inline flow-root · image "After close"

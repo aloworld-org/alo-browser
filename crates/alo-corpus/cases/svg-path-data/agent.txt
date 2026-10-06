@@ -1,0 +1,18 @@
+document at (0, 0) 320×136
+  paragraph at (4, 4) 312×40
+    image "Lines" at (4, 4) 40×40
+    image "Relative lines" at (48, 4) 40×40
+    image "Cubic" at (92, 4) 40×40
+    image "Quadratic" at (136, 4) 40×40
+    image "Arcs" at (180, 4) 40×40
+    image "Ring" at (224, 4) 40×40
+  paragraph at (4, 48) 312×40
+    image "Small, anticlockwise" at (4, 48) 40×40
+    image "Small, clockwise" at (48, 48) 40×40
+    image "Large, anticlockwise" at (92, 48) 40×40
+    image "Large, clockwise" at (136, 48) 40×40
+    image "Radii corrected" at (180, 48) 40×40
+    image "Turned ellipse" at (224, 48) 40×40
+  paragraph at (4, 92) 312×40
+    image "Cut at an error" at (4, 92) 40×40
+    image "After close" at (48, 92) 40×40

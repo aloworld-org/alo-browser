@@ -1,0 +1,56 @@
+fill box#5 rgb(241 237 228) at (4, 4) 40×40
+clip box#5 to (4, 4) 40×40
+fill box#5 rgb(38 70 83) at (8, 8) 32×32
+unclip
+fill box#8 rgb(241 237 228) at (48, 4) 40×40
+clip box#8 to (48, 4) 40×40
+fill box#8 rgb(42 157 143) at (52, 8) 32×32
+unclip
+fill box#11 rgb(241 237 228) at (92, 4) 40×40
+clip box#11 to (92, 4) 40×40
+fill box#11 rgb(231 111 81) at (94, 8) 36×34
+unclip
+fill box#14 rgb(241 237 228) at (136, 4) 40×40
+clip box#14 to (136, 4) 40×40
+fill box#14 rgb(233 196 106) at (138, 8) 36×40
+unclip
+fill box#17 rgb(241 237 228) at (180, 4) 40×40
+clip box#17 to (180, 4) 40×40
+fill box#17 rgb(230 57 70) at (181.41016, 7.410149) 37.179688×32.58985
+unclip
+fill box#20 rgb(241 237 228) at (224, 4) 40×40
+clip box#20 to (224, 4) 40×40
+fill box#20 rgb(138 177 125) evenodd at (228, 8) 32×32
+unclip
+fill box#26 rgb(241 237 228) at (4, 48) 40×40
+clip box#26 to (4, 48) 40×40
+fill box#26 rgb(38 70 83) at (14, 68) 20×5.3667526
+unclip
+fill box#28 rgb(241 237 228) at (48, 48) 40×40
+clip box#28 to (48, 48) 40×40
+fill box#28 rgb(42 157 143) at (58, 62.633247) 20×5.3667526
+unclip
+fill box#30 rgb(241 237 228) at (92, 48) 40×40
+clip box#30 to (92, 48) 40×40
+fill box#30 rgb(231 111 81) at (98.67689, 68) 26.646225×19.62294
+unclip
+fill box#32 rgb(241 237 228) at (136, 48) 40×40
+clip box#32 to (136, 48) 40×40
+fill box#32 rgb(233 196 106) at (142.67688, 48.377064) 26.64624×19.622936
+unclip
+fill box#35 rgb(241 237 228) at (180, 48) 40×40
+clip box#35 to (180, 48) 40×40
+fill box#35 rgb(138 177 125) at (184, 60) 32×22
+unclip
+fill box#38 rgb(241 237 228) at (224, 48) 40×40
+clip box#38 to (224, 48) 40×40
+fill box#38 rgb(244 162 97) at (228.14778, 52.147785) 31.704422×31.704433
+unclip
+fill box#44 rgb(241 237 228) at (4, 92) 40×40
+clip box#44 to (4, 92) 40×40
+fill box#44 rgb(38 70 83) at (8, 96) 32×32
+unclip
+fill box#46 rgb(241 237 228) at (48, 92) 40×40
+clip box#46 to (48, 92) 40×40
+fill box#46 rgb(231 111 81) at (52, 96) 20×20
+unclip

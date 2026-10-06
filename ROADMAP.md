@@ -1027,8 +1027,11 @@ unreachable without it.
       `transform` attribute, `viewBox` and `preserveAspectRatio`, `fill`,
       `fill-rule`, `fill-opacity` and `opacity`, presentation attributes in
       `alo-style`'s cascade (`presentation.rs`), every count bounded; corpus
-      case `svg-shapes-filled`
-      · Owed: path data (272), strokes and the offline screen (273); a nested
+      case `svg-shapes-filled`; path data (item 272) — `<path>` drawn from
+      `alo-svg`'s `path_data.rs` (every command, drawn up to its first error,
+      65 536 segments per path) with arcs as cubic curves by `arc.rs`; corpus
+      case `svg-path-data`
+      · Owed: strokes and the offline screen (273); a nested
       `<svg>` (278, when a page needs it); the `transform` property and
       per-cent or `em` `width` attributes (279).
       Decided in ADR 0022. An `<svg>` is one

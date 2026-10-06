@@ -87,10 +87,10 @@ mod tests {
     #[test]
     fn each_svg_box_draws_into_its_content_box() {
         let (drawings, issues) = drawings_of(
-            r#"<svg viewBox="0 0 10 10"><rect width="10" height="10"/></svg><svg><path d="M0 0"/></svg>"#,
+            r#"<svg viewBox="0 0 10 10"><rect width="10" height="10"/></svg><svg><path d="M0 0 oops"/></svg>"#,
             "svg { width: 40px; height: 40px; padding: 5px }",
         );
-        assert_eq!(drawings.len(), 1, "the second draws nothing");
+        assert_eq!(drawings.len(), 1, "the second draws nothing, and says why");
         let Some(alo_paint::DrawingItem::Fill { path, .. }) = drawings
             .values()
             .next()

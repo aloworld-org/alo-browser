@@ -21,6 +21,15 @@
 /// path the size of the attribute.
 pub const MOST_POINTS: usize = 65_536;
 
+/// Path segments in one `<path>`'s data, an arc counted as every curve it
+/// becomes.
+///
+/// Checked as the path is made, so data the size of an attribute cannot become
+/// a path the size of memory before the drawing's own bound is reached. The
+/// same as [`MOST_POINTS`], because a path of lines is a polyline written
+/// another way; a detailed illustration's largest path has a few thousand.
+pub const MOST_PATH_SEGMENTS: usize = 65_536;
+
 /// Path segments in one drawing, over every shape in it.
 ///
 /// A segment is about thirty bytes, so this holds a drawing to about eight

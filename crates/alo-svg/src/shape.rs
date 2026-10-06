@@ -4,7 +4,8 @@
 
 //! SVG's basic shapes as paths, in user space.
 //!
-//! SVG 2 defines every basic shape as an equivalent path — where it starts,
+//! A `<path>` is its data, read by [`crate::path_data`]; every other shape is
+//! built here. SVG 2 defines every basic shape as an equivalent path — where it starts,
 //! which way it runs, where its arcs are — and this file builds exactly that
 //! path. The direction matters even before strokes do: under `evenodd` it does
 //! not, but under `nonzero` two shapes in one path wound opposite ways cancel,
@@ -20,11 +21,12 @@
 //! and says so. A size of zero draws nothing and says nothing, because SVG
 //! says that is what zero means. A negative size is an error, as SVG says.
 
-use crate::bounds::MOST_POINTS;
+use crate::bounds::{MOST_PATH_SEGMENTS, MOST_POINTS};
 use crate::length::{Axis, Viewport, user_units};
 use crate::number::Numbers;
+use crate::path_data::{self, TooMany};
 use alo_dom::Element;
-use alo_paint::{Path, Point};
+use alo_paint::{Path, Point, Segment};
 use alo_value::FontMetrics;
 
 /// How far along the radius an arc's handles sit, for a quarter ellipse.
@@ -52,13 +54,14 @@ pub struct Geometry<'a> {
 impl Geometry<'_> {
     /// The shape's path, [`None`] for one that draws nothing, or why not.
     ///
-    /// Anything that is not a basic shape is [`None`]: what is and is not
+    /// Anything that is not a basic shape or a `<path>` is [`None`]: what is and is not
     /// drawn is the walk's question, not this one.
     ///
     /// # Errors
     ///
     /// [`Refusal::Shape`] for a geometry attribute in error, and
-    /// [`Refusal::Drawing`] for a `points` list past [`MOST_POINTS`].
+    /// [`Refusal::Drawing`] for a `points` list past [`MOST_POINTS`] or path
+    /// data past [`MOST_PATH_SEGMENTS`].
     pub fn path(&self, issues: &mut Vec<String>) -> Result<Option<Path>, Refusal> {
         match &*self.element.name.local {
             "rect" => self.rect(),
@@ -66,6 +69,7 @@ impl Geometry<'_> {
             "ellipse" => self.ellipse(),
             "polygon" => self.points(true, issues),
             "polyline" => self.points(false, issues),
+            "path" => Ok(self.data(issues)?),
             // A line has no inside, so a fill draws nothing; its stroke is
             // item 273's.
             _ => Ok(None),
@@ -205,6 +209,38 @@ impl Geometry<'_> {
         }
         Ok(Some(path))
     }
+
+    /// A `<path>`: its `d`, drawn up to its first error, which is recorded.
+    ///
+    /// Data with nothing drawn in it — no `d`, `d="none"`, or only moves and
+    /// closes — fills nothing. (A zero-length subpath does draw a dot under a
+    /// round cap; that is a stroke, and item 273's.)
+    fn data(&self, issues: &mut Vec<String>) -> Result<Option<Path>, Refusal> {
+        let Some(text) = self.element.attr("d") else {
+            return Ok(None);
+        };
+        if text.trim().eq_ignore_ascii_case("none") {
+            return Ok(None);
+        }
+        let parsed = path_data::parse(text).map_err(|TooMany| {
+            Refusal::Drawing(format!(
+                "<path d>: more than {MOST_PATH_SEGMENTS} path segments"
+            ))
+        })?;
+        if let Some(at) = parsed.error {
+            issues.push(format!(
+                "<path d={:?}>: drawn up to its first error, at byte {at}",
+                truncated(text),
+            ));
+        }
+        let drawn = parsed.path.segments().iter().any(|segment| {
+            matches!(
+                segment,
+                Segment::LineTo(_) | Segment::QuadTo(..) | Segment::CubicTo(..)
+            )
+        });
+        Ok(drawn.then_some(parsed.path))
+    }
 }
 
 /// The first few dozen characters of an attribute, for an issue that quotes
@@ -288,7 +324,6 @@ pub fn ellipse(cx: f32, cy: f32, rx: f32, ry: f32) -> Path {
 mod tests {
     use super::*;
     use alo_dom::{Document, parse_document};
-    use alo_paint::Segment;
 
     const VIEW: Viewport = Viewport {
         width: 100.0,

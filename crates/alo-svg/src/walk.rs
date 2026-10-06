@@ -10,7 +10,7 @@
 //!
 //! - **a container** (`<g>`, and `<a>`, which draws as one): its children are
 //!   drawn under its transform, faded together if it has an `opacity`;
-//! - **a basic shape**: filled, if its style says so;
+//! - **a basic shape or a `<path>`**: filled, if its style says so;
 //! - **something that is never drawn where it stands** (`<defs>`, `<title>`,
 //!   a gradient, a clip path): skipped, silently, because skipping it is what
 //!   drawing it correctly means;
@@ -194,7 +194,7 @@ impl Walk<'_> {
         let container = matches!(name, "g" | "a");
         let shape = matches!(
             name,
-            "rect" | "circle" | "ellipse" | "line" | "polyline" | "polygon"
+            "rect" | "circle" | "ellipse" | "line" | "polyline" | "polygon" | "path"
         );
         if !container && !shape {
             if let Some(why) = not_drawn(name) {
@@ -262,7 +262,8 @@ impl Walk<'_> {
         }
     }
 
-    /// A basic shape, filled, if it is visible and its style fills it.
+    /// A basic shape or a `<path>`, filled, if it is visible and its style
+    /// fills it.
     fn draw_shape(
         &mut self,
         element: &Element,
@@ -355,7 +356,6 @@ fn not_drawn(name: &str) -> Option<&'static str> {
         | "pattern" | "clipPath" | "mask" | "marker" | "filter" | "style" | "script" => {
             return None;
         }
-        "path" => "path data is item 272",
         "use" => "<use> is item 274",
         "text" => "text in SVG is item 276",
         "svg" => "a nested <svg> viewport is item 278",

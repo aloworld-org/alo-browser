@@ -1,0 +1,39 @@
+<!-- Queue item 272: path data, every command, absolute and relative, with
+     arcs turned into cubic curves (ADR 0022 §§ 2, 5). Each <svg> is a 20-unit
+     viewBox drawn at 40 px, on a pale ground so its box can be seen. -->
+<p class=row>
+  <!-- M, L, H, V, Z: a house, absolute. -->
+  <svg viewBox="0 0 20 20" aria-label="Lines"><path d="M 2 18 V 9 L 10 2 L 18 9 V 18 H 12 V 12 H 8 V 18 Z" fill="#264653"/></svg>
+  <!-- The same house, relative. -->
+  <svg viewBox="0 0 20 20" aria-label="Relative lines"><path d="m2 18 v-9 l8-7 8 7 v9 h-6 v-6 h-4 v6 z" fill="#2a9d8f"/></svg>
+  <!-- C then S: a wave whose second hump is the first reflected. -->
+  <svg viewBox="0 0 20 20" aria-label="Cubic"><path d="M 1 10 C 1 2 9 2 9 10 S 19 18 19 10 V 19 H 1 Z" fill="#e76f51"/></svg>
+  <!-- q then t, relative. -->
+  <svg viewBox="0 0 20 20" aria-label="Quadratic"><path d="m1 12 q4.5-10 9 0 t9 0 v7 h-18 z" fill="#e9c46a"/></svg>
+  <!-- Two arcs, packed flags: a heart. -->
+  <svg viewBox="0 0 20 20" aria-label="Arcs"><path d="M10 18 L2.5 10.5 A4.5 4.5 0 0110 4 a4.5 4.5 0 017.5 6.5 Z" fill="#e63946"/></svg>
+  <!-- Subpaths under evenodd: a ring, drawn as two arcs each way. -->
+  <svg viewBox="0 0 20 20" aria-label="Ring"><path fill-rule="evenodd" d="M2 10 A8 8 0 0 1 18 10 A8 8 0 0 1 2 10 Z M6 10 a4 4 0 0 0 8 0 a4 4 0 0 0 -8 0 z" fill="#8ab17d"/></svg>
+</p>
+<!-- The four arcs between the same two points with the same radius: each
+     pair of flags is a different arc, closed back with a straight line. -->
+<p class=row>
+  <svg viewBox="0 0 20 20" aria-label="Small, anticlockwise"><path d="M 5 10 A 6 6 0 0 0 15 10 Z" fill="#264653"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Small, clockwise"><path d="M 5 10 A 6 6 0 0 1 15 10 Z" fill="#2a9d8f"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Large, anticlockwise"><path d="M 5 10 A 6 6 0 1 0 15 10 Z" fill="#e76f51"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="Large, clockwise"><path d="M 5 10 A 6 6 0 1 1 15 10 Z" fill="#e9c46a"/></svg>
+  <!-- Radii of 1 across a chord of 16 are scaled to 8: a half disc. Then a
+       zero radius, which is a straight line. -->
+  <svg viewBox="0 0 20 20" aria-label="Radii corrected"><path d="M 2 14 A 1 1 0 0 1 18 14 Z M 2 17 L 10 15 A 0 4 0 0 1 18 17 Z" fill="#8ab17d"/></svg>
+  <!-- An ellipse 9 by 4 turned 45 degrees, as two half arcs between the ends
+       of its long axis. -->
+  <svg viewBox="0 0 20 20" aria-label="Turned ellipse"><path d="M 3.636 3.636 A 9 4 45 0 1 16.364 16.364 A 9 4 45 0 1 3.636 3.636 Z" fill="#f4a261"/></svg>
+</p>
+<!-- An error part way: drawn up to the last whole command before it, so this
+     is a triangle and not a square. And after Z, a relative line starts again
+     where the subpath began, so the second triangle meets the first at its
+     corner rather than at the pen's last point. -->
+<p class=row>
+  <svg viewBox="0 0 20 20" aria-label="Cut at an error"><path d="M 2 2 H 18 V 18 oops L 2 18 Z" fill="#264653"/></svg>
+  <svg viewBox="0 0 20 20" aria-label="After close"><path d="M 2 2 h 6 v 6 z l 0 10 h 10 z" fill="#e76f51"/></svg>
+</p>

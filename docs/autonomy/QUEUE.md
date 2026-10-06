@@ -5067,7 +5067,7 @@ The long pole, and the thing most of section E is unreachable without.
   `transform` property on SVG elements with per-cent and `em` `width` and
   `height` on an outermost `<svg>` (279).
 
-- [ ] **272. Path data.** *Cut from 107 (ADR 0022 §§ 2, 5).* The `d` grammar,
+- [x] **272. Path data.** *Cut from 107 (ADR 0022 §§ 2, 5).* The `d` grammar,
   every command, absolute and relative, with arcs converted to cubic curves
   by SVG 2's implementation notes. A path is drawn up to its first error and
   no further. Segments per path and per drawing are bounded.
@@ -5076,6 +5076,33 @@ The long pole, and the thing most of section E is unreachable without.
   radius. A reference render shows a path of every command. Malformed,
   truncated and adversarial data (huge counts, non-finite numbers, exponent
   overflow) is refused or cut at the error, and never panics.
+
+  **Done (iteration 171).** `alo-svg`'s new `path_data.rs` is SVG 2's `d`
+  grammar, ours as ADR 0022 § 2 decided: `M L H V C S Q T A Z`, capital and
+  lower case, pairs after a move as lines, `S` and `T` reflecting only a
+  curve of their own kind, packed arc flags (`a1 1 0 0110 10`), and a new
+  subpath at the same start for anything after `Z`, written into the path as
+  a move. The new `arc.rs` is SVG 2's implementation notes F.6.2 and F.6.5 in
+  `f64`: an arc ending where it starts is nothing, a zero radius is a line, a
+  negative radius its size, radii too small are scaled up keeping their
+  ratio, and the sweep is cut into at most four cubic curves with handles at
+  `4/3 · tan(θ/4)`. Path data is drawn up to the last complete command before
+  its first error (a half-written set is not drawn) and the error's byte is
+  recorded; data not beginning with a move draws nothing. Every point is
+  finite or it is the error: overflowing exponents, relative steps whose sum
+  overflows, a reflected handle past a float, and an arc reaching past one
+  all stop the path there. Bounds: 65 536 segments per path
+  (`bounds::MOST_PATH_SEGMENTS`, an arc counted as every curve it makes,
+  closes counted too), checked as the path is made, under the drawing's
+  existing 262 144; past either the drawing is refused whole. `number.rs`'s
+  scanner is now the shared `scan`, so `points`, `transform` and `d` read
+  numbers one way. Corpus case `svg-path-data` is the reference render: a
+  house absolute and relative, `C`/`S`, `q`/`t`, a heart of packed arcs, an
+  `evenodd` ring of four arcs, the four flag pairs between two points,
+  corrected and zero radii, a turned ellipse, a path cut at an error, and a
+  relative line after `Z`. `an-svg-box`'s four "path data is item 272" issues
+  are gone, as they should be: the offline hand's paths are `fill="none"`,
+  so nothing new is drawn there until 273 strokes them.
 
 - [ ] **273. Strokes, and alo's offline screen.** *Cut from 107 (ADR 0022
   §§ 2, 5, 6).* `stroke`, `stroke-width`, `stroke-linecap`,
