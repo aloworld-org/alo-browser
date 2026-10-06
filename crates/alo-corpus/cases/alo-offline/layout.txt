@@ -1,17 +1,17 @@
 block flow · document → 480×400 at (0, 0)
   block grid · generic → 480×400 at (0, 0)
     block flow · main → 416×352 at (24, 24)
-      anonymous → 416×56 at (24, 24)
+      anonymous → 416×76 at (24, 24)
         text " " → not laid out
         inline flow-root · image [hidden] → 56×56 at (204, 24)
         text " " → not laid out
-      block flow · heading [level=1] → 416×25.609375 at (24, 80)
-        text "You're offline" → 162.64746×25.609375 at (150.67627, 80)
-      block flow · paragraph → 416×55.875 at (24, 115.609375)
-        text " alo can't reach the server right now. Your mail is safe and will be waiting as soon as the connection returns. " → 403.01563×55.875 at (30.492188, 115.609375)
-      anonymous → 416×39.2 at (24, 195.48438)
+      block flow · heading [level=1] → 416×25.609375 at (24, 100)
+        text "You're offline" → 162.64746×25.609375 at (150.67627, 100)
+      block flow · paragraph → 416×55.875 at (24, 135.60938)
+        text " alo can't reach the server right now. Your mail is safe and will be waiting as soon as the connection returns. " → 403.01563×55.875 at (30.492188, 135.60938)
+      anonymous → 416×39.2 at (24, 215.48438)
         text " " → not laid out
-        inline flow-root · button → 116.90625×39.2 at (173.54688, 195.48438)
-          anonymous → 72.90625×19.2 at (195.54688, 205.48438)
-            text "Try again" → 72.90625×18.625 at (195.54688, 205.77188)
+        inline flow-root · button → 116.90625×39.2 at (173.54688, 215.48438)
+          anonymous → 72.90625×19.2 at (195.54688, 225.48438)
+            text "Try again" → 72.90625×18.625 at (195.54688, 225.77188)
         text " " → not laid out

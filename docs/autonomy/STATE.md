@@ -15465,3 +15465,101 @@ Ticking or annotating a line to discharge this would be the erosion
 117 queue items are open. The first eligible item in file order is now
 **281**. The next unused queue number is **283** and the next ADR is
 **0023**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 174 — item 281: an atomic inline's margins count in its line
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and the stage 2 lines), iteration 173's entry, queue items
+280–282, `docs/features.md`'s layout section and `docs/conformance.md`. No
+`AGENTS.md` exists in this repository. ADR 0004 (we own the layout tree;
+`taffy` owns the algorithms) applies and is unchanged: the fix is in our line
+builder and in how our engine calls `taffy`, whose algorithms are untouched.
+No ADR is needed; nothing is decided.
+
+**Selection.** Iteration 173 recorded 281 as the first eligible item in file
+order, and nothing before it changed since. It depends on nothing.
+
+**What was built.** `InlineItem::Atomic` carries the box's margins, and its
+baseline is measured from the top of its **margin box** — for a box with no
+line in it, the bottom margin edge, which is CSS's rule. The line builder
+fits, advances the pen by, aligns and stands on the baseline the margin box;
+the fragment it records is still the border box, inside its top and left
+margins, because that is what draws. The engine reads the margins from the
+box's own layout. It also lays the box out the second time in its margin
+box's room: `taffy` takes a block root's margins out of the room it is
+given, so handing it only its border box shrank an auto-width inline-block
+by its own margins and wrapped its text — a fault that only showed once
+margins counted at all. The `Atomic.baseline` doc comment, which described
+a measure from the bottom edge the code never used, now says what the code
+does.
+
+**What was cut.** The item's text also asks for the **strut's** descent
+under the hand. The engine has no strut — a line is as tall as what is on
+it — and adding one changes every line, not atomic boxes. Cut, not
+deepened: it is **283**, eligible, closing on the same `alo-offline`
+assertion. So the offline screen's heading is at 100 (24 + 56 + 20), not
+yet at 100 plus the font's descent. 281 is ticked for the margin box, with
+the cut written into its Built clause.
+
+**Found, not built.** Probing the second pass showed a pre-existing fault:
+a percentage width on an inline-block is resolved against its containing
+block the first time and against its slot the second, so `width: 50%` in
+400 px reserves 200 on the line and draws 100 (112 with 12 px side margins,
+which this change moves from 100 — both wrong). Queued as **284**, *blocked:
+no page yet*, since nothing in alo writes it.
+
+**Gate, mechanical.** `scripts/gate.sh` exited 0 (fmt clean, clippy silent,
+every test passes — the corpus included — no stubs, no `unsafe`, licence
+notices, rented crates behind their boundaries, no coordinate verbs, the stop
+rule, `CHANGELOG.md` changed). `git diff --check` passes. *Process note:* the
+first run failed clippy on two lints in this iteration's own tests
+(`cloned_ref_to_slice_refs`, `similar_names`); both were fixed in the code,
+not allowed, that run was stopped as stale, and the gate was run again from
+the start. That run outlasted the tool's 600 s foreground limit, so this
+iteration blocked on its log until it wrote its exit status and read it —
+`GATE EXIT 0`, "The gate is met." — before writing this entry. Only this
+entry changed after the gate ran.
+
+**Gate, manual.**
+- Layout assertions in numbers (`numbers.rs`, 3 new): an inline-block with
+  margins `6px 0 20px 12px` at (12, 6) 40×20 and the next block at 46; "ab
+  cd" in an inline-block with 12 px side margins 40×16 at 12, one line; a
+  20 px left margin centred in 200 puts the box at 90. `inline.rs` 2 new: a
+  40×20 box with margins 6/10/8/4 between "ab" and "c" at (20, 6), the line
+  38 tall on a baseline of 34, "c" at 70; alone, its 54-wide margin box
+  aligned to 4, 77 and 150; and a box that fits only without its margins
+  wraps. Doctored three ways: no margins on the item fails all three
+  `numbers.rs` tests; the builder ignoring them fails both `inline.rs`
+  tests; the second pass in the border box fails the width test (it first
+  did not — "abcd" cannot wrap — so the test now uses "ab cd", and fails).
+- Reference render: `alo-offline` moved, no other case did. Its anonymous
+  line is 416×76, the heading at (24, 100) and everything under it 20 px
+  down; layout, display list, agent tree and picture re-committed. I looked
+  at the new render: the gap under the hand is there, hand and button still
+  centred across; the screen is still not centred down (282).
+- One responsibility per file: the line's geometry stays in `inline.rs`,
+  and the margins are read in `engine.rs` where the item is made; no file
+  gained a second reason to change.
+- `docs/features.md` gains the margin-box line; `docs/conformance.md` says
+  what sits on a line and names 283 and 284; its offline-screen row now
+  names 282 and 283.
+
+**Roadmap.** This item served **no open roadmap line**, and `ROADMAP.md` is
+deliberately unchanged, for iteration 173's reason: it corrects inline
+layout under stage 1's ticked *Layout* line, and no stage 2 line covers it
+(*CSS beyond what alo needed* is new capability, not a fix). Queue: 281
+ticked with what was done and what was cut; 283 and 284 opened. Also
+updated: `CHANGELOG.md`, `docs/features.md`, `docs/conformance.md`,
+`REMAINING.md`.
+
+**Unresolved obligations.**
+- 282 (the `place-*` shorthands) is the first eligible item in file order;
+  283 (the strut) and 279 are eligible too. 284 waits on a page.
+- Carried, unchanged: ADR 0022 § 2's wording and § 4's name order, and a
+  side-by-side of the hand with a real browser (a person's call); 269
+  blocked on a `rav1d` release; the `image-webp` upstream report; 109, 179,
+  and 82, 83, 85–89, 95–99, 104 and 105 still needing their designs.
+
+118 queue items are open (one closed, two opened). The first eligible item in
+file order is now **282**. The next unused queue number is **285** and the
+next ADR is **0023**. This is one iteration, not a finished queue or roadmap.

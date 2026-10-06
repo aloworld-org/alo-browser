@@ -35,7 +35,12 @@ a line sits on one baseline, and a link broken over two lines is two rectangles.
 `text-align` moves a whole line — text, images and inline-blocks together —
 including a line in an anonymous block, which inherits its container's value.
 `justify` is not implemented and is read as `start`; right-to-left `start`
-and `end` wait on writing modes (item 98).
+and `end` wait on writing modes (item 98). An image or inline-block sits on
+the line by its **margin box**: its margins take room across the line and
+make the line taller. A line has no strut yet — it is as tall as what is on
+it, without the container font's descent under a line of pictures (item 283)
+— and a percentage width on an inline-block is drawn against the room the
+line gave it rather than its container (item 284).
 
 Colours are channels, `currentColor` included, so the engine now knows what
 colour everything is.
@@ -226,7 +231,7 @@ it lives in.
 | alo Settings | **yes** — `alo-workplace`'s, likewise, and its narrow-screen `@media` block evaluated rather than assumed away |
 | An agent reading Settings as a tree and activating a row by name | **yes** — `crates/alo-renderer/tests/an_agent_on_settings.rs`, against that same screen, by name and never by position |
 | alo agent overlay | not yet — the screen is not written in `alo-workplace` either |
-| alo offline screen | **nearly** — `alo-workplace`'s `offline.html`, frozen byte for byte as `alo-offline`, its hand drawn (item 273) and it and the button centred across (item 280); the screen is not centred down (282) and the hand's bottom margin is lost (281) |
+| alo offline screen | **nearly** — `alo-workplace`'s `offline.html`, frozen byte for byte as `alo-offline`, its hand drawn (item 273), it and the button centred across (item 280) and the hand's bottom margin kept (item 281); the screen is not centred down (282) and the line under the hand lacks the font's descent (283) |
 
 **One thing is true of both screens and is not a defect in either**: the corpus
 renders in DejaVu Sans, and the app loads Inter. Inter is narrower, so alo's

@@ -1074,3 +1074,56 @@ fn a_line_of_text_and_an_inline_block_move_together() {
     assert!(close(left_of_i_aligned(html, "center"), 72.0 + 16.0));
     assert!(close(left_of_i_aligned(html, "right"), 144.0 + 16.0));
 }
+
+#[test]
+fn an_inline_blocks_margins_count_in_its_lines_height() {
+    // alo's offline screen: a picture with `margin-bottom: 20px` alone on its
+    // line, and a heading after it. The margin box is what sits on the line,
+    // so the line is 6 + 20 + 20 tall and the next block starts under the
+    // margin rather than straight against the picture.
+    let html = "<body><div id=w><span id=i></span><p id=after>x</p></div></body>";
+    let css = "p { margin: 0 } \
+               #i { display: inline-block; width: 40px; height: 20px; \
+                    margin: 6px 0 20px 12px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+
+    let inline_block = rect_of(&boxes, &layout, "i", html);
+    assert_eq!(
+        inline_block,
+        Rect::new(12.0, 6.0, 40.0, 20.0),
+        "the border box, inside its top and left margins",
+    );
+    let after = rect_of(&boxes, &layout, "after", html);
+    assert!(
+        close(after.top(), 46.0),
+        "the next block starts below the bottom margin: {}",
+        after.top(),
+    );
+}
+
+#[test]
+fn an_inline_block_keeps_its_width_inside_its_own_margins() {
+    // "ab cd" at eight pixels a character: one line, 40 wide, whatever its
+    // margins are. The box is laid out a second time in the room the line
+    // gave it, and that room is its margin box — given only its border box,
+    // it would take its margins out again, have 16 pixels for its text, and
+    // come back as two lines.
+    let html = "<body><div id=w><span id=i>ab cd</span><p>x</p></div></body>";
+    let css = "p { margin: 0 } #i { display: inline-block; margin: 0 12px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    let inline_block = rect_of(&boxes, &layout, "i", html);
+    assert_eq!(inline_block, Rect::new(12.0, 0.0, 40.0, 16.0));
+}
+
+#[test]
+fn aligning_a_line_moves_an_inline_blocks_margin_box() {
+    // A 40-wide box with a 20-pixel left margin is 60 on the line: centred in
+    // 200 the margin box starts at 70, and the box 20 after it.
+    let css = "#w { width: 200px; text-align: center } p { margin: 0 } \
+               #i { display: inline-block; width: 40px; height: 20px; \
+                    margin-left: 20px }";
+    let html = "<body><div id=w><span id=i></span><p>x</p></div></body>";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    let found = rect_of(&boxes, &layout, "i", html).left();
+    assert!(close(found, 90.0), "at {found}");
+}

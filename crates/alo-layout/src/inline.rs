@@ -37,7 +37,7 @@
 //! than as one item, and why it gets **one fragment per line it is on** like
 //! anything else that wraps.
 
-use crate::geometry::{Point, Rect, Size};
+use crate::geometry::{Edges, Point, Rect, Size};
 use crate::measure::{MeasureText, TextStyle};
 use alo_box::BoxId;
 use core::ops::Range;
@@ -83,16 +83,23 @@ pub enum InlineItem {
         edge: f32,
     },
     /// A box with a size of its own, which is placed whole or not at all.
+    ///
+    /// What sits on the line is its **margin box**, not its border box: its
+    /// margins take room across the line and make the line taller, which is
+    /// what leaves the gap an author wrote under a picture rather than putting
+    /// the next block straight against it. The fragment it gets is still its
+    /// border box, because that is what draws.
     Atomic {
         /// The box.
         box_id: BoxId,
-        /// How big it is.
+        /// How big its border box is.
         size: Size,
-        /// How far above its bottom edge its baseline sits.
+        /// Its margins, which take room on the line around that border box.
+        margin: Edges,
+        /// How far below the top of its **margin box** its baseline sits.
         ///
-        /// For a box with text in it this is the last line's baseline; for one
-        /// without, CSS uses the bottom margin edge, which is a baseline of
-        /// zero.
+        /// For a box with no line in it, CSS puts the baseline on its bottom
+        /// margin edge — the whole of the margin box above it.
         baseline: f32,
     },
 }
@@ -117,6 +124,10 @@ impl InlineItem {
 struct Pending {
     fragment: Fragment,
     below_baseline: f32,
+    /// Room after the fragment that is still its own: an atomic box's right
+    /// margin. It counts in how wide the line is, so that aligning a line
+    /// moves the margin box rather than the border box.
+    after: f32,
 }
 
 /// A piece of one box, on one line.
@@ -264,8 +275,9 @@ pub fn lay_out_aligned(
             InlineItem::Atomic {
                 box_id,
                 size,
+                margin,
                 baseline,
-            } => builder.add_atomic(*box_id, *size, *baseline),
+            } => builder.add_atomic(*box_id, *size, *margin, *baseline),
             InlineItem::Open {
                 box_id,
                 edge,
@@ -447,6 +459,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 line: self.lines.len(),
             },
             below_baseline: descent,
+            after: 0.0,
         });
         self.pen += placed;
         self.ascent = self.ascent.max(ascent);
@@ -523,27 +536,37 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 line: self.lines.len(),
             },
             below_baseline: held.descent + held.under,
+            after: 0.0,
         });
     }
 
-    fn add_atomic(&mut self, box_id: BoxId, size: Size, baseline: f32) {
-        if !self.fits(size.width) {
+    /// Place an atomic box, margins and all.
+    ///
+    /// The margin box is what fits or does not, what moves the pen and what
+    /// sits on the baseline; the fragment is the border box inside it.
+    fn add_atomic(&mut self, box_id: BoxId, size: Size, margin: Edges, baseline: f32) {
+        let width = margin.left + size.width + margin.right;
+        let height = margin.top + size.height + margin.bottom;
+        if !self.fits(width) {
             self.end_line();
         }
         self.content = true;
         self.current.push(Pending {
             fragment: Fragment {
                 box_id,
-                rect: Rect::new(self.pen, 0.0, size.width, size.height),
+                rect: Rect::new(self.pen + margin.left, 0.0, size.width, size.height),
                 text: None,
                 line: self.lines.len(),
             },
-            // An atomic box sits with its own baseline on the line's.
-            below_baseline: size.height - baseline,
+            // An atomic box sits with its own baseline on the line's. Measured
+            // from its border box, which is the rectangle placed; with a bottom
+            // margin the baseline is below that box, and this is negative.
+            below_baseline: size.height - (baseline - margin.top),
+            after: margin.right,
         });
-        self.pen += size.width;
+        self.pen += width;
         self.ascent = self.ascent.max(baseline);
-        self.descent = self.descent.max(size.height - baseline);
+        self.descent = self.descent.max(height - baseline);
     }
 
     /// Finish the line being built: put every fragment on the baseline, and
@@ -589,7 +612,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         let width = self
             .current
             .iter()
-            .map(|pending| pending.fragment.rect.right())
+            .map(|pending| pending.fragment.rect.right() + pending.after)
             .fold(0.0, f32::max);
 
         // Where the line sits in the room it was given. Leftover room only
@@ -698,6 +721,7 @@ mod tests {
         InlineItem::Atomic {
             box_id: box_id(index),
             size: Size::new(width, height),
+            margin: Edges::ZERO,
             baseline: height,
         }
     }
@@ -944,6 +968,95 @@ mod tests {
                 "{alignment:?}",
             );
         }
+    }
+
+    #[test]
+    fn an_atomic_boxs_margin_box_is_what_sits_on_the_line() {
+        // A 40×20 box with margins 6, 10, 8 and 4 between "ab" and "c": its
+        // margin box is 54 wide and 34 tall, and with no line in it the
+        // baseline is its bottom margin edge.
+        let boxed = InlineItem::Atomic {
+            box_id: box_id(2),
+            size: Size::new(40.0, 20.0),
+            margin: Edges {
+                top: 6.0,
+                right: 10.0,
+                bottom: 8.0,
+                left: 4.0,
+            },
+            baseline: 34.0,
+        };
+        let layout = lay_out(
+            &[text(1, "ab"), boxed.clone(), text(3, "c")],
+            Some(1000.0),
+            &BlockFont,
+        );
+        let line = layout.lines.first().expect("one line");
+        assert_eq!(
+            lines_of(&layout),
+            vec![vec!["1@0".to_owned(), "2@20".to_owned(), "3@70".to_owned()]],
+            "the left margin is before the box and the right one before \"c\"",
+        );
+        assert!(close(line.baseline, 34.0), "{}", line.baseline);
+        assert!(
+            close(line.height, 38.0),
+            "the margin box above the baseline and the text's descender below \
+             it: {}",
+            line.height,
+        );
+        let placed = line.fragments.get(1).expect("the box").rect;
+        assert_eq!(
+            placed,
+            Rect::new(20.0, 6.0, 40.0, 20.0),
+            "the fragment is the border box, under its top margin",
+        );
+
+        // Alone on a line, the margin box is what is aligned: 54 in 200.
+        for (alignment, left) in [
+            (TextAlignment::Start, 4.0),
+            (TextAlignment::Center, 73.0 + 4.0),
+            (TextAlignment::End, 146.0 + 4.0),
+        ] {
+            let layout = lay_out_aligned(
+                core::slice::from_ref(&boxed),
+                Some(200.0),
+                alignment,
+                &BlockFont,
+            );
+            assert_eq!(
+                lines_of(&layout),
+                vec![vec![format!("2@{left}")]],
+                "{alignment:?}"
+            );
+            assert!(close(layout.size.width, 54.0), "{alignment:?}");
+            assert!(close(layout.size.height, 34.0), "{alignment:?}");
+        }
+    }
+
+    #[test]
+    fn an_atomic_box_and_its_margins_wrap_together() {
+        // Sixty-four pixels of text, then a 10-wide box with 10 pixels of
+        // margin either side: the box alone would fit in 80, its margin box
+        // does not.
+        let boxed = InlineItem::Atomic {
+            box_id: box_id(2),
+            size: Size::new(10.0, 16.0),
+            margin: Edges {
+                left: 10.0,
+                right: 10.0,
+                ..Edges::ZERO
+            },
+            baseline: 16.0,
+        };
+        let layout = lay_out(&[text(1, "aaaaaaaa"), boxed], Some(80.0), &BlockFont);
+        assert_eq!(
+            lines_of(&layout),
+            vec![vec!["1@0".to_owned()], vec!["2@10".to_owned()]],
+        );
+    }
+
+    fn close(left: f32, right: f32) -> bool {
+        (left - right).abs() < 0.001
     }
 
     #[test]

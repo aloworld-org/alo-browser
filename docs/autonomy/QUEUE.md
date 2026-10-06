@@ -4754,7 +4754,7 @@ The long pole, and the thing most of section E is unreachable without.
   `alo-offline` moved — the hand to (204, 24) and the button to
   (173.54688, 195.48438), exactly the queue's numbers — and no other case.
 
-- [ ] **281. An atomic inline's margins count in its line's height.** *Opened
+- [x] **281. An atomic inline's margins count in its line's height.** *Opened
   by `alo-offline` (iteration 172).* The offline screen's `<svg>` has
   `margin-bottom: 20px`; its line is laid out 56 tall and the heading starts
   straight under the hand, where browsers leave the margin (and the strut's
@@ -4763,6 +4763,30 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on nothing.* *Closes when:* `alo-offline`'s layout assertion puts
   the heading below the hand's margin and the line's descent, and a unit test
   pins an inline-block's top and bottom margins in its line's height.
+  **Built (iteration 174), with the strut cut to 283.** `InlineItem::Atomic`
+  carries the box's margins, and its baseline is measured from the top of
+  its **margin box**, which for a box with no line is the bottom margin
+  edge. The line builder fits, advances the pen by, aligns and stands on the
+  baseline the margin box; the fragment stays the border box, inside its
+  top and left margins. The engine reads the margins from the box's own
+  layout, and lays it out the second time in its margin box's room — given
+  only its border box, a block takes its margins out again, and an
+  auto-width inline-block with text in it came back narrower and wrapped.
+  *What was cut:* the line has no **strut** (CSS's zero-width box with the
+  container's font), so the offline screen's line is 76 tall where browsers
+  add the font's descent below the margin; that is a change to every line in
+  the engine, not to atomic boxes, and is item 283. Tests: `inline.rs` 2 (a
+  40×20 box with margins 6/10/8/4 between "ab" and "c" at x 20, y 6, the
+  line 38 tall on a baseline of 34, the next text at 70; alone on a line
+  the 54-wide margin box aligned to 4, 77 and 150; a box that fits only
+  without its margins wraps). `numbers.rs` 3 (an inline-block with margins
+  6 0 20 12 at 12, 6, 40×20 and the next block at 46; "ab cd" in an
+  inline-block with 12 px side margins stays 40×16 at 12; a 20 px left
+  margin centred in 200 puts the box at 90). Doctored: no margins on the
+  item fails all three `numbers.rs` tests; ignoring them in the builder
+  fails both `inline.rs` tests; the second pass in the border box fails the
+  width test. Corpus: `alo-offline` moved — the line 416×76, the heading
+  at (24, 100), everything under it 20 px down — and no other case.
 
 - [ ] **282. `place-items`, `place-self` and `place-content` as shorthands.**
   *Opened by `alo-offline` (iteration 172).* The offline screen centres `main`
@@ -4774,6 +4798,39 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on nothing.* *Closes when:* `alo-offline`'s layout assertion has
   `main` its content's height and centred in the grid both ways, and a test
   splits one- and two-value forms of all three.
+
+- [ ] **283. The strut: every line starts as tall as its container's font.**
+  *Cut from 281 (iteration 174).* CSS gives each line box a zero-width
+  inline box with the block container's font and line height, so a line of
+  only a picture still has the font's descent below its baseline and a line
+  of small text in a large-font block is as tall as the large font. The
+  engine has none: a line is as tall as what is on it. alo's offline screen
+  shows it — the hand's line is 76 (56 and its 20 px margin) where browsers
+  add the descent of the body's 16 px font. It touches every line, so it
+  moves every reference whose lines mix sizes or hold only atomic boxes,
+  and each move is to be read. `line-height` is not applied to text yet
+  (the offline screen's `p { line-height: 1.5 }` is laid out at the font's
+  own height); the strut takes the font's ascent and descent as text does
+  today, and `line-height` is its own item when a page needs it.
+  *Depends on nothing.* *Closes when:* a unit test has a line of one 20 px
+  atomic box in a 16 px block one font-descent taller than 20, a line of
+  small text in a large-font block as tall as the large font, and an empty
+  line still no line; `alo-offline`'s layout assertion puts the heading
+  under the hand's margin *and* the descent.
+
+- [ ] **284. A percentage width on an inline-block resolves against its
+  containing block, both times.** *Found by iteration 174, not opened by a
+  page.* An atomic box is laid out twice: once to size its slot on the line
+  and once, placed, in the room the line gave it. A percentage width is
+  resolved against the containing block the first time and against the
+  slot the second, so `width: 50%` in a 400 px block reserves 200 on the
+  line and draws 100 (112 with 12 px side margins). 200 is right. The
+  second pass should be handed the box's size rather than room to find one
+  in. *Depends on nothing. Blocked: no page yet* — nothing in alo writes a
+  percentage width on an inline-level box, so a page that does opens it.
+  *Closes when:* a
+  `numbers.rs` assertion has a 50%-wide inline-block in 400 px drawn 200
+  wide, with and without margins, and the line's next text right after it.
 
 - [ ] **94. Animations and transitions.** Stage 1 reads them and they change
   nothing, which is correct for a still picture; this is the clock.

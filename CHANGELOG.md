@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The space around a picture or button on a line is kept.** Margins on an
+  image, an inline-block or a button sharing a line used to be ignored: the
+  line was only as tall as the thing itself and the next paragraph sat
+  straight against it. They now take room across the line and below it, as
+  in other browsers, so alo's offline screen has its 20-pixel gap back
+  under the hand. A line still lacks the little extra a browser leaves below
+  for the font, and that is queued.
+
 - **`text-align` now centres pictures and buttons that share a line with
   nothing written.** A line made only of images, inline-blocks or buttons
   next to block-level siblings was always drawn against the left edge,

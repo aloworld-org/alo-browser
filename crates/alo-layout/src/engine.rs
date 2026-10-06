@@ -486,10 +486,17 @@ fn atomic_item(
         height: AvailableSpace::MaxContent,
     };
     let laid_out = lay_out_subtree(boxes, styles, id, available, measure, issues);
+    let margin = laid_out
+        .as_ref()
+        .and_then(|held| held.geometry.get(&id))
+        .map_or(Edges::ZERO, |held| held.margin);
     InlineItem::Atomic {
         box_id: id,
         size: laid_out.as_ref().map_or(Size::ZERO, |held| held.size),
-        baseline: laid_out.as_ref().map_or(0.0, |held| held.baseline),
+        margin,
+        // The baseline is measured from the top of the margin box, which is
+        // what sits on the line.
+        baseline: margin.top + laid_out.as_ref().map_or(0.0, |held| held.baseline) + margin.bottom,
     }
 }
 
@@ -560,17 +567,24 @@ fn place_inline_content(
         }
         // An atomic box brought a whole layout of its own with it; place it.
         for item in &items {
-            if let InlineItem::Atomic { box_id, .. } = item
+            if let InlineItem::Atomic { box_id, margin, .. } = item
                 && let Some(placed) = fragments.get(box_id).and_then(|pieces| pieces.first())
             {
                 let offset = placed.rect.origin;
+                // The room it is given is its margin box: a block takes its
+                // margins out of the room it is given, so handing it only its
+                // border box would shrink it by its own margins.
                 if let Some(sub) = lay_out_subtree(
                     boxes,
                     styles,
                     *box_id,
                     TaffySize {
-                        width: AvailableSpace::Definite(placed.rect.size.width),
-                        height: AvailableSpace::Definite(placed.rect.size.height),
+                        width: AvailableSpace::Definite(
+                            placed.rect.size.width + margin.horizontal(),
+                        ),
+                        height: AvailableSpace::Definite(
+                            placed.rect.size.height + margin.vertical(),
+                        ),
                     },
                     measure,
                     issues,
