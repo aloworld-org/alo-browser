@@ -478,6 +478,16 @@ measures the property against `transform-box` and `transform-origin`
 `stroke-box` are cut to 288, opened by a page. 117 queue items are open;
 the next unused queue number is 289 and the next unused ADR 0023.
 
+Iteration 180 marked item 108 (Canvas 2D) `needs design` — alo's own
+picture-shrinking code uses a canvas, but the item names no ADR, contract or
+closing condition — and wrote item 109's decision, ADR 0023: media is
+decoded in a sandboxed media process per site, audio through Symphonia
+(Vorbis, FLAC, PCM, MP3), with Opus, AV1 and VP8/VP9 waiting on decoders
+that can be rented in Rust and AAC, H.264, H.265 and DRM never played. No
+code. Its code is cut as 289–295: 289–292 are opened by a frozen page that
+plays a file, 293–295 are blocked on decoders. 124 queue items are open; the
+next unused queue number is 296 and the next unused ADR 0024.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

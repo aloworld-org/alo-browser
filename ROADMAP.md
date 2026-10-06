@@ -1061,6 +1061,17 @@ unreachable without it.
       its own ADR because it is XML) open when a page needs them
 - [ ] Canvas 2D
 - [ ] Audio and video playback through rented decoders
+      — not started: nothing is built. Decided in ADR 0023. Media is decoded
+      in a media process per site, started by the browser process, confined by
+      the renderer's own sandbox profile and holding nothing of the page but
+      the bytes it was handed. Audio is Symphonia (MPL-2.0, safe Rust) for
+      Vorbis, FLAC, PCM and MP3; Opus waits for a decoder that can be rented in
+      Rust, AV1 for the `rav1d` release AVIF waits on, and VP8 and VP9 have no
+      Rust decoder at all; AAC, H.264 and H.265 are never played, and every
+      "can you play this" answer is derived from what decodes. Cut into queue
+      items 289–292 (audio decoded, the media process, `<audio>`, sound to the
+      device), each opened by a frozen page that plays a file, and 293–295
+      (Opus, AV1, VP8 and VP9), each blocked on a decoder
 - [ ] Media Source Extensions, without which most video sites do not play at all
 - [ ] Web Audio
 - [ ] WebGL, then WebGPU — both large, both late, and neither before the software path is right

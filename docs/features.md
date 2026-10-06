@@ -460,7 +460,12 @@ The reason this exists rather than a faster fork of somebody else's engine.
   `transform-origin` (`0 0` unless set) say what it turns about. A nested
   `<svg>` is 278, and `fill-box` on a `<g>` and `stroke-box` are 288
 - [2] Canvas 2D
-- [2] Audio and video playback through rented decoders
+- [2] Audio and video playback through rented decoders.
+  Decided in ADR 0023 and not built: decoded in a sandboxed media process per
+  site that holds none of the page; Vorbis, FLAC, PCM and MP3 through Symphonia
+  first (289–292); Opus and VP8/VP9 wait for a decoder that can be rented in
+  Rust, AV1 for the `rav1d` release AVIF waits on (293–295); AAC, H.264, H.265
+  and DRM are never played, and the browser never says it plays what it cannot
 - [2] Media Source Extensions, without which most video sites do not play at all
 - [2] Web Audio
 - [2] WebGL, then WebGPU — both large, both late, and neither before the software path is right

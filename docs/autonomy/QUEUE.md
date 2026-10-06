@@ -5539,10 +5539,89 @@ The long pole, and the thing most of section E is unreachable without.
 - [ ] **108. Canvas 2D.** The rasteriser exists; this is the API over it and the
   compositing rules around it.
   *Depends on 72.*
+  *Needs design (iteration 180):* its dependency is done, but it names no
+  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
+  not ready to build. It does have pages: alo's own `RichTextEditor.tsx` and
+  `quote-studio/quoteImageData.ts` each shrink a chosen picture through a
+  canvas — `drawImage`, a white `fillRect`, then `toDataURL` as PNG or JPEG.
+  Both are also unreachable before `FileReader`, `Image` and a file input
+  exist (82). Its design has decisions in it rather than chores: where the
+  bitmap lives and how it reaches paint, which encoder `toDataURL` rents, and
+  what reading pixels back (`getImageData`, `toDataURL`) means for
+  fingerprinting. Writing those down — an ADR, as its own iteration — is the
+  work that opens it.
 
 - [ ] **109. Audio and video playback through rented decoders.**
   *Depends on 63, 106. Needs ADR* — which decoders, on whose licence, and where
   they run. `ROADMAP.md` refuses DRM and proprietary codecs outright.
+
+  **Decided: ADR 0023 (iteration 180).** Media is demuxed and decoded in a
+  **media process per site**, started by the browser process, confined by
+  the renderer's own profile and holding nothing of the page but the bytes it
+  was handed (§ 1); bytes are fetched by the browser process and forwarded
+  unread, audio goes to the browser process's device and frames to the
+  renderer (§ 2). Audio is **Symphonia**, default features off, `ogg`, `wav`,
+  `mkv`, `vorbis`, `flac`, `pcm` and `mp3` on, bounded at 8 channels and
+  8 000–384 000 Hz (§ 3). **Opus waits** for Symphonia's own decoder or a
+  pure-Rust one with a year of releases (§ 4); **AV1 waits** on ADR 0021's
+  `rav1d` release; VP8 and VP9 have no Rust decoder (§ 5); AAC, H.264, H.265
+  and DRM are never played, and every "can you play this" answer is derived
+  from what decodes (§ 6). No code was written. Its code is cut as 289–295,
+  and 109 closes when all seven have; 293–295 are blocked on decoders that
+  do not exist yet, so a line that plays only Vorbis is not ticked.
+  No frozen page plays a file yet — alo's `<video>` (`ScanInput.tsx`) shows a
+  camera stream, which is 93's, and its Meet room is WebRTC — so each code
+  item is opened by a frozen page, as 274 is.
+
+- [ ] **289. Audio decoded, in `alo-media`.** *Cut from 109 (ADR 0023 § 3).*
+  A new crate, `alo-media`, with Symphonia named in one file and added to
+  `gate.sh`'s boundary list: Ogg Vorbis, FLAC, WAV PCM and MP3 (and those
+  in WebM) decoded a packet at a time into bounded interleaved samples;
+  AAC, Opus and every other codec refused by name; a track over 8 channels
+  or outside 8 000–384 000 Hz refused; a declared duration never allocated.
+  *Depends on nothing. Opened only by a frozen page that plays one of those
+  files. Closes when:* each frozen file decodes to its stated frame count,
+  rate and channels and a pinned checksum of its samples, and every byte
+  flipped and every prefix cut returns an error rather than panicking.
+
+- [ ] **290. The media process.** *Cut from 109 (ADR 0023 §§ 1–2).* One per
+  site, spawned by the browser process on its renderer's first media
+  request, confined at `exec` by `sandbox.rs`'s profile and fatal if it
+  cannot be, reaped with the site's renderer; bytes in, samples out, every
+  message it sends checked as a stranger's. *Depends on 289, 166, 167.
+  Closes when:* a test watches its sandbox refuse 167's probes, killing it
+  leaves the renderer answering and the element reporting a decode error,
+  and closing the site's last tab stops it.
+
+- [ ] **291. `<audio>` and `HTMLMediaElement`, first members.** *Cut from 109.*
+  The element, its claim for a resource (ADR 0020's shape), the clock it is
+  told (ADR 0023 § 8), `canPlayType` and `<source type>` derived from what
+  289 decodes (§ 6), and the media error a refused file gives. The members
+  and their order are cut when a page opens it, and an autoplay policy is
+  decided before anything plays unasked. *Depends on 290, 75 (`play()`
+  returns a promise), 233.*
+
+- [ ] **292. Sound reaches the device.** *Cut from 109 (ADR 0023 § 7).* The
+  browser process hands decoded samples to the machine's audio device
+  through a rented crate chosen by § 3's tests, with no `unsafe` of ours.
+  Verified on files up to the buffer handed over; **that a speaker made the
+  sound needs hardware, and says so**. *Depends on 290.*
+
+- [ ] **293. Opus.** *Cut from 109 (ADR 0023 § 4).* ***blocked:** no Opus
+  decoder to rent* — lifted by Symphonia releasing its own, or by a
+  pure-Rust decoder with a year of releases, the RFC 8251 vectors passing,
+  users beyond its authors, and `unsafe` forbidden or behind a feature left
+  off. *Depends on 289.*
+
+- [ ] **294. AV1 video.** *Cut from 109 (ADR 0023 § 5).* `rav1d` on ADR 0021's
+  terms, in the media process, frames to the renderer drawn in a `<video>`'s
+  box; the container decided by the building commit against the ADR's
+  tests. ***blocked:** the `rav1d` release 269 waits on.* *Depends on 290,
+  291.*
+
+- [ ] **295. VP8 and VP9.** *Cut from 109 (ADR 0023 § 5).* ***blocked:** no
+  VP8 or VP9 decoder exists in Rust to rent*; libvpx is C. Lifted on § 4's
+  terms by one that does. *Depends on 294.*
 
 - [ ] **110. Media Source Extensions**, without which most video sites do not
   play at all.

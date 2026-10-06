@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How audio and video will be played is decided, and nothing plays yet.**
+  ADR 0023 decodes media in a locked-down process of its own for each site,
+  separate from the page, and starts with the formats a Rust decoder can be
+  rented for today: Ogg Vorbis, FLAC, WAV and MP3. Opus and most web video
+  wait for decoders that do not exist in Rust yet. AAC, H.264, H.265 and
+  copy-protected media will never play, and the browser will not tell a site
+  it can play a format it cannot.
+
 - **A stylesheet can turn the shapes inside an SVG icon.** CSS `transform`
   on a shape or group inside an `<svg>` used to be ignored. It now moves,
   turns and scales it, and replaces the element's own `transform` attribute

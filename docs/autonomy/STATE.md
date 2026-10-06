@@ -16122,3 +16122,96 @@ ticked with what was built, and 288 opened. Also updated: `REMAINING.md`.
 117 queue items are open (287 closed, 288 opened). The next unused queue
 number is **289** and the next ADR is **0023**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 180 — item 108 marked `needs design`; item 109 decided: ADR 0023, media is decoded in a process of its own from codecs rented in Rust
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states, the process model, *Pictures, and things that move* and *Not
+built*), iteration 179's entry, `REMAINING.md`, every open queue item's
+dependency and block line, items 108–112 in full, ADRs 0005, 0010 and 0021
+in full, the media and licence passages of 0001 and 0009,
+`docs/features.md`'s media lines, and `alo-renderer`'s `sandbox.rs` and
+`host.rs` headers. No `AGENTS.md` exists. `alo-workplace` was read and
+never written (its `git status` was empty); no other sibling was touched.
+The checkout was clean on entry at `d18df70`.
+
+**Selection.** Iteration 179 recorded 108 as the next unticked item in file
+order, and nothing before it had changed. 108 (Canvas 2D) has its one
+dependency (72) but names no ADR, contract or closing condition, so by
+`LOOP.md` step 2 it is now marked `needs design`. Unlike 82–89 it has real
+pages: alo's `RichTextEditor.tsx` and `quote-studio/quoteImageData.ts` shrink
+a chosen picture through `drawImage` and `toDataURL`. The mark names the
+decisions its ADR must make (where the bitmap lives, which encoder
+`toDataURL` rents, readback and fingerprinting). **109** came next: *needs
+ADR*, with 63 and 106 done, and `LOOP.md` stage 2 § 4 makes the ADR its own
+iteration. That is this one. 108's roadmap line is unchanged, since nothing
+was built or decided for it.
+
+**What was decided (ADR 0023).** No code changed.
+- Media is decoded in a **media process per site**, which settles what ADR
+  0005 deferred. The browser process starts it, confines it with the
+  renderer's own profile, and reaps it with the site's renderer. It holds
+  only the bytes it is handed, never the page's heap or document.
+- The browser process fetches the bytes and forwards them unread. Audio goes
+  to the device, which the browser process owns. Frames go to the renderer.
+- Audio is **Symphonia 0.6.1** (MPL-2.0, safe Rust by its own statement):
+  `ogg`, `wav`, `mkv`, `vorbis`, `flac`, `pcm` and `mp3`. A track is bounded
+  at 8 channels and 8 000–384 000 Hz.
+- **Opus waits.** libopus is C. `opus-rs` allows `unsafe` crate-wide and is
+  eight months old. `ruopus` is three months old.
+- **AV1 waits** on ADR 0021's `rav1d` release. **VP8 and VP9** have no Rust
+  decoder.
+- **AAC, H.264, H.265 and DRM are never played.** Every "can you play this"
+  answer is derived from what decodes.
+
+The survey was taken from crates.io, docs.rs and the projects' own pages on
+2026-10-06. Its facts are stated as each source gives them. In particular,
+Symphonia's "100% safe Rust" is its own claim and was not read in source
+here. The commit that adds it must check that.
+
+**Queue.** 109 records the decision and stays open. It closes only when all
+of 289–295 have closed. Those items were opened:
+- 289: audio decoded in `alo-media`.
+- 290: the media process.
+- 291: `<audio>` and `HTMLMediaElement`'s first members.
+- 292: sound to the device. It needs hardware for its last step and says so.
+
+These four are each opened by a frozen page that plays a file. None exists:
+alo's `<video>` is a camera stream (93), and its Meet room is WebRTC.
+- 293 (Opus), 294 (AV1) and 295 (VP8 and VP9) are each blocked on a decoder.
+
+**Gate, mechanical.** I ran `scripts/gate.sh` in the foreground. It ran 15
+minutes and passed the tool's 10-minute foreground ceiling, so the harness
+moved it to the background. I waited for it, and read its result before writing
+this entry. Meanwhile I ran only `git diff --check`. It exited 0 with "The gate is
+met.":
+- fmt clean, clippy silent, every test passing with no `FAILED` result;
+- no stubs, `unsafe` forbidden, licence notices present;
+- all 21 rented crates behind their boundary, no coordinate verbs, the stop
+  rule holding.
+
+`git diff --check` passes.
+
+**Gate, manual.** Nothing positions, sizes or draws, so no layout assertion
+or reference render applies. No source file changed, so one responsibility
+per file is untouched. `docs/features.md`, `ROADMAP.md` (the *Audio and
+video* line now reads "not started: nothing is built. Decided in ADR 0023",
+as 0022's did, and is not ticked), `CHANGELOG.md`, `QUEUE.md` and
+`REMAINING.md` say what was decided and that nothing plays.
+
+**Unresolved obligations.**
+- 108 needs its ADR, which is a design iteration of its own.
+- 289–292 wait on a frozen page that plays a file. 293–295 wait on decoders.
+- Carried from 179: 288, 284 and 286 wait on a page; 269 on a `rav1d`
+  release; the `image-webp` upstream report and ADR 0022's wording are a
+  person's calls.
+- Still needing designs: 82, 83, 85–89, 95–99, 104, 105, 109's neighbours
+  111 (Web Audio, no closing condition), 179 and 258.
+- In file order the next candidates are 110 (on 109, not done) and 111.
+  111 has no closing condition. 113 (incremental style and layout) depends
+  only on 80, which is done, and its closing condition is a count, not a
+  stopwatch. The next iteration decides.
+
+124 queue items are open (none closed; 289–295 opened). The next unused
+queue number is **296** and the next ADR is **0024**. This is one
+iteration, not a finished queue or roadmap.
