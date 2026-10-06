@@ -47,6 +47,20 @@ impl EventLoop {
     /// a checkpoint, until it is done.
     pub(super) fn dispatch(&mut self, list: &Root, turn: &mut Turn) -> Result<(), Escape> {
         let (event, target) = task::dispatched(&mut self.engine, list)?;
+        self.dispatch_event(event, target, turn).map(drop)
+    }
+
+    /// Dispatch `event`, which the browser made, to `target`, trusted —
+    /// every listener called with nothing else running and followed by a
+    /// checkpoint — answering whether a listener cancelled it.
+    ///
+    /// Both must be held by the task's root.
+    pub(super) fn dispatch_event(
+        &mut self,
+        event: Ref,
+        target: Ref,
+        turn: &mut Turn,
+    ) -> Result<bool, Escape> {
         // The task made both, and a script could not have reached the event
         // to dispatch it first: a refusal is our bug, and stops the page.
         dispatch::begin(self.engine.objects(), event, target, true)
@@ -54,7 +68,7 @@ impl EventLoop {
         loop {
             self.awake()?;
             let (callback, this) = match dispatch::next(self.engine.objects(), event)? {
-                Next::Done { .. } => return Ok(()),
+                Next::Done { canceled } => return Ok(canceled),
                 Next::Call { callback, this } => (callback, this),
             };
             let outcome = self.listener(callback, this, event);

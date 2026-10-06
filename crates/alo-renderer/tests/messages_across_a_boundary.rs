@@ -159,22 +159,37 @@ fn every_message_from_a_renderer_survives_the_crossing() {
         FromRenderer::Tree(Box::new(Snapshot {
             root: Some(a_node(vec![a_node(vec![]), a_node(vec![a_node(vec![])])])),
         })),
-        FromRenderer::Acted(Outcome::Activated {
-            node: id(3),
-            name: Some("Save".to_owned()),
-        }),
-        FromRenderer::Acted(Outcome::Followed {
-            node: id(4),
-            to: "https://example.com/next".to_owned(),
-        }),
-        FromRenderer::Acted(Outcome::TextPut {
-            node: id(5),
-            text: "12 May".to_owned(),
-        }),
-        FromRenderer::Acted(Outcome::Scrolled {
-            node: id(6),
-            by: ScrollBy::ToStart,
-        }),
+        FromRenderer::Acted {
+            outcome: Outcome::Activated {
+                node: id(3),
+                name: Some("Save".to_owned()),
+            },
+            issues: Vec::new(),
+        },
+        FromRenderer::Acted {
+            outcome: Outcome::Followed {
+                node: id(4),
+                to: "https://example.com/next".to_owned(),
+            },
+            issues: vec![
+                "click: uncaught: Error: a listener threw".to_owned(),
+                String::new(),
+            ],
+        },
+        FromRenderer::Acted {
+            outcome: Outcome::TextPut {
+                node: id(5),
+                text: "12 May".to_owned(),
+            },
+            issues: Vec::new(),
+        },
+        FromRenderer::Acted {
+            outcome: Outcome::Scrolled {
+                node: id(6),
+                by: ScrollBy::ToStart,
+            },
+            issues: Vec::new(),
+        },
         FromRenderer::Refused(Refusal::NotFound {
             target: Target::Named("Nowhere".to_owned()),
         }),
@@ -418,10 +433,13 @@ fn anything_left_over_after_a_message_is_refused() {
 
 #[test]
 fn a_message_that_stops_in_the_middle_is_refused() {
-    let whole = write_from_renderer(&FromRenderer::Acted(Outcome::Followed {
-        node: id(4),
-        to: "https://example.com/next".to_owned(),
-    }));
+    let whole = write_from_renderer(&FromRenderer::Acted {
+        outcome: Outcome::Followed {
+            node: id(4),
+            to: "https://example.com/next".to_owned(),
+        },
+        issues: Vec::new(),
+    });
     for cut in 1..whole.len() {
         assert!(
             read_from_renderer(whole.get(..cut).unwrap_or_default()).is_err(),

@@ -916,11 +916,20 @@ unreachable without it.
       document cell and handed to a native (`Call::host_defined`), and the
       cell holds `Event`'s unforgeables object, whose one getter per realm
       `unforgeable.rs` copies onto every event as an own, non-configurable
-      accessor: `false` for a script's dispatch, `true` for the browser's ·
-      Owed: something the browser does that
-      fires one, and `Activate` as a keyboard's click with activation behaviour in
-      `alo-dom` (256, which closes the line's queue item 81); `PutText`'s
-      input events (257), focus (258) and event handler attributes (259)
+      accessor: `false` for a script's dispatch, `true` for the browser's.
+      **An agent's `Activate` is a keyboard's click** (queue item 256, ADR
+      0018 §§ 4–7, closing queue item 81): on a page that runs script it is
+      one `Work::Activate` task — a trusted `PointerEvent` `click` with no
+      position (`alo-bindings`' `UIEvent`, `MouseEvent`, `PointerEvent`),
+      wrapped in `alo-dom`'s `activation.rs` (a checkbox or radio changed
+      before the listeners and put back if one cancels; `input` and
+      `change` after; a link followed only if nobody cancelled) — answered
+      after the task, with what its script said in `Acted`'s issues; the
+      agent changes no ARIA state there. `alo-settings` carries
+      `SettingsModal.tsx`'s nav script, and pressing *Sharing* makes it the
+      open row · Owed: `HTMLElement` and `click()`, the activation rule's
+      second caller (261); `PutText`'s input events (257), focus (258) and
+      event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
       · Built: **a control draws its own state** (queue item 182) — a tick in a
       checked box, a dot in a chosen radio, a dash in one that is neither, in

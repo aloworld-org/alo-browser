@@ -147,7 +147,7 @@ fn an_agent_activates_a_row_by_name_and_never_by_position() {
         verb: Verb::Activate,
     });
     match answer {
-        FromRenderer::Acted(outcome) => {
+        FromRenderer::Acted { outcome, .. } => {
             assert_eq!(outcome.node(), row.id, "the row it named, not another");
             assert!(outcome.to_string().contains("Filters & rules"));
         }
@@ -156,18 +156,86 @@ fn an_agent_activates_a_row_by_name_and_never_by_position() {
 }
 
 #[test]
-fn what_a_row_does_next_needs_a_script_and_this_says_so() {
-    // Honest about the edge of stage 1. Pressing a nav row runs the page's
-    // own code, and there is none — so the verb finds the row, reports what
-    // it pressed, and the screen does not change. A browser that pretended
-    // otherwise would be lying to the thing driving it.
+fn pressing_a_row_runs_the_screens_own_script_and_the_tree_says_which_is_open_now() {
+    // Item 81's closing condition. This test used to assert that pressing a
+    // nav row changed nothing, because the screen had no script. It has
+    // one now — what alo-workplace's `SettingsModal.tsx` does on a nav
+    // click, in plain DOM — and an agent's `Activate` is the click a
+    // keyboard user's Enter fires (ADR 0018 § 5), heard by the page's own
+    // listener. So the row the agent pressed is the open one, read from the
+    // tree rather than guessed from a colour.
     let mut renderer = settings();
-    let before = read(&mut renderer).to_outline();
-    renderer.handle(ToRenderer::Act {
+    let before = read(&mut renderer);
+    let sharing_before = named(&before, "Sharing").expect("the row").rect;
+
+    let answer = renderer.handle(ToRenderer::Act {
         target: Target::Named("Sharing".to_owned()),
         verb: Verb::Activate,
     });
-    assert_eq!(read(&mut renderer).to_outline(), before);
+    match &answer {
+        FromRenderer::Acted { outcome, issues } => {
+            assert!(issues.is_empty(), "the screen's script said: {issues:?}");
+            assert!(outcome.to_string().contains("Sharing"), "{outcome}");
+        }
+        other => panic!("the row should be operable: {other:?}"),
+    }
+
+    let after = read(&mut renderer);
+    let sharing = named(&after, "Sharing").expect("the row");
+    assert!(sharing.states.current.is_some(), "Sharing is the open one");
+    for other in [
+        "General",
+        "Filters & rules",
+        "Notifications",
+        "App passwords",
+    ] {
+        let node = named(&after, other).expect("a row");
+        assert!(node.states.current.is_none(), "{other} is not");
+    }
+    assert_eq!(sharing.rect, sharing_before, "nothing moved");
+
+    // The highlight moved with it, in numbers: `navItemOn`'s background is
+    // painted over the Sharing row's box and no longer over General's, and
+    // its text is in the accent colour.
+    let drawn = renderer
+        .rendered()
+        .map(|drawing| drawing.display.to_outline())
+        .unwrap_or_default();
+    assert!(
+        drawn.contains("rgb(252 234 227) at (36, 208.1336) 169×31.132813"),
+        "the highlight is behind Sharing:\n{drawn}"
+    );
+    assert!(
+        !drawn.contains("rgb(252 234 227) at (36, 141.86798) 169×31.132813"),
+        "and not behind General:\n{drawn}"
+    );
+    assert!(
+        drawn.contains("\"Sharing\" rgb(231 111 81) 13px at (48, 228.2005)"),
+        "Sharing is in the accent colour:\n{drawn}"
+    );
+    assert!(
+        drawn.contains("\"General\" rgb(95 85 75) 13px at (48, 161.93488)"),
+        "General is not:\n{drawn}"
+    );
+}
+
+#[test]
+fn the_screen_is_drawn_as_its_markup_says_until_somebody_presses_something() {
+    // The script only listens at load, so loading it changes nothing a person
+    // or an agent can see: the committed reference render says the same,
+    // and so does the tree.
+    let mut renderer = settings();
+    let snapshot = read(&mut renderer);
+    let open = named(&snapshot, "General").expect("the open section");
+    assert!(open.states.current.is_some());
+    let drawn = renderer
+        .rendered()
+        .map(|drawing| drawing.display.to_outline())
+        .unwrap_or_default();
+    assert!(
+        drawn.contains("rgb(252 234 227) at (36, 141.86798) 169×31.132813"),
+        "{drawn}"
+    );
 }
 
 #[test]
@@ -180,13 +248,13 @@ fn an_agent_operates_the_controls_that_do_not_need_one() {
         target: Target::Named("Send automatic replies".to_owned()),
         verb: Verb::Activate,
     });
-    assert!(matches!(answer, FromRenderer::Acted(_)), "{answer:?}");
+    assert!(matches!(answer, FromRenderer::Acted { .. }), "{answer:?}");
 
     let answer = renderer.handle(ToRenderer::Act {
         target: Target::Named("First day away".to_owned()),
         verb: Verb::PutText("3 June".to_owned()),
     });
-    assert!(matches!(answer, FromRenderer::Acted(_)), "{answer:?}");
+    assert!(matches!(answer, FromRenderer::Acted { .. }), "{answer:?}");
 
     let outline = read(&mut renderer).to_outline();
     assert!(

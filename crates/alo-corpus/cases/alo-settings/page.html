@@ -45,5 +45,29 @@
       </div>
     </div>
   </div>
+  <script>
+// What alo-workplace's SettingsModal.tsx does when a nav row is pressed, in
+// plain DOM (queue items 81 and 256): the pressed row becomes the current
+// one — aria-current true and navItemOn — and every other row is not. It
+// only listens at load, so the screen it draws at load is the markup's.
+function element(node) {
+  while (node !== null && typeof node.getAttribute !== 'function') {
+    node = node.nextSibling;
+  }
+  return node;
+}
+const panel = element(element(document.body.firstChild).firstChild);
+const nav = element(element(element(panel.firstChild).nextSibling).firstChild);
+function choose(pressed) {
+  for (let row = element(nav.firstChild); row !== null; row = element(row.nextSibling)) {
+    const on = row === pressed;
+    row.setAttribute('class', on ? 'navItem navItemOn' : 'navItem');
+    row.setAttribute('aria-current', on ? 'true' : 'false');
+  }
+}
+for (let row = element(nav.firstChild); row !== null; row = element(row.nextSibling)) {
+  row.addEventListener('click', e => choose(e.currentTarget));
+}
+  </script>
 </body>
 </html>

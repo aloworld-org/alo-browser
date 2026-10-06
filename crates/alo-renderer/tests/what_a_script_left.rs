@@ -168,7 +168,7 @@ fn the_agent_names_the_node_a_script_made_and_acts_on_it() {
         target: Target::Named("Made by script".to_owned()),
         verb: Verb::PutText("typed by an agent".to_owned()),
     });
-    assert!(matches!(acted, FromRenderer::Acted(_)), "{acted:?}");
+    assert!(matches!(acted, FromRenderer::Acted { .. }), "{acted:?}");
     let after = read(&mut renderer).to_outline();
     assert!(after.contains("typed by an agent"), "{after}");
     let Some(document) = renderer.document() else {
@@ -283,7 +283,7 @@ fn an_act_is_decided_against_the_page_a_task_left() {
         target: Target::Named("Renamed later".to_owned()),
         verb: Verb::PutText("found".to_owned()),
     });
-    assert!(matches!(acted, FromRenderer::Acted(_)), "{acted:?}");
+    assert!(matches!(acted, FromRenderer::Acted { .. }), "{acted:?}");
     let gone = renderer.handle(ToRenderer::Act {
         target: Target::Named("Made by script".to_owned()),
         verb: Verb::PutText("lost".to_owned()),

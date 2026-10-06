@@ -359,9 +359,13 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
                 None => writer.bool(false),
             }
         }
-        FromRenderer::Acted(outcome) => {
+        FromRenderer::Acted { outcome, issues } => {
             writer.tag(3);
             writer.outcome(outcome);
+            writer.number(issues.len() as u64);
+            for issue in issues {
+                writer.text(issue);
+            }
         }
         FromRenderer::Refused(refusal) => {
             writer.tag(4);
@@ -977,7 +981,15 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
             };
             FromRenderer::Tree(Box::new(Snapshot { root }))
         }
-        3 => FromRenderer::Acted(reader.outcome()?),
+        3 => {
+            let outcome = reader.outcome()?;
+            let how_many = reader.count()?;
+            let mut issues = Vec::new();
+            for _ in 0..how_many {
+                issues.push(reader.text()?);
+            }
+            FromRenderer::Acted { outcome, issues }
+        }
         4 => FromRenderer::Refused(reader.refusal()?),
         5 => {
             let failure = match reader.tag()? {

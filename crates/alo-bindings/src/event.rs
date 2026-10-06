@@ -8,7 +8,7 @@
 //! state — its type, its three init flags, its phase, its target and current
 //! target, the flags its listeners set — and an ordinary object's part for
 //! whatever a page hangs off it. A `CustomEvent` is the same cell with its
-//! `detail`.
+//! `detail`, and a `PointerEvent` the same cell with its [`Shape`] saying so.
 //!
 //! # A dispatch's state lives here
 //!
@@ -23,9 +23,10 @@
 //! # An event the browser fires
 //!
 //! A page makes its events with `new Event(…)`; the browser makes its own
-//! with [`create`], the standard's *create an event*: an `Event` inheriting
-//! from the prototype the page's document cell holds, its type and init flags
-//! as the browser gives them ([`Firing`]), and nothing else. Its dispatch is
+//! with [`create`], the standard's *create an event*: an `Event` — or a
+//! `PointerEvent`, for a click (queue item 256) — inheriting from the
+//! prototype the page's document cell holds, its type and init flags as the
+//! browser gives them ([`Firing`]), and nothing else. Its dispatch is
 //! the event loop's (queue item 255), and is trusted (ADR 0018 § 4).
 //!
 //! It is given `isTrusted` there as the constructors give it, from the cell's
@@ -95,11 +96,20 @@ impl Init {
     }
 }
 
-/// Whether an event is a `CustomEvent`, which has a `detail`.
+/// Which interface an event is an instance of, beyond `Event`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Custom {
-    No,
-    Yes,
+pub enum Shape {
+    /// An `Event`, and nothing more.
+    Event,
+    /// A `CustomEvent`, which has a `detail`.
+    Custom,
+    /// A `PointerEvent`, and so a `MouseEvent` and a `UIEvent` (ADR 0018
+    /// § 5). The only one this engine makes is a click no pointing device
+    /// caused — the browser's for an agent's `Activate` — so its members
+    /// are that click's and are not held: every coordinate `0`, no button,
+    /// no modifier, `pointerId` `-1`, `pointerType` `""`. A pointer that
+    /// really points brings fields with it, with the window that has one.
+    Pointer,
 }
 
 /// How far a listener has stopped a dispatch.
@@ -120,7 +130,7 @@ enum Stop {
 #[derive(Debug)]
 pub struct Event {
     own: Ordinary,
-    custom: Custom,
+    shape: Shape,
     kind: Vec<u16>,
     /// `bubbles`, `cancelable` and `composed`, in [`Init`]'s order.
     init: [bool; 3],
@@ -136,13 +146,12 @@ pub struct Event {
 }
 
 impl Event {
-    /// A new event — a `CustomEvent` if `custom` — inheriting from
-    /// `prototype`, with the empty type and every flag unset: what the
-    /// constructor then initializes.
-    pub fn new(prototype: Option<Ref>, custom: bool) -> Self {
+    /// A new event of `shape` inheriting from `prototype`, with the empty
+    /// type and every flag unset: what the constructor then initializes.
+    pub fn new(prototype: Option<Ref>, shape: Shape) -> Self {
         Self {
             own: Ordinary::with_prototype(prototype),
-            custom: if custom { Custom::Yes } else { Custom::No },
+            shape,
             kind: Vec::new(),
             init: [false; 3],
             trusted: false,
@@ -160,7 +169,13 @@ impl Event {
 
     /// Whether it is a `CustomEvent`.
     pub fn is_custom(&self) -> bool {
-        self.custom == Custom::Yes
+        self.shape == Shape::Custom
+    }
+
+    /// Whether it is a `PointerEvent` — and so a `MouseEvent` and a
+    /// `UIEvent`, since no other instance of either is ever made.
+    pub fn is_pointer(&self) -> bool {
+        self.shape == Shape::Pointer
     }
 
     /// Its type, as the code units it was made with.
@@ -362,27 +377,50 @@ impl Trace for Event {
 
 impl Exotic for Event {
     fn describe(&self) -> &'static str {
-        if self.is_custom() {
-            "a CustomEvent"
-        } else {
-            "an Event"
+        match self.shape {
+            Shape::Event => "an Event",
+            Shape::Custom => "a CustomEvent",
+            Shape::Pointer => "a PointerEvent",
         }
     }
 }
 
 /// How the `Event` constructor makes its instance.
 pub fn make_event(prototype: Option<Ref>) -> Box<dyn Exotic> {
-    Box::new(Event::new(prototype, false))
+    Box::new(Event::new(prototype, Shape::Event))
 }
 
 /// How the `CustomEvent` constructor makes its instance.
 pub fn make_custom_event(prototype: Option<Ref>) -> Box<dyn Exotic> {
-    Box::new(Event::new(prototype, true))
+    Box::new(Event::new(prototype, Shape::Custom))
 }
 
-/// An event the browser fires: its type and its three init flags.
+/// Which interface an event the browser fires is an instance of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fired {
+    /// `Event`: what HTML's *fire an event* makes — an `input` or a
+    /// `change`, say.
+    Event,
+    /// `PointerEvent`: a `click` (ADR 0018 § 5).
+    PointerEvent,
+}
+
+impl Fired {
+    /// The interface, and the event's shape.
+    const fn interface(self) -> (Interface, Shape) {
+        match self {
+            Self::Event => (Interface::Event, Shape::Event),
+            Self::PointerEvent => (Interface::PointerEvent, Shape::Pointer),
+        }
+    }
+}
+
+/// An event the browser fires: its interface, its type and its three init
+/// flags.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Firing<'a> {
+    /// Its interface.
+    pub interface: Fired,
     /// Its type — `"click"`, say.
     pub kind: &'a str,
     /// `bubbles`.
@@ -393,9 +431,42 @@ pub struct Firing<'a> {
     pub composed: bool,
 }
 
-/// Make the event `firing` describes, inheriting from `Event.prototype` as
-/// the document `cell` holds it and with `Event`'s unforgeable members — the
-/// standard's *create an event*, for the browser's own dispatch.
+impl Firing<'static> {
+    /// The click keyboard activation fires, and so an agent's `Activate`
+    /// (ADR 0018 § 5): a `PointerEvent` `click`, bubbling, cancelable and
+    /// composed.
+    pub const CLICK: Self = Self {
+        interface: Fired::PointerEvent,
+        kind: "click",
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+    };
+
+    /// The `input` a toggled checkbox or radio fires: an `Event`, bubbling
+    /// and composed, not cancelable (HTML's activation behaviour for both).
+    pub const INPUT: Self = Self {
+        interface: Fired::Event,
+        kind: "input",
+        bubbles: true,
+        cancelable: false,
+        composed: true,
+    };
+
+    /// The `change` that follows it: an `Event`, bubbling and nothing more.
+    pub const CHANGE: Self = Self {
+        interface: Fired::Event,
+        kind: "change",
+        bubbles: true,
+        cancelable: false,
+        composed: false,
+    };
+}
+
+/// Make the event `firing` describes, inheriting from its interface's
+/// prototype as the document `cell` holds it and with the unforgeable
+/// members of that interface and those it inherits — the standard's *create
+/// an event*, for the browser's own dispatch.
 ///
 /// **A safepoint.** `cell` must be rooted by the caller, and the event
 /// answered is held by nothing: the caller holds it before anything else
@@ -406,13 +477,14 @@ pub struct Firing<'a> {
 /// [`Escape::Full`] when the heap cannot hold it; a fault when `cell` is not
 /// a document cell whose interfaces have been made.
 pub fn create(objects: &mut Objects, cell: Ref, firing: &Firing<'_>) -> Result<Ref, Escape> {
+    let (interface, shape) = firing.interface.interface();
     let prototype = objects
         .embedded::<DocumentCell>(cell)
         .ok_or(Escape::fault(Fault::NotAnObject))?
         .interfaces()
-        .prototype(Interface::Event)
+        .prototype(interface)
         .ok_or(Escape::fault(Fault::Gone))?;
-    let mut event = Event::new(Some(prototype), false);
+    let mut event = Event::new(Some(prototype), shape);
     event.set_kind(firing.kind.encode_utf16().collect());
     event.set_init(Init::Bubbles, firing.bubbles);
     event.set_init(Init::Cancelable, firing.cancelable);
@@ -421,6 +493,6 @@ pub fn create(objects: &mut Objects, cell: Ref, firing: &Firing<'_>) -> Result<R
         .foreign(Box::new(event))
         .map_err(|why| Escape::refused(why, 0))?;
     // Copying allocates nothing, so the event nothing holds yet survives it.
-    unforgeable::copy(objects, cell, made, Interface::Event)?;
+    unforgeable::copy(objects, cell, made, interface)?;
     Ok(made)
 }

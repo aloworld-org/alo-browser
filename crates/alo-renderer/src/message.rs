@@ -136,7 +136,17 @@ pub enum FromRenderer {
     /// The tree, as it was at that instant.
     Tree(Box<Snapshot>),
     /// A verb ran, and this is what it did.
-    Acted(Outcome),
+    Acted {
+        /// What it did — as the page left it: a link whose click a listener
+        /// cancelled was activated, not followed (ADR 0018 § 5).
+        outcome: Outcome,
+        /// What the page's script said while the verb's task ran — a
+        /// listener's throw, say, or the page stopping — at most
+        /// [`crate::event_loop::MOST_REPORTS`] lines, each at most
+        /// [`crate::said::LONGEST_LINE`] characters, and a count of the rest.
+        /// Empty on a page that has never run script, where nothing listens.
+        issues: Vec<String>,
+    },
     /// A verb was refused. **Not a failure**: ADR 0002 makes refusing a
     /// result, because acting on the wrong row is worse than acting on none.
     Refused(Refusal),
@@ -272,7 +282,7 @@ mod tests {
             | FromRenderer::Loaded { .. }
             | FromRenderer::Painted(_)
             | FromRenderer::Tree(_)
-            | FromRenderer::Acted(_)
+            | FromRenderer::Acted { .. }
             | FromRenderer::Refused(_)
             | FromRenderer::Failed(_) => "what became of it, and nothing about any other request",
         };

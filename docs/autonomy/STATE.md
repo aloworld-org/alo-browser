@@ -13116,3 +13116,152 @@ iteration 141's browser-side font-name guard still has no discriminating
 test. 113 queue items are open. Next is **256** — its dependencies 255 and
 260 are done. Next unused queue number **261**; next ADR **0020**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 155 — item 256 built: `Activate` is a keyboard's click, and item 81 closes
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Events* line, iterations 153 and 154's
+entries, queue items 81, 233 and 254–260, ADR 0018 in full; HTML's
+legacy-pre-activation, legacy-canceled-activation and checkbox/radio
+activation behaviour (the standard's text, fetched and read); and the code
+it changes — `alo-agent`'s `apply.rs` and `verb.rs`, `alo-bindings`'
+`event.rs`, `interface.rs`, `interface/event.rs`, `custom_event.rs`,
+`install.rs`, `dispatch.rs`, `unforgeable.rs`, `embed.rs`; `alo-renderer`'s
+`renderer.rs`, `held.rs`, `event_loop.rs`, `event_loop/task.rs`,
+`dispatched.rs`, `scripts.rs`, `said.rs`, `message.rs`, `wire.rs`;
+`alo-corpus`' `rendering.rs`; and the Settings test and case. No
+`AGENTS.md` exists. `alo-workplace/web/src/shell/SettingsModal.tsx` was read
+for what a nav click does; no sibling repository was modified. The checkout
+was clean on entry at `4e774d9`.
+
+**Selection.** Iteration 154 named **256** next: its dependencies 255 and
+260 are done, its decision is ADR 0018 §§ 4–7, its feature line *Events*.
+
+**Scope cut, not depth.** The item named `HTMLElement` and `click()` beside
+the browser's half. Both callers of the activation rule are ADR 0018 § 6's,
+but the closing condition needs only the agent's. `click()` is cut to the
+new item **261**, with its own closing condition; the rule it will call is
+built whole here.
+
+**What was built.**
+- `alo-dom/src/activation.rs`: the activation target (the target or its
+  nearest ancestor with an activation behaviour), `before`, `cancelled` and
+  `after`, as the HTML standard writes them, for a checkbox, a radio (group
+  = same tree, same non-empty `name`), a link with an `href`, and a `button`
+  (nothing until item 82). Checkedness is the `checked` attribute until item
+  82 separates them.
+- `alo-bindings`: the event cell's `Shape`; `UIEvent`, `MouseEvent` and
+  `PointerEvent` prototypes, one file each, with the members § 5 names and
+  their keyboard-click values, brand-checked; no constructors on the global.
+  `Firing` names its interface (`Fired`), with `CLICK`, `INPUT` and `CHANGE`.
+- `alo-agent`'s `apply` asks `alo-dom` instead of toggling. It keeps the
+  `aria-checked` flip as § 7's stage 1 accommodation, which now applies only
+  to a page that never ran script.
+- `alo-renderer`: `Work::Activate`, run by `event_loop/activated.rs` —
+  before, the click, then cancelled or after, with `input` and `change`
+  dispatched **inside the same task** — reported as `Turn::clicked`;
+  `Held::activate`; `press.rs`, which runs the loop until that task has run
+  and bounds what it says; `act` answers a cancelled link as activated and
+  an uncancelled link as followed. `FromRenderer::Acted` gains `issues` (on
+  the wire: the outcome, then a counted list), because a listener's throw
+  during an `Act` must be said somewhere and was otherwise lost.
+- `alo-settings` carries SettingsModal's nav behaviour in plain DOM.
+
+**Closing condition, met.** Item 81's: the nav-row test now asserts that
+pressing *Sharing* makes it current and *General* not. The highlight is
+asserted in numbers: `navItemOn`'s fill moved to (36, 208.1336)
+169×31.132813, and the row text colours swapped. The case's reference
+render, boxes, layout and agent tree are **unchanged** with the script
+present (the corpus passes without `ALO_UPDATE_REFERENCES`). A cancelled
+click on a checkbox leaves it unticked, and the agent's tree says
+`[checked=false]`.
+
+**Tests.** `alo-dom/tests/what_a_click_activates.rs` (13);
+`alo-renderer/tests/an_agents_click.rs` (10, three of them run ordinarily
+and with the collector at every allocation): the click's members, a plain
+event having none of them, a cancelled and an uncancelled checkbox
+(`click:true job input… change…`, a listener's microtask before `input`), a
+cancelled radio, a link cancelled and not, ARIA state left to the page, a
+listener's throw in `Acted`'s issues, a stopped page, and a scriptless page
+as stage 1. Also `an_agent_on_settings.rs` (nav-row test rewritten, plus a
+load test) and `messages_across_a_boundary.rs` (an `Acted` with issues
+round-trips, and is refused when cut short). **Doctored runs**, each
+restored from a copy and checked:
+- `cancelled` not unticking — fails the cancelled-checkbox test;
+- a scripted page's click falling back to `apply` — fails the Settings
+  nav-row test;
+- no `input`/`change` — fails;
+- the click a plain `Event` — fails;
+- a cancelled link always followed — fails 3.
+
+One doctor was cut off by a pipe before it restored `renderer.rs`; it was
+restored from its copy and diffed back. **Not doctored:** the radio's
+cancel path through the renderer (its rule is doctor-free but tested in
+`alo-dom`), and the stopped-page fallback.
+
+**Compliance review.**
+- Law 1: nothing legacy added — no `initMouseEvent`, no `which`.
+- Law 2: the agent still names and never points; the click carries no
+  coordinate (§ 5), and the gate's coordinate check passes.
+- Law 3: no stubs and no `unwrap` outside tests. Every failure is an error
+  or a said issue.
+- Law 4: no `unsafe`.
+- One file, one responsibility: the rule (`activation.rs`), the task
+  (`activated.rs`), the renderer's press (`press.rs`), and one file per
+  interface. `renderer.rs`' `act` only routes.
+- Positions and sizes: the layout is asserted in numbers (the row's
+  rectangle unchanged, the highlight's fill at its numbers). The reference
+  render is unchanged and checked by the corpus.
+- No bytes from outside are newly read except the `Acted` issues on the
+  wire. They go through the existing bounded reader, and a cut message is
+  refused (tested).
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step (7 min 13 s): formatting clean, clippy silent, all tests pass,
+nothing stubbed, `unsafe` forbidden, licence notices, every rented crate
+behind its boundary, no coordinate verb, the stop rule holds, and
+`CHANGELOG.md` changed with the code. `git diff --check` passes. The log is
+in this session's scratchpad, not committed.
+
+**Roadmap.** The *Events* line's Built clause gains `Activate` as a
+keyboard's click. Its Owed clause is now 261, 257, 258 and 259. Not a
+tick. `docs/features.md`, `CHANGELOG.md`, `QUEUE.md` (256 and 81 ticked
+with notes, 261 added, a note on 233) and `REMAINING.md` moved with it.
+
+**Unresolved obligations.**
+- New from this item:
+  - `click()` and `HTMLElement` (261).
+  - On a page that **never ran script**, activating a non-link inside a link
+    answers `Activated` (stage 1's `perform` decision). On a scripted page
+    the ancestor link is followed, as the standard says. The two paths
+    differ until stage 1's accommodation is retired.
+  - Radio groups ignore form owners. Checkedness is the attribute, and
+    indeterminateness is not held (all item 82).
+  - A click task that stops the page leaves a box it already changed
+    changed.
+  - `getModifierState`, CSSOM View's coordinates, the three constructors and
+    every device member of `PointerEvent` are absent.
+  - Item 233 still owes the loop running between messages.
+- Carried, unchanged from iteration 154:
+  - several realms in one heap, and a second document cell's
+    unforgeables;
+  - `document` as an accessor (251), and node constructors;
+  - `addEventListener` with an object type or an options getter is refused
+    by name (221);
+  - a dispatch abandoned by a non-page escape leaves its event flagged;
+  - `hand_over_reported`'s 256 roots;
+  - absent members wait for a page or an item;
+  - other thrown objects are said as `an object` (78);
+  - a `<meta>` policy a script inserts is not applied;
+  - detached trees wait for the first collection after the parse;
+  - the heap-refused document path is not discriminated;
+  - the heap ceiling's one-write overshoot;
+  - 248's overrun fallback;
+  - 78's remainder; 77 needs design; 233, 234, 238 and 240 are open, and
+    76 is not done;
+  - `violations::reports` is still uncalled (203);
+  - iteration 141's font-name guard has no discriminating test.
+
+112 queue items are open. Next is **261** or **257**, both depending only
+on 256. The next unused queue number is **262** and the next ADR **0020**.
+This is one iteration, not a finished queue or roadmap.

@@ -109,7 +109,14 @@ fn a_fetch_by_a_page_an_agent_opened_leads_back_to_the_action() {
     // The agent acts. The action is minted here, by the browser process, and
     // the renderer is not asked what caused anything.
     let acted = tabs.act(shopping, Target::Named("Basket".to_owned()), Verb::Activate);
-    let Ok((action, FromRenderer::Acted(Outcome::Followed { to, .. }))) = acted else {
+    let Ok((
+        action,
+        FromRenderer::Acted {
+            outcome: Outcome::Followed { to, .. },
+            ..
+        },
+    )) = acted
+    else {
         panic!("the agent did not follow the link: {acted:?}");
     };
     assert_eq!(to, "/basket");

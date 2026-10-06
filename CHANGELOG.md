@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent pressing a button now does what pressing it does.** On a
+  page that runs script, an agent's press reaches the page as the one
+  click a person pressing Enter would send — no pointer, no position, and
+  nothing that says an agent did it — and the page's own code decides what
+  happens. A checkbox or radio is changed before that code runs and put
+  back if the page cancels the click; one that stays changed tells the page
+  with `input` and `change` events; a link is followed only if the page did
+  not cancel. The agent hears back once all of it has run, along with
+  anything the page's script reported. On such a page the agent no longer
+  flips ARIA state itself, because the page does. alo's Settings screen
+  now carries its own navigation script, and pressing *Sharing* opens it.
+
 - **A page can now tell the browser's events from its own.** Every event
   answers `isTrusted`: `true` when the browser sent it, `false` when a
   page's script made it or sent it — including an event the browser sent

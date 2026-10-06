@@ -76,6 +76,15 @@ pub(super) enum Work {
         /// The target's wrapper, then the event, in one rooted list.
         list: Root,
     },
+    /// An agent's `Activate` (ADR 0018 §§ 5–6, queue item 256): HTML's
+    /// activation steps around the dispatch of a `click` the browser made,
+    /// and the `input` and `change` a toggled box fires after it.
+    Activate {
+        /// The target's wrapper, then the click — and, as the task runs, the
+        /// activation target's wrapper and each event it fires — in one
+        /// rooted list.
+        list: Root,
+    },
 }
 
 /// A task waiting its turn.
@@ -134,7 +143,7 @@ impl Tasks {
     pub(super) fn release(engine: &mut Engine, work: Work) {
         match work {
             Work::Script { .. } => {}
-            Work::Calls { list, .. } | Work::Dispatch { list } => {
+            Work::Calls { list, .. } | Work::Dispatch { list } | Work::Activate { list } => {
                 engine.objects().heap_mut().release(list);
             }
         }
@@ -223,14 +232,26 @@ pub(super) enum Unmade {
     Escaped(Escape),
 }
 
+impl Unmade {
+    /// As an escape, inside a task that already holds its node and its
+    /// document: neither can be missing there, so either is a fault.
+    pub(super) fn into_escape(self) -> Escape {
+        match self {
+            Unmade::Escaped(escape) => escape,
+            Unmade::NoSuchNode(_) | Unmade::NotADocument => Escape::fault(Fault::Gone),
+        }
+    }
+}
+
 impl From<Escape> for Unmade {
     fn from(escape: Escape) -> Self {
         Unmade::Escaped(escape)
     }
 }
 
-/// The work of dispatching the event `firing` describes to `node`, in the
-/// document `cell` holds, the node's wrapper made if it has none.
+/// The rooted list of `node`'s wrapper and the event `firing` describes, in
+/// the document `cell` holds, the node's wrapper made if it has none — what
+/// a [`Work::Dispatch`] or a [`Work::Activate`] holds.
 ///
 /// The list is made and rooted first, so the wrapper and the event, each an
 /// allocation, are held by it from the moment they exist. `cell` must be
@@ -239,22 +260,54 @@ impl From<Escape> for Unmade {
 /// # Errors
 ///
 /// [`Unmade`]: no such node, no document, or a heap too full to hold them.
-pub(super) fn dispatch(
+pub(super) fn listed(
     engine: &mut Engine,
     cell: Ref,
     node: NodeId,
     firing: &Firing<'_>,
-) -> Result<Work, Unmade> {
+) -> Result<Root, Unmade> {
     let objects = engine.objects();
     let list = objects.slots().map_err(|why| Escape::refused(why, 0))?;
     let list = objects.heap_mut().root(list);
     match fill(objects, &list, cell, node, firing) {
-        Ok(()) => Ok(Work::Dispatch { list }),
+        Ok(()) => Ok(list),
         Err(why) => {
             objects.heap_mut().release(list);
             Err(why)
         }
     }
+}
+
+/// `node`'s wrapper in the document `cell` holds, made if it has none, and
+/// the event `firing` describes, each added to the end of the task's rooted
+/// `list` as it is made — for an activation task firing at the activation
+/// target. Answers them, the wrapper first.
+///
+/// # Errors
+///
+/// [`Unmade`]: no such node, no document, or a heap too full to hold them.
+pub(super) fn add(
+    engine: &mut Engine,
+    list: &Root,
+    cell: Ref,
+    node: NodeId,
+    firing: &Firing<'_>,
+) -> Result<(Ref, Ref), Unmade> {
+    let objects = engine.objects();
+    fill(objects, list, cell, node, firing)?;
+    let held = objects
+        .heap()
+        .holding(list)
+        .ok_or(Escape::fault(Fault::Gone))?;
+    let length = objects.slot_count(held).ok_or(Escape::fault(Fault::Gone))?;
+    let object = |at: usize| match objects.slot(held, at) {
+        Some(Held::Value(Value::Object(object))) => Ok(object),
+        Some(Held::Value(_) | Held::Uninitialized) | None => Err(Escape::fault(Fault::Gone)),
+    };
+    Ok((
+        object(length.saturating_sub(2))?,
+        object(length.saturating_sub(1))?,
+    ))
 }
 
 /// Put the target's wrapper, then the event, in the rooted `list`.
@@ -290,7 +343,8 @@ fn push(objects: &mut Objects, list: &Root, value: Ref) -> Result<(), Escape> {
         .ok_or(Escape::fault(Fault::Gone))
 }
 
-/// The event and the target's wrapper a [`Work::Dispatch`] task holds.
+/// The event and the target's wrapper a [`Work::Dispatch`] task holds — or
+/// the click and its target, first in a [`Work::Activate`]'s list.
 ///
 /// # Errors
 ///

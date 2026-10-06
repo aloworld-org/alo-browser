@@ -39,9 +39,14 @@
 //! never its markup again. **Never inside a task**: a page that changes its
 //! document ten thousand times in one script is drawn once.
 //!
+//! # An agent's verb on a page that runs script
+//!
+//! `Activate` there is a `click` (ADR 0018 § 5): one task on the page's
+//! loop, its listeners called and its activation steps run, and the `Act`
+//! answered after it with what the page's script said ([`crate::press`]).
+//!
 //! What is not here yet is the loop running between messages — a task a
-//! page queues for itself has no idle moment to run in, and an `Act` runs no
-//! script because nothing listens for one (queue items 233 and 81).
+//! page queues for itself has no idle moment to run in (queue item 233).
 
 use crate::event_loop::EventLoop;
 use crate::face::Face;
@@ -51,11 +56,12 @@ use crate::held::Held;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::pipeline::{Drawing, draw};
+use crate::press::press;
 use crate::said;
 use crate::scripts;
 use crate::snapshot::Snapshot;
 use alo_agent::{AgentTree, apply, perform};
-use alo_agent::{Target, Verb};
+use alo_agent::{Outcome, Target, Verb};
 use alo_dom::{Document, Parsing};
 use alo_layout::Size;
 use alo_text::Font;
@@ -213,6 +219,13 @@ impl Renderer {
     /// the document, wherever it lives, and the page is **drawn again** if the
     /// change count moved, because a document that changed and a layout that
     /// did not are two structures that disagree.
+    ///
+    /// On a page that runs script, `Activate` is a `click` the page's
+    /// listeners hear, as one task run to its end before this answers
+    /// ([`crate::press`], ADR 0018 §§ 3–7): what the document becomes is the
+    /// page's, and a link is followed only if nobody cancelled the click. On
+    /// a page that never ran script, `alo-agent`'s `apply` carries the
+    /// decision in, as it did in stage 1.
     fn act(&mut self, target: &Target, verb: &Verb) -> FromRenderer {
         self.fresh();
         let (Some(held), Some((drawing, _))) = (&mut self.held, &self.drawn) else {
@@ -226,14 +239,43 @@ impl Renderer {
             Ok(outcome) => outcome,
             Err(refusal) => return FromRenderer::Refused(refusal),
         };
-        // From the **same document**: working out what a changed attribute
-        // could possibly have affected is a cache, and a wrong cache is a
-        // wrong pixel nobody can find. Re-parsing would be worse than slow —
-        // it would mint new node ids and break every snapshot anybody was
-        // holding.
-        held.change(|document| apply(document, &drawing.boxes, &outcome));
+        // What it is called, in case a cancelled link answers as activated.
+        let name = tree
+            .nodes()
+            .into_iter()
+            .find(|node| node.id() == outcome.node())
+            .and_then(|node| node.name());
+        let node = drawing
+            .boxes
+            .get(outcome.node())
+            .and_then(|held| held.kind.node());
+        let pressed = match (&outcome, node) {
+            (Outcome::Activated { .. } | Outcome::Followed { .. }, Some(node)) => press(held, node),
+            _ => None,
+        };
+        let (outcome, issues) = if let Some(pressed) = pressed {
+            let outcome = match pressed.follow {
+                Some(to) => Outcome::Followed {
+                    node: outcome.node(),
+                    to,
+                },
+                None => Outcome::Activated {
+                    node: outcome.node(),
+                    name,
+                },
+            };
+            (outcome, pressed.issues)
+        } else {
+            // From the **same document**: working out what a changed
+            // attribute could possibly have affected is a cache, and a wrong
+            // cache is a wrong pixel nobody can find. Re-parsing would be
+            // worse than slow — it would mint new node ids and break every
+            // snapshot anybody was holding.
+            held.change(|document| apply(document, &drawing.boxes, &outcome));
+            (outcome, Vec::new())
+        };
         self.fresh();
-        FromRenderer::Acted(outcome)
+        FromRenderer::Acted { outcome, issues }
     }
 
     /// A new page: parsed, each of its scripts run as a task when the parser

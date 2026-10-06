@@ -33,6 +33,10 @@
 //!   element, refused when no attribute can have it ([`by_name`]);
 //!   [`Document::set_data`] and [`Document::replace_all_with_text`] are what
 //!   `textContent` writes.
+//! - [`activation`] is what a click does to the element it activates — a
+//!   checkbox or radio changed before the listeners run and put back if one
+//!   cancels, a link to follow after (ADR 0018 § 6) — for both of a click's
+//!   callers.
 //! - [`Document::body`] and [`Document::set_body`] are HTML's *the body
 //!   element*, read and replaced as `document.body` does ([`body`]).
 //! - [`Parsing`] parses a document a step at a time, stopping at each
@@ -77,6 +81,7 @@
 //! );
 //! ```
 
+pub mod activation;
 pub mod body;
 pub mod by_name;
 pub mod document;

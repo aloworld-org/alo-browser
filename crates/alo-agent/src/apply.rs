@@ -26,14 +26,27 @@
 //! Not the shape of the tree: adding and removing nodes belongs with the DOM
 //! APIs, and nothing an agent does needs it.
 //!
-//! **Activating a button changes nothing**, and that is correct rather than
-//! missing: what a button does is run a script, and a page without one does
-//! nothing when it is pressed. **Following a link changes nothing here**
+//! **What a click does to a box is not decided here.** It is `alo-dom`'s
+//! activation rule ([`alo_dom::activation`], ADR 0018 § 6), which a script's
+//! `el.click()` runs too; this only asks it. And this is only asked on a page
+//! that has **never run script**: on one that has, `Activate` is a `click`
+//! the renderer dispatches to the page's listeners, around which it runs the
+//! same rule itself — and a listener may cancel it.
+//!
+//! **`aria-checked` is changed here, and only here**, as a stage 1
+//! accommodation (ADR 0018 § 7): on a page without script nobody else keeps
+//! that promise, and alo's own scriptless screens were tested against it. On
+//! a page with script, the page's listener keeps it.
+//!
+//! **Activating a plain button changes nothing** on a page without script,
+//! and that is correct rather than missing: what a button does is run a
+//! script, and there is none. **Following a link changes nothing here**
 //! either — where a page goes is the browser process's, and the outcome says
 //! where.
 
 use crate::verb::Outcome;
 use alo_box::{BoxId, BoxTree};
+use alo_dom::activation::{self, Activation};
 use alo_dom::{Document, NodeId};
 
 /// What changing the document actually did.
@@ -84,7 +97,7 @@ pub fn apply(document: &mut Document, boxes: &BoxTree, outcome: &Outcome) -> Vec
                 value: text.clone(),
             }]
         }
-        Outcome::Activated { .. } => toggle(document, node),
+        Outcome::Activated { .. } => activate(document, node),
         // Where a page goes is the browser process's, and scrolling is a fact
         // about the view rather than about the document.
         Outcome::Followed { .. } | Outcome::Scrolled { .. } => vec![Change::Nothing],
@@ -96,14 +109,17 @@ fn source_of(boxes: &BoxTree, id: BoxId) -> Option<NodeId> {
     boxes.get(id).and_then(|node| node.kind.node())
 }
 
-/// Activating something that holds a state, which is the only activation a
-/// page without script has an answer for.
-fn toggle(document: &mut Document, node: NodeId) -> Vec<Change> {
+/// Activating something on a page that has never run script: the stage 1
+/// accommodation for ARIA state (ADR 0018 § 7), or else `alo-dom`'s
+/// activation rule run with nobody listening — before, then after, since
+/// there is no listener to cancel it.
+fn activate(document: &mut Document, node: NodeId) -> Vec<Change> {
     let Some(element) = document.element(node) else {
         return vec![Change::Nothing];
     };
     // An author who declared the state with ARIA is the one who decides what
-    // it means, so the same attribute is the one to change.
+    // it means, so the same attribute is the one to change — on a page with
+    // no script, where nobody else will.
     if element.attr("aria-checked").is_some() {
         let now = if element.attr("aria-checked") == Some("true") {
             "false"
@@ -117,80 +133,47 @@ fn toggle(document: &mut Document, node: NodeId) -> Vec<Change> {
             value: now.to_owned(),
         }];
     }
-    if !element.name.is_html("input") {
-        return vec![Change::Nothing];
-    }
-    let kind = element
-        .attr("type")
-        .map(str::to_ascii_lowercase)
-        .unwrap_or_default();
-    match kind.as_str() {
-        "checkbox" => {
-            if element.attr("checked").is_some() {
-                document.remove_attribute(node, "checked");
-                vec![Change::Removed {
-                    node,
-                    attribute: "checked".to_owned(),
-                }]
-            } else {
-                document.set_attribute(node, "checked", "");
-                vec![Change::Set {
-                    node,
-                    attribute: "checked".to_owned(),
-                    value: String::new(),
-                }]
-            }
-        }
-        // A radio does not toggle: choosing one un-chooses the rest of its
-        // group, which is the whole reason a group exists.
-        "radio" => choose_radio(document, node),
-        _ => vec![Change::Nothing],
-    }
+    let done = activation::before(document, node);
+    // `after`'s `input` and `change` go to nobody on a page with no script,
+    // and a link's destination is already the outcome's.
+    let _follows = activation::after(document, &done);
+    changes(&done)
 }
 
-/// Choose one radio, and un-choose the others that share its name.
-fn choose_radio(document: &mut Document, node: NodeId) -> Vec<Change> {
-    let group = document
-        .element(node)
-        .and_then(|element| element.attr("name"))
-        .map(str::to_owned);
-    let mut changes = Vec::new();
-
-    if let Some(group) = group {
-        let siblings: Vec<NodeId> = document
-            .descendants(document.root())
-            .filter(|held| *held != node)
-            .filter(|held| {
-                document.element(*held).is_some_and(|element| {
-                    element.name.is_html("input")
-                        && element
-                            .attr("type")
-                            .is_some_and(|kind| kind.eq_ignore_ascii_case("radio"))
-                        && element.attr("name") == Some(group.as_str())
-                        && element.attr("checked").is_some()
-                })
-            })
-            .collect();
-        for sibling in siblings {
-            document.remove_attribute(sibling, "checked");
-            changes.push(Change::Removed {
-                node: sibling,
+/// What [`activation::before`] changed, as [`Change`]s.
+fn changes(done: &Activation) -> Vec<Change> {
+    let checked = |node: NodeId, now: bool| {
+        if now {
+            Change::Set {
+                node,
                 attribute: "checked".to_owned(),
-            });
+                value: String::new(),
+            }
+        } else {
+            Change::Removed {
+                node,
+                attribute: "checked".to_owned(),
+            }
         }
-    }
-
-    if document
-        .element(node)
-        .is_some_and(|element| element.attr("checked").is_none())
-    {
-        document.set_attribute(node, "checked", "");
-        changes.push(Change::Set {
+    };
+    let mut changes = match done {
+        Activation::Checkbox { node, was } => vec![checked(*node, !was)],
+        Activation::Radio {
             node,
-            attribute: "checked".to_owned(),
-            value: String::new(),
-        });
-    }
+            was,
+            unchecked,
+        } => {
+            let mut changes: Vec<Change> = unchecked
+                .iter()
+                .map(|other| checked(*other, false))
+                .collect();
+            if !was {
+                changes.push(checked(*node, true));
+            }
+            changes
+        }
+        Activation::None | Activation::Link { .. } | Activation::Button { .. } => Vec::new(),
+    };
     if changes.is_empty() {
         changes.push(Change::Nothing);
     }

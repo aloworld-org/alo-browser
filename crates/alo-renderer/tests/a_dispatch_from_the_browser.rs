@@ -25,7 +25,7 @@
 use std::thread;
 use std::time::Duration;
 
-use alo_bindings::Firing;
+use alo_bindings::{Fired, Firing};
 use alo_dom::{NodeId, parse_document};
 use alo_js::interpret::Trouble;
 use alo_js::{Value, script};
@@ -42,6 +42,7 @@ const NAMES: &str =
 
 /// A bubbling, cancelable event of type `ping`.
 const PING: Firing<'static> = Firing {
+    interface: Fired::Event,
     kind: "ping",
     bubbles: true,
     cancelable: true,
@@ -233,6 +234,7 @@ fn the_dispatch_walks_the_path_and_each_phase_is_what_the_listener_reads() {
     );
     // Not bubbling: no ancestor is reached on the way up.
     let quiet = Firing {
+        interface: Fired::Event,
         bubbles: false,
         ..PING
     };
@@ -255,6 +257,7 @@ fn the_event_is_what_the_browser_made_and_is_let_go_of_when_it_ends() {
         "ping,true,true,false,true,false|0,null,true,0"
     );
     let other = Firing {
+        interface: Fired::Event,
         kind: "pong",
         bubbles: false,
         cancelable: false,
@@ -375,6 +378,7 @@ fn a_callback_object_is_called_by_its_handle_event_as_a_scripts_dispatch_calls_i
     let scripted = case(
         setup,
         &Firing {
+            interface: Fired::Event,
             kind: "other",
             ..PING
         },

@@ -163,7 +163,7 @@ fn every_node_that_crosses_carries_the_identity_a_verb_needs() {
         target: Target::Node(button.id),
         verb: Verb::Activate,
     }) {
-        FromRenderer::Acted(outcome) => assert_eq!(outcome.node(), button.id),
+        FromRenderer::Acted { outcome, .. } => assert_eq!(outcome.node(), button.id),
         other => panic!("expected the verb to run, got {other:?}"),
     }
 }
@@ -193,7 +193,7 @@ fn a_verb_reaches_the_page_and_the_next_read_can_see_it() {
         target: Target::Named("Note".to_owned()),
         verb: Verb::PutText("typed".to_owned()),
     }) {
-        FromRenderer::Acted(outcome) => outcome,
+        FromRenderer::Acted { outcome, .. } => outcome,
         other => panic!("expected the verb to run, got {other:?}"),
     };
     assert!(outcome.to_string().contains("typed"), "{outcome}");
@@ -270,7 +270,7 @@ fn a_scroll_crosses_the_boundary_like_anything_else() {
         verb: Verb::Scroll(ScrollBy::ToEnd),
     });
     assert!(
-        matches!(answer, FromRenderer::Acted(_)),
+        matches!(answer, FromRenderer::Acted { .. }),
         "a list with more rows than room scrolls: {answer:?}",
     );
 }

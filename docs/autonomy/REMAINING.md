@@ -288,6 +288,15 @@ per realm, own, not configurable. 113 queue items are open; **256** is next
 (its dependencies 255 and 260 are done); the next unused queue number is
 261 and the next unused ADR 0020.
 
+Iteration 155 built item 256, closing item 81: an agent's `Activate` on a
+page that runs script is a trusted `PointerEvent` `click` dispatched as one
+task, with `alo-dom`'s `activation.rs` around it, `input` and `change`
+after a box nobody cancelled, and `Acted` carrying what the script said;
+`alo-settings` carries its nav script. `HTMLElement` and `click()` were cut
+to the new item 261. 112 queue items are open; **261** is next (it depends
+only on 256), then 257; the next unused queue number is 262 and the next
+unused ADR 0020.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

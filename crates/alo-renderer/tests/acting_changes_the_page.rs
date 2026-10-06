@@ -197,7 +197,7 @@ fn the_ids_an_agent_is_holding_still_name_the_same_things_afterwards() {
         Verb::PutText("still me".to_owned()),
     );
     match answer {
-        FromRenderer::Acted(outcome) => assert_eq!(outcome.node(), email),
+        FromRenderer::Acted { outcome, .. } => assert_eq!(outcome.node(), email),
         other => panic!("a held id went stale: {other:?}"),
     }
     assert!(read(&mut renderer).to_outline().contains("still me"));
@@ -215,7 +215,7 @@ fn activating_a_button_changes_nothing_because_there_is_nothing_to_change() {
         Target::Named("Save".to_owned()),
         Verb::Activate,
     ) {
-        FromRenderer::Acted(outcome) => assert!(outcome.to_string().contains("Save")),
+        FromRenderer::Acted { outcome, .. } => assert!(outcome.to_string().contains("Save")),
         other => panic!("expected the verb to run, got {other:?}"),
     }
     assert_eq!(read(&mut renderer).to_outline(), before);

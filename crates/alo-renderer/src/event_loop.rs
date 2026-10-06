@@ -76,8 +76,9 @@
 //!
 //! **Nothing in a page queues a task yet.** A timer firing is item 92 and a
 //! response is item 83; each will queue through [`EventLoop::queue_calls`].
-//! The browser's dispatch is queued through [`Held::dispatch`], and nothing
-//! the browser does fires one yet: an agent's `Activate` is item 256. The
+//! The browser's dispatch is queued through [`Held::dispatch`], and an
+//! agent's `Activate` on a page that runs script is one ([`Held::activate`],
+//! [`activated`], item 256), run before the `Act` is answered. The
 //! [`Renderer`] holds one
 //! loop per page and queues a task for each of the page's own scripts as it
 //! loads ([`crate::scripts`], item 236); the loop running between messages,
@@ -88,7 +89,9 @@
 //!
 //! [`Renderer`]: crate::Renderer
 //! [`Held::dispatch`]: crate::held::Held::dispatch
+//! [`Held::activate`]: crate::held::Held::activate
 
+mod activated;
 mod described;
 mod dispatched;
 mod microtask;
@@ -106,6 +109,7 @@ use alo_js::heap::Ref;
 use alo_js::interpret::{Engine, Stop};
 use alo_js::{Escape, Thrown, Value, compile, script};
 
+pub use activated::Clicked;
 pub use report::Report;
 use source::Sources;
 pub use source::{Place, Trace};
@@ -200,6 +204,9 @@ pub struct Turn {
     pub jobs: usize,
     /// Why the page stopped, if this task stopped it.
     pub stopped: Option<Stopped>,
+    /// What an activation task's click came to, if this was one and it ran
+    /// to its end.
+    pub clicked: Option<Clicked>,
 }
 
 /// A page's event loop, and the engine its script runs in.
@@ -348,8 +355,38 @@ impl EventLoop {
         if let Some(stopped) = &self.stopped {
             return Err(Unqueued::Stopped(stopped.clone()));
         }
-        match task::dispatch(&mut self.engine, cell, node, firing) {
-            Ok(work) => Ok(self.tasks.push(work)),
+        self.queue_listed(cell, node, firing, |list| Work::Dispatch { list })
+    }
+
+    /// Queue an agent's `Activate` of `node`, in the document `cell` holds
+    /// (ADR 0018 §§ 5–6): one task that runs HTML's activation steps around
+    /// the dispatch of a trusted `click` — a `PointerEvent` with no position
+    /// — and fires the `input` and `change` a toggled box fires after it.
+    /// What it came to is the task's [`Turn::clicked`].
+    ///
+    /// `cell` must be rooted by the caller.
+    ///
+    /// # Errors
+    ///
+    /// As [`EventLoop::queue_dispatch`].
+    pub fn queue_activation(&mut self, cell: Ref, node: NodeId) -> Result<Seq, Unqueued> {
+        if let Some(stopped) = &self.stopped {
+            return Err(Unqueued::Stopped(stopped.clone()));
+        }
+        self.queue_listed(cell, node, &Firing::CLICK, |list| Work::Activate { list })
+    }
+
+    /// Queue the work `work` makes of a rooted list of `node`'s wrapper and
+    /// the event `firing` describes.
+    fn queue_listed(
+        &mut self,
+        cell: Ref,
+        node: NodeId,
+        firing: &Firing<'_>,
+        work: impl FnOnce(alo_js::Root) -> Work,
+    ) -> Result<Seq, Unqueued> {
+        match task::listed(&mut self.engine, cell, node, firing) {
+            Ok(list) => Ok(self.tasks.push(work(list))),
             Err(Unmade::NoSuchNode(node)) => Err(Unqueued::NoSuchNode(node)),
             Err(Unmade::NotADocument) => Err(Unqueued::NotADocument),
             Err(Unmade::Escaped(escape)) => {
@@ -383,6 +420,7 @@ impl EventLoop {
             unreported: 0,
             jobs: 0,
             stopped: None,
+            clicked: None,
         };
         let outcome = self.perform(&task.work, &mut turn);
         Tasks::release(&mut self.engine, task.work);
@@ -423,6 +461,10 @@ impl EventLoop {
                 Ok(())
             }
             Work::Dispatch { list } => self.dispatch(list, turn),
+            Work::Activate { list } => {
+                turn.clicked = Some(self.activate(list, turn)?);
+                Ok(())
+            }
         }
     }
 

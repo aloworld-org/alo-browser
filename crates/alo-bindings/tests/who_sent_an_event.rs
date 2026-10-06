@@ -15,7 +15,7 @@
 //! agree: the getter is held by the document cell's unforgeables object and
 //! by every event it was copied to, and nothing else.
 
-use alo_bindings::event::{self, Firing};
+use alo_bindings::event::{self, Fired, Firing};
 use alo_bindings::{Interface, adopt, install};
 use alo_dom::parse_document;
 use alo_js::heap::{Ref, Root};
@@ -206,6 +206,7 @@ fn every_event_shares_one_getter_per_realm() {
             page.engine.objects(),
             cell,
             &Firing {
+                interface: Fired::Event,
                 kind: "click",
                 bubbles: true,
                 cancelable: true,

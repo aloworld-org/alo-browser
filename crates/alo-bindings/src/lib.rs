@@ -55,8 +55,10 @@
 //! members are item 80's and item 254's and no more — everything else a page
 //! reaches for is absent, so `typeof` answers `"undefined"` (ADR 0017 § 8).
 //! The browser's dispatch is a task the renderer's event loop runs (queue
-//! item 255), but nothing the browser does fires one yet: an agent's
-//! `Activate` is queue item 256.
+//! item 255), and an agent's `Activate` is one: a `click` that is a
+//! `PointerEvent` ([`Firing::CLICK`], queue item 256), its chain `UIEvent`,
+//! `MouseEvent` and `PointerEvent`, none with a constructor on the global.
+//! `HTMLElement` and `click()` are queue item 261.
 
 mod define;
 mod dictionary;
@@ -75,7 +77,7 @@ pub mod wrapper;
 
 pub use document_cell::{DocumentCell, Released};
 pub use embed::{Unadopted, Wrapping, adopt, change_document, document, node_of, wrap};
-pub use event::{Event, Firing};
+pub use event::{Event, Fired, Firing, Shape};
 pub use install::{furnish, install};
 pub use interface::dom_exception::DomException;
 pub use interface::{Interface, Interfaces, prototype_of};

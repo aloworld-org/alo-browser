@@ -20,7 +20,8 @@
 //! # The browser's dispatch
 //!
 //! [`Held::dispatch`] is how the browser fires an event at a node (ADR 0018
-//! § 3): on a page whose document is in its heap, a task on its loop. **A page
+//! § 3): on a page whose document is in its heap, a task on its loop — and
+//! [`Held::activate`] is how an agent's `Activate` is one (§§ 5–6). **A page
 //! that has never run script is dispatched to by nobody** — it has no heap,
 //! so no wrapper and no listener, and it is not given a heap to find that out.
 //! Stage 1's pages behave exactly as they did.
@@ -146,6 +147,31 @@ impl Held {
                     .holding(&scripted.cell)
                     .ok_or(Unqueued::NotADocument)?;
                 scripted.script.queue_dispatch(cell, node, firing).map(Some)
+            }
+        }
+    }
+
+    /// Queue an agent's `Activate` of `node` as a task on the page's loop —
+    /// the activation steps around a trusted `click` (ADR 0018 §§ 5–6) —
+    /// answering which task, or [`None`] on a page that has never run
+    /// script, where nobody listens and `alo-agent`'s `apply` acts instead.
+    ///
+    /// Nothing runs here: the task runs when the loop reaches it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Held::dispatch`].
+    pub fn activate(&mut self, node: NodeId) -> Result<Option<Seq>, Unqueued> {
+        match self {
+            Held::Parsed(_) => Ok(None),
+            Held::Scripted(scripted) => {
+                let cell = scripted
+                    .script
+                    .objects()
+                    .heap()
+                    .holding(&scripted.cell)
+                    .ok_or(Unqueued::NotADocument)?;
+                scripted.script.queue_activation(cell, node).map(Some)
             }
         }
     }

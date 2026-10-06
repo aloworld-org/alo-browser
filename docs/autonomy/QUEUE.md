@@ -3149,6 +3149,12 @@ The long pole, and the thing most of section E is unreachable without.
   a listener (item 81) or a timer (92). Neither exists, so neither question
   has a test that could close it yet. *Depends on 81 or 92 for its closing
   condition.*
+  **Iteration 155 (item 256) answers an `Act` after its task**: an agent's
+  `Activate` on a page that runs script is a task whose listeners run with
+  a checkpoint after each, and the renderer answers only once it has run
+  (`an_agents_click.rs` sees a listener's microtask run before `input`).
+  What is left here is (1), the loop running between messages, and item
+  76's table through it.
 
 - [x] **235. The renderer's event loop itself: tasks, their order, and the
   checkpoint after each piece of script.** *Cut from 233 (iteration 134);
@@ -4059,7 +4065,7 @@ The long pole, and the thing most of section E is unreachable without.
   than the first such child, `null` taken as no change, the HTML-namespace
   conversion, and the setter absent — each fails at least one test.
 
-- [ ] **81. Events**: capture and bubble, listeners, default actions. **This is
+- [x] **81. Events**: capture and bubble, listeners, default actions. **This is
   what makes a button do something**, which every agent verb has been honest
   about not doing since stage 1.
   *Depends on 80. Closes when:* `alo-renderer`'s test that a nav row changes
@@ -4082,6 +4088,12 @@ The long pole, and the thing most of section E is unreachable without.
   `SettingsModal.tsx` does on a nav click (`aria-current` and `navItemOn` move
   to the pressed row); its reference render must not move, which shows the
   script changed nothing at load. It closes when 254, 255 and 256 have.
+  **Closed (iteration 155)** with 256: `an_agent_on_settings.rs`' nav-row
+  test now asserts that pressing *Sharing* makes it `aria-current` and
+  *General* not, the highlight's fill moved to (36, 208.1336) 169×31.132813,
+  and `alo-settings`' references unchanged with the script in the page. What
+  it cut and left open is its own items: 257, 258 (needs design), 259 and
+  261.
 
 - [x] **254. Events from script: `EventTarget`, `Event`, `CustomEvent` and
   the dispatch algorithm.** *Cut from 81 (ADR 0018 §§ 1–3, 8). Depends on
@@ -4157,7 +4169,7 @@ The long pole, and the thing most of section E is unreachable without.
   each restored: no checkpoint per listener (5 tests fail), the stepper told
   before the checkpoint (1), the task not rooting its target (1).
 
-- [ ] **256. `Activate` is a keyboard's click.** *Cut from 81 (ADR 0018 §§ 4–7).
+- [x] **256. `Activate` is a keyboard's click.** *Cut from 81 (ADR 0018 §§ 4–7).
   Depends on 255 and 260* (an agent's click is trusted, § 4). `UIEvent`,
   `MouseEvent` and `PointerEvent` with the members § 5 names; `alo-dom`'s
   `activation.rs` (before, cancelled, after) for a checkbox, a radio and a
@@ -4169,6 +4181,39 @@ The long pole, and the thing most of section E is unreachable without.
   *General* is not, with the moved highlight's box asserted in numbers and
   the reference render unchanged at load — and a cancelled click on a
   checkbox leaving it unticked.
+  **Built (iteration 155).** `alo-dom`: `activation.rs` — the activation
+  target (the click's target or its nearest ancestor with an activation
+  behaviour), `before` (a checkbox turned over, a radio checked and its
+  group — same tree, same non-empty name; form owners are item 82's —
+  cleared), `cancelled` (put back as HTML's legacy-canceled-activation
+  says), `after` (`input` and `change` for a box still connected, a link to
+  follow, nothing for a `button` until item 82). `alo-bindings`: the event
+  cell's `Shape` (`Event`, `Custom`, `Pointer`); `UIEvent` (`detail`),
+  `MouseEvent` (`screenX/Y`, `clientX/Y`, the four modifier keys, `button`,
+  `buttons`, `relatedTarget`) and `PointerEvent` (`pointerId` −1,
+  `pointerType` `""`) prototypes in the chain, no constructors on the
+  global; `Firing` names its interface (`Fired`) with `CLICK`, `INPUT` and
+  `CHANGE`; `event::create` makes either. `alo-agent`'s `apply` asks
+  `alo-dom` instead of toggling and keeps `aria-checked` as ADR 0018 § 7's
+  stage 1 accommodation, reached only on a page that never ran script.
+  `alo-renderer`: `Work::Activate` and `event_loop/activated.rs` — before,
+  the click, cancelled or after, `input` and `change` dispatched in the
+  same task — `Turn::clicked`; `Held::activate`; `press.rs`, which runs the
+  loop until that task has run and bounds what it says; `act` answers a
+  cancelled link as activated, an uncancelled one as followed; a stopped
+  page's click still changes its box and says nobody heard it.
+  `FromRenderer::Acted` gains `issues` (wire tag 3: the outcome, then a
+  counted list of lines). Tests: `alo-dom/tests/what_a_click_activates.rs`
+  (13), `alo-renderer/tests/an_agents_click.rs` (10, three run ordinarily
+  and collecting at every allocation), `an_agent_on_settings.rs` (the nav
+  row rewritten, and one more that the screen is the markup's at load),
+  `messages_across_a_boundary.rs` (an `Acted` with issues round-trips).
+  Doctored runs, each restored: `cancelled` not unticking, the click on a
+  scripted page falling back to `apply`, no `input`/`change`, the click a
+  plain `Event`, and a cancelled link followed — each fails a test. The
+  corpus case `alo-settings` passes with every reference unchanged.
+  **Cut, by scope:** `HTMLElement` and `click()` are item 261 — the
+  activation rule's second caller; the rule itself is built for both.
 
 - [ ] **257. `PutText` fires `beforeinput`, `input` and `change`.** *Cut from
   81 (ADR 0018 § 5). Depends on 256* (for `UIEvent`). `InputEvent` with
@@ -4189,6 +4234,20 @@ The long pole, and the thing most of section E is unreachable without.
   `csp::Inline::Script` with `csp::Content::attribute` (item 191's shape),
   and `el.onclick = f`. *Depends on 254. Opened by a page* that fails
   without them, as `ROADMAP.md` asks of stage 2.
+
+- [ ] **261. `HTMLElement` and `click()`.** *Cut from 256 (ADR 0018 § 6).
+  Depends on 256.* An element in the HTML namespace gets the `HTMLElement`
+  interface between `Element` and its own; `HTMLElement.prototype.click()`
+  is the standard's: nothing on a disabled form control, nothing while that
+  element's click is already in progress, otherwise an **untrusted**
+  `PointerEvent` `click` (`pointerId` −1) dispatched synchronously from the
+  native (ADR 0018 § 3's script driver — no checkpoint between listeners),
+  with `alo-dom`'s `activation.rs` run around it exactly as the renderer's
+  `Work::Activate` runs it, `input` and `change` included. *Closes when:* a
+  page's script calls `box.click()` and its listeners read the box ticked,
+  `isTrusted` `false`, and no microtask between them; a listener's
+  `preventDefault` leaves the box as it was; and a second `click()` from
+  inside the first's listener does nothing.
 
 - [x] **260. `isTrusted`, as Web IDL's `[LegacyUnforgeable]` attribute.**
   *Cut from 254 (ADR 0018 §§ 4 and 8). Depends on nothing.* An own accessor

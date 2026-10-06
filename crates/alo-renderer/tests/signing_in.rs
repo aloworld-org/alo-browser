@@ -58,7 +58,7 @@ fn read(renderer: &mut Renderer) -> Snapshot {
 
 fn expect_acted(answer: &FromRenderer) {
     assert!(
-        matches!(answer, FromRenderer::Acted(_)),
+        matches!(answer, FromRenderer::Acted { .. }),
         "the verb should have run: {answer:?}",
     );
 }
