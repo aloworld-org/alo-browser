@@ -21,6 +21,7 @@
 //! where it landed.
 
 use crate::display::{Display, Inside, Outside};
+use crate::natural::NaturalSize;
 use crate::semantics::Semantics;
 use crate::whitespace::WhiteSpace;
 use alo_css::{IssueKind, Location, StyleIssue};
@@ -238,10 +239,10 @@ pub struct BoxTree {
     /// decoded the content. This crate knows nothing about pictures and should
     /// not start.
     ///
-    /// A pair rather than a `Size`, because the type that has one lives in
-    /// `alo-layout` and `alo-layout` is built on top of this. A width and a
-    /// height are a width and a height.
-    natural: BTreeMap<BoxId, (f32, f32)>,
+    /// A [`NaturalSize`] rather than a width and a height, because an `<svg>`
+    /// with only a `viewBox` has a shape and no size, and one with nothing
+    /// written has neither — and both are still replaced boxes.
+    natural: BTreeMap<BoxId, NaturalSize>,
     /// Which box a `<fieldset>` shows in its block-start band, by fieldset.
     ///
     /// A fieldset's first `<legend>` is not laid out where it was written: it
@@ -276,14 +277,17 @@ impl BoxTree {
     /// Say that a box has a size of its own.
     ///
     /// Called after the tree is built, by whoever decoded the content — a
-    /// picture, and later a video. Setting it twice is the later one winning,
+    /// picture, and later a video. An outermost `<svg>` is given its own while
+    /// the tree is built, because what it says is in its attributes rather
+    /// than in bytes somebody has to fetch. Setting it twice is the later one winning,
     /// which is what happens when a picture is replaced.
-    pub fn set_natural_size(&mut self, id: BoxId, size: (f32, f32)) {
+    pub fn set_natural_size(&mut self, id: BoxId, size: NaturalSize) {
         self.natural.insert(id, size);
     }
 
-    /// The size a box has of its own, if it has one.
-    pub fn natural_size(&self, id: BoxId) -> Option<(f32, f32)> {
+    /// What a replaced box's content says about its size, or [`None`] for a
+    /// box that is not replaced.
+    pub fn natural_size(&self, id: BoxId) -> Option<NaturalSize> {
         self.natural.get(&id).copied()
     }
 
@@ -694,7 +698,14 @@ fn build_one(
 
     match display {
         Display::None => Vec::new(),
+        // A replaced element has no children to promote, so CSS makes
+        // `contents` on one mean `none` — and an `<svg>`'s children are
+        // shapes, which must not leak into the page as boxes.
+        Display::Contents if crate::svg::is_outermost(document, id, element) => Vec::new(),
         Display::Contents => build_children(document, styles, id, tree),
+        Display::Box { .. } if crate::svg::is_outermost(document, id, element) => {
+            vec![svg_box(document, id, element, display, tree)]
+        }
         Display::Box { .. } => {
             let semantics = Semantics::of(document, id, element);
             let box_id = tree.push(BoxKind::Element { node: id, display }, semantics);
@@ -737,6 +748,32 @@ fn build_one(
             vec![box_id]
         }
     }
+}
+
+/// The one box an outermost `<svg>` makes (ADR 0022 § 1).
+///
+/// Whatever its `display` says about its inside, it gets **no children**:
+/// what is inside an `<svg>` is drawn, not laid out, so a `<path>` makes no
+/// box any more than a pixel of an `<img>` does. Its natural size comes from
+/// its own attributes, and what it wrote that could not be used is recorded.
+fn svg_box(
+    document: &Document,
+    id: NodeId,
+    element: &alo_dom::Element,
+    display: Display,
+    tree: &mut BoxTree,
+) -> BoxId {
+    let semantics = Semantics::of(document, id, element);
+    let box_id = tree.push(BoxKind::Element { node: id, display }, semantics);
+    let (natural, refused) = crate::svg::natural_size(element);
+    tree.natural.insert(box_id, natural);
+    tree.issues
+        .extend(refused.into_iter().map(|source| StyleIssue {
+            kind: IssueKind::UnsupportedValue,
+            source,
+            at: Location { line: 0, column: 0 },
+        }));
+    box_id
 }
 
 /// What `display` an element ends up with, recording a value this engine does
@@ -1038,6 +1075,90 @@ mod tests {
         assert!(outline.starts_with("block flow · document\n"), "{outline}");
         assert!(outline.contains("block flow · paragraph"), "{outline}");
         assert!(outline.contains("text \"hello\""), "{outline}");
+    }
+
+    /// The `<svg>` box of `tree`, which the tests below have exactly one of.
+    fn svg_of(tree: &BoxTree) -> BoxId {
+        tree.ids()
+            .find(|id| {
+                tree.get(*id)
+                    .is_some_and(|node| node.semantics.role.to_string() == "image")
+            })
+            .expect("an <svg> box")
+    }
+
+    /// ADR 0022 § 1, on alo's offline screen's own markup: one box, and the
+    /// four paths inside it are not boxes.
+    #[test]
+    fn an_svg_is_one_box_and_its_shapes_are_not_boxes() {
+        let html = "<main><svg viewBox='0 0 24 24' fill=none aria-hidden=true>\
+             <path d='M18 11V6'/><path d='M14 10V4'/>\
+             <g><circle r=1 /></g><text>words</text></svg></main>";
+        let tree = boxes(html, "");
+        let svg = svg_of(&tree);
+        assert_eq!(tree.children(svg).count(), 0);
+        assert_eq!(
+            body_outline(html, ""),
+            "block flow · generic\n  block flow · main\n    inline flow-root · image [hidden]\n",
+        );
+        let natural = tree.natural_size(svg).expect("an <svg> is replaced");
+        assert_eq!((natural.width, natural.height), (None, None));
+        assert_eq!(natural.ratio(), Some(1.0));
+    }
+
+    #[test]
+    fn an_svg_the_author_made_a_container_still_has_no_boxes_inside() {
+        let html = "<svg><rect width=4 height=4 /></svg>";
+        let tree = boxes(html, "svg { display: flex }");
+        let svg = svg_of(&tree);
+        assert!(
+            tree.get(svg)
+                .is_some_and(|node| node.kind.inside() == Inside::Flex)
+        );
+        assert_eq!(tree.children(svg).count(), 0);
+        let html = "<svg>text <foreignObject><p>x</p></foreignObject></svg>";
+        let tree = boxes(html, "svg { display: block }");
+        assert_eq!(tree.children(svg_of(&tree)).count(), 0);
+    }
+
+    #[test]
+    fn display_contents_on_an_svg_is_none() {
+        assert_eq!(
+            body_outline(
+                "<p>a</p><svg><text>b</text></svg>",
+                "svg { display: contents }"
+            ),
+            "block flow · generic\n  block flow · paragraph\n    text \"a\"\n",
+        );
+    }
+
+    #[test]
+    fn an_svg_takes_its_size_from_its_attributes() {
+        let tree = boxes("<svg width=48 height=24></svg>", "");
+        let natural = tree.natural_size(svg_of(&tree)).expect("replaced");
+        assert_eq!(natural, NaturalSize::sized(48.0, 24.0));
+
+        let tree = boxes("<svg></svg>", "");
+        assert_eq!(
+            tree.natural_size(svg_of(&tree)),
+            Some(NaturalSize::default()),
+            "an <svg> with nothing written is still replaced",
+        );
+    }
+
+    #[test]
+    fn what_an_svg_wrote_that_was_not_used_is_recorded() {
+        let tree = boxes("<svg width=50% viewBox='0 0 -1 1'></svg>", "");
+        let issues: Vec<String> = tree.issues().iter().map(ToString::to_string).collect();
+        assert_eq!(issues.len(), 2, "{issues:?}");
+        assert!(
+            issues.iter().any(|issue| issue.contains("width")),
+            "{issues:?}"
+        );
+        assert!(
+            issues.iter().any(|issue| issue.contains("viewBox")),
+            "{issues:?}"
+        );
     }
 
     #[test]

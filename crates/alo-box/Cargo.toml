@@ -12,6 +12,7 @@ authors.workspace = true
 alo-css = { path = "../alo-css" }
 alo-dom = { path = "../alo-dom" }
 alo-style = { path = "../alo-style" }
+alo-value = { path = "../alo-value" }
 
 [lints]
 workspace = true

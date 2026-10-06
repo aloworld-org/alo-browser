@@ -47,6 +47,7 @@ pub mod keyword;
 pub mod legend;
 pub mod measure;
 pub mod placement;
+pub mod replaced;
 pub mod sizing;
 pub mod style;
 pub mod track;

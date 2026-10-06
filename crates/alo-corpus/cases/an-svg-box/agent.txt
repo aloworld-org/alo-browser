@@ -1,0 +1,11 @@
+document at (0, 0) 320×387.96875
+  main at (0, 4) 320×56
+  paragraph at (0, 64) 320×24
+    image "Attributes" at (0, 64) 48×24
+  paragraph at (0, 92) 320×40
+    image "Half" at (0, 92) 80×40
+  paragraph at (0, 136) 320×93.96875
+    text "Ratio" at (0, 136) 30.808594×13.96875
+    image "Ratio" at (0, 149.96875) 320×80
+  paragraph at (0, 233.96875) 320×150
+    image at (0, 233.96875) 300×150

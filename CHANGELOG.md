@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An `<svg>` in a page is one box of the right size.** Its shapes used to
+  be laid out as empty boxes of their own; now an `<svg>` is sized like a
+  picture — by its stylesheet, then its `width` and `height`, then the shape
+  of its `viewBox`, then 300 × 150 — and nothing inside it is a box. An agent
+  reads it as one image, named by its label or its `<title>`, and skips it
+  when it is marked hidden. What is inside is not drawn yet: the offline
+  screen's hand is still an empty square, until the next three steps.
+
 - **How SVG will be drawn is decided, and nothing new is drawn yet.**
   ADR 0022 makes an `<svg>` in a page one box, sized like a picture, and
   draws what is inside it as shapes rather than laying it out as boxes.

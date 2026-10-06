@@ -14,7 +14,8 @@
 //! # The name, and what is deliberately not here
 //!
 //! The **declared** name is here: `aria-label`, `aria-labelledby`, an image's
-//! `alt`, a `title`. Those are the author saying what a thing is called.
+//! `alt`, an `<svg>`'s first child `<title>`, a `title`. Those are the author
+//! saying what a thing is called.
 //!
 //! The **accessible name** — the full algorithm, which falls back to a box's
 //! own text content and to a `<label>` pointing at a field — is queue item 9's,
@@ -83,12 +84,20 @@ fn declared_label(document: &Document, id: NodeId, element: &Element) -> Option<
             return Some(named);
         }
     }
-    for attribute in ["aria-label", "alt", "title"] {
-        if let Some(value) = element.attr(attribute) {
-            let trimmed = value.trim();
-            if !trimmed.is_empty() {
-                return Some(trimmed.to_owned());
-            }
+    if let Some(label) = attribute_label(element, "aria-label") {
+        return Some(label);
+    }
+    // An `<svg>` is named by its first child `<title>` after anything ARIA
+    // says (ADR 0022 § 4), as SVG's accessibility mapping asks. A `<title>`
+    // is SVG's `alt`; it is never guessed from the shapes.
+    if crate::svg::is_outermost(document, id, element)
+        && let Some(title) = crate::svg::title(document, id)
+    {
+        return Some(title);
+    }
+    for attribute in ["alt", "title"] {
+        if let Some(label) = attribute_label(element, attribute) {
+            return Some(label);
         }
     }
     // A `<fieldset>` is named by its `<legend>`, which is the same shape as a
@@ -104,6 +113,12 @@ fn declared_label(document: &Document, id: NodeId, element: &Element) -> Option<
         return legend_of(document, id);
     }
     None
+}
+
+/// An attribute's value as a name, or [`None`] when it says nothing.
+fn attribute_label(element: &Element, attribute: &str) -> Option<String> {
+    let trimmed = element.attr(attribute)?.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_owned())
 }
 
 /// The text of a `<fieldset>`'s first `<legend>`.
@@ -227,6 +242,30 @@ mod tests {
             semantics_of(without, "x").label.as_deref(),
             Some("Said outright"),
         );
+    }
+
+    /// ADR 0022 § 4: an `<svg>` is named by what ARIA says, then by its own
+    /// first child `<title>`, and never by its shapes.
+    #[test]
+    fn an_svg_is_named_by_aria_and_then_by_its_title() {
+        let title = "<svg id=x><title>Offline</title><path d='M0 0'/></svg>";
+        assert_eq!(semantics_of(title, "x").to_string(), "image \"Offline\"");
+
+        let label = "<svg id=x aria-label='Said outright'><title>Offline</title></svg>";
+        assert_eq!(
+            semantics_of(label, "x").label.as_deref(),
+            Some("Said outright"),
+        );
+
+        let pointed = "<h2 id=t>Pointed at</h2>\
+             <svg id=x aria-labelledby=t aria-label='Said outright'><title>T</title></svg>";
+        assert_eq!(
+            semantics_of(pointed, "x").label.as_deref(),
+            Some("Pointed at")
+        );
+
+        let unnamed = "<svg id=x><path d='M0 0'/></svg>";
+        assert_eq!(semantics_of(unnamed, "x").to_string(), "image");
     }
 
     #[test]

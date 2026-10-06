@@ -451,10 +451,15 @@ fn weight_of(style: &alo_style::ComputedStyle) -> u16 {
 /// `inline flow` is a box whose content joins the line — a `<span>`, an `<a>`.
 /// Anything else inline-level establishes its own formatting context and is
 /// placed on the line whole: an `inline-block`, an `inline-flex`, an image.
+///
+/// A **replaced** box is atomic whatever its `display` says: `img { display:
+/// inline }` is still a picture, and an `<svg>` an author made inline has a
+/// size of its own rather than a line of children to join.
 fn is_atomic(boxes: &BoxTree, id: BoxId) -> bool {
-    boxes
-        .get(id)
-        .is_some_and(|node| !matches!(node.kind.inside(), Inside::Flow))
+    boxes.natural_size(id).is_some()
+        || boxes
+            .get(id)
+            .is_some_and(|node| !matches!(node.kind.inside(), Inside::Flow))
 }
 
 /// Lay out an atomic inline-level box on its own and turn it into an item.
@@ -665,17 +670,14 @@ fn build<M: MeasureText>(
         .filter_map(|child| build(boxes, styles, *child, arena, ours_to_theirs, issues))
         .collect();
 
-    let kind = match &node.kind {
-        BoxKind::Text { text, .. } => {
+    let kind = match (&node.kind, boxes.natural_size(id)) {
+        (BoxKind::Text { text, .. }, _) => {
             NodeKind::Text(text.clone(), text_style_for(boxes, styles, id))
         }
         // Before the empty case, deliberately: a replaced box has no children
         // and would otherwise be measured as nothing — which is what an `<img>`
         // did until it had a size of its own.
-        _ if boxes.natural_size(id).is_some() => {
-            let (width, height) = boxes.natural_size(id).unwrap_or((0.0, 0.0));
-            NodeKind::Replaced(taffy::Size { width, height })
-        }
+        (_, Some(natural)) => NodeKind::Replaced(natural),
         _ if children.is_empty() => NodeKind::Empty,
         _ => NodeKind::Container,
     };
@@ -731,12 +733,9 @@ fn style_for(
         // resolves one definite dimension against a ratio, and that is what a
         // ratio is for. Doing it in the leaf measure instead does not work,
         // because the measure is asked before the style width is applied.
-        aspect_ratio: ours.aspect_ratio.or_else(|| {
-            boxes
-                .natural_size(id)
-                .filter(|(width, height)| *width > 0.0 && *height > 0.0)
-                .map(|(width, height)| width / height)
-        }),
+        aspect_ratio: ours
+            .aspect_ratio
+            .or_else(|| boxes.natural_size(id).and_then(|natural| natural.ratio())),
         flex_direction: match ours.flex.direction {
             FlexDirection::Row => taffy::FlexDirection::Row,
             FlexDirection::RowReverse => taffy::FlexDirection::RowReverse,

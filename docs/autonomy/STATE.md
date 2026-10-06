@@ -14948,3 +14948,88 @@ what renders has not changed.
 item in file order is now **270**. The next unused queue number is **278**
 and the next ADR is **0023**. This is one iteration, not a finished queue or
 roadmap.
+
+## Iteration 169 — item 270: the `<svg>` box
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and *Pictures* lines, iteration 168's entry, the
+queue's section H in full, ADR 0022 in full, `docs/features.md`'s pictures
+lines, and the code item 176 built: `alo-box`'s `tree.rs`, `semantics.rs`
+and `role.rs`, `alo-layout`'s `engine.rs` and `arena.rs`, and
+`alo-renderer`'s `pictures_for`. No `AGENTS.md` exists. `alo-workplace` was
+**read only** (`web/public/offline.html`, for the `<svg>` markup and its
+56 px rule); nothing in any sibling repository was modified. The checkout was
+clean on entry at `0594ffe`.
+
+**Selection.** Iteration 168 recorded 270 as the first eligible item, and
+nothing before it changed since: 179 waits on a page, 269 on a `rav1d`
+release, and 107 is closed by 270–273. 270 depends on 176, which is done.
+
+**What was built.**
+- `alo-box`'s new `natural.rs`: `NaturalSize`, a width, a height and a ratio,
+  each optional. The box tree's natural size was a `(f32, f32)`, which cannot
+  say "a `viewBox` and no size" or "nothing written, still replaced".
+- `alo-box`'s new `svg.rs`: an outermost `<svg>` (SVG namespace, parent not
+  SVG); its natural size from `width`/`height` (numbers, or absolute units)
+  and `viewBox`; its first child `<title>`. Per cent, `em` and `calc()`
+  widths are recorded as issues and not used (271's presentation attributes).
+- `tree.rs`: an outermost `<svg>` makes one box with **no children** whatever
+  its `display`, and `display: contents` on it makes nothing, as on any
+  replaced element.
+- `semantics.rs`: an `<svg>` is named by `aria-labelledby`, then
+  `aria-label`, then its `<title>`. The queue line and ADR 0022 § 4 list
+  `aria-label` before `aria-labelledby`; the existing code (and ARIA) put
+  `aria-labelledby` first, and that order was kept for every element rather
+  than giving `<svg>` a different one. A reviewer may want the ADR's wording
+  corrected.
+- `alo-layout`'s new `replaced.rs`: CSS 2's replaced-element sizing in
+  numbers, used by the leaf measure in `arena.rs` (taffy stays in its two
+  files). The 300 × 150 default, and a ratio-only box filling its room.
+- `engine.rs`: a replaced box is atomic on a line whatever its `display` says
+  (`.ratio { display: inline }` in the case).
+
+**Gate, mechanical.** `scripts/gate.sh` exited 0, run in the foreground and
+read in the same step: fmt clean, clippy silent, every test passes, no stubs,
+no `unsafe`, every rented crate behind its boundary, no verb takes a
+coordinate, the stop rule holds, `CHANGELOG.md` changed. `git diff --check`
+passes. The log is in this session's scratchpad, not committed. The only
+later change was this entry.
+
+**Gate, manual.**
+- Layout assertion in numbers: corpus case `an-svg-box`'s `layout.txt` —
+  the offline screen's own `<svg>` and rule at 56 × 56 with no child boxes;
+  48 × 24 from attributes; 80 × 40 from `width=80` and a 2:1 `viewBox`;
+  a `viewBox`-only `<svg>` made inline filling its paragraph at 320 × 80; and
+  300 × 150 with nothing written. `replaced.rs` has eight unit tests in
+  numbers; `tree.rs` five on boxes and natural sizes.
+- Reference render: `an-svg-box/render.png`, each `<svg>` given a background
+  so its box is visible. Looked at; matches the numbers. No other reference
+  in the corpus moved.
+- Agent tree: `agent.txt` names one image by `<title>`, one by
+  `aria-label`, one by `aria-labelledby`, one unnamed, and the
+  `aria-hidden` one is absent. `semantics.rs` has a unit test for the order.
+- Hostile bytes: `svg.rs` refuses non-finite, overflowing, negative and
+  malformed `viewBox` and size values, and a `viewBox` of a million numbers
+  stops after five, with tests; none panic.
+- One responsibility per file: sizing rule (`replaced.rs`), what an `<svg>`
+  is (`svg.rs`), what content claims (`natural.rs`) are each their own file.
+- `docs/features.md`'s SVG line names the item.
+
+**Roadmap.** The *SVG* line stays an empty box and gains a `Built:` clause
+(the box, `svg.rs`, `replaced.rs`, `an-svg-box`) and an `Owed:` clause
+(271–273, and relative `width` attributes). Also updated: `QUEUE.md` (270
+ticked with what was done), `docs/features.md`, `docs/conformance.md`,
+`CHANGELOG.md`, `REMAINING.md`.
+
+**Unresolved obligations.**
+- 271–273 are to be built, in order; 271 is eligible now. 107 stays open.
+- A per cent, `em` or `calc()` `width`/`height` attribute on an `<svg>` is
+  recorded and ignored until 271 puts presentation attributes in the cascade.
+- ADR 0022 § 4's name order wording (above) is a person's call.
+- Carried, unchanged: 269 blocked on a `rav1d` release; the `image-webp`
+  panic upstream report (a person's call); 109, 179, a picture ignoring a
+  clip in force, and 82, 83, 85–89, 95–99, 104, 105 needing their designs.
+
+117 queue items are open (one closed). The first eligible item in file order
+is now **271**. The next unused queue number is **278** and the next ADR is
+**0023**. This is one iteration, not a finished queue or roadmap.

@@ -363,7 +363,7 @@ fn pictures_for(
                 let (width, height) = (canvas.width(), canvas.height());
                 boxes.set_natural_size(
                     id,
-                    (
+                    alo_box::NaturalSize::sized(
                         f32::from(u16::try_from(width).unwrap_or(u16::MAX)),
                         f32::from(u16::try_from(height).unwrap_or(u16::MAX)),
                     ),

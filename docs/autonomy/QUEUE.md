@@ -4981,7 +4981,7 @@ The long pole, and the thing most of section E is unreachable without.
   items below, and it closes when 270–273 have closed. 274–277 open only when
   a page needs them. ADR 0022 § 7 lists what stays refused.
 
-- [ ] **270. The `<svg>` box.** *Cut from 107 (ADR 0022 §§ 1, 4).* An
+- [x] **270. The `<svg>` box.** *Cut from 107 (ADR 0022 §§ 1, 4).* An
   outermost `<svg>` laid out as a replaced element through item 176's path. Its
   size comes from CSS, then from the `width` and `height` attributes, then from
   a ratio from the `viewBox`, then 300 × 150. Its ratio comes from the
@@ -4994,6 +4994,27 @@ The long pole, and the thing most of section E is unreachable without.
   attributes, one sized only by a `viewBox`, and one with neither each have
   the size § 1 gives. A test shows the agent node's name from each source and
   its absence under `aria-hidden`.
+
+  **Done (iteration 169).** `alo-box`'s new `svg.rs` says what an outermost
+  `<svg>` is: one box with no children whatever its `display` (and `contents`
+  on one is `none`, as on any replaced element), its natural size read from
+  `width`, `height` and `viewBox`, and its first child `<title>` as a name
+  after ARIA's. A natural size is now `alo-box`'s `NaturalSize` — a width, a
+  height and a ratio, each optional — because a `viewBox` alone is a shape
+  with no size. `alo-layout`'s new `replaced.rs` is CSS 2's replaced-element
+  rule in numbers, including the 300 × 150 default and a ratio-only box
+  filling its room. A replaced box is now atomic on a line whatever its
+  `display` says. Corpus case `an-svg-box` is the layout assertion and the
+  reference render: the offline screen's own `<svg>` and rule at 56 × 56
+  with no child boxes, absent from the agent tree under `aria-hidden`; 48 × 24
+  from attributes and named by `<title>`; 80 × 40 from a width and a
+  `viewBox`, named by `aria-label`; a `viewBox`-only `<svg>` made
+  `display: inline` filling its 320-wide paragraph at 320 × 80, named by
+  `aria-labelledby`; and 300 × 150 with nothing written. Hostile `viewBox`
+  and size values (non-finite, overflowing, negative, a million numbers) are
+  refused and recorded, never a panic. No other reference moved.
+  A `width` in per cent, `em` or `calc()` is recorded and not used: SVG 2
+  makes it a presentation attribute, which is 271's cascade work.
 
 - [ ] **271. Shapes, filled.** *Cut from 107 (ADR 0022 §§ 2, 3).* The crate
   `alo-svg` and the drawing handed to paint by box id, beside

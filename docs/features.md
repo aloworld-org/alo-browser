@@ -431,9 +431,11 @@ The reason this exists rather than a faster fork of somebody else's engine.
   built** (queue items 106, 177, 180), each behind one file and one size bound;
   AVIF is decided (ADR 0021) and waits on a `rav1d` release with a safe API (269)
 - [2] **SVG** — a second rendering model inside the first, and far larger than one line suggests.
-  Decided in ADR 0022 and not built: an `<svg>` is one replaced box whose
-  contents are drawn as paths, not laid out as boxes. Items 270–273 come first,
-  and alo's offline screen is the page they close on
+  Decided in ADR 0022. **The box is built** (item 270): an outermost `<svg>`
+  is one replaced box sized from CSS, its attributes, its `viewBox` or
+  300 × 150, with no boxes inside it, read by an agent as one image named by
+  ARIA or its `<title>`. Drawing what is inside is 271–273, and alo's offline
+  screen is the page they close on
 - [2] Canvas 2D
 - [2] Audio and video playback through rented decoders
 - [2] Media Source Extensions, without which most video sites do not play at all

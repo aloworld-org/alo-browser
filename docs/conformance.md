@@ -184,7 +184,12 @@ or scaled picture have stepped edges; and a picture ignores a clip in force,
 so one inside `overflow: hidden` is drawn whole. A picture is read as PNG,
 JPEG, GIF or WebP. An animated GIF or WebP is drawn as its first frame and
 does not move. AVIF is refused and the `<img>` keeps the box its style asked
-for, as with any picture that did not arrive. Most targets below are still
+for, as with any picture that did not arrive. An inline `<svg>` is one box
+of the right size — from CSS, then its `width` and `height`, then its
+`viewBox` ratio, then 300 × 150 — and an agent reads it as one named image;
+but **nothing inside it is drawn yet** (queue items 271–273), so the offline
+screen's hand is still an empty square, and a `width` in per cent or `em` on
+an `<svg>` is recorded and not used. Most targets below are still
 `not yet`, because they are alo's own screens rather than pages we wrote to test
 with — and the sign-in screen, which is alo's, is *nearly* rather than done: the
 four substitutions in its case are four things this engine has yet to implement.

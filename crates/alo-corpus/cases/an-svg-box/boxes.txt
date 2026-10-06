@@ -1,0 +1,15 @@
+block flow · document
+  block flow · generic
+    block flow · main
+      text " "
+      inline flow-root · image [hidden]
+      text " "
+    block flow · paragraph
+      inline flow-root · image "Attributes"
+    block flow · paragraph
+      inline flow-root · image "Half"
+    block flow · paragraph
+      text "Ratio"
+      inline flow · image "Ratio"
+    block flow · paragraph
+      inline flow-root · image

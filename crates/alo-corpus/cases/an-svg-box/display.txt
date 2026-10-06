@@ -1,0 +1,6 @@
+fill box#4 rgb(231 111 81) at (0, 4) 56×56
+fill box#9 rgb(42 157 143) at (0, 64) 48×24
+fill box#13 rgb(38 70 83) at (0, 92) 80×40
+text box#17 "Ratio" rgb(0 0 0) 12px at (0, 147.13867)
+fill box#18 rgb(233 196 106) at (0, 149.96875) 320×80
+fill box#22 rgb(138 177 125) at (0, 233.96875) 300×150

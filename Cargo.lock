@@ -53,6 +53,7 @@ dependencies = [
  "alo-css",
  "alo-dom",
  "alo-style",
+ "alo-value",
 ]
 
 [[package]]

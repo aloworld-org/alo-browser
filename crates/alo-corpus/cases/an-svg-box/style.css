@@ -1,0 +1,12 @@
+body { margin: 0; font-family: 'DejaVu Sans'; font-size: 12px }
+p, main { margin: 4px 0 }
+/* Each <svg> has a background so the reference render shows its box: nothing
+   inside one is drawn until queue item 271. */
+svg { background: #e76f51 }
+/* The offline screen's own rule. */
+.hand { width: 56px; height: 56px }
+.attributes { background: #2a9d8f }
+.half { background: #264653 }
+/* Made inline by an author: still one replaced box on the line. */
+.ratio { display: inline; background: #e9c46a }
+.nothing { background: #8ab17d }

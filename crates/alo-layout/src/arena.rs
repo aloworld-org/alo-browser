@@ -28,7 +28,7 @@
 //! to nothing rather than to somebody else's expression.
 
 use crate::measure::{MeasureText, TextStyle};
-use alo_box::{BoxId, BoxTree};
+use alo_box::{BoxId, BoxTree, NaturalSize};
 use alo_style::StyleTree;
 use alo_value::{FontMetrics, LengthPercentage};
 use taffy::{
@@ -53,8 +53,8 @@ pub(crate) enum NodeKind {
     ///
     /// An image, and later a video. Nothing in CSS says how big the content is,
     /// so the size arrives from whoever decoded it — see
-    /// `BoxTree::set_natural_size`.
-    Replaced(TaffySize<f32>),
+    /// `BoxTree::set_natural_size` — and may be only a ratio, or nothing.
+    Replaced(NaturalSize),
     /// A box with nothing to measure — an empty element, or a container
     /// whose children all turned out to be nothing.
     Empty,
@@ -287,33 +287,21 @@ impl<M: MeasureText> Arena<'_, M> {
             }
             Some(NodeKind::Replaced(natural)) => {
                 let natural = *natural;
-                compute_leaf_layout(inputs, style, resolve, |known, _room| {
-                    // The three cases, and the third is the one that makes an
-                    // image on a page behave: a width given and no height means
-                    // the height follows from the picture's own ratio, so a
-                    // photograph in a column is the right shape rather than
-                    // squashed. Taffy would do this from `aspect_ratio`, and
-                    // saying it here keeps the ratio next to the size it came
-                    // from.
-                    match (known.width, known.height) {
-                        (Some(width), Some(height)) => TaffySize { width, height },
-                        (Some(width), None) => TaffySize {
-                            width,
-                            height: if natural.width > 0.0 {
-                                width * natural.height / natural.width
-                            } else {
-                                natural.height
-                            },
-                        },
-                        (None, Some(height)) => TaffySize {
-                            width: if natural.height > 0.0 {
-                                height * natural.width / natural.height
-                            } else {
-                                natural.width
-                            },
-                            height,
-                        },
-                        (None, None) => natural,
+                compute_leaf_layout(inputs, style, resolve, |known, room| {
+                    // CSS's rule for a replaced box, in `crate::replaced`. The
+                    // case that makes a picture on a page behave is a width
+                    // given and no height: the height follows from the
+                    // content's own ratio, so a photograph in a column is the
+                    // right shape rather than squashed.
+                    let room = match room.width {
+                        AvailableSpace::Definite(definite) => Some(definite),
+                        AvailableSpace::MinContent | AvailableSpace::MaxContent => None,
+                    };
+                    let size =
+                        crate::replaced::concrete_size(natural, known.width, known.height, room);
+                    TaffySize {
+                        width: size.width,
+                        height: size.height,
                     }
                 })
             }

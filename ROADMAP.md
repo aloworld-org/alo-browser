@@ -1017,7 +1017,15 @@ unreachable without it.
       release offers only a C interface this repository could call only with
       `unsafe` of its own); playback of an animation (109)
 - [ ] **SVG** — a second rendering model inside the first, and far larger than its one line here suggests
-      — not started: nothing is built. Decided in ADR 0022. An `<svg>` is one
+      · Built: the `<svg>` box (item 270) — an outermost `<svg>` is a replaced
+      box in `alo-box`'s `svg.rs`, sized by `alo-layout`'s `replaced.rs` from
+      CSS, its attributes, its `viewBox` ratio or 300 × 150, with no boxes
+      inside it, and one agent image named by ARIA or its `<title>`; corpus
+      case `an-svg-box`
+      · Owed: drawing anything inside it — filled shapes (271), path data
+      (272), strokes and the offline screen (273); a per-cent or `em` `width`
+      attribute, which waits on 271's presentation attributes.
+      Decided in ADR 0022. An `<svg>` is one
       replaced box with no boxes inside it, and its contents become a drawing
       of paths, made by a new crate `alo-svg` after layout and handed to paint
       by box. Strokes go through the `tiny-skia` already rented. Cut into queue

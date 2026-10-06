@@ -30,13 +30,16 @@
 //! whole ordering exists to prevent.
 
 pub mod display;
+pub mod natural;
 pub mod role;
 pub mod semantics;
 pub mod state;
+pub mod svg;
 pub mod tree;
 pub mod whitespace;
 
 pub use display::{Display, Inside, Outside};
+pub use natural::NaturalSize;
 pub use role::{KnownRole, Role};
 pub use semantics::Semantics;
 pub use state::{Checked, Current, States};

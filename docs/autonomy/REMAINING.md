@@ -402,6 +402,11 @@ strokes) close on alo's offline screen. 274–277 wait on a page, and 277 also
 needs its own ADR. 107 stays open until 270–273 close. 118 queue items are
 open; the next unused queue number is 278 and the next unused ADR 0023.
 
+Iteration 169 built 270, the `<svg>` box: one replaced box sized from CSS,
+its attributes, its `viewBox` or 300 × 150, no boxes inside it, and one agent
+image. 271 (filled shapes, and the crate `alo-svg`) is next. 117 queue items
+are open; the next unused queue number is 278 and the next unused ADR 0023.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;
