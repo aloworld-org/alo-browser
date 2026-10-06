@@ -49,6 +49,7 @@ fn draw(css: &str) -> Canvas {
         PaintContext {
             fonts: &database,
             pictures: &std::collections::BTreeMap::new(),
+            drawings: &std::collections::BTreeMap::new(),
         },
     );
     let mut canvas = Canvas::new(WIDTH, HEIGHT, Rgba::WHITE);

@@ -434,8 +434,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   Decided in ADR 0022. **The box is built** (item 270): an outermost `<svg>`
   is one replaced box sized from CSS, its attributes, its `viewBox` or
   300 × 150, with no boxes inside it, read by an agent as one image named by
-  ARIA or its `<title>`. Drawing what is inside is 271–273, and alo's offline
-  screen is the page they close on
+  ARIA or its `<title>`. **Filled shapes are drawn** (item 271, crate
+  `alo-svg`): `rect`, `circle`, `ellipse`, `polygon`, `polyline`, `<g>`, the
+  `transform` attribute, `viewBox` and `preserveAspectRatio`, `fill`,
+  `fill-rule`, `fill-opacity` and `opacity`, with presentation attributes in
+  the cascade and `currentColor` from the text around the icon. Path data is
+  272 and strokes 273, and alo's offline screen is the page they close on; a
+  nested `<svg>` is 278, and the `transform` property and relative `width`
+  attributes on SVG elements are 279
 - [2] Canvas 2D
 - [2] Audio and video playback through rented decoders
 - [2] Media Source Extensions, without which most video sites do not play at all

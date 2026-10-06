@@ -92,6 +92,11 @@ img, svg, video, audio, canvas, iframe, object, embed, math, progress, meter {
   display: inline-block;
 }
 
+/* An <svg>'s drawing stops at its viewport, as SVG's own sheet says: a shape
+ * that runs past the edge is cut there unless an author asks otherwise
+ * (ADR 0022 § 2). */
+svg { overflow: hidden }
+
 /* The controls, which sit in a line and have a size of their own.
  *
  * `fieldset`, `legend` and a second `textarea` used to be in this list as well

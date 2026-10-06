@@ -45,6 +45,7 @@
 
 pub mod answers;
 pub mod ask;
+pub mod drawings;
 pub mod event_loop;
 pub mod face;
 pub mod families;

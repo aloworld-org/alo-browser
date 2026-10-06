@@ -52,6 +52,7 @@
 use crate::border::{DrawnSide, Line, draw_mitred};
 use crate::corner::Corners;
 use crate::display::DisplayItem;
+use crate::fill_rule::FillRule;
 use crate::mitre::{Side, polygon_path};
 use crate::paint::Paint;
 use crate::path::Path;
@@ -117,6 +118,7 @@ fn draw_solid(
     let mut fill = |rect: Rect, drawn: &DrawnSide| {
         if rect.size.width > 0.0 && rect.size.height > 0.0 && !drawn.color.is_invisible() {
             out.push(DisplayItem::Fill {
+                rule: FillRule::NonZero,
                 box_id,
                 path: Path::rectangle(rect.left(), rect.top(), rect.size.width, rect.size.height),
                 paint: Paint::Solid(drawn.color),

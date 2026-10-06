@@ -229,7 +229,11 @@ pub fn resolve(
             .cloned()
             .unwrap_or_else(|| root_style.clone());
 
-        let applicable = Applicable::gather(sheets, device, &mut matcher, id);
+        let hints = document
+            .element(id)
+            .map(|element| crate::presentation::hints(element, &mut tree.issues))
+            .unwrap_or_default();
+        let applicable = Applicable::gather_with_hints(sheets, device, &mut matcher, id, &hints);
         let mut style = compute_one(&applicable, &parent, &mut tree.issues);
         style.metrics = resolve_metrics(&style, &parent, root_metrics, device);
         record_computed_font(&mut style);

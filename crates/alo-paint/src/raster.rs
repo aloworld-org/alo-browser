@@ -21,6 +21,7 @@
 //! them.
 
 use crate::coverage::Coverage;
+use crate::fill_rule::FillRule;
 use crate::path::{Path, Point, Segment};
 
 /// Fill a path and report how much of each pixel it covers.
@@ -29,15 +30,37 @@ use crate::path::{Path, Point, Segment};
 /// CSS uses for everything it fills. Anti-aliased, because a letter with hard
 /// edges at these sizes is unreadable.
 pub fn fill(path: &Path) -> Coverage {
+    covered(path, FillRule::NonZero, None)
+}
+
+/// Fill a path by a rule, keeping only the part that lands on a page of this
+/// many pixels.
+///
+/// The coverage outside the page is never drawn, and not making it is the
+/// difference between a stranger's `<rect width="60000" height="60000">`
+/// costing a page's worth of mask and costing four gigabytes of one. A pixel
+/// inside the page is covered exactly as it would have been with the whole
+/// shape rasterised, because coverage is a property of each pixel and the
+/// shape around it, not of how large the mask is.
+pub fn fill_on_page(path: &Path, rule: FillRule, page: (u32, u32)) -> Coverage {
+    covered(path, rule, Some(page))
+}
+
+fn covered(path: &Path, rule: FillRule, page: Option<(u32, u32)>) -> Coverage {
     let Some((left, top, right, bottom)) = path.bounds() else {
         return Coverage::empty();
     };
     // Whole pixels outwards, so that a shape ending at 10.3 gets the whole of
     // pixel 10 rather than a clipped edge.
-    let x0 = left.floor();
-    let y0 = top.floor();
-    let width = (right.ceil() - x0).max(0.0);
-    let height = (bottom.ceil() - y0).max(0.0);
+    let (mut x0, mut y0, mut x1, mut y1) = (left.floor(), top.floor(), right.ceil(), bottom.ceil());
+    if let Some((width, height)) = page {
+        x0 = x0.max(0.0);
+        y0 = y0.max(0.0);
+        x1 = x1.min(f32::from(u16::try_from(width).unwrap_or(u16::MAX)));
+        y1 = y1.min(f32::from(u16::try_from(height).unwrap_or(u16::MAX)));
+    }
+    let width = (x1 - x0).max(0.0);
+    let height = (y1 - y0).max(0.0);
     let (Some(width), Some(height)) = (to_pixels(width), to_pixels(height)) else {
         return Coverage::empty();
     };
@@ -54,12 +77,11 @@ pub fn fill(path: &Path) -> Coverage {
     let Some(mut mask) = tiny_skia::Mask::new(width, height) else {
         return Coverage::empty();
     };
-    mask.fill_path(
-        &built,
-        tiny_skia::FillRule::Winding,
-        true,
-        tiny_skia::Transform::identity(),
-    );
+    let rule = match rule {
+        FillRule::NonZero => tiny_skia::FillRule::Winding,
+        FillRule::EvenOdd => tiny_skia::FillRule::EvenOdd,
+    };
+    mask.fill_path(&built, rule, true, tiny_skia::Transform::identity());
 
     Coverage::new(
         width,
@@ -219,5 +241,63 @@ mod tests {
         let coverage = fill(&path);
         assert_eq!(coverage.at(1, 1), 255, "the ring is filled");
         assert_eq!(coverage.at(5, 5), 0, "and the middle is not");
+    }
+
+    fn star() -> Path {
+        // A five-pointed star in one outline, crossing itself: the pentagon in
+        // its middle is wound twice.
+        let mut path = Path::new();
+        path.move_to(Point::new(10.0, 0.0));
+        path.line_to(Point::new(16.0, 20.0));
+        path.line_to(Point::new(0.0, 7.0));
+        path.line_to(Point::new(20.0, 7.0));
+        path.line_to(Point::new(4.0, 20.0));
+        path.close();
+        path
+    }
+
+    #[test]
+    fn even_odd_leaves_a_hole_where_non_zero_fills_one() {
+        let page = (64, 64);
+        let nonzero = fill_on_page(&star(), FillRule::NonZero, page);
+        let evenodd = fill_on_page(&star(), FillRule::EvenOdd, page);
+        assert_eq!(
+            nonzero.at(10, 11),
+            255,
+            "the middle, wound twice, is filled"
+        );
+        assert_eq!(evenodd.at(10, 11), 0, "and crossed twice, is not");
+        assert_eq!(nonzero.at(10, 5), 255, "a point is inside either way");
+        assert_eq!(evenodd.at(10, 5), 255);
+    }
+
+    #[test]
+    fn a_shape_larger_than_the_page_is_covered_only_on_the_page() {
+        let enormous = Path::rectangle(-5.0e6, -5.0e6, 1.0e7, 1.0e7);
+        let coverage = fill_on_page(&enormous, FillRule::NonZero, (32, 16));
+        assert_eq!((coverage.width(), coverage.height()), (32, 16));
+        assert_eq!(coverage.origin(), (0, 0));
+        assert_eq!(coverage.at(31, 15), 255);
+        assert!(
+            fill(&enormous).is_empty(),
+            "without a page the same shape is too large to raster at all, \
+             where on a page it is a page of mask",
+        );
+    }
+
+    #[test]
+    fn a_page_changes_no_pixel_it_keeps() {
+        let path = Path::rectangle(-2.5, 1.25, 10.0, 3.5);
+        let whole = fill(&path);
+        let kept = fill_on_page(&path, FillRule::NonZero, (6, 6));
+        assert_eq!(kept.origin(), (0, 1));
+        for y in 0..kept.height() {
+            for x in 0..kept.width() {
+                assert_eq!(kept.at(x, y), whole.at(x + 3, y), "pixel {x},{y}");
+            }
+        }
+        assert!(fill_on_page(&path, FillRule::NonZero, (0, 0)).is_empty());
+        let off = Path::rectangle(100.0, 100.0, 4.0, 4.0);
+        assert!(fill_on_page(&off, FillRule::NonZero, (6, 6)).is_empty());
     }
 }

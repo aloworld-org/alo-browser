@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Shapes inside an `<svg>` are drawn, filled.** Rectangles, rounded
+  rectangles, circles, ellipses, polygons and polylines now appear in their
+  colours, scaled by the `viewBox`, placed by `transform` and faded by
+  `opacity`. A stylesheet can recolour them, and an icon filled with
+  `currentColor` takes the colour of the text around it. Paths and outlines
+  are still not drawn, so the offline screen's hand is still an empty square,
+  and what is not drawn is reported rather than silently left out. An SVG
+  written to make the browser do a great deal of work is refused whole.
+
 - **An `<svg>` in a page is one box of the right size.** Its shapes used to
   be laid out as empty boxes of their own; now an `<svg>` is sized like a
   picture — by its stylesheet, then its `width` and `height`, then the shape

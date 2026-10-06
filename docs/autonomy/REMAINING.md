@@ -407,6 +407,13 @@ its attributes, its `viewBox` or 300 × 150, no boxes inside it, and one agent
 image. 271 (filled shapes, and the crate `alo-svg`) is next. 117 queue items
 are open; the next unused queue number is 278 and the next unused ADR 0023.
 
+Iteration 170 built 271: the crate `alo-svg`, a drawing handed to paint by
+box, SVG presentation attributes in the cascade, and the basic shapes filled
+under `transform`, `viewBox` and `preserveAspectRatio`. It cut a nested `<svg>`
+(278) and the `transform` property with relative `width`/`height` attributes
+(279) into items of their own. 272 (path data) is next. 118 queue items are
+open; the next unused queue number is 280 and the next unused ADR 0023.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

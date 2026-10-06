@@ -25,6 +25,8 @@ use crate::canvas::Canvas;
 use crate::control::{self, Mark};
 use crate::corner::{Corners, between, ring, rounded_rectangle};
 use crate::display::{DecorationLine, DisplayItem, DisplayList, TextShadow, lines_in};
+use crate::drawing::{Drawing, DrawingItem};
+use crate::fill_rule::FillRule;
 use crate::paint::Paint;
 use crate::path::Path;
 use alo_box::{BoxId, BoxKind, BoxTree};
@@ -45,6 +47,12 @@ pub struct PaintContext<'a> {
     /// and deciding *which* picture belongs to which box needs a document,
     /// which this crate does not have.
     pub pictures: &'a std::collections::BTreeMap<BoxId, std::sync::Arc<Canvas>>,
+    /// The drawings a box has, by box: what an `<svg>` holds.
+    ///
+    /// Handed in beside the pictures and for the same reason (ADR 0022 § 2):
+    /// making one needs the document and the styles of elements that have no
+    /// box, and this crate has neither.
+    pub drawings: &'a std::collections::BTreeMap<BoxId, Drawing>,
 }
 
 /// Build the display list for a laid-out document.
@@ -105,14 +113,20 @@ impl Builder<'_> {
         let mut own = Vec::new();
         self.draw_box(id, &mut own);
 
+        let children: Vec<BoxId> = self.boxes.children(id).collect();
         // A box that clips holds its children inside its own shape — which,
         // if it has rounded corners, is a rounded shape. One question asked
-        // twice: what shape is this box.
-        let clip = self.clip_of(id);
+        // twice: what shape is this box. A box with no children has nothing
+        // to hold in, which is every `<svg>`: its drawing is clipped to its
+        // viewport where the drawing is placed.
+        let clip = if children.is_empty() {
+            None
+        } else {
+            self.clip_of(id)
+        };
 
         let mut flow = Vec::new();
         let mut escaped: Vec<Layer> = Vec::new();
-        let children: Vec<BoxId> = self.boxes.children(id).collect();
         for child in children {
             let painted = self.paint(child);
             match self.layer_of(child) {
@@ -337,6 +351,7 @@ impl Builder<'_> {
         // content, and content sits on top of what the box painted for itself.
         self.control_state_of(id, out);
         self.picture_of(id, out);
+        self.drawing_of(id, out);
 
         if let BoxKind::Text { text, .. } = &node.kind {
             self.draw_text(id, text, out);
@@ -374,6 +389,7 @@ impl Builder<'_> {
                 && !color.is_invisible()
             {
                 out.push(DisplayItem::Fill {
+                    rule: FillRule::NonZero,
                     box_id: id,
                     path: shape.clone(),
                     paint: Paint::Solid(color),
@@ -383,6 +399,7 @@ impl Builder<'_> {
             // `background-origin` starts at, and drawn over the border box.
             if let Some(gradient) = background_gradient(style) {
                 out.push(DisplayItem::Fill {
+                    rule: FillRule::NonZero,
                     box_id: id,
                     path: shape,
                     paint: Paint::Gradient {
@@ -474,6 +491,7 @@ impl Builder<'_> {
             && let Some(color) = self.uniform_border(id, style)
         {
             out.push(DisplayItem::Fill {
+                rule: FillRule::NonZero,
                 box_id: id,
                 path: ring(border_box, corners, geometry.border),
                 paint: Paint::Solid(color),
@@ -552,6 +570,7 @@ impl Builder<'_> {
                 ),
             };
             out.push(DisplayItem::Fill {
+                rule: FillRule::NonZero,
                 box_id: id,
                 path: rect_path(rect),
                 paint: Paint::Solid(color),
@@ -759,11 +778,13 @@ impl Builder<'_> {
             Corners::of(style, Self::extent_of(geometry.border_box))
         });
         out.push(DisplayItem::Fill {
+            rule: FillRule::NonZero,
             box_id: id,
             path: rounded_rectangle(area, corners),
             paint: Paint::Solid(accent),
         });
         out.push(DisplayItem::Fill {
+            rule: FillRule::NonZero,
             box_id: id,
             path: control::mark(kind, area),
             paint: Paint::Solid(control::mark_color(accent)),
@@ -786,6 +807,55 @@ impl Builder<'_> {
             rect: geometry.content_box(),
             picture: std::sync::Arc::clone(picture),
         });
+    }
+
+    /// What an `<svg>` box holds, drawn inside its content box.
+    ///
+    /// Into the content box, as a picture is, because the drawing's viewport
+    /// is the box's content (ADR 0022 § 1). It is clipped there unless the
+    /// box's `overflow` is `visible`: the user-agent sheet makes every `<svg>`
+    /// `overflow: hidden`, as SVG's own does, so a shape that runs past the
+    /// viewport stops at its edge unless an author says otherwise.
+    fn drawing_of(&self, id: BoxId, out: &mut Vec<DisplayItem>) {
+        let Some(drawing) = self.context.drawings.get(&id) else {
+            return;
+        };
+        if !drawing.draws_anything() {
+            return;
+        }
+        let Some(geometry) = self.layout.get(id) else {
+            return;
+        };
+        let content = geometry.content_box();
+        let at = crate::path::Point::new(content.left(), content.top());
+        let clips = self
+            .style_of(id)
+            .and_then(|style| style.get("overflow"))
+            .is_some_and(|overflow| !overflow.eq_ignore_ascii_case("visible"));
+        if clips {
+            out.push(DisplayItem::PushClip {
+                box_id: id,
+                path: rect_path(content),
+            });
+        }
+        for item in drawing.items() {
+            out.push(match item {
+                DrawingItem::Fill { path, color, rule } => DisplayItem::Fill {
+                    box_id: id,
+                    path: path.translated(at),
+                    paint: Paint::Solid(*color),
+                    rule: *rule,
+                },
+                DrawingItem::PushGroup { opacity } => DisplayItem::PushGroup {
+                    box_id: id,
+                    opacity: *opacity,
+                },
+                DrawingItem::PopGroup => DisplayItem::PopGroup,
+            });
+        }
+        if clips {
+            out.push(DisplayItem::PopClip);
+        }
     }
 
     /// Which decoration lines cover this text, and in what colour.
@@ -883,6 +953,7 @@ impl Builder<'_> {
             DecorationLine::LineThrough => baseline - metrics.x_height / 2.0 - thickness / 2.0,
         };
         DisplayItem::Fill {
+            rule: FillRule::NonZero,
             box_id: id,
             // A plain rectangle: a decoration has no corners of its own, so
             // the rounding machinery would only be a way to get it wrong.

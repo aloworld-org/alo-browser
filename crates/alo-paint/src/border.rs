@@ -43,6 +43,7 @@
 
 use crate::corner::{Corners, ring, rounded_rectangle};
 use crate::display::DisplayItem;
+use crate::fill_rule::FillRule;
 use crate::mitre::{Joints, kept, polygon_path, wedge, width_of};
 use crate::paint::Paint;
 use crate::path::Path;
@@ -237,6 +238,7 @@ fn clipped(box_id: BoxId, clip: &Path, fills: &[(Rgba, Path)], out: &mut Vec<Dis
     });
     for (color, path) in fills {
         out.push(DisplayItem::Fill {
+            rule: FillRule::NonZero,
             box_id,
             path: path.clone(),
             paint: Paint::Solid(*color),

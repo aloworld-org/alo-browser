@@ -49,6 +49,7 @@ pub mod inheritance;
 pub mod keyword;
 pub mod metrics;
 pub mod origin;
+pub mod presentation;
 pub mod user_agent;
 pub mod variables;
 
@@ -58,5 +59,6 @@ pub use inheritance::inherits;
 pub use keyword::{Resolution, WideKeyword};
 pub use metrics::{DEFAULT_FONT_SIZE, resolve_font_size, resolve_line_height};
 pub use origin::{CascadeLevel, Origin};
+pub use presentation::{PRESENTATION_PROPERTIES, hints as presentation_hints};
 pub use user_agent::USER_AGENT_STYLE_SHEET;
 pub use variables::{Resolved, Variables, referenced_variables, substitute};

@@ -9,7 +9,7 @@
 //! box. A `<path>` has no flow, no margins and no line, and laying it out as an
 //! empty inline box, which is what happened before this file, gave the agent
 //! a tree of boxes that meant nothing. What is inside is drawn, after layout,
-//! by `alo-svg` (queue item 271); this file only says how big the box is and
+//! by `alo-svg` (queue item 271 onwards); this file only says how big the box is and
 //! what it is called.
 //!
 //! # Its size
@@ -24,9 +24,11 @@
 //!   default of 300 × 150.
 //!
 //! A `width` in per cent or in `em` is a size relative to something this file
-//! cannot see. SVG 2 makes those attributes presentation attributes, and the
-//! cascade half of that is item 271's; until then such a value is **recorded
-//! and not used**, rather than guessed at.
+//! cannot see. SVG 2 makes those attributes presentation attributes; item 271
+//! put presentation attributes into the cascade for what paint reads, and cut
+//! these two out to item 279, because as declarations they size the box and
+//! change layout. Until then such a value is **recorded and not used**, rather
+//! than guessed at.
 //!
 //! # The bytes are a stranger's
 //!
@@ -192,12 +194,12 @@ fn attribute_length(text: &str) -> Result<f32, &'static str> {
         match alo_value::parse_length_percentage(text) {
             Some(alo_value::LengthPercentage::Length(length)) => length
                 .to_absolute_px()
-                .ok_or("a length relative to a font, which waits for item 271")?,
+                .ok_or("a length relative to a font, which waits for item 279")?,
             Some(alo_value::LengthPercentage::Percentage(_)) => {
-                return Err("a percentage, which waits for item 271");
+                return Err("a percentage, which waits for item 279");
             }
             Some(alo_value::LengthPercentage::Calc(_)) => {
-                return Err("a calc() expression, which waits for item 271");
+                return Err("a calc() expression, which waits for item 279");
             }
             None => return Err("not a length"),
         }

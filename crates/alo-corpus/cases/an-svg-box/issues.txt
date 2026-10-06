@@ -1,1 +1,5 @@
 line 4: Unexpected token
+<path> is not drawn: path data is item 272
+<path> is not drawn: path data is item 272
+<path> is not drawn: path data is item 272
+<path> is not drawn: path data is item 272

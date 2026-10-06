@@ -159,6 +159,7 @@ dependencies = [
  "alo-net",
  "alo-paint",
  "alo-style",
+ "alo-svg",
  "alo-text",
  "alo-url",
  "alo-value",
@@ -173,6 +174,18 @@ dependencies = [
  "alo-dom",
  "alo-value",
  "cssparser",
+]
+
+[[package]]
+name = "alo-svg"
+version = "0.0.0"
+dependencies = [
+ "alo-box",
+ "alo-css",
+ "alo-dom",
+ "alo-paint",
+ "alo-style",
+ "alo-value",
 ]
 
 [[package]]

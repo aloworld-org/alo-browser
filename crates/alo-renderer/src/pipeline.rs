@@ -276,6 +276,13 @@ pub fn draw(
 
     let measurer = TextMeasurer::new(fonts);
     let layout = alo_layout::compute(&boxes, &styles, size, &measurer);
+
+    // What every `<svg>` holds, after layout because its viewport is its box
+    // (ADR 0022 § 2), and handed to paint by box beside the pictures.
+    let (drawings, drawing_issues) =
+        crate::drawings::drawings_for(document, &boxes, &styles, &layout);
+    sheet_issues.extend(drawing_issues);
+
     let display = alo_paint::build::build(
         &boxes,
         &layout,
@@ -283,6 +290,7 @@ pub fn draw(
         PaintContext {
             fonts,
             pictures: &pictures,
+            drawings: &drawings,
         },
     );
 

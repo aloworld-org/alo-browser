@@ -1,0 +1,26 @@
+[package]
+name = "alo-svg"
+description = "The alo browser SVG drawing: what an <svg> holds, as filled paths for paint."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+# `alo-box` for what an outermost `<svg>` is and how its `viewBox` reads, so
+# that the box and the drawing never disagree about either.
+alo-box = { path = "../alo-box" }
+alo-dom = { path = "../alo-dom" }
+# Paint's vocabulary only — `Path`, `Drawing`, `FillRule` — so that there is one
+# path type in this engine (ADR 0022 § 2). Paint does not depend on this crate.
+alo-paint = { path = "../alo-paint" }
+alo-style = { path = "../alo-style" }
+alo-value = { path = "../alo-value" }
+
+[dev-dependencies]
+alo-css = { path = "../alo-css" }
+
+[lints]
+workspace = true

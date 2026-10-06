@@ -67,6 +67,7 @@ fn draw_with(html: &str, css: &str, viewport: Size) -> DisplayList {
         PaintContext {
             fonts: &database,
             pictures: &std::collections::BTreeMap::new(),
+            drawings: &std::collections::BTreeMap::new(),
         },
     )
 }

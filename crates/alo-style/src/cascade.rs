@@ -85,8 +85,41 @@ impl<'a> Applicable<'a> {
         matcher: &mut MatchContext<'_>,
         id: NodeId,
     ) -> Self {
+        Self::gather_with_hints(sheets, device, matcher, id, &[])
+    }
+
+    /// The same, with an element's presentation attributes as well
+    /// ([`crate::presentation`]).
+    ///
+    /// They are author declarations of specificity zero, counted **before**
+    /// every sheet, so that any author rule at all beats them on order where
+    /// it does not already on specificity. The engine's own sheet still loses
+    /// to them, by origin, which is what SVG 2 asks: `fill="none"` on a path
+    /// is the author speaking.
+    pub fn gather_with_hints(
+        sheets: &[SourcedSheet<'a>],
+        device: &MediaContext,
+        matcher: &mut MatchContext<'_>,
+        id: NodeId,
+        hints: &'a [Declaration],
+    ) -> Self {
         let mut by_property: BTreeMap<PropertyName, Vec<Contender<'a>>> = BTreeMap::new();
         let mut order = 0usize;
+
+        for declaration in hints {
+            by_property
+                .entry(declaration.name.clone())
+                .or_default()
+                .push(Contender {
+                    declaration,
+                    origin: Origin::Author,
+                    level: CascadeLevel::of(Origin::Author, declaration.importance),
+                    specificity: Specificity::default(),
+                    order,
+                    at: Location { line: 0, column: 0 },
+                });
+            order += 1;
+        }
 
         for sourced in sheets {
             for rule in sourced.sheet.style_rules_for(device) {
@@ -378,5 +411,60 @@ mod tests {
         let mut matcher = MatchContext::new(&fixture.document);
         let applicable = Applicable::gather(&sheets, &MediaContext::default(), &mut matcher, id);
         assert!(applicable.is_empty());
+    }
+
+    #[test]
+    fn a_presentation_attribute_beats_the_engines_sheet_and_loses_to_any_author_rule() {
+        let fixture = fixture(
+            r#"<svg><rect id=x fill="red"/></svg>"#,
+            "",
+            "rect { fill: black }",
+        );
+        let unopposed = fixture_winner_with_hints(&fixture, "fill");
+        assert_eq!(
+            unopposed.as_deref(),
+            Some("red"),
+            "the engine's own sheet loses"
+        );
+
+        let opposed = self::fixture(
+            r#"<svg><rect id=x fill="red"/></svg>"#,
+            "* { fill: blue }",
+            "",
+        );
+        assert_eq!(
+            fixture_winner_with_hints(&opposed, "fill").as_deref(),
+            Some("blue"),
+            "even the least specific author rule wins, by coming after it",
+        );
+    }
+
+    fn fixture_winner_with_hints(fixture: &Fixture, property: &str) -> Option<String> {
+        let id = fixture
+            .document
+            .descendants(fixture.document.root())
+            .find(|id| {
+                fixture
+                    .document
+                    .element(*id)
+                    .is_some_and(|element| element.attr("id") == Some("x"))
+            })?;
+        let mut issues = Vec::new();
+        let hints = crate::presentation::hints(fixture.document.element(id)?, &mut issues);
+        let sheets = [
+            SourcedSheet::new(Origin::UserAgent, &fixture.agent),
+            SourcedSheet::new(Origin::Author, &fixture.author),
+        ];
+        let mut matcher = MatchContext::new(&fixture.document);
+        let applicable = Applicable::gather_with_hints(
+            &sheets,
+            &MediaContext::default(),
+            &mut matcher,
+            id,
+            &hints,
+        );
+        applicable
+            .winner(&PropertyName::parse(property))
+            .map(|contender| contender.declaration.value.clone())
     }
 }

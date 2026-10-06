@@ -17,7 +17,7 @@ use crate::drawn_picture::draw_picture;
 use crate::glyph::outline;
 use crate::paint::Paint;
 use crate::path::{Path, Point};
-use crate::raster::fill;
+use crate::raster::{fill, fill_on_page};
 use alo_text::{Direction, Font, shape};
 use alo_value::{Matrix, Rgba};
 
@@ -67,11 +67,15 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
             DisplayItem::PopClip => {
                 clips.pop();
             }
-            DisplayItem::Fill { path, paint, .. } => {
+            DisplayItem::Fill {
+                path, paint, rule, ..
+            } => {
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
+                // Only what lands on the page is made, so a shape a stranger
+                // wrote a million pixels wide costs a page of mask, not more.
                 draw_coverage(
                     target,
-                    &fill(&moved(path, current)),
+                    &fill_on_page(&moved(path, current), *rule, (width, height)),
                     paint,
                     current,
                     clips.last(),
@@ -334,6 +338,7 @@ pub(crate) fn place(base: i32, step: u32) -> Option<u32> {
 mod tests {
     use super::*;
     use crate::build::{PaintContext, build};
+    use crate::fill_rule::FillRule;
     use crate::path::Path;
     use alo_box::BoxId;
     use alo_value::Rgba;
@@ -344,6 +349,7 @@ mod tests {
         // so that the renderer can be tested without one.
         let mut list = DisplayList::default();
         list.push(DisplayItem::Fill {
+            rule: FillRule::NonZero,
             box_id: BoxId::from_index_for_tests(0),
             path: Path::rectangle(x, y, width, height),
             paint: Paint::Solid(color),
@@ -411,6 +417,7 @@ mod tests {
             PaintContext {
                 fonts: &fonts,
                 pictures: &std::collections::BTreeMap::new(),
+                drawings: &std::collections::BTreeMap::new(),
             },
         );
         assert!(list.is_empty());

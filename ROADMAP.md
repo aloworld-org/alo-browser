@@ -1021,10 +1021,16 @@ unreachable without it.
       box in `alo-box`'s `svg.rs`, sized by `alo-layout`'s `replaced.rs` from
       CSS, its attributes, its `viewBox` ratio or 300 × 150, with no boxes
       inside it, and one agent image named by ARIA or its `<title>`; corpus
-      case `an-svg-box`
-      · Owed: drawing anything inside it — filled shapes (271), path data
-      (272), strokes and the offline screen (273); a per-cent or `em` `width`
-      attribute, which waits on 271's presentation attributes.
+      case `an-svg-box`; filled shapes (item 271) — the crate `alo-svg` turns
+      what an `<svg>` holds into an `alo_paint::Drawing` handed to paint by
+      box: `rect`, `circle`, `ellipse`, `polygon`, `polyline`, `<g>`, the
+      `transform` attribute, `viewBox` and `preserveAspectRatio`, `fill`,
+      `fill-rule`, `fill-opacity` and `opacity`, presentation attributes in
+      `alo-style`'s cascade (`presentation.rs`), every count bounded; corpus
+      case `svg-shapes-filled`
+      · Owed: path data (272), strokes and the offline screen (273); a nested
+      `<svg>` (278, when a page needs it); the `transform` property and
+      per-cent or `em` `width` attributes (279).
       Decided in ADR 0022. An `<svg>` is one
       replaced box with no boxes inside it, and its contents become a drawing
       of paths, made by a new crate `alo-svg` after layout and handed to paint

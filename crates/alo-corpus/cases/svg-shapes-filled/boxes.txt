@@ -1,0 +1,27 @@
+block flow · document
+  block flow · generic
+    block flex · paragraph
+      inline flow-root · image "Rect"
+      inline flow-root · image "Rounded rect"
+      inline flow-root · image "Circle"
+      inline flow-root · image "Ellipse"
+      inline flow-root · image "Polygon"
+      inline flow-root · image "Polyline"
+    block flex · paragraph
+      inline flow-root · image "Non-zero"
+      inline flow-root · image "Even-odd"
+      inline flow-root · image "Group"
+      inline flow-root · image "Fill opacity"
+      inline flow-root · image "Turned"
+      inline flow-root · image "Overridden"
+    block flow · paragraph
+      text "Warm "
+      inline flow-root · image [hidden]
+    block flow · paragraph
+      text "Cool "
+      inline flow-root · image [hidden]
+    block flex · paragraph
+      inline flow-root · image "Meet"
+      inline flow-root · image "Start"
+      inline flow-root · image "Slice"
+      inline flow-root · image "Stretch"

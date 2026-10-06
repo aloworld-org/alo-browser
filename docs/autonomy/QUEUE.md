@@ -5016,7 +5016,7 @@ The long pole, and the thing most of section E is unreachable without.
   A `width` in per cent, `em` or `calc()` is recorded and not used: SVG 2
   makes it a presentation attribute, which is 271's cascade work.
 
-- [ ] **271. Shapes, filled.** *Cut from 107 (ADR 0022 §§ 2, 3).* The crate
+- [x] **271. Shapes, filled.** *Cut from 107 (ADR 0022 §§ 2, 3).* The crate
   `alo-svg` and the drawing handed to paint by box id, beside
   `PaintContext::pictures`. Also: `viewBox` and `preserveAspectRatio` as one
   transform, `rect` (with `rx`/`ry`), `circle`, `ellipse`, `line`, `polyline`,
@@ -5029,6 +5029,43 @@ The long pole, and the thing most of section E is unreachable without.
   paragraph's colour, and a stylesheet overriding a presentation attribute.
   Shape geometry and the viewport transform have unit tests in numbers. Every
   count § 5 names for these elements is bounded and tested hostile.
+
+  **Done (iteration 170), with two cuts.** The new crate `alo-svg` walks an
+  outermost `<svg>` after layout, in document order with its own stack, and
+  makes an `alo_paint::Drawing` — paths in the box's coordinates with every
+  SVG transform applied, each with a colour and a fill rule, and the groups
+  `opacity` fades. The pipeline (`alo-renderer`'s `drawings.rs`) hands it to
+  paint by box beside the pictures, and paint (`build.rs`'s `drawing_of`)
+  draws it into the content box, clipped there by the user-agent sheet's new
+  `svg { overflow: hidden }`. Paint gained `FillRule` (its display list says
+  `evenodd` where it is not non-zero) and `fill_on_page`, which makes only the
+  coverage that lands on the page, so a stranger's 60 000-pixel rect costs a
+  page of mask and not 3.6 GB. `alo-style`'s new `presentation.rs` puts
+  `fill`, `fill-opacity`, `fill-rule`, `opacity`, `display`, `visibility` and
+  `color` attributes into the cascade as author declarations of specificity
+  zero, counted before every sheet, invalid ones ignored and recorded; the
+  three `fill` properties inherit. Shapes follow SVG 2's equivalent paths
+  (rect with `rx`/`ry` rules, circle, ellipse, polygon, polyline; a line fills
+  nothing). `viewBox` with `preserveAspectRatio` (all nine alignments, `meet`,
+  `slice`, `none`) is one matrix; the `transform` attribute is SVG's own
+  grammar, ignored whole on any error. A shape's own `opacity` is folded into
+  its fill's alpha (one fill, the same as a group of one); a container's is a
+  group, and an empty group is taken back out. Bounds, each tested at its
+  edge: 65 536 points per `points`, 262 144 segments and 65 536 elements per
+  drawing, 256 levels of nesting, 16 groups open at once and 64 in all; past
+  any of them the drawing is refused whole and recorded. `<path>`, `<use>`,
+  `<text>`, a nested `<svg>`, `<image>`, `<foreignObject>`, SMIL, and
+  `clip-path`, `mask`, `filter` and markers are left out and recorded; paint
+  servers draw their fallback colour, recorded. Corpus case
+  `svg-shapes-filled` is the reference render: every shape, a star under
+  `nonzero` and `evenodd`, a faded group against two `fill-opacity` shapes,
+  a turned square, a stylesheet beating `fill="red"`, two `currentColor`
+  icons in their paragraphs' colours, and the four aspect-ratio behaviours
+  with a slice cut at its box. `an-svg-box` moved, as it should: the `<rect>`
+  in its attribute-sized `<svg>` is now drawn black, and its four paths are
+  recorded for 272. **Cut:** a nested `<svg>` viewport (278), and the
+  `transform` property on SVG elements with per-cent and `em` `width` and
+  `height` on an outermost `<svg>` (279).
 
 - [ ] **272. Path data.** *Cut from 107 (ADR 0022 §§ 2, 5).* The `d` grammar,
   every command, absolute and relative, with arcs converted to cubic curves
@@ -5072,6 +5109,30 @@ The long pole, and the thing most of section E is unreachable without.
   static mode (no script, no animation, no fetch of anything outside the
   file).
   *Depends on 273.*
+
+- [ ] **278. A nested `<svg>` viewport.** *Cut from 271 (ADR 0022 § 1).* An
+  `<svg>` inside an `<svg>` is a new viewport in its parent's drawing: its
+  `x`, `y`, `width` and `height` (per cent of the parent's viewport, 100% by
+  default), its own `viewBox` and `preserveAspectRatio` through `alo-svg`'s
+  `viewport.rs`, and a clip to that viewport unless its `overflow` is
+  `visible`, which needs a clip word in `alo_paint::Drawing`. Nesting counts
+  toward the walk's depth bound.
+  *Depends on 271. Opened only by a frozen page that needs it*, as 179 is;
+  until then a nested `<svg>` is left out and recorded.
+
+- [ ] **279. The `transform` property and relative sizes on SVG elements.**
+  *Cut from 271 (ADR 0022 §§ 1, 3).* Two halves of "presentation attributes
+  that are geometry". The CSS `transform` property on an element inside an
+  `<svg>`, with `transform-box` and `transform-origin` as SVG 2 defines them,
+  composed with the `transform` attribute (which becomes its presentation
+  attribute). And `width` and `height` on an outermost `<svg>` as
+  presentation attributes, so `width="50%"` or `height="2em"` size the box
+  through the cascade instead of being recorded and ignored by `alo-box`'s
+  `svg.rs`.
+  *Depends on 271. Closes when:* a layout assertion sizes an `<svg>` from a
+  per-cent and an `em` attribute, and a stylesheet beats each; a reference
+  render shows a shape turned by the property about its own box, and the
+  property and the attribute together.
 
 - [ ] **108. Canvas 2D.** The rasteriser exists; this is the API over it and the
   compositing rules around it.

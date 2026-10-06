@@ -14,6 +14,7 @@
 //! one is [`crate::build`], which is a different reason to change: a new CSS
 //! property changes the builder, a new kind of drawing changes this.
 
+use crate::fill_rule::FillRule;
 use crate::paint::Paint;
 use crate::path::Path;
 use alo_box::BoxId;
@@ -85,6 +86,9 @@ pub enum DisplayItem {
         path: Path,
         /// What with: one colour, or a colour that changes across the shape.
         paint: Paint,
+        /// What counts as inside a shape that crosses itself. Non-zero for
+        /// everything CSS draws; an SVG shape says (ADR 0022 § 3).
+        rule: FillRule,
     },
     /// A shape, blurred, drawn behind or inside something.
     ///
@@ -259,11 +263,18 @@ impl DisplayList {
                     box_id,
                     path,
                     paint,
+                    rule,
                 } => {
                     let (left, top, right, bottom) = path.bounds().unwrap_or((0.0, 0.0, 0.0, 0.0));
+                    // The rule is named only when it is not the one everything
+                    // CSS fills uses, so a list of boxes reads as it always has.
+                    let rule = match rule {
+                        FillRule::NonZero => "",
+                        FillRule::EvenOdd => " evenodd",
+                    };
                     writeln!(
                         out,
-                        "fill {box_id} {paint} at ({left}, {top}) {}×{}",
+                        "fill {box_id} {paint}{rule} at ({left}, {top}) {}×{}",
                         right - left,
                         bottom - top,
                     )

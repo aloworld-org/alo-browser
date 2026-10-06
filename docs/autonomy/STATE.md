@@ -15033,3 +15033,122 @@ ticked with what was done), `docs/features.md`, `docs/conformance.md`,
 117 queue items are open (one closed). The first eligible item in file order
 is now **271**. The next unused queue number is **278** and the next ADR is
 **0023**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 170 — item 271: shapes, filled
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and *SVG* line, iteration 169's entry, the queue's
+section H (107, 270–277), ADR 0022 in full, `docs/features.md`'s pictures
+lines, and the code 271 touches: `alo-paint`'s `path.rs`, `raster.rs`,
+`display.rs`, `build.rs` and `render.rs`; `alo-style`'s `cascade.rs`,
+`computed.rs`, `inheritance.rs`, `origin.rs` and `user_agent.rs`; `alo-box`'s
+`svg.rs`; and `alo-renderer`'s `pipeline.rs`. No `AGENTS.md` exists. No
+sibling repository was read or modified this iteration. The checkout was clean
+on entry at `b103193`.
+
+**Selection.** Iteration 169 recorded 271 as the first eligible item, and
+nothing before it changed: 179 waits on a page, 269 on a `rav1d` release, and
+107 is closed by 270–273. 271 depends on 270, which is done.
+
+**What was built.**
+- A new crate, `alo-svg` (ADR 0022 § 2): `walk.rs` turns an outermost `<svg>`
+  into an `alo_paint::Drawing` after layout, in document order, with its own
+  stack; `shape.rs` gives SVG 2's equivalent path for `rect` (with the
+  `rx`/`ry` rules), `circle`, `ellipse`, `polygon` and `polyline`, and a line
+  fills nothing; `viewport.rs` is `viewBox` with `preserveAspectRatio` as one
+  matrix; `transform.rs` is the `transform` attribute's own grammar, ignored
+  whole on any error; `fill.rs` reads `fill`, `fill-opacity` and `fill-rule`
+  from the computed style; `length.rs` and `number.rs` are user units and
+  SVG's number lists; `bounds.rs` holds every bound and its reason.
+- `alo-paint`: `drawing.rs` (the vocabulary handed over by box),
+  `fill_rule.rs`, a `rule` on `DisplayItem::Fill` (the outline says `evenodd`
+  only where it is), `PaintContext::drawings`, `build.rs`'s `drawing_of`
+  (into the content box, clipped there unless `overflow` is `visible`), and
+  `raster::fill_on_page`, which makes only the coverage that lands on the
+  page. Without it a stranger's `<rect width="60000" height="60000">` would
+  have asked for a 3.6 GB mask: a test of the old `fill` did exactly that on
+  the first run, which is how it was found.
+- `alo-style`: `presentation.rs` makes `fill`, `fill-opacity`, `fill-rule`,
+  `opacity`, `display`, `visibility` and `color` attributes on SVG elements
+  author declarations of specificity zero, counted before every sheet
+  (`Applicable::gather_with_hints`); invalid ones are ignored and recorded.
+  The three `fill` properties inherit. The user-agent sheet gains
+  `svg { overflow: hidden }`, as SVG's own sheet has.
+- A box with no children no longer pushes an empty clip in `build.rs`
+  (every `<svg>` would otherwise have had one). No case other than the two
+  SVG ones moved.
+- `alo-renderer`'s new `drawings.rs` asks `alo-svg` for each `<svg>` box's
+  drawing after layout and passes the drawings to paint.
+
+**Cuts, each written into the queue.** A nested `<svg>` viewport is item 278
+(opened by a page, as 274–277 are). The `transform` *property* on SVG
+elements, and `width`/`height` attributes in per cent or `em` on an outermost
+`<svg>`, are item 279; `alo-box`'s messages now name 279 instead of 271.
+Both are recorded as issues when a page uses them.
+
+**Gate, mechanical.** `scripts/gate.sh` exited 0 in 7 min 28 s, run in the
+foreground and read in the same step: fmt clean, clippy silent, every test
+passes, no stubs, no `unsafe`, every rented crate behind its boundary (none
+added; `tiny-skia`'s even-odd rule is named only in `raster.rs`), no verb
+takes a coordinate, the stop rule holds, `CHANGELOG.md` changed.
+`git diff --check` passes. The log is in this session's scratchpad, not
+committed. Only this entry changed after the gate ran.
+
+**Gate, manual.**
+- Reference render: new corpus case `svg-shapes-filled`, looked at. It shows
+  every shape filled, a star under `nonzero` (filled) and `evenodd` (a hole),
+  a faded group whose overlap is no darker against two `fill-opacity` squares
+  whose overlap is darker, a square turned about its middle, a stylesheet
+  beating `fill="red"`, two `currentColor` icons in their paragraphs'
+  colours, and `meet`, `xMinYMid`, `slice` (cut at its box) and `none`.
+  `an-svg-box` moved, and should have: the `<rect>` in its attribute-sized
+  `<svg>` is now black (1152 pixels, 48 × 24), and its four `<path>`s are
+  recorded for 272. No other reference moved.
+- Numbers: `svg-shapes-filled/display.txt` pins every fill's bounds (for
+  example the rect at (8, 12) 32 × 24 from (2, 4) 16 × 12 in a doubled
+  viewBox, the turned square at 28.28 × 28.28, the slice at 72 × 72 cut to
+  72 × 32). Unit tests pin shape segments, arc accuracy (within 0.03 of a
+  100-unit radius), each transform function, list order, and each
+  aspect-ratio case. Nothing new is laid out, so `layout.txt` and `boxes.txt`
+  of `an-svg-box` did not change.
+- Hostile bytes: `number.rs` refuses `inf`, `NaN`, overflowing exponents and
+  10 000-digit numbers; `transform.rs` refuses a million-argument function
+  after seven; each bound in `bounds.rs` (65 536 points, 262 144 segments,
+  65 536 elements, depth 256, 16 groups open, 64 groups) is tested at its
+  edge and one past it, and past it the drawing is refused whole with the
+  reason recorded. A test of non-finite and enormous values never panics.
+- One responsibility per file: `alo-svg` is eight files with one job each;
+  the presentation rule is its own file in `alo-style`; `drawing.rs` and
+  `fill_rule.rs` are vocabulary in `alo-paint`.
+- `docs/features.md`'s SVG line names 271, 278 and 279.
+
+**For a reviewer.**
+- ADR 0022 § 2 lists `alo-svg`'s dependencies as `alo-dom`, `alo-style`,
+  `alo-value` and `alo-paint`. It also depends on `alo-box`, for
+  `svg::is_outermost` and `svg::view_box`, so the box and the drawing read a
+  `viewBox` one way. `alo-paint` already depends on `alo-box`, so no new edge
+  appears between crates outside `alo-svg`. A person may want the ADR's list
+  corrected.
+- A shape's own `opacity` is folded into its fill's alpha rather than opened
+  as a group: with one fill that is the same picture and costs no page of
+  pixels. Item 273 must make it a group once a shape has a stroke too, and
+  `walk.rs` says so where it happens.
+
+**Roadmap.** The *SVG* line stays an empty box; its `Built:` clause gains
+filled shapes (271, `alo-svg`, `presentation.rs`, `svg-shapes-filled`) and its
+`Owed:` clause is now 272, 273, 278 and 279. Also updated: `QUEUE.md` (271
+ticked with what was done; 278 and 279 opened), `docs/features.md`,
+`docs/conformance.md`, `CHANGELOG.md`, `REMAINING.md`, and `alo-box`'s
+`svg.rs` messages.
+
+**Unresolved obligations.**
+- 272 and 273 are to be built in order; 272 is eligible now. 107 stays open.
+- 278 waits on a page; 279 is eligible after 272 in file order.
+- ADR 0022 § 2's dependency list and § 4's name order are a person's call.
+- Carried, unchanged: 269 blocked on a `rav1d` release; the `image-webp`
+  panic upstream report (a person's call); 109, 179, a picture ignoring a
+  clip in force, and 82, 83, 85–89, 95–99, 104, 105 needing their designs.
+
+118 queue items are open (one closed, two opened). The first eligible item in
+file order is now **272**. The next unused queue number is **280** and the
+next ADR is **0023**. This is one iteration, not a finished queue or roadmap.

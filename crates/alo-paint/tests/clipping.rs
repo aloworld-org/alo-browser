@@ -54,6 +54,7 @@ fn draw(html: &str, css: &str, width: f32, height: f32) -> (DisplayList, Canvas)
         PaintContext {
             fonts: &database,
             pictures: &std::collections::BTreeMap::new(),
+            drawings: &std::collections::BTreeMap::new(),
         },
     );
 

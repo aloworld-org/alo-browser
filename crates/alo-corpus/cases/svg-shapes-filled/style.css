@@ -1,0 +1,9 @@
+body { margin: 0; font-family: 'DejaVu Sans'; font-size: 12px }
+p { margin: 4px }
+.row { display: flex; gap: 4px }
+svg { width: 40px; height: 40px; background: #f1ede4 }
+.wide { width: 72px; height: 32px }
+.overridden { fill: #e9c46a }
+.icon { width: 12px; height: 12px; background: none }
+.warm { color: #e76f51 }
+.cool { color: #2a9d8f }
