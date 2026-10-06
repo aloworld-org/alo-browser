@@ -4,10 +4,14 @@
 
 //! Giving a page's script its document.
 //!
-//! [`furnish`] makes the prototype of every interface in an engine's realm
-//! and gives them to the document cell, which is where a native finds them
-//! ([`crate::interface`]). [`install`] does that and puts the document on the
-//! global object as `document`: the moment a page's script can reach it.
+//! [`furnish`] makes the prototype of every interface in an engine's realm,
+//! and the unforgeables object of each that has `[LegacyUnforgeable]`
+//! members, and gives them to the document cell, which is where a native
+//! finds them ([`crate::interface`]). [`install`] first names the document
+//! cell as the realm's `[[HostDefined]]` — how a constructor, whose `this`
+//! reaches nothing, finds its page (ADR 0019 § 2) — then does that and puts
+//! the document on the global object as `document`: the moment a page's
+//! script can reach it.
 //!
 //! It also puts the two interface objects a page constructs with on the
 //! global object — `Event` and `CustomEvent` (ADR 0018 § 8), since a page
@@ -21,10 +25,11 @@
 //! # `document` is a value, not yet a getter
 //!
 //! Web IDL makes `document` an unforgeable **accessor** on the window. Its
-//! getter would be a native, and a native is handed its `this` — the global
-//! object, an ordinary object here — and nothing else, so it would have
-//! nowhere to find the document. Until the global object is a `Window` of its
-//! own, `document` is a data property that is neither writable nor
+//! getter would be a native whose `this` is the global object, an ordinary
+//! object here; the realm's host now lets such a getter find the document
+//! (ADR 0019), but the accessor belongs on a `Window`, which is item 251's.
+//! Until the global object is a `Window` of its own, `document` is a data
+//! property that is neither writable nor
 //! configurable, which is what every member a script has today can observe of
 //! the accessor: reading it answers the document, assigning to it does
 //! nothing (or throws in strict code), and deleting it fails. Only a
@@ -86,20 +91,52 @@ pub fn furnish(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
             held.interfaces.set(barrier, interface, prototype);
         });
         interface.furnish(objects, prototype, function_prototype)?;
+        if interface.has_unforgeables() {
+            unforgeables(objects, cell, interface, function_prototype)?;
+        }
     }
     Ok(())
 }
 
+/// Make `interface`'s unforgeables object — no prototype, made once per
+/// realm (ADR 0019 § 3) — and give it to the document `cell`, then put the
+/// interface's `[LegacyUnforgeable]` members on it.
+///
+/// **A safepoint.** `cell` must be rooted by the caller.
+fn unforgeables(
+    objects: &mut Objects,
+    cell: Ref,
+    interface: Interface,
+    function_prototype: Ref,
+) -> Result<(), Escape> {
+    let unforgeables = objects
+        .object(None)
+        .map_err(|why| Escape::refused(why, 0))?;
+    // Held by the cell before its members are made, as a prototype is.
+    objects.write_embedded::<DocumentCell, _>(cell, |held, barrier| {
+        held.interfaces
+            .set_unforgeables(barrier, interface, unforgeables);
+    });
+    interface.furnish_unforgeables(objects, unforgeables, function_prototype)
+}
+
+/// Name the document `cell` holds as the realm's `[[HostDefined]]`, then
 /// [`furnish`], then put the document on `engine`'s global object as
 /// `document`, answering the document node's wrapper.
 ///
-/// **A safepoint.** `cell` must be rooted by the caller.
+/// **A safepoint.** `cell` must be rooted by the caller; the realm roots it
+/// too from here on, for as long as the realm lives.
 ///
 /// # Errors
 ///
-/// As [`furnish`], and [`Escape::Full`] when the heap cannot hold the
-/// wrapper.
+/// As [`furnish`]; a `TypeError` when the realm already has a host — an
+/// embedder installing twice, where the first document stands — and
+/// [`Escape::Full`] when the heap cannot hold the wrapper.
 pub fn install(engine: &mut Engine, cell: Ref) -> Result<Ref, Escape> {
+    if engine.objects().embedded::<DocumentCell>(cell).is_none() {
+        return Err(Escape::fault(Fault::NotAnObject));
+    }
+    engine.host_defined(cell)?;
     furnish(engine, cell)?;
     constructors(engine, cell)?;
     let global = engine.global()?;

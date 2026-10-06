@@ -13007,3 +13007,112 @@ the heap's ceiling; 248's undiscriminated overrun fallback; 78's remainder;
 no discriminating test. 114 queue items are open. Next is **260**, now
 buildable against ADR 0019. Next unused queue number **261**; next ADR
 **0020**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 154 — item 260 built: `isTrusted`, unforgeable, one getter per realm
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Events* line, iteration 153's entry,
+queue items 81 and 254–260, ADR 0019 in full and ADR 0018 §§ 4 and 8; and
+the code it changes — `alo-js`'s `realm.rs`, `interpret.rs`,
+`interpret/call.rs`, `object/native.rs`, `object/access.rs`; `alo-bindings`'
+`install.rs`, `interface.rs`, `document_cell.rs`, `define.rs`, `event.rs`,
+`interface/event.rs`, `interface/custom_event.rs`, and the tests of items
+254 and 255. No `AGENTS.md` exists. No sibling repository was read or
+modified. The checkout was clean on entry at `73b90de`.
+
+**Selection.** Iteration 153 named **260** next: it depends on nothing, its
+decision (ADR 0019) is accepted, and its feature line is *Events*. 256
+depends on it.
+
+**What was built, as ADR 0019 decided it.**
+- `alo-js` (§ 1): the realm's `host: Option<Root>` — `Realm::host_defined`
+  and `Realm::define_host`, which roots the value and hands a second one
+  back unrooted; `Engine::host_defined`, whose second call is a `TypeError`
+  naming it with the first value standing; `Call::host_defined` and
+  `Call::hosted_by`, the interpreter passing the realm's host beside its
+  intrinsics at the one place a builtin is stepped. The engine learns no
+  embedder type (ADR 0013 § 6).
+- `alo-bindings` (§§ 2–3): `install` names the document cell as the
+  realm's host before it makes anything; `Interfaces` holds an
+  unforgeables slot per interface beside its prototype, traced with them;
+  `furnish` makes `Event`'s unforgeables object (no prototype) and puts
+  `isTrusted` on it with `define::unforgeable_attribute` — enumerable, not
+  configurable, no setter; the new `unforgeable.rs` is the one copy, for
+  the interface and each it inherits, allocation-free and so not a
+  safepoint; the `Event` and `CustomEvent` constructors copy at step 0,
+  before the type or dictionary is converted, reaching the cell through
+  `Call::host_defined`; `event::create` copies from the cell it is handed.
+
+**Closing condition, met.** `e.isTrusted` is `false` after a script's
+`dispatchEvent` (and before, and in its listener, and for a
+`CustomEvent`); `true` in listeners for the browser's dispatch, at the
+target and on the way up, and still after it ends — `false` once a script
+dispatches that same event; its property is the instance's own (neither
+prototype has it) and the same getter on two events, on the browser's
+event, and on the unforgeables object; and a page cannot replace it —
+`delete`, sloppy and strict assignment, a property on `Event.prototype`
+and a cut prototype each leave it as it was.
+
+**Tests.** `alo-js/tests/what_a_realm_hosts.rs` (4),
+`alo-bindings/tests/who_sent_an_event.rs` (5),
+`alo-renderer/tests/a_dispatch_from_the_browser.rs` (+1, now 14); every
+script run ordinarily and with the collector at every allocation.
+`what_an_event_does.rs`' absent-members test no longer lists `isTrusted`.
+**Doctored runs**, each restored from a copy and the tree checked against
+the intended diff: constructors not copying (5 tests fail);
+`event::create` not copying (2, one in `alo-bindings`, one in
+`alo-renderer`); the property configurable (2); the host kept as a bare
+reference instead of a root (the collecting runs disagree in two tests;
+that doctor also dropped the set-once check, which two more caught).
+Not doctored: a getter made per instance — the same-getter assertions are
+the guard, but no run proved they would catch it.
+
+**Compliance review.** Law 1: nothing legacy added. Law 2: untouched.
+Law 3: no stubs, no `unwrap` outside tests; every new failure path is an
+error (`Fault::Gone` for a realm never installed, `BuiltinIsWrong` for an
+instance refusing a copy). Law 4: no `unsafe`. ADR 0014: the host is a
+realm root, the unforgeables a traced edge of the cell. One file, one
+responsibility: the copy is its own file; the realm's host is realm state;
+`define.rs` still says only how a member goes on an object. Nothing
+positions, sizes or draws, so there is no layout assertion or reference
+render to make, and no corpus case — the item's closing condition names
+none, and `a-script-hears-an-event` is unchanged and passing. No bytes from
+outside are read, so the hostile-input clause does not apply beyond the
+hostile-script cases above.
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step (7 min 12 s): formatting clean, clippy silent, all tests pass,
+nothing stubbed, `unsafe` forbidden, licence notices, every rented crate
+behind its boundary, no coordinate verb, the stop rule holds, `CHANGELOG.md`
+changed with the code. `git diff --check` passes. Log kept in this
+session's scratchpad, not committed.
+
+**Roadmap.** The *Events* line's Built clause gains `isTrusted` and its Owed
+clause loses it. Not a tick: 256–259 are still owed. `docs/features.md`'s
+Events entry says every event tells whether the browser sent it, and no
+longer lists that as absent. `CHANGELOG.md`, `QUEUE.md` (260 ticked with its
+Built note) and `REMAINING.md` moved with it.
+
+**Unresolved obligations.** From ADR 0019's *does not decide*: several
+realms in one heap; `furnish` for a second document cell makes a second
+unforgeables object, so an event `event::create` makes in that cell would
+carry a different getter from the realm's — nothing does that yet;
+`document` as Web IDL's accessor (251); node constructors. Carried,
+unchanged from iteration 153: nothing in the browser fires a dispatch yet
+(256, 233); `addEventListener` with an object type and an options getter
+refused by name (item 221); a dispatch abandoned by a non-page escape
+leaves its event flagged and path kept; an embedder that never calls
+`hand_over_reported` holds up to 256 roots; item 81's remaining code (256,
+257, 258 needs design, 259); `document.head` and every other absent member
+wait for a page or an item; any other object a page throws is said as `an
+object` (item 78); a `<meta>` policy a script inserts is not applied;
+detached trees a script drops during a load wait for the first collection
+after the parse; the renderer's path for a document the heap refuses is
+not discriminated; the one-write overshoot of the heap's ceiling; 248's
+undiscriminated overrun fallback; 78's remainder; 77 needs design; 233,
+234, 238 and 240 open and item 76 not done; `violations::reports` still
+called by nothing in the browser process (item 203's dependency);
+iteration 141's browser-side font-name guard still has no discriminating
+test. 113 queue items are open. Next is **256** — its dependencies 255 and
+260 are done. Next unused queue number **261**; next ADR **0020**. This is
+one iteration, not a finished queue or roadmap.

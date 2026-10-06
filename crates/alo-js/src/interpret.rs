@@ -229,6 +229,25 @@ impl Engine {
         (self.realm.intrinsics(), &self.objects)
     }
 
+    /// Set this realm's `[[HostDefined]]` to `value`, which the realm then
+    /// roots for as long as it lives (ADR 0019 § 1).
+    ///
+    /// The engine never learns what `value` is. An embedder's native reads it
+    /// back with [`Call::host_defined`](crate::object::native::Call::host_defined)
+    /// when its `this` reaches nothing — a constructor's fresh instance — and
+    /// a document is how `alo-bindings` uses it.
+    ///
+    /// # Errors
+    ///
+    /// A `TypeError` naming the refusal when the realm's host is already
+    /// defined: a realm's host is fixed for its life, so a second call is an
+    /// embedder's bug and the first value stands.
+    pub fn host_defined(&mut self, value: Ref) -> Result<(), Escape> {
+        self.realm
+            .define_host(&mut self.objects, value)
+            .map_err(|_| Escape::type_error("this realm's host is already defined", 0))
+    }
+
     /// A function an embedder wrote, made the way the language's own are:
     /// inheriting from this realm's `Function.prototype`.
     ///

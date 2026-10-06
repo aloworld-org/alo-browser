@@ -369,8 +369,10 @@ impl Engine {
         } else {
             Some(self.value_at(run, waiting.answer_at())?)
         };
+        let host = self.realm.host_defined(&self.objects)?;
         let mut call = Call::new(&mut self.objects, this, &arguments, waiting.at)
-            .within(self.realm.intrinsics());
+            .within(self.realm.intrinsics())
+            .hosted_by(host);
         if waiting.after == After::Construct {
             call = call.constructed();
         }

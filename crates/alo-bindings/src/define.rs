@@ -11,6 +11,10 @@
 //! is to the object model; what it *does* is its body, in its interface's
 //! file.
 //!
+//! A `[LegacyUnforgeable]` attribute is the same accessor **not
+//! configurable**, and goes on an interface's unforgeables object rather than
+//! its prototype, to be copied onto each instance (ADR 0019 § 3).
+//!
 //! Both allocate — the name is interned, the functions are made — so every
 //! one of them is held in a scope until the prototype owns it, and the
 //! prototype itself must be held by the caller.
@@ -68,19 +72,63 @@ pub(crate) fn attribute(
     set: Option<Body>,
 ) -> Result<(), Escape> {
     let scope = objects.heap_mut().open();
-    let outcome = held_attribute(objects, prototype, function_prototype, name, get, set);
+    let outcome = held_attribute(
+        objects,
+        prototype,
+        function_prototype,
+        name,
+        (get, set),
+        Configurable::Yes,
+    );
     objects.heap_mut().close(scope);
     outcome
 }
 
-/// [`attribute`], with the scope open.
-fn held_attribute(
+/// Put the read-only `[LegacyUnforgeable]` attribute `name`, read by `get`,
+/// on an interface's `unforgeables` object: enumerable and **not
+/// configurable**, so that once copied onto an instance no page can delete
+/// or redefine it.
+///
+/// # Errors
+///
+/// As [`operation`].
+pub(crate) fn unforgeable_attribute(
     objects: &mut Objects,
-    prototype: Ref,
+    unforgeables: Ref,
     function_prototype: Ref,
     name: &'static str,
     get: Body,
-    set: Option<Body>,
+) -> Result<(), Escape> {
+    let scope = objects.heap_mut().open();
+    let outcome = held_attribute(
+        objects,
+        unforgeables,
+        function_prototype,
+        name,
+        (get, None),
+        Configurable::No,
+    );
+    objects.heap_mut().close(scope);
+    outcome
+}
+
+/// Whether an attribute may be deleted or redefined.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Configurable {
+    /// An ordinary attribute.
+    Yes,
+    /// A `[LegacyUnforgeable]` one.
+    No,
+}
+
+/// [`attribute`] or [`unforgeable_attribute`], with the scope open.
+fn held_attribute(
+    objects: &mut Objects,
+    object: Ref,
+    function_prototype: Ref,
+    name: &'static str,
+    (get, set): (Body, Option<Body>),
+    configurable: Configurable,
 ) -> Result<(), Escape> {
     let key = held_key(objects, name)?;
     let getter = held_native(objects, function_prototype, name, get)?;
@@ -88,8 +136,13 @@ fn held_attribute(
         Some(body) => Value::Object(held_native(objects, function_prototype, name, body)?),
         None => Value::Undefined,
     };
-    let property = Property::accessor(Value::Object(getter), setter, true, true);
-    defined(objects, prototype, key, property)
+    let property = Property::accessor(
+        Value::Object(getter),
+        setter,
+        true,
+        configurable == Configurable::Yes,
+    );
+    defined(objects, object, key, property)
 }
 
 /// Intern `name` and hold the string that spells it in the open scope.

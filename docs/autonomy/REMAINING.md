@@ -279,6 +279,15 @@ each interface's unforgeables object, copied onto every instance. No code.
 114 queue items are open; **260** is next, now buildable; the next unused
 queue number is 261 and the next unused ADR 0020.
 
+Iteration 154 built item 260 against ADR 0019: the realm's
+`[[HostDefined]]` (`Engine::host_defined`, `Call::host_defined`), set by
+`install` to the document cell, which now holds `Event`'s unforgeables
+object; `isTrusted` is copied onto every event by `alo-bindings`'
+`unforgeable.rs` from both constructors and `event::create` — one getter
+per realm, own, not configurable. 113 queue items are open; **256** is next
+(its dependencies 255 and 260 are done); the next unused queue number is
+261 and the next unused ADR 0020.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

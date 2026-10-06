@@ -28,15 +28,15 @@
 //! as the browser gives them ([`Firing`]), and nothing else. Its dispatch is
 //! the event loop's (queue item 255), and is trusted (ADR 0018 § 4).
 //!
+//! It is given `isTrusted` there as the constructors give it, from the cell's
+//! unforgeables ([`crate::unforgeable`], ADR 0019 § 3): an own accessor that
+//! reads the trusted flag kept here, which the dispatch sets as ADR 0018 § 4
+//! says.
+//!
 //! # What is not here
 //!
-//! `isTrusted` is queue item 260: Web IDL makes it `[LegacyUnforgeable]`, an
-//! own accessor on every instance sharing one getter per realm, which needs a
-//! place the constructor can find that getter — and a prototype accessor
-//! instead would be the approximate member ADR 0013 § 3 refuses. The flag is
-//! kept, and set as § 4 says, for when it is read. `timeStamp` is a clock and
-//! item 92's; `returnValue`, `cancelBubble`, `srcElement` and `initEvent` are
-//! law 1's.
+//! `timeStamp` is a clock and item 92's; `returnValue`, `cancelBubble`,
+//! `srcElement` and `initEvent` are law 1's.
 
 use alo_js::heap::{Barrier, Field, Ref, Trace, Tracer};
 use alo_js::object::{Exotic, Internal, Key, Objects, Ordinary, Property, Stored, Value};
@@ -45,6 +45,7 @@ use alo_js::{Escape, Fault};
 use crate::dispatch::Progress;
 use crate::document_cell::DocumentCell;
 use crate::interface::Interface;
+use crate::unforgeable;
 
 /// Which phase a dispatch is in, as `eventPhase` answers it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -393,8 +394,8 @@ pub struct Firing<'a> {
 }
 
 /// Make the event `firing` describes, inheriting from `Event.prototype` as
-/// the document `cell` holds it — the standard's *create an event*, for the
-/// browser's own dispatch.
+/// the document `cell` holds it and with `Event`'s unforgeable members — the
+/// standard's *create an event*, for the browser's own dispatch.
 ///
 /// **A safepoint.** `cell` must be rooted by the caller, and the event
 /// answered is held by nothing: the caller holds it before anything else
@@ -416,7 +417,10 @@ pub fn create(objects: &mut Objects, cell: Ref, firing: &Firing<'_>) -> Result<R
     event.set_init(Init::Bubbles, firing.bubbles);
     event.set_init(Init::Cancelable, firing.cancelable);
     event.set_init(Init::Composed, firing.composed);
-    objects
+    let made = objects
         .foreign(Box::new(event))
-        .map_err(|why| Escape::refused(why, 0))
+        .map_err(|why| Escape::refused(why, 0))?;
+    // Copying allocates nothing, so the event nothing holds yet survives it.
+    unforgeable::copy(objects, cell, made, Interface::Event)?;
+    Ok(made)
 }

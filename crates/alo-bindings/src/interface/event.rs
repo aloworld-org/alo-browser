@@ -15,6 +15,13 @@
 //!   the target up while the event is dispatched and empty otherwise.
 //! - The four phase constants, `NONE` to `BUBBLING_PHASE`, on the prototype
 //!   and on the constructor.
+//! - `isTrusted`, Web IDL's `[LegacyUnforgeable]` attribute (queue item 260,
+//!   ADR 0019 § 3): not on the prototype but on **every instance**, an
+//!   accessor that is enumerable and not configurable, with no setter, whose
+//!   getter is one function per realm — made once on `Event`'s unforgeables
+//!   object and copied onto each event by [`crate::unforgeable`]. It answers
+//!   the flag the dispatch sets: `false` after a script's `dispatchEvent`,
+//!   `true` for the browser's (ADR 0018 § 4).
 //!
 //! The constructor is given its instance before its body runs
 //! ([`Instance::Made`](alo_js::object::native::Instance)), so what it has
@@ -22,22 +29,26 @@
 //! dictionary — which runs the page's script, and is asked of the
 //! interpreter — costs nothing but a step number.
 //!
-//! **Absent** (ADR 0018 § 8): `isTrusted`, queue item 260; `timeStamp`, a
-//! clock, item 92's; and law 1's `returnValue`, `cancelBubble`, `srcElement`
-//! and `initEvent`.
+//! The constructor copies the unforgeables at its first step, before the
+//! type is converted or the dictionary read — so before any page script can
+//! run inside it — finding them through the realm's host, the document cell
+//! (ADR 0019 § 2), since its fresh instance reaches nothing.
+//!
+//! **Absent** (ADR 0018 § 8): `timeStamp`, a clock, item 92's; and law 1's
+//! `returnValue`, `cancelBubble`, `srcElement` and `initEvent`.
 
 use alo_js::abrupt::Internal;
 use alo_js::convert::{self, Hint, Primitive};
 use alo_js::heap::Ref;
 use alo_js::object::native::{Answer, Call, Want};
 use alo_js::object::{Key, Objects, Property};
-use alo_js::{Escape, Value};
+use alo_js::{Escape, Fault, Value};
 
 use super::Interface;
-use crate::define;
 use crate::dictionary::{self, Member};
 use crate::embed::{self, Wrapping};
 use crate::event::{Event, Init, Phase};
+use crate::{define, unforgeable};
 use crate::{idl, interface};
 
 /// The phase constants, as Web IDL puts them on the prototype and on the
@@ -81,6 +92,21 @@ pub(super) fn furnish(
         define::operation(objects, prototype, function_prototype, name, body)?;
     }
     constants(objects, prototype)
+}
+
+/// `Event`'s `[LegacyUnforgeable]` member, on its unforgeables object.
+pub(super) fn unforgeables(
+    objects: &mut Objects,
+    unforgeables: Ref,
+    function_prototype: Ref,
+) -> Result<(), Escape> {
+    define::unforgeable_attribute(
+        objects,
+        unforgeables,
+        function_prototype,
+        "isTrusted",
+        is_trusted,
+    )
 }
 
 /// Put the phase constants on `object`: neither writable nor configurable,
@@ -178,6 +204,13 @@ fn cancelable(call: &mut Call<'_>) -> Result<Answer, Escape> {
 fn composed(call: &mut Call<'_>) -> Result<Answer, Escape> {
     Ok(Answer::Value(Value::Bool(
         this(call, "composed")?.init(Init::Composed),
+    )))
+}
+
+/// `get isTrusted`.
+fn is_trusted(call: &mut Call<'_>) -> Result<Answer, Escape> {
+    Ok(Answer::Value(Value::Bool(
+        this(call, "isTrusted")?.trusted(),
     )))
 }
 
@@ -293,6 +326,13 @@ pub(crate) fn constructed(call: &mut Call<'_>, interface: Interface) -> Result<A
     };
     if call.seen().embedded::<Event>(instance).is_none() {
         return Err(Escape::Broken(Internal::BuiltinIsWrong));
+    }
+    if call.step() == 0 {
+        // Before anything is converted, so before any page script runs. The
+        // realm's host is the document cell `install` named; a realm with
+        // none was never installed, which is this crate's bug.
+        let page = call.host_defined().ok_or(Escape::fault(Fault::Gone))?;
+        unforgeable::copy(call.objects(), page, instance, interface)?;
     }
     idl::needs(call, 1, name)?;
     // A `CustomEvent`'s dictionary has `detail` after the three it inherits.

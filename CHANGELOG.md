@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can now tell the browser's events from its own.** Every event
+  answers `isTrusted`: `true` when the browser sent it, `false` when a
+  page's script made it or sent it — including an event the browser sent
+  that a script then sends again. The answer is on each event itself and
+  locked, so a page cannot delete it, overwrite it, or change what every
+  event says by editing something they share. To make that possible the
+  script engine now keeps one standard reference from a page's scripting
+  world back to its document, which is how a newly made event finds out
+  which page it belongs to.
+
 - **How a page will be able to tell the browser's events from its own is
   decided (ADR 0019).** Nothing changes yet; this is the decision the code
   will be built against. Every event will say whether the browser sent it,

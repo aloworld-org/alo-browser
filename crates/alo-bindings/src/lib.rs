@@ -35,9 +35,15 @@
 //!   algorithm written once as a stepper that `dispatchEvent` drives — and
 //!   that the renderer's event loop drives for an event the browser makes
 //!   with [`event::create`] (queue item 255).
-//! - [`install()`] makes the prototypes in an engine's realm and puts the
-//!   document on its global object as `document`; [`furnish()`] makes them
-//!   without the global, for a second document.
+//! - `isTrusted` (queue item 260, ADR 0019): each interface's
+//!   `[LegacyUnforgeable]` members live on an unforgeables object the
+//!   document cell holds, copied onto every instance as it is made — by the
+//!   constructors, which find the cell through the realm's `[[HostDefined]]`,
+//!   and by [`event::create`].
+//! - [`install()`] names the document cell as the realm's host, makes the
+//!   prototypes in an engine's realm and puts the document on its global
+//!   object as `document`; [`furnish()`] makes them without the global, for a
+//!   second document.
 //!
 //! # What is not here yet
 //!
@@ -64,6 +70,7 @@ pub mod interface;
 pub mod listeners;
 pub mod liveness;
 pub mod tree;
+mod unforgeable;
 pub mod wrapper;
 
 pub use document_cell::{DocumentCell, Released};

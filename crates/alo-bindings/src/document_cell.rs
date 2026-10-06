@@ -25,6 +25,9 @@
 //! ([`crate::interface`]): a native reaches nothing but its `this`, so the
 //! prototype `createElement`'s wrapper inherits from must be reachable from
 //! the wrapper it was called on, and this is the cell every wrapper holds.
+//! Beside them it holds each interface's **unforgeables** (ADR 0019 § 3),
+//! and it is the realm's `[[HostDefined]]`, which is how a constructor —
+//! whose `this` is a fresh instance holding nothing — finds it (§ 2).
 //!
 //! It is an object only because everything in the heap that is not the
 //! engine's own is one. No script is ever handed it — the document *node* a
@@ -50,8 +53,8 @@ pub struct DocumentCell {
     /// that making the wrapper may cause, since nothing else holds it yet.
     pub(crate) pending: Option<NodeId>,
     pub(crate) released: Released,
-    /// The prototype of each interface, once [`crate::install`] has made
-    /// them.
+    /// The prototype of each interface, and the unforgeables of those with
+    /// any, once [`crate::install`] has made them.
     pub(crate) interfaces: Interfaces,
     /// How many dispatches in progress have each node on their path, at the
     /// node's id: a node on one is kept, tree and wrapper, until they end
@@ -106,7 +109,8 @@ impl DocumentCell {
         self.table.iter().flatten().count()
     }
 
-    /// The prototype of each interface a node can be seen as.
+    /// The prototype of each interface a node can be seen as, and each
+    /// interface's unforgeables.
     pub const fn interfaces(&self) -> &Interfaces {
         &self.interfaces
     }

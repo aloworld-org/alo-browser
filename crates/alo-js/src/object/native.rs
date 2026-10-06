@@ -44,6 +44,15 @@
 //! read, never written: an intrinsic is the realm's, and a builtin that could
 //! replace one could change what every later `[]` is.
 //!
+//! # And an embedder's native is told the realm's host
+//!
+//! A native reaches its page through its `this` (ADR 0017 § 4) — except when
+//! its `this` is an object the engine has only just made, which reaches
+//! nothing: a constructor's instance. So a native is also handed the realm's
+//! `[[HostDefined]]` ([`Call::host_defined`], ADR 0019 § 1), the one
+//! reference its embedder set, of a type this engine never learns. A builtin
+//! of the engine's own never asks for it.
+//!
 //! # A step is a number, and the answer arrives on the stack
 //!
 //! A suspended builtin keeps no state of its own beyond a `u32`: everything
@@ -71,6 +80,7 @@
 use crate::abrupt::{Escape, Internal};
 use crate::builtin::Intrinsics;
 use crate::convert::Hint;
+use crate::heap::Ref;
 
 use super::{Objects, Value};
 
@@ -202,7 +212,7 @@ pub enum Instance {
 
 /// How an embedder's constructor makes its instance: from the prototype it
 /// inherits from, the object, not yet in the heap.
-pub type Make = fn(Option<crate::heap::Ref>) -> Box<dyn super::Exotic>;
+pub type Make = fn(Option<Ref>) -> Box<dyn super::Exotic>;
 
 impl Instance {
     /// Whether a plain call, without `new`, is given one too.
@@ -266,6 +276,7 @@ impl Native {
 pub struct Call<'a> {
     objects: &'a mut Objects,
     intrinsics: Option<&'a Intrinsics>,
+    host: Option<Ref>,
     this: Value,
     arguments: &'a [Value],
     at: usize,
@@ -286,6 +297,7 @@ impl<'a> Call<'a> {
         Self {
             objects,
             intrinsics: None,
+            host: None,
             this,
             arguments,
             at,
@@ -329,6 +341,23 @@ impl<'a> Call<'a> {
             Some(intrinsics) => Ok(intrinsics),
             None => Err(Escape::Broken(Internal::BuiltinIsWrong)),
         }
+    }
+
+    /// The same call, in a realm whose `[[HostDefined]]` is `host`.
+    #[must_use]
+    pub const fn hosted_by(mut self, host: Option<Ref>) -> Self {
+        self.host = host;
+        self
+    }
+
+    /// The realm's `[[HostDefined]]`: the reference its embedder set, or
+    /// [`None`] if it set none (ADR 0019 § 1).
+    ///
+    /// The realm roots it, so it names the same cell for the whole call. An
+    /// embedder's native that finds [`None`] is running in a realm its
+    /// embedder never finished making — the embedder's bug, not a page's.
+    pub const fn host_defined(&self) -> Option<Ref> {
+        self.host
     }
 
     /// Say that this is a builtin being run again, at `step`, and that `answer`

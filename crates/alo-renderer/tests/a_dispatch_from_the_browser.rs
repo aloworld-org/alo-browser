@@ -12,7 +12,8 @@
 //! hears the listener returned), throws reported with the dispatch carrying
 //! on, a stop stopping the page, a waiting dispatch holding what it will
 //! dispatch through a collection, and a page that never ran script given no
-//! heap at all.
+//! heap at all. And queue item 260's browser half: a listener for the
+//! browser's dispatch reads `isTrusted` as `true` (ADR 0018 § 4, ADR 0019).
 //!
 //! # Every case runs twice
 //!
@@ -263,6 +264,27 @@ fn the_event_is_what_the_browser_made_and_is_let_go_of_when_it_ends() {
                 out += e.type + ',' + e.bubbles + ',' + e.cancelable + ',' + e.composed + ',' \
                     + e.defaultPrevented; });";
     assert_eq!(case(pong, &other, ""), "pong,false,false,true,false");
+}
+
+#[test]
+fn the_browser_s_event_is_trusted_until_a_script_dispatches_it() {
+    let setup = "var kept; \
+        b.addEventListener('ping', (e) => { kept = e; out += e.isTrusted + ','; }); \
+        outer.addEventListener('ping', (e) => { out += (e === kept) + '' + e.isTrusted + ','; });";
+    // Trusted at the target and on the way up, still trusted once the
+    // dispatch has ended, and untrusted once a script dispatches it again —
+    // `dispatchEvent` says so, whoever made the event. A page cannot delete
+    // the property or assign to it.
+    assert_eq!(
+        case(
+            setup,
+            &PING,
+            "out += '|' + kept.isTrusted + '|'; \
+             kept.isTrusted = false; out += (delete kept.isTrusted) + '' + kept.isTrusted + '|'; \
+             b.dispatchEvent(kept); out += kept.isTrusted;"
+        ),
+        "true,truetrue,|true|falsetrue|false,truefalse,false"
+    );
 }
 
 #[test]

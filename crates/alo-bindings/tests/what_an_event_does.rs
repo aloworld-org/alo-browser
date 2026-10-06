@@ -512,10 +512,10 @@ fn the_legacy_members_and_what_waits_for_its_item_are_absent() {
         "var e = new Event('x'); \
          say(typeof e.returnValue); say(typeof e.cancelBubble); say(typeof e.srcElement); \
          say(typeof e.initEvent); say(typeof document.createEvent); say(typeof e.timeStamp); \
-         say(typeof e.isTrusted); say(typeof addEventListener); say(typeof EventTarget); \
+         say(typeof addEventListener); say(typeof EventTarget); \
          say(typeof new CustomEvent('x').initCustomEvent); out;",
         "undefined,undefined,undefined,undefined,undefined,undefined,undefined,undefined,\
-         undefined,undefined",
+         undefined",
     )]);
 }
 

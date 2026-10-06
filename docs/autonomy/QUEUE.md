@@ -4190,7 +4190,7 @@ The long pole, and the thing most of section E is unreachable without.
   and `el.onclick = f`. *Depends on 254. Opened by a page* that fails
   without them, as `ROADMAP.md` asks of stage 2.
 
-- [ ] **260. `isTrusted`, as Web IDL's `[LegacyUnforgeable]` attribute.**
+- [x] **260. `isTrusted`, as Web IDL's `[LegacyUnforgeable]` attribute.**
   *Cut from 254 (ADR 0018 §§ 4 and 8). Depends on nothing.* An own accessor
   on every `Event` instance, neither configurable nor writable, whose getter
   is **one function per realm** shared by every instance — which needs a
@@ -4212,6 +4212,37 @@ The long pole, and the thing most of section E is unreachable without.
   `[[Unforgeables]]`), made once in `furnish` and copied onto every
   instance — by the constructors at their first step, before any page
   script can run, and by `event::create`. No code yet.
+  **Built (iteration 154).** `alo-js`: the realm's `host` (`realm.rs`,
+  rooted, set once — `Realm::define_host` hands a second value back),
+  `Engine::host_defined` (a second call a `TypeError` naming it, the first
+  standing) and `Call::host_defined`, passed by the interpreter beside the
+  intrinsics (`interpret/call.rs`). `alo-bindings`: `Interfaces` holds an
+  unforgeables slot per interface beside its prototype, traced by the cell;
+  `install` names the cell as the realm's host before anything else, and
+  `furnish` makes `Event`'s unforgeables object (no prototype) with
+  `isTrusted` on it — `define::unforgeable_attribute`, enumerable, not
+  configurable, no setter; `unforgeable.rs` is the one copy, walking the
+  interface and those it inherits, allocation-free so not a safepoint; the
+  `Event`/`CustomEvent` constructors copy at step 0 through
+  `Call::host_defined`, and `event::create` copies from its cell. Tests:
+  `alo-js/tests/what_a_realm_hosts.rs` (4: handed over, none when unset,
+  rooted with the collector at every allocation, defined once),
+  `alo-bindings/tests/who_sent_an_event.rs` (5: `false` before, during and
+  after a script's dispatch and for a `CustomEvent`; not on either
+  prototype; `delete`, sloppy and strict assignment, a prototype property
+  and a cut prototype all fail to change it; one getter on two events, on
+  the browser's event and on the unforgeables object, with no setter,
+  enumerable and not configurable; a second `install` refused),
+  `alo-renderer/tests/a_dispatch_from_the_browser.rs` (one more: `true` at
+  the target and on the way up and after the dispatch, `false` once a
+  script dispatches the same event). Doctored runs, each restored: the
+  constructors not copying (5 tests fail), `event::create` not copying (2,
+  one in each crate), the property configurable (2), the host held by a
+  bare reference rather than a root (two tests fail where the collecting
+  run disagrees with the ordinary one; that doctor also lost the set-once
+  check, which two more caught).
+  No corpus case: nothing positions, sizes or draws, and the closing
+  condition is the three facts above.
 
 - [ ] **82. Forms**: the controls, constraint validation, submission, file
   inputs.

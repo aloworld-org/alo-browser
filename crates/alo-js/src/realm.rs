@@ -51,6 +51,17 @@
 //! beats approximate* — and each is a queue item. An embedder may put its own
 //! things on the global object today, which is how a test harness reaches a
 //! script.
+//!
+//! # A realm names its host
+//!
+//! ECMAScript's Realm Record has a `[[HostDefined]]` field, *reserved for use
+//! by hosts that need to associate additional information with a Realm
+//! Record*, and this realm has it too (ADR 0019 § 1): one reference an
+//! embedder sets once, rooted here as the global object is, so whatever the
+//! embedder hangs from it lives exactly as long as the realm. The engine
+//! never learns what it refers to. It is what a native finds its page
+//! through when its `this` is an object the engine has only just made — a
+//! constructor's instance — and so reaches nothing.
 
 use std::collections::HashMap;
 
@@ -75,6 +86,8 @@ pub struct Realm {
     record: Root,
     bindings: HashMap<Vec<u16>, Binding>,
     intrinsics: Intrinsics,
+    /// `[[HostDefined]]`: the embedder's, set once (ADR 0019 § 1).
+    host: Option<Root>,
 }
 
 /// What a name resolved to.
@@ -135,6 +148,7 @@ impl Realm {
             record,
             bindings: HashMap::new(),
             intrinsics,
+            host: None,
         };
         realm
             .name_the_values(objects)
@@ -146,6 +160,41 @@ impl Realm {
     /// The objects the language itself is made of (queue item 218).
     pub const fn intrinsics(&self) -> &Intrinsics {
         &self.intrinsics
+    }
+
+    /// `[[HostDefined]]`: what the embedder set, or [`None`] if it set
+    /// nothing (ADR 0019 § 1).
+    ///
+    /// # Errors
+    ///
+    /// [`Escape::Broken`] if the root no longer names it, which is this
+    /// engine's own bug.
+    pub fn host_defined(&self, objects: &Objects) -> Result<Option<Ref>, Escape> {
+        match &self.host {
+            Some(root) => objects
+                .heap()
+                .holding(root)
+                .map(Some)
+                .ok_or_else(|| Escape::fault(crate::object::Fault::Gone)),
+            None => Ok(None),
+        }
+    }
+
+    /// Set `[[HostDefined]]` to `value`, rooting it for the realm's life.
+    ///
+    /// A realm's host is fixed for its life, so this is done once: a second
+    /// call is an embedder's bug, answered with the root it was not given
+    /// back — the first value stands.
+    ///
+    /// # Errors
+    ///
+    /// `value`, unrooted, when the realm's host is already defined.
+    pub fn define_host(&mut self, objects: &mut Objects, value: Ref) -> Result<(), Ref> {
+        if self.host.is_some() {
+            return Err(value);
+        }
+        self.host = Some(objects.heap_mut().root(value));
+        Ok(())
     }
 
     /// The four value properties of the global object.

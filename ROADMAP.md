@@ -911,13 +911,16 @@ unreachable without it.
       `alo-renderer`'s event loop holding a browser-made event and its
       target by one root, stepping the same stepper with a microtask
       checkpoint after every listener; a page that never ran script given
-      no heap (`Held::dispatch`) · Owed: something the browser does that
+      no heap (`Held::dispatch`). **`isTrusted`** (queue item 260, ADR 0019)
+      — `alo-js`'s realm has ECMAScript's `[[HostDefined]]`, set once to the
+      document cell and handed to a native (`Call::host_defined`), and the
+      cell holds `Event`'s unforgeables object, whose one getter per realm
+      `unforgeable.rs` copies onto every event as an own, non-configurable
+      accessor: `false` for a script's dispatch, `true` for the browser's ·
+      Owed: something the browser does that
       fires one, and `Activate` as a keyboard's click with activation behaviour in
-      `alo-dom` (256, which closes the line's queue item 81); `isTrusted`
-      (260), whose decision is ADR 0019 — the realm's `[[HostDefined]]` names
-      the document cell, which holds each interface's unforgeables — with
-      none of its code built; `PutText`'s input events (257), focus (258) and
-      event handler attributes (259)
+      `alo-dom` (256, which closes the line's queue item 81); `PutText`'s
+      input events (257), focus (258) and event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
       · Built: **a control draws its own state** (queue item 182) — a tick in a
       checked box, a dot in a chosen radio, a dash in one that is neither, in

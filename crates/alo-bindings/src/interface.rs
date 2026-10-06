@@ -38,6 +38,17 @@
 //! other, so the browser's own dispatch (queue item 255) finds them where a
 //! node's native finds `Element.prototype`.
 //!
+//! # An unforgeable member is on the instance
+//!
+//! Web IDL puts a `[LegacyUnforgeable]` attribute on **every instance**
+//! rather than on the prototype, not configurable, its getter one function
+//! per realm (ADR 0019 § 3). So beside each prototype the document cell
+//! holds that interface's **unforgeables** — Web IDL's `[[Unforgeables]]`, an
+//! object with no prototype made once in [`crate::install::furnish`] — and
+//! [`crate::unforgeable`] copies them onto each instance as it is made. Only
+//! `Event` has one: `isTrusted`. Every other interface's slot is empty rather
+//! than an empty object.
+//!
 //! # What is not here
 //!
 //! **Only `Event` and `CustomEvent` have an interface object on the global
@@ -195,6 +206,33 @@ impl Interface {
         }
     }
 
+    /// Whether it has `[LegacyUnforgeable]` members, which go on an
+    /// unforgeables object rather than its prototype (ADR 0019 § 3).
+    pub const fn has_unforgeables(self) -> bool {
+        matches!(self, Self::Event)
+    }
+
+    /// Put this interface's `[LegacyUnforgeable]` members on `unforgeables`,
+    /// each a native inheriting from `function_prototype` — nothing, for an
+    /// interface without them.
+    ///
+    /// **A safepoint.** `unforgeables` must be held by the caller.
+    ///
+    /// # Errors
+    ///
+    /// As [`Interface::furnish`].
+    pub(crate) fn furnish_unforgeables(
+        self,
+        objects: &mut Objects,
+        unforgeables: Ref,
+        function_prototype: Ref,
+    ) -> Result<(), Escape> {
+        match self {
+            Self::Event => event::unforgeables(objects, unforgeables, function_prototype),
+            _ => Ok(()),
+        }
+    }
+
     /// Put this interface's members on `prototype`, each a native inheriting
     /// from `function_prototype`.
     ///
@@ -232,27 +270,53 @@ impl Interface {
     }
 }
 
-/// The prototype of every interface, as the document cell holds them.
+/// The prototype of every interface, and the unforgeables of those that have
+/// them, as the document cell holds them.
 #[derive(Debug, Default)]
-pub struct Interfaces([Field; Interface::ALL.len()]);
+pub struct Interfaces {
+    prototypes: [Field; Interface::ALL.len()],
+    unforgeables: [Field; Interface::ALL.len()],
+}
 
 impl Interfaces {
     /// The prototype of `interface`, once it has been made.
     pub fn prototype(&self, interface: Interface) -> Option<Ref> {
-        self.0.get(interface.index()).and_then(Field::get)
+        self.prototypes.get(interface.index()).and_then(Field::get)
+    }
+
+    /// The unforgeables object of `interface` — Web IDL's `[[Unforgeables]]`
+    /// — once it has been made, and [`None`] for an interface with no
+    /// `[LegacyUnforgeable]` member.
+    pub fn unforgeables(&self, interface: Interface) -> Option<Ref> {
+        self.unforgeables
+            .get(interface.index())
+            .and_then(Field::get)
     }
 
     /// Record `prototype` as `interface`'s, through the barrier every store
     /// of a reference passes (ADR 0014 § 5).
     pub(crate) fn set(&mut self, barrier: &mut Barrier, interface: Interface, prototype: Ref) {
-        if let Some(field) = self.0.get_mut(interface.index()) {
+        if let Some(field) = self.prototypes.get_mut(interface.index()) {
             field.set(barrier, Some(prototype));
         }
     }
 
-    /// Every prototype, as a strong edge of the cell that holds them.
+    /// Record `unforgeables` as `interface`'s, through the barrier.
+    pub(crate) fn set_unforgeables(
+        &mut self,
+        barrier: &mut Barrier,
+        interface: Interface,
+        unforgeables: Ref,
+    ) {
+        if let Some(field) = self.unforgeables.get_mut(interface.index()) {
+            field.set(barrier, Some(unforgeables));
+        }
+    }
+
+    /// Every prototype and unforgeables object, as strong edges of the cell
+    /// that holds them.
     pub(crate) fn trace(&self, tracer: &mut Tracer) {
-        for field in &self.0 {
+        for field in self.prototypes.iter().chain(&self.unforgeables) {
             field.trace(tracer);
         }
     }
