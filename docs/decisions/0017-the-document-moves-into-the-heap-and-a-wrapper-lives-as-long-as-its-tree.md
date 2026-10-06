@@ -195,6 +195,11 @@ enforces (`object::internal`: *an exotic object may not allocate*) — the
 discipline ADR 0014 already asks of every builtin, with the compiler checking
 the one place it would bite.
 
+*Amended by ADR 0019 § 2:* a native is also handed its realm's host-defined
+value, the document cell, for what has no wrapper for its `this` — a
+constructor's instance, and the global object's own members. A native acting
+on a node still reaches it through its `this`.
+
 ## 5. Every change goes through `alo-dom`, under the standard's rules
 
 `alo-dom`'s tree operations stop being `pub(crate)`. They become **the DOM

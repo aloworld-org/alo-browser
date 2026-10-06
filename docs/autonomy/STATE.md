@@ -12909,3 +12909,101 @@ design; 233, 234, 238 and 240 open and item 76 not done;
 no discriminating test. 114 queue items are open. 256 depends on 260, so
 next is **260** (it depends on nothing). Next unused queue number **261**;
 next ADR **0019**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 153 — item 260's decision: ADR 0019, a realm names its host
+
+**Read before choosing.** `CLAUDE.md`, the whole of `docs/autonomy/LOOP.md`,
+`ROADMAP.md`'s conventions and its *Events* line, iteration 152's entry,
+queue items 81 and 254–260, ADR 0018 in full, ADR 0017 § 4 and ADR 0013
+§§ 3 and 6; and the code item 260 would change — `alo-bindings`' `event.rs`,
+`interface.rs`, `interface/event.rs`, `install.rs`, `define.rs`,
+`document_cell.rs`; `alo-js`'s `object/native.rs` (`Call`, `Instance::Made`,
+`Make`), `interpret/construct.rs` (`make_instance`), `builtin.rs`
+(`Intrinsics`), `realm.rs` and `interpret.rs`. No `AGENTS.md` exists. No
+sibling repository was read or modified. The checkout was clean on entry at
+`ddd16a8`.
+
+**Selection.** Iteration 152 named **260** next: 256 depends on it, and it
+depends on nothing. Its ADRs (0018 §§ 4 and 8, 0013 § 3) and its feature
+line (*Events*) exist.
+
+**Why this iteration is a decision and not the code.** Item 260's own text
+leaves its central question open — where the per-realm getter lives *and how
+the constructor finds it*, naming two options. Reading the code settled that
+neither is a chore: `new Event(…)`'s native is handed the heap, a `this` the
+engine just made from the constructor's `prototype` (an `Event` cell with no
+edge to anything), its arguments and the intrinsics, and nothing it holds
+reaches the document cell; `Make` cannot read the heap. Every answer either
+gives a native something more — which ADR 0017 § 4 says, in so many words,
+it will never be handed — or invents a hidden edge on an interface
+prototype. The same gap is already written down for `Window`'s `document`
+(`install.rs`) and stands in front of every node constructor. `LOOP.md`
+stage 2 § 4: *a decision made inside a commit that was mostly code is a
+decision nobody reviewed* — so the decision is this iteration, as ADR 0018
+was iteration 150's for item 81.
+
+**What was decided (ADR 0019).** `alo-js`'s realm gains ECMAScript's
+`[[HostDefined]]`: one reference an embedder sets once
+(`Engine::host_defined`, a second call refused), rooted by the realm, handed
+to a native beside the intrinsics (`Call::host_defined`), its type never
+known to the engine (ADR 0013 § 6 holds). `alo-bindings`' `install` sets it
+to the document cell. The cell's `Interfaces` holds each interface's
+unforgeables object — Web IDL's `[[Unforgeables]]`, made once in `furnish`
+with no prototype — and making an instance copies the unforgeables of the
+interface and those it inherits onto it: the `Event` and `CustomEvent`
+constructors at their first step, before any page script can run inside
+them, and `event::create` from the cell it is handed. `isTrusted` is an own
+accessor, enumerable, not configurable, no setter, one getter per realm.
+ADR 0017 § 4 is amended, not replaced (a node's native still reaches it
+through `this`), and carries a forward pointer to ADR 0019 § 2. Rejected
+with reasons: a prototype getter (ADR 0013 § 3), a getter per instance, an
+embedder-cell `Event.prototype` found by walking the chain, reading
+`document` off the global, natives carrying data, and widening `Make`.
+
+**Compliance review.** No code changed, so laws 1–4 are untouched by this
+commit; the decision keeps law 4 (no `unsafe`: a field, a root and an
+accessor), ADR 0013 § 6 (the engine learns no embedder type) and ADR 0014
+(the value is rooted by the realm, nothing hidden from the collector).
+Nothing positions, sizes or draws, so there is no layout assertion or
+reference render to make, and no corpus case. Nothing was ticked: the queue
+item stays open with its decision recorded, and the roadmap line gains the
+ADR in its Owed clause.
+
+**Gate.** `scripts/gate.sh` exited 0, run in the foreground and read in the
+same step (6 min 47 s): formatting clean, clippy silent, all tests pass,
+nothing stubbed, `unsafe` forbidden, licence notices, every rented crate
+behind its boundary, no coordinate verb, the stop rule holds, and *no
+uncommitted code to judge* for the documentation check (this change is
+documentation only). `git diff --check` passes. Log kept in this session's
+scratchpad, not committed.
+
+**Roadmap.** The *Events* line's Owed clause now says `isTrusted` (260) has
+its decision, ADR 0019, and none of its code. Not a tick. `CHANGELOG.md`,
+`docs/autonomy/QUEUE.md` (260 records its decision), `REMAINING.md` and ADR
+0017 § 4 (a forward pointer) moved with it. `docs/features.md` is unchanged:
+it already lists `isTrusted` as absent until 260, which is still true.
+
+**Unresolved obligations.** New: item 260's code — the realm field and its
+root, `Call::host_defined`, `Interfaces`' unforgeables, the copy in both
+constructors and `event::create`, the getter, and tests that a getter is
+the same function on two events, that `delete` and assignment fail, and
+`false`/`true` for a script's and the browser's dispatch; the ADR's
+*does not decide* — several realms in one heap, `document` as an accessor
+(251), node constructors. Carried, unchanged from iteration 152: nothing in
+the browser fires a dispatch yet (256, 233); `addEventListener` with an
+object type and an options getter refused by name (item 221); a dispatch
+abandoned by a non-page escape leaves its event flagged and path kept; an
+embedder that never calls `hand_over_reported` holds up to 256 roots; item
+81's remaining code (256, 257, 258 needs design, 259); `document.head` and
+every other absent member wait for a page or an item; any other object a
+page throws is said as `an object` (item 78); a `<meta>` policy a script
+inserts is not applied; detached trees a script drops during a load wait
+for the first collection after the parse; the renderer's path for a
+document the heap refuses is not discriminated; the one-write overshoot of
+the heap's ceiling; 248's undiscriminated overrun fallback; 78's remainder;
+77 needs design; 233, 234, 238 and 240 open and item 76 not done;
+`violations::reports` still called by nothing in the browser process (item
+203's dependency); iteration 141's browser-side font-name guard still has
+no discriminating test. 114 queue items are open. Next is **260**, now
+buildable against ADR 0019. Next unused queue number **261**; next ADR
+**0020**. This is one iteration, not a finished queue or roadmap.

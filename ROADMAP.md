@@ -914,8 +914,10 @@ unreachable without it.
       no heap (`Held::dispatch`) · Owed: something the browser does that
       fires one, and `Activate` as a keyboard's click with activation behaviour in
       `alo-dom` (256, which closes the line's queue item 81); `isTrusted`
-      (260); `PutText`'s input events (257), focus (258) and event handler
-      attributes (259)
+      (260), whose decision is ADR 0019 — the realm's `[[HostDefined]]` names
+      the document cell, which holds each interface's unforgeables — with
+      none of its code built; `PutText`'s input events (257), focus (258) and
+      event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
       · Built: **a control draws its own state** (queue item 182) — a tick in a
       checked box, a dot in a chosen radio, a dash in one that is neither, in

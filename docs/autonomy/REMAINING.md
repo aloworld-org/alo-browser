@@ -271,6 +271,14 @@ the browser does fires one yet. 114 queue items are open; 256 waits on 260,
 so **260** is next (it depends on nothing); the next unused queue number is
 261 and the next unused ADR 0019.
 
+Iteration 153 wrote item 260's decision, ADR 0019: `alo-js`'s realm gains
+ECMAScript's `[[HostDefined]]`, set once by the embedder and handed to a
+native beside the intrinsics (amending ADR 0017 § 4 for natives whose `this`
+is not a wrapper); `alo-bindings` sets it to the document cell, which holds
+each interface's unforgeables object, copied onto every instance. No code.
+114 queue items are open; **260** is next, now buildable; the next unused
+queue number is 261 and the next unused ADR 0020.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How a page will be able to tell the browser's events from its own is
+  decided (ADR 0019).** Nothing changes yet; this is the decision the code
+  will be built against. Every event will say whether the browser sent it,
+  in a way the page cannot rewrite or fake — the answer sits on each event
+  itself, locked, rather than somewhere shared a page could replace. To do
+  that, the script engine gains one standard place for the browser to keep
+  a page's own state, so that making something new — an event now, and
+  later a piece of text or the page's `document` itself — can find the page
+  it belongs to.
+
 - **The browser can now send a page an event, the way a person's click
   would arrive.** When the browser sends an event, each listener runs on
   its own, and whatever it left waiting runs before the next listener

@@ -4203,6 +4203,15 @@ The long pole, and the thing most of section E is unreachable without.
   `dispatchEvent` and `true` in a listener for the browser's, its property
   is the instance's own and the same getter on two events, and a page
   cannot replace it.
+  **Its decision is ADR 0019 (iteration 153)**, written first because
+  the constructor's `this` reaches nothing per-realm and ADR 0017 § 4 said
+  a native would never be handed more: `alo-js`'s realm gains ECMAScript's
+  `[[HostDefined]]` (`Engine::host_defined`, set once and rooted;
+  `Call::host_defined`), `install` sets it to the document cell, and the
+  cell's `Interfaces` holds each interface's unforgeables object (Web IDL's
+  `[[Unforgeables]]`), made once in `furnish` and copied onto every
+  instance — by the constructors at their first step, before any page
+  script can run, and by `event::create`. No code yet.
 
 - [ ] **82. Forms**: the controls, constraint validation, submission, file
   inputs.
