@@ -1,0 +1,39 @@
+fill box#2 rgb(250 247 242) at (0, 0) 800×760
+clip box#8 to (40, 45.6) 40×40
+fill box#8 rgb(231 111 81) at (61.666664, 50.6) 10×15
+fill box#8 rgb(231 111 81) at (55, 47.266666) 10×16.666664
+fill box#8 rgb(231 111 81) at (48.333332, 50.6) 10×20
+fill box#8 rgb(231 111 81) at (41.43974, 53.93333) 36.89359×30.000004
+unclip
+text box#11 "alomails" rgb(31 43 69) 25.6px at (92, 74.462494)
+text box#15 "Get the alomails app" rgb(31 43 69) 40px at (40, 164.44766)
+text box#18 "Your private, sovereign email as a real" rgb(100 116 139) 17.28px at (40, 210.9742)
+text box#18 "desktop app — on your dock or taskbar, its" rgb(100 116 139) 17.28px at (40, 237.7582)
+text box#18 "own window, always a click away." rgb(100 116 139) 17.28px at (40, 264.54218)
+fill box#22 rgb(255 255 255) at (40, 303.952) 352×169.465
+fill box#22 rgb(231 224 214) at (40, 303.952) 352×169.465
+text box#26 "Windows" rgb(31 43 69) 18.4px at (63, 349.5819)
+text box#29 "Windows 10 & 11 · 64-bit · .msi installer" rgb(100 116 139) 14.4px at (63, 379.61713)
+fill box#31 rgb(231 111 81) at (63, 405.792) 306×42.625
+text box#32 "Download for Windows" rgb(255 255 255) 16px at (112.28516, 432.64355)
+fill box#35 rgb(255 255 255) at (408, 303.952) 352×169.465
+fill box#35 rgb(231 224 214) at (408, 303.952) 352×169.465
+text box#39 "macOS" rgb(31 43 69) 18.4px at (431, 349.5819)
+text box#42 "Apple Silicon & Intel · universal · .dmg" rgb(100 116 139) 14.4px at (431, 379.61713)
+fill box#44 rgb(231 111 81) at (431, 405.792) 306×42.625
+text box#45 "Download for Mac" rgb(255 255 255) 16px at (502.8203, 432.64355)
+fill box#49 rgb(231 224 214) at (40, 499.417) 720×1
+text box#50 "The app keeps itself up to date — new versions install automatically in the background, so you" rgb(100 116 139) 13.76px at (40, 533.8446)
+text box#50 "download it once." rgb(100 116 139) 13.76px at (40, 555.1726)
+text box#53 "Prefer the web? Just open" rgb(100 116 139) 13.76px at (40, 597.82855)
+text box#55 "mail.alomails.com" rgb(207 91 62) 13.76px at (220.73438, 597.82855)
+text box#56 "in any browser." rgb(100 116 139) 13.76px at (365.26813, 597.82855)
+text box#59 "On first launch your system may warn about an “unidentified developer” — that's because the app isn't" rgb(100 116 139) 13.76px at (40, 640.48456)
+text box#59 "code-signed yet, not because anything is wrong. On Windows choose" rgb(100 116 139) 13.76px at (40, 661.8126)
+fill box#60 rgb(239 233 224) at (522.27185, 648.0403) 180.45245×18.017517
+text box#61 "More info → Run anyway" rgb(100 116 139) 13.76px at (528.27185, 661.8126)
+text box#62 "; on" rgb(100 116 139) 13.76px at (702.7243, 661.8126)
+text box#62 "macOS right-click the app and choose" rgb(100 116 139) 13.76px at (40, 683.1406)
+fill box#63 rgb(239 233 224) at (306.3783, 669.3683) 48.751556×18.017517
+text box#64 "Open" rgb(100 116 139) 13.76px at (312.3783, 683.1406)
+text box#65 "." rgb(100 116 139) 13.76px at (355.12985, 683.1406)

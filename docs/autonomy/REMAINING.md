@@ -626,6 +626,14 @@ a file, opened elsewhere only by a person's act. It is cut into 317 (behind
 opened by a page). 121 and 122 were marked *needs design*. 137 queue items
 are open. The next unused queue number is 319 and the next unused ADR 0029.
 
+Iteration 198 froze `alo-downloads`, alo's public download page, exactly, and
+built what it found first: item 319, a `<br>` ends its line. It opened 320
+(`ch` and `ex` from the font) and 321 (text straight inside a flex container
+takes its `line-height`), both depending on nothing, and it is the first
+running frozen script to reach a regular expression, which makes item 74
+reachable. 139 queue items are open. The next unused queue number is 322 and
+the next unused ADR 0029.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

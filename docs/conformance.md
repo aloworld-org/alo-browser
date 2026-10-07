@@ -231,6 +231,15 @@ a box is built, `pre-line` keeps the newlines, `pre` and `pre-wrap` keep
 everything, and `pre` and `nowrap` refuse to wrap. Before this the engine did
 none of it and drew markup's own indentation.
 
+**A `<br>` ends its line**, as HTML's rendering section says, even under
+`nowrap`. Two in a row leave a blank line, one at the end of a paragraph adds
+nothing, and a line that starts after one does not start with a space. Until
+alo's download page showed it, a `<br>` was an empty inline box and ended
+nothing. One difference from other browsers is known: a `<br>` an author has
+given another `display`, such as `block` or `inline-block`, is laid out as
+that box, empty, rather than kept a break as browsers keep it. No page has
+been seen to do it.
+
 `clamp()`, `min()` and `max()` are read, nest in each other and in `calc()`,
 and are type-checked once when they are parsed. The **viewport units** `vw`,
 `vh`, `vmin` and `vmax` resolve against the window the page is being rendered
@@ -358,7 +367,7 @@ another repository — so both are this loop's to close.
 ## The corpus
 
 `crates/alo-corpus/cases/` holds the small cases this engine is checked against
-on every run — twenty-eight of them today. A case whose page carries script is
+on every run — forty-three of them today. A case whose page carries script is
 loaded the way a page is, so its script runs — at its own end tag, against the
 page read so far — and the expectations are the page it left
 (`a-script-grows-a-list`, `a-script-beside-itself`,

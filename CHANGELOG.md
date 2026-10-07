@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A line break written as `<br>` now breaks the line.** It used to be
+  ignored, so text an author had split into separate lines or short
+  paragraphs ran together. alo's page for downloading the desktop app showed
+  it: the three sentences under its download buttons, separated by blank
+  lines, came out as one block of text. They are now laid out as written.
+  The same page found two more faults, now in the queue: widths written in
+  `ch` come out too narrow, and the download buttons are a few pixels too
+  short. Its script does not run yet, because it uses a regular expression.
+
 - **What happens to a PDF is decided, and the answer is that this browser
   does not display one.** ADR 0028 says a link to a PDF leaves the page
   you were on where it is and offers you the file to save, telling you

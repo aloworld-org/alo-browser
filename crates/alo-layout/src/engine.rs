@@ -243,6 +243,11 @@ fn collect_inline_items(
                 text: text.clone(),
                 style: text_style_for(boxes, styles, child),
             }),
+            // A `<br>`: the line ends here. It has no children to bracket.
+            _ if boxes.is_forced_break(child) => items.push(InlineItem::Break {
+                box_id: child,
+                style: text_style_for(boxes, styles, child),
+            }),
             _ if is_inline_formatting_context(boxes, child) || node.children.is_empty() => {
                 if is_atomic(boxes, child) {
                     items.push(atomic_item(

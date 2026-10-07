@@ -30,6 +30,7 @@
 //! whole ordering exists to prevent.
 
 pub mod display;
+pub mod line_break;
 pub mod natural;
 pub mod role;
 pub mod semantics;

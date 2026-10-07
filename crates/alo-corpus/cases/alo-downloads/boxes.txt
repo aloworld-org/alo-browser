@@ -1,0 +1,43 @@
+block flow · document
+  block flex · generic
+    block flow · generic
+      block flex · generic
+        inline flow-root · image [hidden]
+        inline flow · generic
+          text "alomails"
+      block flow · heading [level=1]
+        text "Get the alomails app"
+      block flow · paragraph
+        text "Your private, sovereign email as a real desktop app — on your dock or taskbar, its own window, always a click away."
+      block grid · generic
+        block flex · generic
+          block flow · generic
+            text "Windows"
+          block flow · generic
+            text "Windows 10 & 11 · 64-bit · .msi installer"
+          inline flex · link
+            text "Download for Windows"
+        block flex · generic
+          block flow · generic
+            text "macOS"
+          block flow · generic
+            text "Apple Silicon & Intel · universal · .dmg"
+          inline flex · link
+            text "Download for Mac"
+      block flow · paragraph
+        text " The app keeps itself up to date — new versions install automatically in the background, so you download it once. "
+        inline flow · generic · line break
+        inline flow · generic · line break
+        text " Prefer the web? Just open "
+        inline flow · link
+          text "mail.alomails.com"
+        text " in any browser. "
+        inline flow · generic · line break
+        inline flow · generic · line break
+        text " On first launch your system may warn about an “unidentified developer” — that's because the app isn't code-signed yet, not because anything is wrong. On Windows choose "
+        inline flow · generic
+          text "More info → Run anyway"
+        text "; on macOS right-click the app and choose "
+        inline flow · generic
+          text "Open"
+        text ". "

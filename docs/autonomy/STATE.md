@@ -18003,3 +18003,150 @@ verbs, the stop rule holding, and no uncommitted code to judge.
 137 queue items are open: 317 and 318 opened, none closed. The next unused
 queue number is **319** and the next ADR is **0029**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 198 — queue item 319: a `<br>` ends its line, found by alo's download page
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states, stage 1's *Layout* and *Text* lines, *CSS beyond what alo
+needed*, *Text, properly*, and *Regular expressions* under *JavaScript*),
+iterations 183, 193, 195, 196 and 197, `REMAINING.md`'s continuation order,
+and every open queue item by its dependency and blocking marks (a listing of
+all 137, and items 74, 128, 129, 179, 197, 274–276 and 289 in full).
+`docs/features.md`'s inline formatting lines and `docs/conformance.md`'s
+text and corpus sections. Item 319 names no ADR, as 312–316 did not; it is
+opened by a page. ADRs 0002 and 0004 are the ones the code touches (the
+break is in the box tree and the agent's tree, and layout stays ours), and
+neither changes. No `AGENTS.md` exists. The checkout was clean on entry at
+`cb76ee7`. From the sibling `alo-workplace`, read and never written, at
+`738de614`: `deploy/production/downloads/index.html`, a search of
+`web/src` for SVG gradients, `<use>`, `<text>` and `url()` backgrounds
+(none), and the list of its HTML files.
+
+**Selection.** Iteration 197 found every open item blocked, waiting on an
+open dependency or a page, or needing design, and nothing has closed since.
+I checked the listing again rather than trusting it: 289, 274–276, 179, 284,
+286, 311 and 314 wait for a page; 197 for its property; 126 and 132 (the
+*needs ADR* items) on 82, 86 and 131; 128 and 129 carry no ADR or contract
+and are *needs design* in all but mark. So the eligible work was a page.
+Stage 2 § 1: a page that fails opens an item, and the page goes in the
+corpus with the change. alo's public download page is ours, self-contained
+and frozen byte for byte, so it needs nobody's leave. Rendered, it showed
+three faults in numbers. I took the most visible one, which is also the one
+nothing in the queue named, and opened the other two.
+
+**What was built.**
+- `alo-box`'s new `line_break.rs` says which boxes are forced breaks: a
+  `<br>` whose display is `inline` (inside `flow`). `BoxTree` keeps them in
+  a side set read by `is_forced_break`, as it keeps legends. `boxes.txt`
+  prints such a box with `· line break`.
+- `alo-layout`'s `InlineItem::Break`, which `engine.rs` emits for such a
+  box. The line builder's `add_break` stands a zero-width fragment in the
+  break's own font where the drawn content of the line ends (not at the pen,
+  so a trailing space is removed), adds the break's `line-height` reach to
+  the line, marks the line as content, and ends it. So two breaks leave a
+  blank line, a break alone is one line, and a break with nothing after it
+  makes no line. A break ends a line under `nowrap` and in a max-content
+  measurement too. `inline.rs`'s module documentation has a section on it.
+- A `<br>` given another `display` is laid out as the box the author wrote,
+  where browsers keep it a break. This is a scope cut, written down in
+  `line_break.rs` and `docs/conformance.md`. No page has been seen to do it.
+
+**How it closes.**
+- `alo-downloads`, new: `page.html` is the file exactly (SHA-256 in its
+  `origin.txt`), rendered at 800 × 760. The note under the cards is eight
+  lines of 21.328, two of them blank, and 189.62 tall where it was five
+  lines and 125.64. I looked at the render before and after: the three
+  sentences now stand apart, with blank lines between them, as they do in a
+  browser.
+- **Layout assertions:** `tests/alo_downloads.rs` has the note's height,
+  the four breaks one line apart with zero width, the two blank ones and
+  "Prefer the web?" at the 40 px gutter, and the sentence one line under the
+  blank break. `inline.rs` has seven tests with `BlockFont`. A break ends a
+  line at 24, not after its space at 32. Two breaks give tops 0, 16 and 32.
+  A trailing break adds no line. A lone break is one line, even inside an
+  edgeless inline box. A break with `line-height: 40` makes its own line 40
+  and the next 16, its fragment 12 down. An inline box broken by a break has
+  a piece on each line. `nowrap` and max-content still break.
+  `tree.rs` has two tests and `line_break.rs` three.
+- **Doctored:** with `add_break`'s `end_line` removed, five of the seven
+  `inline.rs` tests fail. The two that pass check that no extra line is
+  made.
+- **Hostile bytes:** this reads markup. `tests/a_hostile_line_break.rs`
+  renders with real fonts. 5000 breaks are 50 000 px at `line-height:
+  10px`. `</br>` is a break (HTML's parser makes it one). Fourteen odd
+  placements are drawn without a panic: a `<br>` as a flex or grid item, in
+  an inline-block, a button, an `<svg>`, a `<pre>`, a link broken around a
+  block, under `display: contents`, `block` and `inline-block` with
+  `width: 1e38px`, with `line-height: 3e38px`, in a span padded `1e38px`, in
+  a zero-width box, and under `nowrap`.
+- **Reference renders:** no other case holds a `<br>`. The corpus rewrite
+  changed only the new case, and `alo-window`'s references hold the offline
+  page, which did not move. The full workspace run inside the gate passed
+  after the rewrite.
+
+**What the page also found.**
+- **320**, `ch` and `ex` from the font: `.lede` at `max-width: 44ch` is
+  380.16 wide (half an em per `ch`) where DejaVu's `0` makes it about 483.7.
+  `alo-style`'s `metrics_for` still uses the estimate its comment names, and
+  `alo-text` already measures the face. It depends on nothing.
+- **321**, text straight inside a flex container takes its `line-height`:
+  each download button is 42.625 tall where a browser makes it 48.8,
+  because its label is measured as a text leaf. This is the path iteration
+  196 left unchecked, and this page reaches it. It depends on nothing.
+- **74** is reachable: the page's script is refused at byte 144,
+  `/Mac/.test(p)`, "a regular expression literal is not built yet". Until
+  now no running frozen script had reached one. The queue item says so, and
+  what else the script needs (`classList`, `querySelectorAll`, `forEach`,
+  `fetch`, `then`).
+- Not faults at this size: `text-wrap: balance` on a one-line heading (104),
+  `system-ui` drawn in DejaVu as every case is. 286 is not opened: the page
+  has an `inline-flex`, but holding text, not a block.
+
+**Roadmap.** This item served **no open roadmap line**, so `ROADMAP.md` is
+unchanged. A `<br>` is a correction to stage 1's ticked *Layout* and *Text*
+lines, opened by a page, as 316 was. *CSS beyond what alo needed* and
+*Text, properly* have no line for it. The *Regular expressions* line stays
+not started: a page now reaches it, and nothing of it is built. Ticking or
+annotating a line to show movement is what `LOOP.md` forbids.
+
+**Gate, mechanical.** I warmed the build (clippy with `-D warnings`, and the
+workspace tests compiled), then ran `scripts/gate.sh` in the foreground,
+logging to a file. It passed the tool's ten-minute ceiling and was moved to
+the background. I waited for it in the same turn and read the log. It exited
+0 with "The gate is met.": fmt clean, clippy silent, `cargo test` passing,
+no stubs, `unsafe` forbidden, licences present, every rented crate behind
+its boundary, no coordinate verbs, the stop rule holding, the changelog
+changed. Before it, clippy had found one useless `.into_iter()` in
+`line_break.rs`'s test helper, which I removed.
+
+**Gate, manual.**
+- Layout assertions and reference renders: above.
+- One responsibility per file: `line_break.rs` is which boxes are breaks.
+  `tree.rs` gains a side set that holds them, as it holds legends, which is
+  still building the tree. `inline.rs` is still the line box, and a break is
+  a thing on a line. Each new test file is one page or one hostile input.
+- `docs/features.md` has the `<br>` line (tier [2]). `docs/conformance.md`
+  says what a break does and the one known difference, and its corpus count
+  is now forty-three, which it had left at twenty-eight. `CHANGELOG.md`,
+  `QUEUE.md` (319 added ticked with a *Built* note, 320 and 321 opened, 74
+  given its trigger), `REMAINING.md` and the case's `origin.txt` say the
+  same.
+
+**Unresolved obligations.**
+- A `<br>` an author gave another `display` is not a break. Browsers keep it
+  one. No page has shown it, and no item was opened.
+- A break after a closed inline box that ended in a space stands after that
+  space, because the box's own piece reaches its pen. Only the break's
+  zero-width rectangle is affected.
+- 74, 320 and 321 are open with their dependencies done and a page that
+  needs each. 74 comes first in the file, so it is next by the queue's
+  order. Its first cut is the literal and `test`, and the script needs much
+  more to run whole.
+- Still standing: 284, 311 and 314 wait for pages. 296 needs a person to
+  grant Screen Recording. 297–300, 302, 304 and 308 wait as before. 126 and
+  132 wait on open dependencies.
+- `scripts/gate.sh` still takes longer than ten minutes with a warm build.
+
+139 queue items are open: 319 added closed, 320 and 321 opened. The next
+unused queue number is **322** and the next ADR is **0029**. This is one
+iteration, not a finished queue or roadmap.

@@ -29,7 +29,7 @@ use alo_dom::{Document, NodeId};
 use alo_style::{ComputedStyle, StyleTree};
 use core::fmt;
 use core::fmt::Write as _;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// The identity of a box within one [`BoxTree`].
 ///
@@ -256,6 +256,12 @@ pub struct BoxTree {
     /// rather than a second structure, so there is nothing here that can
     /// disagree with the tree.
     legends: BTreeMap<BoxId, BoxId>,
+    /// The boxes that end the line they are on: a `<br>`'s.
+    ///
+    /// A side set for the same reason [`BoxTree::legends`] is a side map:
+    /// almost no box is one, and what makes one is the element it came from,
+    /// which layout cannot see. See [`crate::line_break`].
+    breaks: BTreeSet<BoxId>,
 }
 
 impl BoxTree {
@@ -307,6 +313,14 @@ impl BoxTree {
         self.legends
             .iter()
             .map(|(fieldset, legend)| (*fieldset, *legend))
+    }
+
+    /// Whether a box ends the line it is on, as a `<br>`'s does.
+    ///
+    /// Layout asks it of every box in a line: what comes after one starts a
+    /// new line whether or not the line was full.
+    pub fn is_forced_break(&self, id: BoxId) -> bool {
+        self.breaks.contains(&id)
     }
 
     /// One box.
@@ -392,6 +406,7 @@ impl BoxTree {
         Self {
             natural: BTreeMap::new(),
             legends: BTreeMap::new(),
+            breaks: BTreeSet::new(),
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -423,6 +438,9 @@ impl BoxTree {
         match &node.kind {
             BoxKind::Element { display, .. } => {
                 write!(out, "{display} · {}", node.semantics)?;
+                if self.is_forced_break(id) {
+                    out.push_str(" · line break");
+                }
             }
             BoxKind::Text { text, .. } => write!(out, "text {text:?}")?,
             BoxKind::Anonymous { outside, .. } => {
@@ -582,6 +600,7 @@ pub fn build(document: &Document, styles: &StyleTree) -> BoxTree {
     let mut tree = BoxTree {
         natural: BTreeMap::new(),
         legends: BTreeMap::new(),
+        breaks: BTreeSet::new(),
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),
@@ -709,6 +728,9 @@ fn build_one(
         Display::Box { .. } => {
             let semantics = Semantics::of(document, id, element);
             let box_id = tree.push(BoxKind::Element { node: id, display }, semantics);
+            if crate::line_break::is_forced_break(element, display) {
+                tree.breaks.insert(box_id);
+            }
             let children = build_children(document, styles, id, tree);
             // A form control holds what it displays in a box nobody wrote —
             // only while the author has left it a flow container, because
@@ -1403,6 +1425,29 @@ mod tests {
             "the second legend is an ordinary block",
         );
         assert_eq!(tree.legends().count(), 1);
+    }
+
+    #[test]
+    fn a_br_is_a_box_that_ends_its_line() {
+        assert_eq!(
+            body_outline("<p>one<br>two</p>", ""),
+            "block flow · generic\n  \
+             block flow · paragraph\n    \
+             text \"one\"\n    \
+             inline flow · generic · line break\n    \
+             text \"two\"\n",
+        );
+        let tree = boxes("<p>one<br><span>two</span></p>", "");
+        let breaks: Vec<BoxId> = tree.ids().filter(|id| tree.is_forced_break(*id)).collect();
+        assert_eq!(breaks.len(), 1, "the <br> and nothing else");
+    }
+
+    #[test]
+    fn a_br_the_author_hid_or_made_a_block_is_no_break() {
+        let hidden = boxes("<p>one<br>two</p>", "br { display: none }");
+        assert!(!hidden.ids().any(|id| hidden.is_forced_break(id)));
+        let block = boxes("<p>one<br>two</p>", "br { display: block }");
+        assert!(!block.ids().any(|id| block.is_forced_break(id)));
     }
 
     #[test]

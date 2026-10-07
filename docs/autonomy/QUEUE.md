@@ -3056,6 +3056,13 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on 72. Closes when:* a hostile pattern is refused or bounded rather
   than running for ever — a catastrophic backtrack in a renderer is a denial of
   service.
+  **A running script reaches one (iteration 198):** `alo-downloads`, alo's
+  public download page, is refused at byte 144 of its script, `/Mac/.test(p)`,
+  "a regular expression literal is not built yet". Until then no frozen
+  script that runs had reached a regular expression, which is why this item
+  was left alone. That page also calls `classList.add`, `querySelectorAll`,
+  `forEach`, `fetch` and `.then`, so making the script run whole needs more
+  than this item; the first cut is the literal and `test`.
 
 - [ ] **75. Promises, `async`/`await`, generators and iterators.**
   *Depends on 72, 76.* **Item 230 took the iteration protocol `for…of` reads**
@@ -5905,6 +5912,60 @@ The long pole, and the thing most of section E is unreachable without.
   greeting's line from its face; `an_agent_on_settings.rs`'s pinned rows
   moved with the dialog, and `alo-window`'s three references that hold the
   offline page moved with it.
+
+- [x] **319. A `<br>` ends its line.** *Opened by `alo-downloads`
+  (iteration 198), alo's public download page, frozen exactly.* Its note is
+  three sentences separated by `<br><br>`, and a `<br>` was an empty inline
+  box that ended nothing: the sentences ran together on five lines where a
+  browser sets eight. HTML's rendering section says a `<br>` is a forced
+  line break; CSS has no `display` for that, so the box tree says it. *Depends
+  on nothing. Closes when:* the note in `alo-downloads` is eight lines, two
+  of them blank, in a layout assertion, and a `<br>` anywhere a page can
+  put one is drawn without a panic.
+  **Built (iteration 198):** `alo-box`'s `line_break.rs` says which boxes are
+  breaks (a `<br>` that is `display: inline`), and `BoxTree` keeps them in a
+  side set, `is_forced_break`, like its legends; `boxes.txt` marks one
+  `· line break`. `alo-layout` has `InlineItem::Break`, which stands a
+  zero-width fragment in its own font where what is drawn on the line ends
+  (after the trailing space is removed), counts its `line-height` towards the
+  line it ends, and ends it. A break alone on its line makes the line; one
+  with nothing after it makes none. An author who gives a `<br>` another
+  `display` gets the box they wrote, where browsers keep it a break;
+  `docs/conformance.md` says so. Tests: `line_break.rs` 3, `tree.rs` 2,
+  `inline.rs` 7 (doctored, five fail without the line ending);
+  `tests/alo_downloads.rs` (the note 189.62 tall, the breaks one line
+  apart, the blank ones and "Prefer the web?" at the 40 px gutter, and the
+  page's script refused at its regular expression);
+  `tests/a_hostile_line_break.rs` (5000 breaks are 5000 lines; `</br>` is a
+  break; fourteen odd placements and enormous values drawn without a
+  panic). No other case holds a `<br>`, so no other reference moved.
+
+- [ ] **320. `ch` and `ex` from the font.** *Opened by `alo-downloads`
+  (iteration 198).* `.lede` is `max-width: 44ch` at 17.28 px: in DejaVu
+  Sans, the `0` is 0.636 em, so 44ch is about 483.7 px, and it is laid out
+  380.16 because `alo-style`'s `metrics_for` still gives `ch` and `ex` as
+  half the font size, a stand-in its own comment calls an estimate.
+  `alo-text`'s `FontMetrics` already measures the face's `0` and its
+  x-height, so this is getting the first available face's measurements
+  into the cascade's length resolution without `alo-style` depending on a
+  font file. *Depends on nothing. Closes when:* a layout assertion has
+  `.lede` 44 times the face's `0` advance at 17.28 px, `ex` is the face's
+  x-height in a `numbers.rs` assertion, a face with no `0` still falls back
+  to half an em, and every reference that moves is read.
+
+- [ ] **321. Text straight inside a flex or grid container takes its
+  `line-height`.** *Opened by `alo-downloads` (iteration 198).* The
+  download buttons are `display: inline-flex` with their label as the only
+  child, so the label is an anonymous flex item measured as a text leaf
+  (`NodeKind::Text`), which is as tall as its font, 18.625, rather than its
+  `line-height: 1.55`, 24.8. Each button is 42.625 tall where a browser makes
+  it 48.8. Iteration 196 recorded that this path ignores `line-height` and
+  had not checked whether a page reached it. CSS wraps such text in an
+  anonymous block container, whose lines are laid out like any other.
+  *Depends on nothing. Closes when:* a layout assertion has each of
+  `alo-downloads`' buttons 48.8 tall with its label's line 24.8, and a
+  `numbers.rs` assertion has a flex item that is only text as tall as its
+  line height.
 
 - [ ] **278. A nested `<svg>` viewport.** *Cut from 271 (ADR 0022 § 1).* An
   `<svg>` inside an `<svg>` is a new viewport in its parent's drawing: its

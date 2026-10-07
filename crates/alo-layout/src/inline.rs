@@ -77,6 +77,18 @@
 //! out around a baseline of its own, in a **group** of its own, and only once
 //! everything else has said how tall the line is does the group find out where
 //! that edge is.
+//!
+//! # A `<br>` ends its line
+//!
+//! A forced break is an [`InlineItem::Break`]: whatever comes after it starts
+//! a new line, full or not. It takes no room across the line and draws
+//! nothing, and it still stands on the line it ends like a piece of text in
+//! its own font — so that font and its `line-height` count towards that
+//! line's height, and the break has a place an agent can be told about. A
+//! break with nothing before it on its line makes the line anyway, which is
+//! why two in a row leave a blank line; one with nothing after it starts no
+//! line at all, which is why a paragraph ending in a `<br>` is no taller for
+//! it. That is the rule a kept newline in `white-space: pre` follows too.
 
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::measure::{MeasureText, TextStyle};
@@ -119,6 +131,15 @@ pub enum InlineItem {
         /// Its `vertical-align`, which moves everything inside it too.
         align: LineAlign,
     },
+    /// A forced line break: a `<br>`.
+    ///
+    /// What follows it starts a new line. See the module's own section.
+    Break {
+        /// The box.
+        box_id: BoxId,
+        /// Its font, which the line it ends is at least as tall as.
+        style: TextStyle,
+    },
     /// The end of a nested inline box.
     Close {
         /// The box.
@@ -157,6 +178,7 @@ impl InlineItem {
             InlineItem::Text { box_id, .. }
             | InlineItem::Atomic { box_id, .. }
             | InlineItem::Open { box_id, .. }
+            | InlineItem::Break { box_id, .. }
             | InlineItem::Close { box_id, .. } => *box_id,
         }
     }
@@ -345,6 +367,7 @@ pub fn lay_out_aligned(
                 align,
             } => builder.open(*box_id, *edge, style, (*over, *under), *align),
             InlineItem::Close { box_id, edge } => builder.close(*box_id, *edge),
+            InlineItem::Break { box_id, style } => builder.add_break(*box_id, style),
         }
     }
     builder.finish()
@@ -583,6 +606,43 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         if self.current.is_empty() {
             self.content = true;
         }
+        self.end_line();
+    }
+
+    /// A `<br>`: stand on this line as a piece of text with no width, then
+    /// end it.
+    ///
+    /// Its fragment is the font's height where what is drawn on the line
+    /// ends, so that the box has a rectangle where the line ended rather than
+    /// none, and its reach makes the line it ends at least as tall as its
+    /// `line-height`. Not at the pen: CSS removes the spaces at the end of a
+    /// line, and `once. <br>` ends at the full stop.
+    fn add_break(&mut self, box_id: BoxId, style: &TextStyle) {
+        let ascent = self.measurer.ascender(style);
+        let descent = self.measurer.descender(style);
+        let reach = reach_of(style, self.measurer);
+        let place = self.innermost();
+        let at = self
+            .current
+            .iter()
+            .map(|pending| pending.fragment.rect.right() + pending.after)
+            .chain(self.open.last().map(|held| held.start))
+            .fold(0.0, f32::max);
+        self.current.push(Pending {
+            fragment: Fragment {
+                box_id,
+                rect: Rect::new(at, 0.0, 0.0, ascent + descent),
+                text: None,
+                line: self.lines.len(),
+            },
+            below_baseline: descent,
+            place,
+            after: 0.0,
+        });
+        self.reach(place, reach.above, reach.below);
+        // A break is content even alone on its line: `<br><br>` is a blank
+        // line, and `<p><br></p>` is a paragraph one line tall.
+        self.content = true;
         self.end_line();
     }
 
@@ -1050,6 +1110,152 @@ mod tests {
             "the middle box was broken across the two lines: {:?}",
             lines_of(&layout),
         );
+    }
+
+    fn line_break(index: usize) -> InlineItem {
+        InlineItem::Break {
+            box_id: box_id(index),
+            style: TextStyle::default(),
+        }
+    }
+
+    #[test]
+    fn a_break_ends_a_line_that_was_not_full() {
+        let items = [text(1, "one "), line_break(2), text(3, "two")];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(
+            lines_of(&layout),
+            [vec!["1@0", "2@24"], vec!["3@0"]],
+            "the break stands where the text ended, not after its space",
+        );
+        assert!((layout.size.height - 32.0).abs() < 0.001);
+        // It takes no room across the line, and it is as tall as its font.
+        let the_break = layout.union_for(box_id(2)).expect("the break has a place");
+        assert_eq!(the_break, Rect::new(24.0, 0.0, 0.0, 16.0));
+    }
+
+    #[test]
+    fn two_breaks_in_a_row_leave_a_blank_line() {
+        let items = [
+            text(1, "one "),
+            line_break(2),
+            line_break(3),
+            text(4, " two"),
+        ];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(
+            lines_of(&layout),
+            [vec!["1@0", "2@24"], vec!["3@0"], vec!["4@0"]],
+            "the space after a break is the start of a line, and takes no room",
+        );
+        let tops: Vec<f32> = layout.lines.iter().map(|line| line.top).collect();
+        assert_eq!(tops, [0.0, 16.0, 32.0]);
+    }
+
+    #[test]
+    fn a_break_with_nothing_after_it_starts_no_line() {
+        let layout = lay_out(&[text(1, "one"), line_break(2)], Some(1000.0), &BlockFont);
+        assert_eq!(layout.lines.len(), 1);
+        assert!((layout.size.height - 16.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn a_break_alone_is_a_line_of_its_own() {
+        // `<p><br></p>`: a paragraph one line tall, not an empty one.
+        let layout = lay_out(&[line_break(1)], Some(1000.0), &BlockFont);
+        assert_eq!(layout.lines.len(), 1);
+        assert!((layout.size.height - 16.0).abs() < 0.001);
+        // Inside an inline box with no edges, which alone would be no line.
+        let items = [
+            InlineItem::Open {
+                box_id: box_id(1),
+                edge: 0.0,
+                style: TextStyle::default(),
+                over: 0.0,
+                under: 0.0,
+                align: LineAlign::Baseline,
+            },
+            line_break(2),
+            InlineItem::Close {
+                box_id: box_id(1),
+                edge: 0.0,
+            },
+        ];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(layout.lines.len(), 1);
+    }
+
+    #[test]
+    fn a_break_makes_the_line_it_ends_as_tall_as_its_own_line_height() {
+        let tall = TextStyle {
+            line_height: Some(40.0),
+            ..TextStyle::default()
+        };
+        let items = [
+            text(1, "one"),
+            InlineItem::Break {
+                box_id: box_id(2),
+                style: tall,
+            },
+            text(3, "two"),
+        ];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        let heights: Vec<f32> = layout.lines.iter().map(|line| line.height).collect();
+        assert_eq!(heights, [40.0, 16.0], "the line it ends, and not the next");
+        // Its leading is split above and below its font, as text's is.
+        let the_break = layout.union_for(box_id(2)).expect("the break has a place");
+        assert!((the_break.top() - 12.0).abs() < 0.001, "{the_break:?}");
+    }
+
+    #[test]
+    fn a_break_ends_a_line_inside_an_inline_box_and_the_box_carries_on() {
+        let items = [
+            InlineItem::Open {
+                box_id: box_id(1),
+                edge: 0.0,
+                style: TextStyle::default(),
+                over: 0.0,
+                under: 0.0,
+                align: LineAlign::Baseline,
+            },
+            text(2, "one"),
+            line_break(3),
+            text(4, "two"),
+            InlineItem::Close {
+                box_id: box_id(1),
+                edge: 0.0,
+            },
+        ];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(layout.lines.len(), 2);
+        let pieces = layout
+            .fragments()
+            .filter(|fragment| fragment.box_id == box_id(1))
+            .count();
+        assert_eq!(pieces, 2, "one piece of the box on each line");
+    }
+
+    #[test]
+    fn a_break_ends_a_line_even_where_lines_may_not_wrap() {
+        let nowrap = TextStyle {
+            white_space: alo_box::WhiteSpace::NoWrap,
+            ..TextStyle::default()
+        };
+        let items = [
+            InlineItem::Text {
+                box_id: box_id(1),
+                text: "one".to_owned(),
+                style: nowrap.clone(),
+            },
+            line_break(2),
+            InlineItem::Text {
+                box_id: box_id(3),
+                text: "two".to_owned(),
+                style: nowrap,
+            },
+        ];
+        assert_eq!(lay_out(&items, Some(1.0), &BlockFont).lines.len(), 2);
+        assert_eq!(lay_out(&items, None, &BlockFont).lines.len(), 2);
     }
 
     #[test]
