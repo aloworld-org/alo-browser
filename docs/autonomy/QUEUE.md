@@ -4733,11 +4733,11 @@ The long pole, and the thing most of section E is unreachable without.
   is no *always*, no blanket allow and no shipped allowlist. It is shown in
   one list and by an indicator in the tab strip while in use, revoked in one
   act that stops the device at once, and recorded without its content. **No
-  agent can make, answer or revoke one.** **Nothing is built and this item is
-  not done.** It closes when 307 and 308 do, and each capability's API
-  arrives with its own item (303, 157, 92, 290) or page.
+  agent can make, answer or revoke one.** **The table is built (307,
+  iteration 189); this item is not done.** It closes when 308 does, and each
+  capability's API arrives with its own item (303, 157, 92, 290) or page.
 
-- [ ] **307. The grant table, in the browser process.** *Cut from 93
+- [x] **307. The grant table, in the browser process.** *Cut from 93
   (ADR 0026 §§ 1–3, 5, 7–9). Depends on 301.* A crate of its own,
   `alo-grants`, with no device and no interface. It holds the closed
   `Capability` enum, grants keyed by `alo-storage`'s `StorageKey`, and the
@@ -4756,6 +4756,40 @@ The long pole, and the thing most of section E is unreachable without.
   a malformed, truncated or adversarial table file returns an error and
   grants nothing, set aside and never deleted; and a private session leaves
   no file.
+
+  **Done** (iteration 189). `alo-grants` is a crate of its own, with
+  `alo-net` and `alo-storage` its only dependencies. It reads its file with
+  `alo_net::bytes` and keeps causes as `alo_net::deed::Link`, rather than
+  copying either. `StorageKey::from_parts` became public so a key can be read
+  back. `tests/a_person_grants_and_it_ends.rs` closes every clause, and the
+  restarts in it are real: the `Table` is dropped and another opened on the
+  same directory.
+  - One named test per refusal: opaque origin (`file:`, `data:` and `about:`),
+    insecure context, a frame not delegated, no gesture (which reads as
+    unasked), a document that dismissed a prompt, a remembered *don't allow*
+    and a refusal everywhere. Each is `Decision::Refused` with no prompt.
+  - *Allow while open* is never written and ends with `document_gone`,
+    recorded `PageClosed`. *Allow on this site* holds to the second before
+    day 30 and not at day 30. Twenty-nine days of use, page-caused loads and
+    agent-caused loads leave `visited` at day 0. A `Person` visit at day 20
+    moves the end to day 50.
+  - A clock at day 9 ends a grant given at day 10, and a person's visit with
+    that clock does not rescue it. It is recorded `ClockWentBack`.
+  - A revocation answers *no* on the next `allows`, returns the document
+    whose use it stopped, and records `UseEnded` then `Revoked`.
+  - Every truncation, every flipped byte, two lying counts, a PNG and an
+    empty file are each set aside as `table.aside.<n>` with their bytes
+    kept. Each grants nothing and is believed in no part.
+  - A private session's table has no directory and nothing to write with.
+  Also asserted: an agent's or a page's answer, dismissal, revocation and
+  refusal everywhere are refused, and the prompt is handed back. The prompt
+  says an agent was acting. Fifty refused asks keep 64 entries and count 36
+  dropped. Clearing a site removes its keys under every top-level site.
+  Two things are left for later, and each is named:
+  - **Refusing an ask that names a key the browser process did not load into
+    that renderer** (ADR 0026 § 7) needs a renderer to ask from. It lands with
+    the first capability API that reaches this table.
+  - **Rows for item 133's agent grants** are that item's, in this table.
 
 - [ ] **308. The prompt, and the indicator.** *Cut from 93 (ADR 0026 §§ 4,
   6). Depends on 307 and 297.* The prompt is a document of ours, rendered as

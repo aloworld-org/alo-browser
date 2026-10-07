@@ -120,6 +120,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "alo-grants"
+version = "0.0.0"
+dependencies = [
+ "alo-net",
+ "alo-storage",
+ "alo-url",
+]
+
+[[package]]
 name = "alo-js"
 version = "0.0.0"
 dependencies = [

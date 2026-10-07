@@ -1,0 +1,19 @@
+[package]
+name = "alo-grants"
+description = "What a person has allowed a site to do, and for how long: the permission table the browser process holds (ADR 0026)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+alo-net = { path = "../alo-net" }
+alo-storage = { path = "../alo-storage" }
+
+[dev-dependencies]
+alo-url = { path = "../alo-url" }
+
+[lints]
+workspace = true

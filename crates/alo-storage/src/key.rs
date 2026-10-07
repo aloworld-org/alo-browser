@@ -67,7 +67,11 @@ impl StorageKey {
     /// empty, and the origin is not the serialisation of an opaque one. That a
     /// key names the bucket it was found in is checked by the directory, which
     /// knows where it was found.
-    pub(crate) fn from_parts(origin: String, site: String, partition: String) -> Option<Self> {
+    ///
+    /// Public because storage is not the only thing filed by a storage key:
+    /// `alo-grants` keeps a person's permissions under the same key (ADR 0026
+    /// § 2) and reads its own file back the same way, as a stranger's.
+    pub fn from_parts(origin: String, site: String, partition: String) -> Option<Self> {
         if origin.is_empty() || origin == "null" || site.is_empty() || partition.is_empty() {
             return None;
         }

@@ -16951,3 +16951,96 @@ decided and not built. No tick was made.
 135 queue items are open: 307 and 308 were opened, and 93 stays open. The
 next unused queue number is **309** and the next ADR is **0027**. This is one
 iteration, not a finished queue or roadmap.
+
+
+---
+
+## Iteration 189 — queue item 307: the grant table, in the browser process
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and the stage 2 permissions line), iteration 188's entry,
+`REMAINING.md`'s latest entries, and items 93, 157, 301–308 in `QUEUE.md`.
+ADR 0026 in full. For the code it had to fit: `alo-storage`'s `key.rs`,
+`record.rs`, `directory.rs` and `store.rs`, and `alo-net`'s `bytes.rs`,
+`private.rs`, `cause.rs` and `deed.rs`'s `Link`. `docs/features.md`'s
+permissions line. No `AGENTS.md` exists. The checkout was clean on entry at
+`5e98d7c`. No sibling repository was read or written.
+
+**Selection.** Iteration 188 checked every open item before 307 in file
+order and found each blocked, needing design, or waiting on an open
+dependency. Nothing has closed since, so that still holds. **307** depends
+only on 301, which is done, and it is code with no hardware in it.
+
+**What was built.** `crates/alo-grants`, seven files with one job each:
+- `capability.rs`: the closed list of eight capabilities. Permissions API
+  names are read once, and any other name is refused, naming ADR 0026 § 1.
+- `ask.rs`: an ask's facts, the seven refusal rules, and `Prompted`. Only
+  the table can make a `Prompted`, it cannot be cloned, and answering
+  consumes it.
+- `grant.rs`: the three answers. A remembered row lasts until thirty days
+  after the last visit, and a time ahead of the clock ends it.
+- `history.rs`: entries with no content field, sixty-four per key, with a
+  counted drop. Causes are kept as `alo_net::deed::Link`.
+- `file.rs`: the table's bytes. Each record is length-prefixed and
+  checksummed, and every failure is `Unreadable`.
+- `disk.rs`: the private directory beside storage, the write beside then
+  over, and the set-aside.
+- `table.rs`: the order of decisions, use, ending, revocation, refusal
+  everywhere, clearing a site and saving.
+`alo_storage::StorageKey::from_parts` became public, with a note saying why.
+No rented crate was added.
+
+**How each closing clause is met.** All are in
+`tests/a_person_grants_and_it_ends.rs`, 19 tests, with the restarts real.
+`QUEUE.md`'s 307 entry lists the numbers asserted. In short:
+- There is one named test per §§ 2–3 refusal, plus the remembered refusal
+  and the refusal everywhere.
+- *While open* ends with its document. *On this site* holds to day 30 minus
+  one second and not at day 30. Use and non-person loads do not move
+  `visited`, and a `Person` visit does.
+- A clock behind the grant ends it as `ClockWentBack`.
+- A revoke answers no next, stops the use, and records both.
+- Every truncation and flipped byte, lying counts, a PNG and an empty file
+  are each set aside with their bytes kept, granting nothing.
+- A private session's table has no directory.
+21 unit tests cover the hostile reader, the format and the parts. I also
+checked that the tests bite. Disabling the gesture rule failed two
+integration tests, and disabling the clock rule failed its unit test. Both
+were restored before the gate.
+
+**Gate, mechanical.** I warmed the build with clippy and `cargo test
+--no-run`, then ran `scripts/gate.sh` in the foreground. It finished inside
+the tool's limit and I read its log in the same step. It exited 0 with "The
+gate is met.":
+- fmt clean and clippy silent;
+- "tests pass";
+- no stubs, `unsafe` forbidden, and every file has its notice;
+- every rented crate behind its boundary, no coordinate verbs, and the stop
+  rule holding;
+- `CHANGELOG.md` changed.
+`git diff --check` passes.
+
+**Gate, manual.** Nothing positions, sizes or draws, so no layout assertion
+or reference render applies. Each new file has one responsibility, listed
+above. `table.rs` orders the others, as `alo-storage`'s `store.rs` does. The
+feature line existed before the build and now says what is built. 307 is
+ticked because every clause it names is asserted. 93 and the roadmap line
+are not ticked, because the roadmap line is written as *Built … · Owed …*.
+
+**Roadmap.** The permissions line moved from "not started" to *Built:
+`alo-grants` … · Owed: 308 and each capability's API*. `docs/features.md`,
+`CHANGELOG.md`, `REMAINING.md` and item 93's entry say the same.
+
+**Unresolved obligations.**
+- ADR 0026 § 7's refusal of an ask that names a key the browser process did
+  not load into that renderer needs a renderer to ask from. It is written
+  into 307's entry as owed to the first capability API that reaches the
+  table.
+- 308 waits on 297, and 297–300 still wait on 296's Screen Recording grant,
+  which only a person can give (iteration 183).
+- 302 needs a frozen page, and 304 needs its ADR. The ADR candidates 124,
+  126, 132 and 277 remain.
+
+134 queue items are open: 307 closed and nothing was opened. The next unused
+queue number is **309** and the next ADR is **0027**. This is one iteration,
+not a finished queue or roadmap.

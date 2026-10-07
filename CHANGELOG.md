@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser can now keep track of what you have allowed each site, though
+  no site can ask yet.** It refuses an ask on its own, without asking you,
+  when the page is not secure, is a file or other page with no real address,
+  sits inside another site that did not let it ask, or asks before you have
+  clicked or typed on it. It also refuses when you have already said no. A
+  "while this page is open" answer ends when the page closes. An "on this site"
+  answer ends thirty days after you last opened the site yourself, and a site
+  using its permission does not keep it alive. Setting the clock back ends a
+  permission rather than extending it. Taking one back stops it at once. Only
+  you can answer or take one back, never an agent. The browser's note of what
+  happened keeps the latest sixty-four events per site and says how many older
+  ones it dropped. If the saved list is damaged, it is put aside, not deleted,
+  and every site has to ask again. A private session saves none of it.
+
 - **How a site asks for your camera, microphone or location is decided, and
   nothing asks yet.** ADR 0026 says a site may ask only after you have
   clicked or typed on it, never as it loads. You can allow it while the page

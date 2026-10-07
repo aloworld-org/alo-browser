@@ -557,6 +557,14 @@ eligible next) and **308** (the prompt and the indicator, behind 297). 135
 queue items are open: 307 and 308 opened, and 93 stays open until they
 close. The next unused queue number is 309 and the next unused ADR 0027.
 
+Iteration 189 built item 307 as `alo-grants`: the closed list, the ask
+decided by named rules, the three answers and their endings, revocation that
+stops uses in the same act, the record of sixty-four per key, and the file
+set aside whole when it does not read. Only a person's cause answers or
+revokes. 308 waits on 297, which waits on 296's Screen Recording grant. 134
+queue items are open. The next unused queue number is 309 and the next
+unused ADR 0027.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -1002,7 +1002,21 @@ unreachable without it.
 - [ ] Workers: dedicated, shared, and service workers with their fetch interception
 - [ ] Timers, clipboard, drag and drop
 - [ ] ★ **Permissions as capabilities** — camera, microphone, location, notifications, in the shape of `alo-os` ADR 0001: enumerated, visible, revocable, expiring, recorded. A browser is where most people meet a permission prompt, and every other one is a dialogue nobody can audit afterwards
-      — not started: nothing is built. Decided in ADR 0026. A permission is
+      · Built: the grant table, `alo-grants` (queue item 307). It holds the
+      closed list of eight capabilities and decides an ask: refused without a
+      prompt for an opaque origin, an insecure context, a frame its embedder
+      did not allow, a refusal everywhere or remembered, a document already
+      refused, or no gesture. It keeps *allow while open* until the document
+      goes and *allow on this site* or *don't allow* until thirty days after
+      the person's own last visit, which a page's use does not extend, and a
+      clock set backwards ends it. Revoking stops every use in the same act.
+      Only a person's cause answers or revokes. The record is sixty-four
+      entries per key with a counted drop, and the file is set aside whole
+      when it does not read. A private session's table has no directory.
+      · Owed: the prompt and the indicator (308, behind 297), and each
+      capability's API (303, 157, 92, 290 or a page), which is also where the
+      browser process refuses an ask naming a key it did not load into that
+      renderer (§ 7). Decided in ADR 0026. A permission is
       a grant in one table the browser process holds: one capability from a
       closed list, to one origin under one top-level site, made by a person
       answering an ask a page made while somebody was using it. It ends when
