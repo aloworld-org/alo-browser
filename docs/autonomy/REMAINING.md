@@ -634,6 +634,15 @@ running frozen script to reach a regular expression, which makes item 74
 reachable. 139 queue items are open. The next unused queue number is 322 and
 the next unused ADR 0029.
 
+Iteration 199 decided item 74 in ADR 0029: the regular expression engine
+is ours, a backtracking machine with a stack of its own, every step counted
+against a budget and the embedder's stop checked inside it. Running out is
+a `RangeError`. Only the Unicode tables are rented, and Annex B's pattern
+forms are refused by name. 74 keeps the engine and its bound; 322 (`i` and
+`\p`), 323 (the string methods) and 324 (the constructor, `v` and `d`)
+were opened. 74 is now eligible to build. 142 queue items are open. The
+next unused queue number is 325 and the next unused ADR 0030.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

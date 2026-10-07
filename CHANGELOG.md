@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How regular expressions will work is decided.** ADR 0029 says the
+  engine that runs them is this browser's own. It also says every step a
+  pattern takes is counted, so a pattern written to run for ever is an error
+  the page can catch rather than a tab that hangs. Only the Unicode tables
+  are borrowed. Old pattern forms that modern code does not need are refused
+  with a message naming them, until a real page needs one. alo's download
+  page is the first page whose script reaches a regular expression. Nothing
+  is built yet.
+
 - **A line break written as `<br>` now breaks the line.** It used to be
   ignored, so text an author had split into separate lines or short
   paragraphs ran together. alo's page for downloading the desktop app showed

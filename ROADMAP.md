@@ -777,6 +777,17 @@ unreachable without it.
       function and the other eleven well-known symbols, the iterator helpers
       and the weak collections are still item 73, which is what remains of it
 - [ ] Regular expressions, with the syntax the language actually has
+      — not started: nothing is built. Decided in ADR 0029: the parser,
+      compiler and matcher are ours, a backtracking machine over UTF-16 code
+      units with a stack of its own. Every step is counted against a budget
+      in `bounds.rs` and the embedder's stop is checked inside it, so a
+      catastrophic pattern is a `RangeError` a page can catch, never a hung
+      renderer. Only the Unicode tables are rented, and Annex B's pattern
+      forms are refused by name. A running frozen script reaches it:
+      `alo-downloads`' `/Mac/.test(p)`. Cut into queue items 74 (the engine,
+      its bound, a literal, `exec` and `test`), 322 (`i` and `\p{…}`), 323
+      (the string methods) and 324 (the constructor, `v`'s set operations
+      and `d`'s indices)
 - [ ] Promises, the microtask queue, `async`/`await`, generators and iterators
       · Built: **the iteration protocol** that `for…of` reads (queue item
       230) — `GetIterator`, a step and `IteratorClose`, compiled to ordinary

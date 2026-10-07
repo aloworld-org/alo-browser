@@ -18150,3 +18150,84 @@ changed. Before it, clippy had found one useless `.into_iter()` in
 139 queue items are open: 319 added closed, 320 and 321 opened. The next
 unused queue number is **322** and the next ADR is **0029**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 199 — queue item 74 decided: ADR 0029, a regular expression is ours and its work is counted
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (in particular
+stage 2 § 4, *a decision is its own iteration*), `ROADMAP.md` (its three
+states, and the *Regular expressions* line under *JavaScript*), iteration
+198's entry, `REMAINING.md`'s continuation order, queue items 73, 74, 320
+and 321 in full, ADR 0013 whole (§§ 1, 3, 4 and 8 are the ones this
+applies), ADR 0015 (the rented-`BigInt` precedent and its condition), and
+ADR 0014 § 9 on where ceilings live. `docs/features.md`'s JavaScript lines.
+No `AGENTS.md` exists. The checkout was clean on entry at `57a3feb`. No
+sibling repository was read or written this iteration. `regress`'s
+documentation and README were read on the web to check what it promises.
+
+**Selection.** Iteration 198 left 74 first in the file with its dependency
+(72) done and a running frozen script reaching it. But 74 hid a decision
+nothing had made: ADR 0013 § 4 promises a ceiling on *the work a regular
+expression may do* without saying how, and § 8 lists neither renting nor
+writing a regex engine. Building it would have decided both inside a commit
+that was mostly code, which `CLAUDE.md` and `LOOP.md` forbid. So this
+iteration is the ADR, as 197 was for item 124.
+
+**What was decided (ADR 0029).**
+- The parser, compiler and matcher are ours. `regress` (safe Rust,
+  JavaScript syntax, UTF-16 matching) was the close call. It is refused
+  because the bound can only live inside the backtracking loop: unlike
+  ADR 0015's arithmetic, a match's cost cannot be computed before the call,
+  and `regress` documents no bound and no linear-time guarantee. The
+  `regex` crate is refused because it has no backreferences or lookaround
+  and searches UTF-8.
+- A backtracker, because the specification defines matching as a
+  backtracking search. Parsed to a tree, compiled to instructions, run by a
+  loop with its own backtrack stack and no native recursion.
+- Every step counts against a budget per `RegExpBuiltinExec`, in
+  `bounds.rs` when the matcher exists. Running out is a `RangeError`, as a
+  runaway recursion already is. The embedder's stop is checked inside the
+  matcher. "No match" is refused as approximate.
+- Only the Unicode tables are rented, as § 8 already says, behind one file.
+- Annex B's pattern forms are refused by name, opened by pages.
+- A literal compiles with its script, so a bad pattern is an early error.
+
+**Queue.** 74 stays open, now with ADR 0029's first cut and a closing
+condition in numbers and cases. Opened: **322** (`i` and `\p{…}`, the rented
+tables), **323** (the string methods and the `Symbol.*` protocol, also on
+item 73's `String.prototype`) and **324** (the constructor, `v`'s set
+operations and `d`'s indices). Nothing was ticked.
+
+**Roadmap.** The *Regular expressions* line now reads "not started: nothing
+is built. Decided in ADR 0029 …", the form ADR 0028's line used. It is not
+ticked. `docs/features.md`, `CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Gate, mechanical.** No code changed, so nothing needed warming. I ran
+`scripts/gate.sh` in the foreground into a log. It passed the tool's
+ten-minute ceiling and was moved to the background. I waited for it in the
+same turn and read the log. It exited 0 with "The gate is met.": fmt clean,
+clippy silent, tests passing, no stubs, `unsafe` forbidden, licences
+present, every rented crate behind its boundary, no coordinate verbs, the
+stop rule holding, and no uncommitted code to judge.
+
+**Gate, manual.**
+- Layout assertions and reference renders: none apply. Nothing positions,
+  sizes or draws differently.
+- One responsibility per file: no source file changed. The ADR is one
+  decision.
+- `docs/features.md` has the line and says it is decided and not built.
+
+**Unresolved obligations.**
+- Nothing about regular expressions is built. 74 is now eligible and is
+  next by the queue's order. The budget's number and the stack ceiling are
+  chosen there, in `bounds.rs`.
+- The crate for the Unicode tables is 322's choice, under ADR 0029 § 1's
+  conditions.
+- 320 and 321 remain eligible with no dependencies.
+- Still standing: 284, 311 and 314 wait for pages. 296 needs a person to
+  grant Screen Recording. 297–300, 302, 304 and 308 wait as before. 126 and
+  132 wait on open dependencies.
+- `scripts/gate.sh` still takes longer than ten minutes with a warm build.
+
+142 queue items are open: 322, 323 and 324 opened, none closed. The next
+unused queue number is **325** and the next ADR is **0030**. This is one
+iteration, not a finished queue or roadmap.

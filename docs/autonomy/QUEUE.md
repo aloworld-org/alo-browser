@@ -3063,6 +3063,63 @@ The long pole, and the thing most of section E is unreachable without.
   was left alone. That page also calls `classList.add`, `querySelectorAll`,
   `forEach`, `fetch` and `.then`, so making the script run whole needs more
   than this item; the first cut is the literal and `test`.
+  **Decided in ADR 0029 (iteration 199).** The parser, compiler and matcher
+  are ours: a backtracking machine over UTF-16 code units, with a
+  backtrack stack of its own and no native recursion. Every step is counted
+  against a budget in `bounds.rs`, and the embedder's stop is checked
+  inside the matcher. Running out is a `RangeError`, never "no match".
+  `regress` is refused because the bound has to live inside its loop. Only
+  the Unicode tables are rented. Annex B's pattern forms are refused by
+  name. **What 74 now builds** (ADR 0029 § 6): the parser for the whole
+  grammar, with what is not built refused by name; the compiler; the
+  matcher with its budget, its stack ceiling and the stop; a `RegExp` from
+  a literal, compiled with its script so a bad pattern is an early
+  `SyntaxError`; `exec` and `test`; `lastIndex` with `g` and `y`; and `s`
+  and `m`. `i` and `\p` are 322, the string methods 323, and the
+  constructor, `v`'s set operations and `d`'s indices 324.
+  *Closes when:* `/(a+)+$/` against thirty `a`s and a `b` is a `RangeError`
+  a page's `catch` catches, a stop from the embedder ends a match below the
+  budget, a pattern nested past the parse bound is a `SyntaxError`, a table
+  of patterns with the specification's captures passes (lazy and greedy,
+  alternation order, captures reset in a quantifier, backreferences,
+  lookahead and lookbehind), and `alo-downloads`' script gets past
+  `/Mac/.test(p)`.
+
+- [ ] **322. `i`, and `\p{…}`: the rented Unicode tables.** *Cut from 74
+  (ADR 0029 §§ 1, 6).* Case-insensitive matching uses simple case folding
+  under `u` and `v`, and the specification's upper-case `Canonicalize`
+  without them. `\p{…}` and `\P{…}` name `General_Category`, `Script`,
+  `Script_Extensions` and the binary properties, and under `v` the
+  properties of strings. The tables are rented, behind one file on
+  `scripts/gate.sh`'s boundary list, from a crate that reaches nothing and
+  adds no `unsafe` of ours. 74's first cut refuses `i` and `\p` by name.
+  *Depends on 74. Closes when:* a table has `/ß/i`, `/ſ/i` and
+  `/K/i` matching as the specification says with and without `u`, a
+  `\p{Script=Greek}` and a `\p{Lu}` match and an unknown property is a
+  `SyntaxError`, and the crate is named in exactly one file.
+
+- [ ] **323. The string methods that take a regular expression.** *Cut
+  from 74 (ADR 0029 §§ 5, 6).* `String.prototype.match`, `matchAll`,
+  `replace` (with `$1`, `$<name>`, `$&` and a function replacer),
+  `replaceAll`, `search` and `split`, and `RegExp.prototype`'s
+  `[Symbol.match]`, `[Symbol.matchAll]`, `[Symbol.replace]`,
+  `[Symbol.search]` and `[Symbol.split]`, reached through the symbols so a
+  page's override is honoured. The theme generator's `.replace(/…/g, "")`
+  and `.match(…)` are the frozen calls that need it.
+  *Depends on 74 and on `String.prototype` (item 73). Closes when:* a
+  table of each method's results matches the specification, a global
+  `replace` on a hostile pattern is bounded per match, and the theme
+  generator's calls give the values a browser gives.
+
+- [ ] **324. The `RegExp` constructor, `v`'s set operations and `d`'s
+  indices.** *Cut from 74 (ADR 0029 § 6).* `new RegExp(source, flags)` and
+  `RegExp(…)` compile at run time, so a bad pattern throws where the call
+  is; `source`, `flags` and the per-flag accessors on `RegExp.prototype`;
+  `v`'s class set operations (`--`, `&&` and nested classes); and the
+  `indices` array `d` adds to a match.
+  *Depends on 74. Closes when:* `new RegExp("(")` throws a `SyntaxError` a
+  `catch` catches, `/[\p{L}--[a-z]]/v` matches as specified (with 322),
+  and `/(a)/d.exec("a").indices` is `[[0, 1], [0, 1]]`.
 
 - [ ] **75. Promises, `async`/`await`, generators and iterators.**
   *Depends on 72, 76.* **Item 230 took the iteration protocol `for…of` reads**
