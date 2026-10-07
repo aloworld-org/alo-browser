@@ -431,13 +431,15 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them.
   Decided in ADR 0025. Built: the browser process's store, `alo-storage`.
   It keeps `localStorage` areas across a restart, evicts whole buckets and
-  sets aside a bucket that fails its check. No page reaches it yet. The
+  sets aside a bucket that fails its check. The profile's bound is a fifth
+  of the store's volume's free space, asked of the operating system, and zero
+  when the volume cannot be asked. No page reaches it yet. The
   decision: one bucket per origin and top-level site,
   kept by the browser process; one fixed 1 GiB quota per bucket, the same on
   every machine and in private browsing, with `localStorage` capped at 5 MiB;
   whole buckets evicted, least recently used first, never one in use;
   `sessionStorage` never written to a disk; a site's data cleared in one act
-  (301–305)
+  (301–306)
 - [2] Workers: dedicated, shared, and service workers with their fetch interception
 - [2] Timers, clipboard, drag and drop
 - [2] ★ **Permissions as capabilities** — camera, microphone, location, notifications, in the shape of `alo-os` ADR 0001: enumerated, visible, revocable, expiring, recorded. A browser is where most people meet a permission prompt, and every other one is a dialogue nobody can audit afterwards

@@ -16,13 +16,16 @@
 //! browsing privately. The profile's own bound *is* computed from the disk —
 //! and is never reported to a page, which is the difference.
 //!
-//! # What this does not measure
+//! # Measured once, at start
 //!
-//! [`Limits::for_a_volume_with`] takes the volume's free space at start as a
-//! number. Asking the operating system for it is a system call the standard
-//! library does not make, and this repository makes no system call of its own
-//! without a crate that wraps it safely (law 4). That is queue item 306. Until
-//! it is built the browser process that opens a store passes the number in.
+//! [`Limits::for_the_volume_at`] asks the operating system how much of the
+//! store's volume is free ([`crate::volume`]) and builds the bounds from that;
+//! [`Limits::for_a_volume_with`] builds them from a number, for a test that
+//! wants a bound it can reach. A volume that cannot be asked gives a profile
+//! bound of zero, never an unbounded one.
+
+use crate::volume;
+use std::path::Path;
 
 /// Every bucket's quota: 1 GiB, whatever the machine.
 pub const BUCKET_QUOTA: u64 = 1 << 30;
@@ -70,6 +73,18 @@ impl Limits {
             profile: PROFILE_MOST.min(free_at_start / PROFILE_SHARE),
         }
     }
+
+    /// ADR 0025's limits, for a profile on the volume this path is on, as that
+    /// volume reports itself now.
+    ///
+    /// Called once, when the browser starts: the bound is a fifth of what was
+    /// free *then*, and does not move as the disk fills, because a bound that
+    /// shrank as the profile grew would evict a site for having been written.
+    /// A volume that cannot be asked counts as nothing free, so the profile's
+    /// bound is zero and every write is refused.
+    pub fn for_the_volume_at(path: &Path) -> Self {
+        Self::for_a_volume_with(volume::free_space(path).unwrap_or(0))
+    }
 }
 
 #[cfg(test)]
@@ -100,5 +115,14 @@ mod tests {
         assert_eq!(small.bucket, large.bucket);
         assert_eq!(small.local_area, large.local_area);
         assert_ne!(small.profile, large.profile);
+    }
+
+    #[test]
+    fn a_volume_that_cannot_be_asked_bounds_the_profile_at_nothing() {
+        let nowhere = std::env::temp_dir().join("alo-storage-limits-nowhere/not/here");
+        let limits = Limits::for_the_volume_at(&nowhere);
+        assert_eq!(limits.profile, 0);
+        assert_eq!(limits.bucket, BUCKET_QUOTA);
+        assert_eq!(limits.local_area, LOCAL_AREA);
     }
 }

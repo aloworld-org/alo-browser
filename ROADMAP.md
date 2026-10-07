@@ -985,11 +985,12 @@ unreachable without it.
       used first. `localStorage` areas are kept in checksummed records that
       survive a restart. A bucket that fails its check is set aside and
       recorded. Clearing a site is one removal, and a session-scoped store
-      writes no file.
+      writes no file. The profile's bound is measured from the store's own
+      volume through a rented `statvfs` (306), and a volume that cannot be
+      asked bounds it at zero.
       · Owed: no page reaches it yet. Still to come are `localStorage` and
       `sessionStorage` in a page (302), `navigator.storage` (303),
-      IndexedDB (304), the Cache API (305), and the volume's free space,
-      measured (306). Decided in ADR 0025. All four kinds
+      IndexedDB (304) and the Cache API (305). Decided in ADR 0025. All four kinds
       of storage use one bucket per origin and top-level site, held only by the
       browser process, and an opaque origin has none. One fixed 1 GiB quota
       covers each bucket. It is reported the same on every machine and in

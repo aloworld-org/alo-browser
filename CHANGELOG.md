@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser's share of your disk is now sized from your disk.** The most
+  all sites together may keep is a fifth of the space free on the disk the
+  browser keeps them on, measured when it starts, and never more than 8 GiB.
+  If the browser cannot find out how much space is free, sites can keep
+  nothing at all rather than an unlimited amount. What a site is told it may
+  use is still the same on every computer.
+
 - **An overnight run survives the machine sleeping.** The build loop's limits
   on a worker — idle, no output, and total runtime — were the difference
   between two clock readings, so hibernating counted as both working and

@@ -56,6 +56,7 @@ declare -a BOUNDARIES=(
   "winit:crates/alo-window/src/window.rs"
   "softbuffer:crates/alo-window/src/present.rs"
   "raw_window_handle:crates/alo-window/src/present.rs"
+  "rustix:crates/alo-storage/src/volume.rs"
 )
 
 step "cargo fmt"

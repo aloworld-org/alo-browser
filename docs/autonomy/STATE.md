@@ -16734,3 +16734,112 @@ measured and wrong about what it meant. What it measures now is awake seconds
 since the worker was last asked for something, which is the question I wanted
 answered three fixes ago.
 
+
+---
+
+## Iteration 187 — queue item 306: the volume's free space, measured
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (the
+storage line), iterations 183–186, items 90 and 301–306 in `QUEUE.md`,
+ADR 0025 §§ 1–5, the parts of ADR 0010 and ADR 0024 that check a rented
+crate's `unsafe`, `docs/features.md`'s storage line, `scripts/gate.sh`, and
+all of `alo-storage`'s sources that this touches. No `AGENTS.md` exists. No
+sibling repository was read or written. The checkout was clean on entry at
+`4292afc`.
+
+**Selection.** 301 closed in iteration 185. Of the items it was cut from, 302
+waits on a frozen page, 303 on 75, 304 on its own ADR and on 76 and 81, and
+305 on 75, 83 and 91. **306** depends only on 301, so it is the first
+eligible item after the ones iterations 183 and 184 had already passed over.
+
+**What was built.**
+- **`alo-storage/src/volume.rs`** is the one file that names the rented
+  crate. Its `free_space(path)` returns `f_bavail × f_frsize` from
+  `rustix::fs::statvfs`. That counts the space free to an ordinary user,
+  which `df` calls *available*. It returns `None` for a path that is not
+  there, for a product that overflows, and on a platform that is not
+  `unix`.
+- **`Limits::for_the_volume_at(path)`** treats `None` as nothing free, so
+  the profile's bound is **zero** and every write is refused. It can never
+  produce an unbounded bound.
+- **`Store::on_its_volume(directory)`** makes the directory, measures that
+  directory's own volume, and opens the store with ADR 0025's limits. It
+  measures after making the directory because `statvfs` cannot measure a
+  path that does not exist yet, which is the case on a first run.
+  `Store::at` now shares a private `over` with it, so the survey is written
+  once.
+
+**The crate, checked as ADR 0024 checked `winit`.** `rustix` 1.1.5 is
+licensed Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT. It was already
+in the lock beneath `winit` and `softbuffer` on Linux (`cargo tree --target
+all -i rustix@1.1.5`), so the only lock change is the new edge. Only `fs` and
+`std` are enabled. `rustix::fs::statvfs` is a safe `pub fn`. On macOS its
+`unsafe` is in `backend/libc/fs/syscalls.rs`: the C library's `statvfs` into
+a `MaybeUninit`, `assume_init` only after `ret` succeeded, and every field
+widened to `u64`. That is ADR 0010's *the crate's, not ours*. No `unsafe` was
+added here, and `unsafe_code` is still forbidden everywhere. The boundary is
+in `scripts/gate.sh`, and the dependency is target-gated to `cfg(unix)`.
+
+**Closing conditions, in numbers.**
+- *The store's directory reports a figure, checked against the volume's own
+  report.* `tests/free_space_measured.rs` opens `Store::on_its_volume` and
+  compares `free_space` on its directory with `df -Pk` on the same
+  directory, within 512 MiB. The two reports read moments apart on a
+  machine writing other files. `df` asks through `statfs`, a different
+  call, so the agreement is not the figure agreeing with itself. Both
+  agreed at about 21.8 GB here. The test also asserts that the store's
+  profile bound is `min(8 GiB, df / 5)`, within 512 MiB / 5.
+- *The test can fail.* With `f_blocks` put in place of `f_bavail`, it
+  failed with "measured 494384795648 bytes free, df reports 21851885568".
+  The original line was restored and the test re-run.
+- *A volume that cannot be asked gives zero.* A missing path gives `None`
+  and a profile bound of 0. A store with those limits refuses a
+  two-character `localStorage` write with `ProfileFull`, counts 0 bytes and
+  0 buckets, and leaves the directory empty. Unit tests in `volume.rs` and
+  `limits.rs` cover both halves on their own.
+
+**Gate, mechanical.** I ran `scripts/gate.sh` in the foreground and read its
+log in the same step. It exited 0 with "The gate is met.":
+- fmt clean and clippy silent;
+- every test passing. A separate workspace run counts 3007 passed and 0
+  failed;
+- no stubs, `unsafe` forbidden, and licence notices on both new files;
+- every rented crate behind its boundary, `rustix` included, no coordinate
+  verbs, and the stop rule holding.
+
+`git diff --check` passes.
+
+**Gate, manual.**
+- Nothing positions, sizes or draws, so no layout assertion or reference
+  render applies.
+- One responsibility per file: `volume.rs` asks the operating system and
+  nothing else. `limits.rs` still holds only the ADR's numbers and how they
+  are built. `store.rs` gained a constructor and no new reason to change.
+- The feature line exists and now names the measurement.
+
+**Documentation.**
+- `QUEUE.md`: 306 is ticked, with what was built.
+- `ROADMAP.md`: the storage line's Built clause gains the measurement, and
+  306 leaves its Owed clause. The line is **not ticked**, because 302–305
+  are owed.
+- `docs/features.md`, `CHANGELOG.md` and `REMAINING.md` are updated.
+- The workspace manifest has a comment explaining the rental.
+
+**Unresolved obligations.**
+- Nothing in the browser process opens a store yet. "When the browser
+  starts" is therefore the caller's call to `Store::on_its_volume`, and
+  nothing wires it, because no such caller exists. It belongs with whichever
+  item first gives the browser process a profile at start (302's half, or
+  125).
+- The session-scoped profile's bound is still item 125's to choose.
+- On a platform that is not `unix`, storage refuses every write. It already
+  could not make a private directory there (`alo_net::private`), so nothing
+  is lost.
+- Carried forward: 296 still needs Screen Recording granted by a person, and
+  297–300 wait on it. 302 needs a frozen page and 304 its ADR. The ADR
+  candidates 93, 124, 126, 132 and 277 remain. 93 is next in file order
+  among those, and its dependencies, 63 and 67, are done.
+
+133 queue items are open, because 306 closed and nothing was opened. The
+next unused queue number is **307** and the next ADR is **0026**. This is one
+iteration, not a finished queue or roadmap.

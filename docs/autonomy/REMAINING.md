@@ -541,6 +541,11 @@ storage, once a frozen page opens it, and 80 and 236 are done. 134 queue
 items are open: 301 closed and 306 opened. The next unused queue number is
 307 and the next unused ADR 0026.
 
+Iteration 187 built item 306. The profile's bound is measured from the
+store's own volume with `rustix`'s `statvfs`, checked against `df`. A volume
+that cannot be asked bounds it at zero. 133 queue items are open. The next
+unused queue number is 307 and the next unused ADR 0026.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

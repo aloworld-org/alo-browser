@@ -201,6 +201,7 @@ version = "0.0.0"
 dependencies = [
  "alo-net",
  "alo-url",
+ "rustix 1.1.5",
 ]
 
 [[package]]

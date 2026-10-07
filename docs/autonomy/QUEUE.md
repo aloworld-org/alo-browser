@@ -4666,7 +4666,7 @@ The long pole, and the thing most of section E is unreachable without.
   the old version's cache, an offline navigation is answered from it, and an
   opaque response's `usage` does not depend on its length.
 
-- [ ] **306. The volume's free space, measured.** *Cut from 301 (ADR 0025
+- [x] **306. The volume's free space, measured.** *Cut from 301 (ADR 0025
   § 3). Depends on 301.* The profile's bound is the smaller of 8 GiB and a
   fifth of the volume's free space when the browser starts.
   `alo_storage::Limits::for_a_volume_with` computes it from a number, and
@@ -4679,6 +4679,30 @@ The long pole, and the thing most of section E is unreachable without.
   against the volume's own report on this machine. A volume that cannot be
   asked gives a bound of zero, which refuses every write. It never gives an
   unbounded one.
+
+  **Done** (iteration 187). The crate is **`rustix` 1.1.5**, features `fs`
+  and `std` only, already in the lock beneath `winit` and `softbuffer` on
+  Linux. Its `statvfs` is a safe function, and the `unsafe` is the crate's
+  (ADR 0010): on macOS `backend/libc/fs/syscalls.rs` calls the C library's
+  `statvfs` into a `MaybeUninit` and converts every field to `u64`. It is
+  named only in `alo-storage/src/volume.rs`, which `scripts/gate.sh` now
+  holds it to, and is a dependency only on `cfg(unix)`.
+  - The figure is `f_bavail × f_frsize`, so it counts space free to an
+    ordinary user, which is what `df` calls *available*. A product that
+    overflows is `None`. A platform without the call is `None`, and so is a
+    path that is not there.
+  - `Limits::for_the_volume_at` turns `None` into a profile bound of zero.
+    `Store::on_its_volume` makes the directory, measures that directory and
+    opens the store with those limits.
+  - `tests/free_space_measured.rs` checks the store's directory against
+    `df -Pk` on the same directory, within 512 MiB. `df` asks through
+    `statfs` rather than `statvfs`. On this machine the two agreed at about
+    21.8 GB. With `f_blocks` substituted, the test fails at 494 GB against
+    21.8 GB. A store whose volume cannot be asked refuses a two-character
+    write with `ProfileFull` and leaves no file.
+  Nothing in the browser process opens a store yet, so "when the browser
+  starts" is the call a caller makes. It is not wired, because no caller
+  exists. The profile's bound in a session-scoped profile is still 125's.
 
 - [ ] **91. Workers**: dedicated, shared, and service workers with their fetch
   interception.

@@ -12,5 +12,8 @@ authors.workspace = true
 alo-net = { path = "../alo-net" }
 alo-url = { path = "../alo-url" }
 
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true
+
 [lints]
 workspace = true

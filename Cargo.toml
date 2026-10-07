@@ -87,6 +87,13 @@ softbuffer = "0.4.8"
 # The two traits `softbuffer` bounds a window by, named in `present.rs` so that
 # `winit` stays in `window.rs`. Already beneath both crates at this version.
 raw-window-handle = "0.6"
+# How much of a disk is free, rented (ADR 0025 § 3, queue item 306). The
+# standard library has no call for it and law 4 forbids writing one, so this is
+# `rustix`'s `statvfs`: a safe function whose `unsafe` is the crate's, not ours
+# (ADR 0010) — over the C library on macOS and the kernel's own call on Linux.
+# Only `fs`, and `std` for `Path`. Already beneath `winit` and `softbuffer` on
+# Linux at this version, and named in one file of `alo-storage`.
+rustix = { version = "1.1.5", default-features = false, features = ["fs", "std"] }
 taffy = { version = "0.14", default-features = false, features = ["std", "taffy_tree", "flexbox", "grid", "block_layout", "content_size", "calc"] }
 
 # Law 4 of CLAUDE.md, enforced by the compiler rather than by review: `unsafe`

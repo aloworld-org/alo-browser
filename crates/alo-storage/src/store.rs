@@ -38,7 +38,7 @@ use crate::area::Area;
 use crate::directory::{Directory, SetAside};
 use crate::key::StorageKey;
 use crate::ledger::{Counted, Ledger};
-use crate::limits::Limits;
+use crate::limits::{LOCAL_AREA, Limits};
 use core::fmt;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -130,18 +130,43 @@ impl Store {
     /// rather than written somewhere unprotected.
     pub fn at(directory: impl AsRef<Path>, limits: Limits) -> Result<Self, String> {
         let directory = Directory::at(directory, limits.local_area)?;
+        Ok(Self::over(directory, limits))
+    }
+
+    /// The store in this directory, as [`Self::at`], bounded by ADR 0025's
+    /// limits for the volume the directory is on — which is how the browser
+    /// opens its profile's store when it starts.
+    ///
+    /// The directory is made first and the volume asked about the directory
+    /// itself, so that the figure is the volume the buckets will be written
+    /// to, even on a first run with nothing there yet. A volume that cannot be
+    /// asked gives a profile bound of zero ([`Limits::for_the_volume_at`]), and
+    /// every write is refused.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::at`].
+    pub fn on_its_volume(directory: impl AsRef<Path>) -> Result<Self, String> {
+        let directory = Directory::at(directory, LOCAL_AREA)?;
+        let limits = Limits::for_the_volume_at(directory.root());
+        Ok(Self::over(directory, limits))
+    }
+
+    /// A store over a directory that is already made, holding whatever it
+    /// already holds.
+    fn over(directory: Directory, limits: Limits) -> Self {
         let (found, set_aside) = directory.survey();
         let mut ledger = Ledger::new();
         for bucket in found {
             ledger.found(bucket.key, bucket.bytes, bucket.last_use);
         }
-        Ok(Self {
+        Self {
             place: Place::Directory(directory),
             limits,
             ledger,
             set_aside,
             evicted: 0,
-        })
+        }
     }
 
     /// A store for a session-scoped profile, which opens no directory and

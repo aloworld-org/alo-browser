@@ -26,6 +26,7 @@
 //! - [`key`]: whose bucket, and why an opaque origin has none.
 //! - [`area`]: a `localStorage` area, counted in UTF-16 bytes.
 //! - [`limits`]: the ADR's numbers.
+//! - [`volume`]: how much of the disk is free, asked of the operating system.
 //! - [`ledger`]: counts, use order, and what eviction chooses.
 //! - [`record`]: the bytes on a disk, read as a stranger's.
 //! - [`directory`]: where each bucket's files are, and setting one aside.
@@ -38,6 +39,7 @@ pub mod ledger;
 pub mod limits;
 pub mod record;
 pub mod store;
+pub mod volume;
 
 pub use area::Area;
 pub use directory::{SetAside, where_the_system_keeps_storage};
