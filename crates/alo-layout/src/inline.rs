@@ -51,9 +51,20 @@
 //!
 //! The strut does not make a line exist. A line with nothing on it worth a
 //! line box is still no line at all, strut or not.
+//!
+//! # Not everything stands on the baseline
+//!
+//! `vertical-align` moves an atomic box or an inline box, and everything
+//! inside it, up or down from its parent's baseline; [`crate::vertical_align`]
+//! says how far. What moved still counts towards how tall the line is. `top`
+//! and `bottom` are different: a box held by the edge of the line box is laid
+//! out around a baseline of its own, in a **group** of its own, and only once
+//! everything else has said how tall the line is does the group find out where
+//! that edge is.
 
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::measure::{MeasureText, TextStyle};
+use crate::vertical_align::{Edge, LineAlign, Parent};
 use alo_box::BoxId;
 use core::ops::Range;
 
@@ -89,6 +100,8 @@ pub enum InlineItem {
         over: f32,
         /// The same below: its bottom border and padding.
         under: f32,
+        /// Its `vertical-align`, which moves everything inside it too.
+        align: LineAlign,
     },
     /// The end of a nested inline box.
     Close {
@@ -116,6 +129,8 @@ pub enum InlineItem {
         /// For a box with no line in it, CSS puts the baseline on its bottom
         /// margin edge — the whole of the margin box above it.
         baseline: f32,
+        /// Its `vertical-align`: what its margin box is lined up with.
+        align: LineAlign,
     },
 }
 
@@ -139,6 +154,8 @@ impl InlineItem {
 struct Pending {
     fragment: Fragment,
     below_baseline: f32,
+    /// Which baseline it hangs from, and how far above that one its own is.
+    place: Place,
     /// Room after the fragment that is still its own: an atomic box's right
     /// margin. It counts in how wide the line is, so that aligning a line
     /// moves the margin box rather than the border box.
@@ -301,14 +318,16 @@ pub fn lay_out_aligned(
                 size,
                 margin,
                 baseline,
-            } => builder.add_atomic(*box_id, *size, *margin, *baseline),
+                align,
+            } => builder.add_atomic(*box_id, *size, *margin, *baseline, *align),
             InlineItem::Open {
                 box_id,
                 edge,
                 style,
                 over,
                 under,
-            } => builder.open(*box_id, *edge, style, *over, *under),
+                align,
+            } => builder.open(*box_id, *edge, style, (*over, *under), *align),
             InlineItem::Close { box_id, edge } => builder.close(*box_id, *edge),
         }
     }
@@ -333,12 +352,37 @@ struct Builder<'a, M: MeasureText> {
     /// costs nothing at all when it does not.
     content: bool,
     pen: f32,
+    /// How far what is on this line reaches, one entry for the line's own
+    /// baseline and one for each box held by its top or bottom edge.
+    groups: Vec<Group>,
+    /// The container's font: where every line's ascent and descent start, and
+    /// what a box that is not inside another inline box is aligned against.
+    strut: Parent,
+}
+
+/// Which baseline a piece hangs from.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Place {
+    /// The group: zero is the line's own baseline.
+    group: usize,
+    /// How far above that group's baseline the piece's own baseline is.
+    raise: f32,
+}
+
+/// The line's own baseline, at the start of every line.
+const ON_THE_LINE: Place = Place {
+    group: 0,
+    raise: 0.0,
+};
+
+/// Everything hanging from one baseline, and how far it reaches.
+#[derive(Debug, Clone, Copy)]
+struct Group {
+    /// [`None`] for the line's own baseline; otherwise the edge of the line
+    /// box that holds this group.
+    edge: Option<Edge>,
     ascent: f32,
     descent: f32,
-    /// How far the container's font reaches above and below the baseline,
-    /// which is where every line's ascent and descent start.
-    strut_ascent: f32,
-    strut_descent: f32,
 }
 
 /// A nested inline box that has started and not yet finished.
@@ -358,12 +402,18 @@ struct OpenBox {
     /// How far its painted area reaches beyond that.
     over: f32,
     under: f32,
+    /// Its font, which is what anything inside it is aligned against.
+    font: Parent,
+    /// Its `vertical-align`, kept so that it can be placed again on every
+    /// line it carries on to.
+    align: LineAlign,
+    /// Where it hangs on the current line.
+    place: Place,
 }
 
 impl<'a, M: MeasureText> Builder<'a, M> {
     fn new(available_width: Option<f32>, strut: &TextStyle, measurer: &'a M) -> Self {
-        let strut_ascent = measurer.ascender(strut);
-        let strut_descent = measurer.descender(strut);
+        let strut = font_of(strut, measurer);
         Self {
             available_width,
             measurer,
@@ -373,18 +423,82 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             open: Vec::new(),
             content: false,
             pen: 0.0,
-            ascent: strut_ascent,
-            descent: strut_descent,
-            strut_ascent,
-            strut_descent,
+            groups: vec![Group {
+                edge: None,
+                ascent: strut.ascent,
+                descent: strut.descent,
+            }],
+            strut,
         }
     }
 
     /// Begin a new line: back at the left edge, and as tall as the strut.
+    ///
+    /// A box still open from the line before is placed again, because the
+    /// group a `top` or `bottom` box hung from belonged to that line.
     fn start_line(&mut self) {
         self.pen = 0.0;
-        self.ascent = self.strut_ascent;
-        self.descent = self.strut_descent;
+        self.groups = vec![Group {
+            edge: None,
+            ascent: self.strut.ascent,
+            descent: self.strut.descent,
+        }];
+        for depth in 0..self.open.len() {
+            let Some(held) = self.open.get(depth) else {
+                continue;
+            };
+            let (align, font) = (held.align, held.font);
+            let place = self.place_at(depth, align, font.ascent, font.descent);
+            if let Some(held) = self.open.get_mut(depth) {
+                held.place = place;
+            }
+        }
+    }
+
+    /// What a box `depth` boxes deep is inside: the open box above it, or the
+    /// block that holds the lines.
+    fn parent_at(&self, depth: usize) -> (Place, Parent) {
+        depth
+            .checked_sub(1)
+            .and_then(|above| self.open.get(above))
+            .map_or((ON_THE_LINE, self.strut), |held| (held.place, held.font))
+    }
+
+    /// Where a box reaching `above` and `below` its own baseline hangs, given
+    /// its `vertical-align` and what it is inside.
+    fn place_at(&mut self, depth: usize, align: LineAlign, above: f32, below: f32) -> Place {
+        let (outer, parent) = self.parent_at(depth);
+        match align.raise(above, below, parent) {
+            Ok(raise) => Place {
+                group: outer.group,
+                raise: outer.raise + raise,
+            },
+            Err(edge) => {
+                self.groups.push(Group {
+                    edge: Some(edge),
+                    ascent: 0.0,
+                    descent: 0.0,
+                });
+                Place {
+                    group: self.groups.len() - 1,
+                    raise: 0.0,
+                }
+            }
+        }
+    }
+
+    /// Something reaching `above` and `below` its own baseline, hung at
+    /// `place`, makes its group reach at least that far.
+    fn reach(&mut self, place: Place, above: f32, below: f32) {
+        if let Some(group) = self.groups.get_mut(place.group) {
+            group.ascent = group.ascent.max(above + place.raise);
+            group.descent = group.descent.max(below - place.raise);
+        }
+    }
+
+    /// Where text laid down now hangs: with the box it is in.
+    fn innermost(&self) -> Place {
+        self.open.last().map_or(ON_THE_LINE, |held| held.place)
     }
 
     /// Whether something of this width still fits on the line being built.
@@ -490,6 +604,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     ) {
         let ascent = self.measurer.ascender(style);
         let descent = self.measurer.descender(style);
+        let place = self.innermost();
         self.current.push(Pending {
             fragment: Fragment {
                 box_id,
@@ -498,11 +613,11 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 line: self.lines.len(),
             },
             below_baseline: descent,
+            place,
             after: 0.0,
         });
         self.pen += placed;
-        self.ascent = self.ascent.max(ascent);
-        self.descent = self.descent.max(descent);
+        self.reach(place, ascent, descent);
     }
 
     /// Start a nested inline box.
@@ -512,12 +627,22 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     /// towards the line's height; its top and bottom border and padding do
     /// not, which is CSS's rule and the reason a padded `<em>` does not push a
     /// paragraph's lines apart.
-    fn open(&mut self, box_id: BoxId, edge: f32, style: &TextStyle, over: f32, under: f32) {
-        let ascent = self.measurer.ascender(style);
-        let descent = self.measurer.descender(style);
+    ///
+    /// Its `vertical-align` moves its content area, and so everything inside
+    /// it, which is why it is placed here rather than piece by piece.
+    fn open(
+        &mut self,
+        box_id: BoxId,
+        edge: f32,
+        style: &TextStyle,
+        (over, under): (f32, f32),
+        align: LineAlign,
+    ) {
+        let font = font_of(style, self.measurer);
+        let (ascent, descent) = (font.ascent, font.descent);
         self.pen += edge;
-        self.ascent = self.ascent.max(ascent);
-        self.descent = self.descent.max(descent);
+        let place = self.place_at(self.open.len(), align, ascent, descent);
+        self.reach(place, ascent, descent);
         // An inline box with an edge of its own is content; one without is
         // only a bracket, and a line made of nothing but brackets is not a
         // line.
@@ -530,6 +655,9 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             descent,
             over,
             under,
+            font,
+            align,
+            place,
         });
     }
 
@@ -575,6 +703,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 line: self.lines.len(),
             },
             below_baseline: held.descent + held.under,
+            place: held.place,
             after: 0.0,
         });
     }
@@ -583,13 +712,23 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     ///
     /// The margin box is what fits or does not, what moves the pen and what
     /// sits on the baseline; the fragment is the border box inside it.
-    fn add_atomic(&mut self, box_id: BoxId, size: Size, margin: Edges, baseline: f32) {
+    fn add_atomic(
+        &mut self,
+        box_id: BoxId,
+        size: Size,
+        margin: Edges,
+        baseline: f32,
+        align: LineAlign,
+    ) {
         let width = margin.left + size.width + margin.right;
         let height = margin.top + size.height + margin.bottom;
         if !self.fits(width) {
             self.end_line();
         }
         self.content = true;
+        // Placed only once it is known which line it is on: a `top` box's
+        // group belongs to the line.
+        let place = self.place_at(self.open.len(), align, baseline, height - baseline);
         self.current.push(Pending {
             fragment: Fragment {
                 box_id,
@@ -601,11 +740,11 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             // from its border box, which is the rectangle placed; with a bottom
             // margin the baseline is below that box, and this is negative.
             below_baseline: size.height - (baseline - margin.top),
+            place,
             after: margin.right,
         });
         self.pen += width;
-        self.ascent = self.ascent.max(baseline);
-        self.descent = self.descent.max(height - baseline);
+        self.reach(place, baseline, height - baseline);
     }
 
     /// Finish the line being built: put every fragment on the baseline, and
@@ -644,8 +783,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             .collect();
 
         let top = self.lines.last().map_or(0.0, |line| line.top + line.height);
-        let baseline = self.ascent;
-        let height = self.ascent + self.descent;
+        let (baseline, height, hung) = self.settle();
         let width = self
             .current
             .iter()
@@ -664,9 +802,12 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             .map(|pending| {
                 // This is what a line box is for: everything hangs from one
                 // baseline, so a taller piece pushes the line down rather than
-                // pushing the others up.
+                // pushing the others up. A piece raised or lowered hangs that
+                // far from it, and one in a `top` or `bottom` group hangs from
+                // that group's.
                 let above = pending.fragment.rect.size.height - pending.below_baseline;
-                let y = top + baseline - above;
+                let from = hung.get(pending.place.group).copied().unwrap_or(baseline);
+                let y = top + from - pending.place.raise - above;
                 Fragment {
                     rect: pending.fragment.rect.translated(Point::new(start, y)),
                     ..pending.fragment
@@ -685,6 +826,39 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         self.content = false;
     }
 
+    /// How tall the line is and where its baseline is, and where each
+    /// group's baseline is below the line's top.
+    ///
+    /// The line's own baseline group decides first. A group held by the top
+    /// edge that is taller than that grows the line downwards, and one held by
+    /// the bottom grows it upwards, so that neither pushes the other off the
+    /// line.
+    fn settle(&self) -> (f32, f32, Vec<f32>) {
+        let (mut ascent, mut descent) = self
+            .groups
+            .first()
+            .map_or((0.0, 0.0), |group| (group.ascent, group.descent));
+        for group in self.groups.iter().skip(1) {
+            let tall = group.ascent + group.descent;
+            match group.edge {
+                Some(Edge::Top) => descent = descent.max(tall - ascent),
+                Some(Edge::Bottom) => ascent = ascent.max(tall - descent),
+                None => {}
+            }
+        }
+        let height = ascent + descent;
+        let hung = self
+            .groups
+            .iter()
+            .map(|group| match group.edge {
+                None => ascent,
+                Some(Edge::Top) => group.ascent,
+                Some(Edge::Bottom) => height - group.descent,
+            })
+            .collect();
+        (ascent, height, hung)
+    }
+
     fn finish(mut self) -> InlineLayout {
         self.end_line();
         // Anything still open was never closed, which is the caller's mistake
@@ -696,6 +870,16 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             lines: self.lines,
             size: Size::new(width, height),
         }
+    }
+}
+
+/// What a font is to a box aligned against it.
+fn font_of(style: &TextStyle, measurer: &impl MeasureText) -> Parent {
+    Parent {
+        ascent: measurer.ascender(style),
+        descent: measurer.descender(style),
+        x_height: measurer.x_height(style),
+        font_size: style.size,
     }
 }
 
@@ -758,6 +942,7 @@ mod tests {
             size: Size::new(width, height),
             margin: Edges::ZERO,
             baseline: height,
+            align: LineAlign::Baseline,
         }
     }
 
@@ -1026,6 +1211,7 @@ mod tests {
                 left: 4.0,
             },
             baseline: 34.0,
+            align: LineAlign::Baseline,
         };
         let layout = lay_out(
             &[text(1, "ab"), boxed.clone(), text(3, "c")],
@@ -1091,6 +1277,7 @@ mod tests {
                 ..Edges::ZERO
             },
             baseline: 16.0,
+            align: LineAlign::Baseline,
         };
         let layout = lay_out(&[text(1, "aaaaaaaa"), boxed], Some(80.0), &BlockFont);
         assert_eq!(
@@ -1191,6 +1378,7 @@ mod tests {
                     style: TextStyle::default(),
                     over: 0.0,
                     under: 0.0,
+                    align: LineAlign::Baseline,
                 },
                 InlineItem::Close {
                     box_id: box_id(1),
@@ -1214,6 +1402,159 @@ mod tests {
 
     fn close(left: f32, right: f32) -> bool {
         (left - right).abs() < 0.001
+    }
+
+    fn aligned(index: usize, width: f32, height: f32, align: LineAlign) -> InlineItem {
+        InlineItem::Atomic {
+            box_id: box_id(index),
+            size: Size::new(width, height),
+            margin: Edges::ZERO,
+            baseline: height,
+            align,
+        }
+    }
+
+    fn rect_of(layout: &InlineLayout, index: usize) -> Option<Rect> {
+        layout
+            .fragments()
+            .find(|fragment| fragment.box_id == box_id(index))
+            .map(|fragment| fragment.rect)
+    }
+
+    #[test]
+    fn a_box_held_by_the_top_grows_the_line_downwards() {
+        // A 40-pixel box against the top beside text of 12 up and 4 down:
+        // the text keeps its baseline at 12, and the line is the box's 40.
+        let layout = lay_out(
+            &[text(1, "x"), aligned(2, 10.0, 40.0, LineAlign::Top)],
+            Some(200.0),
+            &BlockFont,
+        );
+        let line = layout.lines.first().expect("one line");
+        assert!(close(line.baseline, 12.0), "{}", line.baseline);
+        assert!(close(line.height, 40.0), "{}", line.height);
+        assert_eq!(rect_of(&layout, 2), Some(Rect::new(8.0, 0.0, 10.0, 40.0)));
+        assert_eq!(rect_of(&layout, 1), Some(Rect::new(0.0, 0.0, 8.0, 16.0)));
+    }
+
+    #[test]
+    fn a_box_held_by_the_bottom_grows_the_line_upwards() {
+        let layout = lay_out(
+            &[text(1, "x"), aligned(2, 10.0, 40.0, LineAlign::Bottom)],
+            Some(200.0),
+            &BlockFont,
+        );
+        let line = layout.lines.first().expect("one line");
+        assert!(close(line.baseline, 36.0), "{}", line.baseline);
+        assert!(close(line.height, 40.0), "{}", line.height);
+        assert_eq!(rect_of(&layout, 2), Some(Rect::new(8.0, 0.0, 10.0, 40.0)));
+        assert_eq!(rect_of(&layout, 1), Some(Rect::new(0.0, 24.0, 8.0, 16.0)));
+
+        // A short one sits at the bottom of a line something else made tall.
+        let layout = lay_out(
+            &[
+                atomic(1, 10.0, 30.0),
+                aligned(2, 10.0, 6.0, LineAlign::Bottom),
+            ],
+            Some(200.0),
+            &BlockFont,
+        );
+        let line = layout.lines.first().expect("one line");
+        assert!(close(line.height, 34.0), "{}", line.height);
+        assert_eq!(rect_of(&layout, 2), Some(Rect::new(10.0, 28.0, 10.0, 6.0)));
+    }
+
+    #[test]
+    fn a_top_box_and_a_bottom_box_on_one_line_do_not_push_each_other_off_it() {
+        let layout = lay_out(
+            &[
+                aligned(1, 10.0, 30.0, LineAlign::Top),
+                aligned(2, 10.0, 50.0, LineAlign::Bottom),
+            ],
+            Some(200.0),
+            &BlockFont,
+        );
+        let line = layout.lines.first().expect("one line");
+        assert!(close(line.height, 50.0), "{}", line.height);
+        assert_eq!(rect_of(&layout, 1), Some(Rect::new(0.0, 0.0, 10.0, 30.0)));
+        assert_eq!(rect_of(&layout, 2), Some(Rect::new(10.0, 0.0, 10.0, 50.0)));
+    }
+
+    #[test]
+    fn an_inline_box_held_by_the_top_is_held_there_on_every_line_it_reaches() {
+        use crate::measure::ScaledFont;
+        // A 40-pixel atomic box makes the first line tall; a 10-pixel `<span>`
+        // held by the top wraps on to a second line, where it is held by that
+        // line's top instead.
+        let small = TextStyle {
+            size: 10.0,
+            ..TextStyle::default()
+        };
+        let items = [
+            atomic(1, 20.0, 40.0),
+            InlineItem::Open {
+                box_id: box_id(2),
+                edge: 0.0,
+                style: small.clone(),
+                over: 0.0,
+                under: 0.0,
+                align: LineAlign::Top,
+            },
+            InlineItem::Text {
+                box_id: box_id(3),
+                text: "aaaa bbbb".to_owned(),
+                style: small,
+            },
+            InlineItem::Close {
+                box_id: box_id(2),
+                edge: 0.0,
+            },
+        ];
+        let layout = lay_out(&items, Some(50.0), &ScaledFont);
+        assert_eq!(layout.lines.len(), 2);
+        let pieces: Vec<Rect> = layout
+            .fragments()
+            .filter(|fragment| fragment.box_id == box_id(3))
+            .map(|fragment| fragment.rect)
+            .collect();
+        let tops: Vec<f32> = layout.lines.iter().map(|line| line.top).collect();
+        assert_eq!(
+            pieces,
+            vec![
+                Rect::new(20.0, 0.0, 20.0, 10.0),
+                Rect::new(0.0, tops.get(1).copied().unwrap_or(f32::NAN), 20.0, 10.0),
+            ],
+            "at the top of each line it is on",
+        );
+    }
+
+    #[test]
+    fn what_was_raised_makes_room_for_itself_above_the_line() {
+        // Raised 10 pixels, a 20-pixel box reaches 30 over the baseline.
+        let layout = lay_out(
+            &[text(1, "x"), aligned(2, 10.0, 20.0, LineAlign::Raise(10.0))],
+            Some(200.0),
+            &BlockFont,
+        );
+        let line = layout.lines.first().expect("one line");
+        assert!(close(line.baseline, 30.0), "{}", line.baseline);
+        assert!(close(line.height, 34.0), "{}", line.height);
+        assert_eq!(rect_of(&layout, 2), Some(Rect::new(8.0, 0.0, 10.0, 20.0)));
+
+        // Lowered 10, its bottom is 10 under the baseline, below the strut's
+        // descent of 4.
+        let layout = lay_out(
+            &[
+                text(1, "x"),
+                aligned(2, 10.0, 20.0, LineAlign::Raise(-10.0)),
+            ],
+            Some(200.0),
+            &BlockFont,
+        );
+        let line = layout.lines.first().expect("one line");
+        assert!(close(line.baseline, 12.0), "{}", line.baseline);
+        assert!(close(line.height, 22.0), "{}", line.height);
+        assert_eq!(rect_of(&layout, 2), Some(Rect::new(8.0, 2.0, 10.0, 20.0)));
     }
 
     #[test]

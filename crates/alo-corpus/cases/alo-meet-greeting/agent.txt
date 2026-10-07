@@ -1,8 +1,8 @@
 document at (0, 0) 800×220
-  banner at (24, 44) 752×89.776855
-    paragraph at (24, 44) 752×23.065918
-      text "Good morning" at (24, 51.933105) 103.523926×15.1328125
+  banner at (24, 44) 752×86.71094
+    paragraph at (24, 44) 752×20
+      text "Good morning" at (24, 45.487793) 103.523926×15.1328125
       image at (136.0498, 44) 20×20
-    heading "Your meeting space" [level=1] at (24, 71.06592) 752×37.25
-    paragraph at (24, 116.31592) 752×17.460938
-      text "Start a call or step into one that is already happening." at (24, 116.31592) 406.62598×17.460938
+    heading "Your meeting space" [level=1] at (24, 68) 752×37.25
+    paragraph at (24, 113.25) 752×17.460938
+      text "Start a call or step into one that is already happening." at (24, 113.25) 406.62598×17.460938

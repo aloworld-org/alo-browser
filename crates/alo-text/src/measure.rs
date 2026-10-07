@@ -88,6 +88,11 @@ impl MeasureText for TextMeasurer<'_> {
         self.face(style)
             .map_or(style.size * 0.2, |metrics| metrics.descender)
     }
+
+    fn x_height(&self, style: &TextStyle) -> f32 {
+        self.face(style)
+            .map_or(style.size * 0.5, |metrics| metrics.x_height)
+    }
 }
 
 impl TextMeasurer<'_> {
@@ -161,6 +166,21 @@ mod tests {
             small.width,
         );
         assert!(measurer.ascender(&style(28.0)) > measurer.ascender(&style(14.0)));
+    }
+
+    #[test]
+    fn the_x_height_is_the_faces_own_and_sits_below_its_ascender() {
+        let fonts = database();
+        let measurer = TextMeasurer::new(&fonts);
+        let x_height = measurer.x_height(&style(20.0));
+        let face = fonts
+            .chain(&TextMeasurer::request(&style(20.0)))
+            .into_iter()
+            .next()
+            .map(|font| font.metrics(20.0).x_height);
+        assert_eq!(Some(x_height), face, "the face's figure, not a guess");
+        assert!(x_height > 0.0 && x_height < measurer.ascender(&style(20.0)));
+        assert!((measurer.x_height(&style(40.0)) - x_height * 2.0).abs() < 0.01);
     }
 
     #[test]

@@ -5765,7 +5765,7 @@ The long pole, and the thing most of section E is unreachable without.
   reaches it through 310's path. *Depends on 310 for SVG. Opened only by a
   frozen page that needs it*, as 179 is. No alo stylesheet names one today.
 
-- [ ] **312. `vertical-align`.** *Opened by `alo-meet-greeting`
+- [x] **312. `vertical-align`.** *Opened by `alo-meet-greeting`
   (iteration 192).* Nothing reads the property, so every inline box sits on
   its line's baseline whatever it says. Meet's greeting icon is
   `vertical-align: middle` and sits a few pixels high, and nothing records
@@ -5776,6 +5776,21 @@ The long pole, and the thing most of section E is unreachable without.
   20 px atomic box under each keyword in a 13 px line, its midpoint for
   `middle` at the baseline plus half the x-height. `alo-meet-greeting`
   moves, and its hand sits where browsers put it.
+  **Built (iteration 193):** `alo-layout`'s `vertical_align.rs` reads every
+  keyword, a length and a percentage of the box's own `line-height`, and
+  says how far each puts a box from its parent's baseline. `inline.rs`
+  hangs every piece from its parent's baseline, moved by that distance.
+  `top` and `bottom` are groups of their own, held by the line box's edge
+  once the rest is settled and placed again on every line a held inline
+  box reaches. Atomic boxes and inline boxes, with everything inside them,
+  both read it. `MeasureText` gained `x_height`, and `alo-text` measures a
+  face's own `x` when its OS/2 table has no x-height, as DejaVu's has none.
+  `numbers.rs` places a 20 px inline-block in a 13 px line under all eleven
+  values, and a `super` `<sup>` with a `<b>` inside it. `meets_greeting.rs`
+  puts the hand's middle at the baseline less half of DejaVu Sans Bold's
+  x-height. `alo-meet-greeting` moved, its line now the hand's 20, and so
+  did `text-decorations`' line-through, by 0.33 px, from the measured
+  x-height.
 
 - [ ] **313. A background of several layers.** *Opened by
   `alo-meet-greeting` (iteration 192).* `background: radial-gradient(…),

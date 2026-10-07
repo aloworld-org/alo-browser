@@ -2,12 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Meet's greeting, in numbers: the page that opened queue item 310.
+//! Meet's greeting, in numbers: the page that opened queue items 310 and 312.
 //!
 //! `cases/alo-meet-greeting` pins the whole page as files. This says the
-//! part the item is closed by out loud: the `<img>` showing alo's waving hand
-//! is the 20 × 20 box Meet's stylesheet asks for, and the hand is drawn into
-//! it as the file's two shapes in the file's own two colours.
+//! parts the items are closed by out loud: the `<img>` showing alo's waving
+//! hand is the 20 × 20 box Meet's stylesheet asks for, the hand is drawn into
+//! it as the file's two shapes in the file's own two colours, and it stands
+//! where `vertical-align: middle` puts it.
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
@@ -40,9 +41,6 @@ fn the_hand_is_a_twenty_pixel_square_on_the_greetings_line() {
         (20.0, 20.0),
         "--icon-size-control is 1.25rem",
     );
-    // `.content`'s 24 px padding and `.header`'s 20 px top margin. Its
-    // bottom sits on the line's baseline, because `vertical-align: middle`
-    // is not read yet (queue item 312); the case moves when it is.
     // After "Good morning ", its space, and `margin-left: var(--space-1)`,
     // which is 4. A text box's width stops before its trailing space, and a
     // space in a 13 px face is less than half its size.
@@ -68,10 +66,64 @@ fn the_hand_is_a_twenty_pixel_square_on_the_greetings_line() {
         (0.0..6.5).contains(&gap),
         "a gap of {gap} before the margin"
     );
+    // `.content`'s 24 px padding and `.header`'s 20 px top margin: the hand
+    // is the tallest thing on the greeting's line, so it is the line's top.
     assert!(
         (content.top() - 44.0).abs() < 0.001,
         "on the greeting's line"
     );
+}
+
+#[test]
+fn the_hand_is_middle_aligned_with_the_greetings_lowercase_letters() {
+    let Some((rendering, _, content)) = greeting() else {
+        panic!("the case renders and has an <img>");
+    };
+    let Some(drawing) = rendering.drawing() else {
+        panic!("a drawing");
+    };
+    // `vertical-align: middle`: the hand's midpoint at the greeting's
+    // baseline plus half the x-height of its 13 px semibold face, which is
+    // DejaVu Sans Bold's own `x` (queue item 312).
+    let Some((baseline, x_height)) = drawing.display.items().iter().find_map(|item| match item {
+        DisplayItem::Text {
+            text,
+            origin,
+            font,
+            size,
+            ..
+        } if text.starts_with("Good morning") => Some((origin.1, font.metrics(*size).x_height)),
+        _ => None,
+    }) else {
+        panic!("the greeting's text");
+    };
+    assert!(
+        (x_height - 13.0 * 1120.0 / 2048.0).abs() < 0.001,
+        "{x_height}"
+    );
+    let middle = content.top() + content.size.height / 2.0;
+    assert!(
+        (middle - (baseline - x_height / 2.0)).abs() < 0.001,
+        "the hand's middle at {middle}, the baseline at {baseline}",
+    );
+    // The line is the hand's 20: what moved fits inside it, and nothing else
+    // reaches past it.
+    let line = drawing.boxes.ids().find_map(|id| {
+        match drawing.boxes.get(id).map(|node| &node.kind) {
+            Some(alo_box::BoxKind::Element { .. })
+                if drawing.boxes.children(id).any(|child| {
+                    matches!(
+                        drawing.boxes.get(child).map(|node| &node.kind),
+                        Some(alo_box::BoxKind::Text { text, .. }) if text.starts_with("Good morning")
+                    )
+                }) =>
+            {
+                drawing.layout.get(id).map(|held| held.content_box().size.height)
+            }
+            _ => None,
+        }
+    });
+    assert_eq!(line, Some(20.0), "the greeting is one line of 20");
 }
 
 #[test]

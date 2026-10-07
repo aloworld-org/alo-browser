@@ -21,6 +21,7 @@ use crate::keyword::{
 use crate::placement::GridPlacement;
 use crate::sizing::{AutoLength, Sizing};
 use crate::track::TrackList;
+use crate::vertical_align::VerticalAlign;
 use alo_css::{IssueKind, Location, StyleIssue};
 use alo_style::ComputedStyle;
 use alo_value::{FontMetrics, LengthPercentage, parse_length_percentage, parse_number};
@@ -60,6 +61,8 @@ pub struct LayoutStyle {
     pub align: AlignStyle,
     /// The grid properties.
     pub grid: GridStyle,
+    /// `vertical-align`, which only a box on a line reads.
+    pub vertical_align: VerticalAlign,
 }
 
 /// A value on each of the four sides.
@@ -216,6 +219,7 @@ pub fn read(style: &ComputedStyle, issues: &mut Vec<StyleIssue>) -> LayoutStyle 
             row: reader.value("grid-row"),
             column: reader.value("grid-column"),
         },
+        vertical_align: reader.value("vertical-align"),
     }
 }
 
@@ -246,6 +250,12 @@ impl FromValue for LengthPercentage {
 impl FromValue for TrackList {
     fn from_value(text: &str) -> Option<Self> {
         TrackList::parse(text)
+    }
+}
+
+impl FromValue for VerticalAlign {
+    fn from_value(text: &str) -> Option<Self> {
+        VerticalAlign::parse(text)
     }
 }
 

@@ -35,8 +35,13 @@ because `alt=""` (agent.txt).
 **Three faults around it**, none of them the picture's, each queued rather
 than fixed in the iteration that found them:
 
-- `vertical-align` is read by nothing, so `middle` leaves the hand on the
+- `vertical-align` was read by nothing, so `middle` left the hand on the
   line's baseline, a few pixels above where browsers put it — item 312.
+  **Fixed by item 312 (iteration 193):** the hand's middle is now at the
+  greeting's baseline plus half the x-height of its own face, DejaVu Sans
+  Bold's `x`. The hand is the tallest thing on the line, so the line is its
+  20 pixels and the text moved up into it; everything below moved up by the
+  same 3.07.
 - `.module`'s background is two layers, a radial-gradient tint and a
   colour, and a background of more than one layer draws nothing. The tint
   in the top right corner is missing, and nothing records it — item 313.

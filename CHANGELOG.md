@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Icons beside text now sit where the page asks.** `vertical-align` is
+  understood: `middle`, `top`, `bottom`, `text-top`, `text-bottom`, `sub`,
+  `super`, and a length or percentage. It works on pictures, inline-blocks
+  and runs of text such as a superscript. Anything raised or lowered makes
+  its line taller rather than overlapping the next one. The waving hand in
+  alo Meet's greeting is now centred on the greeting's lowercase letters.
+  Fonts that do not record their x-height are measured by their own `x`.
+  This also moves a struck-through line slightly, to where browsers draw it.
+
 - **Pictures that are SVG files now show, and alo Meet's greeting has its
   waving hand.** An `<img>` whose file the server says is SVG is drawn
   sharp at whatever size the page gives it. It cannot see the page's

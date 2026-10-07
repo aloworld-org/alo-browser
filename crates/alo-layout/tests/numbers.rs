@@ -1452,3 +1452,115 @@ fn a_hostile_svg_size_attribute_is_as_though_unwritten() {
         );
     }
 }
+
+/// Queue item 312: a 20-pixel box beside 13-pixel text, under each value of
+/// `vertical-align`. The font is [`ScaledFont`], so the text reaches 9.75
+/// above its baseline and 3.25 below, and its x-height is 6.5.
+///
+/// Each row is how far the box's top is above the text's baseline, and how
+/// tall the line ends up: everything that moved still counts towards it.
+#[test]
+fn vertical_align_puts_a_box_where_each_keyword_says() {
+    let html = "<body><p id=p><span id=t>x</span><i id=b></i></p></body>";
+    let rows = [
+        // On the baseline: its bottom edge, 20 over it, with the text's
+        // descent below.
+        ("baseline", 20.0, 23.25),
+        // Its middle at half the x-height over the baseline: 10 + 3.25.
+        ("middle", 13.25, 20.0),
+        // Its top with the font's top, and its bottom with the font's bottom.
+        ("text-top", 9.75, 20.0),
+        ("text-bottom", 20.0 - 3.25, 20.0),
+        // A fifth of the font size and a pixel down; a third and a pixel up.
+        ("sub", 20.0 - 3.6, 20.0),
+        (
+            "super",
+            20.0 + 13.0 / 3.0 + 1.0,
+            20.0 + 13.0 / 3.0 + 1.0 + 3.25,
+        ),
+        // Against the line box's top: the line is the box's 20, and the text,
+        // shorter than it, stands at its own ascent from the top.
+        ("top", 9.75, 20.0),
+        // Against its bottom: the text's descent is the bottom 3.25.
+        ("bottom", 20.0 - 3.25, 20.0),
+        // Up by a length, down by a negative one, and a percentage of the
+        // box's own line height, which is 20.
+        ("5px", 25.0, 28.25),
+        ("-2px", 18.0, 18.0 + 3.25),
+        ("50%", 30.0, 33.25),
+    ];
+    for (value, top_above_baseline, line) in rows {
+        let css = format!(
+            "#p {{ font-size: 13px; width: 300px }}
+             #b {{ display: inline-block; width: 20px; height: 20px;
+                   line-height: 20px; vertical-align: {value} }}"
+        );
+        let (boxes, layout) = lay_out_measured(html, &css, Size::new(400.0, 300.0), &ScaledFont);
+        let text = rect_of(&boxes, &layout, "t", html);
+        let placed = rect_of(&boxes, &layout, "b", html);
+        let baseline = text.top() + 9.75;
+        assert_eq!(placed.size, Size::new(20.0, 20.0), "{value}");
+        assert!(
+            close(baseline - placed.top(), top_above_baseline),
+            "{value}: the box's top is {} above the baseline",
+            baseline - placed.top(),
+        );
+        let height = rect_of(&boxes, &layout, "p", html).size.height;
+        assert!(close(height, line), "{value}: a line of {height}");
+        assert!(layout.issues().is_empty(), "{value}: {:?}", layout.issues());
+    }
+
+    // The midpoint is the point of `middle`: half the x-height over the
+    // baseline, exactly.
+    let css = "#p { font-size: 13px } #b { display: inline-block; width: 20px; height: 20px;
+               vertical-align: middle }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    let baseline = rect_of(&boxes, &layout, "t", html).top() + 9.75;
+    let placed = rect_of(&boxes, &layout, "b", html);
+    assert!(close(
+        placed.top() + placed.size.height / 2.0,
+        baseline - 6.5 / 2.0
+    ));
+}
+
+/// An inline box's `vertical-align` moves everything inside it, and its own
+/// pieces with it; and a value this engine cannot read is recorded and the
+/// box stands on the baseline.
+#[test]
+fn vertical_align_on_an_inline_box_moves_what_is_in_it() {
+    let html = "<body><p id=p><span id=a>x</span><sup id=s>2<b id=n>3</b></sup></p></body>";
+    let css = "#p { font-size: 16px } #s { font-size: 10px; vertical-align: super }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    let baseline = rect_of(&boxes, &layout, "a", html).top() + 12.0;
+    // Raised a third of the parent's 16 and a pixel: 6.333 over it, and the
+    // 10-pixel text reaches 7.5 above its own baseline.
+    let raised = baseline - (16.0 / 3.0 + 1.0);
+    for inside in ["s", "n"] {
+        let rect = rect_of(&boxes, &layout, inside, html);
+        assert!(
+            close(rect.top(), raised - 7.5),
+            "{inside} at {} rather than {}",
+            rect.top(),
+            raised - 7.5,
+        );
+    }
+    // And the line grows above to hold it: 6.333 + 7.5 is more than 12.
+    let height = rect_of(&boxes, &layout, "p", html).size.height;
+    assert!(close(height, 16.0 / 3.0 + 1.0 + 7.5 + 4.0), "{height}");
+
+    let css = "#p { font-size: 16px } #s { font-size: 10px; vertical-align: centre }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    let baseline = rect_of(&boxes, &layout, "a", html).top() + 12.0;
+    assert!(close(
+        rect_of(&boxes, &layout, "s", html).top(),
+        baseline - 7.5
+    ));
+    assert!(
+        layout
+            .issues()
+            .iter()
+            .any(|issue| issue.source.contains("vertical-align")),
+        "{:?}",
+        layout.issues(),
+    );
+}

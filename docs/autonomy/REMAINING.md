@@ -589,6 +589,14 @@ nothing and eligible. The tests found 314 (an `<img>` given a width and a
 height), blocked on a page. 138 queue items are open. The next unused queue
 number is 316 and the next unused ADR 0028.
 
+Iteration 193 built item 312: `vertical-align`, every keyword, a length and
+a percentage, on atomic boxes and on inline boxes with what they hold. `top`
+and `bottom` are held by the line box's edges. A face with no x-height in
+its table is measured by its `x`. Meet's hand is middle-aligned, and the
+case and `text-decorations` moved. 313 and 315 depend on nothing and are
+eligible. 137 queue items are open. The next unused queue number is 316 and
+the next unused ADR 0028.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

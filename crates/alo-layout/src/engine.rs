@@ -55,6 +55,7 @@ use crate::sizing::{AutoLength, Sizing};
 use crate::style::{self, LayoutStyle};
 use crate::track::{RepeatCount, Track, TrackList, TrackListEntry, TrackSize};
 use crate::tree::{BoxGeometry, LayoutTree};
+use crate::vertical_align::LineAlign;
 use alo_box::{BoxId, BoxKind, BoxTree, Inside, Outside};
 use alo_css::{IssueKind, Location, StyleIssue};
 use alo_style::StyleTree;
@@ -265,6 +266,7 @@ fn collect_inline_items(
                         style: text_style_for(boxes, styles, child),
                         over: edges.top,
                         under: edges.bottom,
+                        align: line_align(boxes, styles, child),
                     });
                     items.extend(collect_inline_items(
                         boxes,
@@ -512,7 +514,26 @@ fn atomic_item(
         size,
         margin,
         baseline,
+        align: line_align(boxes, styles, id),
     }
+}
+
+/// A box's `vertical-align`, its lengths made numbers against its own font.
+///
+/// A box nobody wrote has no style and stands on the baseline: the property
+/// is not inherited, so there is nothing for it to take from above.
+fn line_align(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> LineAlign {
+    boxes
+        .get(id)
+        .and_then(|node| node.kind.node())
+        .and_then(|source| styles.get(source))
+        .map_or(LineAlign::Baseline, |computed| {
+            // A value this engine cannot read was recorded when the box's own
+            // style was read for its edges or its layout; reading it again
+            // here is not a second finding.
+            let ours = style::read(computed, &mut Vec::new());
+            ours.vertical_align.resolve(ours.metrics)
+        })
 }
 
 /// Once the engine has placed every block, put the inline content inside the

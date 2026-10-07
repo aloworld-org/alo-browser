@@ -17388,3 +17388,142 @@ say the same.
 138 queue items are open: 310 and 277 closed, and 312–315 were opened. The
 next unused queue number is **316** and the next ADR is **0028**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 193 — queue item 312: `vertical-align`
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states, stage 1's *Layout* and *Text* lines, and *CSS beyond what alo
+needed*), iteration 192's entry, and items 311–315 in `QUEUE.md`. Item 312
+names no ADR. It is opened by a page, as 280–285 were. I read ADR 0004 (the
+layout tree is ours) and ADR 0002's rule against coordinates, and neither is
+touched here. For the code I read `alo-layout`'s `inline.rs`, `engine.rs`
+(the inline items, `atomic_item`, `place_inline_content`), `baseline.rs`,
+`measure.rs`, `style.rs` and `lib.rs`; `alo-text`'s `measure.rs`, `font.rs`
+(`metrics`) and `line.rs`; `alo-value`'s `length.rs`; and `alo-corpus`'s
+`meets_greeting.rs` and the case's `origin.txt` and `style.css`. No
+`AGENTS.md` exists. The checkout was clean on entry at `2c464a0`. No sibling
+repository was read or written.
+
+**Selection.** 312 is the first open item whose dependencies are done. It
+depends on nothing. Every open item before it is still blocked, waiting on a
+dependency or a page, or needs design, as iteration 192 found.
+
+**What was built.**
+- `alo-layout`'s `vertical_align.rs`, which says what the property says.
+  `VerticalAlign` is the value as written: the eight keywords, or a length or
+  percentage. `LineAlign` is the same value with its length a number, and a
+  percentage is of the box's own `line-height`. `LineAlign::raise` gives how
+  far above the parent's baseline the box's own baseline sits, and `middle`
+  uses half the parent's x-height. For `sub` and `super` it uses Chromium's
+  distances, `size / 5 + 1` down and `size / 3 + 1` up. CSS leaves those to
+  the browser, and the file says why it chose them. `top` and `bottom` answer
+  with the line box's `Edge` instead of a distance.
+- `inline.rs`: every pending piece has a `Place`, which is a group and a
+  raise. Group 0 is the line's own baseline and starts at the strut. Each
+  `top` or `bottom` box opens a group of its own. `settle` lets group 0 decide
+  first. A taller group held by the top then grows the line downwards, and
+  one held by the bottom grows it upwards. Each group gets its baseline from
+  that. Text hangs where its innermost box hangs. An inline box's place is
+  worked out when it opens, so everything inside it moves with it, and it is
+  worked out again on every line it carries on to, because groups belong to
+  a line. Whatever was moved still widens its group's ascent or descent.
+- `engine.rs` reads the box's own `vertical-align` for `InlineItem::Open` and
+  `InlineItem::Atomic` through `style.rs`'s `LayoutStyle::vertical_align`. A
+  box nobody wrote stands on the baseline, because the property is not
+  inherited.
+- `MeasureText::x_height`, implemented by `NoText` (0), `BlockFont` (8),
+  `ScaledFont` (half the size) and `alo-text`'s `TextMeasurer` (the face's).
+- `alo-text`'s `font.rs`: a face whose OS/2 table has no x-height is
+  measured by the top of its own `x`, as browsers do, and half the size is
+  left only for a face with neither. DejaVu's table is version 1 and has no
+  x-height, so every x-height in the corpus was a guess until now.
+
+**How it closes.**
+- **Layout assertion:** `numbers.rs`'s
+  `vertical_align_puts_a_box_where_each_keyword_says` places a 20 px
+  inline-block beside 13 px text under all eleven values: the eight keywords,
+  `5px`, `-2px` and `50%`. For each it asserts how far the box's top is above
+  the baseline and how tall the line is. A second check puts `middle`'s
+  midpoint at the baseline less half the x-height, exactly.
+  `vertical_align_on_an_inline_box_moves_what_is_in_it` raises a 10 px
+  `<sup>` with a `<b>` inside it by `super`, asserts that both moved and that
+  the line grew, and asserts that `centre` is recorded and left on the
+  baseline.
+- `inline.rs` has five new unit tests:
+  - a `top` box grows the line downwards, and a `bottom` box upwards;
+  - a short `bottom` box sits on the bottom of a tall line;
+  - a `top` box and a `bottom` box share one line;
+  - a `top` inline box is held by the top of each line it wraps on to;
+  - a raised box and a lowered box each make room for themselves.
+- `vertical_align.rs` has four unit tests, and `font.rs` and `alo-text`'s
+  `measure.rs` one each.
+- **Reference render:** `alo-meet-greeting` moved, as the queue said it
+  would. The hand is the tallest thing on its line, so the line is its 20
+  px. The text moved up 6.45 px into the line: 6.75 from the alignment,
+  less 0.30 back down from the measured x-height. Everything below the
+  greeting moved up 3.07 px.
+  `meets_greeting.rs`'s new test puts the hand's middle at the baseline less
+  half of DejaVu Sans Bold's x-height (13 × 1120 / 2048) and the line at 20.
+  I looked at the render: the hand sits centred on "Good morning"'s
+  lowercase letters. `origin.txt` says the fault is fixed.
+- `text-decorations` also moved: its line-through rose 0.33 px, because it is
+  drawn at half the x-height and the x-height is now measured rather than
+  guessed. That is why I changed the reference, and no other case moved.
+
+**Gate, mechanical.** I warmed the build with clippy and `cargo test
+--no-run`. The first clippy run found one error, a missing `# Errors`
+section on `LineAlign::raise`. I wrote it and ran `cargo fmt` again. I then
+ran `scripts/gate.sh` in the foreground. It took longer than the tool's
+ten-minute limit, so the harness moved it to the background. I did not end
+the turn: I waited for it to finish and read its log before committing.
+It exited 0 with "The gate is met.":
+  - fmt is clean and clippy is silent;
+  - "tests pass" (`pipefail`), with no `FAILED`, `panicked`, `error` or
+    `warning:` line anywhere in the log;
+  - no stubs, `unsafe` forbidden, and every notice present;
+  - every rented crate is behind its boundary, `ttf_parser` included, which
+    `font.rs` already names;
+  - no coordinate verbs, the stop rule holding, and the changelog changed.
+
+**Gate, manual.**
+- Layout assertions and reference renders: above.
+- One responsibility per file:
+  - `vertical_align.rs` is what the property says and how far it moves a
+    box. It knows nothing about lines.
+  - `inline.rs` is still the line box. It gained where things hang on it,
+    which is the reason it exists, not a second reason to change.
+  - `font.rs`'s change is to the face's x-height, which it already owned.
+- Bytes from outside: none are read here. The values are the cascade's,
+  and an unreadable one is refused through `style.rs`'s reader and recorded.
+- `docs/features.md` has the line (tier [2]), and `docs/conformance.md` says
+  what renders, including the limit below.
+
+**Roadmap.** This item served **no open roadmap line**, and `ROADMAP.md` is
+deliberately unchanged, as with items 280–285. It corrects inline layout,
+which sits under stage 1's ticked *Layout* and *Text* lines. *CSS beyond what
+alo needed* lists other capabilities, and none of its lines is
+`vertical-align`. Annotating one of them to discharge step 6 would be the
+erosion `LOOP.md` warns against. `QUEUE.md` ticks 312 with a *Built* note.
+`CHANGELOG.md`, `docs/features.md`, `docs/conformance.md` and `REMAINING.md`
+say the same.
+
+**Unresolved obligations.**
+- An inline box is aligned by its font's ascent and descent, not by its
+  `line-height`'s half-leading, because `line-height` does not yet set a
+  line's height anywhere in this engine. That is a fault in its own right,
+  which no page has shown yet, and `docs/conformance.md` says so. No queue
+  item was opened, because the stage 2 rule is that a page opens one.
+- `sub` and `super` use Chromium's numbers, not the face's OS/2 subscript and
+  superscript offsets, which Firefox uses. The two disagree by a pixel or so.
+  A page that shows the difference would decide it.
+- 313 and 315 depend on nothing and are eligible. 314 waits for a page.
+- Still standing from iteration 192: a page loaded through `Renderer` is
+  handed no resources, 296 needs a person to grant Screen Recording, and
+  297–300, 302, 304 and 308 wait as before.
+- `scripts/gate.sh` now takes longer than ten minutes even with a warm
+  build. A worker with a ten-minute foreground limit has to wait for the
+  gate in the same turn, as this one did, rather than end the turn.
+
+137 queue items are open: 312 closed. The next unused queue number is
+**316** and the next ADR is **0028**. This is one iteration, not a finished
+queue or roadmap.

@@ -94,6 +94,10 @@ pub trait MeasureText {
 
     /// How far below the baseline it reaches.
     fn descender(&self, style: &TextStyle) -> f32;
+
+    /// How tall a lowercase `x` is: where the middle of a line of this text
+    /// is, which is what `vertical-align: middle` lines a box up with.
+    fn x_height(&self, style: &TextStyle) -> f32;
 }
 
 /// A measurer for tests and for the cases where text has no size at all.
@@ -122,10 +126,14 @@ impl MeasureText for NoText {
     fn descender(&self, _style: &TextStyle) -> f32 {
         0.0
     }
+
+    fn x_height(&self, _style: &TextStyle) -> f32 {
+        0.0
+    }
 }
 
 /// A measurer for tests: eight pixels a character on a line of sixteen, with
-/// a twelve-pixel ascender, breaking at spaces.
+/// a twelve-pixel ascender and an eight-pixel x-height, breaking at spaces.
 ///
 /// It is a fake and it says so. Real fonts are `alo-text`, and a test that used
 /// one would be testing the font rather than the layout.
@@ -163,11 +171,15 @@ impl MeasureText for BlockFont {
     fn descender(&self, _style: &TextStyle) -> f32 {
         4.0
     }
+
+    fn x_height(&self, _style: &TextStyle) -> f32 {
+        8.0
+    }
 }
 
 /// A measurer for tests that need the font's **size** to matter: half the
 /// font size a character, a line as tall as the font, three quarters of it
-/// above the baseline, breaking at spaces.
+/// above the baseline and an x-height of half of it, breaking at spaces.
 ///
 /// [`BlockFont`] answers the same for every size, which is what most layout
 /// tests want and exactly what a test about *which* font a line was measured
@@ -199,6 +211,10 @@ impl MeasureText for ScaledFont {
 
     fn descender(&self, style: &TextStyle) -> f32 {
         style.size * 0.25
+    }
+
+    fn x_height(&self, style: &TextStyle) -> f32 {
+        style.size * 0.5
     }
 }
 
@@ -287,6 +303,7 @@ mod tests {
         );
         assert!((ScaledFont.ascender(&large) - 30.0).abs() < f32::EPSILON);
         assert!((ScaledFont.descender(&large) - 10.0).abs() < f32::EPSILON);
+        assert!((ScaledFont.x_height(&large) - 20.0).abs() < f32::EPSILON);
         assert_eq!(ScaledFont.measure("", &large, None), Size::ZERO);
         assert_eq!(ScaledFont.break_opportunities("one two"), vec![4, 7]);
     }

@@ -55,6 +55,18 @@ them by the box tree as if it were a `<span>` (item 286). A percentage width on 
 inline-block is drawn against the room the line gave it rather than its
 container (item 284).
 
+**`vertical-align`** moves an image, an inline-block or an inline box, and
+everything inside it, from its parent's baseline (item 312). Every keyword
+is read: `baseline`, `middle` (half the parent's x-height over its
+baseline), `text-top`, `text-bottom`, `sub` and `super` (Chromium's
+distances, a fifth of the font size and a pixel down, a third and a pixel
+up), `top` and `bottom` (against the line box, after everything else has
+said how tall it is), a length, and a percentage of the box's own
+`line-height`. What moved makes its line taller. An inline box is aligned
+by its font's ascent and descent, because `line-height` does not yet set the
+height of a line here. A face whose table has no x-height, DejaVu among
+them, is measured by its own `x`, as browsers do.
+
 Colours are channels, `currentColor` included, so the engine now knows what
 colour everything is.
 

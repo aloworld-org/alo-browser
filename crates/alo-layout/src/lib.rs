@@ -53,6 +53,7 @@ pub mod sizing;
 pub mod style;
 pub mod track;
 pub mod tree;
+pub mod vertical_align;
 
 pub use engine::compute;
 pub use geometry::{Edges, Point, Rect, Size};
@@ -68,3 +69,4 @@ pub use sizing::{AutoLength, Sizing};
 pub use style::LayoutStyle;
 pub use track::{RepeatCount, Track, TrackList, TrackSize};
 pub use tree::{BoxGeometry, LayoutTree};
+pub use vertical_align::{LineAlign, VerticalAlign};

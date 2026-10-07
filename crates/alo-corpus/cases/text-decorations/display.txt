@@ -3,10 +3,10 @@ fill box#3 rgb(0 0 0) at (0, 19.88379) 84.15039×1
 text box#6 "a line above" rgb(0 0 0) 14px at (0, 41.291992)
 fill box#6 rgb(0 0 0) at (0, 28.296875) 85.674805×1
 text box#9 "a line through" rgb(0 0 0) 14px at (0, 63.588867)
-fill box#9 rgb(0 0 0) at (0, 59.588867) 97.75391×1
+fill box#9 rgb(0 0 0) at (0, 59.260742) 97.75391×1
 text box#12 "below and through at once" rgb(0 0 0) 14px at (0, 85.88574)
 fill box#12 rgb(0 0 0) at (0, 86.774414) 188.3711×1
-fill box#12 rgb(0 0 0) at (0, 81.88574) 188.3711×1
+fill box#12 rgb(0 0 0) at (0, 81.55762) 188.3711×1
 text box#16 "a decorated inline that is long enough to" rgb(0 0 0) 14px at (0, 108.18262)
 fill box#16 rgb(0 0 0) at (0, 109.07129) 285.41406×1
 text box#16 "wrap onto a second line" rgb(0 0 0) 14px at (0, 124.47949)

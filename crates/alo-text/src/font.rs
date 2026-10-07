@@ -351,8 +351,18 @@ impl Font {
             ascender: f32::from(face.ascender()) * scale,
             descender: f32::from(face.descender()).abs() * scale,
             line_gap: f32::from(face.line_gap()) * scale,
+            // OS/2 tables before version 2 have no x-height, DejaVu's among
+            // them. The height of the face's own `x` is then the figure, as
+            // browsers take it; half the size is left for a face with neither.
             x_height: face
                 .x_height()
+                .filter(|height| *height > 0)
+                .or_else(|| {
+                    face.glyph_index('x')
+                        .and_then(|glyph| face.glyph_bounding_box(glyph))
+                        .map(|bounds| bounds.y_max)
+                        .filter(|height| *height > 0)
+                })
                 .map_or(size * 0.5, |height| f32::from(height) * scale),
             zero_width: face
                 .glyph_index('0')
@@ -877,6 +887,14 @@ mod tests {
         assert!(!font.data().is_empty());
         assert_eq!(font.index(), 0);
         assert_eq!(format!("{font:?}"), "Font(DejaVu Sans 400 Normal)");
+    }
+
+    #[test]
+    fn a_face_with_no_x_height_in_its_table_measures_its_own_x() {
+        // DejaVu Sans's OS/2 table is version 1, which has no x-height; its
+        // `x` stands 1120 units tall on an em of 2048.
+        let metrics = dejavu().metrics(2048.0);
+        assert!(close(metrics.x_height, 1120.0), "{}", metrics.x_height);
     }
 
     #[test]
