@@ -311,6 +311,14 @@ exits 8; 2 stays for the things a person typed wrongly, including an expired
 login, because "that flag is a typo" and "this machine has nothing to run an
 iteration with" are different things to go and fix.
 
+**The bounds count time this machine was awake**, accumulated one
+observation at a time, not the difference between two clock readings. A laptop
+that hibernates mid-iteration comes back with the clock hours ahead while the
+worker has done nothing and been asked for nothing; subtracting readings reads
+that as hours of runtime *and* hours of silence, and the first look after
+waking kills a healthy worker on every bound at once. An observation is worth
+at most one poll interval, so a night of sleep counts as thirty seconds.
+
 **Run the gate in the foreground.** An iteration that starts it in the
 background and then waits for it spends its remaining turns holding a door
 open, and when the session ends the work is uncommitted and the gate's answer

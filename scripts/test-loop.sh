@@ -67,6 +67,16 @@ case "$TEST_MODE" in
     spin=0
     while [ "$SECONDS" -lt "$stop" ]; do spin=$(( spin + 1 )); done
     ;;
+  # Works normally throughout; the clock is what misbehaves. `bin/date` puts
+  # an eighteen-hour jump in the middle of this, the way a hibernating laptop
+  # does, and a worker that was never asked for anything during it must
+  # survive.
+  slept)
+    for n in 1 2 3 4 5 6 7 8 9 10 11 12; do
+      printf '{"type":"event","n":%s}\n' "$n"
+      /bin/sleep 0.15
+    done
+    ;;
   streaming)
     for n in 1 2 3 4 5 6 7 8 9 10 11 12; do
       printf '{"type":"event","n":%s}\n' "$n"
@@ -107,7 +117,8 @@ cat > bin/sleep <<'SLEEP'
 SLEEP
 cat > bin/date <<'DATE'
 #!/usr/bin/env bash
-case "$TEST_MODE" in timeout | streaming | busy | shrinking | spinning) fake=1 ;;
+case "$TEST_MODE" in
+  timeout | streaming | busy | shrinking | spinning | slept) fake=1 ;;
   *) fake=0 ;;
 esac
 if [ "$fake" = 1 ] \
@@ -117,7 +128,16 @@ if [ "$fake" = 1 ] \
   # finer in `streaming` so the window is crossed only by a worker that has
   # genuinely stopped writing, rather than by the clock outrunning it.
   step=60
-  case "$TEST_MODE" in streaming | busy | shrinking | spinning) step=5 ;; esac
+  case "$TEST_MODE" in streaming | busy | shrinking | spinning | slept) step=5 ;;
+  esac
+  # One observation lands after the machine has been away for eighteen hours.
+  # Counted as wall-clock it is past every bound at once; counted as what the
+  # worker was asked for, it is one interval.
+  if [ "$TEST_MODE" = slept ] && [ "$count" -ge 40 ] \
+    && [ ! -f bin/slept-once ]; then
+    : > bin/slept-once
+    count=$(( count + 18 * 3600 ))
+  fi
   count=$((count + step))
   echo "$count" > bin/clock
   echo "$count"
@@ -157,7 +177,7 @@ check() {
   local mode="$1" expected="$2" actual=0
   # These resets affect only this disposable fixture, never the real checkout.
   git reset --hard -q "$base"
-  rm -f work broken bin/clock bin/cpu
+  rm -f work broken bin/clock bin/cpu bin/slept-once
   TEST_MODE="$mode" IDLE_KILL_MIN=1 scripts/loop.sh --once > "$fixture/result" 2>&1 || actual=$?
   if [ "$actual" != "$expected" ]; then cat "$fixture/result"; exit 1; fi
   [ ! -d .git/alo-loop.lock ]
@@ -188,6 +208,10 @@ check busy 0
 # rather than changed: a total that only falls is a tree whose children are
 # finishing, not a worker that has stopped.
 check shrinking 0
+# The night this script could not survive: a laptop hibernates mid-iteration
+# and the clock returns hours ahead. `timeout` still proves a worker that
+# genuinely stops being asked for anything is killed.
+check slept 0
 # A pre-existing change must never reach a worker.
 git reset --hard -q "$base"
 echo original > work

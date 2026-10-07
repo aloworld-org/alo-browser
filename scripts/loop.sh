@@ -138,6 +138,11 @@ SILENT_KILL_MIN="${SILENT_KILL_MIN:-60}"
 PUSH="${ALO_LOOP_PUSH:-1}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-500}"
 
+# How often a running worker is looked at. Also the unit the bounds are
+# counted in: one observation is worth at most one interval, so time the
+# machine spent asleep cannot be mistaken for time a worker spent working.
+INTERVAL="${INTERVAL:-30}"
+
 
 # Where a run is written down.
 #
@@ -585,21 +590,44 @@ for (( i = 1; i <= wanted; i++ )); do
   iteration_head="$(git rev-parse HEAD)"
   iteration_journal="$(git hash-object "$JOURNAL")"
 
-  started=$(date +%s)
   transcript="$RUN_DIR/iteration-$i.jsonl"
   say "worker events: $transcript"
   "${WORKER[@]}" > "$transcript" 2>&1 &
   worker=$!
   code=""
-  newest=$started
-  wrote=$started
+  # All three bounds count seconds this machine was *awake*, accumulated an
+  # observation at a time, rather than subtracting two wall-clock readings.
+  #
+  # A laptop that hibernates overnight comes back with the clock hours ahead
+  # while the worker has done nothing and been asked for nothing. Subtracting
+  # readings reads that as eighteen hours of runtime and of silence, and the
+  # first poll after waking kills a healthy worker on every bound at once.
+  # That is not hypothetical: iteration 2 of 2026-10-06 was killed at 17:41
+  # "past the 240-minute ceiling" after starting at 22:58 the night before,
+  # and the power log puts a `hibernate user wake` at 17:42.
+  #
+  # So an unattended overnight run — the thing this script exists for — could
+  # not survive the night on this machine.
+  elapsed=0
+  idle=0
+  quiet=0
   previous_bytes=0
   previous_cpu=$(tree_cpu "$worker")
+  last=$(date +%s)
 
   while kill -0 "$worker" 2>/dev/null; do
-    sleep 30
+    sleep "$INTERVAL"
     kill -0 "$worker" 2>/dev/null || break
     now=$(date +%s)
+    # What this observation is worth. A gap far longer than the interval is
+    # the machine having been away, not the worker having been busy, so it
+    # counts as one interval and no more; a clock that moved backwards counts
+    # as nothing.
+    step=$(( now - last ))
+    last=$now
+    [ "$step" -gt $(( INTERVAL * 3 )) ] && step=$INTERVAL
+    [ "$step" -lt 0 ] && step=0
+    elapsed=$(( elapsed + step ))
     # Observe only this worker's event stream. Another session's activity
     # cannot hide a hung worker, and no provider-private transcript path is used.
     bytes=$(wc -c < "$transcript")
@@ -609,15 +637,18 @@ for (( i = 1; i <= wanted; i++ )); do
     # hanging — measured on a live tree, which went from 16 to 13 hundredths
     # across eight seconds as the gate's processes came and went. Only a
     # frozen set of processes burning a frozen amount is doing nothing.
-    if [ "$bytes" -ne "$previous_bytes" ]; then wrote=$now; fi
+    if [ "$bytes" -ne "$previous_bytes" ]; then
+      quiet=0
+    else
+      quiet=$(( quiet + step ))
+    fi
     if [ "$bytes" -ne "$previous_bytes" ] || [ "$cpu" -ne "$previous_cpu" ]; then
-      newest=$now
+      idle=0
+    else
+      idle=$(( idle + step ))
     fi
     previous_bytes=$bytes
     previous_cpu=$cpu
-    idle=$(( now - newest ))
-    quiet=$(( now - wrote ))
-    running=$(( now - started ))
 
     why=""
     [ "$idle" -ge $(( IDLE_KILL_MIN * 60 )) ] \
@@ -625,7 +656,8 @@ for (( i = 1; i <= wanted; i++ )); do
     [ "$quiet" -ge $(( SILENT_KILL_MIN * 60 )) ] \
       && why="burning processor time but producing nothing for \
 $(( quiet / 60 )) minutes"
-    [ "$running" -ge $(( CEILING_MIN * 60 )) ] && why="past the ${CEILING_MIN}-minute ceiling"
+    [ "$elapsed" -ge $(( CEILING_MIN * 60 )) ] \
+      && why="past the ${CEILING_MIN}-minute ceiling"
     if [ -n "$why" ]; then
       bad "killing the worker — $why."
       stop_tree "$worker"

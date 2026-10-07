@@ -16696,3 +16696,41 @@ is the case it would have been easiest to trust.
 **Not claimed.** Item 90, which 301 was cut from, stays open. The free-space
 measurement is item 306 and is not done.
 
+---
+
+## Iteration 186 — the guards could not survive a night
+
+Not a queue item. The defect that killed iteration 185, fixed.
+
+All three bounds were the difference between two wall-clock readings:
+`now - started`, `now - newest`, `now - wrote`. Nothing in that is wrong until
+the machine stops being awake between the two readings. Then hibernation
+counts as runtime and as silence at the same time, and the first observation
+after waking is past every bound simultaneously — which is exactly what the
+log shows: *past the 240-minute ceiling*, nineteen hours after an iteration
+that had been working when the lid closed.
+
+**They now count seconds this machine was awake**, accumulated an observation
+at a time. One observation is worth at most one poll interval, so a gap much
+longer than the interval is the machine having been away rather than the
+worker having been busy; a night counts as thirty seconds. A clock that moved
+backwards counts as nothing.
+
+**The test is the incident.** A `slept` mode works normally throughout while
+the fixture's clock jumps eighteen hours in the middle, and the worker must
+survive. Run against the version this replaces it is killed with the real
+incident's own words — *"past the 240-minute ceiling"* — and the suite fails.
+`timeout` still proves a worker that genuinely stops being asked for anything
+is killed, so the fix did not buy survival by blinding the guard.
+
+**Twenty-two fixture checks, from twenty-one.**
+
+**The third of these, and they share a shape.** Each version asked a question
+that sounded like *is this worker alive* and was in fact narrower: has it
+written bytes, which cannot see inside one long tool call; has its processor
+time grown, which reads a child exiting as a stall; how much wall-clock has
+passed, which cannot tell working from sleeping. Each was right about what it
+measured and wrong about what it meant. What it measures now is awake seconds
+since the worker was last asked for something, which is the question I wanted
+answered three fixes ago.
+

@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An overnight run survives the machine sleeping.** The build loop's limits
+  on a worker — idle, no output, and total runtime — were the difference
+  between two clock readings, so hibernating counted as both working and
+  being silent, and the first look after waking killed a healthy worker on
+  every limit at once. They now count time the machine was actually awake.
+
 - **The browser can now keep what a site stores, though no site can reach
   it yet.** Each site's data is kept in its own place on disk, separately
   for each site it is embedded in. It is readable only by you, and it is
