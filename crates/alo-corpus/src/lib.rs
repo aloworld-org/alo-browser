@@ -36,6 +36,11 @@
 //! ADR 0013 § 5 gives that crate no dependencies and a route through here would
 //! put the whole renderer behind a lexer.
 //!
+//! `pictures/` is a third kind, on the same terms: **frozen picture files**,
+//! one directory each with an `origin.txt`, read by path by the tests of a
+//! crate beneath this one. Meet's waving hand is there for `alo-dom`'s SVG
+//! reader (queue item 309).
+//!
 //! # Running it
 //!
 //! `cargo test -p alo-corpus` checks every case.

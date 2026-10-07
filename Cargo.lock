@@ -117,6 +117,7 @@ name = "alo-dom"
 version = "0.0.0"
 dependencies = [
  "html5ever",
+ "quick-xml",
 ]
 
 [[package]]

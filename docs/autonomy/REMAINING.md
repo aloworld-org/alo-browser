@@ -574,6 +574,12 @@ depends on nothing and is eligible next), 310 (`<img>`, after 309) and 311
 (`background-image`, opened by a page). 137 queue items are open. The next
 unused queue number is 312 and the next unused ADR 0028.
 
+Iteration 191 built item 309: `alo_dom::read_svg` reads Meet's frozen hand
+into `svg`, `title`, `g` and two `path`s, and refuses by name everything
+ADR 0027 § 3 refuses and everything past its bounds. 310 (`<img
+src="…svg">`) depends only on 309 and is eligible next. 136 queue items are
+open. The next unused queue number is 312 and the next unused ADR 0028.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

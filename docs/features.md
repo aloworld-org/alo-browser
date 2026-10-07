@@ -481,11 +481,18 @@ The reason this exists rather than a faster fork of somebody else's engine.
   `transform-box` (`view-box`, or `fill-box` on a shape) and
   `transform-origin` (`0 0` unless set) say what it turns about. A nested
   `<svg>` is 278, and `fill-box` on a `<g>` and `stroke-box` are 288.
-  **An SVG file as a picture is decided and not built** (ADR 0027, for alo
-  Meet's waving hand): recognised by its type, read by `quick-xml` behind
-  `alo-dom`'s `xml.rs` into a document of its own that sees nothing of the
-  page, runs nothing and fetches nothing, and refused whole on any XML
-  error (309–311)
+  **An SVG file as a picture is decided and half built** (ADR 0027, for
+  alo Meet's waving hand): recognised by its type, read by `quick-xml`
+  behind `alo-dom`'s `xml.rs` into a document of its own that sees nothing
+  of the page, runs nothing and fetches nothing, and refused whole on any
+  XML error. **The file is read** (item 309): `alo_dom::read_svg` turns
+  Meet's hand into `svg`, `title`, `g` and two `path`s, and refuses by name
+  anything that is not UTF-8 XML 1.0, an internal DTD subset, an undeclared
+  entity, a character XML forbids, a root that is not SVG's `svg`, an
+  undeclared prefix, a repeated attribute, and anything past its bounds (a
+  mebibyte, 65 536 elements, 256 deep, 256 attributes, 1 KiB names, 256 KiB
+  values and text runs). **Nothing shows it yet**: `<img src="…svg">` is 310
+  and `background-image` 311
 - [2] Canvas 2D
 - [2] Audio and video playback through rented decoders.
   Decided in ADR 0023 and not built: decoded in a sandboxed media process per

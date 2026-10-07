@@ -17157,3 +17157,102 @@ is decided and not built. No tick was made.
 137 queue items are open: 309, 310 and 311 were opened, and 277 stays open.
 The next unused queue number is **312** and the next ADR is **0028**. This
 is one iteration, not a finished queue or roadmap.
+
+
+---
+
+## Iteration 191 — queue item 309: reading an SVG file
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s SVG
+line, iteration 190's entry, and items 277 and 309–311 in `QUEUE.md`. ADR 0027
+in full. For the code: `alo-dom`'s `lib.rs`, `parse.rs`, `node.rs`, `name.rs`
+and `document.rs`'s building half; `alo-svg`'s `bounds.rs`; `gate.sh`'s
+boundary list; `alo-corpus`'s `lib.rs` and the frozen-script convention. From
+`quick-xml` 0.41.0's source in the local cargo registry: `reader/mod.rs`
+(`Config`), `reader/ns_reader.rs`, `name.rs` (resolution and
+`push`), `events/mod.rs`, `events/attributes.rs` and `escape.rs`. From the
+sibling `alo-workplace`, read and never written, at `738de614`:
+`web/src/assets/alo-waving-hand.svg`. No `AGENTS.md` exists. The checkout
+was clean on entry at `5fc7f50`.
+
+**Selection.** Iteration 190 left 309 eligible next: it depends on nothing,
+and every open item before it is blocked, waits on a dependency or a page, or
+needs design, and nothing has changed since.
+
+**What was built.**
+- `alo-dom`'s `xml.rs`: `read_svg(&[u8]) -> Result<Document, XmlRefusal>`,
+  the only file that names `quick-xml`, which is in `gate.sh`'s boundary list.
+  The workspace takes `quick-xml` 0.41 with default features off. The lockfile
+  already had it, and gains one line, for `alo-dom`'s use.
+- The tree is built from pull events on our own open-element stack. `xmlns`
+  declarations become attributes in the XMLNS namespace, as the DOM has them.
+  Comments are kept. Processing instructions and the DOCTYPE leave nothing.
+  CDATA, text and references merge into one text node.
+- Refusals are named in `XmlRefusal`: too large, not UTF-8, another declared
+  encoding, a version other than 1.0, an internal subset, a misplaced DOCTYPE,
+  an undeclared entity, a character XML forbids, not exactly one root, a root
+  that is not SVG's `svg`, an unbound prefix, a repeated attribute, each
+  bound, and `Malformed` with a byte offset for the rest.
+- The checks `quick-xml` does not make are ours: the `Char` production on
+  every value, text and comment, `<` in an attribute value, `]]>` in text, a
+  declaration that is not first, and duplicates by namespace and local name.
+  The reader's own duplicate check is off, because it compares names as
+  written and its error names no attribute. The `Name` production is not
+  checked, which ADR 0027 § 2 allows until a file shows it matters.
+- The bounds and their reasons are beside them in `xml.rs`: 1 MiB, 65 536
+  elements and 256 deep (as `alo-svg` walks), 256 attributes, 1 KiB names,
+  and 256 KiB values and text runs. Every length is checked on the raw bytes
+  before decoding, which only shortens.
+- Meet's hand is frozen byte for byte, at SHA-256 `740b08bf…85fb`, as
+  `alo-corpus/pictures/alo-waving-hand/picture.svg`, with an `origin.txt`.
+  `alo-corpus`'s crate docs name `pictures/` as a third kind of frozen
+  thing.
+
+**How it closes.** `alo-dom/tests/an_svg_file.rs`, 33 tests:
+- The hand reads into `svg` (`viewBox` `0 0 395 385`, no `width`), `title`
+  ("Alo waving hand"), `g` (`evenodd` twice) and two `path`s filled
+  `#E76F51` and `#102A43` with `d`s of 10 780 and 2 639 bytes. Every element
+  is in the SVG namespace.
+- Every refusal in ADR 0027 § 3 has a named test. Every bound is pinned with
+  the largest allowed read and one more refused by name.
+- Every prefix of the hand is refused until `</svg>` and accepted from it.
+  Every byte, flipped with masks `0xFF`, `0x20` and `0x80`, returns without a
+  panic.
+- A billion laughs is refused at its internal subset, and an external entity
+  as undeclared. A 200 000-deep bomb stops at depth 256, and a
+  100 000-attribute storm at 256.
+
+**Gate, mechanical.** I warmed the build with clippy and `cargo test
+--no-run`, then ran `scripts/gate.sh` in the foreground and read its log in
+the same step. It exited 0 with "The gate is met.":
+- fmt clean and clippy silent;
+- "tests pass" (the script runs under `pipefail`);
+- no stubs, `unsafe` forbidden, and every source file has its notice;
+- every rented crate behind its boundary, `quick_xml` included;
+- no coordinate verbs, the stop rule holding, and the changelog changed.
+
+`git diff --check` passes.
+
+**Gate, manual.** Nothing positions, sizes or draws, so no layout assertion
+or reference render applies. Those belong to 310, whose case shows the hand.
+`xml.rs` has one responsibility: reading an SVG file across the rented
+boundary. Its refusal type and bounds belong to that reading and name nothing
+rented. The bytes are hostile, so `LOOP.md` stage 2 § 2 applies, and the
+prefix, flip and attack tests above are that clause.
+
+**Roadmap.** On the SVG line, the *Owed* clause now says reading the file is
+built (309), with nothing shown until 310. It is not ticked.
+`docs/features.md`, `CHANGELOG.md` and `REMAINING.md` say the same. 309 is
+ticked in the queue with a *Built* note. 277 stays open until 310 closes.
+
+**Unresolved obligations.**
+- 310 is eligible next. It needs the resource's type carried beside its
+  bytes, the image document's own cascade, its natural size, the drawing at
+  the `<img>`'s box, secure mode, and Meet's greeting frozen as a case with a
+  layout assertion and a reference render.
+- 296's capture still needs a person to grant Screen Recording (iteration
+  183). 297–300 and 308 wait on it. 302 needs a frozen page, and 304 its ADR.
+
+136 queue items are open: 309 closed and nothing was opened. The next unused
+queue number is **312** and the next ADR is **0028**. This is one iteration,
+not a finished queue or roadmap.

@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser can now read an SVG picture file, though no page shows one
+  yet.** alo Meet's waving hand reads as a picture with a title and two
+  shapes. A file is turned away whole, with the reason named, when it is
+  damaged, is not UTF-8, declares its own entities, uses one it never
+  declared, or is too large or too deep. That is the shape of the classic
+  attacks on XML readers, so none of them gets in. Showing the file in an
+  `<img>` is the next step.
+
 - **How a picture that is an SVG file will be shown is decided, and nothing
   shows one yet.** ADR 0027 is opened by alo Meet's waving hand, which is
   an SVG file in an `<img>`. Such a file is treated as a picture only when

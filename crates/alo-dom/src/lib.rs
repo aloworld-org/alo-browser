@@ -48,6 +48,10 @@
 //!   script's end tag ([`Reached`]) so the page's script can run against the
 //!   document parsed so far (ADR 0017 § 7); [`parse_document`] is the same
 //!   parse, run to its end.
+//! - [`read_svg`] reads an SVG file into a document of its own, or says
+//!   why it is not one ([`XmlRefusal`]) — `quick-xml`'s pull reader, held
+//!   to SVG only and refusing on any error (ADR 0027; [`xml`]). It is not an
+//!   XML parser for the engine.
 //! - [`Document::footprint`] is what the document owns, kept as a sum as
 //!   nodes change, so the heap a scripted page's document moves into can
 //!   count it at no cost per change (ADR 0017 § 2; [`footprint`]).
@@ -101,9 +105,11 @@ pub mod scripts;
 pub mod serialize;
 pub mod sheets;
 pub mod validity;
+pub mod xml;
 
 pub use document::{Children, Descendants, Document, QuirksSignal};
 pub use name::{Namespace, QualifiedName};
 pub use node::{Attribute, Element, Node, NodeId, NodeKind};
 pub use parse::{ParseIssue, Parsing, Reached, parse_document, parse_fragment};
 pub use validity::Refusal;
+pub use xml::{XmlRefusal, read_svg};

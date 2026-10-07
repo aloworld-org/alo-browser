@@ -12,6 +12,12 @@ authors = ["the alo browser authors"]
 
 [workspace.dependencies]
 html5ever = "0.39"
+# XML, rented (ADR 0027), to read an SVG file and nothing else. A pull reader,
+# so the tree is ours and so is the depth bound; it hands DTDs and entity
+# references back unacted on, and `alo-dom`'s `xml.rs` refuses them. Default
+# features off (the set is empty; `memchr` is its one dependency), and
+# `#![forbid(unsafe_code)]`. Already in the lockfile through `wayland-scanner`.
+quick-xml = { version = "0.41", default-features = false }
 cssparser = "0.37"
 selectors = "0.40"
 precomputed-hash = "0.1"

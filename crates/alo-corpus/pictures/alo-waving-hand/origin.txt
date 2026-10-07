@@ -1,0 +1,22 @@
+alo-workplace, web/src/assets/alo-waving-hand.svg — the hand on alo's Meet screen.
+
+Taken 2026-10-07 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef (the file's last
+change is 4c3fc95e3da85d2e4dd841884b6ea254623d7ca2, 2026-08-12). The bytes in
+picture.svg are that file exactly as it stands, unedited, 13 684 of them:
+SHA-256 740b08bf0e8cb912af7e2c6ff8d3e73576b5dbb2c2285642b4c285d4b6d385fb.
+`alo-workplace` is read-only reference; nothing was written back to it.
+
+Why this file. ADR 0027 was opened by it: Meet's greeting line, its hero and
+`MeetRoom.tsx` each draw `<img src={wavingHand}>` from it. It is one <svg>
+with a viewBox of 0 0 395 385 and no width or height, a <title>, a <g> with
+fill-rule and clip-rule, and two <path>s filled #E76F51 and #102A43, whose
+`d`s are 10 780 and 2 639 bytes of absolute moves and lines. It is ours, so
+freezing it needs nobody's leave, and anybody can re-derive it from the
+commit above.
+
+Why a picture lives here, and not under `cases/`. A case is a page with an
+expected box tree and an expected picture; this is a resource a page shows.
+Queue item 309 reads it (`alo-dom`'s `tests/an_svg_file.rs`, by path, since
+`alo-dom` sits beneath this crate); item 310 freezes Meet's greeting as a case
+that shows it, with these same bytes.

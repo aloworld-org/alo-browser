@@ -1,6 +1,6 @@
 [package]
 name = "alo-dom"
-description = "The alo browser document tree: our nodes, built from html5ever's parse events."
+description = "The alo browser document tree: our nodes, built from html5ever's parse events, and an SVG file read from quick-xml's."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,6 +10,7 @@ authors.workspace = true
 
 [dependencies]
 html5ever.workspace = true
+quick-xml.workspace = true
 
 [lints]
 workspace = true

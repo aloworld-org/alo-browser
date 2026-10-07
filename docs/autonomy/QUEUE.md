@@ -5676,7 +5676,7 @@ The long pole, and the thing most of section E is unreachable without.
   agent reads the `<img>` by `alt`. 277 is not built itself. It closes when
   309 and 310 close, and its `background-image` half is 311.
 
-- [ ] **309. Reading an SVG file.** *Cut from 277 (ADR 0027 §§ 2, 3, 5).*
+- [x] **309. Reading an SVG file.** *Cut from 277 (ADR 0027 §§ 2, 3, 5).*
   `alo-dom`'s `xml.rs`: `quick-xml` with default features off, named there
   and added to `gate.sh`'s boundary list, building an `alo_dom::Document`
   from pull events on our own open-element stack. It is configured
@@ -5692,6 +5692,19 @@ The long pole, and the thing most of section E is unreachable without.
   namespace; every refusal in ADR 0027 § 3 and every bound has a named
   test at its edge; and every prefix and every flipped byte of that file
   returns a document or a refusal, never a panic.
+
+  **Built (iteration 191).** `alo-dom`'s `xml.rs`, `alo_dom::read_svg`,
+  with `quick-xml` 0.41 behind it and in `gate.sh`'s boundary list. The
+  hand is frozen as `alo-corpus/pictures/alo-waving-hand/picture.svg` and
+  reads into `svg`, `title`, `g` and two SVG `path`s
+  (`alo-dom/tests/an_svg_file.rs`). Every refusal is a named `XmlRefusal`
+  with its own test, and every bound (1 MiB, 65 536 elements, 256 deep, 256
+  attributes, 1 KiB names, 256 KiB values and text runs) is pinned at its
+  edge. Every prefix is refused until `</svg>` and accepted from it. Every
+  byte flipped three ways answers without a panic. The reader's own
+  duplicate check is off, because ours compares namespace and local name.
+  The `Name` production is not checked, as ADR 0027 § 2 allows until a file
+  shows it matters.
 
 - [ ] **310. `<img src="…svg">`.** *Cut from 277 (ADR 0027 §§ 1, 4–6).* The
   resource's type is carried beside its bytes. The image document gets its
