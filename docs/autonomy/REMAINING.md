@@ -565,6 +565,15 @@ revokes. 308 waits on 297, which waits on 296's Screen Recording grant. 134
 queue items are open. The next unused queue number is 309 and the next
 unused ADR 0027.
 
+Iteration 190 decided item 277 in ADR 0027, opened by alo Meet's
+`<img src="alo-waving-hand.svg">`. An SVG picture is recognised by its type
+and its root, read by `quick-xml` behind `alo-dom`'s `xml.rs` into a document
+of its own, refused whole on any XML error, and drawn by `alo-svg` with no
+script, no animation and no request. It is cut into 309 (reading the file,
+depends on nothing and is eligible next), 310 (`<img>`, after 309) and 311
+(`background-image`, opened by a page). 137 queue items are open. The next
+unused queue number is 312 and the next unused ADR 0028.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

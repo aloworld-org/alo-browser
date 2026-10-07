@@ -5662,6 +5662,58 @@ The long pole, and the thing most of section E is unreachable without.
   file).
   *Depends on 273.*
 
+  **Decided: ADR 0027 (iteration 190)**, opened by alo's own Meet screen,
+  whose greeting and hero draw `<img src={wavingHand}>` from
+  `alo-workplace/web/src/assets/alo-waving-hand.svg`. An SVG picture is
+  recognised by the type `image/svg+xml` (or `.svg` for a resource with no
+  response) and an SVG `<svg>` root, never by sniffing. It is read by
+  `quick-xml`'s pull reader, rented in `alo-dom`'s `xml.rs` alone, into a
+  document of our own. The rules are UTF-8 and XML 1.0 only, no internal DTD
+  subset, no entity but the five predefines and character references, and
+  any XML error refuses the whole picture. The document is drawn by
+  `alo-svg` at the `<img>`'s size with its own cascade. It sees nothing of
+  the page, runs nothing, animates nothing and can cause no request. The
+  agent reads the `<img>` by `alt`. 277 is not built itself. It closes when
+  309 and 310 close, and its `background-image` half is 311.
+
+- [ ] **309. Reading an SVG file.** *Cut from 277 (ADR 0027 §§ 2, 3, 5).*
+  `alo-dom`'s `xml.rs`: `quick-xml` with default features off, named there
+  and added to `gate.sh`'s boundary list, building an `alo_dom::Document`
+  from pull events on our own open-element stack. It is configured
+  strictly: end names checked, no unmatched ends, no bare `&`, comments
+  checked, duplicate attributes and unbound prefixes refused. UTF-8 and
+  version 1.0 only. A DOCTYPE is ignored without an internal subset and
+  refused with one. Only the five predefined entities and character
+  references are allowed. Processing instructions are ignored, CDATA is
+  read as text, and the root must be SVG's `svg`. Bytes, elements, depth,
+  attributes and name, value and text lengths are bounded before the work.
+  *Depends on nothing. Closes when:* `alo-waving-hand.svg`, frozen byte for
+  byte, reads into `svg`, `title`, `g` and two `path`s in the SVG
+  namespace; every refusal in ADR 0027 § 3 and every bound has a named
+  test at its edge; and every prefix and every flipped byte of that file
+  returns a document or a refusal, never a panic.
+
+- [ ] **310. `<img src="…svg">`.** *Cut from 277 (ADR 0027 §§ 1, 4–6).* The
+  resource's type is carried beside its bytes. The image document gets its
+  own cascade (the user-agent sheet and its own `<style>`). Its natural size
+  comes from the root's absolute `width` and `height`, and its ratio from
+  those or the `viewBox`. The pipeline draws it through `alo-svg`'s `draw`
+  at the `<img>`'s content box and hands that to paint by box. It runs in
+  secure mode, with no realm and no network handle, and the agent's node is
+  named by `alt`. *Depends on 309. Closes when:* Meet's greeting, frozen as
+  an alo corpus case with the hand file byte for byte, has a layout
+  assertion of its `<img>` box and a committed reference render with the
+  hand drawn. A test shows a file holding a script, an `<image>`, an
+  external `<use>`, an `@import` and an external DTD draws its own shapes
+  and causes no request. Another shows the same bytes under a type other
+  than `image/svg+xml` are refused.
+
+- [ ] **311. A picture in `background-image`.** *Cut from 277 (ADR 0027
+  § 7).* `url()` in `background-image`, raster or SVG: today it draws only
+  gradients, so a picture behind a box is not built for any format. SVG
+  reaches it through 310's path. *Depends on 310 for SVG. Opened only by a
+  frozen page that needs it*, as 179 is. No alo stylesheet names one today.
+
 - [ ] **278. A nested `<svg>` viewport.** *Cut from 271 (ADR 0022 § 1).* An
   `<svg>` inside an `<svg>` is a new viewport in its parent's drawing: its
   `x`, `y`, `width` and `height` (per cent of the parent's viewport, 100% by

@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How a picture that is an SVG file will be shown is decided, and nothing
+  shows one yet.** ADR 0027 is opened by alo Meet's waving hand, which is
+  an SVG file in an `<img>`. Such a file is treated as a picture only when
+  the server says it is one, never guessed from its contents. It is read
+  strictly: a damaged file shows as a broken picture rather than a guess.
+  It cannot see the page's styles, cannot run code, and cannot make the
+  browser fetch anything, so an icon cannot be used to reach out from a
+  page.
+
 - **The browser can now keep track of what you have allowed each site, though
   no site can ask yet.** It refuses an ask on its own, without asking you,
   when the page is not secure, is a file or other page with no real address,

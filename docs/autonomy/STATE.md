@@ -17044,3 +17044,116 @@ are not ticked, because the roadmap line is written as *Built … · Owed …*.
 134 queue items are open: 307 closed and nothing was opened. The next unused
 queue number is **309** and the next ADR is **0027**. This is one iteration,
 not a finished queue or roadmap.
+
+
+---
+
+## Iteration 190 — item 277 decided: ADR 0027, an SVG file is a document of its own, and it fetches nothing
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and the SVG line), iterations 183, 188 and 189,
+`REMAINING.md`'s latest entries, and items 107, 179, 269–278, 288, 296 and
+308 in `QUEUE.md`. ADR 0022 in full, and the passages of 0010 and 0021 on
+whose `unsafe` a rented crate's is. For the decision to fit the code:
+`alo-paint`'s `picture.rs`, `alo-renderer`'s `pipeline.rs` (`pictures_for`)
+and `drawings.rs`, `alo-svg`'s `lib.rs` and `draw`, `alo-box`'s
+`natural.rs`, `alo-dom`'s `node.rs` and `document.rs`, `alo-corpus`'s
+`case.rs`, and `gate.sh`'s boundary list. `quick-xml` 0.41.0's source in the
+local cargo registry (`lib.rs`, `reader/mod.rs`, `events/mod.rs`,
+`parser/dtd.rs`, `Cargo.toml`), and `roxmltree`'s docs.rs page. From the
+sibling `alo-workplace`, read and never written, at `738de614`:
+`web/src/meet/MeetModule.tsx`, `MeetModule.module.css`, `MeetRoom.tsx` and
+`web/src/assets/alo-waving-hand.svg`. No `AGENTS.md` exists. The checkout
+was clean on entry at `a445e39`.
+
+**Selection.** Iteration 188 found every open item before 307 blocked,
+needing design, or waiting on an open dependency, and nothing has closed
+since except 307. After it, in file order: 308 waits on 297; 43 on 81;
+284 and 286 are blocked; 94–105 wait on dependencies or need design; 179,
+274–276, 278 and 288 open only by a page; 269 waits on a `rav1d` release.
+**277** is the first open item marked *needs ADR* whose dependency (273) is
+done, and it comes before 296 and 124 in the file.
+
+ADR 0022 § 6 says 277 opens only when a frozen page needs it, so that was
+checked rather than assumed. **alo's own Meet screen needs it**: its
+greeting line, its hero and `MeetRoom.tsx` each draw
+`<img src={wavingHand}>` from `alo-waving-hand.svg`. That file is 13 684
+bytes: `svg` with a `viewBox`, a `title`, a `g` and two `path`s, all of
+which `alo-svg` already draws inline. No earlier iteration had recorded
+this. `LOOP.md` stage 2 § 4 makes the ADR its own iteration, and this is
+that iteration. No code changed.
+
+**What was decided (ADR 0027).**
+- **Recognised by type and root, never sniffed.** `image/svg+xml`, or `.svg`
+  for a resource with no response, and an SVG-namespace `svg` root. Raster
+  formats stay decided by their bytes.
+- **`quick-xml`'s pull reader, rented in `alo-dom`'s `xml.rs` alone**, with
+  default features off (its default set is empty, and `memchr` is its one
+  dependency). The reasons: it is a pull reader, so the tree and the depth
+  bound are ours. It hands back DTDs and entity references without acting
+  on them. It is `forbid(unsafe_code)`. It is already in `Cargo.lock`,
+  through `wayland-scanner`. It is configured strictly.
+- **Held to SVG only.** UTF-8 and XML 1.0. A DOCTYPE is accepted only
+  without an internal subset, and its identifier is never fetched. There
+  are no entities beyond the five predefines and character references, so
+  there is no expansion by construction. Processing instructions are
+  ignored, and the root must be one SVG `svg`. **Any XML error refuses the
+  whole picture.** XML navigation and XHTML stay stage 3's item 139.
+- **A document of its own.** It has its own cascade only, and
+  `currentColor` is its own. It gets no realm, no wrapper and no heap. It
+  has no network handle, so it causes no request, `data:` included. It does
+  not animate until item 94, and it does not take interaction.
+- **Sized** from absolute `width` and `height`, with the ratio from those
+  or the `viewBox`, through the existing `NaturalSize`. It is drawn as
+  vectors by `alo-svg` at the `<img>`'s content box, never rasterised and
+  scaled. Bytes, elements, depth, attributes and lengths are bounded before
+  the work, and their values belong to the building commits.
+- **The agent reads the `<img>` by `alt`**, and nothing from inside the
+  file.
+
+The claims about `quick-xml` were read from its 0.41.0 source. The one
+claim about `roxmltree`, that it builds its own read-only tree, is from its
+docs.rs page. Claims about other engines are kept general.
+
+**Queue.** 277 records the decision and stays open until 309 and 310 close.
+- **309**, reading an SVG file, depends on nothing and is eligible next. It
+  can be fully tested on this machine.
+- **310**, `<img src="…svg">`, depends on 309. It closes on Meet's
+  greeting frozen as an alo case, with a layout assertion and a reference
+  render.
+- **311**, a picture in `background-image`, opens only by a page. No format
+  draws there today.
+
+**Roadmap.** On the SVG line, the *Owed* clause now says 277 is needed by
+Meet, decided in ADR 0027 and not built, and cut into 309–311. It is not
+ticked. `docs/features.md`, `CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Gate, mechanical.** I warmed the build with clippy and `cargo test
+--no-run`, then ran `scripts/gate.sh` in the foreground. It finished inside
+the tool's limit and I read its log in the same step. It exited 0 with "The
+gate is met.":
+- fmt clean and clippy silent;
+- "tests pass", with no `FAILED`, `error` or `warning:` line in the log;
+- no stubs, `unsafe` forbidden, and every source file has its notice;
+- every rented crate behind its boundary, no coordinate verbs, and the stop
+  rule holding.
+
+`git diff --check` passes.
+
+**Gate, manual.** Nothing positions, sizes or draws, so no layout assertion
+or reference render applies. No source file changed, so one responsibility
+per file is untouched. The SVG feature line existed and now says that part
+is decided and not built. No tick was made.
+
+**Unresolved obligations.**
+- `quick-xml` enters `gate.sh`'s boundary list in 309's commit, not this
+  one, because no code names it yet.
+- 296's capture still needs a person to grant Screen Recording to the
+  application that runs the loop (iteration 183). 297–300 and 308 wait on
+  it.
+- 302 needs a frozen page, and 304 needs its ADR. The ADR candidates 124,
+  126 and 132 remain, but 309 is code and comes first in the file.
+
+137 queue items are open: 309, 310 and 311 were opened, and 277 stays open.
+The next unused queue number is **312** and the next ADR is **0028**. This
+is one iteration, not a finished queue or roadmap.

@@ -1095,8 +1095,11 @@ unreachable without it.
       · Owed: `fill-box` on a `<g>` and `stroke-box` (288); a per cent on
       an inline-level `<svg>`, resolved twice like any inline-block's (284);
       a nested `<svg>` (278), `<use>` (274), SVG paint servers (275),
-      `<text>` (276) and an SVG file as a picture (277), each when a page
-      needs it.
+      `<text>` (276), each when a page needs it; and an SVG file as a
+      picture (277), which alo's Meet screen needs: decided in ADR 0027
+      (`quick-xml` behind `alo-dom`'s `xml.rs` into a document of our own,
+      recognised by type, fetching nothing) and not built, cut into reading
+      the file (309), `<img src="…svg">` (310) and `background-image` (311).
       Decided in ADR 0022. An `<svg>` is one
       replaced box with no boxes inside it, and its contents become a drawing
       of paths, made by a new crate `alo-svg` after layout and handed to paint

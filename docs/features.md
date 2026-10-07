@@ -480,7 +480,12 @@ The reason this exists rather than a faster fork of somebody else's engine.
   its presentation attribute, so a stylesheet's `transform` replaces it, and
   `transform-box` (`view-box`, or `fill-box` on a shape) and
   `transform-origin` (`0 0` unless set) say what it turns about. A nested
-  `<svg>` is 278, and `fill-box` on a `<g>` and `stroke-box` are 288
+  `<svg>` is 278, and `fill-box` on a `<g>` and `stroke-box` are 288.
+  **An SVG file as a picture is decided and not built** (ADR 0027, for alo
+  Meet's waving hand): recognised by its type, read by `quick-xml` behind
+  `alo-dom`'s `xml.rs` into a document of its own that sees nothing of the
+  page, runs nothing and fetches nothing, and refused whole on any XML
+  error (309–311)
 - [2] Canvas 2D
 - [2] Audio and video playback through rented decoders.
   Decided in ADR 0023 and not built: decoded in a sandboxed media process per
