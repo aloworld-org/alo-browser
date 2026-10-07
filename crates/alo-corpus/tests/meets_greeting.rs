@@ -12,6 +12,8 @@
 //! layers, is drawn as both of them: the tint in the top right corner over
 //! the page's colour (queue item 313). And its narrow-screen block, written
 //! `(max-width: 48rem)`, applies below 768 pixels and not above (item 315).
+//! And its lines are as tall as its `line-height`s say, with the leading
+//! split above and below the text (item 316).
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
@@ -33,6 +35,36 @@ fn greeting() -> Option<(Rendering, alo_box::BoxId, Rect)> {
     })?;
     let content = drawing.layout.get(id)?.content_box();
     Some((rendering, id, content))
+}
+
+/// The greeting's baseline, and the metrics of the face it is set in.
+fn greeting_text(drawing: &alo_renderer::Drawing) -> Option<(f32, alo_text::FaceMetrics)> {
+    drawing.display.items().iter().find_map(|item| match item {
+        DisplayItem::Text {
+            text,
+            origin,
+            font,
+            size,
+            ..
+        } if text.starts_with("Good morning") => Some((origin.1, font.metrics(*size))),
+        _ => None,
+    })
+}
+
+/// How far the greeting's line reaches above and below its baseline.
+///
+/// The paragraph is 13 px at Meet's inherited `--leading-normal`, 1.5: its
+/// strut takes 19.5, half of what that leaves over the face's ascent and
+/// descent above them and half below. The hand is 20 tall with its middle
+/// half an x-height over the baseline, so it reaches 10 plus that above and
+/// 10 less it below. The line is the further of the two on each side.
+fn greeting_reach(metrics: alo_text::FaceMetrics) -> (f32, f32) {
+    let half = (13.0 * 1.5 - (metrics.ascender + metrics.descender)) / 2.0;
+    let hand = metrics.x_height / 2.0;
+    (
+        (metrics.ascender + half).max(10.0 + hand),
+        (metrics.descender + half).max(10.0 - hand),
+    )
 }
 
 /// The case laid out in a window `width` wide: the `<header>`'s border box
@@ -88,12 +120,15 @@ fn the_narrow_screen_block_applies_at_48rem_and_below() {
         "{}",
         header.size.width
     );
-    // The heading's line is its face's ascent and descent, which scale with
-    // its size: 28 to 32. (`--leading-tight` would make them 35 and 40, but
-    // `line-height` does not yet reach text; queue item 316.)
+    // The heading's line is `--leading-tight`, 1.25 of its font, whatever
+    // the face's own ascent and descent: 35 at 28 px and 40 at 32.
     assert!(
-        (heading / wide_heading - 28.0 / 32.0).abs() < 0.001,
-        "a 28 px heading is {heading} where a 32 px one is {wide_heading}",
+        (heading - 35.0).abs() < 0.001,
+        "a 28 px heading is {heading}"
+    );
+    assert!(
+        (wide_heading - 40.0).abs() < 0.001,
+        "a 32 px heading is {wide_heading}"
     );
 
     assert!(
@@ -137,11 +172,19 @@ fn the_hand_is_a_twenty_pixel_square_on_the_greetings_line() {
         (0.0..6.5).contains(&gap),
         "a gap of {gap} before the margin"
     );
-    // `.content`'s 24 px padding and `.header`'s 20 px top margin: the hand
-    // is the tallest thing on the greeting's line, so it is the line's top.
+    // `.content`'s 24 px padding and `.header`'s 20 px top margin put the
+    // greeting's line at 44. The strut's leading reaches higher above the
+    // baseline than the hand does, so the hand's top is under the line's.
+    let Some((_, metrics)) = greeting_text(drawing) else {
+        panic!("the greeting's text");
+    };
+    let (above, _) = greeting_reach(metrics);
+    let hand_above = 10.0 + metrics.x_height / 2.0;
+    assert!(above > hand_above, "the strut is the line's top");
     assert!(
-        (content.top() - 44.0).abs() < 0.001,
-        "on the greeting's line"
+        (content.top() - (44.0 + above - hand_above)).abs() < 0.001,
+        "on the greeting's line: {}",
+        content.top()
     );
 }
 
@@ -156,18 +199,10 @@ fn the_hand_is_middle_aligned_with_the_greetings_lowercase_letters() {
     // `vertical-align: middle`: the hand's midpoint at the greeting's
     // baseline plus half the x-height of its 13 px semibold face, which is
     // DejaVu Sans Bold's own `x` (queue item 312).
-    let Some((baseline, x_height)) = drawing.display.items().iter().find_map(|item| match item {
-        DisplayItem::Text {
-            text,
-            origin,
-            font,
-            size,
-            ..
-        } if text.starts_with("Good morning") => Some((origin.1, font.metrics(*size).x_height)),
-        _ => None,
-    }) else {
+    let Some((baseline, metrics)) = greeting_text(drawing) else {
         panic!("the greeting's text");
     };
+    let x_height = metrics.x_height;
     assert!(
         (x_height - 13.0 * 1120.0 / 2048.0).abs() < 0.001,
         "{x_height}"
@@ -177,8 +212,14 @@ fn the_hand_is_middle_aligned_with_the_greetings_lowercase_letters() {
         (middle - (baseline - x_height / 2.0)).abs() < 0.001,
         "the hand's middle at {middle}, the baseline at {baseline}",
     );
-    // The line is the hand's 20: what moved fits inside it, and nothing else
-    // reaches past it.
+    // The line is the strut's leading above the baseline and the hand below
+    // it: 13 × 1.5 alone would be 19.5, the hand alone 20, and the two
+    // together reach further than either.
+    let (above, below) = greeting_reach(metrics);
+    assert!(
+        (baseline - (44.0 + above)).abs() < 0.001,
+        "the baseline at {baseline}"
+    );
     let line = drawing.boxes.ids().find_map(|id| {
         match drawing.boxes.get(id).map(|node| &node.kind) {
             Some(alo_box::BoxKind::Element { .. })
@@ -194,7 +235,14 @@ fn the_hand_is_middle_aligned_with_the_greetings_lowercase_letters() {
             _ => None,
         }
     });
-    assert_eq!(line, Some(20.0), "the greeting is one line of 20");
+    let Some(line) = line else {
+        panic!("the greeting's paragraph");
+    };
+    assert!(
+        (line - (above + below)).abs() < 0.001 && line > 20.0,
+        "the greeting is one line of {line}, not {}",
+        above + below
+    );
 }
 
 #[test]

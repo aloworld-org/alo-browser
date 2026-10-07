@@ -120,6 +120,19 @@ impl ComputedStyle {
         self.metrics.line_height
     }
 
+    /// This element's line height in CSS pixels when one was set, or
+    /// [`None`] when it is `normal`.
+    ///
+    /// [`ComputedStyle::line_height`] answers `normal` with a ratio of the
+    /// font size, which is right for an `lh` unit and wrong for a line box:
+    /// a `normal` line is as tall as its font, and only a line height that was
+    /// set adds leading. Layout asks this.
+    pub fn set_line_height(&self) -> Option<f32> {
+        self.get("line-height")
+            .filter(|text| !text.trim().eq_ignore_ascii_case("normal"))
+            .map(|_| self.metrics.line_height)
+    }
+
     /// A property's value as a length or a percentage, or [`None`] when it is
     /// absent or is something else — `auto`, a keyword, a value this engine
     /// cannot read. All of those mean "at its initial value" to a caller.
@@ -294,16 +307,21 @@ fn record_computed_font(style: &mut ComputedStyle) {
         .insert(font_size, format!("{}px", style.metrics.font_size));
 
     let line_height = PropertyName::parse("line-height");
-    let computed = match style.properties.get(&line_height).map(String::as_str) {
-        Some(text) if alo_value::parse_number(text).is_some_and(|number| number >= 0.0) => {
-            text.trim().to_owned()
-        }
-        Some(text) if !text.trim().is_empty() && !text.eq_ignore_ascii_case("normal") => {
-            format!("{}px", style.metrics.line_height)
-        }
-        // Nothing said anything, so it stays `normal` — which is a computed
-        // value in its own right, and one that means something different at
-        // every font size it is inherited into.
+    let metrics = style.metrics;
+    let specified = style.properties.get(&line_height).map(String::as_str);
+    let set = crate::metrics::set_line_height(
+        specified,
+        metrics.font_size,
+        metrics.root_font_size,
+        metrics.viewport,
+    );
+    let computed = match (specified, set) {
+        (Some(text), Some(_)) if alo_value::parse_number(text).is_some() => text.trim().to_owned(),
+        (Some(_), Some(_)) => format!("{}px", metrics.line_height),
+        // Nothing said anything, or what it said could not be used, so it
+        // stays `normal` — which is a computed value in its own right, and one
+        // that means something different at every font size it is inherited
+        // into.
         _ => "normal".to_owned(),
     };
     style.properties.insert(line_height, computed);
@@ -536,6 +554,23 @@ mod tests {
             (style.line_height() - 60.0).abs() < 0.0001,
             "one and a half of the child's own font, not of the parent's",
         );
+    }
+
+    #[test]
+    fn a_line_height_that_cannot_be_used_computes_to_normal() {
+        for value in ["-4px", "1e39px", "-2"] {
+            let style = style_of(
+                "<p id=x>t</p>",
+                &format!("p {{ line-height: {value} }}"),
+                "x",
+            );
+            assert_eq!(style.get("line-height"), Some("normal"), "{value}");
+            assert_eq!(style.set_line_height(), None, "{value}");
+        }
+        let normal = style_of("<p id=x>t</p>", "p { color: red }", "x");
+        assert_eq!(normal.set_line_height(), None);
+        let set = style_of("<p id=x>t</p>", "p { line-height: 1.5 }", "x");
+        assert_eq!(set.set_line_height(), Some(24.0));
     }
 
     #[test]

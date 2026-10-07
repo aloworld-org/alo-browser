@@ -17764,3 +17764,133 @@ what `LOOP.md` forbids.
 136 queue items are open: 315 closed, 316 opened. The next unused queue
 number is **317** and the next ADR is **0028**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 196 — queue item 316: `line-height` on text
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`, the
+journal's iteration 195 entry, queue items 283, 284, 314 and 316,
+`docs/features.md`'s inline-formatting lines (tier [1] and [2]) and
+`alo-meet-greeting`'s `origin.txt`. No ADR governs line height: ADR 0004
+puts the inline formatting context in our code rather than `taffy`'s, and
+this stays there. No `AGENTS.md` exists. 316 was the first open item with
+every dependency done. 284, 311 and 314 wait for pages.
+
+**What was built.**
+- `alo-style`: `metrics.rs`'s `set_line_height` tells a line height that
+  was set from `normal`. `resolve_line_height` is it with `normal`'s 1.2
+  behind it. A value that is negative, not finite or unreadable is now
+  `normal` in the computed style too. It used to be written back as the
+  1.2 fallback in pixels, which would have read as a set line height.
+  `ComputedStyle::set_line_height` is what layout asks.
+- `alo-layout`: `TextStyle` carries `line_height`, `None` for `normal`.
+  The line builder gives text, each inline box and the strut a `Reach`:
+  the font's ascent and descent with half the leading added to each, or
+  taken away when the line height is the smaller. Lines are as tall as
+  those reach, and an inline box is aligned by its reach rather than its
+  letters, as CSS 2.1 § 10.8.1 says. What is drawn is unchanged: a
+  fragment is the font's height on the baseline.
+- `normal` adds no leading. That equals the face's suggested line height
+  only when its line gap is zero. I checked DejaVu Sans, Sans Bold and
+  Serif, the corpus's faces, and all three are 0.
+
+**How it closes.**
+- `numbers.rs`, with `ScaledFont`: 16 px at 1.5 is 24 with the text 4
+  down and the next block at 24. A 32 px span inheriting 1.5 is 48, its
+  text 8 down. 0.5 is a negative leading, 8 tall with the text at -4.
+  `normal` is 16. A mixed line of three different half-leadings is 42 with
+  its baseline at 24. `text-top` aligns a span's line height, not its
+  letters, and that line is 40.
+- **Hostile bytes:** this reads stylesheet text. `metrics.rs` refuses ten
+  values (`-2`, `-4px`, `1e38`, `1e39px`, `1e38em`, `NaN`, `inf`, `2 3`, …)
+  as `normal`, and `computed.rs` checks that three compute to `normal`.
+  The new `alo-corpus/tests/a_hostile_line_height.rs` renders with real
+  fonts. Nine unusable values lay the page out exactly as `normal` does,
+  and `3e38px`, `1e37px`, `1e30`, `1e38%`, `0` and `0.0001px` are drawn
+  without a panic. Probing found that `3e38px` over several lines reaches
+  infinite and NaN geometry in the display list. Two blocks of
+  `height: 3e38px` do the same today, so this is not new to line height.
+  Nothing panics. No queue item was opened, because no page has shown it.
+- **Doctored:** with the leading forced to zero, all three new
+  `numbers.rs` tests fail.
+- **Corpus:** four cases moved, and I read each one's numbers.
+  - `alo-meet-greeting`: the heading is 40, its text 1.375 down. The last
+    paragraph is 22.5 (15 px at 1.5). The greeting's line is 20.70: the
+    13 px strut at 19.5 reaches 14.25 above the baseline, past the
+    middle-aligned hand, and the hand still reaches furthest below. The
+    banner went from 86.71 to 95.20.
+  - `alo-offline`: the paragraph is three lines of 24, with the text
+    2.69 down. The grid-centred column grew 16.125 and moved 8.06 up.
+  - `alo-sign-in`: the 40 px heading at 1.06 is four lines of 42.4
+    (169.6, was 186.25). Its text starts 2.08 above its box, a negative
+    leading. The paragraph is three lines of 25.5.
+  - `alo-settings`: two `.sectionDesc` lines at 1.7 (22.1, was 15.13).
+    The dialog is 13.93 taller and, centred, 6.97 higher.
+  I looked at the new Meet and sign-in renders, and both are spaced as
+  their stylesheets say. `a_renderer_that_never_answers` compares against
+  the corpus's render and passes with it.
+- **Layout assertions that moved:** `meets_greeting.rs` now asserts the
+  heading at exactly 35 and 40, instead of the 28:32 ratio iteration 195
+  wrote while waiting for this. It derives the greeting's line and the
+  hand's top from the face's metrics. `an_agent_on_settings.rs`'s four
+  pinned positions moved up the 6.97 the dialog did.
+- **Window references:** `alo-window`'s `a-frozen-page-at-scale-two.png`,
+  `a-resize-before-its-frame.png` and `a-gone-tab.png` hold the offline
+  page's render, and they moved with it. See the gate below.
+
+**Gate, mechanical.** I warmed the build, then ran `scripts/gate.sh` in
+the foreground. It ran past the ten-minute tool limit, so I waited for it
+in the same turn and read its log. **The first run failed.**
+`alo-window`'s `the_window_composed.rs` composes the corpus's committed
+`alo-offline` render into three window references, and all three moved.
+The scale-one one moved 9736 pixels, the same count as the corpus case.
+My earlier workspace run had passed them only because it read the render
+before I rewrote it. I rewrote the three references with
+`ALO_UPDATE_REFERENCES=1` and looked at `a-gone-tab.png`: the offline page
+with its new spacing, under the same sentence. The second run exited 0
+with "The gate is met.": fmt clean, clippy silent, tests passing, no stubs,
+`unsafe` forbidden, licences present, every rented crate behind its
+boundary, no coordinate verbs, the stop rule holding, the changelog
+changed.
+
+**Gate, manual.**
+- Layout assertions and reference renders: above.
+- One responsibility per file: `inline.rs` is still the line box. `Reach`
+  is how far a thing takes room on it, which nothing else needs.
+  `metrics.rs` is still what a font-relative value resolves to.
+  `a_hostile_line_height.rs` is one property's hostile input.
+- `docs/features.md` has a `line-height` line (tier [2]).
+  `docs/conformance.md` says what is laid out, that `normal` ignores a
+  line gap, and what an enormous value does. Its old sentence that an
+  inline box is aligned by its font "because `line-height` does not yet
+  set the height of a line" is gone. `CHANGELOG.md`, `QUEUE.md` (316 ticked
+  with a *Built* note), `REMAINING.md` and Meet's `origin.txt` say the
+  same.
+
+**Roadmap.** This item served **no open roadmap line**, so `ROADMAP.md` is
+unchanged. Line height belongs to stage 1's ticked *Layout* and *Text*
+lines, and this corrects them, opened by a page. *CSS beyond what alo
+needed* and *Text, properly* have no line for it. Ticking or annotating one
+to show movement is what `LOOP.md` forbids.
+
+**Unresolved obligations.**
+- `normal` does not add a face's line gap. That is invisible with DejaVu,
+  whose gap is zero. A page whose font has a gap opens it.
+- An inline box carried onto a second line is placed again but does not
+  add its own reach to that line. Only what is inside it does. That
+  matters only when a box's leading reaches further than its contents'.
+  No page shows it, and no item was opened.
+- Astronomic lengths, a line height among them, reach infinite or NaN
+  geometry without panicking. This is not new.
+- `NodeKind::Text`, a text leaf measured outside an inline formatting
+  context, is still as tall as the measurer says and ignores
+  `line-height`. Text in an inline formatting context never takes that
+  path. I did not check whether any corpus page reaches it.
+- Still standing: 284, 311 and 314 wait for pages. A page loaded through
+  `Renderer` is handed no resources. 296 needs a person to grant Screen
+  Recording. 297–300, 302, 304 and 308 wait as before. The cascade does
+  not expand `background`.
+- `scripts/gate.sh` still takes longer than ten minutes with a warm build.
+
+135 queue items are open: 316 closed. The next unused queue number is
+**317** and the next ADR is **0028**. This is one iteration, not a finished
+queue or roadmap.

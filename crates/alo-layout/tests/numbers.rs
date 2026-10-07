@@ -1215,6 +1215,97 @@ fn every_line_starts_as_tall_as_its_containers_font() {
 }
 
 #[test]
+fn line_height_is_room_split_evenly_above_and_below_the_font() {
+    // A line as tall as its `line-height`, with half of what that leaves over
+    // the font above the letters and half below. Half the font size a
+    // character, three quarters of it above the baseline.
+    let html = "<body><div id=w><span id=s>ab</span></div><p id=after>x</p></body>";
+
+    // 16 px at 1.5 is 24: the text is 16 of it, four over and four under,
+    // so its baseline is at 16 rather than 12.
+    let css = "p { margin: 0 } #w { font-size: 16px; line-height: 1.5 }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    let block = rect_of(&boxes, &layout, "w", html);
+    assert!(close(block.size.height, 24.0), "{block:?}");
+    let text = rect_of(&boxes, &layout, "s", html);
+    assert_eq!(text, Rect::new(0.0, 4.0, 16.0, 16.0));
+    let after = rect_of(&boxes, &layout, "after", html);
+    assert!(close(after.top(), 24.0), "{after:?}");
+
+    // A number inherits as the number: a 32 px span in that block takes 48,
+    // so the line is 48 and the span's text sits 8 down.
+    let css = "#w { font-size: 16px; line-height: 1.5 } #s { font-size: 32px }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 48.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "s", html),
+        Rect::new(0.0, 8.0, 32.0, 32.0)
+    );
+
+    // Smaller than the font is a negative leading: 8 of room for 16 of
+    // letters, which reach four past it on each side.
+    let css = "#w { font-size: 16px; line-height: 0.5 }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 8.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "s", html),
+        Rect::new(0.0, -4.0, 16.0, 16.0)
+    );
+
+    // `normal` adds nothing: the line is the font's own 16.
+    let (boxes, layout) = lay_out_measured(
+        html,
+        "#w { font-size: 16px }",
+        Size::new(400.0, 300.0),
+        &ScaledFont,
+    );
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 16.0));
+}
+
+#[test]
+fn a_mixed_line_is_as_tall_as_its_leadings_reach() {
+    // Three half-leadings on one line. The strut, 16 px at 24, reaches 16
+    // above the baseline and 8 below. A 32 px span at `line-height: 1` has
+    // none and reaches 24 and 8. An 8 px span at 40 px has 16 each side and
+    // reaches 22 and 18. The line is the furthest each way: 24 and 18, 42.
+    let html = "<body><div id=w><span id=big>a</span><span id=small>b</span></div></body>";
+    let css = "#w { font-size: 16px; line-height: 1.5 } \
+               #big { font-size: 32px; line-height: 1 } \
+               #small { font-size: 8px; line-height: 40px }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    let block = rect_of(&boxes, &layout, "w", html);
+    assert!(close(block.size.height, 42.0), "{block:?}");
+    // Both stand on the baseline at 24: the large letters from the top of
+    // the line, the small ones 6 above it.
+    assert_eq!(
+        rect_of(&boxes, &layout, "big", html),
+        Rect::new(0.0, 0.0, 16.0, 32.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "small", html),
+        Rect::new(16.0, 18.0, 4.0, 8.0)
+    );
+}
+
+#[test]
+fn an_inline_box_is_aligned_by_its_line_height_not_its_font() {
+    // `text-top` puts the top of the box's line height, not of its letters,
+    // at the top of its parent's font. An 8 px span at 40 px reaches 22 above
+    // its baseline, and the block's 16 px font 12: the span's baseline is 10
+    // under the line's, which is at 12, so its letters start at 22 - 6 = 16
+    // and the 18 its leading reaches below them make the line 40.
+    let html = "<body><div id=w><span id=t>b</span></div></body>";
+    let css = "#w { font-size: 16px } \
+               #t { font-size: 8px; line-height: 40px; vertical-align: text-top }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 40.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html),
+        Rect::new(0.0, 16.0, 4.0, 8.0)
+    );
+}
+
+#[test]
 fn an_inline_block_keeps_its_width_inside_its_own_margins() {
     // "ab cd" at eight pixels a character: one line, 40 wide, whatever its
     // margins are. The box is laid out a second time in the room the line

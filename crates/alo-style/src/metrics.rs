@@ -108,31 +108,37 @@ pub fn resolve_line_height(
     root: f32,
     viewport: Option<Viewport>,
 ) -> f32 {
-    let Some(text) = specified else {
-        return font_size * NORMAL_LINE_HEIGHT;
-    };
-    let text = text.trim();
+    set_line_height(specified, font_size, root, viewport).unwrap_or(font_size * NORMAL_LINE_HEIGHT)
+}
+
+/// The line height an element was given, or [`None`] for `normal`.
+///
+/// The two are not the same thing at the same number. `normal` leaves a line
+/// as tall as its font says it is, while a line height that was set puts half
+/// of the difference above the text and half below it. Layout has to know
+/// which of them it was given. A value this engine cannot read is `normal`,
+/// and so is one that comes out negative or not finite: `1e38` times a font
+/// size is no line height, and handing layout an infinity would be a page
+/// that cannot be laid out.
+pub(crate) fn set_line_height(
+    specified: Option<&str>,
+    font_size: f32,
+    root: f32,
+    viewport: Option<Viewport>,
+) -> Option<f32> {
+    let text = specified?.trim();
     if text.is_empty() || text.eq_ignore_ascii_case("normal") {
-        return font_size * NORMAL_LINE_HEIGHT;
+        return None;
     }
-    if let Some(multiple) = parse_number(text)
-        && multiple >= 0.0
-    {
-        return font_size * multiple;
+    let usable = |pixels: f32| pixels.is_finite() && pixels >= 0.0;
+    if let Some(multiple) = parse_number(text) {
+        return Some(font_size * multiple).filter(|pixels| usable(*pixels));
     }
     let metrics = with_window(FontMetrics::estimated(font_size, root), viewport);
-    match parse_length_percentage(text) {
-        Some(value) => {
-            // A percentage line height is a percentage of the font size.
-            let pixels = value.to_px(metrics, font_size);
-            if pixels.is_finite() && pixels >= 0.0 {
-                pixels
-            } else {
-                font_size * NORMAL_LINE_HEIGHT
-            }
-        }
-        None => font_size * NORMAL_LINE_HEIGHT,
-    }
+    // A percentage line height is a percentage of the font size.
+    parse_length_percentage(text)
+        .map(|value| value.to_px(metrics, font_size))
+        .filter(|pixels| usable(*pixels))
 }
 
 /// The metrics an element's own lengths resolve against.
@@ -331,6 +337,27 @@ mod tests {
             resolve_line_height(Some("-2"), 20.0, 16.0, None),
             24.0
         ));
+    }
+
+    #[test]
+    fn a_set_line_height_is_told_apart_from_normal() {
+        assert_eq!(set_line_height(None, 20.0, 16.0, None), None);
+        assert_eq!(set_line_height(Some(" NORMAL "), 20.0, 16.0, None), None);
+        assert_eq!(set_line_height(Some("1.25"), 32.0, 16.0, None), Some(40.0));
+        assert_eq!(set_line_height(Some("24px"), 20.0, 16.0, None), Some(24.0));
+        assert_eq!(set_line_height(Some("0"), 20.0, 16.0, None), Some(0.0));
+        // Hostile and unreadable values are all `normal`: nothing negative,
+        // nothing infinite and nothing that is not a number reaches layout.
+        for text in [
+            "", "nonsense", "-2", "-4px", "1e38", "1e39px", "1e38em", "NaN", "inf", "2 3",
+        ] {
+            assert_eq!(
+                set_line_height(Some(text), 20.0, 16.0, None),
+                None,
+                "{text}"
+            );
+            assert!(resolve_line_height(Some(text), 20.0, 16.0, None).is_finite());
+        }
     }
 
     #[test]

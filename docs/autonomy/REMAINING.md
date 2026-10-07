@@ -612,6 +612,13 @@ reaches text, which Meet's heading shows, and opened it as 316, depending
 on nothing and eligible. 136 queue items are open. The next unused queue
 number is 317 and the next unused ADR 0028.
 
+Iteration 196 built item 316: text, inline boxes and the strut take their
+`line-height` on a line, with half the leading above and half below, and
+an inline box is aligned by it. Meet's heading is 40, and the offline,
+sign-in and settings screens moved to their stylesheets' spacing. 284,
+311 and 314 still wait for pages. 135 queue items are open. The next unused queue number is 317 and the next
+unused ADR 0028.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

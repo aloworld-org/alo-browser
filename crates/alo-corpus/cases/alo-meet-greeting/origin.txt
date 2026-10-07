@@ -56,6 +56,16 @@ than fixed in the iteration that found them:
   initial 16 px font size, and the issue is gone. The render is unchanged
   at this width; `tests/meets_greeting.rs` lays the page out at 768 and
   769 and finds the narrow padding and heading only at the first.
+- `line-height` set the height of no line, so the heading at
+  `--leading-tight` was its face's 37.25 rather than 40, the last line at
+  `--leading-normal` its face's 17.46 rather than 22.5, and everything under
+  the heading sat high — item 316, found by item 315's test.
+  **Fixed by item 316 (iteration 196):** each line is as tall as its
+  `line-height`s, with half of the leading above the text and half below.
+  The heading is 40 and its text 1.375 down in it, the last paragraph 22.5,
+  and the greeting's line 20.70: the 13 px strut at 19.5 reaches higher
+  above the baseline than the middle-aligned hand, which still reaches
+  lower below it. The banner grew from 86.71 to 95.20.
 
 The issues list also has the two `::before` and `::after` selectors of
 global.css's `box-sizing` rule, which stage 1 does not produce.

@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Line spacing set by a page is now used.** `line-height` used to change
+  nothing about how far apart lines were: every line was as tall as its
+  font, so loosely set paragraphs came out cramped and tightly set headings
+  came out loose. Each line now takes the room its `line-height` asks for,
+  with the extra space shared evenly above and below the text, as other
+  browsers do. alo Meet's heading is now 40 pixels tall rather than 37,
+  and its text, the offline screen, the sign-in screen and the settings
+  dialog are spaced as their stylesheets say. A value that cannot be used,
+  such as a negative one, is treated as `normal`.
+
 - **Screen-size rules written in `rem` or `em` now apply.** A stylesheet
   that switches to a narrow layout at `(max-width: 48rem)` used to have
   that rule ignored and reported as not understood, so a narrow window kept

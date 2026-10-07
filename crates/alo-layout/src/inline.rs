@@ -52,6 +52,22 @@
 //! The strut does not make a line exist. A line with nothing on it worth a
 //! line box is still no line at all, strut or not.
 //!
+//! # `line-height` is room around the font, not the font
+//!
+//! A piece of text, an inline box and the strut each take as much room on
+//! the line as their `line-height`, not as their font. The difference between
+//! the two is the **leading**, and CSS puts half of it above the font's ascent
+//! and half below its descent, so the text stays in the middle of the room it
+//! was given. A 16 px line at `line-height: 1.5` is 24 tall with four pixels
+//! over the letters and four under them; a `line-height` smaller than the font
+//! is a negative leading, and the letters reach past the room they take.
+//!
+//! Only the room changes. What is drawn — a text fragment, an inline box's
+//! background — is still the font's height, placed on the baseline, which is
+//! why a link's background in a loosely set paragraph does not fill the gap
+//! between its lines. `normal` adds no leading at all: the line is as tall as
+//! its font.
+//!
 //! # Not everything stands on the baseline
 //!
 //! `vertical-align` moves an atomic box or an inline box, and everything
@@ -355,9 +371,20 @@ struct Builder<'a, M: MeasureText> {
     /// How far what is on this line reaches, one entry for the line's own
     /// baseline and one for each box held by its top or bottom edge.
     groups: Vec<Group>,
-    /// The container's font: where every line's ascent and descent start, and
-    /// what a box that is not inside another inline box is aligned against.
+    /// The container's font: what a box that is not inside another inline box
+    /// is aligned against.
     strut: Parent,
+    /// How far the strut reaches above and below the baseline, leading and
+    /// all: where every line's ascent and descent start.
+    strut_reach: Reach,
+}
+
+/// How far something takes room above and below its baseline on a line: its
+/// font's ascent and descent with half its leading added to each.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Reach {
+    above: f32,
+    below: f32,
 }
 
 /// Which baseline a piece hangs from.
@@ -399,6 +426,10 @@ struct OpenBox {
     /// How far its content area reaches above and below the baseline.
     ascent: f32,
     descent: f32,
+    /// How far it takes room above and below the baseline: its content area
+    /// with its leading. It is what the box is aligned by and what it adds to
+    /// the line's height.
+    reach: Reach,
     /// How far its painted area reaches beyond that.
     over: f32,
     under: f32,
@@ -413,6 +444,7 @@ struct OpenBox {
 
 impl<'a, M: MeasureText> Builder<'a, M> {
     fn new(available_width: Option<f32>, strut: &TextStyle, measurer: &'a M) -> Self {
+        let strut_reach = reach_of(strut, measurer);
         let strut = font_of(strut, measurer);
         Self {
             available_width,
@@ -425,10 +457,11 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             pen: 0.0,
             groups: vec![Group {
                 edge: None,
-                ascent: strut.ascent,
-                descent: strut.descent,
+                ascent: strut_reach.above,
+                descent: strut_reach.below,
             }],
             strut,
+            strut_reach,
         }
     }
 
@@ -440,15 +473,15 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         self.pen = 0.0;
         self.groups = vec![Group {
             edge: None,
-            ascent: self.strut.ascent,
-            descent: self.strut.descent,
+            ascent: self.strut_reach.above,
+            descent: self.strut_reach.below,
         }];
         for depth in 0..self.open.len() {
             let Some(held) = self.open.get(depth) else {
                 continue;
             };
-            let (align, font) = (held.align, held.font);
-            let place = self.place_at(depth, align, font.ascent, font.descent);
+            let (align, reach) = (held.align, held.reach);
+            let place = self.place_at(depth, align, reach.above, reach.below);
             if let Some(held) = self.open.get_mut(depth) {
                 held.place = place;
             }
@@ -604,6 +637,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     ) {
         let ascent = self.measurer.ascender(style);
         let descent = self.measurer.descender(style);
+        let reach = reach_of(style, self.measurer);
         let place = self.innermost();
         self.current.push(Pending {
             fragment: Fragment {
@@ -617,16 +651,16 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             after: 0.0,
         });
         self.pen += placed;
-        self.reach(place, ascent, descent);
+        self.reach(place, reach.above, reach.below);
     }
 
     /// Start a nested inline box.
     ///
     /// Its start border and padding take room on the line here and nowhere
-    /// else. Its **content area** — the font's ascent and descent — counts
-    /// towards the line's height; its top and bottom border and padding do
-    /// not, which is CSS's rule and the reason a padded `<em>` does not push a
-    /// paragraph's lines apart.
+    /// else. Its **content area** — the font's ascent and descent — with its
+    /// leading counts towards the line's height; its top and bottom border
+    /// and padding do not, which is CSS's rule and the reason a padded `<em>`
+    /// does not push a paragraph's lines apart.
     ///
     /// Its `vertical-align` moves its content area, and so everything inside
     /// it, which is why it is placed here rather than piece by piece.
@@ -640,9 +674,13 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     ) {
         let font = font_of(style, self.measurer);
         let (ascent, descent) = (font.ascent, font.descent);
+        let reach = reach_of(style, self.measurer);
         self.pen += edge;
-        let place = self.place_at(self.open.len(), align, ascent, descent);
-        self.reach(place, ascent, descent);
+        // CSS aligns an inline box by the room it takes, leading included,
+        // not by its font: `text-top` puts the top of its line height at the
+        // top of its parent's font.
+        let place = self.place_at(self.open.len(), align, reach.above, reach.below);
+        self.reach(place, reach.above, reach.below);
         // An inline box with an edge of its own is content; one without is
         // only a bracket, and a line made of nothing but brackets is not a
         // line.
@@ -653,6 +691,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             from: self.current.len(),
             ascent,
             descent,
+            reach,
             over,
             under,
             font,
@@ -870,6 +909,24 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             lines: self.lines,
             size: Size::new(width, height),
         }
+    }
+}
+
+/// How far text in this style takes room above and below its baseline.
+///
+/// With `normal`, as far as its font reaches. With a line height that was
+/// set, half of the difference between the two is added on each side — or
+/// taken away, when the line height is the smaller.
+fn reach_of(style: &TextStyle, measurer: &impl MeasureText) -> Reach {
+    let above = measurer.ascender(style);
+    let below = measurer.descender(style);
+    let half = style
+        .line_height
+        .filter(|height| height.is_finite())
+        .map_or(0.0, |height| (height - (above + below)) / 2.0);
+    Reach {
+        above: above + half,
+        below: below + half,
     }
 }
 

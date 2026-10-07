@@ -47,6 +47,13 @@ pub struct TextStyle {
     /// newline is a break it **must** take, and whether it may break anywhere
     /// at all.
     pub white_space: alo_box::WhiteSpace,
+    /// Its `line-height` in CSS pixels, or [`None`] for `normal`.
+    ///
+    /// It does not change what the text measures or where it is drawn: the
+    /// glyphs are the same size at any line height. It changes how much room
+    /// the text takes on its line, half of the difference above the font and
+    /// half below, which is why it travels with the font.
+    pub line_height: Option<f32>,
 }
 
 impl Default for TextStyle {
@@ -60,6 +67,7 @@ impl Default for TextStyle {
             italic: false,
             letter_spacing: 0.0,
             white_space: alo_box::WhiteSpace::Normal,
+            line_height: None,
         }
     }
 }

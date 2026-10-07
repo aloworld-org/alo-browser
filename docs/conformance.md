@@ -42,7 +42,17 @@ and `end` wait on writing modes (item 98). An image or inline-block sits on
 the line by its **margin box**: its margins take room across the line and
 make the line taller. Every line starts with a **strut** — its container's
 font's ascent and descent — so a line of only a picture has the font's
-descent below it, as in other browsers. An atomic box stands on the
+descent below it, as in other browsers. **`line-height`** sets how much room
+text, an inline box and the strut take on a line: half of the difference
+from the font's ascent and descent goes above the letters and half below,
+and a value smaller than the font is a negative leading. What is drawn is
+still the font's height. `normal` is the font's ascent and descent and
+nothing more. That is right for the faces the corpus uses, whose tables ask
+for no gap between lines; a face whose table asks for one is laid out
+without it. A value that is negative, not finite or cannot be read is
+`normal`. One that is merely enormous makes a line that tall, as an
+enormous `height` makes a box that tall, and past the range of a float
+both reach geometry that is infinite; the page is still drawn. An atomic box stands on the
 baseline of its **last line** — a button on its label's, a text field on its
 value's, an inline-block on its last line of text — and on its bottom margin
 edge when it has no line or its `overflow` is not `visible`, which is where an
@@ -63,8 +73,7 @@ distances, a fifth of the font size and a pixel down, a third and a pixel
 up), `top` and `bottom` (against the line box, after everything else has
 said how tall it is), a length, and a percentage of the box's own
 `line-height`. What moved makes its line taller. An inline box is aligned
-by its font's ascent and descent, because `line-height` does not yet set the
-height of a line here. A face whose table has no x-height, DejaVu among
+by the room its `line-height` gives it, leading and all, as CSS says. A face whose table has no x-height, DejaVu among
 them, is measured by its own `x`, as browsers do.
 
 **Media queries** answer `min-width`, `max-width`, `width` and

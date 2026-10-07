@@ -441,6 +441,7 @@ fn text_style_for(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> TextStyle {
             .get("white-space")
             .and_then(alo_box::WhiteSpace::parse)
             .unwrap_or_default(),
+        line_height: style.set_line_height(),
     }
 }
 

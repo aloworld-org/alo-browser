@@ -5864,7 +5864,7 @@ The long pole, and the thing most of section E is unreachable without.
   and the heading at 28 px under the narrow block, at (24, 44) and 32 px
   above it.
 
-- [ ] **316. `line-height` on text.** *Found by iteration 195's test of
+- [x] **316. `line-height` on text.** *Found by iteration 195's test of
   `alo-meet-greeting`.* A line box is as tall as its fonts' ascents and
   descents, and `line-height` changes nothing about it: Meet's heading,
   `line-height: var(--leading-tight)` (1.25) at 32 px, is 37.25 tall where
@@ -5878,6 +5878,33 @@ The long pole, and the thing most of section E is unreachable without.
   `line-height: 1.5` 24 tall with the text's baseline half the leading
   down, a mixed line whose half-leadings differ, and `alo-meet-greeting`'s
   heading 40 tall.
+  **Built (iteration 196):** `alo-layout`'s `TextStyle` carries a
+  `line_height`, `None` for `normal`, from `ComputedStyle::set_line_height`;
+  `alo-style` tells a set line height from `normal` with `set_line_height`
+  in `metrics.rs`, and a value that is negative, not finite or unreadable
+  now computes to `normal` rather than to 1.2 written as pixels. The line
+  builder gives text, an inline box and the strut a `Reach`, their font's
+  ascent and descent with half the leading on each side, and an inline box
+  is aligned by it, as CSS 2.1 § 10.8.1 says. Fragments are still the
+  font's height. `normal` adds nothing, which is right for DejaVu, whose
+  line gap is zero. Tests: `numbers.rs` 3 new (16 px at 1.5 is 24 with the
+  text 4 down; an inherited number at 32 px is 48; 0.5 is a negative
+  leading, the text at -4; `normal` is 16; a mixed line of three
+  leadings is 42 with the baseline at 24; `text-top` aligns a span's line
+  height, not its letters); `metrics.rs` and `computed.rs` one each for
+  `normal` against set and ten hostile values; `a_hostile_line_height.rs`
+  renders with real fonts, nine unusable values laying out as `normal` and
+  six enormous or tiny ones drawn without a panic. Doctored: no leading
+  fails all three `numbers.rs` tests. Corpus: four cases moved, each read
+  — Meet (heading 40, last paragraph 22.5, greeting line 20.70),
+  `alo-offline` (the paragraph 3 × 24, the column re-centred 8.06 up),
+  `alo-sign-in` (the 40 px heading at 1.06 four lines of 42.4, the text
+  2.08 above its box; the paragraph 3 × 25.5) and `alo-settings` (two
+  `.sectionDesc` lines at 1.7, the dialog 13.93 taller and 6.97 higher).
+  `meets_greeting.rs` asserts the heading at 35 and 40 and derives the
+  greeting's line from its face; `an_agent_on_settings.rs`'s pinned rows
+  moved with the dialog, and `alo-window`'s three references that hold the
+  offline page moved with it.
 
 - [ ] **278. A nested `<svg>` viewport.** *Cut from 271 (ADR 0022 § 1).* An
   `<svg>` inside an `<svg>` is a new viewport in its parent's drawing: its
