@@ -1,0 +1,16 @@
+[package]
+name = "alo-storage"
+description = "What a page asks to keep: one bucket per origin and top-level site, one quota, held by the browser process (ADR 0025)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+alo-net = { path = "../alo-net" }
+alo-url = { path = "../alo-url" }
+
+[lints]
+workspace = true

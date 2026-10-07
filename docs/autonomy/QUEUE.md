@@ -4565,9 +4565,10 @@ The long pole, and the thing most of section E is unreachable without.
     served in part. Clearing a site clears everything it stored in one act.
   - `persist()` answers `false` until item 93.
 
-  It is cut five ways, and **this item closes when 301–305 have**.
+  It is cut five ways, and **this item closes when 301–305 have**, and 306,
+  which was cut from 301 as it was built.
 
-- [ ] **301. The storage store, in the browser process.** *Cut from 90
+- [x] **301. The storage store, in the browser process.** *Cut from 90
   (ADR 0025 §§ 1–4, 6 and 8). Depends on 66 and 155.* Buckets keyed by
   origin and `Partition`. A type that cannot hold an opaque origin. The
   ledger that counts each bucket against 1 GiB and the profile against its
@@ -4587,6 +4588,41 @@ The long pole, and the thing most of section E is unreachable without.
   A session-scoped profile leaves no file. Clearing a site removes every
   bucket of it under every partition, set-aside ones included. Each is
   asserted in numbers: counted bytes, bucket counts, files on disk.
+
+  **Done** (iteration 185). `alo-storage` is a crate of its own, because
+  keeping what a page asked for is not loading. It uses `alo-net`'s
+  hostile-input reader, private directory and `Partition` rather than
+  copying them. `alo_net::bytes` became public for this, and
+  `alo_net::private::application_data` is now the one answer to where
+  application data lives, for `kept.rs` and storage alike.
+  `tests/storage_that_survives_a_restart.rs` closes every clause with a
+  real restart: the `Store` is dropped and another is opened on the same
+  directory.
+  - The restart test checks that the area reads back, at 60 counted bytes,
+    in three files.
+  - A write past the bucket's quota is refused, and the bucket's file is
+    byte-for-byte unchanged.
+  - Eviction is walked through four writes. Each asserts the bucket count,
+    the total, the eviction count and the files on disk. The last two show
+    a write refused while nothing is evicted, and then accepted once the open
+    bucket closes. The order of use survives a restart.
+  - Every truncation and every flipped byte of both records sets the bucket
+    aside. The store records it with the site's name. It is never deleted,
+    and nothing of it is served.
+  - Clearing a site removes its buckets under three partitions, including
+    one set aside, and leaves another site's bucket alone.
+  A site is a directory, so clearing one is one removal. Names are SHA-256
+  digests, and that is not claimed as privacy. A session-scoped store has
+  no directory to write to.
+  Three things were left out, and each is named:
+  - **Measuring free space is 306.**
+  - **A person's mark to keep a bucket is 93's grant.** No bucket carries
+    one yet.
+  - **The profile's bound in a session-scoped profile is 125's to choose.**
+    ADR 0025 says only that it is far smaller. Until then the caller passes
+    its limits.
+  The profile's bound is held against counted bytes, not file sizes. The
+  files are larger by their lengths and names.
 
 - [ ] **302. `localStorage` and `sessionStorage` in a page.** *Cut from 90
   (ADR 0025 §§ 3 and 5). Depends on 301, 80 and 236.* `Window.localStorage`
@@ -4629,6 +4665,20 @@ The long pole, and the thing most of section E is unreachable without.
   *Closes when:* that worker's install stores the page, its activate deletes
   the old version's cache, an offline navigation is answered from it, and an
   opaque response's `usage` does not depend on its length.
+
+- [ ] **306. The volume's free space, measured.** *Cut from 301 (ADR 0025
+  § 3). Depends on 301.* The profile's bound is the smaller of 8 GiB and a
+  fifth of the volume's free space when the browser starts.
+  `alo_storage::Limits::for_a_volume_with` computes it from a number, and
+  nothing yet asks the operating system for that number. The standard
+  library has no call for it, and law 4 forbids writing the system call
+  ourselves. So this rents a crate that makes the call safely, named in one
+  file and added to `scripts/gate.sh`'s boundaries. That choice is made in
+  the diff, with the crate's `unsafe` checked as ADR 0024 checked `winit`'s.
+  *Closes when:* the store's directory reports a free-space figure, checked
+  against the volume's own report on this machine. A volume that cannot be
+  asked gives a bound of zero, which refuses every write. It never gives an
+  unbounded one.
 
 - [ ] **91. Workers**: dedicated, shared, and service workers with their fetch
   interception.

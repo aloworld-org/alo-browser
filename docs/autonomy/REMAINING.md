@@ -532,6 +532,15 @@ part. No code. Its code is cut as 301–305:
 134 queue items are open. The next unused queue number is 306 and the next
 unused ADR 0026.
 
+Iteration 185 built item 301 as `alo-storage`. It is the browser
+process's store: buckets by origin and partition, one ledger against the
+bucket quota and the profile bound, whole-bucket eviction, checksummed
+records, set-aside, and clearing a site. Measuring the volume's free space
+was cut to **306**, because it needs a rented crate. 302 is next for
+storage, once a frozen page opens it, and 80 and 236 are done. 134 queue
+items are open: 301 closed and 306 opened. The next unused queue number is
+307 and the next unused ADR 0026.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

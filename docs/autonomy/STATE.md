@@ -16657,3 +16657,42 @@ decided and not built. No tick was made.
 134 queue items are open: none closed, and 301–305 opened. The next unused
 queue number is **306** and the next ADR is **0026**. This is one iteration,
 not a finished queue or roadmap.
+
+---
+
+## Iteration 185 — queue item 301: the storage store, in the browser process
+
+ADR 0025's store exists: `crates/alo-storage`, eight files and one
+responsibility each — areas, directories, keys, the ledger, limits, records,
+the store. Item 306, the volume's free space measured, is cut from it.
+
+**The worker built this and was killed before it could journal or commit.**
+Its changes were preserved, which is what that path is for. This entry is the
+only thing added; the tree is the worker's.
+
+**Why it was killed, which is a supervisor defect and the third of its kind.**
+The iteration began at 22:58 and died at 17:41 the next day, reported as *past
+the 240-minute ceiling*. It had not run for nineteen hours. The machine
+hibernated overnight and the power log puts a `hibernate user wake` at
+17:42:28, seconds after the kill.
+
+Every bound subtracted two wall-clock readings, so sleep counted as runtime
+and as silence alike. The first observation after waking saw eighteen and
+three quarter hours and tripped all three at once. An unattended overnight run
+on a laptop — the thing this script exists for — could not survive a night.
+
+**Verified before committing.** The gate is green on the preserved tree, and
+the eight tests were read rather than counted. They cover a quota refusal that
+changes nothing, whole-bucket eviction least recently used first, the order of
+use surviving a restart, a session-scoped profile leaving no file on disk, and
+clearing a site reaching every bucket under every partition including ones
+already set aside — ADR 0007's partitioning held to in the clearing path.
+
+One of them is better than I would have asked for: *every truncation and every
+flipped byte sets the bucket aside and is recorded*. That is `LOOP.md` clause
+2 — the bytes are hostile — applied to a file this engine wrote itself, which
+is the case it would have been easiest to trust.
+
+**Not claimed.** Item 90, which 301 was cut from, stays open. The free-space
+measurement is item 306 and is not done.
+

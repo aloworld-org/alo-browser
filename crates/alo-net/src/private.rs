@@ -135,6 +135,29 @@ pub fn for_profile(place: &Path, profile: &str, kind: &str) -> Option<std::path:
     Some(place.join("alo-browser").join(profile).join(kind))
 }
 
+/// Where this operating system keeps what an application must not lose.
+///
+/// Not where it keeps caches: a system is entitled to empty a cache when a disk
+/// fills, because everything in one can be fetched again. What is kept here —
+/// a record of what an agent did ([`crate::kept`]), what a page asked to keep
+/// (`alo-storage`, ADR 0025 § 8) — cannot be. One answer, so the two can never
+/// come to disagree about where a person's data is.
+///
+/// [`None`] when there is no home directory.
+pub fn application_data() -> Option<std::path::PathBuf> {
+    let home = home()?;
+    Some(if cfg!(target_os = "macos") {
+        home.join("Library").join("Application Support")
+    } else {
+        std::env::var_os("XDG_DATA_HOME")
+            .filter(|set| !set.is_empty())
+            .map_or_else(
+                || home.join(".local").join("share"),
+                std::path::PathBuf::from,
+            )
+    })
+}
+
 /// The home directory, when this machine has one worth the name.
 pub fn home() -> Option<std::path::PathBuf> {
     std::env::var_os("HOME")

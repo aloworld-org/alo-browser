@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser can now keep what a site stores, though no site can reach
+  it yet.** Each site's data is kept in its own place on disk, separately
+  for each site it is embedded in. It is readable only by you, and it is
+  still there after a restart. When the browser's share of your disk is full,
+  whole sites' data is removed, starting with the one you used least long ago.
+  A site you have open is never removed. Data that comes back damaged is
+  moved aside and kept, never half-used, and the browser notes which site
+  it was. Clearing a site removes everything it stored at once. A session
+  that keeps nothing writes nothing to disk at all.
+
 - **How sites will store data on your computer is decided, and nothing is
   stored yet.** ADR 0025 gives each site one allowance of 1 GiB for
   everything it keeps. The allowance is the same on every computer, so a

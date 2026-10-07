@@ -457,15 +457,7 @@ impl Kept {
 /// [`None`] when there is nowhere to put it — no home directory, or a profile
 /// name that is not a single plain path component.
 pub fn where_the_system_keeps_records(profile: &str) -> Option<PathBuf> {
-    let home = crate::private::home()?;
-    let place = if cfg!(target_os = "macos") {
-        home.join("Library").join("Application Support")
-    } else {
-        std::env::var_os("XDG_DATA_HOME")
-            .filter(|set| !set.is_empty())
-            .map_or_else(|| home.join(".local").join("share"), PathBuf::from)
-    };
-    crate::private::for_profile(&place, profile, "agent")
+    crate::private::for_profile(&crate::private::application_data()?, profile, "agent")
 }
 
 /// What the file holding this action is called.

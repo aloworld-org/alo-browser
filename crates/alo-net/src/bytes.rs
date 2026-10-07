@@ -6,8 +6,10 @@
 //!
 //! Two files in this crate keep something of their own on a person's disk: a
 //! cache entry ([`crate::record`], ADR 0011) and what an agent did
-//! ([`crate::deed`], ADR 0012 § 6). They hold entirely different things and they
-//! read their bytes the same way, because the way is not about what is in them.
+//! ([`crate::deed`], ADR 0012 § 6). A third is outside it: what a page asked to
+//! keep, in `alo-storage` (ADR 0025 § 6). They hold entirely different things
+//! and they read their bytes the same way, because the way is not about what is
+//! in them — which is why this is public rather than copied.
 //!
 //! # Why this is one file rather than two copies
 //!
@@ -80,29 +82,35 @@ pub fn fingerprint(bytes: &[u8]) -> u64 {
 
 /// Bytes being built.
 #[derive(Debug, Default)]
-pub(crate) struct Writer {
+pub struct Writer {
     /// What has been written so far.
-    pub(crate) out: Vec<u8>,
+    pub out: Vec<u8>,
 }
 
 impl Writer {
-    pub(crate) fn flag(&mut self, yes: bool) {
+    /// A yes or a no, as one byte.
+    pub fn flag(&mut self, yes: bool) {
         self.out.push(u8::from(yes));
     }
-    pub(crate) fn tag(&mut self, which: u8) {
+    /// One byte that says which of several things follows.
+    pub fn tag(&mut self, which: u8) {
         self.out.push(which);
     }
-    pub(crate) fn small(&mut self, value: u16) {
+    /// A number of two bytes.
+    pub fn small(&mut self, value: u16) {
         self.out.extend_from_slice(&value.to_be_bytes());
     }
-    pub(crate) fn number(&mut self, value: u64) {
+    /// A number of eight bytes.
+    pub fn number(&mut self, value: u64) {
         self.out.extend_from_slice(&value.to_be_bytes());
     }
-    pub(crate) fn bytes(&mut self, value: &[u8]) {
+    /// Bytes, after their length.
+    pub fn bytes(&mut self, value: &[u8]) {
         self.number(value.len() as u64);
         self.out.extend_from_slice(value);
     }
-    pub(crate) fn text(&mut self, value: &str) {
+    /// Text, as its UTF-8 bytes after their length.
+    pub fn text(&mut self, value: &str) {
         self.bytes(value.as_bytes());
     }
     /// A moment, as seconds and nanoseconds since the epoch.
@@ -111,7 +119,7 @@ impl Writer {
     /// whose clock is set to before the epoch, and clamping makes what is
     /// written read as **older** than it is — which is the safe direction for
     /// both a cache entry and a record of when something happened.
-    pub(crate) fn time(&mut self, at: SystemTime) {
+    pub fn time(&mut self, at: SystemTime) {
         let since = at.duration_since(UNIX_EPOCH).unwrap_or(Duration::ZERO);
         self.number(since.as_secs());
         self.out
@@ -122,13 +130,14 @@ impl Writer {
 // --- Reading, from a stranger --------------------------------------------------
 
 /// Bytes being read, none of which are believed until they are checked.
-pub(crate) struct Reader<'a> {
+pub struct Reader<'a> {
     bytes: &'a [u8],
     at: usize,
 }
 
 impl<'a> Reader<'a> {
-    pub(crate) fn new(bytes: &'a [u8]) -> Self {
+    /// A reader at the start of these bytes.
+    pub fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, at: 0 }
     }
 
@@ -136,7 +145,7 @@ impl<'a> Reader<'a> {
     ///
     /// Each format checks this at the end: bytes after what decoded were
     /// written by something else, or by us and half overwritten.
-    pub(crate) fn is_done(&self) -> bool {
+    pub fn is_done(&self) -> bool {
         self.at == self.bytes.len()
     }
 
@@ -145,12 +154,16 @@ impl<'a> Reader<'a> {
     /// Nothing on a disk has an item smaller than one byte, so a count larger
     /// than this cannot be honest — and refusing it here is what stops a loop
     /// running four thousand million times before the first missing field.
-    pub(crate) fn left(&self) -> usize {
+    pub fn left(&self) -> usize {
         self.bytes.len().saturating_sub(self.at)
     }
 
     /// A count of items, refused when there could not be that many.
-    pub(crate) fn how_many(&mut self) -> Result<u64, Unreadable> {
+    ///
+    /// # Errors
+    ///
+    /// [`Unreadable`], when the count is missing or larger than the bytes left.
+    pub fn how_many(&mut self) -> Result<u64, Unreadable> {
         let said = self.number()?;
         if said > self.left() as u64 {
             return Err(unreadable(format!(
@@ -175,24 +188,44 @@ impl<'a> Reader<'a> {
         Ok(slice)
     }
 
-    pub(crate) fn flag(&mut self) -> Result<bool, Unreadable> {
+    /// A yes or a no.
+    ///
+    /// # Errors
+    ///
+    /// [`Unreadable`], when the bytes stop first.
+    pub fn flag(&mut self) -> Result<bool, Unreadable> {
         Ok(self.tag()? != 0)
     }
 
-    pub(crate) fn tag(&mut self) -> Result<u8, Unreadable> {
+    /// One byte that says which of several things follows.
+    ///
+    /// # Errors
+    ///
+    /// [`Unreadable`], when the bytes stop first.
+    pub fn tag(&mut self) -> Result<u8, Unreadable> {
         self.take(1)?
             .first()
             .copied()
             .ok_or_else(|| unreadable("bytes that stop where a tag should be"))
     }
 
-    pub(crate) fn small(&mut self) -> Result<u16, Unreadable> {
+    /// A number of two bytes.
+    ///
+    /// # Errors
+    ///
+    /// [`Unreadable`], when the bytes stop first.
+    pub fn small(&mut self) -> Result<u16, Unreadable> {
         let mut two = [0u8; 2];
         two.copy_from_slice(self.take(2)?);
         Ok(u16::from_be_bytes(two))
     }
 
-    pub(crate) fn number(&mut self) -> Result<u64, Unreadable> {
+    /// A number of eight bytes.
+    ///
+    /// # Errors
+    ///
+    /// [`Unreadable`], when the bytes stop first.
+    pub fn number(&mut self) -> Result<u64, Unreadable> {
         let mut eight = [0u8; 8];
         eight.copy_from_slice(self.take(8)?);
         Ok(u64::from_be_bytes(eight))
@@ -215,12 +248,23 @@ impl<'a> Reader<'a> {
         Ok(said)
     }
 
-    pub(crate) fn bytes(&mut self) -> Result<Vec<u8>, Unreadable> {
+    /// Bytes, after their length.
+    ///
+    /// # Errors
+    ///
+    /// [`Unreadable`], when the length is longer than what is left.
+    pub fn bytes(&mut self) -> Result<Vec<u8>, Unreadable> {
         let how_many = self.length()?;
         Ok(self.take(how_many)?.to_vec())
     }
 
-    pub(crate) fn text(&mut self) -> Result<String, Unreadable> {
+    /// Text, after its length.
+    ///
+    /// # Errors
+    ///
+    /// [`Unreadable`], when the length is longer than what is left or the
+    /// bytes are not UTF-8.
+    pub fn text(&mut self) -> Result<String, Unreadable> {
         let taken = self.bytes()?;
         String::from_utf8(taken).map_err(|_| unreadable("text that is not UTF-8"))
     }
@@ -228,7 +272,11 @@ impl<'a> Reader<'a> {
     /// A moment. A nanosecond field that is not a nanosecond is corrupt rather
     /// than something to fold into the seconds — and a moment further ahead than
     /// this machine's clock can name is refused rather than saturated.
-    pub(crate) fn time(&mut self) -> Result<SystemTime, Unreadable> {
+    ///
+    /// # Errors
+    ///
+    /// [`Unreadable`], for either of those or when the bytes stop first.
+    pub fn time(&mut self) -> Result<SystemTime, Unreadable> {
         let seconds = self.number()?;
         let mut four = [0u8; 4];
         four.copy_from_slice(self.take(4)?);

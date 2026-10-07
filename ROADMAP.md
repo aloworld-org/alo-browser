@@ -978,17 +978,26 @@ unreachable without it.
 - [ ] Selection and ranges
 - [ ] CSSOM — styles readable and writable from script
 - [ ] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them
-      — not started: nothing is built. Decided in ADR 0025. All four kinds
+      · Built: `alo-storage`, the browser process's store (queue item 301).
+      It holds buckets keyed by origin and top-level site, and its key type
+      cannot hold an opaque origin. A ledger holds each bucket to its quota
+      and the profile to its bound, evicting whole buckets least recently
+      used first. `localStorage` areas are kept in checksummed records that
+      survive a restart. A bucket that fails its check is set aside and
+      recorded. Clearing a site is one removal, and a session-scoped store
+      writes no file.
+      · Owed: no page reaches it yet. Still to come are `localStorage` and
+      `sessionStorage` in a page (302), `navigator.storage` (303),
+      IndexedDB (304), the Cache API (305), and the volume's free space,
+      measured (306). Decided in ADR 0025. All four kinds
       of storage use one bucket per origin and top-level site, held only by the
       browser process, and an opaque origin has none. One fixed 1 GiB quota
       covers each bucket. It is reported the same on every machine and in
       private browsing, and `localStorage` is capped at 5 MiB within it. Past
       the profile's own unreported bound, whole buckets are evicted, least
       recently used first, never one in use. `sessionStorage` is never written
-      to a disk, and a corrupt bucket is set aside, never served in part. Cut
-      into queue items 301–305: the store, `localStorage` and
-      `sessionStorage`, `navigator.storage`, IndexedDB (whose store needs its
-      own ADR) and the Cache API
+      to a disk, and a corrupt bucket is set aside, never served in part.
+      IndexedDB's store needs its own ADR
 - [ ] Workers: dedicated, shared, and service workers with their fetch interception
 - [ ] Timers, clipboard, drag and drop
 - [ ] ★ **Permissions as capabilities** — camera, microphone, location, notifications, in the shape of `alo-os` ADR 0001: enumerated, visible, revocable, expiring, recorded. A browser is where most people meet a permission prompt, and every other one is a dialogue nobody can audit afterwards
