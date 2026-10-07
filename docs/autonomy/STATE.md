@@ -17676,3 +17676,91 @@ not draw. Annotating either would be the erosion `LOOP.md` warns against.
 136 queue items are open: 313 closed. The next unused queue number is
 **316** and the next ADR is **0028**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 195 — queue item 315: `rem` and `em` in a media query
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`, the
+journal's iteration 194 entry, queue items 283 and 310–315, ADR 0027 (whose
+§ 4 is the only ADR text about media queries, for queries inside an image,
+and is untouched by this), `docs/features.md`'s media-query line (tier [1])
+and `alo-meet-greeting`'s `origin.txt`. No `AGENTS.md` exists. 315 was the
+first open item with every dependency done: 311 and 314 wait for pages.
+
+**What was built.**
+- `alo-css`'s `media.rs`: a width is now a `QueryLength` kept in the unit
+  it was written in, `px`, `em` or `rem` (or a bare zero), and printed back
+  that way. `em` and `rem` are `QUERY_FONT_SIZE`, 16 px, the initial font
+  size, as Media Queries Level 4 § 1.3 says: a query's relative units never
+  come from a declaration. The old comment said 16 would be a guess; the
+  specification makes it the answer. `ex`, `ch`, the viewport units and a
+  bare number are still refused and recorded.
+- `alo-style`'s `metrics.rs` has a test holding `QUERY_FONT_SIZE` equal to
+  `DEFAULT_FONT_SIZE`. `alo-css` cannot depend on `alo-style`, which
+  depends on it, so the constant is stated twice and checked once.
+
+**How it closes.**
+- `media.rs` matches `48rem` and `48em`, in four letter cases, at 767, 768
+  and 769 under `max-width`, `min-width` and `width`, and `2.5em` at 40 and
+  39.5. Both now print back as written.
+- **Hostile bytes:** this reads stylesheet text. `1e38rem` (infinite once
+  multiplied), a number longer than `f32`, `-1e38em`, a denormal, a unit
+  alone, a split unit, a trailing length and an escaped unit all return
+  a result with no panic. An infinite breakpoint is wider than any window.
+- **Corpus:** `alo-meet-greeting`'s `issues.txt` lost
+  `(max-width: 48rem)` and nothing else. No layout, box tree, display list
+  or render moved anywhere: the case is 800 wide, above the breakpoint.
+- **Layout assertion:** `meets_greeting.rs` lays Meet out at 768 and 769.
+  At 768 the header is at (12, 36) and 744 wide, and the heading is the
+  28 px `--text-2xl`. At 769 the header is at (24, 44), 721 wide, and the
+  heading is 32 px. The old code laid 768 out wide, so this test fails
+  without the change.
+- **Reference render:** nothing visual changed at any committed size, and
+  every reference still matches.
+
+**What the test found.** The heading's height is its face's ascent and
+descent (32.59 at 28 px, 37.25 at 32), not `line-height: 1.25` (35 and 40).
+`line-height` never reaches text. Item 283 deferred this to "its own item
+when a page needs it", and nothing opened one. Meet needs it, so it is now
+**316**, depending on nothing. I did not fix it here: it moves nearly every
+reference, which is its own iteration. The test asserts the heading as a
+28:32 ratio and names 316, so it does not pin the wrong height.
+
+**Gate, mechanical.** Clippy flagged two strict `f32` comparisons in the
+new test, which I made tolerance checks before running `cargo fmt` again.
+I warmed the build, then ran `scripts/gate.sh` in the foreground. It ran
+past the ten-minute tool limit and the harness moved it to the background.
+I kept the turn open, waited for it and read its log. It exited 0 with
+"The gate is met.": fmt clean, clippy silent, tests passing, no stubs,
+`unsafe` forbidden, licences present, every rented crate behind its
+boundary (`cssparser` still only in `alo-css`), no coordinate verbs, the
+stop rule holding, the changelog changed.
+
+**Gate, manual.**
+- Layout assertion and reference renders: above.
+- One responsibility per file: `media.rs` is still what a media query
+  says and whether it holds. `QueryLength` is a query's length, which no
+  other file needs. `metrics.rs` gained only a test.
+- `docs/features.md`'s media-query line says which units and why.
+  `docs/conformance.md` has a paragraph on media queries, which it lacked.
+  `CHANGELOG.md`, `QUEUE.md` (315 ticked with a *Built* note, 316 opened),
+  `REMAINING.md` and the case's `origin.txt` say the same.
+
+**Roadmap.** This item served **no open roadmap line**, so `ROADMAP.md` is
+unchanged. Media queries belong to stage 1's ticked *Stylesheets* line,
+and this corrects it, opened by a page. *CSS beyond what alo needed* has
+no media-query line. Ticking or annotating something to show movement is
+what `LOOP.md` forbids.
+
+**Unresolved obligations.**
+- 316, `line-height` on text, is open and eligible next.
+- The range syntax (`width >= 600px`), `ex`, `ch` and viewport units in a
+  query remain refused and recorded. No page has asked for them.
+- Still standing: 311 and 314 wait for pages. A page loaded through
+  `Renderer` is handed no resources. 296 needs a person to grant Screen
+  Recording. 297–300, 302, 304 and 308 wait as before. The cascade does not
+  expand `background`.
+- `scripts/gate.sh` still takes longer than ten minutes with a warm build.
+
+136 queue items are open: 315 closed, 316 opened. The next unused queue
+number is **317** and the next ADR is **0028**. This is one iteration, not
+a finished queue or roadmap.

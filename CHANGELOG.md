@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Screen-size rules written in `rem` or `em` now apply.** A stylesheet
+  that switches to a narrow layout at `(max-width: 48rem)` used to have
+  that rule ignored and reported as not understood, so a narrow window kept
+  the wide layout. Such a size is now worked out from the standard 16-pixel
+  text size, as the media query specification says, whatever size the page
+  sets its own text. alo Meet now uses its narrow layout at 768 pixels and
+  below.
+
 - **Backgrounds can be several layers, and alo Meet's corner tint shows.**
   A background written as a list, such as a gradient over a colour, now
   draws every layer, with the first one written on top. Before, it drew

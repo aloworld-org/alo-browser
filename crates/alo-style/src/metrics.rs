@@ -186,6 +186,13 @@ mod tests {
     }
 
     #[test]
+    fn a_media_querys_em_is_this_initial_size() {
+        // Media Queries resolve `em` and `rem` against the initial font size,
+        // so the two crates must agree on what that is.
+        assert!(close(alo_css::media::QUERY_FONT_SIZE, DEFAULT_FONT_SIZE));
+    }
+
+    #[test]
     fn nothing_said_means_whatever_was_inherited() {
         assert!(close(resolve_font_size(None, 20.0, 16.0, None), 20.0));
         assert!(close(resolve_font_size(Some("  "), 20.0, 16.0, None), 20.0));

@@ -605,6 +605,13 @@ refused. Meet's corner tint is drawn, and the new case `background-layers`
 pins the rest. 315 depends on nothing and is eligible. 136 queue items are
 open. The next unused queue number is 316 and the next unused ADR 0028.
 
+Iteration 195 built item 315: a width in a media query may be `em` or
+`rem`, each the initial 16 px, so Meet's `(max-width: 48rem)` is understood
+and applies at 768 px and below. Its test found that `line-height` never
+reaches text, which Meet's heading shows, and opened it as 316, depending
+on nothing and eligible. 136 queue items are open. The next unused queue
+number is 317 and the next unused ADR 0028.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

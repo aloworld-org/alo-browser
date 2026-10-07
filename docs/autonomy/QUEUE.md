@@ -5840,7 +5840,7 @@ The long pole, and the thing most of section E is unreachable without.
   `<img>` of each kind styled wider and taller than its ratio laid out at
   exactly its width and height.
 
-- [ ] **315. `rem` and `em` in a media query.** *Opened by
+- [x] **315. `rem` and `em` in a media query.** *Opened by
   `alo-meet-greeting` (iteration 192).* Meet's stylesheet says
   `@media (max-width: 48rem)`, and a length in a media feature can only be
   in pixels here, so the query is recorded as not understood and treated as
@@ -5850,6 +5850,34 @@ The long pole, and the thing most of section E is unreachable without.
   page's. *Depends on nothing. Closes when:* a test in `alo-css`'s
   `media.rs` matches `48rem` and `48em` at 767 and 768 pixels, and
   `alo-meet-greeting` drops that issue.
+  **Built (iteration 195):** `media.rs` keeps a width as a `QueryLength`
+  in the unit it was written in (`px`, `em`, `rem`, or a bare zero) and
+  writes it back that way. `em` and `rem` are `QUERY_FONT_SIZE`, 16 px,
+  which a test in `alo-style`'s `metrics.rs` holds equal to
+  `DEFAULT_FONT_SIZE`. Other units (`ex`, `vw`, a bare number) are still
+  refused and recorded. `media.rs` matches `48rem` and `48em`, in any case,
+  at 767, 768 and 769 under `max-width`, `min-width` and `width`, and
+  hostile lengths (`1e38rem`, a number past `f32`, a split unit) are
+  answered without a panic, an infinite breakpoint wider than any window.
+  `alo-meet-greeting`'s `issues.txt` lost the line and nothing else moved.
+  `meets_greeting.rs` lays Meet out at 768 and 769: the header at (12, 36)
+  and the heading at 28 px under the narrow block, at (24, 44) and 32 px
+  above it.
+
+- [ ] **316. `line-height` on text.** *Found by iteration 195's test of
+  `alo-meet-greeting`.* A line box is as tall as its fonts' ascents and
+  descents, and `line-height` changes nothing about it: Meet's heading,
+  `line-height: var(--leading-tight)` (1.25) at 32 px, is 37.25 tall where
+  browsers make it 40, and its body text at 1.5 is laid out at the font's
+  own height, so everything under the heading sits high. 283 deferred this
+  to "its own item when a page needs it", and Meet, the offline screen and
+  the sign-in screen all set it. Half-leading on every inline box and the
+  strut, from `ComputedStyle::line_height`, which is already resolved. It
+  moves nearly every reference, and each move is to be read. *Depends on
+  nothing. Closes when:* a `numbers.rs` assertion has a 16 px line at
+  `line-height: 1.5` 24 tall with the text's baseline half the leading
+  down, a mixed line whose half-leadings differ, and `alo-meet-greeting`'s
+  heading 40 tall.
 
 - [ ] **278. A nested `<svg>` viewport.** *Cut from 271 (ADR 0022 § 1).* An
   `<svg>` inside an `<svg>` is a new viewport in its parent's drawing: its

@@ -50,7 +50,7 @@ pub use declaration::{Declaration, DeclarationBlock, Importance, PropertyName};
 pub use ident::Ident;
 pub use issue::{IssueKind, Location, StyleIssue};
 pub use matching::{MatchContext, matches};
-pub use media::{ColorScheme, MediaCondition, MediaContext, MediaQueryList};
+pub use media::{ColorScheme, MediaCondition, MediaContext, MediaQueryList, QueryLength};
 pub use parse::parse_stylesheet;
 pub use selector::{PseudoClass, PseudoElement, Selector, SelectorList, Specificity};
 pub use stylesheet::{MediaRule, Rule, StyleRule, Stylesheet, UnknownAtRule};

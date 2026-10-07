@@ -39,7 +39,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] **Viewport units** — `vw`, `vh`, `vmin`, `vmax` — which need a window, and answer zero rather than a plausible number when there is none
 - [1] Colours as channels — hex, `rgb()`, `hsl()`, the named colours. Blocks paint rather than layout
 - [1] An unknown property is kept and ignored rather than dropped, so a later stage can implement it without re-parsing
-- [1] Media queries for width, and `prefers-color-scheme` — the light and dark the workspace already ships
+- [1] Media queries for width, and `prefers-color-scheme` — the light and dark the workspace already ships. A width is in `px`, `em` or `rem`, and the last two are the initial 16 px rather than the page's font size, as Media Queries says; any other unit is recorded and the query never matches
 - [2] Animations and transitions
 - [2] Container queries, `:has()`, cascade layers, `@property`
 - [2] Filters, `backdrop-filter`, blend modes, masks and `clip-path`

@@ -52,6 +52,10 @@ than fixed in the iteration that found them:
 - `(max-width: 48rem)` is recorded as not understood, because a media
   query's length cannot be in `rem` here. At this width it would not match
   anyway, so nothing visible changes; on a narrow window it would — item 315.
+  **Fixed by item 315 (iteration 195):** `48rem` is 768 px, from the
+  initial 16 px font size, and the issue is gone. The render is unchanged
+  at this width; `tests/meets_greeting.rs` lays the page out at 768 and
+  769 and finds the narrow padding and heading only at the first.
 
 The issues list also has the two `::before` and `::after` selectors of
 global.css's `box-sizing` rule, which stage 1 does not produce.

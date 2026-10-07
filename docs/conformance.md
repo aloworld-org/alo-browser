@@ -67,6 +67,16 @@ by its font's ascent and descent, because `line-height` does not yet set the
 height of a line here. A face whose table has no x-height, DejaVu among
 them, is measured by its own `x`, as browsers do.
 
+**Media queries** answer `min-width`, `max-width`, `width` and
+`prefers-color-scheme`, joined by `and`, after an optional `not` or `only`
+and a media type (`screen` and `all` match, `print` and the rest do not).
+A width is written in `px`, `em` or `rem`, or is a bare zero. `em` and
+`rem` are the initial font size, 16 px, not the page's, because Media
+Queries says a query's relative units are never taken from a declaration
+(item 315): Meet's `(max-width: 48rem)` applies at 768 px and below. Every
+other feature, unit and the range syntax (`width >= 600px`) is recorded
+and the query treated as `not all`.
+
 Colours are channels, `currentColor` included, so the engine now knows what
 colour everything is.
 

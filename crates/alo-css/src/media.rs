@@ -149,15 +149,59 @@ pub enum Comparison {
     Exactly,
 }
 
+/// The size of one `em` or `rem` in a media query, in CSS pixels.
+///
+/// Media Queries Level 4 § 1.3: a relative length in a query is
+/// based on the *initial* value of the property it is relative to, never on a
+/// declaration, because a query decides which declarations apply. The initial
+/// `font-size` is `medium`, which is sixteen pixels here as in every browser.
+/// `alo-style`'s `DEFAULT_FONT_SIZE` is the same number for the same reason,
+/// and a test there holds the two together.
+pub const QUERY_FONT_SIZE: f32 = 16.0;
+
+/// A length written in a media feature, kept in the unit it was written in.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum QueryLength {
+    /// CSS pixels, or a bare zero.
+    Px(f32),
+    /// `em`: the initial font size, not the page's.
+    Em(f32),
+    /// `rem`: the initial font size too, since a query has no root to read.
+    Rem(f32),
+}
+
+impl QueryLength {
+    /// The length in CSS pixels.
+    ///
+    /// A hostile size overflows to infinity rather than wrapping, and an
+    /// infinite breakpoint compares as one: nothing is wider than it.
+    pub fn pixels(self) -> f32 {
+        match self {
+            QueryLength::Px(value) => value,
+            QueryLength::Em(value) | QueryLength::Rem(value) => value * QUERY_FONT_SIZE,
+        }
+    }
+}
+
+impl fmt::Display for QueryLength {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            QueryLength::Px(value) => write!(f, "{value}px"),
+            QueryLength::Em(value) => write!(f, "{value}em"),
+            QueryLength::Rem(value) => write!(f, "{value}rem"),
+        }
+    }
+}
+
 /// One `(feature: value)` test.
 #[derive(Debug, Clone, PartialEq)]
 pub enum MediaCondition {
-    /// A width in CSS pixels, compared.
+    /// A width, compared.
     Width {
         /// How to compare.
         comparison: Comparison,
-        /// The width being compared against, in CSS pixels.
-        pixels: f32,
+        /// The width being compared against, as written.
+        length: QueryLength,
     },
     /// `prefers-color-scheme`.
     ColorScheme(ColorScheme),
@@ -167,12 +211,15 @@ impl MediaCondition {
     /// Whether this condition holds for a device.
     pub fn matches(&self, context: &MediaContext) -> bool {
         match self {
-            MediaCondition::Width { comparison, pixels } => match comparison {
-                Comparison::AtLeast => context.width >= *pixels,
-                Comparison::AtMost => context.width <= *pixels,
-                #[allow(clippy::float_cmp)]
-                Comparison::Exactly => context.width == *pixels,
-            },
+            MediaCondition::Width { comparison, length } => {
+                let pixels = length.pixels();
+                match comparison {
+                    Comparison::AtLeast => context.width >= pixels,
+                    Comparison::AtMost => context.width <= pixels,
+                    #[allow(clippy::float_cmp)]
+                    Comparison::Exactly => context.width == pixels,
+                }
+            }
             MediaCondition::ColorScheme(scheme) => context.color_scheme == *scheme,
         }
     }
@@ -181,13 +228,13 @@ impl MediaCondition {
 impl fmt::Display for MediaCondition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MediaCondition::Width { comparison, pixels } => {
+            MediaCondition::Width { comparison, length } => {
                 let name = match comparison {
                     Comparison::AtLeast => "min-width",
                     Comparison::AtMost => "max-width",
                     Comparison::Exactly => "width",
                 };
-                write!(f, "({name}: {pixels}px)")
+                write!(f, "({name}: {length})")
             }
             MediaCondition::ColorScheme(scheme) => {
                 write!(f, "(prefers-color-scheme: {scheme})")
@@ -436,22 +483,34 @@ fn parse_one_condition<'i>(
         };
         Ok(MediaCondition::Width {
             comparison,
-            pixels: expect_pixels(input)?,
+            length: expect_length(input)?,
         })
     })
 }
 
-/// A length in CSS pixels.
+/// A length: `px`, `em`, `rem`, or a bare zero.
 ///
-/// Only `px` and a bare zero. A breakpoint written in `em` depends on a font
-/// size that is not settled until the cascade runs, and answering it with a
-/// guessed 16 pixels would be a wrong answer that looks like a right one.
-fn expect_pixels<'i>(input: &mut CssParser<'i, '_>) -> Result<f32, cssparser::ParseError<'i, ()>> {
+/// `em` and `rem` are not the page's font size, which is not settled until
+/// the cascade runs and which the query itself helps decide. They are the
+/// initial one, [`QUERY_FONT_SIZE`], as Media Queries says. Every other unit
+/// is refused and the query recorded: `ex` and `ch` need a font's metrics, and
+/// the viewport units no breakpoint here has asked for.
+fn expect_length<'i>(
+    input: &mut CssParser<'i, '_>,
+) -> Result<QueryLength, cssparser::ParseError<'i, ()>> {
     let location = input.current_source_location();
     match input.next()? {
-        Token::Dimension { value, unit, .. } if unit.eq_ignore_ascii_case("px") => Ok(*value),
+        Token::Dimension { value, unit, .. } if unit.eq_ignore_ascii_case("px") => {
+            Ok(QueryLength::Px(*value))
+        }
+        Token::Dimension { value, unit, .. } if unit.eq_ignore_ascii_case("em") => {
+            Ok(QueryLength::Em(*value))
+        }
+        Token::Dimension { value, unit, .. } if unit.eq_ignore_ascii_case("rem") => {
+            Ok(QueryLength::Rem(*value))
+        }
         #[allow(clippy::float_cmp)]
-        Token::Number { value, .. } if *value == 0.0 => Ok(0.0),
+        Token::Number { value, .. } if *value == 0.0 => Ok(QueryLength::Px(0.0)),
         token => {
             let token = token.clone();
             Err(cssparser::ParseError::from(BasicParseError {
@@ -574,7 +633,9 @@ mod tests {
         for text in [
             "(min-resolution: 2dppx)",
             "(width >= 600px)",
-            "(min-width: 40em)",
+            "(min-width: 40ex)",
+            "(min-width: 40vw)",
+            "(min-width: 40)",
             "(orientation: landscape)",
             "(prefers-color-scheme: sepia)",
         ] {
@@ -608,6 +669,8 @@ mod tests {
             "(min-width: 600px)",
             "(max-width: 600px) and (prefers-color-scheme: dark)",
             "screen and (min-width: 600px)",
+            "(max-width: 48rem)",
+            "(min-width: 30em)",
             "(min-width: 600px), (prefers-color-scheme: dark)",
         ] {
             assert_eq!(understood(text).to_string(), text);
@@ -618,6 +681,47 @@ mod tests {
     fn an_unsupported_query_keeps_the_text_it_was_written_with() {
         let (list, _) = parse("(min-resolution: 2dppx)");
         assert_eq!(list.to_string(), "(min-resolution: 2dppx)");
+    }
+
+    #[test]
+    fn rem_and_em_are_the_initial_font_size_and_not_the_pages() {
+        let at = |width: f32| MediaContext::new(width, ColorScheme::Light);
+        for unit in ["rem", "em", "REM", "Em"] {
+            let at_most = understood(&format!("(max-width: 48{unit})"));
+            assert!(at_most.matches(&at(767.0)), "{unit}");
+            assert!(at_most.matches(&at(768.0)), "{unit}: 48 x 16 is 768");
+            assert!(!at_most.matches(&at(769.0)), "{unit}");
+
+            let at_least = understood(&format!("(min-width: 48{unit})"));
+            assert!(!at_least.matches(&at(767.0)), "{unit}");
+            assert!(at_least.matches(&at(768.0)), "{unit}");
+
+            assert!(understood(&format!("(width: 48{unit})")).matches(&at(768.0)));
+        }
+        assert!(understood("(min-width: 2.5em)").matches(&at(40.0)));
+        assert!(!understood("(min-width: 2.5em)").matches(&at(39.5)));
+    }
+
+    #[test]
+    fn a_hostile_length_is_answered_and_never_panics() {
+        for text in [
+            "(min-width: 1e38rem)",
+            "(max-width: -1e38em)",
+            "(min-width: 99999999999999999999999999999999999999999999em)",
+            "(max-width: 1e-45rem)",
+            "(max-width: rem)",
+            "(max-width: 48 rem)",
+            "(max-width: 48rem 1px)",
+            "(max-width: 48r\\em)",
+        ] {
+            let (list, _) = parse(text);
+            let _ = list.matches(&NARROW_LIGHT);
+            let _ = list.to_string();
+        }
+        assert!(
+            !understood("(min-width: 1e38rem)").matches(&WIDE_DARK),
+            "an infinite breakpoint is wider than any window",
+        );
     }
 
     #[test]

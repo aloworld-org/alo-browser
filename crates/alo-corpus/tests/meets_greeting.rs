@@ -10,7 +10,8 @@
 //! it as the file's two shapes in the file's own two colours, and it stands
 //! where `vertical-align: middle` puts it. And `.module`'s background, two
 //! layers, is drawn as both of them: the tint in the top right corner over
-//! the page's colour (queue item 313).
+//! the page's colour (queue item 313). And its narrow-screen block, written
+//! `(max-width: 48rem)`, applies below 768 pixels and not above (item 315).
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
@@ -32,6 +33,73 @@ fn greeting() -> Option<(Rendering, alo_box::BoxId, Rect)> {
     })?;
     let content = drawing.layout.get(id)?.content_box();
     Some((rendering, id, content))
+}
+
+/// The case laid out in a window `width` wide: the `<header>`'s border box
+/// and the `<h1>`'s height, and the issues the page's style raised.
+fn header_at(width: f32) -> Option<(Rect, f32, Vec<String>)> {
+    let mut case = Case::read(&cases_directory().join("alo-meet-greeting"))?;
+    case.size.0 = width;
+    let rendering = Rendering::of(&case).ok()?;
+    let document = rendering.document()?;
+    let drawing = rendering.drawing()?;
+    let border_box_of = |name: &str| {
+        drawing
+            .boxes
+            .ids()
+            .find_map(|id| match drawing.boxes.get(id).map(|node| &node.kind) {
+                Some(alo_box::BoxKind::Element { node, .. })
+                    if document
+                        .element(*node)
+                        .is_some_and(|element| element.name.is_html(name)) =>
+                {
+                    Some(drawing.layout.get(id)?.border_box)
+                }
+                _ => None,
+            })
+    };
+    let header = border_box_of("header")?;
+    let heading = border_box_of("h1")?;
+    let issues = drawing.issues(document);
+    Some((header, heading.size.height, issues))
+}
+
+#[test]
+fn the_narrow_screen_block_applies_at_48rem_and_below() {
+    let (Some(narrow), Some(wide)) = (header_at(768.0), header_at(769.0)) else {
+        panic!("the case renders at both widths");
+    };
+    // 48rem is 48 of the initial 16 px, whatever the page's own font size.
+    // At 768, `.content` is padded 16 above and 12 aside, and `.header`'s
+    // 20 px top margin follows: (12, 36). The heading is `--text-2xl`, 28 px.
+    let (header, heading, issues) = narrow;
+    assert_eq!((header.left(), header.top()), (12.0, 36.0));
+    assert!(
+        (header.size.width - (768.0 - 24.0)).abs() < 0.001,
+        "{}",
+        header.size.width
+    );
+    // One pixel wider and it is the wide layout the reference pins: 24 px
+    // padding all round, and `--text-3xl`.
+    let (header, wide_heading, _) = wide;
+    assert_eq!((header.left(), header.top()), (24.0, 44.0));
+    assert!(
+        (header.size.width - (769.0 - 48.0)).abs() < 0.001,
+        "{}",
+        header.size.width
+    );
+    // The heading's line is its face's ascent and descent, which scale with
+    // its size: 28 to 32. (`--leading-tight` would make them 35 and 40, but
+    // `line-height` does not yet reach text; queue item 316.)
+    assert!(
+        (heading / wide_heading - 28.0 / 32.0).abs() < 0.001,
+        "a 28 px heading is {heading} where a 32 px one is {wide_heading}",
+    );
+
+    assert!(
+        !issues.iter().any(|issue| issue.contains("media")),
+        "the query is understood: {issues:?}",
+    );
 }
 
 #[test]
