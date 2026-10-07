@@ -1,0 +1,2 @@
+0:0: layer not drawn, the others are: background: url(missing.png)
+0:0: value not implemented, property left at its initial: background: linear-gradient(#000000, #ffffff) no-repeat, #ff0000

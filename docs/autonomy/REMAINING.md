@@ -597,6 +597,14 @@ case and `text-decorations` moved. 313 and 315 depend on nothing and are
 eligible. 137 queue items are open. The next unused queue number is 316 and
 the next unused ADR 0028.
 
+Iteration 194 built item 313: a background of several layers, the colour
+beneath and the first written on top, and radial gradients with a shape,
+an extent keyword and a centre. Stops now mix with alpha premultiplied.
+Paint records a `url()` layer as undrawn and a list it cannot read as
+refused. Meet's corner tint is drawn, and the new case `background-layers`
+pins the rest. 315 depends on nothing and is eligible. 136 queue items are
+open. The next unused queue number is 316 and the next unused ADR 0028.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

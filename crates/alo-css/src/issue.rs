@@ -82,6 +82,11 @@ pub enum IssueKind {
     /// as near as the engine can and the difference is recorded, because a
     /// silently approximated box is one nobody can find later.
     UnsupportedStructure,
+    /// One layer of a list this engine reads, which it cannot draw — a
+    /// background picture at a `url()`, before pictures behind a box are
+    /// built. Only that layer is missing; the others are drawn, which is why
+    /// this is not [`IssueKind::UnsupportedValue`].
+    UndrawnLayer,
 }
 
 impl IssueKind {
@@ -103,6 +108,7 @@ impl IssueKind {
             }
             IssueKind::UnsupportedValue => "value not implemented, property left at its initial",
             IssueKind::UnsupportedStructure => "tree shape not implemented exactly, approximated",
+            IssueKind::UndrawnLayer => "layer not drawn, the others are",
         }
     }
 }

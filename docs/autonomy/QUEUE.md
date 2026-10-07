@@ -5792,7 +5792,7 @@ The long pole, and the thing most of section E is unreachable without.
   did `text-decorations`' line-through, by 0.33 px, from the measured
   x-height.
 
-- [ ] **313. A background of several layers.** *Opened by
+- [x] **313. A background of several layers.** *Opened by
   `alo-meet-greeting` (iteration 192).* `background: radial-gradient(…),
   var(--bg-app)`, Meet's `.module`, is two layers, and paint reads a
   background only as one gradient or one colour, so it draws nothing and
@@ -5803,6 +5803,29 @@ The long pole, and the thing most of section E is unreachable without.
   gradient over a colour and two gradients over each other, a layer list
   that cannot be read is recorded, and `alo-meet-greeting`'s tint appears in
   its top right corner.
+  **Built (iteration 194):** `alo-value`'s `background.rs` holds a list of
+  layers, first on top, and the colour beneath, and `parse.rs` reads
+  `background` and `background-image` into it: a layer is `none`, a
+  gradient or a `url()`, and the last may also hold a colour. A layer that
+  says anything else (a position, size, repeat or box) refuses the whole
+  list. Meet's tint needed radial gradients that are more than centred
+  ellipses, so `Gradient::Radial` gained a `Shape`, an `Extent` (all four
+  keywords) and a `Position` (one or two keywords, percentages or pixel
+  lengths), and `alo-paint`'s `paint.rs` places the last ring for each.
+  Sizes written as lengths and positions of three or four parts are refused.
+  Stops now mix premultiplied, as CSS says, so a fade to `transparent`
+  keeps its colour. `alo-paint`'s new `background.rs` reads a box's
+  background once, and `build.rs` draws the colour and then each layer from
+  the bottom up. Paint now has an issue list: a `url()` layer is recorded
+  as `UndrawnLayer` while the rest are drawn, an unreadable list as
+  `UnsupportedValue`, once per box however many pieces it is in. The
+  renderer's issues include it. The new corpus case `background-layers` has
+  a gradient over a colour, two gradients crossed, a circle and an ellipse
+  placed by keyword, a `url()` layer and an unreadable list.
+  `alo-paint/tests/background_layers.rs` reads the order back in pixels.
+  `alo-meet-greeting` moved: the tint is in its top right corner, and
+  `meets_greeting.rs` reads its centre, half way out and past its edge.
+  No other reference moved.
 
 - [ ] **314. An `<img>` given a width and a height keeps neither ratio nor
   height.** *Found by iteration 192's tests, not opened by a page.* A

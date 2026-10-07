@@ -19,6 +19,7 @@
 //! the full painting order, which `docs/features.md` reaches for with
 //! transforms and opacity.
 
+use crate::background::{self, Backdrop};
 use crate::banded;
 use crate::border::{self, DrawnSide, Line, Side};
 use crate::canvas::Canvas;
@@ -33,7 +34,7 @@ use alo_box::{BoxId, BoxKind, BoxTree};
 use alo_layout::{LayoutTree, Rect};
 use alo_style::StyleTree;
 use alo_text::{FontDatabase, FontRequest, Slant, Weight};
-use alo_value::{DrawnShadow, Gradient, Rgba};
+use alo_value::{DrawnShadow, Rgba};
 
 /// What paint needs that is not in the layout: the fonts, and the colour of
 /// the page behind everything.
@@ -68,13 +69,15 @@ pub fn build(
         styles,
         context,
         next_order: 0,
+        refused: Vec::new(),
     };
     let Some(root) = boxes.root() else {
         return DisplayList::default();
     };
     // The root always establishes a stacking context, so nothing is left over
     // to escape past it.
-    DisplayList::from_items(builder.paint(root).items)
+    let items = builder.paint(root).items;
+    DisplayList::from_parts(items, builder.refused)
 }
 
 struct Builder<'a> {
@@ -85,6 +88,8 @@ struct Builder<'a> {
     /// Which layer was reached first, so that two with the same `z-index`
     /// stack in the order they were written.
     next_order: usize,
+    /// What the styles asked paint for and did not get, box by box.
+    refused: Vec<alo_css::StyleIssue>,
 }
 
 /// One positioned box's subtree, waiting for a stacking context to place it.
@@ -111,7 +116,8 @@ impl Builder<'_> {
     /// painted inside that transform, not over the whole document.
     fn paint(&mut self, id: BoxId) -> Painted {
         let mut own = Vec::new();
-        self.draw_box(id, &mut own);
+        let refused = self.draw_box(id, &mut own);
+        self.refused.extend(refused);
 
         let children: Vec<BoxId> = self.boxes.children(id).collect();
         // A box that clips holds its children inside its own shape — which,
@@ -315,13 +321,17 @@ impl Builder<'_> {
         ))
     }
 
-    fn draw_box(&self, id: BoxId, out: &mut Vec<DisplayItem>) {
+    /// Everything one box draws for itself, and what it could not.
+    fn draw_box(&self, id: BoxId, out: &mut Vec<DisplayItem>) -> Vec<alo_css::StyleIssue> {
         let Some(geometry) = self.layout.get(id) else {
-            return;
+            return Vec::new();
         };
         let Some(node) = self.boxes.get(id) else {
-            return;
+            return Vec::new();
         };
+        // Read once, not once per piece: a box broken across three lines has
+        // one background, and one refusal if it has any.
+        let backdrop = self.style_of(id).map(background::read).unwrap_or_default();
 
         // **One area per piece.** A box that sits on a line and wrapped has a
         // rectangle per line it is on, and drawing its background from the
@@ -344,7 +354,7 @@ impl Builder<'_> {
             // piece and its end edge only on its last, which is what CSS says
             // and what stops a wrapped `<em>` growing a border down the middle
             // of a paragraph.
-            self.draw_one_area(id, *area, index == 0, index == last, out);
+            self.draw_one_area(id, *area, (index == 0, index == last), &backdrop, out);
         }
 
         // After the background and border, before the text: a picture is
@@ -356,17 +366,21 @@ impl Builder<'_> {
         if let BoxKind::Text { text, .. } = &node.kind {
             self.draw_text(id, text, out);
         }
+        backdrop.refused
     }
 
     /// The shadows, background and border of one piece of a box.
+    ///
+    /// `ends` says whether this is the box's first piece and its last.
     fn draw_one_area(
         &self,
         id: BoxId,
         area: Rect,
-        first: bool,
-        last: bool,
+        ends: (bool, bool),
+        backdrop: &Backdrop,
         out: &mut Vec<DisplayItem>,
     ) {
+        let (first, last) = ends;
         // CSS's own order for one box: the shadows it casts outwards, then
         // its background colour, then its background image over that, then
         // the shadows cast inwards, then the border, then what is inside it.
@@ -385,7 +399,7 @@ impl Builder<'_> {
         let border = self.border_of(id);
         if let Some(style) = self.style_of(id) {
             let shape = rounded_rectangle(area, corners);
-            if let Some(color) = background_color(style)
+            if let Some(color) = backdrop.color
                 && !color.is_invisible()
             {
                 out.push(DisplayItem::Fill {
@@ -395,15 +409,16 @@ impl Builder<'_> {
                     paint: Paint::Solid(color),
                 });
             }
-            // A gradient is measured against the padding box, which is what
-            // `background-origin` starts at, and drawn over the border box.
-            if let Some(gradient) = background_gradient(style) {
+            // Each layer is measured against the padding box, which is what
+            // `background-origin` starts at, and drawn over the border box,
+            // the last written first so that the first ends up on top.
+            for gradient in &backdrop.gradients {
                 out.push(DisplayItem::Fill {
                     rule: FillRule::NonZero,
                     box_id: id,
-                    path: shape,
+                    path: shape.clone(),
                     paint: Paint::Gradient {
-                        gradient,
+                        gradient: gradient.clone(),
                         area: area.shrunk_by(border),
                         current: style.current_color(),
                     },
@@ -1071,24 +1086,6 @@ fn border_color(style: &alo_style::ComputedStyle, side: &str) -> Rgba {
     style.current_color()
 }
 
-/// The colour a box's background is painted in.
-///
-/// `background-color` if it was written; otherwise `background`, when the
-/// whole of it is a colour. Stage 1 does not expand shorthands in the cascade
-/// — a shorthand arrives whole — and `background: #fff` is how a style sheet
-/// actually says this, so reading it here is the difference between drawing
-/// the page and drawing nothing.
-///
-/// A `background` that is an image or a gradient is not a colour and is
-/// ignored, which is right: those are queue item 18, and painting the colour
-/// out of a gradient would be a wrong pixel that looks nearly right.
-fn background_color(style: &alo_style::ComputedStyle) -> Option<Rgba> {
-    if let Some(color) = style.color("background-color") {
-        return Some(color);
-    }
-    style.color("background")
-}
-
 fn rect_path(rect: Rect) -> Path {
     Path::rectangle(rect.left(), rect.top(), rect.size.width, rect.size.height)
 }
@@ -1156,20 +1153,4 @@ fn grown_corners(corners: Corners, by: f32) -> Corners {
         bottom_right: grow(corners.bottom_right),
         bottom_left: grow(corners.bottom_left),
     }
-}
-
-/// The gradient a box's background is painted with, if it is painted with one.
-///
-/// `background-image` if it was written, otherwise `background` — the same
-/// order, and for the same reason, as the colour beside it: stage 1 does not
-/// expand shorthands in the cascade, so a shorthand arrives whole.
-fn background_gradient(style: &alo_style::ComputedStyle) -> Option<Gradient> {
-    for property in ["background-image", "background"] {
-        if let Some(text) = style.get(property)
-            && let Some(gradient) = alo_value::parse_gradient(text)
-        {
-            return Some(gradient);
-        }
-    }
-    None
 }

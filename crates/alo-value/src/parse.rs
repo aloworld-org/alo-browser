@@ -14,9 +14,10 @@
 //! parse. A guessed length is a wrong pixel, and law 3 says a wrong pixel is a
 //! bug.
 
+use crate::background::{Background, Image};
 use crate::calc::{CalcNode, Kind};
 use crate::color::{Color, Rgba, from_hsl};
-use crate::gradient::{Angle, Gradient, Stop};
+use crate::gradient::{Angle, Extent, Gradient, Offset, Position, Shape, Stop};
 use crate::length::{Length, LengthPercentage};
 use crate::shadow::Shadow;
 use crate::transform::{Function, Matrix, Transform};
@@ -193,33 +194,143 @@ fn alpha_channel(input: &mut CssParser<'_, '_>) -> Option<f32> {
 /// a different curve through colour, and drawing one as another is a wrong
 /// pixel that looks nearly right.
 pub fn parse_gradient(text: &str) -> Option<Gradient> {
+    entirely(text, one_gradient)
+}
+
+/// One gradient function, with nothing after it.
+fn one_gradient(input: &mut CssParser<'_, '_>) -> Option<Gradient> {
+    let radial = input
+        .try_parse(|input| {
+            let name = input.expect_function()?.clone();
+            if name.eq_ignore_ascii_case("linear-gradient") {
+                Ok(false)
+            } else if name.eq_ignore_ascii_case("radial-gradient") {
+                Ok(true)
+            } else {
+                Err(input.new_basic_unexpected_token_error(Token::Function(name)))
+            }
+        })
+        .ok()?;
+    input
+        .parse_nested_block(
+            |arguments| -> Result<Option<Gradient>, cssparser::ParseError<'_, ()>> {
+                Ok(gradient_arguments(arguments, radial))
+            },
+        )
+        .ok()?
+}
+
+/// Read a whole `background` shorthand: its layers, first on top, and the
+/// colour beneath them (see [`crate::background`] for what a layer may hold).
+///
+/// [`None`] when any part of any layer is something this engine does not
+/// read. A layer that only says where its picture sits is still refused,
+/// because drawing it somewhere else is a wrong picture.
+pub fn parse_background(text: &str) -> Option<Background> {
+    layers(text, true)
+}
+
+/// Read a whole `background-image`: its pictures, first on top.
+///
+/// The same list as [`parse_background`]'s with no colour anywhere in it.
+pub fn parse_background_image(text: &str) -> Option<Vec<Image>> {
+    layers(text, false).map(|background| background.images)
+}
+
+fn layers(text: &str, colour_allowed: bool) -> Option<Background> {
+    if text.trim().is_empty() {
+        return None;
+    }
     entirely(text, |input| {
-        let radial = input
-            .try_parse(|input| {
-                let name = input.expect_function()?.clone();
-                if name.eq_ignore_ascii_case("linear-gradient") {
-                    Ok(false)
-                } else if name.eq_ignore_ascii_case("radial-gradient") {
-                    Ok(true)
-                } else {
-                    Err(input.new_basic_unexpected_token_error(Token::Function(name)))
-                }
-            })
-            .ok()?;
-        input
-            .parse_nested_block(
-                |arguments| -> Result<Option<Gradient>, cssparser::ParseError<'_, ()>> {
-                    Ok(gradient_arguments(arguments, radial))
-                },
-            )
-            .ok()?
+        let mut background = Background::default();
+        loop {
+            let (image, color) = one_layer(input, colour_allowed)?;
+            let last = input.try_parse(CssParser::expect_comma).is_err();
+            // Only the last layer may have a colour, because there is only
+            // one thing beneath every layer.
+            if color.is_some() && !last {
+                return None;
+            }
+            background.images.push(image.unwrap_or(Image::None));
+            background.color = color;
+            if last {
+                break;
+            }
+        }
+        // `background: #fff` is one layer whose picture is `none`, which is
+        // the same as no picture: keep the list honest about what is drawn.
+        if background.images.iter().all(|image| *image == Image::None) {
+            background.images.clear();
+        }
+        Some(background)
     })
+}
+
+/// One layer, up to its comma: a picture, a colour, or both, in either order.
+///
+/// Anything else — a position, a size, a repeat, a box — refuses the layer.
+fn one_layer(
+    input: &mut CssParser<'_, '_>,
+    colour_allowed: bool,
+) -> Option<(Option<Image>, Option<Color>)> {
+    let mut image = None;
+    let mut color = None;
+    while !input.is_exhausted() && !at_comma(input) {
+        if image.is_none()
+            && let Ok(found) = input.try_parse(|input| one_image(input).ok_or(()))
+        {
+            image = Some(found);
+            continue;
+        }
+        if colour_allowed
+            && color.is_none()
+            && let Ok(found) = input.try_parse(|input| one_color(input).ok_or(()))
+        {
+            color = Some(found);
+            continue;
+        }
+        return None;
+    }
+    if image.is_none() && color.is_none() {
+        // An empty layer, `a, , b`, is not a layer.
+        return None;
+    }
+    Some((image, color))
+}
+
+/// Whether the next thing is a comma, without reading it.
+fn at_comma(input: &mut CssParser<'_, '_>) -> bool {
+    let state = input.state();
+    let comma = input.expect_comma().is_ok();
+    input.reset(&state);
+    comma
+}
+
+/// One layer's picture.
+fn one_image(input: &mut CssParser<'_, '_>) -> Option<Image> {
+    if input
+        .try_parse(|input| input.expect_ident_matching("none"))
+        .is_ok()
+    {
+        return Some(Image::None);
+    }
+    if let Ok(address) = input.try_parse(|input| input.expect_url().map(|url| url.to_string())) {
+        return Some(Image::Url(address));
+    }
+    one_gradient(input).map(Image::Gradient)
 }
 
 /// What is inside the brackets: a direction, then the stops.
 fn gradient_arguments(input: &mut CssParser<'_, '_>, radial: bool) -> Option<Gradient> {
     let mut angle = Angle::DOWN;
-    if !radial {
+    let mut ring = (Shape::Ellipse, Extent::FarthestCorner, Position::CENTRE);
+    if radial {
+        // A shape, an extent, a centre, then a comma — or none of it, and
+        // the first thing is a colour.
+        if let Ok(found) = input.try_parse(|input| radial_header(input).ok_or(())) {
+            ring = found;
+        }
+    } else {
         // A leading angle or `to <side>`; without one the gradient runs down.
         if let Ok(degrees) =
             input.try_parse(|input| -> Result<f32, cssparser::ParseError<'_, ()>> {
@@ -268,10 +379,137 @@ fn gradient_arguments(input: &mut CssParser<'_, '_>, radial: bool) -> Option<Gra
         return None;
     }
     Some(if radial {
-        Gradient::Radial { stops }
+        let (shape, extent, centre) = ring;
+        Gradient::Radial {
+            shape,
+            extent,
+            centre,
+            stops,
+        }
     } else {
         Gradient::Linear { angle, stops }
     })
+}
+
+/// What comes before a radial gradient's stops: `circle`, `ellipse`, an
+/// extent keyword and `at` a position, each optional and the first two in
+/// either order, ending at a comma.
+///
+/// A size written as lengths is refused: it is not a word, so it ends the
+/// header without a comma, and the whole gradient is refused with it.
+fn radial_header(input: &mut CssParser<'_, '_>) -> Option<(Shape, Extent, Position)> {
+    let mut shape = None;
+    let mut extent = None;
+    let mut centre = None;
+    loop {
+        if input.try_parse(CssParser::expect_comma).is_ok() {
+            break;
+        }
+        let word = input.expect_ident().ok()?.clone();
+        if word.eq_ignore_ascii_case("at") && centre.is_none() {
+            centre = Some(position(input)?);
+        } else if shape.is_none() && centre.is_none() && word.eq_ignore_ascii_case("circle") {
+            shape = Some(Shape::Circle);
+        } else if shape.is_none() && centre.is_none() && word.eq_ignore_ascii_case("ellipse") {
+            shape = Some(Shape::Ellipse);
+        } else if extent.is_none()
+            && centre.is_none()
+            && let Some(found) = Extent::parse(&word)
+        {
+            extent = Some(found);
+        } else {
+            return None;
+        }
+    }
+    if shape.is_none() && extent.is_none() && centre.is_none() {
+        return None;
+    }
+    Some((
+        shape.unwrap_or(Shape::Ellipse),
+        extent.unwrap_or(Extent::FarthestCorner),
+        centre.unwrap_or(Position::CENTRE),
+    ))
+}
+
+/// One part of a position, before it is known which axis it is on.
+#[derive(Clone, Copy)]
+enum PositionPart {
+    Across(f32),
+    Down(f32),
+    Centre,
+    Offset(Offset),
+}
+
+/// A position of one or two parts, up to the comma that ends it.
+///
+/// Two parts are across then down, except that two keywords may come either
+/// way round, so `top right` is `right top`. Three or four parts, which offset
+/// from a named side, are refused.
+fn position(input: &mut CssParser<'_, '_>) -> Option<Position> {
+    let mut parts = Vec::with_capacity(2);
+    while parts.len() < 2 && !at_comma(input) {
+        parts.push(one_part(input)?);
+    }
+    let axis = |part: PositionPart| match part {
+        PositionPart::Across(fraction) | PositionPart::Down(fraction) => Offset::Fraction(fraction),
+        PositionPart::Centre => Offset::Fraction(0.5),
+        PositionPart::Offset(offset) => offset,
+    };
+    let centre = Offset::Fraction(0.5);
+    match parts.as_slice() {
+        [PositionPart::Down(_)] => Some(Position {
+            x: centre,
+            y: axis(parts.first().copied()?),
+        }),
+        [only] => Some(Position {
+            x: axis(*only),
+            y: centre,
+        }),
+        [first, second] => {
+            let swapped =
+                matches!(first, PositionPart::Down(_)) || matches!(second, PositionPart::Across(_));
+            if swapped {
+                let fits = matches!(first, PositionPart::Down(_) | PositionPart::Centre)
+                    && matches!(second, PositionPart::Across(_) | PositionPart::Centre);
+                fits.then(|| Position {
+                    x: axis(*second),
+                    y: axis(*first),
+                })
+            } else {
+                Some(Position {
+                    x: axis(*first),
+                    y: axis(*second),
+                })
+            }
+        }
+        _ => None,
+    }
+}
+
+/// One keyword, percentage or pixel length in a position.
+fn one_part(input: &mut CssParser<'_, '_>) -> Option<PositionPart> {
+    let token = input.next().ok()?.clone();
+    match token {
+        Token::Ident(word) => match () {
+            () if word.eq_ignore_ascii_case("left") => Some(PositionPart::Across(0.0)),
+            () if word.eq_ignore_ascii_case("right") => Some(PositionPart::Across(1.0)),
+            () if word.eq_ignore_ascii_case("top") => Some(PositionPart::Down(0.0)),
+            () if word.eq_ignore_ascii_case("bottom") => Some(PositionPart::Down(1.0)),
+            () if word.eq_ignore_ascii_case("center") => Some(PositionPart::Centre),
+            () => None,
+        },
+        Token::Percentage { unit_value, .. } if unit_value.is_finite() => {
+            Some(PositionPart::Offset(Offset::Fraction(unit_value)))
+        }
+        Token::Dimension { value, unit, .. }
+            if unit.eq_ignore_ascii_case("px") && value.is_finite() =>
+        {
+            Some(PositionPart::Offset(Offset::Pixels(value)))
+        }
+        // A length of nothing needs no unit; any other bare number does.
+        Token::Number { value: 0.0, .. } => Some(PositionPart::Offset(Offset::Pixels(0.0))),
+        _ => None,
+    }
 }
 
 /// One colour, and where it sits if it says.
@@ -1140,6 +1378,195 @@ mod tests {
     fn a_radial_gradient_is_read_as_one() {
         let found = gradient("radial-gradient(white, black)").expect("two stops");
         assert!(matches!(found, crate::Gradient::Radial { .. }));
+    }
+
+    /// A radial gradient's shape, extent and centre, or why not.
+    fn rings(text: &str) -> Option<(Shape, Extent, Position)> {
+        match gradient(text)? {
+            crate::Gradient::Radial {
+                shape,
+                extent,
+                centre,
+                ..
+            } => Some((shape, extent, centre)),
+            crate::Gradient::Linear { .. } => None,
+        }
+    }
+
+    fn at(x: Offset, y: Offset) -> Position {
+        Position { x, y }
+    }
+
+    #[test]
+    fn a_radial_gradient_may_say_its_shape_extent_and_centre() {
+        use Offset::{Fraction, Pixels};
+        let plain = (Shape::Ellipse, Extent::FarthestCorner, Position::CENTRE);
+        assert_eq!(rings("radial-gradient(red, blue)"), Some(plain));
+        assert_eq!(
+            rings("radial-gradient(circle at 92% 0, red, transparent 26%)"),
+            Some((
+                Shape::Circle,
+                Extent::FarthestCorner,
+                at(Fraction(0.92), Pixels(0.0))
+            )),
+            "Meet's tint",
+        );
+        assert_eq!(
+            rings("radial-gradient(closest-side circle, red, blue)"),
+            Some((Shape::Circle, Extent::ClosestSide, Position::CENTRE)),
+            "the shape and the extent come either way round",
+        );
+        assert_eq!(
+            rings("radial-gradient(ellipse farthest-side at left, red, blue)"),
+            Some((
+                Shape::Ellipse,
+                Extent::FarthestSide,
+                at(Fraction(0.0), Fraction(0.5))
+            )),
+        );
+        assert_eq!(
+            rings("radial-gradient(at bottom, red, blue)"),
+            Some((
+                Shape::Ellipse,
+                Extent::FarthestCorner,
+                at(Fraction(0.5), Fraction(1.0))
+            )),
+            "a vertical keyword alone is down, and across is the middle",
+        );
+        for (written, centre) in [
+            ("top right", at(Fraction(1.0), Fraction(0.0))),
+            ("right top", at(Fraction(1.0), Fraction(0.0))),
+            ("center bottom", at(Fraction(0.5), Fraction(1.0))),
+            ("bottom center", at(Fraction(0.5), Fraction(1.0))),
+            ("10px 30%", at(Pixels(10.0), Fraction(0.3))),
+            ("left 4px", at(Fraction(0.0), Pixels(4.0))),
+        ] {
+            let found = rings(&format!("radial-gradient(at {written}, red, blue)"));
+            assert_eq!(
+                found.map(|(_, _, centre)| centre),
+                Some(centre),
+                "{written}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_radial_gradient_this_engine_would_place_wrongly_is_refused() {
+        for text in [
+            "radial-gradient(circle 10px, red, blue)",
+            "radial-gradient(40px 20px, red, blue)",
+            "radial-gradient(circle circle, red, blue)",
+            "radial-gradient(at left 10px top 4px, red, blue)",
+            "radial-gradient(at 1em 2em, red, blue)",
+            "radial-gradient(at top top, red, blue)",
+            "radial-gradient(at 10px left, red, blue)",
+            "radial-gradient(at left right, red, blue)",
+            "radial-gradient(at center, red)",
+            "radial-gradient(circle at, red, blue)",
+            "radial-gradient(at 50% circle, red, blue)",
+        ] {
+            assert_eq!(gradient(text), None, "{text} should be refused");
+        }
+    }
+
+    #[test]
+    fn a_background_is_its_layers_first_on_top_and_a_colour() {
+        let found =
+            parse_background("radial-gradient(circle at 92% 0, #f8d6cc, transparent 26%), #f4f1ec")
+                .expect("Meet's background");
+        assert!(
+            matches!(
+                found.images.as_slice(),
+                [Image::Gradient(crate::Gradient::Radial { .. }), Image::None]
+            ),
+            "the colour is a layer of its own, with no picture: {found:?}",
+        );
+        assert_eq!(
+            found
+                .color
+                .map(|color| color.resolve(Rgba::BLACK).to_rgba8()),
+            Some((244, 241, 236, 255)),
+        );
+
+        let two = parse_background("linear-gradient(red, blue), none, url(\"a.png\") red")
+            .expect("three layers");
+        assert!(matches!(
+            two.images.as_slice(),
+            [Image::Gradient(_), Image::None, Image::Url(address)] if address == "a.png"
+        ));
+        assert!(two.color.is_some(), "the colour may come after the picture");
+        let before = parse_background("red linear-gradient(red, blue)").expect("either order");
+        assert_eq!(before.images.len(), 1);
+
+        let plain = parse_background("#fff").expect("a colour alone");
+        assert!(plain.images.is_empty(), "`none` beneath it is no picture");
+        assert_eq!(parse_background("none"), Some(Background::default()));
+    }
+
+    #[test]
+    fn a_background_this_engine_cannot_draw_as_written_is_refused() {
+        for text in [
+            "",
+            "red, linear-gradient(red, blue)",
+            "linear-gradient(red, blue) no-repeat",
+            "linear-gradient(red, blue) center / cover",
+            "linear-gradient(red, blue) linear-gradient(red, blue)",
+            "red blue",
+            "linear-gradient(red, blue),",
+            ", red",
+            "conic-gradient(red, blue)",
+            "image-set(\"a.png\" 1x)",
+        ] {
+            assert_eq!(parse_background(text), None, "{text:?} should be refused");
+        }
+        assert_eq!(
+            parse_background_image("linear-gradient(red, blue), red"),
+            None,
+            "a longhand list of pictures has no colour in it",
+        );
+        assert_eq!(
+            parse_background_image("none, linear-gradient(red, blue)").map(|images| images.len()),
+            Some(2),
+        );
+    }
+
+    #[test]
+    fn a_hostile_background_is_answered_rather_than_crashed_on() {
+        let meet = "radial-gradient(circle at 92% 0, #f8d6cc, transparent 26%), #f4f1ec";
+        // Every prefix, which is every way the value can be cut short.
+        for end in 0..=meet.len() {
+            if let Some(prefix) = meet.get(..end) {
+                let _ = parse_background(prefix);
+                let _ = parse_background_image(prefix);
+            }
+        }
+        let deep = "radial-gradient(".repeat(10_000);
+        let many = "linear-gradient(red, blue), ".repeat(10_000) + "red";
+        for text in [
+            deep.as_str(),
+            many.as_str(),
+            "radial-gradient(at 1e39px 1e39%, red, blue)",
+            "radial-gradient(at -1e38px 3e38px, red, blue)",
+            "radial-gradient(at NaN, red, blue)",
+            "url(",
+            "url(\"\\",
+            ",,,,",
+            "radial-gradient(circle at 92% 0, red, blue 1e39%)",
+            "\u{0}radial-gradient(red, blue)",
+        ] {
+            let _ = parse_background(text);
+            let _ = parse_gradient(text);
+        }
+        assert_eq!(
+            parse_background(&many).map(|background| background.images.len()),
+            Some(10_001),
+            "a long list is read, not refused for its length",
+        );
+        assert_eq!(
+            gradient("radial-gradient(at 1e39px 0, red, blue)"),
+            None,
+            "a length too big to be a number is refused",
+        );
     }
 
     #[test]

@@ -1,0 +1,7 @@
+block flow · document → 370×150 at (0, 0)
+  block flex · generic → 350×130 at (10, 10)
+    block flow · generic → 110×60 at (10, 10)
+    block flow · generic → 110×60 at (130, 10)
+    block flow · generic → 110×60 at (250, 10)
+    block flow · generic → 110×60 at (10, 80)
+    block flow · generic → 110×60 at (130, 80)

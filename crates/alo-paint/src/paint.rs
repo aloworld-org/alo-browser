@@ -19,7 +19,7 @@
 //! where they differ costs one field.
 
 use alo_layout::Rect;
-use alo_value::{Gradient, Rgba};
+use alo_value::{Extent, Gradient, Rgba, Shape};
 use core::fmt;
 
 /// What to fill a shape with.
@@ -87,17 +87,15 @@ impl Paint {
 /// the corners' projections — which is why `linear-gradient(45deg, …)` reaches
 /// its last colour at the corner rather than part way up the side.
 ///
-/// **Radial**: an ellipse centred on the area, with the same proportions as
-/// the area, passing through its farthest corner. That is CSS's default —
-/// `farthest-corner` — and it is why a gradient in a wide box is an oval.
+/// **Radial**: rings around the centre the author gave, the last of them
+/// through the side or corner the extent names (see [`radii`]). How far along
+/// a point is, is how far out it is in proportion to that last ring.
 fn along(gradient: &Gradient, area: Rect, x: f32, y: f32) -> f32 {
-    let (half_width, half_height) = (area.size.width / 2.0, area.size.height / 2.0);
-    let centre_x = area.left() + half_width;
-    let centre_y = area.top() + half_height;
-    let (dx, dy) = (x - centre_x, y - centre_y);
-
     match gradient {
         Gradient::Linear { angle, .. } => {
+            let centre_x = area.left() + area.size.width / 2.0;
+            let centre_y = area.top() + area.size.height / 2.0;
+            let (dx, dy) = (x - centre_x, y - centre_y);
             // Degrees clockwise from upwards, and `y` runs down the page.
             let radians = angle.0.to_radians();
             let (unit_x, unit_y) = (radians.sin(), -radians.cos());
@@ -108,18 +106,78 @@ fn along(gradient: &Gradient, area: Rect, x: f32, y: f32) -> f32 {
             let projected = dx * unit_x + dy * unit_y;
             (projected / length + 0.5).clamp(0.0, 1.0)
         }
-        Gradient::Radial { .. } => {
-            // The ellipse through the farthest corner has radii √2 times the
-            // half-width and half-height: substitute the corner into the
-            // ellipse and both terms come out the same.
-            let radius_x = half_width * core::f32::consts::SQRT_2;
-            let radius_y = half_height * core::f32::consts::SQRT_2;
+        Gradient::Radial {
+            shape,
+            extent,
+            centre,
+            ..
+        } => {
+            let centre_x = area.left() + centre.x.along(area.size.width);
+            let centre_y = area.top() + centre.y.along(area.size.height);
+            let (radius_x, radius_y) = radii(*shape, *extent, area, (centre_x, centre_y));
             if radius_x <= 0.0 || radius_y <= 0.0 {
-                return 0.0;
+                // A last ring of no size: every point is past it, which is
+                // what CSS says such a gradient draws.
+                return 1.0;
             }
-            let across = dx / radius_x;
-            let down = dy / radius_y;
+            let across = (x - centre_x) / radius_x;
+            let down = (y - centre_y) / radius_y;
             (across * across + down * down).sqrt().clamp(0.0, 1.0)
+        }
+    }
+}
+
+/// The last ring's radii, across and down, for a gradient centred at
+/// `centre` in `area`.
+///
+/// To a side is the nearest or farthest distance to a side; a circle takes
+/// one of all four, an ellipse one across and one down. To a corner, a
+/// circle is the distance to that corner. An ellipse keeps the proportions
+/// it would have had to the matching side and is made just big enough to
+/// pass through the corner, which for a centred one is the familiar √2 times
+/// the half-width and half-height.
+fn radii(shape: Shape, extent: Extent, area: Rect, centre: (f32, f32)) -> (f32, f32) {
+    let (centre_x, centre_y) = centre;
+    let left = (centre_x - area.left()).abs();
+    let right = (area.left() + area.size.width - centre_x).abs();
+    let top = (centre_y - area.top()).abs();
+    let bottom = (area.top() + area.size.height - centre_y).abs();
+    let nearest = matches!(extent, Extent::ClosestSide | Extent::ClosestCorner);
+    let pick = |a: f32, b: f32| if nearest { a.min(b) } else { a.max(b) };
+    // The side distances, and the corner they meet at.
+    let (side_x, side_y) = (pick(left, right), pick(top, bottom));
+    let corners = [(left, top), (right, top), (left, bottom), (right, bottom)];
+    let corner = corners
+        .into_iter()
+        .map(|(across, down)| (across, down, across.hypot(down)))
+        .reduce(|held, next| {
+            let better = if nearest {
+                next.2 < held.2
+            } else {
+                next.2 > held.2
+            };
+            if better { next } else { held }
+        })
+        .map_or((0.0, 0.0), |(across, down, _)| (across, down));
+    match (shape, extent) {
+        (Shape::Circle, Extent::ClosestSide | Extent::FarthestSide) => {
+            let radius = pick(side_x, side_y);
+            (radius, radius)
+        }
+        (Shape::Circle, Extent::ClosestCorner | Extent::FarthestCorner) => {
+            let radius = corner.0.hypot(corner.1);
+            (radius, radius)
+        }
+        (Shape::Ellipse, Extent::ClosestSide | Extent::FarthestSide) => (side_x, side_y),
+        (Shape::Ellipse, Extent::ClosestCorner | Extent::FarthestCorner) => {
+            if side_x <= 0.0 || side_y <= 0.0 {
+                return (0.0, 0.0);
+            }
+            // The ellipse with the sides' proportions through the corner:
+            // x²/(k·r)² + y²/r² = 1, with k the proportion across to down.
+            let proportion = side_x / side_y;
+            let radius_y = ((corner.0 / proportion).powi(2) + corner.1.powi(2)).sqrt();
+            (radius_y * proportion, radius_y)
         }
     }
 }
@@ -138,7 +196,7 @@ impl fmt::Display for Paint {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alo_value::{Angle, Color, Stop};
+    use alo_value::{Angle, Color, Offset, Position, Stop};
 
     /// Two colours are the same to within a rounding of the last bit.
     fn close(left: Rgba, right: Rgba) -> bool {
@@ -226,6 +284,9 @@ mod tests {
     fn a_radial_gradient_starts_in_the_middle_and_reaches_the_corner() {
         let paint = Paint::Gradient {
             gradient: Gradient::Radial {
+                shape: Shape::Ellipse,
+                extent: Extent::FarthestCorner,
+                centre: Position::CENTRE,
                 stops: vec![
                     Stop {
                         color: Color::Rgba(Rgba::WHITE),
@@ -296,5 +357,138 @@ mod tests {
         };
         assert!(invisible.is_invisible());
         assert!(!red_to_blue(Angle::DOWN).is_invisible());
+    }
+
+    /// White in the middle to black at the last ring.
+    fn rings(shape: Shape, extent: Extent, centre: Position, area: Rect) -> Paint {
+        Paint::Gradient {
+            gradient: Gradient::Radial {
+                shape,
+                extent,
+                centre,
+                stops: vec![
+                    Stop {
+                        color: Color::Rgba(Rgba::WHITE),
+                        position: None,
+                    },
+                    Stop {
+                        color: Color::Rgba(Rgba::BLACK),
+                        position: None,
+                    },
+                ],
+            },
+            area,
+            current: Rgba::BLACK,
+        }
+    }
+
+    /// How far along its gradient a point is, read back from its grey.
+    fn how_far(paint: &Paint, x: f32, y: f32) -> f32 {
+        1.0 - paint.at(x, y).red
+    }
+
+    #[test]
+    fn a_circle_at_a_point_is_round_and_centred_there() {
+        // Meet's tint: a circle at 92% across the top of a wide box. Its
+        // farthest corner is the bottom left one, √(184² + 50²) away.
+        let wide = Rect::new(0.0, 0.0, 200.0, 50.0);
+        let centre = Position {
+            x: Offset::Fraction(0.92),
+            y: Offset::Pixels(0.0),
+        };
+        let paint = rings(Shape::Circle, Extent::FarthestCorner, centre, wide);
+        assert!(how_far(&paint, 184.0, 0.0) < 0.001, "white at the centre");
+        let reach = 184.0_f32.hypot(50.0);
+        assert!((how_far(&paint, 184.0 - 40.0, 0.0) - 40.0 / reach).abs() < 0.001);
+        assert!(
+            (how_far(&paint, 184.0, 40.0) - 40.0 / reach).abs() < 0.001,
+            "the same distance down is the same colour: a circle",
+        );
+        assert!(how_far(&paint, 0.0, 50.0) > 0.999, "black at that corner");
+    }
+
+    #[test]
+    fn each_extent_puts_the_last_ring_where_it_says() {
+        // Centred 20 from the left and 10 from the top of a 100 × 50 box:
+        // sides 20, 80, 10 and 40 away, corners from √(20² + 10²) to
+        // √(80² + 40²).
+        let area = Rect::new(0.0, 0.0, 100.0, 50.0);
+        let centre = Position {
+            x: Offset::Pixels(20.0),
+            y: Offset::Pixels(10.0),
+        };
+        let circle = |extent| rings(Shape::Circle, extent, centre, area);
+        let ellipse = |extent| rings(Shape::Ellipse, extent, centre, area);
+        let one = |paint: &Paint, x: f32, y: f32| (how_far(paint, x, y) - 1.0).abs() < 0.001;
+
+        assert!(one(&circle(Extent::ClosestSide), 20.0, 20.0), "10 down");
+        assert!(one(&circle(Extent::FarthestSide), 100.0, 10.0), "80 across");
+        assert!(one(
+            &circle(Extent::ClosestCorner),
+            20.0 + 500.0_f32.sqrt(),
+            10.0
+        ));
+        assert!(one(
+            &circle(Extent::FarthestCorner),
+            20.0 + 8000.0_f32.sqrt(),
+            10.0
+        ));
+
+        let closest = ellipse(Extent::ClosestSide);
+        assert!(one(&closest, 40.0, 10.0) && one(&closest, 20.0, 20.0));
+        let farthest = ellipse(Extent::FarthestSide);
+        assert!(one(&farthest, 100.0, 10.0) && one(&farthest, 20.0, 50.0));
+        // Through the corner, in the sides' proportions.
+        assert!(one(&ellipse(Extent::ClosestCorner), 0.0, 0.0));
+        assert!(one(&ellipse(Extent::FarthestCorner), 100.0, 50.0));
+        let corner = ellipse(Extent::FarthestCorner);
+        let across = how_far(&corner, 60.0, 10.0);
+        let down = how_far(&corner, 20.0, 30.0);
+        assert!(
+            (across - down).abs() < 0.001,
+            "40 across is 20 down, as 80 is to 40: {across} and {down}",
+        );
+    }
+
+    #[test]
+    fn a_last_ring_of_no_size_draws_the_last_colour() {
+        let area = Rect::new(0.0, 0.0, 100.0, 50.0);
+        let corner = Position {
+            x: Offset::Fraction(0.0),
+            y: Offset::Fraction(0.0),
+        };
+        let paint = rings(Shape::Circle, Extent::ClosestSide, corner, area);
+        assert_eq!(paint.at(50.0, 25.0), Rgba::BLACK);
+        assert_eq!(paint.at(0.0, 0.0), Rgba::BLACK);
+    }
+
+    #[test]
+    fn a_centre_a_long_way_off_is_answered_rather_than_divided_by() {
+        let area = Rect::new(0.0, 0.0, 100.0, 50.0);
+        for (x, y) in [
+            (f32::MAX, 0.0),
+            (-f32::MAX, f32::MAX),
+            (3e38, -3e38),
+            (0.0, f32::MIN_POSITIVE),
+        ] {
+            let centre = Position {
+                x: Offset::Pixels(x),
+                y: Offset::Pixels(y),
+            };
+            for shape in [Shape::Circle, Shape::Ellipse] {
+                for extent in [
+                    Extent::ClosestSide,
+                    Extent::ClosestCorner,
+                    Extent::FarthestSide,
+                    Extent::FarthestCorner,
+                ] {
+                    let found = rings(shape, extent, centre, area).at(50.0, 25.0);
+                    assert!(
+                        (0.0..=1.0).contains(&found.alpha),
+                        "{shape:?} {extent:?} at ({x}, {y}): {found:?}",
+                    );
+                }
+            }
+        }
     }
 }

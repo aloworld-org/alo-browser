@@ -202,12 +202,21 @@ impl DisplayItem {
 #[derive(Debug, Clone, Default)]
 pub struct DisplayList {
     items: Vec<DisplayItem>,
+    /// What the styles asked to be drawn and this engine did not draw.
+    issues: Vec<alo_css::StyleIssue>,
 }
 
 impl DisplayList {
     /// The items, in paint order.
     pub fn items(&self) -> &[DisplayItem] {
         &self.items
+    }
+
+    /// What the styles asked to be drawn and was not, box by box: a
+    /// background that could not be read, or one layer of it that could not
+    /// be drawn.
+    pub fn issues(&self) -> &[alo_css::StyleIssue] {
+        &self.issues
     }
 
     /// How many there are.
@@ -230,9 +239,10 @@ impl DisplayList {
         self.items.push(item);
     }
 
-    /// Take a list's items, to put them in order.
-    pub(crate) fn from_items(items: Vec<DisplayItem>) -> Self {
-        Self { items }
+    /// Take a list's items, put in order, and what was refused while
+    /// building it.
+    pub(crate) fn from_parts(items: Vec<DisplayItem>, issues: Vec<alo_css::StyleIssue>) -> Self {
+        Self { items, issues }
     }
 
     /// The list as one line per item, for a test to compare.

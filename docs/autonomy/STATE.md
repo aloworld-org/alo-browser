@@ -17527,3 +17527,152 @@ say the same.
 137 queue items are open: 312 closed. The next unused queue number is
 **316** and the next ADR is **0028**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 194 — queue item 313: a background of several layers
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`, the
+journal's iteration 193 entry, queue items 311–315, ADR 0027 § 7 (which cut
+311 and names 313 as the page's other fault), the feature lines for shadows
+and gradients, and `docs/conformance.md`'s paragraph on them. No `AGENTS.md`
+exists in this repository. 313 was the first open item whose dependencies are
+all done: 311 waits for a page, 314 is blocked on one, and 313 comes before
+315.
+
+**What was built.**
+- `alo-value`'s new `background.rs`: `Background`, a list of `Image`s
+  (`None`, `Gradient`, `Url`) first on top, and the colour beneath them.
+  `parse.rs`, where the tokeniser is allowed, reads `background` and
+  `background-image` into it. A layer is a picture, a colour, or both in
+  either order, and only the last may hold a colour. A layer with anything
+  else in it, such as a position, size, repeat or box, refuses the whole
+  list, because drawing that picture somewhere else is a wrong pixel.
+- Meet's tint is `radial-gradient(circle at 92% 0, …)`, and a radial
+  gradient could only be a centred ellipse. `Gradient::Radial` gained a
+  `Shape`, an `Extent` and a `Position`. All four extent keywords are read,
+  and a position of one or two keywords, percentages or pixel lengths,
+  with keyword pairs in either order. Sizes written as lengths, positions
+  of three or four parts, and other units are refused. `alo-paint`'s
+  `paint.rs` places the last ring for each shape and extent. An ellipse to
+  a corner keeps the proportions of the matching sides, and a ring of no
+  size draws the last colour, as CSS says. A plain radial gradient prints
+  as it did, so no display list moved for that reason.
+- `gradient.rs`'s `mix` now premultiplies alpha, as CSS says. Before, a
+  fade to `transparent`, which is transparent black, passed through grey.
+  No existing reference had a fade between different alphas, so none moved.
+- `alo-paint`'s new `background.rs` reads a box's background once per box.
+  `background-color` beats the shorthand's colour and `background-image`
+  beats its pictures. A longhand it cannot read gives way to the shorthand
+  and is recorded. `build.rs` draws the colour, then each gradient from the
+  bottom layer up. Its two old helpers are gone, so it no longer knows what
+  a background property says.
+- Paint can now record. `DisplayList::issues` holds what paint was asked
+  for and did not draw: a `url()` layer as the new
+  `IssueKind::UndrawnLayer` ("layer not drawn, the others are"), and an
+  unreadable list as `UnsupportedValue`. Either is recorded once per box,
+  however many pieces the box is in. `alo-paint` now depends on `alo-css`
+  for `StyleIssue`, which it already used as a dev dependency. The
+  renderer's `each_issue` includes paint's, after layout's.
+
+**How it closes.**
+- **Reference render:** the new case `background-layers` (370 × 150) has:
+  - a gradient over a colour, written the way Meet writes it;
+  - two linear gradients crossed, with the first written on top;
+  - a `closest-side` circle and a `farthest-side` ellipse placed by
+    percentages, over a colour;
+  - a `url()` layer over a gradient over black, where the gradient is
+    drawn and the picture recorded;
+  - an unreadable list, which draws nothing and is recorded.
+  Its `issues.txt` has exactly those two lines. I looked at the render. The
+  first `closest-side` circle I wrote was centred on the box's edge, so its
+  radius was zero and it rightly drew nothing. I moved it inside the box
+  rather than leave a test that shows nothing.
+- `alo-meet-greeting` moved, and only in the way intended. `display.txt`
+  gained `.module`'s colour fill and its tint, and 42 723 pixels in the top
+  right changed. I looked at the render: the peach tint sits in the top
+  right corner, with no grey edge. No other reference moved.
+- `meets_greeting.rs`'s new test reads the tint back in pixels:
+  - the tint itself at (736, 0);
+  - half the tint over the page half way out, which only premultiplied
+    mixing gives;
+  - the page's colour just past 26% of √(736² + 220²), and in the far
+    corner;
+  - no paint issue.
+- `alo-paint/tests/background_layers.rs` has five pixel tests:
+  - the colour is beneath the gradient;
+  - the first layer written is on top;
+  - a `url()` layer is recorded and the others drawn;
+  - an unreadable list draws nothing and says so;
+  - a wrapped `<span>` with a `url()` layer is recorded once, not once per
+    piece.
+- Unit tests:
+  - `parse.rs`: the radial header and positions, refusals (eleven
+    gradients and ten backgrounds), and the layer lists;
+  - `gradient.rs`: premultiplied mixing, extents and printing;
+  - `paint.rs`: a placed circle, all eight shape and extent pairs, and a
+    ring of no size;
+  - `alo-paint`'s `background.rs`: six tests of which property wins and
+    what is recorded.
+- **Hostile bytes:** this reads stylesheet text, which strangers send in
+  stage 2. A test feeds the parser every prefix of Meet's background,
+  10 000 nested `radial-gradient(`, a list of 10 001 layers, lengths past
+  `f32`, `NaN`, and broken `url(`. All of it returns a result without a
+  panic. `paint.rs` puts a centre at ±`f32::MAX` under all eight shape and
+  extent pairs and gets a colour with an alpha between 0 and 1 each time.
+- **Layout assertion:** nothing here positions or sizes a box, and
+  `background-layers`' `layout.txt` is committed regardless.
+
+**Gate, mechanical.** I warmed the build with `cargo clippy` and `cargo test
+--workspace --all-features --no-run`. Clippy first found a redundant guard
+and two closures in the tests. I fixed them and ran `cargo fmt` again. I
+then ran `scripts/gate.sh` in the foreground. It ran past the tool's
+ten-minute limit and the harness moved it to the background. I did not end
+the turn: I waited for it in the same turn and read its log. It exited 0
+with "The gate is met.":
+- fmt is clean and clippy is silent;
+- "tests pass", with no `FAILED`, `panicked`, `error` or `warning:` line;
+- no stubs, `unsafe` forbidden, and every licence notice present;
+- every rented crate stays behind its boundary (`cssparser` is named only
+  in `alo-value`'s `parse.rs`);
+- no coordinate verbs, the stop rule holding, and the changelog changed.
+
+**Gate, manual.**
+- Reference renders and pixel assertions: above.
+- One responsibility per file:
+  - `alo-value/background.rs` is what a background is.
+  - `parse.rs` gained only the text grammar, which is what it is for, and
+    is the one file in the crate allowed to tokenise.
+  - `alo-paint/background.rs` is what a box's background properties say.
+  - `build.rs` lost that and still decides only what is drawn and in what
+    order.
+  - `paint.rs` still answers what colour a fill is at a point.
+- `docs/features.md` has the line (tier [2]). `docs/conformance.md` says
+  what is drawn and every refusal. `CHANGELOG.md`, `QUEUE.md` (313 ticked
+  with a *Built* note), `REMAINING.md` and the case's `origin.txt` say the
+  same.
+
+**Roadmap.** This item served **no roadmap line**, and `ROADMAP.md` is
+deliberately unchanged. Multi-layer backgrounds and radial gradients sit
+under stage 1's ticked *Paint* line, which drew gradients, and are a
+correction to it opened by a page. *CSS beyond what alo needed* has no
+background line. *Pictures, and things that move* mentions
+`background-image` only for an SVG picture in it (311), which this does
+not draw. Annotating either would be the erosion `LOOP.md` warns against.
+
+**Unresolved obligations.**
+- A layer's position, size, repeat, origin, clip and attachment are not
+  read. A list using any of them is refused whole and recorded. A page
+  that needs one opens it.
+- The cascade still does not expand `background`. A longhand beats the
+  shorthand even when the shorthand came later in the sheet.
+  `docs/conformance.md` says so. No queue item was opened, because no page
+  has shown it.
+- A `url()` layer is 311, which still waits for a page.
+- 315 depends on nothing and is eligible next. 314 waits for a page.
+- Still standing from iteration 192: a page loaded through `Renderer` is
+  handed no resources, 296 needs a person to grant Screen Recording, and
+  297–300, 302, 304 and 308 wait as before.
+- `scripts/gate.sh` still takes longer than ten minutes with a warm build.
+
+136 queue items are open: 313 closed. The next unused queue number is
+**316** and the next ADR is **0028**. This is one iteration, not a finished
+queue or roadmap.

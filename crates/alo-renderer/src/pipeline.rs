@@ -77,7 +77,7 @@ pub struct Drawing {
 impl Rendered {
     /// Everything that would surprise somebody about this render, as one list.
     ///
-    /// Gathered from all four stages, because a case that renders oddly is
+    /// Gathered from every stage, because a case that renders oddly is
     /// nearly always a case that was told something it could not do — and
     /// finding that out should not mean asking four objects separately.
     ///
@@ -116,6 +116,9 @@ impl Drawing {
             .chain(self.styles.issues().iter().map(shown))
             .chain(self.boxes.issues().iter().map(shown))
             .chain(self.layout.issues().iter().map(shown))
+            // What paint was asked to draw and could not, after layout's,
+            // because paint is the stage after layout.
+            .chain(self.display.issues().iter().map(shown))
             // Last, because a font is the only thing in this list that is not
             // something the engine *refused* — the page rendered, in the wrong
             // typeface, and that reads better after the refusals than among

@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Backgrounds can be several layers, and alo Meet's corner tint shows.**
+  A background written as a list, such as a gradient over a colour, now
+  draws every layer, with the first one written on top. Before, it drew
+  nothing at all. Radial gradients can be a circle or an ellipse, sized to
+  a side or a corner, and centred anywhere in the box. Gradients that fade
+  to transparent now keep their colour instead of turning grey on the way.
+  A background picture given by address is not drawn yet, and the page's
+  issues now say so while the other layers still draw. A background that
+  cannot be read is reported rather than silently left blank.
+
 - **Icons beside text now sit where the page asks.** `vertical-align` is
   understood: `middle`, `top`, `bottom`, `text-top`, `text-bottom`, `sub`,
   `super`, and a length or percentage. It works on pictures, inline-blocks

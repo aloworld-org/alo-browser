@@ -164,6 +164,24 @@ with a `linear-gradient` or a `radial-gradient`; text casts a shadow too.
 Refused rather than approximated: `conic-gradient`, the repeating gradients,
 interpolation hints, and any colour space but sRGB.
 
+**A background can be several layers** (item 313): a comma list in
+`background` or `background-image`, the colour beneath them all and the
+first layer written on top, each measured against the padding box and
+drawn over the border box. A radial gradient may be a `circle` or an
+`ellipse`, sized by `closest-side`, `closest-corner`, `farthest-side` or
+`farthest-corner`, and centred `at` one or two keywords, percentages or
+pixel lengths. Stops are mixed with alpha premultiplied, as CSS says, so a
+fade to `transparent` does not pass through grey. What is not drawn is
+recorded in the page's issues: a `url()` layer (item 311), with every other
+layer still drawn, and a list that cannot be read, which draws nothing. A
+list cannot yet be read if any layer says where its picture sits, how big
+it is, whether it repeats, or which box it is clipped to, if a radial size
+is written as lengths, if a position has three or four parts or is in a
+unit other than pixels, or if it uses an image function other than the two
+gradients. `background-color` beats the shorthand's colour and
+`background-image` beats its pictures, whichever came later in the sheet,
+because the cascade does not yet expand `background`.
+
 A box can be moved, scaled, turned and slanted by `transform`, about a
 `transform-origin`, and faded by `opacity` — as a group, drawn once and
 composited once, which is what `opacity` means. A transform changes what is

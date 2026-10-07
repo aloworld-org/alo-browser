@@ -1,0 +1,18 @@
+/* Queue item 313: a background of several layers.
+ *
+ * #tint     a gradient over a colour, the way Meet's `.module` is written
+ * #crossed  two gradients over each other: the first written is on top
+ * #placed   a circle and an ellipse centred by keyword, over a colour
+ * #pictured a url() layer: recorded and not drawn; the layers around it are
+ * #unread   a list with a repeat in it: refused whole, recorded, nothing drawn
+ */
+body { margin: 10px; background: #ffffff; display: flex; flex-wrap: wrap; gap: 10px }
+div { width: 110px; height: 60px }
+#tint { background: radial-gradient(circle at 92% 0, #f8d6cc, transparent 60%), #f4f1ec }
+#crossed { background: linear-gradient(to right, #1d4ed8, transparent),
+                       linear-gradient(#facc15, #dc2626) }
+#placed { background: radial-gradient(circle closest-side at 25% 75%, #16a34a, transparent),
+                      radial-gradient(ellipse farthest-side at 75% 25%, #7c3aed, transparent),
+                      #e5e7eb }
+#pictured { background: url(missing.png), linear-gradient(#0f766e, #99f6e4), #000000 }
+#unread { background: linear-gradient(#000000, #ffffff) no-repeat, #ff0000 }

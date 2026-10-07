@@ -1,4 +1,6 @@
 fill box#1 rgb(244 241 236) at (0, 0) 800×220
+fill box#3 rgb(244 241 236) at (0, 0) 800×220
+fill box#3 radial-gradient(circle farthest-corner at 92% 0px, rgb(248 214 204), rgb(0 0 0 / 0) 26%) at (0, 0) 800×220
 clip box#3 to (0, 0) 800×220
 text box#10 "Good morning" rgb(16 42 67) 13px at (24, 57.554688)
 clip box#11 to (136.0498, 44) 20×20

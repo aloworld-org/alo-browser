@@ -40,6 +40,7 @@
 //! with a value it cannot parse. A guessed length is a wrong pixel, and law 3
 //! says a wrong pixel is a bug rather than a task.
 
+pub mod background;
 pub mod calc;
 pub mod color;
 pub mod gradient;
@@ -52,14 +53,15 @@ pub mod svg_transform;
 pub mod transform;
 pub mod unit;
 
+pub use background::{Background, Image};
 pub use calc::{CalcNode, Kind};
 pub use color::{Color, Rgba, from_hsl};
-pub use gradient::{Angle, Gradient, Stop};
+pub use gradient::{Angle, Extent, Gradient, Offset, Position, Shape, Stop};
 pub use length::{FontMetrics, Length, LengthPercentage, Viewport};
 pub use parse::{
-    is_keyword, parse_box_shadows, parse_color, parse_gradient, parse_length,
-    parse_length_percentage, parse_number, parse_text_shadows, parse_transform,
-    parse_transform_origin,
+    is_keyword, parse_background, parse_background_image, parse_box_shadows, parse_color,
+    parse_gradient, parse_length, parse_length_percentage, parse_number, parse_text_shadows,
+    parse_transform, parse_transform_origin,
 };
 pub use shadow::{DrawnShadow, Shadow};
 pub use shorthand::{Border, parse_border};

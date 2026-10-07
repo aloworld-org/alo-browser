@@ -45,6 +45,10 @@ than fixed in the iteration that found them:
 - `.module`'s background is two layers, a radial-gradient tint and a
   colour, and a background of more than one layer draws nothing. The tint
   in the top right corner is missing, and nothing records it — item 313.
+  **Fixed by item 313 (iteration 194):** both layers are drawn, the page's
+  colour beneath and the tint over it, a circle centred at 92% across the
+  top whose stops reach transparent 26% of the way to the bottom left
+  corner. `tests/meets_greeting.rs` reads its pixels back.
 - `(max-width: 48rem)` is recorded as not understood, because a media
   query's length cannot be in `rem` here. At this width it would not match
   anyway, so nothing visible changes; on a narrow window it would — item 315.
