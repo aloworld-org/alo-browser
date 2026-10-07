@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **What happens to a PDF is decided, and the answer is that this browser
+  does not display one.** ADR 0028 says a link to a PDF leaves the page
+  you were on where it is and offers you the file to save, telling you
+  plainly that PDFs are not shown here. Nothing is written to your disk
+  until you choose where, and the saved file opens in your own PDF program
+  only when you ask: never by itself, never because a page asked, and never
+  because an agent did. alo's own invoices and quotes already arrive as
+  files to save, so nothing in alo changes. Nothing is built yet.
+
 - **Line spacing set by a page is now used.** `line-height` used to change
   nothing about how far apart lines were: every line was as tall as its
   font, so loosely set paragraphs came out cramped and tightly set headings

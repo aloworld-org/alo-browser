@@ -1163,6 +1163,18 @@ items where being right and being unusable are the same outcome.
 - [ ] Context menus, and keyboard operation of every one of them
 - [ ] Printing, print preview, export to PDF
 - [ ] Viewing a PDF — or saying plainly that we hand it to something else
+      — not started: nothing is built. Decided in ADR 0028: stage 2 has no
+      PDF viewer, and says so. A response typed `application/pdf` or
+      `text/pdf` reaches no renderer and no parser of ours; the browser
+      process offers it to the person as a file, in its own words, keeps the
+      tab's page, and writes nothing until the person chooses where. Opening
+      the saved file in another program is a person's act, never a page's or
+      an agent's. alo serves every PDF as an attachment on purpose, so no alo
+      screen needs a viewer. One is reopened only if a person's stage 2 week
+      names PDFs, and then rented in Rust, in a process of its own, with no
+      PDF JavaScript and its text in the agent's tree. Cut into queue items
+      317 (a navigation to a PDF offered as a file, behind 85 and 120) and
+      318 (`navigator.pdfViewerEnabled` and the empty plugin lists)
 - [ ] Private browsing, and profiles that are genuinely separate
 - [ ] Autofill, and credentials held where the operating system holds secrets rather than in a file of ours
 - [ ] Security surfaces: certificate detail, permission state, what this page has stored — reachable, none of it buried

@@ -619,6 +619,13 @@ sign-in and settings screens moved to their stylesheets' spacing. 284,
 311 and 314 still wait for pages. 135 queue items are open. The next unused queue number is 317 and the next
 unused ADR 0028.
 
+Iteration 197 decided item 124 in ADR 0028: stage 2 has no PDF viewer. A
+response typed as a PDF reaches no renderer and is offered to the person as
+a file, opened elsewhere only by a person's act. It is cut into 317 (behind
+85 and 120, opened by a page) and 318 (behind a `Navigator` interface,
+opened by a page). 121 and 122 were marked *needs design*. 137 queue items
+are open. The next unused queue number is 319 and the next unused ADR 0029.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -17894,3 +17894,112 @@ to show movement is what `LOOP.md` forbids.
 135 queue items are open: 316 closed. The next unused queue number is
 **317** and the next ADR is **0028**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 197 — item 124 decided: ADR 0028, a PDF is a file we hand to the person, not a page we draw
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states, section *The browser itself* and *Not built*), iterations
+183, 188–190 and 196, `REMAINING.md`'s continuation order, and every open
+item in `QUEUE.md` by its dependency line, items 108–134 and 264 in full.
+ADRs read in full: 0020, 0023 and 0027; the passages of 0001, 0005, 0010,
+0011, 0012, 0021 and 0026 that this cites. `docs/features.md`'s section J.
+No `AGENTS.md` exists. The checkout was clean on entry at `345cc6c`. From
+the sibling `alo-workplace`, read and never written, at `738de614`:
+`products/mail/alo-jmap/src/billing_pdf.rs` (`response`, and its reason for
+`attachment`), `share.rs`'s header comment, `web/src/billing/api.ts`
+(`invoicePdf`, `quotePdf`), `QuoteEditor.tsx`, `saveFile.ts` and
+`tasks/FilesView.tsx`, and a search of `web/src` for any `<iframe>`,
+`<embed>`, `<object>` or link that shows a PDF (none).
+
+**Selection.** Iteration 196 closed 316 and recorded 284, 311 and 314 as
+waiting for pages. Iteration 188 found every open item before 93 blocked,
+needing design or waiting on an open dependency, and iteration 190 did the
+same from 307 to 277. Nothing they named has closed since. After 316 in file
+order: 278 and 288 open only by a page; 108 and 111 need design; 109's code
+items wait on pages or decoders; 110 waits on 109; 112–116 wait on 113,
+which is blocked on a measurement; 117 needs design; 118 and 296–300 wait on
+296's Screen Recording grant; 119 and 120 on 118; 123 on 99. **121 and
+122** carried no mark at all, but name no ADR, feature contract or closing
+condition, so `LOOP.md` step 2 says to mark them *needs design* and take the
+next one, which this iteration did, with a reason each. **124** is marked
+*needs ADR*, depends on nothing, and was on iteration 183's list of ADR
+candidates. 126 and 132 are the other two left, and both wait on open
+items (82; 86 and 131). Stage 2 § 4 makes the ADR its own iteration.
+
+**What was decided (ADR 0028).** No code changed.
+- **Stage 2 has no PDF viewer**, and *PDF viewer supported* is false. A
+  response whose `Content-Type` essence is `application/pdf` or `text/pdf`
+  (HTML's PDF types), with nothing sniffed, reaches no renderer and no
+  parser of ours. The browser process offers it as a file, says in its own
+  words that PDFs are not displayed, keeps the tab's page and its ids, and
+  writes nothing until the person chooses where. It is recorded under
+  ADR 0012.
+- **Opening the saved file in another program** is a person's act in the
+  downloads interface (120). It is never automatic, never a page's ask and
+  never an agent verb.
+- A frame shows the browser's sentence and offers nothing. `<object>` shows
+  its fallback and `<embed>` shows nothing. `navigator.pdfViewerEnabled` is
+  `false` and `plugins` and `mimeTypes` are empty. The agent reads the
+  offered file as browser state and cannot read inside it.
+- **A viewer is reopened** only by a person's stage 2 week naming PDFs, and
+  then on stated terms: rented in Rust on ADRs 0021/0023's four tests, in
+  a process of its own, static (no PDF JavaScript), and with its text read
+  into the agent's tree (law 2).
+- **Why.** The measure is alo, and alo serves every PDF as an attachment on
+  purpose, with its reason in `billing_pdf.rs`. A viewer is a second
+  rendering engine and one of the worst attack surfaces a browser carries.
+- **The survey was checked, not recalled.** `hayro` 0.8.0's crates.io
+  record (4 October 2026; first release 22 July 2025; Apache-2.0 OR MIT;
+  about three million downloads) and its README, which calls it *"an
+  experimental, work-in-progress PDF interpreter and renderer"* and says
+  nothing about `unsafe` or untrusted input. HTML's *load a document*,
+  which creates a viewer document for `application/pdf` and `text/pdf` only
+  when *PDF viewer supported* is true. Claims about other engines' PDF
+  history are kept general.
+
+**Queue.** 124 records the decision and stays open until its cuts close.
+- **317**, a navigation to a PDF offered as a file, depends on 85 and 120
+  and is opened by a frozen page linking to a PDF served inline. alo's own
+  PDFs are attachments and reach the same path through 264.
+- **318**, `navigator.pdfViewerEnabled` and the empty plugin lists, depends
+  on a `Navigator` interface that no item builds, and is opened by a page.
+- **120** now says it carries § 3's *open in another program*, and that it
+  chooses whether an offered body is held or not fetched yet.
+- **121 and 122** are marked *needs design*, with reasons.
+
+**Roadmap.** The *Viewing a PDF* line now reads "not started: nothing is
+built. Decided in ADR 0028 …", the form ADRs 0025 and 0026 used. It is not
+ticked. `docs/features.md`, `CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Gate, mechanical.** I warmed the build (nothing to compile: no code
+changed), then ran `scripts/gate.sh` in the foreground. It passed the
+tool's ten-minute ceiling and the harness moved it to the background. I
+blocked on its log in the same turn and read it. It exited 0 with "The gate
+is met.": fmt clean, clippy silent, `cargo test --workspace --all-features`
+passing (the script runs under `set -euo pipefail`, so its printed tail of
+doc-test lines is not the whole story), no stubs, `unsafe` forbidden,
+licences present, every rented crate behind its boundary, no coordinate
+verbs, the stop rule holding, and no uncommitted code to judge.
+
+**Gate, manual.**
+- Layout assertions and reference renders: none apply. Nothing positions,
+  sizes or draws differently.
+- One responsibility per file: no source file changed. The ADR is one
+  decision.
+- `docs/features.md` has the line, and it now says it is decided and not
+  built.
+
+**Unresolved obligations.**
+- 317 and 318 are written but wait on 85, 120, a `Navigator` interface and
+  pages. Nothing about PDFs is built.
+- The ADR's § 4 says what `<object>`, `<embed>` and a frame do with a PDF.
+  No item builds `<object>` or `<embed>`, and none was opened, because no
+  page uses one.
+- Still standing: 284, 311 and 314 wait for pages. 296 needs a person to
+  grant Screen Recording. 297–300, 302, 304 and 308 wait as before. 126 and
+  132 are the *needs ADR* items left, and both wait on open dependencies.
+- `scripts/gate.sh` still takes longer than ten minutes with a warm build.
+
+137 queue items are open: 317 and 318 opened, none closed. The next unused
+queue number is **319** and the next ADR is **0029**. This is one iteration,
+not a finished queue or roadmap.

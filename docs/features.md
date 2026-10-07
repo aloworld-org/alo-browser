@@ -553,7 +553,15 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] Find in page, zoom, and per-site settings that stick
 - [2] Context menus, and keyboard operation of every one of them
 - [2] Printing, print preview, export to PDF
-- [2] Viewing a PDF, or saying plainly that we hand it to something else
+- [2] Viewing a PDF, or saying plainly that we hand it to something else.
+  Decided in ADR 0028 and not built: this browser does not display PDFs, and
+  says so. A link to a PDF leaves the page where it is and offers the file to
+  be saved, with nothing written until the person chooses where; the saved
+  file can be opened in the person's own PDF program when they ask, never
+  automatically and never by a page or an agent. A PDF in a frame or an
+  `<embed>` shows nothing of it, an `<object>` shows its fallback, and a
+  script is told `navigator.pdfViewerEnabled` is false. The agent sees that a
+  file was offered and cannot read inside it (317, 318)
 - [2] Private browsing, and profiles that are genuinely separate
 - [2] Autofill, and credentials held where the operating system holds secrets rather than in a file of ours
 - [2] Security surfaces: certificate detail, permission state, what this page has stored — reachable, none of it buried

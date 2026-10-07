@@ -6293,11 +6293,60 @@ What stage 2's exit gate actually measures: a person using it.
 - [ ] **119. The address bar**: what somebody typed, what it means, and a search
   that **phones nobody by default**. *Depends on 50, 118.*
 - [ ] **120. History, bookmarks, downloads.** *Depends on 118.*
+  ADR 0028 § 3 puts one thing in the downloads interface: a saved PDF (or
+  any saved file) opened in the program the operating system uses for it,
+  only when a person asks for that file. Never automatically, never from a
+  page, never from an agent verb. § 2 leaves to this item whether an
+  offered file's body is held in memory or not fetched until the person
+  says where.
 - [ ] **121. Find in page, zoom, and per-site settings that stick.**
+  *Needs design (iteration 197):* it names no ADR, feature contract or
+  closing condition, so `LOOP.md` step 2 says it is not ready to build. Each
+  of the three is browser interface over a window that does not yet take a
+  person's input (296, 298), and *settings that stick* is a file of the
+  person's that ADR 0011 has not been asked about.
 - [ ] **122. Context menus, and keyboard operation of every one of them.**
+  *Needs design (iteration 197):* as 121 — no ADR, contract or closing
+  condition, and a menu is browser interface over a window that takes no
+  pointer yet (298).
 - [ ] **123. Printing, print preview, export to PDF.** *Depends on 99.*
 - [ ] **124. Viewing a PDF** — or saying plainly that we hand it to something
   else. *Needs ADR* — it is a decision, not an omission.
+  **Decided: ADR 0028 (iteration 197).** Stage 2 has **no PDF viewer**, and
+  *PDF viewer supported* is false. A response whose `Content-Type` essence
+  is `application/pdf` or `text/pdf` — nothing sniffed — reaches no renderer
+  and no parser of ours: the browser process offers it to the person as a
+  file, says in its own words that it does not display PDFs, keeps the tab's
+  page, and writes nothing until the person chooses where (§§ 1–2). Opening
+  the saved file in another program is a person's act in the downloads
+  interface, never automatic, never a page's ask and never an agent verb
+  (§ 3). A frame shows the browser's sentence and offers nothing,
+  `<object>` shows its fallback, `<embed>` shows nothing (§ 4);
+  `navigator.pdfViewerEnabled` is false and `plugins` and `mimeTypes` are
+  empty (§ 5). The agent reads the offered file as browser state and cannot
+  read inside it (§ 6). A viewer is reopened only by a person's stage 2
+  week naming PDFs, and then rented in Rust, in a process of its own, with
+  no PDF JavaScript and its text read into a tree the agent reads (§ 7).
+  The measure is alo, and alo serves every PDF as an attachment on purpose.
+  No code was written. Cut into 317 and 318; 124 closes when both have.
+- [ ] **317. A navigation to a PDF is offered as a file.** *Cut from 124
+  (ADR 0028 §§ 1–2). Depends on 85, for the browser process holding a
+  navigation's response, and on 120, for where a file goes. Opened by* a
+  frozen page whose link reaches a PDF served inline; alo's own PDFs are
+  attachments and reach the same path through 264. *Closes when:* a
+  response typed `application/pdf` or `text/pdf`, in any case and with any
+  parameters, reaches no renderer (a test recording every message a
+  renderer is sent shows none carrying the bytes); the tab's page and its
+  held ids are unchanged; the browser's sentence and the ADR 0012 record
+  line are produced; nothing is written to a disk before the person's
+  choice and nothing after a refusal; and the same bytes typed `text/html`
+  load as a page, so the type decides. Hostile names, types and lengths are
+  refused, never a panic.
+- [ ] **318. `navigator.pdfViewerEnabled`, `navigator.plugins` and
+  `navigator.mimeTypes`.** *Cut from 124 (ADR 0028 § 5). Depends on a
+  `Navigator` interface, which no item builds yet. Opened by* a page that
+  reads one of them. *Closes when:* `pdfViewerEnabled` is `false` and both
+  lists are empty, in a frozen page's script.
 - [ ] **125. Private browsing, and profiles that are genuinely separate.**
   *Depends on 90.*
 - [ ] **126. Autofill, and credentials held where the operating system holds
