@@ -16843,3 +16843,111 @@ log in the same step. It exited 0 with "The gate is met.":
 133 queue items are open, because 306 closed and nothing was opened. The
 next unused queue number is **307** and the next ADR is **0026**. This is one
 iteration, not a finished queue or roadmap.
+
+
+---
+
+## Iteration 188 — item 93 decided: ADR 0026, a permission is a person's grant, and it ends
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and the stage 2 permissions and storage lines), iterations
+183–187, `REMAINING.md`'s latest entries, and items 63, 67, 90–93, 157 and
+301–306 in `QUEUE.md`. ADRs read: 0025 in full, and the permission-relevant
+passages of 0002, 0005, 0007, 0012, 0018, 0020 and 0024. From the sibling
+`alo-os`, read and never written (its `git status` is empty): ADR 0001 in
+full, which item 93 names as its shape, and ADR 0005. Also read:
+`alo-net`'s `Cause` and `Partition`, `alo-storage`'s `StorageKey`, and
+`docs/features.md`'s permissions line. No `AGENTS.md` exists. The checkout
+was clean on entry at `fefcced`.
+
+**Selection.** Iteration 187 named 93 as next among the *needs ADR* items.
+That was checked rather than trusted. Every open item before it in file
+order is in one of four states. Some are blocked by name: 157, 158, 207,
+222, 284 and 286, and 296 with 297–300 behind it. Some need design: 60, 77
+and 82–89. Some wait on an open dependency: the JavaScript items on 73, 75,
+76, 211 or 221, 76 itself on 233 and 234, 91 and 92 on 76, and 302–305 on
+their own. The rest have no real script reaching them, which is 73, 74, 220
+and 221 by iterations 130–134's reading. **93**'s dependencies, 63 and 67,
+are done, and it is marked *needs ADR*. `LOOP.md` stage 2 § 4 makes that ADR
+its own iteration, and this is that iteration.
+
+**What was decided (ADR 0026).** No code changed.
+- **A closed list of eight capabilities**, as a Rust `enum` that changes only
+  by amendment: camera, microphone, location, notifications, *keep data*
+  (ADR 0025 § 7's `persist()`), storage access (ADR 0007), opening another
+  program (ADR 0020 § 3's `mailto:`), and reading the clipboard. Things that
+  need only a gesture (clipboard write, full screen, playback with sound)
+  are not permissions. Anything else is refused, naming the ADR.
+- **The grant is to a storage key**: an origin under a top-level site. An
+  embedder's grant never flows into a frame. `allow=` is necessary and not
+  sufficient. Opaque origins and insecure contexts are refused without a
+  prompt.
+- **An ask needs transient activation.** Without it the page is refused
+  without a prompt. A prompt shows only over its own tab, one at a time, and
+  a refused document cannot ask again.
+- **Only a person answers.** No agent verb reaches a prompt, permanently. An
+  ask caused by an agent's action is shown to the person, saying so. The
+  page is never told.
+- **Every grant ends**: *allow while this page is open*, or *allow on this
+  site* until thirty days after the person's own last top-level visit, so
+  use by the site does not extend it. *Don't allow* is remembered on the
+  same terms. There is no *always*, no blanket allow and no shipped
+  allowlist. A blanket refusal is allowed. A clock set backwards expires a
+  grant. A private session starts empty and writes nothing.
+- **Visible**: one list, which item 133's agent grants will join, and an
+  indicator in the tab strip's data and the window while a device is in use.
+  The prompt is our own document, like the strip, showing only the origin and
+  the top-level site as text nodes, never page-chosen words.
+- **Revocable and enforced where the device is**: the browser process checks
+  at every use, not only at the ask, and revoking stops the device before the
+  act returns. Clearing a site clears its grants too.
+- **Recorded**: asks, answers, refusals with their rule, the start and end of
+  each use, revocations and expiries, with the ADR 0012 cause. Never content.
+  Sixty-four entries per key, with a counted drop. The file is read under
+  ADR 0011 § 4, and a table that fails its check grants nothing.
+
+The thirty days and the sixty-four are chosen here, with reasons, and no
+measurement stands behind them. The ADR says what measurement would change
+them. Claims about other browsers are kept general.
+
+**Queue.** 93 records the decision and stays open until its cuts close.
+- **307**, the grant table as a new crate `alo-grants`, depends only on 301,
+  which is done. It is eligible next and is entirely testable on this
+  machine.
+- **308**, the prompt and the indicator, waits on 307 and 297, so it sits
+  behind 296's Screen Recording block.
+- 157's entry now names 308 as the interface it waits on. 303's entry names
+  the *keep data* capability.
+
+**Roadmap.** The permissions line now reads "not started: nothing is built.
+Decided in ADR 0026 …", in the form 0025's line took. It is not ticked.
+`docs/features.md`, `CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Gate, mechanical.** I ran `scripts/gate.sh` in the foreground. It passed
+the tool's 10-minute ceiling, as in iterations 180–184, so the harness moved
+it to the background. I blocked in a foreground wait on its output and read
+the result before writing this entry. It exited 0 with "The gate is met.":
+- fmt clean and clippy silent;
+- "tests pass", with no `FAILED`, `warning` or `error` line in the log;
+- no stubs, `unsafe` forbidden, and licence notices present;
+- every rented crate behind its boundary, no coordinate verbs, and the stop
+  rule holding.
+
+`git diff --check` passes.
+
+**Gate, manual.** Nothing positions, sizes or draws, so no layout assertion
+or reference render applies. No source file changed, so one responsibility
+per file is untouched. The item's feature line exists and now says it is
+decided and not built. No tick was made.
+
+**Unresolved obligations.**
+- 296's capture still needs a person to grant Screen Recording to the
+  application that runs the loop (iteration 183). 297–300 wait on it, and
+  now 308 does too.
+- 304 needs its store's ADR. 302 needs a frozen page.
+- The ADR candidates 124, 126, 132 and 277 remain. 307 is code and comes
+  first, since nothing is ahead of it.
+
+135 queue items are open: 307 and 308 were opened, and 93 stays open. The
+next unused queue number is **309** and the next ADR is **0027**. This is one
+iteration, not a finished queue or roadmap.

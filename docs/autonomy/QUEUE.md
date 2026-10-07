@@ -619,6 +619,9 @@ first. Nothing here needs JavaScript.
   must not be: never a global toggle, never an allowlist we ship. A person is
   told who is asking and inside what, and answers for that pair.
   *Depends on 57. Blocked: needs an interface to ask in.*
+  ADR 0026 makes it the *storage access* capability in the one grant table
+  (item 307), asked in item 308's prompt, so that prompt is the interface
+  this waits on.
 
 - [x] **58. DNS, and encrypted DNS as a choice somebody made** rather than a
   default nobody was told about.
@@ -4643,7 +4646,8 @@ The long pole, and the thing most of section E is unreachable without.
   `persisted()`.** *Cut from 90 (ADR 0025 §§ 3 and 7). Depends on 301, 302
   and 75.* `estimate()` reports the fixed quota and the bucket's counted
   usage, the same in a session-scoped profile. `persist()` and `persisted()`
-  answer `false` until item 93 gives the grant. *Closes when:* `estimate()`
+  answer `false` until item 93 gives the grant, which ADR 0026 makes the
+  *keep data* capability in item 307's table. *Closes when:* `estimate()`
   gives the same `quota` under two profiles on volumes of different free
   space and in a session-scoped one, and `usage` moves by the counted bytes
   of a write.
@@ -4717,6 +4721,51 @@ The long pole, and the thing most of section E is unreachable without.
   permission prompt, and every other one is a dialogue nobody can audit
   afterwards."*
   *Depends on 63, 67. Needs ADR.*
+
+  **The decision is written down: ADR 0026, accepted** (iteration 188). A
+  permission is a grant in one table the browser process holds: one
+  capability from a closed list (camera, microphone, location,
+  notifications, keep data, storage access, open another program, read the
+  clipboard), to one storage key (ADR 0025's origin and top-level site), made
+  by a person answering an ask that a page made with transient activation.
+  It ends when the page closes, or thirty days after the person last opened
+  the site themselves. *Don't allow* is remembered on the same terms. There
+  is no *always*, no blanket allow and no shipped allowlist. It is shown in
+  one list and by an indicator in the tab strip while in use, revoked in one
+  act that stops the device at once, and recorded without its content. **No
+  agent can make, answer or revoke one.** **Nothing is built and this item is
+  not done.** It closes when 307 and 308 do, and each capability's API
+  arrives with its own item (303, 157, 92, 290) or page.
+
+- [ ] **307. The grant table, in the browser process.** *Cut from 93
+  (ADR 0026 §§ 1–3, 5, 7–9). Depends on 301.* A crate of its own,
+  `alo-grants`, with no device and no interface. It holds the closed
+  `Capability` enum, grants keyed by `alo-storage`'s `StorageKey`, and the
+  decision function: *may this key use this capability now*, from the ask's
+  facts (secure context, transient activation, opaque origin, a refused
+  document, a remembered answer, a blanket refusal, the clock). It also holds
+  the two lifetimes, the thirty-day expiry counted from the person's own
+  top-level visits, a clock that went backwards failing closed, revocation,
+  clearing a site, the record of sixty-four entries per key with a counted
+  drop and no content, and the file under ADR 0011 § 4. A private session
+  writes nothing. *Closes when:* each refusal in §§ 2–3 has a named test that
+  asks and is refused without a prompt; an *allow while open* grant ends with
+  its document and an *allow on this site* grant ends thirty days after the
+  last `Person` visit, while a page's own use does not extend it; a clock set
+  backwards expires a grant; a revoked grant answers *no* on the next check;
+  a malformed, truncated or adversarial table file returns an error and
+  grants nothing, set aside and never deleted; and a private session leaves
+  no file.
+
+- [ ] **308. The prompt, and the indicator.** *Cut from 93 (ADR 0026 §§ 4,
+  6). Depends on 307 and 297.* The prompt is a document of ours, rendered as
+  the tab strip is and built from a typed message, with the origin and the
+  top-level site as text nodes. It offers three answers, read from a person's
+  own input, and states that an agent was acting when the ask came from an
+  `Act`. Every agent verb on it is refused by name. A device in use shows in
+  the strip's data and in the window. *Closes when:* reference renders of the
+  prompt and of a tab with the indicator are committed, and the agent's tree
+  reads the prompt while every verb on it is refused.
 
 ## F. CSS beyond what alo needed
 

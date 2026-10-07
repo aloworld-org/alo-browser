@@ -442,7 +442,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (301–306)
 - [2] Workers: dedicated, shared, and service workers with their fetch interception
 - [2] Timers, clipboard, drag and drop
-- [2] ★ **Permissions as capabilities** — camera, microphone, location, notifications, in the shape of `alo-os` ADR 0001: enumerated, visible, revocable, expiring, recorded. A browser is where most people meet a permission prompt, and every other one is a dialogue nobody can audit afterwards
+- [2] ★ **Permissions as capabilities** — camera, microphone, location, notifications, in the shape of `alo-os` ADR 0001: enumerated, visible, revocable, expiring, recorded. A browser is where most people meet a permission prompt, and every other one is a dialogue nobody can audit afterwards.
+  Decided in ADR 0026 and not built: a closed list of capabilities, each
+  granted to one origin under one top-level site by a person answering an ask
+  made with a gesture; *allow while this page is open* or *allow on this site*
+  for thirty days from the person's last visit, and *don't allow* remembered
+  the same way; one list, an indicator while a device is in use, revocation
+  that stops the device at once, a record that holds no content; never
+  answered, granted or revoked by an agent
 
 ## Pictures and media — stage 2
 

@@ -546,6 +546,17 @@ store's own volume with `rustix`'s `statvfs`, checked against `df`. A volume
 that cannot be asked bounds it at zero. 133 queue items are open. The next
 unused queue number is 307 and the next unused ADR 0026.
 
+Iteration 188 wrote item 93's decision, ADR 0026: a permission is a grant
+in one table the browser process holds, one capability from a closed list
+to one storage key, made by a person answering an ask made with a gesture.
+It ends with the page or thirty days after the person's last visit, is
+shown in one list and while in use, revoked at once, and recorded without
+its content. No agent makes, answers or revokes one. No code. Its code is
+cut as **307** (the grant table, `alo-grants`, depending only on 301, so
+eligible next) and **308** (the prompt and the indicator, behind 297). 135
+queue items are open: 307 and 308 opened, and 93 stays open until they
+close. The next unused queue number is 309 and the next unused ADR 0027.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How a site asks for your camera, microphone or location is decided, and
+  nothing asks yet.** ADR 0026 says a site may ask only after you have
+  clicked or typed on it, never as it loads. You can allow it while the page
+  is open, or on that site until thirty days after you last opened it
+  yourself; nothing is allowed for ever. Every permission is in one list,
+  a tab using your camera, microphone or location says so in the tab strip,
+  and taking a permission back stops the device at once. The browser keeps a
+  note of what each site asked for and was allowed, never what it saw or
+  heard. An agent can never answer one of these questions for you.
+
 - **The browser's share of your disk is now sized from your disk.** The most
   all sites together may keep is a fifth of the space free on the disk the
   browser keeps them on, measured when it starts, and never more than 8 GiB.

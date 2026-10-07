@@ -1002,6 +1002,17 @@ unreachable without it.
 - [ ] Workers: dedicated, shared, and service workers with their fetch interception
 - [ ] Timers, clipboard, drag and drop
 - [ ] ★ **Permissions as capabilities** — camera, microphone, location, notifications, in the shape of `alo-os` ADR 0001: enumerated, visible, revocable, expiring, recorded. A browser is where most people meet a permission prompt, and every other one is a dialogue nobody can audit afterwards
+      — not started: nothing is built. Decided in ADR 0026. A permission is
+      a grant in one table the browser process holds: one capability from a
+      closed list, to one origin under one top-level site, made by a person
+      answering an ask a page made while somebody was using it. It ends when
+      the page closes or thirty days after the person last opened the site,
+      with no *always* and no shipped allowlist. It is shown in one list and
+      in the tab strip while a device is in use, revoked in one act that stops
+      the device at once, and recorded without what it carried. No agent can
+      make, answer or revoke one. Cut into queue items 307 (the grant table,
+      `alo-grants`) and 308 (the prompt and the indicator, behind the tab
+      strip); each capability's API arrives with its own item or page
 
 ### CSS beyond what alo needed
 
