@@ -481,8 +481,8 @@ The reason this exists rather than a faster fork of somebody else's engine.
   `transform-box` (`view-box`, or `fill-box` on a shape) and
   `transform-origin` (`0 0` unless set) say what it turns about. A nested
   `<svg>` is 278, and `fill-box` on a `<g>` and `stroke-box` are 288.
-  **An SVG file as a picture is decided and half built** (ADR 0027, for
-  alo Meet's waving hand): recognised by its type, read by `quick-xml`
+  **An SVG file is a picture** (ADR 0027, for alo Meet's waving hand):
+  recognised by its type, read by `quick-xml`
   behind `alo-dom`'s `xml.rs` into a document of its own that sees nothing
   of the page, runs nothing and fetches nothing, and refused whole on any
   XML error. **The file is read** (item 309): `alo_dom::read_svg` turns
@@ -491,8 +491,18 @@ The reason this exists rather than a faster fork of somebody else's engine.
   entity, a character XML forbids, a root that is not SVG's `svg`, an
   undeclared prefix, a repeated attribute, and anything past its bounds (a
   mebibyte, 65 536 elements, 256 deep, 256 attributes, 1 KiB names, 256 KiB
-  values and text runs). **Nothing shows it yet**: `<img src="…svg">` is 310
-  and `background-image` 311
+  values and text runs). **`<img src="…svg">` shows it** (item 310): only a
+  resource whose type is `image/svg+xml` (or a file named `.svg`, with no
+  response to say) is read as SVG, and never one whose bytes were handed to
+  a raster decoder. Its natural size is its root's absolute `width` and
+  `height`, its ratio theirs or its `viewBox`'s. It is drawn as vectors at
+  the `<img>`'s size, clipped to the box, with a cascade of its own: the
+  page's styles, custom properties and colour do not reach it, and its
+  media queries see its own size. It runs no script and fetches nothing:
+  an `<image>`, an external `<use>`, an `@import`, a `<link>` and a
+  stylesheet instruction are each left out and recorded. The agent reads
+  the `<img>` by its `alt` and nothing inside the file. Corpus case
+  `alo-meet-greeting`. In `background-image` it is 311
 - [2] Canvas 2D
 - [2] Audio and video playback through rented decoders.
   Decided in ADR 0023 and not built: decoded in a sandboxed media process per

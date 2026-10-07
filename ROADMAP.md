@@ -1091,17 +1091,19 @@ unreachable without it.
       stylesheet replaces it; `alo-svg`'s `transform.rs` measures it against
       `transform-box` (`view-box`, or a shape's object bounding box from
       `bbox.rs`) about `transform-origin`; corpus case
-      `svg-transform-property`
+      `svg-transform-property`; an SVG file as a picture (items 309 and 310,
+      closing 277, ADR 0027) — `alo_dom::read_svg` reads it behind
+      `quick-xml` in `alo-dom`'s `xml.rs`, `alo-renderer`'s `Resource`
+      carries the type beside the bytes so only `image/svg+xml` is read as
+      SVG, and `svg_picture.rs` draws it through `alo-svg` at the `<img>`'s
+      content box with its own cascade, confined there, and handed nothing
+      it could fetch with; corpus case `alo-meet-greeting`, alo Meet's
+      greeting with its waving hand
       · Owed: `fill-box` on a `<g>` and `stroke-box` (288); a per cent on
       an inline-level `<svg>`, resolved twice like any inline-block's (284);
       a nested `<svg>` (278), `<use>` (274), SVG paint servers (275),
-      `<text>` (276), each when a page needs it; and an SVG file as a
-      picture (277), which alo's Meet screen needs: decided in ADR 0027
-      (`quick-xml` behind `alo-dom`'s `xml.rs` into a document of our own,
-      recognised by type, fetching nothing), cut into reading the file (309),
-      `<img src="…svg">` (310) and `background-image` (311). Reading the
-      file is built (309: `alo_dom::read_svg`, Meet's hand frozen in
-      `alo-corpus/pictures/`); nothing shows one until 310.
+      `<text>` (276), each when a page needs it; and an SVG file in
+      `background-image` (311), when a page needs one.
       Decided in ADR 0022. An `<svg>` is one
       replaced box with no boxes inside it, and its contents become a drawing
       of paths, made by a new crate `alo-svg` after layout and handed to paint

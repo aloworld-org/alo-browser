@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!--
+  The greeting at the top of alo's Meet screen.
+
+  The markup React produces for the header of `alo-workplace`'s
+  `web/src/meet/MeetModule.tsx`, inside the screen's own `.module` and
+  `.content`, written out with its English strings from
+  `web/src/i18n/en.ts`. `greeting()` reads the clock, and this is the
+  morning; nobody is signed in, so there is no first name after it. The
+  `<img>` is `wavingHand`, `web/src/assets/alo-waving-hand.svg`, which the
+  build serves under `/assets/`; the bytes are frozen beside the corpus and
+  named in this case's `linked.txt`.
+
+  Only the header is here. The rest of the screen (its join form, hero,
+  meetings and sidebar) is not what this case was frozen for.
+
+  `alo-workplace` is read-only reference. Nothing here was written back to it.
+-->
+<html lang="en">
+<body>
+<div class="module">
+  <div class="content">
+    <header class="header">
+      <p class="greeting">Good morning <img class="greetingIcon" src="/assets/alo-waving-hand.svg" alt=""></p>
+      <h1>Your <em>meeting space</em></h1>
+      <p>Start a call or step into one that is already happening.</p>
+    </header>
+  </div>
+</div>
+</body>
+</html>

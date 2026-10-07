@@ -1,0 +1,73 @@
+/*
+ * The greeting on alo's Meet screen, styled the way it is styled.
+ *
+ * The rules are `alo-workplace`'s `web/src/meet/MeetModule.module.css` (the
+ * ones the header and its containers match) and `web/src/ds/global.css`, and
+ * the values are its `web/src/ds/tokens.css`. The tokens are declared below
+ * rather than imported because that file lives in another repository, which
+ * this one only ever reads.
+ *
+ * **No substitutions.** Each rule is the screen's own, as written there,
+ * except that the narrow-screen `@media` rule keeps only its two parts that
+ * match something in this header. At 800 pixels wide it does not apply.
+ */
+
+*,
+*::before,
+*::after { box-sizing: border-box }
+
+:root {
+  /* ---- tokens: the ones this header reads ---- */
+  --ink: #102a43;
+  --verdigris-100: #f8d6cc;
+  --verdigris-500: #e76f51;
+  --warm-600: #5f554b;
+  --bg-app: #f4f1ec;
+  --text-primary: var(--ink);
+  --text-secondary: var(--warm-600);
+  --accent: var(--verdigris-500);
+  --accent-tint: var(--verdigris-100);
+  --font-ui:
+    "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2rem;
+  --weight-semibold: 600;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --icon-size-control: 1.25rem;
+}
+
+/* ---- web/src/ds/global.css ---- */
+html,
+body { height: 100% }
+
+body {
+  margin: 0;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+}
+
+/* ---- web/src/meet/MeetModule.module.css ---- */
+.module { height: 100%; min-height: 0; overflow-y: auto; background: radial-gradient(circle at 92% 0, var(--accent-tint), transparent 26%), var(--bg-app); }
+.content { width: min(100%, 91rem); margin: 0 auto; padding: var(--space-6) var(--space-6) var(--space-16); }
+.header { margin: var(--space-5) 0 var(--space-4); }
+.greeting { margin: 0 0 var(--space-1); color: var(--text-primary); font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+.greetingIcon { width: var(--icon-size-control); height: var(--icon-size-control); margin-left: var(--space-1); vertical-align: middle; }
+.header h1 { margin: 0; color: var(--text-primary); font-size: var(--text-3xl); line-height: var(--leading-tight); }
+.header h1 em { color: var(--accent); font-style: normal; }
+.header > p:last-child { margin: var(--space-2) 0 0; color: var(--text-secondary); font-size: var(--text-md); }
+@media (max-width: 48rem) { .content { padding: var(--space-4) var(--space-3) var(--space-12); }.header h1 { font-size: var(--text-2xl); } }

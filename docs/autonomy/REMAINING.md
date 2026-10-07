@@ -580,6 +580,15 @@ ADR 0027 § 3 refuses and everything past its bounds. 310 (`<img
 src="…svg">`) depends only on 309 and is eligible next. 136 queue items are
 open. The next unused queue number is 312 and the next unused ADR 0028.
 
+Iteration 192 built item 310, closing 277: an `<img>` whose resource is
+typed `image/svg+xml` shows the file, drawn by `alo-svg` at the box's size
+with its own cascade and nothing to fetch with. Meet's greeting is corpus
+case `alo-meet-greeting`. The page opened 312 (`vertical-align`), 313
+(layered backgrounds) and 315 (`rem` in media queries), each depending on
+nothing and eligible. The tests found 314 (an `<img>` given a width and a
+height), blocked on a page. 138 queue items are open. The next unused queue
+number is 316 and the next unused ADR 0028.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

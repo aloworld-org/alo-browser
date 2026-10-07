@@ -809,7 +809,8 @@ impl Builder<'_> {
         });
     }
 
-    /// What an `<svg>` box holds, drawn inside its content box.
+    /// What an `<svg>` box holds, or an `<img>` showing an SVG file, drawn
+    /// inside its content box.
     ///
     /// Into the content box, as a picture is, because the drawing's viewport
     /// is the box's content (ADR 0022 § 1). It is clipped there unless the
@@ -828,10 +829,13 @@ impl Builder<'_> {
         };
         let content = geometry.content_box();
         let at = crate::path::Point::new(content.left(), content.top());
-        let clips = self
-            .style_of(id)
-            .and_then(|style| style.get("overflow"))
-            .is_some_and(|overflow| !overflow.eq_ignore_ascii_case("visible"));
+        // A picture's drawing is clipped whatever the box says: an SVG file
+        // shown by an `<img>` is the rectangle it was given (ADR 0027 § 5).
+        let clips = drawing.is_confined()
+            || self
+                .style_of(id)
+                .and_then(|style| style.get("overflow"))
+                .is_some_and(|overflow| !overflow.eq_ignore_ascii_case("visible"));
         if clips {
             out.push(DisplayItem::PushClip {
                 box_id: id,

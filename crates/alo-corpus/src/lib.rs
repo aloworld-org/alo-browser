@@ -38,8 +38,10 @@
 //!
 //! `pictures/` is a third kind, on the same terms: **frozen picture files**,
 //! one directory each with an `origin.txt`, read by path by the tests of a
-//! crate beneath this one. Meet's waving hand is there for `alo-dom`'s SVG
-//! reader (queue item 309).
+//! crate beneath this one and named by a case's `linked.txt`, so a file two
+//! things need is frozen once. Meet's waving hand is there for `alo-dom`'s
+//! SVG reader (queue item 309) and for `cases/alo-meet-greeting`, which
+//! shows it (item 310).
 //!
 //! # Running it
 //!

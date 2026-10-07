@@ -17256,3 +17256,135 @@ ticked in the queue with a *Built* note. 277 stays open until 310 closes.
 136 queue items are open: 309 closed and nothing was opened. The next unused
 queue number is **312** and the next ADR is **0028**. This is one iteration,
 not a finished queue or roadmap.
+
+
+---
+
+## Iteration 192 — queue item 310: `<img src="…svg">`
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+three states and the SVG line), iteration 191's entry, and items 277 and
+309–311 in `QUEUE.md`. ADR 0027 in full, and ADR 0022 as it cites it. For
+the code: `alo-renderer`'s `pipeline.rs`, `drawings.rs` and `lib.rs`;
+`alo-svg`'s `walk.rs` (`draw`); `alo-paint`'s `drawing.rs` and `build.rs`
+(`drawing_of`, `picture_of`); `alo-box`'s `svg.rs` and `natural.rs`;
+`alo-dom`'s `xml.rs` and `sheets.rs`; `alo-corpus`'s `case.rs`,
+`rendering.rs`, `check.rs` and `lib.rs`. From the sibling `alo-workplace`,
+read and never written, at `738de614`: `web/src/meet/MeetModule.tsx` and
+`MeetModule.module.css`, `web/src/ds/tokens.css` and `global.css`, and
+`web/src/i18n/en.ts`. No `AGENTS.md` exists. The checkout was clean on
+entry at `605028d`.
+
+**Selection.** Iteration 191 left 310 eligible next. Its one dependency, 309,
+is done. Every open item before it is blocked, waits on a dependency or a
+page, or needs design, and nothing has changed since.
+
+**What was built.**
+- `alo-renderer`'s `resource.rs`: `Resource`, a `src`, an optional
+  `Content-Type` and the bytes. `is_svg` compares the type's essence with
+  `image/svg+xml`, ignoring case and parameters. `from_file` lets a file's own
+  `.svg` stand in for the type when there was no response (ADR 0027 § 1).
+  The pipeline and `alo-corpus` now carry `Resource`s instead of pairs.
+- `pictures.rs`, `pictures_for` moved out of `pipeline.rs` and grown.
+  SVG-typed bytes go to `SvgPicture` and never to a raster decoder. Other
+  bytes go to the raster decoders and are never read as SVG.
+  `draw_svgs` draws each SVG picture after layout at its `<img>`'s content
+  box, and prefixes the file's issues with its `src`.
+- `svg_picture.rs`: `SvgPicture` holds the document `read_svg` made, its root,
+  and its natural size from `alo_box::svg::natural_size`. Its `draw` has
+  the document's own cascade: the user-agent sheet and its own `<style>`s,
+  media queries sized to the picture, and a `<link>` recorded as not
+  fetched. It then calls `alo_svg::draw`. It takes bytes and a size and
+  nothing else, so it has no resources, sheets, realm or network to reach
+  with.
+- `alo_paint::Drawing::confined`: a picture's drawing is clipped to its box
+  whatever the `<img>`'s `overflow` says. `build.rs`'s `drawing_of` reads it.
+- Corpus case **`alo-meet-greeting`**: Meet's header written out from
+  `MeetModule.tsx` with its own rules and tokens, and the hand named in
+  `linked.txt` from the one frozen copy in `pictures/`. Its `origin.txt`
+  says where everything came from and what the page found.
+
+**How it closes.**
+- **Layout assertion:** `alo-corpus/tests/meets_greeting.rs` puts the `<img>`
+  at 20 × 20 with its top at 44, on the greeting's line after the text, its
+  space and the 4 px margin. The hand is two fills, `#E76F51` then
+  `#102A43`, inside the box, clipped, and with no raster picture.
+- **Reference render:** `render.png` with `boxes.txt`, `layout.txt`,
+  `display.txt`, `agent.txt` and `issues.txt` committed. I looked at the
+  render: the hand is drawn beside "Good morning".
+- **No request:** `alo-renderer/tests/an_svg_picture.rs` uses a file with a
+  `<script>`, two `<image>`s, two external `<use>`s, two `@import`s, a
+  stylesheet PI, a `<link>` and an external DTD. Every name the file uses is
+  on offer as a red sheet, a PNG or a red file. Only its own green rect is
+  drawn, no picture item and no red pixel reach the page, each refusal is
+  recorded, and nothing records a lookup.
+- **The type decides:** the same bytes under no type, `text/xml`,
+  `image/png` and `text/html` are refused with the box at its styled
+  size. A PNG typed as SVG is refused as SVG and never decoded.
+- **Other tests in that file:** natural sizes (attributes, ratio, 300 × 150);
+  vectors at the box's size with the clip and pixels pinned; the page's
+  colour, custom property and selectors not reaching inside; the agent
+  reading only `alt`, with nothing inside the file in its tree; refused
+  files keeping their box.
+- `svg_picture.rs` has six unit tests and `resource.rs` has two.
+
+**Gate, mechanical.** I warmed the build with clippy and `cargo test
+--no-run`, then ran `scripts/gate.sh` in the foreground and read its log in
+the same step.
+- The first run failed **only** on `cargo fmt`: a line I changed for clippy
+  after formatting. Clippy and every test passed in that run.
+- I ran `cargo fmt` and then the whole gate again. It exited 0 with "The
+  gate is met.":
+  - fmt clean and clippy silent;
+  - "tests pass" (`pipefail`), with no `FAILED`, `panicked`, `error` or
+    `warning:` line in the log;
+  - no stubs, `unsafe` forbidden, and every notice present;
+  - every rented crate behind its boundary, `quick_xml` included;
+  - no coordinate verbs, the stop rule holding, and the changelog changed.
+
+`git diff --check` passes.
+
+**Gate, manual.**
+- Layout assertion and reference render: above. No existing reference moved;
+  the corpus update wrote only the new case.
+- One responsibility per file:
+  - `resource.rs` is what a fetched picture is.
+  - `svg_picture.rs` is an SVG file as a picture.
+  - `pictures.rs` is every `<img>`'s picture, read before layout and drawn
+    after it.
+  - `pipeline.rs` lost that job rather than gaining one.
+- The bytes are hostile (`LOOP.md` stage 2 § 2). Reading them is 309's, with
+  its prefix and flip tests. Here, refused files go through the whole
+  pipeline: an internal subset, a truncated file, an XHTML root and an
+  undeclared entity each refuse without a panic.
+- `docs/features.md` says what is built.
+
+**Faults the page found, queued rather than fixed.** `vertical-align` is
+read by nothing (**312**). A background of several layers draws nothing and
+records nothing (**313**). `rem` in a media query is not understood
+(**315**). None is the picture's. One fault was found by my own test rather
+than a page: an `<img>` with a CSS width and height wider than its ratio
+grows to `width / ratio` tall, for PNGs as much as SVG (**314**, blocked on
+a page as 284 is). The test was changed to a tall box, and says why. I also
+looked at a gap before "meeting space" and measured it: it is the bold
+space, so it is correct and was not queued.
+
+**Roadmap.** The SVG line's *Built* clause now names the SVG file as a
+picture (309, 310, ADR 0027, `alo-meet-greeting`). Its *Owed* clause keeps
+288, 284, 278, 274–276 and 311. It is not ticked. `QUEUE.md` ticks 310 with
+a *Built* note, and 277 with a *Closed* note, as its own text says it closes
+when 309 and 310 do. `docs/features.md`, `CHANGELOG.md` and `REMAINING.md`
+say the same.
+
+**Unresolved obligations.**
+- A page loaded through `Renderer` is handed no resources at all
+  (`renderer.rs` passes `&[]`). In a tab, no `<img>` of any format shows
+  until fetching sub-resources is built. The corpus and the pipeline show
+  them.
+- 312, 313 and 315 depend on nothing and are eligible. 314 waits for a page.
+- 296's capture still needs a person to grant Screen Recording (iteration
+  183). 297–300 and 308 wait on it. 302 needs a frozen page, and 304 its ADR.
+
+138 queue items are open: 310 and 277 closed, and 312–315 were opened. The
+next unused queue number is **316** and the next ADR is **0028**. This is one
+iteration, not a finished queue or roadmap.

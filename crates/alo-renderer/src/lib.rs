@@ -57,11 +57,13 @@ pub mod host;
 pub mod message;
 pub mod navigate;
 pub mod page;
+pub mod pictures;
 pub mod pipe;
 pub mod pipeline;
 mod press;
 mod put;
 pub mod renderer;
+pub mod resource;
 mod run_to;
 pub mod said;
 pub mod sandbox;
@@ -69,6 +71,7 @@ pub mod scripts;
 pub mod serve;
 pub mod site;
 pub mod snapshot;
+pub mod svg_picture;
 pub mod tab;
 pub mod violations;
 pub mod wire;
@@ -83,5 +86,6 @@ pub use pipeline::{
     render_with_resources,
 };
 pub use renderer::Renderer;
+pub use resource::Resource;
 pub use snapshot::{Snapshot, SnapshotNode};
 pub use tab::{Lost, Tab, TabId, Tabs};

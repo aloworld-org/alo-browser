@@ -27,6 +27,15 @@
 //! **content box**, with every SVG transform already applied. Paint moves it to
 //! wherever layout put the box, and under whatever CSS transform the box has,
 //! exactly as it moves a picture.
+//!
+//! # Where a drawing stops
+//!
+//! An inline `<svg>` is clipped to its content box by its `overflow`, which
+//! the user-agent sheet makes `hidden` and an author may make `visible`. A
+//! drawing made from an SVG **file** shown by an `<img>` (ADR 0027) is
+//! [`Drawing::confined`]: it never reaches past the box, whatever the box's
+//! `overflow` says, because a picture is the rectangle it was given and the
+//! page's style cannot let a stranger's file paint over it.
 
 use crate::fill_rule::FillRule;
 use crate::path::Path;
@@ -58,6 +67,7 @@ pub enum DrawingItem {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Drawing {
     items: Vec<DrawingItem>,
+    confined: bool,
 }
 
 impl Drawing {
@@ -92,6 +102,19 @@ impl Drawing {
         self.items.pop()
     }
 
+    /// The same drawing, held inside its box whatever the box's `overflow`
+    /// says: a picture's (see the module's notes).
+    #[must_use]
+    pub fn confined(mut self) -> Self {
+        self.confined = true;
+        self
+    }
+
+    /// Whether this drawing stops at its box whatever the box's style says.
+    pub fn is_confined(&self) -> bool {
+        self.confined
+    }
+
     /// Whether anything in it would put a pixel on a page.
     ///
     /// A drawing of groups with nothing filled in them, or of invisible fills,
@@ -115,6 +138,8 @@ mod tests {
         assert!(drawing.is_empty());
         assert_eq!(drawing.len(), 0);
         assert!(!drawing.draws_anything());
+        assert!(!drawing.is_confined());
+        assert!(drawing.confined().is_confined());
     }
 
     #[test]

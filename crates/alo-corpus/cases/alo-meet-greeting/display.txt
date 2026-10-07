@@ -1,0 +1,11 @@
+fill box#1 rgb(244 241 236) at (0, 0) 800×220
+clip box#3 to (0, 0) 800×220
+text box#10 "Good morning" rgb(16 42 67) 13px at (24, 64)
+clip box#11 to (136.0498, 44) 20×20
+fill box#11 rgb(231 111 81) evenodd at (138.63208, 44.962025) 15.898743×18.025318
+fill box#11 rgb(16 42 67) evenodd at (136.75867, 45.16456) 18.531647×17.822784
+unclip
+text box#14 "Your" rgb(16 42 67) 32px at (24, 100.76904)
+text box#16 "meeting space" rgb(231 111 81) 32px at (115.921875, 100.76904)
+text box#19 "Start a call or step into one that is already happening." rgb(95 85 75) 15px at (24, 130.23926)
+unclip

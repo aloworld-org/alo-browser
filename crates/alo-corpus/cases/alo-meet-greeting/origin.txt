@@ -1,0 +1,51 @@
+alo-workplace, web/src/meet/MeetModule.tsx — the greeting on alo's Meet screen.
+
+Written out 2026-10-07 from the `alo-workplace` repository checked out beside
+this one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef. React
+renders the screen, so page.html is the markup it produces for the header
+(lines 153–157 of MeetModule.tsx) inside the screen's `.module` and
+`.content`, with the English strings of web/src/i18n/en.ts: the morning
+greeting, no first name, "Your meeting space" and the subtitle. style.css is
+web/src/meet/MeetModule.module.css's rules for those elements,
+web/src/ds/global.css's for `html` and `body`, and the tokens they read from
+web/src/ds/tokens.css. `alo-workplace` is read-only reference; nothing was
+written back to it.
+
+The picture is `wavingHand`, web/src/assets/alo-waving-hand.svg, frozen byte
+for byte once, in ../../pictures/alo-waving-hand/ (its origin.txt has the
+hash), and named by linked.txt under the `/assets/` path the build serves it
+from. A frozen file had no response, so its `.svg` stands in for the type
+`image/svg+xml` (ADR 0027 § 1).
+
+Why this page. ADR 0027 was opened by it, and queue item 310 is closed by it:
+the greeting draws `<img class="greetingIcon" src={wavingHand} alt="">`, an
+SVG file shown as a picture. Before item 310 that was a 20 × 20 hole.
+
+Rendered at 800 × 220, wider than the screen's 48rem breakpoint.
+
+## What it found
+
+**The hand is drawn**, which is what the page was frozen for: the file's
+two paths, terracotta rgb(231 111 81) and navy rgb(16 42 67), each `evenodd`,
+met into the <img>'s 20 × 20 content box from the file's 395 × 385 viewBox
+and clipped there (display.txt). `tests/meets_greeting.rs` says it in
+numbers. The agent reads one decorative image with nothing inside it,
+because `alt=""` (agent.txt).
+
+**Three faults around it**, none of them the picture's, each queued rather
+than fixed in the iteration that found them:
+
+- `vertical-align` is read by nothing, so `middle` leaves the hand on the
+  line's baseline, a few pixels above where browsers put it — item 312.
+- `.module`'s background is two layers, a radial-gradient tint and a
+  colour, and a background of more than one layer draws nothing. The tint
+  in the top right corner is missing, and nothing records it — item 313.
+- `(max-width: 48rem)` is recorded as not understood, because a media
+  query's length cannot be in `rem` here. At this width it would not match
+  anyway, so nothing visible changes; on a narrow window it would — item 315.
+
+The issues list also has the two `::before` and `::after` selectors of
+global.css's `box-sizing` rule, which stage 1 does not produce.
+
+The reference render pins the page as it renders today, faults included, so
+that each of those items moves it and says so.

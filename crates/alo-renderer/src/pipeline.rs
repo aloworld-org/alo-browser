@@ -19,7 +19,9 @@
 //! and fonts arrive whole. `docs/features.md` promises alo OS a surface to
 //! render into, and that is queue item 40's.
 
-use alo_box::{BoxId, BoxTree};
+use crate::pictures::Pictures;
+use crate::resource::Resource;
+use alo_box::BoxTree;
 use alo_css::{ColorScheme, MediaContext, parse_stylesheet};
 use alo_dom::Document;
 use alo_layout::{LayoutTree, Size};
@@ -27,9 +29,7 @@ use alo_paint::{Canvas, DisplayList, PaintContext};
 use alo_style::{Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET};
 use alo_text::{FontDatabase, TextMeasurer};
 use alo_value::Rgba;
-use std::collections::BTreeMap;
 use std::fmt;
-use std::sync::Arc;
 
 /// Everything one render produced, and the document it was produced from.
 ///
@@ -150,8 +150,8 @@ pub fn render_with(
 
 /// The same, with the pictures a page asks for already fetched.
 ///
-/// `resources` maps a `src` exactly as the page wrote it to the bytes behind
-/// it. A page whose picture is not in the list renders a box of the size its
+/// Each [`Resource`] is a `src` exactly as the page wrote it, the type it came
+/// with, and the bytes behind it. A page whose picture is not in the list renders a box of the size its
 /// style asked for and records the fact — which is what a browser shows for a
 /// broken image.
 pub fn render_with_resources(
@@ -160,7 +160,7 @@ pub fn render_with_resources(
     size: Size,
     fonts: &FontDatabase,
     linked: &[(String, String)],
-    resources: &[(String, Vec<u8>)],
+    resources: &[Resource],
 ) -> Rendered {
     render_document_with(
         alo_dom::parse_document(html),
@@ -200,7 +200,7 @@ pub fn render_document_with(
     size: Size,
     fonts: &FontDatabase,
     linked: &[(String, String)],
-    resources: &[(String, Vec<u8>)],
+    resources: &[Resource],
 ) -> Rendered {
     let drawing = draw(&document, css, size, fonts, linked, resources);
     Rendered { document, drawing }
@@ -218,7 +218,7 @@ pub fn draw(
     size: Size,
     fonts: &FontDatabase,
     linked: &[(String, String)],
-    resources: &[(String, Vec<u8>)],
+    resources: &[Resource],
 ) -> Drawing {
     let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
     // A page's own `<style>` elements, then whatever the caller supplied. In
@@ -271,17 +271,22 @@ pub fn draw(
     // Pictures, before layout, because a picture's own size is what an `<img>`
     // with no width lays out at — so the size has to be known before anything
     // is measured.
-    let (pictures, picture_issues) = pictures_for(document, &mut boxes, resources);
-    sheet_issues.extend(picture_issues);
+    let pictures = Pictures::read(document, &mut boxes, resources);
+    sheet_issues.extend(pictures.issues.iter().cloned());
 
     let measurer = TextMeasurer::new(fonts);
     let layout = alo_layout::compute(&boxes, &styles, size, &measurer);
 
     // What every `<svg>` holds, after layout because its viewport is its box
     // (ADR 0022 § 2), and handed to paint by box beside the pictures.
-    let (drawings, drawing_issues) =
+    let (mut drawings, drawing_issues) =
         crate::drawings::drawings_for(document, &boxes, &styles, &layout);
     sheet_issues.extend(drawing_issues);
+    // And what every SVG file an `<img>` shows draws, at the size layout gave
+    // the `<img>` (ADR 0027 § 5), through the same seam.
+    let (svg_drawings, svg_issues) = pictures.draw_svgs(&layout);
+    drawings.extend(svg_drawings);
+    sheet_issues.extend(svg_issues);
 
     let display = alo_paint::build::build(
         &boxes,
@@ -289,7 +294,7 @@ pub fn draw(
         &styles,
         PaintContext {
             fonts,
-            pictures: &pictures,
+            pictures: &pictures.rasters,
             drawings: &drawings,
         },
     );
@@ -312,76 +317,6 @@ pub fn draw(
         sheet_issues,
         wanted,
     }
-}
-
-/// Decode every picture a page asks for, and tell the boxes how big they are.
-///
-/// # Why this is here rather than in `alo-box` or `alo-paint`
-///
-/// It needs three things that live in three places: the document, to find an
-/// `<img>` and its `src`; the frozen bytes, which the caller has; and the
-/// decoder, which is `alo_paint::encode`. This is the only place that has all
-/// three, and putting it in any of them would mean that crate learning about
-/// the other two.
-///
-/// A picture that could not be decoded is **recorded and skipped**. The box
-/// keeps whatever size its style asked for, which is what a browser shows for a
-/// broken image — an empty box of the right shape rather than a collapsed page.
-fn pictures_for(
-    document: &Document,
-    boxes: &mut alo_box::BoxTree,
-    resources: &[(String, Vec<u8>)],
-) -> (BTreeMap<BoxId, Arc<Canvas>>, Vec<String>) {
-    let mut pictures = BTreeMap::new();
-    let mut issues = Vec::new();
-    // Every box rather than a walk: this is looking for a kind of box rather
-    // than following the tree's shape.
-    let ids: Vec<BoxId> = boxes.ids().collect();
-    for id in ids {
-        let Some(node) = boxes.get(id) else {
-            continue;
-        };
-        let alo_box::BoxKind::Element { node: element, .. } = node.kind else {
-            continue;
-        };
-        let Some(element) = document.element(element) else {
-            continue;
-        };
-        if !element.name.local.eq_ignore_ascii_case("img") {
-            continue;
-        }
-        let Some(src) = element
-            .attrs
-            .iter()
-            .find(|attribute| attribute.name.local.eq_ignore_ascii_case("src"))
-            .map(|attribute| attribute.value.trim().to_owned())
-            .filter(|src| !src.is_empty())
-        else {
-            issues.push("an <img> with no src".to_owned());
-            continue;
-        };
-        let Some((_, bytes)) = resources.iter().find(|(at, _)| *at == src) else {
-            issues.push(format!("no picture was loaded for {src:?}"));
-            continue;
-        };
-        // By what the bytes are rather than what the `src` ends in: a name on a
-        // page proves nothing about what a server sent.
-        match alo_paint::picture::read(bytes) {
-            Ok(canvas) => {
-                let (width, height) = (canvas.width(), canvas.height());
-                boxes.set_natural_size(
-                    id,
-                    alo_box::NaturalSize::sized(
-                        f32::from(u16::try_from(width).unwrap_or(u16::MAX)),
-                        f32::from(u16::try_from(height).unwrap_or(u16::MAX)),
-                    ),
-                );
-                pictures.insert(id, Arc::new(canvas));
-            }
-            Err(why) => issues.push(format!("{src:?} is not a picture this engine reads: {why}")),
-        }
-    }
-    (pictures, issues)
 }
 
 /// A size in whole pixels, without a float-to-integer cast.

@@ -5654,7 +5654,7 @@ The long pole, and the thing most of section E is unreachable without.
   coordinates and shaped by `alo-text`.
   *Depends on 273. Opened only by a frozen page that needs it.*
 
-- [ ] **277. An SVG file as a picture.** *Cut from 107 (ADR 0022 § 6).*
+- [x] **277. An SVG file as a picture.** *Cut from 107 (ADR 0022 § 6).*
   `<img src="…svg">` and SVG in `background-image`. A standalone SVG file is
   XML, and XML is stage 3's item 139. *Needs ADR*, as its own iteration: which
   parser is rented, how it is held to SVG documents only, and the secure
@@ -5675,6 +5675,10 @@ The long pole, and the thing most of section E is unreachable without.
   the page, runs nothing, animates nothing and can cause no request. The
   agent reads the `<img>` by `alt`. 277 is not built itself. It closes when
   309 and 310 close, and its `background-image` half is 311.
+
+  **Closed (iteration 192)**, as its own text says, by 309 and 310 closing:
+  Meet's greeting shows the hand from its file. What remains of SVG in
+  `background-image` is 311, opened by a page.
 
 - [x] **309. Reading an SVG file.** *Cut from 277 (ADR 0027 §§ 2, 3, 5).*
   `alo-dom`'s `xml.rs`: `quick-xml` with default features off, named there
@@ -5706,7 +5710,7 @@ The long pole, and the thing most of section E is unreachable without.
   The `Name` production is not checked, as ADR 0027 § 2 allows until a file
   shows it matters.
 
-- [ ] **310. `<img src="…svg">`.** *Cut from 277 (ADR 0027 §§ 1, 4–6).* The
+- [x] **310. `<img src="…svg">`.** *Cut from 277 (ADR 0027 §§ 1, 4–6).* The
   resource's type is carried beside its bytes. The image document gets its
   own cascade (the user-agent sheet and its own `<style>`). Its natural size
   comes from the root's absolute `width` and `height`, and its ratio from
@@ -5721,11 +5725,93 @@ The long pole, and the thing most of section E is unreachable without.
   and causes no request. Another shows the same bytes under a type other
   than `image/svg+xml` are refused.
 
+  **Built (iteration 192).** `alo-renderer`'s new `resource.rs` is the
+  type beside the bytes: `Resource` (a `src`, an optional `Content-Type`,
+  the bytes), whose `is_svg` compares the type's essence with
+  `image/svg+xml` ignoring case, and whose `from_file` lets a file's own
+  `.svg` stand in for the type when there was no response. The corpus reads
+  every frozen picture that way. `pictures.rs`, moved out of `pipeline.rs`,
+  reads every `<img>`'s resource: SVG-typed bytes go to `svg_picture.rs`
+  and never to a raster decoder, and everything else goes to the raster
+  decoders and is never read as SVG. `SvgPicture` holds the document
+  `read_svg` made, its root, and its natural size from
+  `alo_box::svg::natural_size`. Its `draw` runs the document's own cascade
+  (the user-agent sheet and its own `<style>`s, media queries sized to the
+  picture, a `<link>` recorded as not fetched) and `alo_svg::draw` at the
+  `<img>`'s content box. The pipeline merges that drawing into paint's
+  drawings by box, after layout. `alo_paint::Drawing` gained `confined`, so
+  a picture's drawing is clipped to its box whatever the `<img>`'s
+  `overflow` says. The issues from a file are prefixed with its `src`.
+  Nothing in `svg_picture.rs` is handed resources, sheets or a realm: it
+  takes bytes and a size. Corpus case **`alo-meet-greeting`** is Meet's
+  header written out from `MeetModule.tsx` at `738de614` with the hand
+  frozen once in `pictures/`: layout, box tree, agent tree and reference
+  render committed, with the hand's two paths in its 20 × 20 box.
+  `alo-corpus/tests/meets_greeting.rs` is the layout assertion, and
+  `alo-renderer/tests/an_svg_picture.rs` covers the rest: natural sizes,
+  vectors at the box's size and clipped, the same bytes refused under four
+  other types, a PNG typed as SVG never decoded, a file asking for a
+  script, `<image>`s, external `<use>`s, `@import`s, a stylesheet PI, a
+  `<link>` and an external DTD drawing only its own rect with nothing it
+  named reaching the page, the page's colour and custom properties not
+  reaching inside, the agent reading only the `alt`, and refused files
+  keeping their box. No other reference moved. The page also showed three
+  faults that are not the picture's (312, 313, 315), and the tests one more
+  (314).
+
 - [ ] **311. A picture in `background-image`.** *Cut from 277 (ADR 0027
   § 7).* `url()` in `background-image`, raster or SVG: today it draws only
   gradients, so a picture behind a box is not built for any format. SVG
   reaches it through 310's path. *Depends on 310 for SVG. Opened only by a
   frozen page that needs it*, as 179 is. No alo stylesheet names one today.
+
+- [ ] **312. `vertical-align`.** *Opened by `alo-meet-greeting`
+  (iteration 192).* Nothing reads the property, so every inline box sits on
+  its line's baseline whatever it says. Meet's greeting icon is
+  `vertical-align: middle` and sits a few pixels high, and nothing records
+  that. The keywords `baseline`, `middle`, `top`, `bottom`, `text-top`,
+  `text-bottom`, `sub` and `super`, and a length or a per cent, in the line
+  builder, with the line box growing to hold what moved.
+  *Depends on nothing. Closes when:* a `numbers.rs` assertion places a
+  20 px atomic box under each keyword in a 13 px line, its midpoint for
+  `middle` at the baseline plus half the x-height. `alo-meet-greeting`
+  moves, and its hand sits where browsers put it.
+
+- [ ] **313. A background of several layers.** *Opened by
+  `alo-meet-greeting` (iteration 192).* `background: radial-gradient(…),
+  var(--bg-app)`, Meet's `.module`, is two layers, and paint reads a
+  background only as one gradient or one colour, so it draws nothing and
+  records nothing. The comma list as layers, the last one's colour beneath
+  them all, each gradient painted in order, the first on top. A layer this
+  engine cannot draw (a `url()`, item 311) is recorded and the rest still
+  drawn. *Depends on nothing. Closes when:* a reference render shows a
+  gradient over a colour and two gradients over each other, a layer list
+  that cannot be read is recorded, and `alo-meet-greeting`'s tint appears in
+  its top right corner.
+
+- [ ] **314. An `<img>` given a width and a height keeps neither ratio nor
+  height.** *Found by iteration 192's tests, not opened by a page.* A
+  replaced box with a natural ratio and both a CSS `width` and `height` is
+  laid out `height = max(height, width / ratio)`: a 24 × 24 picture styled
+  `80px` by `40px` is 80 × 80, and `30px` by `40px` is right. Raster and SVG
+  pictures alike. A definite width and height are the size, and the
+  picture is stretched (`object-fit: fill`). The automatic minimum size from
+  the ratio looks like the cause and has to be confirmed first. *Depends on
+  nothing. Blocked: no page yet*, as 284 is: Meet's icon is square and
+  meets nothing here. *Closes when:* a `numbers.rs` assertion has an
+  `<img>` of each kind styled wider and taller than its ratio laid out at
+  exactly its width and height.
+
+- [ ] **315. `rem` and `em` in a media query.** *Opened by
+  `alo-meet-greeting` (iteration 192).* Meet's stylesheet says
+  `@media (max-width: 48rem)`, and a length in a media feature can only be
+  in pixels here, so the query is recorded as not understood and treated as
+  not matching. At Meet's width the answer is right by chance. In a window
+  narrower than 768 pixels, Meet keeps its wide layout. Media Queries
+  resolve `rem` and `em` against the initial font size, 16 px, and not the
+  page's. *Depends on nothing. Closes when:* a test in `alo-css`'s
+  `media.rs` matches `48rem` and `48em` at 767 and 768 pixels, and
+  `alo-meet-greeting` drops that issue.
 
 - [ ] **278. A nested `<svg>` viewport.** *Cut from 271 (ADR 0022 § 1).* An
   `<svg>` inside an `<svg>` is a new viewport in its parent's drawing: its

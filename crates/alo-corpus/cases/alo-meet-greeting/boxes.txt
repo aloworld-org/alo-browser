@@ -1,0 +1,14 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      block flow · generic
+        block flow · banner
+          block flow · paragraph
+            text "Good morning "
+            inline flow-root · image
+          block flow · heading [level=1]
+            text "Your "
+            inline flow · generic
+              text "meeting space"
+          block flow · paragraph
+            text "Start a call or step into one that is already happening."

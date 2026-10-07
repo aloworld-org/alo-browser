@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Pictures that are SVG files now show, and alo Meet's greeting has its
+  waving hand.** An `<img>` whose file the server says is SVG is drawn
+  sharp at whatever size the page gives it. It cannot see the page's
+  colours or styles, cannot run code, and cannot make the browser fetch
+  anything, so a file that tries to pull in other pictures, styles or
+  scripts shows only its own shapes. The same file sent under any other
+  type is refused. Assistive tools and agents read the picture by its
+  `alt` text, never by what the file says about itself. Meet's greeting
+  showed three unrelated layout gaps. The icon sits a little high, the
+  screen's corner tint is missing, and its narrow-window rules are not yet
+  understood. Each is now queued.
+
 - **The browser can now read an SVG picture file, though no page shows one
   yet.** alo Meet's waving hand reads as a picture with a title and two
   shapes. A file is turned away whole, with the reason named, when it is

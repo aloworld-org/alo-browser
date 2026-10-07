@@ -27,6 +27,7 @@
 //! compositing. The first four say *what* changed; the picture says *that*
 //! something did.
 
+use alo_renderer::Resource;
 use std::path::{Path, PathBuf};
 
 /// How wide and tall a case is rendered, unless it says otherwise.
@@ -62,7 +63,11 @@ pub struct Case {
     /// the same `linked.txt` as the style sheets, because from a case's point of
     /// view they are the same thing: something the page named and something
     /// frozen next to it.
-    pub resources: Vec<(String, Vec<u8>)>,
+    ///
+    /// A frozen file had no response, so its type is what its own file name's
+    /// extension stands in for ([`Resource::from_file`]): a `.svg` is an SVG
+    /// picture, and every other picture is decided by its bytes.
+    pub resources: Vec<Resource>,
 }
 
 impl Case {
@@ -123,7 +128,7 @@ fn parse_size(text: &str) -> Option<(f32, f32)> {
 /// Read as **bytes** rather than text, and read by the same list, because a
 /// case has one place where it says "this is what that name means" — two lists
 /// would be two places to forget.
-fn linked_resources(directory: &Path) -> Vec<(String, Vec<u8>)> {
+fn linked_resources(directory: &Path) -> Vec<Resource> {
     let Ok(list) = std::fs::read_to_string(directory.join("linked.txt")) else {
         return Vec::new();
     };
@@ -136,10 +141,11 @@ fn linked_resources(directory: &Path) -> Vec<(String, Vec<u8>)> {
         let Some((name, file)) = line.split_once(char::is_whitespace) else {
             continue;
         };
-        let Ok(bytes) = std::fs::read(directory.join(file.trim())) else {
+        let file = file.trim();
+        let Ok(bytes) = std::fs::read(directory.join(file)) else {
             continue;
         };
-        found.push((name.trim().to_owned(), bytes));
+        found.push(Resource::from_file(name.trim(), file, bytes));
     }
     found
 }

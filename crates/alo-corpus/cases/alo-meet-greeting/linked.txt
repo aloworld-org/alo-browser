@@ -1,0 +1,7 @@
+# What the page named, and the file holding it.
+#
+# The hand is the one frozen copy under `pictures/`, byte for byte as
+# `alo-workplace` has it (its own origin.txt says where and when). A frozen
+# file had no response, so its `.svg` stands in for the type
+# `image/svg+xml` (ADR 0027 § 1).
+/assets/alo-waving-hand.svg ../../pictures/alo-waving-hand/picture.svg
