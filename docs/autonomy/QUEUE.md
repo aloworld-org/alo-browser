@@ -2546,9 +2546,9 @@ The long pole, and the thing most of section E is unreachable without.
   traced to keep it across the call; reading `name` again afterwards is a
   second getter call a page can count. Refused by name today
   ([`Missing::AMessageBehindACall`]).
-  *Depends on 221's traced native scratch state. Closes when:* a `message`
-  getter runs once, after `name`'s, an object `message` is converted with its
-  own `toString`, and a `name` getter that counts its calls is called once in
+  *Depends on 332, the traced native scratch state ADR 0031 decided for
+  221. Closes when:* a `message` getter runs once, after `name`'s, an
+  object `message` is converted with its own `toString`, and a `name` getter that counts its calls is called once in
   both cases. Opened by a frozen real script that does it, and not before.
 
 - [ ] **229. `AggregateError`.** Cut from 227. Its first argument is an
@@ -2991,7 +2991,10 @@ The long pole, and the thing most of section E is unreachable without.
   and a numeric continuation step. `apply` must accumulate an argument list
   while reading an array-like's `length` and indexed properties, any of which
   can call script. Keep that intermediate list in collector-visible storage.
-  *Depends on 219 and the length conversions from 73. Closes when:* `apply`
+  **Decided by ADR 0031 (iteration 207):** the scratch state is slots on
+  the stack (item 332), and the growing list a prototype-less array one
+  slot holds (§ 3).
+  *Depends on 219, 332 and the length conversions from 73. Closes when:* `apply`
   forwards an array-like's values in order, null/undefined mean no arguments,
   getters execute once in order, getter exceptions propagate, and excessive
   lengths are bounded before allocating. All cases must survive collection at
@@ -3378,13 +3381,39 @@ The long pole, and the thing most of section E is unreachable without.
   builtin keeps state across the calls it asks for decides `map`,
   `filter`, `reduce`, `every`, `some`, `find` and every promise reaction
   after it, so it is decided once, before any of them is built.
-  *Depends on that ADR, and on 329. Closes when:* `Array.prototype.forEach`
+  **Decided (iteration 207): ADR 0031** — a builtin declares up to eight
+  value slots, reserved on the stack above its arguments and written there
+  at once; `len` and `k` are two of them, and a loop over holes asks the
+  embedder's stop (§ 7). The slots themselves are **332**.
+  *Depends on 332, and on 329. Closes when:* `Array.prototype.forEach`
   answers a table of arrays and array-likes as the specification does —
   holes skipped, `thisArg` passed, the length read once, a throwing
   callback ending it — with the collector at every allocation; a
-  `NodeList`'s five members are `===` `Array.prototype`'s; and
-  `alo-downloads`' script runs past `.forEach` and stops at its next
-  missing member (`fetch`, item 75), named in `origin.txt`.
+  `{ length: 2 ** 53 - 1 }` with no elements is ended by the embedder's
+  stop rather than run to its end; a `NodeList`'s five members are `===`
+  `Array.prototype`'s; and `alo-downloads`' script runs past `.forEach`
+  and stops at its next missing member (`fetch`, item 75), named in
+  `origin.txt`.
+
+- [ ] **332. The slots a builtin keeps.** *Cut from 331 (ADR 0031 §§ 1–5).*
+  `Native` gains a declared slot count (at most `bounds::KEPT_BY_A_BUILTIN`,
+  eight); `wait` reserves that many `undefined`s on the stack directly
+  above the arguments, counted against `bounds::VALUES_ON_THE_STACK`;
+  `Waiting` carries the count and `answer_at` moves up by it; `Call` gains
+  `kept(n)` and `keep(n, value)`, which read and write the stack itself
+  through its barrier rather than a copy. A builtin that declares none has
+  today's region exactly. `object/native.rs`' *a step is a number* note
+  says what changed. *Depends on nothing. Closes when:* a test native that
+  allocates an object, keeps it, asks for a call that allocates, and
+  answers with the kept object answers the same object with the collector
+  at every allocation; a number kept before a call reads back after it; a
+  call it asks for never disturbs a slot; a throw from that call takes the
+  slots down with the builtin and leaves the stack as a throw from a
+  builtin with none does; a slot number past the count is
+  `Internal::BuiltinIsWrong`; a native declaring nine is refused when the
+  realm is furnished, and a test walks every builtin `alo-js` and
+  `alo-bindings` install; and reserving slots past the stack's bound is the
+  `RangeError` a deep recursion is.
 
 - [x] **326. The `User-Agent` header.** *Cut from 325 (ADR 0030 §§ 1–4,
   7).* This engine sends no `User-Agent` today (`csp_report.rs` says so on

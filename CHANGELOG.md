@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided how the engine's own functions remember things while a page's
+  code runs** (ADR 0031). `forEach` reads a list's length once and then
+  calls the page's function for each item; it has to keep that length and
+  its place in the list while the page's function runs, and keep them
+  somewhere the memory collector sees. Each such function now says how many
+  values it keeps, at most eight, and they sit on the engine's own working
+  stack. Nothing is built yet: the slots come next, then `forEach`, which
+  alo's download page is waiting on.
+
 - **A page's style sheet can no longer crash the renderer by nesting.** A
   selector, a value or a media condition written thousands of brackets
   deep, or `@media` inside `@media` thousands of times, used to overflow

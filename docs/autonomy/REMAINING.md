@@ -705,6 +705,14 @@ those ways no longer crashes the renderer. 143 queue items are open; 331
 still needs its ADR, and 320 is next in queue order. The next unused
 queue number is 332 and the next unused ADR 0031.
 
+Iteration 207 decided item 331 in ADR 0031: a builtin declares up to eight
+value slots, reserved on the stack above its arguments and written there at
+once, so what it keeps across a call it asks for is where the collector
+already walks. No code changed. Building the slots is 332, opened and
+eligible; 331 (`forEach`), 221 (`apply`) and 228 now depend on it. 144
+queue items are open. The next unused queue number is 333 and the next
+unused ADR 0032.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

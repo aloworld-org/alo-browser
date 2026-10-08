@@ -769,8 +769,11 @@ unreachable without it.
       the tag rather than by a case for it. An element or an array-like's
       `length` behind a getter is refused by name (item 231), because a call
       from inside the iterator would make a generator's states observable
-      · Owed: `apply` and traced native scratch state (queue item 221), and
-      the remaining library. `Error.prototype.toString` of a `message` that is
+      · Owed: traced native scratch state, decided in ADR 0031 — up to
+      eight value slots a builtin declares, on the stack above its
+      arguments — and not built (queue item 332); `apply` (221) and
+      `forEach` with a `NodeList`'s iterators (331) on it; and the
+      remaining library. `Error.prototype.toString` of a `message` that is
       a getter or an object is refused by name (item 228, on 221), and
       `AggregateError` is item 229. `Object` and `Function` themselves are
       constructors item 73 has not built; a

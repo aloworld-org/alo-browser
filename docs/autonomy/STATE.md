@@ -19009,3 +19009,87 @@ changed.
 143 queue items are open: 330 closed. The next unused queue number is
 **332** and the next ADR is **0031**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 207 — queue item 331 decided: ADR 0031, a builtin keeps its state in slots on the stack
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2 §§ 3–4: order by
+dependencies; a decision is its own iteration), `ROADMAP.md`'s state rules
+and its standard-library line, iteration 206's entry, queue items 331, 221,
+228 and 231 in full, `docs/features.md`' standard-library line. ADRs read:
+0030 (for form), 0013 §§ 3–4, 0014 § 2, 0018 §§ 2–3, 0029's headings
+(§ 3, the stop inside a builtin's loop). Code read: `alo-js`'
+`object/native.rs` whole, `interpret/call.rs` (`wait`, `step_builtin`,
+`want_for`, `let_go`), `interpret/frame.rs` (`Waiting`, `answer_at`),
+`heap/root.rs`, `builtin/array_prototype.rs`; `alo-bindings`'
+`scripted.rs`, `interface/event_target.rs` and `dom_token_list.rs` for how
+builtins carry state in their step today. No `AGENTS.md` exists. The
+checkout was clean on entry at `bd65b26`. No sibling repository was read or
+written.
+
+**Selection.** 331 is reached by `alo-downloads`' running script, is the
+first open item in file order whose blocker is its own ADR, and by stage 2
+§ 4 that ADR is this iteration. 320 and 321 come after it in the file.
+
+**What was decided (ADR 0031).** No code changed.
+- A `Native` declares a fixed number of value slots, at most eight
+  (`bounds::KEPT_BY_A_BUILTIN`), reserved as `undefined` on the value stack
+  between its arguments and its answer slot when it is entered, counted
+  against `VALUES_ON_THE_STACK`, and taken down with the call.
+- `Call::kept(n)` / `Call::keep(n, value)` read and write the stack itself,
+  through its barrier, never a copy — so a kept reference is rooted the
+  moment it is kept (§ 4). No new root kind; ADR 0014 § 2's list is unchanged.
+- A length or index is a `Value::Number` (exact to 2⁵³ − 1). State that grows
+  with input is a prototype-less heap array held in one slot (§ 3).
+- The step still says *where*; nothing a page can size goes in it (§ 5).
+- Where the specification keeps state in an object (iterator, event,
+  promise records) the object keeps it (§ 6).
+- A builtin's loop that runs no script asks the embedder's stop (§ 7).
+- Rejected: wider steps, re-reading `length`, a traced `Box<dyn …>` per call,
+  a hidden heap object per call, self-hosting in JavaScript, and direct
+  re-entry into the interpreter.
+
+**Queue.** 331 records the decision and now depends on **332**, opened: the
+slots themselves, depending on nothing, with a closing condition testable
+by a test native under `Heap::stress`. 221 records that ADR 0031 decided its
+scratch state and depends on 332; 228 depends on 332. Nothing was ticked.
+
+**Roadmap.** The standard-library line's Owed clause named "traced native
+scratch state (queue item 221)"; it now says that state is decided in ADR
+0031 and not built (332), with `apply` (221) and `forEach` (331) on it. No
+tick; nothing is built. `docs/features.md`' standard-library line,
+`CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Gate, mechanical.** No code changed; the build was warmed with
+`cargo build --workspace --all-targets --all-features`. `scripts/gate.sh`
+ran in the foreground into a log, passed the tool's ten-minute ceiling and
+was moved to the background; I waited for it in the same turn and read the
+log: exit 0, "The gate is met." — fmt clean, clippy silent, tests passing,
+no stubs, `unsafe` forbidden, licences present, every rented crate behind
+its boundary, no coordinate verbs, the stop rule holding, no uncommitted
+code to judge.
+
+**Gate, manual.**
+- Layout assertions and reference renders: none apply; nothing positions,
+  sizes or draws differently.
+- One responsibility per file: no source file changed. The ADR is one
+  decision; where the mechanism goes (`native.rs`, `frame.rs`, `call.rs`,
+  `bounds.rs`) is named for 332.
+- `docs/features.md` describes the decision before anything is built.
+- Claims in the ADR about current code were checked against it; one
+  (that `classList` packs a count into its step) was wrong in the draft and
+  corrected to `addEventListener`'s option bits before committing.
+
+**Unresolved obligations.**
+- Nothing of ADR 0031 is built. 332 is eligible and is the next item on
+  `alo-downloads`' path; 331 follows it.
+- The ADR's claim that three slots suffice for `map`, `reduce` and `apply`
+  is from the specification's algorithms, not from built code; § *How we
+  will know* covers a builtin that needs more.
+- 320 and 321 remain eligible. 322 and 324 wait for a page; 323 waits on
+  73; 328 waits for a page. Still standing: 284, 311, 314 wait for pages;
+  296 needs a person; 297–300, 302, 304, 308; 126 and 132.
+- `scripts/gate.sh` still takes longer than ten minutes with a warm build.
+
+144 queue items are open: 332 opened, none closed. The next unused queue
+number is **333** and the next ADR is **0032**. This is one iteration, not
+a finished queue or roadmap.
