@@ -366,6 +366,31 @@ fn a_relative_box_moves_and_an_absolute_one_leaves_the_flow() {
     );
 }
 
+/// Queue item 352, from alo Sites' skip link: an inline with `position:
+/// absolute` is blockified and placed out of flow, as a block is, so it is
+/// at its offsets, as wide as its text and its padding, and the block after
+/// it starts at the top.
+#[test]
+fn an_absolutely_positioned_inline_leaves_the_flow_and_its_line() {
+    let html = "<body><a id=skip href=#m>Skip</a><main id=m></main></body>";
+    let css = "main { height: 40px } \
+               #skip { position: absolute; left: -999rem; top: 0; \
+                       padding: 8px 16px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+
+    let skip = rect_of(&boxes, &layout, "skip", html);
+    assert_eq!(skip.origin, alo_layout::Point::new(-999.0 * 16.0, 0.0));
+    // Four characters of eight pixels, and sixteen of padding each side:
+    // shrunk to what it holds, not stretched across the page as an
+    // in-flow block would be.
+    assert!(close(skip.size.width, 4.0 * 8.0 + 2.0 * 16.0), "{skip:?}");
+    assert_eq!(
+        rect_of(&boxes, &layout, "m", html),
+        Rect::new(0.0, 0.0, 400.0, 40.0),
+        "nothing is left in flow above the block after it",
+    );
+}
+
 #[test]
 fn text_wraps_where_a_line_may_break_and_nowhere_else() {
     let html = "<body><div id=a>abcd efgh</div></body>";

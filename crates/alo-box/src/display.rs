@@ -179,6 +179,27 @@ impl Display {
         self.outside() == Some(Outside::Block)
     }
 
+    /// The same value made block-level: what CSS Display § 2.7 calls
+    /// **blockification**.
+    ///
+    /// Only the outside changes. `inline` becomes `block`, `inline-block`
+    /// becomes `flow-root`, `inline-flex` and `inline-grid` become `flex` and
+    /// `grid`, a list item stays one, and a value that makes no box is left
+    /// as it is, because there is no box to make block-level.
+    #[must_use]
+    pub fn blockified(self) -> Self {
+        match self {
+            Display::Box {
+                inside, list_item, ..
+            } => Display::Box {
+                outside: Outside::Block,
+                inside,
+                list_item,
+            },
+            Display::None | Display::Contents => self,
+        }
+    }
+
     /// Whether children of this box are laid out one after another in lines,
     /// rather than by flex or grid.
     ///
@@ -328,6 +349,25 @@ mod tests {
         assert_eq!(Display::default(), Display::INITIAL);
         assert!(Display::INITIAL.is_inline_level());
         assert!(!Display::INITIAL.is_block_level());
+    }
+
+    #[test]
+    fn blockifying_changes_only_the_outside() {
+        let blockified = |value: &str| {
+            Display::parse(value).map_or_else(
+                || "refused".to_owned(),
+                |display| display.blockified().to_string(),
+            )
+        };
+        assert_eq!(blockified("inline"), "block flow");
+        assert_eq!(blockified("inline-block"), "block flow-root");
+        assert_eq!(blockified("inline-flex"), "block flex");
+        assert_eq!(blockified("inline-grid"), "block grid");
+        assert_eq!(blockified("inline list-item"), "block flow list-item");
+        assert_eq!(blockified("block"), "block flow", "already block-level");
+        assert_eq!(blockified("grid"), "block grid");
+        assert_eq!(Display::None.blockified(), Display::None);
+        assert_eq!(Display::Contents.blockified(), Display::Contents);
     }
 
     #[test]

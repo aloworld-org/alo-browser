@@ -1,0 +1,6 @@
+fill box#1 rgb(255 255 255) at (0, 0) 200×31.132813
+fill box#4 rgb(242 245 248) at (0, 0) 200×31.132813
+text box#6 "The page starts at the top." rgb(23 33 43) 13px at (8, 20.066895)
+fill box#2 rgb(29 78 216) at (12, 40) 43.644043×23.132813
+text box#3 "Skip" rgb(255 255 255) 13px at (20, 56.066895)
+fill box#3 rgb(255 255 255) at (20, 56.89209) 27.644043×1

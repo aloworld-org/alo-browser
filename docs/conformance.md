@@ -235,6 +235,15 @@ line, with its start border on the first piece and its end border on the last.
 A *percentage* padding on an inline box is refused and recorded: it is of the
 containing block's width, which is not known where a line is built.
 
+**An absolutely positioned box is blockified.** An inline with `position:
+absolute` is block-level and in no line, and is placed at its offsets,
+shrunk to what it holds (`cases/absolute-inline`). Two things are not right
+yet, for an absolutely positioned block as much as an inline. One among a
+line's content splits the line in two rather than taking no room on it, and
+one with an inset left `auto` is not at its static position (item 354). It
+is also placed against its parent rather than its nearest positioned
+ancestor (item 355).
+
 **`letter-spacing`** is applied where text is measured, so it changes where
 lines break rather than only how the letters sit.
 
@@ -354,7 +363,7 @@ it lives in.
 | An agent reading Settings as a tree and activating a row by name | **yes** — `crates/alo-renderer/tests/an_agent_on_settings.rs`, against that same screen, by name and never by position |
 | alo agent overlay | not yet — the screen is not written in `alo-workplace` either |
 | alo offline screen | **nearly** — `alo-workplace`'s `offline.html`, frozen byte for byte as `alo-offline`, its hand drawn (item 273), it and the button centred across (item 280) and the hand's bottom margin kept (item 281), the whole screen centred down the window by `place-items` (item 282), the font's descent under the hand (item 283), and the button standing on its label's baseline so its line is the button's height (item 285) |
-| A page alo Sites publishes | **one section, with two faults** — `crates/alo-corpus/cases/alo-sites-cta`, its call-to-action section frozen with its `site.css` (item 349), is drawn with its sheet and checked in numbers by `tests/alo_sites_cta.rs`. Its skip link, `position: absolute` on an inline, is drawn in flow at the top left and pushes the section down a line (item 352), and its analytics script stops at `Date` (item 353), which changes nothing drawn. In the window the page is painted **unstyled first** (item 351). The other sections are not frozen; the hero's picture cannot be yet (item 350) |
+| A page alo Sites publishes | **one section, with one fault** — `crates/alo-corpus/cases/alo-sites-cta`, its call-to-action section frozen with its `site.css` (item 349), is drawn with its sheet and checked in numbers by `tests/alo_sites_cta.rs`. Its skip link, `position: absolute` on an inline, is out of flow and off the page, so the section starts at the top (item 352). Its analytics script stops at `Date` (item 353), which changes nothing drawn. In the window the page is painted **unstyled first** (item 351). The other sections are not frozen; the hero's picture cannot be yet (item 350) |
 
 **One thing is true of both screens and is not a defect in either**: the corpus
 renders in DejaVu Sans, and the app loads Inter. Inter is narrower, so alo's

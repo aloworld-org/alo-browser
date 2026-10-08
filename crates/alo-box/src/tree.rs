@@ -800,7 +800,24 @@ fn svg_box(
 
 /// What `display` an element ends up with, recording a value this engine does
 /// not implement rather than guessing at it.
+///
+/// An absolutely positioned box is **blockified** (CSS Display § 2.7, CSS 2
+/// § 9.7): whatever `display` says about its outside, it does not sit in a
+/// line, so it is never wrapped into one. alo Sites' skip link is an inline
+/// `<a>` with `position: absolute; left: -999rem`, and before this it was
+/// drawn in a line of its own at the top of every page alo Sites publishes.
 fn display_of(style: Option<&ComputedStyle>, id: NodeId, tree: &mut BoxTree) -> Display {
+    let display = written_display(style, id, tree);
+    if is_absolutely_positioned(style) {
+        display.blockified()
+    } else {
+        display
+    }
+}
+
+/// `display` as written, or the initial value if nothing set it or this
+/// engine does not implement what was written.
+fn written_display(style: Option<&ComputedStyle>, id: NodeId, tree: &mut BoxTree) -> Display {
     let Some(value) = style.and_then(|style| style.get("display")) else {
         return Display::INITIAL;
     };
@@ -813,6 +830,19 @@ fn display_of(style: Option<&ComputedStyle>, id: NodeId, tree: &mut BoxTree) -> 
         at: Location { line: 0, column: 0 },
     });
     Display::INITIAL
+}
+
+/// Whether `position` takes the box out of flow.
+///
+/// Only `absolute`, because it is the only such value layout places:
+/// `fixed` and `sticky` are refused there and fall back to `static`, said
+/// once in layout's issues, so blockifying them here would make a box
+/// block-level and leave it in flow, which no value of `position` does.
+/// What layout refuses is recorded there, not again here.
+fn is_absolutely_positioned(style: Option<&ComputedStyle>) -> bool {
+    style
+        .and_then(|style| style.get("position"))
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case("absolute"))
 }
 
 /// Put a box's children into a shape layout can walk: all block-level, or all
@@ -1350,6 +1380,60 @@ mod tests {
             "and the box falls back to the initial value:\n{}",
             tree.to_outline(),
         );
+    }
+
+    #[test]
+    fn an_absolutely_positioned_inline_is_block_level_and_in_no_line() {
+        // alo Sites' skip link: an inline `<a>` beside a block, which would
+        // otherwise be wrapped in a line nobody wrote.
+        let outline = body_outline(
+            "<a id=skip href=#main>Skip</a><main id=main><p>body</p></main>",
+            "#skip { position: absolute; left: -999rem; top: 0 }",
+        );
+        assert!(outline.contains("block flow · link"), "{outline}");
+        assert!(!outline.contains("anonymous block"), "{outline}");
+    }
+
+    #[test]
+    fn blockifying_keeps_what_a_box_lays_out_inside_it() {
+        let outline = body_outline(
+            "<p><span id=a>a</span><span id=b>b</span></p>",
+            "#a { display: inline-block; position: ABSOLUTE }
+             #b { display: inline-flex; position: absolute }",
+        );
+        assert!(outline.contains("block flow-root"), "{outline}");
+        assert!(outline.contains("block flex"), "{outline}");
+    }
+
+    #[test]
+    fn a_position_that_leaves_a_box_in_flow_leaves_it_inline() {
+        // `fixed` and `sticky` are refused by layout and fall back to
+        // `static`, so they stay where `display` put them.
+        for position in ["static", "relative", "fixed", "sticky"] {
+            let outline = body_outline(
+                "<p>one <a id=a href=#>two</a> three</p>",
+                &format!("#a {{ position: {position} }}"),
+            );
+            assert!(
+                outline.contains("inline flow · link"),
+                "{position}: {outline}"
+            );
+        }
+    }
+
+    #[test]
+    fn display_none_or_contents_is_not_blockified_into_a_box() {
+        let gone = body_outline(
+            "<p>one <a id=a href=#>two</a></p>",
+            "#a { display: none; position: absolute }",
+        );
+        assert!(!gone.contains("link"), "{gone}");
+        let contents = body_outline(
+            "<p>one <a id=a href=#>two</a></p>",
+            "#a { display: contents; position: absolute }",
+        );
+        assert!(!contents.contains("link"), "{contents}");
+        assert!(contents.contains("two"), "{contents}");
     }
 
     #[test]

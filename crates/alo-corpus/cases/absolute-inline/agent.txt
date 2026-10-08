@@ -1,0 +1,5 @@
+document at (0, 0) 200×31.132813
+  link "Skip" at (12, 40) 43.644043×23.132813
+  main at (0, 0) 200×31.132813
+    paragraph at (8, 8) 184×15.1328125
+      text "The page starts at the top." at (8, 8) 174.19238×15.1328125

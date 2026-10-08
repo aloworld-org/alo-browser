@@ -5672,7 +5672,7 @@ The long pole, and the thing most of section E is unreachable without.
   What the render shows wrong is opened as **352** (the skip link, met
   first, at the top of the page) and **353** (the script stops at `Date`).
 
-- [ ] **352. An absolutely positioned inline is taken out of flow.**
+- [x] **352. An absolutely positioned inline is taken out of flow.**
   *Opened by `alo-sites-cta` (iteration 227). Feature: `docs/features.md`
   stage 1, "Absolute and relative positioning". Depends on nothing open.*
   alo Sites' `.skip-link` is an `<a>` with `position: absolute; left:
@@ -5687,6 +5687,59 @@ The long pole, and the thing most of section E is unreachable without.
   small case of its own is blockified, in numbers.
   `tests/alo_sites_cta.rs`' `the_skip_link_is_drawn_in_flow_which_is_item_352`
   pins today's fault, and this item changes it.
+  **Done (iteration 228).** `alo-box` blockifies an absolutely positioned
+  box where it decides an element's `display` (`tree.rs`' `display_of`, CSS
+  Display § 2.7): only the outside changes (`Display::blockified`, in
+  `display.rs`), so `inline-block` becomes `flow-root` and `inline-flex`
+  `flex`, and `none` and `contents` make no box to blockify. Only
+  `absolute` blockifies, because it is the only out-of-flow value layout
+  places: `fixed` and `sticky` fall back to `static` there. The block-level
+  box is never wrapped in a line, and layout's existing absolute path
+  places it. The skip link is now at (-15984, 0), 161.1 × 43.2 (its text
+  and `padding: 0.5rem 1rem`), and the section starts at y = 0.
+  Tests: `alo-box` unit tests (blockified and in no line; the inside kept;
+  `static`, `relative`, `fixed` and `sticky` left inline; `none` and
+  `contents` make no box), `Display::blockified`'s own test, `alo-layout`'s
+  `an_absolutely_positioned_inline_leaves_the_flow_and_its_line` (at its
+  offsets, shrunk to what it holds, the block after it at the top), a new
+  case `cases/absolute-inline`, and `tests/alo_sites_cta.rs`'
+  `the_skip_link_is_out_of_flow_and_off_the_page`, which replaces the test
+  that pinned the fault. `alo-sites-cta`'s references moved: the page is
+  27.2 shorter, the anonymous line is gone and the link is a block.
+  Checked by mutation: with the blockification switched off, the layout
+  assertion and two of the box-tree tests fail.
+  **Cut (iteration 228):** two faults this did not cause and did not fix,
+  both already true of an absolutely positioned *block*, are **354** and
+  **355**.
+
+- [ ] **354. An out-of-flow box in a line does not break the line.**
+  *Found by iteration 228 while building 352, not opened by a page. Feature:
+  `docs/features.md` stage 1, "Absolute and relative positioning". Waits
+  for a page.* A box with `position: absolute` among a line's content is
+  block-level, so `alo-box`'s `arrange` wraps the content before and after
+  it in two anonymous blocks: `<p>one <a style="position: absolute">two</a>
+  three</p>` is two lines, 32 tall with `BlockFont`, where browsers keep
+  one line of 16. It takes no room on the line, and with its insets `auto`
+  it stands where it would have been in the line (its static position,
+  CSS 2 § 10.3.7), which layout does not work out. *Closes when:* that
+  paragraph is one line, in numbers; and an inset left `auto` puts the box
+  at its static position, in numbers. *Opened by a frozen page that puts an
+  absolutely positioned box in a line, and not before.*
+
+- [ ] **355. An absolute box is placed against its nearest positioned
+  ancestor.** *Found by iteration 228 while building 352, not opened by a
+  page. Feature: `docs/features.md` stage 1, "Absolute and relative
+  positioning". Waits for a page.* CSS 2 § 10.1 places an absolutely
+  positioned box against the padding box of its nearest ancestor with a
+  `position` other than `static`, or the initial containing block if there
+  is none. `taffy` places it against its parent: in `<div
+  style="position: relative; margin-left: 50px"><section style="margin-left:
+  30px"><span style="position: absolute; left: 0">`, the span is at x = 80,
+  not 50. alo Sites' skip link is a child of `body`, which is where the
+  initial containing block is, so it is right by coincidence. *Closes
+  when:* that span is at x = 50, and a box with no positioned ancestor is
+  against the viewport, in numbers. *Opened by a frozen page whose
+  absolute box is not its containing block's child, and not before.*
 
 - [ ] **353. `Date`.** *Opened by `alo-sites-cta` (iteration 227); cut from
   73.* alo Sites' analytics script, which every page it publishes carries,

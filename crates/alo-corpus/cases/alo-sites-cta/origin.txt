@@ -70,12 +70,14 @@ Rendered at 800 × 600: wider than the sheet's one breakpoint here,
   centred: the first white with blue text, the second clear with a white
   border and white text. Every number in layout.txt checks against the
   sheet by hand, and `tests/alo_sites_cta.rs` says so.
-- **The skip link is drawn in flow** — item 352. `.skip-link` is
+- **The skip link is out of flow** — item 352. `.skip-link` is
   `position: absolute; left: -999rem; top: 0`, which takes it out of flow
-  and off the page until it is focused. An absolutely positioned box is
-  blockified and laid out apart from its line; here the inline `<a>` stays
-  in an anonymous line at the top left, drawn on its `--surface` grey, and
-  the section starts 27.2 px down (one line of `body`) rather than at 0.
+  and off the page until it is focused. Until item 352 the inline `<a>`
+  stayed in an anonymous line at the top left, drawn on its `--surface`
+  grey, and the section started 27.2 px down (one line of `body`). Now it
+  is blockified and laid out at (-15984, 0), and the section starts at 0.
+  The agent still reads the link, where it is, because a person can tab
+  to it.
 - **The script stops at `Date`** — item 353, as above.
 
 What the sheet asks for that this engine does not do, and which makes no

@@ -1,0 +1,7 @@
+block flow · document → 200×31.132813 at (0, 0)
+  block flow · generic → 200×31.132813 at (0, 0)
+    block flow · link → 43.644043×23.132813 at (12, 40)
+      text "Skip" → 27.644043×15.1328125 at (20, 44)
+    block flow · main → 200×31.132813 at (0, 0)
+      block flow · paragraph → 184×15.1328125 at (8, 8)
+        text "The page starts at the top." → 174.19238×15.1328125 at (8, 8)

@@ -1,0 +1,7 @@
+block flow · document
+  block flow · generic
+    block flow · link
+      text "Skip"
+    block flow · main
+      block flow · paragraph
+        text "The page starts at the top."

@@ -57,6 +57,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] An *empty* piece of such a break keeps its border, and costs no line when it has none — CSS's zero-height line box
 - [1] **Flexbox and grid**, on `taffy` behind our own boundary. One file may name it
 - [1] Absolute and relative positioning, `z-index`, stacking
+- [1] **An absolutely positioned box is blockified** (CSS Display § 2.7): an inline with `position: absolute` is block-level, sits in no line and is placed at its offsets, shrunk to what it holds, as alo Sites' skip link is at `left: -999rem` (queue item 352). Not yet: one among a line's content splits the line, and one with an inset left `auto` is not at its static position (354); and it is placed against its parent rather than its nearest positioned ancestor (355)
 - [1] Overflow and scrolling regions
 - [1] Inline formatting: a line of text and the boxes in it, with breaking and baselines
 - [1] **`text-align`** `start`, `left`, `center`, `end` and `right`: a line, text and inline-blocks together, moves as one, and a line in a box nobody wrote inherits its container's alignment

@@ -971,3 +971,13 @@ inline left in flow: the skip link; depends on nothing open, and eligible)
 and 353 (`Date`, which needs an ADR first). 347 now waits only on 351. 148
 queue items are open. The next unused queue number is 354 and the next
 unused ADR 0036.
+
+Iteration 228 built item 352: `alo-box` blockifies an absolutely
+positioned box where it decides `display` (CSS Display § 2.7), so alo
+Sites' skip link is out of flow and off the page, and `alo-sites-cta`'s
+section starts at the top. A new case, `absolute-inline`, pins it. Two
+faults it found, already true of an absolutely positioned block, wait for
+pages: 354 (one among a line's content splits the line, and the static
+position) and 355 (the nearest positioned ancestor). 353 (`Date`) needs
+its ADR as an iteration of its own. 351 still needs design. 149 queue items
+are open. The next unused queue number is 356 and the next unused ADR 0036.

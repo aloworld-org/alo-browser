@@ -16,12 +16,12 @@
 //! `clamp(1.5rem, 3.5vw, 2.125rem)` — 28 px at 800 wide — and two buttons
 //! side by side, centred, `0.75rem` apart.
 //!
-//! It also pins the one fault the render shows (queue item 352): the skip
-//! link is `position: absolute; left: -999rem`, which takes it out of flow
-//! and off the page, and it is drawn in flow at the top left, pushing the
-//! section down by its line. And it pins where the page's analytics script
-//! stops, at `Date` on its third line (queue item 353), which changes
-//! nothing drawn.
+//! The skip link is `position: absolute; left: -999rem`, which takes it out
+//! of flow and off the page until it is focused. Until queue item 352 it
+//! was drawn in a line at the top left, pushing the section down by that
+//! line; this says it no longer is. And it pins where the page's analytics
+//! script stops, at `Date` on its third line (queue item 353), which
+//! changes nothing drawn.
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
@@ -34,7 +34,7 @@ const ADDRESS: &str = "https://nordwind.alosites.com/";
 const SHEET: &str = "https://nordwind.alosites.com/assets/site.css";
 
 /// `body`'s `font-size: 1.0625rem` at `line-height: 1.6`: one line of the
-/// page's text, and the line the misplaced skip link takes up.
+/// page's text.
 const LINE: f32 = 17.0 * 1.6;
 
 /// The case, read and rendered.
@@ -137,9 +137,11 @@ fn the_section_is_drawn_as_the_sheet_styles_it() {
         panic!("the second button is drawn");
     };
     assert_eq!(colour.as_deref(), Some("#ffffff"));
-    // Inside each, clear of its text and its rounded corners.
-    assert_eq!(drawn_at(&rendering, 224, 191), Some([255, 255, 255, 255]));
-    assert_eq!(drawn_at(&rendering, 377, 191), Some([29, 78, 216, 255]));
+    // Inside each, clear of its text and its rounded corners: six pixels in
+    // from its left edge, and halfway down a row that starts at 139.8.
+    assert_eq!(drawn_at(&rendering, 224, 164), Some([255, 255, 255, 255]));
+    assert_eq!(drawn_at(&rendering, 377, 164), Some([29, 78, 216, 255]));
+    assert!((order.origin.y - 139.8).abs() < 0.01, "{order:?}");
     assert!((order.size.height - (LINE + 2.0 * 9.6 + 2.0)).abs() < 0.01);
     assert!((subscriptions.origin.x - (order.origin.x + order.size.width + 12.0)).abs() < 0.01);
     let left = order.origin.x - 24.0;
@@ -147,25 +149,32 @@ fn the_section_is_drawn_as_the_sheet_styles_it() {
     assert!((left - right).abs() < 0.01, "{left} and {right}");
 }
 
-/// Queue item 352: an absolutely positioned inline is not taken out of
-/// flow. This pins today's fault, and 352 changes it.
+/// Queue item 352: the skip link, an absolutely positioned inline, is
+/// blockified and laid out at its offsets, off the page, and takes no room
+/// in the flow, so the section starts at the top.
 #[test]
-fn the_skip_link_is_drawn_in_flow_which_is_item_352() {
+fn the_skip_link_is_out_of_flow_and_off_the_page() {
     let Some((_, rendering)) = cta() else {
         panic!("the case renders");
     };
     let Some((link, position)) = found(&rendering, "skip-link", "position") else {
-        panic!("the skip link is drawn");
+        panic!("the skip link is laid out");
     };
     assert_eq!(position.as_deref(), Some("absolute"));
+    // `left: -999rem; top: 0`, against the page, with `padding: 0.5rem 1rem`
+    // around one line of `body`.
+    assert!((link.origin.x - -999.0 * 16.0).abs() < 0.01, "{link:?}");
+    assert!(link.origin.y.abs() < 0.01, "{link:?}");
     assert!(
-        link.origin.x > -100.0,
-        "it was moved off the page: {link:?}"
+        (link.size.height - (LINE + 2.0 * 8.0)).abs() < 0.01,
+        "{link:?}"
     );
-    // Its own background, `--surface`, at the top left of the page.
-    assert_eq!(drawn_at(&rendering, 2, 2), Some([242, 245, 248, 255]));
+    // The page's own white at the top left, not the link's `--surface`.
+    assert_eq!(drawn_at(&rendering, 2, 2), Some([255, 255, 255, 255]));
     let Some((band, _)) = found(&rendering, "s-cta cta-two-actions", "color") else {
         panic!("the section is drawn");
     };
-    assert!((band.origin.y - LINE).abs() < 0.01, "{band:?}");
+    assert!(band.origin.y.abs() < 0.01, "{band:?}");
+    // The band's own blue, where the link's line used to be.
+    assert_eq!(drawn_at(&rendering, 40, 10), Some([29, 78, 216, 255]));
 }

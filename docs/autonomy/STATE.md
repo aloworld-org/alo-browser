@@ -21581,3 +21581,133 @@ same turn. It ends `exit 0` and "The gate is met":
 148 queue items are open: 349 closed, 352 and 353 added. The next unused
 queue number is **354** and the next ADR is **0036**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 228 — queue item 352 built: an absolutely positioned inline is taken out of flow
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`,
+iteration 227's entry, queue items 347–353 and the eligibility list
+iterations 225–227 carried, `docs/features.md`'s *Absolute and relative
+positioning* line, ADR 0002 (the agent's tree) and ADR 0004 (our tree,
+`taffy`'s algorithms). ADR 0033 § 4 turned out to apply as well (below).
+No `AGENTS.md` exists in this repository. 352 was the first eligible item.
+Nothing earlier in the queue is eligible: 336 waits on a page, and the
+others iteration 226 listed are unchanged.
+
+**What was built.**
+- `alo-box` blockifies an absolutely positioned box where it decides an
+  element's `display` (`tree.rs`' `display_of`, CSS Display § 2.7, CSS 2
+  § 9.7). `display_of` now reads `position`, and what was written is
+  `written_display`.
+- `Display::blockified` (`display.rs`) changes only the outside: `inline`
+  becomes `block`, `inline-block` becomes `flow-root`, `inline-flex` and
+  `inline-grid` become `flex` and `grid`, and a list item stays one. `none`
+  and `contents` make no box, so there is nothing to blockify.
+- Only `absolute` blockifies, because it is the only out-of-flow value
+  layout places. `fixed` and `sticky` fall back to `static` in `alo-layout`
+  and are reported there. Blockifying them would make a box block-level
+  and leave it in flow, which no value of `position` does.
+- The block-level box is never wrapped in a line. Layout's existing
+  absolute path places it, so no layout code changed.
+- `alo-css`'s `properties.rs` now lists `position` as read by `alo-box` too
+  (ADR 0033 § 4). The first gate run found this, below.
+
+**What the render shows.** `alo-sites-cta`:
+- The skip link is at (-15984, 0), 161.11 × 43.2. That is its text, 129.11
+  wide on one 27.2 line of `body`, inside `padding: 0.5rem 1rem`.
+- The section starts at y = 0 and the page is 253.2 tall, 27.2 less than
+  before.
+- The anonymous line is gone from `boxes.txt`.
+- The agent still reads the link, at its real place, because a person can
+  tab to it (ADR 0002).
+
+The new case `absolute-inline` puts a link at `left: 12px; top: 40px`. It is
+43.64 × 23.13 there, its text plus `padding: 4px 8px`, and the `main` after
+it starts at 0. I checked every number above against the sheets by hand,
+and looked at both PNGs.
+
+**Tests.**
+- `alo-box`:
+  - `Display::blockified`'s own test;
+  - tree tests: blockified and in no line; the inside kept (case-insensitive
+    `ABSOLUTE` too); `static`, `relative`, `fixed` and `sticky` left inline;
+    `none` and `contents` make no box.
+- `alo-layout`'s `numbers.rs`: `an_absolutely_positioned_inline_leaves_the_flow_and_its_line`.
+  The link is at its offsets and shrunk to what it holds (64 wide), and the
+  block after it is at (0, 0, 400, 40).
+- `alo-corpus`:
+  - `cases/absolute-inline`;
+  - `tests/alo_sites_cta.rs`' `the_skip_link_is_out_of_flow_and_off_the_page`,
+    which replaces the test that pinned the fault. It checks the link's box,
+    the page's white at (2, 2), the band at y = 0 and its blue at (40, 10).
+- The section test sampled the buttons' pixels at fixed points from before
+  the band moved. They are now sampled at y = 164, 27 higher, and the first button's
+  top, 139.8, is asserted, so the sample points cannot drift from the boxes
+  without the test saying so.
+
+**Checked by mutation.** With the blockification switched off, the layout
+assertion and two of the box-tree tests failed. Restored, they pass.
+
+**Gate, mechanical.** The build was warmed with `--all-features`. The gate
+ran twice, each time logged with the 2-hour bound and polled in this same
+turn.
+- **First run: failed.** `alo-box`'s `what_it_reads_is_listed.rs` found that
+  the crate now reads `position`, which `alo-css`'s list of supported
+  properties did not say. It was a real finding, and I fixed it in the
+  list, not the test. Because `cargo test` stops at the first failing
+  binary, the whole gate was run again rather than only that test.
+- **Second run:** `exit 0` and "The gate is met":
+  - fmt clean, clippy silent, tests pass;
+  - no stubs, `unsafe` forbidden, the licence on every file;
+  - every rented crate behind its boundary, no verb takes a coordinate;
+  - the supervisor's stop rule holds, and `CHANGELOG.md` changed.
+
+**Gate, manual.**
+- Layout assertion: in numbers, in `numbers.rs` and `alo_sites_cta.rs`.
+  `layout.txt` is committed for both cases.
+- Reference render: `cases/absolute-inline/render.png` is new.
+  `alo-sites-cta`'s `render.png`, `boxes.txt`, `layout.txt`, `display.txt`
+  and `agent.txt` moved, and say so. No other case's reference moved.
+  `turned-and-faded` and `alo-paint`'s tests use absolute *blocks*, which
+  are unchanged.
+- Hostile bytes: nothing new reads from outside.
+- One responsibility per file: `display.rs` says what a `display` value
+  means, including when it is blockified. `tree.rs`' `display_of` decides
+  which value an element ends up with, which now includes its `position`.
+- No `unsafe`, and no new dependency. `alo-workplace` was not touched.
+
+**Roadmap.** This item served **no roadmap line**, so `ROADMAP.md` is
+deliberately unchanged. Absolute positioning sits under stage 1's ticked
+*Layout* line, and this is a correction to it opened by a page. Stage 2's
+*CSS beyond what alo needed* has no line for it (`position: sticky` is
+another value). Annotating a ticked line would be the erosion `LOOP.md`
+warns against.
+
+**Queue and docs.**
+- 352 is ticked with a Done paragraph and its cut.
+- `docs/features.md` has a blockification line naming what is not done.
+- `docs/conformance.md`: a paragraph on positioning, and alo Sites' row now
+  says one fault.
+- `CHANGELOG.md`, `REMAINING.md` and the case's `origin.txt` are updated.
+
+**Cut, and why.** Two faults turned up that this did not cause and did
+not fix, both already true of an absolutely positioned *block*. I checked
+both with a throwaway test before writing them down:
+- **354.** An out-of-flow box among a line's content splits the line in
+  two: `<p>one <a abs>two</a> three</p>` is 32 tall with `BlockFont`, not
+  16. A box with an inset left `auto` is not at its static position.
+- **355.** `taffy` places an absolute box against its parent, not its
+  nearest positioned ancestor: x = 80 where CSS says 50.
+
+alo Sites' skip link is the containing block's child, so it is right. Both
+items wait for a page, as LOOP.md asks.
+
+**Unresolved obligations.**
+- 353 (`Date`) needs its ADR, as an iteration of its own. That is the next
+  thing an iteration can do, and it is first among the open items after
+  354 and 355, which wait for pages.
+- 351 still needs design.
+- Everything iteration 226 listed still stands.
+
+149 queue items are open: 352 closed, 354 and 355 added. The next unused
+queue number is **356** and the next ADR is **0036**. This is one iteration,
+not a finished queue or roadmap.

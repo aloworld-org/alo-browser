@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A hidden "skip to content" link stays hidden.** An inline element given
+  `position: absolute` is now taken out of the line it was in and placed
+  where its offsets say, as browsers do. Every page alo Sites publishes
+  starts with such a link, placed off the page until it is focused. It was
+  drawn at the top left and pushed the page down a line, and now it is not
+  (queue item 352).
+
 - **The first page alo Sites publishes is in the reference corpus.** Its
   call-to-action section is frozen with its style sheet, exactly as alo
   Sites serves them, and the corpus answers the page's request for the

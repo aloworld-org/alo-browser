@@ -1,10 +1,7 @@
 block flow · document
   block flow · generic
-    anonymous block
-      text " "
-      inline flow · link
-        text "Skip to content"
-      text " "
+    block flow · link
+      text "Skip to content"
     block flow · main
       block flow · generic
         block flow · heading [level=2]
