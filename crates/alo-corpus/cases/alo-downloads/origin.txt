@@ -20,13 +20,16 @@ Rendered at 800 × 760: wider than its 560 px breakpoint, so the two cards
 stand side by side, and tall enough for the whole of its content under its
 6vh top padding and 40 px bottom padding.
 
-It carries a script, so the corpus loads it through a renderer. The script
-is refused before it runs — "a regular expression literal is not built yet
-— queue item 74 builds it (at byte 144)", the `/Mac/` in its third line —
-so the page is drawn as its markup: neither card marked as the visitor's
-(`.rec` and the hidden "Your device" badge), and neither button greyed out
-by the `fetch()` that checks whether an installer is hosted.
-`tests/alo_downloads.rs` pins that refusal. The issues list does not show
+It carries a script, so the corpus loads it through a renderer. Until
+item 74 the script was refused before it ran — "a regular expression
+literal is not built yet — queue item 74 builds it (at byte 144)", the
+`/Mac/` in its third line. Since iteration 200 it compiles, and it stops
+at its second line instead: "ReferenceError: 'navigator' is not defined",
+because no `Navigator` is built (item 325). Either way the page is drawn as
+its markup: neither card marked as the visitor's (`.rec` and the hidden
+"Your device" badge), and neither button greyed out by the `fetch()` that
+checks whether an installer is hosted. `tests/alo_downloads.rs` pins where
+the script stops. The issues list does not show
 it, because issues.txt is what the markup and style made the engine say.
 
 ## What it found
@@ -52,7 +55,12 @@ it, because issues.txt is what the markup and style made the engine say.
   it. This one does.
 - **The script reaches a regular expression** — item 74. Until this page no
   frozen script that runs reached one (iterations 132, 188), which is why 74
-  was left alone. It is not built here.
+  was left alone. **Built by item 74 (iteration 200):** the whole script
+  compiles, and `alo-js`'s `tests/a_frozen_page_tests_its_platform.rs` runs
+  its first five lines — four patterns — under a stand-in `navigator` and
+  gets `isMac` and `isWin` right for a Mac, Windows and Linux.
+- **The script reads `navigator`** — item 325, opened by this page. Its
+  second line is `navigator.platform || ""`, and there is no `Navigator`.
 
 Two things it asks for make no difference at this size and are not faults
 here: `text-wrap: balance` on a heading that fits on one line (item 104), and

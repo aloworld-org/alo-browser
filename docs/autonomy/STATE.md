@@ -18231,3 +18231,120 @@ stop rule holding, and no uncommitted code to judge.
 142 queue items are open: 322, 323 and 324 opened, none closed. The next
 unused queue number is **325** and the next ADR is **0030**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 200 — queue item 74 built: regular expressions, ours, their work counted
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2 §§ 1–3:
+a frozen page closes the item, hostile bytes return errors, dependencies
+decide order), `ROADMAP.md` (its three states, and the *Regular
+expressions* line), iteration 199's entry, `REMAINING.md`, queue items 74,
+221, 318, 322–324 in full, ADR 0029 whole (the decision this builds), ADR
+0013 §§ 3, 4 and 8 and ADR 0014 § 9 on ceilings. `docs/features.md`'s
+JavaScript lines. No `AGENTS.md` exists. The checkout was clean on entry at
+`87ccde7`. No sibling repository was read or written; `alo-downloads` is
+already frozen in the corpus.
+
+**Selection.** 74 was first in the file with its dependency (72) done and
+its decision made by iteration 199. Nothing ahead of it was eligible.
+
+**What was built.**
+- `alo-js/src/regexp/`, one stage per file. `literal.rs` (the lexer's scan,
+  moved unchanged), `flags.rs` (a flag set and `[[OriginalFlags]]`),
+  `parse.rs` with `parse/escape.rs` and `parse/class.rs` (the whole pattern
+  grammar: `u`, `v` set expressions and `\q{…}`, named groups and a name
+  shared across alternatives, lookbehind, `(?ims-ims:…)`, `\p{…}` read but
+  not looked up; nesting bounded by `bounds::DEEPEST_PATTERN`), `wrong.rs`
+  (each error a variant; Annex B's six forms are `Wrong::Legacy`, refused by
+  name without `u`/`v`), `tree.rs`, `emit.rs` (tree to instructions,
+  refusing `i` and `\p` as 322 and `v` and `d` as 324 by name), `set.rs`
+  (classes as sorted ranges, normalised once), `program.rs`, `matcher.rs`
+  (the backtracking loop with its own undo stack; every step counted
+  against `bounds::STEPS_IN_A_MATCH` = 2²⁴, every place against
+  `bounds::PLACES_IN_A_MATCH` = 2²¹; the stop asked on every backtrack and
+  every 1024 steps; a repeated single character holds one place; lookaround
+  atomic, with a capture snapshot), `surrogate.rs`.
+- The parser checks every literal (`Reason::Pattern`), so a bad pattern is
+  an early `SyntaxError` for the whole script. The compiler compiles it
+  again into the `Unit` (`Op::RegExp`), shared through an `Arc` because a
+  unit is compiled on its own thread.
+- `Cell::RegExp` (`object/regexp.rs`), made per evaluation with `lastIndex`
+  writable, non-enumerable, non-configurable; `%RegExp.prototype%` with
+  `exec` (`RegExpBuiltinExec`, `g`/`y`, the surrogate-pair rule under `u`,
+  `index`, `input`, `groups` with duplicate names) and the generic `test`;
+  `Object.prototype.toString` says `"[object RegExp]"`.
+- Builtins can now see the embedder's stop: `Call::stopped_by` and
+  `Call::stop_asked`, passed by the interpreter's one call site.
+- An object string argument followed by a second call (`exec` behind a
+  getter, an object `lastIndex`) is refused by name,
+  `Missing::ATwoCallRegExpMethod`, recorded on item 221.
+
+**Closing conditions, each a test.** `/(a+)+$/` on thirty `a`s and a `b`
+is a `RangeError` a `catch` catches, and the next pattern matches
+(`what_a_pattern_matches.rs`). A stop asked before the run ends the match
+from inside the matcher (`the_embedders_stop_ends_a_match`), within 1024
+steps (`matcher::tests`). A pattern nested past 256 is a `SyntaxError`
+(`parse::tests`, `a_pattern_that_is_hostile.rs`). The specification's own
+capture examples, lookbehind right-to-left, backreferences, captures reset
+in a repeat, named groups, `lastIndex`, `u` pairs: tables run ordinarily and
+with the collector at every allocation. Hostile input: every truncation of
+twelve patterns and 6,000 generated patterns in all three modes are
+answered and their searches end; huge repeat counts end in a bound.
+`alo-downloads`' whole script compiles, and its first five lines, cut from
+the frozen bytes and run under a stand-in `navigator`, give `isMac`/`isWin`
+right for Mac, Windows and Linux (`a_frozen_page_tests_its_platform.rs`).
+
+**What the page does now.** In the renderer the script compiles and stops
+at its second line: "ReferenceError: 'navigator' is not defined".
+`alo-corpus/tests/alo_downloads.rs` pins that (renamed
+`the_pages_script_compiles_and_stops_at_navigator`), and the case's
+`origin.txt` says so. Nothing on the page changes visually, so the
+reference render and box tree are unchanged. **Queue item 325** is opened
+for `Navigator` (`platform`, `userAgent`), marked as needing an ADR on what
+the browser says about itself.
+
+**Queue, roadmap, docs.** 74 ticked with a *Built* note; 221 notes the
+regexp case; 325 opened. The roadmap's *Regular expressions* line moved
+from "not started" to `· Built: … · Owed: …` (322, 323, 324, 221); not
+ticked. `docs/features.md`, `CHANGELOG.md`, `REMAINING.md`, `lib.rs`'s
+crate doc and `builtin.rs`'s say the same. `docs/conformance.md` covers
+rendering only and has no JavaScript section; nothing there changed.
+
+**Gate, mechanical.** `cargo fmt`, then `cargo clippy --workspace
+--all-targets` silent (it had caught needless raw-string hashes and two
+helpers that panicked or indexed, all fixed rather than allowed), and the
+test build warmed. I ran `scripts/gate.sh` in the foreground into a log. It
+passed the tool's ten-minute ceiling and was moved to the background; I
+waited for it in the same turn and read the log. It exited 0 with "The gate
+is met.": fmt clean, clippy silent, every test passing, no stubs, `unsafe`
+forbidden, licences present, every rented crate behind its boundary, no
+coordinate verbs, the stop rule holding, the changelog changed.
+
+**Gate, manual.**
+- Layout assertions and reference renders: nothing positions, sizes or
+  draws differently. The downloads case's committed render and box tree
+  pass unchanged inside the gate's test run.
+- One responsibility per file: the regexp stages are one file each; the
+  interpreter's handler is `interpret/regexp.rs`, the cell
+  `object/regexp.rs`, the builtins `builtin/regexp_prototype.rs`. The
+  shared surrogate arithmetic got a file of its own rather than living in
+  both the parser and the matcher.
+- Hostile bytes: `a_pattern_that_is_hostile.rs`, above. No `unsafe`; no new
+  dependency; `unicode_id_start` is still named only in `unicode.rs`.
+- No panics in integration-test helpers: the frozen-page test's helpers
+  return `Result`.
+
+**Unresolved obligations.**
+- `String(/a/)` is `"[object RegExp]"` until 324 gives `toString`,
+  `source` and `flags`, as `String([1])` is until 73.
+- A case-insensitive pattern, `\p{…}`, `v` and `d` are refused (322, 324).
+  Property names are only checked for form until 322's tables exist.
+- The step and place budgets are numbers to argue with; no claim about
+  speed is made, and none was measured.
+- 320, 321, 322, 323 (with 73) and 324 are open. 325 needs an ADR first.
+  Still standing as before: 284, 311, 314 wait for pages; 296 needs a
+  person; 297–300, 302, 304, 308; 126 and 132.
+- `scripts/gate.sh` still takes longer than ten minutes with a warm build.
+
+142 queue items are open: 74 closed, 325 opened. The next unused queue
+number is **326** and the next ADR is **0030**. This is one iteration, not
+a finished queue or roadmap.

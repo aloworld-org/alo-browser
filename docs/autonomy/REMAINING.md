@@ -643,6 +643,15 @@ forms are refused by name. 74 keeps the engine and its bound; 322 (`i` and
 were opened. 74 is now eligible to build. 142 queue items are open. The
 next unused queue number is 325 and the next unused ADR 0030.
 
+Iteration 200 built item 74: the regular expression engine ADR 0029
+decided, in `alo-js/src/regexp/` — the whole pattern grammar parsed, Annex B
+refused by name, a compiler, and a matcher whose steps and places are
+counted, with the embedder's stop asked inside. A literal makes a `RegExp`
+with `exec`, `test` and `lastIndex`. `alo-downloads`' script compiles and
+now stops at `navigator`, which opened 325 (`Navigator`, needing an ADR on
+what it says). 322, 323 and 324 are eligible. 142 queue items are open. The
+next unused queue number is 326 and the next unused ADR 0030.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

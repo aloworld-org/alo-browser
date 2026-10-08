@@ -2,132 +2,91 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Regular expression literals: where one ends, and what its flags are.
+//! Regular expressions: ours, and their work counted (ADR 0029, queue item
+//! 74).
 //!
-//! **Not what the pattern means.** `/[a-z]+/` is a body and a flag set here,
-//! and whether the body is a pattern anybody can compile is queue item 74's —
-//! including the bound on the work it may do, which is where a catastrophic
-//! backtrack in a renderer would be a denial of service. Splitting it that way
-//! is the specification's own split: the lexical grammar only ever asks where
-//! the literal *ends*.
+//! # Four stages, each its own file
 //!
-//! Which is a question with one hard part. `/` closes the literal, except
-//! inside a character class, where it is an ordinary character:
-//! `/[/]/` is one literal and not two. So the scan tracks whether it is inside
-//! `[`…`]`, and that single flag is the whole difficulty.
+//! - [`literal`]: where a literal ends and what its flags are — the lexer's
+//!   question, and the only one the lexical grammar asks.
+//! - [`parse`]: the pattern's text into a [`tree`], or the early `SyntaxError`
+//!   it is. The **whole** grammar, so that whether a pattern is a pattern is
+//!   decided for every pattern, and Annex B's forms refused by name.
+//! - [`emit`]: the tree into a [`Program`], or the piece that is not built
+//!   yet, by name: `i` and `\p{…}` (queue item 322), `v` and `d` (item 324).
+//! - [`matcher`]: the program run against a string, by a loop with a stack of
+//!   its own, every step counted against
+//!   [`bounds::STEPS_IN_A_MATCH`](crate::bounds::STEPS_IN_A_MATCH) and the
+//!   embedder's stop asked inside.
 //!
-//! # Flags are checked here because they change what the body means
+//! # When each runs
 //!
-//! `u` and `v` decide whether a pattern reads characters or code units, and
-//! they cannot both apply. An unknown flag is refused by name rather than
-//! ignored: a page that wrote `/x/z` meant something, and ignoring it would run
-//! a different regular expression than the author asked for.
+//! The parser checks a literal as soon as it reads one ([`check`]), so a bad
+//! pattern is an early `SyntaxError` for the whole script, as the
+//! specification requires. The compiler compiles it again ([`compile`]) and
+//! keeps the program in the [`Unit`](crate::Unit), where every object the
+//! literal makes shares it: a pattern is compiled once however often the
+//! literal is evaluated (ADR 0029 § 5). Reading a pattern twice costs a few
+//! microseconds; the alternative was a tree in the syntax tree that nothing
+//! else needs.
+//!
+//! # What reaches nothing
+//!
+//! Nothing here is rented. ADR 0029 § 1: the bound on a match can only live
+//! inside the loop that runs it, so the loop is ours, and so is everything
+//! the loop depends on. The Unicode tables `i` and `\p` need are the one
+//! thing that will be rented, and they are not here yet.
 
-use crate::error::{Reason, SyntaxError};
-use crate::{read, unicode};
+pub mod emit;
+pub mod flags;
+pub mod literal;
+pub mod matcher;
+pub mod parse;
+pub mod program;
+pub mod set;
+pub mod surrogate;
+pub mod tree;
+pub mod wrong;
 
-/// A regular expression literal, unread.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Literal {
-    /// The pattern, exactly as written and between the slashes.
-    pub body: String,
-    /// The flags after the closing slash, in the order they were written.
-    pub flags: String,
-}
+pub use emit::Unbuilt;
+pub use flags::Flags;
+pub use literal::{Literal, scan};
+pub use matcher::{Found, Halt, search};
+pub use program::Program;
+pub use wrong::{Legacy, PatternError, Wrong};
 
-/// Every flag the language has.
-///
-/// `d` indices, `g` global, `i` ignore case, `m` multiline, `s` dot matches a
-/// line ending, `u` Unicode, `v` Unicode sets, `y` sticky.
-const FLAGS: &str = "dgimsuvy";
-
-/// Read the regular expression literal beginning at `at`, which must be a `/`.
-///
-/// The caller has already decided that a regular expression is what may appear
-/// here — see [`crate::Goal`]. Answers the literal and the offset just past its
-/// flags.
+/// Whether `body` is a pattern under `flags`: the parser's early error.
 ///
 /// # Errors
 ///
-/// A literal the source ended inside, a line ending in one, an unknown or
-/// repeated flag, or both Unicode modes at once.
-pub fn scan(source: &str, at: usize) -> Result<(Literal, usize), SyntaxError> {
-    let body_from = at.saturating_add(1);
-    let mut end = body_from;
-    let mut in_a_class = false;
-    let body_to = loop {
-        let Some((c, after)) = read::next_char(source, end) else {
-            return Err(SyntaxError::new(Reason::UnterminatedRegularExpression, at));
-        };
-        if unicode::is_line_terminator(c) {
-            return Err(SyntaxError::new(
-                Reason::LineTerminatorInRegularExpression,
-                end,
-            ));
-        }
-        match c {
-            '\\' => {
-                // The escaped character is whatever it is — the pattern's
-                // grammar decides that — but it is not a terminator, and it is
-                // not allowed to be a line ending.
-                let Some((next, past)) = read::next_char(source, after) else {
-                    return Err(SyntaxError::new(Reason::UnterminatedRegularExpression, at));
-                };
-                if unicode::is_line_terminator(next) {
-                    return Err(SyntaxError::new(
-                        Reason::LineTerminatorInRegularExpression,
-                        after,
-                    ));
-                }
-                end = past;
-            }
-            '[' => {
-                in_a_class = true;
-                end = after;
-            }
-            ']' => {
-                in_a_class = false;
-                end = after;
-            }
-            '/' if !in_a_class => break end,
-            _ => end = after,
-        }
-    };
-    let (flags, after_flags) = flags(source, body_to.saturating_add(1))?;
-    Ok((
-        Literal {
-            body: read::slice(source, body_from, body_to).to_owned(),
-            flags,
-        },
-        after_flags,
-    ))
+/// [`PatternError`], with the byte offset into `body`.
+pub fn check(body: &str, flags: &str) -> Result<(), PatternError> {
+    let flags = Flags::of(flags).ok_or(PatternError {
+        wrong: Wrong::BadFlags,
+        at: 0,
+    })?;
+    parse::parse(body, &flags).map(|_| ())
 }
 
-/// The flags after the closing slash, checked.
-fn flags(source: &str, at: usize) -> Result<(String, usize), SyntaxError> {
-    let mut flags = String::new();
-    let mut end = at;
-    while let Some((c, after)) = read::next_char(source, end) {
-        if !unicode::continues_a_name(c) {
-            break;
-        }
-        if !FLAGS.contains(c) {
-            return Err(SyntaxError::new(
-                Reason::UnknownRegularExpressionFlag(c),
-                end,
-            ));
-        }
-        if flags.contains(c) {
-            return Err(SyntaxError::new(
-                Reason::RepeatedRegularExpressionFlag(c),
-                end,
-            ));
-        }
-        flags.push(c);
-        end = after;
-    }
-    if flags.contains('u') && flags.contains('v') {
-        return Err(SyntaxError::new(Reason::BothUnicodeModes, at));
-    }
-    Ok((flags, end))
+/// Why a pattern did not compile.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Refused {
+    /// It is not a pattern.
+    Wrong(PatternError),
+    /// It is, and a piece of it is not built yet.
+    Unbuilt(Unbuilt),
+}
+
+/// Compile `body` under `flags`.
+///
+/// # Errors
+///
+/// [`Refused`]: what is wrong with it, or what in it is not built yet.
+pub fn compile(body: &str, flags: &str) -> Result<Program, Refused> {
+    let flags = Flags::of(flags).ok_or(Refused::Wrong(PatternError {
+        wrong: Wrong::BadFlags,
+        at: 0,
+    }))?;
+    let pattern = parse::parse(body, &flags).map_err(Refused::Wrong)?;
+    emit::emit(pattern, flags, body).map_err(Refused::Unbuilt)
 }

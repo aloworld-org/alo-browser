@@ -225,6 +225,10 @@ pub enum Op {
 
     /// Push a new object with no prototype and no properties.
     Object,
+    /// Push a new `RegExp` object of the compiled pattern at this index of the
+    /// unit: a regular expression literal, which makes a new object each time
+    /// it is evaluated (queue item 74).
+    RegExp(u32),
     /// Push a new array of this length with no elements: `[a, , b]` is an
     /// `Array(3)` followed by two [`Op::DefineIndex`]es (queue item 225).
     ///

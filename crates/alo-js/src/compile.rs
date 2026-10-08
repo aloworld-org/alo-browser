@@ -85,8 +85,9 @@ pub enum What {
     /// A spread, a destructuring pattern — in a declaration, an assignment, a
     /// parameter or a `for…of` head — or `for…in` (queue item 211).
     TakingAValueApart,
-    /// A regular expression literal (queue item 74).
-    ARegularExpression,
+    /// A piece of a regular expression the engine has not built: `i` and
+    /// `\p{…}` (queue item 322), `v` and `d` (item 324).
+    APatternPiece(crate::regexp::Unbuilt),
     /// A `BigInt` literal (queue item 207).
     ABigInt,
     /// `import`, `export`, `import.meta` and `import()` (queue item 77).
@@ -104,7 +105,7 @@ impl What {
             What::AParameterForm => 213,
             What::ATaggedTemplate => 215,
             What::TakingAValueApart => 211,
-            What::ARegularExpression => 74,
+            What::APatternPiece(piece) => piece.item(),
             What::ABigInt => 207,
             What::AModule => 77,
             What::ASuspension => 75,
@@ -118,7 +119,7 @@ impl What {
             What::AParameterForm => "a parameter that is not a plain name, or `arguments`",
             What::ATaggedTemplate => "a tagged template",
             What::TakingAValueApart => "a spread, a destructuring pattern or `for…in`",
-            What::ARegularExpression => "a regular expression literal",
+            What::APatternPiece(piece) => piece.describe(),
             What::ABigInt => "a `BigInt` literal",
             What::AModule => "`import` and `export`",
             What::ASuspension => "`yield`, `await` and the functions that hold them",
@@ -1134,12 +1135,12 @@ impl Compiler {
             // compiler.
             ExpressionKind::New { callee, arguments } => self.construct(callee, arguments, at)?,
             ExpressionKind::Array(elements) => self.array(elements, at)?,
+            ExpressionKind::RegularExpression(literal) => self.regular_expression(literal, at)?,
             ExpressionKind::Class(_)
             | ExpressionKind::TaggedTemplate { .. }
             | ExpressionKind::Super
             | ExpressionKind::NewTarget
             | ExpressionKind::PrivateName(_)
-            | ExpressionKind::RegularExpression(_)
             | ExpressionKind::BigInt { .. }
             | ExpressionKind::Yield { .. }
             | ExpressionKind::Await(_)
@@ -1962,6 +1963,43 @@ impl Compiler {
         })
     }
 
+    /// `/a/g`: the pattern compiled once, kept in the unit, and an
+    /// instruction that makes a new object of it each time it runs (ADR 0029
+    /// § 5).
+    fn regular_expression(
+        &mut self,
+        literal: &crate::regexp::Literal,
+        at: usize,
+    ) -> Result<(), Refusal> {
+        let program = match crate::regexp::compile(&literal.body, &literal.flags) {
+            Ok(program) => program,
+            Err(crate::regexp::Refused::Unbuilt(piece)) => {
+                return Err(Refusal::NotBuiltYet {
+                    what: What::APatternPiece(piece),
+                    at,
+                });
+            }
+            // The parser refused every pattern that is not one, so this is a
+            // literal that reached the compiler some other way.
+            Err(crate::regexp::Refused::Wrong(error)) => {
+                return Err(Refusal::NotAProgram {
+                    why: format!("this regular expression is not one: {error}"),
+                    at: at.saturating_add(1).saturating_add(error.at),
+                });
+            }
+        };
+        let index = self
+            .unit
+            .add_pattern(program)
+            .ok_or_else(|| Refusal::NotAProgram {
+                why: "this program has more regular expressions than this engine will compile"
+                    .to_owned(),
+                at,
+            })?;
+        self.chunk.emit(Op::RegExp(index), at);
+        Ok(())
+    }
+
     /// Take a binding of the environment the body being compiled is given.
     fn binding(&mut self, at: usize) -> Result<u32, Refusal> {
         self.chunk
@@ -1994,7 +2032,6 @@ fn not_built_yet(kind: &ExpressionKind, at: usize) -> Refusal {
         | ExpressionKind::NewTarget
         | ExpressionKind::PrivateName(_) => What::AClass,
         ExpressionKind::TaggedTemplate { .. } => What::ATaggedTemplate,
-        ExpressionKind::RegularExpression(_) => What::ARegularExpression,
         ExpressionKind::BigInt { .. } => What::ABigInt,
         ExpressionKind::Yield { .. } | ExpressionKind::Await(_) => What::ASuspension,
         _ => What::AModule,
@@ -2247,7 +2284,11 @@ mod tests {
             ("[1, ...a]", What::TakingAValueApart),
             ("for (const [a] of b) {}", What::TakingAValueApart),
             ("for (a in b) {}", What::TakingAValueApart),
-            ("/a/", What::ARegularExpression),
+            (
+                "/a/i",
+                What::APatternPiece(crate::regexp::Unbuilt::IgnoreCase),
+            ),
+            ("/a/d", What::APatternPiece(crate::regexp::Unbuilt::Indices)),
             ("1n", What::ABigInt),
             ("function* f() {}", What::ASuspension),
         ] {

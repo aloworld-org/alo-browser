@@ -843,7 +843,17 @@ impl Parser<'_> {
             Kind::Number(value) => ExpressionKind::Number(value),
             Kind::BigInt { digits, radix } => ExpressionKind::BigInt { digits, radix },
             Kind::String(units) => ExpressionKind::String(units),
-            Kind::RegularExpression(literal) => ExpressionKind::RegularExpression(literal),
+            Kind::RegularExpression(literal) => {
+                // The pattern is read now, so a bad one is an early error for
+                // the whole script rather than a throw when it is reached.
+                crate::regexp::check(&literal.body, &literal.flags).map_err(|error| {
+                    SyntaxError::new(
+                        Reason::Pattern(error.wrong),
+                        start.saturating_add(1).saturating_add(error.at),
+                    )
+                })?;
+                ExpressionKind::RegularExpression(literal)
+            }
             Kind::PrivateName(found) => {
                 // `#a in b` is the one place a private name is an expression of
                 // its own, and the `in` is what makes it one. Anything else is

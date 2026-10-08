@@ -372,7 +372,8 @@ impl Engine {
         let host = self.realm.host_defined(&self.objects)?;
         let mut call = Call::new(&mut self.objects, this, &arguments, waiting.at)
             .within(self.realm.intrinsics())
-            .hosted_by(host);
+            .hosted_by(host)
+            .stopped_by(&self.stop);
         if waiting.after == After::Construct {
             call = call.constructed();
         }

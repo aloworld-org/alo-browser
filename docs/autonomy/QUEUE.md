@@ -3002,6 +3002,11 @@ The long pole, and the thing most of section E is unreachable without.
   is in the slot the second conversion's answer is written to; the same
   scratch state closes it, with a test that each `toString` runs once, in
   order.
+  **And from item 74 (iteration 200):** `RegExp.prototype.exec` and `test`
+  refuse the same shape by name (`Missing::ATwoCallRegExpMethod`): a string
+  argument that ran script to convert, followed by a getter for `exec` or a
+  `lastIndex` holding an object. Closes when both run each call once, in
+  the specification's order.
 
 - [ ] **220. A function's own `name` and `length`, its source text, and
   `bind`.** Cut from 218. A function object has **no own properties** but the
@@ -3052,7 +3057,7 @@ The long pole, and the thing most of section E is unreachable without.
   over `%ArrayIteratorPrototype%`. The `Symbol` function, the other eleven
   symbols and the iterator helpers stay here.
 
-- [ ] **74. Regular expressions**, with the syntax the language actually has.
+- [x] **74. Regular expressions**, with the syntax the language actually has.
   *Depends on 72. Closes when:* a hostile pattern is refused or bounded rather
   than running for ever — a catastrophic backtrack in a renderer is a denial of
   service.
@@ -3084,6 +3089,39 @@ The long pole, and the thing most of section E is unreachable without.
   alternation order, captures reset in a quantifier, backreferences,
   lookahead and lookbehind), and `alo-downloads`' script gets past
   `/Mac/.test(p)`.
+  **Built (iteration 200).** `alo-js/src/regexp/`: the pattern parser for the
+  whole grammar (`u`, `v`'s set expressions and `\q{…}`, named groups and a
+  name shared by alternatives, lookbehind, `(?ims-ims:…)`, `\p{…}` read
+  but not looked up), checked by the parser so a bad pattern is an early
+  `SyntaxError` naming what is wrong; Annex B's six forms refused as
+  `Legacy`, by name, without `u` or `v`. The compiler, refusing `i` and
+  `\p` (322) and `v` and `d` (324) by name. The matcher: a loop with its own
+  stack of places to come back to, `bounds::STEPS_IN_A_MATCH` (2²⁴) counted
+  per `RegExpBuiltinExec` and `bounds::PLACES_IN_A_MATCH` (2²¹), both a
+  `RangeError`; the embedder's stop asked on every backtrack and every 1024
+  steps, which builtins now reach through `Call::stop_asked`. A repeated
+  single character holds one place however long it runs. A literal makes a
+  `RegExp` cell per evaluation, sharing the program the unit compiled;
+  `%RegExp.prototype%` has `exec` and `test` (generic, honouring a page's
+  `exec`); `lastIndex` with `g` and `y`, and the pair rule under `u`;
+  `"[object RegExp]"`. **Closed:** `/(a+)+$/` against thirty `a`s and a `b`
+  is a `RangeError` a `catch` catches and the engine matches on after it; a
+  stop asked before the run ends the match from inside the matcher, within
+  1024 steps; a pattern nested past `bounds::DEEPEST_PATTERN` (256) is a
+  `SyntaxError`; the specification's own examples, lookbehind's
+  right-to-left captures, backreferences, captures reset in a repeat and
+  named groups pass as tables run with the collector at every allocation
+  (`tests/what_a_pattern_matches.rs`), and hostile, truncated and random
+  patterns in all three modes are answered (`a_pattern_that_is_hostile.rs`).
+  `alo-downloads`' whole script compiles, and its first five lines give
+  `isMac` and `isWin` right for a Mac, Windows and Linux under a stand-in
+  `navigator` (`a_frozen_page_tests_its_platform.rs`). In the renderer the
+  script now stops at its second line, `navigator.platform` — item 325.
+  **Refused by name, owed elsewhere:** an object string argument followed by
+  a second call (an `exec` behind a getter, an object `lastIndex`) is
+  `Missing::ATwoCallRegExpMethod`, item 221; `source`, `flags` and
+  `toString` are 324's, so `String(/a/)` is `"[object RegExp]"` until then,
+  as `String([1])` is `"[object Array]"` until 73.
 
 - [ ] **322. `i`, and `\p{…}`: the rented Unicode tables.** *Cut from 74
   (ADR 0029 §§ 1, 6).* Case-insensitive matching uses simple case folding
@@ -3120,6 +3158,22 @@ The long pole, and the thing most of section E is unreachable without.
   *Depends on 74. Closes when:* `new RegExp("(")` throws a `SyntaxError` a
   `catch` catches, `/[\p{L}--[a-z]]/v` matches as specified (with 322),
   and `/(a)/d.exec("a").indices` is `[[0, 1], [0, 1]]`.
+
+- [ ] **325. `navigator`: the `Navigator` interface, with `platform` and
+  `userAgent`.** *Opened by `alo-downloads` (iteration 200).* With item 74
+  built its script compiles, and stops at its second line:
+  `var p = navigator.platform || "";` is "ReferenceError: 'navigator' is not
+  defined". The page reads `navigator.platform` and `navigator.userAgent` to
+  mark the visitor's card. `Navigator` is a Web IDL interface on the window
+  (`alo-bindings`), and what it answers is the browser's to decide: a
+  platform and a user agent string are a fingerprinting surface, so the
+  values need a decision about what this browser says about itself, not a
+  copy of another browser's. Item 318's `pdfViewerEnabled`, `plugins` and
+  `mimeTypes` hang off the same object.
+  *Depends on the window's globals (`alo-bindings`). **Needs ADR** on the
+  strings it answers before code. Closes when:* `alo-downloads`' script runs
+  past its fifth line in the renderer and the card it marks matches the
+  platform the browser says it is, in the box tree and the reference render.
 
 - [ ] **75. Promises, `async`/`await`, generators and iterators.**
   *Depends on 72, 76.* **Item 230 took the iteration protocol `for…of` reads**

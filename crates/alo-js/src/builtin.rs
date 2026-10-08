@@ -31,6 +31,11 @@
 //! a page's own feature test reads correctly, where a `push` that did half of
 //! what the specification says would not be (item 73).
 //!
+//! `%RegExp.prototype%` ([`regexp_prototype`], queue item 74) is what a
+//! regular expression literal's object inherits from, with `exec` and `test`
+//! on it. It is an ordinary object rather than a `RegExp`, as the
+//! specification has made it since ES2015.
+//!
 //! # A well-known symbol is an intrinsic too
 //!
 //! `Symbol.iterator` is a key on `Array.prototype` and `%IteratorPrototype%`,
@@ -49,7 +54,10 @@
 //! `Object.prototype` is still reachable from a script — `({}).__proto__` — so
 //! nothing here is untestable from the language it belongs to.
 //!
-//! No `Array` constructor and no array method but the three iterators, no
+//! No `RegExp` constructor and no `source`, `flags` or `toString` on its
+//! prototype (queue item 324), and no `String.prototype.match` and its kin
+//! (item 323). No `Array` constructor and no array method but the three
+//! iterators, no
 //! `Math`, `JSON`, `String`, `Number` or `Boolean`, no `AggregateError` (queue
 //! item 229), no `Symbol` and eleven of the thirteen well-known symbols, and no
 //! weak collections. Each is named in the queue rather than half-built here.
@@ -60,6 +68,7 @@ pub mod error;
 pub mod function_prototype;
 pub mod iterator_prototype;
 pub mod object_prototype;
+pub mod regexp_prototype;
 
 use crate::abrupt::Escape;
 use crate::heap::{Ref, Root};
@@ -87,6 +96,9 @@ pub struct Intrinsics {
     iterator: Root,
     /// `%ArrayIteratorPrototype%`, which an array iterator inherits from.
     array_iterator: Root,
+    /// `%RegExp.prototype%`, which a regular expression literal's object
+    /// inherits from (queue item 74).
+    regexp: Root,
 }
 
 impl Intrinsics {
@@ -144,6 +156,13 @@ impl Intrinsics {
             .map_err(|why| Escape::refused(why, 0))?;
         let array_iterator = objects.heap_mut().root(array_iterator);
 
+        // `%RegExp.prototype%` is an ordinary object inheriting from
+        // `Object.prototype`, which is still rooted above.
+        let regexp = objects
+            .object(Some(above))
+            .map_err(|why| Escape::refused(why, 0))?;
+        let regexp = objects.heap_mut().root(regexp);
+
         let functions = objects
             .heap()
             .holding(&function_prototype)
@@ -158,12 +177,14 @@ impl Intrinsics {
             symbols,
             iterator,
             array_iterator,
+            regexp,
         };
         object_prototype::furnish(objects, &intrinsics)?;
         function_prototype::furnish(objects, &intrinsics)?;
         iterator_prototype::furnish(objects, &intrinsics)?;
         array_iterator::furnish(objects, &intrinsics)?;
         array_prototype::furnish(objects, &intrinsics)?;
+        regexp_prototype::furnish(objects, &intrinsics)?;
         Ok(intrinsics)
     }
 
@@ -262,6 +283,18 @@ impl Intrinsics {
         objects
             .heap()
             .holding(&self.array_iterator)
+            .ok_or_else(|| Escape::fault(Fault::Gone))
+    }
+
+    /// `%RegExp.prototype%` (queue item 74).
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn regexp_prototype(&self, objects: &Objects) -> Result<Ref, Escape> {
+        objects
+            .heap()
+            .holding(&self.regexp)
             .ok_or_else(|| Escape::fault(Fault::Gone))
     }
 }

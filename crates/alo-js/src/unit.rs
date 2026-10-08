@@ -32,14 +32,22 @@
 //! program* is always the same index however many functions it holds.
 
 use std::fmt;
+use std::sync::Arc;
 
 use crate::code::Chunk;
+use crate::regexp;
 
 /// One compiled program.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Unit {
     texts: Vec<Vec<u16>>,
     chunks: Vec<Chunk>,
+    /// The program's regular expression literals, compiled once each and
+    /// shared by every object a literal makes (ADR 0029 § 5). Like a chunk,
+    /// a compiled pattern holds no heap reference, so this too is outside
+    /// the collector's business. An `Arc` rather than an `Rc` only because a
+    /// unit is compiled on a thread of its own and handed back.
+    patterns: Vec<Arc<regexp::Program>>,
 }
 
 impl Default for Unit {
@@ -54,6 +62,7 @@ impl Unit {
         Self {
             texts: Vec::new(),
             chunks: vec![Chunk::new(false)],
+            patterns: Vec::new(),
         }
     }
 
@@ -88,6 +97,19 @@ impl Unit {
         let at = u32::try_from(self.chunks.len()).ok()?;
         self.chunks.push(chunk);
         Some(at)
+    }
+
+    /// Add a compiled regular expression, answering the index an instruction
+    /// names it by — [`None`] past four thousand million of them.
+    pub fn add_pattern(&mut self, program: regexp::Program) -> Option<u32> {
+        let at = u32::try_from(self.patterns.len()).ok()?;
+        self.patterns.push(Arc::new(program));
+        Some(at)
+    }
+
+    /// The compiled regular expression at an index.
+    pub fn pattern(&self, at: u32) -> Option<&Arc<regexp::Program>> {
+        self.patterns.get(usize::try_from(at).ok()?)
     }
 
     /// The string constants, in the order the instructions index them.

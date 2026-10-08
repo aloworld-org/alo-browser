@@ -10,11 +10,11 @@
 //! nothing in that file changes when it does.* This is that enumeration, and
 //! nothing in `heap.rs` changed.
 //!
-//! # Ten kinds, and two of them are not a script's
+//! # Eleven kinds, and two of them are not a script's
 //!
 //! An [`Ordinary`] object, an [`Array`] (queue item 225), an error (queue item
-//! 227), an [`ArrayIterator`] (queue item 230), a [`Function`], a [`Text`], a
-//! [`Symbol`] — and
+//! 227), an [`ArrayIterator`] (queue item 230), a [`RegExp`] (queue item 74), a
+//! [`Function`], a [`Text`], a [`Symbol`] — and
 //! [`Cell::Foreign`], which is an [`Exotic`] an embedder supplied. That one is
 //! ADR 0013 § 6 and ADR 0014 § 6 in a single line of code: the DOM is **in this
 //! heap**, traced by this collector, in the same graph as the closure that
@@ -42,6 +42,7 @@ use super::environment::Environment;
 use super::function::Function;
 use super::internal::{Exotic, Internal};
 use super::ordinary::Ordinary;
+use super::regexp::RegExp;
 use super::slots::Slots;
 use super::symbol::Symbol;
 use super::text::Text;
@@ -66,6 +67,9 @@ pub enum Cell {
     /// generator the specification writes an array iterator as (queue item
     /// 230).
     ArrayIterator(ArrayIterator),
+    /// What a regular expression literal makes: an ordinary object with the
+    /// compiled pattern beside it (queue item 74).
+    RegExp(RegExp),
     /// A function, which is an ordinary object that can also be called (queue
     /// item 209).
     Function(Function),
@@ -97,6 +101,7 @@ impl Cell {
             Cell::Object(object) | Cell::Error(object) => Some(object),
             Cell::Array(array) => Some(array),
             Cell::ArrayIterator(iterator) => Some(iterator.ordinary()),
+            Cell::RegExp(regexp) => Some(regexp.ordinary()),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_ref()),
             Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) | Cell::Environment(_) => None,
@@ -109,6 +114,7 @@ impl Cell {
             Cell::Object(object) | Cell::Error(object) => Some(object),
             Cell::Array(array) => Some(array),
             Cell::ArrayIterator(iterator) => Some(iterator.ordinary_mut()),
+            Cell::RegExp(regexp) => Some(regexp.ordinary_mut()),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_mut()),
             Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) | Cell::Environment(_) => None,
@@ -169,6 +175,14 @@ impl Cell {
         }
     }
 
+    /// The `RegExp` object this cell is, if it is one (queue item 74).
+    pub const fn regexp(&self) -> Option<&RegExp> {
+        match self {
+            Cell::RegExp(regexp) => Some(regexp),
+            _ => None,
+        }
+    }
+
     /// Whether this cell has the `[[ErrorData]]` slot (queue item 227).
     pub const fn is_error(&self) -> bool {
         matches!(self, Cell::Error(_))
@@ -222,6 +236,7 @@ impl Cell {
             Cell::Array(_) => "an array",
             Cell::Error(_) => "an error",
             Cell::ArrayIterator(_) => "an array iterator",
+            Cell::RegExp(_) => "a regular expression",
             Cell::Function(_) => "a function",
             Cell::Text(_) => "a string",
             Cell::Symbol(_) => "a symbol",
@@ -238,6 +253,7 @@ impl Trace for Cell {
             Cell::Object(object) | Cell::Error(object) => object.trace(tracer),
             Cell::Array(array) => array.trace(tracer),
             Cell::ArrayIterator(iterator) => iterator.trace(tracer),
+            Cell::RegExp(regexp) => regexp.trace(tracer),
             Cell::Function(function) => function.trace(tracer),
             Cell::Symbol(symbol) => symbol.trace(tracer),
             Cell::Foreign(exotic) => exotic.trace(tracer),
@@ -255,6 +271,7 @@ impl Trace for Cell {
             Cell::Object(object) | Cell::Error(object) => object.footprint(),
             Cell::Array(array) => array.footprint(),
             Cell::ArrayIterator(iterator) => iterator.footprint(),
+            Cell::RegExp(regexp) => regexp.footprint(),
             Cell::Function(function) => function.footprint(),
             Cell::Text(text) => text.footprint(),
             Cell::Foreign(exotic) => exotic.footprint(),

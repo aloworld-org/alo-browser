@@ -50,6 +50,17 @@ pub fn continues_a_name(c: char) -> bool {
     c == '$' || c == '\u{200C}' || c == '\u{200D}' || unicode_id_start::is_id_continue(c)
 }
 
+/// Whether a character is Unicode's `ID_Continue`, with nothing added.
+///
+/// [`continues_a_name`] adds `$` and the two joiners, which is the language's
+/// identifier. A regular expression asks the narrower question: Annex B's
+/// identity escape is a backslash before anything that is **not**
+/// `UnicodeIDContinue`, so `\$` is a dollar sign in the main grammar and `\a`
+/// is not (ADR 0029 § 4).
+pub fn is_id_continue(c: char) -> bool {
+    unicode_id_start::is_id_continue(c)
+}
+
 /// Whether a character is `WhiteSpace` — skipped, and separating nothing.
 ///
 /// The list is the specification's, in its order: character tabulation, line

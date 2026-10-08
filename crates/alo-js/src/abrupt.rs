@@ -201,6 +201,16 @@ pub enum Missing {
     /// `el.setAttribute(a, b)` with an object for both is refused by name
     /// until item 221 gives a native traced scratch state to keep it in.
     ASecondArgumentBehindACall,
+    /// A regular expression method whose string argument was turned into a
+    /// primitive by running script, and which then needs a second call: an
+    /// `exec` behind a getter, an `exec` the page replaced, or a `lastIndex`
+    /// that is an object (queue item 221).
+    ///
+    /// The string is in the one slot the second call's answer is written to,
+    /// and converting the argument again afterwards would be a second
+    /// `toString` a page can count — `ASecondArgumentBehindACall`'s reason,
+    /// met by `RegExp.prototype.exec` and `test` (queue item 74).
+    ATwoCallRegExpMethod,
     /// Something an **embedder's** native reached and its embedder has not
     /// built, in the embedder's own words — which name the embedder's queue
     /// item, as every other variant names this engine's.
@@ -241,6 +251,10 @@ impl fmt::Display for Missing {
             Missing::ASecondArgumentBehindACall => write!(
                 out,
                 "a second argument converted by running script after the first was is queue item 221"
+            ),
+            Missing::ATwoCallRegExpMethod => write!(
+                out,
+                "a regular expression method whose string argument ran script to convert and which then calls script again is queue item 221"
             ),
             Missing::InTheEmbedder(what) => out.write_str(what),
         }

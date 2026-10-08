@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Regular expressions work.** A script can now write `/Mac/.test(p)` and
+  get the answer, with the pattern features modern code uses: named groups,
+  looking behind, Unicode mode, and the flags that make a search global,
+  sticky, multi-line or let `.` match a line end. The engine is this
+  browser's own and it counts its work, so a pattern that would take
+  practically for ever — a known way to freeze a page — is stopped with an
+  error the page can catch, and the browser can stop one mid-search. A
+  pattern that is not valid stops its script before it runs, saying what is
+  wrong. Ignoring case, Unicode property classes, the string methods that
+  take a pattern and the `RegExp` constructor are not built yet, and each
+  says so by name. alo's download page now gets past its first pattern; its
+  script stops a line earlier instead, where it asks which computer it is
+  on, which this browser does not answer yet.
+
 - **How regular expressions will work is decided.** ADR 0029 says the
   engine that runs them is this browser's own. It also says every step a
   pattern takes is counted, so a pattern written to run for ever is an error

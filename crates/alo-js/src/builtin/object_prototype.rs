@@ -35,8 +35,9 @@
 //!
 //! # What is absent, and where each one is
 //!
-//! An array is `"[object Array]"` (queue item 225) and an error
-//! `"[object Error]"` (item 227); the builtin tags for a date and the three
+//! An array is `"[object Array]"` (queue item 225), an error
+//! `"[object Error]"` (item 227) and a regular expression `"[object RegExp]"`
+//! (item 74); the builtin tags for a date and the three
 //! wrapper kinds each need that builtin to exist, and until then every other
 //! object that is not a function is `"[object Object]"`, which is what it
 //! genuinely is — **unless it carries a `Symbol.toStringTag`**, which `toString`
@@ -103,6 +104,8 @@ fn to_string(call: &mut Call<'_>) -> Result<Answer, Escape> {
         "Array"
     } else if call.seen().is_error(held) {
         "Error"
+    } else if call.seen().as_regexp(held).is_some() {
+        "RegExp"
     } else if call.seen().callable(held).is_some() {
         "Function"
     } else {

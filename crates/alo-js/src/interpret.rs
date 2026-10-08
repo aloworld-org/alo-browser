@@ -59,6 +59,7 @@ mod frame;
 mod iterate;
 mod primitive;
 mod property;
+mod regexp;
 mod reported;
 mod unwound;
 
@@ -616,6 +617,7 @@ impl Engine {
             Op::ToText => self.make_text(run, at, pc)?,
 
             Op::Object => self.new_object(run, at)?,
+            Op::RegExp(which) => self.make_regexp(run, which, at)?,
             Op::Array(length) => self.new_array(run, length, at)?,
             Op::DefineIndex(index) => self.define_index(run, index)?,
             Op::DefineNamed(which) => self.define_named(run, which)?,

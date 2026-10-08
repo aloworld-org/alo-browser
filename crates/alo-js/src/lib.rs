@@ -59,6 +59,14 @@
 //! and the checkpoint that runs it. The loop itself — tasks, their order,
 //! frames — is the renderer's, and this crate has no notion of a task.
 //!
+//! [`regexp`] is the engine's second interpreter (ADR 0029, queue item 74): a
+//! regular expression's pattern parsed to a tree, compiled to instructions,
+//! and run by a backtracking loop with a stack of its own, every step counted
+//! against a budget and the embedder's stop asked inside — so a pattern
+//! written to run for ever is a `RangeError` a page can catch. `i`, `\p{…}`,
+//! `v` and `d` are refused by name (items 322 and 324), and so are Annex B's
+//! legacy pattern forms.
+//!
 //! # The rule that shapes every file: a script is a stranger's bytes
 //!
 //! ADR 0013 § 4. **It never panics, on any source text.** Not on a truncated

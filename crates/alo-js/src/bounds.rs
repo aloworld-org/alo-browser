@@ -270,3 +270,56 @@ pub const MARKING_WORKLIST: usize = 64 * 1024;
 /// chain of maps keeps live, and a bound that could drop one would be that
 /// promise broken quietly.
 pub const MARKING_EPHEMERONS: usize = 16 * 1024;
+
+/// How deep a regular expression's pattern may nest (queue item 74, ADR 0029
+/// § 2).
+///
+/// Two hundred and fifty-six, [`DEEPEST_NESTING`]'s number for the same
+/// reason. A group, a lookaround and, under `v`, a class inside a class each
+/// cost the pattern's parser and its compiler a frame, and the tree they build
+/// is dropped one frame per level as well. A pattern is a stranger's text, so
+/// `((((…))))` twenty thousand deep is a few bytes of their page and a stack
+/// overflow in ours. Hand-written patterns nest three or four deep; a pattern
+/// that reaches this was written to, and is a `SyntaxError` naming the bound.
+pub const DEEPEST_PATTERN: usize = 256;
+
+/// How many steps one match of a regular expression may take (ADR 0029 § 3).
+///
+/// Sixteen million, 2²⁴. A step is one instruction of the matcher, or one
+/// place it comes back to, so this is a ceiling on **work** rather than a
+/// time: the engine still has no clock. It is counted across one
+/// `RegExpBuiltinExec` — every starting position a search tries — because that
+/// is the unit a page asks for and the unit a global `replace` repeats.
+///
+/// The number is chosen to be far above what a legitimate pattern costs. The
+/// patterns in this repository's frozen scripts run in tens of steps on the
+/// strings they are given. A literal search through a whole mebibyte of text
+/// that fails at every position is a few million. What reaches this is a
+/// backtrack that grows exponentially with its input — `/(a+)+$/` against
+/// thirty `a`s and a `b` is about a thousand million steps — and that is the
+/// case it exists for: a pattern a page wrote badly, or a page wrote to hang
+/// the renderer.
+///
+/// Reaching it is a `RangeError` the page can catch, saying the expression did
+/// too much work. It is a number to argue with once a frozen page's pattern
+/// comes near it, with the page named; ADR 0029 says a quietly raised number is
+/// the wrong answer.
+pub const STEPS_IN_A_MATCH: u64 = 1 << 24;
+
+/// How many places to come back to one match may hold at once (ADR 0029 § 2).
+///
+/// Two million, 2²¹, which is about thirty-two mebibytes of them. The matcher
+/// never recurses: a choice it may have to undo is an entry on a stack it
+/// owns, and so is every capture or counter it must restore when it does. So a
+/// pattern's nesting and an input's length cannot choose how much of the
+/// process stack is used — they choose how long this list is, and this is how
+/// long it may be.
+///
+/// A repeated single character — `.*`, `\s+`, `[a-z]*` — holds **one** entry
+/// however many characters it took, so a page searching a long line with
+/// `/^.*$/` does not come near it. A repeated group holds about three per
+/// iteration and one per capture inside it, so a group repeated some hundreds
+/// of thousands of times is what reaches it. Reaching it is the same
+/// `RangeError` as [`STEPS_IN_A_MATCH`], because it is the same kind of thing:
+/// a match that asked for more than one match may have.
+pub const PLACES_IN_A_MATCH: usize = 1 << 21;

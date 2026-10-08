@@ -46,7 +46,8 @@
 //! `length` keeps up with its indices (item 225), an error, which is an
 //! ordinary object with one slot that holds nothing (item 227), and an array
 //! iterator, which is an ordinary object with a generator's state beside it
-//! (item 230). Everything else is absent
+//! (item 230), and a `RegExp`, which is an ordinary object with a compiled
+//! pattern beside it (item 74). Everything else is absent
 //! rather than stubbed, because a stub is the one answer that defeats a page's
 //! own feature test.
 
@@ -62,6 +63,7 @@ pub mod key;
 pub mod native;
 pub mod ordinary;
 pub mod property;
+pub mod regexp;
 pub mod slots;
 pub mod symbol;
 pub mod table;
@@ -86,6 +88,7 @@ pub use key::Key;
 pub use native::Native;
 pub use ordinary::Ordinary;
 pub use property::Property;
+pub use regexp::RegExp;
 pub use slots::{Held, Slots};
 pub use symbol::Symbol;
 pub use table::Properties;
@@ -247,6 +250,31 @@ impl Objects {
                     .map(|iterator| with(iterator, barrier))
             })
             .flatten()
+    }
+
+    /// Make a `RegExp` object of this compiled pattern, with this prototype
+    /// and no properties of its own yet: `RegExpAlloc` without its
+    /// `lastIndex`, which the caller defines (queue item 74).
+    ///
+    /// **This is a safepoint**, and the prototype is the caller's to have
+    /// rooted, as [`Objects::object`]'s is.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn regexp(
+        &mut self,
+        prototype: Option<Ref>,
+        program: std::sync::Arc<crate::regexp::Program>,
+    ) -> Result<Ref, Refused> {
+        let regexp = RegExp::new(prototype, program);
+        Ok(self.heap.allocate(Cell::RegExp(regexp))?)
+    }
+
+    /// The `RegExp` object a reference names, or [`None`] if it names
+    /// anything else — `RequireInternalSlot(R, [[RegExpMatcher]])`.
+    pub fn as_regexp(&self, held: Ref) -> Option<&RegExp> {
+        self.heap.get(held)?.regexp()
     }
 
     /// Make an error with this prototype and no properties of its own: the

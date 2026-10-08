@@ -777,17 +777,22 @@ unreachable without it.
       function and the other eleven well-known symbols, the iterator helpers
       and the weak collections are still item 73, which is what remains of it
 - [ ] Regular expressions, with the syntax the language actually has
-      — not started: nothing is built. Decided in ADR 0029: the parser,
-      compiler and matcher are ours, a backtracking machine over UTF-16 code
-      units with a stack of its own. Every step is counted against a budget
-      in `bounds.rs` and the embedder's stop is checked inside it, so a
-      catastrophic pattern is a `RangeError` a page can catch, never a hung
-      renderer. Only the Unicode tables are rented, and Annex B's pattern
-      forms are refused by name. A running frozen script reaches it:
-      `alo-downloads`' `/Mac/.test(p)`. Cut into queue items 74 (the engine,
-      its bound, a literal, `exec` and `test`), 322 (`i` and `\p{…}`), 323
-      (the string methods) and 324 (the constructor, `v`'s set operations
-      and `d`'s indices)
+      · Built: the engine ADR 0029 decided, in `alo-js/src/regexp/` (queue
+      item 74) — the pattern parser for the whole grammar, so a bad pattern
+      is an early `SyntaxError` and Annex B's forms are refused by name; the
+      compiler; and a backtracking matcher over UTF-16 code units with a
+      stack of its own, every step counted against
+      `bounds::STEPS_IN_A_MATCH` and every place against
+      `bounds::PLACES_IN_A_MATCH`, so `/(a+)+$/` on thirty `a`s and a `b` is
+      a `RangeError` a page catches, and the embedder's stop asked inside. A
+      literal makes a `RegExp` object with `lastIndex`, and
+      `%RegExp.prototype%` has `exec` and `test`, with `g`, `y`, `m`, `s`,
+      `u`, named groups, lookbehind and the `(?ms-ms:…)` modifiers.
+      `alo-downloads`' script compiles and its patterns answer right · Owed:
+      `i` and `\p{…}` with the rented Unicode tables (322), the string
+      methods that take a pattern (323), the `RegExp` constructor, `source`,
+      `flags`, `toString`, `v`'s set operations and `d`'s indices (324), and
+      an object string argument followed by a second call (221)
 - [ ] Promises, the microtask queue, `async`/`await`, generators and iterators
       · Built: **the iteration protocol** that `for…of` reads (queue item
       230) — `GetIterator`, a step and `IteratorClose`, compiled to ordinary

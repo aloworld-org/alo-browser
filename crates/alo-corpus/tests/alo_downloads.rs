@@ -11,8 +11,12 @@
 //! into the one before it; it is eight, two of them blank.
 //!
 //! It also pins what the page's script does today, because that is what
-//! the render shows: it is refused at its first regular expression (item
-//! 74), so neither card is marked as the visitor's and no button is greyed.
+//! the render shows. Until item 74 it was refused at its first regular
+//! expression; now it compiles, four patterns and all, and stops at its
+//! second line, `navigator.platform`, because no `Navigator` is built yet
+//! (item 325). So neither card is marked as the visitor's and no button is
+//! greyed, as before. `alo-js`'s `a_frozen_page_tests_its_platform.rs`
+//! runs the page's patterns under a stand-in `navigator`.
 
 use alo_corpus::{Case, Rendering, cases_directory, corpus_fonts};
 use alo_layout::Rect;
@@ -117,7 +121,7 @@ fn each_br_in_the_note_ends_its_line() {
 }
 
 #[test]
-fn the_pages_script_is_refused_at_its_first_regular_expression() {
+fn the_pages_script_compiles_and_stops_at_navigator() {
     let Some(case) = Case::read(&cases_directory().join("alo-downloads")) else {
         panic!("the case is read");
     };
@@ -128,9 +132,15 @@ fn the_pages_script_is_refused_at_its_first_regular_expression() {
         panic!("the page loads");
     };
     assert!(
-        issues
+        !issues
             .iter()
             .any(|issue| issue.contains("regular expression")),
+        "no pattern is refused any more: {issues:?}",
+    );
+    assert!(
+        issues
+            .iter()
+            .any(|issue| issue.contains("'navigator' is not defined")),
         "{issues:?}",
     );
 }

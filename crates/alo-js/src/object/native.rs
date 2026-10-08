@@ -53,6 +53,15 @@
 //! reference its embedder set, of a type this engine never learns. A builtin
 //! of the engine's own never asks for it.
 //!
+//! # A native that runs a long loop is told the embedder's stop
+//!
+//! The interpreter asks [`Stop`](crate::interpret::Stop) on every backward
+//! jump and every call, which bounds every loop a script writes. A builtin's
+//! own loop is not a jump the interpreter sees, and one of them is long
+//! enough to matter: a regular expression's matcher (ADR 0029 § 3). So a
+//! native is handed the switch ([`Call::stop_asked`]) and a builtin whose
+//! work a page can make large asks it inside.
+//!
 //! # A step is a number, and the answer arrives on the stack
 //!
 //! A suspended builtin keeps no state of its own beyond a `u32`: everything
@@ -81,6 +90,7 @@ use crate::abrupt::{Escape, Internal};
 use crate::builtin::Intrinsics;
 use crate::convert::Hint;
 use crate::heap::Ref;
+use crate::interpret::Stop;
 
 use super::{Objects, Value};
 
@@ -277,6 +287,7 @@ pub struct Call<'a> {
     objects: &'a mut Objects,
     intrinsics: Option<&'a Intrinsics>,
     host: Option<Ref>,
+    stop: Option<&'a Stop>,
     this: Value,
     arguments: &'a [Value],
     at: usize,
@@ -298,6 +309,7 @@ impl<'a> Call<'a> {
             objects,
             intrinsics: None,
             host: None,
+            stop: None,
             this,
             arguments,
             at,
@@ -341,6 +353,21 @@ impl<'a> Call<'a> {
             Some(intrinsics) => Ok(intrinsics),
             None => Err(Escape::Broken(Internal::BuiltinIsWrong)),
         }
+    }
+
+    /// The same call, under the embedder's switch for stopping a script.
+    #[must_use]
+    pub const fn stopped_by(mut self, stop: &'a Stop) -> Self {
+        self.stop = Some(stop);
+        self
+    }
+
+    /// Whether the embedder has asked for the script to stop. A builtin that
+    /// loops over work a page chose asks this inside the loop, and answers
+    /// [`Escape::Interrupted`] when it is true. A call made without the switch
+    /// — only a test that built a [`Call`] by hand — is never stopped.
+    pub fn stop_asked(&self) -> bool {
+        self.stop.is_some_and(Stop::asked)
     }
 
     /// The same call, in a realm whose `[[HostDefined]]` is `host`.

@@ -83,6 +83,9 @@ pub enum Reason {
     /// Both `u` and `v` on one regular expression, which are two spellings of
     /// how a pattern reads its characters and cannot both apply.
     BothUnicodeModes,
+    /// A regular expression literal whose pattern is not one: an early error,
+    /// for the whole script, as the specification requires (ADR 0029 § 5).
+    Pattern(crate::regexp::Wrong),
     /// `0755` or `08` — a legacy octal or non-octal decimal literal.
     ///
     /// Refused by ADR 0013 § 3: both exist only in sloppy mode, both are in
@@ -282,6 +285,7 @@ impl Reason {
             Self::RepeatedRegularExpressionFlag(c) => {
                 write!(f, "the regular expression flag `{c}` is given twice")
             }
+            Self::Pattern(wrong) => write!(f, "this regular expression is not one: {wrong}"),
             Self::BothUnicodeModes => {
                 f.write_str("a regular expression cannot be both `u` and `v`")
             }
