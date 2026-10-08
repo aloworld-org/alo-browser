@@ -28,6 +28,7 @@ use crate::fetch::{FetchAsk, Fetched};
 use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::page::Page;
+use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::snapshot::Snapshot;
 use crate::violations::Objection;
 use alo_agent::{Outcome, Refusal, Target, Verb};
@@ -73,6 +74,13 @@ pub enum ToRenderer {
     /// ([`crate::fetch_filter`]). Answered with
     /// [`FromRenderer::Delivered`].
     Fetched(Box<Fetched>),
+    /// The answer to one of the page's linked style sheets (ADR 0035 § 4).
+    ///
+    /// A task of its own, sent when the browser process has decided and
+    /// made the ask, carrying the sheet's bytes only if they are a style
+    /// sheet ([`crate::sheet_make`]). The renderer keeps them and the page
+    /// is drawn with them. Answered with [`FromRenderer::Delivered`].
+    Sheet(Box<SheetAnswer>),
 }
 
 /// What a renderer answers with.
@@ -152,6 +160,11 @@ pub enum FromRenderer {
         /// decides them ([`crate::fetch_decide`]), and a load's are the
         /// document's.
         fetches: Vec<FetchAsk>,
+        /// Every linked style sheet the page has that its renderer had not
+        /// asked for, in document order (ADR 0035 § 1): after the load, all
+        /// of them but those it refused itself ([`crate::linked`]). A claim
+        /// each, decided by the browser process ([`crate::sheet_decide`]).
+        sheets: Vec<SheetAsk>,
     },
     /// A picture.
     Painted(Frame),
@@ -187,12 +200,17 @@ pub enum FromRenderer {
         /// Every fetch the page asked for during the verb's task, in order.
         /// The agent's, as its navigation is, whoever on the page asked.
         fetches: Vec<FetchAsk>,
+        /// Every linked style sheet the verb's task added that had not been
+        /// asked for, as a load's are. The agent's, as its fetches are.
+        sheets: Vec<SheetAsk>,
     },
-    /// The answer to a fetch was delivered, and this is what its task did.
+    /// The answer to a fetch or a style sheet was delivered, and this is what
+    /// its task did.
     ///
     /// Asks made while it ran are the **document's**, even after an agent's
     /// verb: a reaction to a response runs in a task of its own, outside the
-    /// agent's (ADR 0016 § 6, ADR 0032 § 3).
+    /// agent's (ADR 0016 § 6, ADR 0032 § 3). A sheet's task runs no script, so
+    /// it asks for nothing; it may say the sheet did not arrive.
     Delivered {
         /// What the page's script said while the task ran, as an `Acted`'s
         /// issues are said.
@@ -204,6 +222,9 @@ pub enum FromRenderer {
         navigation: Option<Asked>,
         /// Every fetch it asked for during the task, in order.
         fetches: Vec<FetchAsk>,
+        /// Every linked style sheet the task added that had not been asked
+        /// for.
+        sheets: Vec<SheetAsk>,
     },
     /// A verb was refused. **Not a failure**: ADR 0002 makes refusing a
     /// result, because acting on the wrong row is worse than acting on none.
@@ -282,6 +303,7 @@ impl fmt::Display for ToRenderer {
             ToRenderer::ReadTree => f.write_str("read the tree"),
             ToRenderer::Act { target, verb } => write!(f, "{verb:?} {target}"),
             ToRenderer::Fetched(fetched) => write!(f, "{fetched}"),
+            ToRenderer::Sheet(answer) => write!(f, "{answer}"),
         }
     }
 }
@@ -337,6 +359,9 @@ mod tests {
             // What the page may read of its own request, and nothing about any
             // other.
             ToRenderer::Fetched(_) => "the answer to a fetch the page asked for",
+            // A style sheet's bytes, and nothing about the request that got
+            // them.
+            ToRenderer::Sheet(_) => "the answer to a style sheet the page asked for",
         };
         let answered = |answer: &FromRenderer| match answer {
             FromRenderer::UsingFont { .. }

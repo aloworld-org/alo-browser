@@ -107,7 +107,7 @@ impl SvgPicture {
             .into_iter()
             .filter_map(|sheet| match sheet {
                 Sheet::Written { text, .. } => Some(parse_stylesheet(&text)),
-                Sheet::Linked { href } => {
+                Sheet::Linked { href, .. } => {
                     issues.push(format!(
                         "a style sheet at {href:?} is not fetched for an SVG picture"
                     ));

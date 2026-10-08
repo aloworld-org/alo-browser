@@ -61,6 +61,14 @@
 //! that settles the page's promise ([`crate::deliver`]). Its answer carries
 //! what the reactions asked for in turn.
 //!
+//! # What a page links
+//!
+//! Its style sheets are asked for the same way (ADR 0035): at the end of every
+//! message whose work could have changed the document, each linked sheet not
+//! asked for before is a claim in the answer ([`crate::linked`]), and its
+//! answer is a message of its own, [`ToRenderer::Sheet`], whose task keeps the
+//! bytes and draws the page with them.
+//!
 //! What is not here yet is the loop running between messages — a task a
 //! page queues for itself has no idle moment to run in (queue item 233).
 
@@ -73,6 +81,7 @@ use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::held::Held;
 use crate::inline_style::Judged;
+use crate::linked::Linked;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::objected::Objected;
 use crate::page::Page;
@@ -81,6 +90,7 @@ use crate::press::press;
 use crate::put::put;
 use crate::said;
 use crate::scripts;
+use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::snapshot::Snapshot;
 use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Outcome, Target, Verb};
@@ -113,6 +123,15 @@ pub struct Renderer {
     /// What those policies have objected to in the page's inline style, for
     /// the page's life, and what of it waits to cross (ADR 0034 § 4).
     objected: Objected,
+    /// The policies each `<meta>` the parser made stated — enforced, and
+    /// only those, since a header policy is the browser process's to apply to
+    /// a linked sheet (ADR 0035 § 1).
+    metas: alo_net::Policies,
+    /// The page's linked style sheets: asked for, and arrived.
+    linked: Linked,
+    /// Whether a sheet arrived since the page was last drawn, which changes
+    /// its rendering without changing its document.
+    restyle: bool,
 }
 
 impl Renderer {
@@ -127,6 +146,9 @@ impl Renderer {
             under: alo_net::Policies::none(),
             stated: alo_net::Policies::none(),
             objected: Objected::new(),
+            metas: alo_net::Policies::none(),
+            linked: Linked::new(),
+            restyle: false,
         }
     }
     /// Take a font the browser process handed over.
@@ -184,6 +206,7 @@ impl Renderer {
             ToRenderer::ReadTree => self.read_tree(),
             ToRenderer::Act { target, verb } => self.act(&target, &verb),
             ToRenderer::Fetched(fetched) => self.delivered(&fetched),
+            ToRenderer::Sheet(answer) => self.styled(&answer),
         }
     }
 
@@ -238,21 +261,24 @@ impl Renderer {
         let (found, more) = judged.objections();
         self.objected.owe(found, more);
         let sheets = page.sheets.join("\n");
+        let linked = self.linked.for_draw(document, &page.url);
         let drawing = draw(
             document,
             &sheets,
             page.viewport,
             &self.fonts,
-            &[],
+            &linked,
             &[],
             &judged,
         );
         self.drawn = Some((drawing, document.change_count()));
         self.draws = self.draws.saturating_add(1);
+        self.restyle = false;
     }
 
     /// Draw the page again if its document has changed since it was last
-    /// drawn — the one question every reader of a rendering asks first.
+    /// drawn, or a sheet has arrived — the one question every reader of a
+    /// rendering asks first.
     fn fresh(&mut self) {
         let now = self
             .held
@@ -260,7 +286,7 @@ impl Renderer {
             .and_then(Held::document)
             .map(Document::change_count);
         let then = self.drawn.as_ref().map(|(_, count)| *count);
-        if now.is_some() && now != then {
+        if now.is_some() && (now != then || self.restyle) {
             self.draw();
         }
     }
@@ -365,6 +391,7 @@ impl Renderer {
         let (navigation, mut said) = ask::answer(&ongoing);
         issues.append(&mut said);
         let fetches = asks(held);
+        let sheets = self.sheet_asks(&mut issues);
         self.fresh();
         let mut objections = Vec::new();
         self.objected.take(&mut objections, &mut issues);
@@ -374,6 +401,7 @@ impl Renderer {
             objections,
             navigation,
             fetches,
+            sheets,
         }
     }
 
@@ -391,6 +419,7 @@ impl Renderer {
         let (navigation, mut said) = ask::answer(&ongoing);
         issues.append(&mut said);
         let fetches = asks(held);
+        let sheets = self.sheet_asks(&mut issues);
         self.fresh();
         let mut objections = Vec::new();
         self.objected.take(&mut objections, &mut issues);
@@ -399,7 +428,43 @@ impl Renderer {
             objections,
             navigation,
             fetches,
+            sheets,
         }
+    }
+
+    /// The answer to one of the page's linked style sheets, as a task of its
+    /// own (ADR 0035 § 4): what arrived is kept, and the page drawn again
+    /// with it. No script runs, so the task asks for nothing; it says a sheet
+    /// that did not arrive.
+    fn styled(&mut self, answer: &SheetAnswer) -> FromRenderer {
+        if self.held.is_none() {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        }
+        let mut issues = Vec::new();
+        if self.linked.arrived(answer, &mut issues) {
+            self.restyle = true;
+        }
+        self.fresh();
+        let mut objections = Vec::new();
+        self.objected.take(&mut objections, &mut issues);
+        FromRenderer::Delivered {
+            issues,
+            objections,
+            navigation: None,
+            fetches: Vec::new(),
+            sheets: Vec::new(),
+        }
+    }
+
+    /// The linked style sheets the page has and has not asked for, taken as
+    /// asked; what a link not asked for makes it say goes into `issues`.
+    fn sheet_asks(&mut self, issues: &mut Vec<String>) -> Vec<SheetAsk> {
+        let (Some(page), Some(document)) =
+            (&self.page, self.held.as_ref().and_then(Held::document))
+        else {
+            return Vec::new();
+        };
+        self.linked.asks(document, &page.url, &self.metas, issues)
     }
 
     /// A new page: parsed, each of its scripts run as a task when the parser
@@ -411,14 +476,19 @@ impl Renderer {
         self.held = None;
         self.drawn = None;
         // A new page has objected to nothing, and is owed nothing the last
-        // one's draws found.
+        // one's draws found; it has asked for no sheet, and none has arrived.
         self.objected = Objected::new();
+        self.linked = Linked::new();
+        self.restyle = false;
         let (mut parsing, document) = Parsing::start(&page.html);
         let mut held = Held::Parsed(document);
         let mut said = Vec::new();
         let mut objections = Vec::new();
         let policies = scripts::at_load(&mut held, &mut parsing, &page, &mut said, &mut objections);
         self.under = Page::policies_of(&policies);
+        // The header policies come first, and every policy after them is a
+        // `<meta>`'s ([`scripts::at_load`]).
+        self.metas = Page::policies_of(policies.get(page.policies.len()..).unwrap_or_default());
         self.stated = page.stated();
         self.held = Some(held);
         self.page = Some(page);
@@ -435,6 +505,7 @@ impl Renderer {
         let (navigation, mut asked) = ask::answer(&ongoing);
         said.append(&mut asked);
         let fetches = self.held.as_mut().map(asks).unwrap_or_default();
+        let sheets = self.sheet_asks(&mut said);
         match self.loaded() {
             FromRenderer::Loaded {
                 mut issues, wanted, ..
@@ -446,6 +517,7 @@ impl Renderer {
                     objections,
                     navigation,
                     fetches,
+                    sheets,
                 }
             }
             other => other,
@@ -481,10 +553,12 @@ impl Renderer {
             issues,
             wanted,
             // Nothing runs in a drawing, so nothing can have been objected
-            // to, or asked for; a load adds what its scripts did.
+            // to, or asked for; a load adds what its scripts did and what its
+            // document links.
             objections: Vec::new(),
             navigation: None,
             fetches: Vec::new(),
+            sheets: Vec::new(),
         }
     }
 

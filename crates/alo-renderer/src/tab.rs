@@ -77,6 +77,15 @@
 //! drives), and each answer goes back through [`Tabs::fetched`], which
 //! sends it only while the document that asked is still the one showing.
 //!
+//! # Where a page's linked style sheets are asked for
+//!
+//! The same again (ADR 0035): each answer carries the sheets its document
+//! links and had not asked for, decided here as it passes
+//! ([`crate::sheet_owed`], [`crate::sheet_decide`]) with the cause from which
+//! message was answered. The decisions wait on the tab ([`Tabs::sheets`]) and
+//! each answer goes back through [`Tabs::styled`], only while the document
+//! that asked is the one showing.
+//!
 //! # One process per site, and one document per process
 //!
 //! Two tabs on one site share a renderer (ADR 0005), and a [`crate::Renderer`]
@@ -96,6 +105,9 @@ use crate::host::{Gone, Renderers};
 use crate::message::{FromRenderer, ToRenderer};
 use crate::navigate::{self, Decided};
 use crate::page::Page;
+use crate::sheet::{SheetAnswer, SheetAsk};
+use crate::sheet_decide;
+use crate::sheet_owed;
 use crate::site::Site;
 use alo_agent::{Target, Verb};
 use alo_net::cause::{ActionId, Cause, DocumentId, Identities};
@@ -140,6 +152,11 @@ pub struct Tab {
     owed: Owed,
     /// The page's fetches, decided, waiting for whoever makes them.
     fetches: Vec<fetch_decide::Decided>,
+    /// The linked style sheets the document is still owed an answer for.
+    sheets_owed: sheet_owed::Owed,
+    /// The page's linked style sheets, decided, waiting for whoever makes
+    /// them.
+    sheets: Vec<sheet_decide::Decided>,
     painted: Option<Frame>,
     gone: Option<Gone>,
 }
@@ -228,6 +245,7 @@ impl Tab {
         let FromRenderer::Loaded {
             navigation,
             fetches,
+            sheets,
             issues,
             ..
         } = answer
@@ -245,7 +263,9 @@ impl Tab {
         // answers are dropped rather than delivered to this one.
         self.owed = Owed::default();
         self.fetches.clear();
-        issues.extend(self.fetching(fetches, &cause));
+        self.sheets_owed = sheet_owed::Owed::default();
+        self.sheets.clear();
+        issues.extend(self.fetching(fetches, sheets, &cause));
     }
 
     /// An `Act`'s answer, passing: what the page asked for during the verb's
@@ -259,6 +279,7 @@ impl Tab {
             FromRenderer::Acted {
                 navigation,
                 fetches,
+                sheets,
                 issues,
                 ..
             },
@@ -272,7 +293,7 @@ impl Tab {
             (Some(asked), Some(address)) => Some(navigate::decide(asked, address, cause.clone())),
             _ => None,
         };
-        issues.extend(self.fetching(fetches, &cause));
+        issues.extend(self.fetching(fetches, sheets, &cause));
     }
 
     /// A delivered response's answer, passing: its task ran outside any
@@ -283,6 +304,7 @@ impl Tab {
             FromRenderer::Delivered {
                 navigation,
                 fetches,
+                sheets,
                 issues,
                 ..
             },
@@ -296,16 +318,17 @@ impl Tab {
             (Some(asked), Some(address)) => Some(navigate::decide(asked, address, cause.clone())),
             _ => None,
         };
-        issues.extend(self.fetching(fetches, &cause));
+        issues.extend(self.fetching(fetches, sheets, &cause));
     }
 
-    /// Decide the fetches an answer carried, under `cause`, against this
-    /// tab's own copy of its document, and keep the decisions for whoever
-    /// makes them. The lines to say among the answer's issues come back.
+    /// Decide the fetches and the linked style sheets an answer carried,
+    /// under `cause`, against this tab's own copy of its document, and keep
+    /// the decisions for whoever makes them. The lines to say among the
+    /// answer's issues come back.
     ///
     /// A tab with no address has shown no document, so an ask from it is a
     /// claim with nobody to make it for, and is not believed.
-    fn fetching(&mut self, asks: &[FetchAsk], cause: &Cause) -> Vec<String> {
+    fn fetching(&mut self, asks: &[FetchAsk], sheets: &[SheetAsk], cause: &Cause) -> Vec<String> {
         let Some(address) = &self.address else {
             return Vec::new();
         };
@@ -313,8 +336,11 @@ impl Tab {
             url: address,
             policies: &self.policies,
         };
-        let (decided, lines) = self.owed.decide(asks, &asker, cause);
+        let (decided, mut lines) = self.owed.decide(asks, &asker, cause);
         self.fetches.extend(decided);
+        let (decided, mut said) = self.sheets_owed.decide(sheets, &asker, cause);
+        self.sheets.extend(decided);
+        lines.append(&mut said);
         lines
     }
 }
@@ -487,6 +513,8 @@ impl Tabs {
             policies: Policies::none(),
             owed: Owed::default(),
             fetches: Vec::new(),
+            sheets_owed: sheet_owed::Owed::default(),
+            sheets: Vec::new(),
             painted: None,
             gone: None,
         });
@@ -684,6 +712,49 @@ impl Tabs {
             tab.delivered(&mut answer);
         }
         Ok(Some(answer))
+    }
+
+    /// The linked style sheets the page in a tab asked for, as this process
+    /// decided them, in the order they were asked — taken, so each is handed
+    /// over once.
+    ///
+    /// Each one is owed an answer, through [`Tabs::styled`]: a
+    /// [`sheet_decide::Decided::Make`] is made and checked
+    /// ([`crate::sheet_make`]); a [`sheet_decide::Decided::Refused`] is
+    /// answered with its [`sheet_decide::Refusal::answer`], said to the person
+    /// in its own words and recorded with [`sheet_decide::Refusal::record`].
+    pub fn sheets(&mut self, id: TabId) -> Vec<sheet_decide::Decided> {
+        self.list
+            .iter_mut()
+            .find(|tab| tab.id == id)
+            .map(|tab| core::mem::take(&mut tab.sheets))
+            .unwrap_or_default()
+    }
+
+    /// Deliver the answer to one of a tab's page's linked style sheets, as a
+    /// task of its own (ADR 0035 § 4).
+    ///
+    /// [`None`] when the document showing is owed no such answer, as for
+    /// [`Tabs::fetched`]. What the task says passes as a delivered fetch's
+    /// answer does.
+    ///
+    /// # Errors
+    ///
+    /// [`Lost::NoSuchTab`] for an id nobody opened, and as [`Tabs::ask`].
+    pub fn styled(&mut self, id: TabId, answer: SheetAnswer) -> Result<Option<FromRenderer>, Lost> {
+        let tab = self
+            .list
+            .iter_mut()
+            .find(|tab| tab.id == id)
+            .ok_or(Lost::NoSuchTab(id))?;
+        if tab.document.is_none() || !tab.sheets_owed.settle(answer.number) {
+            return Ok(None);
+        }
+        let mut delivered = self.ask(id, &ToRenderer::Sheet(Box::new(answer)))?;
+        if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
+            tab.delivered(&mut delivered);
+        }
+        Ok(Some(delivered))
     }
 
     /// Where the page in a tab last asked to go, as this process decided it
@@ -1411,6 +1482,7 @@ mod tests {
             objections: Vec::new(),
             navigation: None,
             fetches,
+            sheets: Vec::new(),
         }
     }
 
@@ -1482,6 +1554,7 @@ mod tests {
             objections: Vec::new(),
             navigation: None,
             fetches: vec![ask_for(2, "https://shop.example/b.exe")],
+            sheets: Vec::new(),
         };
         if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
             tab.acted(action, &mut acted);
@@ -1496,6 +1569,7 @@ mod tests {
             objections: Vec::new(),
             navigation: None,
             fetches: vec![ask_for(3, "https://shop.example/c")],
+            sheets: Vec::new(),
         };
         if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
             tab.delivered(&mut delivered);
@@ -1603,11 +1677,131 @@ mod tests {
             objections: Vec::new(),
             navigation: None,
             fetches: vec![ask_for(1, "https://shop.example/a")],
+            sheets: Vec::new(),
         };
         if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
             tab.acted(action, &mut acted);
         }
         assert!(tabs.fetches(id).is_empty());
         assert_eq!(tabs.fetched(id, Fetched::failed(1)), Ok(None));
+    }
+
+    // --- Where a page's linked style sheets are asked for (ADR 0035) ---------
+
+    fn sheet_for(number: u64, to: &str) -> SheetAsk {
+        SheetAsk {
+            number,
+            url: to.to_owned(),
+            mode: Mode::NoCors,
+            credentials: Credentials::Include,
+            referrer: None,
+            nonce: None,
+        }
+    }
+
+    fn sheet_causes(decided: &[sheet_decide::Decided]) -> Vec<Cause> {
+        decided
+            .iter()
+            .map(|one| match one {
+                sheet_decide::Decided::Make(sheet) => sheet.request.cause.clone(),
+                sheet_decide::Decided::Refused(refusal) => refusal.cause.clone(),
+            })
+            .collect()
+    }
+
+    /// A sheet is caused as a fetch is: a load's and a delivery's are the
+    /// document's, an act's the agent's; a header `style-src` refuses one
+    /// here, said among the answer's issues; and a new load owes nothing the
+    /// last document asked for.
+    #[test]
+    fn a_sheet_is_decided_as_its_answer_passes_under_the_documents_header_policy() {
+        let mut headers = alo_net::Headers::new();
+        headers.add("Content-Security-Policy", "style-src 'self'");
+        let mut tabs = nowhere();
+        let id = tabs.open(url(HERE));
+        let document = tabs
+            .documents
+            .opened(&mut tabs.identities, Cause::Person { tab: id });
+        let mut loaded = loaded_with(Vec::new());
+        if let FromRenderer::Loaded { sheets, .. } = &mut loaded {
+            sheets.push(sheet_for(0, "https://shop.example/site.css"));
+            sheets.push(sheet_for(1, "https://cdn.example/other.css"));
+        }
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
+            tab.loaded(
+                document,
+                url(HERE),
+                Policies::stated_by(&headers),
+                &mut loaded,
+            );
+        }
+        let at_load = tabs.sheets(id);
+        assert_eq!(
+            sheet_causes(&at_load),
+            [Cause::Document { document }, Cause::Document { document }]
+        );
+        assert!(matches!(at_load[0], sheet_decide::Decided::Make(_)));
+        let sheet_decide::Decided::Refused(refused) = &at_load[1] else {
+            panic!("a header style-src let another origin's sheet in");
+        };
+        assert!(refused.rule.to_string().contains("style-src"), "{refused}");
+        let issues = issues_of(&loaded);
+        assert!(
+            issues
+                .iter()
+                .any(|line| line.contains("cdn.example/other.css")),
+            "{issues:?}"
+        );
+        assert!(tabs.sheets(id).is_empty(), "handed over once");
+
+        let action = tabs.identities.an_action();
+        let mut acted = FromRenderer::Acted {
+            outcome: Outcome::Activated {
+                node: BoxId::from_wire(3),
+                name: None,
+            },
+            issues: Vec::new(),
+            objections: Vec::new(),
+            navigation: None,
+            fetches: Vec::new(),
+            sheets: vec![sheet_for(2, "https://shop.example/added.css")],
+        };
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
+            tab.acted(action, &mut acted);
+        }
+        assert_eq!(
+            sheet_causes(&tabs.sheets(id)),
+            [Cause::Agent { action, document }]
+        );
+        let mut delivered = FromRenderer::Delivered {
+            issues: Vec::new(),
+            objections: Vec::new(),
+            navigation: None,
+            fetches: Vec::new(),
+            sheets: vec![sheet_for(3, "https://shop.example/later.css")],
+        };
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
+            tab.delivered(&mut delivered);
+        }
+        assert_eq!(
+            sheet_causes(&tabs.sheets(id)),
+            [Cause::Document { document }]
+        );
+
+        // Owed: four asks. A number never asked for is answered by nobody,
+        // and nothing is sent for it.
+        assert_eq!(tabs.tab(id).map(|tab| tab.sheets_owed.waiting()), Some(4));
+        assert_eq!(tabs.styled(id, SheetAnswer::failed(99)), Ok(None));
+
+        // A new document owes nothing of the last one's.
+        let next = tabs
+            .documents
+            .opened(&mut tabs.identities, Cause::Person { tab: id });
+        let mut again = loaded_with(Vec::new());
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
+            tab.loaded(next, url(HERE), Policies::none(), &mut again);
+        }
+        assert_eq!(tabs.tab(id).map(|tab| tab.sheets_owed.waiting()), Some(0));
+        assert_eq!(tabs.styled(id, SheetAnswer::failed(0)), Ok(None));
     }
 }

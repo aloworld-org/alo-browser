@@ -354,7 +354,7 @@ it lives in.
 | An agent reading Settings as a tree and activating a row by name | **yes** — `crates/alo-renderer/tests/an_agent_on_settings.rs`, against that same screen, by name and never by position |
 | alo agent overlay | not yet — the screen is not written in `alo-workplace` either |
 | alo offline screen | **nearly** — `alo-workplace`'s `offline.html`, frozen byte for byte as `alo-offline`, its hand drawn (item 273), it and the button centred across (item 280) and the hand's bottom margin kept (item 281), the whole screen centred down the window by `place-items` (item 282), the font's descent under the hand (item 283), and the button standing on its label's baseline so its line is the button's height (item 285) |
-| A page alo Sites publishes | **no** — every one links its style sheet and runs a script, and a page that runs script is loaded by a renderer that is handed **no linked sheet**, so it is drawn unstyled, and the corpus refuses to freeze it rather than commit that picture. How a sheet reaches a renderer is decided (ADR 0035, item 347) and not built (items 348 and 349) |
+| A page alo Sites publishes | **not shown to be** — every one links its style sheet and runs a script. A renderer now asks for a page's linked sheet, and the window applies it when it arrives (item 348), but it paints the page **unstyled first** (item 351). The corpus still hands a loaded case no frozen sheet, so it refuses to freeze such a page rather than commit an unstyled picture (item 349). Until then nothing here shows the page rendering correctly |
 
 **One thing is true of both screens and is not a defect in either**: the corpus
 renders in DejaVu Sans, and the app loads Inter. Inter is narrower, so alo's

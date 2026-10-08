@@ -21301,3 +21301,171 @@ same.
 147 queue items are open: 347, 348, 349 and 350 added, none closed. The
 next unused queue number is **351** and the next ADR is **0036**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 226 — queue item 348 built: a linked sheet asked for, decided and delivered
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s head,
+state rules and process-model line, and iteration 225's entry. From the
+queue: 347 to 350. ADR 0035 in full, which is 348's contract, with ADR
+0032 § 3's order as it cites it. The feature contract is
+`docs/features.md`'s *A page's own style sheets* line. Code read:
+`alo-renderer`'s `renderer.rs`, `message.rs`, `fetch.rs`, the four
+`fetch_*` files, `tab.rs`, `pipeline.rs` (`draw`), `page.rs`, `wire.rs`
+and `wire/fetch.rs`, `scripts.rs` (`at_load`); `alo-window`'s
+`conductor.rs` and its fetch test; `alo-dom`'s `sheets.rs` and `nonce.rs`;
+`alo-net`'s `csp.rs`, `request.rs`, `cause.rs`, `schemes.rs`, `pool.rs`
+and `media_type.rs`; `alo-bindings`' `navigating::base`. There is no
+`AGENTS.md` in the repository. The checkout was clean on entry at
+`e05c054`. No sibling repository was read or written.
+
+**Selection.** 348 was named eligible and next by iteration 225, and it
+depends on nothing open.
+
+**What was built (ADR 0035 §§ 1–4).**
+- `alo-renderer`'s `sheet.rs`: what crosses. A `SheetAsk` carries a
+  number, the resolved URL, `crossorigin` as mode and credentials,
+  `referrerpolicy` and the nonce. A `SheetAnswer` carries bytes or
+  nothing. `MOST_SHEETS` is 64 per document, with its reason.
+- `linked.rs`, the renderer's memory for a document. It asks for each
+  resolved URL once, in the answer to the work that found the link. It
+  applies `<meta>` policies through `alo-net`'s new
+  `Policies::allows_load`, which judges a load by its parts, because a
+  renderer states no cause. It refuses `data:` and `integrity` by name,
+  each said once. It decodes what arrives as UTF-8 and says an `@charset`
+  naming another encoding. Each draw applies the sheets to the links the
+  document has then.
+- `renderer.rs` keeps the `<meta>` policies (the tail of `at_load`'s list),
+  asks in `Loaded`, `Acted` and `Delivered`, and handles
+  `ToRenderer::Sheet` as a task. That task is answered `Delivered` and
+  draws the page once.
+- The browser process:
+  - `sheet_decide.rs` decides an ask as a style request in ADR 0032 § 3's
+    order. `file:` is allowed only from a `file:` document, and never with
+    `crossorigin`. A mode no link asks in is a broken boundary.
+  - `sheet_owed.rs` bounds a document at 64 asks, refused ones counted.
+  - `sheet_make.rs` makes the request through `fetch_make`'s `hops`, now
+    shared, and sends the body only for a 2xx `text/css` answer that fits
+    one message. A failure carries no reason to the page; the reason goes
+    to the person.
+  - `fetch_decide::Fetch` gained the nonce, so a redirect is judged by
+    `style-src` with it.
+  - `tab.rs` decides sheets as each answer passes, with the cause from the
+    message answered. It adds `Tabs::sheets` and `Tabs::styled`.
+  - `fetch_answering.rs` queues a document's sheets ahead of its fetches.
+    The window's conductor therefore makes them and paints again, with no
+    code change beyond its documentation.
+- `wire/sheet.rs` carries the asks and the answer as a stranger's bytes.
+- `alo-dom`'s `Sheet::Linked` names its `<link>`.
+
+**Cut, not built: ADR 0035 § 5 → queue item 351.** Building it showed a gap
+the ADR did not see. The conductor makes each request on its one thread and
+waits for it, and `alo-net` bounds a read rather than an exchange. So a
+server that trickles holds the conductor past any bound the window could
+set. Whether the exchange gets a deadline or requests leave the conductor's
+thread is a decision, so 351 is marked *needs design*. Until then the
+window paints a page unstyled first and again when its sheet arrives.
+
+**Tests.**
+- `a_pages_linked_sheet.rs`, in process, five tests: the computed colour
+  after delivery; one ask for two links; a sheet's task draws once; a
+  failed sheet is said; a link a script adds is asked for in that task's
+  answer; `<meta>` against a header policy; `data:` and `integrity`.
+- `a_linked_sheet_is_made.rs`, over real `Tabs`, the `alo-render` binary
+  and two local servers, three tests:
+  - pixels show own, no-cors, CORS-agreed and redirected sheets applied,
+    and an HTML page's bytes and a CORS-refused sheet not applied;
+  - each server's requests are listed, one per URL, with `Referer` and
+    `Origin` checked;
+  - a header `style-src` makes no request and the refusal is recorded;
+  - a cross-origin `text/html` answer is a message with no body, read off
+    the encoded message.
+- `a_pages_sheet_crosses_the_boundary.rs`, six tests: round trips; the size
+  function equals what is written; every prefix refused; every changed byte
+  read or refused, never a panic; hostile tags refused by name; a count
+  with no room, an answer tag nobody has and a trailing byte all refused.
+- `alo-window`'s `a_page_styled_in_the_window.rs`: the page is painted with
+  its sheet after its answer, and two links make one request.
+- Unit tests in `linked.rs`, `sheet.rs`, `sheet_decide.rs`, `sheet_owed.rs`
+  and `sheet_make.rs` (including a `file:` page's sheet read off disk), in
+  `tab.rs` (causes, a header refusal said, nothing owed after a new load),
+  in `csp.rs` (`allows_load` agrees with `allows`) and in `alo-dom`'s
+  `sheets.rs`.
+
+**Checked by mutation.**
+- Dropping the `text/css` check fails two of the three network tests.
+- Dropping one-ask-per-URL fails the network test.
+- A stale `alo-render` binary still holding the second mutation also failed
+  the window test, which made two requests. Rebuilding it passed.
+
+**Existing tests changed, not weakened.** Every construction of `Loaded`,
+`Acted` and `Delivered` gained `sheets`. Three tests count bytes back from
+a message's end: `an_ask_tagged_with_something_nobody_has_is_refused_by_name`,
+`an_objection_that_is_not_one_is_refused` and
+`a_navigation_that_is_not_one_is_refused`. Each offset moved by the eight
+bytes of the new trailing count, with a comment saying so. The assertions
+are unchanged. `alo_downloads.rs` now also requires no sheet asks.
+
+**Gate, mechanical.** The build was warmed, as my notes on gate timing say.
+- The first `scripts/gate.sh` run, in the foreground, ended `exit 1`. Two
+  tests in `messages_across_a_boundary.rs` failed: the end offsets above,
+  which this change caused. They were fixed.
+- Then `cargo test` with `--no-fail-fast` ran for `alo-renderer` and every
+  crate after it, because a failing binary stops the rest. All passed.
+- The second gate run started in the foreground. It passed the 10-minute
+  tool limit, the harness moved it to the background, and it was waited
+  for and read in this same turn. It ends `exit 0` and "The gate is met":
+  - fmt clean, clippy silent, tests pass;
+  - nothing stubbed, `unsafe` forbidden, the licence on every file;
+  - every rented crate behind its boundary, no verb takes a coordinate;
+  - the supervisor's stop rule holds, and the changelog changed.
+- Along the way clippy found three things, each fixed in the code:
+  identical match arms, `format!` collected into a `String`, and a binding
+  name too close to another. An `expect` in a test helper was removed.
+
+**Gate, manual.**
+- Nothing new positions or sizes, so no layout assertion is owed. A linked
+  sheet is drawn by the same `draw` the corpus's linked-sheet cases already
+  pin with committed references. What is new is how the bytes get there,
+  and that is asserted in numbers: pixel values in the network and window
+  tests, computed colours in process. No reference moved. The reference
+  render of a frozen page drawn this way is 349's.
+- Hostile bytes (LOOP stage 2 § 2): the wire reader, the UTF-8 decoding
+  and the `@charset` read are tested with malformed, truncated and
+  adversarial input. The browser process bounds asks whatever the renderer
+  says.
+- One responsibility per file: each new piece is its own file. `tab.rs`
+  and `fetch_answering.rs` now carry a document's sheets beside its
+  fetches, which is the same job (what a document asked for, answered one
+  at a time). `fetch_make.rs` exposes its hops rather than gaining a
+  sheet's rule.
+- No `unsafe` and no new dependency.
+
+**Queue, roadmap, docs.**
+- 348 is ticked with a Done paragraph and the cut.
+- 351 is added after 348 and marked *needs design*.
+- 347 now closes when 348, 349 and 351 do.
+- `ROADMAP.md`'s process-model line gained a Built clause for 348. Its Owed
+  clause names 351, 349 and 350. Not ticked.
+- `docs/features.md` (*A page's own style sheets*), `docs/conformance.md`
+  (alo Sites' pages are still not shown to render correctly: unstyled first
+  in the window, and not frozen), `CHANGELOG.md` and `REMAINING.md` are
+  updated.
+
+**Unresolved obligations.**
+- 351 needs a decision before it can be built, as above.
+- 349 now depends on nothing open, and is eligible and next.
+- A header policy that only *watches* is not asked about a sheet, and no
+  report is written for one. Nothing in production posts reports yet, as
+  since item 237.
+- A `file:` sheet read is not a line in the session's record, which is a
+  record of the network. It is the same read `opening.rs` makes.
+- Everything iteration 225 listed still stands:
+  - 345 waits on an `alo-js` hook shared with 328, and on a page;
+  - 337, 322, 324, 328, 284, 311 and 314 wait for pages;
+  - 323 waits on 73;
+  - 296 needs a person;
+  - 297–300, 302, 304, 308, 126, 132 and 336 remain.
+
+147 queue items are open: 348 closed, 351 added. The next unused queue
+number is **352** and the next ADR is **0036**. This is one iteration, not
+a finished queue or roadmap.

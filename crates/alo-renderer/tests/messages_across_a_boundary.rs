@@ -149,6 +149,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
         objections: Vec::new(),
         navigation: None,
         fetches: Vec::new(),
+        sheets: Vec::new(),
     };
     let messages = vec![
         FromRenderer::Loaded {
@@ -168,6 +169,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
             ],
             navigation: None,
             fetches: Vec::new(),
+            sheets: Vec::new(),
         },
         FromRenderer::Painted(Frame {
             width: 2,
@@ -386,6 +388,7 @@ fn where_a_page_asked_to_go_survives_the_crossing() {
                 objections: Vec::new(),
                 navigation: navigation.clone(),
                 fetches: Vec::new(),
+                sheets: Vec::new(),
             },
             FromRenderer::Acted {
                 outcome: Outcome::Followed {
@@ -399,6 +402,7 @@ fn where_a_page_asked_to_go_survives_the_crossing() {
                 objections: Vec::new(),
                 navigation,
                 fetches: Vec::new(),
+                sheets: Vec::new(),
             },
         ] {
             let back = read_from_renderer(&write_from_renderer(&original));
@@ -430,6 +434,7 @@ fn a_load_that_stops_part_way_through_is_refused() {
             replaced: 1,
         }),
         fetches: Vec::new(),
+        sheets: Vec::new(),
     });
     for cut in 1..whole.len() {
         assert!(
@@ -523,6 +528,7 @@ fn a_message_that_stops_in_the_middle_is_refused() {
             replaced: 0,
         }),
         fetches: Vec::new(),
+        sheets: Vec::new(),
     });
     for cut in 1..whole.len() {
         assert!(
@@ -572,6 +578,7 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
         ],
         navigation: None,
         fetches: Vec::new(),
+        sheets: Vec::new(),
     };
     assert_eq!(
         read_from_renderer(&write_from_renderer(&honest)).as_ref(),
@@ -590,6 +597,7 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
         ],
         navigation: None,
         fetches: Vec::new(),
+        sheets: Vec::new(),
     };
     let refused = read_from_renderer(&write_from_renderer(&flood));
     assert!(
@@ -623,12 +631,14 @@ fn an_act_or_a_delivery_carries_objections_and_no_more_than_one_may() {
         objections,
         navigation: None,
         fetches: Vec::new(),
+        sheets: Vec::new(),
     };
     let delivered = |objections| FromRenderer::Delivered {
         issues: Vec::new(),
         objections,
         navigation: None,
         fetches: Vec::new(),
+        sheets: Vec::new(),
     };
     for honest in [
         acted(style(1)),
@@ -677,11 +687,13 @@ fn an_objection_that_is_not_one_is_refused() {
         }],
         navigation: None,
         fetches: Vec::new(),
+        sheets: Vec::new(),
     });
-    // From the end: eight bytes counting no fetches, one saying there is no
-    // navigation, and before them the placement's tag and the kind's.
+    // From the end: eight bytes counting no style sheets, eight counting no
+    // fetches, one saying there is no navigation, and before them the
+    // placement's tag and the kind's.
     let mut strange = one.clone();
-    let at = strange.len() - 11;
+    let at = strange.len() - 19;
     if let Some(kind) = strange.get_mut(at) {
         *kind = 9;
     }
@@ -693,7 +705,7 @@ fn an_objection_that_is_not_one_is_refused() {
         "{refused:?}"
     );
     let mut misplaced = one.clone();
-    let at = misplaced.len() - 10;
+    let at = misplaced.len() - 18;
     if let Some(placement) = misplaced.get_mut(at) {
         *placement = 7;
     }
@@ -732,6 +744,7 @@ fn a_navigation_that_is_not_one_is_refused() {
             replaced: 0,
         }),
         fetches: Vec::new(),
+        sheets: Vec::new(),
     };
     // Nonsense crosses as text: refusing it is the browser process's.
     let nonsense = asked("javascript:alert(1)");
@@ -741,9 +754,9 @@ fn a_navigation_that_is_not_one_is_refused() {
     );
 
     let whole = write_from_renderer(&asked("https://example.com/"));
-    // From the end: eight bytes counting no fetches, then eight bytes of
-    // count, one of policy, one of cause.
-    let (count, policy, cause) = (whole.len() - 16, whole.len() - 17, whole.len() - 18);
+    // From the end: eight bytes counting no style sheets, eight counting no
+    // fetches, then eight bytes of count, one of policy, one of cause.
+    let (count, policy, cause) = (whole.len() - 24, whole.len() - 25, whole.len() - 26);
     for (at, value, said) in [
         (cause, 2u8, "cause tagged 2"),
         (policy, 9, "policy tagged 9"),

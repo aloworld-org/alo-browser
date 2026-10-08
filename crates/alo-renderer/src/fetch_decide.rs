@@ -260,12 +260,14 @@ impl fmt::Display for Refusal {
     }
 }
 
-/// A fetch the browser process decided a page may make.
+/// A request the browser process decided a page may make: a script's fetch,
+/// or a linked style sheet ([`crate::sheet_decide`]), which [`crate::fetch_make`]
+/// makes hop by hop in the same way.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fetch {
     /// The ask's number, to answer it by.
     pub number: u64,
-    /// What to send: `Purpose::Fetch`, the document's origin as the asker,
+    /// What to send: `Purpose::Fetch` or `Purpose::Style`, the document's origin as the asker,
     /// the cause assigned, the page's headers with `Origin` and `Referer`
     /// added here, and the body.
     pub request: Request,
@@ -287,6 +289,10 @@ pub struct Fetch {
     /// after the first is judged by under `connect-src`, the first having been
     /// judged here (queue item 340).
     pub policies: Policies,
+    /// The nonce the element that asked presents, which every hop's policy
+    /// check is asked with: a linked style sheet's `<link nonce>` (ADR 0035
+    /// § 2), and none for a script's fetch.
+    pub nonce: Option<String>,
 }
 
 impl Fetch {
@@ -452,6 +458,7 @@ pub fn decide(ask: &FetchAsk, asker: &Asker<'_>, cause: &Cause) -> Decided {
         document: asker.url.clone(),
         referrer: policy,
         policies: asker.policies.clone(),
+        nonce: None,
     }))
 }
 

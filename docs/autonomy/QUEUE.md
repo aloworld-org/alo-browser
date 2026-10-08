@@ -5578,9 +5578,10 @@ The long pole, and the thing most of section E is unreachable without.
   something else a page named. A sheet's answer is a task, and the next
   draw applies it. The browser process shows no first frame until the
   load's sheets are answered, within a bound of its own. Nothing is built,
-  and this item stays open: it closes when **348** and **349** do.
+  and this item stays open: it closes when **348** and **349** do, and
+  **351**, which iteration 226 cut from 348.
 
-- [ ] **348. A linked sheet asked for, decided and delivered.** *Cut from
+- [x] **348. A linked sheet asked for, decided and delivered.** *Cut from
   347 (ADR 0035 §§ 1–5). Depends on nothing open.* `alo-renderer`: a sheet
   ask in `Loaded`, `Acted` and `Delivered` (number, resolved URL,
   `crossorigin` as mode and credentials, `referrerpolicy`, nonce), one per
@@ -5601,6 +5602,38 @@ The long pole, and the thing most of section E is unreachable without.
   request and records the refusal; two links to one URL make one request;
   a link a script adds is asked for in that task's answer; and the window
   presents the page after its sheet's answer, not before.
+  **Cut (iteration 226):** the last clause, ADR 0035 § 5, is **351**. While
+  building it, a gap the ADR did not see turned up: the conductor makes each
+  request on its one thread and waits for it, and `alo-net` bounds a read,
+  not an exchange, so a server that trickles holds the conductor past any
+  bound the window could set. Holding the first frame back would then hold
+  it back for as long as that server likes.
+  **Done (iteration 226).** `alo-renderer`'s `linked.rs` asks for each linked
+  sheet's resolved URL once per document, in the answer to the message whose
+  work found it. Each ask carries a number, the `crossorigin` attribute as
+  mode and credentials, `referrerpolicy` and the nonce (`sheet.rs`), at most
+  `MOST_SHEETS` (64) per document. It applies `<meta>` policies through
+  `alo-net`'s new `Policies::allows_load`, and refuses `data:` and
+  `integrity` by name, each said once. `sheet_decide.rs` decides an ask as a
+  style request, in ADR 0032 § 3's order, with `file:` only from a `file:`
+  document. `sheet_owed.rs` bounds a document's asks, refused ones counted.
+  `sheet_make.rs` makes the request through `fetch_make`'s `hops`, now
+  shared and asked with the nonce on every hop. It sends the body only for
+  a 2xx `text/css` answer that fits one message, and says the reason
+  otherwise. `ToRenderer::Sheet` and the asks in `Loaded`, `Acted` and
+  `Delivered` cross the wire (`wire/sheet.rs`). The renderer decodes UTF-8,
+  keeps sheets by URL, and draws them on the links the document has at
+  each draw. `fetch_answering.rs` queues a document's sheets ahead of its
+  fetches, and the window's conductor makes them and paints again.
+  Tests: `a_pages_linked_sheet.rs` (computed colour after delivery, one ask
+  for two links, a script's link in its task's answer, `<meta>` against
+  header policy, `data:` and `integrity`), `a_linked_sheet_is_made.rs`
+  (real servers and `Tabs`: pixels; no body for a cross-origin `text/html`
+  answer, read off the message; a header `style-src` makes no request and is
+  recorded; every hop is a style line caused by the document),
+  `a_pages_sheet_crosses_the_boundary.rs` (every prefix and every changed
+  byte of an ask or an answer refused or read, never a panic) and
+  `alo-window`'s `a_page_styled_in_the_window.rs`.
 
 - [ ] **349. `alo-sites-cta`, frozen.** *Cut from 347 (ADR 0035 § 6).
   Depends on 348.* `alo-corpus` answers a loaded case's sheet asks from its
@@ -5615,6 +5648,26 @@ The long pole, and the thing most of section E is unreachable without.
   `origin.txt` says where it came from and what its analytics script does
   offline; and what the render shows wrong is opened as items, in the
   order the page meets them.
+
+- [ ] **351. The window waits for a load's style sheets.** *Cut from 348
+  (ADR 0035 § 5). Depends on 348 (done).* The browser process presents no
+  first frame of a document until every sheet asked for in its load's
+  answer is answered, within a bound of its own, with the number's reason
+  in the code (ADR 0014 § 9). A page shown before its style is said to the
+  person, and a sheet a script added later blocks nothing.
+  *Needs design (iteration 226):* ADR 0035 § 5 says the wait is bounded
+  because `PATIENCE` alone does not bound a server that trickles. Today the
+  conductor makes each request on its own thread and waits for it, and
+  `alo-net`'s pool bounds a read, not an exchange. So no bound the window
+  sets can end the wait while one trickling request runs. Either the
+  exchange gets a deadline of its own in `alo-net`, or requests are made off
+  the conductor's thread. Which one is a decision about the network stack
+  or the conductor (ADR 0024 § 2), and it is not made yet. *Closes when:*
+  the window presents a page after its sheet's answer and not before, in a
+  test; a server that never finishes a sheet has the page shown after the
+  bound, with that said; and a sheet a script adds holds back no frame.
+  `alo-window`'s `a_page_styled_in_the_window.rs` asserts today's unstyled
+  first frame, and this item changes that assertion.
 
 - [ ] **350. A loaded page's pictures.** *Cut from 347 (ADR 0035, *What
   this does not decide*).* An `<img>` or a `background-image` in a page a

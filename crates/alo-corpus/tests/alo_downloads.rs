@@ -387,7 +387,8 @@ fn deliver(renderer: &mut Renderer, number: u64, answer: Answer) -> Option<Vec<S
             objections,
             navigation: None,
             fetches,
-        } if fetches.is_empty() && objections.is_empty() => Some(issues),
+            sheets,
+        } if fetches.is_empty() && sheets.is_empty() && objections.is_empty() => Some(issues),
         _ => None,
     }
 }

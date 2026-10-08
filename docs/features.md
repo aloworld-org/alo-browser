@@ -148,13 +148,16 @@ The reason this exists rather than a faster fork of somebody else's engine.
   A rule or declaration whose blocks nest more than thirty-two deep is dropped
   with an issue saying so, and the rules around it are kept; a sheet nested a
   hundred thousand deep is a refusal rather than a crashed renderer (queue item
-  330). **A `<link>`'s sheet reaches a page only when it is handed in** — by
-  the command line or the corpus — so a page that runs script, which a
-  renderer loads, gets none of its linked sheets and is drawn unstyled. How
-  one reaches a renderer is decided (ADR 0035, queue item 347): the renderer
-  asks for it, the browser process fetches it as a style request under the
-  page's policy, and only a `text/css` body crosses. Not built: items 348
-  and 349
+  330). **A page a renderer loads asks for its own linked sheets** (ADR 0035,
+  queue item 348). Each URL is asked for once per document, a link a script
+  adds included, and the page's `<meta>` policy is applied first; a `data:`
+  sheet and a link with `integrity` are refused by name. The browser process
+  fetches each as a style request under the page's header policy, and sends
+  it only when the answer is a 2xx `text/css`. The renderer reads the sheet
+  as UTF-8, and the page is drawn again with it. At most 64 sheets are asked
+  for per document. Not yet: the window paints a page's first frame before
+  its sheets arrive (item 351), and a corpus case that runs script is still
+  handed none of its frozen sheets (item 349)
 - [2] **`<img>` lays out at the picture's own size** and keeps its ratio when
   given one dimension
 - [2] **A picture under a transform is drawn transformed** — rotated, skewed

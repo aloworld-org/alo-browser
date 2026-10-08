@@ -181,13 +181,22 @@ unreachable without it.
       for 400 and a request for 700 and is shaped, measured and outlined at the
       weight it was set to — twenty-eight of this machine's fonts are such a
       file, its system font among them
+      **And a page's linked style sheet crossing the boundary** (queue item
+      348, ADR 0035 §§ 1–4): a renderer asks for each `<link>`ed sheet once
+      per document, in the answer to the work that found it, and applies its
+      `<meta>` policy first. The browser process decides the ask as a style
+      request under the page's header policy. It makes the request through
+      the same hops as a page's fetch, and sends the bytes only when the
+      answer is a 2xx `text/css`, so a link cannot read another site's page.
+      The window's conductor makes the asks and paints the page again with
+      what arrives
       · Owed: the Linux sandbox, queue item 169; the axes that are not
-      weight — width, slant and optical size — which are queue item 197; and
-      **a page's linked style sheet crossing the boundary**, which nothing
-      does yet, so a page that runs script is drawn without its `<link>`ed
-      sheet. ADR 0035 decided it (queue item 347): the renderer asks, the
-      browser process fetches, and only a `text/css` body crosses. Built by
-      queue items 348 and 349; its pictures are item 350
+      weight — width, slant and optical size — which are queue item 197;
+      the window holding a page's first frame until its load's sheets are
+      answered, within a bound (ADR 0035 § 5, queue item 351, which needs a
+      way to bound a request that trickles); a loaded corpus case's sheets
+      answered from its frozen files (item 349); and a loaded page's
+      pictures (item 350)
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
       than leaving a blank rectangle (queue items 166 and 65). It is not
       restarted silently, because that hides a bug somebody needs to see.

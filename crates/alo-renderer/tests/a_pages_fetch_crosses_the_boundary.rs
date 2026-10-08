@@ -85,6 +85,7 @@ fn answers() -> Vec<FromRenderer> {
             objections: Vec::new(),
             navigation: None,
             fetches: asks(),
+            sheets: Vec::new(),
         },
         FromRenderer::Acted {
             outcome: Outcome::Activated {
@@ -95,18 +96,21 @@ fn answers() -> Vec<FromRenderer> {
             objections: Vec::new(),
             navigation: None,
             fetches: asks(),
+            sheets: Vec::new(),
         },
         FromRenderer::Delivered {
             issues: vec!["then: uncaught: TypeError".to_owned()],
             objections: Vec::new(),
             navigation: None,
             fetches: asks(),
+            sheets: Vec::new(),
         },
         FromRenderer::Delivered {
             issues: Vec::new(),
             objections: Vec::new(),
             navigation: None,
             fetches: Vec::new(),
+            sheets: Vec::new(),
         },
     ]
 }
@@ -227,8 +231,9 @@ fn every_byte_of_every_message_changed_is_read_or_refused_never_a_panic() {
     }
 }
 
-/// The last ask's four tags, from the end of a `Delivered` carrying one:
-/// referrer, redirect, credentials, mode.
+/// The last ask's four tags, from the end of a `Delivered` carrying one —
+/// before its empty list of style sheets, eight bytes of count: referrer,
+/// redirect, credentials, mode.
 #[test]
 fn an_ask_tagged_with_something_nobody_has_is_refused_by_name() {
     let mut one = asks().remove(0);
@@ -238,8 +243,9 @@ fn an_ask_tagged_with_something_nobody_has_is_refused_by_name() {
         objections: Vec::new(),
         navigation: None,
         fetches: vec![one],
+        sheets: Vec::new(),
     });
-    let end = whole.len();
+    let end = whole.len() - 8;
     for (from_end, value, said) in [
         (1, 10u8, "referrer policy tagged 9"),
         (2, 3, "redirect mode tagged 3"),
@@ -355,12 +361,13 @@ fn an_answer_nothing_on_the_page_waits_for_is_said_and_changes_nothing() {
         objections,
         navigation,
         fetches,
+        sheets,
     } = renderer.handle(ToRenderer::Fetched(Box::new(Fetched::failed(3))))
     else {
         panic!("a delivery was not answered as one");
     };
     assert_eq!(navigation, None);
-    assert!(fetches.is_empty());
+    assert!(fetches.is_empty() && sheets.is_empty());
     assert!(objections.is_empty());
     assert_eq!(issues.len(), 1);
     assert!(issues[0].contains("waiting for fetch 3"), "{issues:?}");

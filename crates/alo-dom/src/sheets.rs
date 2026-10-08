@@ -50,6 +50,10 @@ pub enum Sheet {
         /// resolving it needs the page's own address and this does not have
         /// one.
         href: String,
+        /// The `<link>` that names it, whose `crossorigin`, `referrerpolicy`,
+        /// `integrity` and nonce say how it is to be asked for (ADR 0035
+        /// § 1).
+        element: NodeId,
     },
 }
 
@@ -66,7 +70,7 @@ pub fn asked_for(document: &Document) -> Vec<Sheet> {
         };
         if element.name.local.eq_ignore_ascii_case("link") {
             if let Some(href) = linked_sheet(element) {
-                found.push(Sheet::Linked { href });
+                found.push(Sheet::Linked { href, element: id });
             }
             continue;
         }
@@ -119,4 +123,41 @@ fn linked_sheet(element: &crate::node::Element) -> Option<String> {
     }
     let href = attribute("href")?;
     if href.is_empty() { None } else { Some(href) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Sheet, asked_for};
+    use crate::parse_document;
+
+    /// Both kinds in one list, in document order, and each linked sheet
+    /// naming the `<link>` that asked for it — which is what a renderer
+    /// reads its `crossorigin` and nonce from (ADR 0035 § 1).
+    #[test]
+    fn links_and_styles_in_document_order_each_link_named() {
+        let document = parse_document(
+            "<link rel=stylesheet href=' /a.css ' crossorigin>\
+             <style>p { color: red }</style>\
+             <link rel='alternate stylesheet' href=/b.css>\
+             <link rel=icon href=/c.png>\
+             <template><link rel=stylesheet href=/d.css></template>\
+             <link rel=STYLESHEET href=/e.css nonce=n>",
+        );
+        let sheets = asked_for(&document);
+        let hrefs: Vec<&str> = sheets
+            .iter()
+            .map(|sheet| match sheet {
+                Sheet::Linked { href, .. } => href.as_str(),
+                Sheet::Written { .. } => "<style>",
+            })
+            .collect();
+        assert_eq!(hrefs, ["/a.css", "<style>", "/e.css"]);
+        for sheet in &sheets {
+            if let Sheet::Linked { href, element } = sheet {
+                let link = document.element(*element).expect("an element");
+                assert!(link.name.is_html("link"), "{href}");
+                assert_eq!(link.attr("href").map(str::trim), Some(href.as_str()));
+            }
+        }
+    }
 }

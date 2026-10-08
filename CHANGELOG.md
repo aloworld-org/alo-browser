@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page that runs a script now gets the style sheets it links to.**
+  The page's process asks for each sheet once, including one a script adds
+  later. The browser fetches it under the page's own security policy, and
+  hands it over only when the server said it is CSS, so a link cannot be
+  used to read another site's pages. The page is then drawn again with it.
+  The browser does not yet wait for the sheets before showing the page, so
+  a page in the window appears unstyled first for a moment (queue items
+  348 and 351).
+
 - **How a page's linked style sheet reaches it is decided.** Today a page
   that runs a script is drawn without the style sheet it links to, because
   nothing fetches that sheet for it. Every page alo Sites publishes is such

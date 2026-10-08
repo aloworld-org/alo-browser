@@ -256,7 +256,7 @@ pub fn draw(
         })
         .map(|sheet| match sheet {
             alo_dom::sheets::Sheet::Written { text, .. } => parse_stylesheet(&text),
-            alo_dom::sheets::Sheet::Linked { href } => {
+            alo_dom::sheets::Sheet::Linked { href, .. } => {
                 if let Some((_, text)) = linked.iter().find(|(at, _)| *at == href) {
                     parse_stylesheet(text)
                 } else {

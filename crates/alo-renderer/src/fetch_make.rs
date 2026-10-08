@@ -10,6 +10,8 @@
 //! session's [`Network`] to the [`Fetched`] the renderer is sent — every
 //! request through the same [`Pool`] every other request uses, so each one
 //! is a line in the session's record with the cause the decision assigned.
+//! The hops themselves are [`hops`], which a page's linked style sheet is made
+//! through as well and then filtered by its own rule ([`crate::sheet_make`]).
 //!
 //! # Each hop, in this order
 //!
@@ -74,11 +76,12 @@ use alo_net::preflight::Preflights;
 use alo_net::redirect::{self, Next, Trail};
 use alo_net::referrer;
 use alo_net::request::Request;
+use alo_net::response::Response;
 use alo_url::{Opaque, Origin};
 
 use crate::fetch::Fetched;
 use crate::fetch_decide::{Fetch, same_origin};
-use crate::fetch_filter::{self, Filtered, Route};
+use crate::fetch_filter::{self, Route};
 
 /// What a browser process makes a page's fetches with: one of each for the
 /// session.
@@ -221,7 +224,7 @@ impl Hop {
                     .to_owned(),
             );
         }
-        if let Err(refusal) = fetch.policies.allows(&next, None) {
+        if let Err(refusal) = fetch.policies.allows(&next, fetch.nonce.as_deref()) {
             return Err(format!("it was redirected, and {refusal}"));
         }
         let from = Origin::of(&self.request.url);
@@ -244,7 +247,10 @@ impl Hop {
 /// the answer filtered for the page that asked.
 pub fn make(fetch: &Fetch, network: &mut Network) -> Made {
     let mut said = Vec::new();
-    let filtered = making(fetch, network, &mut said);
+    let filtered = match hops(fetch, network, &mut said) {
+        Ok((response, route)) => fetch_filter::filter(fetch, &response, route),
+        Err(why) => fetch_filter::failed(fetch, why),
+    };
     if let Some(why) = &filtered.why {
         said.push(format!(
             "the page's fetch of {} failed: {why}",
@@ -257,8 +263,22 @@ pub fn make(fetch: &Fetch, network: &mut Network) -> Made {
     }
 }
 
-/// The hops, until one is the answer or something refuses.
-fn making(fetch: &Fetch, network: &mut Network, said: &mut Vec<String>) -> Filtered {
+/// The hops, until one is the answer — with how it was reached, for whoever
+/// filters it — or something refuses, and why.
+///
+/// Every cookie a server set that was not kept is said into `said`. A
+/// linked style sheet is made through this too ([`crate::sheet_make`]), and
+/// filtered by its own rule.
+///
+/// # Errors
+///
+/// Why the request failed or was refused, for the person and the record —
+/// never for the page.
+pub fn hops(
+    fetch: &Fetch,
+    network: &mut Network,
+    said: &mut Vec<String>,
+) -> Result<(Response, Route), String> {
     let mut hop = Hop::first(fetch);
     let mut trail = Trail::from(&hop.request.url);
     loop {
@@ -266,12 +286,9 @@ fn making(fetch: &Fetch, network: &mut Network, said: &mut Vec<String>) -> Filte
         if hop.is_cors(fetch)
             && let Err(why) = asked_first(fetch, &sending, hop.tainted, network)
         {
-            return fetch_filter::failed(fetch, why);
+            return Err(why);
         }
-        let response = match network.pool.hop(&sending, &fetch.partition) {
-            Ok(response) => response,
-            Err(why) => return fetch_filter::failed(fetch, why),
-        };
+        let response = network.pool.hop(&sending, &fetch.partition)?;
         if hop.includes_credentials(fetch) {
             for refused in network.jar.keep_what_was_set(
                 &response,
@@ -290,27 +307,27 @@ fn making(fetch: &Fetch, network: &mut Network, said: &mut Vec<String>) -> Filte
             && let Err(refusal) =
                 cors::agreed_to_be_read(&route.asker(fetch), fetch.credentials, &response)
         {
-            return fetch_filter::failed(fetch, refusal.to_string());
+            return Err(refusal.to_string());
         }
         if fetch.redirect != redirect::Mode::Follow {
             // `manual` and `error` are the filter's to answer: an opaque
             // redirect, or a failure.
-            return fetch_filter::filter(fetch, &response, route);
+            return Ok((response, route));
         }
         let next = match redirect::next(&sending, &response) {
-            Ok(Next::Keep) => return fetch_filter::filter(fetch, &response, route),
+            Ok(Next::Keep) => return Ok((response, route)),
             Ok(Next::Follow(next)) => *next,
-            Err(refusal) => return fetch_filter::failed(fetch, refusal.to_string()),
+            Err(refusal) => return Err(refusal.to_string()),
         };
         if let Err(refusal) = trail.and_then(&next.url) {
             network.pool.refused(&next, refusal.to_string());
-            return fetch_filter::failed(fetch, refusal.to_string());
+            return Err(refusal.to_string());
         }
         hop = match hop.then(fetch, next.clone()) {
             Ok(then) => then,
             Err(rule) => {
                 network.pool.refused(&next, rule.clone());
-                return fetch_filter::failed(fetch, rule);
+                return Err(rule);
             }
         };
     }

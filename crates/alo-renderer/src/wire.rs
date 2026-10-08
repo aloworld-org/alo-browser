@@ -49,8 +49,10 @@ use alo_net::referrer::Policy;
 use alo_text::{Slant, Weight};
 
 mod fetch;
+mod sheet;
 
 pub use fetch::fetched_size;
+pub use sheet::sheet_answer_size;
 
 /// The most bytes one message may be.
 ///
@@ -321,6 +323,10 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.tag(7);
             writer.fetched(fetched);
         }
+        ToRenderer::Sheet(answer) => {
+            writer.tag(8);
+            writer.sheet_answer(answer);
+        }
     }
     writer.out
 }
@@ -343,6 +349,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             objections,
             navigation,
             fetches,
+            sheets,
         } => {
             writer.tag(0);
             writer.texts(issues);
@@ -350,6 +357,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.objections(objections);
             writer.navigation(navigation.as_ref());
             writer.fetches(fetches);
+            writer.sheets(sheets);
         }
         FromRenderer::Painted(frame) => {
             writer.tag(1);
@@ -373,6 +381,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             objections,
             navigation,
             fetches,
+            sheets,
         } => {
             writer.tag(3);
             writer.outcome(outcome);
@@ -380,18 +389,21 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.objections(objections);
             writer.navigation(navigation.as_ref());
             writer.fetches(fetches);
+            writer.sheets(sheets);
         }
         FromRenderer::Delivered {
             issues,
             objections,
             navigation,
             fetches,
+            sheets,
         } => {
             writer.tag(8);
             writer.texts(issues);
             writer.objections(objections);
             writer.navigation(navigation.as_ref());
             writer.fetches(fetches);
+            writer.sheets(sheets);
         }
         FromRenderer::Refused(refusal) => {
             writer.tag(4);
@@ -1087,6 +1099,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
             ToRenderer::UseGenerics(Generics::stating(pairs))
         }
         7 => ToRenderer::Fetched(Box::new(reader.fetched()?)),
+        8 => ToRenderer::Sheet(Box::new(reader.sheet_answer()?)),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -1112,12 +1125,14 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
             let objections = reader.objections()?;
             let navigation = reader.navigation()?;
             let fetches = reader.fetches()?;
+            let sheets = reader.sheets()?;
             FromRenderer::Loaded {
                 issues,
                 wanted,
                 objections,
                 navigation,
                 fetches,
+                sheets,
             }
         }
         1 => FromRenderer::Painted(reader.frame()?),
@@ -1135,12 +1150,14 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
             let objections = reader.objections()?;
             let navigation = reader.navigation()?;
             let fetches = reader.fetches()?;
+            let sheets = reader.sheets()?;
             FromRenderer::Acted {
                 outcome,
                 issues,
                 objections,
                 navigation,
                 fetches,
+                sheets,
             }
         }
         4 => FromRenderer::Refused(reader.refusal()?),
@@ -1182,11 +1199,13 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
             let objections = reader.objections()?;
             let navigation = reader.navigation()?;
             let fetches = reader.fetches()?;
+            let sheets = reader.sheets()?;
             FromRenderer::Delivered {
                 issues,
                 objections,
                 navigation,
                 fetches,
+                sheets,
             }
         }
         other => return Err(unreadable(format!("a message tagged {other}"))),

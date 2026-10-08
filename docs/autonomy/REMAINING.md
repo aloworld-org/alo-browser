@@ -947,3 +947,16 @@ for the load's sheets; depends on nothing open, eligible and next) and 349
 348). A loaded page's pictures are 350, which needs its own ADR and a page
 whose picture can be frozen. 147 queue items are open. The next unused
 queue number is 351 and the next unused ADR 0036.
+
+Iteration 226 built item 348 (ADR 0035 §§ 1–4): a renderer asks for each
+linked sheet once per document (`linked.rs`), the browser process decides
+it as a style request (`sheet_decide.rs`, `sheet_owed.rs`) and makes it
+through a fetch's hops, sending only a 2xx `text/css` body
+(`sheet_make.rs`), and the window's conductor makes the asks and paints
+again. ADR 0035 § 5, the window holding the first frame until the load's
+sheets answer, is cut to 351. It needs design first, because one trickling
+request holds the conductor's thread and no window bound can end that.
+349 (the corpus answering a loaded case's sheets, and `alo-sites-cta`
+frozen) now depends on nothing open and is eligible and next. 147 queue
+items are open. The next unused queue number is 352 and the next unused
+ADR 0036.

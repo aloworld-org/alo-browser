@@ -21,8 +21,8 @@ use alo_net::redirect;
 use super::{POLICIES, Reader, Unreadable, Writer, unreadable};
 use crate::fetch::{Answer, FetchAsk, Fetched, Kind, Readable};
 
-const MODES: [Mode; 4] = [Mode::Cors, Mode::NoCors, Mode::SameOrigin, Mode::Navigate];
-const CREDENTIALS: [Credentials; 3] = [
+pub(super) const MODES: [Mode; 4] = [Mode::Cors, Mode::NoCors, Mode::SameOrigin, Mode::Navigate];
+pub(super) const CREDENTIALS: [Credentials; 3] = [
     Credentials::Omit,
     Credentials::SameOrigin,
     Credentials::Include,
@@ -36,7 +36,7 @@ const KINDS: [Kind; 4] = [Kind::Basic, Kind::Cors, Kind::Opaque, Kind::OpaqueRed
 
 /// The tag of `value` in `list`. Every list here names every variant, so the
 /// fallback is never written.
-fn tag_of<T: PartialEq>(list: &[T], value: &T) -> u8 {
+pub(super) fn tag_of<T: PartialEq>(list: &[T], value: &T) -> u8 {
     list.iter()
         .position(|known| known == value)
         .and_then(|at| u8::try_from(at).ok())
@@ -44,7 +44,7 @@ fn tag_of<T: PartialEq>(list: &[T], value: &T) -> u8 {
 }
 
 /// The value tagged `tag` in `list`.
-fn tagged<T: Copy>(list: &[T], tag: u8, what: &str) -> Result<T, Unreadable> {
+pub(super) fn tagged<T: Copy>(list: &[T], tag: u8, what: &str) -> Result<T, Unreadable> {
     list.get(usize::from(tag))
         .copied()
         .ok_or_else(|| unreadable(format!("{what} tagged {tag}")))

@@ -32,6 +32,12 @@
 //! it, and the reason a fetch failed — which the page is never told — is
 //! said to the person.
 //!
+//! A page's linked style sheets are made the same way, in the same queue and
+//! ahead of the fetches its answer asked for (queue item 348, ADR 0035), and
+//! the page is painted again with each sheet that arrives. Its first frame is
+//! still painted at once, before its sheets have answered: holding it back,
+//! within a bound of its own, is ADR 0035 § 5's and queue item 351's.
+//!
 //! # Why a burst of resizes is one resize
 //!
 //! Dragging a window's corner sends a resize for nearly every pixel it
@@ -121,7 +127,8 @@ struct Conducting {
     waiting: Option<(TabId, Page)>,
     /// What every request is made through, for the session.
     network: Network,
-    /// The pages' fetches, decided and waiting to be made.
+    /// The pages' fetches and linked style sheets, decided and waiting to be
+    /// made.
     fetches: Answering,
 }
 
@@ -308,9 +315,9 @@ impl Conducting {
         }
     }
 
-    /// Make the oldest fetch a page is waiting on, deliver its answer, and
-    /// say what came of it for the selected tab: the page drawn again, and
-    /// why the fetch failed when it did.
+    /// Make the oldest fetch or style sheet a page is waiting on, deliver its
+    /// answer, and say what came of it for the selected tab: the page drawn
+    /// again, and why it failed when it did.
     fn answer_a_fetch(&mut self) -> Vec<News> {
         let Some(Answered {
             tab,

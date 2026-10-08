@@ -259,6 +259,16 @@ impl Name {
     }
 }
 
+/// A load, as a policy reads it: what it is for, where it goes, which page
+/// asked, and whether a redirect brought it there.
+#[derive(Debug, Clone, Copy)]
+struct Load<'a> {
+    purpose: &'a Purpose,
+    url: &'a alo_url::Url,
+    page: &'a Origin,
+    redirected: bool,
+}
+
 /// One directive: a name, and the list of where its content may come from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Directive {
@@ -341,10 +351,10 @@ impl Directive {
     /// `strict` is whether `'strict-dynamic'` applies, which is true only for
     /// scripts: the keyword is defined for script directives, and applying it
     /// to `img-src 'strict-dynamic' https://cdn` would refuse pictures the
-    /// author plainly allowed. Whether the request was redirected is the
+    /// author plainly allowed. Whether the load was redirected is the
     /// request's own ([`Request::redirected`]), and only a source's path
     /// heeds it.
-    fn permits(&self, request: &Request, page: &Origin, nonce: Option<&str>, strict: bool) -> bool {
+    fn permits(&self, load: &Load<'_>, nonce: Option<&str>, strict: bool) -> bool {
         if nonce.is_some_and(|nonce| self.names_nonce(nonce)) {
             return true;
         }
@@ -356,7 +366,7 @@ impl Directive {
         }
         self.sources
             .iter()
-            .any(|source| source.matches(&request.url, page, request.redirected))
+            .any(|source| source.matches(load.url, load.page, load.redirected))
     }
 
     /// The sources, as written, for a message.
@@ -489,17 +499,30 @@ impl Policy {
         // this is the person going somewhere, and a policy is a thing a page
         // says about its own contents.
         let page = request.initiator.as_ref()?;
-        let wanted = Name::governing(&request.purpose)?;
+        self.objects_to_load(
+            &Load {
+                purpose: &request.purpose,
+                url: &request.url,
+                page,
+                redirected: request.redirected,
+            },
+            nonce,
+        )
+    }
+
+    /// [`Policy::objects_to`], for a load described by its parts.
+    fn objects_to_load(&self, load: &Load<'_>, nonce: Option<&str>) -> Option<(Name, Refusal)> {
+        let wanted = Name::governing(load.purpose)?;
         let strict = wanted == Name::Script;
         let directive = self.deciding(&wanted)?;
-        if directive.permits(request, page, nonce, strict) {
+        if directive.permits(load, nonce, strict) {
             return None;
         }
         Some((
             wanted,
             Refusal::Fetch {
-                purpose: request.purpose.to_string(),
-                url: request.url.to_string(),
+                purpose: load.purpose.to_string(),
+                url: load.url.to_string(),
                 directive: directive.written.clone(),
                 allows: directive.as_written(),
                 unreadable: directive.unreadable(),
@@ -655,6 +678,42 @@ impl Policies {
             held.extend(Policy::parse(value, Disposition::Report));
         }
         Self { held }
+    }
+
+    /// Whether every enforced policy permits a load that is not yet a
+    /// request: `url`, for `purpose`, asked by a page at `page`, before any
+    /// redirect.
+    ///
+    /// For the process that holds the page and may not make the request — a
+    /// renderer asking its `<meta>` policy about a linked style sheet before
+    /// it asks for it (ADR 0035 § 1). A [`Request`] carries a [`crate::Cause`],
+    /// which a renderer never states (ADR 0012 § 4), so it asks by the parts
+    /// a policy reads and nothing else.
+    ///
+    /// # Errors
+    ///
+    /// The first [`Refusal`], as [`Policies::allows`] gives it.
+    pub fn allows_load(
+        &self,
+        purpose: &Purpose,
+        url: &alo_url::Url,
+        page: &Origin,
+        nonce: Option<&str>,
+    ) -> Result<(), Refusal> {
+        let load = Load {
+            purpose,
+            url,
+            page,
+            redirected: false,
+        };
+        for policy in &self.held {
+            if policy.disposition == Disposition::Enforce
+                && let Some((_, refusal)) = policy.objects_to_load(&load, nonce)
+            {
+                return Err(refusal);
+            }
+        }
+        Ok(())
     }
 
     /// Whether every enforced policy permits this request.
@@ -994,6 +1053,48 @@ mod tests {
         let mut headers = Headers::new();
         headers.add("Content-Security-Policy", value);
         Policies::stated_by(&headers)
+    }
+
+    /// ADR 0035 § 1: a renderer asks its `<meta>` policy about a linked
+    /// sheet by the load's parts, and is answered exactly as a request with
+    /// those parts would be — a report-only policy refusing nothing.
+    #[test]
+    fn a_load_not_yet_a_request_is_judged_as_the_request_would_be() {
+        let page = Origin::of(&url("https://example.com/page"));
+        let mut headers = Headers::new();
+        headers.add("Content-Security-Policy", "style-src 'self' 'nonce-abc'");
+        headers.add("Content-Security-Policy-Report-Only", "style-src 'none'");
+        let policies = Policies::stated_by(&headers);
+        for (target, nonce, allowed) in [
+            ("https://example.com/site.css", None, true),
+            ("https://cdn.example/site.css", None, false),
+            ("https://cdn.example/site.css", Some("abc"), true),
+            ("https://cdn.example/site.css", Some("abd"), false),
+        ] {
+            let load = policies.allows_load(&Purpose::Style, &url(target), &page, nonce);
+            let request = policies.allows(&asking(target, Purpose::Style), nonce);
+            assert_eq!(load.is_ok(), allowed, "{target} {nonce:?}");
+            assert_eq!(load, request, "{target} {nonce:?}");
+        }
+        let refused = policies
+            .allows_load(
+                &Purpose::Style,
+                &url("https://cdn.example/x.css"),
+                &page,
+                None,
+            )
+            .unwrap_err();
+        assert!(refused.to_string().contains("style-src"), "{refused}");
+        assert!(
+            Policies::none()
+                .allows_load(
+                    &Purpose::Style,
+                    &url("https://cdn.example/x.css"),
+                    &page,
+                    None
+                )
+                .is_ok()
+        );
     }
 
     #[test]
