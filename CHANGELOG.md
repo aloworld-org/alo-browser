@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How a page's inline style will work is decided.** A `style` attribute
+  written on an element will style it, above anything a style sheet's
+  selector says and below anything a sheet insists on with `!important`,
+  as CSS places it. A page's script will change an element's style by
+  writing that same attribute, so what the page wrote and what the script
+  wrote can never disagree. A page that checks whether a style property
+  exists will be told only about those this browser actually draws. A value
+  will read back as the page wrote it, which is the one place this browser
+  will answer differently from others. Nothing of this is built yet, and
+  today a `style` attribute changes nothing (decision 0033).
+
 - **A page's own policy judges where its fetch is redirected.** A site's
   content security policy says where its pages may fetch from, and until
   now only the first address was checked. Every step of a redirect is

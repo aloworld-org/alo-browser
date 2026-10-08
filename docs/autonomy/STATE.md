@@ -20395,3 +20395,110 @@ refused, and `XMLHttpRequest` (336) remain owed.
 143 queue items are open: 340 closed. The next unused queue number is
 **341** and the next ADR is **0033**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 218 — queue item 339 decided: ADR 0033, an element's style is its `style` attribute, and a value is kept as written
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+head, its CSSOM and CSP lines, and iterations 212 and 217. Iteration 217
+named 339 as eligible and next. Queue items 335, 339 and 89. ADR 0017 § 5,
+and ADR 0032 for the form an ADR-only iteration takes. The feature contract
+is `docs/features.md`'s CSSOM line. Code read: `alo-css`'s
+`declaration.rs`, `shorthand.rs`, `issue.rs` and `lib.rs`; `alo-style`'s
+`cascade.rs`, `origin.rs` and `lib.rs`; `alo-paint`'s `background.rs`;
+`alo-dom`'s `sheets.rs`; `alo-renderer`'s `pipeline.rs` (`draw`);
+`alo-bindings`' `token_list.rs`; and `alo-net`'s `csp.rs` (`Inline`,
+`Placement`). The corpus case read was `alo-downloads` (`page.html`,
+`origin.txt`, `tests/alo_downloads.rs`). No `AGENTS.md` exists. The
+checkout was clean on entry at `bcf1b1b`. No sibling repository was read or
+written.
+
+**Why a decision and not code.** 339's own text told the iteration taking
+it to say first whether CSSOM's shorthand handling is a decision. It is.
+CSSOM presumes an engine that parses each value against its property's
+grammar when it is written. Three things follow from that: an invalid set
+is ignored, a shorthand is stored as its longhands, and a read gives the
+canonical form. This engine keeps values as written. It does not split
+`background`, `border` or `font`, and paint lets `background-color` beat
+the shorthand wherever either was written. There is also no list of the
+properties the engine acts on, and that list is what a page's
+`'x' in el.style` detects. LOOP.md stage 2 § 4 makes a decision its own
+iteration, as 212 was for ADR 0032.
+
+**What was decided (ADR 0033).** No code changed.
+- The `style` attribute is the inline declaration block, and the only copy
+  of it. It is parsed by the sheet's parser and cascaded as Cascade 4's
+  element-attached step: above every selector, below `!important`, and an
+  important inline declaration above an important rule. It is read from
+  the document on every draw, with nothing cached.
+- `element.style` is `[SameObject, PutForwards=cssText]` and holds only its
+  element, as `classList` does. Every read parses the attribute. Every
+  write that changes something sets the attribute through `alo-dom`, so it
+  is counted and drawn again.
+- It names only the properties some stage acts on. They come from one new
+  list in `alo-css`, kept true by tests in each reading crate. No stage acts
+  on `cursor` or `pointer-events`, so the page's last two writes become
+  ordinary properties of the object, as every engine does with an
+  unsupported name.
+- A set value is accepted when a style sheet would keep it. A kind-read
+  shorthand stays one declaration, and setting it removes its longhands
+  from the block. A read gives the value as written. The two differences
+  from other engines are recorded in `docs/conformance.md`.
+- `style-src` governs a markup or `setAttribute` style attribute, and a
+  write through `element.style` is exempt. Found while reading: the
+  renderer applies `style-src` to no inline style today, `<style>`
+  included. Both are cut as 343.
+
+**Queue.** 339 records the decision and stays open until 341 and 342
+close. New items:
+- **341**: the attribute cascaded. It depends on nothing open, and it
+  closes with unit tests, a new corpus case, a layout assertion and a
+  reference render.
+- **342**: `element.style`. It depends on 341, and `alo-downloads` closes it.
+- **343**: inline style under `style-src` in the renderer. It depends on
+  341, and on 342 for its last half. It may need an ADR for what `alo-dom`
+  records.
+
+89 notes the cut.
+
+**Roadmap.** The CSSOM line gains a Decided clause and an Owed clause
+saying nothing is built. The CSP line's Owed clause names 343. Nothing is
+ticked, and no Built clause was added. `docs/features.md`,
+`docs/conformance.md` (a `style` attribute is not applied today),
+`CHANGELOG.md`, `REMAINING.md` and `alo-downloads`' `origin.txt` say the
+same.
+
+**Gate, mechanical.** Warmed with clippy `--all-targets --all-features`
+and `cargo test --workspace --all-features --no-run`. `scripts/gate.sh` was
+started in the foreground into a log. It ran past the tool's ten-minute
+bound and was moved to the background, and I waited on it in this turn
+and read the result.
+- Result: exit 0, "The gate is met".
+- fmt clean, clippy silent, tests pass.
+- No stubs, `unsafe` forbidden, licences present, every rented crate behind
+  its boundary, no coordinate verbs, the stop rule holding, and the
+  changelog changed.
+
+**Gate, manual.** No code, layout or rendering changed, so no layout
+assertion or reference render applies, and no reference moved.
+`docs/features.md` names what is decided and says it is not built. One
+responsibility per file: the ADR is one decision, and it names where each
+piece will live (`alo-css`'s `properties.rs` and its shorthand table,
+`alo-style`'s cascade key, a `classList`-shaped cell in `alo-bindings`).
+No `unsafe`, no new dependency.
+
+**Unresolved obligations.**
+- Nothing of ADR 0033 is built, and a `style` attribute still changes
+  nothing. **341 is eligible and next**, then 342, which moves
+  `alo-downloads` to grey buttons.
+- The renderer applies `style-src` to no inline `<style>`. That gap
+  predates this iteration and is now item 343.
+- Everything 217 listed as standing still stands:
+  - 337, 322, 324, 328, 284, 311 and 314 wait for pages;
+  - 323 waits on 73;
+  - 296 needs a person;
+  - 297–300, 302, 304, 308, 126, 132 and 336 remain.
+- `scripts/gate.sh` still runs past the ten-minute foreground bound.
+
+146 queue items are open: 341–343 added, none closed. The next unused queue
+number is **344** and the next ADR is **0034**. This is one iteration, not
+a finished queue or roadmap.

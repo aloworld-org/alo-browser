@@ -5314,6 +5314,78 @@ The long pole, and the thing most of section E is unreachable without.
   for an ADR*: the iteration that takes it says whether the declaration's
   shorthand handling (`background` sets eight longhands) is a decision or a
   specification to follow, before building.
+  **Decided (iteration 218): ADR 0033, accepted.** It was a decision.
+  CSSOM presumes an engine that parses every value against its property's
+  grammar when it is written, and this one keeps a value as written and
+  does not split `background` (`alo-css`'s `declaration.rs` and
+  `shorthand.rs`). In short: the `style` attribute *is* the inline
+  declaration block, the only copy, and is cascaded above every selector
+  and below `!important` (Cascade 4's element-attached step).
+  `element.style` holds only its element, like `classList`. It reads the
+  attribute every time and writes it back through `alo-dom`. It names only
+  the properties this engine acts on, from one list in `alo-css`. A value
+  is kept when a style sheet would keep it. A shorthand read by kind stays
+  one declaration, and setting it removes its longhands from the block.
+  Nothing is built, and this item stays open: it closes when **341** and
+  **342** do. `cursor` and `pointer-events` are acted on by no stage, so
+  the page's last two writes set ordinary properties of the object, as in
+  every engine for a name it does not support (ADR 0033 § 4).
+
+- [ ] **341. The `style` attribute, cascaded.** *Cut from 339 (ADR 0033
+  § 1). Depends on nothing open.* `alo-css` parses an attribute's value as
+  the contents of a declaration block, by the same parser, refusals and
+  shorthand splitting as a sheet's block, and says what it dropped.
+  `alo-style`'s cascade gains Cascade 4's element-attached step, between
+  origin-and-importance and specificity. The attribute is read from the
+  document on every draw, for HTML and SVG elements, never inside a
+  `<template>`. Feature contract: `docs/features.md`'s CSSOM line, which
+  says what a style attribute does. *Closes when:* `<p style="color: red">`
+  is red. A normal inline declaration beats an id selector. An important
+  sheet declaration beats a normal inline one. An important inline
+  declaration beats an important sheet declaration with an id selector.
+  `style="fill: …"` beats a presentation attribute. A dropped declaration
+  is said. Each is pinned in a unit test. A new corpus case shows sizes and
+  colours set only by `style` attributes, with a layout assertion in
+  numbers and a reference render. Every corpus reference that moves is
+  explained by a `style` attribute its page carries.
+
+- [ ] **342. `element.style`, a `CSSStyleDeclaration`.** *Cut from 339
+  (ADR 0033 §§ 3–6). Depends on 341.* `alo-css`'s `properties.rs`: one
+  sorted list of the properties this engine acts on, each naming the crate
+  that reads it. Each reading crate gets a test that every property it reads
+  is listed, and the list gets a test that each entry names a crate.
+  `alo-css` gains the kind-read shorthands' longhand table and a block
+  serialiser that writes only what was written. `alo-bindings`' `style` on
+  every HTML and SVG element is `[SameObject, PutForwards=cssText]`, an
+  embedder cell holding its element's wrapper as `classList` does. Its
+  members are those of ADR 0033 § 6, each reading the attribute and
+  writing it back through `alo-dom` only when something changed. Hostile
+  input: a value with `;`, `!important`, unbalanced brackets, a NUL or a
+  megabyte is refused or kept exactly as § 5 says, never panicking.
+  Feature contract: `docs/features.md`'s CSSOM line. *Closes when:*
+  `alo-downloads`' `mark(a)` runs to its end with no issue. Both offline
+  buttons are drawn `#c7bfb2`. `cursor` and `pointerEvents` are ordinary
+  own properties of the declaration. All of this is pinned in
+  `tests/alo_downloads.rs` and the moved reference, with this item's own
+  `alo-bindings` tests for every member and a collection at every
+  allocation.
+
+- [ ] **343. A page's `style-src`, applied to its inline style.** *Cut from
+  339 (ADR 0033 § 2). Depends on 341; the `CSSStyleDeclaration` half
+  depends on 342.* The renderer applies the policies it already holds for
+  scripts to every `<style>` element and every `style` attribute, through
+  `csp::Policies::allows_inline` with `Inline::Style`. A refused one
+  contributes nothing and is reported as an inline script's is (item 237).
+  A `style` attribute last written through `element.style` is not
+  refused. `alo-dom` records, per element, whether the attribute's current
+  value came from the declaration. A blocked attribute reads as empty
+  through `element.style`. *Needs:* if who records that turns out to be a
+  decision about `alo-dom`'s element, an ADR first (ADR 0033, *What this
+  does not decide*). *Closes when:* under `style-src 'self'`, a `<style>`
+  and a `style` attribute are both refused and reported. The same attribute
+  is applied under a digest with `'unsafe-hashes'`. A value written through
+  `element.style` is applied under the refusing policy. Each is pinned in
+  a renderer test over a real load.
 
 - [ ] **336. `XMLHttpRequest`, asynchronous.** *Cut from 83 (ADR 0032 § 6).
   Depends on 334 and on event dispatch (254, done).* The same ask, delivered
@@ -5357,7 +5429,8 @@ The long pole, and the thing most of section E is unreachable without.
 
 - [ ] **89. CSSOM** — styles readable and writable from script.
   *Depends on 80.* **Opened by a page (iteration 215):** `alo-downloads`
-  sets an element's `style`; that first cut is item 339.
+  sets an element's `style`; that first cut is item 339, decided by ADR
+  0033 (iteration 218) and built as 341–343.
   *Needs design (iteration 161):* its dependencies are done, but it names no
   ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
   not ready to build. Cutting a first item from it, with those written, is

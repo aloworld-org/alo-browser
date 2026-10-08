@@ -873,3 +873,12 @@ such a request while still checking its scheme, host and port; the decided
 every hop after the first, refusing and recording one the policy does not
 allow. 339 is eligible and next. 143 queue items are open. The next unused
 queue number is 341 and the next unused ADR 0033.
+
+Iteration 218 decided item 339: ADR 0033, an element's style is its
+`style` attribute, and a value is kept as written. No code changed. The
+build is cut as 341 (the attribute cascaded, depending on nothing open),
+342 (`element.style`, on 341, which moves `alo-downloads`) and 343 (a
+page's `style-src` applied to inline style in the renderer, on 341 and for
+its last half 342). 339 stays open until 341 and 342 close. 341 is eligible
+and next. 146 queue items are open. The next unused queue number is 344 and
+the next unused ADR 0034.

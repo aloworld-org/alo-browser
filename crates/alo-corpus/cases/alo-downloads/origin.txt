@@ -74,7 +74,11 @@ at `a.style.background = …`: "TypeError: cannot write property
 'background' of undefined", a rejection nothing handled, because an
 element's `style` is not built (item 339). So the buttons say they are
 building and are **still terracotta**: the greyed `#c7bfb2` the page asks
-for waits for item 339.
+for waits for item 339. ADR 0033 (iteration 218) decided how: the write
+sets the `style` attribute, which is cascaded above `.btn`'s `background`,
+and is built as items 341 and 342. The page's `cursor` and `pointerEvents`
+writes will set ordinary properties of the declaration, because no stage of
+this engine acts on either.
 `tests/alo_downloads.rs` pins where the script stops and which card is
 marked. The issues list does not show it, because issues.txt is what the
 markup and style made the engine say.

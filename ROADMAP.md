@@ -373,7 +373,10 @@ unreachable without it.
       **a nested document**, which is what `frame-src` needs and which
       nothing here can yet tell from a link click (queue item 86); and an
       **event handler** matched by its hash, which is the same rule as the
-      `style` attribute and waits only for there to be handlers (queue item 81)
+      `style` attribute and waits only for there to be handlers (queue item 81);
+      and **inline style refused by `style-src` in the renderer**, which
+      decides a `<style>` or `style` attribute but applies the verdict to
+      neither (queue item 343, ADR 0033 § 2)
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
       · Decided (ADR 0032, queue item 83): a script's fetch is an ask in
       the answer to the message whose work made it, the browser process
@@ -1065,6 +1068,14 @@ unreachable without it.
 - [ ] Shadow DOM and custom elements; component frameworks are not optional on the modern web
 - [ ] Selection and ranges
 - [ ] CSSOM — styles readable and writable from script
+      · Decided (ADR 0033, queue item 339): the `style` attribute is the
+      inline declaration block, cascaded above every selector and below
+      `!important`; `element.style` holds only its element and reads and
+      writes the attribute; it names only the properties this engine acts
+      on; a value is kept as written and `background` stays one declaration
+      · Owed: everything; nothing is built — the attribute cascaded (341),
+      `element.style` (342), and `getComputedStyle`, `document.styleSheets`
+      and the rest of item 89, each opened by a page
 - [ ] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them
       · Built: `alo-storage`, the browser process's store (queue item 301).
       It holds buckets keyed by origin and top-level site, and its key type
