@@ -62,24 +62,37 @@
 //! native is handed the switch ([`Call::stop_asked`]) and a builtin whose
 //! work a page can make large asks it inside.
 //!
-//! # A step is a number, and the answer arrives on the stack
+//! # A step says where, the slots say what, and both are on the stack
 //!
-//! A suspended builtin keeps no state of its own beyond a `u32`: everything
-//! else it needs is its `this` and its arguments, which are still where the
-//! caller put them. When the call it asked for finishes, its answer is written
-//! **into the slot just above its arguments** and it runs again from the step
-//! it named, with [`Call::answer`] reading that slot. So a builtin holds no
-//! reference across a suspension that the collector cannot see — the same rule
-//! as everywhere else, kept by there being nothing to hold it in.
+//! A suspended builtin's place in its own body is a `u32` step. What it *had*
+//! there — `forEach`'s `len` and `k`, `map`'s array — is in **slots** it
+//! declares when it is made ([`Native::keeping`], ADR 0031): that many values,
+//! at most [`bounds::KEPT_BY_A_BUILTIN`](crate::bounds), reserved as
+//! `undefined` on the interpreter's stack directly above its arguments when it
+//! is entered and taken down with the call. Its region is
+//! `callee | this | args | kept | answer`. When the call it asked for finishes,
+//! the answer is written **into the slot just above its kept ones** and it
+//! runs again from the step it named, with [`Call::answer`] reading that slot.
+//!
+//! [`Call::keep`] writes a slot on the stack at once, through its barrier, and
+//! [`Call::kept`] reads it from there; neither copies the slots into the
+//! `Call`. So a builtin holds no reference across a suspension — or across an
+//! allocation — that the collector cannot see: a value is rooted the moment it
+//! is kept. A builtin that declares none has the region it always had, and
+//! keeps nothing but its step.
+//!
+//! The step still says only *where*. A small value the builtin itself bounds,
+//! such as which of `addEventListener`'s options it has read, may ride in it;
+//! nothing a page can make as large as it likes may (ADR 0031 § 5).
 //!
 //! # What a native may keep across an allocation
 //!
-//! The same thing everything else may: what is in a [`Scope`](crate::heap::Scope)
-//! or a [`Root`](crate::heap::Root). A builtin's `this` and its arguments are
-//! still on the interpreter's stack while it runs — the call is not taken down
-//! until the answer exists — so they are walked by the collector without the
-//! builtin doing anything. Anything a builtin *makes* and means to keep past a
-//! second allocation is its own to hold.
+//! The same thing everything else may: what is in a [`Scope`](crate::heap::Scope),
+//! a [`Root`](crate::heap::Root) or one of its slots. A builtin's `this` and its
+//! arguments are still on the interpreter's stack while it runs — the call is
+//! not taken down until the answer exists — so they are walked by the collector
+//! without the builtin doing anything. Anything a builtin *makes* and means to
+//! keep past a second allocation it keeps in a slot before that allocation.
 //!
 //! The one new place that rule bites is [`Want::Call`]'s argument list, which is
 //! a `Vec` in a Rust local until the interpreter pushes it: **nothing may
@@ -92,7 +105,7 @@ use crate::convert::Hint;
 use crate::heap::Ref;
 use crate::interpret::Stop;
 
-use super::{Objects, Value};
+use super::{Held, Objects, Value};
 
 /// The body of a builtin: Rust, given a [`Call`], answering an [`Answer`].
 pub type Body = fn(&mut Call<'_>) -> Result<Answer, Escape>;
@@ -216,7 +229,8 @@ pub enum Instance {
     /// A function pointer for [`Native`]'s reason: it holds no edge. The
     /// instance is made before the body runs, in the `this` slot the collector
     /// walks, so a body that suspends to convert an argument keeps what it
-    /// has converted *in its instance* rather than in a step number.
+    /// has converted *in its instance*, which is where the standard keeps it
+    /// (ADR 0031 § 6).
     Made(Make),
 }
 
@@ -237,6 +251,7 @@ pub struct Native {
     name: &'static str,
     body: Body,
     instance: Option<Instance>,
+    kept: usize,
 }
 
 impl Native {
@@ -251,6 +266,7 @@ impl Native {
             name,
             body,
             instance: None,
+            kept: 0,
         }
     }
 
@@ -261,7 +277,27 @@ impl Native {
             name,
             body,
             instance: Some(instance),
+            kept: 0,
         }
+    }
+
+    /// The same native, keeping `slots` values on the stack across the calls
+    /// it asks for, read with [`Call::kept`] and written with [`Call::keep`]
+    /// (ADR 0031).
+    ///
+    /// The count is the builtin's own and never its input's. More than
+    /// [`bounds::KEPT_BY_A_BUILTIN`](crate::bounds) is refused when its
+    /// function is made ([`Refused::KeepsTooMuch`](crate::object::Refused)),
+    /// which is when a realm is furnished.
+    #[must_use]
+    pub const fn keeping(mut self, slots: usize) -> Self {
+        self.kept = slots;
+        self
+    }
+
+    /// How many values it keeps: zero unless it said otherwise.
+    pub const fn kept(&self) -> usize {
+        self.kept
     }
 
     /// The instance it is given, which is [`Some`] exactly when it has a
@@ -281,6 +317,14 @@ impl Native {
     }
 }
 
+/// Where a builtin's slots are: which list, from where, and how many.
+#[derive(Debug, Clone, Copy)]
+struct Kept {
+    stack: Ref,
+    at: usize,
+    count: usize,
+}
+
 /// What a builtin is given when it is called.
 #[derive(Debug)]
 pub struct Call<'a> {
@@ -290,6 +334,7 @@ pub struct Call<'a> {
     stop: Option<&'a Stop>,
     this: Value,
     arguments: &'a [Value],
+    slots: Option<Kept>,
     at: usize,
     step: u32,
     answer: Option<Value>,
@@ -312,6 +357,7 @@ impl<'a> Call<'a> {
             stop: None,
             this,
             arguments,
+            slots: None,
             at,
             step: 0,
             answer: None,
@@ -352,6 +398,80 @@ impl<'a> Call<'a> {
         match self.intrinsics {
             Some(intrinsics) => Ok(intrinsics),
             None => Err(Escape::Broken(Internal::BuiltinIsWrong)),
+        }
+    }
+
+    /// The same call, keeping `count` slots in `stack` from `at` up.
+    ///
+    /// Only the interpreter says this, having reserved them; a [`Call`] built
+    /// by hand keeps nothing, and reaching for a slot in one is
+    /// [`Internal::BuiltinIsWrong`].
+    #[must_use]
+    pub(crate) const fn keeping(mut self, stack: Ref, at: usize, count: usize) -> Self {
+        self.slots = Some(Kept { stack, at, count });
+        self
+    }
+
+    /// What slot `which` holds: `undefined` until the builtin keeps something
+    /// there (ADR 0031 § 4).
+    ///
+    /// Read from the stack each time rather than from a copy, so it is what
+    /// was last kept even after a collection.
+    ///
+    /// # Errors
+    ///
+    /// [`Internal::BuiltinIsWrong`] for a slot at or past the number the
+    /// builtin declared, which is its author's mistake rather than a page's.
+    pub fn kept(&self, which: usize) -> Result<Value, Escape> {
+        let at = self.slot(which)?;
+        let stack = self.slots.map(|kept| kept.stack);
+        match stack.and_then(|stack| self.objects.slot(stack, at)) {
+            Some(Held::Value(value)) => Ok(value),
+            Some(Held::Uninitialized) | None => Err(Escape::Broken(Internal::StackIsWrong)),
+        }
+    }
+
+    /// Keep `value` in slot `which`, written to the stack at once through its
+    /// barrier — so it is rooted from this moment, before anything the body
+    /// does next allocates (ADR 0031 § 4).
+    ///
+    /// # Errors
+    ///
+    /// [`Internal::BuiltinIsWrong`] for a slot at or past the number the
+    /// builtin declared.
+    pub fn keep(&mut self, which: usize, value: Value) -> Result<(), Escape> {
+        let at = self.slot(which)?;
+        let stack = self
+            .slots
+            .map(|kept| kept.stack)
+            .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
+        self.objects
+            .with_slots(stack, |slots, barrier| slots.set(barrier, at, value))
+            .filter(|wrote| *wrote)
+            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        Ok(())
+    }
+
+    /// The number slot `which` holds — an index or a length the builtin kept
+    /// there, which an `f64` holds exactly up to 2⁵³ − 1 (ADR 0031 § 3).
+    ///
+    /// # Errors
+    ///
+    /// [`Internal::BuiltinIsWrong`] for a slot it never declared, or one that
+    /// holds anything but a number: a builtin that kept an index and reads
+    /// back something else has a bug of its own.
+    pub fn kept_number(&self, which: usize) -> Result<f64, Escape> {
+        match self.kept(which)? {
+            Value::Number(number) => Ok(number),
+            _ => Err(Escape::Broken(Internal::BuiltinIsWrong)),
+        }
+    }
+
+    /// Where slot `which` is on the stack, if the builtin declared it.
+    fn slot(&self, which: usize) -> Result<usize, Escape> {
+        match self.slots {
+            Some(kept) if which < kept.count => Ok(kept.at.saturating_add(which)),
+            _ => Err(Escape::Broken(Internal::BuiltinIsWrong)),
         }
     }
 
@@ -560,5 +680,74 @@ mod tests {
         assert_eq!(again.step(), 1);
         assert_eq!(again.answer(), Ok(Value::Number(4.0)));
         assert_eq!(converted(&mut again), Ok(Answer::Value(Value::Number(4.0))));
+    }
+
+    #[test]
+    fn a_native_keeps_nothing_unless_it_says_how_many() {
+        let plain = Native::new("first", first);
+        assert_eq!(plain.kept(), 0);
+        assert_eq!(plain.keeping(3).kept(), 3);
+        assert_eq!(Native::new("first", first).keeping(9).kept(), 9);
+    }
+
+    #[test]
+    fn a_slot_is_read_and_written_on_the_list_itself() {
+        let mut objects = Objects::new();
+        let Ok(stack) = objects.slots() else {
+            panic!("an empty heap holds a list");
+        };
+        // callee, this, one argument, then two kept slots as the interpreter
+        // reserves them.
+        let reserved = objects.with_slots(stack, |slots, _| {
+            for value in [
+                Value::Undefined,
+                Value::Undefined,
+                Value::Number(1.0),
+                Value::Undefined,
+                Value::Undefined,
+            ] {
+                slots.push(value);
+            }
+        });
+        assert_eq!(reserved, Some(()));
+        let arguments = [Value::Number(1.0)];
+        let mut call =
+            Call::new(&mut objects, Value::Undefined, &arguments, 0).keeping(stack, 3, 2);
+        assert_eq!(
+            call.kept(0),
+            Ok(Value::Undefined),
+            "a fresh slot is undefined"
+        );
+        assert_eq!(call.keep(1, Value::Number(5.0)), Ok(()));
+        assert_eq!(call.kept(1), Ok(Value::Number(5.0)));
+        assert_eq!(call.kept_number(1), Ok(5.0));
+        assert_eq!(
+            call.kept_number(0),
+            Err(Escape::Broken(Internal::BuiltinIsWrong)),
+            "undefined is not the number a builtin kept"
+        );
+        assert_eq!(
+            call.keep(2, Value::Null),
+            Err(Escape::Broken(Internal::BuiltinIsWrong)),
+            "a slot past the count is never the answer slot"
+        );
+        assert_eq!(call.kept(2), Err(Escape::Broken(Internal::BuiltinIsWrong)));
+        // The write went to the list, not to a copy in the call.
+        assert!(matches!(
+            objects.slot(stack, 4),
+            Some(crate::object::Held::Value(Value::Number(5.0)))
+        ));
+        assert_eq!(objects.slot_count(stack), Some(5));
+    }
+
+    #[test]
+    fn a_call_built_by_hand_keeps_nothing() {
+        let mut objects = Objects::new();
+        let mut call = Call::new(&mut objects, Value::Undefined, &[], 0);
+        assert_eq!(call.kept(0), Err(Escape::Broken(Internal::BuiltinIsWrong)));
+        assert_eq!(
+            call.keep(0, Value::Null),
+            Err(Escape::Broken(Internal::BuiltinIsWrong))
+        );
     }
 }

@@ -167,6 +167,23 @@ pub const VALUES_ON_THE_STACK: usize = 256 * 1024;
 /// claim, and this is a ceiling on memory a stranger's script chooses.
 pub const CALLS_ON_THE_STACK: usize = 10 * 1024;
 
+/// How many values one builtin may keep on the stack across the calls it asks
+/// for (ADR 0031 § 2).
+///
+/// Eight. A builtin says how many it keeps when it is made, and the count is
+/// the builtin's rather than its input's, so no page can make a builtin
+/// reserve more of the stack than its author wrote down. The largest algorithm
+/// the queue names keeps three — `map`'s `len`, `k` and the array it builds,
+/// `reduce`'s accumulator in place of the array, `apply`'s list — and eight
+/// leaves room without inviting a builtin to use the stack as a heap: state
+/// that grows with the input belongs in one heap object a single slot holds
+/// (§ 3).
+///
+/// A builtin declaring more is this engine's mistake, refused when its function
+/// is made ([`Refused::KeepsTooMuch`](crate::object::Refused)). It is raised
+/// only by an amendment to ADR 0031 naming the builtin that needs it.
+pub const KEPT_BY_A_BUILTIN: usize = 8;
+
 /// How many calls a throw nothing caught is said to have left, innermost
 /// first (queue item 241).
 ///

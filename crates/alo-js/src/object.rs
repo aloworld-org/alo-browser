@@ -101,6 +101,12 @@ pub use value::{Stored, Value};
 /// page can tell: a string too long is a `RangeError` the script's own `catch`
 /// can survive, and a heap at its ceiling is ADR 0014 § 9's [`Full`], which
 /// goes to the embedder and stops the tab.
+///
+/// The third is no script's: a builtin that declares more slots than
+/// [`bounds::KEPT_BY_A_BUILTIN`](crate::bounds) (ADR 0031 § 2). It is refused
+/// here because making its function is the one place every builtin passes,
+/// and it becomes [`Internal::BuiltinIsWrong`](crate::abrupt::Internal) —
+/// this engine's mistake, or its embedder's, never a page's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Refused {
     /// The heap is at its ceiling and a collection did not bring it under.
@@ -109,6 +115,12 @@ pub enum Refused {
     StringTooLong {
         /// How many code units were asked for.
         units: usize,
+    },
+    /// A builtin that keeps more values across its calls than
+    /// [`bounds::KEPT_BY_A_BUILTIN`](crate::bounds).
+    KeepsTooMuch {
+        /// How many it declared.
+        kept: usize,
     },
 }
 
@@ -125,6 +137,10 @@ impl fmt::Display for Refused {
             Refused::StringTooLong { units } => write!(
                 out,
                 "a string of {units} code units is longer than this engine will make"
+            ),
+            Refused::KeepsTooMuch { kept } => write!(
+                out,
+                "a builtin keeps {kept} values across its calls, more than this engine allows one"
             ),
         }
     }
@@ -396,10 +412,30 @@ impl Objects {
     ///
     /// # Errors
     ///
-    /// [`Refused::Full`] when the heap is at its ceiling.
+    /// [`Refused::KeepsTooMuch`] for a builtin that declares more slots than
+    /// [`bounds::KEPT_BY_A_BUILTIN`](crate::bounds), before anything is
+    /// allocated (ADR 0031 § 2); [`Refused::Full`] when the heap is at its
+    /// ceiling.
     pub fn native(&mut self, native: Native, prototype: Option<Ref>) -> Result<Ref, Refused> {
+        if native.kept() > crate::bounds::KEPT_BY_A_BUILTIN {
+            return Err(Refused::KeepsTooMuch {
+                kept: native.kept(),
+            });
+        }
         let function = Function::native(native, prototype);
         Ok(self.heap.allocate(Cell::Function(function))?)
+    }
+
+    /// Every builtin whose function is in the heap now, so a test can check
+    /// what a realm was furnished with (ADR 0031 § 2).
+    pub fn natives(&self) -> impl Iterator<Item = &Native> {
+        self.heap
+            .cells()
+            .filter_map(Cell::function)
+            .filter_map(|function| match function.code() {
+                Code::Native(native) => Some(native),
+                Code::Compiled { .. } => None,
+            })
     }
 
     /// The function a reference names, or [`None`] if it names anything else —

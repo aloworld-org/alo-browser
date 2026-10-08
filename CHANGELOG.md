@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The engine's own functions can now remember things while a page's
+  code runs** (ADR 0031). A function such as `forEach` says how many values
+  it keeps — at most eight — and the engine keeps them on its working stack,
+  where the memory collector sees them, for as long as the call lasts. A
+  function asking for more than eight is refused when it is made. Nothing
+  uses this yet; `forEach`, which alo's download page is waiting on, comes
+  next.
+
 - **Decided how the engine's own functions remember things while a page's
   code runs** (ADR 0031). `forEach` reads a list's length once and then
   calls the page's function for each item; it has to keep that length and

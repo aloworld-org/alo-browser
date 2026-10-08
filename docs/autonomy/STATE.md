@@ -19093,3 +19093,126 @@ code to judge.
 144 queue items are open: 332 opened, none closed. The next unused queue
 number is **333** and the next ADR is **0032**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 208 — queue item 332 built: the slots a builtin keeps
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole; stage 2 §§ 2–4),
+`ROADMAP.md`'s state rules and its standard-library line, iteration 207's
+entry, queue items 332, 331, 221 and 228 in full, `docs/features.md`'
+standard-library line, ADR 0031 in full. Code read: `alo-js`'
+`object/native.rs`, `interpret/call.rs`, `interpret/frame.rs`,
+`interpret/catch.rs` (`land`, `set_aside`, `take_down`), `bounds.rs`'
+stack bounds, `heap.rs`' accessors, `object.rs`' `Refused` and
+`Objects::native`, and the reported-call test for its harness;
+`alo-bindings`' `install.rs` and `navigator.rs` for what a page is
+furnished with. No `AGENTS.md` exists. The checkout was clean on entry at
+`6270d84`. No sibling repository was read or written.
+
+**Selection.** 332 depends on nothing, is the next item on
+`alo-downloads`' path (331 depends on it), and comes before 320 and 321
+in file order. Every open item before it in the file is blocked or
+depends on something open.
+
+**What was built.**
+- `Native::keeping(n)` / `Native::kept()`; `bounds::KEPT_BY_A_BUILTIN`
+  is eight, with its reason.
+- `Engine::wait` reserves `n` `undefined`s on the stack above the
+  arguments after the calls check. Past `VALUES_ON_THE_STACK` it throws the
+  stack's own `RangeError`, with the same message. `Waiting` carries
+  `kept`; `kept_at()` is above the arguments and `answer_at()` above the
+  slots, so every place that lays out or answers a builtin's call
+  (`want_for`, conversions, reported throws) moved with it unchanged.
+- `Call::kept`, `Call::keep` (through the stack's barrier, no copy) and
+  `Call::kept_number` answer `Internal::BuiltinIsWrong` for a slot past
+  the count, a non-number read as one, or a `Call` built by hand.
+- `Objects::native`, where every builtin's function is made, refuses more
+  than eight as the new `Refused::KeepsTooMuch`, which `Escape::refused`
+  makes `Internal::BuiltinIsWrong` (not catchable by a page); `wait`
+  checks again for a cell made some other way.
+- `Heap::cells` and `Objects::natives`, so a test can walk what a realm
+  was furnished with.
+- The module notes in `native.rs` and `call.rs`, `Waiting`'s, and three
+  comments that said a native keeps only a step (`abrupt.rs`,
+  `builtin/error.rs`, `alo-bindings`' `element.rs`) now describe the
+  slots.
+
+**Tests.** `alo-js/tests/what_a_builtin_keeps.rs` covers each closing
+condition. Every table runs with and without the collector at every
+allocation, and `Heap::check` runs after each.
+- A kept object survives a call that allocates, and it is the same
+  object.
+- All eight numbers read back after a recursive callee.
+- A number reads back after a reported throw and after a conversion.
+- A caught throw through builtins keeping 2, 0 and 8 slots leaves the
+  same operands, and the next call gets fresh slots.
+- A slot past the count is `BuiltinIsWrong`, and nine is refused when
+  the function is made.
+- The engine's own realm is walked.
+- The stack bound: the most arguments a bottom call can take, found by
+  search at a fixed depth, is exactly eight fewer for a builtin keeping
+  eight than for one keeping none.
+
+`alo-bindings/tests/what_a_builtin_it_installs_keeps.rs` walks every
+builtin after `install` and `introduce` (over 50 beyond the engine's).
+Unit tests cover `native.rs` and `abrupt.rs`.
+
+**Mutation checks.** Each check below was reverted afterwards.
+- Dropping the slots from `answer_at` or from the bound check failed 5
+  of 8 tests.
+- Moving the test keeper's `keep` after a second allocation failed the
+  stressed run ("it lost a reference"). The first version of that test
+  had no allocation in between, because `mark` is interned when the
+  script loads, so it caught nothing. An explicit second object was
+  added so the mutation is caught.
+
+**Queue.** 332 ticked, with a Built note. 331 and 228 now record that
+332 is built. 331 is eligible and is next on `alo-downloads`' path. 221
+still depends on 73's length conversions.
+
+**Roadmap.** The standard-library line gains a Built clause naming
+`Native::keeping`, `KEPT_BY_A_BUILTIN`, `Call::kept`/`keep` and the
+refusal, and says no library builtin uses the slots yet. Its Owed clause
+keeps `apply` (221), `forEach` (331) and the rest of the library. No
+tick. `docs/features.md`, `CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Gate, mechanical.** The workspace was warmed with `--all-features`
+(clippy and test `--no-run`). `scripts/gate.sh` ran into a log in the
+background with a two-hour bound. I waited for it in this turn and read
+the log: exit 0, "The gate is met."
+- fmt clean, clippy silent, tests pass.
+- No stubs, `unsafe` forbidden, licences present.
+- Every rented crate behind its boundary, no coordinate verbs.
+- The stop rule holds and the changelog changed.
+
+Before the gate, `cargo test -p alo-js -p alo-bindings --all-features`
+also passed with every result `ok`.
+
+**Gate, manual.**
+- Layout assertions and reference renders: none apply. Nothing
+  positions, sizes or draws differently, and `git status` shows no
+  reference or corpus file rewritten.
+- One responsibility per file. `native.rs` is still what a builtin is
+  and what it is handed, and the slots are part of that. `call.rs` is
+  still entering and leaving a call, and reserving is part of entering.
+  `frame.rs` is still where a call's things are. `Heap::cells` is a
+  read-only accessor beside `get`. Each new test file is one property.
+- Bytes from outside: no page sizes anything here. The count is the
+  builtin's, the reservation uses saturating arithmetic against the
+  stack's bound, and there is no indexing outside tests.
+- `docs/features.md` describes what is built.
+- No `unsafe`, no new dependency, and no ADR needed: this builds ADR
+  0031 as written.
+
+**Unresolved obligations.**
+- No builtin of the library uses the slots yet. 331 (`forEach`) is the
+  first, and it also owes ADR 0031 § 7's stop check inside its loop.
+- `Heap::cells` walks every slot, so it costs time in proportion to the
+  heap. Only tests call it, and its note says it is for an audit.
+- 320 and 321 remain eligible. 322 and 324 wait for a page, 323 waits on
+  73, and 328 waits for a page. Still standing: 284, 311 and 314 wait for
+  pages; 296 needs a person; 297–300, 302, 304 and 308; 126 and 132.
+- `scripts/gate.sh` still runs past the ten-minute foreground bound.
+
+143 queue items are open: 332 closed. The next unused queue number is
+**333** and the next ADR is **0032**. This is one iteration, not a
+finished queue or roadmap.

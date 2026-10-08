@@ -713,6 +713,14 @@ eligible; 331 (`forEach`), 221 (`apply`) and 228 now depend on it. 144
 queue items are open. The next unused queue number is 333 and the next
 unused ADR 0032.
 
+Iteration 208 built item 332: `Native::keeping` declares up to eight
+slots, `wait` reserves them on the stack above the arguments against the
+stack's bound, `Call::kept` and `Call::keep` read and write them on the
+stack, and a native declaring nine is refused by `Objects::native`. 331
+(`forEach`) is eligible and is next on `alo-downloads`' path; 221 still
+depends on the length conversions from 73. 143 queue items are open. The
+next unused queue number is 333 and the next unused ADR 0032.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

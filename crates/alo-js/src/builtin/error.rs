@@ -23,10 +23,12 @@
 //!
 //! # The instance is made before the body runs
 //!
-//! A native keeps a step number and nothing else across a call it asks for
-//! (item 219), and this constructor may ask for two — a `toString` on the
-//! message, a getter for `cause` — so an instance it made itself would be held
-//! by nothing while the script ran. The interpreter makes it instead
+//! This constructor may ask for two calls — a `toString` on the message, a
+//! getter for `cause` — so an instance it made itself would be held by nothing
+//! while the script ran unless it kept it. It could keep it in a slot now
+//! (ADR 0031), but the instance is the object the specification keeps this
+//! state in, and where it does, the object keeps it (§ 6). The interpreter
+//! makes it instead
 //! ([`Instance::Error`]) and hands it over in the `this` slot, which the
 //! collector walks, whether the constructor was called or constructed: the
 //! specification makes those the same object.

@@ -2547,7 +2547,7 @@ The long pole, and the thing most of section E is unreachable without.
   second getter call a page can count. Refused by name today
   ([`Missing::AMessageBehindACall`]).
   *Depends on 332, the traced native scratch state ADR 0031 decided for
-  221. Closes when:* a `message` getter runs once, after `name`'s, an
+  221 (built, iteration 208). Closes when:* a `message` getter runs once, after `name`'s, an
   object `message` is converted with its own `toString`, and a `name` getter that counts its calls is called once in
   both cases. Opened by a frozen real script that does it, and not before.
 
@@ -3385,7 +3385,8 @@ The long pole, and the thing most of section E is unreachable without.
   value slots, reserved on the stack above its arguments and written there
   at once; `len` and `k` are two of them, and a loop over holes asks the
   embedder's stop (§ 7). The slots themselves are **332**.
-  *Depends on 332, and on 329. Closes when:* `Array.prototype.forEach`
+  *Depends on 332 and 329, both built (iterations 208 and 205). Closes
+  when:* `Array.prototype.forEach`
   answers a table of arrays and array-likes as the specification does —
   holes skipped, `thisArg` passed, the length read once, a throwing
   callback ending it — with the collector at every allocation; a
@@ -3395,7 +3396,7 @@ The long pole, and the thing most of section E is unreachable without.
   and stops at its next missing member (`fetch`, item 75), named in
   `origin.txt`.
 
-- [ ] **332. The slots a builtin keeps.** *Cut from 331 (ADR 0031 §§ 1–5).*
+- [x] **332. The slots a builtin keeps.** *Cut from 331 (ADR 0031 §§ 1–5).*
   `Native` gains a declared slot count (at most `bounds::KEPT_BY_A_BUILTIN`,
   eight); `wait` reserves that many `undefined`s on the stack directly
   above the arguments, counted against `bounds::VALUES_ON_THE_STACK`;
@@ -3414,6 +3415,28 @@ The long pole, and the thing most of section E is unreachable without.
   realm is furnished, and a test walks every builtin `alo-js` and
   `alo-bindings` install; and reserving slots past the stack's bound is the
   `RangeError` a deep recursion is.
+  **Built (iteration 208).** `Native::keeping(n)` and `Native::kept()`;
+  `bounds::KEPT_BY_A_BUILTIN` is eight. `Engine::wait` reserves the slots
+  as `undefined` above the arguments after the calls check, refusing with
+  the stack's `RangeError` when `height + n` passes
+  `VALUES_ON_THE_STACK`; `Waiting` carries `kept`, `kept_at()` is above
+  the arguments and `answer_at()` above the slots. `Call::kept`,
+  `Call::keep` (through the stack's barrier) and `Call::kept_number`
+  answer `Internal::BuiltinIsWrong` past the count or in a `Call` built
+  by hand. `Objects::native` — where every builtin's function is made —
+  refuses more than eight as `Refused::KeepsTooMuch`, which is
+  `Internal::BuiltinIsWrong`; `wait` checks again for a cell made some
+  other way. `Heap::cells` and `Objects::natives` let a test walk what a
+  realm was furnished with. Tests: `alo-js/tests/what_a_builtin_keeps.rs`
+  (every closing condition, each table with and without the collector at
+  every allocation; the bound shown by the most arguments a bottom call
+  can take differing by exactly eight between a builtin keeping none and
+  one keeping eight) and
+  `alo-bindings/tests/what_a_builtin_it_installs_keeps.rs` (every builtin
+  after `install` and `introduce`). Checked by mutation: dropping the
+  reservation from `answer_at` or from the bound check fails five tests,
+  and a test body that keeps its object only after a second allocation
+  fails under the stressed collector.
 
 - [x] **326. The `User-Agent` header.** *Cut from 325 (ADR 0030 §§ 1–4,
   7).* This engine sends no `User-Agent` today (`csp_report.rs` says so on

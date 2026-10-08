@@ -62,7 +62,10 @@
 //!
 //! Its arguments are read off the stack into a Rust slice and the stack is
 //! **not** taken down until the answer exists, which is what keeps them rooted
-//! while the builtin allocates.
+//! while the builtin allocates. A builtin that keeps values (ADR 0031) has
+//! them reserved on the stack directly above its arguments when it is
+//! entered — `callee | this | args | kept | answer` — and they go with the
+//! rest of its region, whether it answers or throws.
 //!
 //! # A builtin's body is run by the loop, never by the call that entered it
 //!
@@ -87,7 +90,7 @@ use crate::abrupt::{Escape, Internal, Missing};
 use crate::bounds;
 use crate::convert::{Hint, Primitive};
 use crate::heap::Ref;
-use crate::object::native::{Answer, Body, Call, Instance, Want};
+use crate::object::native::{Answer, Call, Native, Want};
 use crate::object::{Code, Value};
 use crate::unit::Unit;
 
@@ -213,8 +216,8 @@ impl Engine {
             // A builtin needs no frame at all: it is written down as waiting,
             // and the loop runs its body. See the module comment on why it is
             // not simply run here.
-            Some(Called::Native(body, instance)) => {
-                if let Some(instance) = instance
+            Some(Called::Native(native)) => {
+                if let Some(instance) = native.instance()
                     && (instance.when_called() || after == After::Construct)
                 {
                     // A builtin constructor is given its instance, called or
@@ -222,7 +225,13 @@ impl Engine {
                     // only when constructed.
                     self.make_instance(run, callee_at, held, instance, at)?;
                 }
-                return Self::wait(run, callee_at, argc, at, after, body);
+                let entered = Entered {
+                    callee_at,
+                    argc,
+                    at,
+                    after,
+                };
+                return self.wait(run, entered, native);
             }
             Some(Called::Compiled(compiled)) => compiled,
         };
@@ -315,28 +324,52 @@ impl Engine {
 
     /// Write a builtin down as entered, for the loop to run.
     ///
-    /// Nothing about the stack changes: its callee, its `this` and its
-    /// arguments stay exactly where the caller put them, and stay there until
-    /// it answers. That is what keeps every one of them somewhere the collector
-    /// walks across each of its steps.
-    fn wait(
-        run: &mut Run,
-        callee_at: usize,
-        argc: usize,
-        at: usize,
-        after: After,
-        body: Body,
-    ) -> Result<(), Escape> {
+    /// Its callee, its `this` and its arguments stay exactly where the caller
+    /// put them, and stay there until it answers. That is what keeps every one
+    /// of them somewhere the collector walks across each of its steps. Above
+    /// them go the slots it declared, as `undefined`, counted against the
+    /// stack's bound like any other push (ADR 0031 §§ 1–2).
+    fn wait(&mut self, run: &mut Run, entered: Entered, native: Native) -> Result<(), Escape> {
+        let Entered {
+            callee_at,
+            argc,
+            at,
+            after,
+        } = entered;
         if run.calls() >= bounds::CALLS_ON_THE_STACK {
             return Err(Escape::range_error(
                 "this script calls more deeply than this engine will go",
                 at,
             ));
         }
+        let kept = native.kept();
+        if kept > bounds::KEPT_BY_A_BUILTIN {
+            // Its function could not have been made (`Objects::native`), so
+            // this is a cell that did not come from there: our bug.
+            return Err(Escape::Broken(Internal::BuiltinIsWrong));
+        }
+        let height = self.height(run)?;
+        if height.saturating_add(kept) > bounds::VALUES_ON_THE_STACK {
+            return Err(Escape::range_error(
+                "this script needs more values at once than this engine will hold",
+                at,
+            ));
+        }
+        if kept > 0 {
+            let stack = run.stack;
+            self.objects
+                .with_slots(stack, |slots, _| {
+                    for _ in 0..kept {
+                        slots.push(Value::Undefined);
+                    }
+                })
+                .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        }
         run.builtins.push(Waiting {
-            body,
+            body: native.body(),
             callee_at,
             argc,
+            kept,
             at,
             after,
             step: 0,
@@ -371,6 +404,7 @@ impl Engine {
         };
         let host = self.realm.host_defined(&self.objects)?;
         let mut call = Call::new(&mut self.objects, this, &arguments, waiting.at)
+            .keeping(run.stack, waiting.kept_at(), waiting.kept)
             .within(self.realm.intrinsics())
             .hosted_by(host)
             .stopped_by(&self.stop);
@@ -608,7 +642,7 @@ impl Engine {
                 environment.get(),
                 captured.as_ref().map(crate::object::Stored::get),
             ))),
-            Code::Native(native) => Some(Called::Native(native.body(), native.instance())),
+            Code::Native(native) => Some(Called::Native(*native)),
         }
     }
 
@@ -678,8 +712,23 @@ pub(super) struct Ask<'a> {
 enum Called {
     /// A chunk of a compiled program, its environment and its captured `this`.
     Compiled(Compiled),
-    /// A builtin's body, and the instance it is given if it is a constructor.
-    Native(Body, Option<Instance>),
+    /// A builtin: its body, the instance it is given if it is a constructor,
+    /// and how many values it keeps.
+    Native(Native),
+}
+
+/// Where a builtin being entered stands, as one thing rather than four
+/// arguments.
+#[derive(Debug, Clone, Copy)]
+struct Entered {
+    /// Where its callee sits, with its `this` and arguments above.
+    callee_at: usize,
+    /// How many arguments it was called with.
+    argc: usize,
+    /// The byte offset it was called from, for a message.
+    at: usize,
+    /// What its answer is for.
+    after: After,
 }
 
 /// A compiled function's code, read off its cell.

@@ -194,12 +194,12 @@ pub enum Missing {
     /// A builtin's second argument that must be turned into a primitive by
     /// running the script, when its first already was (queue item 221).
     ///
-    /// A native keeps a step number and nothing else across a call it asks
-    /// for, and the first argument's converted value is in the one slot the
-    /// second conversion's answer is written to. Converting the first again
+    /// The first argument's converted value is in the one slot the second
+    /// conversion's answer is written to. Converting the first again
     /// afterwards would be a second `toString` a page can count, so
     /// `el.setAttribute(a, b)` with an object for both is refused by name
-    /// until item 221 gives a native traced scratch state to keep it in.
+    /// until item 221 keeps the first in one of the slots ADR 0031 gives a
+    /// native (built in item 332).
     ASecondArgumentBehindACall,
     /// A regular expression method whose string argument was turned into a
     /// primitive by running script, and which then needs a second call: an
@@ -279,6 +279,9 @@ pub enum Internal {
     JumpIsWrong,
     /// A builtin was resumed somewhere it never suspended: it read the answer
     /// to a call it had not asked for, or was handed one it had no step for.
+    /// Or it reached a slot it never declared, read a slot it wrote as one
+    /// kind of value as another, or declared more slots than any builtin may
+    /// keep (ADR 0031 §§ 2–4).
     BuiltinIsWrong,
     /// A constructor's `prototype` was not a data property of its own, which
     /// the attributes it was made with forbid: it is not configurable, so
@@ -299,7 +302,10 @@ impl fmt::Display for Internal {
             }
             Internal::JumpIsWrong => write!(out, "an instruction jumped outside its own code"),
             Internal::BuiltinIsWrong => {
-                write!(out, "a builtin was resumed at a step it never asked for")
+                write!(
+                    out,
+                    "a builtin was resumed at a step it never asked for, or reached a slot it never kept"
+                )
             }
             Internal::ConstructorIsWrong => write!(
                 out,
@@ -355,6 +361,8 @@ impl Escape {
                 format!("a string of {units} code units is longer than this engine will make"),
                 at,
             ),
+            // No page made this builtin, so no page may catch it (ADR 0031 § 2).
+            Refused::KeepsTooMuch { .. } => Self::Broken(Internal::BuiltinIsWrong),
         }
     }
 
@@ -407,6 +415,13 @@ mod tests {
     use super::{Escape, Internal, Kind, Missing, Thrown};
     use crate::heap::Full;
     use crate::object::{Fault, Refused};
+
+    #[test]
+    fn a_builtin_that_keeps_too_much_is_this_engines_mistake() {
+        let refused = Escape::refused(Refused::KeepsTooMuch { kept: 9 }, 3);
+        assert_eq!(refused, Escape::Broken(Internal::BuiltinIsWrong));
+        assert!(!refused.is_the_pages(), "no page made the builtin");
+    }
 
     #[test]
     fn a_string_too_long_is_the_pages_and_a_full_heap_is_not() {

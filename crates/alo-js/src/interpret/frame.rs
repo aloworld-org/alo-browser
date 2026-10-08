@@ -200,7 +200,8 @@ pub(crate) struct Frame {
 /// record of that is the step it named. Everything else here is where its
 /// things are, which is the same shape a frame keeps and for the same reason —
 /// **nothing that could be collected is held in this struct**. Its `this`, its
-/// arguments and the answer it is waiting for are all on the stack.
+/// arguments, the values it keeps (ADR 0031) and the answer it is waiting for
+/// are all on the stack.
 ///
 /// [`Body`] is a function pointer, so it is a number too: a builtin holds no
 /// edge (see [`native`](crate::object::native)), which is what makes this
@@ -213,6 +214,8 @@ pub(crate) struct Waiting {
     pub(crate) callee_at: usize,
     /// How many arguments it was called with.
     pub(crate) argc: usize,
+    /// How many values it keeps, in the slots from [`Waiting::kept_at`] up.
+    pub(crate) kept: usize,
     /// The byte offset it was called from, for a message.
     pub(crate) at: usize,
     /// What its own answer is for, which is what a `return` would have carried.
@@ -242,13 +245,19 @@ pub(crate) enum Slot {
 }
 
 impl Waiting {
+    /// Where the first value it keeps is: directly above its arguments, which
+    /// is where the stack ended when it was entered.
+    pub(crate) const fn kept_at(&self) -> usize {
+        self.callee_at.saturating_add(2).saturating_add(self.argc)
+    }
+
     /// Where the answer to whatever it asked for is written.
     ///
-    /// Directly above its arguments, which is where the stack already ends when
-    /// it is entered — so a builtin's whole region is `callee | this | args |
-    /// answer` and nothing it asked for can disturb what is below.
+    /// Directly above the values it keeps, which is where the stack ends once
+    /// they are reserved — so a builtin's whole region is `callee | this | args
+    /// | kept | answer` and nothing it asked for can disturb what is below.
     pub(crate) const fn answer_at(&self) -> usize {
-        self.callee_at.saturating_add(2).saturating_add(self.argc)
+        self.kept_at().saturating_add(self.kept)
     }
 }
 

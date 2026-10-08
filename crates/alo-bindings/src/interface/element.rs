@@ -14,10 +14,11 @@
 //! # `setAttribute` with two objects
 //!
 //! Both arguments are `DOMString`s, so an object for either runs the page's
-//! `toString`, and the interpreter does that for a native that asks — but a
-//! native keeps a step number and nothing else across what it asked for,
-//! and the first argument's string is in the slot the second's answer is
-//! written to. So when **both** are objects the call is refused by name
+//! `toString`, and the interpreter does that for a native that asks — but
+//! the first argument's string is in the slot the second's answer is
+//! written to, and this builtin keeps no slot of its own to move it to
+//! (ADR 0031; item 221 gives it one). So when **both** are objects the call
+//! is refused by name
 //! ([`Missing::ASecondArgumentBehindACall`], queue item 221) rather than
 //! converting the first one twice, which a page could count. One object and
 //! one primitive is converted in full: a primitive's string needs no script

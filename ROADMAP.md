@@ -769,10 +769,15 @@ unreachable without it.
       the tag rather than by a case for it. An element or an array-like's
       `length` behind a getter is refused by name (item 231), because a call
       from inside the iterator would make a generator's states observable
-      · Owed: traced native scratch state, decided in ADR 0031 — up to
-      eight value slots a builtin declares, on the stack above its
-      arguments — and not built (queue item 332); `apply` (221) and
-      `forEach` with a `NodeList`'s iterators (331) on it; and the
+      · Built: **the slots a builtin keeps** (queue item 332, ADR 0031) —
+      `alo-js`' `Native::keeping` declares up to
+      `bounds::KEPT_BY_A_BUILTIN` (eight), reserved as `undefined` on the
+      stack above the arguments and counted against its bound, read and
+      written on the stack itself by `Call::kept` and `Call::keep`, and a
+      declaration over eight refused where the function is made; no
+      builtin of the library uses them yet
+      · Owed: `apply` (221) and `forEach` with a `NodeList`'s iterators
+      (331) on those slots; and the
       remaining library. `Error.prototype.toString` of a `message` that is
       a getter or an object is refused by name (item 228, on 221), and
       `AggregateError` is item 229. `Object` and `Function` themselves are

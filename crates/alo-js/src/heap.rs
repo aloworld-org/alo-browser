@@ -314,6 +314,17 @@ impl<T> Heap<T> {
     pub fn live_at(&self, held: Ref) -> bool {
         self.get(held).is_some()
     }
+
+    /// Every cell in the heap now, in slot order — for an audit of what has
+    /// been made, such as ADR 0031 § 2's walk over every builtin a realm was
+    /// furnished with.
+    ///
+    /// It hands out cells and never a [`Ref`]: a reference is made by
+    /// [`Heap::allocate`] and by nothing else, and an audit has no business
+    /// holding one.
+    pub fn cells(&self) -> impl Iterator<Item = &T> {
+        self.cells.iter().filter_map(Option::as_ref)
+    }
 }
 
 impl<T: Trace> Heap<T> {
