@@ -46,7 +46,8 @@
 //!
 //! The first **named** builtins are the seven error constructors (queue item
 //! 227): `Error`, `TypeError` and the rest, writable and configurable and not
-//! enumerable, as every constructor on the global object is. There is still no
+//! enumerable, as every constructor on the global object is; `Promise` (queue
+//! item 333) is bound the same way. There is still no
 //! `Object`, no `Array`, no `Math` and no `console`. ADR 0013 § 3 — *absent
 //! beats approximate* — and each is a queue item. An embedder may put its own
 //! things on the global object today, which is how a test harness reaches a
@@ -154,6 +155,7 @@ impl Realm {
             .name_the_values(objects)
             .map_err(|why| Escape::refused(why, 0))?;
         realm.name_the_errors(objects)?;
+        realm.name_the_promise(objects)?;
         Ok(realm)
     }
 
@@ -247,6 +249,22 @@ impl Realm {
                 Property::data(Value::Object(constructor), true, false, true),
             )?;
         }
+        Ok(())
+    }
+
+    /// `Promise`, bound to its name as the error constructors are (queue item
+    /// 333).
+    fn name_the_promise(&self, objects: &mut Objects) -> Result<(), Escape> {
+        let global = self.global(objects)?;
+        // Rooted by the intrinsics, so it survives the interning below.
+        let constructor = self.intrinsics.promise_constructor(objects)?;
+        let units: Vec<u16> = "Promise".encode_utf16().collect();
+        let key = objects.key(&units).map_err(|why| Escape::refused(why, 0))?;
+        objects.define(
+            global,
+            key,
+            Property::data(Value::Object(constructor), true, false, true),
+        )?;
         Ok(())
     }
 

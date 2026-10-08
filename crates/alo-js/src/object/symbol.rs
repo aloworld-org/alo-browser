@@ -14,10 +14,11 @@
 //! # The ones the language names, and the ones it does not yet
 //!
 //! A well-known symbol is one of these, made once and rooted by the realm that
-//! owns it — not a change to what a symbol is. [`WellKnown`] names the two
-//! this engine makes (queue item 230): `Symbol.iterator`, which `for…of`
-//! calls, and `Symbol.toStringTag`, which `Object.prototype.toString` reads.
-//! The other eleven, the `Symbol` function that would let a page name any of
+//! owns it — not a change to what a symbol is. [`WellKnown`] names the three
+//! this engine makes: `Symbol.iterator`, which `for…of` calls, and
+//! `Symbol.toStringTag`, which `Object.prototype.toString` reads (queue item
+//! 230); and `Symbol.species`, which a promise's `then` reads to learn what
+//! to make (queue item 333). The other ten, the `Symbol` function that would let a page name any of
 //! them, and the cross-realm registry behind `Symbol.for` are queue item 73's.
 
 use crate::heap::{Field, Ref, Tracer};
@@ -68,17 +69,25 @@ pub enum WellKnown {
     /// `Symbol.toStringTag`: the name `Object.prototype.toString` puts in its
     /// answer, in place of the one it would work out for itself.
     ToStringTag,
+    /// `Symbol.species`: the constructor a method that makes a new object of
+    /// its receiver's kind makes it with (`SpeciesConstructor`).
+    Species,
 }
 
 impl WellKnown {
     /// Every one, in the order a realm makes them.
-    pub const ALL: [WellKnown; 2] = [WellKnown::Iterator, WellKnown::ToStringTag];
+    pub const ALL: [WellKnown; 3] = [
+        WellKnown::Iterator,
+        WellKnown::ToStringTag,
+        WellKnown::Species,
+    ];
 
     /// Where it is in [`WellKnown::ALL`].
     pub const fn index(self) -> usize {
         match self {
             WellKnown::Iterator => 0,
             WellKnown::ToStringTag => 1,
+            WellKnown::Species => 2,
         }
     }
 
@@ -87,6 +96,7 @@ impl WellKnown {
         match self {
             WellKnown::Iterator => "Symbol.iterator",
             WellKnown::ToStringTag => "Symbol.toStringTag",
+            WellKnown::Species => "Symbol.species",
         }
     }
 }

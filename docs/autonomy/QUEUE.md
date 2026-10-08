@@ -3504,8 +3504,11 @@ The long pole, and the thing most of section E is unreachable without.
   233 or 234. What stays here keeps its dependency on 76: the combinators
   (`all`, `allSettled`, `race`, `any`), `async`/`await` and generators, which
   suspend a frame, and the async iterators.
+  **Item 333 is built (iteration 213)**: a combinator here is a builtin over
+  `then`, `Promise.resolve` and a job, which all exist; `await` is a
+  reaction whose handler resumes a frame.
 
-- [ ] **333. A promise.** *Cut from 75 by ADR 0032 § 5 (iteration 212).
+- [x] **333. A promise.** *Cut from 75 by ADR 0032 § 5 (iteration 212).
   Depends on 232 and 235, both done.* The `Promise` constructor and its
   executor; `then`, `catch` and `finally` on `Promise.prototype`;
   `Promise.resolve` and `Promise.reject`; resolution by a thenable through a
@@ -3524,6 +3527,55 @@ The long pole, and the thing most of section E is unreachable without.
   reaction that throws rejects the promise `then` made; an unhandled
   rejection is reported once and a handled one never; and every prefix cut
   of a script that makes promises is refused or run, never a panic.
+  **Built (iteration 213).** `object/promise.rs` is the cell
+  (`Cell::Promise`: state, result, one list of reactions with both
+  handlers, `[[PromiseIsHandled]]`), made by `Objects::promise` and
+  `Instance::Promise`. A builtin's *function object* may hold one value
+  (`Objects::native_holding`, read with `Call::held`), the question ADR
+  0031 left to where it is built: a resolving pair holds a two-value record
+  (the promise and `[[AlreadyResolved]]`), `thenFinally`/`catchFinally` hold
+  `onFinally`, the thunks hold what they answer. Two new asks:
+  `Want::Catch`, a call whose uncaught throw stops at the builtin and is its
+  answer with `Call::threw` (`catch.rs`'s `hand_back`, beside
+  `set_aside`), and `Want::Settle`, which `interpret/settle.rs` does —
+  write the state, push a `%PromiseReactionJob%` per reaction with
+  `Jobs::push`, and remember a rejection with nothing handling it in
+  `Rejections`, a rooted list `Engine::checkpoint` walks after its jobs,
+  reporting each still unhandled through the same report with no calls
+  left (`Drained::unhandled`); `abandon` forgets them with the jobs. The
+  builtins are `builtin/promise.rs` (constructor, statics,
+  `get [Symbol.species]`, furnishing), `promise_then.rs` (`then`, `catch`,
+  `SpeciesConstructor`), `promise_finally.rs`, `promise_resolving.rs`
+  (the pair and `%ResolvePromise%`, the one resolve procedure) and
+  `promise_job.rs` (the reaction and thenable jobs). `Symbol.species` is a
+  third well-known symbol; `builtin::error::made` makes an error object for
+  a rejection and now also for `catch.rs`. A constructor other than
+  `Promise` is refused as `Missing::APromiseOfAnotherConstructor`, cut as
+  **item 337**. Tests: `alo-js/tests/what_a_promise_does.rs` (every closing
+  condition; each table ordinarily and with the collector at every
+  allocation; every prefix cut of a promise script, both ways). Checked by
+  mutation: not holding `resolve` while `reject` is made, and keeping
+  `thenFinally` only after `catchFinally` is made, each fail the stressed
+  runs.
+
+- [ ] **337. A promise made by a constructor other than `Promise`.** *Cut
+  from 333 (iteration 213). Depends on 333, done; a subclass written with
+  `class … extends Promise` also needs 223.* `NewPromiseCapability(C)` for
+  any constructor `C`: construct it with a
+  `GetCapabilitiesExecutor` closure that records the `resolve` and `reject`
+  it is handed, refuse a second call of it and a capability without two
+  callable functions with the `TypeError`s the specification gives, and
+  resolve or reject through the recorded functions. `then`, `finally`,
+  `Promise.resolve` and `Promise.reject` stop refusing
+  `Missing::APromiseOfAnotherConstructor`. *Opened by:* a page that
+  subclasses `Promise` or sets `Symbol.species` on one, frozen in the
+  corpus. *Closes when:* `then` on a promise whose species is a script's
+  constructor answers that constructor's object and calls its executor
+  once; `Promise.resolve.call(C, x)` and `Promise.reject.call(C, r)` do
+  the same; an executor called twice, or handing back something not
+  callable, throws the specification's `TypeError`; and the tables of
+  `what_a_promise_does.rs` still answer the same, with the collector at
+  every allocation.
 
 - [ ] **76. The event loop** — tasks, microtasks, the rendering steps,
   `requestAnimationFrame`. `ROADMAP.md`: *"where 'it works, but the animation

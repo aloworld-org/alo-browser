@@ -61,6 +61,7 @@ mod primitive;
 mod property;
 mod regexp;
 mod reported;
+mod settle;
 mod unwound;
 
 use std::rc::Rc;
@@ -159,6 +160,9 @@ pub struct Engine {
     /// Throws a builtin asked to have reported, waiting for the embedder
     /// (ADR 0018 § 3).
     set_aside: reported::SetAside,
+    /// Promises rejected with nothing handling them, waiting for the end of
+    /// the checkpoint (queue item 333).
+    rejections: settle::Rejections,
 }
 
 impl Engine {
@@ -173,6 +177,7 @@ impl Engine {
         let realm = Realm::new(&mut objects)?;
         let names = Names::new(&mut objects).map_err(|why| Escape::refused(why, 0))?;
         let jobs = Jobs::new(&mut objects)?;
+        let rejections = settle::Rejections::new(&mut objects)?;
         Ok(Self {
             objects,
             realm,
@@ -182,6 +187,7 @@ impl Engine {
             last: None,
             unwound: Unwound::default(),
             set_aside: reported::SetAside::default(),
+            rejections,
         })
     }
 

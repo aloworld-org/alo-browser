@@ -19706,3 +19706,132 @@ rather than adding a file a second job. No `unsafe`, no new dependency.
 144 queue items are open: 333–336 added, none closed. The next unused
 queue number is **337** and the next ADR is **0033**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 213 — queue item 333: a promise
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+promises, event-loop and `fetch()` lines, iteration 212's entry, and queue
+items 75, 76, 333–336. ADRs read for the item: 0032 (§§ 4–5 in full, the
+rest for where a promise is used), 0031 (§ 6 and *What this does not
+decide*, which leaves the state a builtin's function object carries to
+where it is built), and 0016's passages on the job queue and reporting.
+Code read: `alo-js`'s `job.rs`, `interpret/checkpoint.rs`, `call.rs`,
+`catch.rs`, `reported.rs`, `frame.rs`, `construct.rs`, `object/native.rs`,
+`function.rs`, `cell.rs`, `slots.rs`, `array_iterator.rs`, `symbol.rs`,
+`builtin.rs`, `builtin/error.rs`, `for_each.rs`, `array_like.rs`,
+`realm.rs`, and the renderer's checkpoint and report. No `AGENTS.md`
+exists. The checkout was clean on entry at `53610de`. No sibling repository
+was read or written.
+
+**Selection.** Iteration 212 named 333 and 334 as eligible, 333 first in
+file order. I rechecked rather than trusted it: everything ahead of 333 is
+blocked on a page, a person, Linux, an ADR or an open dependency, as that
+entry lists. 333's dependencies, 232 and 235, are done. It names its ADR
+(0032 § 5), its contract (`docs/features.md`'s promises line) and its
+closing condition.
+
+**What was built.**
+- **A promise is a cell** (`object/promise.rs`, `Cell::Promise`): state,
+  result, one list of reactions holding both handlers, and
+  `[[PromiseIsHandled]]`. Settling hands the reactions back and keeps none.
+  A `then` grows the list through `Heap::write`, so the heap's ceiling
+  bounds it.
+- **A builtin's function object may hold one value**
+  (`Objects::native_holding`, `Function::held`, `Call::held`). This is the
+  question ADR 0031 left to where it is built, answered as it said: in the
+  function's own cell. The `Native` still holds no edge.
+- **Two new asks.** `Want::Catch` is a call whose uncaught throw stops at
+  the builtin and comes back as its answer, with `Call::threw`. It is a
+  wall like `Want::Report`, handled by `catch.rs`'s `hand_back`.
+  `Want::Settle` is done by the engine (`interpret/settle.rs`): it writes
+  the state, queues a `%PromiseReactionJob%` per reaction and remembers a
+  rejection with nothing handling it. The checkpoint walks that list after
+  its jobs and reports each promise still unhandled through the same
+  report, with no calls left (`Drained::unhandled`). `abandon` forgets the
+  list with the jobs.
+- **The builtins**, split one responsibility per file: `promise.rs`
+  (constructor, `Promise.resolve`, `Promise.reject`, `get
+  [Symbol.species]`, furnishing), `promise_then.rs` (`then`, `catch`,
+  `SpeciesConstructor`), `promise_finally.rs`, `promise_resolving.rs` (the
+  resolving pair and `%ResolvePromise%`, the one resolve procedure) and
+  `promise_job.rs` (the reaction and thenable jobs). `Symbol.species` is a
+  third well-known symbol. `Promise` is on the global object.
+- **Cut, not approximated.** A constructor other than `Promise` (a
+  subclass, or another species) is refused as
+  `Missing::APromiseOfAnotherConstructor`. That is new item **337**, which
+  waits for a page. The constructor and species reads happen first, in the
+  specification's order, so `p.constructor = 0` gives the spec's
+  `TypeError`. `then` on a `Promise` capability holds the derived promise
+  itself rather than making a resolving pair nobody else can see. That is
+  observably the same, with three fewer allocations.
+- `builtin::error::made` makes an error object. It is shared by promise
+  rejections and by `catch.rs`, whose own copy it replaced.
+
+**Gate, mechanical.** I warmed clippy with `--all-targets --all-features`
+and the workspace tests with `--no-run`. Then `scripts/gate.sh` ran into a
+log with the two-hour bound, and I polled it in this turn. Result: exit 0,
+"The gate is met".
+- fmt clean, clippy silent, tests pass.
+- No stubs, `unsafe` forbidden, licences present.
+- Every rented crate is behind its boundary, and no verb takes a
+  coordinate.
+- The stop rule holds, and the changelog changed.
+
+Before the gate I also ran `alo-js`, `alo-bindings`, `alo-renderer` and
+`alo-corpus` tests, which all passed.
+
+**Gate, manual.**
+- Tests: `alo-js/tests/what_a_promise_does.rs`, nine tests covering every
+  closing condition. Each table runs ordinarily and with the collector at
+  every allocation, and both must match the expected string. They pin:
+  - `then` before a later `queueMicrotask`;
+  - a thenable adopted one job late (`tPqT`), and the two-job delay of
+    resolving with a promise (`bcad`);
+  - `finally` passing values and reasons through and waiting;
+  - executor and handler throws rejecting, including engine `TypeError`s;
+  - self-resolution;
+  - unhandled rejections reported once, in order, and never when handled in
+    the same task or by a job in the same checkpoint;
+  - every refusal's message;
+  - every prefix cut of a promise script, both ways, leaving no job,
+    rejection or scope behind and a consistent heap.
+- Checked by mutation, per my notes:
+  - Not holding `resolve` while `reject` is allocated fails six tests'
+    stressed runs.
+  - Keeping `thenFinally` only after `catchFinally` is made fails two.
+  - Both were restored.
+- Layout assertions and reference renders: none apply. Nothing positions,
+  sizes or draws.
+- One responsibility per file: the five promise builtin files are split as
+  above. `settle.rs` is what follows a settlement (the jobs and the host's
+  rejection tracking). `catch.rs` is still where a throw lands. `error.rs`
+  still makes errors.
+- Bytes from outside: no new parser. Hostile scripts reach the new
+  builtins only through the existing interpreter, and the prefix-cut test
+  covers them.
+- `docs/features.md` describes what is built and what is refused. No
+  `unsafe`, no new dependency. No ADR was needed: 0032 § 5 decides the
+  promise, and 0031 left the function-held state to this item.
+
+**Roadmap.** The promises line gains a Built clause for 333. Its Owed
+clause now names 337 and what stays in 75. It is not ticked: generators,
+the combinators and `async`/`await` are owed. The `fetch()` line notes
+that 335's promise is built. `CHANGELOG.md`, `REMAINING.md` and `alo-js`'s
+crate doc say the same.
+
+**Unresolved obligations.**
+- HTML's `unhandledrejection` and `rejectionhandled` events are not fired.
+  An unhandled rejection is only reported. Nothing opens an item for them
+  until a page listens.
+- The renderer reports an unhandled rejection as `uncaught: …` with no
+  place, like any throw. It does not say "in promise". A page or a person
+  asking for that should open an item.
+- **334 is eligible and next.** 335 (which moves `alo-downloads`) waits
+  only on 334. 337 waits for a page.
+- Still standing: 322 and 324 wait for a page, 323 waits on 73, and 328
+  waits for a page. 284, 311 and 314 wait for pages; 296 needs a person;
+  297–300, 302, 304 and 308; 126 and 132.
+
+144 queue items are open: 333 closed, 337 added. The next unused queue
+number is **338** and the next ADR is **0033**. This is one iteration, not
+a finished queue or roadmap.

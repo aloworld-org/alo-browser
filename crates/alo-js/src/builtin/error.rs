@@ -241,6 +241,72 @@ fn linked(
     Ok((objects.heap_mut().root(constructor), prototype))
 }
 
+/// An error of `family` saying `message`: what `new TypeError(message)` would
+/// have made, for an error the engine throws or rejects a promise with (queue
+/// items 210 and 333).
+///
+/// Its prototype is read off the constructor the realm roots, whose
+/// `prototype` is fixed, so anything else there is this engine's bug. The
+/// error is held in a scope across the message's allocation; once this
+/// answers it is in a Rust local, and the caller puts it somewhere the
+/// collector walks before anything else allocates.
+///
+/// # Errors
+///
+/// [`Escape::Full`] for a heap at its ceiling, and a fault for a root this
+/// engine has lost.
+pub(crate) fn made(
+    objects: &mut Objects,
+    intrinsics: &super::Intrinsics,
+    family: Family,
+    message: &str,
+    at: usize,
+) -> Result<Ref, Escape> {
+    let scope = objects.heap_mut().open();
+    let outcome = made_in_scope(objects, intrinsics, family, message, at);
+    objects.heap_mut().close(scope);
+    outcome
+}
+
+/// [`made`], with the scope already open.
+fn made_in_scope(
+    objects: &mut Objects,
+    intrinsics: &super::Intrinsics,
+    family: Family,
+    message: &str,
+    at: usize,
+) -> Result<Ref, Escape> {
+    let constructor = intrinsics.error_constructor(objects, family)?;
+    let prototype = key(objects, "prototype", at)?;
+    // Neither writable nor configurable, so it is the object it was made
+    // with — and the intrinsic's root holds it.
+    let Found::Value(Value::Object(above)) = objects.get(constructor, prototype)? else {
+        return Err(Escape::Broken(Internal::ConstructorIsWrong));
+    };
+    let made = objects
+        .error(Some(above))
+        .map_err(|why| Escape::refused(why, at))?;
+    objects.heap_mut().hold(made);
+    let name = key(objects, "message", at)?;
+    if let Some(held) = name.reference() {
+        objects.heap_mut().hold(held);
+    }
+    let text = objects
+        .text(message.encode_utf16().collect())
+        .map_err(|why| Escape::refused(why, at))?;
+    let defined = objects.define(
+        made,
+        name,
+        Property::data(Value::Text(text), true, false, true),
+    )?;
+    if defined {
+        Ok(made)
+    } else {
+        // A new object with nothing on it refused a property: ours.
+        Err(Escape::Broken(Internal::StackIsWrong))
+    }
+}
+
 /// Intern a name and hold the string that spells it in the open scope.
 fn held_key(objects: &mut Objects, name: &str) -> Result<Key, Escape> {
     let units: Vec<u16> = name.encode_utf16().collect();

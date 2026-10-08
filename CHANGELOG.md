@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Promises work.** A page's script can make a `Promise`, wait on it with
+  `then`, `catch` and `finally`, and use `Promise.resolve` and
+  `Promise.reject`. A chain runs in the order every other browser runs it,
+  down to which of two queued steps goes first, and a handler that throws
+  rejects the next link rather than escaping, so a failure travels to the
+  `catch` at the end of the chain. A rejection nothing has handled by the
+  time the queued steps are done is reported once, as an uncaught error is;
+  one handled in time is never reported. This is what `fetch` will answer
+  with. Subclasses of `Promise`, `Promise.all` and its kin, and
+  `async`/`await` are not here yet and say so when reached.
+
 - **How a page's `fetch` will work is decided** (ADR 0032), and nothing of
   it is built yet. The page's process asks; the browser process, which
   already knows where the page came from and what its server allowed,

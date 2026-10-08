@@ -381,7 +381,8 @@ unreachable without it.
       origin, policy and cause, and the response comes back as a task of its
       own carrying only what the page may read. The boundary and the
       decision (queue item 334), `fetch()` and its `Response` in a page,
-      closed by `alo-downloads` (335, on 333's promise), and asynchronous
+      closed by `alo-downloads` (335, on 334 and on 333's promise, which is
+      built), and asynchronous
       `XMLHttpRequest` when a page uses one (336)
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action,
@@ -825,13 +826,17 @@ unreachable without it.
       230) — `GetIterator`, a step and `IteratorClose`, compiled to ordinary
       calls, with `%IteratorPrototype%` and the array iterator behind them;
       and **the microtask queue** (queue item 232) — `alo-js`'s job queue in
-      the heap and the checkpoint that drains it
-      · Owed: **a promise** — its constructor, `then`, `catch`, `finally`,
-      `resolve` and `reject`, its reactions jobs on that queue — cut from 75
-      by ADR 0032 § 5 as queue item 333, because it needs only that queue
-      and the checkpoint after each task, both built; generators, which are a
-      suspended frame; the combinators; `async`/`await`; `for await` and
-      async iterators (queue item 75)
+      the heap and the checkpoint that drains it; and **a promise** (queue
+      item 333, ADR 0032 § 5) — `Promise` and its executor, `then`, `catch`,
+      `finally`, `Promise.resolve`, `Promise.reject` and `Symbol.species`,
+      a promise a cell in the heap, each reaction a job on that queue, a
+      thenable adopted by a job of its own, an executor's or a handler's
+      throw a rejection (`Want::Catch`), and a rejection nobody handled by
+      the end of a checkpoint reported as an uncaught throw is
+      · Owed: a promise made by a constructor other than `Promise` — a
+      subclass, another `Symbol.species` — refused by name (queue item 337);
+      generators, which are a suspended frame; the combinators;
+      `async`/`await`; `for await` and async iterators (queue item 75)
 - [ ] Modules: ESM, dynamic `import()`, and the loader that fetches them
 - [ ] **The event loop** — tasks, microtasks, the rendering steps, `requestAnimationFrame`. Where "it works, but the animation stutters" is decided
       · Built: **the engine's half** (`alo-js`, queue item 232, under ADR

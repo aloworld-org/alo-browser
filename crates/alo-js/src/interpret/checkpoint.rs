@@ -44,6 +44,14 @@
 //! page stopped half way through is in a state no script on it expected, and
 //! running its next job would be inventing a continuation.
 //!
+//! # Then the rejections nobody handled
+//!
+//! Once no job is left, each promise rejected with nothing handling it — and
+//! still unhandled now — is reported through the same report, as an uncaught
+//! throw of its reason ([`settle`](super::settle), queue item 333). That is
+//! HTML's *notify about rejected promises*, which a checkpoint ends with, so a
+//! handler attached by any job of the same checkpoint is in time.
+//!
 //! # It never nests, and the borrow is the flag
 //!
 //! HTML guards the checkpoint with a flag so that a job which calls into
@@ -74,6 +82,9 @@ pub struct Drained {
     /// How many more of those were counted rather than kept, past
     /// [`REPORTS_SET_ASIDE`](crate::bounds::REPORTS_SET_ASIDE).
     pub unreported: usize,
+    /// How many rejected promises nothing had handled by the end, each
+    /// reported after the jobs (queue item 333).
+    pub unhandled: usize,
 }
 
 impl Engine {
@@ -155,7 +166,8 @@ impl Engine {
     /// `report` is told of each job that threw, as it throws, and is handed
     /// the object model read-only so that it can describe what was thrown and
     /// cannot run anything — and the calls the throw left (queue item 241),
-    /// which the next job forgets.
+    /// which the next job forgets. It is then told of each promise rejected
+    /// with nothing handling it, as a throw of its reason with no calls left.
     ///
     /// # Errors
     ///
@@ -167,7 +179,11 @@ impl Engine {
         &mut self,
         report: &mut dyn FnMut(&Objects, &Thrown, &Unwound),
     ) -> Result<Drained, Escape> {
-        match self.drain(report) {
+        let drained = self.drain(report).and_then(|mut drained| {
+            drained.unhandled = self.rejections.notify(&mut self.objects, report)?;
+            Ok(drained)
+        });
+        match drained {
             Ok(drained) => {
                 self.objects.heap_mut().end_job();
                 Ok(drained)
@@ -176,7 +192,8 @@ impl Engine {
         }
     }
 
-    /// Drop every job waiting, run none of them, and end the job.
+    /// Drop every job waiting, run none of them, forget every rejection
+    /// waiting to be reported, and end the job.
     ///
     /// What a loop does when a **task** ended some way other than a throw —
     /// stopped, a full heap, a thing this engine has not built — and the page
@@ -190,9 +207,18 @@ impl Engine {
     /// [`Escape::Broken`] if the queue has lost its list. The job is ended
     /// either way.
     pub fn abandon(&mut self) -> Result<(), Escape> {
-        let outcome = self.jobs.clear(&mut self.objects);
+        let outcome = self
+            .jobs
+            .clear(&mut self.objects)
+            .and(self.rejections.forget(&mut self.objects));
         self.objects.heap_mut().end_job();
         outcome
+    }
+
+    /// How many rejected promises are waiting for the end of the next
+    /// checkpoint to be told about, handled since or not (queue item 333).
+    pub fn rejections_waiting(&self) -> usize {
+        self.rejections.waiting(&self.objects)
     }
 
     /// Run jobs until none is left.

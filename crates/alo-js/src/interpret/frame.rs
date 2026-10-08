@@ -231,6 +231,11 @@ pub(crate) struct Waiting {
     /// inside that call catches stops here, is set aside for the embedder, and
     /// answers it `undefined` (ADR 0018 § 3). True only while that call runs.
     pub(crate) reporting: bool,
+    /// Whether the call it is waiting on was asked for with
+    /// [`Want::Catch`](crate::object::native::Want), so that a throw nothing
+    /// inside that call catches stops here and is its answer (queue item
+    /// 333). True only while that call runs.
+    pub(crate) catching: bool,
 }
 
 /// What a waiting builtin's answer slot holds.
@@ -242,6 +247,8 @@ pub(crate) enum Slot {
     Answered,
     /// The `undefined` a reported throw left, in place of an answer.
     Reported,
+    /// What a caught call threw, in place of an answer.
+    Caught,
 }
 
 impl Waiting {
@@ -306,6 +313,7 @@ impl Run {
         // The call it asked for is over, so a throw from here on is the
         // builtin's own, and goes where any builtin's throw goes.
         waiting.reporting = false;
+        waiting.catching = false;
         Ok(())
     }
 

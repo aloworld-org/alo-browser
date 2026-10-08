@@ -58,6 +58,9 @@
 //! `queueMicrotask` callback or a promise reaction waits in, held in the heap,
 //! and the checkpoint that runs it. The loop itself — tasks, their order,
 //! frames — is the renderer's, and this crate has no notion of a task.
+//! A promise (ADR 0032 § 5, queue item 333) is built on them: its reactions
+//! are jobs on that queue, and a rejection nobody handled is reported when a
+//! checkpoint ends.
 //!
 //! [`regexp`] is the engine's second interpreter (ADR 0029, queue item 74): a
 //! regular expression's pattern parsed to a tree, compiled to instructions,

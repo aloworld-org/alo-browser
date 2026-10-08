@@ -376,6 +376,7 @@ impl Engine {
             ready: true,
             answer: Slot::Empty,
             reporting: false,
+            catching: false,
         });
         Ok(())
     }
@@ -403,7 +404,9 @@ impl Engine {
             Some(self.value_at(run, waiting.answer_at())?)
         };
         let host = self.realm.host_defined(&self.objects)?;
+        let held = self.held_by(run, waiting.callee_at)?;
         let mut call = Call::new(&mut self.objects, this, &arguments, waiting.at)
+            .holding(held)
             .keeping(run.stack, waiting.kept_at(), waiting.kept)
             .within(self.realm.intrinsics())
             .hosted_by(host)
@@ -413,8 +416,10 @@ impl Engine {
         }
         if let Some(value) = answered {
             call.resume(waiting.step, value);
-            if waiting.answer == Slot::Reported {
-                call.was_reported();
+            match waiting.answer {
+                Slot::Reported => call.was_reported(),
+                Slot::Caught => call.was_caught(),
+                Slot::Empty | Slot::Answered => {}
             }
         }
         let answer = (waiting.body)(&mut call)?;
@@ -448,6 +453,7 @@ impl Engine {
         mine.ready = false;
         mine.answer = Slot::Answered;
         mine.reporting = matches!(want, Want::Report { .. });
+        mine.catching = matches!(want, Want::Catch { .. });
         match want {
             Want::Call {
                 callee,
@@ -455,6 +461,11 @@ impl Engine {
                 arguments,
             }
             | Want::Report {
+                callee,
+                receiver,
+                arguments,
+            }
+            | Want::Catch {
                 callee,
                 receiver,
                 arguments,
@@ -475,7 +486,41 @@ impl Engine {
             Want::Job { callee, arguments } => {
                 self.want_job_for(run, place, callee, &arguments, waiting.at)
             }
+            Want::Settle {
+                promise,
+                fulfilled,
+                value,
+            } => {
+                self.settle(promise, fulfilled, value)?;
+                self.answer_undefined(run, place)
+            }
         }
+    }
+
+    /// What the builtin whose callee sits at `callee_at` was made around
+    /// (queue item 333), read off its function — which is on the stack, so
+    /// what it holds is rooted while the body runs.
+    fn held_by(&self, run: &Run, callee_at: usize) -> Result<Value, Escape> {
+        let Value::Object(callee) = self.value_at(run, callee_at)? else {
+            return Err(Escape::Broken(Internal::BuiltinIsWrong));
+        };
+        self.objects
+            .callable(callee)
+            .map(crate::object::Function::held)
+            .ok_or(Escape::Broken(Internal::BuiltinIsWrong))
+    }
+
+    /// Answer a builtin `undefined`, for a thing it asked for that is done at
+    /// once and answers nothing.
+    fn answer_undefined(&mut self, run: &mut Run, place: usize) -> Result<(), Escape> {
+        let stack = run.stack;
+        self.objects
+            .with_slots(stack, |slots, _| {
+                slots.truncate(place);
+                slots.push(Value::Undefined);
+            })
+            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        run.answered()
     }
 
     /// Queue a job for a builtin, and answer it `undefined` (queue item 232).
@@ -491,14 +536,7 @@ impl Engine {
         at: usize,
     ) -> Result<(), Escape> {
         self.queue_job(callee, arguments, at)?;
-        let stack = run.stack;
-        self.objects
-            .with_slots(stack, |slots, _| {
-                slots.truncate(place);
-                slots.push(Value::Undefined);
-            })
-            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
-        run.answered()
+        self.answer_undefined(run, place)
     }
 
     /// `ToPrimitive` for a builtin: the object goes in the answer slot, and the

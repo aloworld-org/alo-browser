@@ -211,6 +211,17 @@ pub enum Missing {
     /// `toString` a page can count — `ASecondArgumentBehindACall`'s reason,
     /// met by `RegExp.prototype.exec` and `test` (queue item 74).
     ATwoCallRegExpMethod,
+    /// A promise made by a constructor other than `Promise` itself — a
+    /// subclass, or a `Symbol.species` or `this` naming another constructor
+    /// (queue item 337).
+    ///
+    /// `NewPromiseCapability(C)` for any `C` calls it with an executor of its
+    /// own and reads the two functions back, which is a capability this
+    /// engine does not keep. `then`, `finally`, `Promise.resolve` and
+    /// `Promise.reject` read the constructor the specification says they
+    /// read, and refuse here when it is not `Promise`; a value that is not a
+    /// constructor at all is still the `TypeError` the specification gives.
+    APromiseOfAnotherConstructor,
     /// Something an **embedder's** native reached and its embedder has not
     /// built, in the embedder's own words — which name the embedder's queue
     /// item, as every other variant names this engine's.
@@ -255,6 +266,10 @@ impl fmt::Display for Missing {
             Missing::ATwoCallRegExpMethod => write!(
                 out,
                 "a regular expression method whose string argument ran script to convert and which then calls script again is queue item 221"
+            ),
+            Missing::APromiseOfAnotherConstructor => write!(
+                out,
+                "a promise made by a constructor other than Promise is queue item 337"
             ),
             Missing::InTheEmbedder(what) => out.write_str(what),
         }

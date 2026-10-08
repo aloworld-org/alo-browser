@@ -85,6 +85,15 @@
 //! such as which of `addEventListener`'s options it has read, may ride in it;
 //! nothing a page can make as large as it likes may (ADR 0031 § 5).
 //!
+//! # A native that is a closure is told what it was made around
+//!
+//! A promise's `resolve` is a function the specification makes per promise,
+//! closing over it (queue item 333). A function pointer closes over nothing,
+//! so the function object holds that one value
+//! ([`Function::held`](super::Function::held)) and the interpreter hands it
+//! over with every call ([`Call::held`]). The callee is on the stack for the
+//! whole call, so what it holds is rooted for as long as the body runs.
+//!
 //! # What a native may keep across an allocation
 //!
 //! The same thing everything else may: what is in a [`Scope`](crate::heap::Scope),
@@ -143,7 +152,10 @@ impl Answer {
 /// builtin spelling it out again would be a second copy of a rule that has to
 /// agree with the first. A job is the third, and runs nothing now at all. A
 /// reported call is the fourth: a call, but one whose throw the builtin never
-/// sees (ADR 0018 § 3).
+/// sees (ADR 0018 § 3). A caught call is the fifth: a call whose throw the
+/// builtin is handed as its answer. Settling a promise is the sixth, because
+/// what settling does — queue a job per reaction, and remember a rejection
+/// nobody handled — is the engine's (queue item 333).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Want {
     /// Call `callee` with `receiver` as its `this`, and answer with what it
@@ -201,6 +213,43 @@ pub enum Want {
         /// Its arguments, in order.
         arguments: Vec<Value>,
     },
+    /// Call `callee` as [`Want::Call`] does, but hand a throw nothing inside
+    /// the call catches **back to the builtin** as its answer, with
+    /// [`Call::threw`] true (queue item 333).
+    ///
+    /// The specification's `Completion(Call(…))` followed by *if it is an
+    /// abrupt completion*: a promise's executor that throws rejects the
+    /// promise, and so does a reaction whose handler throws, rather than
+    /// either throw reaching the caller. An error the engine threw arrives as
+    /// the object a `catch` would have bound. Only the page's own escapes are
+    /// caught, as a `catch`'s are: a stop, a full heap or this engine's bug
+    /// still ends the run.
+    Catch {
+        /// What to call. Not being callable is the `TypeError` any call of a
+        /// non-function is, and it is caught like any other throw.
+        callee: Value,
+        /// Its `this`.
+        receiver: Value,
+        /// Its arguments, in order.
+        arguments: Vec<Value>,
+    },
+    /// Settle `promise` with `value`, queue a job for each reaction that was
+    /// waiting on it, and answer `undefined`: `FulfillPromise` or
+    /// `RejectPromise` (queue item 333).
+    ///
+    /// A rejection with nothing handling it is remembered by the engine and,
+    /// if nothing has handled it by the end of the checkpoint, reported
+    /// (`HostPromiseRejectionTracker`). A `promise` that is not one, or has
+    /// settled already, is this engine's bug: a promise's resolving functions
+    /// settle it at most once.
+    Settle {
+        /// The promise to settle.
+        promise: Value,
+        /// Whether it is fulfilled, rather than rejected.
+        fulfilled: bool,
+        /// The value it is fulfilled with, or the reason it is rejected with.
+        value: Value,
+    },
 }
 
 /// What a builtin constructor is given before its body runs (queue item 227).
@@ -232,6 +281,10 @@ pub enum Instance {
     /// has converted *in its instance*, which is where the standard keeps it
     /// (ADR 0031 § 6).
     Made(Make),
+    /// A pending promise with nothing waiting on it (queue item 333) — **only
+    /// when constructed**: `Promise()` without `new` is a `TypeError`, which
+    /// its body throws on seeing [`Call::constructing`] false.
+    Promise,
 }
 
 /// How an embedder's constructor makes its instance: from the prototype it
@@ -332,6 +385,7 @@ pub struct Call<'a> {
     intrinsics: Option<&'a Intrinsics>,
     host: Option<Ref>,
     stop: Option<&'a Stop>,
+    held: Value,
     this: Value,
     arguments: &'a [Value],
     slots: Option<Kept>,
@@ -339,6 +393,7 @@ pub struct Call<'a> {
     step: u32,
     answer: Option<Value>,
     reported: bool,
+    threw: bool,
     constructing: bool,
 }
 
@@ -355,6 +410,7 @@ impl<'a> Call<'a> {
             intrinsics: None,
             host: None,
             stop: None,
+            held: Value::Undefined,
             this,
             arguments,
             slots: None,
@@ -362,8 +418,23 @@ impl<'a> Call<'a> {
             step: 0,
             answer: None,
             reported: false,
+            threw: false,
             constructing: false,
         }
+    }
+
+    /// The same call, of a function made around `held`.
+    #[must_use]
+    pub const fn holding(mut self, held: Value) -> Self {
+        self.held = held;
+        self
+    }
+
+    /// What the function being called was made around
+    /// ([`Objects::native_holding`](super::Objects::native_holding)), or
+    /// `undefined` for one made around nothing.
+    pub const fn held(&self) -> Value {
+        self.held
     }
 
     /// The same call, made by `new` rather than called.
@@ -524,6 +595,19 @@ impl<'a> Call<'a> {
     /// answering — always false for anything but [`Want::Report`].
     pub const fn reported(&self) -> bool {
         self.reported
+    }
+
+    /// Say that the call it asked for with [`Want::Catch`] threw, and that
+    /// its answer is what was thrown.
+    pub const fn was_caught(&mut self) {
+        self.threw = true;
+    }
+
+    /// Whether the call it asked for threw, so that [`Call::answer`] is what
+    /// it threw rather than what it returned — always false for anything but
+    /// [`Want::Catch`].
+    pub const fn threw(&self) -> bool {
+        self.threw
     }
 
     /// Which step this is: zero the first time, and afterwards whatever the

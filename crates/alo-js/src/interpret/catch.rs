@@ -22,6 +22,15 @@
 //! aside for the embedder ([`reported`](super::reported)) and answered as
 //! `undefined`.
 //!
+//! # So is a caught call, and there the throw is the builtin's answer
+//!
+//! A builtin that asked with [`Want::Catch`](crate::object::native::Want) — a
+//! promise's executor, a reaction's handler (queue item 333) — is the same
+//! wall, but nothing is set aside: the calls inside are taken down, the thrown
+//! value is written where the call's answer would have been, and the builtin
+//! runs again told that it threw. An error the engine threw becomes its
+//! object first, as it does for a `catch`.
+//!
 //! # Only the page's own escapes are caught
 //!
 //! A `catch` reaches exactly [`Escape::is_the_pages`]: a value a script threw,
@@ -56,12 +65,12 @@
 //! is cut — so the object it becomes is made with nothing left in a local.
 
 use crate::abrupt::{Escape, Internal, Thrown};
-use crate::builtin::error::Family;
+use crate::builtin::error::{self, Family};
 use crate::code::Handler;
-use crate::object::{Found, Property, Value};
+use crate::object::Value;
 
 use super::Engine;
-use super::frame::{Run, Slot, Waiting};
+use super::frame::{Run, Slot};
 use super::unwound::Unwound;
 
 impl Engine {
@@ -77,18 +86,23 @@ impl Engine {
         let Escape::Thrown(thrown) = escape else {
             return Err(escape);
         };
-        // A builtin waiting on a call it asked to have reported is as far out
-        // as this throw may go: only the frames inside that call may catch it.
-        let boundary = Self::reporting(run);
-        let first = boundary.map_or(0, |place| {
+        // A builtin waiting on a call it asked to have reported or caught is
+        // as far out as this throw may go: only the frames inside that call
+        // may catch it.
+        let boundary = Self::wall(run);
+        let first = boundary.map_or(0, |(place, _)| {
             run.frames
                 .iter()
                 .position(|frame| frame.callee_at >= place)
                 .unwrap_or(run.frames.len())
         });
         let Some((which, handler)) = Self::guarding(run, first)? else {
-            if let Some(place) = boundary {
-                return self.set_aside(run, first, place, thrown);
+            if let Some((place, catching)) = boundary {
+                return if catching {
+                    self.hand_back(run, first, place, thrown)
+                } else {
+                    self.set_aside(run, first, place, thrown)
+                };
             }
             // The last moment the calls it left exist: the run gives them back
             // on its way out (queue item 241).
@@ -113,13 +127,69 @@ impl Engine {
     }
 
     /// Where the answer of the innermost call a builtin asked to have
-    /// reported lands — its callee's place — if one is running.
-    fn reporting(run: &Run) -> Option<usize> {
+    /// reported or caught lands — its callee's place — if one is running, and
+    /// whether it was caught.
+    fn wall(run: &Run) -> Option<(usize, bool)> {
         run.builtins
             .iter()
             .rev()
-            .find(|waiting| waiting.reporting)
-            .map(Waiting::answer_at)
+            .find(|waiting| waiting.reporting || waiting.catching)
+            .map(|waiting| (waiting.answer_at(), waiting.catching))
+    }
+
+    /// Stop a throw at the caught call whose callee sits at `place`: take
+    /// down every call inside it and hand what was thrown to the builtin that
+    /// asked, as its answer (queue item 333).
+    ///
+    /// A thrown value is in a Rust local until it is on the stack, and
+    /// nothing before that allocates. An error the engine threw is made into
+    /// its object after the stack is cut, with nothing left in a local.
+    fn hand_back(
+        &mut self,
+        run: &mut Run,
+        first: usize,
+        place: usize,
+        thrown: Thrown,
+    ) -> Result<(), Escape> {
+        self.take_down_to(run, first, place)?;
+        let stack = run.stack;
+        self.objects
+            .with_slots(stack, |slots, _| slots.truncate(place))
+            .ok_or(Escape::Broken(Internal::StackIsWrong))?;
+        match thrown {
+            Thrown::Value { value, .. } => self.push(run, value)?,
+            Thrown::Error { kind, message, at } => {
+                self.push_error(run, Family::from(kind), &message, at)?;
+            }
+        }
+        let waiting = run
+            .builtins
+            .last_mut()
+            .filter(|waiting| waiting.catching && waiting.answer_at() == place)
+            .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
+        waiting.answer = Slot::Caught;
+        run.answered()
+    }
+
+    /// Take down every frame from `first` and every builtin whose callee is
+    /// at or above `place`: everything inside a reported or caught call.
+    fn take_down_to(&mut self, run: &mut Run, first: usize, place: usize) -> Result<(), Escape> {
+        while run.frames.len() > first {
+            let Some(frame) = run.frames.pop() else {
+                return Err(Escape::Broken(Internal::StackIsWrong));
+            };
+            if let Some(root) = frame.environment {
+                self.objects.heap_mut().release(root);
+            }
+        }
+        while run
+            .builtins
+            .last()
+            .is_some_and(|waiting| waiting.callee_at >= place)
+        {
+            run.builtins.pop();
+        }
+        Ok(())
     }
 
     /// Stop a throw at the reported call whose callee sits at `place`: take
@@ -137,21 +207,7 @@ impl Engine {
         thrown: Thrown,
     ) -> Result<(), Escape> {
         let unwound = Unwound::of_from(run, first)?;
-        while run.frames.len() > first {
-            let Some(frame) = run.frames.pop() else {
-                return Err(Escape::Broken(Internal::StackIsWrong));
-            };
-            if let Some(root) = frame.environment {
-                self.objects.heap_mut().release(root);
-            }
-        }
-        while run
-            .builtins
-            .last()
-            .is_some_and(|waiting| waiting.callee_at >= place)
-        {
-            run.builtins.pop();
-        }
+        self.take_down_to(run, first, place)?;
         self.set_aside.keep(&mut self.objects, thrown, unwound);
         let stack = run.stack;
         self.objects
@@ -227,74 +283,23 @@ impl Engine {
     /// Push an error the engine threw as the object a page catches: an
     /// instance of its family's constructor with its message as an own
     /// property, which is what `new TypeError(message)` would have made.
-    fn push_error(
+    ///
+    /// [`error::made`] holds it across its own allocations, and nothing
+    /// between its answer and the push allocates.
+    pub(super) fn push_error(
         &mut self,
         run: &mut Run,
         family: Family,
         message: &str,
         at: usize,
     ) -> Result<(), Escape> {
-        let constructor = self
-            .realm
-            .intrinsics()
-            .error_constructor(&self.objects, family)?;
-        let key = self
-            .objects
-            .key(&units("prototype"))
-            .map_err(|why| Escape::refused(why, at))?;
-        // Neither writable nor configurable, so it is the object it was made
-        // with — and the intrinsic's root holds it.
-        let Found::Value(Value::Object(above)) = self.objects.get(constructor, key)? else {
-            return Err(Escape::Broken(Internal::ConstructorIsWrong));
-        };
-        let made = self
-            .objects
-            .error(Some(above))
-            .map_err(|why| Escape::refused(why, at))?;
-        // On the stack before the message allocates.
-        self.push(run, Value::Object(made))?;
-
-        let scope = self.objects.heap_mut().open();
-        let outcome = self.give_message(made, message, at);
-        self.objects.heap_mut().close(scope);
-        outcome
-    }
-
-    /// The message, own and not enumerable, with the scope open. The key is
-    /// held before the string is made, so nothing allocates between making the
-    /// string and storing it.
-    fn give_message(
-        &mut self,
-        made: crate::heap::Ref,
-        message: &str,
-        at: usize,
-    ) -> Result<(), Escape> {
-        let key = self
-            .objects
-            .key(&units("message"))
-            .map_err(|why| Escape::refused(why, at))?;
-        if let Some(held) = key.reference() {
-            self.objects.heap_mut().hold(held);
-        }
-        let text = self
-            .objects
-            .text(units(message))
-            .map_err(|why| Escape::refused(why, at))?;
-        let defined = self.objects.define(
-            made,
-            key,
-            Property::data(Value::Text(text), true, false, true),
+        let made = error::made(
+            &mut self.objects,
+            self.realm.intrinsics(),
+            family,
+            message,
+            at,
         )?;
-        if defined {
-            Ok(())
-        } else {
-            // A new object with nothing on it refused a property: ours.
-            Err(Escape::Broken(Internal::StackIsWrong))
-        }
+        self.push(run, Value::Object(made))
     }
-}
-
-/// A name as the code units a key or a string is made of.
-fn units(text: &str) -> Vec<u16> {
-    text.encode_utf16().collect()
 }

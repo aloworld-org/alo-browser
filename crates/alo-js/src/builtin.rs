@@ -37,6 +37,12 @@
 //! on it. It is an ordinary object rather than a `RegExp`, as the
 //! specification has made it since ES2015.
 //!
+//! `Promise` (`promise` and its four siblings, queue item 333) is the second
+//! named constructor family, because `fetch` answers one: the constructor,
+//! `then`, `catch`, `finally`, `Promise.resolve` and `Promise.reject`, and
+//! three functions only the engine calls — the two jobs a promise queues and
+//! the one resolve procedure. Its combinators are item 75's.
+//!
 //! # A well-known symbol is an intrinsic too
 //!
 //! `Symbol.iterator` is a key on `Array.prototype` and `%IteratorPrototype%`,
@@ -60,7 +66,7 @@
 //! (item 323). No `Array` constructor and no array method but the three
 //! iterators and `forEach`, no
 //! `Math`, `JSON`, `String`, `Number` or `Boolean`, no `AggregateError` (queue
-//! item 229), no `Symbol` and eleven of the thirteen well-known symbols, and no
+//! item 229), no `Symbol` and ten of the thirteen well-known symbols, and no
 //! weak collections. Each is named in the queue rather than half-built here.
 
 pub mod array_iterator;
@@ -71,6 +77,11 @@ mod for_each;
 pub mod function_prototype;
 pub mod iterator_prototype;
 pub mod object_prototype;
+mod promise;
+mod promise_finally;
+mod promise_job;
+mod promise_resolving;
+mod promise_then;
 pub mod regexp_prototype;
 
 use crate::abrupt::Escape;
@@ -102,6 +113,9 @@ pub struct Intrinsics {
     /// `%RegExp.prototype%`, which a regular expression literal's object
     /// inherits from (queue item 74).
     regexp: Root,
+    /// `Promise`, its prototype and the functions only the engine calls
+    /// (queue item 333).
+    promise: promise::Made,
 }
 
 impl Intrinsics {
@@ -171,6 +185,15 @@ impl Intrinsics {
             .holding(&function_prototype)
             .ok_or_else(|| Escape::fault(Fault::Gone))?;
         let errors = error::make(objects, above, functions)?;
+        let promise = promise::make(
+            objects,
+            above,
+            functions,
+            promise::Symbols {
+                species: symbol_key(objects, &symbols, WellKnown::Species)?,
+                to_string_tag: symbol_key(objects, &symbols, WellKnown::ToStringTag)?,
+            },
+        )?;
 
         let intrinsics = Self {
             object: object_prototype,
@@ -181,6 +204,7 @@ impl Intrinsics {
             iterator,
             array_iterator,
             regexp,
+            promise,
         };
         object_prototype::furnish(objects, &intrinsics)?;
         function_prototype::furnish(objects, &intrinsics)?;
@@ -300,6 +324,79 @@ impl Intrinsics {
             .holding(&self.regexp)
             .ok_or_else(|| Escape::fault(Fault::Gone))
     }
+
+    /// `Promise`, which the realm binds to its name (queue item 333).
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn promise_constructor(&self, objects: &Objects) -> Result<Ref, Escape> {
+        held(objects, &self.promise.constructor)
+    }
+
+    /// `Promise.prototype`, which every promise this engine makes inherits
+    /// from (queue item 333).
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn promise_prototype(&self, objects: &Objects) -> Result<Ref, Escape> {
+        held(objects, &self.promise.prototype)
+    }
+
+    /// The function `Promise.resolve` was made as, whatever a page has done
+    /// to the property since.
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn promise_resolve(&self, objects: &Objects) -> Result<Ref, Escape> {
+        held(objects, &self.promise.resolve)
+    }
+
+    /// `%PromiseReactionJob%`, the callee of every reaction's job.
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn reaction_job(&self, objects: &Objects) -> Result<Ref, Escape> {
+        held(objects, &self.promise.reaction_job)
+    }
+
+    /// `%PromiseResolveThenableJob%`, the callee of every thenable's job.
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn thenable_job(&self, objects: &Objects) -> Result<Ref, Escape> {
+        held(objects, &self.promise.thenable_job)
+    }
+
+    /// `%ResolvePromise%`, the one resolve procedure.
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn resolve_promise(&self, objects: &Objects) -> Result<Ref, Escape> {
+        held(objects, &self.promise.resolve_promise)
+    }
+}
+
+/// What a root names, or this engine's bug.
+fn held(objects: &Objects, root: &Root) -> Result<Ref, Escape> {
+    objects
+        .heap()
+        .holding(root)
+        .ok_or_else(|| Escape::fault(Fault::Gone))
+}
+
+/// The key a well-known symbol is, from the roots made before the intrinsics
+/// that are keyed by it.
+fn symbol_key(objects: &Objects, symbols: &[Root], which: WellKnown) -> Result<Key, Escape> {
+    let symbol = symbols
+        .get(which.index())
+        .ok_or_else(|| Escape::fault(Fault::Gone))?;
+    Ok(objects.symbol_key(held(objects, symbol)?)?)
 }
 
 /// Make the well-known symbols, each rooted the instant it exists.

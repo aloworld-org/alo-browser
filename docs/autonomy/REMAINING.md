@@ -751,6 +751,15 @@ cut from 75 as 333, on 232 and 235, which are built. 333 and 334 are
 eligible. 144 queue items are open. The next unused queue number is 337 and
 the next unused ADR 0033.
 
+Iteration 213 built item 333, a promise: the cell, the constructor and its
+executor, `then`, `catch`, `finally`, `Promise.resolve` and `Promise.reject`,
+each reaction a job on the engine's queue, a thenable adopted by a job of
+its own, and a rejection nobody handled reported at the end of the
+checkpoint. A constructor other than `Promise` is refused by name and cut as
+337, which waits for a page. 334 is eligible and next; 335, which moves
+`alo-downloads`, waits only on it. 144 queue items are open. The next unused
+queue number is 338 and the next unused ADR 0033.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

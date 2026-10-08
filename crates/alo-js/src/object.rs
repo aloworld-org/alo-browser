@@ -62,6 +62,7 @@ pub mod internal;
 pub mod key;
 pub mod native;
 pub mod ordinary;
+pub mod promise;
 pub mod property;
 pub mod regexp;
 pub mod slots;
@@ -87,6 +88,7 @@ pub use internal::{Exotic, Internal, Typed};
 pub use key::Key;
 pub use native::Native;
 pub use ordinary::Ordinary;
+pub use promise::Promise;
 pub use property::Property;
 pub use regexp::RegExp;
 pub use slots::{Held, Slots};
@@ -293,6 +295,40 @@ impl Objects {
         self.heap.get(held)?.regexp()
     }
 
+    /// Make a pending promise with this prototype and nothing waiting on it:
+    /// the object `new Promise` makes before its executor runs (queue item
+    /// 333).
+    ///
+    /// **This is a safepoint**, and the prototype is the caller's to have
+    /// rooted, as [`Objects::object`]'s is.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn promise(&mut self, prototype: Option<Ref>) -> Result<Ref, Refused> {
+        let promise = Promise::new(prototype);
+        Ok(self.heap.allocate(Cell::Promise(promise))?)
+    }
+
+    /// The promise a reference names, or [`None`] if it names anything else —
+    /// `IsPromise`.
+    pub fn as_promise(&self, held: Ref) -> Option<&Promise> {
+        self.heap.get(held)?.promise()
+    }
+
+    /// Change a promise, through the barrier every store passes.
+    pub fn with_promise<R>(
+        &mut self,
+        held: Ref,
+        with: impl FnOnce(&mut Promise, &mut Barrier) -> R,
+    ) -> Option<R> {
+        self.heap
+            .write(held, |cell, barrier| {
+                cell.promise_mut().map(|promise| with(promise, barrier))
+            })
+            .flatten()
+    }
+
     /// Make an error with this prototype and no properties of its own: the
     /// object `OrdinaryCreateFromConstructor` makes for an `Error` constructor,
     /// with the `[[ErrorData]]` slot (queue item 227).
@@ -417,12 +453,31 @@ impl Objects {
     /// allocated (ADR 0031 § 2); [`Refused::Full`] when the heap is at its
     /// ceiling.
     pub fn native(&mut self, native: Native, prototype: Option<Ref>) -> Result<Ref, Refused> {
+        self.native_holding(native, prototype, Value::Undefined)
+    }
+
+    /// Make a builtin made around `held`, which its body reads with
+    /// [`Call::held`](native::Call::held): a closure the specification writes
+    /// as one, such as a promise's `resolve` (queue item 333).
+    ///
+    /// **This is a safepoint**, and `held` is the caller's to have rooted, as
+    /// the prototype is.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`Objects::native`].
+    pub fn native_holding(
+        &mut self,
+        native: Native,
+        prototype: Option<Ref>,
+        held: Value,
+    ) -> Result<Ref, Refused> {
         if native.kept() > crate::bounds::KEPT_BY_A_BUILTIN {
             return Err(Refused::KeepsTooMuch {
                 kept: native.kept(),
             });
         }
-        let function = Function::native(native, prototype);
+        let function = Function::native_holding(native, prototype, held);
         Ok(self.heap.allocate(Cell::Function(function))?)
     }
 

@@ -46,6 +46,17 @@
 //!   here rather than walking a chain for it is what makes
 //!   [`Op::This`](crate::code::Op) one instruction with no case in it.
 //!
+//! # A builtin may be made around one value
+//!
+//! The specification writes some builtins as closures: a promise's `resolve`
+//! and `reject` share the promise they settle and whether it has been
+//! settled; `finally`'s `thenFinally` holds the callback it was given (queue
+//! item 333). A [`Native`] is a function pointer and captures nothing, on
+//! purpose, so the **function object** holds that value instead
+//! ([`Function::held`]) — one [`Stored`], traced like any edge — and the
+//! interpreter hands it to the body with its call. A builtin that is no
+//! closure holds `undefined`.
+//!
 //! # What a function has not got yet
 //!
 //! Whether a function has a `[[Construct]]` is not a field here: it is decided
@@ -95,6 +106,9 @@ pub enum Code {
 pub struct Function {
     ordinary: Ordinary,
     code: Code,
+    /// What a builtin was made around, or `undefined`: always `undefined` for
+    /// a compiled function, whose closure is its environment.
+    held: Stored,
 }
 
 impl Function {
@@ -122,20 +136,42 @@ impl Function {
                 },
                 captured: captured.map(Stored::holding),
             },
+            held: Stored::default(),
         }
     }
 
     /// A builtin, whose body is Rust.
     pub fn native(native: Native, prototype: Option<Ref>) -> Self {
+        Self::native_holding(native, prototype, Value::Undefined)
+    }
+
+    /// A builtin made around `held`, which its body is handed with every call.
+    pub fn native_holding(native: Native, prototype: Option<Ref>, held: Value) -> Self {
         Self {
             ordinary: Ordinary::with_prototype(prototype),
             code: Code::Native(native),
+            held: Stored::holding(held),
         }
     }
 
     /// Where its body came from, which is what a call asks first.
     pub const fn code(&self) -> &Code {
         &self.code
+    }
+
+    /// What a builtin was made around, or `undefined`.
+    pub const fn held(&self) -> Value {
+        self.held.get()
+    }
+
+    /// Whether it has a `[[Construct]]`: `IsConstructor`.
+    pub fn is_constructor(&self) -> bool {
+        match &self.code {
+            Code::Compiled { unit, chunk, .. } => unit
+                .chunk(*chunk)
+                .is_some_and(crate::code::Chunk::constructs),
+            Code::Native(native) => native.instance().is_some(),
+        }
     }
 }
 
@@ -155,9 +191,10 @@ impl Trace for Function {
             }
             // A native holds a function pointer and a `&'static str`, neither of
             // which can ever be an edge — see the module comment on
-            // [`native`](super::native).
+            // [`native`](super::native). What it was made around is `held`.
             Code::Native(_) => {}
         }
+        self.held.trace(tracer);
     }
 
     fn footprint(&self) -> usize {
