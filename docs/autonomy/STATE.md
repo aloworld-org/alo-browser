@@ -20120,3 +20120,174 @@ opened by this page.
 144 queue items are open: 335 closed, 339 added. The next unused queue
 number is **340** and the next ADR is **0033**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 216 — queue item 338: a decided fetch is made
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+head and its `fetch()` line, and iteration 215's entry. The open items
+before 338 in the queue were checked for eligibility (233, 234, 238, 258,
+259 and 83 among them); each is blocked or waits for a page, as 215 said.
+Queue items 83, 334–339. ADR 0032 in full (the item's ADR), with 0005,
+0007, 0011 § 4 and 0012 §§ 5 and 6 as it cites them. The feature contract is
+`docs/features.md`'s `fetch()` line. Code read: `alo-window`'s
+`conductor.rs`, `message.rs`, `showing.rs`, `opening.rs`, `bin/alo.rs` and
+its tests; `alo-renderer`'s `fetch.rs`, `fetch_decide.rs`,
+`fetch_filter.rs`, `fetch_owed.rs`, `tab.rs` and `tests/a_page_fetches.rs`;
+`alo-corpus`' `answering.rs`; `alo-net`'s `pool.rs`, `redirect.rs`,
+`cors.rs`, `preflight.rs`, `jar.rs`, `cookie.rs`, `headers.rs`,
+`response.rs`, `record.rs`, `resolve.rs`'s `reach_for`, `mixed.rs`,
+`referrer.rs`, `csp.rs` and `csp_source.rs`. No `AGENTS.md` exists. The
+checkout was clean on entry at `4e01440`. No sibling repository was read or
+written.
+
+**Built.**
+- `alo-renderer`, `fetch_make.rs`: `make` sends a decided `Fetch` through a
+  session's `Network` (`Pool`, `Jar`, `Preflights`), hop by hop.
+  - Each hop decides its own `Origin` again: the document's, or `null` once
+    a redirect has gone from one origin to a third (Fetch's tainted origin).
+    It does the same for `Referer`, from the document's URL under the page's
+    policy, and for `Cookie`, from the jar under the top-level site, only
+    while the credentials mode lets that hop carry them.
+  - A `cors` hop to another origin is asked about first when the preflight
+    cache does not cover it. The `OPTIONS` is made and recorded before the
+    request, and must answer with an ok status.
+  - `Set-Cookie` is kept only from a hop that carried credentials.
+  - Every answer on a CORS chain must agree, a redirect included, judged
+    against `null` once tainted.
+  - Under `follow`, the next hop is refused before it is sent, and recorded
+    by its rule, in four cases: a circle or a twenty-first hop, a
+    `same-origin` fetch leaving, credentials in a URL at another origin
+    under `cors`, or an insecure hop from a secure page.
+- `fetch_answering.rs`: `Answering` queues each tab's decided fetches with
+  the document that asked. It answers the oldest one at a time, delivers it
+  with `Tabs::fetched`, and queues what that delivery asks behind the rest.
+  It makes nothing for a document that has gone.
+- `fetch_decide.rs`: `Fetch` carries the document's URL and referrer
+  policy. Its per-hop methods (`sends_credentials`, `cookies`,
+  `asking_first`) moved into the maker, where each hop has its own answer.
+  `Refusal::record` writes to a `Pool`.
+- `fetch_filter.rs`: `filter` takes a `Route` (redirected, left the origin,
+  tainted).
+  - A chain that left is never `basic`, and under CORS its answer must
+    agree even from the page's origin.
+  - A `3xx` without `Location` is an answer.
+  - The status text is the response's own reason phrase.
+- `alo-net` gained:
+  - `Response::reason`, kept by the HTTP/1.1 reader, empty over HTTP/2. The
+    disk cache stores it from format version 2, so a version-1 entry is a
+    miss (ADR 0011).
+  - `Pool::hop`, one exchange from the cache where it can, with a redirect
+    handed back rather than followed.
+  - `Pool::refused`, a record line for a request a rule refused.
+  - `Jar::keep_what_was_set`. Per RFC 6265bis, a site embedded in another
+    may set only a `SameSite=None` cookie.
+  - `Headers::remove`.
+  - `cors::agreed_to_be_read` and `cors::exposed`: the CORS check and the
+    exposure, without the same-origin shortcut.
+- `alo-window`: the conductor holds the `Network` and an `Answering`.
+  - It takes a load's fetches, and between looks at its orders makes one
+    of them.
+  - After each delivery it paints the selected tab again, then says each
+    failure's reason as the tab's sentence.
+  - `alo` starts it over a session pool that trusts this machine.
+- `alo-corpus`'s answering passes its route and the frozen reason phrase.
+- **Cut, as item 340**: CSP3 ignores a source's path once a request has
+  been redirected, and `alo-net`'s CSP cannot tell. So a hop after the
+  first is not judged against `connect-src`. Checking with paths would
+  refuse what every browser follows. The first URL is judged, as before.
+
+**Gate, mechanical.** I warmed clippy and the test build with
+`--all-features`. Then `scripts/gate.sh` ran in the foreground with its
+output in a log. It passed ten minutes and the harness moved it to the
+background, so I polled the log to its end in the same turn and read it
+before writing this.
+- Result: exit 0, "The gate is met".
+- fmt clean, clippy silent (`--all-features -D warnings`), and
+  `cargo test --workspace --all-features` passing (the script sets
+  `pipefail`).
+- No stubs, no `unsafe`, licences present, and rented crates stay behind
+  their boundaries.
+- No verb takes a coordinate, the stop rule holds, and the changelog
+  changed.
+
+Before the gate: the tests of `alo-net`, `alo-renderer`, `alo-corpus` and
+`alo-window` with `--no-fail-fast`, all passing.
+
+**Gate, manual.**
+- Closing conditions, each pinned in
+  `alo-renderer/tests/a_decided_fetch_is_made.rs`. Two local servers on two
+  ports serve a page loaded into real `Tabs` over the confined `alo-render`
+  binary, and every fetch goes through a real `Pool`.
+  - The page hears a same-origin text with the server's own reason phrase
+    (`200 Fine`).
+  - It hears a cross-origin answer with `Access-Control-Allow-Origin`, and
+    one without it as a `TypeError`.
+  - It hears a preflighted `PUT`, and a redirect under `follow`, `manual`
+    (an opaque redirect) and `error`.
+  - Each server's log shows cookies sent home only, `Origin` and `Referer`
+    per hop, and the preflight's `Access-Control-Request-*`. Nothing
+    refused was ever sent.
+  - The record is asserted line by line. Every line has the document's
+    cause and `Purpose::Fetch`, `OPTIONS` comes before `PUT`, and each
+    refusal is named by its rule: a `same-origin` fetch elsewhere, and a
+    `same-origin` redirect leaving.
+  - Further tests cover a chain through another origin saying `null` and
+    carrying no cookies home, a redirect circle refused and recorded,
+    `omit`, `no-cors`, a redirect that did not agree, and a gone page's
+    fetch made for nobody.
+- `alo-window/tests/a_page_that_fetches_in_the_window.rs` drives the
+  conductor. A page is drawn again after each answer, a failure's reason is
+  said, and a page that never stops fetching still lets the window close.
+- Checked by mutation, each restored. Each of these fails at least one test:
+  - no tainted origin;
+  - same-origin credentials after leaving;
+  - no preflight;
+  - no per-hop CORS check (it caught nothing until the `astray` case was
+    added);
+  - no `Set-Cookie` kept;
+  - a gone document's fetch made;
+  - a chain that left read as `basic`.
+- Layout assertion and reference render: nothing positions, sizes or draws
+  differently. No corpus reference moved. The window test compares frames
+  only to show the page was drawn again.
+- Hostile input: the new wire-facing read is the cache record's reason
+  phrase. It is a length-checked text field, and the record tests flip
+  every byte and pass a version-1 entry. A response's head is read by
+  `alo-net`'s bounded reader as before. Redirect targets go through
+  `redirect::next` and `Trail`, and a server's `Set-Cookie` goes through
+  `Cookie::parse`. Each refuses by returning an error, never by panicking.
+- One responsibility per file:
+  - `fetch_make.rs`: making one fetch.
+  - `fetch_answering.rs`: the queue of a tab's fetches.
+  - `conductor.rs`: still the thread that talks to renderers, now also
+    answering their pages' asks through `Answering`.
+- `docs/features.md` says what is built and what is not. No `unsafe`, no
+  new outside dependency, and no ADR needed: 0032 § 3 decides the order and
+  § 4 the filtering.
+
+**Roadmap.** The `fetch()` line gains a Built clause for 338. Its Owed
+clause drops 338 and names 340. It is not ticked: `XMLHttpRequest` (336),
+the constructible `Request`/`Headers`/`Response` and the refused `init`
+members are still owed. `CHANGELOG.md`, `REMAINING.md` and the queue say
+the same.
+
+**Unresolved obligations.**
+- A redirect hop is not judged against `connect-src` until 340.
+- The conductor makes a request on its own thread and waits for it. A slow
+  server therefore delays other tabs' renderer messages, though never the
+  window's own event loop or its close. A fetch that does not wait is a
+  question for whoever builds concurrent requests in `alo-net`, and no
+  claim about speed is made here.
+- The window says a failure's reason as the selected tab's one sentence.
+  There is no other place yet where a person reads a page's issues; the
+  refusals among `Loaded`'s issues are likewise not shown.
+- `alo` opens pages from files, whose origin is opaque, so a page opened
+  that way fetches only as a stranger to every site. Navigating over the
+  network is item 85's.
+- **340 is eligible and next**, and 339 after it. Still standing: 337,
+  322, 324, 328, 284, 311 and 314 wait for pages; 323 waits on 73; 296
+  needs a person; and 297–300, 302, 304, 308, 126, 132 and 336 remain.
+
+144 queue items are open: 338 closed, 340 added. The next unused queue
+number is **341** and the next ADR is **0033**. This is one iteration, not
+a finished queue or roadmap.

@@ -70,6 +70,7 @@ fn answered(sent_at: u64, headers: &[(&str, &str)]) -> Response {
     Response {
         url: url("https://example.com/a"),
         status: Status(200),
+        reason: String::new(),
         headers: carried,
         body: b"the stored body".to_vec(),
     }

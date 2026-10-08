@@ -183,6 +183,8 @@ pub fn failed(url: &Url, status: u16) -> Response {
     Response {
         url: url.clone(),
         status: Status(status),
+        // Nobody sent it, so nobody said anything after the status.
+        reason: String::new(),
         headers: crate::headers::Headers::new(),
         body: Vec::new(),
     }

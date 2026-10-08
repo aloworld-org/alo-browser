@@ -19,6 +19,8 @@
 //! is stuck waiting, and is the frame it had.
 
 use alo_layout::Size;
+use alo_net::{Pool, Trust};
+use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
 use alo_renderer::{Frame, Page};
@@ -39,6 +41,13 @@ const PATIENCE: Duration = Duration::from_secs(4);
 
 /// How long any answer the test expects may take before the test says so.
 const AT_MOST: Duration = Duration::from_secs(60);
+
+/// A session's network that trusts no certificate. Nothing here fetches; a
+/// conductor is started with one because every conductor makes its pages'
+/// fetches.
+fn offline() -> Result<Network, String> {
+    Ok(Network::over(Pool::with_trust(Trust::of(&[])?)))
+}
 
 fn case() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../alo-corpus/cases/alo-offline")
@@ -112,8 +121,11 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
             .waiting_at_most(PATIENCE),
     );
     let (tell, news) = channel();
-    let conductor = Conductor::start(tabs, Fonts::AsStarted, move |said| tell.send(said).is_ok())
-        .unwrap_or_else(|why| panic!("no conductor: {why}"));
+    let network = offline().unwrap_or_else(|why| panic!("no network: {why}"));
+    let conductor = Conductor::start(tabs, Fonts::AsStarted, network, move |said| {
+        tell.send(said).is_ok()
+    })
+    .unwrap_or_else(|why| panic!("no conductor: {why}"));
     let orders = conductor.orders();
     let lettering = Lettering::compiled_in().unwrap_or_else(|| panic!("no lettering"));
     let mut showing = Showing::default();

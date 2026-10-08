@@ -66,6 +66,7 @@ fn pointing(from: &str, status: u16, to: &str) -> Response {
     Response {
         url: url(from),
         status: Status(status),
+        reason: String::new(),
         headers,
         body: Vec::new(),
     }
@@ -191,6 +192,7 @@ fn a_range_request_that_resumes_keeps_the_cause_of_the_download() {
     let cut = Response {
         url: url("https://example.com/big.bin"),
         status: Status(200),
+        reason: String::new(),
         headers,
         body: b"01234".to_vec(),
     };

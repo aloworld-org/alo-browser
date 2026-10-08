@@ -140,10 +140,18 @@ fn frozen_answer(fetch: &fetch_decide::Fetch, bytes: &[u8]) -> Result<Fetched, S
     let response = Response {
         url: fetch.request.url.clone(),
         status: head.status,
+        reason: head.reason,
         headers: head.headers,
         body,
     };
-    Ok(fetch_filter::filter(fetch, &response, &head.reason, false).fetched)
+    // No redirect is followed here, so the answer left the page's origin
+    // exactly when the ask went to another.
+    let route = fetch_filter::Route {
+        redirected: false,
+        left_the_origin: fetch.is_cross_origin(),
+        tainted: false,
+    };
+    Ok(fetch_filter::filter(fetch, &response, route).fetched)
 }
 
 #[cfg(test)]

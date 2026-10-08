@@ -73,6 +73,17 @@ impl Headers {
         }
     }
 
+    /// Take out every value with this name.
+    ///
+    /// For a header this engine sets itself and sets again on every hop of a
+    /// redirect — a page's fetch's `Origin`, `Cookie` and `Referer`, each
+    /// decided afresh for where the hop goes (queue item 338). Carrying the
+    /// last hop's and adding this one's would send two.
+    pub fn remove(&mut self, name: &str) {
+        self.held
+            .retain(|header| !header.name.eq_ignore_ascii_case(name));
+    }
+
     /// The first value with this name, ignoring case.
     pub fn get(&self, name: &str) -> Option<&str> {
         self.held
@@ -137,6 +148,18 @@ mod tests {
         assert_eq!(headers.all("Set-Cookie").count(), 3);
         assert_eq!(headers.get("Set-Cookie"), Some("a=1"), "the first is first");
         assert_eq!(headers.len(), 3);
+    }
+
+    #[test]
+    fn removing_a_name_takes_every_one_of_it_and_nothing_else() {
+        let mut headers = Headers::new();
+        headers.add("Cookie", "a=1");
+        headers.add("Accept", "*/*");
+        headers.add("cookie", "b=2");
+        headers.remove("COOKIE");
+        assert_eq!(headers.get("Cookie"), None);
+        assert_eq!(headers.get("Accept"), Some("*/*"));
+        assert_eq!(headers.len(), 1);
     }
 
     #[test]

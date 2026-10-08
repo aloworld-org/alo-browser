@@ -700,3 +700,93 @@ fn a_site_filling_its_jar_does_not_evict_another_site() {
         "one site's flood evicted another site's cookie"
     );
 }
+
+// --- What a response sets ----------------------------------------------------
+
+/// A response from `from` carrying each of `set_cookies`.
+fn answering(from: &str, set_cookies: &[&str]) -> alo_net::Response {
+    let mut response = alo_net::Response::ok(url(from), Vec::new());
+    for header in set_cookies {
+        response.headers.add("Set-Cookie", *header);
+    }
+    response
+}
+
+/// Queue item 338: a page's fetch keeps what its answer set, under the page's
+/// top-level site, and a site embedded in another may set only a cookie that
+/// says it is meant to cross.
+#[test]
+fn a_response_sets_its_cookies_and_another_site_only_the_ones_meant_to_cross() {
+    let mut jar = Jar::new();
+    let own = answering(
+        "https://shop.example/basket",
+        &["basket=3", "theme=dark; SameSite=Strict"],
+    );
+    let refused =
+        jar.keep_what_was_set(&own, &inside("https://shop.example/"), How::Embedded, now());
+    assert!(refused.is_empty(), "{refused:?}");
+    assert_eq!(
+        sent_to(
+            &jar,
+            "https://shop.example/x",
+            "https://shop.example/",
+            How::Embedded
+        ),
+        "basket=3; theme=dark"
+    );
+
+    let embedded = answering(
+        "https://api.example/v1",
+        &[
+            "id=1; Secure; SameSite=None",
+            "lax=1",
+            "strict=1; SameSite=Strict",
+            "=nameless",
+        ],
+    );
+    let refused = jar.keep_what_was_set(
+        &embedded,
+        &inside("https://shop.example/"),
+        How::Embedded,
+        now(),
+    );
+    assert_eq!(refused.len(), 3, "{refused:?}");
+    assert!(
+        refused[0].why.contains("Lax cookie \"lax\"") && refused[0].why.contains("SameSite=None"),
+        "{refused:?}"
+    );
+    assert!(
+        refused[1].why.contains("Strict cookie \"strict\""),
+        "{refused:?}"
+    );
+    assert_eq!(
+        sent_to(
+            &jar,
+            "https://api.example/v1",
+            "https://shop.example/",
+            How::Embedded
+        ),
+        "id=1",
+        "only the cookie meant to cross was kept, and inside the page's own site"
+    );
+    assert_eq!(
+        sent_to(
+            &jar,
+            "https://api.example/v1",
+            "https://api.example/",
+            How::Embedded
+        ),
+        "",
+        "and not where the person reaches api.example on its own"
+    );
+
+    // A person going there is not a page embedding it: the site's own
+    // cookies are its to set.
+    let refused = jar.keep_what_was_set(
+        &answering("https://api.example/", &["lax=1"]),
+        &inside("https://shop.example/"),
+        How::Navigated,
+        now(),
+    );
+    assert!(refused.is_empty(), "{refused:?}");
+}

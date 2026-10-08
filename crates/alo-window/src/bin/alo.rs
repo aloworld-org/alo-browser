@@ -8,6 +8,8 @@
 //! tab showing the page, or an empty tab if none is named. Closing the window
 //! closes every tab and stops every renderer.
 
+use alo_net::Pool;
+use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
 use alo_window::beside::renderer_beside;
@@ -46,6 +48,15 @@ fn main() -> ExitCode {
         );
         return ExitCode::FAILURE;
     }
+    // A session's pool: what it caches and records is in memory and goes
+    // with the process (ADR 0011, ADR 0012 § 6).
+    let network = match Pool::from_this_machine() {
+        Ok(pool) => Network::over(pool),
+        Err(why) => {
+            eprintln!("alo: this machine's certificates could not be read: {why}");
+            return ExitCode::FAILURE;
+        }
+    };
     let renderers = Renderers::running(renderer, &[]);
     let renderers = match opening.fonts {
         Fonts::AsAsked => renderers.with_machine(alo_renderer::fonts::from_this_machine()),
@@ -55,7 +66,7 @@ fn main() -> ExitCode {
     let mut conductor = None;
     let mut refused = None;
     let ran = alo_window::window::run(|tell| {
-        match Conductor::start(Tabs::over(renderers), opening.fonts, tell) {
+        match Conductor::start(Tabs::over(renderers), opening.fonts, network, tell) {
             Ok(started) => {
                 let orders = started.orders();
                 // The first tab, before the window has a size: the conductor

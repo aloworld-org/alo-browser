@@ -14,7 +14,9 @@
 //! of its own.
 
 use alo_layout::Size;
+use alo_net::{Pool, Trust};
 use alo_renderer::Page;
+use alo_renderer::fetch_make::Network;
 use alo_renderer::host::Renderers;
 use alo_renderer::tab::Tabs;
 use alo_window::beside::renderer_beside;
@@ -46,6 +48,13 @@ fn opening(site: &str) -> Result<Order, String> {
     })
 }
 
+/// A session's network that trusts no certificate. Nothing here fetches; a
+/// conductor is started with one because every conductor makes its pages'
+/// fetches.
+fn offline() -> Result<Network, String> {
+    Ok(Network::over(Pool::with_trust(Trust::of(&[])?)))
+}
+
 /// Start a conductor with two tabs on two sites, each painted.
 fn two_tabs_painted() -> Result<(Conductor, std::sync::mpsc::Receiver<News>), String> {
     let renderer = renderer_beside(Path::new(env!("CARGO_BIN_EXE_alo")));
@@ -56,6 +65,7 @@ fn two_tabs_painted() -> Result<(Conductor, std::sync::mpsc::Receiver<News>), St
     let conductor = Conductor::start(
         Tabs::over(Renderers::running(renderer, &[])),
         Fonts::AsStarted,
+        offline()?,
         move |said| tell.send(said).is_ok(),
     )
     .map_err(|why| format!("no conductor: {why}"))?;

@@ -73,7 +73,8 @@
 //! with the cause from which message was answered: a `Load`'s and a
 //! delivered response's are the document's, an `Act`'s the agent's. The
 //! decisions wait on the tab ([`Tabs::fetches`]) for whoever makes the
-//! requests, and each answer goes back through [`Tabs::fetched`], which
+//! requests ([`crate::fetch_answering`], which the window's conductor
+//! drives), and each answer goes back through [`Tabs::fetched`], which
 //! sends it only while the document that asked is still the one showing.
 //!
 //! # One process per site, and one document per process

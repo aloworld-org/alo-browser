@@ -66,6 +66,7 @@ fn answered(target: &str, headers: &[(&str, &str)]) -> Response {
     Response {
         url: url(target),
         status: Status(204),
+        reason: String::new(),
         headers: carried,
         body: Vec::new(),
     }

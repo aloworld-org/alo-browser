@@ -525,6 +525,9 @@ impl Download {
         Response {
             url,
             status: Status::OK,
+            // Said here, as the status is: the bytes are every answer that
+            // carried them, and no one server said this one.
+            reason: "OK".to_owned(),
             headers,
             body: self.got,
         }
@@ -622,6 +625,7 @@ mod tests {
         let mut response = Response {
             url: url(),
             status: Status(status),
+            reason: String::new(),
             headers: crate::headers::Headers::new(),
             body: body.to_vec(),
         };

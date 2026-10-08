@@ -402,8 +402,20 @@ unreachable without it.
       responses through the browser process's own decision and filter —
       `alo-downloads` asks for both installers and, offline, marks both
       buttons
-      · Owed: making a decided fetch through the pool, with its preflight,
-      cookies and redirect mode (338); `Request`, `Headers` and `Response`
+      · Built: a decided fetch is made (queue item 338) — `alo-renderer`'s
+      `fetch_make` sends each hop through the session's `Pool` with its own
+      `Origin` (`null` once tainted), `Referer` and jar `Cookie`, asks first
+      with a recorded `OPTIONS` when CORS needs it, keeps `Set-Cookie` only
+      when the hop carried credentials, checks every answer on a CORS chain,
+      and follows, stops at or fails on a redirect as the page asked,
+      refusing and recording a circle, a `same-origin` fetch leaving, and
+      an insecure hop; `fetch_answering` answers a tab's fetches one at a
+      time and makes nothing for a page that has gone; `alo-window`'s
+      conductor makes them between orders, draws the page again and says
+      why one failed; the status text is the server's own reason phrase,
+      now kept by `alo-net` and its disk cache
+      · Owed: a redirect hop judged by `connect-src` with paths ignored
+      (340); `Request`, `Headers` and `Response`
       a page constructs, other bodies, `json()`, a `signal` and the `init`
       members refused by name, each when a page needs one; and asynchronous
       `XMLHttpRequest` when a page uses one (336)

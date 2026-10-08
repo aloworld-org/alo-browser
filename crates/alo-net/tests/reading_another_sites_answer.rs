@@ -54,6 +54,7 @@ fn answered(target: &str, headers: &[(&str, &str)]) -> Response {
     Response {
         url: url(target),
         status: Status(200),
+        reason: String::new(),
         headers: carried,
         body: b"the statement".to_vec(),
     }
@@ -524,5 +525,45 @@ fn an_opaque_response_says_nothing_at_all_including_whether_it_worked() {
     assert_eq!(
         opaque.url, answer.url,
         "the page still knows what it asked for, which it always did"
+    );
+}
+
+/// Queue item 338: at the end of a chain that left the page's origin, the
+/// answer must agree whoever sent it — the page's own origin included — and
+/// a page whose origin the chain tainted is `null`, which only `null` or `*`
+/// agrees to.
+#[test]
+fn an_answer_a_chain_steered_agrees_or_is_not_read_even_from_home() {
+    use alo_net::cors::{agreed_to_be_read, exposed};
+
+    let home = answered(
+        "https://shop.example/back",
+        &[("Content-Type", "text/plain"), ("X-Secret", "1")],
+    );
+    let page = asked_by("https://shop.example/", "https://shop.example/back");
+    assert!(
+        may_read(&page, Credentials::SameOrigin, &home).is_ok(),
+        "its own answer, asked for directly"
+    );
+    assert!(
+        agreed_to_be_read("https://shop.example", Credentials::SameOrigin, &home).is_err(),
+        "the same answer, at the end of a chain that left"
+    );
+
+    let to_null = answered(
+        "https://shop.example/back",
+        &[("Access-Control-Allow-Origin", "null")],
+    );
+    assert!(agreed_to_be_read("null", Credentials::SameOrigin, &to_null).is_ok());
+    assert!(agreed_to_be_read("https://shop.example", Credentials::SameOrigin, &to_null).is_err());
+
+    let names: Vec<String> = exposed(&home)
+        .iter()
+        .map(|header| header.name.clone())
+        .collect();
+    assert_eq!(
+        names,
+        ["Content-Type"],
+        "only what a form could have learned"
     );
 }

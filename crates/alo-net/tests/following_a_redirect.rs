@@ -48,6 +48,7 @@ fn pointing(from: &str, status: u16, to: &str) -> Response {
     Response {
         url: url(from),
         status: Status(status),
+        reason: String::new(),
         headers,
         body: Vec::new(),
     }
@@ -285,6 +286,7 @@ fn a_3xx_with_no_location_is_the_answer_rather_than_a_refusal() {
     let got = Response {
         url: url("https://example.com/a"),
         status: Status(302),
+        reason: String::new(),
         headers: Headers::new(),
         body: b"<p>choose one</p>".to_vec(),
     };

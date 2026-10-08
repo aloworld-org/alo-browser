@@ -20,6 +20,18 @@
 //! a point: hit-testing is item 298, and a person's pointer reaches a
 //! renderer through it, not through here.
 //!
+//! # Where a page's fetches are made
+//!
+//! Here, because this thread holds the tabs and the session's [`Network`]
+//! (queue item 338, ADR 0032 § 3). Every answer that can carry a page's
+//! fetches puts them in an [`Answering`], and between looking at its orders
+//! the conductor makes **one** of them and delivers its answer: a request
+//! waits on its server, and a page that fetches for ever must cost its own
+//! tab's answers rather than the window's ability to close. After a delivery
+//! the selected tab is painted again, since the reactions may have changed
+//! it, and the reason a fetch failed — which the page is never told — is
+//! said to the person.
+//!
 //! # Why a burst of resizes is one resize
 //!
 //! Dragging a window's corner sends a resize for nearly every pixel it
@@ -31,8 +43,10 @@
 use crate::message::{News, Order};
 use alo_layout::Size;
 use alo_net::Cause;
+use alo_renderer::fetch_answering::{Answered, Answering};
+use alo_renderer::fetch_make::Network;
 use alo_renderer::{FromRenderer, Lost, Page, TabId, Tabs, ToRenderer};
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 use std::thread::JoinHandle;
 
 /// Whether a renderer that asks for a font by name is sent it.
@@ -54,7 +68,8 @@ pub struct Conductor {
 }
 
 impl Conductor {
-    /// Start one over `tabs`, telling the window what happens with `tell`.
+    /// Start one over `tabs`, making their pages' fetches through `network`,
+    /// telling the window what happens with `tell`.
     ///
     /// `tell` answers whether anybody heard: `false` means the window has gone,
     /// and the conductor closes every tab and stops rather than painting for
@@ -66,12 +81,13 @@ impl Conductor {
     pub fn start(
         tabs: Tabs,
         fonts: Fonts,
+        network: Network,
         tell: impl Fn(News) -> bool + Send + 'static,
     ) -> std::io::Result<Self> {
         let (orders, inbox) = channel();
         let thread = std::thread::Builder::new()
             .name("alo-conductor".to_owned())
-            .spawn(move || conduct(tabs, fonts, &inbox, &tell))?;
+            .spawn(move || conduct(tabs, fonts, network, &inbox, &tell))?;
         Ok(Self { orders, thread })
     }
 
@@ -103,35 +119,79 @@ struct Conducting {
     /// the size arrives, because a page is laid out at the window's size and
     /// there was none to lay it out at.
     waiting: Option<(TabId, Page)>,
+    /// What every request is made through, for the session.
+    network: Network,
+    /// The pages' fetches, decided and waiting to be made.
+    fetches: Answering,
 }
 
-fn conduct(tabs: Tabs, fonts: Fonts, inbox: &Receiver<Order>, tell: &dyn Fn(News) -> bool) {
+fn conduct(
+    tabs: Tabs,
+    fonts: Fonts,
+    network: Network,
+    inbox: &Receiver<Order>,
+    tell: &dyn Fn(News) -> bool,
+) {
     let mut conducting = Conducting {
         tabs,
         fonts,
         selected: None,
         viewport: None,
         waiting: None,
+        network,
+        fetches: Answering::new(),
     };
-    while let Ok(first) = inbox.recv() {
-        let mut orders = vec![first];
-        orders.extend(inbox.try_iter());
+    // Every sender gone is the window gone without saying so.
+    while let Some(orders) = next_orders(inbox, conducting.fetches.is_empty()) {
         for order in latest_size_only(orders) {
-            for news in conducting.carry_out(order) {
-                let closed = news == News::Closed;
-                let heard = tell(news);
-                if closed {
-                    return;
-                }
-                if !heard {
-                    conducting.close_everything();
-                    return;
-                }
+            let news = conducting.carry_out(order);
+            if !told(&mut conducting, news, tell) {
+                return;
             }
         }
+        let news = conducting.answer_a_fetch();
+        if !told(&mut conducting, news, tell) {
+            return;
+        }
     }
-    // Every sender has gone, which is the window gone without saying so.
     conducting.close_everything();
+}
+
+/// Every order waiting — after waiting for one when there is nothing else
+/// to do, and without waiting when a fetch is. [`None`] when every sender
+/// has gone.
+fn next_orders(inbox: &Receiver<Order>, idle: bool) -> Option<Vec<Order>> {
+    let mut orders = Vec::new();
+    if idle {
+        orders.push(inbox.recv().ok()?);
+    }
+    loop {
+        match inbox.try_recv() {
+            Ok(order) => orders.push(order),
+            Err(TryRecvError::Disconnected) if orders.is_empty() => return None,
+            // Nothing more for now — or the last sender has gone, and what
+            // arrived before it went is still carried out; the next look
+            // finds nobody.
+            Err(TryRecvError::Empty | TryRecvError::Disconnected) => return Some(orders),
+        }
+    }
+}
+
+/// Tell the window `news`, in order. Whether to go on: not once every tab is
+/// closed, and not when nobody heard, after closing every tab.
+fn told(conducting: &mut Conducting, news: Vec<News>, tell: &dyn Fn(News) -> bool) -> bool {
+    for news in news {
+        let closed = news == News::Closed;
+        let heard = tell(news);
+        if closed {
+            return false;
+        }
+        if !heard {
+            conducting.close_everything();
+            return false;
+        }
+    }
+    true
 }
 
 /// The orders, with every resize that has a later resize behind it dropped.
@@ -184,7 +244,9 @@ impl Conducting {
     /// Load `page` into tab `id` at `viewport`, and paint it.
     fn load(&mut self, id: TabId, mut page: Page, viewport: Size) -> Vec<News> {
         page.viewport = viewport;
-        match self.tabs.load(id, page, Cause::Person { tab: id }) {
+        let loaded = self.tabs.load(id, page, Cause::Person { tab: id });
+        self.fetches.take_from(&mut self.tabs, id);
+        match loaded {
             Ok(FromRenderer::Loaded { wanted, .. }) => {
                 if !wanted.is_empty() && self.fonts == Fonts::AsAsked {
                     // Sent, then drawn again: a `Resize` lays the document out
@@ -244,6 +306,33 @@ impl Conducting {
             Ok(other) => vec![News::Said(unexpected(&other))],
             Err(lost) => vec![said_of(&self.tabs, id, &lost)],
         }
+    }
+
+    /// Make the oldest fetch a page is waiting on, deliver its answer, and
+    /// say what came of it for the selected tab: the page drawn again, and
+    /// why the fetch failed when it did.
+    fn answer_a_fetch(&mut self) -> Vec<News> {
+        let Some(Answered {
+            tab,
+            delivered,
+            said,
+        }) = self.fetches.answer_next(&mut self.tabs, &mut self.network)
+        else {
+            return Vec::new();
+        };
+        if self.selected != Some(tab) {
+            return Vec::new();
+        }
+        let mut news = match delivered {
+            Ok(Some(FromRenderer::Delivered { .. })) => self.paint(tab),
+            Ok(Some(other)) => vec![News::Said(unexpected(&other))],
+            Ok(None) => Vec::new(),
+            Err(lost) => vec![said_of(&self.tabs, tab, &lost)],
+        };
+        // After the paint, which clears what was said: the reason stays on
+        // the page the person is looking at until it is drawn again.
+        news.extend(said.into_iter().map(News::Said));
+        news
     }
 
     /// Close every tab, which stops every renderer (item 64's lifecycle).

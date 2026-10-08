@@ -5100,7 +5100,7 @@ The long pole, and the thing most of section E is unreachable without.
   the document's cause, `Set-Cookie` not stripped, and an opaque answer
   given the body each fail a test.
 
-- [ ] **338. A decided fetch is made.** *Cut from 334 (iteration 214).
+- [x] **338. A decided fetch is made.** *Cut from 334 (iteration 214).
   Depends on 334, done.* Whoever drives `Tabs` (`alo-window`'s conductor)
   takes `Tabs::fetches`, and for each `Decided::Make` sends
   `Fetch::asking_first`'s `OPTIONS` when there is one and checks it with
@@ -5118,6 +5118,80 @@ The long pole, and the thing most of section E is unreachable without.
   with and without `Access-Control-Allow-Origin`, and a redirect under each
   mode, and the record shows each request with its cause, the preflight
   before the request it asked about, and a refusal by its rule.
+  **Built (iteration 216).** `alo-renderer`: `fetch_make.rs` makes one
+  decided `Fetch` through a session's `Network` (its `Pool`, `Jar` and
+  `Preflights`), hop by hop. Each hop's `Origin` (the document's, or `null`
+  once a redirect has gone from one origin to a third — Fetch's tainted
+  origin), `Referer` (from the document's URL under the page's policy, for
+  where the hop goes) and `Cookie` (the jar under the document's top-level
+  site, only while the credentials mode lets the hop carry them) are decided
+  again; a `cors` hop to another origin is asked about first when the
+  preflight cache does not cover it, the `OPTIONS` made and recorded before
+  the request and needing an ok status; the hop is made with the new
+  `Pool::hop` (one exchange, from the cache where it can, a redirect handed
+  back); its `Set-Cookie` is kept by the new `Jar::keep_what_was_set` when
+  the hop carried credentials (a site embedded in another may set only a
+  `SameSite=None` cookie); every answer on a CORS chain, a redirect
+  included, must agree (`cors::agreed_to_be_read`, without the same-origin
+  shortcut, against `null` once tainted); and under `follow` the next hop
+  is refused before it is sent — and recorded with `Pool::refused` — when it
+  is a circle or past twenty hops, leaves a `same-origin` fetch's origin,
+  carries credentials in its URL to another origin under `cors`, or is
+  insecure from a secure page. `fetch_filter::filter` takes a `Route`
+  (redirected, left the origin, tainted): a chain that left is never
+  `basic`, a `3xx` without `Location` is an answer, and the status text is
+  `alo-net`'s new `Response::reason`, which the HTTP/1.1 reader keeps
+  (empty over HTTP/2) and the disk cache stores from format version 2.
+  `fetch_answering.rs`'s `Answering` queues each tab's decided fetches with
+  the document that asked, answers the oldest one at a time — making it, or
+  recording a refusal (`Refusal::record` now writes to a `Pool`) — delivers
+  it with `Tabs::fetched`, queues what the delivery asks behind the rest,
+  and makes nothing for a document that has gone. `alo-window`: the
+  conductor holds the `Network` and an `Answering`, takes a load's fetches,
+  and between looking at its orders makes one fetch, paints the selected
+  tab again after the delivery and says each failure's reason; `alo` starts
+  it over a session pool trusting this machine. **Cut**: a redirect hop
+  judged against `connect-src` with source paths ignored, as **item 340**.
+  Tests: `alo-renderer/tests/a_decided_fetch_is_made.rs` — two local
+  servers on two ports, a page at one loaded into real `Tabs` over the
+  confined binary, every ask made through a real `Pool`: what the page
+  heard (same-origin text with its reason phrase, cross-origin with and
+  without `Access-Control-Allow-Origin`, a preflighted `PUT`, a redirect
+  under `follow`, `manual` and `error`, two refusals), what each server was
+  sent (cookies home only, `Origin` and `Referer` per hop, the preflight's
+  `Access-Control-Request-*`, nothing refused ever sent), the record
+  (every line the document's cause and `Purpose::Fetch`, `OPTIONS` before
+  `PUT`, each refusal by its rule), a chain through another origin saying
+  `null` and carrying no cookies home, a redirect circle refused, `omit`,
+  `no-cors`, a redirect that did not agree, and a gone page's fetch made for
+  nobody; `alo-window/tests/a_page_that_fetches_in_the_window.rs` — the
+  conductor drawing the page again after each answer and saying a failure,
+  and a page that never stops fetching not keeping the window open;
+  `fetch_filter`'s route tests, `alo-net`'s `Headers::remove`, `Jar`'s
+  `keep_what_was_set`, `cors::agreed_to_be_read`/`exposed` and the cache
+  record's version 2. Checked by mutation, each restored and each failing a
+  test: no tainted origin, same-origin credentials after leaving, no
+  preflight, no per-hop CORS check, no `Set-Cookie` kept, a gone document's
+  fetch made, and a chain that left read as `basic`.
+
+- [ ] **340. A redirect a page's fetch follows is judged by `connect-src`.**
+  *Cut from 338 (iteration 216). Depends on nothing open.* CSP3's *does
+  request match source list* ignores a source's path for a request that has
+  been redirected, and `alo-net`'s `csp` cannot tell a redirect from a first
+  request, so `fetch_make` judges only a fetch's first URL against the
+  document's `connect-src` (in `fetch_decide`). Checking each hop with paths
+  would refuse what every browser follows; not checking lets a page's
+  allowed origin redirect it to one its policy forbids. *Needs:* the
+  matching told whether the request was redirected (`csp_source`'s
+  `HostSource::matches` and the callers above it), and `fetch_make` asking
+  for each hop after the first with `Purpose::Fetch` against a copy of the
+  document's enforced policies carried on the decided `Fetch`. Feature
+  contract: `docs/features.md`'s `fetch()` line. *Closes when:* a fetch
+  allowed by `connect-src https://a.example/api/` that `a.example` redirects
+  to `https://a.example/other` is followed, one it redirects to
+  `https://b.example/` is refused before it is sent and recorded by the
+  rule, both against a local server, and `csp_source`'s unit tests show a
+  path ignored only after a redirect.
 
 - [x] **335. `fetch()` in a page.** *Cut from 83 (ADR 0032 §§ 1, 4 and 7).
   Depends on 333 and 334.* `alo-bindings`: `fetch` on the global object,

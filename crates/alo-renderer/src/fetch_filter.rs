@@ -54,13 +54,44 @@ pub fn failed(fetch: &Fetch, why: impl Into<String>) -> Filtered {
     }
 }
 
-/// The response `fetch` got, as the page that asked may see it.
+/// How a response was reached: the part of a redirect chain the filter has
+/// to know and the response itself cannot say.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Route {
+    /// Whether a redirect was followed on the way to it.
+    pub redirected: bool,
+    /// Whether any hop went to an origin other than the document's — Fetch's
+    /// *response tainting* being no longer `basic`. A chain that left and
+    /// came back is not the document's own answer: the other origin chose
+    /// where it went, so it is never read as `basic`, and its answer is read
+    /// only if it agreed, wherever it came from.
+    pub left_the_origin: bool,
+    /// Whether a redirect went from one origin to a third, after which the
+    /// page's origin is said, and must be agreed to, as `null` (Fetch's
+    /// *tainted origin*).
+    pub tainted: bool,
+}
+
+impl Route {
+    /// The page's origin as the request said it on this route.
+    pub fn asker(self, fetch: &Fetch) -> String {
+        match &fetch.request.initiator {
+            Some(origin) if !self.tainted => origin.to_string(),
+            _ => "null".to_owned(),
+        }
+    }
+}
+
+/// The response `fetch` got, as the page that asked may see it, reached by
+/// `route`.
 ///
-/// `status_text` is the reason phrase the server sent, which `alo-net`'s
-/// [`Response`] does not keep; `redirected` is whether a redirect was
-/// followed on the way to it.
-pub fn filter(fetch: &Fetch, response: &Response, status_text: &str, redirected: bool) -> Filtered {
-    if response.status.is_redirect() {
+/// Its status text is the reason phrase the server sent ([`Response`]'s
+/// `reason`), empty over HTTP/2.
+pub fn filter(fetch: &Fetch, response: &Response, route: Route) -> Filtered {
+    // A `3xx` that says nowhere to go is not a redirect but an answer, and is
+    // read as one (Fetch's *HTTP fetch*: a response whose location URL is null
+    // is returned as it is).
+    if response.status.is_redirect() && response.headers.get("Location").is_some() {
         match fetch.redirect {
             redirect::Mode::Manual => return crossing(fetch, nothing(Kind::OpaqueRedirect)),
             redirect::Mode::Error => {
@@ -75,9 +106,9 @@ pub fn filter(fetch: &Fetch, response: &Response, status_text: &str, redirected:
     let readable = |kind: Kind, headers: &alo_net::headers::Headers| Readable {
         kind,
         status: response.status.0,
-        status_text: status_text.to_owned(),
+        status_text: response.reason.clone(),
         url: Some(response.url.serialised.clone()),
-        redirected,
+        redirected: route.redirected,
         headers: headers
             .iter()
             .filter(|header| !NEVER_READ.contains(&header.name.to_ascii_lowercase().as_str()))
@@ -85,18 +116,19 @@ pub fn filter(fetch: &Fetch, response: &Response, status_text: &str, redirected:
             .collect(),
         body: response.body.clone(),
     };
-    if cors::is_same_origin(fetch.request.initiator.as_ref(), response) {
+    if !route.left_the_origin && cors::is_same_origin(fetch.request.initiator.as_ref(), response) {
         return crossing(fetch, readable(Kind::Basic, &response.headers));
     }
     match fetch.mode {
         Mode::NoCors => crossing(fetch, nothing(Kind::Opaque)),
-        Mode::Cors => match cors::may_read(&fetch.request, fetch.credentials, response) {
-            Ok(()) => crossing(
-                fetch,
-                readable(Kind::Cors, &cors::readable(&fetch.request, response)),
-            ),
-            Err(refusal) => failed(fetch, refusal.to_string()),
-        },
+        // Not the document's own answer, so it agreed or it is not read —
+        // even from the document's origin, at the end of a chain that left.
+        Mode::Cors => {
+            match cors::agreed_to_be_read(&route.asker(fetch), fetch.credentials, response) {
+                Ok(()) => crossing(fetch, readable(Kind::Cors, &cors::exposed(response))),
+                Err(refusal) => failed(fetch, refusal.to_string()),
+            }
+        }
         // Refused before it was sent unless a redirect took it elsewhere.
         Mode::SameOrigin => failed(
             fetch,
@@ -193,6 +225,24 @@ mod tests {
         response
     }
 
+    /// Reached by following a redirect that stayed at the document's origin.
+    fn redirected() -> Route {
+        Route {
+            redirected: true,
+            left_the_origin: false,
+            tainted: false,
+        }
+    }
+
+    /// Reached by going to another origin, with no redirect.
+    fn left() -> Route {
+        Route {
+            redirected: false,
+            left_the_origin: true,
+            tainted: false,
+        }
+    }
+
     fn readable(filtered: &Filtered) -> &Readable {
         match &filtered.fetched.answer {
             Answer::Response(readable) => readable,
@@ -212,7 +262,7 @@ mod tests {
                 ("X-Mine", "yes"),
             ],
         );
-        let filtered = filter(&asked, &got, "OK", true);
+        let filtered = filter(&asked, &got, redirected());
         let readable = readable(&filtered);
         assert_eq!(filtered.fetched.number, 2);
         assert_eq!(readable.kind, Kind::Basic);
@@ -244,7 +294,7 @@ mod tests {
                 ("Set-Cookie", "id=1"),
             ],
         );
-        let filtered = filter(&asked, &got, "", false);
+        let filtered = filter(&asked, &got, left());
         let readable = readable(&filtered);
         assert_eq!(readable.kind, Kind::Cors);
         let names: Vec<&str> = readable
@@ -267,7 +317,7 @@ mod tests {
     #[test]
     fn a_cors_failure_crosses_with_no_reason_and_the_reason_stays_here() {
         let asked = fetch("https://api.example/a", Mode::Cors, redirect::Mode::Follow);
-        let filtered = filter(&asked, &response("https://api.example/a", &[]), "OK", false);
+        let filtered = filter(&asked, &response("https://api.example/a", &[]), left());
         assert_eq!(filtered.fetched, Fetched::failed(2));
         assert!(
             filtered
@@ -287,7 +337,7 @@ mod tests {
             redirect::Mode::Follow,
         );
         let got = response("https://api.example/a", &[("Content-Type", "text/plain")]);
-        let filtered = filter(&asked, &got, "OK", true);
+        let filtered = filter(&asked, &got, left());
         assert_eq!(*readable(&filtered), nothing(Kind::Opaque));
         assert_eq!(filtered.why, None);
         let bytes =
@@ -306,17 +356,87 @@ mod tests {
         redirect_answer.status = Status(302);
         let manual = fetch("https://shop.example/a", Mode::Cors, redirect::Mode::Manual);
         assert_eq!(
-            *readable(&filter(&manual, &redirect_answer, "Found", false)),
+            *readable(&filter(&manual, &redirect_answer, Route::default())),
             nothing(Kind::OpaqueRedirect)
         );
         let error = fetch("https://shop.example/a", Mode::Cors, redirect::Mode::Error);
-        let filtered = filter(&error, &redirect_answer, "Found", false);
+        let filtered = filter(&error, &redirect_answer, Route::default());
         assert_eq!(filtered.fetched, Fetched::failed(2));
         assert!(filtered.why.is_some());
         let follow = fetch("https://shop.example/a", Mode::Cors, redirect::Mode::Follow);
         assert_eq!(
-            readable(&filter(&follow, &redirect_answer, "Found", false)).status,
+            readable(&filter(&follow, &redirect_answer, Route::default())).status,
             302
+        );
+
+        // A 3xx that names nowhere is the answer, whatever the page asked.
+        let mut nowhere = response("https://shop.example/a", &[]);
+        nowhere.status = Status(300);
+        nowhere.reason = "Multiple Choices".to_owned();
+        let readable = readable(&filter(&manual, &nowhere, Route::default())).clone();
+        assert_eq!(readable.kind, Kind::Basic);
+        assert_eq!(readable.status, 300);
+        assert_eq!(readable.status_text, "Multiple Choices");
+    }
+
+    #[test]
+    fn an_answer_reached_through_another_origin_is_never_the_documents_own() {
+        let asked = fetch(
+            "https://shop.example/a",
+            Mode::NoCors,
+            redirect::Mode::Follow,
+        );
+        let back_home = response("https://shop.example/c", &[]);
+        assert_eq!(
+            readable(&filter(&asked, &back_home, Route::default())).kind,
+            Kind::Basic
+        );
+        let through_elsewhere = Route {
+            redirected: true,
+            left_the_origin: true,
+            tainted: false,
+        };
+        assert_eq!(
+            *readable(&filter(&asked, &back_home, through_elsewhere)),
+            nothing(Kind::Opaque)
+        );
+
+        // Under CORS the document's own origin must agree like any other,
+        // and shows only what it exposed.
+        let cors = fetch("https://shop.example/a", Mode::Cors, redirect::Mode::Follow);
+        assert_eq!(
+            filter(&cors, &back_home, through_elsewhere).fetched,
+            Fetched::failed(2)
+        );
+        let agreeing = response(
+            "https://shop.example/c",
+            &[
+                ("Access-Control-Allow-Origin", "https://shop.example"),
+                ("X-Hidden", "no"),
+            ],
+        );
+        let read = readable(&filter(&cors, &agreeing, through_elsewhere)).clone();
+        assert_eq!(read.kind, Kind::Cors);
+        assert!(read.headers.iter().all(|(name, _)| name != "X-Hidden"));
+
+        // And once tainted, the page is `null`, and only `null` will do.
+        let tainted = Route {
+            tainted: true,
+            ..through_elsewhere
+        };
+        assert_eq!(
+            filter(&cors, &agreeing, tainted).fetched,
+            Fetched::failed(2)
+        );
+        let to_null = response(
+            "https://shop.example/c",
+            &[("Access-Control-Allow-Origin", "null")],
+        );
+        assert_eq!(readable(&filter(&cors, &to_null, tainted)).kind, Kind::Cors);
+        assert_eq!(
+            filter(&cors, &to_null, through_elsewhere).fetched,
+            Fetched::failed(2),
+            "null is not the page's origin until the chain says so"
         );
     }
 
@@ -327,7 +447,7 @@ mod tests {
             Mode::SameOrigin,
             redirect::Mode::Follow,
         );
-        let filtered = filter(&asked, &response("https://api.example/b", &[]), "OK", true);
+        let filtered = filter(&asked, &response("https://api.example/b", &[]), left());
         assert_eq!(filtered.fetched, Fetched::failed(2));
     }
 
@@ -336,7 +456,7 @@ mod tests {
         let asked = fetch("https://shop.example/a", Mode::Cors, redirect::Mode::Follow);
         let mut got = response("https://shop.example/a", &[]);
         got.body = vec![0; LARGEST_MESSAGE];
-        let filtered = filter(&asked, &got, "OK", false);
+        let filtered = filter(&asked, &got, Route::default());
         assert_eq!(filtered.fetched, Fetched::failed(2));
         assert!(
             filtered

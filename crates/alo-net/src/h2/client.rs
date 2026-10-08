@@ -297,6 +297,8 @@ pub fn exchange_however_it_ends(
         response: Response {
             url: request.url.clone(),
             status,
+            // HTTP/2 has no reason phrase (RFC 9113 § 8.3.2).
+            reason: String::new(),
             headers: answer.headers,
             body: answer.body,
         },

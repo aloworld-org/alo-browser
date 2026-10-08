@@ -367,6 +367,43 @@ impl Pool {
         }
     }
 
+    /// One hop of somebody else's redirect loop: one exchange, answered from
+    /// the cache where the cache can answer it, and a redirect handed back
+    /// rather than followed.
+    ///
+    /// For a caller that has to decide something **between** hops which this
+    /// file cannot — a page's fetch, whose `Origin`, cookies, preflight and
+    /// CORS are decided again on every hop by rules that belong to the page
+    /// that asked (ADR 0032 § 3, queue item 338). [`Pool::follow`] is this in
+    /// a loop for a load, which has none of those questions. `within` is the
+    /// top-level site, for the cache's partition, as there.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Pool::fetch`] fails with, and a `304` for something nothing
+    /// is stored for.
+    pub fn hop(&mut self, request: &Request, within: &Partition) -> Result<Response, String> {
+        self.fetch_perhaps_from_the_cache(request, within)
+    }
+
+    /// A line in the record for a request a rule of ours refused before it
+    /// was sent (ADR 0012 § 5).
+    ///
+    /// The one way to add a line other than making a request, and it can only
+    /// say *refused*: a caller that decides whether a request goes at all — a
+    /// page's fetch, decided in the browser process before it reaches this
+    /// pool (ADR 0032 § 3) — has refusals of its own to record, and *what did
+    /// this page try to load, and what stopped it* is the record's question
+    /// whichever file the rule lives in. Nothing here can write that a server
+    /// answered.
+    pub fn refused(&mut self, request: &Request, rule: impl Into<String>) {
+        self.activity.happened(
+            request,
+            SystemTime::now(),
+            Happened::Refused { rule: rule.into() },
+        );
+    }
+
     /// One exchange, answered from the cache where the cache can answer it.
     ///
     /// Between [`Pool::follow`] and [`Pool::fetch`] rather than inside either:
@@ -527,9 +564,10 @@ impl Pool {
     /// Forget everything the record holds.
     ///
     /// What "clear this browsing data" reaches for, and it is real: the lines
-    /// go, rather than a flag being set beside them. The only way to change the
-    /// record from outside this file, and it only subtracts — there is
-    /// deliberately no way to add a line except by making a request.
+    /// go, rather than a flag being set beside them. The only way to take
+    /// anything out of the record — and there is deliberately no way to add a
+    /// line except by making a request, or by saying a rule refused one
+    /// ([`Pool::refused`]).
     pub fn forget_the_record(&mut self) {
         self.activity.empty();
     }

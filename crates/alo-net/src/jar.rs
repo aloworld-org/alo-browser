@@ -25,7 +25,8 @@
 //! interface yet — but nothing in this file would have to change to add it,
 //! which is the test of whether the shape is right.
 
-use crate::cookie::{Cookie, Partition, SameSite, covers, path_applies};
+use crate::cookie::{Cookie, Partition, Rejected, SameSite, covers, path_applies};
+use crate::response::Response;
 use alo_url::Url;
 use std::collections::BTreeMap;
 use std::time::SystemTime;
@@ -91,6 +92,52 @@ impl Jar {
         self.held.insert(key, cookie);
         self.forget_the_expired(now);
         self.stay_within_bounds(&site);
+    }
+
+    /// Keep every cookie a response's `Set-Cookie` headers set, inside the
+    /// top-level site `within`, for a request made `how`. What was refused
+    /// comes back, each in words, for somebody looking at why a login did not
+    /// stick.
+    ///
+    /// **A site may set a cookie from inside another site only when it says
+    /// `SameSite=None`** (RFC 6265bis § 5.7, the storage model's same-site
+    /// step). A `Lax` or `Strict` cookie is one its author meant for its own
+    /// site's pages, and a response to a request another site's page embedded
+    /// is not one of those; a person navigating there is, and may be given
+    /// one. Same site here is [`Partition::of`] the URL that answered, as for
+    /// [`Jar::for_request`].
+    ///
+    /// A response from an address with no host sets nothing, because
+    /// [`Cookie::parse`] refuses a cookie with nowhere to belong.
+    pub fn keep_what_was_set(
+        &mut self,
+        response: &Response,
+        within: &Partition,
+        how: How,
+        now: SystemTime,
+    ) -> Vec<Rejected> {
+        let same_site = Partition::of(&response.url) == *within;
+        let mut refused = Vec::new();
+        for header in response.headers.all("Set-Cookie") {
+            match Cookie::parse(header, &response.url, within) {
+                Ok(cookie)
+                    if !same_site && how == How::Embedded && cookie.same_site != SameSite::None =>
+                {
+                    refused.push(Rejected {
+                        why: format!(
+                            "{} set a {} cookie {:?} inside {within}, and a site may set one \
+                             from inside another site only when it says SameSite=None",
+                            Partition::of(&response.url),
+                            cookie.same_site,
+                            cookie.name
+                        ),
+                    });
+                }
+                Ok(cookie) => self.keep(cookie, now),
+                Err(rejected) => refused.push(rejected),
+            }
+        }
+        refused
     }
 
     /// The `Cookie` header for this request, or [`None`] when there is nothing

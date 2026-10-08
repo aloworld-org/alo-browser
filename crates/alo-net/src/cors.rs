@@ -398,7 +398,30 @@ pub fn may_read(
         .initiator
         .as_ref()
         .map_or_else(|| "null".to_owned(), ToString::to_string);
+    agreed_to_be_read(&asker, credentials, response)
+}
 
+/// Whether the server that answered agreed to be read by the page that
+/// asked, **whoever answered** — the CORS check itself, without
+/// [`may_read`]'s first question.
+///
+/// For a fetch whose redirect chain has already left the page's origin
+/// (queue item 338). Fetch's *response tainting* is then `cors` for the rest
+/// of the chain, so an answer from the page's own origin at the end of it
+/// still has to agree: the other origin chose where the chain went, and an
+/// answer it steered is not the page's own. `asker` is the page's origin as
+/// the request said it — `null` once a chain has gone from one origin to a
+/// third (Fetch's *tainted origin*).
+///
+/// # Errors
+///
+/// [`Refusal`], as [`may_read`].
+pub fn agreed_to_be_read(
+    asker: &str,
+    credentials: Credentials,
+    response: &Response,
+) -> Result<(), Refusal> {
+    let asker = asker.to_owned();
     let Some(allowed) = response.headers.get("Access-Control-Allow-Origin") else {
         return Err(Refusal::NoPermissionGiven { asker });
     };
@@ -438,6 +461,14 @@ pub fn readable(request: &Request, response: &Response) -> Headers {
     if is_same_origin(request.initiator.as_ref(), response) {
         return response.headers.clone();
     }
+    exposed(response)
+}
+
+/// The headers of an answer read under CORS, whoever sent it: the ones a form
+/// could already have learned, and the ones `Access-Control-Expose-Headers`
+/// names — [`readable`] without its first question, for an answer at the end
+/// of a chain that left the page's origin (queue item 338).
+pub fn exposed(response: &Response) -> Headers {
     let exposed: Vec<String> = list(&response.headers, "Access-Control-Expose-Headers");
     let anything = exposed.iter().any(|one| one == "*");
     let mut visible = Headers::new();
@@ -465,6 +496,7 @@ pub fn made_opaque(response: &Response) -> Response {
     Response {
         url: response.url.clone(),
         status: crate::response::Status(0),
+        reason: String::new(),
         headers: Headers::new(),
         body: Vec::new(),
     }

@@ -76,6 +76,14 @@ pub struct Response {
     pub url: Url,
     /// How it went.
     pub status: Status,
+    /// The words the server put after the status, as it sent them — the
+    /// reason phrase, which servers are free to make up and often do.
+    ///
+    /// Kept because a page reads it (`Response.statusText`, ADR 0032 § 4),
+    /// and a page is owed what the server said rather than what a table says a
+    /// status usually means. Empty over HTTP/2, which has no reason phrase at
+    /// all, and for an answer nobody sent.
+    pub reason: String,
     /// What came with it.
     pub headers: Headers,
     /// The bytes. Undecoded, deliberately: see this file's own note.
@@ -88,6 +96,7 @@ impl Response {
         Self {
             url,
             status: Status::OK,
+            reason: "OK".to_owned(),
             headers: Headers::new(),
             body,
         }

@@ -25,10 +25,10 @@
 //! Then the request is built: `Purpose::Fetch`, the document's origin as the
 //! asker, an `Origin` header where Fetch sends one, and the `Referer` worked
 //! out here from this process's copy of the document's URL. What is left —
-//! the cookies from the jar under the document's top-level site, and whether
-//! to ask first under the preflight cache's same partition — is answered by
-//! the decided [`Fetch`] for whoever makes the request, at the moment it is
-//! made.
+//! the cookies from the jar under the document's top-level site, whether to
+//! ask first under the preflight cache's same partition, and every one of
+//! these again on each hop of a redirect — is [`crate::fetch_make`]'s, at the
+//! moment the request is made.
 //!
 //! # And before all of it, the boundary
 //!
@@ -38,21 +38,18 @@
 //! a renderer that broke the boundary ([`Broke`]), because only a renderer
 //! that was taken over sends one (ADR 0032 § 2).
 
-use alo_net::activity::{Activity, Happened};
 use alo_net::cause::Cause;
 use alo_net::cookie::Partition;
 use alo_net::cors::{self, Credentials, Mode};
 use alo_net::csp::Policies;
 use alo_net::forbidden;
-use alo_net::jar::{How, Jar};
 use alo_net::mixed::{self, Verdict};
-use alo_net::preflight::Preflights;
+use alo_net::pool::Pool;
 use alo_net::redirect;
 use alo_net::referrer;
 use alo_net::request::{Purpose, Request};
 use alo_url::{Origin, Url};
 use core::fmt;
-use std::time::SystemTime;
 
 use crate::fetch::{FetchAsk, Fetched};
 use crate::navigate::{LONGEST_SAID, LONGEST_URL};
@@ -239,21 +236,16 @@ impl Refusal {
         Fetched::failed(self.number)
     }
 
-    /// Write the refusal into the record (ADR 0012 § 5), as a request a rule
-    /// of ours refused, with its cause. Whether it was written — not for a
-    /// URL that did not parse, which names nothing a line could hold.
-    pub fn record(&self, activity: &mut Activity, at: SystemTime) -> bool {
+    /// Write the refusal into the session's record (ADR 0012 § 5), as a
+    /// request a rule of ours refused, with its cause. Whether it was written
+    /// — not for a URL that did not parse, which names nothing a line could
+    /// hold.
+    pub fn record(&self, pool: &mut Pool) -> bool {
         let Some(url) = &self.url else {
             return false;
         };
         let request = Request::get(url.clone(), self.cause.clone()).for_purpose(Purpose::Fetch);
-        activity.happened(
-            &request,
-            at,
-            Happened::Refused {
-                rule: self.rule.to_string(),
-            },
-        );
+        pool.refused(&request, self.rule.to_string());
         true
     }
 }
@@ -286,6 +278,11 @@ pub struct Fetch {
     /// The document's top-level site, which partitions the jar and the
     /// preflight cache (ADR 0007).
     pub partition: Partition,
+    /// Where the document is, as this process loaded it: what each hop's
+    /// `Referer` is worked out from.
+    pub document: Url,
+    /// The referrer policy the page asked for, or the engine's default.
+    pub referrer: referrer::Policy,
 }
 
 impl Fetch {
@@ -296,38 +293,6 @@ impl Fetch {
             .initiator
             .as_ref()
             .is_some_and(|asker| same_origin(asker, &self.request.url))
-    }
-
-    /// Whether the person's cookies go with it: always for `include`, to the
-    /// document's own origin for `same-origin`, never for `omit`. The same
-    /// answer says whether a `Set-Cookie` in the response is kept.
-    pub fn sends_credentials(&self) -> bool {
-        match self.credentials {
-            Credentials::Include => true,
-            Credentials::SameOrigin => !self.is_cross_origin(),
-            Credentials::Omit => false,
-        }
-    }
-
-    /// The `Cookie` header to send, from the jar under the document's
-    /// top-level site, when its credentials mode allows one.
-    pub fn cookies(&self, jar: &Jar, now: SystemTime) -> Option<String> {
-        if !self.sends_credentials() {
-            return None;
-        }
-        jar.header_for(&self.request.url, &self.partition, How::Embedded, now)
-    }
-
-    /// The `OPTIONS` to send first, when a `cors` request to another origin
-    /// is one a form could not have sent and the preflight cache, under the
-    /// document's top-level site, does not already cover it.
-    pub fn asking_first(&self, preflights: &mut Preflights, now: SystemTime) -> Option<Request> {
-        if self.mode != Mode::Cors || !self.is_cross_origin() {
-            return None;
-        }
-        preflights
-            .must_ask(&self.request, self.credentials, &self.partition, now)
-            .then(|| cors::asking_first(&self.request))
     }
 }
 
@@ -352,7 +317,7 @@ impl Decided {
 
 /// Whether `url` is of `asker`'s origin. An opaque origin is the same as
 /// nothing that can be written down again.
-fn same_origin(asker: &Origin, url: &Url) -> bool {
+pub(crate) fn same_origin(asker: &Origin, url: &Url) -> bool {
     !asker.is_opaque() && *asker == Origin::of(url)
 }
 
@@ -469,8 +434,8 @@ pub fn decide(ask: &FetchAsk, asker: &Asker<'_>, cause: &Cause) -> Decided {
     // The page's policy, or the engine's default,
     // `strict-origin-when-cross-origin`, from this process's copy of where
     // the document is.
-    if let Some(referrer) = referrer::for_request(ask.referrer.unwrap_or_default(), asker.url, &url)
-    {
+    let policy = ask.referrer.unwrap_or_default();
+    if let Some(referrer) = referrer::for_request(policy, asker.url, &url) {
         request.headers.add("Referer", referrer);
     }
     Decided::Make(Box::new(Fetch {
@@ -480,13 +445,15 @@ pub fn decide(ask: &FetchAsk, asker: &Asker<'_>, cause: &Cause) -> Decided {
         credentials: ask.credentials,
         redirect: ask.redirect,
         partition: Partition::of(asker.url),
+        document: asker.url.clone(),
+        referrer: policy,
     }))
 }
 
 #[cfg(test)]
 mod tests {
+    use alo_net::activity::Happened;
     use alo_net::cause::{DocumentId, Identities};
-    use alo_net::cookie::Cookie;
     use alo_net::headers::Headers;
 
     use super::*;
@@ -556,7 +523,6 @@ mod tests {
             Some("https://shop.example".to_owned())
         );
         assert!(!fetch.is_cross_origin());
-        assert!(fetch.sends_credentials());
         assert_eq!(
             fetch.request.headers.get("Origin"),
             None,
@@ -567,6 +533,8 @@ mod tests {
             Some("https://shop.example/a/things?q=1")
         );
         assert_eq!(fetch.partition, Partition::of(&url(PAGE)));
+        assert_eq!(fetch.document, url(PAGE), "each hop's Referer is from here");
+        assert_eq!(fetch.referrer, referrer::Policy::default());
     }
 
     #[test]
@@ -586,77 +554,6 @@ mod tests {
             "strict-origin-when-cross-origin"
         );
         assert!(fetch.is_cross_origin());
-        assert!(!fetch.sends_credentials());
-
-        let mut jar = Jar::new();
-        let within = Partition::of(&url(PAGE));
-        let cookie = Cookie::parse(
-            "id=1; SameSite=None; Secure",
-            &url("https://api.example/"),
-            &within,
-        )
-        .unwrap();
-        jar.keep(cookie, SystemTime::UNIX_EPOCH);
-        assert_eq!(fetch.cookies(&jar, SystemTime::UNIX_EPOCH), None);
-        asked.credentials = Credentials::Include;
-        let included = made(&asked);
-        assert_eq!(
-            included.cookies(&jar, SystemTime::UNIX_EPOCH).as_deref(),
-            Some("id=1"),
-            "the jar under the document's top-level site"
-        );
-        asked.credentials = Credentials::Omit;
-        assert_eq!(made(&asked).cookies(&jar, SystemTime::UNIX_EPOCH), None);
-    }
-
-    #[test]
-    fn a_request_a_form_could_not_have_sent_asks_first_and_the_cache_spares_the_second() {
-        let mut asked = ask("https://api.example/v1/things");
-        asked.method = "PUT".to_owned();
-        asked.headers = vec![("Content-Type".to_owned(), "application/json".to_owned())];
-        let fetch = made(&asked);
-        let mut preflights = Preflights::new();
-        let now = SystemTime::UNIX_EPOCH;
-        let Some(first) = fetch.asking_first(&mut preflights, now) else {
-            panic!("a cross-origin PUT was not asked about first");
-        };
-        assert_eq!(first.method, "OPTIONS");
-        assert_eq!(
-            first.headers.get("Access-Control-Request-Method"),
-            Some("PUT")
-        );
-        let mut answer =
-            alo_net::response::Response::ok(url("https://api.example/v1/things"), Vec::new());
-        answer.headers = Headers::new();
-        answer
-            .headers
-            .add("Access-Control-Allow-Origin", "https://shop.example");
-        answer.headers.add("Access-Control-Allow-Methods", "PUT");
-        answer
-            .headers
-            .add("Access-Control-Allow-Headers", "content-type");
-        answer.headers.add("Access-Control-Max-Age", "60");
-        assert!(
-            preflights
-                .allowed(
-                    &fetch.request,
-                    fetch.credentials,
-                    &fetch.partition,
-                    &answer,
-                    now
-                )
-                .is_ok()
-        );
-        assert_eq!(fetch.asking_first(&mut preflights, now), None, "remembered");
-
-        let same = made(&ask("https://shop.example/x"));
-        assert_eq!(same.asking_first(&mut Preflights::new(), now), None);
-        let mut simple = ask("https://api.example/v1/things");
-        simple.mode = Mode::NoCors;
-        assert_eq!(
-            made(&simple).asking_first(&mut Preflights::new(), now),
-            None
-        );
     }
 
     #[test]
@@ -807,13 +704,14 @@ mod tests {
         assert_eq!(refusal.rule, Rule::TooLong { bytes: long.len() });
         assert_eq!(refusal.asked.chars().count(), LONGEST_SAID);
 
-        let mut activity = Activity::new();
-        assert!(!refusal.record(&mut activity, SystemTime::UNIX_EPOCH));
+        let mut pool = Pool::with_trust(alo_net::tls::Trust::of(&[]).unwrap());
+        assert!(!refusal.record(&mut pool));
+        assert!(pool.activity().is_empty());
         let Decided::Refused(scheme) = decided(&ask("data:text/plain,hi")) else {
             panic!("a data: URL was fetched over the network");
         };
-        assert!(scheme.record(&mut activity, SystemTime::UNIX_EPOCH));
-        let line = activity.latest().unwrap();
+        assert!(scheme.record(&mut pool));
+        let line = pool.activity().latest().unwrap();
         assert_eq!(line.cause(), &cause());
         assert!(matches!(line.happened(), Happened::Refused { rule } if rule.contains("data:")));
         assert_eq!(scheme.answer(), Fetched::failed(7));

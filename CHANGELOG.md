@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser makes a page's fetch.** What a page asks for now reaches
+  the network, through the same connections, cache and record as
+  everything else, with each step of a redirect decided again: where the
+  page says it is from, whether the person's cookies go, and whether
+  another site must be asked first, which it is, before the request and in
+  the record. Another site's answer is read only if it agreed, a redirect
+  is followed, stopped at or refused as the page asked, and a redirect in a
+  circle, off a page's own site when it asked to stay, or from a secure
+  page to an insecure one is refused before it is sent and recorded by the
+  rule. The page reads the server's own words for its status. The window
+  makes a page's fetches one at a time between everything else, draws the
+  page again after each answer, and says why one failed; a page that never
+  stops fetching cannot stop it closing.
+
 - **A page can call `fetch`.** Its script asks, the browser decides, and
   the answer comes back later as a `Response` the page can read — its
   status, its headers and its text — or as a failure that says nothing

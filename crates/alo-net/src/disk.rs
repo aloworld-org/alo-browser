@@ -474,6 +474,7 @@ mod tests {
         Response {
             url: url("https://example.com/a"),
             status: Status(200),
+            reason: String::new(),
             headers: carried,
             body: b"the stored body".to_vec(),
         }

@@ -82,6 +82,7 @@ fn answered(target: &str, headers: &[(&str, &str)]) -> Response {
     Response {
         url: url(target),
         status: Status(200),
+        reason: String::new(),
         headers: carried,
         body: b"the stored body".to_vec(),
     }

@@ -58,7 +58,11 @@ pub const MAGIC: [u8; 8] = *b"alocache";
 /// is discarded wholesale rather than interpreted hopefully."* An older entry
 /// is not upgraded and not guessed at — it is a miss, and the response is
 /// fetched again.
-pub const VERSION: u16 = 1;
+///
+/// Version 2 carries the reason phrase after the status (queue item 338): a
+/// page reads it as `statusText`, and a response served from a disk is owed
+/// the words its server said as much as one fresh from the network.
+pub const VERSION: u16 = 2;
 
 /// The bytes before the checksummed part: magic, version, sequence, checksum.
 pub const PREFIX: usize = 8 + 2 + 8 + 8;
@@ -102,6 +106,7 @@ pub fn encode(record: &Record) -> Vec<u8> {
     body.text(&record.key);
     body.text(&record.stored.response.url.serialised);
     body.small(record.stored.response.status.0);
+    body.text(&record.stored.response.reason);
     body.time(record.stored.requested_at);
     body.time(record.stored.received_at);
     body.number(record.stored.response.headers.len() as u64);
@@ -204,6 +209,7 @@ pub fn decode(bytes: &[u8]) -> Result<Record, Unreadable> {
     let url =
         alo_url::parse(&url).map_err(|_| unreadable("an entry with a URL that is not one"))?;
     let status = Status(reader.small()?);
+    let reason = reader.text()?;
     let requested_at = reader.time()?;
     let received_at = reader.time()?;
 
@@ -245,6 +251,7 @@ pub fn decode(bytes: &[u8]) -> Result<Record, Unreadable> {
             response: Response {
                 url,
                 status,
+                reason,
                 headers,
                 body: payload,
             },
@@ -272,6 +279,7 @@ mod tests {
                 response: Response {
                     url,
                     status: Status(200),
+                    reason: "Fine".to_owned(),
                     headers,
                     body: b"the stored body".to_vec(),
                 },
@@ -351,6 +359,18 @@ mod tests {
         assert!(refused.why.contains("format 99"), "{refused}");
     }
 
+    #[test]
+    fn an_entry_from_before_the_reason_phrase_is_a_miss_rather_than_misread() {
+        // Version 1 had no reason phrase, so its URL's length would be read
+        // as one. It is refused by its version before any of that is tried.
+        let mut written = encode(&an_entry());
+        if let Some(slot) = written.get_mut(8..10) {
+            slot.copy_from_slice(&1u16.to_be_bytes());
+        }
+        let refused = decode(&written).expect_err("a format from the past");
+        assert!(refused.why.contains("format 1,"), "{refused}");
+    }
+
     /// The same bytes with the checksum made to agree with them again.
     ///
     /// Without this, every tampering test would be caught by the checksum and
@@ -402,10 +422,12 @@ mod tests {
         let entry = an_entry();
         let written = encode(&entry);
         // Find where `requested_at` starts: after the key and the URL, both
-        // length-prefixed, and the two-byte status.
+        // length-prefixed, the two-byte status, and the length-prefixed
+        // reason phrase.
         let key = 8 + entry.key.len();
         let url = 8 + entry.stored.response.url.serialised.len();
-        let at = PREFIX + key + url + 2;
+        let reason = 8 + entry.stored.response.reason.len();
+        let at = PREFIX + key + url + 2 + reason;
         let mut nanos_too_big = written.clone();
         nanos_too_big[at + 8..at + 12].copy_from_slice(&2_000_000_000u32.to_be_bytes());
         let refused = decode(&resealed(nanos_too_big)).expect_err("more nanoseconds than a second");

@@ -852,3 +852,15 @@ cut as item 339 from 89. 338 is eligible and next — a page can now ask, so
 its closing test has a page to drive — and 339 is eligible after it. 144
 queue items are open. The next unused queue number is 340 and the next
 unused ADR 0033.
+
+Iteration 216 built item 338: a decided fetch is made. `fetch_make` sends
+each hop through the session's pool with its `Origin`, `Referer` and
+`Cookie` decided again, asks first when CORS needs it, keeps `Set-Cookie`
+only with credentials, checks every answer on a CORS chain, and follows,
+stops at or refuses a redirect by its rule; `fetch_answering` answers a
+tab's fetches one at a time; `alo-window`'s conductor makes them between
+orders. `alo-net` keeps a response's reason phrase (cache format 2). A
+redirect judged by `connect-src` is cut as item 340: it depends on nothing
+open and sits before 339 in the queue, so it is next, and 339 after it. 144
+queue items are open. The next unused queue number is 341 and the next
+unused ADR 0033.

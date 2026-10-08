@@ -302,6 +302,7 @@ pub fn exchange_however_it_ends(
         response: Response {
             url: request.url.clone(),
             status: head.status,
+            reason: head.reason,
             headers: head.headers,
             body,
         },
