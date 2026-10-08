@@ -87,6 +87,12 @@ pub enum IssueKind {
     /// built. Only that layer is missing; the others are drawn, which is why
     /// this is not [`IssueKind::UnsupportedValue`].
     UndrawnLayer,
+    /// A rule or a declaration whose blocks nest deeper than this engine
+    /// reads — thirty-two, `nesting::LIMIT`. Dropped, and only it: the parser
+    /// it would be handed calls itself once per block, and a page's style
+    /// sheet chose the depth (queue item 330). A crash in a renderer is a
+    /// denial of service, and a refusal is a result.
+    NestedTooDeep,
 }
 
 impl IssueKind {
@@ -109,6 +115,7 @@ impl IssueKind {
             IssueKind::UnsupportedValue => "value not implemented, property left at its initial",
             IssueKind::UnsupportedStructure => "tree shape not implemented exactly, approximated",
             IssueKind::UndrawnLayer => "layer not drawn, the others are",
+            IssueKind::NestedTooDeep => "blocks nested deeper than 32, dropped",
         }
     }
 }
@@ -148,8 +155,16 @@ mod tests {
             IssueKind::InvalidAtComputedValueTime,
             IssueKind::UnsupportedValue,
             IssueKind::UnsupportedStructure,
+            IssueKind::UndrawnLayer,
+            IssueKind::NestedTooDeep,
         ] {
             assert!(!kind.as_str().is_empty());
         }
+    }
+
+    #[test]
+    fn nested_too_deep_names_the_limit_it_was_held_to() {
+        let limit = crate::nesting::LIMIT.to_string();
+        assert!(IssueKind::NestedTooDeep.as_str().contains(&limit));
     }
 }

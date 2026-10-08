@@ -3323,7 +3323,7 @@ The long pole, and the thing most of section E is unreachable without.
   until a page needs them. A style sheet nested as deep crashes the
   renderer the same way — **330**, found by this item and not its to fix.
 
-- [ ] **330. A style sheet nested past the limit is refused rather than
+- [x] **330. A style sheet nested past the limit is refused rather than
   overflowing the stack.** *Found by 329 (iteration 205).* `alo-css`'
   `parse_stylesheet` hands a page's `<style>` to `cssparser` and
   `selectors`, which recurse once per nested block: a sheet whose selector
@@ -3341,6 +3341,28 @@ The long pole, and the thing most of section E is unreachable without.
   parsed without a crash, the rules nested past the limit are dropped with
   an issue that says why, and the rules around them are kept — on a
   thread with the renderer's own stack size.
+  **Built (iteration 206).** `alo-css`' `parse.rs` measures each
+  rule's selector list, each declaration's value and each at-rule's
+  prelude with `nesting::within_limit` before anything recursive reads
+  it — the text is drained token by token, which `cssparser` does with a
+  heap stack rather than recursion, and the parser put back — and counts
+  how many `@media` blocks a rule is inside. Past 32, that rule or that
+  declaration is dropped with a new `IssueKind::NestedTooDeep` ("blocks
+  nested deeper than 32, dropped"); the sheet around it is untouched.
+  At `90d56b5`, before this change, a value, a selector and `@media`
+  nested 100 000 deep each aborted an 8 MiB thread with a stack overflow
+  (measured in a scratch worktree). **Met:** `alo-css/tests/nested_too_deep.rs`,
+  8 tests on a thread with the 8 MiB stack `alo-render`'s main thread has
+  on macOS and Linux, in a debug build: a selector, a value (in `(`, `[`,
+  `calc(` and `{`), a `var()` fallback, a media condition and `@media`
+  itself, each 100 000 deep, dropped with an issue naming the limit and
+  the line, the rules either side kept, 32 levels of `@media` kept and
+  the 33rd refused, 32-deep text of each kind kept, and five sheets that
+  end inside 100 000 open blocks refused rather than crashed. What reads
+  the values afterwards already bounds its own depth (`alo-style`'s
+  substitution at 32; `alo-value`'s colours, gradients and transforms enter
+  a fixed number of blocks, and its `calc()` stops at 16), so a value composed
+  through several `var()`s cannot rebuild the depth this refuses.
 
 - [ ] **331. `Array.prototype.forEach`, and a `NodeList`'s iteration.**
   *Cut from 329 (iteration 205).* `alo-downloads`' script now stops at

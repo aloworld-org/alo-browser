@@ -697,6 +697,14 @@ crashes the renderer; that is 330, eligible, and the next item in queue
 order. 144 queue items are open. The next unused queue number is 332 and
 the next unused ADR 0031.
 
+Iteration 206 built item 330: `alo-css` measures each rule's selectors,
+each declaration's value and each at-rule's prelude before the recursive
+parsers read them, counts `@media` inside `@media`, and drops what nests
+past 32 with an issue saying so. A sheet nested 100 000 deep in any of
+those ways no longer crashes the renderer. 143 queue items are open; 331
+still needs its ADR, and 320 is next in queue order. The next unused
+queue number is 332 and the next unused ADR 0031.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

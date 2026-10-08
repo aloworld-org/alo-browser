@@ -11,7 +11,9 @@
 //! `":is(".repeat(1000)` overflowed a test thread's two megabytes in a
 //! debug build. A crash is not a refusal (`docs/autonomy/LOOP.md`, stage 2
 //! § 2), so the depth is counted here first, by a scan that recurses into
-//! nothing, and text past [`LIMIT`] is refused.
+//! nothing, and text past [`LIMIT`] is refused. A page's style sheet is the
+//! same kind of text, and `parse.rs` measures each rule's selectors, each
+//! declaration's value and each at-rule's prelude here too (queue item 330).
 //!
 //! The scan sees blocks as CSS Syntax does: `(`, `[` and `{` open one (a
 //! function's name and its `(` are one token, and still one level), the

@@ -144,7 +144,11 @@ The reason this exists rather than a faster fork of somebody else's engine.
   `chunked`, one we cannot undo, or a compressed body the connection closing is
   the only end of, is refused by name
 - [2] **A page's own style sheets** — `<style>` and `<link>` together, in
-  document order, with an alternate sheet left alone and a missing one recorded
+  document order, with an alternate sheet left alone and a missing one recorded.
+  A rule or declaration whose blocks nest more than thirty-two deep is dropped
+  with an issue saying so, and the rules around it are kept; a sheet nested a
+  hundred thousand deep is a refusal rather than a crashed renderer (queue item
+  330)
 - [2] **`<img>` lays out at the picture's own size** and keeps its ratio when
   given one dimension
 - [2] **A picture under a transform is drawn transformed** — rotated, skewed

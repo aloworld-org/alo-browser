@@ -34,6 +34,9 @@
 //! - **A selector naming a pseudo-element is kept and never matches.** Stage 1
 //!   produces no boxes for pseudo-elements, so there is nothing for it to
 //!   match, and saying so is better than appearing to work.
+//! - **A rule or a declaration nested past thirty-two blocks is dropped**
+//!   before the rented parser recurses into it, and only it. A page chose
+//!   the depth, and a stack overflow would take the renderer down with it.
 
 pub mod declaration;
 pub mod ident;

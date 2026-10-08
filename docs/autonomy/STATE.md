@@ -18905,3 +18905,107 @@ verbs, the stop rule holding, the changelog changed.
 144 queue items are open: 329 closed, 330 and 331 opened. The next unused
 queue number is **332** and the next ADR is **0031**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 206 — queue item 330 built: a style sheet nested too deep is refused, not a crash
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2 § 2: bytes from
+outside return an error rather than panicking), `ROADMAP.md`'s state rules
+and its stage 2 sections, iteration 205's entry, item 330 and 329 in
+`QUEUE.md`, `docs/features.md`' style sheet line, ADR 0001 (`cssparser` and
+`selectors` are rented; the rules are ours) and the gate's boundary list
+for both crates. `alo-css`' `parse.rs`, `nesting.rs`, `issue.rs`,
+`media.rs`, `stylesheet.rs`, `selector.rs`; `cssparser` 0.37's
+`consume_until_end_of_block` (a heap stack, no recursion);
+`alo-render`'s `main` (style sheets are parsed on the process's main
+thread); `alo-style`'s `variables.rs` and `alo-value`'s `parse.rs` for
+their own depth bounds. No `AGENTS.md` exists. The checkout was clean on
+entry at `90d56b5`. No sibling repository was read or written.
+
+**Selection.** 330 depends on nothing and is the first eligible item in
+queue order: 331 needs its ADR first, 320 and 321 follow it.
+
+**Measured first.** In a scratch worktree at `90d56b5` (removed after), a
+declaration value of 100 000 `(`, `@media screen {` 100 000 times, and
+`:is(` 100 000 times each aborted an 8 MiB thread with "has overflowed
+its stack". The value and nested `@media` were this crate's own
+recursion (`consume_one_value_token`, `parse_nested_rules`), the selector
+the rented parser's.
+
+**What was built.** `alo-css`' `parse.rs`: before anything recursive reads
+it, each qualified rule's prelude, each `@media` prelude and each
+declaration's value is drained token by token (which `cssparser` does
+without recursing), measured with `nesting::within_limit`, and the
+parser reset; and `TopLevel` counts the `@media` blocks a rule is inside.
+Past `nesting::LIMIT` (32), that rule — or that declaration only — is
+dropped with the new `IssueKind::NestedTooDeep`, "blocks nested deeper
+than 32, dropped", carrying its text and line. A rule's error is now
+`RuleError` (a selector refused, or too deep) and a declaration's
+`ValueNestedTooDeep`, so the issue says which; everything else is
+recorded as before. `nesting.rs` and `lib.rs` say so.
+
+**Closing condition.** *A sheet with a selector, a declaration value and a
+media condition each nested 100 000 deep is parsed without a crash, the
+rules nested past the limit are dropped with an issue that says why, and
+the rules around them are kept — on a thread with the renderer's own
+stack size*: **met**. `alo-css/tests/nested_too_deep.rs`, 8 tests, each on
+a thread of 8 MiB — the main-thread stack `alo-render` runs on under
+macOS and Linux — in a debug build: a selector; a value in `(`, `[`,
+`calc(` and `{`; a `var()` fallback; a media condition; and `@media`
+inside `@media`, each 100 000 deep, dropped with an issue naming the
+limit and its line while the rules either side apply; 32 levels of each
+kind kept and 32 `@media` blocks still applying, the 33rd refused; and
+five sheets that end inside 100 000 open blocks parsed without a crash.
+
+**Not re-opened.** A value built by substituting several 32-deep
+`var()`s into each other can be deeper than 32 after the cascade, but
+both readers after this one bound themselves already: `alo-style`'s
+substitution stops at 32 and `alo-value`'s `calc()` at 16, and its
+colour, gradient and transform readers enter a fixed number of blocks.
+Nothing new was found.
+
+**Roadmap.** This iteration served **no roadmap line**, so `ROADMAP.md`
+is unchanged. Refusing a hostile style sheet is stage 2 § 2's clause for
+everything that reads outside bytes, not a capability: the roadmap's CSS
+section lists animations, container queries, filters and the like, and a
+Built clause on any of them would be decoration. `docs/features.md`' line
+for a page's own style sheets now says it, as do `CHANGELOG.md`,
+`QUEUE.md` and `REMAINING.md`.
+
+**Gate, mechanical.** `cargo fmt --all`; `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` silent; `alo-css`' tests
+passing (109 unit, 9 + 8 + 9 integration); the workspace's tests warmed
+with `--all-features`. `scripts/gate.sh` ran into a log; it passed the
+ten-minute foreground bound and was moved to the background, and I
+waited for it in the same turn and read the log: exit 0, "The gate is
+met." — fmt clean, clippy silent, tests pass, nothing stubbed, `unsafe`
+forbidden, every rented crate behind its boundary (`parse.rs` was
+already listed for both `cssparser` and `selectors`; `nesting.rs` names
+neither), no coordinate verbs, the stop rule holding, the changelog
+changed.
+
+**Gate, manual.**
+- Layout assertions: nothing positions or sizes differently; the
+  corpus' box trees and layouts pass unchanged in the gate's run.
+- Reference render: none moved. `git status` shows no committed
+  reference rewritten; the change drops only rules nested past 32, which
+  no sheet in the corpus has.
+- One responsibility per file: `nesting.rs` the depth bound, `parse.rs`
+  what a sheet's text becomes and what it refuses, `issue.rs` the
+  refusals' names. The new test file is one property of the parser.
+- Bytes from outside: no arithmetic on a length (`saturating_*` on the
+  depth), no indexing outside tests, and the rented parsers are handed
+  only text already measured.
+- `docs/features.md` had the style sheet line before this; it now names
+  the refusal.
+
+**Unresolved obligations.**
+- 331 needs its ADR before any code: how a builtin keeps state across
+  the calls it asks for. `alo-downloads` waits on it.
+- 320 and 321 remain eligible and are next in queue order. 322 and 324
+  wait for a page; 323 waits on 73; 328 waits for a page. Still standing:
+  284, 311, 314 wait for pages; 296 needs a person; 297–300, 302, 304,
+  308; 126 and 132.
+
+143 queue items are open: 330 closed. The next unused queue number is
+**332** and the next ADR is **0031**. This is one iteration, not a
+finished queue or roadmap.

@@ -12,16 +12,29 @@
 //! cannot evaluate takes its rule down, because that is what CSS says and
 //! because a rule nobody can evaluate would match everything or nothing. Each
 //! of those is recorded as a [`StyleIssue`] with the text that caused it.
+//!
+//! **A rule nested past `nesting::LIMIT` is dropped before the rented parser
+//! recurses into it** (queue item 330). `cssparser` and `selectors` read a
+//! block inside a block by calling themselves, and so does this file's own
+//! walk over a declaration's value and over `@media` inside `@media`: a
+//! page's `<style>` with a selector, a value or a condition five thousand
+//! blocks deep overflowed the stack and aborted the process. So a selector
+//! list, a declaration's value and an at-rule's prelude are each measured
+//! first by a scan that recurses into nothing, an `@media` block counts how
+//! many it is inside, and what is too deep goes with a
+//! [`IssueKind::NestedTooDeep`] — that rule or that declaration, never the
+//! sheet around it.
 
 use crate::declaration::{Declaration, DeclarationBlock, Importance};
 use crate::issue::{IssueKind, Location, StyleIssue};
 use crate::media::MediaQueryList;
+use crate::nesting;
 use crate::selector::SelectorList;
 use crate::stylesheet::{MediaRule, Rule, StyleRule, Stylesheet, UnknownAtRule};
 use cssparser::{
-    AtRuleParser, CowRcStr, DeclarationParser, ParseError, Parser as CssParser, ParserInput,
-    ParserState, QualifiedRuleParser, RuleBodyItemParser, RuleBodyParser, SourceLocation,
-    SourcePosition, StyleSheetParser, Token,
+    AtRuleParser, CowRcStr, DeclarationParser, ParseError, ParseErrorKind, Parser as CssParser,
+    ParserInput, ParserState, QualifiedRuleParser, RuleBodyItemParser, RuleBodyParser,
+    SourceLocation, SourcePosition, StyleSheetParser, Token,
 };
 use selectors::parser::SelectorParseErrorKind;
 
@@ -68,6 +81,68 @@ fn drain_to_source<'i>(input: &mut CssParser<'i, '_>) -> &'i str {
     input.slice_from(start)
 }
 
+/// Whether what is left in the parser nests no deeper than
+/// `nesting::LIMIT`, measured without parsing it and without moving the
+/// parser.
+///
+/// Draining steps over a block without recursing into it (`cssparser` keeps
+/// a stack of the blocks it is skipping, on the heap), so this is safe on
+/// text of any depth; the text it yields is then measured by a scan that
+/// recurses into nothing either.
+fn nests_within_limit(input: &mut CssParser<'_, '_>) -> bool {
+    let start = input.state();
+    let within = nesting::within_limit(drain_to_source(input));
+    input.reset(&start);
+    within
+}
+
+/// Why a rule was dropped: a selector this engine does not have, or blocks
+/// nested deeper than it reads.
+///
+/// Which selector error it was is not kept: the issue carries the rule's
+/// text, which says more than the rented parser's kind would.
+#[derive(Debug)]
+enum RuleError {
+    /// The selector list did not parse.
+    Selector,
+    /// The selector list, or an at-rule's prelude, or the `@media` blocks
+    /// around a rule, nest past `nesting::LIMIT`.
+    NestedTooDeep,
+}
+
+impl From<SelectorParseErrorKind<'_>> for RuleError {
+    fn from(_: SelectorParseErrorKind<'_>) -> Self {
+        RuleError::Selector
+    }
+}
+
+/// A declaration's value nested past `nesting::LIMIT`. The only way this
+/// file refuses a declaration itself; `cssparser` refuses the rest.
+#[derive(Debug)]
+struct ValueNestedTooDeep;
+
+/// The issue a dropped rule or declaration raises: nested too deep when
+/// that is what this file said, otherwise `otherwise`.
+fn dropped_as<E>(
+    error: &ParseError<'_, E>,
+    too_deep: impl Fn(&E) -> bool,
+    otherwise: IssueKind,
+) -> IssueKind {
+    match &error.kind {
+        ParseErrorKind::Custom(custom) if too_deep(custom) => IssueKind::NestedTooDeep,
+        _ => otherwise,
+    }
+}
+
+/// The issue a dropped rule raises.
+fn rule_dropped_as(error: &ParseError<'_, RuleError>) -> IssueKind {
+    dropped_as(
+        error,
+        |custom| matches!(custom, RuleError::NestedTooDeep),
+        IssueKind::InvalidSelector,
+    )
+}
+
 /// The prelude of an at-rule, once we know which at-rule it is.
 enum AtRulePrelude {
     /// `@media`, with its condition.
@@ -88,16 +163,15 @@ enum AtRulePrelude {
 #[derive(Default)]
 struct TopLevel {
     issues: Vec<StyleIssue>,
+    /// How many `@media` blocks the rules being read are inside. One more
+    /// than `nesting::LIMIT` is refused rather than recursed into.
+    depth: usize,
 }
 
 impl TopLevel {
-    fn record_dropped_rule(
-        &mut self,
-        error: &ParseError<'_, SelectorParseErrorKind<'_>>,
-        source: &str,
-    ) {
+    fn record_dropped_rule(&mut self, error: &ParseError<'_, RuleError>, source: &str) {
         self.issues.push(StyleIssue {
-            kind: IssueKind::InvalidSelector,
+            kind: rule_dropped_as(error),
             source: source.trim().to_owned(),
             at: location_of(error.location),
         });
@@ -107,22 +181,22 @@ impl TopLevel {
     fn parse_nested_rules(&mut self, input: &mut CssParser<'_, '_>) -> Vec<Rule> {
         let mut rules = Vec::new();
         let mut dropped = Vec::new();
+        self.depth = self.depth.saturating_add(1);
         {
-            for result in StyleSheetParser::new(input, self) {
+            for result in StyleSheetParser::new(input, &mut *self) {
                 match result {
                     Ok(rule) => rules.push(rule),
-                    Err((error, source)) => {
-                        dropped.push((location_of(error.location), source.trim().to_owned()));
-                    }
+                    Err((error, source)) => dropped.push((
+                        rule_dropped_as(&error),
+                        location_of(error.location),
+                        source.trim().to_owned(),
+                    )),
                 }
             }
         }
-        for (at, source) in dropped {
-            self.issues.push(StyleIssue {
-                kind: IssueKind::InvalidSelector,
-                source,
-                at,
-            });
+        self.depth = self.depth.saturating_sub(1);
+        for (kind, at, source) in dropped {
+            self.issues.push(StyleIssue { kind, source, at });
         }
         rules
     }
@@ -131,14 +205,18 @@ impl TopLevel {
 impl<'i> QualifiedRuleParser<'i> for TopLevel {
     type Prelude = (SelectorList, Location);
     type QualifiedRule = Rule;
-    type Error = SelectorParseErrorKind<'i>;
+    type Error = RuleError;
 
     fn parse_prelude<'t>(
         &mut self,
         input: &mut CssParser<'i, 't>,
     ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
         let at = location_of(input.current_source_location());
-        Ok((SelectorList::parse(input)?, at))
+        if !nests_within_limit(input) {
+            return Err(input.new_custom_error(RuleError::NestedTooDeep));
+        }
+        let selectors = SelectorList::parse(input).map_err(ParseError::into)?;
+        Ok((selectors, at))
     }
 
     fn parse_block<'t>(
@@ -168,7 +246,7 @@ impl<'i> QualifiedRuleParser<'i> for TopLevel {
 impl<'i> AtRuleParser<'i> for TopLevel {
     type Prelude = AtRulePrelude;
     type AtRule = Rule;
-    type Error = SelectorParseErrorKind<'i>;
+    type Error = RuleError;
 
     fn parse_prelude<'t>(
         &mut self,
@@ -177,6 +255,11 @@ impl<'i> AtRuleParser<'i> for TopLevel {
     ) -> Result<AtRulePrelude, ParseError<'i, Self::Error>> {
         let at = location_of(input.current_source_location());
         if name.eq_ignore_ascii_case("media") {
+            // Its condition is parsed, and its block is read by calling this
+            // parser again: both are measured first.
+            if self.depth >= nesting::LIMIT || !nests_within_limit(input) {
+                return Err(input.new_custom_error(RuleError::NestedTooDeep));
+            }
             return Ok(AtRulePrelude::Media {
                 queries: MediaQueryList::parse(input, &mut self.issues),
                 at,
@@ -243,19 +326,16 @@ fn parse_declarations(
         while let Some(result) = iterator.next() {
             match result {
                 Ok(declaration) => block.push(declaration),
-                Err((error, source)) => iterator
-                    .parser
-                    .dropped
-                    .push((location_of(error.location), source.trim().to_owned())),
+                Err((error, source)) => iterator.parser.dropped.push((
+                    dropped_as(&error, |_| true, IssueKind::InvalidDeclaration),
+                    location_of(error.location),
+                    source.trim().to_owned(),
+                )),
             }
         }
     }
-    for (at, source) in declarations.dropped {
-        issues.push(StyleIssue {
-            kind: IssueKind::InvalidDeclaration,
-            source,
-            at,
-        });
+    for (kind, at, source) in declarations.dropped {
+        issues.push(StyleIssue { kind, source, at });
     }
     block
 }
@@ -263,19 +343,25 @@ fn parse_declarations(
 /// The declarations inside one block.
 #[derive(Default)]
 struct Declarations {
-    dropped: Vec<(Location, String)>,
+    dropped: Vec<(IssueKind, Location, String)>,
 }
 
 impl<'i> DeclarationParser<'i> for Declarations {
     type Declaration = Declaration;
-    type Error = ();
+    type Error = ValueNestedTooDeep;
 
     fn parse_value<'t>(
         &mut self,
         name: CowRcStr<'i>,
         input: &mut CssParser<'i, 't>,
         _start: &ParserState,
-    ) -> Result<Declaration, ParseError<'i, ()>> {
+    ) -> Result<Declaration, ParseError<'i, ValueNestedTooDeep>> {
+        // `scan_value` steps over a block by entering it, once per level, and
+        // the value is kept for `alo-style` and `alo-value` to read the same
+        // way: a value too deep for that goes here.
+        if !nests_within_limit(input) {
+            return Err(input.new_custom_error(ValueNestedTooDeep));
+        }
         let start = input.position();
         let (value_end, importance) = scan_value(input);
         let whole = input.slice_from(start);
@@ -351,16 +437,16 @@ fn consume_one_value_token(input: &mut CssParser<'_, '_>) -> bool {
 impl AtRuleParser<'_> for Declarations {
     type Prelude = ();
     type AtRule = Declaration;
-    type Error = ();
+    type Error = ValueNestedTooDeep;
 }
 
 impl QualifiedRuleParser<'_> for Declarations {
     type Prelude = ();
     type QualifiedRule = Declaration;
-    type Error = ();
+    type Error = ValueNestedTooDeep;
 }
 
-impl RuleBodyItemParser<'_, Declaration, ()> for Declarations {
+impl RuleBodyItemParser<'_, Declaration, ValueNestedTooDeep> for Declarations {
     fn parse_declarations(&self) -> bool {
         true
     }

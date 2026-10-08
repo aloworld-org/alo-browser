@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's style sheet can no longer crash the renderer by nesting.** A
+  selector, a value or a media condition written thousands of brackets
+  deep, or `@media` inside `@media` thousands of times, used to overflow
+  the stack and take the page's process down. Anything nested more than
+  thirty-two deep is now dropped, with a note saying why, and every rule
+  around it still applies. Nothing a person writes nests that deep.
+
 - **A page's script can find elements by a CSS selector.**
   `document.querySelectorAll(".btn[href]")`, and the same on any element,
   answers what the selector matches below it, in document order, as a list
