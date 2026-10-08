@@ -141,6 +141,15 @@ fn every_message_to_a_renderer_survives_the_crossing() {
 
 #[test]
 fn every_message_from_a_renderer_survives_the_crossing() {
+    // An act's objections cross in
+    // `an_act_or_a_delivery_carries_objections_and_no_more_than_one_may`.
+    let acted = |outcome, issues: Vec<String>| FromRenderer::Acted {
+        outcome,
+        issues,
+        objections: Vec::new(),
+        navigation: None,
+        fetches: Vec::new(),
+    };
     let messages = vec![
         FromRenderer::Loaded {
             issues: vec!["refused `float: left`".to_owned()],
@@ -169,44 +178,36 @@ fn every_message_from_a_renderer_survives_the_crossing() {
         FromRenderer::Tree(Box::new(Snapshot {
             root: Some(a_node(vec![a_node(vec![]), a_node(vec![a_node(vec![])])])),
         })),
-        FromRenderer::Acted {
-            outcome: Outcome::Activated {
+        acted(
+            Outcome::Activated {
                 node: id(3),
                 name: Some("Save".to_owned()),
             },
-            issues: Vec::new(),
-            navigation: None,
-            fetches: Vec::new(),
-        },
+            Vec::new(),
+        ),
         // A followed link's act is in
         // `where_a_page_asked_to_go_survives_the_crossing`, with its ask.
-        FromRenderer::Acted {
-            outcome: Outcome::TextPut {
+        acted(
+            Outcome::TextPut {
                 node: id(5),
                 text: "12 May".to_owned(),
             },
-            issues: Vec::new(),
-            navigation: None,
-            fetches: Vec::new(),
-        },
-        FromRenderer::Acted {
-            outcome: Outcome::Scrolled {
+            Vec::new(),
+        ),
+        acted(
+            Outcome::Scrolled {
                 node: id(6),
                 by: ScrollBy::ToStart,
             },
-            issues: Vec::new(),
-            navigation: None,
-            fetches: Vec::new(),
-        },
-        FromRenderer::Acted {
-            outcome: Outcome::TextCanceled {
+            Vec::new(),
+        ),
+        acted(
+            Outcome::TextCanceled {
                 node: id(7),
                 text: "refused".to_owned(),
             },
-            issues: vec!["the text: the page cancelled it".to_owned()],
-            navigation: None,
-            fetches: Vec::new(),
-        },
+            vec!["the text: the page cancelled it".to_owned()],
+        ),
         FromRenderer::Refused(Refusal::NotFound {
             target: Target::Named("Nowhere".to_owned()),
         }),
@@ -395,6 +396,7 @@ fn where_a_page_asked_to_go_survives_the_crossing() {
                     "click: uncaught: Error: a listener threw".to_owned(),
                     String::new(),
                 ],
+                objections: Vec::new(),
                 navigation,
                 fetches: Vec::new(),
             },
@@ -513,6 +515,7 @@ fn a_message_that_stops_in_the_middle_is_refused() {
             to: "https://example.com/next".to_owned(),
         },
         issues: Vec::new(),
+        objections: Vec::new(),
         navigation: Some(Asked {
             url: "https://example.com/next".to_owned(),
             by: By::Browser,
@@ -597,6 +600,68 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
     );
 }
 
+/// Queue item 346: an act and a delivery carry what a later draw objected
+/// to, across the boundary and under the bound a load's are.
+#[test]
+fn an_act_or_a_delivery_carries_objections_and_no_more_than_one_may() {
+    let style = |many| {
+        vec![
+            Objection {
+                policy: 2,
+                kind: Inline::Style,
+                placement: Placement::Attribute,
+            };
+            many
+        ]
+    };
+    let acted = |objections| FromRenderer::Acted {
+        outcome: Outcome::Activated {
+            node: id(2),
+            name: None,
+        },
+        issues: vec!["1 more policy objections".to_owned()],
+        objections,
+        navigation: None,
+        fetches: Vec::new(),
+    };
+    let delivered = |objections| FromRenderer::Delivered {
+        issues: Vec::new(),
+        objections,
+        navigation: None,
+        fetches: Vec::new(),
+    };
+    for honest in [
+        acted(style(1)),
+        acted(style(MOST_OBJECTIONS)),
+        delivered(style(1)),
+        delivered(style(MOST_OBJECTIONS)),
+    ] {
+        assert_eq!(
+            read_from_renderer(&write_from_renderer(&honest)).as_ref(),
+            Ok(&honest)
+        );
+    }
+    for flood in [
+        acted(style(MOST_OBJECTIONS + 1)),
+        delivered(style(MOST_OBJECTIONS + 1)),
+    ] {
+        let refused = read_from_renderer(&write_from_renderer(&flood));
+        assert!(
+            refused
+                .as_ref()
+                .is_err_and(|why| why.why.contains("objections in one answer")),
+            "{refused:?}"
+        );
+    }
+    let whole = write_from_renderer(&delivered(style(1)));
+    for cut in 1..whole.len() {
+        assert!(
+            read_from_renderer(whole.get(..cut).unwrap_or_default()).is_err(),
+            "{cut} bytes of a delivery were read as a whole one"
+        );
+    }
+}
+
 /// An objection is a number and two tags, and all are a stranger's: inline
 /// content of a kind nobody has is refused, so is a placement nobody has,
 /// and so is a place no machine could index.
@@ -659,6 +724,7 @@ fn a_navigation_that_is_not_one_is_refused() {
             name: None,
         },
         issues: Vec::new(),
+        objections: Vec::new(),
         navigation: Some(Asked {
             url: url.to_owned(),
             by: By::Script,

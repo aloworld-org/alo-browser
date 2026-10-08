@@ -347,18 +347,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.tag(0);
             writer.texts(issues);
             writer.texts(wanted);
-            writer.number(objections.len() as u64);
-            for objection in objections {
-                writer.number(objection.policy as u64);
-                writer.tag(match objection.kind {
-                    Inline::Script => 0,
-                    Inline::Style => 1,
-                });
-                writer.tag(match objection.placement {
-                    Placement::Element => 0,
-                    Placement::Attribute => 1,
-                });
-            }
+            writer.objections(objections);
             writer.navigation(navigation.as_ref());
             writer.fetches(fetches);
         }
@@ -381,22 +370,26 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
         FromRenderer::Acted {
             outcome,
             issues,
+            objections,
             navigation,
             fetches,
         } => {
             writer.tag(3);
             writer.outcome(outcome);
             writer.texts(issues);
+            writer.objections(objections);
             writer.navigation(navigation.as_ref());
             writer.fetches(fetches);
         }
         FromRenderer::Delivered {
             issues,
+            objections,
             navigation,
             fetches,
         } => {
             writer.tag(8);
             writer.texts(issues);
+            writer.objections(objections);
             writer.navigation(navigation.as_ref());
             writer.fetches(fetches);
         }
@@ -436,6 +429,23 @@ const POLICIES: [Policy; 8] = [
 ];
 
 impl Writer {
+    /// What an answer's policies objected to: a count, then each one's
+    /// policy, kind and placement.
+    fn objections(&mut self, objections: &[Objection]) {
+        self.number(objections.len() as u64);
+        for objection in objections {
+            self.number(objection.policy as u64);
+            self.tag(match objection.kind {
+                Inline::Script => 0,
+                Inline::Style => 1,
+            });
+            self.tag(match objection.placement {
+                Placement::Element => 0,
+                Placement::Attribute => 1,
+            });
+        }
+    }
+
     /// Where the page asked to go, if anywhere (ADR 0020).
     fn navigation(&mut self, navigation: Option<&Asked>) {
         let Some(asked) = navigation else {
@@ -857,7 +867,8 @@ impl<'a> Reader<'a> {
         })
     }
 
-    /// A load's objections (queue item 237).
+    /// An answer's objections: a load's (queue item 237), an act's or a
+    /// delivery's (346).
     ///
     /// Bounded here as well as by the renderer that sent them: each one is a
     /// report the browser process will post, and a renderer claiming more
@@ -866,7 +877,7 @@ impl<'a> Reader<'a> {
         let how_many = self.count()?;
         if how_many > MOST_OBJECTIONS {
             return Err(unreadable(format!(
-                "{how_many} policy objections in one load, more than the {MOST_OBJECTIONS} \
+                "{how_many} policy objections in one answer, more than the {MOST_OBJECTIONS} \
                  one may carry"
             )));
         }
@@ -1121,11 +1132,13 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
         3 => {
             let outcome = reader.outcome()?;
             let issues = reader.texts()?;
+            let objections = reader.objections()?;
             let navigation = reader.navigation()?;
             let fetches = reader.fetches()?;
             FromRenderer::Acted {
                 outcome,
                 issues,
+                objections,
                 navigation,
                 fetches,
             }
@@ -1166,10 +1179,12 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
         }
         8 => {
             let issues = reader.texts()?;
+            let objections = reader.objections()?;
             let navigation = reader.navigation()?;
             let fetches = reader.fetches()?;
             FromRenderer::Delivered {
                 issues,
+                objections,
                 navigation,
                 fetches,
             }

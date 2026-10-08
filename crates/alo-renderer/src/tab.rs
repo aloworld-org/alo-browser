@@ -284,6 +284,7 @@ impl Tab {
                 navigation,
                 fetches,
                 issues,
+                ..
             },
             Some(document),
         ) = (answer, self.document)
@@ -1478,6 +1479,7 @@ mod tests {
                 name: None,
             },
             issues: Vec::new(),
+            objections: Vec::new(),
             navigation: None,
             fetches: vec![ask_for(2, "https://shop.example/b.exe")],
         };
@@ -1491,6 +1493,7 @@ mod tests {
 
         let mut delivered = FromRenderer::Delivered {
             issues: Vec::new(),
+            objections: Vec::new(),
             navigation: None,
             fetches: vec![ask_for(3, "https://shop.example/c")],
         };
@@ -1597,6 +1600,7 @@ mod tests {
                 name: None,
             },
             issues: Vec::new(),
+            objections: Vec::new(),
             navigation: None,
             fetches: vec![ask_for(1, "https://shop.example/a")],
         };

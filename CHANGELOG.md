@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's author is told about inline style refused after it loaded.**
+  When a page's script, an agent's action or the answer to a fetch puts a
+  `style` attribute or a `<style>` on the page that its Content Security
+  Policy refuses, the refusal is now reported to wherever the policy said,
+  as one at load already was. Each element and text is reported once while
+  the page is loaded, however often it is drawn, and no single answer asks
+  the browser to post more than 64 reports (queue item 346).
+
 - **A page's Content Security Policy now governs its inline style.** Under
   a policy that refuses inline style, a page's `<style>` elements and
   `style` attributes are not applied, the refusal is said, and the page's

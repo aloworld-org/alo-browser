@@ -5495,7 +5495,7 @@ The long pole, and the thing most of section E is unreachable without.
   each element once, so the memory has nothing to decide until a later
   draw's objections are carried.
 
-- [ ] **346. Inline style refused after load, reported.** *Cut from 343 by
+- [x] **346. Inline style refused after load, reported.** *Cut from 343 by
   ADR 0034 § 4. Depends on 343.* A draw made after a script, an agent or a
   fetch's answer changed the page can find inline style that a policy
   objects to. Those objections are carried in the next `Acted` or
@@ -5511,6 +5511,24 @@ The long pole, and the thing most of section E is unreachable without.
   report from the browser process, and the same attribute set twice
   produces one. A flood is bounded and said. Each is pinned in a renderer
   test over a real load and in `wire.rs`'s round trip.
+  **Done (iteration 224).** `alo-renderer`'s `objected.rs` (`Objected`:
+  each element, placement and SHA-256 of the text a header policy objected
+  to, kept for the page's life and forgotten by a new load, and what draws
+  found waiting, at most 64 and a count, for the next answer that carries
+  objections). `Judged::of` objects only the first time it meets one, so a
+  refusal is still made and said at every draw. `Acted` and `Delivered`
+  gained `objections`, written and read by `wire.rs`'s one `objections`
+  pair and refused past 64. The load's carry became `Objected::take`.
+  Pinned in `tests/style_refused_after_load.rs` over real loads: a
+  listener's attribute reported once per text, with the browser process's
+  `violations::reports` writing one post to the policy's `report-uri`; a
+  `Paint`'s find carried by the next `Acted`; a fetch's reaction carried by
+  its `Delivered`; a flood of 100 carried as 64 and "36 more", and not found
+  again; a new load forgetting. Also in `objected.rs`' and
+  `inline_style.rs`' unit tests (hostile text, a second draw objecting to
+  nothing), and in `messages_across_a_boundary.rs` (both answers' round
+  trips, every prefix refused, 65 refused). Checked by mutation: a memory
+  that forgets fails two of the new renderer tests.
 
 - [ ] **345. `el.style[0]`, a declaration's indexed getter.** *Cut from 342
   (iteration 221).* ADR 0033 § 6 has `style[0]` come with `item()`, and

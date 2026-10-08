@@ -92,16 +92,19 @@ fn answers() -> Vec<FromRenderer> {
                 name: Some("Download".to_owned()),
             },
             issues: Vec::new(),
+            objections: Vec::new(),
             navigation: None,
             fetches: asks(),
         },
         FromRenderer::Delivered {
             issues: vec!["then: uncaught: TypeError".to_owned()],
+            objections: Vec::new(),
             navigation: None,
             fetches: asks(),
         },
         FromRenderer::Delivered {
             issues: Vec::new(),
+            objections: Vec::new(),
             navigation: None,
             fetches: Vec::new(),
         },
@@ -232,6 +235,7 @@ fn an_ask_tagged_with_something_nobody_has_is_refused_by_name() {
     one.referrer = None;
     let whole = write_from_renderer(&FromRenderer::Delivered {
         issues: Vec::new(),
+        objections: Vec::new(),
         navigation: None,
         fetches: vec![one],
     });
@@ -348,6 +352,7 @@ fn an_answer_nothing_on_the_page_waits_for_is_said_and_changes_nothing() {
     let changes = renderer.document().map(alo_dom::Document::change_count);
     let FromRenderer::Delivered {
         issues,
+        objections,
         navigation,
         fetches,
     } = renderer.handle(ToRenderer::Fetched(Box::new(Fetched::failed(3))))
@@ -356,6 +361,7 @@ fn an_answer_nothing_on_the_page_waits_for_is_said_and_changes_nothing() {
     };
     assert_eq!(navigation, None);
     assert!(fetches.is_empty());
+    assert!(objections.is_empty());
     assert_eq!(issues.len(), 1);
     assert!(issues[0].contains("waiting for fetch 3"), "{issues:?}");
     assert_eq!(

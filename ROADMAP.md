@@ -377,15 +377,16 @@ unreachable without it.
       exempt by its exact text (`alo-dom`'s `declared.rs`), and one function
       (`alo-bindings`' `style_policy.rs`) answering for the draw and for
       `element.style`, which reads a refused attribute as `""`; and what the
-      load's draw objects to reported with its placement on the wire
+      load's draw objects to reported with its placement on the wire; and
+      what a draw **after** load objects to carried in the next `Acted` or
+      `Delivered`, each element, placement and text once for the page's life
+      and a `Paint`'s finds waiting for the next answer, under the same bound
+      of 64 (queue item 346, `alo-renderer`'s `objected.rs`)
       · Owed: a `<meta>` policy's `report-to` (queue item 240);
       **a nested document**, which is what `frame-src` needs and which
       nothing here can yet tell from a link click (queue item 86); and an
       **event handler** matched by its hash, which is the same rule as the
-      `style` attribute and waits only for there to be handlers (queue item 81);
-      and what a draw **after** load finds a policy objecting to in inline
-      style, which is said in that drawing's issues and not yet reported
-      (queue item 346)
+      `style` attribute and waits only for there to be handlers (queue item 81)
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
       · Decided (ADR 0032, queue item 83): a script's fetch is an ask in
       the answer to the message whose work made it, the browser process

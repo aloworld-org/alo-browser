@@ -377,15 +377,17 @@ fn button_fill(renderer: &Renderer, id: &str) -> Option<String> {
 
 /// Deliver `answer` to ask `number`, answering what the delivery said —
 /// [`None`] if it was not answered as a delivery, or its reactions asked to
-/// go somewhere or fetch again, which this page's never do.
+/// go somewhere or fetch again, or a policy objected, which this page's
+/// never do.
 fn deliver(renderer: &mut Renderer, number: u64, answer: Answer) -> Option<Vec<String>> {
     let fetched = Fetched { number, answer };
     match renderer.handle(ToRenderer::Fetched(Box::new(fetched))) {
         FromRenderer::Delivered {
             issues,
+            objections,
             navigation: None,
             fetches,
-        } if fetches.is_empty() => Some(issues),
+        } if fetches.is_empty() && objections.is_empty() => Some(issues),
         _ => None,
     }
 }

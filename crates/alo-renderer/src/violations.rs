@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! What a page's own policy objected to as it loaded, said by the renderer and
-//! reported by the browser process (queue item 237, cut from 236).
+//! What a page's own policy objected to, said by the renderer and reported by
+//! the browser process (queue item 237, cut from 236) — as it loaded, or in
+//! its inline style at a later draw (queue item 346).
 //!
 //! # Why it is split across the boundary
 //!
@@ -49,14 +50,15 @@ use alo_net::csp_report;
 
 use crate::page::Page;
 
-/// The most objections one load may carry across the boundary.
+/// The most objections one answer — a load, an act or a delivery — may
+/// carry across the boundary.
 ///
 /// Every objection becomes at least one post from the browser process, and
 /// both how many objections there are and how many endpoints each policy
 /// names are chosen by the page — so without a ceiling a page with ten
 /// thousand inline scripts, or a renderer that says it had, is ten thousand
 /// requests somebody else chose to make. A renderer sends no more than this
-/// and says how many it left out; the wire refuses a load claiming more.
+/// and says how many it left out; the wire refuses an answer claiming more.
 ///
 /// The number is ours rather than any other browser's. It is generous for a
 /// page whose author is reading their reports and small against the cost of a
@@ -80,7 +82,7 @@ pub struct Objection {
     pub placement: Placement,
 }
 
-/// What the browser process makes of a load's objections.
+/// What the browser process makes of an answer's objections.
 #[derive(Debug, Clone, Default)]
 pub struct Reports {
     /// The reports to post, with [`alo_net::Pool::report`].
@@ -92,7 +94,8 @@ pub struct Reports {
     pub disbelieved: Vec<String>,
 }
 
-/// The reports a load's objections ask for.
+/// The reports an answer's objections ask for: a load's, an act's or a
+/// delivery's, each written from the same headers.
 ///
 /// `page` is the page the browser process sent, whose headers are the only
 /// policies a report is written from; `about` is what the browser process
@@ -104,7 +107,7 @@ pub fn reports(page: &Page, about: &csp_report::Page, objections: &[Objection]) 
     let mut reports = Reports::default();
     if objections.len() > MOST_OBJECTIONS {
         reports.disbelieved.push(format!(
-            "a renderer said {} policy objections for one load, more than the {MOST_OBJECTIONS} \
+            "a renderer said {} policy objections for one answer, more than the {MOST_OBJECTIONS} \
              one may carry, and only the first {MOST_OBJECTIONS} were reported",
             objections.len()
         ));

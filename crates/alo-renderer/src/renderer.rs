@@ -74,6 +74,7 @@ use crate::generic::Generics;
 use crate::held::Held;
 use crate::inline_style::Judged;
 use crate::message::{Failure, FromRenderer, ToRenderer};
+use crate::objected::Objected;
 use crate::page::Page;
 use crate::pipeline::{Drawing, draw};
 use crate::press::press;
@@ -81,7 +82,6 @@ use crate::put::put;
 use crate::said;
 use crate::scripts;
 use crate::snapshot::Snapshot;
-use crate::violations::{MOST_OBJECTIONS, Objection};
 use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Outcome, Target, Verb};
 use alo_bindings::navigating::{self, By};
@@ -110,6 +110,9 @@ pub struct Renderer {
     /// The policies its headers stated, report-only ones included: those an
     /// objection is named against ([`Page::stated`]).
     stated: alo_net::Policies,
+    /// What those policies have objected to in the page's inline style, for
+    /// the page's life, and what of it waits to cross (ADR 0034 § 4).
+    objected: Objected,
 }
 
 impl Renderer {
@@ -123,6 +126,7 @@ impl Renderer {
             draws: 0,
             under: alo_net::Policies::none(),
             stated: alo_net::Policies::none(),
+            objected: Objected::new(),
         }
     }
     /// Take a font the browser process handed over.
@@ -220,15 +224,19 @@ impl Renderer {
     /// Draw the page again, whole, from the document it has, its inline
     /// style judged by the policies it holds ([`crate::inline_style`]).
     ///
-    /// Answers what that judgment found, for the load to carry what its
-    /// draw objected to; any other draw only says it (queue item 346).
-    fn draw(&mut self) -> Option<Judged> {
+    /// What the judgment objected to for the first time waits in
+    /// [`Objected`] for the next answer that carries objections — this
+    /// draw's own, or a later one's if a `Paint` or a `ReadTree` asked for
+    /// it (queue item 346).
+    fn draw(&mut self) {
         let (Some(page), Some(document)) =
             (&self.page, self.held.as_ref().and_then(Held::document))
         else {
-            return None;
+            return;
         };
-        let judged = Judged::of(document, &self.under, &self.stated);
+        let judged = Judged::of(document, &self.under, &self.stated, &mut self.objected);
+        let (found, more) = judged.objections();
+        self.objected.owe(found, more);
         let sheets = page.sheets.join("\n");
         let drawing = draw(
             document,
@@ -241,7 +249,6 @@ impl Renderer {
         );
         self.drawn = Some((drawing, document.change_count()));
         self.draws = self.draws.saturating_add(1);
-        Some(judged)
     }
 
     /// Draw the page again if its document has changed since it was last
@@ -359,9 +366,12 @@ impl Renderer {
         issues.append(&mut said);
         let fetches = asks(held);
         self.fresh();
+        let mut objections = Vec::new();
+        self.objected.take(&mut objections, &mut issues);
         FromRenderer::Acted {
             outcome,
             issues,
+            objections,
             navigation,
             fetches,
         }
@@ -382,8 +392,11 @@ impl Renderer {
         issues.append(&mut said);
         let fetches = asks(held);
         self.fresh();
+        let mut objections = Vec::new();
+        self.objected.take(&mut objections, &mut issues);
         FromRenderer::Delivered {
             issues,
+            objections,
             navigation,
             fetches,
         }
@@ -397,6 +410,9 @@ impl Renderer {
     fn load(&mut self, page: Page) -> FromRenderer {
         self.held = None;
         self.drawn = None;
+        // A new page has objected to nothing, and is owed nothing the last
+        // one's draws found.
+        self.objected = Objected::new();
         let (mut parsing, document) = Parsing::start(&page.html);
         let mut held = Held::Parsed(document);
         let mut said = Vec::new();
@@ -409,9 +425,8 @@ impl Renderer {
         // After the scripts, so what the load says — its issues, the fonts it
         // wants, what a policy objected to in its style — is about the page
         // they left (ADR 0017 § 6).
-        if let Some(judged) = self.draw() {
-            carry(&judged, &mut objections, &mut said);
-        }
+        self.draw();
+        self.objected.take(&mut objections, &mut said);
         let ongoing = self
             .held
             .as_mut()
@@ -498,22 +513,6 @@ impl Renderer {
     /// How big the page it holds is, if it holds one.
     pub fn viewport(&self) -> Option<Size> {
         self.page.as_ref().map(|page| page.viewport)
-    }
-}
-
-/// Carry what the load's draw objected to in the page's inline style, after
-/// what its scripts objected to, within the one bound a load's objections
-/// share (ADR 0034 § 4) — and say how many were left out.
-fn carry(judged: &Judged, objections: &mut Vec<Objection>, said: &mut Vec<String>) {
-    let (found, beyond) = judged.objections();
-    let room = MOST_OBJECTIONS.saturating_sub(objections.len());
-    objections.extend(found.iter().take(room).copied());
-    let left_out = found.len().saturating_sub(room).saturating_add(beyond);
-    if left_out > 0 {
-        said.push(format!(
-            "{left_out} more policy objections to this page's inline style were not passed on \
-             to be reported: one load carries at most {MOST_OBJECTIONS}"
-        ));
     }
 }
 

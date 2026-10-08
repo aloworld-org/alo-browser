@@ -65,6 +65,7 @@ pub mod host;
 pub mod inline_style;
 pub mod message;
 pub mod navigate;
+pub mod objected;
 pub mod page;
 pub mod pictures;
 pub mod pipe;

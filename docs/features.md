@@ -275,8 +275,11 @@ The reason this exists rather than a faster fork of somebody else's engine.
   more than 64 for one load. A policy written into the page's markup with
   `<meta>` is obeyed but not yet reported (queue item 240). Inline style is
   reported the same way, a `<style>` or a `style` attribute, naming
-  `style-src`, when the page loads (ADR 0034); one a later redraw finds is
-  said and not yet reported (queue item 346)
+  `style-src`, when the page loads and whenever a later redraw finds one a
+  script, an agent or a fetch's answer put there (ADR 0034, queue item 346).
+  Each element, placement and text is reported once while the page is
+  loaded, so a page drawn sixty times a second reports one refused attribute
+  once, and no answer carries more than 64
 - [2] **Inline content allowed by its hash** — `'sha256-…'`, `'sha384-…'` and
   `'sha512-…'` computed over the content and compared with what the policy
   named, in either base64 alphabet. A digest that mixes the two alphabets, sets

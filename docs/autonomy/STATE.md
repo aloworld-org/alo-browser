@@ -21071,3 +21071,108 @@ engines), `CHANGELOG.md` and `REMAINING.md` are updated.
 144 queue items are open: 343 closed, none added. The next unused queue
 number is **347** and the next ADR is **0035**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 224 — queue item 346 built: inline style refused after load, reported
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s CSP
+line, iteration 223's entry, the queue from 339 to 346, ADR 0034 (whole,
+§ 4 for this item), and the *author is told* line of `docs/features.md`.
+There is no `AGENTS.md` in the repository. 346 was named eligible and
+next, and its one dependency (343) is done. The checkout was clean on
+entry at `730b80c`. No sibling repository was read or written.
+
+**What was built (ADR 0034 § 4).**
+- `alo-renderer`'s new `objected.rs`: `Objected`, the page-life memory.
+  It keeps each element, placement and SHA-256 of the text a header policy
+  objected to (the digest through `alo-net`'s `digest.rs`, so `sha2` stays
+  behind its boundary). It also keeps what draws found that no answer has
+  carried yet: at most 64, and a count of the rest. A new load starts a new
+  one.
+- `inline_style.rs`: `Judged::of` takes the memory and objects only the
+  first time it meets an element, placement and text. Refusals are still
+  made, and said, at every draw.
+- `renderer.rs`: every draw hands its finds to the memory. `Loaded`,
+  `Acted` and `Delivered` take what waits, after any script objections,
+  within one bound of 64, and say how many were not passed on. The load's
+  old `carry` became `Objected::take`. A draw for a `Paint` or `ReadTree`
+  leaves its finds waiting.
+- `message.rs` and `wire.rs`: `Acted` and `Delivered` gained `objections`,
+  written and read by one `objections` pair. The reader refuses more than
+  64 in any answer.
+- `violations.rs`'s documentation now says an answer rather than a load.
+  The browser process's `reports` already took any slice of objections and
+  did not change.
+
+**Choices recorded.** An objection counted beyond the bound is still
+remembered. Otherwise the next draw would find it again and a flood would
+become a stream. The memory keys on the text's digest rather than the text,
+because the text can be a megabyte a stranger chose. Node ids are never
+reused (ADR 0003), so a new element in an old one's place is a new element.
+
+**Tests.** `tests/style_refused_after_load.rs` runs five tests over real
+loads:
+- a listener's attribute is reported once per text (red, blue, red gives
+  1, 1, 0), and the browser process's `violations::reports` writes one post
+  to the policy's `report-uri`;
+- what a `Paint` found is carried by the next `Acted`, once;
+- a fetch reaction's attribute is carried by its `Delivered`;
+- a flood of 100 is carried as 64 plus "36 more", and is not found again;
+- a new load forgets.
+
+There are also unit tests in `objected.rs` (once per element, placement
+and text; taking after an answer's own; a count across draws; hostile text
+and `usize::MAX` counts) and in `inline_style.rs` (a second draw refuses
+and says again, and objects to nothing). `messages_across_a_boundary.rs`
+covers both answers' round trips with 1 and 64 objections, 65 refused, and
+every prefix of a delivery refused. **Checked by mutation:** a memory that
+always answers "first time" fails two of the five renderer tests.
+
+**Existing tests changed, not weakened.** Constructions and patterns of
+`Acted` and `Delivered` gained the field (`tab.rs`,
+`a_pages_fetch_crosses_the_boundary.rs`, `alo-corpus`'
+`alo_downloads.rs`, which now also requires no objections).
+`every_message_from_a_renderer_survives_the_crossing` crossed clippy's
+`too_many_lines` with the new field. It now builds its four acts through a
+closure, with every message still in it. No `allow` was added.
+
+**Gate, mechanical.** `cargo test -p alo-renderer --no-fail-fast` passed
+whole (run in the background with the 2-hour bound after a 10-minute run
+was killed, and polled). Then `scripts/gate.sh` was run in the background
+with the 2-hour bound and polled in this same turn. It ends with `exit 0`
+and "The gate is met". fmt was clean, clippy silent, the tests passed, and
+there was no `FAILED` or `panicked` in the log. Nothing is stubbed,
+`unsafe` stays forbidden, every rented crate is behind its boundary, and
+the changelog changed. On the way, clippy found two things, both fixed in
+the code: `useless_vec` in a unit test, and the `too_many_lines` above.
+
+**Gate, manual.**
+- Nothing that positions, sizes or paints changed, so no layout assertion
+  or reference render applies. What changed is which objections cross,
+  and that is pinned in numbers: counts, placements and posts. No corpus
+  case carries a policy, and the corpus passed in the gate.
+- One responsibility per file: the memory is a new file. `renderer.rs`
+  lost `carry` rather than gaining a second job.
+- No `unsafe` and no new dependency.
+
+**Queue, roadmap, docs.** 346 is ticked with its Done paragraph.
+`ROADMAP.md`'s CSP line gained a Built clause for this item, and its Owed
+clause dropped 346. The line is not ticked, because 240, 86 and 81 are
+still owed. `docs/features.md` (*author is told*), `docs/conformance.md`
+(reported at the next answer after a draw, not when the value arrives, so a
+style set and removed in one task, never drawn, is not reported),
+`CHANGELOG.md` and `REMAINING.md` are updated.
+
+**Unresolved obligations.**
+- Nothing in production posts a report yet, for a load or for this. Only
+  the tests call `violations::reports`, as since item 237. The browser
+  side of making the posts is unchanged by this item.
+- Everything iteration 223 listed still stands:
+  - 345 waits on an `alo-js` hook shared with 328, and on a page;
+  - 337, 322, 324, 328, 284, 311 and 314 wait for pages;
+  - 323 waits on 73;
+  - 296 needs a person;
+  - 297–300, 302, 304, 308, 126, 132 and 336 remain.
+
+143 queue items are open: 346 closed, none added. The next unused queue
+number is **347** and the next ADR is **0035**. This is one iteration, not
+a finished queue or roadmap.

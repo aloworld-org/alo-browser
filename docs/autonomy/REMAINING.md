@@ -925,3 +925,11 @@ refused attribute reads as `""` through `element.style`. What the load's
 draw objects to crosses with its placement and is reported. 346 (a later
 draw's objections, carried) is now eligible. 144 queue items are open. The
 next unused queue number is 347 and the next unused ADR 0035.
+
+Iteration 224 built item 346 (ADR 0034 § 4): inline style a policy objects
+to, found by a draw after load, is reported. The renderer remembers each
+element, placement and text a header policy objected to for the page's
+life (`objected.rs`), and what draws find waits for the next `Acted` or
+`Delivered`, which gained `objections` on the wire, under the bound of 64.
+143 queue items are open. The next unused queue number is 347 and the next
+unused ADR 0035.

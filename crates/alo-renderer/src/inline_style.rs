@@ -33,11 +33,12 @@
 //!
 //! Each piece of inline style is also asked of every policy the response's
 //! **headers** stated, report-only ones included, and each that objects is
-//! an [`Objection`] carrying its placement (ADR 0034 § 4). The browser
-//! process posts what the load's draw found; a later draw's are said and
-//! not posted (queue item 346). A report-only policy refuses nothing, so
-//! what it objects to is applied, and that it would have been refused is
-//! said as well. What `element.style` wrote is not inline style a policy is
+//! an [`Objection`] carrying its placement (ADR 0034 § 4) — the first time
+//! its element, placement and text are met on this page, and never again
+//! ([`crate::objected`]). What any draw found crosses with the next answer
+//! that carries objections, and the browser process posts it (queue item
+//! 346). A report-only policy refuses nothing, so what it objects to is
+//! applied, and that it would have been refused is said as well. What `element.style` wrote is not inline style a policy is
 //! asked about at all, so it is not reported.
 //!
 //! # How much one draw says
@@ -55,6 +56,7 @@ use alo_dom::{Document, Element, Namespace, NodeId};
 use alo_net::Policies;
 use alo_net::csp::{Content, Inline, Placement, Refusal};
 
+use crate::objected::Objected;
 use crate::said::{self, MOST_SAID_OF_MARKUP};
 use crate::violations::{MOST_OBJECTIONS, Objection};
 
@@ -84,8 +86,15 @@ impl Judged {
     /// Ask `under` — every policy the page holds, its headers' and its
     /// `<meta>`s' — about each piece of inline style in `document`, and
     /// `stated` — its headers' alone, report-only ones included — which of
-    /// them it objects to.
-    pub fn of(document: &Document, under: &Policies, stated: &Policies) -> Self {
+    /// them it objects to. An objection is made only the first time
+    /// `objected` hears of its element, placement and text, so a page drawn
+    /// a thousand times objects to one refused attribute once.
+    pub fn of(
+        document: &Document,
+        under: &Policies,
+        stated: &Policies,
+        objected: &mut Objected,
+    ) -> Self {
         let mut judged = Self::default();
         if under.is_empty() && stated.is_empty() {
             return judged;
@@ -110,8 +119,11 @@ impl Judged {
             if refused.is_some() {
                 judged.sheets.insert(element);
             }
-            for place in stated.objecting_to_inline(Inline::Style, nonce, content) {
-                judged.object(place, Placement::Element);
+            let places = stated.objecting_to_inline(Inline::Style, nonce, content);
+            if !places.is_empty() && objected.first_time(element, Placement::Element, &text) {
+                for place in places {
+                    judged.object(place, Placement::Element);
+                }
             }
         }
         for id in document.descendants(document.root()) {
@@ -136,8 +148,11 @@ impl Judged {
                 judged.attributes.insert(id);
             }
             if !declared {
-                for place in stated.objecting_to_inline(Inline::Style, None, content) {
-                    judged.object(place, Placement::Attribute);
+                let places = stated.objecting_to_inline(Inline::Style, None, content);
+                if !places.is_empty() && objected.first_time(id, Placement::Attribute, text) {
+                    for place in places {
+                        judged.object(place, Placement::Attribute);
+                    }
                 }
             }
         }
@@ -239,7 +254,12 @@ mod tests {
     #[test]
     fn under_no_policy_nothing_is_asked_and_everything_applies() {
         let document = parse_document(r#"<style>p{}</style><p style="color: red">x</p>"#);
-        let judged = Judged::of(&document, &Policies::none(), &Policies::none());
+        let judged = Judged::of(
+            &document,
+            &Policies::none(),
+            &Policies::none(),
+            &mut Objected::new(),
+        );
         assert!(judged.issues().is_empty());
         assert!(judged.sheets.is_empty() && judged.attributes.is_empty());
     }
@@ -248,7 +268,7 @@ mod tests {
     fn a_style_and_a_style_attribute_are_refused_and_said() {
         let document = parse_document(r#"<style>p{}</style><p style="color: red">x</p>"#);
         let policy = enforced("style-src 'self'");
-        let judged = Judged::of(&document, &policy, &policy);
+        let judged = Judged::of(&document, &policy, &policy, &mut Objected::new());
         assert_eq!(judged.sheets.len(), 1);
         assert_eq!(judged.attributes.len(), 1);
         let issues = judged.issues();
@@ -275,7 +295,7 @@ mod tests {
     fn a_style_presenting_the_policys_nonce_is_applied() {
         let document = parse_document("<style nonce=n1>p{}</style><style nonce=n2>p{}</style>");
         let policy = enforced("style-src 'nonce-n1'");
-        let judged = Judged::of(&document, &policy, &policy);
+        let judged = Judged::of(&document, &policy, &policy, &mut Objected::new());
         assert_eq!(judged.sheets.len(), 1, "only the second is refused");
         assert_eq!(judged.objections().0.len(), 1);
     }
@@ -289,7 +309,7 @@ mod tests {
             .unwrap_or_else(|| panic!("a <p>"));
         document.set_declared_style(p, "color: blue;");
         let policy = enforced("style-src 'none'");
-        let judged = Judged::of(&document, &policy, &policy);
+        let judged = Judged::of(&document, &policy, &policy, &mut Objected::new());
         assert!(judged.applies_attribute(p));
         assert!(judged.issues().is_empty(), "{:?}", judged.issues());
         assert!(judged.objections().0.is_empty());
@@ -315,7 +335,7 @@ mod tests {
             "style-src 'unsafe-inline' 'nonce-x'",
         ] {
             let policies = enforced(policy);
-            let judged = Judged::of(&document, &policies, &policies);
+            let judged = Judged::of(&document, &policies, &policies, &mut Objected::new());
             assert!(
                 judged.attributes.len() <= 5,
                 "a MathML element's style is never read"
@@ -328,7 +348,7 @@ mod tests {
         let markup = r#"<p style="color: red">x</p>"#.repeat(MOST_SAID_OF_MARKUP + 10);
         let document = parse_document(&markup);
         let policy = enforced("style-src 'none'");
-        let judged = Judged::of(&document, &policy, &policy);
+        let judged = Judged::of(&document, &policy, &policy, &mut Objected::new());
         assert_eq!(judged.attributes.len(), MOST_SAID_OF_MARKUP + 10);
         let issues = judged.issues();
         assert_eq!(issues.len(), MOST_SAID_OF_MARKUP + 1);
@@ -342,5 +362,19 @@ mod tests {
         let (objections, more) = judged.objections();
         assert_eq!(objections.len(), MOST_OBJECTIONS);
         assert_eq!(more, MOST_SAID_OF_MARKUP + 10 - MOST_OBJECTIONS);
+    }
+
+    #[test]
+    fn a_second_draw_refuses_again_and_objects_to_nothing_new() {
+        let document = parse_document(r#"<style>p{}</style><p style="color: red">x</p>"#);
+        let policy = enforced("style-src 'self'");
+        let mut objected = Objected::new();
+        let first = Judged::of(&document, &policy, &policy, &mut objected);
+        assert_eq!(first.objections().0.len(), 2);
+        let second = Judged::of(&document, &policy, &policy, &mut objected);
+        assert_eq!(second.sheets.len(), 1, "a refusal is made at every draw");
+        assert_eq!(second.attributes.len(), 1);
+        assert_eq!(second.issues().len(), 2, "and said at every draw");
+        assert_eq!(second.objections(), (&[][..], 0), "but objected to once");
     }
 }

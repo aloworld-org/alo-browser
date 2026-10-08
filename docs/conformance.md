@@ -326,8 +326,11 @@ page holds (item 343, ADR 0034), and that differs from other engines in two
 ways, both refusing where they apply: a `<meta>` policy refuses inline style
 written *before* it in the markup, which they had already applied; and a
 `setAttribute("style", …)` the policy refuses takes the element's old style
-away, where they keep it. What a redraw after load objects to is said and not
-reported (item 346).
+away, where they keep it. What a redraw after load objects to is reported with
+the next act or delivery, once per element, placement and text for the page's
+life (item 346). Other engines report when the value arrives; here it is when
+the page is next drawn and an answer can carry it, so a style set and removed
+inside one task, never drawn, is not reported.
 Most targets below are still
 `not yet`, because they are alo's own screens rather than pages we wrote to test
 with — and the sign-in screen, which is alo's, is *nearly* rather than done: the

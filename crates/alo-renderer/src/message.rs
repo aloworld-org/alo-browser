@@ -172,6 +172,12 @@ pub enum FromRenderer {
         /// `MOST_NOT_FOLLOWED` and a count, and how many asks the last
         /// replaced.
         issues: Vec<String>,
+        /// What the page's header policies objected to in its inline style,
+        /// found by a draw since the last answer that carried objections —
+        /// this verb's, or a `Paint`'s or `ReadTree`'s before it (queue item
+        /// 346). Each element, placement and text once per page. A claim, as
+        /// a load's are, and at most [`crate::violations::MOST_OBJECTIONS`].
+        objections: Vec<Objection>,
         /// Where the page asked to go during the verb's task — the agent's
         /// own link or a listener's `click()`, the last of them (ADR 0020).
         ///
@@ -191,6 +197,9 @@ pub enum FromRenderer {
         /// What the page's script said while the task ran, as an `Acted`'s
         /// issues are said.
         issues: Vec<String>,
+        /// What the page's header policies objected to in its inline style
+        /// since the last answer that carried objections, as an `Acted`'s.
+        objections: Vec<Objection>,
         /// Where the page asked to go during the task.
         navigation: Option<Asked>,
         /// Every fetch it asked for during the task, in order.
