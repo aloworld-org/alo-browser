@@ -818,21 +818,15 @@ fn display_of(style: Option<&ComputedStyle>, id: NodeId, tree: &mut BoxTree) -> 
 /// Put a box's children into a shape layout can walk: all block-level, or all
 /// inline-level, never a mix.
 ///
-/// Only a flow container does this. In flex and grid every child is an item in
-/// its own right, whatever its `display` says, so wrapping them would invent a
-/// row nobody asked for.
+/// A flow container does this by wrapping each run of inline-level boxes
+/// beside a block. A flex or grid container has items instead, and only its
+/// text needs a wrapper; see [`wrap_text_runs`].
 fn arrange(tree: &mut BoxTree, parent: BoxId, children: Vec<BoxId>) -> Vec<BoxId> {
     let container_is_flow = tree
         .get(parent)
         .is_some_and(|node| node.kind.lays_children_out_in_flow());
     if !container_is_flow {
-        // In flex and grid every child is an item in its own right, so
-        // wrapping them would invent a row nobody asked for. The whitespace
-        // between two items is not an item, though, and CSS says so.
-        return children
-            .into_iter()
-            .filter(|child| !is_only_whitespace(tree, *child))
-            .collect();
+        return wrap_text_runs(tree, children);
     }
 
     let any_block = children.iter().any(|child| {
@@ -860,6 +854,31 @@ fn arrange(tree: &mut BoxTree, parent: BoxId, children: Vec<BoxId>) -> Vec<BoxId
     }
     flush_run(tree, &mut run, &mut arranged);
     arranged
+}
+
+/// The items of a flex or grid container.
+///
+/// Every child that is an element is an item in its own right, whatever its
+/// `display` says, so wrapping it would invent a row nobody asked for. Text is
+/// not an element, and CSS Flexbox § 4 and CSS Grid § 6 say what it becomes:
+/// *"each contiguous sequence of child text runs is wrapped in an anonymous
+/// block container"* item. Its lines are then laid out like any other block's,
+/// `line-height` and all; measured bare, a button's label was only as tall as
+/// its font. A sequence that is only whitespace is the gap between two items
+/// and is not rendered.
+fn wrap_text_runs(tree: &mut BoxTree, children: Vec<BoxId>) -> Vec<BoxId> {
+    let mut items: Vec<BoxId> = Vec::new();
+    let mut run: Vec<BoxId> = Vec::new();
+    for child in children {
+        if tree.get(child).and_then(BoxNode::text).is_some() {
+            run.push(child);
+        } else {
+            flush_run(tree, &mut run, &mut items);
+            items.push(child);
+        }
+    }
+    flush_run(tree, &mut run, &mut items);
+    items
 }
 
 /// The box a `<fieldset>` shows in its block-start band, out of the children
@@ -1242,16 +1261,68 @@ mod tests {
     }
 
     #[test]
-    fn a_flex_container_wraps_nothing_because_every_child_is_an_item() {
+    fn a_flex_container_wraps_only_its_text_because_every_element_is_an_item() {
         let outline = body_outline(
             "<div id=f>text <b>bold</b><p>block</p></div>",
             "#f { display: flex }",
         );
-        assert!(
-            !outline.contains("anonymous"),
-            "in flex, a mix of children is not a mix of anything:\n{outline}",
+        assert_eq!(
+            outline.matches("anonymous").count(),
+            1,
+            "in flex, a mix of children is not a mix of anything; only the \
+             text is wrapped:\n{outline}",
         );
         assert!(outline.contains("block flex"), "{outline}");
+        let anonymous = outline
+            .lines()
+            .position(|line| line.contains("anonymous"))
+            .unwrap_or(usize::MAX);
+        let text = outline
+            .lines()
+            .position(|line| line.contains("text \"text \""))
+            .unwrap_or(0);
+        assert_eq!(text, anonymous + 1, "the text is inside it:\n{outline}");
+        let bold = outline
+            .lines()
+            .find(|line| line.contains("text \"bold\""))
+            .unwrap_or_default();
+        let wrapper = outline
+            .lines()
+            .find(|line| line.contains("anonymous"))
+            .unwrap_or_default();
+        assert!(
+            indent(bold) > indent(wrapper),
+            "and the <b>'s own text is in the <b>, deeper than the wrapper's \
+             level:\n{outline}",
+        );
+    }
+
+    /// How far a line of an outline is indented.
+    fn indent(line: &str) -> usize {
+        line.len() - line.trim_start().len()
+    }
+
+    #[test]
+    fn a_grid_wraps_each_run_of_text_and_drops_a_run_of_only_whitespace() {
+        let outline = body_outline(
+            "<div id=g>one <span style='display: contents'>two</span>\
+             <i>item</i>\n  <i>item</i> three</div>",
+            "#g { display: grid }",
+        );
+        assert_eq!(
+            outline.matches("anonymous").count(),
+            2,
+            "\"one \" and \"two\" are one run, and \" three\" another; the \
+             newline between the <i>s is no item:\n{outline}",
+        );
+        assert_eq!(outline.matches("text").count(), 5, "{outline}");
+    }
+
+    #[test]
+    fn a_flex_container_holding_only_whitespace_has_no_items() {
+        let outline = body_outline("<div id=f>\n   \n</div>", "#f { display: flex }");
+        assert!(!outline.contains("anonymous"), "{outline}");
+        assert!(!outline.contains("text"), "{outline}");
     }
 
     #[test]

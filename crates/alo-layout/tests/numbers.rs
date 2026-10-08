@@ -1265,6 +1265,57 @@ fn line_height_is_room_split_evenly_above_and_below_the_font() {
     assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 16.0));
 }
 
+/// The box of the first piece of text that reads `wanted`, once trimmed.
+fn text_box(boxes: &BoxTree, wanted: &str) -> Option<BoxId> {
+    let root = boxes.root()?;
+    boxes.descendants(root).into_iter().find(|id| {
+        boxes
+            .get(*id)
+            .and_then(|node| node.text())
+            .is_some_and(|text| text.trim() == wanted)
+    })
+}
+
+#[test]
+fn text_straight_inside_a_flex_or_grid_container_takes_its_line_height() {
+    // CSS wraps such text in an anonymous block, whose one line is as tall as
+    // its `line-height` like any other block's. Measured bare, it was only
+    // as tall as its font: alo's download buttons were 42.6 where a browser
+    // makes them 48.8.
+    let html = "<body><a id=b>Get it</a><div id=g>Grid text</div></body>";
+    let css = "#b { display: inline-flex; font-size: 16px; line-height: 1.5; padding: 10px } \
+               #g { display: grid; font-size: 20px; line-height: 40px }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+
+    // 16 px at 1.5 is a 24 px line, and ten of padding each side: 44.
+    let button = rect_of(&boxes, &layout, "b", html);
+    assert!(close(button.size.height, 44.0), "{button:?}");
+    assert!(
+        close(button.size.width, 68.0),
+        "six characters of 8 and 20: {button:?}"
+    );
+    // The letters are 16 of the 24, four under the top of the line.
+    let label = text_box(&boxes, "Get it").and_then(|id| layout.border_box(id));
+    assert_eq!(
+        label,
+        Some(Rect::new(
+            button.origin.x + 10.0,
+            button.origin.y + 14.0,
+            48.0,
+            16.0
+        )),
+    );
+
+    // A grid item the same: a 40 px line, 20 px letters ten down in it.
+    let grid = rect_of(&boxes, &layout, "g", html);
+    assert!(close(grid.size.height, 40.0), "{grid:?}");
+    let text = text_box(&boxes, "Grid text").and_then(|id| layout.border_box(id));
+    assert_eq!(
+        text,
+        Some(Rect::new(grid.origin.x, grid.origin.y + 10.0, 90.0, 20.0)),
+    );
+}
+
 #[test]
 fn a_mixed_line_is_as_tall_as_its_leadings_reach() {
     // Three half-leadings on one line. The strut, 16 px at 24, reaches 16

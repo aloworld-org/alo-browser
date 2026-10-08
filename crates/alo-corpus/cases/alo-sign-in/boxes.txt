@@ -47,4 +47,5 @@ block flow · document
               text "or"
             inline flow · generic
           block flex · button
-            text "Sign in with SSO"
+            anonymous block
+              text "Sign in with SSO"

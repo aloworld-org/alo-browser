@@ -19487,3 +19487,109 @@ exit 0, "The gate is met."
 141 queue items are open: 320 closed. The next unused queue number is
 **333** and the next ADR is **0032**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 211 — queue item 321 built: text in flex and grid is wrapped
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+state rules and stage 1 lines, iteration 210's entry, queue items 319–321,
+`docs/features.md`' box generation line, `docs/conformance.md`' layout and
+lines sections. No ADR governs anonymous boxes; ADR 0004 (we own the layout
+tree) and ADR 0002 (an anonymous box means nothing to an agent) apply.
+Code read: `alo-box`'s `tree.rs` (`build_one`, `arrange`, `flush_run`,
+control boxes); `alo-layout`'s `engine.rs` (`build`,
+`is_inline_formatting_context`, `place_inline_content`, `read_back`),
+`arena.rs` (`measure_leaf`), `measure.rs` and `text_style.rs`. No
+`AGENTS.md` exists. The checkout was clean on entry at `bc95f5f`. No
+sibling repository was read or written.
+
+**Selection.** Iteration 210 left 321 eligible and next. It depends on
+nothing.
+
+**What was built.** The box tree now does what CSS Flexbox § 4 and Grid § 6
+say. `alo-box`'s `arrange` hands a flex or grid container's children to
+`wrap_text_runs`. Each element is still an item of its own, and each
+contiguous run of text boxes is wrapped in an anonymous block
+(`Purpose::Run`, via the existing `flush_run`, which drops a run of only
+whitespace). The wrapper holds only inline content, so layout already treats
+it as an inline formatting context: the strut and `line-height` come from
+the element it inherits from, and `text-align` too. No layout code changed.
+
+**Tests.**
+- `alo-box` `tree.rs`: `a_flex_container_wraps_nothing_because_every_child_is_an_item`
+  asserted the old, wrong shape. It is replaced by
+  `…_wraps_only_its_text_because_every_element_is_an_item` (one wrapper,
+  the text in it, the `<b>` and `<p>` still items). Also new: a grid with a
+  run spanning a `display: contents` child and a whitespace-only gap, and a
+  flex container of only whitespace.
+- `alo-layout/tests/numbers.rs`
+  `text_straight_inside_a_flex_or_grid_container_takes_its_line_height`:
+  an `inline-flex` at 16 px × 1.5 with 10 px padding is 68 × 44 and its
+  letters 14 down; a grid at a 40 px line is 40 with 20 px letters 10 down.
+- `alo-corpus/tests/alo_downloads.rs`
+  `each_buttons_label_is_a_line_as_tall_as_its_line_height`: each label's
+  wrapper 24.8, each button 48.8.
+
+**Mutation check.** With `arrange` back on the old filter, the
+`numbers.rs` test fails. Restored from a copy and the diff checked.
+
+**References moved, each read.**
+- `alo-downloads`: both buttons 42.625 → 48.8 with a 24.8 wrapper; the
+  cards 205.321 → 211.496; the note 6.175 lower; the document 780 →
+  786.032. The agent tree's structure is unchanged; only the links' heights
+  and later positions moved. The PNG was cropped before and after and
+  looked at: taller buttons, labels centred.
+- `alo-sign-in`: the flex SSO button's label is wrapped at the same
+  rectangle, because its `line-height` is `normal` and the button is a
+  fixed 46. The PNG did not move. `alo-offline` did not move, so
+  `alo-window`'s composed references did not either.
+
+**Queue.** 321 ticked, with a Built note.
+
+**Roadmap.** This item served **no open roadmap line**, so `ROADMAP.md` is
+unchanged. Like 319 and 320, it corrects stage 1's ticked *Layout* line
+(box generation in flex and grid). It was opened by a page, and no stage 2
+line is about anonymous boxes, so a Built clause on one would be
+decoration. `docs/features.md`, `docs/conformance.md` and `CHANGELOG.md`
+say what is built.
+
+**Gate, mechanical.** Warmed with clippy `--all-targets --all-features`
+(silent at once) and `cargo test --workspace --all-features --no-run`.
+Before that, the touched crates' tests (`alo-box`, `alo-layout`,
+`alo-renderer`, `alo-corpus`, `alo-agent`) ran with `--no-fail-fast`, after
+the reference rewrite, with nothing failing. `scripts/gate.sh` ran with the
+two-hour bound into a log. I polled it in this turn and read it: exit 0,
+"The gate is met".
+- fmt clean, clippy silent, tests pass.
+- No stubs, `unsafe` forbidden, licences present.
+- Every rented crate behind its boundary, no coordinate verbs.
+- The changelog changed.
+
+**Gate, manual.**
+- Layout assertions in numbers: `numbers.rs` and `alo_downloads.rs`, above.
+- Reference renders: two cases rewritten with `ALO_UPDATE_REFERENCES=1`.
+  Every changed line was read, and the one moved PNG was looked at.
+- One responsibility per file. `wrap_text_runs` sits beside `arrange` and
+  `flush_run` in `tree.rs`, as part of putting children in a shape layout
+  can walk. That is the file's existing job, not a second one.
+- Bytes from outside: no new parser. Hostile markup reaches the same
+  `flush_run` that flow containers already use, and the whitespace and
+  `contents` tests cover the odd shapes.
+- `docs/features.md` describes what is built. No `unsafe`, no new
+  dependency, no ADR needed.
+
+**Unresolved obligations.**
+- Found by reading the code, not run: a flow `<button>` or `<textarea>`
+  hands its raw children to its control box without `arrange`. So
+  `<button>text<div>x</div></button>` would still have a bare text leaf
+  that ignores `line-height`. No frozen page does this, so no item is
+  opened. A page that does should open one.
+- `alo-downloads`' next stop is still `fetch` and promises (item 75).
+- Still standing: 322 and 324 wait for a page, 323 waits on 73, and 328
+  waits for a page. 284, 311 and 314 wait for pages; 296 needs a person;
+  297–300, 302, 304 and 308; 126 and 132. The next iteration should start
+  from the queue's first eligible item.
+- `scripts/gate.sh` still runs past the ten-minute foreground bound.
+
+140 queue items are open: 321 closed. The next unused queue number is
+**333** and the next ADR is **0032**. This is one iteration, not a
+finished queue or roadmap.

@@ -110,6 +110,57 @@ fn the_lede_is_forty_four_of_the_faces_zeros() {
     assert!((width - 483.7388).abs() < 0.001, "{width}");
 }
 
+/// Each download button is `display: inline-flex` with its label as its
+/// only child, and the label is wrapped in an anonymous block (queue item
+/// 321): its line is the body's `line-height: 1.55` at 16 px, 24.8, and the
+/// button that line plus twelve pixels of padding above and below, 48.8.
+/// Measured bare, the label was its font's 18.625 and the button 42.625.
+#[test]
+fn each_buttons_label_is_a_line_as_tall_as_its_line_height() {
+    let Some((_, rendering)) = downloads() else {
+        panic!("the case renders");
+    };
+    let Some(drawing) = rendering.drawing() else {
+        panic!("the page is drawn");
+    };
+    let boxes = &drawing.boxes;
+    for label in ["Download for Windows", "Download for Mac"] {
+        let Some(text) = boxes.ids().find(|id| {
+            boxes
+                .get(*id)
+                .and_then(alo_box::BoxNode::text)
+                .is_some_and(|held| held.trim() == label)
+        }) else {
+            panic!("{label} is in the boxes");
+        };
+        let wrapper = boxes.get(text).and_then(|node| node.parent);
+        assert!(
+            matches!(
+                wrapper.and_then(|id| boxes.get(id)).map(|node| &node.kind),
+                Some(alo_box::BoxKind::Anonymous { .. })
+            ),
+            "{label} sits in a box nobody wrote",
+        );
+        let button = wrapper
+            .and_then(|id| boxes.get(id))
+            .and_then(|node| node.parent);
+        let height = |id: Option<alo_box::BoxId>| {
+            id.and_then(|id| drawing.layout.get(id))
+                .map(|geometry| geometry.border_box.size.height)
+        };
+        let line = height(wrapper).unwrap_or(f32::NAN);
+        assert!(
+            (line - 16.0 * 1.55).abs() < 0.001,
+            "{label}'s line is {line}"
+        );
+        let tall = height(button).unwrap_or(f32::NAN);
+        assert!(
+            (tall - (16.0 * 1.55 + 24.0)).abs() < 0.001,
+            "{label}'s button is {tall}"
+        );
+    }
+}
+
 #[test]
 fn each_br_in_the_note_ends_its_line() {
     let Some((_, rendering)) = downloads() else {

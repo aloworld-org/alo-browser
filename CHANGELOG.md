@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Text placed straight inside a flex or grid container takes its
+  `line-height`.** CSS wraps such text in a block of its own, and now so
+  does the engine. Before, the text was measured on its own and was only as
+  tall as its font. alo's download buttons are labels inside
+  `inline-flex` links, and they are now 48.8 pixels tall, the same as in
+  other browsers, where they were 42.6.
+
 - **`ch` and `ex` are measured in the page's font.** `44ch` is now 44 times
   the width of the font's `0` and `10ex` ten times the height of its `x`,
   where both used to be half the font size. alo's download page sets its

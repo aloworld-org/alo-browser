@@ -6406,7 +6406,7 @@ The long pole, and the thing most of section E is unreachable without.
   `web-a-form` (each field 209.59). The `font` shorthand is not expanded,
   which `docs/conformance.md` now says.
 
-- [ ] **321. Text straight inside a flex or grid container takes its
+- [x] **321. Text straight inside a flex or grid container takes its
   `line-height`.** *Opened by `alo-downloads` (iteration 198).* The
   download buttons are `display: inline-flex` with their label as the only
   child, so the label is an anonymous flex item measured as a text leaf
@@ -6419,6 +6419,31 @@ The long pole, and the thing most of section E is unreachable without.
   `alo-downloads`' buttons 48.8 tall with its label's line 24.8, and a
   `numbers.rs` assertion has a flex item that is only text as tall as its
   line height.
+  **Built (iteration 211):** the fix is in the box tree, where CSS puts it.
+  `alo-box`'s `arrange` gives a flex or grid container's children to the new
+  `wrap_text_runs`. Every element child is still an item of its own, and
+  each contiguous run of text boxes (text from a `display: contents` child
+  included) is wrapped in an anonymous block (`Purpose::Run`), CSS Flexbox
+  § 4 and Grid § 6. A run of only whitespace is no item. The wrapper holds
+  only inline content, so `alo-layout` lays it out as an inline formatting
+  context, with the strut and `line-height` of the element it inherits from.
+  No layout code changed. Tests: `tree.rs`'s
+  `a_flex_container_wraps_nothing_…` is replaced by `…_wraps_only_its_text_…`
+  (the text is wrapped, the `<b>` and `<p>` are not), plus a grid with two
+  runs across a `contents` child and a whitespace gap, and a flex container
+  of only whitespace. `alo-layout/tests/numbers.rs`
+  `text_straight_inside_a_flex_or_grid_container_takes_its_line_height`
+  (`ScaledFont`): an `inline-flex` at 16 px × 1.5 with 10 px padding is 44
+  tall and its letters 14 down; a grid at a 40 px line is 40 with 20 px
+  letters 10 down. With the wrap reverted, that test fails.
+  `alo-corpus/tests/alo_downloads.rs`
+  `each_buttons_label_is_a_line_as_tall_as_its_line_height`: each label's
+  wrapper is 24.8 and each button 48.8. References moved and read:
+  `alo-downloads` (both buttons 48.8, the cards 211.496, the page 786.032
+  tall, the note 6.175 lower; the PNG compared before and after) and
+  `alo-sign-in` (its flex SSO button's label wrapped, at the same rectangle,
+  because its `line-height` is `normal` and the button a fixed 46; the PNG
+  did not move).
 
 - [ ] **278. A nested `<svg>` viewport.** *Cut from 271 (ADR 0022 § 1).* An
   `<svg>` inside an `<svg>` is a new viewport in its parent's drawing: its

@@ -27,7 +27,10 @@ positioning, overflow and percentages, and the whole layout of a small
 interface is asserted as numbers rather than looked at. The `place-*`
 shorthands split into their `align-*` and `justify-*` pair; of the values,
 the engine reads the single keywords, so `safe center` reaches the longhand
-and is refused there.
+and is refused there. Text straight inside a flex or grid container is
+wrapped in an anonymous block item, one per run of text, as CSS says, so its
+lines take their `line-height` like any other block's; a run that is only
+whitespace is no item.
 
 Text is real. Fonts load, text is shaped — including Arabic, which joins and
 runs right to left — lines break by UAX #14, and a paragraph in a narrow window
