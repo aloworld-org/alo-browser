@@ -42,7 +42,9 @@ its `document.querySelectorAll(".btn[href]")` on line 17 finds the two
 download buttons. Since iteration 209 (item 331) the `.forEach(…)` called
 on them is `Array.prototype.forEach`, which walks them, and the script
 stops in its first callback, at line 19: "ReferenceError: 'fetch' is not
-defined", because `fetch` and the promises its `.then` needs are item 75.
+defined", because `fetch` and the promises its `.then` needs are not
+built. ADR 0032 (iteration 212) decides what `fetch` is; it is built as
+items 334 and 335, on item 333's promise.
 So no button is greyed out by the `fetch()` that checks whether an
 installer is hosted.
 `tests/alo_downloads.rs` pins where the script stops and which card is
@@ -91,7 +93,8 @@ markup and style made the engine say.
   (iteration 209):** `Array.prototype.forEach`, the first builtin that
   keeps state across the calls it asks for (ADR 0031), and a `NodeList`'s
   `forEach`, `keys`, `values`, `entries` and `[Symbol.iterator]` as those
-  very functions. The next stop is `fetch` and `.then` (item 75).
+  very functions. The next stop is `fetch` and `.then`: decided by ADR 0032
+  (iteration 212), built by items 333–335.
 
 Two things it asks for make no difference at this size and are not faults
 here: `text-wrap: balance` on a heading that fits on one line (item 104), and

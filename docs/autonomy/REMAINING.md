@@ -740,6 +740,17 @@ grew in `alo-settings` and `web-a-form`. It served no open roadmap line.
 141 queue items are open; 321 is eligible and next. The next unused queue
 number is 333 and the next unused ADR 0032.
 
+Iteration 211 built item 321 (text straight inside a flex or grid container
+is wrapped in a block). Iteration 212 decided item 83 in ADR 0032: a
+script's fetch is an ask in the answer to the message whose work made it,
+the browser process decides it and filters the response before it leaves,
+and the response is a task of its own. No code was written. 83 is cut into
+334 (the boundary and the decision), 335 (`fetch()` in a page, closed by
+`alo-downloads`) and 336 (`XMLHttpRequest`, opened by a page); a promise is
+cut from 75 as 333, on 232 and 235, which are built. 333 and 334 are
+eligible. 144 queue items are open. The next unused queue number is 337 and
+the next unused ADR 0033.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

@@ -3498,6 +3498,32 @@ The long pole, and the thing most of section E is unreachable without.
   **Item 232 built the job queue a promise reaction will wait in** — in the
   heap, run by `Engine::checkpoint` — so a promise here queues its reactions
   with `Engine::queue_job` rather than building a queue of its own.
+  **ADR 0032 § 5 (iteration 212) cut the promise itself out as item 333**,
+  which depends on 232 and 235 rather than on all of 76: a promise needs the
+  job queue and the checkpoint after every task, both built, and nothing in
+  233 or 234. What stays here keeps its dependency on 76: the combinators
+  (`all`, `allSettled`, `race`, `any`), `async`/`await` and generators, which
+  suspend a frame, and the async iterators.
+
+- [ ] **333. A promise.** *Cut from 75 by ADR 0032 § 5 (iteration 212).
+  Depends on 232 and 235, both done.* The `Promise` constructor and its
+  executor; `then`, `catch` and `finally` on `Promise.prototype`;
+  `Promise.resolve` and `Promise.reject`; resolution by a thenable through a
+  `NewPromiseResolveThenableJob` of its own; resolving a promise with itself a
+  `TypeError`; a promise a cell in the heap holding its state, its value and
+  its two lists of reactions, each reaction queued with `Engine::queue_job`;
+  and a rejection still unhandled at the end of a checkpoint reported to the
+  embedder as an uncaught throw is (item 241), and never reported if a
+  handler is attached before that checkpoint ends. It is the promise `fetch`
+  answers (items 334 and 335) and nothing else of 75. *Closes when:* a table
+  of interleaved `then`, `queueMicrotask` and thenable resolutions runs in
+  the order the specification gives — `Promise.resolve().then(a)` before a
+  `queueMicrotask(b)` queued after it, a thenable adopted one job later than
+  a plain value, `finally` passing the value through — ordinarily and with
+  the collector at every allocation; an executor that throws rejects; a
+  reaction that throws rejects the promise `then` made; an unhandled
+  rejection is reported once and a handled one never; and every prefix cut
+  of a script that makes promises is refused or run, never a panic.
 
 - [ ] **76. The event loop** — tasks, microtasks, the rendering steps,
   `requestAnimationFrame`. `ROADMAP.md`: *"where 'it works, but the animation
@@ -4933,6 +4959,86 @@ The long pole, and the thing most of section E is unreachable without.
   ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
   not ready to build. Cutting a first item from it, with those written, is
   the work that opens it.
+  **Decided (iteration 212): ADR 0032, accepted.** Opened by
+  `alo-downloads`, whose script stops at `fetch(href, { method: "HEAD" })`.
+  In short: a script's fetch is an ask in the answer to the message whose
+  work made it — every ask, in order, each under a number the renderer chose
+  — and the response comes back as a `ToRenderer` message of its own, which
+  is a task; the browser process decides from its own copy of the document's
+  origin, header policy and cause (scheme, `connect-src`, mixed content,
+  CORS and preflight, the partitioned jar, the referrer, ADR 0012 § 4's cause
+  from which message it was answering) and filters the response **before**
+  it leaves, so an opaque body never reaches a renderer; a network error
+  tells the page nothing and the person why; a body crosses whole in one
+  message; a synchronous `XMLHttpRequest` is refused by name. **No code is
+  built and this item is not done.** It is cut three ways: the boundary
+  (334), `fetch()` in a page (335) and `XMLHttpRequest` (336). It closes
+  when all three have.
+
+- [ ] **334. A fetch crosses the boundary, and the browser process decides
+  it.** *Cut from 83 (ADR 0032 §§ 1–4). Depends on 263 (the ask's shape),
+  done, and nothing open.* `alo-renderer`: every answer that can run script
+  — `Loaded`, `Acted`, and the answer to the new message — carries a bounded
+  list of fetch asks, each with the renderer's number, the resolved URL, the
+  method, the page's headers, the body bytes and `alo-net`'s `Mode`,
+  `Credentials`, redirect mode and referrer `Policy`; `ToRenderer::Fetched`
+  carries a number and either the filtered response or a failure with no
+  reason in it. The wire format for both, with hostile input refused rather
+  than panicking. The browser process's decision, beside `navigate.rs`, in
+  § 3's order and each refusal named and recorded: the URL and its 2 MiB
+  bound; `http`/`https` only; the header policy's `connect-src` from its own
+  copy; mixed content; CORS and the preflight cache with the document's
+  origin as the asker; credentials and the jar under the top-level site; the
+  referrer from its own copy of the document's URL; the cause from which
+  message was answered (`Tabs::a_page_fetching`, `Tabs::an_agent_acting`).
+  A forbidden header, a `navigate` mode or a body on a `GET` in an ask is
+  refused as a renderer that broke the boundary. The asks per answer and in
+  flight per document bounded in the browser process, each number in the
+  code with its reason. § 4's filter as one function from a request and a
+  response to what crosses: `basic` without `Set-Cookie`, `cors` with only
+  the readable headers, `opaque` and `opaqueredirect` with status 0 and
+  **no bytes**, and a body larger than one message a failure. As navigation
+  does today, the decided request is handed to whoever drives `Tabs`, which
+  makes it with `Purpose::Fetch`. *Closes when:* tests show a same-origin
+  ask in a `Load`'s answer decided as the document's and one in an `Act`'s
+  as the agent's; a `no-cors` cross-origin answer crossing with no body
+  bytes in the message; `Set-Cookie` never crossing; `connect-src 'none'`
+  and an `https` page asking for `http` each refused by name and recorded;
+  a `same-origin` ask to another origin refused before anything is sent; a
+  CORS failure crossing as a failure with no reason in it; a forbidden
+  header refused as a broken boundary; an ask past either bound a failure
+  said among the issues; and malformed, truncated and adversarial bytes in
+  either direction refused, never a panic.
+
+- [ ] **335. `fetch()` in a page.** *Cut from 83 (ADR 0032 §§ 1, 4 and 7).
+  Depends on 333 and 334.* `alo-bindings`: `fetch` on the global object,
+  reading its `init` (`method`, `headers` as a plain object, a string
+  `body`, `mode`, `credentials`, `redirect`, `referrerPolicy`), dropping
+  forbidden headers as the `Headers` guard does, refusing by name what is
+  not built (a `Request` argument, a body that is not a string, `data:` and
+  `blob:` URLs, a `signal`), recording the ask in the document cell under a
+  fresh number and answering a pending promise; and the `Response` it is
+  settled with, read-only: `ok`, `status`, `statusText`, `url`, `type`,
+  `redirected`, `headers.get` and `headers.has`, and `text()`. A failure
+  rejects with one `TypeError` whatever the reason. `alo-renderer` settles
+  the promise in the `Fetched` task, with a checkpoint after it, and lets
+  go of the waiting promise when its page goes. `alo-corpus`: a case that
+  fetches states its address and its frozen responses (§ 7), a URL it froze
+  none for is a network error, and `origin.txt` says which. *Closes when:*
+  `alo-downloads`' script runs past its line 19 and its `.then` or `.catch`
+  decides each button, pinned in `tests/alo_downloads.rs`; its reference is
+  moved and read; and a bindings test shows a same-origin text body read,
+  an opaque response's `status` 0 and empty body, and a refused fetch's
+  `TypeError`. If a response for the page's installers cannot be frozen
+  with provenance, the case freezes none, and what it then pins — buttons
+  marked *Building — available shortly* — is said in `origin.txt` as what
+  the page does offline.
+
+- [ ] **336. `XMLHttpRequest`, asynchronous.** *Cut from 83 (ADR 0032 § 6).
+  Depends on 334 and on event dispatch (254, done).* The same ask, delivered
+  as `readystatechange`, `load`, `error` and `loadend` events rather than a
+  promise; a synchronous `open(…, false)` refused by name. *Opened by a
+  frozen page that uses one, and not before.*
 
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*

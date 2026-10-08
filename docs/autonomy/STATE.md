@@ -19593,3 +19593,116 @@ two-hour bound into a log. I polled it in this turn and read it: exit 0,
 140 queue items are open: 321 closed. The next unused queue number is
 **333** and the next ADR is **0032**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 212 — queue item 83 decided: ADR 0032, a page's fetch is an ask, and what comes back is only what it may read
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+state rules and its `fetch()`, promises and event-loop lines, iterations
+198 and 211, `REMAINING.md`'s continuation order, and every open queue item
+by its dependency and blocking marks (a listing of all 140), with items 75,
+76, 83, 233, 238, 240, 251, 258, 259, 262, 77, 78, 157, 158, 187, 60, 169,
+197, 203, 207, 220, 223 and 226 in full. ADRs read in full: 0016 and 0020;
+the passages of 0005, 0012 (§ 4) and 0025 (§ 5) that this cites. Code read:
+`alo-net`'s `fetch.rs`, `cors.rs`, `preflight.rs`, `mixed.rs`,
+`request.rs` (`Purpose::Fetch`), `body.rs` (`LARGEST_BODY`) and the list
+of its bounds; `alo-renderer`'s `message.rs`, `ask.rs`, `resource.rs`,
+`serve.rs`, `tab.rs` (`a_page_fetching`, `an_agent_acting`) and `wire.rs`
+(`LARGEST_MESSAGE`); `alo-corpus`'s `rendering.rs`; `alo-js`'s
+`bounds.rs`. No `AGENTS.md` exists. The checkout was clean on entry at
+`e0421ea`. From the sibling `alo-workplace`, read and never written, at
+`738de614`: `deploy/production/Caddyfile`, for where the download page and
+its installers are served (one origin, `/download/`).
+
+**Selection.** Nothing ahead in the file was eligible, which I checked
+rather than trusted: the items with no open dependency are each blocked on
+a page (207, 223, 226, 240, 259, 262, 284, 286, 311, 314 and the stage 3
+tail), on an interface or a person (157, 158, 296), on Linux (169), on
+their property (197), on a browser process holding a pool (203), or carry
+*needs design* with no page asking (60, 77, 82, 85–89, 95–99, 104, 105,
+108, 111, 117, 121, 122, 128, 129). `alo-downloads`' script stops at
+`fetch(href, { method: "HEAD" }).then(…)`, so the items on a real page's
+path were 75 (promises) and 83 (`fetch`). 75 depends on 76, which is open.
+83's dependencies (61, 72) are done, and it was marked *needs design* in
+iteration 161 with the note that cutting a first item with an ADR, a
+contract and a closing condition is what opens it. As iteration 132 did for
+76, the first item on the page's path whose dependencies are met gets its
+decision as its own iteration (stage 2 § 4).
+
+**What was decided (ADR 0032).** No code changed.
+- A script's fetch is an **ask in the answer to the message whose work made
+  it** (ADR 0020's shape): every ask, in order, each under a number the
+  renderer chose. The response comes back as a **`ToRenderer` message of
+  its own, which is a task** (ADR 0016 § 2).
+- The ask carries the resolved URL, the method, the page's headers (the
+  forbidden ones already dropped), the body, and `alo-net`'s mode,
+  credentials, redirect and referrer enums. Never an origin, a cause, a
+  cookie, a tab or a document. A forbidden header in an ask is a renderer
+  that broke the boundary (ADR 0025 § 5's wording).
+- The browser process decides in a fixed order, each refusal named and
+  recorded: the URL; `http`/`https` only; its own copy of the header
+  policy's `connect-src` (a `<meta>` policy is the renderer's to apply);
+  mixed content; CORS and preflight with the document's origin; the
+  partitioned jar; the referrer; and the cause from which message it was
+  answering, so a `.then` that fetches after an agent's click is the
+  page's.
+- **The response is filtered before it leaves the browser process.** An
+  opaque response crosses as status 0 with no headers, URL or bytes, so a
+  renderer never holds a body the same-origin policy kept from it
+  (ADR 0005's Spectre reason). `Set-Cookie` never crosses. A network error
+  tells the page nothing and the person why.
+- A body crosses whole, under the existing `LARGEST_BODY` and
+  `LARGEST_MESSAGE`. No new number is introduced. The bounds on asks per
+  answer and in flight are required, enforced in the browser process, and
+  their values are left to the code with their reasons.
+- **A promise needs only the job queue (232) and the checkpoint after each
+  task (235)**, both built; nothing in 233 or 234. So it is cut from 75 as
+  item 333. 75 keeps its dependency on 76 for what is left.
+- An asynchronous `XMLHttpRequest` is the same ask; a synchronous one is
+  refused by name. A corpus page's fetch is answered from frozen responses,
+  and a URL with none is a network error that the case states.
+
+**Queue.** 83 records the decision and stays open. New items: **333** (a
+promise, cut from 75, on 232 and 235), **334** (the boundary and the
+browser process's decision, on 263), **335** (`fetch()` and `Response` in
+a page and the corpus's frozen responses, on 333 and 334, closed by
+`alo-downloads`) and **336** (asynchronous `XMLHttpRequest`, on 334 and
+254, opened by a page). 75 records the cut.
+
+**Roadmap.** The `fetch()` line gains an Owed clause saying it is decided
+and not built, naming 334–336. The promises line's Owed clause names 333.
+Nothing is ticked and no Built clause was added, because nothing is built.
+`docs/features.md`, `CHANGELOG.md`, `REMAINING.md` and `alo-downloads`'
+`origin.txt` say the same.
+
+**Gate, mechanical.** Warmed with clippy `--all-targets --all-features`
+and `cargo test --workspace --all-features --no-run` (both already warm).
+`scripts/gate.sh` ran in the foreground into a log, went past the tool's
+ten-minute bound and was moved to the background. I polled it in this turn
+and read the log: exit 0, "The gate is met". fmt clean, clippy silent,
+tests pass, no stubs, `unsafe` forbidden, licences present, every rented
+crate behind its boundary, no coordinate verbs, the stop rule holding, the
+changelog changed.
+
+**Gate, manual.** No code, layout or rendering changed, so no layout
+assertion or reference render applies; no reference moved.
+`docs/features.md` names what is decided and says it is not built. One
+responsibility per file: the ADR is one decision, and it names where each
+piece will live (beside `navigate.rs`, in `alo-bindings`, in the corpus)
+rather than adding a file a second job. No `unsafe`, no new dependency.
+
+**Unresolved obligations.**
+- Nothing of ADR 0032 is built. **333 and 334 are eligible**, with 333
+  first in file order. 335 waits on both, and it is what moves
+  `alo-downloads`.
+- 335 has to freeze the installers' `HEAD` responses with provenance or
+  freeze none. If it freezes none, it has to say that the greyed buttons it
+  pins are what the page does offline.
+- The values of the two ask bounds are owed by 334, with their reasons.
+- Still standing: 322 and 324 wait for a page, 323 waits on 73, and 328
+  waits for a page. 284, 311 and 314 wait for pages; 296 needs a person;
+  297–300, 302, 304 and 308; 126 and 132.
+- `scripts/gate.sh` still runs past the ten-minute foreground bound.
+
+144 queue items are open: 333–336 added, none closed. The next unused
+queue number is **337** and the next ADR is **0033**. This is one
+iteration, not a finished queue or roadmap.

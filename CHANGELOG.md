@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How a page's `fetch` will work is decided** (ADR 0032), and nothing of
+  it is built yet. The page's process asks; the browser process, which
+  already knows where the page came from and what its server allowed,
+  decides and makes the request; and only what the page may read comes back.
+  A response from another site that did not agree to be read is never sent
+  to the page's process, so a flaw in that process cannot read it either. A
+  fetch that fails tells the page nothing about why, and tells the person
+  exactly why. alo's download page, which checks with `fetch` whether each
+  installer is there, is what opened this; promises come first (queue items
+  333–336).
+
 - **Text placed straight inside a flex or grid container takes its
   `line-height`.** CSS wraps such text in a block of its own, and now so
   does the engine. Before, the text was measured on its own and was only as

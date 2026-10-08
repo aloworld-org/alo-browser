@@ -375,6 +375,14 @@ unreachable without it.
       **event handler** matched by its hash, which is the same rule as the
       `style` attribute and waits only for there to be handlers (queue item 81)
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
+      · Owed: all of it. **Decided, not built** (ADR 0032, queue item 83):
+      a script's fetch is an ask in the answer to the message whose work made
+      it, the browser process decides it from its own copy of the document's
+      origin, policy and cause, and the response comes back as a task of its
+      own carrying only what the page may read. The boundary and the
+      decision (queue item 334), `fetch()` and its `Response` in a page,
+      closed by `alo-downloads` (335, on 333's promise), and asynchronous
+      `XMLHttpRequest` when a page uses one (336)
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action,
       caused it. No other engine has needed to answer that, and an agent-driven
@@ -818,8 +826,11 @@ unreachable without it.
       calls, with `%IteratorPrototype%` and the array iterator behind them;
       and **the microtask queue** (queue item 232) — `alo-js`'s job queue in
       the heap and the checkpoint that drains it
-      · Owed: generators, which are a suspended frame; promises, whose
-      reactions will be jobs on that queue; `async`/`await`; `for await` and
+      · Owed: **a promise** — its constructor, `then`, `catch`, `finally`,
+      `resolve` and `reject`, its reactions jobs on that queue — cut from 75
+      by ADR 0032 § 5 as queue item 333, because it needs only that queue
+      and the checkpoint after each task, both built; generators, which are a
+      suspended frame; the combinators; `async`/`await`; `for await` and
       async iterators (queue item 75)
 - [ ] Modules: ESM, dynamic `import()`, and the loader that fetches them
 - [ ] **The event loop** — tasks, microtasks, the rendering steps, `requestAnimationFrame`. Where "it works, but the animation stutters" is decided
