@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A `style` attribute styles its element.** `<p style="color: red">` is
+  red. What an element's own attribute says beats anything a style sheet's
+  selector says, however specific, and loses only to what a sheet insists
+  on with `!important` — unless the attribute insists too. It works on SVG
+  shapes as well, where it beats the shape's own `fill`. A declaration in
+  it the browser cannot read is left out and listed among the page's
+  problems, and the rest of the attribute still applies. A script cannot
+  change an element's style yet (decision 0033).
+
 - **How a page's inline style will work is decided.** A `style` attribute
   written on an element will style it, above anything a style sheet's
   selector says and below anything a sheet insists on with `!important`,

@@ -20502,3 +20502,107 @@ No `unsafe`, no new dependency.
 146 queue items are open: 341–343 added, none closed. The next unused queue
 number is **344** and the next ADR is **0034**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 219 — queue item 341 built: the `style` attribute, cascaded
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+head and its CSSOM line, and iteration 218, which named 341 as eligible and
+next. Queue items 339, 341, 342 and 343, ADR 0033 (whole), and
+`docs/features.md`'s CSSOM line, the item's feature contract. Code read:
+`alo-css`'s `lib.rs`, `declaration.rs`, `issue.rs` and `parse.rs`;
+`alo-style`'s `lib.rs`, `cascade.rs`, `origin.rs`, `computed.rs` and
+`presentation.rs`; `alo-dom`'s template handling; `alo-renderer`'s
+`pipeline.rs` (`draw`, where style issues are surfaced); the corpus harness.
+No `AGENTS.md` exists. The checkout was clean on entry at `b21b964`. No
+sibling repository was read or written.
+
+**What was built (ADR 0033 § 1).**
+- `alo-css`'s `parse_declaration_list`: an attribute's text read through
+  the sheet's own `parse_declarations`, so the refusals, the nesting limit
+  and `DeclarationBlock::push`'s shorthand splitting are the sheet's.
+  `DeclarationBlock::as_slice` was added for the cascade.
+- `alo-style`'s new `attached.rs`: an HTML or SVG element's `style`
+  attribute as declarations, each dropped one said with its element
+  (`style attribute of <div>: 12px;`). MathML and other namespaces have
+  none.
+- `cascade.rs`: `Contender::attached`, asked between the level (origin and
+  importance) and specificity, and `Applicable::gather_attached`.
+  `gather_with_hints` is that with nothing attached.
+- `computed.rs`'s `resolve_measured` reads the attribute for every element
+  on every call; nothing parsed is kept. A `<template>`'s contents are not
+  descendants of the document, so their attributes are never read.
+
+**Closing conditions, each pinned.**
+- `<p style="color: red">` is red, and inherited by its child:
+  `computed.rs`'s `a_style_attribute_colours_its_element_and_what_inherits_from_it`.
+- A normal attribute beats an id selector; an important sheet declaration
+  beats a normal attribute; an important attribute beats an important id
+  selector; the engine's important declaration still beats an important
+  attribute; `style="fill: …"` beats a presentation attribute; the last in
+  the attribute wins, longhands included: `cascade.rs`'s six new tests.
+- A dropped declaration is said: `attached.rs`, `computed.rs` (the whole
+  issue line, `1:13: … style attribute of <div>: 12px`) and `parse.rs`.
+- New corpus case `style-attributes` (240×180): four bars, a paragraph and
+  an SVG rect, every size and colour that differs set by an attribute.
+  `layout.txt` is the layout assertion: bars 120, 160, 80 and 100 wide at
+  x 10, y 16/38/60/82 (panel padding 10 plus margin 6, 22 apart); the
+  paragraph at (34, 102), 176 wide (its attribute's `margin-left: 24px`
+  after `margin: 4px 0 0`); the `<svg>` at y 122.296875. `display.txt` and
+  `render.png` are the reference render: the third bar is the sheet's
+  important `#264653`, the rect `#2a9d8f` over `fill="#0000ff"`.
+  `issues.txt` holds the dropped `12px;`. The image was looked at.
+- Every corpus reference that moved: none other did. No other case's page
+  carries a `style` attribute.
+
+**Hostile input.** A `style` attribute is a stranger's bytes now.
+`parse.rs`'s `a_hostile_declaration_list_is_refused_rather_than_crashing`
+feeds a stray `}`, a `{` block, a nested rule, an `@media`, a NUL,
+truncated strings, functions and URLs, a BOM, 100 000 `(` (refused as
+`NestedTooDeep`), 100 000 `{` and a megabyte value: each returns, none
+panics. Values are not interpreted here, so no new arithmetic reads them.
+
+**Gate, mechanical.** Warmed with `cargo test --workspace --all-features`
+and clippy `--workspace --all-targets --all-features` (silent).
+`scripts/gate.sh` was started in the foreground into a log, ran past the
+tool's ten-minute bound and was moved to the background. I waited on it in
+this turn and read it: exit 0, "The gate is met". fmt clean, clippy
+silent, tests pass, no stubs, `unsafe` forbidden, every rented crate
+behind its boundary, no coordinate verbs, the stop rule holding, the
+changelog changed.
+
+**Checked by mutation**, restored: the attached question taken out of the
+cascade key fails four tests (`cascade.rs` three, `computed.rs` one).
+
+**Gate, manual.**
+- The layout assertion and reference render are the new case, above.
+- One responsibility per file. `attached.rs` answers "what does this
+  element's own attribute declare". `cascade.rs` still orders contenders.
+  `parse.rs` still reads CSS text into declarations.
+- `docs/features.md`'s CSSOM line says what a style attribute does now.
+  `docs/conformance.md`, `ROADMAP.md`, `REMAINING.md`, `CHANGELOG.md` and
+  the queue say the same.
+- No `unsafe`, no new dependency. No ADR was needed: ADR 0033 § 1 decides
+  all of this.
+
+**Roadmap.** The CSSOM line gains a Built clause (the attribute cascaded,
+341, corpus case `style-attributes`), and its Owed clause drops 341. It is
+not ticked: `element.style` (342), `style-src` on inline style (343) and
+the rest of item 89 remain.
+
+**Unresolved obligations.**
+- 339 stays open until 342 closes. **342 is eligible and next**, then 343.
+  `alo-downloads` is unchanged: its page sets no `style` attribute, and
+  its `mark(a)` still stops at `a.style`.
+- A page's `style-src` refuses neither a `<style>` nor a `style`
+  attribute until 343. A `style` attribute in markup now styles even under
+  a policy that would refuse it, which `docs/conformance.md` says.
+- Everything 218 listed as standing still stands:
+  - 337, 322, 324, 328, 284, 311 and 314 wait for pages;
+  - 323 waits on 73;
+  - 296 needs a person;
+  - 297–300, 302, 304, 308, 126, 132 and 336 remain.
+- `scripts/gate.sh` still runs past the ten-minute foreground bound.
+
+145 queue items are open: 341 closed. The next unused queue number is
+**344** and the next ADR is **0034**. This is one iteration, not a finished
+queue or roadmap.

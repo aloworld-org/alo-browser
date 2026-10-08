@@ -16,8 +16,10 @@
 //!
 //! 1. **Gather.** Every declaration whose selector matched, from every sheet,
 //!    with the specificity of the selector that actually matched (ADR: a rule
-//!    written `h1, #title` contributes at two different specificities).
-//! 2. **Cascade.** Origin, then `!important`, then specificity, then order.
+//!    written `h1, #title` contributes at two different specificities), and
+//!    the declarations the element's `style` attribute holds ([`attached`]).
+//! 2. **Cascade.** Origin, then `!important`, then whether the element's own
+//!    `style` attribute said it, then specificity, then order.
 //!    [`cascade`] does this and nothing else.
 //! 3. **Inherit.** What the parent ended up with, for the properties that
 //!    inherit — [`inheritance`] is the table, because CSS is a table.
@@ -43,6 +45,7 @@
 //! ask for `color` and parse a colour. Neither wants a general answer, and a
 //! general answer is what would have to be wrong somewhere.
 
+pub mod attached;
 pub mod cascade;
 pub mod computed;
 pub mod font_units;

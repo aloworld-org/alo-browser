@@ -301,13 +301,15 @@ own box (corpus case `svg-transform-property`); `fill-box` on a `<g>` and
 sizes its `<svg>`** through the cascade, beaten by any stylesheet rule (corpus
 case `svg-relative-size`); a per cent on an inline-level `<svg>` is resolved
 twice, as on any inline-block (item 284), and is right on a block-level one.
-**A `style` attribute is not applied.** `<p style="color: red">` is drawn
-in whatever colour the style sheets give it, and a script has no
-`element.style` to write. ADR 0033 decides how both will work (items 341
-and 342). Even then, a value will be kept as written: `#c7bfb2` will read
+**A `style` attribute is applied** on an HTML or SVG element, as CSS
+Cascade 4 places it: above every declaration a selector reaches, below any
+`!important` one in a sheet, and an important one above an important sheet
+declaration whatever its selector (item 341, corpus case
+`style-attributes`). A script still has no `element.style` to write (item
+342). Once it does, a value will be kept as written: `#c7bfb2` will read
 back as `#c7bfb2`, where other engines say `rgb(199, 191, 178)`. And a page's
 `style-src` is applied by no renderer to its inline style, a `<style>`
-element included, until item 343.
+element or a `style` attribute, until item 343.
 Most targets below are still
 `not yet`, because they are alo's own screens rather than pages we wrote to test
 with — and the sign-in screen, which is alo's, is *nearly* rather than done: the

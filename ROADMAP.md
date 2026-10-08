@@ -1073,9 +1073,14 @@ unreachable without it.
       `!important`; `element.style` holds only its element and reads and
       writes the attribute; it names only the properties this engine acts
       on; a value is kept as written and `background` stays one declaration
-      · Owed: everything; nothing is built — the attribute cascaded (341),
-      `element.style` (342), and `getComputedStyle`, `document.styleSheets`
-      and the rest of item 89, each opened by a page
+      · Built: the `style` attribute cascaded (queue item 341) —
+      `alo-css`'s `parse_declaration_list` reads it as a sheet's block, and
+      `alo-style`'s `attached.rs` and the cascade's element-attached step
+      place it, for HTML and SVG elements, read from the document on every
+      draw (corpus case `style-attributes`)
+      · Owed: `element.style` (342), a page's `style-src` applied to inline
+      style (343), and `getComputedStyle`, `document.styleSheets` and the
+      rest of item 89, each opened by a page
 - [ ] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them
       · Built: `alo-storage`, the browser process's store (queue item 301).
       It holds buckets keyed by origin and top-level site, and its key type

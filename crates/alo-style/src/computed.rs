@@ -268,7 +268,18 @@ pub fn resolve_measured(
             .element(id)
             .map(|element| crate::presentation::hints(element, &mut tree.issues))
             .unwrap_or_default();
-        let applicable = Applicable::gather_with_hints(sheets, device, &mut matcher, id, &hints);
+        let attached = document
+            .element(id)
+            .map(|element| crate::attached::declarations(element, &mut tree.issues))
+            .unwrap_or_default();
+        let applicable = Applicable::gather_attached(
+            sheets,
+            device,
+            &mut matcher,
+            id,
+            &hints,
+            attached.as_slice(),
+        );
         let mut style = compute_one(&applicable, &parent, &mut tree.issues);
         settle_font(&mut style, &parent, root_metrics, device, faces);
         record_computed_font(&mut style);
@@ -703,6 +714,43 @@ mod tests {
             "child",
         );
         assert_eq!(not_inherited.get("margin"), None);
+    }
+
+    #[test]
+    fn a_style_attribute_colours_its_element_and_what_inherits_from_it() {
+        let html = r#"<p id=x style="color: red; --gap: 4px"><span id=c>t</span></p>"#;
+        let style = style_of(html, "#x { color: blue }", "x");
+        assert_eq!(style.color("color"), Some(Rgba::new(1.0, 0.0, 0.0, 1.0)));
+        let child = style_of(html, "#x { color: blue }", "c");
+        assert_eq!(child.get("color"), Some("red"));
+        assert!(child.variables().get("--gap").is_some());
+    }
+
+    #[test]
+    fn a_style_attribute_is_read_where_it_is_and_its_refusals_are_said() {
+        let document =
+            parse_document(r#"<div id=x style="width: 3px; 12px"></div><p style="color:">t</p>"#);
+        let tree = resolve(&document, &[], &MediaContext::default());
+        assert_eq!(
+            tree.issues()
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            vec!["1:13: invalid declaration, dropped: style attribute of <div>: 12px"],
+        );
+    }
+
+    #[test]
+    fn a_style_attribute_inside_a_template_is_never_read() {
+        let document = parse_document(r#"<template><p style="12px; color: red">t</p></template>"#);
+        let tree = resolve(&document, &[], &MediaContext::default());
+        assert!(tree.issues().is_empty(), "{:?}", tree.issues());
+        assert!(
+            document.descendants(document.root()).all(|id| document
+                .element(id)
+                .is_none_or(|e| e.attr("style").is_none())),
+            "the paragraph is not in the document, so nothing styles it",
+        );
     }
 
     #[test]

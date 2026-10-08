@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<!-- Queue item 341: every size and colour that differs between these bars is
+     set by a style attribute, cascaded where CSS Cascade 4 places it (ADR
+     0033 § 1). The sheet gives every bar the same grey 40×4 and loses or wins
+     against the attribute as each comment says. -->
+<html><body><div id=panel style="width: 200px; padding: 10px; background-color: #ffffff">
+<!-- The attribute alone: teal, 120 wide, 16 tall. -->
+<div class=bar style="width: 120px; height: 16px; background-color: #2a9d8f"></div>
+<!-- A normal attribute beats an id selector: orange, 160 wide. -->
+<div id=wide class=bar style="width: 160px; height: 16px; background-color: #e76f51"></div>
+<!-- An important sheet declaration beats a normal attribute: the width is the
+     attribute's, the colour the sheet's dark blue. -->
+<div class="bar loud" style="width: 80px; height: 16px; background-color: #e9c46a"></div>
+<!-- An important attribute beats an important id selector: 100 wide, not 30.
+     The declaration it cannot read is dropped and said, and the rest kept. -->
+<div id=forced class=bar style="width: 100px !important; 12px; height: 16px; background-color: #8ab17d"></div>
+<!-- A counted shorthand is split as in a sheet, and the longhand after it
+     wins within the attribute: 4 above, 24 to the left. -->
+<p style="margin: 4px 0 0; margin-left: 24px; color: #e63946; font-size: 14px">Set by its own attribute</p>
+<!-- The attribute beats a presentation attribute: green, not blue. -->
+<svg width=40 height=16 style="display: block; margin-top: 4px"><rect width=40 height=16 fill="#0000ff" style="fill: #2a9d8f"/></svg>
+</div></body></html>

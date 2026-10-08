@@ -882,3 +882,11 @@ page's `style-src` applied to inline style in the renderer, on 341 and for
 its last half 342). 339 stays open until 341 and 342 close. 341 is eligible
 and next. 146 queue items are open. The next unused queue number is 344 and
 the next unused ADR 0034.
+
+Iteration 219 built item 341: an HTML or SVG element's `style` attribute
+is parsed as a sheet's block (`alo-css`'s `parse_declaration_list`) and
+cascaded at CSS Cascade 4's element-attached step in `alo-style`, read
+from the document on every draw. Corpus case `style-attributes` is its
+layout assertion and reference render. 342 is eligible and next, then 343.
+145 queue items are open. The next unused queue number is 344 and the next
+unused ADR 0034.

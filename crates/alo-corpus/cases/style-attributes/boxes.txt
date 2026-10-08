@@ -1,0 +1,10 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      block flow · generic
+      block flow · generic
+      block flow · generic
+      block flow · generic
+      block flow · paragraph
+        text "Set by its own attribute"
+      block flow · image

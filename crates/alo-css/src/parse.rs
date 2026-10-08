@@ -61,6 +61,23 @@ pub fn parse_stylesheet(text: &str) -> Stylesheet {
     Stylesheet::from_parts(rules, top.issues)
 }
 
+/// Parse the contents of a declaration block with no selector and no braces
+/// around it — what an element's `style` attribute holds (CSS Style
+/// Attributes, ADR 0033 § 1).
+///
+/// It is read by the same parser, with the same refusals, as the inside of a
+/// style rule's braces, and its counted shorthands are split by the same
+/// [`DeclarationBlock::push`]: an attribute and a sheet that say the same
+/// thing hold the same declarations. Never fails. What could not be read is
+/// in the issues, located within the text it was given.
+pub fn parse_declaration_list(text: &str) -> (DeclarationBlock, Vec<StyleIssue>) {
+    let mut input = ParserInput::new(text);
+    let mut parser = CssParser::new(&mut input);
+    let mut issues = Vec::new();
+    let block = parse_declarations(&mut parser, &mut issues);
+    (block, issues)
+}
+
 /// Where a parser is, as an issue reports it.
 fn location_of(at: SourceLocation) -> Location {
     Location {
@@ -637,6 +654,90 @@ mod tests {
     fn a_truncated_sheet_keeps_what_came_before_it() {
         let sheet = parse_stylesheet("a { color: red } b { color:");
         assert_eq!(sheet.style_rules_for(&MediaContext::default()).len(), 2);
+    }
+
+    #[test]
+    fn a_declaration_list_holds_what_the_same_text_in_braces_holds() {
+        let text = "color: red; padding: 4px 8px; --gap: 2px !important; background: blue";
+        let (block, issues) = parse_declaration_list(text);
+        assert!(issues.is_empty(), "{issues:?}");
+        assert_eq!(block, only_declarations(&format!("a {{ {text} }}")));
+        assert_eq!(
+            block
+                .get(&PropertyName::parse("padding-left"))
+                .map(|d| &*d.value),
+            Some("8px"),
+            "a counted shorthand is split as in a sheet",
+        );
+        assert_eq!(
+            block
+                .get(&PropertyName::parse("background"))
+                .map(|d| &*d.value),
+            Some("blue"),
+            "and one read by kind stays one declaration",
+        );
+        assert_eq!(
+            block
+                .get(&PropertyName::parse("--gap"))
+                .map(|d| d.importance),
+            Some(Importance::Important),
+        );
+    }
+
+    #[test]
+    fn a_declaration_a_list_cannot_read_is_dropped_and_said() {
+        let (block, issues) = parse_declaration_list("color: red; 12px; width: 3px");
+        assert_eq!(block.len(), 2, "{block:?}");
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert_eq!(issues[0].kind, IssueKind::InvalidDeclaration);
+        assert_eq!(issues[0].source, "12px;", "as a sheet says it");
+        assert_eq!(
+            issues[0].at,
+            Location {
+                line: 1,
+                column: 13
+            }
+        );
+    }
+
+    #[test]
+    fn a_hostile_declaration_list_is_refused_rather_than_crashing() {
+        let deep_value = format!("color: {}red", "(".repeat(100_000));
+        let deep_block = format!("{}color: red", "{".repeat(100_000));
+        let long = format!("color: {}", "a".repeat(1 << 20));
+        for text in [
+            "",
+            ";;;",
+            "}",
+            "color: red } width: 3px",
+            "{ color: red }",
+            "color",
+            "color:",
+            "color: red !important; !important",
+            "a { color: red }",
+            "@media screen { color: red }",
+            "color: \0red",
+            "color: rgb(1, 2",
+            "color: \"unterminated",
+            "color: url(",
+            "\u{feff}color: red",
+            &deep_value,
+            &deep_block,
+            &long,
+        ] {
+            let (block, issues) = parse_declaration_list(text);
+            assert!(
+                block.len() <= 2 && issues.len() <= 2,
+                "{:?}: {block:?} {issues:?}",
+                text.get(..40),
+            );
+        }
+        let (block, issues) = parse_declaration_list(&deep_value);
+        assert!(block.is_empty());
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].kind, IssueKind::NestedTooDeep);
+        let (block, _) = parse_declaration_list(&long);
+        assert_eq!(block.iter().map(|d| d.value.len()).sum::<usize>(), 1 << 20);
     }
 
     #[test]

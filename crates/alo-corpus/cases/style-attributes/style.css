@@ -1,0 +1,5 @@
+body { margin: 0; background: #fafafa; font-family: system-ui; font-size: 12px }
+.bar { width: 40px; height: 4px; margin-top: 6px; background-color: #999999 }
+#wide { width: 20px; background-color: #000000 }
+.loud { background-color: #264653 !important }
+#forced { width: 30px !important }

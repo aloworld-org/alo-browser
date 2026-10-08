@@ -163,6 +163,11 @@ impl DeclarationBlock {
         self.declarations.iter()
     }
 
+    /// The declarations, in the order they were written, as one slice.
+    pub fn as_slice(&self) -> &[Declaration] {
+        &self.declarations
+    }
+
     /// How many declarations the block holds.
     pub fn len(&self) -> usize {
         self.declarations.len()

@@ -5331,7 +5331,7 @@ The long pole, and the thing most of section E is unreachable without.
   the page's last two writes set ordinary properties of the object, as in
   every engine for a name it does not support (ADR 0033 § 4).
 
-- [ ] **341. The `style` attribute, cascaded.** *Cut from 339 (ADR 0033
+- [x] **341. The `style` attribute, cascaded.** *Cut from 339 (ADR 0033
   § 1). Depends on nothing open.* `alo-css` parses an attribute's value as
   the contents of a declaration block, by the same parser, refusals and
   shorthand splitting as a sheet's block, and says what it dropped.
@@ -5348,6 +5348,20 @@ The long pole, and the thing most of section E is unreachable without.
   colours set only by `style` attributes, with a layout assertion in
   numbers and a reference render. Every corpus reference that moves is
   explained by a `style` attribute its page carries.
+  **Done (iteration 219).** `alo-css`'s `parse_declaration_list` reads the
+  attribute through the sheet's own `parse_declarations`.
+  `alo-style`'s `attached.rs` gives an HTML or SVG element's attribute as
+  declarations, saying each one dropped with its element. The cascade's
+  `Contender::attached` is asked between level and specificity
+  (`Applicable::gather_attached`), and `resolve_measured` reads the
+  attribute for every element on every call. Pinned in `cascade.rs`'s unit
+  tests (each ordering above, a presentation attribute, the last in the
+  attribute winning), `computed.rs`'s (red, inherited, a refusal said),
+  `attached.rs`'s and `parse.rs`'s (a hostile list refused, never
+  panicking), and in corpus case `style-attributes`, whose `layout.txt` and
+  `render.png` are the layout assertion and reference render. No other
+  corpus reference moved: no other case's page carries a `style`
+  attribute.
 
 - [ ] **342. `element.style`, a `CSSStyleDeclaration`.** *Cut from 339
   (ADR 0033 §§ 3–6). Depends on 341.* `alo-css`'s `properties.rs`: one

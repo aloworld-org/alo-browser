@@ -1,0 +1,1 @@
+1:26: invalid declaration, dropped: style attribute of <div>: 12px;

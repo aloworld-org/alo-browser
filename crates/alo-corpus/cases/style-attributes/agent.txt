@@ -1,0 +1,4 @@
+document at (0, 0) 240×148.29688
+  paragraph at (34, 102) 176×16.296875
+    text "Set by its own attribute" at (34, 102) 164.58887×16.296875
+  image at (10, 122.296875) 40×16
