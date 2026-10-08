@@ -24,6 +24,7 @@
 
 use crate::ask::Asked;
 use crate::face::Face;
+use crate::fetch::{FetchAsk, Fetched};
 use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::page::Page;
@@ -65,6 +66,13 @@ pub enum ToRenderer {
         /// What to do.
         verb: Verb,
     },
+    /// The answer to one of the page's fetches (ADR 0032 § 1).
+    ///
+    /// A task of its own (ADR 0016 § 2), sent when the browser process has
+    /// decided and made the ask, carrying only what the page may read
+    /// ([`crate::fetch_filter`]). Answered with
+    /// [`FromRenderer::Delivered`].
+    Fetched(Box<Fetched>),
 }
 
 /// What a renderer answers with.
@@ -139,6 +147,11 @@ pub enum FromRenderer {
         /// rules whether a page may send its tab there, and names the cause
         /// itself — a load's ask is the document's ([`crate::navigate`]).
         navigation: Option<Asked>,
+        /// Every fetch the page's scripts asked for while it loaded, in the
+        /// order they asked (ADR 0032 § 1). A claim each: the browser process
+        /// decides them ([`crate::fetch_decide`]), and a load's are the
+        /// document's.
+        fetches: Vec<FetchAsk>,
     },
     /// A picture.
     Painted(Frame),
@@ -165,6 +178,23 @@ pub enum FromRenderer {
         /// A claim, as a load's is; an `Act`'s ask is the agent's
         /// ([`crate::navigate`]), whoever made it.
         navigation: Option<Asked>,
+        /// Every fetch the page asked for during the verb's task, in order.
+        /// The agent's, as its navigation is, whoever on the page asked.
+        fetches: Vec<FetchAsk>,
+    },
+    /// The answer to a fetch was delivered, and this is what its task did.
+    ///
+    /// Asks made while it ran are the **document's**, even after an agent's
+    /// verb: a reaction to a response runs in a task of its own, outside the
+    /// agent's (ADR 0016 § 6, ADR 0032 § 3).
+    Delivered {
+        /// What the page's script said while the task ran, as an `Acted`'s
+        /// issues are said.
+        issues: Vec<String>,
+        /// Where the page asked to go during the task.
+        navigation: Option<Asked>,
+        /// Every fetch it asked for during the task, in order.
+        fetches: Vec<FetchAsk>,
     },
     /// A verb was refused. **Not a failure**: ADR 0002 makes refusing a
     /// result, because acting on the wrong row is worse than acting on none.
@@ -242,6 +272,7 @@ impl fmt::Display for ToRenderer {
             ToRenderer::Paint => f.write_str("paint"),
             ToRenderer::ReadTree => f.write_str("read the tree"),
             ToRenderer::Act { target, verb } => write!(f, "{verb:?} {target}"),
+            ToRenderer::Fetched(fetched) => write!(f, "{fetched}"),
         }
     }
 }
@@ -294,6 +325,9 @@ mod tests {
             | ToRenderer::Paint
             | ToRenderer::ReadTree
             | ToRenderer::Act { .. } => "a page, a font, or a thing to do to one",
+            // What the page may read of its own request, and nothing about any
+            // other.
+            ToRenderer::Fetched(_) => "the answer to a fetch the page asked for",
         };
         let answered = |answer: &FromRenderer| match answer {
             FromRenderer::UsingFont { .. }
@@ -302,6 +336,7 @@ mod tests {
             | FromRenderer::Painted(_)
             | FromRenderer::Tree(_)
             | FromRenderer::Acted { .. }
+            | FromRenderer::Delivered { .. }
             | FromRenderer::Refused(_)
             | FromRenderer::Failed(_) => "what became of it, and nothing about any other request",
         };

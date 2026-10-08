@@ -64,6 +64,18 @@
 //! the tab for its caller ([`Tabs::navigation`]), because going there —
 //! session history, what survives — is item 85's.
 //!
+//! # Where a page fetches
+//!
+//! The same shape, with every ask rather than the last (ADR 0032): each
+//! answer that ran script carries the page's fetches, decided here as it
+//! passes ([`crate::fetch_owed`], [`crate::fetch_decide`]) against this
+//! tab's own copy of the document — its address and its header policy —
+//! with the cause from which message was answered: a `Load`'s and a
+//! delivered response's are the document's, an `Act`'s the agent's. The
+//! decisions wait on the tab ([`Tabs::fetches`]) for whoever makes the
+//! requests, and each answer goes back through [`Tabs::fetched`], which
+//! sends it only while the document that asked is still the one showing.
+//!
 //! # One process per site, and one document per process
 //!
 //! Two tabs on one site share a renderer (ADR 0005), and a [`crate::Renderer`]
@@ -75,6 +87,9 @@
 //! The displaced tab still shows its own last frame, which is what a person is
 //! looking at anyway.
 
+use crate::fetch::{FetchAsk, Fetched};
+use crate::fetch_decide::{self, Asker};
+use crate::fetch_owed::Owed;
 use crate::frame::Frame;
 use crate::host::{Gone, Renderers};
 use crate::message::{FromRenderer, ToRenderer};
@@ -84,6 +99,7 @@ use crate::site::Site;
 use alo_agent::{Target, Verb};
 use alo_net::cause::{ActionId, Cause, DocumentId, Identities};
 use alo_net::chain::{Chain, Documents};
+use alo_net::csp::Policies;
 use alo_url::Url;
 use core::fmt;
 use std::collections::{HashMap, HashSet};
@@ -116,6 +132,13 @@ pub struct Tab {
     /// Where the last answer that could carry an ask said the page wanted
     /// to go, decided.
     decided: Option<Decided>,
+    /// The policies the document's response's headers stated, enforced ones
+    /// only — this process's copy, which a page's fetch is decided under.
+    policies: Policies,
+    /// The fetches the document is still owed an answer for.
+    owed: Owed,
+    /// The page's fetches, decided, waiting for whoever makes them.
+    fetches: Vec<fetch_decide::Decided>,
     painted: Option<Frame>,
     gone: Option<Gone>,
 }
@@ -186,6 +209,111 @@ impl Tab {
     /// *"and says so"* that reaches somebody who is not a program.
     pub fn what_happened(&self) -> Option<String> {
         self.gone.as_ref().map(ToString::to_string)
+    }
+}
+
+impl Tab {
+    /// A `Load`'s answer, passing: the tab now shows `document`, at
+    /// `address` under `policies`, and what its scripts asked for is the
+    /// document's.
+    fn loaded(
+        &mut self,
+        document: DocumentId,
+        address: Url,
+        policies: Policies,
+        answer: &mut FromRenderer,
+    ) {
+        self.decided = None;
+        let FromRenderer::Loaded {
+            navigation,
+            fetches,
+            issues,
+            ..
+        } = answer
+        else {
+            return;
+        };
+        self.document = Some(document);
+        let cause = Cause::Document { document };
+        self.decided = navigation
+            .as_ref()
+            .map(|asked| navigate::decide(asked, &address, cause.clone()));
+        self.address = Some(address);
+        self.policies = policies;
+        // A new document is owed nothing the last one asked for, and its
+        // answers are dropped rather than delivered to this one.
+        self.owed = Owed::default();
+        self.fetches.clear();
+        issues.extend(self.fetching(fetches, &cause));
+    }
+
+    /// An `Act`'s answer, passing: what the page asked for during the verb's
+    /// task is the agent's `action`'s, whoever on the page asked.
+    ///
+    /// A tab showing no document cannot have acted; an ask from one is a
+    /// renderer's claim with nobody to attribute it to, and is not believed.
+    fn acted(&mut self, action: ActionId, answer: &mut FromRenderer) {
+        self.decided = None;
+        let (
+            FromRenderer::Acted {
+                navigation,
+                fetches,
+                issues,
+                ..
+            },
+            Some(document),
+        ) = (answer, self.document)
+        else {
+            return;
+        };
+        let cause = Cause::Agent { action, document };
+        self.decided = match (navigation.as_ref(), &self.address) {
+            (Some(asked), Some(address)) => Some(navigate::decide(asked, address, cause.clone())),
+            _ => None,
+        };
+        issues.extend(self.fetching(fetches, &cause));
+    }
+
+    /// A delivered response's answer, passing: its task ran outside any
+    /// agent's (ADR 0016 § 6), so what it asked for is the document's.
+    fn delivered(&mut self, answer: &mut FromRenderer) {
+        self.decided = None;
+        let (
+            FromRenderer::Delivered {
+                navigation,
+                fetches,
+                issues,
+            },
+            Some(document),
+        ) = (answer, self.document)
+        else {
+            return;
+        };
+        let cause = Cause::Document { document };
+        self.decided = match (navigation.as_ref(), &self.address) {
+            (Some(asked), Some(address)) => Some(navigate::decide(asked, address, cause.clone())),
+            _ => None,
+        };
+        issues.extend(self.fetching(fetches, &cause));
+    }
+
+    /// Decide the fetches an answer carried, under `cause`, against this
+    /// tab's own copy of its document, and keep the decisions for whoever
+    /// makes them. The lines to say among the answer's issues come back.
+    ///
+    /// A tab with no address has shown no document, so an ask from it is a
+    /// claim with nobody to make it for, and is not believed.
+    fn fetching(&mut self, asks: &[FetchAsk], cause: &Cause) -> Vec<String> {
+        let Some(address) = &self.address else {
+            return Vec::new();
+        };
+        let asker = Asker {
+            url: address,
+            policies: &self.policies,
+        };
+        let (decided, lines) = self.owed.decide(asks, &asker, cause);
+        self.fetches.extend(decided);
+        lines
     }
 }
 
@@ -354,6 +482,9 @@ impl Tabs {
             document: None,
             address: None,
             decided: None,
+            policies: Policies::none(),
+            owed: Owed::default(),
+            fetches: Vec::new(),
             painted: None,
             gone: None,
         });
@@ -458,16 +589,10 @@ impl Tabs {
         let _ = self.site_of(id)?;
         let document = self.documents.opened(&mut self.identities, cause);
         let address = page.url.clone();
-        let answer = self.ask(id, &ToRenderer::Load(Box::new(page)))?;
+        let policies = page.policies();
+        let mut answer = self.ask(id, &ToRenderer::Load(Box::new(page)))?;
         if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
-            tab.decided = None;
-            if let FromRenderer::Loaded { navigation, .. } = &answer {
-                tab.document = Some(document);
-                tab.decided = navigation
-                    .as_ref()
-                    .map(|asked| navigate::decide(asked, &address, Cause::Document { document }));
-                tab.address = Some(address);
-            }
+            tab.loaded(document, address, policies, &mut answer);
         }
         Ok(answer)
     }
@@ -507,33 +632,64 @@ impl Tabs {
     ) -> Result<(ActionId, FromRenderer), Lost> {
         let _ = self.site_of(id)?;
         let action = self.identities.an_action();
-        let answer = self.ask(id, &ToRenderer::Act { target, verb })?;
+        let mut answer = self.ask(id, &ToRenderer::Act { target, verb })?;
         if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
-            let navigation = match &answer {
-                FromRenderer::Acted { navigation, .. } => navigation.as_ref(),
-                _ => None,
-            };
-            tab.decided = match (navigation, tab.document, &tab.address) {
-                (Some(asked), Some(document), Some(address)) => Some(navigate::decide(
-                    asked,
-                    address,
-                    Cause::Agent { action, document },
-                )),
-                // A tab showing no document cannot have acted; an ask from
-                // one is a renderer's claim with nobody to attribute it to,
-                // and is not believed.
-                _ => None,
-            };
+            tab.acted(action, &mut answer);
         }
         Ok((action, answer))
+    }
+
+    /// The fetches the page in a tab asked for, as this process decided them,
+    /// in the order they were asked — taken, so each is handed over once.
+    ///
+    /// Each one is owed an answer, through [`Tabs::fetched`]: a
+    /// [`fetch_decide::Decided::Make`] is made with its request's
+    /// `Purpose::Fetch` and filtered ([`crate::fetch_filter`]); a
+    /// [`fetch_decide::Decided::Refused`] is answered with its
+    /// [`fetch_decide::Refusal::answer`], said to the person in its own words
+    /// and recorded with [`fetch_decide::Refusal::record`].
+    pub fn fetches(&mut self, id: TabId) -> Vec<fetch_decide::Decided> {
+        self.list
+            .iter_mut()
+            .find(|tab| tab.id == id)
+            .map(|tab| core::mem::take(&mut tab.fetches))
+            .unwrap_or_default()
+    }
+
+    /// Deliver the answer to one of a tab's page's fetches, as a task of its
+    /// own (ADR 0032 § 1), and decide what that task asked for.
+    ///
+    /// [`None`] when the document showing is owed no such answer — it is not
+    /// the one that asked, or the answer was given already — which is an
+    /// answer delivered to nobody, and nothing is sent. Asks the task made
+    /// are the **document's**, whoever caused the fetch it answers (ADR 0016
+    /// § 6), and wait on the tab with the rest; so does where it asked to go.
+    ///
+    /// # Errors
+    ///
+    /// [`Lost::NoSuchTab`] for an id nobody opened, and as [`Tabs::ask`].
+    pub fn fetched(&mut self, id: TabId, fetched: Fetched) -> Result<Option<FromRenderer>, Lost> {
+        let tab = self
+            .list
+            .iter_mut()
+            .find(|tab| tab.id == id)
+            .ok_or(Lost::NoSuchTab(id))?;
+        if tab.document.is_none() || !tab.owed.settle(fetched.number) {
+            return Ok(None);
+        }
+        let mut answer = self.ask(id, &ToRenderer::Fetched(Box::new(fetched)))?;
+        if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
+            tab.delivered(&mut answer);
+        }
+        Ok(Some(answer))
     }
 
     /// Where the page in a tab last asked to go, as this process decided it
     /// — taken, so it is handed over once.
     ///
-    /// Set by each `Loaded` [`Tabs::load`] passes and each `Acted`
-    /// [`Tabs::act`] passes, to the decision of the ask it carried or to
-    /// nothing. Going there is the caller's (item 85); a
+    /// Set by each `Loaded` [`Tabs::load`] passes, each `Acted`
+    /// [`Tabs::act`] passes and each `Delivered` [`Tabs::fetched`] passes, to
+    /// the decision of the ask it carried or to nothing. Going there is the caller's (item 85); a
     /// [`Decided::Refused`] is said to the person in its own words and
     /// recorded with [`crate::navigate::Refusal::record`].
     pub fn navigation(&mut self, id: TabId) -> Option<Decided> {
@@ -1218,5 +1374,235 @@ mod tests {
         assert_eq!(chain.person(), Some(here));
         assert_eq!(chain.action(), None);
         assert!(chain.is_whole());
+    }
+
+    // --- Where a page fetches (ADR 0032) -------------------------------------
+
+    use crate::fetch::FetchAsk;
+    use crate::fetch_decide::{Decided as Fetching, Rule};
+    use crate::fetch_owed::MOST_ASKED_AT_ONCE;
+    use alo_agent::Outcome;
+    use alo_box::tree::BoxId;
+    use alo_net::cors::{Credentials, Mode};
+    use alo_net::redirect;
+
+    const HERE: &str = "https://shop.example/downloads";
+
+    fn ask_for(number: u64, to: &str) -> FetchAsk {
+        FetchAsk {
+            number,
+            url: to.to_owned(),
+            method: "HEAD".to_owned(),
+            headers: Vec::new(),
+            body: Vec::new(),
+            mode: Mode::Cors,
+            credentials: Credentials::SameOrigin,
+            redirect: redirect::Mode::Follow,
+            referrer: None,
+        }
+    }
+
+    fn loaded_with(fetches: Vec<FetchAsk>) -> FromRenderer {
+        FromRenderer::Loaded {
+            issues: Vec::new(),
+            wanted: Vec::new(),
+            objections: Vec::new(),
+            navigation: None,
+            fetches,
+        }
+    }
+
+    /// A tab showing a document at [`HERE`] under `policies`, as a `Load`'s
+    /// answer carrying `fetches` leaves it — the answer passing exactly as
+    /// [`Tabs::load`] passes one, without a renderer that could send asks
+    /// (the page's `fetch` is item 335).
+    fn showing(
+        policies: Policies,
+        fetches: Vec<FetchAsk>,
+    ) -> (Tabs, TabId, DocumentId, FromRenderer) {
+        let mut tabs = nowhere();
+        let id = tabs.open(url(HERE));
+        let document = tabs
+            .documents
+            .opened(&mut tabs.identities, Cause::Person { tab: id });
+        let mut answer = loaded_with(fetches);
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
+            tab.loaded(document, url(HERE), policies, &mut answer);
+        }
+        (tabs, id, document, answer)
+    }
+
+    fn causes(decided: &[Fetching]) -> Vec<Cause> {
+        decided
+            .iter()
+            .map(|one| match one {
+                Fetching::Make(fetch) => fetch.request.cause.clone(),
+                Fetching::Refused(refusal) => refusal.cause.clone(),
+            })
+            .collect()
+    }
+
+    fn issues_of(answer: &FromRenderer) -> Vec<String> {
+        match answer {
+            FromRenderer::Loaded { issues, .. }
+            | FromRenderer::Acted { issues, .. }
+            | FromRenderer::Delivered { issues, .. } => issues.clone(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Queue item 334's first closing condition: the cause is assigned from
+    /// which message was answered — a `Load`'s ask is the document's, an
+    /// `Act`'s the agent's, and a delivered response's the document's again,
+    /// whoever caused the fetch it answered (ADR 0016 § 6).
+    #[test]
+    fn a_loads_fetch_is_the_documents_an_acts_the_agents_and_a_deliverys_the_documents() {
+        let (mut tabs, id, document, _) = showing(
+            Policies::none(),
+            vec![ask_for(1, "https://shop.example/a.dmg")],
+        );
+        let at_load = tabs.fetches(id);
+        assert_eq!(causes(&at_load), [Cause::Document { document }]);
+        let Some(Fetching::Make(fetch)) = at_load.first() else {
+            panic!("a same-origin HEAD was refused: {at_load:?}");
+        };
+        assert_eq!(fetch.request.method, "HEAD");
+        assert_eq!(fetch.request.purpose, alo_net::Purpose::Fetch);
+        assert!(tabs.fetches(id).is_empty(), "handed over once");
+
+        let action = tabs.identities.an_action();
+        let mut acted = FromRenderer::Acted {
+            outcome: Outcome::Activated {
+                node: BoxId::from_wire(3),
+                name: None,
+            },
+            issues: Vec::new(),
+            navigation: None,
+            fetches: vec![ask_for(2, "https://shop.example/b.exe")],
+        };
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
+            tab.acted(action, &mut acted);
+        }
+        assert_eq!(
+            causes(&tabs.fetches(id)),
+            [Cause::Agent { action, document }]
+        );
+
+        let mut delivered = FromRenderer::Delivered {
+            issues: Vec::new(),
+            navigation: None,
+            fetches: vec![ask_for(3, "https://shop.example/c")],
+        };
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
+            tab.delivered(&mut delivered);
+        }
+        assert_eq!(causes(&tabs.fetches(id)), [Cause::Document { document }]);
+    }
+
+    /// An answer goes only to the document that asked, once. A number the
+    /// document is not owed is answered by nobody and nothing is sent — and
+    /// one it is owed is sent, which here, with no renderer behind the tab,
+    /// is the renderer found gone.
+    #[test]
+    fn an_answer_reaches_only_the_document_that_asked_and_only_once() {
+        let (mut tabs, id, _, _) =
+            showing(Policies::none(), vec![ask_for(1, "https://shop.example/a")]);
+        assert_eq!(
+            tabs.fetched(id, Fetched::failed(9)),
+            Ok(None),
+            "never asked"
+        );
+        assert!(
+            matches!(tabs.fetched(id, Fetched::failed(1)), Err(Lost::Gone(_))),
+            "an owed answer was not sent"
+        );
+        assert_eq!(tabs.fetched(id, Fetched::failed(1)), Ok(None), "sent twice");
+
+        let (mut tabs, id, _, _) =
+            showing(Policies::none(), vec![ask_for(1, "https://shop.example/a")]);
+        let next = tabs
+            .documents
+            .opened(&mut tabs.identities, Cause::Person { tab: id });
+        let mut again = loaded_with(Vec::new());
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
+            tab.loaded(next, url(HERE), Policies::none(), &mut again);
+        }
+        assert_eq!(
+            tabs.fetched(id, Fetched::failed(1)),
+            Ok(None),
+            "the last document's answer was delivered to the next"
+        );
+        assert!(tabs.fetches(id).is_empty());
+        let (mut closed, gone, _, _) = showing(Policies::none(), Vec::new());
+        assert!(closed.close(gone));
+        assert_eq!(
+            closed.fetched(gone, Fetched::failed(1)),
+            Err(Lost::NoSuchTab(gone))
+        );
+    }
+
+    /// The document's header policy is this process's copy, and the refusal
+    /// is said among the issues by its own words.
+    #[test]
+    fn the_documents_own_header_policy_refuses_and_the_refusal_is_said() {
+        let mut headers = alo_net::Headers::new();
+        headers.add("Content-Security-Policy", "connect-src 'none'");
+        let (mut tabs, id, _, answer) = showing(
+            Policies::stated_by(&headers),
+            vec![ask_for(1, "https://shop.example/a")],
+        );
+        let decided = tabs.fetches(id);
+        assert!(
+            matches!(decided.first(), Some(Fetching::Refused(refusal)) if matches!(refusal.rule, Rule::Policy { .. })),
+            "{decided:?}"
+        );
+        let issues = issues_of(&answer);
+        assert!(
+            issues.iter().any(|line| line.contains("connect-src")),
+            "{issues:?}"
+        );
+    }
+
+    /// An ask past the bound is a network error said among the issues.
+    #[test]
+    fn an_answer_asking_past_the_bound_says_so_among_its_issues() {
+        let asks = (0..=MOST_ASKED_AT_ONCE as u64)
+            .map(|number| ask_for(number, "https://shop.example/x"))
+            .collect();
+        let (mut tabs, id, _, answer) = showing(Policies::none(), asks);
+        let decided = tabs.fetches(id);
+        assert_eq!(decided.len(), MOST_ASKED_AT_ONCE + 1);
+        assert!(
+            matches!(decided.last(), Some(Fetching::Refused(refusal)) if refusal.rule == Rule::TooManyAtOnce)
+        );
+        let issues = issues_of(&answer);
+        assert!(
+            issues
+                .iter()
+                .any(|line| line.starts_with("1 of the page's fetches were refused")),
+            "{issues:?}"
+        );
+    }
+
+    /// A tab showing no document cannot have asked for anything.
+    #[test]
+    fn an_ask_from_a_tab_showing_nothing_is_not_believed() {
+        let mut tabs = nowhere();
+        let id = tabs.open(url(HERE));
+        let action = tabs.identities.an_action();
+        let mut acted = FromRenderer::Acted {
+            outcome: Outcome::Activated {
+                node: BoxId::from_wire(1),
+                name: None,
+            },
+            issues: Vec::new(),
+            navigation: None,
+            fetches: vec![ask_for(1, "https://shop.example/a")],
+        };
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
+            tab.acted(action, &mut acted);
+        }
+        assert!(tabs.fetches(id).is_empty());
+        assert_eq!(tabs.fetched(id, Fetched::failed(1)), Ok(None));
     }
 }

@@ -5027,7 +5027,7 @@ The long pole, and the thing most of section E is unreachable without.
   (334), `fetch()` in a page (335) and `XMLHttpRequest` (336). It closes
   when all three have.
 
-- [ ] **334. A fetch crosses the boundary, and the browser process decides
+- [x] **334. A fetch crosses the boundary, and the browser process decides
   it.** *Cut from 83 (ADR 0032 §§ 1–4). Depends on 263 (the ask's shape),
   done, and nothing open.* `alo-renderer`: every answer that can run script
   — `Loaded`, `Acted`, and the answer to the new message — carries a bounded
@@ -5061,6 +5061,62 @@ The long pole, and the thing most of section E is unreachable without.
   header refused as a broken boundary; an ask past either bound a failure
   said among the issues; and malformed, truncated and adversarial bytes in
   either direction refused, never a panic.
+  **Built (iteration 214).** `alo-renderer`: `fetch.rs` is what crosses —
+  `FetchAsk` out (number, URL, method, headers, body, and `alo-net`'s `Mode`,
+  `Credentials`, the new `redirect::Mode` and referrer `Policy`) and
+  `Fetched` back (`Answer::Response(Readable)` of a `Kind` — basic, cors,
+  opaque, opaqueredirect — or `Answer::NetworkError`, with no reason).
+  `Loaded` and `Acted` carry `fetches`; `ToRenderer::Fetched` is answered by
+  the new `FromRenderer::Delivered { issues, navigation, fetches }`.
+  `wire/fetch.rs` encodes both, every tag from a closed list, and refuses an
+  opaque answer carrying anything. `fetch_decide.rs` is the decision in § 3's
+  order after the boundary check (`Broke`: navigate mode, a forbidden or
+  malformed method or header, a body on a read, a `no-cors` request a form
+  could not send), each refusal a named `Rule`, recordable with
+  `Refusal::record`; the made `Fetch` answers `cookies` from the jar and
+  `asking_first` from the preflight cache under the document's top-level
+  site. `fetch_filter.rs` is § 4's one function, a body too large for one
+  message (`wire::fetched_size`) a failure. `fetch_owed.rs` is what a
+  document is owed and the two bounds, `MOST_IN_FLIGHT` and
+  `MOST_ASKED_AT_ONCE`, 64 each with the reason beside them. `Tabs` decides
+  every answer's asks as it passes (`Tab::loaded`, `acted`, `delivered`)
+  against its own copy of the document's address and header policy, hands
+  them over with `Tabs::fetches`, and delivers each answer with
+  `Tabs::fetched` only while the document that asked is owed it. `alo-net`:
+  `forbidden.rs` (Fetch's forbidden methods and request headers, one list
+  for both sides) and `redirect::Mode`. A renderer still sends no asks and
+  answers a delivery with "nothing on this page is waiting" until 335.
+  **Making** a decided fetch — sending the preflight, the cookies and the
+  request through a `Pool` with the redirect mode applied per hop, keeping
+  `Set-Cookie`, and filtering — is whoever drives `Tabs`, as navigation's
+  going is; that is cut as **item 338**. Tests: `fetch_decide`,
+  `fetch_filter`, `fetch_owed` and `tab` unit tests (the cause by which
+  message was answered, an answer delivered only to the document owed it),
+  `alo-net`'s `forbidden` tests, and
+  `tests/a_pages_fetch_crosses_the_boundary.rs` (round trips, every prefix
+  cut and every byte changed in both directions, tags nobody has, opaque
+  answers carrying something). Checked by mutation: an `Act`'s asks given
+  the document's cause, `Set-Cookie` not stripped, and an opaque answer
+  given the body each fail a test.
+
+- [ ] **338. A decided fetch is made.** *Cut from 334 (iteration 214).
+  Depends on 334, done.* Whoever drives `Tabs` (`alo-window`'s conductor)
+  takes `Tabs::fetches`, and for each `Decided::Make` sends
+  `Fetch::asking_first`'s `OPTIONS` when there is one and checks it with
+  `Preflights::allowed`, adds `Fetch::cookies`, makes the request with
+  `Purpose::Fetch` through its `Pool` — following redirects only under
+  `redirect::Mode::Follow`, deciding `Origin` and CORS again on a hop to
+  another origin as Fetch does, and stopping at the first under `Manual` —
+  keeps a response's `Set-Cookie` in the jar only when
+  `Fetch::sends_credentials`, keeps the reason phrase for the status text,
+  and hands the response to `fetch_filter::filter`; each refusal is answered
+  with `Refusal::answer`, said to the person and recorded; each answer goes
+  back with `Tabs::fetched`, and what that answer asks is made in turn,
+  never inside the delivery that asked. *Closes when:* a page served by a
+  local test server fetches a same-origin text, a cross-origin resource
+  with and without `Access-Control-Allow-Origin`, and a redirect under each
+  mode, and the record shows each request with its cause, the preflight
+  before the request it asked about, and a refusal by its rule.
 
 - [ ] **335. `fetch()` in a page.** *Cut from 83 (ADR 0032 §§ 1, 4 and 7).
   Depends on 333 and 334.* `alo-bindings`: `fetch` on the global object,

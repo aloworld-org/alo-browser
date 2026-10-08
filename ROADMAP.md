@@ -375,15 +375,26 @@ unreachable without it.
       **event handler** matched by its hash, which is the same rule as the
       `style` attribute and waits only for there to be handlers (queue item 81)
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
-      · Owed: all of it. **Decided, not built** (ADR 0032, queue item 83):
-      a script's fetch is an ask in the answer to the message whose work made
-      it, the browser process decides it from its own copy of the document's
-      origin, policy and cause, and the response comes back as a task of its
-      own carrying only what the page may read. The boundary and the
-      decision (queue item 334), `fetch()` and its `Response` in a page,
-      closed by `alo-downloads` (335, on 334 and on 333's promise, which is
-      built), and asynchronous
-      `XMLHttpRequest` when a page uses one (336)
+      · Decided (ADR 0032, queue item 83): a script's fetch is an ask in
+      the answer to the message whose work made it, the browser process
+      decides it from its own copy of the document's origin, policy and
+      cause, and the response comes back as a task of its own carrying only
+      what the page may read
+      · Built: the boundary and the decision (queue item 334) — every answer
+      that runs script carries its asks and `ToRenderer::Fetched` carries a
+      response, both on the wire with hostile bytes refused; `Tabs` decides
+      each ask as the answer passes, refusing by name a bad or overlong URL,
+      a scheme other than `http(s)`, the document's `connect-src`, mixed
+      content and a `same-origin` ask elsewhere, and a forbidden header,
+      method or mode as a renderer that broke the boundary; the cause is the
+      document's after a `Load` or a delivered response and the agent's after
+      an `Act`; 64 asks at once and 64 waiting per document; and the filter
+      sends `basic` without `Set-Cookie`, `cors` with only the readable
+      headers, and opaque answers with no bytes
+      · Owed: making a decided fetch through the pool, with its preflight,
+      cookies and redirect mode (338); `fetch()` and its `Response` in a
+      page, closed by `alo-downloads` (335, on 334 and 333, both built); and
+      asynchronous `XMLHttpRequest` when a page uses one (336)
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action,
       caused it. No other engine has needed to answer that, and an agent-driven

@@ -48,6 +48,10 @@ use alo_net::csp::Inline;
 use alo_net::referrer::Policy;
 use alo_text::{Slant, Weight};
 
+mod fetch;
+
+pub use fetch::fetched_size;
+
 /// The most bytes one message may be.
 ///
 /// A frame of pixels is the largest thing that crosses, and a very large window
@@ -109,6 +113,13 @@ impl Writer {
     }
     fn text(&mut self, value: &str) {
         self.bytes(value.as_bytes());
+    }
+    /// A count, and that many texts.
+    fn texts(&mut self, values: &[String]) {
+        self.number(values.len() as u64);
+        for value in values {
+            self.text(value);
+        }
     }
     fn maybe_text(&mut self, value: Option<&str>) {
         match value {
@@ -306,6 +317,10 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
                 }
             }
         }
+        ToRenderer::Fetched(fetched) => {
+            writer.tag(7);
+            writer.fetched(fetched);
+        }
     }
     writer.out
 }
@@ -320,26 +335,18 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
         }
         FromRenderer::UsingGenerics { answering } => {
             writer.tag(7);
-            writer.number(answering.len() as u64);
-            for generic in answering {
-                writer.text(generic);
-            }
+            writer.texts(answering);
         }
         FromRenderer::Loaded {
             issues,
             wanted,
             objections,
             navigation,
+            fetches,
         } => {
             writer.tag(0);
-            writer.number(issues.len() as u64);
-            for issue in issues {
-                writer.text(issue);
-            }
-            writer.number(wanted.len() as u64);
-            for family in wanted {
-                writer.text(family);
-            }
+            writer.texts(issues);
+            writer.texts(wanted);
             writer.number(objections.len() as u64);
             for objection in objections {
                 writer.number(objection.policy as u64);
@@ -349,6 +356,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
                 });
             }
             writer.navigation(navigation.as_ref());
+            writer.fetches(fetches);
         }
         FromRenderer::Painted(frame) => {
             writer.tag(1);
@@ -370,14 +378,23 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             outcome,
             issues,
             navigation,
+            fetches,
         } => {
             writer.tag(3);
             writer.outcome(outcome);
-            writer.number(issues.len() as u64);
-            for issue in issues {
-                writer.text(issue);
-            }
+            writer.texts(issues);
             writer.navigation(navigation.as_ref());
+            writer.fetches(fetches);
+        }
+        FromRenderer::Delivered {
+            issues,
+            navigation,
+            fetches,
+        } => {
+            writer.tag(8);
+            writer.texts(issues);
+            writer.navigation(navigation.as_ref());
+            writer.fetches(fetches);
         }
         FromRenderer::Refused(refusal) => {
             writer.tag(4);
@@ -895,6 +912,33 @@ impl<'a> Reader<'a> {
         }))
     }
 
+    /// A picture, whose size and pixels must agree.
+    fn frame(&mut self) -> Result<Frame, Unreadable> {
+        let width = u32::try_from(self.number()?)
+            .map_err(|_| unreadable("a frame wider than this engine will hold"))?;
+        let height = u32::try_from(self.number()?)
+            .map_err(|_| unreadable("a frame taller than this engine will hold"))?;
+        let pixels = self.bytes()?;
+        // The one cross-check the encoding cannot do on its own: a frame
+        // whose size and pixels disagree is a frame something above would
+        // read past the end of.
+        let wanted = u64::from(width)
+            .checked_mul(u64::from(height))
+            .and_then(|area| area.checked_mul(4))
+            .ok_or_else(|| unreadable("a frame larger than any picture"))?;
+        if wanted != pixels.len() as u64 {
+            return Err(unreadable(format!(
+                "a {width}×{height} frame carrying {} bytes rather than {wanted}",
+                pixels.len()
+            )));
+        }
+        Ok(Frame {
+            width,
+            height,
+            pixels,
+        })
+    }
+
     /// Nothing may be left over.
     ///
     /// Trailing bytes mean the two ends disagree about the message, and a
@@ -1014,6 +1058,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
             }
             ToRenderer::UseGenerics(Generics::stating(pairs))
         }
+        7 => ToRenderer::Fetched(Box::new(reader.fetched()?)),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -1038,38 +1083,16 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
             let wanted = reader.texts()?;
             let objections = reader.objections()?;
             let navigation = reader.navigation()?;
+            let fetches = reader.fetches()?;
             FromRenderer::Loaded {
                 issues,
                 wanted,
                 objections,
                 navigation,
+                fetches,
             }
         }
-        1 => {
-            let width = u32::try_from(reader.number()?)
-                .map_err(|_| unreadable("a frame wider than this engine will hold"))?;
-            let height = u32::try_from(reader.number()?)
-                .map_err(|_| unreadable("a frame taller than this engine will hold"))?;
-            let pixels = reader.bytes()?;
-            // The one cross-check the encoding cannot do on its own: a frame
-            // whose size and pixels disagree is a frame something above would
-            // read past the end of.
-            let wanted = u64::from(width)
-                .checked_mul(u64::from(height))
-                .and_then(|area| area.checked_mul(4))
-                .ok_or_else(|| unreadable("a frame larger than any picture"))?;
-            if wanted != pixels.len() as u64 {
-                return Err(unreadable(format!(
-                    "a {width}×{height} frame carrying {} bytes rather than {wanted}",
-                    pixels.len()
-                )));
-            }
-            FromRenderer::Painted(Frame {
-                width,
-                height,
-                pixels,
-            })
-        }
+        1 => FromRenderer::Painted(reader.frame()?),
         2 => {
             let root = if reader.bool()? {
                 Some(reader.node()?)
@@ -1082,10 +1105,12 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
             let outcome = reader.outcome()?;
             let issues = reader.texts()?;
             let navigation = reader.navigation()?;
+            let fetches = reader.fetches()?;
             FromRenderer::Acted {
                 outcome,
                 issues,
                 navigation,
+                fetches,
             }
         }
         4 => FromRenderer::Refused(reader.refusal()?),
@@ -1121,6 +1146,16 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
                 answering.push(reader.text()?);
             }
             FromRenderer::UsingGenerics { answering }
+        }
+        8 => {
+            let issues = reader.texts()?;
+            let navigation = reader.navigation()?;
+            let fetches = reader.fetches()?;
+            FromRenderer::Delivered {
+                issues,
+                navigation,
+                fetches,
+            }
         }
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };

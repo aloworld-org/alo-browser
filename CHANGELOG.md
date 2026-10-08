@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's fetch now has a way across, and the browser decides it.** The
+  page's process sends each fetch its script asks for along with its answer,
+  and the browser process — which knows where the page came from and what
+  its server allowed — decides it: a fetch the page's own security policy
+  forbids, an insecure fetch from a secure page, a fetch to another site
+  that the page said must stay on its own, or any address that is not on the
+  web is refused, and the refusal says which rule. What a response may cross
+  is decided before it leaves the browser, so another site's answer that did
+  not agree to be read never reaches the page's process, not even as bytes.
+  A page's process that sends something no page could have asked for, like a
+  cookie it made up, is treated as broken rather than believed. Pages cannot
+  call `fetch` yet; that and actually making the request come next.
+
 - **Promises work.** A page's script can make a `Promise`, wait on it with
   `then`, `catch` and `finally`, and use `Promise.resolve` and
   `Promise.reject`. A chain runs in the order every other browser runs it,

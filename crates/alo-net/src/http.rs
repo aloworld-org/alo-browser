@@ -330,7 +330,7 @@ fn read_line(source: &mut impl std::io::Read, longest: usize) -> Result<String, 
 }
 
 /// Whether a byte may appear in a header name, per the standard's `token`.
-fn is_token_byte(byte: u8) -> bool {
+pub(crate) fn is_token_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric()
         || matches!(
             byte,

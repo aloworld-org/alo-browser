@@ -19835,3 +19835,137 @@ crate doc say the same.
 144 queue items are open: 333 closed, 337 added. The next unused queue
 number is **338** and the next ADR is **0033**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 214 — queue item 334: a fetch crosses the boundary, and the browser process decides it
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+`fetch()` line, iteration 213's entry, and queue items 83 and 333–337.
+ADR 0032 in full (the item's ADR), with 0005, 0012 § 4, 0016 §§ 2 and 6
+and 0020 as it cites them. The feature contract is `docs/features.md`'s
+`fetch()` line. Code read: `alo-renderer`'s `message.rs`, `wire.rs`,
+`ask.rs`, `navigate.rs`, `tab.rs`, `renderer.rs`, `page.rs` and `host.rs`'s
+`ask`; `alo-net`'s `cors.rs`, `preflight.rs`, `mixed.rs`, `request.rs`,
+`referrer.rs`, `jar.rs`, `redirect.rs`, `response.rs`, `csp.rs`'s
+`Policies`, `activity.rs`, and `pool.rs`; and `alo-downloads`' script and
+`origin.txt`. No `AGENTS.md` exists. The checkout was clean on entry at
+`e572c6d`. No sibling repository was read or written.
+
+**Selection.** Iteration 213 named 334 eligible and next. I checked rather
+than trusted that: its one dependency, 263, is done, and everything ahead
+of it in file order waits on a page, a person, Linux, an ADR or an open
+dependency, as 213's entry lists. 334 names its ADR (0032 §§ 1–4), its
+contract and its closing condition.
+
+**What was built.**
+- `alo-renderer/src/fetch.rs` holds what crosses. `FetchAsk` goes out:
+  number, URL, method, headers, body, and `alo-net`'s `Mode`,
+  `Credentials`, `redirect::Mode` and referrer `Policy`. `Fetched` comes
+  back: a `Readable` of a `Kind`, or `NetworkError` with no reason.
+- `Loaded` and `Acted` gain `fetches`. There is a new
+  `ToRenderer::Fetched`, answered by the new
+  `FromRenderer::Delivered { issues, navigation, fetches }`.
+  `wire/fetch.rs` encodes them; every enum is read from a closed list,
+  and an opaque answer carrying anything is refused.
+  `write_from_renderer` and `read_from_renderer` went over clippy's 100
+  lines, so `Writer::texts` and `Reader::frame` were drawn out of them.
+- `fetch_decide.rs` is the decision. It first checks the boundary
+  (`Broke`): navigate mode, a malformed or forbidden method or header, a
+  body on a `GET`/`HEAD`, and a `no-cors` method or header a form could
+  not send. Then it follows § 3's order: URL bound and parse, scheme,
+  `connect-src` from the tab's own copy of the header policy, mixed
+  content, and `same-origin` mode. It builds the request with
+  `Purpose::Fetch`, the document's origin as asker, `Origin` where Fetch
+  sends it, and `Referer` from this process's copy of the URL. The made
+  `Fetch` answers `cookies` (the jar under the top-level site) and
+  `asking_first` (the preflight cache under the same partition).
+- `fetch_filter.rs` is § 4's one function. `basic` drops `Set-Cookie`;
+  `cors` carries only the readable headers; opaque and opaqueredirect
+  carry nothing. A CORS refusal is a failure whose reason stays in
+  `Filtered::why`, and so is a body too large for one message
+  (`wire::fetched_size`, checked equal to the encoding).
+- `fetch_owed.rs` is what a document is owed. It sets two bounds, 64 each,
+  with the reason in the code: the pool's idle ceiling, against the
+  frozen page's two. Past either bound an ask is a network error, said
+  once among the issues.
+- `Tabs` decides each answer's asks as it passes (`Tab::loaded`, `acted`,
+  `delivered`). The cause comes from which message was answered. Asks
+  wait for `Tabs::fetches`. `Tabs::fetched` sends an answer only while
+  the showing document is owed it, and a new load owes nothing.
+- `alo-net/src/forbidden.rs` holds Fetch's forbidden methods and request
+  headers and what a method and a header are. `redirect::Mode` is new.
+- The renderer still records no ask. A delivery answers
+  "nothing on this page is waiting for fetch N". That is item 335.
+- **Cut, not approximated: making the request.** Sending the preflight,
+  cookies and request through a `Pool`, the redirect mode per hop,
+  keeping `Set-Cookie`, the reason phrase as status text, and filtering
+  are new **item 338**. 334's text hands the decided request to
+  whoever drives `Tabs`, as navigation is.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the background with the
+two-hour bound, polled in this turn. Result: exit 0, "The gate is met".
+- fmt clean, clippy silent, tests pass.
+- No stubs, `unsafe` forbidden, licences present.
+- Every rented crate is behind its boundary, and no verb takes a
+  coordinate.
+- The stop rule holds, and the changelog changed.
+
+Before the gate, `alo-renderer`'s tests (all of them) and `alo-net`'s
+`forbidden` tests passed.
+
+**Gate, manual.**
+- Closing conditions, each pinned:
+  - A `Load`'s ask is decided as the document's, an `Act`'s as the agent's
+    and a delivery's as the document's (`tab` tests, through the same
+    `Tab` methods `Tabs::load`/`act`/`fetched` call). No real renderer
+    sends an ask before 335.
+  - A `no-cors` cross-origin answer crosses with no body bytes in the
+    encoded message.
+  - `Set-Cookie` never crosses, even when exposed by name.
+  - `connect-src 'none'` and an `https` page asking for `http` are each
+    refused by name and recordable with `Refusal::record`. The policy's
+    refusal is said among the load's issues.
+  - A `same-origin` ask elsewhere is refused before anything is sent.
+  - A CORS failure crosses as `NetworkError` with its reason kept here.
+  - A forbidden header (`Cookie`, `Origin`) and a header with CRLF are
+    refused as a broken boundary.
+  - An ask past either bound is a failure said among the issues.
+  - Malformed, truncated and adversarial bytes in both directions are
+    refused, never a panic: every prefix cut, every byte changed to seven
+    values, unknown tags, impossible counts, and opaque answers carrying
+    anything.
+- Checked by mutation, each restored:
+  - Giving an `Act`'s asks the document's cause fails the cause test.
+  - Not stripping `Set-Cookie` fails two filter tests.
+  - Sending an opaque answer's body fails the no-bytes test.
+- Layout assertions and reference renders: none apply. Nothing positions,
+  sizes or draws, and no corpus case moves until 335.
+- One responsibility per file: what crosses (`fetch.rs`), its encoding
+  (`wire/fetch.rs`), the decision (`fetch_decide.rs`), the filter
+  (`fetch_filter.rs`), the bounds and what is owed (`fetch_owed.rs`), and
+  the forbidden lists (`alo-net`'s `forbidden.rs`). `tab.rs` grew by the
+  three answer-passing methods it already owned for navigation.
+- `docs/features.md` says what is built and what is not. No `unsafe`, no
+  new dependency, no ADR needed: 0032 decides all of it.
+
+**Roadmap.** The `fetch()` line gains a Built clause for 334. Its Owed
+clause names 338, 335 and 336. It is not ticked. `CHANGELOG.md` and
+`REMAINING.md` say the same.
+
+**Unresolved obligations.**
+- A broken-boundary refusal is refused and recordable. Nothing yet stops
+  believing the renderer that sent it. ADR 0032 asks only for the
+  refusal and the record, and a person deciding a sterner answer should
+  open an item.
+- An ask past a bound is not recorded, only said, because it is not
+  parsed. That is the bound's point.
+- `alo-net`'s `Response` keeps no reason phrase, so the status text a
+  decided fetch carries needs 338 to keep `Head::reason`.
+- **335 is eligible and next.** It moves `alo-downloads`, and its
+  dependencies 333 and 334 are done. 338 is eligible too. 337 waits for a
+  page. Still standing: 322, 324, 328, 284, 311 and 314 wait for pages;
+  323 waits on 73; 296 needs a person; and 297–300, 302, 304, 308, 126 and
+  132 remain.
+
+144 queue items are open: 334 closed, 338 added. The next unused queue
+number is **339** and the next ADR is **0033**. This is one iteration, not
+a finished queue or roadmap.

@@ -51,6 +51,7 @@ pub mod disk;
 pub mod download;
 pub mod encoding;
 pub mod fetch;
+pub mod forbidden;
 pub mod freshness;
 pub mod h2;
 pub mod headers;

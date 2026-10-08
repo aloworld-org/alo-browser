@@ -831,3 +831,13 @@ alive; the script is not a scheduled service. Progress goes to
 preserved work, finish or repair it, verify and commit, then rerun. Retire a
 resolved halt with a new journal iteration rather than deleting history.
 Publishing changes is separate from this local build loop.
+
+Iteration 214 built item 334, the fetch boundary: the asks every answer
+carries, `ToRenderer::Fetched` and its answer `Delivered`, both on the wire;
+the browser process's decision (`fetch_decide.rs`), the filter
+(`fetch_filter.rs`), the two bounds (`fetch_owed.rs`), and `Tabs` deciding
+and delivering. Making a decided fetch through the pool is cut as 338, which
+is eligible. 335, which moves `alo-downloads`, is eligible and next: its
+dependencies 333 and 334 are done, and it answers the corpus's fetches from
+frozen responses rather than through 338. 144 queue items are open. The next
+unused queue number is 339 and the next unused ADR 0033.

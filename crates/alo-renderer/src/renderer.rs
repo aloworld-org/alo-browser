@@ -59,6 +59,7 @@
 use crate::ask;
 use crate::event_loop::EventLoop;
 use crate::face::Face;
+use crate::fetch::Fetched;
 use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::held::Held;
@@ -158,6 +159,7 @@ impl Renderer {
             ToRenderer::Paint => self.paint(),
             ToRenderer::ReadTree => self.read_tree(),
             ToRenderer::Act { target, verb } => self.act(&target, &verb),
+            ToRenderer::Fetched(fetched) => self.delivered(&fetched),
         }
     }
 
@@ -326,6 +328,29 @@ impl Renderer {
             outcome,
             issues,
             navigation,
+            // Nothing records a page's ask yet: `fetch` in a page is item 335.
+            fetches: Vec::new(),
+        }
+    }
+
+    /// The answer to one of the page's fetches, as a task of its own
+    /// (ADR 0032 § 1).
+    ///
+    /// Nothing on a page records an ask yet — `fetch` in a page is item 335,
+    /// which settles the promise waiting under the answer's number here — so
+    /// no number is one anything waits for. An answer nothing waits for is
+    /// answered by nobody: it is said, and the page is not touched.
+    fn delivered(&mut self, fetched: &Fetched) -> FromRenderer {
+        if self.held.is_none() {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        }
+        FromRenderer::Delivered {
+            issues: vec![said::line(&format_args!(
+                "nothing on this page is waiting for fetch {}, so its answer was not delivered",
+                fetched.number
+            ))],
+            navigation: None,
+            fetches: Vec::new(),
         }
     }
 
@@ -364,6 +389,8 @@ impl Renderer {
                     wanted,
                     objections,
                     navigation,
+                    // Nothing records a page's ask yet: item 335.
+                    fetches: Vec::new(),
                 }
             }
             other => other,
@@ -402,6 +429,7 @@ impl Renderer {
             // to, or asked for; a load adds what its scripts did.
             objections: Vec::new(),
             navigation: None,
+            fetches: Vec::new(),
         }
     }
 

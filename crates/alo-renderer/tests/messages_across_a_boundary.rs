@@ -156,6 +156,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
                 },
             ],
             navigation: None,
+            fetches: Vec::new(),
         },
         FromRenderer::Painted(Frame {
             width: 2,
@@ -173,6 +174,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
             },
             issues: Vec::new(),
             navigation: None,
+            fetches: Vec::new(),
         },
         // A followed link's act is in
         // `where_a_page_asked_to_go_survives_the_crossing`, with its ask.
@@ -183,6 +185,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
             },
             issues: Vec::new(),
             navigation: None,
+            fetches: Vec::new(),
         },
         FromRenderer::Acted {
             outcome: Outcome::Scrolled {
@@ -191,6 +194,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
             },
             issues: Vec::new(),
             navigation: None,
+            fetches: Vec::new(),
         },
         FromRenderer::Acted {
             outcome: Outcome::TextCanceled {
@@ -199,6 +203,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
             },
             issues: vec!["the text: the page cancelled it".to_owned()],
             navigation: None,
+            fetches: Vec::new(),
         },
         FromRenderer::Refused(Refusal::NotFound {
             target: Target::Named("Nowhere".to_owned()),
@@ -377,6 +382,7 @@ fn where_a_page_asked_to_go_survives_the_crossing() {
                 wanted: Vec::new(),
                 objections: Vec::new(),
                 navigation: navigation.clone(),
+                fetches: Vec::new(),
             },
             FromRenderer::Acted {
                 outcome: Outcome::Followed {
@@ -388,6 +394,7 @@ fn where_a_page_asked_to_go_survives_the_crossing() {
                     String::new(),
                 ],
                 navigation,
+                fetches: Vec::new(),
             },
         ] {
             let back = read_from_renderer(&write_from_renderer(&original));
@@ -417,6 +424,7 @@ fn a_load_that_stops_part_way_through_is_refused() {
             referrer: Some(Policy::Origin),
             replaced: 1,
         }),
+        fetches: Vec::new(),
     });
     for cut in 1..whole.len() {
         assert!(
@@ -508,6 +516,7 @@ fn a_message_that_stops_in_the_middle_is_refused() {
             referrer: None,
             replaced: 0,
         }),
+        fetches: Vec::new(),
     });
     for cut in 1..whole.len() {
         assert!(
@@ -555,6 +564,7 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
             MOST_OBJECTIONS
         ],
         navigation: None,
+        fetches: Vec::new(),
     };
     assert_eq!(
         read_from_renderer(&write_from_renderer(&honest)).as_ref(),
@@ -571,6 +581,7 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
             MOST_OBJECTIONS + 1
         ],
         navigation: None,
+        fetches: Vec::new(),
     };
     let refused = read_from_renderer(&write_from_renderer(&flood));
     assert!(
@@ -594,11 +605,12 @@ fn an_objection_that_is_not_one_is_refused() {
             kind: Inline::Style,
         }],
         navigation: None,
+        fetches: Vec::new(),
     });
-    // The byte before the last is the kind's tag; the last says there is no
-    // navigation.
+    // From the end: eight bytes counting no fetches, one saying there is no
+    // navigation, and before them the kind's tag.
     let mut strange = one.clone();
-    let at = strange.len() - 2;
+    let at = strange.len() - 10;
     if let Some(kind) = strange.get_mut(at) {
         *kind = 9;
     }
@@ -635,6 +647,7 @@ fn a_navigation_that_is_not_one_is_refused() {
             referrer: Some(Policy::SameOrigin),
             replaced: 0,
         }),
+        fetches: Vec::new(),
     };
     // Nonsense crosses as text: refusing it is the browser process's.
     let nonsense = asked("javascript:alert(1)");
@@ -644,8 +657,9 @@ fn a_navigation_that_is_not_one_is_refused() {
     );
 
     let whole = write_from_renderer(&asked("https://example.com/"));
-    // From the end: eight bytes of count, one of policy, one of cause.
-    let (count, policy, cause) = (whole.len() - 8, whole.len() - 9, whole.len() - 10);
+    // From the end: eight bytes counting no fetches, then eight bytes of
+    // count, one of policy, one of cause.
+    let (count, policy, cause) = (whole.len() - 16, whole.len() - 17, whole.len() - 18);
     for (at, value, said) in [
         (cause, 2u8, "cause tagged 2"),
         (policy, 9, "policy tagged 9"),

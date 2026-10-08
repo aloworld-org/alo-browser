@@ -36,6 +36,25 @@ use core::fmt;
 /// never finishes and a tab that cannot be closed politely.
 pub const MOST_HOPS: usize = 20;
 
+/// What a page asked to happen when the answer to its fetch is a redirect
+/// (Fetch's *redirect mode*).
+///
+/// Here rather than beside a page's other wishes because it is a question about
+/// redirects: [`next`] says where one goes, and this says whether the page
+/// wanted to be taken there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Mode {
+    /// Go where it says, as a load does.
+    #[default]
+    Follow,
+    /// Treat a redirect as a failure.
+    Error,
+    /// Stop at the redirect, and hand the page an answer it cannot read —
+    /// what Fetch calls an *opaque redirect*: it learns that there was one and
+    /// nothing about where to.
+    Manual,
+}
+
 /// Headers that belong to one origin and must not cross to another.
 ///
 /// `Cookie` is here for completeness — queue item 57 owns cookies and nothing
