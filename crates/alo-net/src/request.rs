@@ -124,6 +124,16 @@ pub struct Request {
     /// on a disk is item 82's problem, and it will want a reader here rather
     /// than a `Vec`.
     pub body: Vec<u8>,
+    /// Whether a redirect led here: Fetch's *redirect count* above zero.
+    ///
+    /// [`crate::redirect::next`] sets it and nothing else in this engine does.
+    /// It is a fact about the request rather than about whoever sends it
+    /// because a policy judges it: CSP matches a
+    /// redirected request with the path of every source ignored
+    /// ([`crate::csp_source::HostSource::matches`]), so that a server inside
+    /// `connect-src https://a.example/api/` can still move what it serves
+    /// within its own site.
+    pub redirected: bool,
 }
 
 impl Request {
@@ -157,6 +167,7 @@ impl Request {
             initiator: None,
             headers: Headers::new(),
             body: Vec::new(),
+            redirected: false,
         }
     }
 

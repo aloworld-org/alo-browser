@@ -413,9 +413,11 @@ unreachable without it.
       time and makes nothing for a page that has gone; `alo-window`'s
       conductor makes them between orders, draws the page again and says
       why one failed; the status text is the server's own reason phrase,
-      now kept by `alo-net` and its disk cache
-      · Owed: a redirect hop judged by `connect-src` with paths ignored
-      (340); `Request`, `Headers` and `Response`
+      now kept by `alo-net` and its disk cache; and every hop after the
+      first judged by the document's `connect-src` with its sources' paths
+      ignored, as CSP3 has it for a redirected request (queue item 340,
+      `alo-net`'s `Request::redirected`)
+      · Owed: `Request`, `Headers` and `Response`
       a page constructs, other bodies, `json()`, a `signal` and the `init`
       members refused by name, each when a page needs one; and asynchronous
       `XMLHttpRequest` when a page uses one (336)

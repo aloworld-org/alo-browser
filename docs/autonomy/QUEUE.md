@@ -5174,7 +5174,7 @@ The long pole, and the thing most of section E is unreachable without.
   preflight, no per-hop CORS check, no `Set-Cookie` kept, a gone document's
   fetch made, and a chain that left read as `basic`.
 
-- [ ] **340. A redirect a page's fetch follows is judged by `connect-src`.**
+- [x] **340. A redirect a page's fetch follows is judged by `connect-src`.**
   *Cut from 338 (iteration 216). Depends on nothing open.* CSP3's *does
   request match source list* ignores a source's path for a request that has
   been redirected, and `alo-net`'s `csp` cannot tell a redirect from a first
@@ -5192,6 +5192,32 @@ The long pole, and the thing most of section E is unreachable without.
   `https://b.example/` is refused before it is sent and recorded by the
   rule, both against a local server, and `csp_source`'s unit tests show a
   path ignored only after a redirect.
+  **Built (iteration 217).** `alo-net`: `Request::redirected`, Fetch's
+  redirect count above zero, set by `redirect::next` and by nothing else;
+  `csp`'s `Directive::permits` takes the request and hands `redirected` to
+  `Source::matches` and `HostSource::matches`, which ignore a host source's
+  path for a redirected request (CSP3's *does url match expression in origin
+  with redirect count*) and still check its scheme, host and port; `Policies`
+  (and its private `Policy` and `Directive`) are `PartialEq`/`Eq` so a decided
+  `Fetch` can carry them. `alo-renderer`: `Fetch::policies`, the document's
+  policies as `fetch_decide` judged the first hop by; `fetch_make`'s
+  `Hop::then` asks them about each hop after the first, after the mixed
+  content check, and a refusal is recorded with `Pool::refused` as "it was
+  redirected, and" the policy's own words, and said to the person. Tests:
+  `alo-renderer/tests/a_decided_fetch_is_made.rs`'s
+  `a_redirect_is_judged_by_connect_src_with_its_paths_ignored` — a page under
+  `connect-src {other}/api/` against two local servers: `/api/stay`
+  redirected to `/other` on the same server is followed and read
+  (`cors 200 OK true other`), `/api/away` redirected to the page's own
+  origin, which the policy does not name, is refused, never sent and recorded
+  by the rule, and a first fetch of `/other` is refused by the path, never
+  sent; `csp_source`'s `a_path_is_ignored_only_once_a_redirect_has_led_there`
+  (another host, scheme, port or subdomain still refused, `'self'` and
+  `'none'` not widened) and `csp`'s
+  `a_redirected_request_is_judged_without_the_paths_a_first_one_is_judged_by`
+  (a hop from `redirect::next` says it was redirected). Checked by mutation,
+  each restored: no per-hop check fails the closing test (the refused hop is
+  read), and paths not ignored after a redirect fails it and both unit tests.
 
 - [x] **335. `fetch()` in a page.** *Cut from 83 (ADR 0032 §§ 1, 4 and 7).
   Depends on 333 and 334.* `alo-bindings`: `fetch` on the global object,

@@ -20291,3 +20291,107 @@ the same.
 144 queue items are open: 338 closed, 340 added. The next unused queue
 number is **341** and the next ADR is **0033**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 217 — queue item 340: a redirect a page's fetch follows is judged by `connect-src`
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+head and its `fetch()` line, and iteration 216's entry, which named 340 as
+eligible and next. Queue items 334, 335, 338, 339 and 340. ADR 0032 §§ 2–4
+(the item's ADR: § 3's step 3 is `connect-src`). The feature contract is
+`docs/features.md`'s `fetch()` line. Code read: `alo-net`'s `csp.rs`,
+`csp_source.rs`, `request.rs` and `redirect.rs`; `alo-renderer`'s
+`fetch_make.rs`, `fetch_decide.rs`, `fetch_filter.rs`'s tests, `page.rs` and
+`tests/a_decided_fetch_is_made.rs`. No `AGENTS.md` exists. The checkout was
+clean on entry at `be6836b`. No sibling repository was read or written.
+
+**Built.**
+- `alo-net`:
+  - `Request::redirected`: Fetch's redirect count above zero. Only
+    `redirect::next` sets it, so whoever makes the next hop cannot forget to.
+  - `csp_source`: `HostSource::matches` and `Source::matches` take
+    `redirected`, and a redirected request is matched with a host source's
+    path ignored (CSP3, *does url match expression in origin with redirect
+    count*). Scheme, host and port are still checked on every hop. The doc
+    comment says why the path is ignored: matching it would let a page learn
+    where another site redirected it (CSP2 § 4.2.2.3).
+  - `csp`: `Directive::permits` takes the request and reads its flag, so the
+    flag is the request's and never a separate argument a caller could get
+    wrong. `Policies`, `Policy` and `Directive` derive `PartialEq`/`Eq`.
+- `alo-renderer`:
+  - `Fetch::policies`: the document's policies, as `fetch_decide` judged
+    the first hop by.
+  - `fetch_make`'s `Hop::then` asks them about every hop after the first,
+    after the mixed-content check. A refusal is recorded with `Pool::refused`
+    as "it was redirected, and" followed by the policy's own words, and said
+    to the person. The module doc's "what is not decided again on a hop"
+    section is replaced by one saying how `connect-src` applies.
+
+**Gate, mechanical.** `scripts/gate.sh` was started in the background with
+the 2-hour bound and its log polled to the end in the same turn.
+- Result: exit 0, "The gate is met".
+- fmt clean, clippy silent (`--all-features -D warnings`), and
+  `cargo test --workspace --all-features` passing.
+- No stubs, no `unsafe`, licences present, rented crates behind their
+  boundaries, no verb takes a coordinate, the stop rule holds, and the
+  changelog changed.
+
+Before the gate: `alo-net`'s tests with `--no-fail-fast` and
+`alo-renderer`'s `a_decided_fetch_is_made` passed, and clippy was clean
+after merging one route with an identical body into an existing arm.
+
+**Gate, manual.**
+- Closing condition, pinned in `alo-renderer/tests/a_decided_fetch_is_made.rs`
+  `a_redirect_is_judged_by_connect_src_with_its_paths_ignored`. A page under
+  `connect-src {other}/api/`, loaded into real `Tabs` over the confined
+  binary, makes every fetch through a real `Pool` against two local servers.
+  The other origin stands in for `a.example` and the page's own origin for
+  `b.example`.
+  - `/api/stay`, redirected to `/other` on the same server, is followed and
+    read (`cors 200 OK true other`).
+  - `/api/away`, redirected to the page's origin, is refused. The home
+    server heard nothing, and the record ends the chain with the refusal by
+    its rule.
+  - A first fetch of `/other` is still refused by the path and never sent.
+  - The record is asserted line by line.
+- `csp_source`'s `a_path_is_ignored_only_once_a_redirect_has_led_there`:
+  another host, scheme, port or subdomain is still refused after a redirect,
+  and `'self'` and `'none'` are not widened. `csp`'s
+  `a_redirected_request_is_judged_without_the_paths_a_first_one_is_judged_by`:
+  a hop made by `redirect::next` says it was redirected, and the policy
+  reads that.
+- Checked by mutation, each restored:
+  - no per-hop check: the closing test fails (`/api/away` was read);
+  - paths not ignored after a redirect: the closing test and both unit tests
+    fail.
+- Layout assertion and reference render: nothing positions, sizes or draws
+  differently, and no corpus reference moved.
+- Hostile input: nothing new reads outside bytes. The redirect target is
+  still parsed by `redirect::next`, and policy text by the same total
+  `Source::parse`.
+- One responsibility per file: `csp_source.rs` still answers "does this URL
+  match", now knowing how the request arrived. `fetch_make.rs` still makes
+  one fetch. `fetch_decide.rs` still decides the first.
+- `docs/features.md`, `ROADMAP.md`, `REMAINING.md`, `CHANGELOG.md` and the
+  queue say what was built. No `unsafe`, no new dependency. No ADR was
+  needed: ADR 0032 § 3 already decides that `connect-src` judges a fetch,
+  and CSP3 decides how a redirect is matched.
+
+**Roadmap.** The `fetch()` line's Built clause gains 340, and its Owed
+clause drops it. It is not ticked: the constructible `Request`, `Headers`
+and `Response`, other bodies, `json()`, `signal`, the `init` members still
+refused, and `XMLHttpRequest` (336) remain owed.
+
+**Unresolved obligations.**
+- This item judges a page's fetch's redirect hops by CSP and nothing else.
+  Whether other loads that follow redirects inside `Pool` (scripts, styles,
+  images) judge their hops was not examined here. Their hops now carry
+  `Request::redirected`, so whoever checks can judge them without changing
+  the matching.
+- A `<meta>` policy is the renderer's to apply (ADR 0032 § 3) and is never
+  seen by the browser process, so it does not judge a redirect hop.
+- Everything 216 listed as standing still stands. **339 is eligible and
+  next.**
+
+143 queue items are open: 340 closed. The next unused queue number is
+**341** and the next ADR is **0033**. This is one iteration, not a finished
+queue or roadmap.

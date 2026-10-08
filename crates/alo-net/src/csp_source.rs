@@ -121,8 +121,18 @@ pub struct HostSource {
 }
 
 impl HostSource {
-    /// Whether this permits a URL, for a page at `page`.
-    pub fn matches(&self, url: &Url, page: &Origin) -> bool {
+    /// Whether this permits a URL, for a page at `page`, reached by a redirect
+    /// when `redirected`.
+    ///
+    /// A redirected request is matched with the path ignored, as CSP3's *does
+    /// url match expression in origin with redirect count* has it. Matching it
+    /// would leak: a page could write a policy naming paths on another site
+    /// and learn, from which of its requests were refused, where that site's
+    /// server redirected them — a path the same-origin policy never lets it
+    /// read (CSP2 § 4.2.2.3). The scheme, the host and the port are checked on
+    /// every hop, so a redirect still cannot take a request to a server the
+    /// policy does not name.
+    pub fn matches(&self, url: &Url, page: &Origin, redirected: bool) -> bool {
         // A scheme the author wrote needs nothing from the page. When none was
         // written, the specification's rule is that the **page's own** scheme
         // has to reach the URL's — which is what stops `script-src example.com`
@@ -141,7 +151,9 @@ impl HostSource {
         let Some(host) = &url.host else {
             return false;
         };
-        self.names.matches(&host.to_string()) && self.port_matches(url) && self.path_matches(url)
+        self.names.matches(&host.to_string())
+            && self.port_matches(url)
+            && (redirected || self.path_matches(url))
     }
 
     /// Whether the URL is on the port this names.
@@ -270,11 +282,14 @@ impl Source {
     /// `<script src>` is allowed by its URL and never by the digest of what
     /// arrives, since the policy is checked before anything is fetched — and the
     /// unreadable ones because that is the whole point of keeping them.
-    pub fn matches(&self, url: &Url, page: &Origin) -> bool {
+    ///
+    /// `redirected` is whether a redirect led to `url`, which only a host
+    /// source's path cares about — see [`HostSource::matches`].
+    pub fn matches(&self, url: &Url, page: &Origin, redirected: bool) -> bool {
         match self {
             Source::SameOrigin => is_the_pages_own(url, page),
             Source::Scheme(scheme) => scheme_reaches(scheme, &url.scheme),
-            Source::Host(host) => host.matches(url, page),
+            Source::Host(host) => host.matches(url, page, redirected),
             _ => false,
         }
     }
@@ -522,7 +537,8 @@ mod tests {
         );
         assert!(!source.matches(
             &url("https://example.com/x.js"),
-            &page("https://example.com/")
+            &page("https://example.com/"),
+            false
         ));
     }
 
@@ -554,7 +570,8 @@ mod tests {
         assert!(
             !Source::UnsafeHashes.matches(
                 &url("https://example.com/x.css"),
-                &page("https://example.com/")
+                &page("https://example.com/"),
+                false
             ),
             "the keyword permitted a URL: it is a permission to hash, not a place",
         );
@@ -600,7 +617,8 @@ mod tests {
         assert!(
             !source.matches(
                 &url("https://example.com/x.js"),
-                &page("https://example.com/")
+                &page("https://example.com/"),
+                false
             ),
             "a hash said something about a URL, and a policy is checked before anything is fetched",
         );
@@ -640,15 +658,15 @@ mod tests {
     fn a_subdomain_wildcard_does_not_cover_the_bare_name() {
         let source = Source::parse("*.example.com");
         let page = page("https://example.com/");
-        assert!(source.matches(&url("https://a.example.com/x.js"), &page));
-        assert!(source.matches(&url("https://a.b.example.com/x.js"), &page));
+        assert!(source.matches(&url("https://a.example.com/x.js"), &page, false));
+        assert!(source.matches(&url("https://a.b.example.com/x.js"), &page, false));
         assert!(
-            !source.matches(&url("https://example.com/x.js"), &page),
+            !source.matches(&url("https://example.com/x.js"), &page, false),
             "the bare name is what the author did not write",
         );
-        assert!(!source.matches(&url("https://notexample.com/x.js"), &page));
+        assert!(!source.matches(&url("https://notexample.com/x.js"), &page, false));
         assert!(
-            !source.matches(&url("https://example.com.evil.test/x.js"), &page),
+            !source.matches(&url("https://example.com.evil.test/x.js"), &page, false),
             "a suffix is not a subdomain",
         );
     }
@@ -657,12 +675,12 @@ mod tests {
     fn a_source_with_no_port_means_the_schemes_own_port() {
         let source = Source::parse("https://example.com");
         let page = page("https://example.com/");
-        assert!(source.matches(&url("https://example.com/x.js"), &page));
-        assert!(source.matches(&url("https://example.com:443/x.js"), &page));
-        assert!(!source.matches(&url("https://example.com:8443/x.js"), &page));
+        assert!(source.matches(&url("https://example.com/x.js"), &page, false));
+        assert!(source.matches(&url("https://example.com:443/x.js"), &page, false));
+        assert!(!source.matches(&url("https://example.com:8443/x.js"), &page, false));
 
         let any = Source::parse("https://example.com:*");
-        assert!(any.matches(&url("https://example.com:8443/x.js"), &page));
+        assert!(any.matches(&url("https://example.com:8443/x.js"), &page, false));
     }
 
     #[test]
@@ -671,18 +689,21 @@ mod tests {
         assert!(
             !source.matches(
                 &url("http://example.com/x.js"),
-                &page("https://elsewhere.test/")
+                &page("https://elsewhere.test/"),
+                false
             ),
             "an https page must not reach plain http through a bare host source",
         );
         assert!(source.matches(
             &url("https://example.com/x.js"),
-            &page("https://elsewhere.test/")
+            &page("https://elsewhere.test/"),
+            false
         ));
         assert!(
             source.matches(
                 &url("http://example.com/x.js"),
-                &page("http://elsewhere.test/")
+                &page("http://elsewhere.test/"),
+                false
             ),
             "an insecure page's bare host source reaches insecurely",
         );
@@ -692,38 +713,82 @@ mod tests {
     fn a_path_ending_in_a_slash_is_a_directory_and_one_that_does_not_is_exact() {
         let under = Source::parse("https://example.com/assets/");
         let page = page("https://example.com/");
-        assert!(under.matches(&url("https://example.com/assets/x.js"), &page));
-        assert!(under.matches(&url("https://example.com/assets/deep/x.js"), &page));
+        assert!(under.matches(&url("https://example.com/assets/x.js"), &page, false));
+        assert!(under.matches(&url("https://example.com/assets/deep/x.js"), &page, false));
         assert!(
-            !under.matches(&url("https://example.com/assetsx.js"), &page),
+            !under.matches(&url("https://example.com/assetsx.js"), &page, false),
             "a string prefix that is not a segment prefix",
         );
 
         let exact = Source::parse("https://example.com/one.js");
-        assert!(exact.matches(&url("https://example.com/one.js"), &page));
-        assert!(!exact.matches(&url("https://example.com/one.js.map"), &page));
+        assert!(exact.matches(&url("https://example.com/one.js"), &page, false));
+        assert!(!exact.matches(&url("https://example.com/one.js.map"), &page, false));
 
         let root = Source::parse("https://example.com/");
-        assert!(root.matches(&url("https://example.com/anything/at/all"), &page));
+        assert!(root.matches(&url("https://example.com/anything/at/all"), &page, false));
+    }
+
+    /// Queue item 340: the path is what a redirect is excused, and nothing
+    /// else is.
+    #[test]
+    fn a_path_is_ignored_only_once_a_redirect_has_led_there() {
+        let api = Source::parse("https://a.example/api/");
+        let exact = Source::parse("https://a.example/api/v1");
+        let page = page("https://shop.example/");
+        let other = url("https://a.example/other");
+        assert!(
+            !api.matches(&other, &page, false),
+            "a first request outside the path the author wrote was allowed",
+        );
+        assert!(
+            api.matches(&other, &page, true),
+            "a redirected request was judged by a path, which tells the page where \
+             another site sent it",
+        );
+        assert!(!exact.matches(&url("https://a.example/api/v2"), &page, false));
+        assert!(exact.matches(&url("https://a.example/api/v2"), &page, true));
+
+        for (elsewhere, why) in [
+            ("https://b.example/api/", "another host"),
+            (
+                "http://a.example/api/",
+                "a scheme the source does not reach",
+            ),
+            ("https://a.example:8443/api/", "another port"),
+            ("https://x.a.example/api/", "a host under the one named"),
+        ] {
+            assert!(
+                !api.matches(&url(elsewhere), &page, true),
+                "a redirect to {why} was allowed: only the path is excused",
+            );
+        }
+        assert!(
+            !Source::SameOrigin.matches(&other, &page, true),
+            "'self' was widened by a redirect",
+        );
+        assert!(
+            !Source::parse("'none'").matches(&other, &page, true),
+            "'none' permitted a redirect",
+        );
     }
 
     #[test]
     fn self_is_the_pages_own_origin_and_the_upgrade_of_it() {
         let secure = page("https://example.com/");
-        assert!(Source::SameOrigin.matches(&url("https://example.com/x.js"), &secure));
-        assert!(!Source::SameOrigin.matches(&url("https://other.test/x.js"), &secure));
+        assert!(Source::SameOrigin.matches(&url("https://example.com/x.js"), &secure, false));
+        assert!(!Source::SameOrigin.matches(&url("https://other.test/x.js"), &secure, false));
         assert!(
-            !Source::SameOrigin.matches(&url("http://example.com/x.js"), &secure),
+            !Source::SameOrigin.matches(&url("http://example.com/x.js"), &secure, false),
             "a secure page's own origin is never the insecure one",
         );
 
         let insecure = page("http://example.com/");
         assert!(
-            Source::SameOrigin.matches(&url("https://example.com/x.js"), &insecure),
+            Source::SameOrigin.matches(&url("https://example.com/x.js"), &insecure, false),
             "the one allowance, and it is the upgrade",
         );
         assert!(
-            !Source::SameOrigin.matches(&url("https://example.com:8443/x.js"), &insecure),
+            !Source::SameOrigin.matches(&url("https://example.com:8443/x.js"), &insecure, false),
             "a different port is a different server",
         );
     }
@@ -731,9 +796,17 @@ mod tests {
     #[test]
     fn an_opaque_page_reaches_nothing_through_a_bare_host_source() {
         let opaque = Origin::Opaque(alo_url::Opaque::new());
-        assert!(!Source::parse("example.com").matches(&url("https://example.com/x.js"), &opaque));
+        assert!(!Source::parse("example.com").matches(
+            &url("https://example.com/x.js"),
+            &opaque,
+            false
+        ));
         assert!(
-            Source::parse("https://example.com").matches(&url("https://example.com/x.js"), &opaque),
+            Source::parse("https://example.com").matches(
+                &url("https://example.com/x.js"),
+                &opaque,
+                false
+            ),
             "a scheme the author wrote needs nothing from the page",
         );
     }
@@ -784,6 +857,7 @@ mod tests {
             let _ = source.matches(
                 &url("https://example.com/x.js"),
                 &page("https://example.com/"),
+                false,
             );
             let _ = source.matches_content(b"abc");
             let _ = format!("{source}");
@@ -794,6 +868,6 @@ mod tests {
     fn a_trailing_dot_is_the_same_name_written_absolutely() {
         let source = Source::parse("https://example.com.");
         let page = page("https://example.com/");
-        assert!(source.matches(&url("https://example.com/x.js"), &page));
+        assert!(source.matches(&url("https://example.com/x.js"), &page, false));
     }
 }

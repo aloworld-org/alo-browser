@@ -221,6 +221,9 @@ pub fn next(sent: &Request, got: &Response) -> Result<Next, Refusal> {
         } else {
             sent.body.clone()
         },
+        // Set here and nowhere else: what a policy ignores about a redirected
+        // request is not something the request's maker gets to say.
+        redirected: true,
     })))
 }
 

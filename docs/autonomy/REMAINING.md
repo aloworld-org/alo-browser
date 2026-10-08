@@ -864,3 +864,12 @@ redirect judged by `connect-src` is cut as item 340: it depends on nothing
 open and sits before 339 in the queue, so it is next, and 339 after it. 144
 queue items are open. The next unused queue number is 341 and the next
 unused ADR 0033.
+
+Iteration 217 built item 340: a redirect a page's fetch follows is judged by
+`connect-src`. `alo-net`'s `Request` says whether a redirect led to it, set
+only by `redirect::next`, and CSP matching ignores a host source's path for
+such a request while still checking its scheme, host and port; the decided
+`Fetch` carries the document's policies and `fetch_make` asks them about
+every hop after the first, refusing and recording one the policy does not
+allow. 339 is eligible and next. 143 queue items are open. The next unused
+queue number is 341 and the next unused ADR 0033.

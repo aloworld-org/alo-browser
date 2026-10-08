@@ -89,7 +89,7 @@ use crate::csp_report::{Blocked, Told, Violation};
 use crate::csp_source::Source;
 use crate::headers::Headers;
 use crate::request::{Purpose, Request};
-use alo_url::{Origin, Url};
+use alo_url::Origin;
 use core::fmt;
 
 /// Whether a policy is enforced or only watched.
@@ -260,7 +260,7 @@ impl Name {
 }
 
 /// One directive: a name, and the list of where its content may come from.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Directive {
     /// Which directive this is.
     name: Name,
@@ -341,8 +341,10 @@ impl Directive {
     /// `strict` is whether `'strict-dynamic'` applies, which is true only for
     /// scripts: the keyword is defined for script directives, and applying it
     /// to `img-src 'strict-dynamic' https://cdn` would refuse pictures the
-    /// author plainly allowed.
-    fn permits(&self, url: &Url, page: &Origin, nonce: Option<&str>, strict: bool) -> bool {
+    /// author plainly allowed. Whether the request was redirected is the
+    /// request's own ([`Request::redirected`]), and only a source's path
+    /// heeds it.
+    fn permits(&self, request: &Request, page: &Origin, nonce: Option<&str>, strict: bool) -> bool {
         if nonce.is_some_and(|nonce| self.names_nonce(nonce)) {
             return true;
         }
@@ -352,7 +354,9 @@ impl Directive {
             // already been asked about.
             return false;
         }
-        self.sources.iter().any(|source| source.matches(url, page))
+        self.sources
+            .iter()
+            .any(|source| source.matches(&request.url, page, request.redirected))
     }
 
     /// The sources, as written, for a message.
@@ -378,7 +382,7 @@ impl Directive {
 /// one policy on its own.** Checking one is how a report-only policy comes to
 /// block something, and how the second of two policies comes to be forgotten.
 /// [`Policies`] is the only way to ask.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Policy {
     /// Enforced, or only watched.
     disposition: Disposition,
@@ -488,7 +492,7 @@ impl Policy {
         let wanted = Name::governing(&request.purpose)?;
         let strict = wanted == Name::Script;
         let directive = self.deciding(&wanted)?;
-        if directive.permits(&request.url, page, nonce, strict) {
+        if directive.permits(request, page, nonce, strict) {
             return None;
         }
         Some((
@@ -626,7 +630,7 @@ impl Policy {
 /// policies are an **intersection**, so a second header can only ever narrow
 /// what the first allowed. A site adding a policy never has to check that it
 /// did not accidentally widen one.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Policies {
     held: Vec<Policy>,
 }
@@ -963,6 +967,7 @@ impl std::error::Error for Refusal {}
 mod tests {
     use super::*;
     use crate::cause::{Cause, Identities};
+    use alo_url::Url;
 
     /// What caused every request in this file: a document fetching what it needs.
     ///
@@ -1297,6 +1302,47 @@ mod tests {
         let one = violations.first().expect("a violation");
         assert_eq!(one.told.group, None);
         assert!(one.told.is_silent());
+    }
+
+    /// Queue item 340. The request says whether a redirect led to it, and the
+    /// policy reads that rather than being told by whoever asks: a hop made by
+    /// [`crate::redirect::next`] is judged without its sources' paths, and a
+    /// first request with them.
+    #[test]
+    fn a_redirected_request_is_judged_without_the_paths_a_first_one_is_judged_by() {
+        let policies = enforcing("connect-src https://a.example/api/");
+        let first = asking("https://a.example/other", Purpose::Fetch);
+        assert!(
+            policies.allows(&first, None).is_err(),
+            "a first request outside the path was allowed",
+        );
+        let mut answer = crate::response::Response::ok(url("https://a.example/api/"), Vec::new());
+        answer.status = crate::response::Status(302);
+        answer.headers.add("Location", "/other");
+        let Ok(crate::redirect::Next::Follow(hop)) =
+            crate::redirect::next(&asking("https://a.example/api/", Purpose::Fetch), &answer)
+        else {
+            panic!("the redirect was not followed");
+        };
+        assert!(hop.redirected, "a hop did not say a redirect led to it");
+        assert!(
+            policies.allows(&hop, None).is_ok(),
+            "a redirected request was judged by a source's path",
+        );
+
+        answer.headers.replace("Location", "https://b.example/api/");
+        let Ok(crate::redirect::Next::Follow(away)) =
+            crate::redirect::next(&asking("https://a.example/api/", Purpose::Fetch), &answer)
+        else {
+            panic!("the redirect was not followed");
+        };
+        let Err(refusal) = policies.allows(&away, None) else {
+            panic!("a redirect to a host the policy does not name was allowed");
+        };
+        assert!(
+            refusal.to_string().contains("connect-src"),
+            "the refusal did not name the directive: {refusal}",
+        );
     }
 
     #[test]

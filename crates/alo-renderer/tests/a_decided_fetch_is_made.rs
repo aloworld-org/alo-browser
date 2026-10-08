@@ -11,6 +11,9 @@
 //! [`alo_renderer::fetch_answering`], one at a time, each answer delivered
 //! as a task of its own. Three things are then read back: what the page
 //! heard, what each server was sent, and the session's record.
+//!
+//! Queue item 340 is here too: a redirect the page's fetch follows is judged
+//! by the page's `connect-src`, with the paths it names ignored.
 
 use std::fmt::Write as _;
 use std::io::{Read, Write};
@@ -159,7 +162,9 @@ fn route(server: Server, origins: &Origins, line: &str) -> String {
             &["Access-Control-Allow-Origin: null".to_owned()],
             "back",
         ),
-        (Server::Other, "GET /bounce HTTP/1.1") => reply(
+        // Back to the page's origin: as one hop of a chain that bounces, and
+        // as a hop out of `/api/` that a policy naming only `/api/` refuses.
+        (Server::Other, "GET /bounce HTTP/1.1" | "GET /api/away HTTP/1.1") => reply(
             "302 Found",
             &[agreed, format!("Location: {}/back", origins.home)],
             "",
@@ -182,6 +187,12 @@ fn route(server: Server, origins: &Origins, line: &str) -> String {
             "",
         ),
         (Server::Other, "PUT /put HTTP/1.1") => reply("200 OK", &[agreed], "put"),
+        // Out of `/api/` on the same server, which a policy naming only `/api/`
+        // follows.
+        (Server::Other, "GET /api/stay HTTP/1.1") => {
+            reply("302 Found", &[agreed, "Location: /other".to_owned()], "")
+        }
+        (Server::Other, "GET /other HTTP/1.1") => reply("200 OK", &[agreed], "other"),
         _ => reply("404 Not Found", &[], "no"),
     }
 }
@@ -290,6 +301,12 @@ struct Set {
 }
 
 fn set_up(fetches: &str) -> Option<Set> {
+    set_up_under(fetches, |_| None)
+}
+
+/// [`set_up`], with the page under the `Content-Security-Policy` header
+/// `policy` writes from the two origins, when it writes one.
+fn set_up_under(fetches: &str, policy: impl Fn(&Origins) -> Option<String>) -> Option<Set> {
     let (home_listener, home) = listen()?;
     let (other_listener, other) = listen()?;
     let origins = Origins { home, other };
@@ -297,7 +314,10 @@ fn set_up(fetches: &str) -> Option<Set> {
     let other_heard = serve(other_listener, Server::Other, origins.clone());
     let mut tabs = Tabs::over(Renderers::running(env!("CARGO_BIN_EXE_alo-render"), &[]));
     let tab = tabs.open(alo_url::parse(&format!("{}/", origins.home)).ok()?);
-    let page = page_fetching(&origins.home, &origins.other, fetches)?;
+    let mut page = page_fetching(&origins.home, &origins.other, fetches)?;
+    if let Some(policy) = policy(&origins) {
+        page = page.with_policy(policy);
+    }
     let Ok(FromRenderer::Loaded { .. }) = tabs.load(tab, page, Cause::Person { tab }) else {
         return None;
     };
@@ -617,4 +637,79 @@ fn an_answer_for_a_page_that_has_gone_is_made_for_nobody() {
     );
     assert!(heads(&set.home_heard).is_empty(), "and nothing was sent");
     assert!(set.network.pool.activity().is_empty());
+}
+
+/// Queue item 340's closing condition. Under `connect-src {other}/api/`, a
+/// fetch the other origin redirects out of `/api/` on its own server is
+/// followed, because CSP ignores a source's path once a request has been
+/// redirected; one it redirects to the page's own origin, which the policy
+/// does not name, is refused before it is sent and recorded by its rule; and
+/// a first request outside `/api/` is still judged by the path.
+#[test]
+fn a_redirect_is_judged_by_connect_src_with_its_paths_ignored() {
+    let mut set = set_up_under(
+        "fetch(OTHER + '/api/stay').then(heard('stay'), failed('stay'));
+         fetch(OTHER + '/api/away').then(heard('away'), failed('away'));
+         fetch(OTHER + '/other').then(heard('first'), failed('first'));",
+        |origins| Some(format!("connect-src {}/api/", origins.other)),
+    )
+    .expect("set up");
+    let answers = answer_all(&mut set).expect("answered");
+    for heard in [
+        "[stay cors 200 OK true other]",
+        "[away TypeError]",
+        "[first TypeError]",
+    ] {
+        assert!(
+            answers.page.contains(heard),
+            "{heard} not in {}",
+            answers.page
+        );
+    }
+    let (home, other) = (&set.origins.home, &set.origins.other);
+    let told = answers.told.join("\n");
+    assert!(
+        told.contains(&format!(
+            "the page's fetch of {other}/api/away failed: it was redirected, and this page's \
+             content security policy does not allow a fetch from {home}/back"
+        )),
+        "{told}"
+    );
+
+    assert!(
+        heads(&set.home_heard).is_empty(),
+        "the redirect the policy refused was sent"
+    );
+    assert_eq!(
+        lines(&heads(&set.other_heard)),
+        [
+            "GET /api/stay HTTP/1.1",
+            "GET /other HTTP/1.1",
+            "GET /api/away HTTP/1.1",
+        ],
+        "and the first request outside /api/ was never sent"
+    );
+
+    let record: Vec<String> = set.network.pool.activity().entries().map(said).collect();
+    let refused = |url: String, redirected: bool| {
+        format!(
+            "GET {url} refused: {}this page's content security policy does not allow a fetch \
+             from {url}: connect-src allows {other}/api/",
+            if redirected {
+                "it was redirected, and "
+            } else {
+                ""
+            }
+        )
+    };
+    assert_eq!(
+        record,
+        [
+            format!("GET {other}/api/stay 302"),
+            format!("GET {other}/other 200"),
+            format!("GET {other}/api/away 302"),
+            refused(format!("{home}/back"), true),
+            refused(format!("{other}/other"), false),
+        ]
+    );
 }

@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's own policy judges where its fetch is redirected.** A site's
+  content security policy says where its pages may fetch from, and until
+  now only the first address was checked. Every step of a redirect is
+  checked too: a redirect to a site the policy does not name is refused
+  before anything is sent, and recorded with the reason. A redirect within
+  a site the policy names is followed even outside the folder it named, as
+  every browser does, so that a page cannot use its own policy to learn
+  where another site's server sent it.
+
 - **The browser makes a page's fetch.** What a page asks for now reaches
   the network, through the same connections, cache and record as
   everything else, with each step of a redirect decided again: where the

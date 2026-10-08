@@ -38,21 +38,24 @@
 //!    the credentials that belong to the origin being left — within
 //!    [`redirect::MOST_HOPS`] and never in a circle. Before the next hop is
 //!    sent it is decided again: a `same-origin` fetch may not leave, a `cors`
-//!    fetch may not be sent to credentials in a URL at another origin, and a
-//!    secure page's fetch may not be redirected to an insecure one. Each of
-//!    those is a line in the record naming its rule.
+//!    fetch may not be sent to credentials in a URL at another origin, a
+//!    secure page's fetch may not be redirected to an insecure one, and the
+//!    document's `connect-src` must allow where it goes. Each of those is a
+//!    line in the record naming its rule.
 //!
 //! Then the answer is filtered ([`crate::fetch_filter`]) for what the page
 //! may read, knowing whether a redirect was followed and whether any hop left
 //! the document's origin.
 //!
-//! # What is not decided again on a hop
+//! # `connect-src` on a hop
 //!
-//! The document's `connect-src`. CSP judges a redirected request with the
-//! path of each source ignored (CSP3, *does request match source list*), and
-//! [`alo_net::csp`] cannot yet tell a redirect from a first request; checking
-//! with paths would refuse what every browser follows, and that is queue item
-//! 340. The first hop's URL is checked, by [`crate::fetch_decide`].
+//! The first hop's URL is judged by [`crate::fetch_decide`]; every later one
+//! here, against the copy of the document's policies the decision carries
+//! ([`Fetch::policies`]). A hop is a request [`redirect::next`] made, which
+//! says it was redirected, and CSP judges such a request with each source's
+//! path ignored (CSP3, *does url match expression in origin with redirect
+//! count*): `connect-src https://a.example/api/` follows `a.example` to
+//! `/other` and refuses it to `b.example`.
 //!
 //! # And what is said
 //!
@@ -217,6 +220,9 @@ impl Hop {
                  anybody in between could read and change"
                     .to_owned(),
             );
+        }
+        if let Err(refusal) = fetch.policies.allows(&next, None) {
+            return Err(format!("it was redirected, and {refusal}"));
         }
         let from = Origin::of(&self.request.url);
         let to = Origin::of(&next.url);

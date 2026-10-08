@@ -283,6 +283,10 @@ pub struct Fetch {
     pub document: Url,
     /// The referrer policy the page asked for, or the engine's default.
     pub referrer: referrer::Policy,
+    /// The document's policies, as this process holds them: what each hop
+    /// after the first is judged by under `connect-src`, the first having been
+    /// judged here (queue item 340).
+    pub policies: Policies,
 }
 
 impl Fetch {
@@ -447,6 +451,7 @@ pub fn decide(ask: &FetchAsk, asker: &Asker<'_>, cause: &Cause) -> Decided {
         partition: Partition::of(asker.url),
         document: asker.url.clone(),
         referrer: policy,
+        policies: asker.policies.clone(),
     }))
 }
 
