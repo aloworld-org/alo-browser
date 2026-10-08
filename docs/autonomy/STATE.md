@@ -18640,3 +18640,128 @@ present, every rented crate behind its boundary, the changelog changed.
 143 queue items are open: 327 opened, none closed. The next unused queue
 number is **328** and the next ADR is **0031**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 204 — queue item 327 built: `getElementById`, `hidden` and `classList`; 325 closed
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2 §§ 1–3:
+a frozen page decides, bytes from outside answered with errors,
+dependencies decide order; step 3's *cut scope, never depth*; step 6),
+`ROADMAP.md` (its three states; the DOM section), iterations 202 and 203,
+queue items 325, 326 and 327 in full, ADR 0030 §§ 2 and 4 (the rows the
+corpus now states) and ADR 0017 §§ 1, 3–5, 8 (one file per interface,
+wrapper lifetime, the brand check, refusals as `DOMException`s, absent
+beats approximate). `docs/features.md`'s DOM and `navigator` lines. The
+DOM standard's `getElementById`, `DOMTokenList` (validation, the update
+steps, `add`/`remove`/`toggle`) and the ordered set parser; HTML's
+`hidden` getter and setter steps; Web IDL's union conversion for
+`(boolean or unrestricted double or DOMString)?`. Code read: `alo-bindings`'
+`lib.rs`, `interface.rs`, `idl.rs`, `define.rs`, `wrapper.rs`,
+`liveness.rs` (head), `navigator.rs`, `interface/{document, element,
+html_element, navigator, dom_exception}.rs`; `alo-dom`'s attribute
+operations and `Descendants`; `alo-corpus`' `rendering.rs`, `case.rs`,
+`lib.rs` and the case's page and tests. No `AGENTS.md` exists. The
+checkout was clean on entry at `a68cc3c`. No sibling repository was read
+or written.
+
+**Selection.** 327 depends on 325's built part (iteration 203), and comes
+before 320 and 321 in the file. 325's last clause waited on it.
+
+**What was built.**
+- `alo-bindings/src/tokens.rs`: the ordered set parser and serializer over
+  ASCII whitespace, token validation (`SyntaxError` for empty,
+  `InvalidCharacterError` for whitespace), and `add`/`remove`/`toggle`'s
+  sets, `toggle` saying when the standard runs no update. Pure, unit
+  tested.
+- `token_list.rs`: the `DOMTokenList` cell — an ordinary part and its
+  element's wrapper, strongly. `Wrapper` gains a traced `class_list`
+  field, so `classList` is `[SameObject]`; the list holds no tokens and
+  computes them from `class` each call, so it is live with no copy.
+- `interface/dom_token_list.rs`: `length`, `value` (and setter),
+  `toString`, `contains`, `add`, `remove`, `toggle`, each behind a brand
+  check; the update steps write nothing to an element without `class` for
+  an empty set. One object among `add`'s/`remove`'s tokens is converted;
+  a second is `Missing::ASecondArgumentBehindACall` (item 221), as
+  `setAttribute` refuses two.
+- `Element.classList` (`element.rs`), `Document.getElementById`
+  (`document.rs`), and `HTMLElement.hidden` in a file of its own
+  (`interface/hidden.rs`), since `click()` fills `html_element.rs`.
+  `Interface::DomTokenList` joins the list, inheriting `Object.prototype`.
+- `alo_corpus::SYSTEM`: every loaded case is told ADR 0030 § 2's macOS
+  row, whatever machine renders it. `alo-corpus` now depends on `alo-net`
+  for the row (ours; no rented crate added).
+
+**Closing conditions.**
+- *A table of `getElementById`, `hidden` and `classList` results matches
+  the standards, each refusal the right `DOMException`*: **met**
+  (`alo-bindings/tests/what_marks_an_element.rs`, 9 tests, every script
+  run plain and with the collector at every allocation, the two compared;
+  change counts asserted where a write must not happen; a hostile `class`
+  of 20 000 tokens and a 20 000-unit token answered).
+- *`alo-downloads` renders with the stated system's card `.rec` and its
+  badge shown, in the box tree and the reference render*: **met**.
+  `boxes.txt` gains the badge's box, `display.txt` the terracotta border,
+  shadow and badge, and `render.png` shows them (viewed). The other two
+  rows are checked in the box tree: Windows marks `card-win`, Linux
+  neither (`alo_downloads.rs`). **325 closed with it.**
+- The badge made both cards 35.86 px taller and the page 778.66, so the
+  case is rendered at 800 × 780 (was 760), which also moves its `6vh`
+  padding by 1.2 px; `origin.txt` says why.
+
+**Cut, by name.** The indexed getter and `item`, `replace`, `supports`,
+iteration and `[PutForwards=value]` — **328** (no page yet; assigning to
+`el.classList` is ignored until then, and a test pins that). The script's
+next stop is line 17, `document.querySelectorAll(…)` — **329** opened,
+eligible.
+
+**Roadmap.** This iteration served **no roadmap line**, so `ROADMAP.md` is
+unchanged — the same finding as iteration 203: the DOM section's lines are
+mutation (ticked), events, forms, navigation, iframes, shadow DOM,
+selection, CSSOM and storage, and none names query or attribute-reflecting
+members; a Built clause on one of them would be decoration.
+`docs/features.md`'s *DOM APIs a modern page actually uses* line now says
+what pages opened, and its `navigator` line that the card is marked.
+`CHANGELOG.md`, `REMAINING.md` and the case's `origin.txt` say the same.
+
+**Gate, mechanical.** `cargo fmt --all`; `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` silent; `alo-bindings` and
+`alo-corpus` tests passing (the corpus references rewritten with
+`ALO_UPDATE_REFERENCES=1`, then checked again); the workspace's tests
+warmed with `--all-features`. `scripts/gate.sh` ran in the foreground into
+a log, passed the tool's ten-minute limit and was moved to the background
+by the harness; I waited for it in the same turn and read the log: exit
+0, "The gate is met." — fmt clean, clippy silent, tests pass, nothing
+stubbed, `unsafe` forbidden, licences present, every rented crate behind
+its boundary, no coordinate verbs, the stop rule holding, the changelog
+changed.
+
+**Gate, manual.**
+- Layout assertions: `alo_downloads.rs` asserts the marked card and badge
+  in the box tree for all three rows; the note's numeric assertions still
+  hold at the new size. `layout.txt` and `agent.txt` record the new
+  geometry.
+- Reference render: `render.png` rewritten and viewed: the macOS card
+  outlined in terracotta with its shadow and "Your device" badge, the
+  Windows card unchanged. No other case moved.
+- One responsibility per file: `tokens.rs` the set algorithm,
+  `token_list.rs` the object, `dom_token_list.rs` its members, `hidden.rs`
+  one reflected attribute; `html_element.rs` only furnishes it.
+- Bytes from outside: tokens come from page script and page markup; the
+  set code splits and compares, with no indexing or arithmetic on lengths
+  but a `u32::try_from` for `length`. Hostile input is tested above.
+- `docs/features.md` had the DOM line and the `navigator` line before
+  this was built.
+
+**Unresolved obligations.**
+- 329 (`querySelectorAll`) is eligible and is the page's next stop; 328
+  waits for a page.
+- `hidden="until-found"` is drawn as `display: none`, as every `[hidden]`
+  is in our user agent sheet; its `content-visibility: hidden` is not
+  built and no item names it yet.
+- 320 and 321 remain eligible. 322 and 324 wait for a page; 323 waits on
+  73. Still standing: 284, 311, 314 wait for pages; 296 needs a person;
+  297–300, 302, 304, 308; 126 and 132.
+- `scripts/gate.sh` takes longer than ten minutes even warm.
+
+143 queue items are open: 325 and 327 closed, 328 and 329 opened. The next
+unused queue number is **330** and the next ADR is **0031**. This is one
+iteration, not a finished queue or roadmap.

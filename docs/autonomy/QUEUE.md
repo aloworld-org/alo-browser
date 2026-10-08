@@ -3159,7 +3159,7 @@ The long pole, and the thing most of section E is unreachable without.
   `catch` catches, `/[\p{L}--[a-z]]/v` matches as specified (with 322),
   and `/(a)/d.exec("a").indices` is `[[0, 1], [0, 1]]`.
 
-- [ ] **325. `navigator`: the `Navigator` interface, with `platform` and
+- [x] **325. `navigator`: the `Navigator` interface, with `platform` and
   `userAgent`.** *Opened by `alo-downloads` (iteration 200).* With item 74
   built its script compiles, and stops at its second line:
   `var p = navigator.platform || "";` is "ReferenceError: 'navigator' is not
@@ -3207,8 +3207,13 @@ The long pole, and the thing most of section E is unreachable without.
   `document.getElementById("card-mac").classList.add("rec")`, is DOM the
   page needs and `navigator` is not — **cut to 327**, which this item now
   depends on for its last clause.
+  **Closed (iteration 204)** by 327: rendered as the Mac the corpus says
+  it is, `alo-downloads` marks `card-mac` `.rec` and shows its badge, in
+  the box tree, the layout and the reference render, and a Windows machine
+  and a Linux one mark the Windows card and neither
+  (`alo-corpus/tests/alo_downloads.rs`).
 
-- [ ] **327. `getElementById`, `hidden` and `classList`: what marks
+- [x] **327. `getElementById`, `hidden` and `classList`: what marks
   `alo-downloads`' card.** *Cut from 325 (iteration 203).* The page's
   script now reads `navigator`, finds the system, and stops at line 8,
   `document.getElementById("card-mac").classList.add("rec")` — "undefined
@@ -3231,6 +3236,61 @@ The long pole, and the thing most of section E is unreachable without.
   the right `DOMException`, and `alo-downloads` renders with the stated
   system's card marked `.rec` and its badge shown, in the box tree and the
   reference render — which then closes 325.
+  **Built (iteration 204).** `Document.getElementById` (first element in
+  tree order among the document's descendants with exactly that `id`;
+  `""` and a template's contents never found). `HTMLElement.hidden` in
+  its own file (`interface/hidden.rs`): `"until-found"`, `true` or
+  `false`, and the setter's `(boolean or unrestricted double or
+  DOMString)?` with HTML's steps. `Element.classList`, a `DOMTokenList`
+  cell (`token_list.rs`) holding its element's wrapper and kept by it
+  (`[SameObject]`), computing the ordered set from `class` on every call
+  (`tokens.rs`), so it is live with no copy; `length`, `value` (and its
+  setter), `toString`, `contains`, `add`, `remove` and `toggle`, with the
+  update steps writing nothing to an element without `class` for an empty
+  set. One object among `add`'s or `remove`'s tokens is converted; a
+  second is `Missing::ASecondArgumentBehindACall` (item 221). The corpus
+  renders every loaded case as `alo_corpus::SYSTEM`, ADR 0030 § 2's macOS
+  row. **Met:** the table of results and refusals, with the collector at
+  every allocation (`alo-bindings/tests/what_marks_an_element.rs`, 9
+  tests); `alo-downloads` renders with `card-mac` `.rec` and its badge
+  shown in the box tree and the reference render, and the other two rows
+  checked in the box tree (`alo_downloads.rs`). The page grew 18.66 px
+  with the badge, so the case is rendered at 800 × 780.
+  **Cut, by name:** the indexed getter and `item`, `replace`, `supports`,
+  iteration and `[PutForwards=value]` — **328**. The script now stops at
+  `document.querySelectorAll(".btn[href]").forEach(…)` on line 17 —
+  **329**.
+
+- [ ] **328. The rest of `DOMTokenList`.** *Cut from 327 (iteration
+  204).* `classList[0]` and `item(index)` (an indexed property getter,
+  which needs the list to answer own properties it does not store, and
+  `unsigned long`'s conversion); `replace(token, newToken)`;
+  `supports(token)`, a `TypeError` for `classList` since `class` has no
+  supported tokens; `forEach`, `keys`, `values`, `entries` and
+  `[Symbol.iterator]`, Web IDL's value iterator (after item 75's
+  iterators); and `classList`'s `[PutForwards=value]`, so assigning a
+  string to `el.classList` sets its `value` rather than being ignored.
+  *Depends on 327, and for iteration on 75. Opened by no page yet:* take it
+  when a frozen page reaches one of these. *Closes when:* a table of each
+  member's results and refusals matches the DOM standard, run with the
+  collector at every allocation.
+
+- [ ] **329. `querySelectorAll`, and the `NodeList` it answers.** *Opened
+  by `alo-downloads` (iteration 204).* With 327 built the page marks its
+  card and stops at line 17,
+  `document.querySelectorAll(".btn[href]").forEach(function (a) { … })`:
+  "undefined is not a function". `ParentNode.querySelectorAll` on
+  `Document` (and `Element`), matching with `selectors` as `alo-style`
+  already does — one matcher, not a second — a selector that does not
+  parse a `SyntaxError` `DOMException`, answering a **static** `NodeList`
+  with `length`, `item`, the indexed getter and `forEach`. The callback's
+  `fetch` and `.then` are items of their own (Fetch from script, 75), so
+  the script would then stop there.
+  *Depends on 327. Closes when:* a table of selectors and the elements
+  they answer, in tree order, matches the standard; a selector that does
+  not parse is the right `DOMException`; and `alo-downloads`' script runs
+  past line 17's `querySelectorAll` and stops at its next missing member,
+  named in the case's `origin.txt`.
 
 - [x] **326. The `User-Agent` header.** *Cut from 325 (ADR 0030 §§ 1–4,
   7).* This engine sends no `User-Agent` today (`csp_report.rs` says so on

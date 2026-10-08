@@ -2,7 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! `HTMLElement`: `click()` (ADR 0018 § 6, queue item 261).
+//! `HTMLElement`: `click()` (ADR 0018 § 6, queue item 261), and `hidden`
+//! (queue item 327), which is [`super::hidden`]'s.
 //!
 //! HTML's `click()`, step by step:
 //!
@@ -51,7 +52,7 @@
 //!
 //! # What is not here
 //!
-//! `HTMLElement`'s other members — `hidden`, `title`, `lang`, `dir`,
+//! `HTMLElement`'s other members — `title`, `lang`, `dir`,
 //! `innerText`, `focus()`, `blur()`, the dataset — each wait for a page or
 //! an item (ADR 0017 § 8), and focus for item 258. There is no `HTMLElement`
 //! on the global, as there is no `Element` there.
@@ -81,7 +82,8 @@ pub(super) fn furnish(
     prototype: Ref,
     function_prototype: Ref,
 ) -> Result<(), Escape> {
-    define::operation(objects, prototype, function_prototype, "click", click)
+    define::operation(objects, prototype, function_prototype, "click", click)?;
+    super::hidden::furnish(objects, prototype, function_prototype)
 }
 
 /// The base step of the click's dispatch.

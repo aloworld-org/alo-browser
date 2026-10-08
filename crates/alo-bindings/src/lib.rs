@@ -49,6 +49,10 @@
 //!   platform the browser process told the renderer, as an [`Identity`], and
 //!   nothing this crate composes.
 //!
+//! - An element's `classList` is a [`TokenList`] (queue item 327), made once
+//!   and kept by its wrapper, computing its tokens from the `class`
+//!   attribute each time it is asked ([`token_list`]).
+//!
 //! # What is not here yet
 //!
 //! The renderer hands a page's document over when its first script is about
@@ -86,6 +90,8 @@ pub mod liveness;
 pub mod navigating;
 pub mod navigator;
 mod scripted;
+pub mod token_list;
+mod tokens;
 pub mod tree;
 mod unforgeable;
 pub mod wrapper;
@@ -97,4 +103,5 @@ pub use install::{furnish, install};
 pub use interface::dom_exception::DomException;
 pub use interface::{Interface, Interfaces, prototype_of};
 pub use navigator::{Identity, Navigator, introduce};
+pub use token_list::TokenList;
 pub use wrapper::Wrapper;

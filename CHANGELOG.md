@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo's download page highlights the visitor's computer.** A page's
+  script can now find an element by its `id`, show one the page had hidden,
+  and add, remove, toggle or check a class through `classList`, which
+  always reflects the element's `class` as it is now. alo's download page
+  uses exactly these: on a Mac it outlines the macOS card and shows its
+  "Your device" badge, on Windows the Windows card, and on Linux neither.
+  Mistakes a script makes, such as an empty class name or one with a space
+  in it, are refused with the errors the standard names. The reference
+  pictures are now drawn as a Mac on every machine, so they do not depend
+  on whose computer ran the tests.
+
 - **A page's script can ask which browser it is on.** `navigator.userAgent`
   answers the same words the browser sends to websites, and
   `navigator.platform` says Mac, Windows or Linux, as decided in ADR 0030.

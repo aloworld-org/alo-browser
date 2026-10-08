@@ -14,6 +14,10 @@
 //! render of what a script did is what queue item 250 was closed by
 //! (`cases/a-script-grows-a-list`).
 //!
+//! A loaded page is told it runs on [`crate::SYSTEM`], whatever machine
+//! renders it, so a script that reads `navigator` draws the same reference
+//! everywhere.
+//!
 //! A loaded case cannot link a sheet or a picture yet: a renderer is handed
 //! its sheets as text and no pictures at all (`Page`), and a case that asked
 //! for both would be rendered without what it linked and committed that
@@ -65,7 +69,9 @@ impl Rendering {
             );
         }
         let mut renderer = Renderer::new(crate::corpus_fonts());
-        let page = Page::new(case.html.clone(), size).with_sheet(case.css.clone());
+        let mut page = Page::new(case.html.clone(), size).with_sheet(case.css.clone());
+        page.user_agent = crate::SYSTEM.user_agent();
+        crate::SYSTEM.platform.clone_into(&mut page.platform);
         match renderer.handle(ToRenderer::Load(Box::new(page))) {
             FromRenderer::Loaded { .. } => Ok(Self::Loaded(Box::new(renderer))),
             other => Err(format!("the renderer did not load it: {other:?}")),

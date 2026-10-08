@@ -94,6 +94,7 @@ dependencies = [
  "alo-css",
  "alo-dom",
  "alo-layout",
+ "alo-net",
  "alo-paint",
  "alo-renderer",
  "alo-style",

@@ -65,6 +65,19 @@ pub fn cases_directory() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("cases")
 }
 
+/// The kind of system every case is rendered as: ADR 0030 § 2's macOS row.
+///
+/// A page's script can read `navigator.platform` and `navigator.userAgent`
+/// and draw differently for each (`cases/alo-downloads` marks the visitor's
+/// card), and a renderer is told this machine's row by default. A corpus
+/// rendered as whatever machine ran it would commit a Mac's picture on a Mac
+/// and fail on Linux for a reason that is not a bug — the fonts' reason
+/// again. So the corpus states one row, and a case's own test checks the
+/// other two where it matters. The macOS row because the machine the
+/// references have been committed from is one, and so no reference moved
+/// when the corpus began saying it.
+pub const SYSTEM: alo_net::user_agent::System = alo_net::user_agent::MACOS;
+
 /// The fonts every case is rendered with.
 ///
 /// One font family, committed as a dependency rather than as a file, so that

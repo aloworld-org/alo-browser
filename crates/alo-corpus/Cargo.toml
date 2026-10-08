@@ -14,6 +14,7 @@ alo-box = { path = "../alo-box" }
 alo-css = { path = "../alo-css" }
 alo-dom = { path = "../alo-dom" }
 alo-layout = { path = "../alo-layout" }
+alo-net = { path = "../alo-net" }
 alo-paint = { path = "../alo-paint" }
 alo-renderer = { path = "../alo-renderer" }
 alo-style = { path = "../alo-style" }

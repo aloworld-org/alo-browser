@@ -19,6 +19,9 @@
 //! progress flag, and what that native made and must keep across its
 //! listeners (queue item 261).
 //!
+//! And, once a page has read it, the element's `classList` (queue item 327,
+//! [`crate::token_list`]): `[SameObject]`, so made once and kept here.
+//!
 //! It holds its document **strongly**: a node a script holds keeps the page's
 //! document, which is what makes `node.ownerDocument` an answer rather than a
 //! hope. What keeps the wrapper is not here but in the document cell, which
@@ -39,6 +42,7 @@ pub struct Wrapper {
     own: Ordinary,
     listeners: Listeners,
     clicking: Option<Clicking>,
+    class_list: Field,
 }
 
 impl Wrapper {
@@ -51,6 +55,7 @@ impl Wrapper {
             own: Ordinary::with_prototype(prototype),
             listeners: Listeners::default(),
             clicking: None,
+            class_list: Field::default(),
         }
     }
 
@@ -85,6 +90,16 @@ impl Wrapper {
         if let Some(mut clicking) = self.clicking.take() {
             clicking.let_go(barrier);
         }
+    }
+
+    /// Its element's `classList`, once one has been made.
+    pub const fn class_list(&self) -> Option<Ref> {
+        self.class_list.get()
+    }
+
+    /// Keep `list` as its element's `classList`, through the barrier.
+    pub(crate) fn keep_class_list(&mut self, barrier: &mut Barrier, list: Ref) {
+        self.class_list.set(barrier, Some(list));
     }
 
     /// The node this is the wrapper of.
@@ -137,6 +152,7 @@ impl Trace for Wrapper {
         self.document.trace(tracer);
         self.own.trace(tracer);
         self.listeners.trace(tracer);
+        self.class_list.trace(tracer);
         if let Some(clicking) = &self.clicking {
             clicking.trace(tracer);
         }

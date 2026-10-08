@@ -18,6 +18,8 @@ block flow · document
           inline flex · link
             text "Download for Windows"
         block flex · generic
+          inline flow · generic
+            text "Your device"
           block flow · generic
             text "macOS"
           block flow · generic

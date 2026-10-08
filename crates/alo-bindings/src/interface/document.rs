@@ -19,12 +19,17 @@
 //!   the agent can name it like any other. The `options` argument is not
 //!   read: `is` is a custom element's, and custom elements are item 87.
 //! - `createTextNode(data)`: a text node in no tree.
+//! - `getElementById(elementId)` (queue item 327): the first element in tree
+//!   order among the document's descendants whose `id` attribute is exactly
+//!   `elementId`, or `null`. An element whose `id` is empty has no ID, so
+//!   `getElementById("")` is always `null`; a `<template>`'s contents are not
+//!   descendants, so nothing in one is found.
 //!
 //! A node made and never inserted is a tree of its own, kept while a script
 //! holds it and released at the collection after it does not (ADR 0017 § 3).
 //!
 //! **Not here** (ADR 0017 § 8): `head`, `title`, `createComment`,
-//! `createDocumentFragment`, `getElementById`, every query and every live
+//! `createDocumentFragment`, every query and every live
 //! collection. Each is absent until a page or an item needs it.
 
 use alo_js::heap::Ref;
@@ -71,6 +76,13 @@ pub(super) fn furnish(
         function_prototype,
         "createTextNode",
         create_text_node,
+    )?;
+    define::operation(
+        objects,
+        prototype,
+        function_prototype,
+        "getElementById",
+        get_element_by_id,
     )
 }
 
@@ -128,4 +140,26 @@ fn create_text_node(call: &mut Call<'_>) -> Result<Answer, Escape> {
         document.create_text_node(&data)
     })?;
     idl::answer_node(call, this.owner, Some(made))
+}
+
+/// `getElementById(elementId)`.
+fn get_element_by_id(call: &mut Call<'_>) -> Result<Answer, Escape> {
+    let this = idl::this(call, Brand::Document, "getElementById")?;
+    idl::needs(call, 1, "getElementById")?;
+    let id = match idl::only_string(call)? {
+        Converted::Ready(id) => id,
+        Converted::Asked(asked) => return Ok(asked),
+    };
+    let found = if id.is_empty() {
+        None
+    } else {
+        let document = idl::read(call, this.owner)?;
+        document.descendants(this.node).find(|node| {
+            document
+                .element(*node)
+                .and_then(|element| element.attr("id"))
+                == Some(id.as_str())
+        })
+    };
+    idl::answer_node(call, this.owner, found)
 }

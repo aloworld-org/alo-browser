@@ -678,6 +678,15 @@ string and platform `alo-net` composes, the wire carries them, and
 eligible. 143 queue items are open. The next unused queue number is 328
 and the next unused ADR 0031.
 
+Iteration 204 built item 327 and so closed 325: `getElementById`,
+`HTMLElement.hidden` and `Element.classList` (a live `DOMTokenList` with
+`length`, `value`, `contains`, `add`, `remove` and `toggle`). The corpus
+renders every loaded page as ADR 0030's macOS row, and `alo-downloads`
+outlines the Mac's card and shows its badge. The rest of `DOMTokenList`
+was cut to 328 (no page yet); the script's next stop, `querySelectorAll`,
+opened 329, which is eligible. 143 queue items are open. The next unused
+queue number is 330 and the next unused ADR 0031.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

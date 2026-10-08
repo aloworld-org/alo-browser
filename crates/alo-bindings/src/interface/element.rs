@@ -23,7 +23,14 @@
 //! one primitive is converted in full: a primitive's string needs no script
 //! and is read again at no cost.
 //!
-//! **Not here** (ADR 0017 § 8): `id`, `className`, `classList`, `attributes`
+//! # `classList`
+//!
+//! `classList` (queue item 327) answers the element's one `DOMTokenList`
+//! ([`crate::token_list`]), made the first time it is read and the same
+//! object every time after (`[SameObject]`). It is read-only here: its
+//! `[PutForwards=value]` is queue item 328's.
+//!
+//! **Not here** (ADR 0017 § 8): `id`, `className`, `attributes`
 //! (a live map), `tagName`, `hasAttribute`, `toggleAttribute`, the
 //! namespaced forms, `innerHTML` and every query. Each is absent until a page
 //! or an item needs it.
@@ -38,6 +45,7 @@ use alo_js::{Escape, Value};
 use super::{child_node, dom_exception};
 use crate::define;
 use crate::idl::{self, Brand, Converted};
+use crate::token_list;
 
 /// `Element.prototype`'s members.
 pub(super) fn furnish(
@@ -53,6 +61,14 @@ pub(super) fn furnish(
     for (name, body) in operations {
         define::operation(objects, prototype, function_prototype, name, body)?;
     }
+    define::attribute(
+        objects,
+        prototype,
+        function_prototype,
+        "classList",
+        class_list,
+        None,
+    )?;
     child_node::furnish(objects, prototype, function_prototype)
 }
 
@@ -129,4 +145,15 @@ fn remove_attribute(call: &mut Call<'_>) -> Result<Answer, Escape> {
         document.remove_attribute_by_name(this.node, &name)
     })?;
     Ok(Answer::Value(Value::Undefined))
+}
+
+/// `get classList`: the element's one `DOMTokenList`.
+fn class_list(call: &mut Call<'_>) -> Result<Answer, Escape> {
+    let this = idl::this(call, Brand::Element, "classList")?;
+    let Value::Object(wrapper) = call.this() else {
+        return Err(Escape::Broken(Internal::BuiltinIsWrong));
+    };
+    let at = call.at();
+    let list = token_list::made(call.objects(), this.owner, wrapper, at)?;
+    Ok(Answer::Value(Value::Object(list)))
 }

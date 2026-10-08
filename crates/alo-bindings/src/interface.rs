@@ -61,6 +61,12 @@
 //! event: the page's one [`crate::Navigator`], made by
 //! [`crate::introduce`].
 //!
+//! # `DOMTokenList` is an element's, not a node
+//!
+//! `DOMTokenList` (queue item 327) inherits from `Object.prototype` too: its
+//! one instance per element is that element's `classList`
+//! ([`crate::token_list`]), holding the element's wrapper.
+//!
 //! # An unforgeable member is on the instance
 //!
 //! Web IDL puts a `[LegacyUnforgeable]` attribute on **every instance**
@@ -86,9 +92,11 @@ pub mod child_node;
 pub mod custom_event;
 pub mod document;
 pub mod dom_exception;
+pub mod dom_token_list;
 pub mod element;
 pub mod event;
 pub mod event_target;
+pub mod hidden;
 pub mod html_element;
 pub mod input_event;
 pub mod mouse_event;
@@ -146,6 +154,9 @@ pub enum Interface {
     InputEvent,
     /// What the browser says it is (ADR 0030, queue item 325).
     Navigator,
+    /// An element's `class` as a set of tokens: `classList` (queue item
+    /// 327).
+    DomTokenList,
 }
 
 /// What an interface's prototype inherits from.
@@ -162,7 +173,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 19] = [
+    pub const ALL: [Self; 20] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -182,6 +193,7 @@ impl Interface {
         Self::HtmlElement,
         Self::InputEvent,
         Self::Navigator,
+        Self::DomTokenList,
     ];
 
     /// Its name, as the standard spells it.
@@ -206,13 +218,16 @@ impl Interface {
             Self::HtmlElement => "HTMLElement",
             Self::InputEvent => "InputEvent",
             Self::Navigator => "Navigator",
+            Self::DomTokenList => "DOMTokenList",
         }
     }
 
     /// What its prototype inherits from.
     pub const fn inherits(self) -> Inherits {
         match self {
-            Self::EventTarget | Self::Event | Self::Navigator => Inherits::Object,
+            Self::EventTarget | Self::Event | Self::Navigator | Self::DomTokenList => {
+                Inherits::Object
+            }
             Self::Node => Inherits::Interface(Self::EventTarget),
             Self::CustomEvent | Self::UiEvent => Inherits::Interface(Self::Event),
             Self::MouseEvent | Self::InputEvent => Inherits::Interface(Self::UiEvent),
@@ -268,6 +283,7 @@ impl Interface {
             Self::HtmlElement => 16,
             Self::InputEvent => 17,
             Self::Navigator => 18,
+            Self::DomTokenList => 19,
         }
     }
 
@@ -322,6 +338,7 @@ impl Interface {
             Self::PointerEvent => pointer_event::furnish(objects, prototype, function_prototype),
             Self::InputEvent => input_event::furnish(objects, prototype, function_prototype),
             Self::Navigator => navigator::furnish(objects, prototype, function_prototype),
+            Self::DomTokenList => dom_token_list::furnish(objects, prototype, function_prototype),
             Self::Node => node::furnish(objects, prototype, function_prototype),
             Self::Element => element::furnish(objects, prototype, function_prototype),
             Self::HtmlElement => html_element::furnish(objects, prototype, function_prototype),

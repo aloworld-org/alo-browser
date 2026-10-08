@@ -24,7 +24,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] A DOM of our own, built from `html5ever`'s parse events — the tree is ours even though the parser is not
 - [1] A stable identity per node, from the first commit, because the agent tree will need to name one and adding identity later means rewriting everything holding a reference
 - [1] Fragments and malformed input produce a usable tree rather than an error
-- [2] The DOM APIs a modern page actually uses — driven by pages that fail, never by a specification listing a method
+- [2] The DOM APIs a modern page actually uses — driven by pages that fail, never by a specification listing a method. Opened so far by alo's download page: finding an element by its `id`, showing a hidden one, and adding a class through `classList` (327); finding elements by a selector is next (329)
 - [2] Mutation, so scripting has something to mutate
 - [3] The legacy surface: `document.write`, live collections, the rest
 
@@ -450,8 +450,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   Built: the `User-Agent` header, on every request over HTTP/1.1 and HTTP/2
   and in a CSP report's envelope (326), and `navigator` with every member
   of ADR 0030 § 5, answering what the browser process told the renderer
-  (325). alo's download page now reads it and finds the visitor's system;
-  marking the card waits on `getElementById` and `classList` (327).
+  (325). alo's download page now reads it, finds the visitor's system and
+  marks that system's card as theirs, with `getElementById`, `hidden` and
+  `classList` (327); the reference corpus renders as a Mac whatever
+  machine runs it.
   The browser names itself, `alo/` and its version, and claims to
   be no other browser. Its string is the same on every machine running the
   same release on the same kind of system, with one frozen token per system

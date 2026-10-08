@@ -16,24 +16,33 @@ re-derive it from the commit above. It was the first alo page left that the
 corpus had not seen, and every open queue item before it was waiting for a
 page, a dependency or a person (iteration 197).
 
-Rendered at 800 × 760: wider than its 560 px breakpoint, so the two cards
+Rendered at 800 × 780: wider than its 560 px breakpoint, so the two cards
 stand side by side, and tall enough for the whole of its content under its
-6vh top padding and 40 px bottom padding.
+6vh top padding and 40 px bottom padding. It was 760 until the card's
+"Your device" badge was shown (iteration 204), which made both cards 35.86
+px taller and the page 778.66.
+
+**It is rendered as a Mac.** The script reads `navigator.platform` and
+`navigator.userAgent` and marks the visitor's card, so what is drawn
+depends on which system the browser says it is. The corpus states ADR
+0030 § 2's macOS row for every page it loads (`alo_corpus::SYSTEM`), not
+the machine running the tests, so the references are the same everywhere;
+`tests/alo_downloads.rs` checks the Windows and Linux rows in the box tree.
 
 It carries a script, so the corpus loads it through a renderer. Until
 item 74 the script was refused before it ran — "a regular expression
 literal is not built yet — queue item 74 builds it (at byte 144)", the
-`/Mac/` in its third line. Since iteration 200 it compiles, and it stops
+`/Mac/` in its third line. Since iteration 200 it compiles, and it stopped
 at its second line instead: "ReferenceError: 'navigator' is not defined",
 because no `Navigator` was built (item 325). Since iteration 203 it reads
-`navigator`, finds the system in its first five lines, and stops at the
-first line that marks a card, `document.getElementById(…)` (item 327).
-Each way the page is drawn as
-its markup: neither card marked as the visitor's (`.rec` and the hidden
-"Your device" badge), and neither button greyed out by the `fetch()` that
-checks whether an installer is hosted. `tests/alo_downloads.rs` pins where
-the script stops. The issues list does not show
-it, because issues.txt is what the markup and style made the engine say.
+`navigator` and finds the system in its first five lines, and since
+iteration 204 (item 327) it marks that system's card `.rec` — terracotta
+border and shadow — and shows its badge. It stops at line 17,
+`document.querySelectorAll(…)` (item 329), so no button is greyed out by
+the `fetch()` that checks whether an installer is hosted.
+`tests/alo_downloads.rs` pins where the script stops and which card is
+marked. The issues list does not show it, because issues.txt is what the
+markup and style made the engine say.
 
 ## What it found
 
@@ -65,7 +74,11 @@ it, because issues.txt is what the markup and style made the engine say.
 - **The script reads `navigator`** — item 325, opened by this page. Its
   second line is `navigator.platform || ""`, and there was no `Navigator`.
   **Built by item 325 (iteration 203):** it reads what the browser was
-  told, and the next stop is `getElementById` and `classList` (item 327).
+  told, and the next stop was `getElementById` and `classList` (item 327).
+- **The script marks a card** — item 327, cut from 325. **Built
+  (iteration 204):** `getElementById`, `hidden` and `classList`; the Mac's
+  card is outlined and badged. The next stop is `querySelectorAll` (item
+  329).
 
 Two things it asks for make no difference at this size and are not faults
 here: `text-wrap: balance` on a heading that fits on one line (item 104), and

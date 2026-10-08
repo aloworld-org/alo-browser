@@ -429,7 +429,7 @@ fn every_other_member_is_absent() {
         page.run(&format!(
             "{NAMES}
              typeof document.head + typeof document.createRange + typeof document.write +
-             typeof document.getElementById + typeof p.childNodes + typeof p.children +
+             typeof document.querySelector + typeof p.childNodes + typeof p.children +
              typeof p.innerHTML + typeof p.id + typeof p.nodeType + typeof p.firstChild.data +
              typeof Node + typeof Element + typeof DOMException + typeof html.before"
         )),
