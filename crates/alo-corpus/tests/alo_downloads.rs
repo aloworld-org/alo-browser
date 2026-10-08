@@ -16,9 +16,10 @@
 //! `navigator.platform`. Since item 327 it reads the `navigator` the
 //! browser was told, marks that system's card `.rec` and shows its "Your
 //! device" badge — for a Mac and a Windows machine, and neither on Linux.
-//! Since item 329 its `querySelectorAll` finds the two buttons, and it stops
-//! at the `forEach` it calls on them (item 331), so no button is greyed. The
-//! corpus renders it as the Mac `alo_corpus::SYSTEM` says it is.
+//! Since item 329 its `querySelectorAll` finds the two buttons, and since
+//! item 331 its `forEach` walks them; it stops inside the first callback at
+//! `fetch` (item 75), so no button is greyed. The corpus renders it as the
+//! Mac `alo_corpus::SYSTEM` says it is.
 
 use alo_corpus::{Case, Rendering, cases_directory, corpus_fonts};
 use alo_layout::Rect;
@@ -187,14 +188,15 @@ fn the_pages_script_marks_the_card_of_the_system_it_is_told() {
         else {
             panic!("the page loads");
         };
-        // It runs past both branches now, every system alike, and past the
-        // `querySelectorAll` that finds the buttons (queue item 329), and
-        // stops at the `forEach` that would grey them (queue item 331). The
-        // position is the call's start for either stop; `alo-bindings`'
-        // `what_a_selector_finds.rs` runs the page's query and says which.
+        // It runs past both branches now, every system alike, past the
+        // `querySelectorAll` that finds the buttons (queue item 329) and into
+        // the `forEach` that walks them (queue item 331), and stops in its
+        // first callback at the `fetch` that would decide whether to grey
+        // the button (queue item 75) — before anything is greyed.
         assert!(
             issues.iter().any(|issue| issue.contains(
-                "uncaught: TypeError: undefined is not a function (at script 1, line 17, column 7)"
+                "uncaught: ReferenceError: 'fetch' is not defined \
+                 (at script 1, line 19, column 9; called from script 1, line 17, column 7)"
             )),
             "{platform}: {issues:?}",
         );

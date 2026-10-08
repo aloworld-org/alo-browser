@@ -19216,3 +19216,140 @@ also passed with every result `ok`.
 143 queue items are open: 332 closed. The next unused queue number is
 **333** and the next ADR is **0032**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 209 — queue item 331 built: `Array.prototype.forEach`, and a `NodeList`'s iteration
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole; stage 2 §§ 1–4),
+`ROADMAP.md`'s state rules and its standard-library line, iterations 207
+and 208's entries, queue items 331, 332, 320, 321 and 231 in full,
+`docs/features.md`' DOM-API and standard-library lines, ADR 0031 in full.
+Code read: `alo-js`' `object/native.rs`, `builtin.rs`,
+`builtin/array_prototype.rs`, `builtin/array_iterator.rs`,
+`builtin/function_prototype.rs`, `object/access.rs` (`get`, `has`),
+`interpret/call.rs` (`begin_call`, `step_builtin`, `want_for`, the call's
+stop check), `interpret.rs` (`Stop`, `Engine::function`); `alo-bindings`'
+`node_list.rs`, `interface/node_list.rs`, `define.rs`, `install.rs`,
+`interface.rs`; `alo-corpus`' `alo-downloads` case and test. No
+`AGENTS.md` exists. The checkout was clean on entry at `33b35ce`. No
+sibling repository was read or written.
+
+**Selection.** 331's dependencies (332, 329) are both built, it is the
+next item on `alo-downloads`' path, and it comes before 320 and 321 in
+file order; every open item before it is blocked or depends on something
+open.
+
+**What was built.**
+- `alo-js/src/builtin/for_each.rs`: `forEach` as a native keeping two
+  slots (`len`, `k`). `ToObject(this)` as `values` does it. The length is
+  an array's own, or `[[Get]]` — a getter is asked for with the object as
+  `this`, and an object answer is converted by `Want::Primitive` — then
+  `ToLength`. The callback is checked after the length. Each pass asks
+  the embedder's stop, answers `HasProperty` in place, reads the element
+  (or asks for its getter) and asks for the callback with `thisArg` and
+  `« kValue, k, O »`. Five steps, each a named constant.
+- `builtin/array_like.rs`: `ToLength` and an index's key, moved out of
+  `array_iterator.rs` (and `regexp_prototype.rs`' copy of `ToLength`) so
+  the iterator, `exec` and `forEach` share one rule.
+- `builtin::native_method`: `method` for a native that says more than a
+  name and a body; `method` now goes through it.
+- `alo-bindings`: `define::array_iteration` puts the realm's own
+  `entries`, `keys`, `values` and `forEach` (writable, enumerable,
+  configurable) and `values` under `Symbol.iterator` (not enumerable) on
+  a prototype, each checked to be the engine's native of that name, so a
+  realm furnished after a script replaced one is refused rather than
+  given the page's function. `install::furnish` does it for each
+  interface `Interface::iterates_as_an_array` names — `NodeList`.
+  `DOMTokenList` joins once its indexed getter is built (328).
+- Module notes in `builtin.rs`, `array_prototype.rs`, `node_list.rs` and
+  `interface.rs` say what is there now.
+
+**Tests.**
+- `alo-js/tests/what_for_each_visits.rs`. Nine tests. Every table runs
+  with and without the collector at every allocation, and `Heap::check`
+  runs after each. They cover:
+  - visiting with index and object, and the answer `undefined`;
+  - holes, a prototype's index, and a deleted element;
+  - `thisArg`, including strict `undefined`;
+  - the length read once, with appends not visited and a getter run once;
+  - `valueOf` lengths and `ToLength`'s edges;
+  - element getters, including ones that allocate;
+  - throws from the callback, the `length` getter and an element getter,
+    with the stack sound afterwards;
+  - the `TypeError`s and their order, and a primitive `this` refused by
+    name (73);
+  - nesting;
+  - 2⁵³ − 1 holes ended by a stop asked from another thread after 50 ms.
+- `alo-bindings/tests/what_a_selector_finds.rs`:
+  - the four members `===` `[]`'s, and `[Symbol.iterator]` the same
+    function by the heap, not enumerable;
+  - `forEach` and `values` enumerable on the prototype;
+  - a walk with `thisArg`, a throw, and an empty list;
+  - `alo-downloads`' own walk of its two buttons, and `fetch` undefined;
+  - `for…of` over a list refused by name at the getter `length` (231);
+  - `classList.forEach` still `undefined` (328).
+- `alo-corpus/tests/alo_downloads.rs`: the script now stops at
+  "ReferenceError: 'fetch' is not defined (at script 1, line 19, column
+  9; called from script 1, line 17, column 7)", for all three systems.
+  `origin.txt` says so.
+
+**Mutation checks.** Each was reverted, and the file was compared with a
+saved copy afterwards.
+- Visiting holes as `undefined` failed the holes table.
+- Without the stop check, the 2⁵³ − 1 walk ran past sixty seconds and its
+  process was killed. My first bounded run killed `cargo` but not the
+  test binary under it. I killed that process by hand, restored the file
+  and checked the diff before going on.
+
+**Queue.** 331 ticked, with a Built note. 231 records that `for…of` over
+a `NodeList` now reaches its refusal; no frozen page does.
+
+**Roadmap.** The standard-library line gains a Built clause for `forEach`
+and a `NodeList`'s iteration. Its Owed clause now names `apply` (221) and
+the array iterator over a getter `length` (231), and "every array method
+but the three iterators" now includes `forEach`. No tick. The DOM-APIs
+feature line and `docs/features.md`' standard-library line,
+`CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Gate, mechanical.** The workspace was warmed: clippy `--all-features`
+was silent and the tests were built with `--no-run`. `scripts/gate.sh`
+ran in the foreground into a log. It passed the tool's ten-minute bound
+and was moved to the background, so I waited for it in this turn and read
+the log: exit 0, "The gate is met."
+- fmt clean, clippy silent, tests pass.
+- No stubs, `unsafe` forbidden, licences present.
+- Every rented crate behind its boundary, no coordinate verbs.
+- The stop rule holds and the changelog changed.
+
+**Gate, manual.**
+- Layout assertions and reference renders: nothing positions, sizes or
+  draws differently. The page stops before greying anything, and no
+  `render.png`, `boxes.txt`, `layout.txt`, `display.txt` or `agent.txt`
+  changed (`git status`).
+- One responsibility per file. `for_each.rs` is one builtin.
+  `array_like.rs` is the array-like rules three builtins share.
+  `array_prototype.rs` still puts `Array.prototype`'s methods on it.
+  `define.rs` is still how a member goes on a prototype, and taking
+  `Array.prototype`'s is that.
+- Bytes from outside: a page sizes the length. The walk is bounded by the
+  embedder's stop, every index is an `f64` exact to 2⁵³ − 1, `k + 1` never
+  passes `len`, and nothing is indexed or unwrapped.
+- `docs/features.md` describes what is built. No `unsafe`, no new
+  dependency, and no ADR is needed: this builds ADR 0031 as written.
+
+**Unresolved obligations.**
+- `for…of` over a `NodeList` is refused by name (231), which waits for a
+  frozen page.
+- `DOMTokenList`'s iteration waits on its indexed getter (328).
+- A function's own `length` (item 220) is absent, so `forEach.length` is
+  not 1.
+- `alo-downloads`' next stop is `fetch` and promises (item 75).
+- 320 and 321 remain eligible and are next in file order. 221 still
+  depends on 73's length conversions; `array_like.rs` may now serve it.
+- Still standing: 322 and 324 wait for a page, 323 waits on 73, and 328
+  waits for a page. 284, 311 and 314 wait for pages; 296 needs a person;
+  297–300, 302, 304 and 308; 126 and 132.
+- `scripts/gate.sh` still runs past the ten-minute foreground bound.
+
+142 queue items are open: 331 closed. The next unused queue number is
+**333** and the next ADR is **0032**. This is one iteration, not a
+finished queue or roadmap.

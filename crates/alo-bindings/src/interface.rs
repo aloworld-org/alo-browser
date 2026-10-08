@@ -72,7 +72,10 @@
 //! `NodeList` (queue item 329) inherits from `Object.prototype`: a static
 //! list `querySelectorAll` answers, which `ParentNode` — a mixin on
 //! `Document`, `Element` and `DocumentFragment` — makes
-//! ([`crate::node_list`]).
+//! ([`crate::node_list`]). It is iterable over its indices, so its
+//! `forEach`, `keys`, `values`, `entries` and `[Symbol.iterator]` are
+//! `Array.prototype`'s own functions (queue item 331,
+//! [`Interface::iterates_as_an_array`]).
 //!
 //! # An unforgeable member is on the instance
 //!
@@ -302,6 +305,18 @@ impl Interface {
             Self::DomTokenList => 19,
             Self::NodeList => 20,
         }
+    }
+
+    /// Whether it is iterable over the indices its indexed getter answers,
+    /// so that its iteration members are `Array.prototype`'s own functions
+    /// rather than its own (Web IDL's *iterable declarations*, queue item
+    /// 331).
+    ///
+    /// `DOMTokenList` is iterable too, and joins this once its indexed
+    /// getter is built (queue item 328): without the getter its indices are
+    /// not there to walk.
+    pub const fn iterates_as_an_array(self) -> bool {
+        matches!(self, Self::NodeList)
     }
 
     /// Whether it has `[LegacyUnforgeable]` members, which go on an

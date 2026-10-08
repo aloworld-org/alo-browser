@@ -40,9 +40,11 @@ use alo_js::builtin::error::Family;
 use alo_js::heap::Ref;
 use alo_js::interpret::Engine;
 use alo_js::object::native::{Body, Instance, Make, Native};
+use alo_js::object::symbol::WellKnown;
 use alo_js::object::{Found, Objects, Property, Value};
 use alo_js::{Escape, Fault};
 
+use crate::define;
 use crate::document_cell::DocumentCell;
 use crate::embed::{self, Wrapping};
 use crate::event::{make_custom_event, make_event};
@@ -61,6 +63,8 @@ pub fn furnish(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
     let (intrinsics, objects) = engine.intrinsics();
     let object_prototype = intrinsics.object_prototype(objects)?;
     let function_prototype = intrinsics.function_prototype(objects)?;
+    let array_prototype = intrinsics.array_prototype(objects)?;
+    let iterator = intrinsics.well_known_key(objects, WellKnown::Iterator)?;
     let error = intrinsics.error_constructor(objects, Family::Error)?;
     let error_prototype = objects
         .existing_key(&"prototype".encode_utf16().collect::<Vec<_>>())
@@ -91,6 +95,9 @@ pub fn furnish(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
             held.interfaces.set(barrier, interface, prototype);
         });
         interface.furnish(objects, prototype, function_prototype)?;
+        if interface.iterates_as_an_array() {
+            define::array_iteration(objects, prototype, array_prototype, iterator)?;
+        }
         if interface.has_unforgeables() {
             unforgeables(objects, cell, interface, function_prototype)?;
         }

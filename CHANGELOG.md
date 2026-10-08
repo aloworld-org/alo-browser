@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can walk a list with `forEach`.** `[1, 2, 3].forEach(f)` calls
+  `f` for each element, as the standard says: the length is read once, so
+  what the page adds while walking is not visited; gaps are skipped; a
+  `length` or an element behind a getter is called rather than refused; and
+  an error thrown from `f` ends the walk. The lists `querySelectorAll`
+  answers use those very functions for `forEach`, `keys`, `values` and
+  `entries`, so alo's download page now walks its two download buttons and
+  stops a step later, at `fetch`. A walk over billions of empty places,
+  which calls nothing, still stops when the browser asks it to.
+
 - **The engine's own functions can now remember things while a page's
   code runs** (ADR 0031). A function such as `forEach` says how many values
   it keeps — at most eight — and the engine keeps them on its working stack,

@@ -27,7 +27,8 @@
 //! `Array.prototype` **is itself an array**, of length zero, which is the
 //! specification's and is what `Object.prototype.toString` says about it
 //! (queue item 225). Its only methods are the three that make an iterator
-//! ([`array_prototype`], queue item 230): `[].push` is still `undefined`, which
+//! ([`array_prototype`], queue item 230) and `forEach` (queue item 331, the
+//! first builtin that keeps slots, ADR 0031): `[].push` is still `undefined`, which
 //! a page's own feature test reads correctly, where a `push` that did half of
 //! what the specification says would not be (item 73).
 //!
@@ -57,14 +58,16 @@
 //! No `RegExp` constructor and no `source`, `flags` or `toString` on its
 //! prototype (queue item 324), and no `String.prototype.match` and its kin
 //! (item 323). No `Array` constructor and no array method but the three
-//! iterators, no
+//! iterators and `forEach`, no
 //! `Math`, `JSON`, `String`, `Number` or `Boolean`, no `AggregateError` (queue
 //! item 229), no `Symbol` and eleven of the thirteen well-known symbols, and no
 //! weak collections. Each is named in the queue rather than half-built here.
 
 pub mod array_iterator;
+mod array_like;
 pub mod array_prototype;
 pub mod error;
+mod for_each;
 pub mod function_prototype;
 pub mod iterator_prototype;
 pub mod object_prototype;
@@ -350,27 +353,46 @@ pub(crate) fn method(
     name: &'static str,
     body: Body,
 ) -> Result<(), Escape> {
+    native_method(objects, on, function_prototype, Native::new(name, body))
+}
+
+/// Put a builtin method on an object under its native's own name: [`method`]
+/// for a native that says more about itself than a name and a body — the
+/// slots it keeps across the calls it asks for ([`Native::keeping`],
+/// ADR 0031), as `Array.prototype.forEach` does.
+///
+/// # Errors
+///
+/// The same as [`method`], and [`Internal::BuiltinIsWrong`] for a native
+/// that keeps more than a builtin may.
+///
+/// [`Internal::BuiltinIsWrong`]: crate::abrupt::Internal
+pub(crate) fn native_method(
+    objects: &mut Objects,
+    on: Ref,
+    function_prototype: Ref,
+    native: Native,
+) -> Result<(), Escape> {
     let scope = objects.heap_mut().open();
-    let outcome = defined(objects, on, function_prototype, name, body);
+    let outcome = defined(objects, on, function_prototype, native);
     objects.heap_mut().close(scope);
     outcome
 }
 
-/// [`method`], with the scope already open.
+/// [`native_method`], with the scope already open.
 fn defined(
     objects: &mut Objects,
     on: Ref,
     function_prototype: Ref,
-    name: &'static str,
-    body: Body,
+    native: Native,
 ) -> Result<(), Escape> {
-    let units: Vec<u16> = name.encode_utf16().collect();
+    let units: Vec<u16> = native.name().encode_utf16().collect();
     let key = objects.key(&units).map_err(|why| Escape::refused(why, 0))?;
     if let Some(held) = key.reference() {
         objects.heap_mut().hold(held);
     }
     let function = objects
-        .native(Native::new(name, body), Some(function_prototype))
+        .native(native, Some(function_prototype))
         .map_err(|why| Escape::refused(why, 0))?;
     objects.heap_mut().hold(function);
     objects.define(

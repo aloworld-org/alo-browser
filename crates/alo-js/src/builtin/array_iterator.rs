@@ -37,16 +37,13 @@
 use crate::abrupt::{Escape, Missing};
 use crate::convert::{self, Primitive};
 use crate::heap::Ref;
-use crate::numeric;
 use crate::object::array_iterator::{ArrayIterator, Kind};
 use crate::object::native::{Answer, Call};
 use crate::object::symbol::WellKnown;
 use crate::object::{Found, Key, Objects, Property, Value};
 
 use super::Intrinsics;
-
-/// The largest length an array-like may have: 2⁵³−1, `ToLength`'s ceiling.
-const LONGEST: f64 = 9_007_199_254_740_991.0;
+use super::array_like::{key_of, to_length};
 
 /// Put `next` and the tag on it.
 ///
@@ -135,14 +132,6 @@ fn length_of(call: &mut Call<'_>, iterated: Ref) -> Result<f64, Escape> {
     Ok(to_length(convert::to_number(call.seen(), primitive, at)?))
 }
 
-/// `ToLength`: a whole number from zero to 2⁵³−1, with `NaN` as zero.
-fn to_length(number: f64) -> f64 {
-    if number.is_nan() || number <= 0.0 {
-        return 0.0;
-    }
-    number.trunc().min(LONGEST)
-}
-
 /// `Get(iterated, ToString(index))`, refusing a getter.
 fn element(call: &mut Call<'_>, iterated: Ref, index: f64) -> Result<Value, Escape> {
     let key = key_of(call, index)?;
@@ -151,19 +140,6 @@ fn element(call: &mut Call<'_>, iterated: Ref, index: f64) -> Result<Value, Esca
         Found::Missing | Found::Getter(Value::Undefined) => Ok(Value::Undefined),
         Found::Getter(_) => Err(Escape::NotBuiltYet(Missing::AnIteratedValueBehindACall)),
     }
-}
-
-/// The key an index is: an array index below 2³²−1, and the canonical
-/// spelling of the number above it, which is an ordinary string key.
-fn key_of(call: &mut Call<'_>, index: f64) -> Result<Key, Escape> {
-    if let Some(key) = crate::object::array::exact_length(index).and_then(Key::index) {
-        return Ok(key);
-    }
-    let at = call.at();
-    let units: Vec<u16> = numeric::text_of(index).encode_utf16().collect();
-    call.objects()
-        .key(&units)
-        .map_err(|why| Escape::refused(why, at))
 }
 
 /// `[index, element]`, an array from `Array.prototype`, for `entries()`.

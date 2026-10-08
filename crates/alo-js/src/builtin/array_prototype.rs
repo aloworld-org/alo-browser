@@ -2,13 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! `Array.prototype`'s methods: the three that make an iterator, and
-//! `Symbol.iterator` (queue item 230).
+//! `Array.prototype`'s methods: the three that make an iterator,
+//! `Symbol.iterator` (queue item 230), and `forEach` (queue item 331).
 //!
 //! `for (const x of list)` begins with `list[Symbol.iterator]()`, and for an
 //! array that is this file. `[Symbol.iterator]` is **the same function** as
 //! `values` rather than a second one that does the same thing — the
 //! specification says so, and a page can see it with `===`.
+//!
+//! `forEach` keeps state across the calls it asks for, so its body is a
+//! file of its own ([`super::for_each`]); this one puts it here.
 //!
 //! # Every other method is absent
 //!
@@ -18,7 +21,7 @@
 //!
 //! # `this` is anything with a `length`
 //!
-//! The three are generic: `Array.prototype.values.call(arrayLike)` iterates an
+//! All four are generic: `Array.prototype.values.call(arrayLike)` iterates an
 //! object that is not an array. `ToObject(this)` comes first, so `null` and
 //! `undefined` are the `TypeError` the language specifies and a string — which
 //! is iterable through a wrapper this engine has not built — is
@@ -46,6 +49,7 @@ pub(super) fn furnish(objects: &mut Objects, intrinsics: &Intrinsics) -> Result<
     super::method(objects, on, functions, "keys", keys)?;
     super::method(objects, on, functions, "values", values)?;
     super::method(objects, on, functions, "entries", entries)?;
+    super::native_method(objects, on, functions, super::for_each::FOR_EACH)?;
     let key = intrinsics.well_known_key(objects, WellKnown::Iterator)?;
     super::alias(objects, on, "values", key)
 }
@@ -81,12 +85,12 @@ fn iterate(call: &mut Call<'_>, kind: Kind, name: &str) -> Result<Answer, Escape
     Ok(Answer::Value(Value::Object(iterator)))
 }
 
-/// `ToObject(this)`, with its three answers.
-fn object_of(call: &Call<'_>, name: &str) -> Result<Ref, Escape> {
+/// `ToObject(this)`, with its three answers, for the method called `name`.
+pub(super) fn object_of(call: &Call<'_>, name: &str) -> Result<Ref, Escape> {
     match call.this() {
         Value::Object(held) => Ok(held),
         Value::Undefined | Value::Null => Err(Escape::type_error(
-            format!("Array.prototype.{name} needs an object to iterate, and was given nothing"),
+            format!("Array.prototype.{name} needs an object to walk, and was given nothing"),
             call.at(),
         )),
         Value::Bool(_) | Value::Number(_) | Value::Text(_) | Value::Symbol(_) => {

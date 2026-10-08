@@ -42,6 +42,7 @@ use crate::regexp::flags::Flag;
 use crate::regexp::{Found as Match, Halt, Program, search};
 
 use super::Intrinsics;
+use super::array_like::to_length;
 
 /// The string argument was turned into a primitive by running script.
 const STRING_CONVERTED: u32 = 1;
@@ -490,14 +491,6 @@ fn halted(halt: Halt, at: usize) -> Escape {
 /// A primitive the interpreter answered, or this engine's own mistake.
 fn primitive(value: Value) -> Result<Primitive, Escape> {
     Primitive::of(value).ok_or(Escape::Broken(Internal::BuiltinIsWrong))
-}
-
-/// `ToLength`: a whole number from zero to 2⁵³−1, with `NaN` as zero.
-fn to_length(number: f64) -> f64 {
-    if number.is_nan() || number <= 0.0 {
-        return 0.0;
-    }
-    number.trunc().min(9_007_199_254_740_991.0)
 }
 
 /// A length as the index a search starts at: past the end of the string is

@@ -2910,7 +2910,9 @@ The long pole, and the thing most of section E is unreachable without.
   leaves the iterator completed so the next `next` is `{ value: undefined,
   done: true }`, and an array-like's `length` getter and `valueOf` each run
   once per `next`. Opened by a frozen real script that does it, and not
-  before.
+  before. *Reachable since iteration 209:* `for (const n of
+  document.querySelectorAll(…))` reaches the refusal, because a
+  `NodeList`'s `length` is a getter; no frozen page does it yet.
 
 - [x] **218. A builtin is a function this engine wrote, and `{}` has a
   `toString` of its own.** Cut from 73 on the iteration that started it, which
@@ -3367,7 +3369,7 @@ The long pole, and the thing most of section E is unreachable without.
   a fixed number of blocks, and its `calc()` stops at 16), so a value composed
   through several `var()`s cannot rebuild the depth this refuses.
 
-- [ ] **331. `Array.prototype.forEach`, and a `NodeList`'s iteration.**
+- [x] **331. `Array.prototype.forEach`, and a `NodeList`'s iteration.**
   *Cut from 329 (iteration 205).* `alo-downloads`' script now stops at
   `document.querySelectorAll(".btn[href]").forEach(…)`: Web IDL makes a
   `NodeList`'s `forEach`, `keys`, `values`, `entries` and
@@ -3395,6 +3397,31 @@ The long pole, and the thing most of section E is unreachable without.
   `Array.prototype`'s; and `alo-downloads`' script runs past `.forEach`
   and stops at its next missing member (`fetch`, item 75), named in
   `origin.txt`.
+  **Built (iteration 209).** `alo-js/src/builtin/for_each.rs`: a native
+  keeping two slots (`len`, `k`), asking for the `length` getter (with the
+  object as `this`), `ToPrimitive` of an object length, an element's
+  getter and the callback, each at its own step; `HasProperty` is
+  answered in place, so holes and inherited indices are as the
+  specification says; the callback check comes after the length; the
+  embedder's stop is asked on every pass. `builtin/array_like.rs` now
+  holds `ToLength` and an index's key for the iterator, `exec` and
+  `forEach` alike; `builtin::native_method` puts a native that keeps
+  slots on a prototype. `alo-bindings`' `define::array_iteration` puts the
+  realm's own `entries`, `keys`, `values`, `forEach` (enumerable) and
+  `values` under `Symbol.iterator` (not enumerable) on `NodeList.prototype`
+  — each checked to be the engine's native of that name — for every
+  interface `Interface::iterates_as_an_array` names. Tests:
+  `alo-js/tests/what_for_each_visits.rs` (nine tables, each both ways with
+  `Heap::check` after; the stop from another thread over 2⁵³ − 1 holes),
+  and `alo-bindings/tests/what_a_selector_finds.rs` (the four by `===`,
+  `[Symbol.iterator]` by the heap, enumerability, the page's own walk).
+  `alo-downloads` stops at "ReferenceError: 'fetch' is not defined (at
+  script 1, line 19, column 9; called from script 1, line 17, column 7)";
+  no reference moved. Checked by mutation: visiting holes fails the holes
+  table, and without the stop the 2⁵³ − 1 walk ran past sixty seconds and
+  was killed. *Left:* `for…of` over a `NodeList` reaches the array
+  iterator's refusal of a getter `length` (231), and `DOMTokenList`'s
+  iteration waits on its indexed getter (328).
 
 - [x] **332. The slots a builtin keeps.** *Cut from 331 (ADR 0031 §§ 1–5).*
   `Native` gains a declared slot count (at most `bounds::KEPT_BY_A_BUILTIN`,

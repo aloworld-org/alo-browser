@@ -13,11 +13,12 @@
 //!
 //! The indexed getter, `list[0]`, is the cell's own (`node_list.rs`).
 //!
-//! **Not here** (queue item 331): `forEach`, `keys`, `values`, `entries`
-//! and `[Symbol.iterator]`. Web IDL makes each of them **the very function**
-//! `Array.prototype` has under the same name, so a page can compare them
-//! with `===`; this engine's `Array.prototype` has no `forEach` yet, and a
-//! `NodeList` of its own would be the approximation ADR 0013 § 3 refuses.
+//! `forEach`, `keys`, `values`, `entries` and `[Symbol.iterator]` are not
+//! written here (queue item 331): Web IDL makes each of them **the very
+//! function** `Array.prototype` has under the same name, so a page can
+//! compare them with `===`, and `install` puts those on the prototype
+//! ([`crate::define::array_iteration`]). They walk the list through its
+//! `length` and its indices like any other array-like.
 
 use alo_js::abrupt::Internal;
 use alo_js::convert::{self, Hint, Primitive};

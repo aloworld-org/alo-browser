@@ -774,17 +774,25 @@ unreachable without it.
       `bounds::KEPT_BY_A_BUILTIN` (eight), reserved as `undefined` on the
       stack above the arguments and counted against its bound, read and
       written on the stack itself by `Call::kept` and `Call::keep`, and a
-      declaration over eight refused where the function is made; no
-      builtin of the library uses them yet
-      · Owed: `apply` (221) and `forEach` with a `NodeList`'s iterators
-      (331) on those slots; and the
+      declaration over eight refused where the function is made
+      · Built: **`Array.prototype.forEach`** (queue item 331), the first
+      builtin on those slots — `len` and `k` kept across every call, a
+      `length` or element behind a getter called and an object length
+      converted rather than refused, holes skipped, the embedder's stop
+      asked on every pass; and `alo-bindings` gives a `NodeList` the very
+      `forEach`, `keys`, `values`, `entries` and `[Symbol.iterator]` the
+      realm's `Array.prototype` has, so `alo-downloads` walks its buttons
+      and stops at `fetch` (item 75)
+      · Owed: `apply` (221) on those slots, and an array iterator over a
+      `length` behind a getter, which `for…of` over a `NodeList` reaches
+      and which is still refused by name (231); and the
       remaining library. `Error.prototype.toString` of a `message` that is
       a getter or an object is refused by name (item 228, on 221), and
       `AggregateError` is item 229. `Object` and `Function` themselves are
       constructors item 73 has not built; a
       function's own `name` and `length` and its source text are 220; the
       `Array` constructor, `Array.isArray` and every array method but the
-      three iterators, `Math`, `JSON`, the wrapper objects, the `Symbol`
+      three iterators and `forEach`, `Math`, `JSON`, the wrapper objects, the `Symbol`
       function and the other eleven well-known symbols, the iterator helpers
       and the weak collections are still item 73, which is what remains of it
 - [ ] Regular expressions, with the syntax the language actually has

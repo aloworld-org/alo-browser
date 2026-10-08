@@ -39,10 +39,12 @@ because no `Navigator` was built (item 325). Since iteration 203 it reads
 iteration 204 (item 327) it marks that system's card `.rec` — terracotta
 border and shadow — and shows its badge. Since iteration 205 (item 329)
 its `document.querySelectorAll(".btn[href]")` on line 17 finds the two
-download buttons, and it stops at the `.forEach(…)` called on them:
-`NodeList.prototype.forEach` is `Array.prototype.forEach`, which is not
-built (item 331). So no button is greyed out by the `fetch()` that checks
-whether an installer is hosted.
+download buttons. Since iteration 209 (item 331) the `.forEach(…)` called
+on them is `Array.prototype.forEach`, which walks them, and the script
+stops in its first callback, at line 19: "ReferenceError: 'fetch' is not
+defined", because `fetch` and the promises its `.then` needs are item 75.
+So no button is greyed out by the `fetch()` that checks whether an
+installer is hosted.
 `tests/alo_downloads.rs` pins where the script stops and which card is
 marked. The issues list does not show it, because issues.txt is what the
 markup and style made the engine say.
@@ -84,8 +86,12 @@ markup and style made the engine say.
   329).
 - **The script finds its buttons** — item 329, opened by this page. **Built
   (iteration 205):** `querySelectorAll` and a static `NodeList`; the two
-  buttons are found. The next stop is `forEach` (item 331), and after it
-  `fetch` and `.then` (item 75).
+  buttons are found. The next stop was `forEach` (item 331).
+- **The script walks its buttons** — item 331, cut from 329. **Built
+  (iteration 209):** `Array.prototype.forEach`, the first builtin that
+  keeps state across the calls it asks for (ADR 0031), and a `NodeList`'s
+  `forEach`, `keys`, `values`, `entries` and `[Symbol.iterator]` as those
+  very functions. The next stop is `fetch` and `.then` (item 75).
 
 Two things it asks for make no difference at this size and are not faults
 here: `text-wrap: balance` on a heading that fits on one line (item 104), and

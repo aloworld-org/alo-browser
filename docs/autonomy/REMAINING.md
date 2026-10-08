@@ -721,6 +721,16 @@ stack, and a native declaring nine is refused by `Objects::native`. 331
 depends on the length conversions from 73. 143 queue items are open. The
 next unused queue number is 333 and the next unused ADR 0032.
 
+Iteration 209 built item 331: `Array.prototype.forEach` keeps `len` and
+`k` in two slots, asks for a `length` getter, an object length's
+conversion, an element's getter and the callback, skips holes, and asks
+the embedder's stop on every pass. `alo-bindings` puts the realm's own
+`forEach`, `keys`, `values`, `entries` and `[Symbol.iterator]` on
+`NodeList.prototype`. `alo-downloads` walks its buttons and stops at
+`fetch` (item 75). `for…of` over a `NodeList` is refused by name at the
+list's getter `length` (231). 142 queue items are open. The next unused
+queue number is 333 and the next unused ADR 0032.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

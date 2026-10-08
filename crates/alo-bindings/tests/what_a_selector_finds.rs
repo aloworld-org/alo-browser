@@ -15,7 +15,8 @@ use alo_dom::parse_document;
 use alo_js::heap::Root;
 use alo_js::interpret::{Engine, Trouble};
 use alo_js::numeric;
-use alo_js::object::Value;
+use alo_js::object::symbol::WellKnown;
+use alo_js::object::{Found, Value};
 use alo_js::{Escape, script};
 
 const PAGE: &str = "<!DOCTYPE html><html><head></head><body>\
@@ -152,21 +153,120 @@ fn a_document_finds_its_descendants_in_tree_order() {
 }
 
 #[test]
-fn the_frozen_pages_query_finds_its_two_buttons_and_stops_at_for_each() {
-    // Line 17 of its script, up to the member it reaches next: the two
-    // download buttons, in tree order, and no `forEach` (queue item 331).
-    // The renderer reports both stops at the same place — the start of the
-    // call — so this is what says which one the page reaches.
+fn the_frozen_pages_query_finds_its_two_buttons_and_walks_them() {
+    // Line 17 of its script with the body of its callback's first line: the
+    // two download buttons, in tree order, each handed to `forEach`'s
+    // callback with its index (queue items 329 and 331). Its next line
+    // calls `fetch`, which is item 75's.
     assert_eq!(
         answer_on(
             DOWNLOADS,
-            "var list = document.querySelectorAll('.btn[href]'); \
-             list.length + ' ' + list[0].getAttribute('href') + ' ' + \
-             list[1].getAttribute('href') + ' ' + typeof list.forEach"
+            "var out = ''; \
+             document.querySelectorAll('.btn[href]').forEach(function (a, i) { \
+               var href = a.getAttribute('href'); out += i + href + ' '; }); \
+             out + typeof fetch"
         ),
-        "2 /download/alomails-windows-x64-setup.exe \
-         /download/alomails-mac-universal.dmg undefined"
+        "0/download/alomails-windows-x64-setup.exe \
+         1/download/alomails-mac-universal.dmg undefined"
     );
+}
+
+/// What an array iterator says on reaching a `length` behind a getter.
+const ITERATOR_REFUSES: &str = "! an array iterator reading an element or a length \
+                                through a getter or a conversion is queue item 231";
+
+#[test]
+fn a_node_list_is_walked_by_arrays_own_functions() {
+    let list = "var list = document.querySelectorAll('.btn');";
+    for (body, expected) in [
+        // Web IDL makes each the very function `Array.prototype` has.
+        (
+            "list.forEach === [].forEach && list.keys === [].keys && \
+             list.values === [].values && list.entries === [].entries",
+            "true",
+        ),
+        // On the prototype, enumerable as an operation is, and not the list's
+        // own.
+        ("list.hasOwnProperty('forEach')", "false"),
+        (
+            "list.__proto__.propertyIsEnumerable('forEach') && \
+             list.__proto__.propertyIsEnumerable('values')",
+            "true",
+        ),
+        // `forEach` reads the list's `length` through its getter once, then
+        // each index; `thisArg` is passed.
+        (
+            "var out = ''; list.forEach(function (a, i, l) { \
+               out += this.p + i + a.getAttribute('id') + (l === list) + ' '; }, { p: '#' }); out",
+            "#0a1true #1a2true #2b2true #3gtrue ",
+        ),
+        // `for…of` goes through `[Symbol.iterator]`, which is `values`, and
+        // its `next` reads the list's `length` — a getter, which an array
+        // iterator refuses by name until it keeps the state a call from
+        // inside it needs (queue item 231).
+        (
+            "var out = ''; for (var a of list) { out += a.getAttribute('id'); } out",
+            ITERATOR_REFUSES,
+        ),
+        (
+            "var out = ''; for (var k of list.keys()) { out += k; } out",
+            ITERATOR_REFUSES,
+        ),
+        // A throw from the callback ends the walk.
+        (
+            "var n = 0; try { list.forEach(function () { n++; throw 'x'; }); } catch (e) {} n",
+            "1",
+        ),
+        // An empty list calls nothing.
+        (
+            "var n = 0; document.querySelectorAll('.none').forEach(function () { n++; }); n",
+            "0",
+        ),
+        // `DOMTokenList` is not iterable yet (queue item 328).
+        ("typeof document.body.classList.forEach", "undefined"),
+    ] {
+        assert_eq!(answer(&format!("{list} {body}")), expected, "{body}");
+    }
+    assert_eq!(
+        thrown(&format!("{list} list.forEach(4)")),
+        "TypeError",
+        "a callback that is not a function"
+    );
+}
+
+#[test]
+fn a_node_lists_symbol_iterator_is_arrays_values() {
+    let Ok(mut page) = Page::new(PAGE, false) else {
+        panic!("the page installs");
+    };
+    let mut prototype_of = |source: &str| {
+        let Ok(program) = script(source) else {
+            panic!("{source} parses");
+        };
+        match page.engine.evaluate(&program) {
+            Ok(Value::Object(held)) => held,
+            other => panic!("{source}: {other:?}"),
+        }
+    };
+    let nodes = prototype_of("document.querySelectorAll('a').__proto__");
+    let arrays = prototype_of("[].__proto__");
+    let Ok(symbol) = page.engine.well_known(WellKnown::Iterator) else {
+        panic!("the realm has Symbol.iterator");
+    };
+    let objects = page.engine.objects();
+    let Ok(key) = objects.symbol_key(symbol) else {
+        panic!("a symbol is a key");
+    };
+    let (Ok(Found::Value(on_nodes)), Ok(Found::Value(on_arrays))) =
+        (objects.get(nodes, key), objects.get(arrays, key))
+    else {
+        panic!("both have [Symbol.iterator] as a data property");
+    };
+    assert_eq!(on_nodes, on_arrays, "the very function");
+    let Ok(Some(property)) = objects.own_property(nodes, key) else {
+        panic!("NodeList.prototype has its own");
+    };
+    assert!(property.is_writable() && !property.is_enumerable() && property.is_configurable());
 }
 
 #[test]
@@ -298,8 +398,8 @@ fn a_node_list_answers_its_indices_and_its_length() {
         ("list[9] = 1; list[9]", "undefined"),
         ("delete list[9]", "true"),
         // `for…in` over the indices is item 211's, which builds `for…in`.
-        // `forEach` and the iterators are queue item 331's.
-        ("typeof list.forEach", "undefined"),
+        // `forEach` and the iterators are `Array.prototype`'s (queue item
+        // 331), which `a_node_list_is_walked_by_arrays_own_functions` checks.
         ("typeof document.querySelector", "undefined"),
     ] {
         assert_eq!(answer(&format!("{list} {body}")), expected, "{body}");
