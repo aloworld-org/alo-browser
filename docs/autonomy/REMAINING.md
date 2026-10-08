@@ -652,6 +652,16 @@ now stops at `navigator`, which opened 325 (`Navigator`, needing an ADR on
 what it says). 322, 323 and 324 are eligible. 142 queue items are open. The
 next unused queue number is 326 and the next unused ADR 0030.
 
+Iteration 201 decided item 325 in ADR 0030: the browser names itself
+(`Mozilla/5.0 (<system token>) alo/<major>.<minor>`), claims no other
+engine, freezes one token per kind of system at compile time and measures
+nothing about the machine. The string is both the `User-Agent` header and
+`navigator.userAgent`, composed once in `alo-net` and told to the renderer
+in `Page`; the compatibility mode is Gecko. 326 (the header) was opened and
+depends on nothing; 325 now depends on it. 322 and 324 are reached by no
+frozen page, and 323 waits on 73. 143 queue items are open. The next unused
+queue number is 327 and the next unused ADR 0031.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

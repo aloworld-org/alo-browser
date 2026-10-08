@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **What the browser says about itself is decided.** ADR 0030 says it
+  names itself, `alo/` and its version, and does not pretend to be Chrome or
+  Safari. The string is the same for everyone on the same release and kind
+  of computer: it says Mac, Windows or Linux and nothing more, not the
+  system version and not the processor. Websites will receive it as the
+  `User-Agent` header, which this browser has not sent until now, and a
+  page's script will read the same words from `navigator.userAgent`. It does
+  not change when alo's agent is the one acting. alo's download page needs
+  this to show visitors the installer for their computer. Nothing is built
+  yet.
+
 - **Regular expressions work.** A script can now write `/Mac/.test(p)` and
   get the answer, with the pattern features modern code uses: named groups,
   looking behind, Unicode mode, and the flags that make a search global,

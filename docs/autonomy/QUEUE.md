@@ -3170,10 +3170,37 @@ The long pole, and the thing most of section E is unreachable without.
   values need a decision about what this browser says about itself, not a
   copy of another browser's. Item 318's `pdfViewerEnabled`, `plugins` and
   `mimeTypes` hang off the same object.
-  *Depends on the window's globals (`alo-bindings`). **Needs ADR** on the
-  strings it answers before code. Closes when:* `alo-downloads`' script runs
-  past its fifth line in the renderer and the card it marks matches the
-  platform the browser says it is, in the box tree and the reference render.
+  **Decided in ADR 0030 (iteration 201).** The browser names itself and
+  claims no other engine: `Mozilla/5.0 (<system token>) alo/<major>.<minor>`,
+  one frozen token per kind of system chosen at compile time (`Macintosh;
+  Intel Mac OS X 10_15_7`, `Windows NT 10.0; Win64; x64`, `X11; Linux
+  x86_64`), nothing measured about the machine. The same string is the
+  `User-Agent` header (326) and `navigator.userAgent`, composed in one file
+  in `alo-net` and told to the renderer in `Page`. The compatibility mode is
+  Gecko: `vendor` empty, `productSub` `"20100101"`, `appVersion` by HTML's
+  Gecko steps, `taintEnabled()` false and `oscpu` empty; `platform` is
+  `MacIntel`, `Win32` or `Linux x86_64`. Until item 251, `navigator` is a
+  data property on the global object, as `document` is.
+  *Depends on 326 and on the window's globals (`alo-bindings`). Closes
+  when:* `alo-downloads`' script runs past its fifth line in the renderer
+  and the card it marks matches the platform the browser says it is, in the
+  box tree and the reference render, and every member in ADR 0030 § 5's
+  table answers what it says.
+
+- [ ] **326. The `User-Agent` header.** *Cut from 325 (ADR 0030 §§ 1–4,
+  7).* This engine sends no `User-Agent` today (`csp_report.rs` says so on
+  purpose). One file in `alo-net` composes ADR 0030's string and platform
+  from the system the binary is built for, and refuses to compile for a
+  system with no row in § 2's table. `write_request` and HTTP/2's header
+  block send it unless the request already has a `User-Agent`, as
+  `Accept-Encoding` is left to a caller who set it, and the Reporting API
+  envelope in `csp_report.rs` carries it. *Depends on nothing. Closes
+  when:* a request written for HTTP/1.1 and one for HTTP/2 each carry
+  exactly one `User-Agent` equal to the composed string; a request that set
+  its own keeps it and gains no second one; a test asserts the string has
+  no other engine's token (`AppleWebKit`, `KHTML`, `Chrome`, `Safari`,
+  `Gecko/`, `Firefox`) and no patch version; and a CSP report's
+  `user_agent` is the same string.
 
 - [ ] **75. Promises, `async`/`await`, generators and iterators.**
   *Depends on 72, 76.* **Item 230 took the iteration protocol `for…of` reads**
@@ -6515,8 +6542,8 @@ What stage 2's exit gate actually measures: a person using it.
   load as a page, so the type decides. Hostile names, types and lengths are
   refused, never a panic.
 - [ ] **318. `navigator.pdfViewerEnabled`, `navigator.plugins` and
-  `navigator.mimeTypes`.** *Cut from 124 (ADR 0028 § 5). Depends on a
-  `Navigator` interface, which no item builds yet. Opened by* a page that
+  `navigator.mimeTypes`.** *Cut from 124 (ADR 0028 § 5). Depends on 325,
+  which builds the `Navigator` interface (ADR 0030). Opened by* a page that
   reads one of them. *Closes when:* `pdfViewerEnabled` is `false` and both
   lists are empty, in a frozen page's script.
 - [ ] **125. Private browsing, and profiles that are genuinely separate.**

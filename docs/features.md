@@ -446,6 +446,17 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (301–306)
 - [2] Workers: dedicated, shared, and service workers with their fetch interception
 - [2] Timers, clipboard, drag and drop
+- [2] `navigator`, and what the browser says it is. Decided in ADR 0030 and
+  not built: the browser names itself, `alo/` and its version, and claims to
+  be no other browser. Its string is the same on every machine running the
+  same release on the same kind of system, with one frozen token per system
+  (`Macintosh`, `Windows`, `Linux`) and nothing measured about the machine:
+  no system version, no processor. The same string is sent as the
+  `User-Agent` header and answered by `navigator.userAgent`, so a page and
+  its server never disagree about which browser they are on, and it is the
+  same whether a person or alo's agent is acting. `navigator.platform` says
+  only the kind of system, which is what alo's download page reads to offer
+  the visitor the right installer. `vendor` names no company (326, 325)
 - [2] ★ **Permissions as capabilities** — camera, microphone, location, notifications, in the shape of `alo-os` ADR 0001: enumerated, visible, revocable, expiring, recorded. A browser is where most people meet a permission prompt, and every other one is a dialogue nobody can audit afterwards.
   Decided in ADR 0026. Built: the grant table, `alo-grants` (307). It
   decides an ask, keeps the answers and ends them, revokes at once, records

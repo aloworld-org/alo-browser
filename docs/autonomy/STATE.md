@@ -18348,3 +18348,94 @@ coordinate verbs, the stop rule holding, the changelog changed.
 142 queue items are open: 74 closed, 325 opened. The next unused queue
 number is **326** and the next ADR is **0030**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 201 — queue item 325 decided: ADR 0030, the browser says what it is and nothing about the machine
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2 §§ 1, 3
+and 4: a page opens an item, dependencies decide order, a decision is its
+own iteration), `ROADMAP.md` (its three states; *The network* and *The DOM,
+and the pages that use it*), iterations 197–200, `REMAINING.md`, queue items
+73, 74, 318 and 320–325 in full and every open item by its marks. ADRs read:
+0029 whole (for form and the 74 cut), 0019's decision and context, 0018's
+§ 4 heading and *does not decide*, 0028 § 4's `navigator` values. Code read:
+`alo-net`'s `http.rs` (`write_request`) and `csp_report.rs`'s note that the
+engine sends no `User-Agent`, `alo-renderer`'s `page.rs` (`Page::scheme`)
+and `message.rs`, `alo-bindings`' `install.rs` and the crates' dependencies.
+`docs/features.md`'s DOM and browser sections. HTML's *System state and
+capabilities* (the `Navigator` IDL, the navigator compatibility mode,
+`appVersion`'s Gecko steps, `oscpu`, the privacy note) and Fetch's *default
+`User-Agent` value* and the *should* that appends it were read on the web,
+not recalled. No `AGENTS.md` exists. The checkout was clean on entry at
+`b9a1a12`. No sibling repository was read or written.
+
+**Selection.** After 74, the open items with done dependencies are 320–325.
+In file order 322, 323 and 324 come first. 323 depends on `String.prototype`
+(item 73, open). 322 and 324 depend only on 74, but no frozen page uses `i`,
+`\p{…}`, the constructor, `v` or `d` (a search of every case's markup found
+none), and `LOOP.md` stage 2 § 3 says an item nothing makes reachable is left
+alone until something does. 325 is reached by `alo-downloads`' running
+script and is marked *needs ADR*, so by stage 2 § 4 its ADR is this
+iteration. 320 and 321 come after it in the file and stay eligible.
+
+**What was decided (ADR 0030).** No code changed.
+- The string is `Mozilla/5.0 (<system token>) alo/<major>.<minor>`
+  (`alo/0.0` today): this browser's own name, no other engine's tokens, no
+  patch version. `Mozilla/5.0 (` stays because HTML's `appVersion` reads the
+  string through it.
+- One frozen token per kind of system, chosen at compile time: macOS
+  `Macintosh; Intel Mac OS X 10_15_7` / `MacIntel`, Windows `Windows NT
+  10.0; Win64; x64` / `Win32`, Linux `X11; Linux x86_64` / `Linux x86_64`.
+  Nothing is measured at run time. A system with no row does not compile.
+- The same string is the `User-Agent` header on every request (unless the
+  request set one) and `navigator.userAgent`, so neither ships without the
+  other. The CSP report envelope then carries it too.
+- Composed in one file in `alo-net`; the renderer is told it in `Page`, as
+  it is told `scheme` (ADR 0005).
+- Navigator compatibility mode Gecko, the one whose `vendor` names no
+  company: § 5's table, with `taintEnabled()` false and `oscpu` empty.
+- The same answer whether a person or the agent acts (ADR 0018 § 4);
+  whether an agent announces itself is item 133's.
+- Not decided: `language`/`Accept-Language` (item 128), every other member
+  (by page, under the ADR's rule), `navigator.webdriver`, a per-site answer.
+
+**Queue.** 325 records the decision and now depends on **326**, opened:
+the `User-Agent` header, depending on nothing. 318 now depends on 325.
+Nothing was ticked.
+
+**Roadmap.** This iteration served **no roadmap line**, so `ROADMAP.md` is
+unchanged. No line names `Navigator` or a request's identifying headers:
+the HTTP line is about framing and pooling, and the DOM section's lines are
+events, forms, storage and the rest. Annotating one of them with a decision
+it does not describe would be decoration. `docs/features.md` gains the
+`navigator` line under the DOM, marked decided and not built.
+`CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Gate, mechanical.** No code changed; the build was warm. I ran
+`scripts/gate.sh` in the foreground into a log. It passed the tool's
+ten-minute ceiling and was moved to the background; I waited for it in the
+same turn and read the log. It exited 0 with "The gate is met.": fmt clean,
+clippy silent, tests passing under `set -euo pipefail`, no stubs, `unsafe`
+forbidden, licences present, every rented crate behind its boundary, no
+coordinate verbs, the stop rule holding, and no uncommitted code to judge.
+
+**Gate, manual.**
+- Layout assertions and reference renders: none apply. Nothing positions,
+  sizes or draws differently.
+- One responsibility per file: no source file changed. The ADR is one
+  decision; the header's file and its place are named for 326.
+- `docs/features.md` has the line before anything is built.
+
+**Unresolved obligations.**
+- Nothing of `navigator` or the header is built. 326 is eligible now and
+  comes before 325, which waits on it.
+- The ADR's claim that the three frozen tokens are what the major browsers
+  send is from knowledge of their current strings, not from a page frozen
+  here; § 2's *how we will know* covers a page that reads one differently.
+- 320 and 321 remain eligible. 322 and 324 wait for a page; 323 waits on
+  73. Still standing: 284, 311, 314 wait for pages; 296 needs a person;
+  297–300, 302, 304, 308; 126 and 132.
+- `scripts/gate.sh` still takes longer than ten minutes with a warm build.
+
+143 queue items are open: 326 opened, none closed. The next unused queue
+number is **327** and the next ADR is **0031**. This is one iteration, not
+a finished queue or roadmap.
