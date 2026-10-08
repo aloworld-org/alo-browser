@@ -62,6 +62,20 @@ pub struct Page {
     /// place ([`Page::stated`]); the browser process writes and posts the
     /// report (queue item 237, [`crate::violations`]).
     pub watching: Vec<String>,
+    /// The default `User-Agent` value: what the browser says it is (ADR 0030
+    /// §§ 1, 4).
+    ///
+    /// Composed by the browser process in `alo-net`, which sends it as the
+    /// header of every request, and **told** to the renderer so that
+    /// `navigator.userAgent` is that same string. A renderer never composes
+    /// it: a page whose script read one string while its server received
+    /// another would be a page whose two halves disagree about which browser
+    /// they are on.
+    pub user_agent: String,
+    /// What `navigator.platform` answers: the frozen value for the kind of
+    /// system the browser was built for (ADR 0030 § 2), told as the user
+    /// agent string is.
+    pub platform: String,
 }
 
 impl Page {
@@ -78,6 +92,8 @@ impl Page {
             scheme: ColorScheme::Light,
             policies: Vec::new(),
             watching: Vec::new(),
+            user_agent: alo_net::user_agent::user_agent(),
+            platform: alo_net::user_agent::platform().to_owned(),
         }
     }
 
@@ -146,6 +162,15 @@ impl Page {
         alo_net::Policies::stated_by(&headers)
     }
 
+    /// What the browser says it is, as `alo-bindings` is handed it when it
+    /// gives the page's script its globals.
+    pub fn identity(&self) -> alo_bindings::Identity<'_> {
+        alo_bindings::Identity {
+            user_agent: &self.user_agent,
+            platform: &self.platform,
+        }
+    }
+
     /// The same page in the dark.
     #[must_use]
     pub fn in_the_dark(mut self) -> Self {
@@ -178,6 +203,8 @@ impl Page {
                 .all("Content-Security-Policy-Report-Only")
                 .map(ToOwned::to_owned)
                 .collect(),
+            user_agent: alo_net::user_agent::user_agent(),
+            platform: alo_net::user_agent::platform().to_owned(),
         }
     }
 }

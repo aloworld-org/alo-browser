@@ -239,7 +239,7 @@ pub(crate) fn at_load(
                 continue;
             }
         };
-        let page_loop = match held.scripted(&page.url) {
+        let page_loop = match held.scripted(&page.url, page.identity()) {
             Ok(page_loop) => page_loop,
             Err(why) => {
                 said.script(number, &format!("not run: {why}"));

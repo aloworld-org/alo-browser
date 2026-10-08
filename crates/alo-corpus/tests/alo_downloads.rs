@@ -12,11 +12,12 @@
 //!
 //! It also pins what the page's script does today, because that is what
 //! the render shows. Until item 74 it was refused at its first regular
-//! expression; now it compiles, four patterns and all, and stops at its
-//! second line, `navigator.platform`, because no `Navigator` is built yet
-//! (item 325). So neither card is marked as the visitor's and no button is
-//! greyed, as before. `alo-js`'s `a_frozen_page_tests_its_platform.rs`
-//! runs the page's patterns under a stand-in `navigator`.
+//! expression, and until item 325 it stopped at its second line,
+//! `navigator.platform`. Now it reads the `navigator` the browser was told,
+//! finds the system in its first five lines, and stops at the first line
+//! that marks a card, `document.getElementById(…)`, which is not built
+//! (item 327). So neither card is marked as the visitor's and no button is
+//! greyed, as before.
 
 use alo_corpus::{Case, Rendering, cases_directory, corpus_fonts};
 use alo_layout::Rect;
@@ -120,27 +121,54 @@ fn each_br_in_the_note_ends_its_line() {
     );
 }
 
+/// ADR 0030 § 2's rows, and the line and column where the page's script
+/// stops for each: the first `document.getElementById(…)` of the branch its
+/// first five lines chose — `card-mac` on line 8, `card-win` on line 11 — or,
+/// on Linux, where neither branch runs, the `querySelectorAll` that greys
+/// the buttons, on line 17.
+const SYSTEMS: [(&str, &str, &str); 3] = [
+    (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) alo/0.0",
+        "MacIntel",
+        "line 8, column 9",
+    ),
+    (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) alo/0.0",
+        "Win32",
+        "line 11, column 9",
+    ),
+    (
+        "Mozilla/5.0 (X11; Linux x86_64) alo/0.0",
+        "Linux x86_64",
+        "line 17, column 7",
+    ),
+];
+
 #[test]
-fn the_pages_script_compiles_and_stops_at_navigator() {
+fn the_pages_script_reads_navigator_and_stops_at_marking_a_card() {
     let Some(case) = Case::read(&cases_directory().join("alo-downloads")) else {
         panic!("the case is read");
     };
-    let mut renderer = Renderer::new(corpus_fonts());
-    let page = Page::new(case.html.clone(), alo_layout::Size::new(800.0, 760.0));
-    let FromRenderer::Loaded { issues, .. } = renderer.handle(ToRenderer::Load(Box::new(page)))
-    else {
-        panic!("the page loads");
-    };
-    assert!(
-        !issues
-            .iter()
-            .any(|issue| issue.contains("regular expression")),
-        "no pattern is refused any more: {issues:?}",
-    );
-    assert!(
-        issues
-            .iter()
-            .any(|issue| issue.contains("'navigator' is not defined")),
-        "{issues:?}",
-    );
+    for (user_agent, platform, stopped) in SYSTEMS {
+        let mut renderer = Renderer::new(corpus_fonts());
+        let mut page = Page::new(case.html.clone(), alo_layout::Size::new(800.0, 760.0));
+        page.user_agent = user_agent.to_owned();
+        page.platform = platform.to_owned();
+        let FromRenderer::Loaded { issues, .. } = renderer.handle(ToRenderer::Load(Box::new(page)))
+        else {
+            panic!("the page loads");
+        };
+        assert!(
+            !issues
+                .iter()
+                .any(|issue| issue.contains("regular expression") || issue.contains("navigator")),
+            "{platform}: {issues:?}",
+        );
+        assert!(
+            issues.iter().any(|issue| issue.contains(&format!(
+                "uncaught: TypeError: undefined is not a function (at script 1, {stopped})"
+            ))),
+            "{platform}: {issues:?}",
+        );
+    }
 }

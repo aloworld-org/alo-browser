@@ -79,6 +79,8 @@ fn asking_for(family: &str) -> ToRenderer {
         scheme: ColorScheme::Light,
         policies: Vec::new(),
         watching: Vec::new(),
+        user_agent: alo_net::user_agent::user_agent(),
+        platform: alo_net::user_agent::platform().to_owned(),
     }))
 }
 

@@ -61,6 +61,8 @@ fn a_page() -> ToRenderer {
         scheme: ColorScheme::Light,
         policies: Vec::new(),
         watching: Vec::new(),
+        user_agent: alo_net::user_agent::user_agent(),
+        platform: alo_net::user_agent::platform().to_owned(),
     }))
 }
 
@@ -411,6 +413,8 @@ fn a_page_is_drawn_with_a_font_that_came_from_this_machine() {
             scheme: ColorScheme::Light,
             policies: Vec::new(),
             watching: Vec::new(),
+            user_agent: alo_net::user_agent::user_agent(),
+            platform: alo_net::user_agent::platform().to_owned(),
         })),
     );
     assert!(

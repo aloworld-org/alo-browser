@@ -25,7 +25,7 @@
 use std::thread;
 use std::time::Duration;
 
-use alo_bindings::{Fired, Firing};
+use alo_bindings::{Fired, Firing, Identity};
 use alo_dom::{NodeId, parse_document};
 use alo_js::interpret::Trouble;
 use alo_js::{Value, script};
@@ -34,6 +34,12 @@ use alo_renderer::event_loop::{MOST_REPORTS, Stopped, Unqueued};
 use alo_renderer::held::Held;
 
 /// A `div` holding a `button`, nothing between them.
+/// What the browser says it is; nothing here reads it.
+const IDENTITY: Identity<'static> = Identity {
+    user_agent: "Mozilla/5.0 (X11; Linux x86_64) alo/0.0",
+    platform: "Linux x86_64",
+};
+
 const PAGE: &str = "<!doctype html><body><div><button>Go</button></div></body>";
 
 /// What every setup script starts with: `out`, and the two elements by name.
@@ -67,7 +73,7 @@ impl Page {
         let button = document.first_child(outer).ok_or("no button")?;
         let mut held = Held::Parsed(document);
         let looping = held
-            .scripted(&alo_url::Url::about_blank())
+            .scripted(&alo_url::Url::about_blank(), IDENTITY)
             .map_err(|why| why.to_string())?;
         looping.engine().objects().heap_mut().stress(stress);
         let mut page = Self {
@@ -458,7 +464,7 @@ fn a_target_with_no_wrapper_is_given_one_and_its_ancestors_listeners_hear() {
             panic!("the div has a button");
         };
         let mut held = Held::Parsed(document);
-        let Ok(looping) = held.scripted(&alo_url::Url::about_blank()) else {
+        let Ok(looping) = held.scripted(&alo_url::Url::about_blank(), IDENTITY) else {
             panic!("an empty heap takes the page");
         };
         looping.engine().objects().heap_mut().stress(stress);

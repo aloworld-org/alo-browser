@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's script can ask which browser it is on.** `navigator.userAgent`
+  answers the same words the browser sends to websites, and
+  `navigator.platform` says Mac, Windows or Linux, as decided in ADR 0030.
+  The other old members pages still read, such as `appVersion` and
+  `vendor`, answer what that decision says, and `vendor` names no company.
+  alo's download page now gets far enough to work out which computer the
+  visitor has. Highlighting the right download button needs more of the
+  page's own elements to be reachable from script, which comes next.
+
 - **The browser now says which browser it is.** Every request it makes,
   over either version of HTTP, carries a `User-Agent` header naming alo and
   its version, and the kind of computer it runs on: Mac, Windows or Linux,

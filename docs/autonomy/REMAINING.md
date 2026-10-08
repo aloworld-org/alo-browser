@@ -669,6 +669,15 @@ unless the caller set its own, and a Reporting API envelope carries it as
 `user_agent`. 325 (`navigator`) is now eligible. 142 queue items are open.
 The next unused queue number is 327 and the next unused ADR 0031.
 
+Iteration 203 built item 325's `navigator`: `Page` carries the user agent
+string and platform `alo-net` composes, the wire carries them, and
+`alo-bindings` installs a `Navigator` answering every member of ADR 0030
+§ 5. `alo-downloads`' script runs past its fifth line and stops at
+`getElementById`; marking the card was cut to 327 (`getElementById`,
+`hidden`, `classList`), which 325's last clause now waits on. 327 is
+eligible. 143 queue items are open. The next unused queue number is 328
+and the next unused ADR 0031.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

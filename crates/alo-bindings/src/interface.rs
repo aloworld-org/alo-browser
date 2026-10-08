@@ -54,6 +54,13 @@
 //! browser's own dispatch (queue item 255) finds them where a node's native
 //! finds `Element.prototype`.
 //!
+//! # `Navigator` is the browser, not a node
+//!
+//! `Navigator` (ADR 0030, queue item 325) inherits from `Object.prototype`
+//! and is the one interface here whose instance is neither a node nor an
+//! event: the page's one [`crate::Navigator`], made by
+//! [`crate::introduce`].
+//!
 //! # An unforgeable member is on the instance
 //!
 //! Web IDL puts a `[LegacyUnforgeable]` attribute on **every instance**
@@ -85,6 +92,7 @@ pub mod event_target;
 pub mod html_element;
 pub mod input_event;
 pub mod mouse_event;
+pub mod navigator;
 pub mod node;
 pub mod pointer_event;
 pub mod ui_event;
@@ -136,6 +144,8 @@ pub enum Interface {
     PointerEvent,
     /// What text going into a field fires (queue item 257).
     InputEvent,
+    /// What the browser says it is (ADR 0030, queue item 325).
+    Navigator,
 }
 
 /// What an interface's prototype inherits from.
@@ -152,7 +162,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 18] = [
+    pub const ALL: [Self; 19] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -171,6 +181,7 @@ impl Interface {
         Self::PointerEvent,
         Self::HtmlElement,
         Self::InputEvent,
+        Self::Navigator,
     ];
 
     /// Its name, as the standard spells it.
@@ -194,13 +205,14 @@ impl Interface {
             Self::PointerEvent => "PointerEvent",
             Self::HtmlElement => "HTMLElement",
             Self::InputEvent => "InputEvent",
+            Self::Navigator => "Navigator",
         }
     }
 
     /// What its prototype inherits from.
     pub const fn inherits(self) -> Inherits {
         match self {
-            Self::EventTarget | Self::Event => Inherits::Object,
+            Self::EventTarget | Self::Event | Self::Navigator => Inherits::Object,
             Self::Node => Inherits::Interface(Self::EventTarget),
             Self::CustomEvent | Self::UiEvent => Inherits::Interface(Self::Event),
             Self::MouseEvent | Self::InputEvent => Inherits::Interface(Self::UiEvent),
@@ -255,6 +267,7 @@ impl Interface {
             Self::PointerEvent => 15,
             Self::HtmlElement => 16,
             Self::InputEvent => 17,
+            Self::Navigator => 18,
         }
     }
 
@@ -308,6 +321,7 @@ impl Interface {
             Self::MouseEvent => mouse_event::furnish(objects, prototype, function_prototype),
             Self::PointerEvent => pointer_event::furnish(objects, prototype, function_prototype),
             Self::InputEvent => input_event::furnish(objects, prototype, function_prototype),
+            Self::Navigator => navigator::furnish(objects, prototype, function_prototype),
             Self::Node => node::furnish(objects, prototype, function_prototype),
             Self::Element => element::furnish(objects, prototype, function_prototype),
             Self::HtmlElement => html_element::furnish(objects, prototype, function_prototype),

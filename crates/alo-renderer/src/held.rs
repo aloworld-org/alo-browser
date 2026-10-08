@@ -47,7 +47,9 @@
 use core::fmt;
 
 use alo_bindings::navigating::{self, By, Ongoing};
-use alo_bindings::{Firing, Unadopted, adopt, change_document, document, install};
+use alo_bindings::{
+    Firing, Identity, Unadopted, adopt, change_document, document, install, introduce,
+};
 use alo_dom::{Document, NodeId};
 use alo_js::Escape;
 use alo_js::heap::{Ref, Root};
@@ -234,8 +236,9 @@ impl Held {
     }
 
     /// The page's event loop, making it — and moving the document into its
-    /// heap, at `url`, with `document` on its global object — if no script
-    /// has run yet.
+    /// heap, at `url`, with `document` on its global object and `navigator`
+    /// saying what `identity` says (ADR 0030 § 4) — if no script has run
+    /// yet.
     ///
     /// **Called when the page's first script is about to run**, and not
     /// before: a page none of whose scripts may run never builds a heap.
@@ -245,7 +248,11 @@ impl Held {
     /// [`NoScript`] if the page cannot run script. Its document stays where
     /// it was readable from — handed back when the heap refused it, in the
     /// heap when it was adopted and its interfaces could not be made.
-    pub fn scripted(&mut self, url: &Url) -> Result<&mut EventLoop, NoScript> {
+    pub fn scripted(
+        &mut self,
+        url: &Url,
+        identity: Identity<'_>,
+    ) -> Result<&mut EventLoop, NoScript> {
         if let Held::Parsed(parsed) = self {
             let mut script = EventLoop::new().map_err(NoScript::Engine)?;
             let taken = core::mem::take(parsed);
@@ -264,7 +271,8 @@ impl Held {
             // cell only if `adopt` made something else, which it does not.
             navigating::locate(engine.objects(), made, url.clone());
             let cell = engine.objects().heap_mut().root(made);
-            let installed = install(engine, made);
+            let installed =
+                install(engine, made).and_then(|_| introduce(engine, made, identity).map(drop));
             *self = Held::Scripted(Box::new(Scripted { script, cell }));
             installed.map_err(NoScript::Engine)?;
         }

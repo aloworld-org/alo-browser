@@ -25,7 +25,10 @@ item 74 the script was refused before it ran — "a regular expression
 literal is not built yet — queue item 74 builds it (at byte 144)", the
 `/Mac/` in its third line. Since iteration 200 it compiles, and it stops
 at its second line instead: "ReferenceError: 'navigator' is not defined",
-because no `Navigator` is built (item 325). Either way the page is drawn as
+because no `Navigator` was built (item 325). Since iteration 203 it reads
+`navigator`, finds the system in its first five lines, and stops at the
+first line that marks a card, `document.getElementById(…)` (item 327).
+Each way the page is drawn as
 its markup: neither card marked as the visitor's (`.rec` and the hidden
 "Your device" badge), and neither button greyed out by the `fetch()` that
 checks whether an installer is hosted. `tests/alo_downloads.rs` pins where
@@ -60,7 +63,9 @@ it, because issues.txt is what the markup and style made the engine say.
   its first five lines — four patterns — under a stand-in `navigator` and
   gets `isMac` and `isWin` right for a Mac, Windows and Linux.
 - **The script reads `navigator`** — item 325, opened by this page. Its
-  second line is `navigator.platform || ""`, and there is no `Navigator`.
+  second line is `navigator.platform || ""`, and there was no `Navigator`.
+  **Built by item 325 (iteration 203):** it reads what the browser was
+  told, and the next stop is `getElementById` and `classList` (item 327).
 
 Two things it asks for make no difference at this size and are not faults
 here: `text-wrap: balance` on a heading that fits on one line (item 104), and

@@ -93,6 +93,9 @@ fn every_message_to_a_renderer_survives_the_crossing() {
                 "default-src 'none'".to_owned(),
             ],
             watching: vec!["script-src 'none'; report-uri /csp".to_owned()],
+            // Not this build's, so a reader that made up its own would show.
+            user_agent: "Mozilla/5.0 (X11; Linux x86_64) alo/9.9".to_owned(),
+            platform: "Linux x86_64".to_owned(),
         })),
         ToRenderer::Resize(Size {
             width: 320.5,

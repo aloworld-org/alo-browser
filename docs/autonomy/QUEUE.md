@@ -3181,11 +3181,56 @@ The long pole, and the thing most of section E is unreachable without.
   Gecko steps, `taintEnabled()` false and `oscpu` empty; `platform` is
   `MacIntel`, `Win32` or `Linux x86_64`. Until item 251, `navigator` is a
   data property on the global object, as `document` is.
-  *Depends on 326 and on the window's globals (`alo-bindings`). Closes
-  when:* `alo-downloads`' script runs past its fifth line in the renderer
+  *Depends on 326, on the window's globals (`alo-bindings`) and, for its
+  last clause, on 327. Closes when:* `alo-downloads`' script runs past its fifth line in the renderer
   and the card it marks matches the platform the browser says it is, in the
   box tree and the reference render, and every member in ADR 0030 § 5's
   table answers what it says.
+  **Built (iteration 203).** `Page` carries `user_agent` and `platform`,
+  filled from `alo-net::user_agent` by the browser process and sent across
+  the wire with the page; `Held::scripted` hands them to `alo-bindings` as an
+  `Identity`, and `introduce` puts the page's `Navigator` on the global
+  object as a writable, configurable data property (`[Replaceable]`, until
+  item 251). `Navigator` is an interface of its own in the document cell's
+  list, inheriting `Object.prototype`, its members one file
+  (`interface/navigator.rs`): every row of § 5, `appVersion` by HTML's
+  Gecko steps over the told string (`navigator.rs`), each behind the brand
+  check. **Met:** every member answers § 5's table for all three systems,
+  with the collector at every allocation (`alo-bindings`'
+  `what_a_page_is_told_the_browser_is.rs`); a page reads exactly the
+  string `alo-net` sends, and one told otherwise answers what it was told
+  after the wire (`alo-renderer`'s `a_page_is_told_the_browser.rs`); and
+  `alo-downloads`' script runs past its fifth line in the renderer, its
+  first five finding the Mac, Windows or neither as told
+  (`alo_downloads.rs`). **Not met:** the card marked in the box tree and
+  the reference render. The script's next line,
+  `document.getElementById("card-mac").classList.add("rec")`, is DOM the
+  page needs and `navigator` is not — **cut to 327**, which this item now
+  depends on for its last clause.
+
+- [ ] **327. `getElementById`, `hidden` and `classList`: what marks
+  `alo-downloads`' card.** *Cut from 325 (iteration 203).* The page's
+  script now reads `navigator`, finds the system, and stops at line 8,
+  `document.getElementById("card-mac").classList.add("rec")` — "undefined
+  is not a function" — and then sets `badge-mac`'s `hidden` to `false`.
+  `Document.getElementById` (the first element in tree order with that
+  `id`, `null` for none); `HTMLElement.hidden`, HTML's reflection
+  (`true`, `false`, or `"until-found"`; setting `false` removes the
+  attribute); and `Element.classList`, a `DOMTokenList` — `[SameObject]`,
+  live over the `class` attribute — with at least `add` (an empty token a
+  `SyntaxError`, one with whitespace an `InvalidCharacterError`, both
+  `DOMException`s; the ordered set written back through `alo-dom`), and
+  `contains`, `remove` and `toggle` if they fit, cut again by name if not.
+  **The corpus must say which system it renders as** once the render
+  depends on it: `Rendering::of` uses `Page::new`, which is this machine's
+  identity, so a Mac and a Linux machine would draw different references.
+  The case states one row of ADR 0030 § 2 (its `origin.txt` says which),
+  and a test checks the other two in the box tree.
+  *Depends on 325's built part. Closes when:* a table of `getElementById`,
+  `hidden` and `classList` results matches the standards, each refusal is
+  the right `DOMException`, and `alo-downloads` renders with the stated
+  system's card marked `.rec` and its badge shown, in the box tree and the
+  reference render — which then closes 325.
 
 - [x] **326. The `User-Agent` header.** *Cut from 325 (ADR 0030 §§ 1–4,
   7).* This engine sends no `User-Agent` today (`csp_report.rs` says so on

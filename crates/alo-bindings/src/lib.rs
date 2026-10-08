@@ -44,6 +44,10 @@
 //!   prototypes in an engine's realm and puts the document on its global
 //!   object as `document`; [`furnish()`] makes them without the global, for a
 //!   second document.
+//! - [`introduce()`] puts the page's [`Navigator`] on the global object as
+//!   `navigator` (ADR 0030, queue item 325): the user agent string and the
+//!   platform the browser process told the renderer, as an [`Identity`], and
+//!   nothing this crate composes.
 //!
 //! # What is not here yet
 //!
@@ -80,6 +84,7 @@ pub mod interface;
 pub mod listeners;
 pub mod liveness;
 pub mod navigating;
+pub mod navigator;
 mod scripted;
 pub mod tree;
 mod unforgeable;
@@ -91,4 +96,5 @@ pub use event::{Event, Fired, Firing, Shape};
 pub use install::{furnish, install};
 pub use interface::dom_exception::DomException;
 pub use interface::{Interface, Interfaces, prototype_of};
+pub use navigator::{Identity, Navigator, introduce};
 pub use wrapper::Wrapper;

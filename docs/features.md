@@ -448,7 +448,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] Timers, clipboard, drag and drop
 - [2] `navigator`, and what the browser says it is. Decided in ADR 0030.
   Built: the `User-Agent` header, on every request over HTTP/1.1 and HTTP/2
-  and in a CSP report's envelope (326). Not built: `navigator` itself (325).
+  and in a CSP report's envelope (326), and `navigator` with every member
+  of ADR 0030 § 5, answering what the browser process told the renderer
+  (325). alo's download page now reads it and finds the visitor's system;
+  marking the card waits on `getElementById` and `classList` (327).
   The browser names itself, `alo/` and its version, and claims to
   be no other browser. Its string is the same on every machine running the
   same release on the same kind of system, with one frozen token per system

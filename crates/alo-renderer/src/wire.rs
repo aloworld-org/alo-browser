@@ -281,6 +281,8 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             for policy in &page.watching {
                 writer.text(policy);
             }
+            writer.text(&page.user_agent);
+            writer.text(&page.platform);
         }
         ToRenderer::Resize(size) => {
             writer.tag(1);
@@ -949,6 +951,8 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
             for _ in 0..how_many {
                 watching.push(reader.text()?);
             }
+            let user_agent = reader.text()?;
+            let platform = reader.text()?;
             ToRenderer::Load(Box::new(Page {
                 url,
                 html,
@@ -957,6 +961,8 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
                 scheme,
                 policies,
                 watching,
+                user_agent,
+                platform,
             }))
         }
         1 => ToRenderer::Resize(Size {

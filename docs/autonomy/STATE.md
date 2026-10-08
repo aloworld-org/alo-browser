@@ -18529,3 +18529,114 @@ holding, the changelog changed.
 142 queue items are open: 326 closed. The next unused queue number is
 **327** and the next ADR is **0031**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 203 — queue item 325: `navigator` built; marking the card cut to 327
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2 §§ 1–3:
+a frozen page decides, bytes from outside answered with errors,
+dependencies decide order; step 3's *cut scope, never depth*), `ROADMAP.md`
+(its three states; the DOM section), iterations 201 and 202, queue items
+325, 326 and 74, ADR 0030 whole, and HTML's *System state and
+capabilities* for `appVersion`'s Gecko steps, `productSub`, `vendor`,
+`oscpu` and `taintEnabled`. `docs/features.md`'s `navigator` line. Code
+read: `alo-bindings`' `install.rs`, `interface.rs`, `define.rs`, `event.rs`
+and the `UIEvent`/`InputEvent` files; `alo-renderer`'s `page.rs`,
+`held.rs`, `scripts.rs` and `wire.rs`; `alo-net`'s `user_agent.rs`. No
+`AGENTS.md` exists. The checkout was clean on entry at `20035e1`. No
+sibling repository was read or written.
+
+**Selection.** 325's dependency 326 closed in iteration 202, and 325 comes
+before 320 and 321 in the file.
+
+**What was built.**
+- `Page` gains `user_agent` and `platform`, filled from
+  `alo-net::user_agent` by `Page::new` and `Page::from_response` (the
+  browser process's side), and carried across the wire after `watching`;
+  `Page::identity` hands them over as an `alo_bindings::Identity`.
+- `Held::scripted` takes the identity and, after `install`, calls the new
+  `alo_bindings::introduce`: the page's one `Navigator` (an embedder cell
+  holding the two told strings, `navigator.rs`) on the global object as a
+  writable, enumerable, configurable data property — `[Replaceable]`'s
+  observable behaviour until item 251 — refused if the global already has
+  one.
+- `Interface::Navigator`, inheriting `Object.prototype`, in the document
+  cell's list; its members in `interface/navigator.rs`: `appCodeName`,
+  `appName`, `appVersion`, `platform`, `product`, `productSub`,
+  `userAgent`, `vendor`, `vendorSub`, `oscpu` and `taintEnabled()`, each
+  behind the brand check. `appVersion` is HTML's Gecko steps over the told
+  string, computed in bindings rather than sent, so it cannot disagree.
+
+**Closing conditions.**
+- *Every member in § 5's table answers what it says*: **met**, for all
+  three rows, with the collector at every allocation
+  (`alo-bindings/tests/what_a_page_is_told_the_browser_is.rs`, 7 tests:
+  the table, a told string answered as told and `appVersion` empty for a
+  string HTML does not read, the page's first five lines finding mac/win/
+  neither, `[Replaceable]` assignment and deletion, undecided members
+  absent, every getter's and `taintEnabled`'s brand check a `TypeError`,
+  a second `introduce` refused with the first standing).
+- A page reads exactly the string `alo-net` sends, and a page told another
+  answers it after crossing the wire
+  (`alo-renderer/tests/a_page_is_told_the_browser.rs`); the wire's
+  round-trip test carries the two new fields.
+- *`alo-downloads`' script runs past its fifth line in the renderer*:
+  **met**, for each of the three systems told explicitly
+  (`alo-corpus/tests/alo_downloads.rs`): it stops at line 8 (Mac), line 11
+  (Windows) or line 17 (Linux) on "undefined is not a function".
+- *The card it marks matches the platform, in the box tree and the
+  reference render*: **not met.** The next line is
+  `document.getElementById("card-mac").classList.add("rec")`, and
+  `getElementById`, `classList` (a `DOMTokenList`) and `hidden` are not
+  built. That is a DOM interface of its own, not `navigator`, so per
+  LOOP step 3 the scope was cut, not the depth: **327 opened** for those
+  three members and for pinning the corpus to one stated system (its
+  render will depend on the platform once the card is marked). 325 stays
+  **open**, unticked, its last clause depending on 327.
+
+**Roadmap.** This iteration served **no roadmap line**, so `ROADMAP.md` is
+unchanged — the same finding as iteration 201: no line names `Navigator`
+or the browser's identity, and the DOM section's lines are events, forms,
+navigation, storage and the rest. Writing a Built clause onto one of them
+would be decoration. `docs/features.md`'s `navigator` line says it is
+built and the card waits on 327. `CHANGELOG.md`, `REMAINING.md` and the
+case's `origin.txt` say the same.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` silent; the touched crates'
+tests passing; `cargo test --workspace --all-features --no-run` warmed. A
+standalone `cargo test --workspace --all-features` passed the tool's
+ten-minute limit, was moved to the background and stopped at the
+twenty-minute background limit; it reported nothing, and no result is
+claimed from it. `scripts/gate.sh` then ran with a two-hour bound into a
+log, waited for in this turn: exit 0, "The gate is met." — fmt clean,
+clippy silent, tests pass, nothing stubbed, `unsafe` forbidden, licences
+present, every rented crate behind its boundary, the changelog changed.
+
+**Gate, manual.**
+- Layout assertions and reference renders: none move. No corpus
+  `render.png`, `layout.txt` or `boxes.txt` changed: the script still
+  changes nothing in the document before it stops.
+- One responsibility per file: `navigator.rs` is the cell and its
+  introduction; `interface/navigator.rs` the prototype's members; the
+  renderer only carries and hands over what it was told.
+- Bytes from outside: the two strings arrive over the wire and are read by
+  the existing bounded `text()` reader; a truncated message stays an
+  `Unreadable`, covered by the wire's existing hostile tests. Nothing
+  indexes or does arithmetic on them; `app_version` uses `strip_prefix`
+  and `split`.
+- `docs/features.md` had the line before this was built.
+
+**Unresolved obligations.**
+- 325's last clause (the marked card) waits on 327, eligible now.
+- `alo-js`'s `a_frozen_page_tests_its_platform.rs` still runs the page's
+  lines under a stand-in `navigator`; it remains true and is now also
+  covered by the real one in `alo-bindings`.
+- 320 and 321 remain eligible. 322 and 324 wait for a page; 323 waits on
+  73. Still standing: 284, 311, 314 wait for pages; 296 needs a person;
+  297–300, 302, 304, 308; 126 and 132.
+- `scripts/gate.sh` and the workspace tests take longer than ten minutes;
+  a standalone test run can exceed the twenty-minute background limit.
+
+143 queue items are open: 327 opened, none closed. The next unused queue
+number is **328** and the next ADR is **0031**. This is one iteration, not
+a finished queue or roadmap.

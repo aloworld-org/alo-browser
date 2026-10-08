@@ -133,6 +133,8 @@ fn a_renderer_that_renders_was_confined_before_it_read_anything() {
             scheme: ColorScheme::Light,
             policies: Vec::new(),
             watching: Vec::new(),
+            user_agent: alo_net::user_agent::user_agent(),
+            platform: alo_net::user_agent::platform().to_owned(),
         })),
     );
     assert!(
