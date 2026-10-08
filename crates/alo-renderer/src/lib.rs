@@ -62,6 +62,7 @@ pub mod frame;
 pub mod generic;
 pub mod held;
 pub mod host;
+pub mod inline_style;
 pub mod message;
 pub mod navigate;
 pub mod page;

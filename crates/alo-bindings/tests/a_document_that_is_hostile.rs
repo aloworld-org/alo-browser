@@ -123,6 +123,14 @@ fn a_ring_wider_than_the_markers_room_is_kept_whole() {
             .collect();
         (list, items)
     });
+    // Twenty thousand elements are within reach of `COLLECT_AFTER` on their
+    // own, and a collection that ran part way through making the ring would
+    // be the one that rescanned. So one runs now, with the list held so that
+    // it survives, and making the ring is all the next collection is owed
+    // for. The list is let go before the collection this test is about.
+    let list_wrapper = ok!(wrap(&mut objects, cell, list, None));
+    let holding_list = objects.heap_mut().root(list_wrapper);
+    collect!(objects);
     let wrappers: Vec<Ref> = items
         .iter()
         .map(|item| ok!(wrap(&mut objects, cell, *item, None)))
@@ -131,6 +139,7 @@ fn a_ring_wider_than_the_markers_room_is_kept_whole() {
     // cell reports it, so the marker's room overflows, and only a rescan
     // reaches the first wrapper from the last.
     let held = objects.heap_mut().root(wrappers[width - 1]);
+    objects.heap_mut().release(holding_list);
 
     let rescans = objects.heap().rescans();
     collect!(objects);

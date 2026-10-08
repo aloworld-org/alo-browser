@@ -38,18 +38,9 @@
 //!
 //! # The nonce, and when markup cannot be trusted with one
 //!
-//! A nonce is a secret the page put in its header and on the elements it
-//! wrote, so it is worth exactly as much as the guarantee that *the page*
-//! wrote the element. Content Security Policy's *is element nonceable* names
-//! the two shapes in which an injection inherits a real element's nonce, and
-//! here an element in either shape presents **no nonce at all**:
-//!
-//! - an attribute whose name or value contains `<script` or `<style` — what a
-//!   dangling `<script src=… x="` leaves when it swallows the markup up to the
-//!   page's own `nonce`;
-//! - an attribute named twice in the tag, which the parser repairs by keeping
-//!   the first and so hides from the tree (see
-//!   [`crate::node::Element::had_duplicate_attributes`]).
+//! A script presents its `nonce` by Content Security Policy's *is element
+//! nonceable* ([`crate::nonce`]), which a `<style>` shares: an element whose
+//! markup is in a shape an injection leaves presents no nonce at all.
 //!
 //! # One element at a time, as the parser reaches it
 //!
@@ -208,7 +199,7 @@ fn script(document: &Document, id: NodeId, element: &Element) -> Option<Script> 
     Some(Script {
         kind,
         source,
-        nonce: nonce(element),
+        nonce: crate::nonce::presented(element),
     })
 }
 
@@ -249,27 +240,6 @@ fn child_text(document: &Document, id: NodeId) -> String {
         .children(id)
         .filter_map(|child| document.get(child).and_then(|node| node.text()))
         .collect()
-}
-
-/// The nonce a script presents, after Content Security Policy's *is element
-/// nonceable*.
-fn nonce(element: &Element) -> Option<String> {
-    let nonce = element.attr("nonce")?;
-    if element.had_duplicate_attributes {
-        return None;
-    }
-    let injected = |text: &str| {
-        let lower = text.to_ascii_lowercase();
-        lower.contains("<script") || lower.contains("<style")
-    };
-    if element
-        .attrs
-        .iter()
-        .any(|attribute| injected(&attribute.name.local) || injected(&attribute.value))
-    {
-        return None;
-    }
-    Some(nonce.to_owned())
 }
 
 /// The policy a `<meta>` states, if it is a Content Security Policy in

@@ -16,7 +16,8 @@
 //! be posted with the browser's own network stack.
 //!
 //! So what crosses is an [`Objection`] — *the policy at this place objected to
-//! a script written into the page* — and nothing else. The place is a place in
+//! a script written into the page*, or to a `<style>` or a `style` attribute
+//! (ADR 0034 § 4) — and nothing else. The place is a place in
 //! [`Page::stated`], the list both processes make from the same headers, and
 //! the browser process writes the report from **its own** copy of that policy
 //! with [`alo_net::Policies::inline_violation_of`]: where it goes, the policy's
@@ -64,15 +65,19 @@ pub const MOST_OBJECTIONS: usize = 64;
 
 /// One policy objecting to one piece of inline content, as a renderer says it.
 ///
-/// Inline content in an element of its own — a `<script>` with its code in
-/// the page — which is the only inline content a renderer runs today. An event
-/// handler is queue item 81's.
+/// A `<script>` or `<style>` with its text in the page, or a `style`
+/// attribute (ADR 0034 § 4). An event handler is queue item 81's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Objection {
     /// The objecting policy's place in [`Page::stated`].
     pub policy: usize,
     /// What it objected to: script or style.
     pub kind: Inline,
+    /// Where that was written: in an element of its own, or in an
+    /// attribute — which decides whether the policy could have objected at
+    /// all, since a digest it names allows an attribute only under
+    /// `'unsafe-hashes'`.
+    pub placement: Placement,
 }
 
 /// What the browser process makes of a load's objections.
@@ -106,15 +111,17 @@ pub fn reports(page: &Page, about: &csp_report::Page, objections: &[Objection]) 
     }
     for objection in objections.iter().take(MOST_OBJECTIONS) {
         let Some(violation) =
-            stated.inline_violation_of(objection.policy, objection.kind, Placement::Element)
+            stated.inline_violation_of(objection.policy, objection.kind, objection.placement)
         else {
             reports.disbelieved.push(format!(
-                "a renderer said the policy at place {} objected to inline {}, and this page \
-                 has no such policy that could have, so nothing was reported",
+                "a renderer said the policy at place {} objected to {}, and this page has no \
+                 such policy that could have, so nothing was reported",
                 objection.policy,
-                match objection.kind {
-                    Inline::Script => "script",
-                    Inline::Style => "style",
+                match (objection.kind, objection.placement) {
+                    (Inline::Script, Placement::Element) => "inline script",
+                    (Inline::Style, Placement::Element) => "inline style",
+                    (Inline::Script, Placement::Attribute) => "an event handler",
+                    (Inline::Style, Placement::Attribute) => "a style attribute",
                 }
             ));
             continue;
@@ -152,6 +159,7 @@ mod tests {
         Objection {
             policy,
             kind: Inline::Script,
+            placement: Placement::Element,
         }
     }
 
@@ -180,6 +188,31 @@ mod tests {
             "a claim nobody could have made was posted"
         );
         assert_eq!(reports.disbelieved.len(), 3, "{:?}", reports.disbelieved);
+    }
+
+    #[test]
+    fn an_objection_to_a_style_attribute_is_checked_as_one() {
+        let page = Page::new("<p>hi</p>", Size::new(1.0, 1.0))
+            .with_policy("style-src 'unsafe-inline'; report-uri /open")
+            .watched_by("style-src 'self'; report-uri /watched");
+        let attribute = |policy| Objection {
+            policy,
+            kind: Inline::Style,
+            placement: Placement::Attribute,
+        };
+        let reports = reports(&page, &about(), &[attribute(1), attribute(0)]);
+        assert_eq!(reports.posts.len(), 1, "{:?}", reports.disbelieved);
+        let body = String::from_utf8_lossy(&reports.posts[0].body);
+        assert!(
+            body.contains("\"violated-directive\":\"style-src\""),
+            "{body}"
+        );
+        assert_eq!(reports.disbelieved.len(), 1);
+        assert!(
+            reports.disbelieved[0].contains("a style attribute"),
+            "{:?}",
+            reports.disbelieved
+        );
     }
 
     #[test]

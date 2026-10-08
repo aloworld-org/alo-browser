@@ -14,7 +14,9 @@
 //! already held, a property not there to remove, a name this engine does not
 //! act on, a value a style sheet would not keep — writes nothing and counts
 //! nothing. What is kept, refused and read back is `alo-css`'s
-//! ([`alo_css::inline`]), so this file decides none of it.
+//! ([`alo_css::inline`]), so this file decides none of it. An attribute the
+//! page's policies refuse is read as empty, and a write records its text as
+//! the declaration's own (ADR 0034 §§ 1, 3).
 //!
 //! - `cssText`, read as the block serialised; set, it replaces the whole
 //!   attribute with the serialisation of what it parses to — written even
@@ -51,13 +53,15 @@ use alo_js::convert;
 use alo_js::heap::Ref;
 use alo_js::object::Objects;
 use alo_js::object::native::{Answer, Call};
-use alo_js::{Escape, Value};
+use alo_js::{Escape, Fault, Value};
 
 use crate::define;
+use crate::document_cell::DocumentCell;
 use crate::embed;
 use crate::idl::{self, Converted, Spelled, This};
 use crate::style_declaration::StyleDeclaration;
 use crate::style_names::{ATTRIBUTES, Named};
+use crate::style_policy;
 
 /// `CSSStyleDeclaration.prototype`'s members.
 pub(super) fn furnish(
@@ -136,21 +140,31 @@ fn this(call: &Call<'_>, member: &str) -> Result<This, Escape> {
 }
 
 /// The block the element's `style` attribute holds now: empty when it has
-/// none.
+/// none, and **empty when the page's policies refuse it** — the same answer
+/// the renderer's draw gets ([`style_policy::applied`]), so that a write
+/// starts from nothing rather than adopting injected text as its own (ADR
+/// 0034 § 3).
 fn block(call: &Call<'_>, this: This) -> Result<InlineStyle, Escape> {
-    let attribute = idl::read(call, this.owner)?
+    let document_cell = call
+        .seen()
+        .embedded::<DocumentCell>(this.owner)
+        .ok_or(Escape::fault(Fault::NotAnObject))?;
+    let attribute = document_cell
+        .document()
         .element(this.node)
+        .filter(|element| style_policy::applied(element, document_cell.policies()).is_ok())
         .and_then(|element| element.attr("style"))
         .unwrap_or_default();
     Ok(InlineStyle::parse(attribute))
 }
 
 /// CSSOM's *update style attribute*: `block` serialised and set as the
-/// element's `style` attribute, through `alo-dom`.
+/// element's `style` attribute, through `alo-dom`, as the text the
+/// declaration wrote ([`alo_dom::declared`]).
 fn update(call: &mut Call<'_>, this: This, block: &InlineStyle) -> Result<(), Escape> {
     let text = block.serialize();
     idl::change(call, this.owner, |document| {
-        document.set_attribute(this.node, "style", &text)
+        document.set_declared_style(this.node, &text)
     })?
     // The brand check found the element a moment ago, and nothing has run
     // since that could have taken it away.

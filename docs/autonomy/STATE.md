@@ -20970,3 +20970,104 @@ piece will live (a field and an operation in `alo-dom`, one function in
 145 queue items are open: 346 added, none closed. The next unused queue
 number is **347** and the next ADR is **0035**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 223 — queue item 343 built: a page's `style-src`, applied to its inline style
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+CSP and CSSOM lines, iteration 222's entry, the queue from 339 to 346,
+ADR 0034 (whole), ADR 0033's §§ 1–3 as 0034 cites them, and the CSSOM,
+CSP and *author is told* lines of `docs/features.md`. There is no
+`AGENTS.md` in the repository. 343 was named eligible and next, and its
+dependencies (341, 342) are done. The checkout was clean on entry at
+`c5f3cb4`. No sibling repository was read or written.
+
+**What was built (ADR 0034 §§ 1–4).**
+- `alo-dom`: `declared.rs` — `Element` keeps the text `element.style`
+  last wrote (a private field, counted in the footprint), set only by
+  `Document::set_declared_style` (one counted change), and
+  `Element::style_is_declared` is the equality test. `nonce.rs` — *is
+  element nonceable*, moved out of `scripts.rs` so a `<style>` shares it.
+  `Sheet::Written` now names its element and nonce.
+- `alo-style`: `resolve_admitting`, the cascade told which `style`
+  attributes take part; `resolve_measured` admits all.
+- `alo-bindings`: `style_policy.rs` — `applied`, the one function, and
+  `state`; `DocumentCell` holds the page's policies. `CSSStyleDeclaration`
+  reads through `applied` (a refused attribute is `""`) and writes through
+  `set_declared_style`.
+- `alo-renderer`: `inline_style.rs` (`Judged`) asks every `<style>` and
+  `style` attribute at every draw, of every enforced policy the page holds,
+  and asks the headers' policies which object. A refusal is said, and so is
+  a watched objection. At most 256 lines and 64 objections are kept per
+  draw, and the rest are counted. The pipeline drops what is refused.
+  `at_load` keeps every `<meta>` policy for the page's life, including
+  those after the last script, and tells the heap as they grow.
+  `Objection.placement` crosses the wire and the browser process checks it.
+  The load's style objections share the bound of 64 with its scripts'.
+
+**Cut, recorded in the queue.** ADR 0034 § 4's page-life memory of
+objected element, placement and text is left to 346. Only the load's
+single draw posts today, and it visits each element once, so that memory
+would decide nothing until a later draw's objections are carried. 346
+says it builds it.
+
+**One existing test changed, not weakened.** `alo-bindings`'
+`a_document_that_is_hostile.rs::a_ring_wider_than_the_markers_room_is_kept_whole`
+failed with this change and passed without it. The cause: the element grew
+by the record's 24 bytes. The test's 19,384 detached elements then crossed
+`COLLECT_AFTER` (8 MiB) while their wrappers were being made. That
+automatic collection paid the rescan, and the explicit one the test
+measures did not. The assertions are unchanged. The setup now holds the
+list's wrapper across one collection before the ring is made and releases
+it before the measured collection, so the test no longer depends on how
+near a document sits to the threshold.
+
+**Gate, mechanical.** `scripts/gate.sh` was run after a warm build. It
+overran the 10-minute foreground bound and was waited on in this same turn
+until it ended. It ends with `exit 0` and "The gate is met". fmt was clean,
+clippy silent, and the tests passed (`set -euo pipefail`, and no `FAILED`
+or `panicked` in the log). Nothing is stubbed, `unsafe` stays forbidden,
+every rented crate is behind its boundary, no verb takes a coordinate, and
+the changelog changed. One clippy finding on the way (`too_many_lines` in
+`messages_across_a_boundary.rs`) was resolved by changing the existing
+second objection to an attribute one, not by an `allow`.
+
+**Gate, manual.**
+- Layout and paint code did not change. What changed is which declarations
+  reach the cascade. The test of that is the computed value in words over
+  real loads: `tests/a_pages_style_under_its_policy.rs`, eleven tests
+  covering every closing condition and the three ADR 0034 added. There are
+  also unit tests in `declared.rs`, `nonce.rs`, `style_policy.rs`,
+  `inline_style.rs` (hostile markup and policies, and a flood),
+  `computed.rs` and `violations.rs`, and the wire round trip and malformed
+  placement in `messages_across_a_boundary.rs`.
+- **No reference render was added.** A refusal draws the page as though
+  the inline style were absent, which the computed-colour assertions pin.
+  No corpus case carries a policy, so no reference moved; the corpus passed
+  in the gate. A frozen page under a strict `style-src` would be the place
+  for one. This is a judgement, recorded so a person can disagree with it.
+- One responsibility per file: the record, the nonce rule, the one
+  function and the per-draw judgement are each a new file. `scripts.rs`
+  lost the nonce rule rather than gaining a reason to change.
+- No `unsafe` and no new dependency.
+
+**Queue, roadmap, docs.** 343 is ticked with its Done paragraph, and 346
+gained the page-life memory. `ROADMAP.md`'s CSP line now has a Built
+clause for inline style refused by `style-src`, and its Owed clause names
+only 346 for that. The CSSOM line's Built clause gained 343, and its Owed
+clause dropped it. Neither line is ticked. `docs/features.md` (CSSOM, and
+*author is told*), `docs/conformance.md` (both costs named, against other
+engines), `CHANGELOG.md` and `REMAINING.md` are updated.
+
+**Unresolved obligations.**
+- **346 is now eligible:** a later draw's objections carried in `Acted`
+  and `Delivered`, with the page-life memory.
+- Everything iteration 222 listed still stands:
+  - 345 waits on an `alo-js` hook shared with 328, and on a page;
+  - 337, 322, 324, 328, 284, 311 and 314 wait for pages;
+  - 323 waits on 73;
+  - 296 needs a person;
+  - 297–300, 302, 304, 308, 126, 132 and 336 remain.
+
+144 queue items are open: 343 closed, none added. The next unused queue
+number is **347** and the next ADR is **0035**. This is one iteration, not
+a finished queue or roadmap.

@@ -37,6 +37,12 @@
 //!   checkbox or radio changed before the listeners run and put back if one
 //!   cancels, a link to follow after (ADR 0018 § 6) — for both of a click's
 //!   callers.
+//! - [`Document::set_declared_style`] is the one way `element.style` writes
+//!   its element's `style` attribute, remembering the text it wrote, and
+//!   [`Element::style_is_declared`] asks whether the attribute still is that
+//!   text — what a page's policy on inline style exempts (ADR 0034 § 1;
+//!   [`declared`]). [`nonce`] is the nonce a `<script>` or `<style>`
+//!   presents to that policy.
 //! - [`field`] is what an agent's `PutText` does to the field it names —
 //!   its text replaced (ADR 0018 § 5) — for both of its callers: the
 //!   agent's own `apply` on a page that never ran script, and the
@@ -93,12 +99,14 @@
 pub mod activation;
 pub mod body;
 pub mod by_name;
+pub mod declared;
 pub mod document;
 pub mod field;
 pub mod footprint;
 pub mod mutation;
 pub mod name;
 pub mod node;
+pub mod nonce;
 pub mod parse;
 pub mod release;
 pub mod scripts;

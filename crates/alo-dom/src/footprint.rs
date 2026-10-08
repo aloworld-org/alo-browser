@@ -48,7 +48,10 @@ impl Node {
                 .saturating_add(system_id.len()),
             NodeKind::Element(element) => element.attrs.iter().fold(
                 name_bytes(&element.name)
-                    .saturating_add(element.attrs.len().saturating_mul(size_of::<Attribute>())),
+                    .saturating_add(element.attrs.len().saturating_mul(size_of::<Attribute>()))
+                    // The text `element.style` last wrote, a second copy
+                    // ([`crate::declared`]).
+                    .saturating_add(element.declared.as_ref().map_or(0, String::len)),
                 |sum, attribute| {
                     sum.saturating_add(name_bytes(&attribute.name))
                         .saturating_add(attribute.value.len())

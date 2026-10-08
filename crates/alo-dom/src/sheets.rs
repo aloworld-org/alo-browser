@@ -28,12 +28,22 @@
 //! rather than a parsing detail.
 
 use crate::document::Document;
+use crate::node::NodeId;
 
 /// A style sheet a page asked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Sheet {
     /// Written into the markup, in a `<style>` element.
-    Written(String),
+    Written {
+        /// The sheet: the element's text, untrimmed, which is also what a
+        /// digest in a page's policy is of.
+        text: String,
+        /// The `<style>` it was written in, which a page's policy is asked
+        /// about (ADR 0034 § 2).
+        element: NodeId,
+        /// The nonce that element presents ([`crate::nonce`]).
+        nonce: Option<String>,
+    },
     /// Somewhere else, named by a `<link>`.
     Linked {
         /// The `href`, exactly as the page wrote it — unresolved, because
@@ -78,7 +88,11 @@ pub fn asked_for(document: &Document) -> Vec<Sheet> {
         }
         let text = document.text_content(id);
         if !text.trim().is_empty() {
-            found.push(Sheet::Written(text));
+            found.push(Sheet::Written {
+                text,
+                element: id,
+                nonce: crate::nonce::presented(element),
+            });
         }
     }
     found

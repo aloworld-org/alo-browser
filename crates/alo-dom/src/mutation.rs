@@ -49,6 +49,7 @@ impl Document {
             template_contents: None,
             mathml_annotation_xml_integration_point: false,
             had_duplicate_attributes: false,
+            declared: None,
         }));
         if is_template {
             let contents = self.create(NodeKind::Fragment);

@@ -103,7 +103,7 @@
 
 use alo_dom::scripts::{Kind, Script, Source, prepared, stated};
 use alo_dom::{Parsing, Reached};
-use alo_net::csp::{Content, Inline};
+use alo_net::csp::{Content, Inline, Placement};
 
 use crate::event_loop::MOST_REPORTS;
 use crate::held::Held;
@@ -170,17 +170,24 @@ impl Said {
 /// page's heap before the first of them runs; with everything that did not
 /// run or did not finish added to `issues`, and every header policy's
 /// objection to a script written into the page added to `objections`.
+///
+/// Answers the text of every enforced policy the page holds at its end —
+/// its headers', then each `<meta>` policy the parser made — which the
+/// renderer keeps for the page's life (ADR 0034 § 2). The page's heap is
+/// told them as they grow ([`Held::state_policies`]).
 pub(crate) fn at_load(
     held: &mut Held,
     parsing: &mut Parsing,
     page: &Page,
     issues: &mut Vec<String>,
     objections: &mut Vec<Objection>,
-) {
+) -> Vec<String> {
     let stated_by = page.stated();
     let mut said = Said::default();
     let mut left_out = 0_usize;
     let mut policies = page.policies.clone();
+    // How many of `policies` the heap was last told, once it exists.
+    let mut told: Option<usize> = None;
     let mut ended = false;
     let mut number = 0_usize;
     loop {
@@ -189,6 +196,13 @@ pub(crate) fn at_load(
             break;
         };
         let Reached::Script(element) = reached else {
+            // The `<meta>`s after the last script: no script runs again, but
+            // the page's inline style is drawn under them.
+            let metas = parsing.take_metas();
+            if let Some(document) = held.document() {
+                policies.extend(metas.into_iter().filter_map(|meta| stated(document, meta)));
+            }
+            tell(held, &policies, &mut told);
             break;
         };
         // Every `<meta>` the parser made before this end tag, read where it
@@ -215,6 +229,7 @@ pub(crate) fn at_load(
                     objections.push(Objection {
                         policy: place,
                         kind: Inline::Script,
+                        placement: Placement::Element,
                     });
                 } else {
                     left_out = left_out.saturating_add(1);
@@ -239,13 +254,16 @@ pub(crate) fn at_load(
                 continue;
             }
         };
-        let page_loop = match held.scripted(&page.url, page.identity()) {
-            Ok(page_loop) => page_loop,
-            Err(why) => {
-                said.script(number, &format!("not run: {why}"));
-                ended = true;
-                continue;
-            }
+        if let Err(why) = held.scripted(&page.url, page.identity()) {
+            said.script(number, &format!("not run: {why}"));
+            ended = true;
+            continue;
+        }
+        tell(held, &policies, &mut told);
+        let Some(page_loop) = held.event_loop() else {
+            said.script(number, "not run: this page's heap could not be found");
+            ended = true;
+            continue;
         };
         if let Err(stopped) = page_loop.queue_script(format!("script {number}"), text) {
             said.script(number, &format!("not run: {stopped}"));
@@ -270,6 +288,17 @@ pub(crate) fn at_load(
              reported: one load carries at most {MOST_OBJECTIONS}"
         ));
     }
+    policies
+}
+
+/// Tell the page's heap `policies`, if it exists and has not been told this
+/// many already: they only ever grow, so a count says whether it is behind.
+fn tell(held: &mut Held, policies: &[String], told: &mut Option<usize>) {
+    if held.event_loop().is_none() || *told == Some(policies.len()) {
+        return;
+    }
+    held.state_policies(Page::policies_of(policies));
+    *told = Some(policies.len());
 }
 
 /// The text of a script that may run here, or why it may not.

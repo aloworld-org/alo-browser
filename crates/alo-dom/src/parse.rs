@@ -385,6 +385,7 @@ impl TreeSink for Sink {
             template_contents,
             mathml_annotation_xml_integration_point: flags.mathml_annotation_xml_integration_point,
             had_duplicate_attributes: flags.had_duplicate_attributes,
+            declared: None,
         }));
         if let Some(contents) = template_contents {
             self.document.borrow_mut().set_host(contents, element);

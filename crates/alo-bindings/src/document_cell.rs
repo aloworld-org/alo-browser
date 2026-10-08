@@ -34,7 +34,10 @@
 //! answered ([`crate::navigating`], ADR 0020 § 1): HTML's ongoing navigation
 //! is a fact about the page's one navigable, which here is this document's.
 //! Beside it, what the page has asked to **fetch** and the promises waiting
-//! for the answers ([`crate::fetching`], ADR 0032 § 1).
+//! for the answers ([`crate::fetching`], ADR 0032 § 1). And the
+//! **policies** the page holds, stated by the renderer as it states the URL,
+//! so that `element.style` reads a refused `style` attribute as the draw
+//! does (ADR 0034 § 3, [`crate::style_policy`]).
 //!
 //! It is an object only because everything in the heap that is not the
 //! engine's own is one. No script is ever handed it — the document *node* a
@@ -44,6 +47,7 @@
 use alo_dom::{Document, NodeId};
 use alo_js::heap::{Barrier, Ref};
 use alo_js::object::{Exotic, Internal, Key, Property};
+use alo_net::Policies;
 use alo_url::Url;
 
 use crate::fetching::Fetches;
@@ -73,6 +77,10 @@ pub struct DocumentCell {
     /// The document's URL: `about:blank` until the browser process says
     /// otherwise ([`crate::navigating::locate`]).
     pub(crate) url: Url,
+    /// The policies the page holds: its headers' and every `<meta>`'s the
+    /// parser has made so far, stated by the renderer
+    /// ([`crate::style_policy::state`]). None until it does.
+    pub(crate) policies: Policies,
     /// Where the page has asked to go since the renderer last took it.
     pub(crate) ongoing: Ongoing,
     /// What the page has asked to fetch, and the promises waiting for the
@@ -100,6 +108,7 @@ impl DocumentCell {
             interfaces: Interfaces::default(),
             on_path: Vec::new(),
             url: Url::about_blank(),
+            policies: Policies::none(),
             ongoing: Ongoing::default(),
             fetches: Fetches::default(),
         }
@@ -119,6 +128,11 @@ impl DocumentCell {
     /// The document's URL.
     pub const fn url(&self) -> &Url {
         &self.url
+    }
+
+    /// The policies the page holds, as the renderer last stated them.
+    pub const fn policies(&self) -> &Policies {
+        &self.policies
     }
 
     /// Where the page has asked to go since the renderer last took it.

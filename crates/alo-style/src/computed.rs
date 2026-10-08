@@ -243,6 +243,25 @@ pub fn resolve_measured(
     device: &MediaContext,
     faces: &dyn MeasureFace,
 ) -> StyleTree {
+    resolve_admitting(document, sheets, device, faces, &|_| true)
+}
+
+/// [`resolve_measured`], with only the `style` attributes `admitted` says
+/// yes to taking part.
+///
+/// A page's policy can refuse an element's `style` attribute (ADR 0034
+/// § 2), and a refused one contributes **no declarations** — as though it
+/// were not written. Which are refused is not this crate's to decide: it
+/// holds no policy, and the renderer, which does, asks once per element
+/// before the cascade runs. An element `admitted` refuses is not read at
+/// all, so nothing it holds is said as dropped either.
+pub fn resolve_admitting(
+    document: &Document,
+    sheets: &[SourcedSheet<'_>],
+    device: &MediaContext,
+    faces: &dyn MeasureFace,
+    admitted: &dyn Fn(NodeId) -> bool,
+) -> StyleTree {
     let mut tree = StyleTree::default();
     let mut matcher = MatchContext::new(document);
     // What the root inherits from: every property at its initial value, in
@@ -270,6 +289,7 @@ pub fn resolve_measured(
             .unwrap_or_default();
         let attached = document
             .element(id)
+            .filter(|_| admitted(id))
             .map(|element| crate::attached::declarations(element, &mut tree.issues))
             .unwrap_or_default();
         let applicable = Applicable::gather_attached(
@@ -738,6 +758,34 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["1:13: invalid declaration, dropped: style attribute of <div>: 12px"],
         );
+    }
+
+    #[test]
+    fn a_style_attribute_not_admitted_contributes_nothing_and_says_nothing() {
+        let document = parse_document(
+            r#"<p id=x style="color: red; 12px">t</p><p id=y style="color: red">t</p>"#,
+        );
+        let id_of = |wanted: &str| {
+            document
+                .descendants(document.root())
+                .find(|id| {
+                    document
+                        .element(*id)
+                        .is_some_and(|e| e.attr("id") == Some(wanted))
+                })
+                .unwrap_or_else(|| panic!("no #{wanted}"))
+        };
+        let (x, y) = (id_of("x"), id_of("y"));
+        let tree = resolve_admitting(&document, &[], &MediaContext::default(), &NoFaces, &|id| {
+            id != x
+        });
+        assert_eq!(tree.get(x).and_then(|style| style.get("color")), None);
+        assert_eq!(
+            tree.get(y).and_then(|style| style.get("color")),
+            Some("red"),
+            "only the refused one is left out",
+        );
+        assert!(tree.issues().is_empty(), "{:?}", tree.issues());
     }
 
     #[test]

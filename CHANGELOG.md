@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's Content Security Policy now governs its inline style.** Under
+  a policy that refuses inline style, a page's `<style>` elements and
+  `style` attributes are not applied, the refusal is said, and the page's
+  author is told when the page loads. A `<style>` carrying the policy's
+  nonce, and a `style` attribute named by its digest under
+  `'unsafe-hashes'`, are applied. A style the page's own script wrote
+  through `element.style` is applied, as in every browser, and a refused
+  attribute reads as empty to the page's script (decision 0034).
+
 - **How a page's policy will govern its inline style is decided.** A page
   whose Content Security Policy refuses inline style will have its
   `<style>` elements and `style` attributes refused, except a style the

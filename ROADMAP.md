@@ -368,18 +368,24 @@ unreachable without it.
       place, and the browser process writes the report from its own copy of
       the headers and posts it — so a renderer can neither choose where a
       report goes nor what it says, a claim naming a policy that could not have
-      objected is not believed, and one load carries at most 64
+      objected is not believed, and one load carries at most 64. **Inline
+      style is refused by `style-src`** (queue item 343, ADR 0034): every
+      `<style>` and `style` attribute judged at every draw by every policy the
+      page holds, its headers' and its `<meta>`s', kept for the page's life
+      (`alo-renderer`'s `inline_style.rs`); a `<style>` presenting its nonce by
+      a script's rule (`alo-dom`'s `nonce.rs`); a value `element.style` wrote
+      exempt by its exact text (`alo-dom`'s `declared.rs`), and one function
+      (`alo-bindings`' `style_policy.rs`) answering for the draw and for
+      `element.style`, which reads a refused attribute as `""`; and what the
+      load's draw objects to reported with its placement on the wire
       · Owed: a `<meta>` policy's `report-to` (queue item 240);
       **a nested document**, which is what `frame-src` needs and which
       nothing here can yet tell from a link click (queue item 86); and an
       **event handler** matched by its hash, which is the same rule as the
       `style` attribute and waits only for there to be handlers (queue item 81);
-      and **inline style refused by `style-src` in the renderer**, which
-      decides a `<style>` or `style` attribute but applies the verdict to
-      neither (queue item 343, ADR 0033 § 2) — decided by ADR 0034: judged
-      at every draw by every policy the page holds, a value `element.style`
-      wrote exempt by its text, and what a draw after load objects to
-      reported as item 346
+      and what a draw **after** load finds a policy objecting to in inline
+      style, which is said in that drawing's issues and not yet reported
+      (queue item 346)
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
       · Decided (ADR 0032, queue item 83): a script's fetch is an ask in
       the answer to the message whose work made it, the browser process
@@ -1089,10 +1095,10 @@ unreachable without it.
       (queue item 342) — `alo-bindings`' `CSSStyleDeclaration`, every
       member of ADR 0033 § 6 and a named accessor for each listed property,
       on HTML elements and a new `SVGElement`, which greys `alo-downloads`'
-      offline buttons `#c7bfb2`
-      · Owed: `el.style[0]`, the indexed getter (345), a page's `style-src`
-      applied to inline style (343, decided by ADR 0034: a refused
-      attribute reads as empty through `element.style`), and `getComputedStyle`,
+      offline buttons `#c7bfb2`; and a page's `style-src` applied to inline
+      style (queue item 343, ADR 0034), what `element.style` wrote exempt by
+      its text and a refused attribute read through it as `""`
+      · Owed: `el.style[0]`, the indexed getter (345), and `getComputedStyle`,
       `document.styleSheets` and the rest of item 89, each opened by a page
 - [ ] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them
       · Built: `alo-storage`, the browser process's store (queue item 301).

@@ -85,6 +85,12 @@ pub struct Element {
     /// swallows a real tag's `nonce`, so such an element's nonce is not
     /// honoured.
     pub had_duplicate_attributes: bool,
+    /// The text `element.style` last wrote to this element's `style`
+    /// attribute, or nothing (ADR 0034 § 1).
+    ///
+    /// Set only by [`crate::Document::set_declared_style`], and read only by
+    /// [`Element::style_is_declared`] — see [`crate::declared`].
+    pub(crate) declared: Option<String>,
 }
 
 impl Element {
@@ -231,6 +237,7 @@ mod tests {
             template_contents: None,
             mathml_annotation_xml_integration_point: false,
             had_duplicate_attributes: false,
+            declared: None,
         };
         assert_eq!(element.attr("type"), Some("text"));
         assert_eq!(element.attr("value"), None);

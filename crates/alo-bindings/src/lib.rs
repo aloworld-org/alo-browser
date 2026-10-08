@@ -55,7 +55,10 @@
 //! - An HTML or SVG element's `style` is a [`StyleDeclaration`] (ADR 0033,
 //!   queue item 342), made once and kept by its wrapper the same way, which
 //!   parses the `style` attribute every time it is asked and writes every
-//!   change back to it ([`style_declaration`]).
+//!   change back to it ([`style_declaration`]). Whether that attribute is
+//!   applied under the page's policies is one function, which the
+//!   renderer's draw and the declaration both ask, so a refused attribute
+//!   reads as `""` (ADR 0034, queue item 343, [`style_policy`]).
 //! - `querySelectorAll` on a document, an element or a fragment answers a
 //!   static [`NodeList`] (queue item 329): `alo-css` parses the string and
 //!   its one matcher matches it, and the list holds each match's wrapper,
@@ -116,6 +119,7 @@ pub mod response;
 mod scripted;
 pub mod style_declaration;
 mod style_names;
+pub mod style_policy;
 pub mod token_list;
 mod tokens;
 pub mod tree;

@@ -636,6 +636,7 @@ mod tests {
             template_contents: None,
             mathml_annotation_xml_integration_point: false,
             had_duplicate_attributes: false,
+            declared: None,
         }))
     }
 

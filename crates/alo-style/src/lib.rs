@@ -58,7 +58,7 @@ pub mod user_agent;
 pub mod variables;
 
 pub use cascade::{Applicable, Contender, SourcedSheet};
-pub use computed::{ComputedStyle, StyleTree, resolve, resolve_measured};
+pub use computed::{ComputedStyle, StyleTree, resolve, resolve_admitting, resolve_measured};
 pub use font_units::{FaceUnits, MeasureFace, NoFaces};
 pub use inheritance::inherits;
 pub use keyword::{Resolution, WideKeyword};

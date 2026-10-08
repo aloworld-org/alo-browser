@@ -17,7 +17,7 @@ use alo_box::state::{Checked, Current, States};
 use alo_box::tree::BoxId;
 use alo_css::media::ColorScheme;
 use alo_layout::geometry::{Point, Rect, Size};
-use alo_net::csp::Inline;
+use alo_net::csp::{Inline, Placement};
 use alo_net::referrer::Policy;
 use alo_renderer::ask::{Asked, By};
 use alo_renderer::frame::Frame;
@@ -149,10 +149,12 @@ fn every_message_from_a_renderer_survives_the_crossing() {
                 Objection {
                     policy: 0,
                     kind: Inline::Script,
+                    placement: Placement::Element,
                 },
                 Objection {
                     policy: 3,
                     kind: Inline::Style,
+                    placement: Placement::Attribute,
                 },
             ],
             navigation: None,
@@ -417,6 +419,7 @@ fn a_load_that_stops_part_way_through_is_refused() {
         objections: vec![Objection {
             policy: 1,
             kind: Inline::Script,
+            placement: Placement::Element,
         }],
         navigation: Some(Asked {
             url: "https://example.com/next".to_owned(),
@@ -560,6 +563,7 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
             Objection {
                 policy: 0,
                 kind: Inline::Script,
+                placement: Placement::Element,
             };
             MOST_OBJECTIONS
         ],
@@ -577,6 +581,7 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
             Objection {
                 policy: 0,
                 kind: Inline::Script,
+                placement: Placement::Element,
             };
             MOST_OBJECTIONS + 1
         ],
@@ -592,9 +597,9 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
     );
 }
 
-/// An objection is a number and a tag, and both are a stranger's: inline
-/// content of a kind nobody has is refused, and so is a place no machine could
-/// index.
+/// An objection is a number and two tags, and all are a stranger's: inline
+/// content of a kind nobody has is refused, so is a placement nobody has,
+/// and so is a place no machine could index.
 #[test]
 fn an_objection_that_is_not_one_is_refused() {
     let one = write_from_renderer(&FromRenderer::Loaded {
@@ -603,14 +608,15 @@ fn an_objection_that_is_not_one_is_refused() {
         objections: vec![Objection {
             policy: 0,
             kind: Inline::Style,
+            placement: Placement::Element,
         }],
         navigation: None,
         fetches: Vec::new(),
     });
     // From the end: eight bytes counting no fetches, one saying there is no
-    // navigation, and before them the kind's tag.
+    // navigation, and before them the placement's tag and the kind's.
     let mut strange = one.clone();
-    let at = strange.len() - 10;
+    let at = strange.len() - 11;
     if let Some(kind) = strange.get_mut(at) {
         *kind = 9;
     }
@@ -619,6 +625,18 @@ fn an_objection_that_is_not_one_is_refused() {
         refused
             .as_ref()
             .is_err_and(|why| why.why.contains("tagged 9")),
+        "{refused:?}"
+    );
+    let mut misplaced = one.clone();
+    let at = misplaced.len() - 10;
+    if let Some(placement) = misplaced.get_mut(at) {
+        *placement = 7;
+    }
+    let refused = read_from_renderer(&misplaced);
+    assert!(
+        refused
+            .as_ref()
+            .is_err_and(|why| why.why.contains("placed by a tag 7")),
         "{refused:?}"
     );
     let mut longer = one;

@@ -19,6 +19,7 @@
 //! and fonts arrive whole. `docs/features.md` promises alo OS a surface to
 //! render into, and that is queue item 40's.
 
+use crate::inline_style::Judged;
 use crate::pictures::Pictures;
 use crate::resource::Resource;
 use alo_box::BoxTree;
@@ -205,7 +206,15 @@ pub fn render_document_with(
     linked: &[(String, String)],
     resources: &[Resource],
 ) -> Rendered {
-    let drawing = draw(&document, css, size, fonts, linked, resources);
+    let drawing = draw(
+        &document,
+        css,
+        size,
+        fonts,
+        linked,
+        resources,
+        &Judged::nothing(),
+    );
     Rendered { document, drawing }
 }
 
@@ -215,6 +224,11 @@ pub fn render_document_with(
 /// the drawing takes, which is what lets a renderer draw a page whose
 /// document lives in its heap (ADR 0017 § 2): the borrow is out of the heap,
 /// and it ends before anything could run script.
+///
+/// `judged` is what the page's policies made of its inline style ([`crate::
+/// inline_style`]): a refused `<style>` contributes no rules, a refused
+/// `style` attribute no declarations, and each refusal is in the drawing's
+/// issues. [`Judged::nothing`] for a page under no policy.
 pub fn draw(
     document: &Document,
     css: &str,
@@ -222,6 +236,7 @@ pub fn draw(
     fonts: &FontDatabase,
     linked: &[(String, String)],
     resources: &[Resource],
+    judged: &Judged,
 ) -> Drawing {
     let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
     // A page's own `<style>` elements, then whatever the caller supplied. In
@@ -235,8 +250,12 @@ pub fn draw(
     let mut missing = Vec::new();
     let mut parsed: Vec<_> = alo_dom::sheets::asked_for(document)
         .into_iter()
+        .filter(|sheet| match sheet {
+            alo_dom::sheets::Sheet::Written { element, .. } => judged.applies_sheet(*element),
+            alo_dom::sheets::Sheet::Linked { .. } => true,
+        })
         .map(|sheet| match sheet {
-            alo_dom::sheets::Sheet::Written(text) => parse_stylesheet(&text),
+            alo_dom::sheets::Sheet::Written { text, .. } => parse_stylesheet(&text),
             alo_dom::sheets::Sheet::Linked { href } => {
                 if let Some((_, text)) = linked.iter().find(|(at, _)| *at == href) {
                     parse_stylesheet(text)
@@ -268,13 +287,15 @@ pub fn draw(
         .map(ToString::to_string)
         .collect();
     sheet_issues.extend(missing);
+    sheet_issues.extend(judged.issues());
     // `ex` and `ch` measured in the face each element's text is set in,
     // which needs the fonts before layout does.
-    let styles = alo_style::resolve_measured(
+    let styles = alo_style::resolve_admitting(
         document,
         &sheets,
         &device,
         &crate::font_units::Faces::new(fonts),
+        &|id| judged.applies_attribute(id),
     );
     let mut boxes = alo_box::build(document, &styles);
 

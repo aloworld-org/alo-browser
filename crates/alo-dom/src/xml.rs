@@ -415,6 +415,7 @@ impl Builder {
             template_contents: None,
             mathml_annotation_xml_integration_point: false,
             had_duplicate_attributes: false,
+            declared: None,
         }));
         self.document.attach_last(parent, id);
         if opens {

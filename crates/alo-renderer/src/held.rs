@@ -56,6 +56,7 @@ use core::fmt;
 
 use alo_bindings::fetching::{self, Asked};
 use alo_bindings::navigating::{self, By, Ongoing};
+use alo_bindings::style_policy;
 use alo_bindings::{
     Firing, Identity, Responded, Unadopted, adopt, change_document, document, install, introduce,
     offer,
@@ -221,6 +222,19 @@ impl Held {
                     .holding(&scripted.cell)
                     .and_then(|cell| navigating::take(objects, cell))
                     .unwrap_or_default()
+            }
+        }
+    }
+
+    /// Tell the page's heap the policies the page holds now, so that
+    /// `element.style` reads a refused `style` attribute as the draw does
+    /// (ADR 0034 § 3) — nothing to tell on a page that has never run script,
+    /// whose heap does not exist.
+    pub fn state_policies(&mut self, policies: alo_net::Policies) {
+        if let Held::Scripted(scripted) = self {
+            let objects = scripted.script.engine().objects();
+            if let Some(cell) = objects.heap().holding(&scripted.cell) {
+                style_policy::state(objects, cell, policies);
             }
         }
     }

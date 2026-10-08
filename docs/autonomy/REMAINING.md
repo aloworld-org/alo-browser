@@ -916,3 +916,12 @@ judged at each draw by all the policies the page holds. One function in
 attribute reads as empty. Reporting what a draw after load finds is cut to
 346, which depends on 343. 343 is eligible and next. 145 queue items are
 open. The next unused queue number is 347 and the next unused ADR 0035.
+
+Iteration 223 built item 343 (ADR 0034): a page's `style-src` is applied
+to its inline style. Every `<style>` and `style` attribute is judged at
+every draw by every policy the page holds, its `<meta>` policies kept for
+the page's life; a value `element.style` wrote is exempt by its text, and a
+refused attribute reads as `""` through `element.style`. What the load's
+draw objects to crosses with its placement and is reported. 346 (a later
+draw's objections, carried) is now eligible. 144 queue items are open. The
+next unused queue number is 347 and the next unused ADR 0035.

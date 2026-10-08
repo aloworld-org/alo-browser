@@ -31,7 +31,7 @@ use alo_js::interpret::Trouble;
 use alo_js::{Value, script};
 use alo_layout::Size;
 use alo_net::cause::{Cause, Identities};
-use alo_net::csp::Inline;
+use alo_net::csp::{Inline, Placement};
 use alo_net::csp_report::{self, Endpoints};
 use alo_net::{Response, Trust};
 use alo_renderer::host::Renderers;
@@ -111,6 +111,7 @@ fn script_objection(policy: usize) -> Objection {
     Objection {
         policy,
         kind: Inline::Script,
+        placement: Placement::Element,
     }
 }
 

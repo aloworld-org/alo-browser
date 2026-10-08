@@ -320,9 +320,14 @@ sides. A declaration left unclosed at the very end of a `style`
 attribute — a string or a bracket never closed — is left out when a script
 first writes the attribute, where other engines would close it.
 `el.style[0]` is `undefined` (item 345): `item(0)` answers the name. A
-MathML element has no `style`, since this engine builds no MathML. And a page's
-`style-src` is applied by no renderer to its inline style, a `<style>`
-element or a `style` attribute, until item 343.
+MathML element has no `style`, since this engine builds no MathML. A page's
+`style-src` is applied to its inline style at every draw, by every policy the
+page holds (item 343, ADR 0034), and that differs from other engines in two
+ways, both refusing where they apply: a `<meta>` policy refuses inline style
+written *before* it in the markup, which they had already applied; and a
+`setAttribute("style", …)` the policy refuses takes the element's old style
+away, where they keep it. What a redraw after load objects to is said and not
+reported (item 346).
 Most targets below are still
 `not yet`, because they are alo's own screens rather than pages we wrote to test
 with — and the sign-in screen, which is alo's, is *nearly* rather than done: the

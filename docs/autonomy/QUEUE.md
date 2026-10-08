@@ -5429,7 +5429,7 @@ The long pole, and the thing most of section E is unreachable without.
   the attribute when nothing is left" was not built, because CSSOM's
   update steps set it to `""`; ADR 0033 carries the correction.
 
-- [ ] **343. A page's `style-src`, applied to its inline style.** *Cut from
+- [x] **343. A page's `style-src`, applied to its inline style.** *Cut from
   339 (ADR 0033 § 2). Depends on 341; the `CSSStyleDeclaration` half
   depends on 342.* The renderer applies the policies it already holds for
   scripts to every `<style>` element and every `style` attribute, through
@@ -5468,13 +5468,42 @@ The long pole, and the thing most of section E is unreachable without.
   rule, a setAttribute replacing a declaration-written value being refused,
   and a refused attribute reading `""` through `element.style`, each pinned
   in a test. *Eligible and next.*
+  **Done (iteration 223).** `alo-dom`'s `declared.rs`
+  (`Document::set_declared_style`, `Element::style_is_declared`, the record
+  counted in the footprint) and `nonce.rs` (*is element nonceable*, moved
+  out of `scripts.rs` for a `<style>` to share); `Sheet::Written` names its
+  element and nonce. `alo-style`'s `resolve_admitting`. `alo-bindings`'
+  `style_policy.rs` (`applied`, the one function, and `state`), the
+  page's policies in `DocumentCell`, and `CSSStyleDeclaration` reading
+  through `applied` and writing through `set_declared_style`.
+  `alo-renderer`'s `inline_style.rs` (`Judged`: each `<style>` and `style`
+  attribute asked at every draw, refusals and watched objections said, at
+  most 256 lines and 64 objections a draw, then counted), the pipeline
+  dropping what is refused, `at_load` keeping every `<meta>` policy for the
+  page's life (those after the last script too) and telling the heap, and
+  `Objection.placement` on the wire, checked by the browser process.
+  Pinned in `tests/a_pages_style_under_its_policy.rs` over real loads (both
+  refused and reported under `style-src 'self'`; the digest only with
+  `'unsafe-hashes'`; a nonce; `element.style`'s write applied and not
+  reported; a refused attribute read as `""` and a write starting from
+  nothing; `setAttribute` replacing the declaration's text refused and the
+  same text written back admitted; a `<meta>` reaching back and told to the
+  heap; a watched policy; a flood counted), and in unit tests in each crate
+  and `messages_across_a_boundary.rs`. **Left to 346:** remembering, for
+  the page's life, which element, placement and text was objected to
+  (ADR 0034 § 4). Only the load's single draw posts today, and it visits
+  each element once, so the memory has nothing to decide until a later
+  draw's objections are carried.
 
 - [ ] **346. Inline style refused after load, reported.** *Cut from 343 by
   ADR 0034 § 4. Depends on 343.* A draw made after a script, an agent or a
   fetch's answer changed the page can find inline style that a policy
   objects to. Those objections are carried in the next `Acted` or
   `Delivered` answer, under the same bound of 64 and the same
-  once-per-element-placement-and-text rule. One found by a draw that only
+  once-per-element-placement-and-text rule, which this item builds: the
+  renderer remembers, for the page's life, each element, placement and
+  text it has objected to, those the load carried included (343 left it
+  here, since one draw visits each element once). One found by a draw that only
   `Paint` or `ReadTree` asked for waits for the next such answer. More
   than the bound are counted and said. Feature contract:
   `docs/features.md`'s *A page's author is told* line. *Closes when:* a

@@ -44,7 +44,7 @@ use alo_box::state::{Checked, Current, States};
 use alo_box::tree::BoxId;
 use alo_css::media::ColorScheme;
 use alo_layout::geometry::{Point, Rect, Size};
-use alo_net::csp::Inline;
+use alo_net::csp::{Inline, Placement};
 use alo_net::referrer::Policy;
 use alo_text::{Slant, Weight};
 
@@ -353,6 +353,10 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
                 writer.tag(match objection.kind {
                     Inline::Script => 0,
                     Inline::Style => 1,
+                });
+                writer.tag(match objection.placement {
+                    Placement::Element => 0,
+                    Placement::Attribute => 1,
                 });
             }
             writer.navigation(navigation.as_ref());
@@ -875,7 +879,20 @@ impl<'a> Reader<'a> {
                 1 => Inline::Style,
                 other => return Err(unreadable(format!("inline content tagged {other}"))),
             };
-            objections.push(Objection { policy, kind });
+            let placement = match self.tag()? {
+                0 => Placement::Element,
+                1 => Placement::Attribute,
+                other => {
+                    return Err(unreadable(format!(
+                        "inline content placed by a tag {other}"
+                    )));
+                }
+            };
+            objections.push(Objection {
+                policy,
+                kind,
+                placement,
+            });
         }
         Ok(objections)
     }
