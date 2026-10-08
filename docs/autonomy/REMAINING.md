@@ -841,3 +841,14 @@ is eligible. 335, which moves `alo-downloads`, is eligible and next: its
 dependencies 333 and 334 are done, and it answers the corpus's fetches from
 frozen responses rather than through 338. 144 queue items are open. The next
 unused queue number is 339 and the next unused ADR 0033.
+
+Iteration 215 built item 335, `fetch()` in a page: the bindings' `fetch`,
+its request steps and the read-only `Response` and `Headers`; each answer a
+task settling the page's promise; the asks carried in every answer; and the
+corpus answering a case's fetches from frozen responses through the
+browser process's own decision and filter. `alo-downloads` asks for both
+installers and, offline, marks both buttons; it then stops at `a.style`,
+cut as item 339 from 89. 338 is eligible and next — a page can now ask, so
+its closing test has a page to drive — and 339 is eligible after it. 144
+queue items are open. The next unused queue number is 340 and the next
+unused ADR 0033.

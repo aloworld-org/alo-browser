@@ -19969,3 +19969,154 @@ clause names 338, 335 and 336. It is not ticked. `CHANGELOG.md` and
 144 queue items are open: 334 closed, 338 added. The next unused queue
 number is **339** and the next ADR is **0033**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 215 — queue item 335: `fetch()` in a page
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+head and its `fetch()` line, and iteration 214's entry. Queue items 83 and
+333–338, and 89. ADR 0032 in full (the item's ADR), with 0005, 0016 § 2,
+0017 §§ 2, 4 and 5, 0020 § 2 and 0031 as it cites them. The feature
+contract is `docs/features.md`'s `fetch()` line. Code read: `alo-bindings`'
+`navigating.rs`, `document_cell.rs`, `install.rs`, `navigator.rs`,
+`interface.rs` and `interface/navigator.rs`, `define.rs`, `dictionary.rs`,
+`idl.rs` and `liveness.rs`; `alo-js`'s promise files, `interpret/settle.rs`,
+`interpret/checkpoint.rs`, `object/native.rs` and `builtin/error.rs`;
+`alo-renderer`'s `renderer.rs`, `held.rs`, `press.rs`, `run_to.rs`,
+`event_loop.rs`, `fetch.rs`, `fetch_decide.rs`, `fetch_filter.rs`,
+`tab.rs`'s `fetches` and `fetched`, and `wire/fetch.rs`; `alo-corpus`'
+`case.rs` and `rendering.rs`; `alo-net`'s `forbidden.rs`, `cors.rs`,
+`referrer.rs` and `http.rs`'s `read_head`. No `AGENTS.md` exists. The
+checkout was clean on entry at `9ff8d65`. `alo-workplace` was read and not
+written: its `deploy/production/Caddyfile` and `docker-compose.yml`, for
+where the download page is served.
+
+**Selection.** In file order, 338 comes before 335, and its one
+dependency, 334, is done. But its closing condition is "a page served by a
+local test server fetches …", and until 335 no page could call `fetch`.
+So 338 cannot close before 335, and 335 is the first item whose
+dependencies (333 and 334) are done and which can close. Everything ahead
+of both waits on a page, a person, Linux, an ADR or an open dependency, as
+214's entry lists. 335 names its ADR (0032 §§ 1, 4 and 7), its contract and
+its closing condition.
+
+**What was built.**
+- `alo-bindings`, `fetch.rs`: `fetch` on the global object (offered by
+  `offer`) makes the promise. It then asks, with `Want::Catch`, for a call
+  of the request steps, a second native only `fetch` holds. So everything
+  the steps throw rejects the promise: a refused argument, a bad URL, a
+  forbidden method, a getter that throws. A stop, a full heap or a refusal
+  by name still ends the run.
+- The request steps resolve against the base URL. They refuse credentials
+  in the URL, refuse `data:` and `blob:` by name, default and check
+  `mode`, `credentials`, `redirect` and `referrerPolicy`, and normalise
+  the method.
+- Headers: a forbidden header is dropped silently, and so, under
+  `no-cors`, is any a form could not have sent. These are `alo-net`'s own
+  lists; `cors::a_form_could_have_sent` is now public. A string body gets
+  `Content-Type: text/plain;charset=UTF-8`.
+- `fetch_init.rs` converts `input` and `init` one member at a time, in Web
+  IDL's lexicographic order. It keeps them in the steps' eight slots, so a
+  getter's or a `toString`'s call is asked for and come back to.
+  - Refused by name: a non-string body; `cache`, `integrity`, `keepalive`,
+    `priority`, `referrer` or `signal` other than their default; headers as
+    pairs or a `Headers`; a header behind a getter or whose value is an
+    object; a header value past `0x7F`.
+- `fetching.rs`: the asks and the waiting promises in the document cell.
+  The promises are traced as strong edges, and the cell's footprint counts
+  the asks. `MOST_ASKED_BYTES`, 32 MiB (half of one message), bounds what
+  waits to be taken.
+- `response.rs` and `headers.rs` are the read-only `Response` and
+  `Headers`, with their members in `interface/`. `delivering.rs` is the
+  task: it resolves the promise through `%ResolvePromise%`, or rejects it
+  with one `TypeError`, `fetch::FAILED`.
+- `alo-js` gained `Intrinsics::error`, and `alo-url` gained
+  `includes_credentials`.
+- `alo-renderer`: `Held` offers `fetch` and gains `take_fetches` and
+  `deliver`. `EventLoop::queue_delivery` roots the response across
+  queueing, and `deliver.rs` runs the task. `Loaded`, `Acted` and
+  `Delivered` carry the asks, and a delivery draws the page again.
+- `alo-corpus`: a case's `address.txt` and `responses.txt`. `answering.rs`
+  answers asks through `fetch_decide::decide` and `fetch_filter::filter`;
+  an unfrozen URL is a network error and is listed. At most 256 answers
+  per case.
+- `alo-downloads` is served from `https://alomails.com/download/`. It
+  froze no installer, because none is in any repository. Offline, both
+  buttons become *Building — available shortly* and lose their `href`.
+  The script then stops at `a.style.background`, which is not built: the
+  style attribute is not even cascaded. That is cut from 89 as new **item
+  339**.
+
+**Gate, mechanical.** `scripts/gate.sh` was run with its log read in this
+turn. The foreground call passed ten minutes and the harness moved it to
+the background; I polled it to its end before writing this. Result: exit
+0, "The gate is met".
+- fmt clean, clippy silent (`--all-features -D warnings`), and the tests
+  pass.
+- No stubs, no `unsafe`, licences present, and rented crates stay behind
+  their boundaries.
+- No verb takes a coordinate, the stop rule holds, and the changelog
+  changed.
+
+Before the gate: clippy over the workspace, and the tests of `alo-bindings`,
+`alo-renderer`, `alo-corpus`, `alo-url`, `alo-net` and `alo-js` with
+`--no-fail-fast`, all passing.
+
+**Gate, manual.**
+- Closing conditions, each pinned:
+  - `alo-downloads`' script runs past line 19, and its `.catch` (offline)
+    or `.then` (a `404`) decides each button, while a `200` leaves the
+    button alone. Pinned in `tests/alo_downloads.rs` for all three systems.
+  - Its reference moved: four lines of each text file and 3957 pixels.
+    I read the diff and looked at `render.png`: two terracotta buttons
+    saying *Building — available shortly*.
+  - `what_a_page_fetches.rs` shows a same-origin text body read, an opaque
+    response's status 0 and empty body, and a failed fetch's `TypeError`.
+    It also covers the request-step refusals, the guard, the init's order,
+    the refusals by name, a body read twice and an answer nothing waits
+    for. Every one runs again with a collection at every allocation.
+  - `origin.txt` says the case is rendered offline and names both URLs; a
+    test checks it does.
+  - `a_page_fetches.rs` drives the asks through real `Tabs` and the
+    confined `alo-render` binary.
+- Checked by mutation, each restored:
+  - Not tracing the waiting promises fails three stressed tests.
+  - Not dropping forbidden headers fails the headers test.
+  - Not drawing again after a delivery fails the redraw test.
+- Layout assertion: the marked buttons' labels are measured in
+  `each_buttons_label_is_a_line_as_tall_as_its_line_height`; nothing else
+  positions or sizes differently.
+- Hostile input: a page's arguments are a stranger's. Every refusal is a
+  rejection or a refusal by name, never a panic, and the delivery's number
+  is checked whole and in range. The wire for asks and answers is 334's,
+  tested there.
+- One responsibility per file: the asks' state (`fetching.rs`), argument
+  conversion (`fetch_init.rs`), the function and its request steps
+  (`fetch.rs`), the delivery (`delivering.rs`), each cell, each
+  interface's members, the renderer's task (`deliver.rs`,
+  `event_loop/delivered.rs`), and the corpus's answering (`answering.rs`).
+- `docs/features.md` says what is built and what is not. No `unsafe`, no
+  new outside dependency (`alo-bindings` now names `alo-net`, ours, for its
+  enums and lists), and no ADR needed: 0032 decides all of it.
+
+**Roadmap.** The `fetch()` line gains a Built clause for 335. Its Owed
+clause now names 338, the constructible `Request`/`Headers`/`Response`,
+other bodies and the refused `init` members, and 336. It is not ticked.
+`CHANGELOG.md` and `REMAINING.md` say the same. Item 89 notes it was
+opened by this page.
+
+**Unresolved obligations.**
+- The element's colour the page sets after marking a button waits for 339.
+  Until then the reference shows marked buttons still terracotta.
+- `fetch`'s operation is enumerable on the global object, as in browsers.
+  `queueMicrotask` is not, which disagrees with Web IDL. I did not touch it
+  in this item.
+- An ask carries a header value past `0x7F` only once header values are
+  held as bytes; until then it is refused by name.
+- **338 is eligible and next**: a page can now ask, so its closing test has
+  a page to drive. 339 is eligible after it. Still standing: 337, 322, 324,
+  328, 284, 311 and 314 wait for pages; 323 waits on 73; 296 needs a person;
+  and 297–300, 302, 304, 308, 126, 132 and 336 remain.
+
+144 queue items are open: 335 closed, 339 added. The next unused queue
+number is **340** and the next ADR is **0033**. This is one iteration, not
+a finished queue or roadmap.

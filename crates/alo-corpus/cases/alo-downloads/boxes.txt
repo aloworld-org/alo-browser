@@ -15,9 +15,9 @@ block flow · document
             text "Windows"
           block flow · generic
             text "Windows 10 & 11 · 64-bit · .msi installer"
-          inline flex · link
+          inline flex · generic
             anonymous block
-              text "Download for Windows"
+              text "Building — available shortly"
         block flex · generic
           inline flow · generic
             text "Your device"
@@ -25,9 +25,9 @@ block flow · document
             text "macOS"
           block flow · generic
             text "Apple Silicon & Intel · universal · .dmg"
-          inline flex · link
+          inline flex · generic
             anonymous block
-              text "Download for Mac"
+              text "Building — available shortly"
       block flow · paragraph
         text " The app keeps itself up to date — new versions install automatically in the background, so you download it once. "
         inline flow · generic · line break

@@ -74,8 +74,10 @@
 //!
 //! # What is not here yet
 //!
-//! **Nothing in a page queues a task yet.** A timer firing is item 92 and a
-//! response is item 83; each will queue through [`EventLoop::queue_calls`].
+//! **A page queues one kind of task itself: the answer to its fetch** (queue
+//! item 335), queued through [`EventLoop::queue_delivery`] when the browser
+//! process's answer arrives, on [`EventLoop::queue_calls`]. A timer firing is
+//! item 92.
 //! The browser's dispatch is queued through [`Held::dispatch`], and an
 //! agent's `Activate` on a page that runs script is one ([`Held::activate`],
 //! [`activated`], item 256), run before the `Act` is answered, and so is its
@@ -93,6 +95,7 @@
 //! [`Held::put_text`]: crate::held::Held::put_text
 
 mod activated;
+mod delivered;
 mod described;
 mod dispatched;
 mod microtask;

@@ -72,6 +72,7 @@ dependencies = [
  "alo-css",
  "alo-dom",
  "alo-js",
+ "alo-net",
  "alo-url",
 ]
 
@@ -99,6 +100,7 @@ dependencies = [
  "alo-renderer",
  "alo-style",
  "alo-text",
+ "alo-url",
  "alo-value",
  "dejavu",
 ]

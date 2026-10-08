@@ -53,13 +53,22 @@
 //! page's ongoing navigation is taken when the work is done ([`crate::ask`])
 //! and the renderer never learns what became of it.
 //!
+//! # What a page asks to fetch
+//!
+//! Likewise a claim in the answer to the message whose work made it (ADR
+//! 0032 § 1) — every ask, in order — and the answer to each comes back as a
+//! message of its own, [`ToRenderer::Fetched`], whose handling is a task
+//! that settles the page's promise ([`crate::deliver`]). Its answer carries
+//! what the reactions asked for in turn.
+//!
 //! What is not here yet is the loop running between messages — a task a
 //! page queues for itself has no idle moment to run in (queue item 233).
 
 use crate::ask;
+use crate::deliver::deliver;
 use crate::event_loop::EventLoop;
 use crate::face::Face;
-use crate::fetch::Fetched;
+use crate::fetch::{FetchAsk, Fetched};
 use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::held::Held;
@@ -323,34 +332,35 @@ impl Renderer {
         };
         let (navigation, mut said) = ask::answer(&ongoing);
         issues.append(&mut said);
+        let fetches = asks(held);
         self.fresh();
         FromRenderer::Acted {
             outcome,
             issues,
             navigation,
-            // Nothing records a page's ask yet: `fetch` in a page is item 335.
-            fetches: Vec::new(),
+            fetches,
         }
     }
 
     /// The answer to one of the page's fetches, as a task of its own
-    /// (ADR 0032 § 1).
-    ///
-    /// Nothing on a page records an ask yet — `fetch` in a page is item 335,
-    /// which settles the promise waiting under the answer's number here — so
-    /// no number is one anything waits for. An answer nothing waits for is
-    /// answered by nobody: it is said, and the page is not touched.
-    fn delivered(&mut self, fetched: &Fetched) -> FromRenderer {
-        if self.held.is_none() {
+    /// (ADR 0032 § 1): the promise waiting under its number settled, every
+    /// reaction run in the checkpoint after it ([`crate::deliver`]), and the
+    /// page drawn again if they changed it. What they asked for — where to
+    /// go, what to fetch next — is this message's answer.
+    fn delivered(&mut self, arrived: &Fetched) -> FromRenderer {
+        let Some(held) = &mut self.held else {
             return FromRenderer::Failed(Failure::NothingLoaded);
-        }
+        };
+        let mut issues = deliver(held, arrived);
+        let ongoing = held.take_navigation();
+        let (navigation, mut said) = ask::answer(&ongoing);
+        issues.append(&mut said);
+        let fetches = asks(held);
+        self.fresh();
         FromRenderer::Delivered {
-            issues: vec![said::line(&format_args!(
-                "nothing on this page is waiting for fetch {}, so its answer was not delivered",
-                fetched.number
-            ))],
-            navigation: None,
-            fetches: Vec::new(),
+            issues,
+            navigation,
+            fetches,
         }
     }
 
@@ -379,6 +389,7 @@ impl Renderer {
             .unwrap_or_default();
         let (navigation, mut asked) = ask::answer(&ongoing);
         said.append(&mut asked);
+        let fetches = self.held.as_mut().map(asks).unwrap_or_default();
         match self.loaded() {
             FromRenderer::Loaded {
                 mut issues, wanted, ..
@@ -389,8 +400,7 @@ impl Renderer {
                     wanted,
                     objections,
                     navigation,
-                    // Nothing records a page's ask yet: item 335.
-                    fetches: Vec::new(),
+                    fetches,
                 }
             }
             other => other,
@@ -459,4 +469,13 @@ impl Renderer {
     pub fn viewport(&self) -> Option<Size> {
         self.page.as_ref().map(|page| page.viewport)
     }
+}
+
+/// Every fetch the page has asked for since its asks were last taken, as
+/// they cross.
+fn asks(held: &mut Held) -> Vec<FetchAsk> {
+    held.take_fetches()
+        .into_iter()
+        .map(FetchAsk::from)
+        .collect()
 }

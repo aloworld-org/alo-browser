@@ -20,6 +20,14 @@
 //!   render.png     what it should look like
 //! ```
 //!
+//! A case whose page fetches says where it was served from and what it was
+//! answered with (ADR 0032 § 7):
+//!
+//! ```text
+//!   address.txt    the URL the page was served from
+//!   responses.txt  each URL it fetches, and the file its response is frozen in
+//! ```
+//!
 //! None of them is redundant. `boxes.txt` catches a change in what exists,
 //! `layout.txt` a change in where it is, `display.txt` a change in what is
 //! drawn, `agent.txt` a change in what the page *means*, and `render.png`
@@ -68,6 +76,17 @@ pub struct Case {
     /// extension stands in for ([`Resource::from_file`]): a `.svg` is an SVG
     /// picture, and every other picture is decided by its bytes.
     pub resources: Vec<Resource>,
+    /// Where the page was served from, from its `address.txt`: what a
+    /// relative URL in it means, and the origin its fetches are made from.
+    /// [`None`] for a page served from nowhere — `about:blank`.
+    pub address: Option<String>,
+    /// The responses the page's fetches are answered with, frozen beside it:
+    /// each URL as the browser process would ask for it, and the bytes the
+    /// server sent ([`crate::answering`]).
+    ///
+    /// Frozen, never fetched, for the reason [`Case::linked`] is; a URL with
+    /// none is answered as a network error.
+    pub responses: Vec<(String, Vec<u8>)>,
 }
 
 impl Case {
@@ -92,6 +111,11 @@ impl Case {
             size,
             linked: linked_sheets(directory),
             resources: linked_resources(directory),
+            address: std::fs::read_to_string(directory.join("address.txt"))
+                .ok()
+                .map(|text| text.trim().to_owned())
+                .filter(|text| !text.is_empty()),
+            responses: frozen_responses(directory),
         })
     }
 
@@ -121,6 +145,28 @@ impl Case {
 fn parse_size(text: &str) -> Option<(f32, f32)> {
     let (width, height) = text.trim().split_once(['x', '×'])?;
     Some((width.trim().parse().ok()?, height.trim().parse().ok()?))
+}
+
+/// The frozen responses beside a case, from its `responses.txt`.
+///
+/// One per line: the URL the response answers, as the browser process would
+/// ask for it, a space, and the file beside the case holding the bytes the
+/// server sent. Blank lines and `#` comments are skipped, and so is a line
+/// naming a file that is not there — that URL is then answered as a network
+/// error, which is a real state rather than a broken case.
+fn frozen_responses(directory: &Path) -> Vec<(String, Vec<u8>)> {
+    let Ok(list) = std::fs::read_to_string(directory.join("responses.txt")) else {
+        return Vec::new();
+    };
+    list.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .filter_map(|line| line.split_once(char::is_whitespace))
+        .filter_map(|(url, file)| {
+            let bytes = std::fs::read(directory.join(file.trim())).ok()?;
+            Some((url.trim().to_owned(), bytes))
+        })
+        .collect()
 }
 
 /// The frozen pictures beside a case, from the same `linked.txt`.

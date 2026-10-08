@@ -1414,8 +1414,8 @@ mod tests {
 
     /// A tab showing a document at [`HERE`] under `policies`, as a `Load`'s
     /// answer carrying `fetches` leaves it — the answer passing exactly as
-    /// [`Tabs::load`] passes one, without a renderer that could send asks
-    /// (the page's `fetch` is item 335).
+    /// [`Tabs::load`] passes one, with asks no page had to make
+    /// (`tests/a_page_fetches.rs` drives a renderer whose page does).
     fn showing(
         policies: Policies,
         fetches: Vec<FetchAsk>,

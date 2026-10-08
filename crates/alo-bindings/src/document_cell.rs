@@ -33,6 +33,8 @@
 //! process — and where the page has **asked to go** since the renderer last
 //! answered ([`crate::navigating`], ADR 0020 § 1): HTML's ongoing navigation
 //! is a fact about the page's one navigable, which here is this document's.
+//! Beside it, what the page has asked to **fetch** and the promises waiting
+//! for the answers ([`crate::fetching`], ADR 0032 § 1).
 //!
 //! It is an object only because everything in the heap that is not the
 //! engine's own is one. No script is ever handed it — the document *node* a
@@ -44,6 +46,7 @@ use alo_js::heap::{Barrier, Ref};
 use alo_js::object::{Exotic, Internal, Key, Property};
 use alo_url::Url;
 
+use crate::fetching::Fetches;
 use crate::interface::Interfaces;
 use crate::navigating::Ongoing;
 
@@ -72,6 +75,9 @@ pub struct DocumentCell {
     pub(crate) url: Url,
     /// Where the page has asked to go since the renderer last took it.
     pub(crate) ongoing: Ongoing,
+    /// What the page has asked to fetch, and the promises waiting for the
+    /// answers ([`crate::fetching`]).
+    pub(crate) fetches: Fetches,
 }
 
 /// What collections have let go of, counted.
@@ -95,6 +101,7 @@ impl DocumentCell {
             on_path: Vec::new(),
             url: Url::about_blank(),
             ongoing: Ongoing::default(),
+            fetches: Fetches::default(),
         }
     }
 
@@ -117,6 +124,11 @@ impl DocumentCell {
     /// Where the page has asked to go since the renderer last took it.
     pub const fn ongoing(&self) -> &Ongoing {
         &self.ongoing
+    }
+
+    /// What the page has asked to fetch, and what it waits for.
+    pub const fn fetches(&self) -> &Fetches {
+        &self.fetches
     }
 
     /// The wrapper `node` has, if it has one.

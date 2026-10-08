@@ -391,10 +391,22 @@ unreachable without it.
       an `Act`; 64 asks at once and 64 waiting per document; and the filter
       sends `basic` without `Set-Cookie`, `cors` with only the readable
       headers, and opaque answers with no bytes
+      · Built: `fetch()` in a page (queue item 335) — `alo-bindings`' `fetch`
+      converts its arguments by Web IDL's rules, runs Fetch's request steps
+      and records the ask in the document cell, every failure rejecting; the
+      answer is a task that settles the promise with a read-only `Response`
+      (`ok`, `status`, `statusText`, `url`, `type`, `redirected`, `headers`,
+      `bodyUsed`, `text()`) or one `TypeError`; the renderer carries the asks
+      in `Loaded`, `Acted` and `Delivered` and draws the page again after a
+      delivery; and the corpus answers a case's fetches from its frozen
+      responses through the browser process's own decision and filter —
+      `alo-downloads` asks for both installers and, offline, marks both
+      buttons
       · Owed: making a decided fetch through the pool, with its preflight,
-      cookies and redirect mode (338); `fetch()` and its `Response` in a
-      page, closed by `alo-downloads` (335, on 334 and 333, both built); and
-      asynchronous `XMLHttpRequest` when a page uses one (336)
+      cookies and redirect mode (338); `Request`, `Headers` and `Response`
+      a page constructs, other bodies, `json()`, a `signal` and the `init`
+      members refused by name, each when a page needs one; and asynchronous
+      `XMLHttpRequest` when a page uses one (336)
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action,
       caused it. No other engine has needed to answer that, and an agent-driven

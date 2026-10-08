@@ -63,6 +63,32 @@ fn held_operation(
     defined(objects, prototype, key, property)
 }
 
+/// Put the operation `native` on `prototype`, under its own name — for an
+/// operation that keeps slots across the calls it asks for (ADR 0031), which
+/// a bare body cannot say.
+///
+/// # Errors
+///
+/// As [`operation`].
+pub(crate) fn native_operation(
+    objects: &mut Objects,
+    prototype: Ref,
+    function_prototype: Ref,
+    native: Native,
+) -> Result<(), Escape> {
+    let scope = objects.heap_mut().open();
+    let outcome = held_key(objects, native.name()).and_then(|key| {
+        let function = objects
+            .native(native, Some(function_prototype))
+            .map_err(|why| Escape::refused(why, 0))?;
+        objects.heap_mut().hold(function);
+        let property = Property::data(Value::Object(function), true, true, true);
+        defined(objects, prototype, key, property)
+    });
+    objects.heap_mut().close(scope);
+    outcome
+}
+
 /// Put the attribute `name` on `prototype`: read by `get`, and written by
 /// `set` or, without one, read-only.
 ///

@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can call `fetch`.** Its script asks, the browser decides, and
+  the answer comes back later as a `Response` the page can read — its
+  status, its headers and its text — or as a failure that says nothing
+  about why. Everything Fetch itself refuses, from an address that does not
+  parse to a method no page may use, rejects the promise rather than
+  breaking the script, and headers only the browser may set are dropped as
+  every browser drops them. alo's download page now asks whether each
+  installer is there; rendered offline, as the corpus renders it, it marks
+  both buttons *Building — available shortly*. It then stops where it sets
+  the buttons' colour, because an element's `style` is not built yet
+  (item 339), so they keep their orange. Making the request over the
+  network is next (item 338).
+
 - **A page's fetch now has a way across, and the browser decides it.** The
   page's process sends each fetch its script asks for along with its answer,
   and the browser process — which knows where the page came from and what

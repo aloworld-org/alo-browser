@@ -254,6 +254,30 @@ impl Intrinsics {
             .ok_or_else(|| Escape::fault(Fault::Gone))
     }
 
+    /// An error of `family` saying `message`, made as `new TypeError(message)`
+    /// would make it — for an embedder's native that **rejects a promise**
+    /// with one rather than throwing it, which a throw cannot do (queue item
+    /// 335: a fetch that failed, a body read twice).
+    ///
+    /// **A safepoint.** The error is held across its own allocations, and is
+    /// in a Rust local once this answers: the caller puts it somewhere the
+    /// collector walks — a kept slot, a settled promise — before anything
+    /// else allocates.
+    ///
+    /// # Errors
+    ///
+    /// [`Escape::Full`] for a heap at its ceiling, and a fault for a root this
+    /// engine has lost.
+    pub fn error(
+        &self,
+        objects: &mut Objects,
+        family: Family,
+        message: &str,
+        at: usize,
+    ) -> Result<Ref, Escape> {
+        error::made(objects, self, family, message, at)
+    }
+
     /// `Function.prototype` — what every function inherits from.
     ///
     /// # Errors

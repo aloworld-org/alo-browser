@@ -48,5 +48,5 @@ pub mod site;
 pub mod snapshot;
 
 pub use origin::{Opaque, Origin};
-pub use parse::{ParseError, join, parse};
+pub use parse::{ParseError, includes_credentials, join, parse};
 pub use parts::{Host, Url};

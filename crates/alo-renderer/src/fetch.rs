@@ -22,6 +22,8 @@
 //! failure carries no reason, so that the page cannot tell a refused
 //! connection from a refused read.
 
+use alo_bindings::fetching::Asked;
+use alo_bindings::{Responded, response};
 use alo_net::cors::{Credentials, Mode};
 use alo_net::redirect;
 use alo_net::referrer::Policy;
@@ -54,6 +56,24 @@ pub struct FetchAsk {
     pub referrer: Option<Policy>,
 }
 
+impl From<Asked> for FetchAsk {
+    /// An ask as the page's bindings recorded it, as it crosses: the URL
+    /// serialised, everything else as it was.
+    fn from(asked: Asked) -> Self {
+        Self {
+            number: asked.number,
+            url: asked.url.serialised,
+            method: asked.method,
+            headers: asked.headers,
+            body: asked.body,
+            mode: asked.mode,
+            credentials: asked.credentials,
+            redirect: asked.redirect,
+            referrer: asked.referrer,
+        }
+    }
+}
+
 /// Which of Fetch's filtered responses an answer is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -75,6 +95,16 @@ impl Kind {
             Kind::Cors => "cors",
             Kind::Opaque => "opaque",
             Kind::OpaqueRedirect => "opaqueredirect",
+        }
+    }
+
+    /// The same kind, as the page's bindings name it.
+    const fn as_seen(self) -> response::Kind {
+        match self {
+            Kind::Basic => response::Kind::Basic,
+            Kind::Cors => response::Kind::Cors,
+            Kind::Opaque => response::Kind::Opaque,
+            Kind::OpaqueRedirect => response::Kind::OpaqueRedirect,
         }
     }
 
@@ -116,6 +146,25 @@ pub enum Answer {
     /// rejects with one `TypeError` whatever happened, and the reason is
     /// written where the person can see it instead (ADR 0032 § 4).
     NetworkError,
+}
+
+impl Answer {
+    /// What the page's promise is settled with: the response as the page's
+    /// bindings hold one, or [`None`] for a network error.
+    pub fn responded(&self) -> Option<Responded> {
+        match self {
+            Answer::Response(readable) => Some(Responded {
+                kind: readable.kind.as_seen(),
+                status: readable.status,
+                status_text: readable.status_text.clone(),
+                url: readable.url.clone(),
+                redirected: readable.redirected,
+                headers: readable.headers.clone(),
+                body: readable.body.clone(),
+            }),
+            Answer::NetworkError => None,
+        }
+    }
 }
 
 /// The answer to one ask, sent to the renderer that asked.

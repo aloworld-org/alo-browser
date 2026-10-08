@@ -157,7 +157,8 @@ fn the_frozen_pages_query_finds_its_two_buttons_and_walks_them() {
     // Line 17 of its script with the body of its callback's first line: the
     // two download buttons, in tree order, each handed to `forEach`'s
     // callback with its index (queue items 329 and 331). Its next line
-    // calls `fetch`, which is item 75's.
+    // calls `fetch`, which the renderer offers a page (item 335) and this
+    // test's realm is not given.
     assert_eq!(
         answer_on(
             DOWNLOADS,

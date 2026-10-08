@@ -57,6 +57,15 @@
 //!   its one matcher matches it, and the list holds each match's wrapper,
 //!   answering its indices as Web IDL's indexed getter ([`node_list`]).
 //!
+//! - `fetch` on the global object (ADR 0032, queue item 335) is an **ask**
+//!   recorded in the document cell under a fresh number ([`fetching`]), and
+//!   answers a pending promise; its arguments are converted by Web IDL's
+//!   rules ([`fetch_init`]) and its request made by Fetch's steps
+//!   ([`fetch`]), and every failure rejects. The renderer takes the asks
+//!   with [`fetching::take`] and delivers each answer as a task
+//!   ([`delivering::answer`]), settling the promise with a read-only
+//!   [`Response`] and its [`Headers`] ([`response`], [`headers`]).
+//!
 //! # What is not here yet
 //!
 //! The renderer hands a page's document over when its first script is about
@@ -81,11 +90,16 @@
 
 mod clicking;
 mod define;
+pub mod delivering;
 mod dictionary;
 pub mod dispatch;
 pub mod document_cell;
 pub mod embed;
 pub mod event;
+pub mod fetch;
+mod fetch_init;
+pub mod fetching;
+pub mod headers;
 mod idl;
 pub mod install;
 pub mod interface;
@@ -94,6 +108,7 @@ pub mod liveness;
 pub mod navigating;
 pub mod navigator;
 pub mod node_list;
+pub mod response;
 mod scripted;
 pub mod token_list;
 mod tokens;
@@ -104,10 +119,13 @@ pub mod wrapper;
 pub use document_cell::{DocumentCell, Released};
 pub use embed::{Unadopted, Wrapping, adopt, change_document, document, node_of, wrap};
 pub use event::{Event, Fired, Firing, Shape};
+pub use fetch::offer;
+pub use headers::Headers;
 pub use install::{furnish, install};
 pub use interface::dom_exception::DomException;
 pub use interface::{Interface, Interfaces, prototype_of};
 pub use navigator::{Identity, Navigator, introduce};
 pub use node_list::NodeList;
+pub use response::{Responded, Response};
 pub use token_list::TokenList;
 pub use wrapper::Wrapper;

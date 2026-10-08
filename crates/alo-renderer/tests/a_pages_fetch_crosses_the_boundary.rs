@@ -330,9 +330,9 @@ fn an_answer_that_is_not_one_is_refused() {
     );
 }
 
-/// Until a page records an ask (item 335) nothing waits on any number, and an
-/// answer nothing waits for is answered by nobody: said, and the page left as
-/// it was.
+/// A page that has never run script waits for nothing, and an answer nothing
+/// waits for is answered by nobody: said, and the page left as it was. (A
+/// page whose script fetched is `tests/a_page_fetches.rs`'s.)
 #[test]
 fn an_answer_nothing_on_the_page_waits_for_is_said_and_changes_nothing() {
     let mut renderer = Renderer::new(FontDatabase::new());

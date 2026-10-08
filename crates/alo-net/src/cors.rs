@@ -241,14 +241,20 @@ pub fn is_same_origin(asker: Option<&Origin>, target: &Response) -> bool {
 }
 
 /// Whether one header, with this value, is one a plain HTML form could have
-/// sent.
+/// sent. `name` is lowercased by the caller.
+///
+/// Public because a page's bindings apply it too: a `no-cors` request's
+/// headers are cut to these before they are asked for (Fetch's
+/// `request-no-cors` guard, queue item 335), and the browser process refuses
+/// an ask that still carries another — one list, so the two can never
+/// disagree about what a form could have sent.
 ///
 /// **The value matters and not only the name.** `content-type` is on the
 /// safelist, and `Content-Type: application/json` is not on it: a form can
 /// produce three media types and that is not one of them. Deciding by name
 /// alone reads a JSON post as something a form could already have done, which
 /// is the permissive direction to be wrong in.
-fn a_form_could_have_sent(name: &str, value: &str) -> bool {
+pub fn a_form_could_have_sent(name: &str, value: &str) -> bool {
     if !A_FORM_COULD_HAVE_SENT.contains(&name) {
         return false;
     }

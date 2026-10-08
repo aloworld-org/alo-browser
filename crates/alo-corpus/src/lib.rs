@@ -23,6 +23,11 @@
 //! | `agent.txt` | what an agent reads: roles, names, states, positions |
 //! | `render.png` | everything the others cannot describe |
 //!
+//! A case whose page fetches also says where it was served from
+//! (`address.txt`) and what it was answered with (`responses.txt` and the
+//! files it names), and is answered from those alone ([`answering`], ADR
+//! 0032 § 7): a fetch it froze nothing for is a network error.
+//!
 //! # A second kind of frozen thing, beside the cases
 //!
 //! `scripts/` holds **frozen scripts**, one directory each, with an
@@ -49,11 +54,13 @@
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-corpus` rewrites the
 //! expectations — and the diff is then the review.
 
+pub mod answering;
 pub mod case;
 pub mod check;
 pub mod rendering;
 
 pub use alo_renderer::pipeline::{Rendered, render, render_with, render_with_resources};
+pub use answering::Answered;
 pub use case::Case;
 pub use check::{Difference, check};
 pub use rendering::Rendering;

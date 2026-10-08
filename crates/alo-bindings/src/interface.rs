@@ -77,6 +77,13 @@
 //! `Array.prototype`'s own functions (queue item 331,
 //! [`Interface::iterates_as_an_array`]).
 //!
+//! # `Response` and `Headers` are what a fetch answers
+//!
+//! Both inherit from `Object.prototype` (ADR 0032 § 4, queue item 335): the
+//! [`crate::Response`] a fetch is settled with and the [`crate::Headers`] it
+//! holds, each made only by a fetch's answer ([`crate::response::make`]),
+//! with no constructor on the global object.
+//!
 //! # An unforgeable member is on the instance
 //!
 //! Web IDL puts a `[LegacyUnforgeable]` attribute on **every instance**
@@ -106,6 +113,7 @@ pub mod dom_token_list;
 pub mod element;
 pub mod event;
 pub mod event_target;
+pub mod headers;
 pub mod hidden;
 pub mod html_element;
 pub mod input_event;
@@ -115,6 +123,7 @@ pub mod node;
 pub mod node_list;
 pub mod parent_node;
 pub mod pointer_event;
+pub mod response;
 pub mod ui_event;
 
 use alo_dom::{Namespace, NodeId, NodeKind};
@@ -172,6 +181,10 @@ pub enum Interface {
     /// A static list of nodes: what `querySelectorAll` answers (queue item
     /// 329).
     NodeList,
+    /// What a fetch is settled with (ADR 0032 § 4, queue item 335).
+    Response,
+    /// A response's headers, read.
+    Headers,
 }
 
 /// What an interface's prototype inherits from.
@@ -188,7 +201,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 21] = [
+    pub const ALL: [Self; 23] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -210,6 +223,8 @@ impl Interface {
         Self::Navigator,
         Self::DomTokenList,
         Self::NodeList,
+        Self::Response,
+        Self::Headers,
     ];
 
     /// Its name, as the standard spells it.
@@ -236,6 +251,8 @@ impl Interface {
             Self::Navigator => "Navigator",
             Self::DomTokenList => "DOMTokenList",
             Self::NodeList => "NodeList",
+            Self::Response => "Response",
+            Self::Headers => "Headers",
         }
     }
 
@@ -246,7 +263,9 @@ impl Interface {
             | Self::Event
             | Self::Navigator
             | Self::DomTokenList
-            | Self::NodeList => Inherits::Object,
+            | Self::NodeList
+            | Self::Response
+            | Self::Headers => Inherits::Object,
             Self::Node => Inherits::Interface(Self::EventTarget),
             Self::CustomEvent | Self::UiEvent => Inherits::Interface(Self::Event),
             Self::MouseEvent | Self::InputEvent => Inherits::Interface(Self::UiEvent),
@@ -304,6 +323,8 @@ impl Interface {
             Self::Navigator => 18,
             Self::DomTokenList => 19,
             Self::NodeList => 20,
+            Self::Response => 21,
+            Self::Headers => 22,
         }
     }
 
@@ -372,6 +393,8 @@ impl Interface {
             Self::Navigator => navigator::furnish(objects, prototype, function_prototype),
             Self::DomTokenList => dom_token_list::furnish(objects, prototype, function_prototype),
             Self::NodeList => node_list::furnish(objects, prototype, function_prototype),
+            Self::Response => response::furnish(objects, prototype, function_prototype),
+            Self::Headers => headers::furnish(objects, prototype, function_prototype),
             Self::Node => node::furnish(objects, prototype, function_prototype),
             // `ParentNode`'s `querySelectorAll` is on these three, as a mixin.
             Self::Element => {

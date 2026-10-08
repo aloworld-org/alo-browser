@@ -37,6 +37,14 @@
 //! has no cell and nothing that could ask behind the renderer's back, so the
 //! renderer asks for it directly.
 //!
+//! # What the page has asked to fetch
+//!
+//! A script's `fetch` is an ask kept in the cell as a navigation is (ADR
+//! 0032 § 1), taken when the message's work is done
+//! ([`Held::take_fetches`]); the answer to each is a task of its own, queued
+//! by [`Held::deliver`]. A page that has never run script has asked for
+//! nothing and waits for nothing.
+//!
 //! # A heap that will not take the document
 //!
 //! A document larger than the heap's ceiling cannot be adopted, since the
@@ -46,9 +54,11 @@
 
 use core::fmt;
 
+use alo_bindings::fetching::{self, Asked};
 use alo_bindings::navigating::{self, By, Ongoing};
 use alo_bindings::{
-    Firing, Identity, Unadopted, adopt, change_document, document, install, introduce,
+    Firing, Identity, Responded, Unadopted, adopt, change_document, document, install, introduce,
+    offer,
 };
 use alo_dom::{Document, NodeId};
 use alo_js::Escape;
@@ -215,12 +225,50 @@ impl Held {
         }
     }
 
+    /// Every fetch the page has asked for since this was last called, oldest
+    /// first, leaving none — always none on a page that has never run
+    /// script (ADR 0032 § 1).
+    pub fn take_fetches(&mut self) -> Vec<Asked> {
+        match self {
+            Held::Parsed(_) => Vec::new(),
+            Held::Scripted(scripted) => {
+                let objects = scripted.script.engine().objects();
+                objects
+                    .heap()
+                    .holding(&scripted.cell)
+                    .and_then(|cell| fetching::take(objects, cell))
+                    .unwrap_or_default()
+            }
+        }
+    }
+
+    /// Queue the delivery of the answer to the page's fetch `number` —
+    /// `responded`, or a network error for [`None`] — as a task on the
+    /// page's loop: which task, or [`None`] when nothing on the page waits
+    /// for it, which a page that has never run script never does.
+    ///
+    /// Nothing runs here: the task runs when the loop reaches it.
+    ///
+    /// # Errors
+    ///
+    /// [`Unqueued`]: the page has stopped, or its heap could not hold the
+    /// response or the task; or the renderer's root on the document has
+    /// stopped naming it, which is the engine's bug.
+    pub fn deliver(
+        &mut self,
+        number: u64,
+        responded: Option<Responded>,
+    ) -> Result<Option<Seq>, Unqueued> {
+        self.queue(|page_loop, cell| page_loop.queue_delivery(cell, number, responded))
+            .map(Option::flatten)
+    }
+
     /// Queue a task with `queue`, handed the page's loop and its document
     /// cell — [`None`] on a page that has never run script.
-    fn queue(
+    fn queue<T>(
         &mut self,
-        queue: impl FnOnce(&mut EventLoop, Ref) -> Result<Seq, Unqueued>,
-    ) -> Result<Option<Seq>, Unqueued> {
+        queue: impl FnOnce(&mut EventLoop, Ref) -> Result<T, Unqueued>,
+    ) -> Result<Option<T>, Unqueued> {
         match self {
             Held::Parsed(_) => Ok(None),
             Held::Scripted(scripted) => {
@@ -236,9 +284,9 @@ impl Held {
     }
 
     /// The page's event loop, making it — and moving the document into its
-    /// heap, at `url`, with `document` on its global object and `navigator`
-    /// saying what `identity` says (ADR 0030 § 4) — if no script has run
-    /// yet.
+    /// heap, at `url`, with `document` on its global object, `navigator`
+    /// saying what `identity` says (ADR 0030 § 4) and `fetch` asking the
+    /// browser process (ADR 0032) — if no script has run yet.
     ///
     /// **Called when the page's first script is about to run**, and not
     /// before: a page none of whose scripts may run never builds a heap.
@@ -271,8 +319,9 @@ impl Held {
             // cell only if `adopt` made something else, which it does not.
             navigating::locate(engine.objects(), made, url.clone());
             let cell = engine.objects().heap_mut().root(made);
-            let installed =
-                install(engine, made).and_then(|_| introduce(engine, made, identity).map(drop));
+            let installed = install(engine, made)
+                .and_then(|_| introduce(engine, made, identity).map(drop))
+                .and_then(|()| offer(engine, made));
             *self = Held::Scripted(Box::new(Scripted { script, cell }));
             installed.map_err(NoScript::Engine)?;
         }

@@ -17,13 +17,41 @@
 //! browser was told, marks that system's card `.rec` and shows its "Your
 //! device" badge — for a Mac and a Windows machine, and neither on Linux.
 //! Since item 329 its `querySelectorAll` finds the two buttons, and since
-//! item 331 its `forEach` walks them; it stops inside the first callback at
-//! `fetch` (item 75), so no button is greyed. The corpus renders it as the
-//! Mac `alo_corpus::SYSTEM` says it is.
+//! item 331 its `forEach` walks them. Since item 335 each button's
+//! `fetch(href, { method: "HEAD" })` is asked for, and its `.then` or
+//! `.catch` decides the button when the answer comes: an installer that is
+//! there leaves its button as it is, and one that is not — a `404`, or no
+//! answer at all — has it marked *Building — available shortly* and its
+//! `href` taken away. The corpus froze no installer, so offline both are
+//! marked; and the script then stops at `a.style`, which is not built (item
+//! 339), before it can grey them. The corpus renders it as the Mac
+//! `alo_corpus::SYSTEM` says it is.
 
 use alo_corpus::{Case, Rendering, cases_directory, corpus_fonts};
 use alo_layout::Rect;
+use alo_net::cors::{Credentials, Mode};
+use alo_renderer::fetch::{Answer, FetchAsk, Fetched, Kind, Readable};
 use alo_renderer::{FromRenderer, Page, Renderer, ToRenderer};
+
+/// Where the page is served from: alo's own deploy serves its downloads
+/// directory under `/download/` on `alomails.com`.
+const ADDRESS: &str = "https://alomails.com/download/";
+
+/// The two installers the page's buttons name, as their `href`s resolve
+/// against [`ADDRESS`].
+const INSTALLERS: [&str; 2] = [
+    "https://alomails.com/download/alomails-windows-x64-setup.exe",
+    "https://alomails.com/download/alomails-mac-universal.dmg",
+];
+
+/// What the page's script says once it has marked a button and reached
+/// `a.style`, which is not built (item 339): the `.catch` or `.then` that
+/// threw, as a rejection nobody handled.
+const STOPS_AT_STYLE: &str =
+    "the answer to a fetch: uncaught: TypeError: cannot write property 'background' of undefined";
+
+/// What a marked button says.
+const MARKED: &str = "Building — available shortly";
 
 /// The note's line height: `0.86rem` at `line-height: 1.55` from `body`.
 const NOTE_LINE: f32 = 0.86 * 16.0 * 1.55;
@@ -124,15 +152,20 @@ fn each_buttons_label_is_a_line_as_tall_as_its_line_height() {
         panic!("the page is drawn");
     };
     let boxes = &drawing.boxes;
-    for label in ["Download for Windows", "Download for Mac"] {
-        let Some(text) = boxes.ids().find(|id| {
+    // Offline, both buttons are marked (item 335), and a marked button's
+    // label is a line like any other.
+    let labels: Vec<alo_box::BoxId> = boxes
+        .ids()
+        .filter(|id| {
             boxes
                 .get(*id)
                 .and_then(alo_box::BoxNode::text)
-                .is_some_and(|held| held.trim() == label)
-        }) else {
-            panic!("{label} is in the boxes");
-        };
+                .is_some_and(|held| held.trim() == MARKED)
+        })
+        .collect();
+    assert_eq!(labels.len(), 2, "both buttons are marked");
+    for text in labels {
+        let label = MARKED;
         let wrapper = boxes.get(text).and_then(|node| node.parent);
         assert!(
             matches!(
@@ -269,32 +302,108 @@ fn marked(renderer: &Renderer, id: &str) -> Option<(bool, bool, bool)> {
     Some((rec, shown, drawn))
 }
 
+/// What a load said, and what it asked to fetch.
+type Load = (Vec<String>, Vec<FetchAsk>);
+
+/// The page `case` holds, loaded at [`ADDRESS`] as the system `user_agent`
+/// and `platform` say: the renderer, what the load said, and what it asked
+/// to fetch — [`None`] if it did not load.
+fn loaded(case: &Case, user_agent: &str, platform: &str) -> Option<(Renderer, Load)> {
+    let mut renderer = Renderer::new(corpus_fonts());
+    let mut page = Page::new(case.html.clone(), alo_layout::Size::new(800.0, 780.0));
+    user_agent.clone_into(&mut page.user_agent);
+    platform.clone_into(&mut page.platform);
+    page.url = alo_url::parse(ADDRESS).ok()?;
+    match renderer.handle(ToRenderer::Load(Box::new(page))) {
+        FromRenderer::Loaded {
+            issues, fetches, ..
+        } => Some((renderer, (issues, fetches))),
+        _ => None,
+    }
+}
+
+/// The text of the download button in the card `id`, and whether it still
+/// has an `href`.
+fn button(renderer: &Renderer, id: &str) -> Option<(String, bool)> {
+    let document = renderer.document()?;
+    let card = document.descendants(document.root()).find(|node| {
+        document
+            .element(*node)
+            .is_some_and(|element| element.attr("id") == Some(&format!("card-{id}")))
+    })?;
+    let link = document.descendants(card).find(|node| {
+        document.element(*node).is_some_and(|element| {
+            element
+                .attr("class")
+                .is_some_and(|class| class.split_ascii_whitespace().any(|token| token == "btn"))
+        })
+    })?;
+    let has_href = document.element(link)?.attr("href").is_some();
+    Some((document.text_content(link), has_href))
+}
+
+/// Deliver `answer` to ask `number`, answering what the delivery said —
+/// [`None`] if it was not answered as a delivery, or its reactions asked to
+/// go somewhere or fetch again, which this page's never do.
+fn deliver(renderer: &mut Renderer, number: u64, answer: Answer) -> Option<Vec<String>> {
+    let fetched = Fetched { number, answer };
+    match renderer.handle(ToRenderer::Fetched(Box::new(fetched))) {
+        FromRenderer::Delivered {
+            issues,
+            navigation: None,
+            fetches,
+        } if fetches.is_empty() => Some(issues),
+        _ => None,
+    }
+}
+
+/// A `HEAD` answered by alo's own server, with `status`.
+fn answered(url: &str, status: u16, status_text: &str) -> Answer {
+    Answer::Response(Box::new(Readable {
+        kind: Kind::Basic,
+        status,
+        status_text: status_text.to_owned(),
+        url: Some(url.to_owned()),
+        redirected: false,
+        headers: Vec::new(),
+        body: Vec::new(),
+    }))
+}
+
 #[test]
 fn the_pages_script_marks_the_card_of_the_system_it_is_told() {
     let Some(case) = Case::read(&cases_directory().join("alo-downloads")) else {
         panic!("the case is read");
     };
     for (user_agent, platform, chosen) in SYSTEMS {
-        let mut renderer = Renderer::new(corpus_fonts());
-        let mut page = Page::new(case.html.clone(), alo_layout::Size::new(800.0, 780.0));
-        page.user_agent = user_agent.to_owned();
-        page.platform = platform.to_owned();
-        let FromRenderer::Loaded { issues, .. } = renderer.handle(ToRenderer::Load(Box::new(page)))
-        else {
-            panic!("the page loads");
+        let Some((mut renderer, (issues, fetches))) = loaded(&case, user_agent, platform) else {
+            panic!("{platform}: the page loads");
         };
-        // It runs past both branches now, every system alike, past the
-        // `querySelectorAll` that finds the buttons (queue item 329) and into
-        // the `forEach` that walks them (queue item 331), and stops in its
-        // first callback at the `fetch` that would decide whether to grey
-        // the button (queue item 75) — before anything is greyed.
+        // It runs past both branches, every system alike, past the
+        // `querySelectorAll` that finds the buttons (queue item 329) and the
+        // `forEach` that walks them (queue item 331), and asks for each
+        // installer with a `HEAD` (queue item 335) — and says nothing,
+        // because nothing has failed yet.
         assert!(
-            issues.iter().any(|issue| issue.contains(
-                "uncaught: ReferenceError: 'fetch' is not defined \
-                 (at script 1, line 19, column 9; called from script 1, line 17, column 7)"
-            )),
+            !issues.iter().any(|issue| issue.contains("uncaught")),
             "{platform}: {issues:?}",
         );
+        let asked: Vec<(&str, &str)> = fetches
+            .iter()
+            .map(|ask| (ask.url.as_str(), ask.method.as_str()))
+            .collect();
+        assert_eq!(
+            asked,
+            [(INSTALLERS[0], "HEAD"), (INSTALLERS[1], "HEAD")],
+            "{platform}"
+        );
+        for ask in &fetches {
+            assert_eq!(
+                (ask.mode, ask.credentials),
+                (Mode::Cors, Credentials::SameOrigin)
+            );
+            assert!(ask.headers.is_empty() && ask.body.is_empty());
+        }
         for id in ["mac", "win"] {
             let mark = chosen == Some(id);
             assert_eq!(
@@ -303,12 +412,90 @@ fn the_pages_script_marks_the_card_of_the_system_it_is_told() {
                 "{platform}: the {id} card is marked {mark}",
             );
         }
+        // Offline: each answer is a network error, its `.catch` marks the
+        // button, and the script stops at `a.style`.
+        for ask in &fetches {
+            assert_eq!(
+                deliver(&mut renderer, ask.number, Answer::NetworkError),
+                Some(vec![STOPS_AT_STYLE.to_owned()]),
+                "{platform}"
+            );
+        }
+        for id in ["win", "mac"] {
+            assert_eq!(
+                button(&renderer, id),
+                Some((MARKED.to_owned(), false)),
+                "{platform}: the {id} button"
+            );
+        }
+    }
+}
+
+/// An installer that is there leaves its button as it is; one that is not
+/// has it marked by the `.then`, which reads `r.ok` — the same page, told
+/// two different things by alo's server.
+#[test]
+fn each_buttons_then_decides_it_from_its_answer() {
+    let Some(case) = Case::read(&cases_directory().join("alo-downloads")) else {
+        panic!("the case is read");
+    };
+    let (user_agent, platform, _) = SYSTEMS[0];
+    let Some((mut renderer, (_, fetches))) = loaded(&case, user_agent, platform) else {
+        panic!("the page loads");
+    };
+    let [windows, mac] = fetches.as_slice() else {
+        panic!("two asks: {fetches:?}");
+    };
+    let issues = deliver(
+        &mut renderer,
+        windows.number,
+        answered(INSTALLERS[0], 200, "OK"),
+    );
+    assert_eq!(issues, Some(Vec::new()));
+    let issues = deliver(
+        &mut renderer,
+        mac.number,
+        answered(INSTALLERS[1], 404, "Not Found"),
+    );
+    assert_eq!(issues, Some(vec![STOPS_AT_STYLE.to_owned()]));
+    assert_eq!(
+        button(&renderer, "win"),
+        Some(("Download for Windows".to_owned(), true))
+    );
+    assert_eq!(button(&renderer, "mac"), Some((MARKED.to_owned(), false)));
+    // Each answer is delivered once; a second is answered by nobody.
+    let again = deliver(&mut renderer, mac.number, Answer::NetworkError).unwrap_or_default();
+    assert!(
+        again.len() == 1 && again[0].contains("nothing on this page is waiting"),
+        "{again:?}"
+    );
+}
+
+/// The corpus froze no installer — they are built by CI into a directory
+/// alo's deploy mounts, and are in no repository — so both fetches are
+/// network errors, and `origin.txt` says which.
+#[test]
+fn the_corpus_answers_it_offline_and_says_so() {
+    let Some((case, Rendering::Loaded(renderer, answered))) = downloads() else {
+        panic!("the case is loaded by a renderer");
+    };
+    assert_eq!(case.address.as_deref(), Some(ADDRESS));
+    assert!(case.responses.is_empty());
+    assert_eq!(answered.delivered, 2);
+    assert_eq!(answered.unfrozen, INSTALLERS);
+    assert_eq!(answered.issues, [STOPS_AT_STYLE, STOPS_AT_STYLE]);
+    for id in ["win", "mac"] {
+        assert_eq!(button(&renderer, id), Some((MARKED.to_owned(), false)));
+    }
+    let origin = std::fs::read_to_string(case.expectation("origin.txt")).unwrap_or_default();
+    for url in INSTALLERS {
+        assert!(origin.contains(url), "origin.txt does not say {url}");
     }
 }
 
 #[test]
 fn the_corpus_renders_it_as_the_mac_it_says_it_is() {
-    let Some((_, Rendering::Loaded(renderer))) = downloads() else {
+    let Some((_, Rendering::Loaded(renderer, _))) = downloads() else {
         panic!("the case is loaded by a renderer");
     };
     assert_eq!(alo_corpus::SYSTEM.platform, "MacIntel");

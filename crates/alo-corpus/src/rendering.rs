@@ -18,6 +18,11 @@
 //! renders it, so a script that reads `navigator` draws the same reference
 //! everywhere.
 //!
+//! A loaded page is served from the case's address, and what its script
+//! fetches is answered from the responses the case froze, through the
+//! browser process's own decision and filter ([`crate::answering`]); a
+//! fetch it froze nothing for is a network error.
+//!
 //! A loaded case cannot link a sheet or a picture yet: a renderer is handed
 //! its sheets as text and no pictures at all (`Page`), and a case that asked
 //! for both would be rendered without what it linked and committed that
@@ -28,14 +33,16 @@ use alo_dom::scripts::{Carried, carried};
 use alo_layout::Size;
 use alo_renderer::{Drawing, FromRenderer, Page, Rendered, Renderer, ToRenderer};
 
+use crate::answering::{self, Answered};
 use crate::case::Case;
 
 /// A case, rendered.
 pub enum Rendering {
     /// Markup with no script, through the pipeline.
     Markup(Box<Rendered>),
-    /// A page with script, loaded by a renderer.
-    Loaded(Box<Renderer>),
+    /// A page with script, loaded by a renderer, and what answering its
+    /// fetches came to.
+    Loaded(Box<Renderer>, Answered),
 }
 
 impl Rendering {
@@ -72,8 +79,17 @@ impl Rendering {
         let mut page = Page::new(case.html.clone(), size).with_sheet(case.css.clone());
         page.user_agent = crate::SYSTEM.user_agent();
         crate::SYSTEM.platform.clone_into(&mut page.platform);
+        if let Some(address) = &case.address {
+            page.url = alo_url::parse(address)
+                .map_err(|why| format!("its address.txt is not an address: {why}"))?;
+        }
+        let address = page.url.clone();
         match renderer.handle(ToRenderer::Load(Box::new(page))) {
-            FromRenderer::Loaded { .. } => Ok(Self::Loaded(Box::new(renderer))),
+            FromRenderer::Loaded { fetches, .. } => {
+                let answered =
+                    answering::answer(&mut renderer, &address, &case.responses, fetches)?;
+                Ok(Self::Loaded(Box::new(renderer), answered))
+            }
             other => Err(format!("the renderer did not load it: {other:?}")),
         }
     }
@@ -82,7 +98,7 @@ impl Rendering {
     pub fn document(&self) -> Option<&Document> {
         match self {
             Self::Markup(rendered) => Some(&rendered.document),
-            Self::Loaded(renderer) => renderer.document(),
+            Self::Loaded(renderer, _) => renderer.document(),
         }
     }
 
@@ -90,7 +106,7 @@ impl Rendering {
     pub fn drawing(&self) -> Option<&Drawing> {
         match self {
             Self::Markup(rendered) => Some(&rendered.drawing),
-            Self::Loaded(renderer) => renderer.rendered(),
+            Self::Loaded(renderer, _) => renderer.rendered(),
         }
     }
 }
@@ -108,6 +124,8 @@ mod tests {
             size: (40.0, 20.0),
             linked: Vec::new(),
             resources: Vec::new(),
+            address: None,
+            responses: Vec::new(),
         }
     }
 
@@ -116,7 +134,7 @@ mod tests {
         let rendering = Rendering::of(&case(
             "<p>a</p><script>document.documentElement.lastChild.firstChild.remove()</script>",
         ));
-        let Ok(rendering @ Rendering::Loaded(_)) = rendering else {
+        let Ok(rendering @ Rendering::Loaded(..)) = rendering else {
             panic!("not loaded by a renderer");
         };
         let paragraphs = rendering.document().map(|document| {

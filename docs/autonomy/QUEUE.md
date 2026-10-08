@@ -5025,7 +5025,8 @@ The long pole, and the thing most of section E is unreachable without.
   message; a synchronous `XMLHttpRequest` is refused by name. **No code is
   built and this item is not done.** It is cut three ways: the boundary
   (334), `fetch()` in a page (335) and `XMLHttpRequest` (336). It closes
-  when all three have.
+  when all three have. **334 and 335 are built** (iterations 214 and 215);
+  making a decided fetch is 338, and 336 waits for a page.
 
 - [x] **334. A fetch crosses the boundary, and the browser process decides
   it.** *Cut from 83 (ADR 0032 §§ 1–4). Depends on 263 (the ask's shape),
@@ -5118,7 +5119,7 @@ The long pole, and the thing most of section E is unreachable without.
   mode, and the record shows each request with its cause, the preflight
   before the request it asked about, and a refusal by its rule.
 
-- [ ] **335. `fetch()` in a page.** *Cut from 83 (ADR 0032 §§ 1, 4 and 7).
+- [x] **335. `fetch()` in a page.** *Cut from 83 (ADR 0032 §§ 1, 4 and 7).
   Depends on 333 and 334.* `alo-bindings`: `fetch` on the global object,
   reading its `init` (`method`, `headers` as a plain object, a string
   `body`, `mode`, `credentials`, `redirect`, `referrerPolicy`), dropping
@@ -5141,6 +5142,78 @@ The long pole, and the thing most of section E is unreachable without.
   with provenance, the case freezes none, and what it then pins — buttons
   marked *Building — available shortly* — is said in `origin.txt` as what
   the page does offline.
+  **Built (iteration 215).** `alo-bindings`: `fetch` on the global object
+  (`fetch.rs`) makes its promise and asks for a call of the **request
+  steps**, a second native only `fetch` holds, with `Want::Catch`, so
+  everything they throw — a refused argument, a bad URL, a forbidden method,
+  a getter in `init` that throws — rejects rather than escapes. The steps
+  convert `input` with `ToString` and `init` member by member in Web IDL's
+  lexicographic order (`fetch_init.rs`), each getter and `toString` asked
+  for and come back to, then run Fetch's `Request` steps: resolve against
+  the base URL, refuse credentials in it, refuse `data:` and `blob:` by
+  name, default and check `mode` (`navigate` a `TypeError`), `credentials`,
+  `redirect` and `referrerPolicy`, normalise and check the method, drop
+  forbidden headers and, under `no-cors`, any a form could not have sent
+  (`alo-net`'s own lists, `cors::a_form_could_have_sent` made public), add
+  `Content-Type: text/plain;charset=UTF-8` for a string body, and record the
+  ask in the document cell (`fetching.rs`) under the next number. Refused by
+  name: a body that is not a string, `cache`, `integrity`, `keepalive`,
+  `priority`, `referrer` or `signal` set to other than their default,
+  headers as pairs or a `Headers`, a header behind a getter or whose value
+  is an object, and a header value past `0x7F`. The asks waiting to be
+  taken are bounded at 32 MiB (`MOST_ASKED_BYTES`, half of one message);
+  past it a fetch rejects as a failure. The waiting promises are strong
+  edges of the cell and its footprint counts the asks. `response.rs` and
+  `headers.rs` are the read-only `Response` (`type`, `url`, `redirected`,
+  `status`, `ok`, `statusText`, `headers`, `bodyUsed`, `text()`, a second
+  read rejecting) and `Headers` (`get`, `has`), no constructor on the
+  global. `delivering.rs` is the task: one call of a native the cell holds,
+  which resolves the promise through `%ResolvePromise%` or rejects it with
+  one `TypeError` (`fetch::FAILED`). `alo-js` gained `Intrinsics::error`;
+  `alo-url` gained `includes_credentials`. `alo-renderer`: `Held` offers
+  `fetch` when a page's script first runs, `take_fetches` and `deliver`;
+  `EventLoop::queue_delivery` roots the response across queueing;
+  `deliver.rs` runs the task; `Loaded`, `Acted` and `Delivered` carry the
+  asks, and a delivery draws the page again. `alo-corpus`: a case's
+  `address.txt` and `responses.txt` (raw HTTP/1.1 responses), answered by
+  `answering.rs` through `fetch_decide::decide` and `fetch_filter::filter`;
+  an unfrozen URL is a network error, listed in `Answered::unfrozen`.
+  `alo-downloads` is served from `https://alomails.com/download/` and froze
+  no installer (none is in any repository); offline both buttons are marked
+  *Building — available shortly* and lose their `href`, and the script then
+  stops at `a.style`, which is item **339**, opened by this page. Tests:
+  `alo-bindings/tests/what_a_page_fetches.rs` (a same-origin text body
+  read, an opaque response's status 0 and empty body, a failed fetch's one
+  `TypeError`, every request-step refusal rejecting and asking nothing,
+  headers and the guard, the init's order and a getter's throw rejecting,
+  every refusal by name, a body read twice, an answer nothing waits for —
+  each also under a collection at every allocation);
+  `alo-renderer/tests/a_page_fetches.rs` (a `Load`'s, an `Act`'s and a
+  delivery's asks, the page drawn again, a new page letting go, and real
+  `Tabs` over the confined binary deciding and delivering);
+  `alo-corpus/tests/alo_downloads.rs` (offline, and a server with one
+  installer and not the other); `answering.rs`'s unit tests. Checked by
+  mutation: not tracing the waiting promises fails three stress runs; not
+  dropping forbidden headers, and not drawing again after a delivery, each
+  fail a test.
+
+- [ ] **339. An element's `style`, from a page.** *Cut from 89 (CSSOM),
+  opened by `alo-downloads` (iteration 215).* The page's `mark(a)` sets
+  `a.style.background`, `a.style.cursor` and `a.style.pointerEvents` to
+  grey a button it has marked, and stops at the first: "TypeError: cannot
+  write property 'background' of undefined". What it needs is both halves of
+  an inline style: the `style` attribute taking part in the cascade (CSS
+  Style Attributes — not applied today, so `<p style="color: red">` is not
+  red), and an element's `style` as a `CSSStyleDeclaration` whose named
+  properties write the attribute through `alo-dom`'s operations (ADR 0017
+  § 5). Feature contract: `docs/features.md`'s CSSOM line. *Depends on
+  nothing open.* *Closes when:* a style attribute is cascaded as the
+  specification places it, in numbers and a reference render; `alo-downloads`'
+  `mark(a)` runs to its end and both offline buttons are drawn `#c7bfb2`,
+  pinned in `tests/alo_downloads.rs` and the moved reference. *Not yet read
+  for an ADR*: the iteration that takes it says whether the declaration's
+  shorthand handling (`background` sets eight longhands) is a decision or a
+  specification to follow, before building.
 
 - [ ] **336. `XMLHttpRequest`, asynchronous.** *Cut from 83 (ADR 0032 § 6).
   Depends on 334 and on event dispatch (254, done).* The same ask, delivered
@@ -5183,7 +5256,8 @@ The long pole, and the thing most of section E is unreachable without.
   the work that opens it.
 
 - [ ] **89. CSSOM** — styles readable and writable from script.
-  *Depends on 80.*
+  *Depends on 80.* **Opened by a page (iteration 215):** `alo-downloads`
+  sets an element's `style`; that first cut is item 339.
   *Needs design (iteration 161):* its dependencies are done, but it names no
   ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
   not ready to build. Cutting a first item from it, with those written, is

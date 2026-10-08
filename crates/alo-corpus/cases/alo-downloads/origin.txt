@@ -16,6 +16,29 @@ re-derive it from the commit above. It was the first alo page left that the
 corpus had not seen, and every open queue item before it was waiting for a
 page, a dependency or a person (iteration 197).
 
+**Where it is served from: `https://alomails.com/download/`** (address.txt).
+`alo-workplace`'s `deploy/production/docker-compose.yml` mounts its
+`downloads` directory at `/srv-downloads`, and its `Caddyfile` serves that
+directory under `/download/` on `alomails.com` — and on the mail and
+workspace hosts too, which change nothing here: the buttons' `href`s are
+absolute paths, so they resolve to the same origin as the page either way.
+
+**What its fetches are answered with: nothing — it is rendered offline.**
+The script asks for each installer with a `HEAD` (since item 335):
+
+- https://alomails.com/download/alomails-windows-x64-setup.exe
+- https://alomails.com/download/alomails-mac-universal.dmg
+
+The installers are built by CI into the deploy's downloads directory and
+are in no repository, so there is no response here that could be frozen
+with provenance, and responses.txt is absent on purpose. ADR 0032 § 7: a
+fetch the case froze nothing for is a network error. So each `fetch`
+rejects, its `.catch` marks the button *Building — available shortly* and
+takes its `href` away — **what the page does offline, not what it does
+live**, where an installer that is there leaves its button alone.
+`tests/alo_downloads.rs` pins both: offline, and a server that has the
+Windows installer and not the Mac one.
+
 Rendered at 800 × 780: wider than its 560 px breakpoint, so the two cards
 stand side by side, and tall enough for the whole of its content under its
 6vh top padding and 40 px bottom padding. It was 760 until the card's
@@ -41,12 +64,17 @@ border and shadow — and shows its badge. Since iteration 205 (item 329)
 its `document.querySelectorAll(".btn[href]")` on line 17 finds the two
 download buttons. Since iteration 209 (item 331) the `.forEach(…)` called
 on them is `Array.prototype.forEach`, which walks them, and the script
-stops in its first callback, at line 19: "ReferenceError: 'fetch' is not
-defined", because `fetch` and the promises its `.then` needs are not
-built. ADR 0032 (iteration 212) decides what `fetch` is; it is built as
-items 334 and 335, on item 333's promise.
-So no button is greyed out by the `fetch()` that checks whether an
-installer is hosted.
+stopped in its first callback, at line 19: "ReferenceError: 'fetch' is not
+defined". ADR 0032 (iteration 212) decided what `fetch` is, and items 333,
+334 and 335 built it. Since iteration 215 (item 335) each button's fetch is
+asked for, answered offline as above, and its `.catch` runs `mark(a)`:
+the label becomes *Building — available shortly* and the `href` goes, so
+neither button is a link any more (boxes.txt, agent.txt). It then stops
+at `a.style.background = …`: "TypeError: cannot write property
+'background' of undefined", a rejection nothing handled, because an
+element's `style` is not built (item 339). So the buttons say they are
+building and are **still terracotta**: the greyed `#c7bfb2` the page asks
+for waits for item 339.
 `tests/alo_downloads.rs` pins where the script stops and which card is
 marked. The issues list does not show it, because issues.txt is what the
 markup and style made the engine say.
@@ -93,8 +121,14 @@ markup and style made the engine say.
   (iteration 209):** `Array.prototype.forEach`, the first builtin that
   keeps state across the calls it asks for (ADR 0031), and a `NodeList`'s
   `forEach`, `keys`, `values`, `entries` and `[Symbol.iterator]` as those
-  very functions. The next stop is `fetch` and `.then`: decided by ADR 0032
-  (iteration 212), built by items 333–335.
+  very functions. The next stop was `fetch` and `.then`: decided by ADR
+  0032 (iteration 212), built by items 333–335.
+- **The script asks whether each installer is there** — item 335.
+  **Built (iteration 215):** `fetch` in a page, its `Response`, and the
+  corpus answering a case's fetches from what it froze. Offline, both
+  buttons are marked. The next stop is `a.style` — item 339, opened by
+  this page: an element's `style`, whose `background`, `cursor` and
+  `pointerEvents` the page sets to grey a button it has marked.
 
 Two things it asks for make no difference at this size and are not faults
 here: `text-wrap: balance` on a heading that fits on one line (item 104), and

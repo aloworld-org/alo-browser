@@ -12,6 +12,9 @@ authors.workspace = true
 alo-css = { path = "../alo-css" }
 alo-dom = { path = "../alo-dom" }
 alo-js = { path = "../alo-js" }
+# For the shapes a fetch is asked in and the lists both sides of the boundary
+# check it against (ADR 0032 § 2): never for a socket.
+alo-net = { path = "../alo-net" }
 alo-url = { path = "../alo-url" }
 
 [lints]

@@ -81,6 +81,18 @@ pub fn join(base: &Url, reference: &str) -> Result<Url, ParseError> {
     })
 }
 
+/// Whether `url` names a user or a password before its host —
+/// `https://user:secret@example.com/`.
+///
+/// [`Url`] keeps neither as a part, since nothing this engine does reads
+/// them, but Fetch refuses a request whose URL includes credentials (queue
+/// item 335), so the question is asked of the serialisation they are still
+/// written in.
+pub fn includes_credentials(url: &Url) -> bool {
+    url::Url::parse(&url.serialised)
+        .is_ok_and(|parsed| !parsed.username().is_empty() || parsed.password().is_some())
+}
+
 /// The rented type, as ours.
 ///
 /// [`None`] only for a host shape that has no home in [`Host`], which the
@@ -108,4 +120,24 @@ fn ours(parsed: &url::Url) -> Option<Url> {
         fragment: parsed.fragment().map(str::to_owned),
         serialised: parsed.as_str().to_owned(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_user_or_a_password_is_credentials_and_an_empty_one_is_not() {
+        for (input, credentials) in [
+            ("https://user:secret@example.com/", true),
+            ("https://user@example.com/", true),
+            ("https://:secret@example.com/", true),
+            ("https://@example.com/", false),
+            ("https://example.com/a@b", false),
+            ("about:blank", false),
+        ] {
+            let url = parse(input).unwrap();
+            assert_eq!(includes_credentials(&url), credentials, "{input}");
+        }
+    }
 }

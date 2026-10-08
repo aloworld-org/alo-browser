@@ -15,7 +15,7 @@ fill box#22 rgb(231 224 214) at (40, 305.15198) 352×211.49597
 text box#26 "Windows" rgb(31 43 69) 18.4px at (63, 350.7819)
 text box#29 "Windows 10 & 11 · 64-bit · .msi installer" rgb(100 116 139) 14.4px at (63, 380.8171)
 fill box#31 rgb(231 111 81) at (63, 442.84796) 306×48.799988
-text box#32 "Download for Windows" rgb(255 255 255) 16px at (112.28516, 472.78702)
+text box#32 "Building — available shortly" rgb(255 255 255) 16px at (90.00781, 472.78702)
 shadow box#36 rgb(231 111 81 / 0.5) blur 24 at (420, 323.15198) 328×187.496
 fill box#36 rgb(255 255 255) at (408, 305.15198) 352×211.49597
 fill box#36 rgb(231 111 81) at (408, 305.15198) 352×211.49597
@@ -24,7 +24,7 @@ text box#39 "Your device" rgb(207 91 62) 11.52px at (439, 346.06808)
 text box#42 "macOS" rgb(31 43 69) 18.4px at (431, 386.6379)
 text box#45 "Apple Silicon & Intel · universal · .dmg" rgb(100 116 139) 14.4px at (431, 416.67313)
 fill box#47 rgb(231 111 81) at (431, 442.84796) 306×48.799988
-text box#48 "Download for Mac" rgb(255 255 255) 16px at (502.8203, 472.78702)
+text box#48 "Building — available shortly" rgb(255 255 255) 16px at (458.0078, 472.78702)
 fill box#53 rgb(231 224 214) at (40, 542.648) 720×1
 text box#54 "The app keeps itself up to date — new versions install automatically in the background, so you" rgb(100 116 139) 13.76px at (40, 577.0756)
 text box#54 "download it once." rgb(100 116 139) 13.76px at (40, 598.4036)

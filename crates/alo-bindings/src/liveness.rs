@@ -59,6 +59,8 @@ impl Trace for DocumentCell {
     fn trace(&self, tracer: &mut Tracer) {
         // The prototypes are the page's, alive as long as its document is.
         self.interfaces.trace(tracer);
+        // A promise waiting for a fetch's answer lives until it comes.
+        self.fetches.trace(tracer);
         let document = &self.document;
         let mut whole = walk(document, document.root(), |node| {
             if let Some(wrapper) = self.wrapper(node) {
@@ -102,6 +104,7 @@ impl Trace for DocumentCell {
             .footprint()
             .saturating_add(self.table.len().saturating_mul(size_of::<Entry>()))
             .saturating_add(self.on_path.len().saturating_mul(size_of::<u32>()))
+            .saturating_add(self.fetches.footprint())
     }
 
     fn clear_weak(&mut self, survivors: &Survivors) {
