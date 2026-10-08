@@ -23,17 +23,20 @@
 //! browser process's own decision and filter ([`crate::answering`]); a
 //! fetch it froze nothing for is a network error.
 //!
-//! A loaded case cannot link a sheet or a picture yet: a renderer is handed
-//! its sheets as text and no pictures at all (`Page`), and a case that asked
-//! for both would be rendered without what it linked and committed that
-//! way. Refused by name instead.
+//! A loaded page's linked style sheets are asked for by its renderer and
+//! answered from the files its `linked.txt` froze, by URL, through the
+//! browser process's own decision and check ([`crate::sheets`], ADR 0035
+//! § 6). A loaded case cannot link a picture yet: a renderer asks for none
+//! until queue item 350, and a case freezing one would be rendered without
+//! it and committed that way, so the frozen file nobody asked for is refused
+//! by name instead.
 
 use alo_dom::Document;
 use alo_dom::scripts::{Carried, carried};
 use alo_layout::Size;
 use alo_renderer::{Drawing, FromRenderer, Page, Rendered, Renderer, ToRenderer};
 
-use crate::answering::{self, Answered};
+use crate::answering::{self, Answered, Asks, Beside};
 use crate::case::Case;
 
 /// A case, rendered.
@@ -41,7 +44,7 @@ pub enum Rendering {
     /// Markup with no script, through the pipeline.
     Markup(Box<Rendered>),
     /// A page with script, loaded by a renderer, and what answering its
-    /// fetches came to.
+    /// fetches and sheets came to, with what the load itself said.
     Loaded(Box<Renderer>, Answered),
 }
 
@@ -51,8 +54,8 @@ impl Rendering {
     /// # Errors
     ///
     /// What is wrong with a case that cannot be rendered that way: a page
-    /// with script that links what a renderer cannot be handed, or a load the
-    /// renderer refused.
+    /// with script that links what a renderer does not ask for, an answer
+    /// the corpus cannot give, or a load the renderer refused.
     pub fn of(case: &Case) -> Result<Self, String> {
         let size = Size::new(case.size.0, case.size.1);
         let runs_script = carried(&alo_dom::parse_document(&case.html))
@@ -68,13 +71,6 @@ impl Rendering {
                 &case.resources,
             ))));
         }
-        if !case.linked.is_empty() || !case.resources.is_empty() {
-            return Err(
-                "its page runs script, so it is loaded by a renderer, which is handed no linked \
-                 sheet or picture"
-                    .to_owned(),
-            );
-        }
         let mut renderer = Renderer::new(crate::corpus_fonts());
         let mut page = Page::new(case.html.clone(), size).with_sheet(case.css.clone());
         page.user_agent = crate::SYSTEM.user_agent();
@@ -85,9 +81,19 @@ impl Rendering {
         }
         let address = page.url.clone();
         match renderer.handle(ToRenderer::Load(Box::new(page))) {
-            FromRenderer::Loaded { fetches, .. } => {
-                let answered =
-                    answering::answer(&mut renderer, &address, &case.responses, fetches)?;
+            FromRenderer::Loaded {
+                issues,
+                fetches,
+                sheets,
+                ..
+            } => {
+                let beside = Beside {
+                    responses: &case.responses,
+                    files: &case.frozen,
+                };
+                let mut answered =
+                    answering::answer(&mut renderer, &address, beside, Asks { fetches, sheets })?;
+                answered.loaded = issues;
                 Ok(Self::Loaded(Box::new(renderer), answered))
             }
             other => Err(format!("the renderer did not load it: {other:?}")),
@@ -124,9 +130,34 @@ mod tests {
             size: (40.0, 20.0),
             linked: Vec::new(),
             resources: Vec::new(),
+            frozen: Vec::new(),
             address: None,
             responses: Vec::new(),
         }
+    }
+
+    fn frozen(name: &str, file: &str, bytes: &[u8]) -> crate::case::Frozen {
+        crate::case::Frozen {
+            name: name.to_owned(),
+            file: file.to_owned(),
+            bytes: bytes.to_vec(),
+        }
+    }
+
+    /// The computed `color` of the first `<p>`.
+    fn colour(rendering: &Rendering) -> Option<String> {
+        let document = rendering.document()?;
+        let drawing = rendering.drawing()?;
+        let paragraph = document.descendants(document.root()).find(|id| {
+            document
+                .element(*id)
+                .is_some_and(|element| element.name.is_html("p"))
+        })?;
+        drawing
+            .styles
+            .get(paragraph)
+            .and_then(|style| style.get("color"))
+            .map(ToOwned::to_owned)
     }
 
     #[test]
@@ -155,12 +186,75 @@ mod tests {
     }
 
     #[test]
-    fn a_case_whose_page_runs_script_and_links_a_sheet_is_refused_by_name() {
-        let mut linking = case("<link rel=stylesheet href=a.css><script>1</script>");
-        linking.linked.push(("a.css".to_owned(), "p {}".to_owned()));
-        let Err(why) = Rendering::of(&linking) else {
+    fn a_loaded_cases_linked_sheet_is_asked_for_answered_and_drawn() {
+        let mut linking = case("<link rel=stylesheet href=/a.css><p>a</p><script>1</script>");
+        linking.address = Some("https://example.com/page".to_owned());
+        linking
+            .frozen
+            .push(frozen("/a.css", "a.css", b"p { color: rgb(1 2 3) }"));
+        let Ok(rendering @ Rendering::Loaded(..)) = Rendering::of(&linking) else {
+            panic!("not loaded by a renderer");
+        };
+        assert_eq!(colour(&rendering).as_deref(), Some("rgb(1 2 3)"));
+        let Rendering::Loaded(_, answered) = rendering else {
+            panic!("not loaded by a renderer");
+        };
+        assert_eq!((answered.delivered, answered.sheets), (1, 1));
+        assert!(answered.unfrozen.is_empty() && answered.said.is_empty());
+    }
+
+    #[test]
+    fn a_loaded_cases_unfrozen_sheet_is_drawn_without_and_said() {
+        let mut linking = case("<link rel=stylesheet href=/a.css><p>a</p><script>1</script>");
+        linking.address = Some("https://example.com/page".to_owned());
+        let Ok(Rendering::Loaded(_, answered)) = Rendering::of(&linking) else {
+            panic!("not loaded by a renderer");
+        };
+        assert_eq!(answered.unfrozen, ["https://example.com/a.css"]);
+        assert!(
+            answered
+                .issues
+                .iter()
+                .any(|issue| issue.contains("did not arrive")),
+            "{:?}",
+            answered.issues
+        );
+    }
+
+    #[test]
+    fn a_loaded_case_that_freezes_a_picture_is_refused_by_name() {
+        // A loaded page asks for no picture until queue item 350, so it
+        // would be drawn without one and committed that way.
+        let mut picturing = case("<img src=/a.png><script>1</script>");
+        picturing.address = Some("https://example.com/page".to_owned());
+        picturing.frozen.push(frozen("/a.png", "a.png", b"\x89PNG"));
+        let Err(why) = Rendering::of(&picturing) else {
             panic!("rendered without what it linked");
         };
-        assert!(why.contains("no linked sheet or picture"), "{why}");
+        assert!(
+            why.contains("never asked for") && why.contains("350"),
+            "{why}"
+        );
+    }
+
+    #[test]
+    fn what_a_load_said_is_kept_with_what_its_answers_said() {
+        // Nothing is fetched or linked, so there is no answer: the throw is
+        // the load's.
+        let Ok(Rendering::Loaded(_, answered)) =
+            Rendering::of(&case("<script>undefined.x</script>"))
+        else {
+            panic!("not loaded by a renderer");
+        };
+        assert_eq!(answered.delivered, 0);
+        assert!(
+            answered
+                .loaded
+                .iter()
+                .any(|issue| issue.contains("TypeError")),
+            "{:?}",
+            answered.loaded
+        );
+        assert!(answered.issues.is_empty(), "{:?}", answered.issues);
     }
 }

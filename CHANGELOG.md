@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The first page alo Sites publishes is in the reference corpus.** Its
+  call-to-action section is frozen with its style sheet, exactly as alo
+  Sites serves them, and the corpus answers the page's request for the
+  sheet from the frozen file by the same rules the browser uses. It renders
+  with its style applied. Two faults it shows are queued: its hidden "skip
+  to content" link is drawn at the top of the page (item 352), and its
+  analytics script stops because `Date` is missing (item 353) (queue item
+  349).
+
 - **A page that runs a script now gets the style sheets it links to.**
   The page's process asks for each sheet once, including one a script adds
   later. The browser fetches it under the page's own security policy, and

@@ -94,7 +94,19 @@ pub fn make(sheet: &Fetch, network: &mut Network) -> Made {
 /// `response` as the answer to sheet `number` — with the `charset` it was
 /// sent in, when that is not UTF-8 — if it is a style sheet that fits in one
 /// message; or why it is not one.
-fn style_sheet(number: u64, response: Response) -> Result<(SheetAnswer, Option<String>), String> {
+///
+/// Public so that `alo-corpus`, answering a frozen page's sheets in this
+/// process's place, holds what it froze to this rule rather than to a copy
+/// of it (ADR 0035 § 6).
+///
+/// # Errors
+///
+/// Why the response is not a style sheet that may cross, in words for the
+/// person and never for the page.
+pub fn style_sheet(
+    number: u64,
+    response: Response,
+) -> Result<(SheetAnswer, Option<String>), String> {
     if !response.status.is_ok() {
         return Err(format!(
             "the server answered {}, and only a success is a style sheet",

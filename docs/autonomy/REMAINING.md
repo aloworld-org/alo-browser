@@ -960,3 +960,14 @@ request holds the conductor's thread and no window bound can end that.
 frozen) now depends on nothing open and is eligible and next. 147 queue
 items are open. The next unused queue number is 352 and the next unused
 ADR 0036.
+
+Iteration 227 built item 349 (ADR 0035 § 6): the corpus answers a loaded
+case's sheet asks from its `linked.txt`, by URL against its `address.txt`,
+through the browser process's own decision (`sheet_decide`) and check
+(`sheet_make::style_sheet`), in `alo-corpus`'s `sheets.rs`. alo Sites'
+call-to-action section is frozen as `alo-sites-cta` and renders with its
+sheet. What it shows wrong is opened as 352 (an absolutely positioned
+inline left in flow: the skip link; depends on nothing open, and eligible)
+and 353 (`Date`, which needs an ADR first). 347 now waits only on 351. 148
+queue items are open. The next unused queue number is 354 and the next
+unused ADR 0036.

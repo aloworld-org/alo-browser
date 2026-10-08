@@ -103,7 +103,11 @@ fn file_path(url: &Url) -> Option<std::path::PathBuf> {
 /// and a wrong guess on a page from the network is a security bug — which is
 /// why on `file:`, where nobody sent a header, it is all there is, and why
 /// queue item 53 brings the header that overrides it.
-fn from_extension(path: &std::path::Path) -> Option<&'static str> {
+///
+/// Public for the one other place nobody sent a header: a file frozen beside
+/// an `alo-corpus` case, typed by its name as this types a file (ADR 0035
+/// § 6).
+pub fn from_extension(path: &std::path::Path) -> Option<&'static str> {
     let extension = path.extension()?.to_str()?.to_ascii_lowercase();
     Some(match extension.as_str() {
         "html" | "htm" => "text/html; charset=utf-8",

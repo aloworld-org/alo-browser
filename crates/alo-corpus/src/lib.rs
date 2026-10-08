@@ -26,7 +26,9 @@
 //! A case whose page fetches also says where it was served from
 //! (`address.txt`) and what it was answered with (`responses.txt` and the
 //! files it names), and is answered from those alone ([`answering`], ADR
-//! 0032 § 7): a fetch it froze nothing for is a network error.
+//! 0032 § 7): a fetch it froze nothing for is a network error. A loaded
+//! page's linked sheets are answered the same way, from the files its
+//! `linked.txt` names, by URL ([`sheets`], ADR 0035 § 6).
 //!
 //! # A second kind of frozen thing, beside the cases
 //!
@@ -58,10 +60,11 @@ pub mod answering;
 pub mod case;
 pub mod check;
 pub mod rendering;
+pub mod sheets;
 
 pub use alo_renderer::pipeline::{Rendered, render, render_with, render_with_resources};
 pub use answering::Answered;
-pub use case::Case;
+pub use case::{Case, Frozen};
 pub use check::{Difference, check};
 pub use rendering::Rendering;
 

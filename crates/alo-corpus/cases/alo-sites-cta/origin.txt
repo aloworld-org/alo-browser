@@ -1,0 +1,89 @@
+alo-workplace, products/sites/alo-sites/tests/golden/section_cta.html and
+products/sites/alo-sites/tests/golden/site.css — a page alo Sites publishes
+for its customers: the call-to-action section of a demonstration coffee
+roaster's home page, with the style sheet every alo Sites page links.
+
+Taken 2026-10-08 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef. The page's last
+change is fbe5b972e796b5b7fa3bbdd838a62a17f171ba85 and the sheet's is
+5be41b70be364f8e1e0e158a8619e4e94455321c (both 2026-09-02). The bytes are
+those files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  aa74e88dde9b1fe384b87e8ff6969b551c5575e383812c6becd269bf06ce85f0
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+`alo-workplace` is read-only reference; nothing was written back to it. Both
+are golden outputs of alo Sites' own renderer, pinned by its tests
+(`tests/render_rules.rs`, `tests/stylesheet_rules.rs`), so they are what it
+really serves rather than something rebuilt from it.
+
+Why this page. It opened queue item 347: like every page alo Sites
+publishes, it links its whole style sheet and carries an inline script, so a
+renderer loads it, and until item 348 nothing handed a renderer a linked
+sheet. ADR 0035 decided how one is asked for; item 348 built that, and item
+349 froze this. It is the smallest alo Sites page — one section — and the
+only one whose every request can be frozen with provenance: the hero has an
+`<img>` whose bytes are in the site's store and in no repository (item 350).
+
+**Where it is served from: `https://nordwind.alosites.com/`** (address.txt).
+The page's own `<link rel="canonical">` and `og:url` say so, and alo Sites'
+tests render the demonstration site with that `base_url`.
+
+**What its sheet is answered with: site.css** (linked.txt). The page links
+`/assets/site.css`, which resolves against the address to
+
+- https://nordwind.alosites.com/assets/site.css
+
+and alo Sites' `src/serve.rs` serves exactly that path with
+`Content-Type: text/css; charset=utf-8`. The corpus types a frozen file by
+its extension, as `alo-net` types a `file:` URL, and `.css` is that same
+type; so the sheet passes the browser process's check that only a 2xx
+`text/css` answer crosses (ADR 0035 § 3), here as live. The renderer asks
+for it in its load's answer, the corpus answers it from this file, and the
+reference is the page drawn after that answer, as the window would show it
+once ADR 0035 § 5 (item 351) holds back the first frame. Its first draw, at
+load, said truly that no sheet had arrived yet.
+
+**What its script does offline: nothing it could send.** The script is alo
+Sites' own analytics. It reads the time, the path and the window's width,
+and posts what a visitor reads, clicks and scrolls with
+`navigator.sendBeacon("/_alo/collect", …)` — only when a visitor leaves or
+hides the page, clicks, or meets a form whose `action` starts `/f/`, and
+only if `navigator.sendBeacon` exists. This page has no such form, and a
+reference render clicks nothing and never leaves, so even a script that ran
+to its end would ask for nothing here. It does not run to its end: it stops
+at its third line, `var since = Date.now();`, with "ReferenceError: 'Date'
+is not defined" (queue item 353), before it adds a single listener. Nothing
+it would have done changes the picture.
+
+Rendered at 800 × 600: wider than the sheet's one breakpoint here,
+`max-width: 42rem` (672 px), and wide enough that `h2`'s
+`clamp(1.5rem, 3.5vw, 2.125rem)` is its middle term, 28 px.
+
+## What it found
+
+- **The sheet arrives and is applied** — items 348 and 349. The section is
+  a band of the theme's `--primary` (#1d4ed8), 0.75rem rounded, its text
+  centred in white; its two buttons sit side by side `0.75rem` apart,
+  centred: the first white with blue text, the second clear with a white
+  border and white text. Every number in layout.txt checks against the
+  sheet by hand, and `tests/alo_sites_cta.rs` says so.
+- **The skip link is drawn in flow** — item 352. `.skip-link` is
+  `position: absolute; left: -999rem; top: 0`, which takes it out of flow
+  and off the page until it is focused. An absolutely positioned box is
+  blockified and laid out apart from its line; here the inline `<a>` stays
+  in an anonymous line at the top left, drawn on its `--surface` grey, and
+  the section starts 27.2 px down (one line of `body`) rather than at 0.
+- **The script stops at `Date`** — item 353, as above.
+
+What the sheet asks for that this engine does not do, and which makes no
+difference to this page, is in issues.txt: `::before` and `::after`
+selectors, `@keyframes`, and the `prefers-reduced-motion` media feature,
+which is treated as not matching — the answer for a person who has not
+asked for reduced motion, which is the corpus's. `system-ui` comes first in
+the font list and is drawn in DejaVu Sans, as every case is.
+
+The reference render pins the page as it renders today, faults included, so
+that each of those items moves it and says so.

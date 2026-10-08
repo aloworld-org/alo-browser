@@ -189,14 +189,16 @@ unreachable without it.
       the same hops as a page's fetch, and sends the bytes only when the
       answer is a 2xx `text/css`, so a link cannot read another site's page.
       The window's conductor makes the asks and paints the page again with
-      what arrives
+      what arrives. A loaded corpus case's sheets are answered from the files
+      frozen beside it, through the browser process's own decision and
+      check (queue item 349, ADR 0035 § 6), which froze the first page alo
+      Sites publishes, its call-to-action section, as `alo-sites-cta`
       · Owed: the Linux sandbox, queue item 169; the axes that are not
       weight — width, slant and optical size — which are queue item 197;
       the window holding a page's first frame until its load's sheets are
       answered, within a bound (ADR 0035 § 5, queue item 351, which needs a
-      way to bound a request that trickles); a loaded corpus case's sheets
-      answered from its frozen files (item 349); and a loaded page's
-      pictures (item 350)
+      way to bound a request that trickles); and a loaded page's pictures
+      (item 350)
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
       than leaving a blank rectangle (queue items 166 and 65). It is not
       restarted silently, because that hides a bug somebody needs to see.

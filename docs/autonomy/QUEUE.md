@@ -5579,7 +5579,8 @@ The long pole, and the thing most of section E is unreachable without.
   draw applies it. The browser process shows no first frame until the
   load's sheets are answered, within a bound of its own. Nothing is built,
   and this item stays open: it closes when **348** and **349** do, and
-  **351**, which iteration 226 cut from 348.
+  **351**, which iteration 226 cut from 348. *348 and 349 are done
+  (iterations 226 and 227); 351 remains.*
 
 - [x] **348. A linked sheet asked for, decided and delivered.** *Cut from
   347 (ADR 0035 §§ 1–5). Depends on nothing open.* `alo-renderer`: a sheet
@@ -5635,7 +5636,7 @@ The long pole, and the thing most of section E is unreachable without.
   byte of an ask or an answer refused or read, never a panic) and
   `alo-window`'s `a_page_styled_in_the_window.rs`.
 
-- [ ] **349. `alo-sites-cta`, frozen.** *Cut from 347 (ADR 0035 § 6).
+- [x] **349. `alo-sites-cta`, frozen.** *Cut from 347 (ADR 0035 § 6).
   Depends on 348.* `alo-corpus` answers a loaded case's sheet asks from its
   `linked.txt`, each name resolved against `address.txt`, through ADR 0035
   § 3's check, with the type the file's extension stands for; a loaded case
@@ -5648,6 +5649,55 @@ The long pole, and the thing most of section E is unreachable without.
   `origin.txt` says where it came from and what its analytics script does
   offline; and what the render shows wrong is opened as items, in the
   order the page meets them.
+  **Done (iteration 227).** `alo-corpus`'s `sheets.rs` answers a loaded
+  case's sheet asks: each ask is decided by `alo-renderer`'s
+  `sheet_decide`, and each frozen file is found by its `linked.txt` name
+  resolved against `address.txt`, typed by its extension through
+  `alo-net`'s `schemes::from_extension` (now public) and held to
+  `sheet_make::style_sheet` (now public), the rule that only a 2xx
+  `text/css` answer crosses. `answering.rs` answers sheets ahead of fetches,
+  as the browser process queues them, and refuses by name a file frozen for
+  a URL the page never asked for — a picture, until 350. `Case::frozen`
+  keeps each `linked.txt` line's name, file and bytes, and `Answered` gained
+  `sheets`, `said` and the load's own `loaded` issues. `cases/alo-sites-cta`
+  freezes `section_cta.html` and `site.css` byte for byte (SHA-256s in its
+  `origin.txt`) from `https://nordwind.alosites.com/`. It renders with its
+  sheet: a `#1d4ed8` band, `h2` at 28 px, two buttons 48.4 tall, 12 apart
+  and centred. Tests: `tests/alo_sites_cta.rs` (one sheet asked for and
+  answered, nothing unfrozen, the load's words; the band's height and
+  colour and both buttons' boxes and colours in numbers and pixels; the
+  skip link's fault), unit tests in `sheets.rs` (resolved by URL, unfrozen,
+  a non-CSS file refused, the browser's refusals kept) and `rendering.rs`
+  (drawn with its sheet, unfrozen said, a frozen picture refused by name).
+  What the render shows wrong is opened as **352** (the skip link, met
+  first, at the top of the page) and **353** (the script stops at `Date`).
+
+- [ ] **352. An absolutely positioned inline is taken out of flow.**
+  *Opened by `alo-sites-cta` (iteration 227). Feature: `docs/features.md`
+  stage 1, "Absolute and relative positioning". Depends on nothing open.*
+  alo Sites' `.skip-link` is an `<a>` with `position: absolute; left:
+  -999rem; top: 0`. CSS 2 § 9.7 blockifies an absolutely positioned box and
+  takes it out of its line; `alo-layout` hands an absolute *block* to its
+  layout algorithm as absolute (`engine.rs`), but this inline stays in an anonymous line at the top left of the page,
+  painted on its `--surface` grey, and pushes the section down by one line
+  of `body` (27.2 px). *Closes when:* the skip link's box is laid out at
+  `left: -999rem` (x = -15984) and `top: 0`, out of flow, so the section
+  starts at y = 0, in a layout assertion; `cases/alo-sites-cta`'s
+  references move and say so; and an inline with `position: absolute` in a
+  small case of its own is blockified, in numbers.
+  `tests/alo_sites_cta.rs`' `the_skip_link_is_drawn_in_flow_which_is_item_352`
+  pins today's fault, and this item changes it.
+
+- [ ] **353. `Date`.** *Opened by `alo-sites-cta` (iteration 227); cut from
+  73.* alo Sites' analytics script, which every page it publishes carries,
+  stops at its third line, `var since = Date.now();`, with "ReferenceError:
+  'Date' is not defined", before it adds a listener. *Needs ADR*: what clock
+  a page reads is a decision — its precision is a timer a Spectre gadget
+  (ADR 0005) wants, and ADR 0030 says the browser tells a page no locale,
+  of which a time zone is a part. Which clock, at what grain,
+  in which zone, is decided before `Date` is built. *Closes when:* the
+  script runs past line 3, in `tests/alo_sites_cta.rs`; and what it stops
+  at next, if anything, is opened as an item.
 
 - [ ] **351. The window waits for a load's style sheets.** *Cut from 348
   (ADR 0035 § 5). Depends on 348 (done).* The browser process presents no

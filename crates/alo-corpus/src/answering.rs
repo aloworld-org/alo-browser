@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! A case's fetches, answered from what it froze (ADR 0032 § 7, queue item
-//! 335).
+//! A case's fetches and style sheets, answered from what it froze (ADR 0032
+//! § 7, queue item 335; ADR 0035 § 6, queue item 349).
 //!
 //! A corpus case never touches the network (`LOOP.md`, stage 2 § 1), so a
 //! page whose script fetches is answered here, in the browser process's
@@ -26,6 +26,21 @@
 //! answers are frozen: a redirect the page asked to follow would need the
 //! response it led to, and a case freezing one is refused by name rather
 //! than answered half way.
+//!
+//! # Its style sheets
+//!
+//! A loaded page **asks** for its linked sheets as it asks for a fetch, and
+//! each ask is answered from the files its `linked.txt` froze, by
+//! [`crate::sheets`] — decided and checked by the browser process's own rules
+//! there. Sheets are answered ahead of fetches, as the browser process queues
+//! a document's sheets ahead of its fetches (`fetch_answering`), and every
+//! answer is drawn from: the reference is the page after all of them, as the
+//! window shows it once ADR 0035 § 5 lets it.
+//!
+//! **A file frozen for a URL the page never asked for is refused by name.**
+//! A loaded page asks only for its sheets — its pictures are not asked for
+//! until queue item 350 — so a case freezing one would be rendered without it
+//! and committed that way.
 
 use std::collections::VecDeque;
 use std::io::Cursor;
@@ -38,8 +53,11 @@ use alo_net::response::Response;
 use alo_renderer::fetch::{FetchAsk, Fetched};
 use alo_renderer::fetch_decide::{self, Asker, Decided};
 use alo_renderer::fetch_filter;
+use alo_renderer::sheet::SheetAsk;
 use alo_renderer::{FromRenderer, Renderer, ToRenderer};
 use alo_url::Url;
+
+use crate::sheets;
 
 /// The most answers one case is delivered before it is refused as a page
 /// that fetches for ever.
@@ -51,32 +69,61 @@ use alo_url::Url;
 /// more than any frozen page has needed.
 pub const MOST_ANSWERED: usize = 256;
 
-/// What answering a case's fetches came to.
+/// What answering a case's fetches and sheets came to.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Answered {
-    /// How many answers were delivered.
+    /// How many answers were delivered, fetches and sheets together.
     pub delivered: usize,
-    /// The URLs fetched that the case froze no response for, each answered
-    /// as a network error, in the order they were asked for.
+    /// How many of them were style sheets.
+    pub sheets: usize,
+    /// The URLs fetched or linked that the case froze nothing for, each
+    /// answered as a network error or a sheet that did not arrive, in the
+    /// order they were answered.
     pub unfrozen: Vec<String>,
     /// What the deliveries' tasks said.
     pub issues: Vec<String>,
+    /// What the load itself said, before any answer: its scripts, and its
+    /// first draw. Filled by whoever loaded the page ([`crate::Rendering`]),
+    /// since the load's answer is not this module's to read.
+    pub loaded: Vec<String>,
+    /// What the browser process would have told the person about the page's
+    /// sheets: why one did not arrive, or the `charset` one was not read in.
+    pub said: Vec<String>,
+}
+
+/// What a renderer's answer asked for, still to be answered.
+#[derive(Debug, Clone, Default)]
+pub struct Asks {
+    /// The page's fetches, in the order it asked.
+    pub fetches: Vec<FetchAsk>,
+    /// The page's linked style sheets, in document order.
+    pub sheets: Vec<SheetAsk>,
+}
+
+/// What a case froze beside its page to answer it with.
+#[derive(Debug, Clone, Copy)]
+pub struct Beside<'a> {
+    /// Each response, by the URL it was taken from.
+    pub responses: &'a [(String, Vec<u8>)],
+    /// Each file its `linked.txt` names.
+    pub files: &'a [crate::case::Frozen],
 }
 
 /// Answer every ask in `asks`, and every ask their answers' reactions make
-/// in turn, from `frozen` — the URL each response was taken from, and its
-/// bytes — for the page `renderer` holds at `address`.
+/// in turn, from what was `frozen`, for the page `renderer` holds at
+/// `address`.
 ///
 /// # Errors
 ///
 /// What makes a case unanswerable: a frozen response that does not read as
 /// one, a frozen redirect, a renderer that did not answer a delivery as
-/// one, or a page still asking after [`MOST_ANSWERED`] answers.
+/// one, a page still asking after [`MOST_ANSWERED`] answers, or a file
+/// frozen for a URL the page never asked for.
 pub fn answer(
     renderer: &mut Renderer,
     address: &Url,
-    frozen: &[(String, Vec<u8>)],
-    asks: Vec<FetchAsk>,
+    frozen: Beside<'_>,
+    asks: Asks,
 ) -> Result<Answered, String> {
     let policies = Policies::none();
     let asker = Asker {
@@ -86,40 +133,89 @@ pub fn answer(
     let cause = Cause::Document {
         document: Identities::default().a_document(),
     };
-    let mut waiting: VecDeque<FetchAsk> = asks.into();
+    let mut fetches: VecDeque<FetchAsk> = asks.fetches.into();
+    let mut linked: VecDeque<SheetAsk> = asks.sheets.into();
+    let mut asked_for = Vec::new();
     let mut answered = Answered::default();
-    while let Some(ask) = waiting.pop_front() {
-        if answered.delivered >= MOST_ANSWERED {
-            return Err(format!(
-                "its page was still fetching after {MOST_ANSWERED} answers"
-            ));
-        }
-        let fetched = match fetch_decide::decide(&ask, &asker, &cause) {
-            Decided::Refused(refusal) => refusal.answer(),
-            Decided::Make(fetch) => {
-                let url = fetch.request.url.serialised.clone();
-                if let Some((_, bytes)) = frozen.iter().find(|(held, _)| *held == url) {
-                    frozen_answer(&fetch, bytes)?
-                } else {
-                    answered.unfrozen.push(url);
-                    Fetched::failed(fetch.number)
-                }
+    loop {
+        let message = if let Some(ask) = linked.pop_front() {
+            if answered.delivered >= MOST_ANSWERED {
+                return Err(still_asking());
             }
+            asked_for.push(ask.url.clone());
+            let sheet = sheets::answer(&ask, &asker, &cause, frozen.files);
+            answered.unfrozen.extend(sheet.unfrozen);
+            answered.said.extend(sheet.said);
+            answered.sheets = answered.sheets.saturating_add(1);
+            ToRenderer::Sheet(Box::new(sheet.answer))
+        } else if let Some(ask) = fetches.pop_front() {
+            if answered.delivered >= MOST_ANSWERED {
+                return Err(still_asking());
+            }
+            ToRenderer::Fetched(Box::new(fetched(
+                &ask,
+                &asker,
+                &cause,
+                frozen.responses,
+                &mut answered,
+            )?))
+        } else {
+            break;
         };
-        match renderer.handle(ToRenderer::Fetched(Box::new(fetched))) {
+        match renderer.handle(message) {
             FromRenderer::Delivered {
                 mut issues,
-                fetches,
+                fetches: more,
+                sheets: more_sheets,
                 ..
             } => {
                 answered.issues.append(&mut issues);
-                waiting.extend(fetches);
+                fetches.extend(more);
+                linked.extend(more_sheets);
             }
             other => return Err(format!("a delivery was answered with {other:?}")),
         }
         answered.delivered = answered.delivered.saturating_add(1);
     }
+    if let Some(file) = frozen.files.iter().find(|file| {
+        sheets::served_at(address, &file.name).is_none_or(|url| !asked_for.contains(&url))
+    }) {
+        return Err(format!(
+            "its linked.txt freezes {:?} as {}, which its page never asked for: a page loaded \
+             by a renderer asks only for its style sheets, and for no picture until queue item \
+             350",
+            file.name, file.file
+        ));
+    }
     Ok(answered)
+}
+
+/// A page that has not stopped asking.
+fn still_asking() -> String {
+    format!("its page was still fetching after {MOST_ANSWERED} answers")
+}
+
+/// The answer to the fetch `ask`, from `responses`, with a URL the case froze
+/// nothing for noted in `answered`.
+fn fetched(
+    ask: &FetchAsk,
+    asker: &Asker<'_>,
+    cause: &Cause,
+    responses: &[(String, Vec<u8>)],
+    answered: &mut Answered,
+) -> Result<Fetched, String> {
+    Ok(match fetch_decide::decide(ask, asker, cause) {
+        Decided::Refused(refusal) => refusal.answer(),
+        Decided::Make(fetch) => {
+            let url = fetch.request.url.serialised.clone();
+            if let Some((_, bytes)) = responses.iter().find(|(held, _)| *held == url) {
+                frozen_answer(&fetch, bytes)?
+            } else {
+                answered.unfrozen.push(url);
+                Fetched::failed(fetch.number)
+            }
+        }
+    })
 }
 
 /// The frozen response `bytes`, filtered for the page that asked as `fetch`.
@@ -181,6 +277,20 @@ mod tests {
         }
     }
 
+    fn beside(responses: &[(String, Vec<u8>)]) -> Beside<'_> {
+        Beside {
+            responses,
+            files: &[],
+        }
+    }
+
+    fn asked(fetches: Vec<FetchAsk>) -> Asks {
+        Asks {
+            fetches,
+            sheets: Vec::new(),
+        }
+    }
+
     fn text(renderer: &Renderer) -> String {
         let Some(document) = renderer.document() else {
             panic!("no document");
@@ -212,7 +322,7 @@ mod tests {
                 b"HTTP/1.1 200 OK\r\n\r\nsecret".to_vec(),
             ),
         ];
-        let answered = answer(&mut renderer, &address, &frozen, asks).unwrap();
+        let answered = answer(&mut renderer, &address, beside(&frozen), asked(asks)).unwrap();
         assert_eq!(answered.delivered, 3);
         assert_eq!(answered.unfrozen, ["https://example.com/missing"]);
         assert_eq!(text(&renderer), "thawed opaque 0 / TypeError");
@@ -231,7 +341,8 @@ mod tests {
             let mut renderer = Renderer::new(crate::corpus_fonts());
             let asks = loaded(&mut renderer, &address);
             let frozen = vec![("https://example.com/frozen.txt".to_owned(), bytes.to_vec())];
-            let refused = answer(&mut renderer, &address, &frozen, asks).unwrap_err();
+            let refused =
+                answer(&mut renderer, &address, beside(&frozen), asked(asks)).unwrap_err();
             assert!(refused.contains(said), "{refused}");
         }
     }

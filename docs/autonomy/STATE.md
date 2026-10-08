@@ -21469,3 +21469,115 @@ are unchanged. `alo_downloads.rs` now also requires no sheet asks.
 147 queue items are open: 348 closed, 351 added. The next unused queue
 number is **352** and the next ADR is **0036**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 227 — queue item 349, `alo-sites-cta`, frozen
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`,
+iteration 226's entry, ADR 0035 (§§ 3 and 6 above all), queue items 347–351
+and `docs/features.md`'s *A page's own style sheets*. No `AGENTS.md` exists
+in this repository. 349 was the first eligible item: iteration 226 left it
+depending on nothing open.
+
+**What was built (ADR 0035 § 6).**
+- `alo-corpus`'s new `sheets.rs` answers one sheet ask. The ask is decided
+  by `alo-renderer`'s `sheet_decide`. The frozen file is found by its
+  `linked.txt` name resolved against `address.txt`. It is typed by its
+  extension through `alo-net`'s `schemes::from_extension` and held to
+  `sheet_make::style_sheet`, the 2xx `text/css` rule. Both of those were
+  private and are now public with their reason, so the corpus applies the
+  browser process's rule, not a copy.
+- `answering.rs` answers a loaded page's sheets and fetches together,
+  sheets first, as `fetch_answering` queues them. It refuses by name a file
+  frozen for a URL the page never asked for. That replaces the old blanket
+  refusal of a loaded case with `linked.txt`: a picture is still refused
+  (item 350), but now by what the page asked for.
+- `Case::frozen` keeps each `linked.txt` line's name, file and bytes.
+  `Answered` gained `sheets`, `said` (what the person would be told) and
+  `loaded` (what the load itself said). `loaded` is kept apart from
+  `issues` on purpose: merging them put a draw's font line into
+  `alo_downloads.rs`'s "the script says nothing" assertion, which would
+  have changed that test's meaning.
+- `cases/alo-sites-cta` freezes `section_cta.html` and `site.css` from
+  `alo-workplace` at `738de614`, byte for byte, with both SHA-256s in
+  `origin.txt`, served from `https://nordwind.alosites.com/`. alo Sites'
+  `serve.rs` serves that path as `text/css; charset=utf-8`, which is what
+  `.css` types to.
+
+**What the render shows.** The sheet applies. I checked every number in
+`layout.txt` against the sheet by hand:
+- `h2` is 28 px (`clamp(1.5rem, 3.5vw, 2.125rem)` at 800 wide);
+- the band is 253.2 tall;
+- the buttons are 48.4 tall, 12 apart and centred.
+
+Two faults, opened in the order the page meets them:
+- **352**, the skip link. It is an inline `<a>` with `position: absolute;
+  left: -999rem`, but it is drawn in flow at the top left and pushes the
+  section down 27.2 px. Depends on nothing open, so it is eligible.
+- **353**, `Date`. The analytics script stops at line 3 on `Date.now()`.
+  It is marked *needs ADR*, because the clock's grain is a Spectre timer
+  (ADR 0005) and a time zone is locale (ADR 0030). Nothing drawn depends
+  on it.
+
+**Tests.**
+- `tests/alo_sites_cta.rs`, three tests:
+  - one sheet asked for and answered, nothing unfrozen, nothing said, and
+    exactly what the load said;
+  - the band's height in numbers and its colour as a pixel, and both
+    buttons' boxes, computed colours and pixels;
+  - today's skip-link fault, pinned for 352 to change.
+- Unit tests in `sheets.rs`: answered by URL; unfrozen; an `.html`, `.txt`
+  or unknown file never crosses; the browser's refusals kept.
+- Unit tests in `rendering.rs`: a loaded case drawn with its sheet
+  (computed colour); unfrozen said; a frozen picture refused by name; the
+  load's issues kept.
+- `answering.rs`' two tests now take the new arguments. Their assertions
+  are unchanged.
+
+**Checked by mutation.** Replacing `style_sheet` in `sheets.rs` with "send
+the bytes whatever they are" failed
+`a_frozen_file_that_is_not_a_style_sheet_does_not_cross`. Restored, it
+passes.
+
+**Gate, mechanical.** clippy found one thing, `iter().any` for `contains`,
+which was fixed in the code. The build was warmed with `--all-features`,
+then `scripts/gate.sh` ran with the 2-hour bound and was polled in this
+same turn. It ends `exit 0` and "The gate is met":
+- fmt clean, clippy silent, tests pass (`set -o pipefail`, so that is
+  cargo's verdict);
+- no stubs, `unsafe` forbidden, the licence on every file;
+- rented crates behind their boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds, and the documentation changed.
+
+**Gate, manual.**
+- Layout assertion: the band's and buttons' boxes in numbers in
+  `alo_sites_cta.rs`, and `layout.txt` committed.
+- Reference render: `cases/alo-sites-cta/render.png`, with `boxes.txt`,
+  `display.txt`, `agent.txt` and `issues.txt`. The corpus test passes, and
+  so does its determinism test. No other case's reference moved.
+- Hostile bytes: nothing new reads from outside. The frozen files are ours,
+  and the check they pass is `sheet_make`'s, already tested with hostile
+  input.
+- One responsibility per file: sheet answering is its own file.
+  `answering.rs` stays the driver of a loaded case's answers.
+- No `unsafe`, and no new dependency.
+- `alo-workplace` was only read. Its `git status` is clean, and the frozen
+  hashes match its files.
+
+**Queue, roadmap, docs.**
+- 349 is ticked with a Done paragraph. 352 and 353 are added after it.
+- 347 notes that only 351 remains.
+- `ROADMAP.md`'s process-model line: its Built clause names 349 and
+  `alo-sites-cta`, and its Owed clause drops 349. Not ticked.
+- `docs/features.md`, `docs/conformance.md` (alo Sites: one section, with
+  two faults), `CHANGELOG.md` and `REMAINING.md` are updated.
+
+**Unresolved obligations.**
+- 351 still needs design, as iteration 226 said.
+- 353 needs an ADR before code.
+- 352 is eligible and next by dependencies, unless something earlier in the
+  queue is found eligible first.
+- Everything iteration 226 listed still stands.
+
+148 queue items are open: 349 closed, 352 and 353 added. The next unused
+queue number is **354** and the next ADR is **0036**. This is one iteration,
+not a finished queue or roadmap.

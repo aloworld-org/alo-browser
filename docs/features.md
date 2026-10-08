@@ -155,9 +155,13 @@ The reason this exists rather than a faster fork of somebody else's engine.
   fetches each as a style request under the page's header policy, and sends
   it only when the answer is a 2xx `text/css`. The renderer reads the sheet
   as UTF-8, and the page is drawn again with it. At most 64 sheets are asked
-  for per document. Not yet: the window paints a page's first frame before
-  its sheets arrive (item 351), and a corpus case that runs script is still
-  handed none of its frozen sheets (item 349)
+  for per document. **A corpus case that runs script is answered its
+  sheets** from the files its `linked.txt` froze, each name resolved against
+  its `address.txt`, through the browser process's own decision and check
+  and typed by its extension (queue item 349); a file it froze that its page
+  never asked for — a picture, until item 350 — is refused by name. alo
+  Sites' call-to-action section is frozen so (`alo-sites-cta`). Not yet: the
+  window paints a page's first frame before its sheets arrive (item 351)
 - [2] **`<img>` lays out at the picture's own size** and keeps its ratio when
   given one dimension
 - [2] **A picture under a transform is drawn transformed** — rotated, skewed

@@ -1,0 +1,9 @@
+document at (0, 0) 800×280.40002
+  link "Skip to content" at (0, -4.294531) 161.11035×35.789063
+  main at (0, 27.2) 800×253.20001
+    heading "Taste the difference" [level=2] at (24, 75.2) 752×33.600002
+    paragraph at (24, 122.8) 752×27.2
+      text "First bag ships free." at (316.54395, 126.50547) 166.91211×19.789063
+    paragraph at (24, 167) 752×48.4
+      link "Order now" at (218.41763, 167) 140.72324×48.4
+      link "See subscriptions" at (371.14087, 167) 210.4415×48.4

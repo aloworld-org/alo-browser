@@ -1,0 +1,13 @@
+27:1: selector names a pseudo-element, which stage 1 does not produce: ::before names ::before
+27:1: selector names a pseudo-element, which stage 1 does not produce: ::after names ::after
+357:1: selector names a pseudo-element, which stage 1 does not produce: .s-hero.hero-background::before names ::before
+357:1: selector names a pseudo-element, which stage 1 does not produce: .s-hero.hero-video-background::before names ::before
+427:11: at-rule not implemented, kept unparsed: @keyframes hero-fade-up
+428:11: at-rule not implemented, kept unparsed: @keyframes hero-slide-in
+429:11: at-rule not implemented, kept unparsed: @keyframes hero-word-reveal
+430:11: at-rule not implemented, kept unparsed: @keyframes hero-media-fade-in
+431:11: at-rule not implemented, kept unparsed: @keyframes hero-media-slide-up
+432:11: at-rule not implemented, kept unparsed: @keyframes hero-media-slow-zoom
+441:8: media condition not understood, treated as not matching: (prefers-reduced-motion: reduce)
+520:8: media condition not understood, treated as not matching: (prefers-reduced-motion: reduce)
+545:1: selector names a pseudo-element, which stage 1 does not produce: .s-features.features-steps .grid li::before names ::before

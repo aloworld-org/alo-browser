@@ -28,6 +28,11 @@
 //!   responses.txt  each URL it fetches, and the file its response is frozen in
 //! ```
 //!
+//! Its `linked.txt` means the same for either kind of page: what the page
+//! named, and the file beside it. A page rendered as markup is handed each
+//! file by that name; a page whose script runs asks for its sheets, and is
+//! answered each by the name resolved against `address.txt`.
+//!
 //! None of them is redundant. `boxes.txt` catches a change in what exists,
 //! `layout.txt` a change in where it is, `display.txt` a change in what is
 //! drawn, `agent.txt` a change in what the page *means*, and `render.png`
@@ -40,6 +45,17 @@ use std::path::{Path, PathBuf};
 
 /// How wide and tall a case is rendered, unless it says otherwise.
 pub const DEFAULT_SIZE: (f32, f32) = (240.0, 160.0);
+
+/// One file frozen beside a case, as its `linked.txt` names it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Frozen {
+    /// What the page called it: an `href` or a `src` exactly as written.
+    pub name: String,
+    /// The file beside the case holding it, by its name there.
+    pub file: String,
+    /// The file's bytes.
+    pub bytes: Vec<u8>,
+}
 
 /// One case, read from a directory.
 #[derive(Debug, Clone)]
@@ -76,6 +92,16 @@ pub struct Case {
     /// extension stands in for ([`Resource::from_file`]): a `.svg` is an SVG
     /// picture, and every other picture is decided by its bytes.
     pub resources: Vec<Resource>,
+    /// Every line of `linked.txt` whose file is there, as it was frozen: the
+    /// name the page used, the file beside the case, and its bytes.
+    ///
+    /// [`Case::linked`] and [`Case::resources`] are what a page rendered as
+    /// markup is handed, by the name as the page wrote it. A page whose script
+    /// runs is loaded by a renderer, which is handed nothing and **asks** for
+    /// its sheets by URL; the corpus answers those asks from this, each name
+    /// resolved against [`Case::address`] and each file typed by its
+    /// extension ([`crate::sheets`], ADR 0035 § 6).
+    pub frozen: Vec<Frozen>,
     /// Where the page was served from, from its `address.txt`: what a
     /// relative URL in it means, and the origin its fetches are made from.
     /// [`None`] for a page served from nowhere — `about:blank`.
@@ -111,6 +137,7 @@ impl Case {
             size,
             linked: linked_sheets(directory),
             resources: linked_resources(directory),
+            frozen: frozen_files(directory),
             address: std::fs::read_to_string(directory.join("address.txt"))
                 .ok()
                 .map(|text| text.trim().to_owned())
@@ -165,6 +192,33 @@ fn frozen_responses(directory: &Path) -> Vec<(String, Vec<u8>)> {
         .filter_map(|(url, file)| {
             let bytes = std::fs::read(directory.join(file.trim())).ok()?;
             Some((url.trim().to_owned(), bytes))
+        })
+        .collect()
+}
+
+/// Every file `linked.txt` names that is there, with the name the page used
+/// for it.
+///
+/// A line naming a file that is not there is skipped, as for
+/// [`linked_sheets`]: a page rendered as markup is then drawn without it, and
+/// a loaded page's ask for it is answered as a sheet the case froze nothing
+/// for.
+fn frozen_files(directory: &Path) -> Vec<Frozen> {
+    let Ok(list) = std::fs::read_to_string(directory.join("linked.txt")) else {
+        return Vec::new();
+    };
+    list.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .filter_map(|line| line.split_once(char::is_whitespace))
+        .filter_map(|(name, file)| {
+            let file = file.trim();
+            let bytes = std::fs::read(directory.join(file)).ok()?;
+            Some(Frozen {
+                name: name.trim().to_owned(),
+                file: file.to_owned(),
+                bytes,
+            })
         })
         .collect()
 }

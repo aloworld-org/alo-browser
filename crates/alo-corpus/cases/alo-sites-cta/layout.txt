@@ -1,0 +1,18 @@
+block flow · document → 800×280.40002 at (0, 0)
+  block flow · generic → 800×280.40002 at (0, 0)
+    anonymous → 800×27.2 at (0, 0)
+      text " " → not laid out
+      inline flow · link → 161.11035×35.789063 at (0, -4.294531)
+        text "Skip to content" → 129.11035×19.789063 at (16, 3.7054691)
+      text " " → not laid out
+    block flow · main → 800×253.20001 at (0, 27.2)
+      block flow · generic → 800×253.20001 at (0, 27.2)
+        block flow · heading [level=2] → 752×33.600002 at (24, 75.2)
+          text "Taste the difference" → 314.86328×32.59375 at (242.56836, 75.703125)
+        block flow · paragraph → 752×27.2 at (24, 122.8)
+          text "First bag ships free." → 166.91211×19.789063 at (316.54395, 126.50547)
+        block flex · paragraph → 752×48.4 at (24, 167)
+          inline flow-root · link → 140.72324×48.4 at (218.41763, 167)
+            text "Order now" → 100.32324×19.789063 at (238.61763, 181.30548)
+          inline flow-root · link → 210.4415×48.4 at (371.14087, 167)
+            text "See subscriptions" → 170.0415×19.789063 at (391.34088, 181.30548)

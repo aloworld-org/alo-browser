@@ -1,0 +1,18 @@
+block flow · document
+  block flow · generic
+    anonymous block
+      text " "
+      inline flow · link
+        text "Skip to content"
+      text " "
+    block flow · main
+      block flow · generic
+        block flow · heading [level=2]
+          text "Taste the difference"
+        block flow · paragraph
+          text "First bag ships free."
+        block flex · paragraph
+          inline flow-root · link
+            text "Order now"
+          inline flow-root · link
+            text "See subscriptions"
