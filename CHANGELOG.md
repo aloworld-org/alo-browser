@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How a page's policy will govern its inline style is decided.** A page
+  whose Content Security Policy refuses inline style will have its
+  `<style>` elements and `style` attributes refused, except a style the
+  page's own script wrote through `element.style`, which every browser
+  allows. The browser recognises that style by its exact text rather than
+  by a mark that something else could forget to clear. A refused attribute
+  reads as empty to the page's script, so a script cannot accidentally
+  carry an injected style past the policy. Nothing is refused yet; this
+  comes next (decision 0034).
+
 - **A page's script can change an element's style.** `el.style.color =
   "red"`, `el.style.setProperty(…)`, `el.style.cssText` and the rest write
   the element's `style` attribute, and read it back, on HTML elements and

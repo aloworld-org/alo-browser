@@ -5445,6 +5445,43 @@ The long pole, and the thing most of section E is unreachable without.
   is applied under a digest with `'unsafe-hashes'`. A value written through
   `element.style` is applied under the refusing policy. Each is pinned in
   a renderer test over a real load.
+  **Decided (iteration 222): ADR 0034, accepted.** The record was a
+  decision about `alo-dom`'s element. A flag would have to be cleared by
+  every other writer of a public `attrs`, and a missed one is a bypass. So:
+  - `Element` remembers **the text `element.style` last wrote**, set only
+    by one new counted `alo-dom` operation. An attribute is the
+    declaration's own exactly when its value equals that text.
+  - `style-src` is asked **at every draw**, of every policy the page holds
+    then: its headers and every `<meta>` the parser made. The renderer
+    keeps the `<meta>` policies for the page's life.
+  - A `<style>` presents its nonce by the script's nonceable rule. An
+    attribute's digest counts only under `'unsafe-hashes'`.
+  - One function in `alo-bindings` answers whether an element's `style` is
+    applied. The renderer's draw and `element.style` both ask it, so a
+    refused attribute reads as `""` and a write starts from empty. The
+    page's policies are stated into the document's cell, as its URL is.
+  - An `Objection` carries its placement on the wire, and each element,
+    placement and text is objected to once per page. The load's draw posts
+    in `Loaded`. A later draw's objections are only said, and posting them
+    is cut to **346**.
+  The closing condition above stands. Add to it: the record's equality
+  rule, a setAttribute replacing a declaration-written value being refused,
+  and a refused attribute reading `""` through `element.style`, each pinned
+  in a test. *Eligible and next.*
+
+- [ ] **346. Inline style refused after load, reported.** *Cut from 343 by
+  ADR 0034 § 4. Depends on 343.* A draw made after a script, an agent or a
+  fetch's answer changed the page can find inline style that a policy
+  objects to. Those objections are carried in the next `Acted` or
+  `Delivered` answer, under the same bound of 64 and the same
+  once-per-element-placement-and-text rule. One found by a draw that only
+  `Paint` or `ReadTree` asked for waits for the next such answer. More
+  than the bound are counted and said. Feature contract:
+  `docs/features.md`'s *A page's author is told* line. *Closes when:* a
+  script that sets a refused `style` attribute after load produces one
+  report from the browser process, and the same attribute set twice
+  produces one. A flood is bounded and said. Each is pinned in a renderer
+  test over a real load and in `wire.rs`'s round trip.
 
 - [ ] **345. `el.style[0]`, a declaration's indexed getter.** *Cut from 342
   (iteration 221).* ADR 0033 § 6 has `style[0]` come with `item()`, and

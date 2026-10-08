@@ -376,7 +376,10 @@ unreachable without it.
       `style` attribute and waits only for there to be handlers (queue item 81);
       and **inline style refused by `style-src` in the renderer**, which
       decides a `<style>` or `style` attribute but applies the verdict to
-      neither (queue item 343, ADR 0033 § 2)
+      neither (queue item 343, ADR 0033 § 2) — decided by ADR 0034: judged
+      at every draw by every policy the page holds, a value `element.style`
+      wrote exempt by its text, and what a draw after load objects to
+      reported as item 346
 - [ ] `fetch()` and `XMLHttpRequest`, over the same stack rather than beside it
       · Decided (ADR 0032, queue item 83): a script's fetch is an ask in
       the answer to the message whose work made it, the browser process
@@ -1088,7 +1091,8 @@ unreachable without it.
       on HTML elements and a new `SVGElement`, which greys `alo-downloads`'
       offline buttons `#c7bfb2`
       · Owed: `el.style[0]`, the indexed getter (345), a page's `style-src`
-      applied to inline style (343), and `getComputedStyle`,
+      applied to inline style (343, decided by ADR 0034: a refused
+      attribute reads as empty through `element.style`), and `getComputedStyle`,
       `document.styleSheets` and the rest of item 89, each opened by a page
 - [ ] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them
       · Built: `alo-storage`, the browser process's store (queue item 301).

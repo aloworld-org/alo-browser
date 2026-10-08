@@ -20868,3 +20868,105 @@ Its Owed clause is now 345, 343 and the rest of item 89.
 144 queue items are open: 342 and 339 closed, 345 added. The next unused
 queue number is **346** and the next ADR is **0034**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 222 — queue item 343 decided: ADR 0034, a style written by script is remembered by its text, and a policy is asked when it is drawn
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+head, its CSP and CSSOM lines, iteration 221's entry, the queue from 339
+to 345, ADR 0033 (whole) and the CSSOM and CSP lines of
+`docs/features.md`. There is no `AGENTS.md` in the repository. Iteration
+221 named 343 as eligible and next, and its dependencies (341, 342) are
+done. Code read: `alo-dom`'s `node.rs` (`Element`, `set_attr`,
+`remove_attr`), `by_name.rs`, `document.rs` (`set_attribute`,
+`add_attrs_if_missing`), `sheets.rs` and `scripts.rs` (`stated`, `nonce`);
+`alo-style`'s `attached.rs`; `alo-renderer`'s `pipeline.rs`,
+`renderer.rs`, `scripts.rs` (`at_load`, `allowed`), `violations.rs` and
+`page.rs`; `alo-bindings`' `css_style_declaration.rs` (`block`, `update`)
+and `document_cell.rs`; and `alo-net`'s `csp.rs` (`Inline`, `Placement`,
+`allows_inline`, `objecting_to_inline`, `inline_violation_of`). The
+checkout was clean on entry at `524a6d4`. No sibling repository was read
+or written.
+
+**Why a decision and not code.** 343's *Needs* asked for an ADR first if
+the record of a declaration-written value is a decision about `alo-dom`'s
+element. It is one. CSSOM keeps two copies and asks the policy once, when a
+value arrives. ADR 0033 keeps one copy, so the question has to be answered
+from the element at any later draw. A flag would have to be cleared by
+every other writer of `Element::attrs`, which is public and has four
+writers in `alo-dom` alone, and each missed one is a CSP bypass. Two
+further facts came out of the reading. First, `<meta>` policies are
+dropped when `at_load` ends, so no later draw could ask them. Second, the
+bindings hold no policy, so `element.style` could not read a refused
+attribute as empty. Reading it as the refused text would let the page's
+first write through `element.style` admit an injected attribute. LOOP.md
+stage 2 § 4 makes a decision its own iteration, as 218 was for ADR 0033.
+
+**What was decided (ADR 0034).** No code changed.
+- `alo-dom`'s `Element` remembers the text `element.style` last wrote,
+  set only by one new counted operation. An attribute is the
+  declaration's own exactly when its value equals that text. Any other
+  writer makes the two unequal and so is judged by the policy. A stale
+  record admits only text the page's own script wrote there. A clone, when
+  one is built, does not carry the record.
+- `style-src` is asked at every draw, of every policy the page holds:
+  its headers and every `<meta>` the parser made, kept for the page's
+  life. A `<style>` presents its nonce by the script's nonceable rule. An
+  attribute's digest counts only under `'unsafe-hashes'`. A refusal
+  contributes nothing and is said in the drawing's issues.
+- One function in `alo-bindings` answers whether an element's `style` is
+  applied. The renderer's draw and `element.style` both ask it. The
+  page's policies are stated into the document's cell, as its URL is.
+- An `Objection` carries its placement on the wire. Each element,
+  placement and text is objected to once per page. What the load's draw
+  finds posts in `Loaded`, and a later draw's objections are only said.
+- The costs, recorded in the ADR: a `<meta>` policy reaches back over
+  inline style written before it, and a refused `setAttribute` takes the
+  old style away. Both refuse rather than admit.
+
+**Queue.** 343 records the decision, adds three things to its closing
+condition (the equality rule, a replaced value refused, a refused
+attribute read as `""`) and stays open, eligible and next. New item:
+- **346**: objections a draw after load finds, carried in `Acted` and
+  `Delivered`. It depends on 343.
+
+**Roadmap.** The CSP line's Owed clause and the CSSOM line's Owed clause
+each name ADR 0034 beside 343. Nothing is ticked, and no Built clause was
+added, because nothing was built. `docs/features.md`'s CSSOM line says
+what is decided and that it is not built. `CHANGELOG.md` and
+`REMAINING.md` say the same. `docs/conformance.md` is unchanged, because
+no behaviour changed: its line that no renderer applies `style-src` to
+inline style is still true.
+
+**Gate, mechanical.** `scripts/gate.sh` was started with a two-hour
+bound into a log ending with its exit status, and polled in this same
+turn until it ended. Result: exit 0, "The gate is met". fmt was clean,
+clippy silent and the tests passed. Nothing is stubbed, `unsafe` stays
+forbidden, every source file carries the licence, every rented crate is
+behind its boundary, no verb takes a coordinate, and the changelog
+changed.
+
+**Gate, manual.** No code, layout or rendering changed, so no layout
+assertion or reference render applies, and no reference moved. One
+responsibility per file: the ADR is one decision, and it names where each
+piece will live (a field and an operation in `alo-dom`, one function in
+`alo-bindings`, the policies in the document's cell, the placement on
+`Objection`). No `unsafe` and no new dependency.
+
+**Unresolved obligations.**
+- Nothing of ADR 0034 is built. A page's `style-src` still refuses no
+  inline style. **343 is eligible and next.** It is large: `alo-dom`,
+  `alo-bindings`, `alo-renderer`'s draw, `<meta>` keeping and the wire.
+  If it outgrows one iteration, cut its scope, not its depth. The record,
+  the one function and the renderer's refusal must land together, or the
+  first CSSOM write admits injected style (ADR 0034 § 3).
+- 346 waits on 343. 345 waits on an `alo-js` hook shared with 328, and on
+  a page.
+- Everything iteration 221 listed as standing still stands:
+  - 337, 322, 324, 328, 284, 311 and 314 wait for pages;
+  - 323 waits on 73;
+  - 296 needs a person;
+  - 297–300, 302, 304, 308, 126, 132 and 336 remain.
+
+145 queue items are open: 346 added, none closed. The next unused queue
+number is **347** and the next ADR is **0035**. This is one iteration, not
+a finished queue or roadmap.

@@ -905,3 +905,14 @@ member of ADR 0033 § 6 but the indexed getter, which was cut to 345.
 `alo-downloads`' script runs to its end and its offline buttons are greyed,
 so 339 closed with it. 343 is eligible and next. 144 queue items are open.
 The next unused queue number is 346 and the next unused ADR 0034.
+
+Iteration 222 decided how item 343 records a style written by script: ADR
+0034, a style written by script is remembered by its text, and a policy is
+asked when it is drawn. No code changed. `alo-dom`'s element will keep the
+text `element.style` last wrote, and an attribute equal to it is exempt
+from `style-src`. Every other `style` attribute and every `<style>` is
+judged at each draw by all the policies the page holds. One function in
+`alo-bindings` serves the renderer and `element.style`, so a refused
+attribute reads as empty. Reporting what a draw after load finds is cut to
+346, which depends on 343. 343 is eligible and next. 145 queue items are
+open. The next unused queue number is 347 and the next unused ADR 0035.
