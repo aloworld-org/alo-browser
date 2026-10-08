@@ -15,6 +15,7 @@
 //! file is only what a selector *is*.
 
 use crate::ident::Ident;
+use crate::nesting;
 use core::fmt;
 use cssparser::{Parser as CssParser, SourceLocation, ToCss};
 use selectors::parser::{
@@ -382,6 +383,28 @@ impl SelectorList {
         })
     }
 
+    /// Parse a whole string as a selector list: the DOM's *parse a
+    /// selector*, which `querySelectorAll` asks of the text a page passes
+    /// (queue item 329).
+    ///
+    /// [`None`] when the text is not one selector list and nothing else —
+    /// empty, unfinished, followed by more, or naming a selector this engine
+    /// does not have — which the caller answers with a `SyntaxError`. The
+    /// same parser a style sheet's rules are read with, so a selector a page
+    /// queries for and one it styles with can never disagree.
+    ///
+    /// Text whose blocks nest deeper than `nesting::LIMIT` (32) is refused
+    /// before the parser sees it: the rented parser recurses once per block,
+    /// and a page's script chooses this string.
+    pub fn parse_text(text: &str) -> Option<Self> {
+        if !nesting::within_limit(text) {
+            return None;
+        }
+        let mut input = cssparser::ParserInput::new(text);
+        let mut parser = CssParser::new(&mut input);
+        parser.parse_entirely(Self::parse).ok()
+    }
+
     /// The selectors in the list, in the order they were written.
     pub fn iter(&self) -> core::slice::Iter<'_, Selector> {
         self.selectors.iter()
@@ -517,6 +540,38 @@ mod tests {
         assert_eq!(specificity("li:first-child").to_string(), "(0, 1, 1)");
         assert_eq!(specificity("#main").to_string(), "(1, 0, 0)");
         assert_eq!(specificity("#main .row a").to_string(), "(1, 1, 1)");
+    }
+
+    #[test]
+    fn a_whole_string_is_one_list_or_nothing() {
+        let list = SelectorList::parse_text("  .btn[href] , #a > b  ").expect("a valid list");
+        assert_eq!(list.to_string(), ".btn[href], #a > b");
+        // CSS Syntax closes a block the input ends inside, so this is
+        // `[href]`, as it is in every engine.
+        let closed = SelectorList::parse_text("a[href").expect("closed at the end");
+        assert_eq!(closed.to_string(), "a[href]");
+        for text in [
+            "", "   ", ".btn,", ",.btn", ".btn {", ".btn }", "a b)", ":has(a)", "svg|rect", "!",
+            "#1",
+        ] {
+            assert!(
+                SelectorList::parse_text(text).is_none(),
+                "{text:?} should not parse"
+            );
+        }
+    }
+
+    #[test]
+    fn a_selector_nested_past_the_limit_is_refused_rather_than_overflowing() {
+        let nested =
+            |depth: usize, open: &str| format!("{}a{}", open.repeat(depth), ")".repeat(depth));
+        assert!(SelectorList::parse_text(&nested(nesting::LIMIT, ":is(")).is_some());
+        for open in [":is(", ":not(", ":where(", "("] {
+            let text = nested(nesting::LIMIT + 1, open);
+            assert!(SelectorList::parse_text(&text).is_none(), "{open}");
+            let text = nested(100_000, open);
+            assert!(SelectorList::parse_text(&text).is_none(), "{open}");
+        }
     }
 
     #[test]

@@ -687,6 +687,16 @@ was cut to 328 (no page yet); the script's next stop, `querySelectorAll`,
 opened 329, which is eligible. 143 queue items are open. The next unused
 queue number is 330 and the next unused ADR 0031.
 
+Iteration 205 built item 329: `querySelectorAll` on a document, an
+element or a fragment, parsed and matched by `alo-css`, answering a static
+`NodeList` with `length`, `item` and an indexed getter. `alo-downloads`
+finds its two buttons and stops at `forEach`. `forEach` and the list's
+iterators were cut to 331, which **needs an ADR** first: how a builtin
+keeps state across the calls it asks for. A style sheet nested deep enough
+crashes the renderer; that is 330, eligible, and the next item in queue
+order. 144 queue items are open. The next unused queue number is 332 and
+the next unused ADR 0031.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

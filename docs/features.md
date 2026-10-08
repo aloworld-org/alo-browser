@@ -24,7 +24,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] A DOM of our own, built from `html5ever`'s parse events — the tree is ours even though the parser is not
 - [1] A stable identity per node, from the first commit, because the agent tree will need to name one and adding identity later means rewriting everything holding a reference
 - [1] Fragments and malformed input produce a usable tree rather than an error
-- [2] The DOM APIs a modern page actually uses — driven by pages that fail, never by a specification listing a method. Opened so far by alo's download page: finding an element by its `id`, showing a hidden one, and adding a class through `classList` (327); finding elements by a selector is next (329)
+- [2] The DOM APIs a modern page actually uses — driven by pages that fail, never by a specification listing a method. Opened so far by alo's download page: finding an element by its `id`, showing a hidden one, and adding a class through `classList` (327), and finding elements by a selector with `querySelectorAll`, answered as a static list (329); calling a function for each one it found is next (331)
 - [2] Mutation, so scripting has something to mutate
 - [3] The legacy surface: `document.write`, live collections, the rest
 

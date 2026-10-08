@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's script can find elements by a CSS selector.**
+  `document.querySelectorAll(".btn[href]")`, and the same on any element,
+  answers what the selector matches below it, in document order, as a list
+  that keeps what it found even if the page changes afterwards. It uses the
+  same selector rules as style sheets do, so a selector means the same
+  thing in both. Text that is not a selector is refused with the error the
+  standard names, and so is a selector nested so deeply that reading it
+  could crash the page. alo's download page now finds its two download
+  buttons. Going through them one by one with `forEach` comes next.
+
 - **alo's download page highlights the visitor's computer.** A page's
   script can now find an element by its `id`, show one the page had hidden,
   and add, remove, toggle or check a class through `classList`, which

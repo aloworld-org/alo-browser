@@ -40,6 +40,7 @@ pub mod ident;
 pub mod issue;
 pub mod matching;
 pub mod media;
+mod nesting;
 pub mod parse;
 pub mod selector;
 mod shorthand;

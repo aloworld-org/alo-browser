@@ -266,6 +266,7 @@ impl SelectorsElement for ElementRef<'_> {
 pub struct MatchContext<'a> {
     document: &'a Document,
     caches: SelectorCaches,
+    scope: Option<NodeId>,
 }
 
 impl<'a> MatchContext<'a> {
@@ -274,6 +275,20 @@ impl<'a> MatchContext<'a> {
         Self {
             document,
             caches: SelectorCaches::default(),
+            scope: None,
+        }
+    }
+
+    /// A context whose `:scope` is the element `scope`: what
+    /// `element.querySelectorAll` matches with (queue item 329).
+    ///
+    /// Without one — a style sheet, or a query on the document — `:scope` is
+    /// `:root`, as Selectors says it is when the scoping root is not an
+    /// element. A `scope` that is not an element is the same.
+    pub fn scoped(document: &'a Document, scope: NodeId) -> Self {
+        Self {
+            scope: Some(scope),
+            ..Self::new(document)
         }
     }
 
@@ -298,6 +313,10 @@ impl<'a> MatchContext<'a> {
             NeedsSelectorFlags::No,
             MatchingForInvalidation::No,
         );
+        context.scope_element = self
+            .scope
+            .and_then(|scope| ElementRef::new(self.document, scope))
+            .map(|scope| scope.opaque());
         selectors::matching::matches_selector(selector.inner(), 0, None, &element, &mut context)
     }
 
@@ -399,6 +418,39 @@ mod tests {
         assert_eq!(matched(LIST, "li:nth-child(odd)"), vec!["one", "three"]);
         assert_eq!(matched(LIST, "a:only-child"), vec!["link"]);
         assert_eq!(matched(LIST, "html:root"), vec![] as Vec<String>);
+    }
+
+    #[test]
+    fn scope_is_the_scoping_element_or_else_the_root() {
+        let document = parse_document(LIST);
+        let list_id = document
+            .descendants(document.root())
+            .find(|id| document.element(*id).and_then(|e| e.attr("id")) == Some("list"))
+            .expect("the list");
+        let ids = |context: &mut MatchContext<'_>, text: &str| -> Vec<String> {
+            let list = selectors(text);
+            document
+                .descendants(document.root())
+                .filter(|id| list.iter().any(|s| context.matches(s, *id)))
+                .filter_map(|id| document.element(id)?.attr("id").map(str::to_owned))
+                .collect()
+        };
+        let mut scoped = MatchContext::scoped(&document, list_id);
+        assert_eq!(ids(&mut scoped, ":scope"), vec!["list"]);
+        assert_eq!(ids(&mut scoped, ":scope > .selected"), vec!["two"]);
+        assert!(ids(&mut scoped, ":scope > a").is_empty());
+
+        let mut unscoped = MatchContext::new(&document);
+        let names: Vec<_> = {
+            let list = selectors(":scope");
+            document
+                .descendants(document.root())
+                .filter(|id| list.iter().any(|s| unscoped.matches(s, *id)))
+                .filter_map(|id| document.element(id).map(|e| e.name.local.to_string()))
+                .collect()
+        };
+        assert_eq!(names, vec!["html"], "without a scope, `:scope` is `:root`");
+        assert!(ids(&mut unscoped, ":scope > .selected").is_empty());
     }
 
     #[test]

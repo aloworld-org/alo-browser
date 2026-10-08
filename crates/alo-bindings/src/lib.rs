@@ -52,6 +52,10 @@
 //! - An element's `classList` is a [`TokenList`] (queue item 327), made once
 //!   and kept by its wrapper, computing its tokens from the `class`
 //!   attribute each time it is asked ([`token_list`]).
+//! - `querySelectorAll` on a document, an element or a fragment answers a
+//!   static [`NodeList`] (queue item 329): `alo-css` parses the string and
+//!   its one matcher matches it, and the list holds each match's wrapper,
+//!   answering its indices as Web IDL's indexed getter ([`node_list`]).
 //!
 //! # What is not here yet
 //!
@@ -89,6 +93,7 @@ pub mod listeners;
 pub mod liveness;
 pub mod navigating;
 pub mod navigator;
+pub mod node_list;
 mod scripted;
 pub mod token_list;
 mod tokens;
@@ -103,5 +108,6 @@ pub use install::{furnish, install};
 pub use interface::dom_exception::DomException;
 pub use interface::{Interface, Interfaces, prototype_of};
 pub use navigator::{Identity, Navigator, introduce};
+pub use node_list::NodeList;
 pub use token_list::TokenList;
 pub use wrapper::Wrapper;

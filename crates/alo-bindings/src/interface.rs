@@ -67,6 +67,13 @@
 //! one instance per element is that element's `classList`
 //! ([`crate::token_list`]), holding the element's wrapper.
 //!
+//! # `NodeList` is a list, not a node
+//!
+//! `NodeList` (queue item 329) inherits from `Object.prototype`: a static
+//! list `querySelectorAll` answers, which `ParentNode` — a mixin on
+//! `Document`, `Element` and `DocumentFragment` — makes
+//! ([`crate::node_list`]).
+//!
 //! # An unforgeable member is on the instance
 //!
 //! Web IDL puts a `[LegacyUnforgeable]` attribute on **every instance**
@@ -102,6 +109,8 @@ pub mod input_event;
 pub mod mouse_event;
 pub mod navigator;
 pub mod node;
+pub mod node_list;
+pub mod parent_node;
 pub mod pointer_event;
 pub mod ui_event;
 
@@ -157,6 +166,9 @@ pub enum Interface {
     /// An element's `class` as a set of tokens: `classList` (queue item
     /// 327).
     DomTokenList,
+    /// A static list of nodes: what `querySelectorAll` answers (queue item
+    /// 329).
+    NodeList,
 }
 
 /// What an interface's prototype inherits from.
@@ -173,7 +185,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 20] = [
+    pub const ALL: [Self; 21] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -194,6 +206,7 @@ impl Interface {
         Self::InputEvent,
         Self::Navigator,
         Self::DomTokenList,
+        Self::NodeList,
     ];
 
     /// Its name, as the standard spells it.
@@ -219,15 +232,18 @@ impl Interface {
             Self::InputEvent => "InputEvent",
             Self::Navigator => "Navigator",
             Self::DomTokenList => "DOMTokenList",
+            Self::NodeList => "NodeList",
         }
     }
 
     /// What its prototype inherits from.
     pub const fn inherits(self) -> Inherits {
         match self {
-            Self::EventTarget | Self::Event | Self::Navigator | Self::DomTokenList => {
-                Inherits::Object
-            }
+            Self::EventTarget
+            | Self::Event
+            | Self::Navigator
+            | Self::DomTokenList
+            | Self::NodeList => Inherits::Object,
             Self::Node => Inherits::Interface(Self::EventTarget),
             Self::CustomEvent | Self::UiEvent => Inherits::Interface(Self::Event),
             Self::MouseEvent | Self::InputEvent => Inherits::Interface(Self::UiEvent),
@@ -284,6 +300,7 @@ impl Interface {
             Self::InputEvent => 17,
             Self::Navigator => 18,
             Self::DomTokenList => 19,
+            Self::NodeList => 20,
         }
     }
 
@@ -339,21 +356,28 @@ impl Interface {
             Self::InputEvent => input_event::furnish(objects, prototype, function_prototype),
             Self::Navigator => navigator::furnish(objects, prototype, function_prototype),
             Self::DomTokenList => dom_token_list::furnish(objects, prototype, function_prototype),
+            Self::NodeList => node_list::furnish(objects, prototype, function_prototype),
             Self::Node => node::furnish(objects, prototype, function_prototype),
-            Self::Element => element::furnish(objects, prototype, function_prototype),
+            // `ParentNode`'s `querySelectorAll` is on these three, as a mixin.
+            Self::Element => {
+                element::furnish(objects, prototype, function_prototype)?;
+                parent_node::furnish(objects, prototype, function_prototype)
+            }
             Self::HtmlElement => html_element::furnish(objects, prototype, function_prototype),
-            Self::Document => document::furnish(objects, prototype, function_prototype),
+            Self::Document => {
+                document::furnish(objects, prototype, function_prototype)?;
+                parent_node::furnish(objects, prototype, function_prototype)
+            }
+            Self::DocumentFragment => parent_node::furnish(objects, prototype, function_prototype),
             Self::DomException => dom_exception::furnish(objects, prototype, function_prototype),
             // `ChildNode.remove()` is the one member these have, as a mixin.
             Self::CharacterData | Self::DocumentType => {
                 child_node::furnish(objects, prototype, function_prototype)
             }
             // In the chain, with none of their members built: `Text`'s
-            // `splitText` and `wholeText`, `CharacterData`'s `data`, a
-            // fragment's queries. Each is added here when something needs it.
-            Self::Text | Self::Comment | Self::ProcessingInstruction | Self::DocumentFragment => {
-                Ok(())
-            }
+            // `splitText` and `wholeText`, `CharacterData`'s `data`. Each is
+            // added here when something needs it.
+            Self::Text | Self::Comment | Self::ProcessingInstruction => Ok(()),
         }
     }
 }

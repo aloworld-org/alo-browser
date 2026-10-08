@@ -15,8 +15,9 @@
 //! expression, and until item 325 it stopped at its second line,
 //! `navigator.platform`. Since item 327 it reads the `navigator` the
 //! browser was told, marks that system's card `.rec` and shows its "Your
-//! device" badge — for a Mac and a Windows machine, and neither on Linux —
-//! and stops at `querySelectorAll` (item 329), so no button is greyed. The
+//! device" badge — for a Mac and a Windows machine, and neither on Linux.
+//! Since item 329 its `querySelectorAll` finds the two buttons, and it stops
+//! at the `forEach` it calls on them (item 331), so no button is greyed. The
 //! corpus renders it as the Mac `alo_corpus::SYSTEM` says it is.
 
 use alo_corpus::{Case, Rendering, cases_directory, corpus_fonts};
@@ -186,9 +187,11 @@ fn the_pages_script_marks_the_card_of_the_system_it_is_told() {
         else {
             panic!("the page loads");
         };
-        // It runs past both branches now, every system alike, and stops at
-        // the `querySelectorAll` that greys the buttons, which is not built
-        // (queue item 329).
+        // It runs past both branches now, every system alike, and past the
+        // `querySelectorAll` that finds the buttons (queue item 329), and
+        // stops at the `forEach` that would grey them (queue item 331). The
+        // position is the call's start for either stop; `alo-bindings`'
+        // `what_a_selector_finds.rs` runs the page's query and says which.
         assert!(
             issues.iter().any(|issue| issue.contains(
                 "uncaught: TypeError: undefined is not a function (at script 1, line 17, column 7)"

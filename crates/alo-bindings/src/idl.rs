@@ -53,6 +53,9 @@ pub(crate) enum Brand {
     /// A node the `ChildNode` mixin is on: an element, a doctype or
     /// character data.
     ChildNode,
+    /// A node the `ParentNode` mixin is on: a document, an element or a
+    /// fragment.
+    ParentNode,
 }
 
 impl Brand {
@@ -65,6 +68,7 @@ impl Brand {
             Self::HtmlElement => "HTMLElement",
             Self::Document => "Document",
             Self::ChildNode => "ChildNode",
+            Self::ParentNode => "ParentNode",
         }
     }
 
@@ -85,6 +89,10 @@ impl Brand {
                     | NodeKind::Text(_)
                     | NodeKind::Comment(_)
                     | NodeKind::ProcessingInstruction { .. }
+            ),
+            Self::ParentNode => matches!(
+                kind,
+                NodeKind::Document | NodeKind::Element(_) | NodeKind::Fragment
             ),
         }
     }

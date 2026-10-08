@@ -37,9 +37,12 @@ at its second line instead: "ReferenceError: 'navigator' is not defined",
 because no `Navigator` was built (item 325). Since iteration 203 it reads
 `navigator` and finds the system in its first five lines, and since
 iteration 204 (item 327) it marks that system's card `.rec` — terracotta
-border and shadow — and shows its badge. It stops at line 17,
-`document.querySelectorAll(…)` (item 329), so no button is greyed out by
-the `fetch()` that checks whether an installer is hosted.
+border and shadow — and shows its badge. Since iteration 205 (item 329)
+its `document.querySelectorAll(".btn[href]")` on line 17 finds the two
+download buttons, and it stops at the `.forEach(…)` called on them:
+`NodeList.prototype.forEach` is `Array.prototype.forEach`, which is not
+built (item 331). So no button is greyed out by the `fetch()` that checks
+whether an installer is hosted.
 `tests/alo_downloads.rs` pins where the script stops and which card is
 marked. The issues list does not show it, because issues.txt is what the
 markup and style made the engine say.
@@ -77,8 +80,12 @@ markup and style made the engine say.
   told, and the next stop was `getElementById` and `classList` (item 327).
 - **The script marks a card** — item 327, cut from 325. **Built
   (iteration 204):** `getElementById`, `hidden` and `classList`; the Mac's
-  card is outlined and badged. The next stop is `querySelectorAll` (item
+  card is outlined and badged. The next stop was `querySelectorAll` (item
   329).
+- **The script finds its buttons** — item 329, opened by this page. **Built
+  (iteration 205):** `querySelectorAll` and a static `NodeList`; the two
+  buttons are found. The next stop is `forEach` (item 331), and after it
+  `fetch` and `.then` (item 75).
 
 Two things it asks for make no difference at this size and are not faults
 here: `text-wrap: balance` on a heading that fits on one line (item 104), and

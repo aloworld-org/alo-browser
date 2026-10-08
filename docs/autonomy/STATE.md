@@ -18765,3 +18765,143 @@ changed.
 143 queue items are open: 325 and 327 closed, 328 and 329 opened. The next
 unused queue number is **330** and the next ADR is **0031**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 205 — queue item 329 built: `querySelectorAll` and a static `NodeList`
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2 §§ 1–3:
+a frozen page decides, bytes from outside answered with errors,
+dependencies decide order; step 3's *cut scope, never depth*; step 6),
+`ROADMAP.md` (its three states; the DOM section), iteration 204's entry,
+queue items 327, 328 and 329 in full and item 73's, ADR 0017 (§§ 1, 3, 4,
+8: one file per interface, a wrapper's lifetime, the brand check, *where a
+modern static form exists, it is the one built: `querySelectorAll`
+returns a static list*), ADR 0013 § 3 (absent beats approximate), ADR 0029
+§ 3 (a builtin's long loop asks the stop). `docs/features.md`' DOM line.
+The DOM standard's *scope-match a selectors string* and
+`querySelectorAll`; Selectors 4's `:scope`; Web IDL's legacy platform
+objects (`[[GetOwnProperty]]`, `[[DefineOwnProperty]]`, `[[Delete]]`,
+`[[OwnPropertyKeys]]`, `[[PreventExtensions]]`), `unsigned long`'s
+conversion, and the rule that a value iterator's `forEach`, `keys`,
+`values`, `entries` and `@@iterator` are `Array.prototype`'s own. Code
+read: `alo-css`' `selector.rs`, `matching.rs`, `lib.rs`; `alo-bindings`'
+`lib.rs`, `interface.rs`, `idl.rs`, `define.rs`, `embed.rs`,
+`install.rs`, `token_list.rs`, `wrapper.rs` (head) and
+`interface/{document, dom_token_list, dom_exception, child_node,
+event}.rs`; `alo-js`' `object/{internal, native, array}.rs`,
+`builtin/array_prototype.rs`; the case's page, `origin.txt` and
+`alo_downloads.rs`; memory notes on the gate's timing. No `AGENTS.md`
+exists. The checkout was clean on entry at `cb44e01`. No sibling
+repository was read or written.
+
+**Selection.** 329 depends on 327 (done) and is the first eligible item in
+the file: 320 and 321 come after it, 328 waits for a page, 322–324 for a
+page or 73.
+
+**What was built.**
+- `alo-css`: `SelectorList::parse_text`, a whole string as a selector list
+  through the parser style sheets use (`parse_entirely`; CSS Syntax closes
+  a block the input ends in, so `a[href` is `a[href]` as in every engine);
+  `MatchContext::scoped`, the one matcher with a `:scope` element; and
+  `nesting.rs`, a non-recursive scan that refuses text whose blocks nest
+  past 32. Measured first: `":is(".repeat(1000)` overflowed a 2 MB test
+  thread in a debug build, 400 did not.
+- `alo-bindings`: `node_list.rs`, the static `NodeList` cell — each
+  match's wrapper held strongly as the data property its index answers,
+  and Web IDL's legacy platform object rules for indices (not writable,
+  not definable, not deletable while supported, listed first; prevent
+  extensions refused). `interface/node_list.rs`: `length` and `item`, an
+  `unsigned long` converted modulo 2³² with an object's `valueOf` asked
+  for. `interface/parent_node.rs`: the `ParentNode` mixin's
+  `querySelectorAll` on `Document`, `Element` and `DocumentFragment`
+  (`Brand::ParentNode`), the descendants in tree order, the stop asked at
+  each node, a `SyntaxError` `DOMException` for text that is not a
+  selector list this engine has. `Interface::NodeList` joins the list.
+
+**Closing conditions.**
+- *A table of selectors and the elements they answer, in tree order,
+  matches the standard*: **met** (`what_a_selector_finds.rs`: from the
+  document — combinators, structural pseudo-classes, `:is`/`:not`, a list
+  answered once per element in tree order, `:scope` as `:root`, case
+  rules — and from an element — never itself, `:scope` the element, a
+  selector looking above it).
+- *A selector that does not parse is the right `DOMException`*: **met**
+  (twelve strings, `:has()` and an undeclared namespace prefix among
+  them, each a `SyntaxError` inheriting `Error.prototype`).
+- *`alo-downloads`' script runs past line 17's `querySelectorAll` and
+  stops at its next missing member, named in `origin.txt`*: **met**. The
+  renderer reports the stop at line 17, column 7 as before, because the
+  position is the call expression's start for either member; a test runs
+  the frozen page's own query on its own markup and finds its two buttons,
+  in order, with `typeof list.forEach` `"undefined"`, which says which
+  stop it is. `origin.txt` names `forEach` (331).
+- Beyond the table: the list's indices, `length`, `item` and refusals,
+  staticness across removal and class changes, a node held only by the
+  list surviving collections, a 100 000-deep selector refused, 2 000
+  elements matched and wrapped, and the embedder's stop ending a query.
+  Every script ran plain and with the collector at every allocation, and
+  the two compared. 10 tests.
+
+**Cut, by name.** `forEach`, `keys`, `values`, `entries` and
+`[Symbol.iterator]` — **331**, marked **needs ADR**: Web IDL makes them
+`Array.prototype`'s own functions, there is no `Array.prototype.forEach`,
+and building one needs a builtin to keep its length and index across one
+call per element when a native keeps only a `u32` step. A list of its own
+would be the approximation ADR 0013 § 3 refuses. `querySelector`,
+`children` and the rest of `ParentNode` stay absent until a page needs
+them; `for…in` over a list waits for item 211.
+
+**Found, and opened.** A `<style>` whose selector nests `:is(` 5 000 deep
+overflows the stack in `parse_stylesheet` and aborts the process —
+**330**, eligible, using `nesting.rs`. The stylesheet parser is unchanged
+here; fixing it is a different responsibility and its own closing
+condition.
+
+**Roadmap.** This iteration served **no roadmap line**, so `ROADMAP.md` is
+unchanged — the finding of iterations 203 and 204. The DOM section lists
+mutation, events, forms, navigation, iframes, shadow DOM, selection,
+CSSOM and storage, and none names querying the document. A Built clause
+on one of them would be decoration. `docs/features.md`' *DOM APIs a modern
+page actually uses* line says the page opened `querySelectorAll`;
+`CHANGELOG.md`, `REMAINING.md` and the case's `origin.txt` say the same.
+
+**Gate, mechanical.** `cargo fmt --all`; `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` silent; `alo-css`,
+`alo-bindings` and `alo-corpus` tests passing; the workspace's tests
+warmed with `--all-features`. `scripts/gate.sh` ran into a log with a
+two-hour bound, and I waited for it in the same turn and read the log:
+exit 0, "The gate is met." — fmt clean, clippy silent, tests pass,
+nothing stubbed, `unsafe` forbidden, licences present, every rented crate
+behind its boundary (`cssparser` and `selectors` still named only in
+`alo-css`' listed files — `nesting.rs` names neither), no coordinate
+verbs, the stop rule holding, the changelog changed.
+
+**Gate, manual.**
+- Layout assertions: nothing positions or sizes differently. The corpus'
+  box trees, layouts and the `alo_downloads.rs` numbers pass unchanged.
+- Reference render: no reference moved (`cargo test -p alo-corpus`
+  passed against the committed files, and `git status` shows none
+  rewritten). The script's new work finds elements and changes nothing
+  drawn.
+- One responsibility per file: `nesting.rs` the depth bound, `selector.rs`
+  what a selector is (and parsing one from text), `matching.rs` the
+  matcher; `node_list.rs` the object, `interface/node_list.rs` its
+  members, `interface/parent_node.rs` the mixin's query.
+- Bytes from outside: the selector string is a page's; it is bounded
+  before the rented parser recurses, a parse failure is a refusal, and the
+  walk is bounded by the document and interruptible. No indexing; the
+  list's length is converted with `u32::try_from`, the index with
+  `usize::try_from`.
+- `docs/features.md` had the DOM line before this was built.
+
+**Unresolved obligations.**
+- 330 (a style sheet nested too deep crashes the renderer) is eligible and
+  next in queue order. It is a crash on hostile bytes that exists today.
+- 331 needs its ADR before any code: how a builtin keeps state across the
+  calls it asks for. `alo-downloads` waits on it.
+- 320 and 321 remain eligible. 322 and 324 wait for a page; 323 waits on
+  73; 328 waits for a page. Still standing: 284, 311, 314 wait for pages;
+  296 needs a person; 297–300, 302, 304, 308; 126 and 132.
+
+144 queue items are open: 329 closed, 330 and 331 opened. The next unused
+queue number is **332** and the next ADR is **0031**. This is one
+iteration, not a finished queue or roadmap.

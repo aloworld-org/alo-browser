@@ -3275,7 +3275,7 @@ The long pole, and the thing most of section E is unreachable without.
   member's results and refusals matches the DOM standard, run with the
   collector at every allocation.
 
-- [ ] **329. `querySelectorAll`, and the `NodeList` it answers.** *Opened
+- [x] **329. `querySelectorAll`, and the `NodeList` it answers.** *Opened
   by `alo-downloads` (iteration 204).* With 327 built the page marks its
   card and stops at line 17,
   `document.querySelectorAll(".btn[href]").forEach(function (a) { … })`:
@@ -3291,6 +3291,78 @@ The long pole, and the thing most of section E is unreachable without.
   not parse is the right `DOMException`; and `alo-downloads`' script runs
   past line 17's `querySelectorAll` and stops at its next missing member,
   named in the case's `origin.txt`.
+  **Built (iteration 205).** `alo-css` reads a whole string as a selector
+  list (`SelectorList::parse_text`, the parser style sheets use), refusing
+  text whose blocks nest past 32 before the rented parser recurses into it
+  (`nesting.rs`: `":is(".repeat(1000)` overflowed a test thread's stack),
+  and its one matcher takes a `:scope` element (`MatchContext::scoped`).
+  `ParentNode.querySelectorAll` (`interface/parent_node.rs`) is on
+  `Document`, `Element` and `DocumentFragment`: the node's descendants in
+  tree order, `:scope` the element asked or else `:root`, the embedder's
+  stop asked at each node, and text that is not a selector list this
+  engine has — `:has()` and an undeclared namespace prefix among it — a
+  `SyntaxError` `DOMException`. It answers a **static** `NodeList`
+  (`node_list.rs`): a cell holding each match's wrapper strongly, its own
+  `[[GetOwnProperty]]`, `[[DefineOwnProperty]]`, `[[Delete]]`,
+  `[[OwnPropertyKeys]]` and `[[PreventExtensions]]` written as Web IDL's
+  legacy platform object with an indexed getter, and `length` and `item`
+  (an `unsigned long`, modulo 2³²) on its prototype
+  (`interface/node_list.rs`). **Met:** a table of selectors and what they
+  answer, in tree order, from a document and from an element; every
+  string that is not a selector list a `SyntaxError` `DOMException`; the
+  list's indices, length, `item` and refusals, its staticness, and a node
+  only it holds surviving collections — all with the collector at every
+  allocation (`alo-bindings/tests/what_a_selector_finds.rs`, 10 tests,
+  hostile nesting and a 2 000-element document among them); and
+  `alo-downloads`' script runs past line 17's `querySelectorAll`, which
+  finds its two buttons, and stops at `.forEach`, named in `origin.txt`.
+  **Cut, by name:** `forEach`, `keys`, `values`, `entries` and
+  `[Symbol.iterator]` — **331**: Web IDL makes them `Array.prototype`'s
+  own functions, and this engine has no `Array.prototype.forEach`.
+  `querySelector`, `children` and the rest of `ParentNode` stay absent
+  until a page needs them. A style sheet nested as deep crashes the
+  renderer the same way — **330**, found by this item and not its to fix.
+
+- [ ] **330. A style sheet nested past the limit is refused rather than
+  overflowing the stack.** *Found by 329 (iteration 205).* `alo-css`'
+  `parse_stylesheet` hands a page's `<style>` to `cssparser` and
+  `selectors`, which recurse once per nested block: a sheet whose selector
+  is `":is(".repeat(5000)` overflowed a test thread's stack and aborted the
+  process. A page's style sheet is bytes from outside (`LOOP.md`, stage 2
+  § 2), and a crash in a renderer is a denial of service. `nesting.rs`
+  already measures the depth without recursing, for `querySelectorAll`;
+  a sheet needs it per rule — a prelude or a block nested too deep drops
+  that rule with a `StyleIssue`, never the sheet — and in declaration
+  values (`var()` fallbacks, functions) and `@media` conditions, which are
+  read from the same token stream.
+  *Depends on nothing. Opened by no page:* found by a hostile input, which
+  is what stage 2 § 2 asks for. *Closes when:* a sheet with a selector, a
+  declaration value and a media condition each nested 100 000 deep is
+  parsed without a crash, the rules nested past the limit are dropped with
+  an issue that says why, and the rules around them are kept — on a
+  thread with the renderer's own stack size.
+
+- [ ] **331. `Array.prototype.forEach`, and a `NodeList`'s iteration.**
+  *Cut from 329 (iteration 205).* `alo-downloads`' script now stops at
+  `document.querySelectorAll(".btn[href]").forEach(…)`: Web IDL makes a
+  `NodeList`'s `forEach`, `keys`, `values`, `entries` and
+  `[Symbol.iterator]` **the very functions** `Array.prototype` has under
+  those names, and `Array.prototype.forEach` is not built (item 73). It is
+  generic: it reads `length` once, then calls the callback for each index
+  the object has. **Needs ADR:** a builtin keeps a `u32` step and nothing
+  else across a call it asks for (`object/native.rs`), and `forEach` must
+  keep its length and its index across one call per element, where
+  reading `length` again would visit what the callback appended. How a
+  builtin keeps state across the calls it asks for decides `map`,
+  `filter`, `reduce`, `every`, `some`, `find` and every promise reaction
+  after it, so it is decided once, before any of them is built.
+  *Depends on that ADR, and on 329. Closes when:* `Array.prototype.forEach`
+  answers a table of arrays and array-likes as the specification does —
+  holes skipped, `thisArg` passed, the length read once, a throwing
+  callback ending it — with the collector at every allocation; a
+  `NodeList`'s five members are `===` `Array.prototype`'s; and
+  `alo-downloads`' script runs past `.forEach` and stops at its next
+  missing member (`fetch`, item 75), named in `origin.txt`.
 
 - [x] **326. The `User-Agent` header.** *Cut from 325 (ADR 0030 §§ 1–4,
   7).* This engine sends no `User-Agent` today (`csp_report.rs` says so on
