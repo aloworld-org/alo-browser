@@ -446,8 +446,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (301–306)
 - [2] Workers: dedicated, shared, and service workers with their fetch interception
 - [2] Timers, clipboard, drag and drop
-- [2] `navigator`, and what the browser says it is. Decided in ADR 0030 and
-  not built: the browser names itself, `alo/` and its version, and claims to
+- [2] `navigator`, and what the browser says it is. Decided in ADR 0030.
+  Built: the `User-Agent` header, on every request over HTTP/1.1 and HTTP/2
+  and in a CSP report's envelope (326). Not built: `navigator` itself (325).
+  The browser names itself, `alo/` and its version, and claims to
   be no other browser. Its string is the same on every machine running the
   same release on the same kind of system, with one frozen token per system
   (`Macintosh`, `Windows`, `Linux`) and nothing measured about the machine:

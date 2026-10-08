@@ -3187,7 +3187,7 @@ The long pole, and the thing most of section E is unreachable without.
   box tree and the reference render, and every member in ADR 0030 § 5's
   table answers what it says.
 
-- [ ] **326. The `User-Agent` header.** *Cut from 325 (ADR 0030 §§ 1–4,
+- [x] **326. The `User-Agent` header.** *Cut from 325 (ADR 0030 §§ 1–4,
   7).* This engine sends no `User-Agent` today (`csp_report.rs` says so on
   purpose). One file in `alo-net` composes ADR 0030's string and platform
   from the system the binary is built for, and refuses to compile for a
@@ -3201,6 +3201,15 @@ The long pole, and the thing most of section E is unreachable without.
   no other engine's token (`AppleWebKit`, `KHTML`, `Chrome`, `Safari`,
   `Gecko/`, `Firefox`) and no patch version; and a CSP report's
   `user_agent` is the same string.
+  **Built (iteration 202).** `alo-net/src/user_agent.rs` holds § 2's three
+  rows, chooses one by `target_os` and has a `compile_error!` for any other
+  system; `user_agent()` and `platform()` are what 325 tells the renderer.
+  `write_request` and HTTP/2's `fields_for` send it unless the request has a
+  `User-Agent` under any spelling, and the Reporting API envelope carries it
+  as `user_agent`. Tests: the unit tests check every row, not only this
+  build's; `http_messages.rs` and `speaking_http_2.rs` check exactly one
+  header and a caller's own kept; `a_violation_a_page_reports.rs` checks the
+  envelope and the posted report's header.
 
 - [ ] **75. Promises, `async`/`await`, generators and iterators.**
   *Depends on 72, 76.* **Item 230 took the iteration protocol `for…of` reads**

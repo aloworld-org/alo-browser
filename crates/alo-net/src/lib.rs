@@ -74,6 +74,7 @@ pub mod response;
 pub mod schemes;
 pub mod tls;
 pub mod transfer;
+pub mod user_agent;
 
 // Not `Entry` or `Happened`: both are words this crate could mean several
 // things by, and `activity::` at the call site says which record is meant —

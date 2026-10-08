@@ -304,6 +304,44 @@ fn the_headers_that_describe_a_hop_are_not_sent() {
     );
 }
 
+/// The header block says which browser this is, once, in the same string
+/// HTTP/1.1 sends (ADR 0030 § 3).
+#[test]
+fn a_request_says_which_browser_sent_it_exactly_once() {
+    let (port, heard) = serve(ok_with("x"));
+    assert!(port != 0, "no server");
+    let _ = ask(
+        port,
+        &Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person()),
+    );
+
+    let asked = heard.recv().unwrap_or_default();
+    let said: Vec<&str> = asked
+        .iter()
+        .filter(|f| f.name == "user-agent")
+        .map(|f| f.value.as_str())
+        .collect();
+    assert_eq!(said, vec![alo_net::user_agent::user_agent().as_str()]);
+}
+
+/// A caller's own `User-Agent` goes out as theirs, and no second one with it.
+#[test]
+fn a_request_that_says_its_own_user_agent_keeps_it_and_gains_no_second() {
+    let (port, heard) = serve(ok_with("x"));
+    assert!(port != 0, "no server");
+    let mut request = Request::get(url(&format!("http://127.0.0.1:{port}/")), a_person());
+    request.headers.add("User-Agent", "a caller's own");
+    let _ = ask(port, &request);
+
+    let asked = heard.recv().unwrap_or_default();
+    let said: Vec<&str> = asked
+        .iter()
+        .filter(|f| f.name == "user-agent")
+        .map(|f| f.value.as_str())
+        .collect();
+    assert_eq!(said, vec!["a caller's own"]);
+}
+
 /// A name with a capital in it is malformed, not merely unconventional.
 #[test]
 fn header_names_go_out_lowercase() {

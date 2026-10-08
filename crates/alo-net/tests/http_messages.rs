@@ -307,3 +307,46 @@ fn a_caller_cannot_set_the_headers_that_say_where_the_body_ends() {
     assert!(!bytes.contains("999"), "{bytes:?}");
     assert!(!bytes.contains("chunked"), "{bytes:?}");
 }
+
+// --- What the browser says it is (ADR 0030) ----------------------------------
+
+/// Every request says which browser sent it, once, in the string
+/// `navigator.userAgent` will answer — composed in one place, so the header
+/// and the page can never disagree.
+#[test]
+fn a_request_says_which_browser_sent_it_exactly_once() {
+    let bytes = String::from_utf8(write_request(&Request::get(
+        url("https://example.com/"),
+        a_person(),
+    )))
+    .expect("ascii");
+    let line = format!("User-Agent: {}\r\n", alo_net::user_agent::user_agent());
+    assert!(bytes.contains(&line), "{bytes:?}");
+    assert_eq!(
+        bytes.to_ascii_lowercase().matches("user-agent:").count(),
+        1,
+        "{bytes:?}"
+    );
+}
+
+/// `User-Agent` is not a forbidden request header, so a caller that set one
+/// keeps it — however it spelled the name — and the request gains no second.
+#[test]
+fn a_request_that_says_its_own_user_agent_keeps_it_and_gains_no_second() {
+    let mut request = Request::get(url("https://example.com/"), a_person());
+    request.headers.add("user-agent", "a caller's own");
+    let bytes = String::from_utf8(write_request(&request)).expect("ascii");
+    assert!(
+        bytes.contains("user-agent: a caller's own\r\n"),
+        "{bytes:?}"
+    );
+    assert_eq!(
+        bytes.to_ascii_lowercase().matches("user-agent:").count(),
+        1,
+        "{bytes:?}"
+    );
+    assert!(
+        !bytes.contains(&alo_net::user_agent::user_agent()),
+        "{bytes:?}"
+    );
+}

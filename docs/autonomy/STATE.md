@@ -18439,3 +18439,93 @@ coordinate verbs, the stop rule holding, and no uncommitted code to judge.
 143 queue items are open: 326 opened, none closed. The next unused queue
 number is **327** and the next ADR is **0031**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 202 — queue item 326 built: the `User-Agent` header
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (stage 2 §§ 2–3:
+bytes from outside answered with errors, dependencies decide order),
+`ROADMAP.md` (its three states; the *HTTP/1.1, then HTTP/2* line),
+iterations 200 and 201, queue items 325 and 326 in full, ADR 0030 whole
+(the decision this builds). `docs/features.md`'s `navigator` line. Code
+read: `alo-net`'s `http.rs` (`write_request`), `h2/client.rs`
+(`fields_for`), `csp_report.rs` (`as_report` and its module note),
+`headers.rs` (`get` is case-insensitive) and `record.rs`'s `Vary` storage.
+No `AGENTS.md` exists. The checkout was clean on entry at `4413475`. No
+sibling repository was read or written.
+
+**Selection.** 326 depends on nothing and comes before 325, which waits on
+it. 320 and 321 come later in the file; 322 and 324 are reached by no page;
+323 waits on 73.
+
+**What was built.**
+- `alo-net/src/user_agent.rs`, the one file ADR 0030 § 4 names: § 2's three
+  rows as `System` constants (`MACOS`, `WINDOWS`, `LINUX`), `THIS` chosen by
+  `target_os`, and a `compile_error!` naming the ADR for any other system.
+  `System::user_agent` composes `Mozilla/5.0 (<token>) alo/<major>.<minor>`
+  from the package's version (the workspace's, so `alo/0.0` today);
+  `user_agent()` and `platform()` are this build's, for 325 to tell the
+  renderer in `Page`.
+- `write_request` writes `User-Agent` after `Host` unless the request has
+  one under any spelling; a caller's own goes out unchanged in the header
+  loop. HTTP/2's `fields_for` does the same as `user-agent`.
+- The Reporting API envelope gains `"user_agent"` between `url` and `body`,
+  in the specification's order, and the module note says why it is now
+  there.
+
+**Closing conditions, each a test.** One `User-Agent` equal to the composed
+string over HTTP/1.1 (`http_messages.rs`) and over HTTP/2, decoded from the
+real header block a loopback server received (`speaking_http_2.rs`); a
+caller's own kept with no second, in both, the HTTP/1.1 one set lowercase;
+no other engine's token (`AppleWebKit`, `KHTML`, `Chrome`, `Safari`,
+`Gecko/`, `Firefox`) and a two-number version, for every row and not only
+this build's (`user_agent::tests`); the envelope's `user_agent` is the same
+string, and the report posted to a loopback collector carries it as its
+header (`a_violation_a_page_reports.rs`).
+
+**Roadmap.** The *HTTP/1.1, then HTTP/2* line's Built clause gains *which
+browser is asking* (326). Not ticked: its `Expect` remainder (187) is
+still owed. `docs/features.md`'s `navigator` line says the header is built
+and `navigator` is not. `CHANGELOG.md` and `REMAINING.md` say the same.
+
+**Gate, mechanical.** `cargo fmt`, `cargo clippy --workspace --all-targets`
+silent, `cargo test -p alo-net` all passing, and the workspace's tests
+warmed — without `--all-features`, which the gate passes, so the warming
+did not count. The first `scripts/gate.sh` run, in the foreground, passed
+the tool's ten-minute ceiling, was moved to the background and was then
+stopped by the background limit while still compiling for its test step;
+it reported no failure, and no result is claimed from it. I ran it again
+with a two-hour bound and waited for it in the same turn. It exited 0 with
+"The gate is met.": fmt clean, clippy silent, tests passing under
+`set -euo pipefail`, no stubs, `unsafe` forbidden, licences present, every
+rented crate behind its boundary, no coordinate verbs, the stop rule
+holding, the changelog changed.
+
+**Gate, manual.**
+- Layout assertions and reference renders: none apply. Nothing positions,
+  sizes or draws; no corpus case's render or box tree changed (the frozen
+  pages are not fetched, so the header never reaches them).
+- One responsibility per file: `user_agent.rs` composes the string and the
+  platform and nothing else; each protocol only decides whether to send it.
+- Bytes from outside: nothing new reads them. The string is a constant
+  checked to be visible ASCII and spaces, so neither protocol has anything
+  to escape.
+- `docs/features.md` had the line before this was built.
+
+**Unresolved obligations.**
+- `navigator` is not built; 325 is now eligible and comes next by the file.
+  It carries `user_agent()` and `platform()` in `Page` (ADR 0030 § 4).
+- Seen and not changed: HTTP/2's `fields_for` sends no `Accept-Encoding`,
+  where HTTP/1.1 asks for `br, zstd, gzip, deflate`. Not this item's, and
+  no queue item names it; the next iteration touching HTTP/2 should look.
+- A response that says `Vary: User-Agent` is matched against the request's
+  own headers, where a default `User-Agent` is absent; that is consistent
+  across requests, since the default never changes within a build.
+- 320 and 321 remain eligible. 322 and 324 wait for a page; 323 waits on
+  73. Still standing: 284, 311, 314 wait for pages; 296 needs a person;
+  297–300, 302, 304, 308; 126 and 132.
+- `scripts/gate.sh` takes longer than ten minutes, and longer than twenty
+  when its `--all-features` build is cold.
+
+142 queue items are open: 326 closed. The next unused queue number is
+**327** and the next ADR is **0031**. This is one iteration, not a
+finished queue or roadmap.

@@ -46,9 +46,12 @@
 //! a wrong answer that reads like a right one. A field nobody sent is a field an
 //! author can see is missing.
 //!
-//! `user_agent` is omitted from the Reporting API's envelope for a different
-//! reason: this engine sends no `User-Agent` header anywhere, and a report is
-//! not the place to invent the first fingerprint it ever emits.
+//! `user_agent`, unlike those, *is* in the Reporting API's envelope: the string
+//! [`crate::user_agent`] composes — the one the post itself carries as its
+//! `User-Agent` header (ADR 0030 § 3). It adds nothing a collector did not
+//! already receive, which is the only reason it is there at all: until that
+//! header was sent, a report was not the place to invent the first fingerprint
+//! this engine ever emitted.
 
 use crate::cause::Cause;
 use crate::csp::{Disposition, Refusal};
@@ -335,8 +338,9 @@ impl Violation {
             ("disposition", &self.disposition.to_string()),
         ]);
         format!(
-            "[{{\"age\":0,\"type\":\"csp-violation\",\"url\":{},\"body\":{{{said},\"statusCode\":{}}}}}]",
+            "[{{\"age\":0,\"type\":\"csp-violation\",\"url\":{},\"user_agent\":{},\"body\":{{{said},\"statusCode\":{}}}}}]",
             quoted(&document),
+            quoted(&crate::user_agent::user_agent()),
             about.status,
         )
     }

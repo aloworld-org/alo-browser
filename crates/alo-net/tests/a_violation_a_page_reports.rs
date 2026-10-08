@@ -263,6 +263,15 @@ fn a_group_name_is_resolved_against_the_pages_own_endpoints() {
         body.contains("\"blockedURL\":\"https://evil.test\""),
         "{body}"
     );
+    // The envelope names the browser as the post's own header does: the one
+    // string ADR 0030 composes, and nothing a collector did not already get.
+    assert!(
+        body.contains(&format!(
+            "\"user_agent\":\"{}\"",
+            alo_net::user_agent::user_agent()
+        )),
+        "{body}"
+    );
 
     // And a group nobody defined is said rather than swallowed.
     let nowhere = one.posts(&about());
@@ -403,6 +412,13 @@ fn a_report_arrives_at_the_collector_as_a_post() {
         .unwrap_or_default();
     let sent = String::from_utf8_lossy(&sent).into_owned();
     assert!(sent.starts_with("POST /csp HTTP/1.1\r\n"), "{sent}");
+    assert!(
+        sent.contains(&format!(
+            "User-Agent: {}\r\n",
+            alo_net::user_agent::user_agent()
+        )),
+        "{sent}"
+    );
     assert!(
         sent.contains("Content-Type: application/csp-report"),
         "{sent}"

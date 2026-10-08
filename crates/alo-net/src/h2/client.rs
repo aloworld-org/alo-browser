@@ -645,6 +645,11 @@ fn fields_for(request: &Request) -> Vec<Field> {
     if let Some(length) = request.declared_length() {
         fields.push(Field::new("content-length", length.to_string()));
     }
+    // Which browser this is, as HTTP/1.1 says it (ADR 0030 § 3): unless the
+    // caller set one, which is then sent below as theirs.
+    if request.headers.get("User-Agent").is_none() {
+        fields.push(Field::new("user-agent", crate::user_agent::user_agent()));
+    }
     for header in request.headers.iter() {
         let name = header.name.to_ascii_lowercase();
         // `Host` is `:authority` here, and the rest describe a hop that HTTP/2

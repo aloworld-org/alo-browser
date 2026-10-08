@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser now says which browser it is.** Every request it makes,
+  over either version of HTTP, carries a `User-Agent` header naming alo and
+  its version, and the kind of computer it runs on: Mac, Windows or Linux,
+  nothing more precise. Until now it sent none. A request that already
+  chose its own keeps it. A security-policy report a page asked for carries
+  the same words. Scripts cannot read it yet through `navigator`; that comes
+  next, and will read exactly this string.
+
 - **What the browser says about itself is decided.** ADR 0030 says it
   names itself, `alo/` and its version, and does not pretend to be Chrome or
   Safari. The string is the same for everyone on the same release and kind

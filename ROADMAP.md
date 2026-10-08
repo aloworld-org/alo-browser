@@ -271,7 +271,10 @@ unreachable without it.
       that closes part way through waited on rather than overrun and the stream
       closed rather than left open when a server answers early; the length a
       request states is always its bytes rather than a header a caller wrote,
-      and an interim response is read past rather than taken for the answer ·
+      and an interim response is read past rather than taken for the answer.
+      **Which browser is asking** (queue item 326) — every request in both
+      protocols carries, once, the `User-Agent` ADR 0030 composes in
+      `alo-net`'s `user_agent.rs`, and a caller that set its own keeps it ·
       Owed: an `Expect` is refused by name rather than honoured, which needs a
       bounded wait — queue item 187
 - [ ] HTTP/3 and QUIC, once those two are correct

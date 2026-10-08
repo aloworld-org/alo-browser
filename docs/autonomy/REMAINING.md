@@ -662,6 +662,13 @@ depends on nothing; 325 now depends on it. 322 and 324 are reached by no
 frozen page, and 323 waits on 73. 143 queue items are open. The next unused
 queue number is 327 and the next unused ADR 0031.
 
+Iteration 202 built item 326: `alo-net/src/user_agent.rs` composes ADR
+0030's string and platform from the build's system, refusing to compile for
+a system with no row. Every HTTP/1.1 and HTTP/2 request carries it once
+unless the caller set its own, and a Reporting API envelope carries it as
+`user_agent`. 325 (`navigator`) is now eligible. 142 queue items are open.
+The next unused queue number is 327 and the next unused ADR 0031.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

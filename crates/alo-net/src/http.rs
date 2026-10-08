@@ -123,6 +123,12 @@ pub fn write_request(request: &Request) -> Vec<u8> {
             None => write!(out, "Host: {host}\r\n"),
         };
     }
+    // Say which browser this is (ADR 0030) — unless the caller already said.
+    // Like `Accept-Encoding` below, and unlike `Host`, this one is the
+    // caller's to set: Fetch does not forbid it, so a page's `fetch()` may.
+    if request.headers.get("User-Agent").is_none() {
+        let _ = write!(out, "User-Agent: {}\r\n", crate::user_agent::user_agent());
+    }
     // Ask for the encodings this engine can undo — but only if the caller has
     // not asked for something else. Unlike `Host`, this one *is* the caller's
     // to set: a download that resumes wants `identity`, because a byte range
