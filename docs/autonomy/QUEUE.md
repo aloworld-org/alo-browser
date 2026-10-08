@@ -5554,6 +5554,77 @@ The long pole, and the thing most of section E is unreachable without.
   promise; a synchronous `open(…, false)` refused by name. *Opened by a
   frozen page that uses one, and not before.*
 
+- [ ] **347. A loaded page's linked style sheets.** *Opened by a page
+  (iteration 225):* `alo-workplace`'s
+  `products/sites/alo-sites/tests/golden/section_cta.html`, a page alo
+  Sites publishes for its customers, links its whole style sheet
+  (`<link rel="stylesheet" href="/assets/site.css">`) and carries an inline
+  script, as every page alo Sites publishes does. A page that runs script
+  is loaded by a renderer, and **nothing hands a renderer a page's linked
+  sheet**: `alo-renderer`'s `renderer.rs` draws with none, and only
+  `alo-window`'s command-line `opening.rs` gives one any sheet. So the page
+  is drawn unstyled in the window, and `alo-corpus`' `rendering.rs`
+  refuses it as a case by name. *Depends on 334 and 335 (the ask's
+  shape, both done). Needs ADR*, because which process finds a sheet, what crosses and what a
+  renderer may then hold are decisions ADR 0032 made for a fetch and did
+  not make for a sheet.
+  **Decided (iteration 225): ADR 0035, accepted.** The renderer asks for
+  each linked sheet's URL once per document, in the answer to the message
+  whose work found it, as ADR 0032 asks for a fetch. The browser process
+  decides it as a style request (`style-src`, mixed content, CORS only for
+  `crossorigin`, cookies, referrer, the cause from which message was
+  answered). The body crosses only if the status is 2xx and the
+  `Content-Type` is `text/css`, so a renderer never holds the bytes of
+  something else a page named. A sheet's answer is a task, and the next
+  draw applies it. The browser process shows no first frame until the
+  load's sheets are answered, within a bound of its own. Nothing is built,
+  and this item stays open: it closes when **348** and **349** do.
+
+- [ ] **348. A linked sheet asked for, decided and delivered.** *Cut from
+  347 (ADR 0035 §§ 1–5). Depends on nothing open.* `alo-renderer`: a sheet
+  ask in `Loaded`, `Acted` and `Delivered` (number, resolved URL,
+  `crossorigin` as mode and credentials, `referrerpolicy`, nonce), one per
+  URL per document, bounded per answer and per document with the numbers'
+  reasons in the code; a `<meta>` policy applied before asking; a link with
+  `integrity` and a `data:` sheet refused by name. The browser process's
+  decision in ADR 0032 § 3's order with `Purpose::Style`, `file:` only from
+  a `file:` document; the check that only a 2xx `text/css` body crosses; a
+  failure said in the same words whatever happened, the reason recorded; a
+  new `ToRenderer` message and its wire encoding, read as a stranger's
+  bytes; the renderer decoding UTF-8 and keeping what arrived by URL;
+  `alo-window`'s conductor making the asks between orders and presenting
+  no first frame until the load's sheets are answered or its bound passes.
+  *Closes when:* a renderer's page with a linked sheet is drawn with it,
+  in a test that reads the computed colour after the delivery; a
+  cross-origin response that is not `text/css` sends no body across, in a
+  test that reads the message; a header `style-src` refusing it makes no
+  request and records the refusal; two links to one URL make one request;
+  a link a script adds is asked for in that task's answer; and the window
+  presents the page after its sheet's answer, not before.
+
+- [ ] **349. `alo-sites-cta`, frozen.** *Cut from 347 (ADR 0035 § 6).
+  Depends on 348.* `alo-corpus` answers a loaded case's sheet asks from its
+  `linked.txt`, each name resolved against `address.txt`, through ADR 0035
+  § 3's check, with the type the file's extension stands for; a loaded case
+  that links a picture stays refused by name (350). Then
+  `section_cta.html` and the `site.css` beside it are frozen byte for byte
+  from `alo-workplace` with their provenance (at `738de614`, the page last
+  changed in `fbe5b972`, the sheet in `5be41b70`), served from
+  `https://nordwind.alosites.com/`. *Closes when:* the case renders with its
+  sheet applied, with a layout assertion and a reference render; its
+  `origin.txt` says where it came from and what its analytics script does
+  offline; and what the render shows wrong is opened as items, in the
+  order the page meets them.
+
+- [ ] **350. A loaded page's pictures.** *Cut from 347 (ADR 0035, *What
+  this does not decide*).* An `<img>` or a `background-image` in a page a
+  renderer holds is never handed its bytes, as a sheet was not. It takes
+  ADR 0035's ask, and what may cross for a no-cors picture — which bytes
+  are plausibly an image — is a rule of its own. *Needs ADR. Opened by a
+  frozen page whose picture can be frozen with it*: alo Sites' hero
+  section has an `<img>`, but its bytes are served from the site's own
+  store and are in no repository.
+
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
 

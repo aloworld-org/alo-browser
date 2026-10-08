@@ -933,3 +933,17 @@ life (`objected.rs`), and what draws find waits for the next `Acted` or
 `Delivered`, which gained `objections` on the wire, under the bound of 64.
 143 queue items are open. The next unused queue number is 347 and the next
 unused ADR 0035.
+
+Iteration 225 found nothing eligible ahead in the queue (every open item
+waits on a page, a person, an open dependency or Linux) and took a real
+page: alo Sites' `section_cta.html`, from `alo-workplace`. It cannot be a
+case: it runs a script and links its style sheet, and nothing hands a
+renderer a linked sheet. That opened item 347, decided as ADR 0035: a
+renderer asks for each linked sheet, the browser process fetches it as a
+style request, and only a 2xx `text/css` body crosses. No code changed.
+The build is cut as 348 (asked, decided, delivered, and the window waiting
+for the load's sheets; depends on nothing open, eligible and next) and 349
+(the corpus answering a loaded case's sheets, and the page frozen; on
+348). A loaded page's pictures are 350, which needs its own ADR and a page
+whose picture can be frozen. 147 queue items are open. The next unused
+queue number is 351 and the next unused ADR 0036.

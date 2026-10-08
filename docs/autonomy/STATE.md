@@ -21176,3 +21176,128 @@ style set and removed in one task, never drawn, is not reported),
 143 queue items are open: 346 closed, none added. The next unused queue
 number is **347** and the next ADR is **0035**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 225 — queue item 347 opened by a page and decided: ADR 0035, a page's linked style sheet is asked for, and only a style sheet comes back
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+head, state rules and process-model line, iteration 224's entry,
+`REMAINING.md`'s continuation order, and every open queue item by its
+dependency and blocking marks, with 302, 304, 336 and 345 in full. ADR
+0032 in full; ADR 0012 § 4, 0014 § 9, 0020 §§ 2–3 and 0034's head as the
+new ADR cites them. The feature contract is `docs/features.md`'s *A page's
+own style sheets* line. Code read: `alo-corpus`' `case.rs` and
+`rendering.rs`; `alo-renderer`'s `page.rs`, `pipeline.rs` (`draw`),
+`renderer.rs` (where a page's sheets are joined), `navigate.rs` and the
+`FromRenderer` answers in `message.rs`; `alo-window`'s `opening.rs`;
+`alo-dom`'s `sheets.rs`; `alo-net`'s `request.rs` (`Purpose`), `csp.rs`,
+`schemes.rs` and `connection.rs` (`PATIENCE`). There is no `AGENTS.md` in
+the repository. The checkout was clean on entry at `f83ea0e`. From the
+sibling `alo-workplace`, read and never written, at `738de614`:
+`products/sites/alo-sites/tests/golden/` (the pages and `site.css`) and
+`render_golden.rs`'s base URL.
+
+**Selection.** Nothing ahead in the queue was eligible, which I checked
+rather than trusted. Every open item waits on a page (322, 324, 328, 337,
+345, 336, 302, 284, 286, 311, 314 and others), a person or an interface
+(157, 158, 296 with 297–300 and 308 behind it), Linux (169), an open
+dependency (323 on 73, 304 on 76 and 81, 126 on 82, 132 on 86 and 131), or
+carries *needs design* with no page asking. Iteration 224 left no item
+named next. So, as iteration 198 did, I took a real page the corpus had
+not seen. alo Sites' golden pages in `alo-workplace` are pages alo
+publishes for customers, and none was frozen. The smallest one that is a
+whole page, `section_cta.html`, links `/assets/site.css` and carries the
+analytics script every alo Sites page carries. It cannot be a case: a page
+that runs script is loaded by a renderer, and `alo-corpus`'
+`rendering.rs` refuses one that links a sheet, by name, because **nothing
+hands a renderer a page's linked sheet**. That is not the corpus's fault.
+In the window, too, only `opening.rs`'s command-line sheets ever reach a
+renderer, so every network page that runs script is drawn unstyled.
+Which process finds a sheet, what crosses and what a renderer may then
+hold are the questions ADR 0032 answered for a fetch and not for a sheet.
+LOOP.md stage 2 § 4 makes that a decision of its own, as iterations 212
+and 218 did. I staged the page as a case to confirm the refusal path and
+removed it. It is not committed, because it cannot render yet.
+
+**What was decided (ADR 0035).** No code changed.
+- The renderer asks for each linked sheet's resolved URL once per
+  document, in the answer to the message whose work found it, with a
+  number it chose, `crossorigin` as mode and credentials,
+  `referrerpolicy` and the nonce. Never an origin, cause, cookie or tab.
+  It applies a `<meta>` policy before asking. A link with `integrity` and
+  a `data:` sheet are refused by name.
+- The browser process decides it in ADR 0032 § 3's order with
+  `Purpose::Style`: `style-src`, mixed content (blockable), CORS only for
+  a `cors` ask, cookies, referrer, and the cause from which message was
+  answered. `file:` is allowed only from a `file:` document.
+- **Only a style sheet crosses**: a 2xx response whose `Content-Type`
+  essence is `text/css`, for every sheet, because there is no quirks mode.
+  Anything else is a failure whose bytes are never sent. That is what
+  stops `<link rel=stylesheet>` from putting another site's page into a
+  renderer's memory, since a no-cors sheet's body must cross where a
+  fetch's would be opaque. A failure says nothing about why to the
+  renderer. The renderer decodes the bytes as UTF-8.
+- A sheet's answer is a new `ToRenderer` message, which is a task. The
+  renderer keeps what arrived by URL, and the next draw applies it.
+- The browser process shows no first frame until the load's sheets are
+  answered, within a bound of its own, because `PATIENCE` alone does not
+  bound a server that trickles.
+- A corpus case answers its sheet asks from `linked.txt` resolved against
+  `address.txt`, through the same check.
+- Pictures, `@import`, `media`, the `<link>` events, script-blocking
+  sheets and Subresource Integrity are named as not decided.
+
+**Queue.** 347 is added, opened by the page, and marked decided. It stays
+open until 348 and 349 close. **348** (asked, decided, delivered, and the
+window waiting for the load's sheets) depends on nothing open and is
+eligible and next. **349** (the corpus answering a loaded case's sheets,
+and `section_cta.html` with `site.css` frozen as `alo-sites-cta` with its
+provenance) depends on 348. **350** (a loaded page's pictures) needs its
+own ADR and a page whose picture can be frozen.
+
+**Gate, mechanical.** `scripts/gate.sh` was started in the background with
+the 2-hour bound, into a log ending with its exit status, and polled in
+this same turn until it ended. It ends with `exit 0` and "The gate is
+met". fmt was clean, clippy silent and the tests passed. Nothing is
+stubbed, `unsafe` stays forbidden, every source file carries the licence,
+every rented crate is behind its boundary, no verb takes a coordinate, and
+the changelog changed.
+
+**Gate, manual.** No code, layout or rendering changed, so no layout
+assertion or reference render applies, and no reference moved. One
+responsibility per file: the ADR is one decision, and it says where each
+piece lands (the ask beside a fetch's in `alo-renderer`, the check in the
+browser process, the answer in `alo-corpus`). No `unsafe` and no new
+dependency.
+
+**Roadmap, docs.** The process-model line's Owed clause now names a page's
+linked style sheet crossing the boundary, decided by ADR 0035 (347) and
+owed by 348, 349 and, for pictures, 350. Nothing is ticked and no Built
+clause was added, because nothing was built. `docs/features.md`'s *A
+page's own style sheets* line says that a loaded page gets none of its
+linked sheets, what is decided, and that it is not built.
+`docs/conformance.md` gains a row saying a page alo Sites publishes does
+not render correctly, and why. `CHANGELOG.md` and `REMAINING.md` say the
+same.
+
+**Unresolved obligations.**
+- Nothing of ADR 0035 is built. A page that runs script is still drawn
+  without its linked sheets, in the window and the corpus. **348 is
+  eligible and next.** It is large: the renderer's asks, the browser
+  process's decision and filter, a new message and its wire encoding, and
+  the conductor's waiting. If it outgrows one iteration, cut its scope,
+  not its depth. The ask, the `text/css` check and the delivery must land
+  together, or the first sheet that crosses crosses unchecked (ADR 0035
+  § 3).
+- `media` on a `<link>` is not honoured on the markup path either. That is
+  existing behaviour, named in the ADR and not opened as an item, because
+  no page has shown it.
+- Everything iteration 224 listed still stands:
+  - 345 waits on an `alo-js` hook shared with 328, and on a page;
+  - 337, 322, 324, 328, 284, 311 and 314 wait for pages;
+  - 323 waits on 73;
+  - 296 needs a person;
+  - 297–300, 302, 304, 308, 126, 132 and 336 remain.
+
+147 queue items are open: 347, 348, 349 and 350 added, none closed. The
+next unused queue number is **351** and the next ADR is **0036**. This is
+one iteration, not a finished queue or roadmap.

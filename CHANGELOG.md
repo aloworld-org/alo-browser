@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How a page's linked style sheet reaches it is decided.** Today a page
+  that runs a script is drawn without the style sheet it links to, because
+  nothing fetches that sheet for it. Every page alo Sites publishes is such
+  a page. The page's process will ask for each sheet, and the browser will
+  fetch it under the page's own security policy. The page receives the
+  sheet's contents only when the server said they are CSS, so a link
+  cannot be used to read another site's pages. The browser waits for a
+  page's sheets, up to a limit, before showing the page, so it does not
+  appear unstyled first. Nothing is built yet (decision 0035).
+
 - **A page's author is told about inline style refused after it loaded.**
   When a page's script, an agent's action or the answer to a fetch puts a
   `style` attribute or a `<style>` on the page that its Content Security

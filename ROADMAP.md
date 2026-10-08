@@ -181,8 +181,13 @@ unreachable without it.
       for 400 and a request for 700 and is shaped, measured and outlined at the
       weight it was set to — twenty-eight of this machine's fonts are such a
       file, its system font among them
-      · Owed: the Linux sandbox, queue item 169; and the axes that are not
-      weight — width, slant and optical size — which are queue item 197
+      · Owed: the Linux sandbox, queue item 169; the axes that are not
+      weight — width, slant and optical size — which are queue item 197; and
+      **a page's linked style sheet crossing the boundary**, which nothing
+      does yet, so a page that runs script is drawn without its `<link>`ed
+      sheet. ADR 0035 decided it (queue item 347): the renderer asks, the
+      browser process fetches, and only a `text/css` body crosses. Built by
+      queue items 348 and 349; its pictures are item 350
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
       than leaving a blank rectangle (queue items 166 and 65). It is not
       restarted silently, because that hides a bug somebody needs to see.
