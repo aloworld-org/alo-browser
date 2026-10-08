@@ -33,6 +33,15 @@ Text is real. Fonts load, text is shaped — including Arabic, which joins and
 runs right to left — lines break by UAX #14, and a paragraph in a narrow window
 takes more lines than the same paragraph in a wide one.
 
+`ex` and `ch` are the face's own: the height of its `x` and the advance of
+its `0`, in the first font the element's `font-family` finds, at its weight
+and size — which is why a form field, 20 `ch` wide by the user-agent sheet, is
+now as wide as twenty of the page's zeros. A font size written in them is
+the parent's; a face with no `x` or no `0`, or a page drawn with no fonts at
+all, is half an em for that unit, as CSS says. The `font` shorthand is not
+expanded, so a page that sets its font only through it keeps the inherited
+one.
+
 Lines are real too: text wraps between words across inline boxes, everything on
 a line sits on one baseline, and a link broken over two lines is two rectangles.
 `text-align` moves a whole line — text, images and inline-blocks together —

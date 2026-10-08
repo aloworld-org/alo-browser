@@ -18,7 +18,10 @@ use alo_box::{BoxId, BoxTree, build};
 use alo_css::{MediaContext, parse_stylesheet};
 use alo_dom::parse_document;
 use alo_layout::{BlockFont, LayoutTree, MeasureText, NoText, Rect, ScaledFont, Size, compute};
-use alo_style::{Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET, resolve};
+use alo_style::{
+    ComputedStyle, FaceUnits, MeasureFace, Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET,
+    resolve, resolve_measured,
+};
 
 /// Equal to within far less than a pixel. A layout assertion is about the
 /// number, not about whether two floats happen to be bit-identical.
@@ -1654,4 +1657,53 @@ fn vertical_align_on_an_inline_box_moves_what_is_in_it() {
         "{:?}",
         layout.issues(),
     );
+}
+
+/// A face whose `x` is 0.53 of its size and whose `0` is 0.6 — unlike half an
+/// em, so a test can tell the face was asked — except in the family `Blank`,
+/// which has neither.
+struct FixedFace;
+
+impl MeasureFace for FixedFace {
+    fn face_units(&self, style: &ComputedStyle) -> Option<FaceUnits> {
+        if style.get("font-family") == Some("Blank") {
+            return None;
+        }
+        Some(FaceUnits {
+            x_height: style.font_size() * 0.53,
+            zero_width: style.font_size() * 0.6,
+        })
+    }
+}
+
+/// `ex` and `ch` are the face's `x` and `0` (queue item 320), at the size
+/// the element's text is set in; a font size written in them is the
+/// parent's, and a face nobody could measure is half an em.
+#[test]
+fn ex_and_ch_are_the_measured_faces() {
+    let html = "<body><div id=a><div id=b></div></div><div id=c></div></body>";
+    let css = "body { margin: 0 } \
+               #a { font-size: 20px; width: 30ch; height: 10ex } \
+               #b { font-size: 2ex; width: 10ch; height: 5ex } \
+               #c { font-family: Blank; font-size: 20px; width: 30ch; height: 10ex }";
+    let document = parse_document(html);
+    let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
+    let author = parse_stylesheet(css);
+    let sheets = [
+        SourcedSheet::new(Origin::UserAgent, &agent),
+        SourcedSheet::new(Origin::Author, &author),
+    ];
+    let styles = resolve_measured(&document, &sheets, &MediaContext::default(), &FixedFace);
+    let boxes = build(&document, &styles);
+    let layout = compute(&boxes, &styles, Size::new(800.0, 600.0), &BlockFont);
+
+    let a = rect_of(&boxes, &layout, "a", html).size;
+    assert!(close(a.width, 30.0 * 12.0), "{}", a.width);
+    assert!(close(a.height, 10.0 * 10.6), "{}", a.height);
+    // Two of the parent's `x` is 21.2 px, and its own lengths are of that.
+    let b = rect_of(&boxes, &layout, "b", html).size;
+    assert!(close(b.width, 10.0 * 21.2 * 0.6), "{}", b.width);
+    assert!(close(b.height, 5.0 * 21.2 * 0.53), "{}", b.height);
+    let c = rect_of(&boxes, &layout, "c", html).size;
+    assert!(close(c.width, 300.0) && close(c.height, 100.0), "{c:?}");
 }

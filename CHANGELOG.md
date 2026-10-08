@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`ch` and `ex` are measured in the page's font.** `44ch` is now 44 times
+  the width of the font's `0` and `10ex` ten times the height of its `x`,
+  where both used to be half the font size. alo's download page sets its
+  introduction 44 characters wide, and in DejaVu Sans that is now 484
+  pixels rather than 380. Form fields, which are 20 characters wide by
+  default, grow to twenty of the page's zeros. A font with no `0` or `x`,
+  or a page drawn with no fonts, still uses half the font size.
+
 - **A page can walk a list with `forEach`.** `[1, 2, 3].forEach(f)` calls
   `f` for each element, as the standard says: the length is read once, so
   what the page adds while walking is not visited; gaps are skipped; a

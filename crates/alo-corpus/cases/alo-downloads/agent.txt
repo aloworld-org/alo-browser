@@ -1,8 +1,8 @@
 document at (0, 0) 800×780
   text "alomails" at (92, 51.9) 116.27901×29.800001
   heading "Get the alomails app" [level=1] at (40, 120.8) 720×62
-  paragraph at (40, 192.8) 380.16×80.352005
-    text "Your private, sovereign email as a real desktop app — on your dock or taskbar, its own window, always a click away." at (40, 196.1345) 372.8869×73.683 in 3 pieces
+  paragraph at (40, 192.8) 483.7388×80.352005
+    text "Your private, sovereign email as a real desktop app — on your dock or taskbar, its own window, always a click away." at (40, 196.1345) 480.3891×73.683 in 3 pieces
   text "Windows" at (63, 333.7026) 93.46445×21.418749
   text "Windows 10 & 11 · 64-bit · .msi installer" at (63, 367.4507) 288.225×16.762499
   link "Download for Windows" at (63, 442.84796) 306×42.625

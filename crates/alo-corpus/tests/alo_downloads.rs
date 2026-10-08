@@ -66,6 +66,50 @@ fn the_note(rendering: &Rendering) -> Option<(Rect, Vec<Rect>, Rect)> {
     Some((drawing.layout.get(note)?.border_box, breaks, prefer))
 }
 
+/// The lede is `max-width: 44ch` at `1.08rem`, and `ch` is the advance of
+/// the face's `0` (queue item 320): 44 of the corpus sans-serif's at
+/// 17.28 px, where half an em made it 380.16.
+#[test]
+fn the_lede_is_forty_four_of_the_faces_zeros() {
+    let Some((_, rendering)) = downloads() else {
+        panic!("the case renders");
+    };
+    let Some(zero) = alo_text::Font::load(
+        "DejaVu Sans",
+        alo_text::Weight::NORMAL,
+        alo_text::Slant::Normal,
+        dejavu::sans::regular().to_vec(),
+    )
+    .map(|font| font.metrics(1.08 * 16.0).zero_width) else {
+        panic!("DejaVu Sans loads");
+    };
+    let (Some(document), Some(drawing)) = (rendering.document(), rendering.drawing()) else {
+        panic!("the page is drawn");
+    };
+    let boxes = &drawing.boxes;
+    let Some(lede) = boxes
+        .ids()
+        .find(|id| {
+            matches!(
+                boxes.get(*id).map(|node| &node.kind),
+                Some(alo_box::BoxKind::Element { node, .. })
+                    if document
+                        .element(*node)
+                        .is_some_and(|element| element.attr("class") == Some("lede"))
+            )
+        })
+        .and_then(|id| drawing.layout.get(id))
+    else {
+        panic!("the lede is laid out");
+    };
+    let width = lede.border_box.size.width;
+    assert!(
+        (width - 44.0 * zero).abs() < 0.001,
+        "{width} is not 44 × {zero}"
+    );
+    assert!((width - 483.7388).abs() < 0.001, "{width}");
+}
+
 #[test]
 fn each_br_in_the_note_ends_its_line() {
     let Some((_, rendering)) = downloads() else {

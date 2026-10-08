@@ -31,9 +31,10 @@
 //! answer in the form a length wants.
 
 use crate::cascade::{Applicable, SourcedSheet};
+use crate::font_units::{FaceUnits, MeasureFace, NoFaces};
 use crate::inheritance::inherits;
 use crate::keyword::{Resolution, WideKeyword};
-use crate::metrics::{DEFAULT_FONT_SIZE, metrics_for, resolve_font_size, resolve_line_height};
+use crate::metrics::{DEFAULT_FONT_SIZE, font_size_against, line_height_in};
 use crate::origin::Origin;
 use crate::variables::{Resolved, Variables, resolve_variables, substitute};
 use alo_css::{IssueKind, Location, MatchContext, MediaContext, PropertyName, StyleIssue};
@@ -214,20 +215,41 @@ impl StyleTree {
     }
 }
 
-/// Compute the style of every element in a document.
+/// Compute the style of every element in a document, with no fonts to
+/// measure.
 ///
-/// Elements are visited in document order, so a parent's style is finished
-/// before any child asks for it. That is not an optimisation — inheritance and
-/// `var()` both need it, and doing it in any other order would mean resolving
-/// the same element twice with different answers.
+/// Every `ex` and `ch` is then half an em, which is what CSS says to assume
+/// when the face cannot be measured. A page that is drawn has fonts and goes
+/// through [`resolve_measured`]; this is for a style resolved where there are
+/// none, such as an SVG file's fill.
 pub fn resolve(
     document: &Document,
     sheets: &[SourcedSheet<'_>],
     device: &MediaContext,
 ) -> StyleTree {
+    resolve_measured(document, sheets, device, &NoFaces)
+}
+
+/// Compute the style of every element in a document, asking `faces` for each
+/// element's `ex` and `ch`.
+///
+/// Elements are visited in document order, so a parent's style is finished
+/// before any child asks for it. That is not an optimisation — inheritance and
+/// `var()` both need it, and doing it in any other order would mean resolving
+/// the same element twice with different answers.
+pub fn resolve_measured(
+    document: &Document,
+    sheets: &[SourcedSheet<'_>],
+    device: &MediaContext,
+    faces: &dyn MeasureFace,
+) -> StyleTree {
     let mut tree = StyleTree::default();
     let mut matcher = MatchContext::new(document);
-    let root_style = ComputedStyle::new();
+    // What the root inherits from: every property at its initial value, in
+    // the initial face, which is a face like any other and is measured.
+    let mut root_style = ComputedStyle::new();
+    let initial = root_style.metrics;
+    root_style.metrics = with_units(initial, faces.face_units(&root_style));
     // The first element styled is the root, and `rem` is relative to it — so
     // its own metrics have to be settled before any descendant asks.
     let mut root_metrics: Option<FontMetrics> = None;
@@ -248,7 +270,7 @@ pub fn resolve(
             .unwrap_or_default();
         let applicable = Applicable::gather_with_hints(sheets, device, &mut matcher, id, &hints);
         let mut style = compute_one(&applicable, &parent, &mut tree.issues);
-        style.metrics = resolve_metrics(&style, &parent, root_metrics, device);
+        settle_font(&mut style, &parent, root_metrics, device, faces);
         record_computed_font(&mut style);
         style.current_color = resolve_color(&style, &parent);
         if root_metrics.is_none() {
@@ -262,30 +284,66 @@ pub fn resolve(
 /// Work out the font in force on an element, now that its declarations are
 /// known.
 ///
+/// Three steps, in an order CSS fixes. The font size first, against the
+/// **parent's** font, so `2ex` is two of the parent's `x`. Then the face that
+/// size and family pick is measured, because this element's own `ex` and `ch`
+/// are that face's. Then the line height, which may be written in them.
+///
 /// The root is the case worth naming: `rem` on the root element is relative to
 /// the root's *own* font size, so it is resolved against the default rather
 /// than against something that does not exist yet.
-fn resolve_metrics(
-    style: &ComputedStyle,
+fn settle_font(
+    style: &mut ComputedStyle,
     parent: &ComputedStyle,
     root: Option<FontMetrics>,
     device: &MediaContext,
-) -> FontMetrics {
+    faces: &dyn MeasureFace,
+) {
     let root_font_size = root.map_or(DEFAULT_FONT_SIZE, |metrics| metrics.font_size);
-    let window = Some(Viewport::new(device.width, device.height));
-    let font_size = resolve_font_size(
-        style.get("font-size"),
-        parent.metrics.font_size,
-        root_font_size,
-        window,
-    );
-    let line_height =
-        resolve_line_height(style.get("line-height"), font_size, root_font_size, window);
-    let root_line_height = root.map_or(line_height, |metrics| metrics.line_height);
     // The window comes from the device rather than from the font, because
     // `vw` is a fact about the page and `em` is a fact about the text.
-    metrics_for(font_size, root_font_size, line_height, root_line_height)
-        .in_viewport(Viewport::new(device.width, device.height))
+    let window = Viewport::new(device.width, device.height);
+    let parent_font = FontMetrics {
+        root_font_size,
+        root_line_height: root.map_or(parent.metrics.root_line_height, |metrics| {
+            metrics.line_height
+        }),
+        ..parent.metrics
+    }
+    .in_viewport(window);
+    let font_size = font_size_against(style.get("font-size"), parent_font);
+
+    // Asked with the font size settled and nothing else of this element's
+    // font yet, which is what `MeasureFace` promises its implementer. `lh`
+    // and `rlh` in a line height are the parent's and the root's, so those
+    // are what the line height is resolved against.
+    style.metrics = FontMetrics {
+        font_size,
+        line_height: parent_font.line_height,
+        ..parent_font
+    };
+    let measured = with_units(style.metrics, faces.face_units(style));
+    let line_height = line_height_in(style.get("line-height"), measured);
+    let root_line_height = root.map_or(line_height, |metrics| metrics.line_height);
+    style.metrics = FontMetrics {
+        line_height,
+        root_line_height,
+        ..measured
+    };
+}
+
+/// A font's metrics with a face's `ex` and `ch`, or half an em each when
+/// there was no face to measure.
+fn with_units(metrics: FontMetrics, units: Option<FaceUnits>) -> FontMetrics {
+    let font_size = metrics.font_size;
+    let units = units.map_or(FaceUnits::assumed(font_size), |units| {
+        units.or_assumed(font_size)
+    });
+    FontMetrics {
+        x_height: units.x_height,
+        zero_width: units.zero_width,
+        ..metrics
+    }
 }
 
 /// Replace the font properties' specified text with what they computed to.
@@ -309,12 +367,7 @@ fn record_computed_font(style: &mut ComputedStyle) {
     let line_height = PropertyName::parse("line-height");
     let metrics = style.metrics;
     let specified = style.properties.get(&line_height).map(String::as_str);
-    let set = crate::metrics::set_line_height(
-        specified,
-        metrics.font_size,
-        metrics.root_font_size,
-        metrics.viewport,
-    );
+    let set = crate::metrics::set_line_height_in(specified, metrics);
     let computed = match (specified, set) {
         (Some(text), Some(_)) if alo_value::parse_number(text).is_some() => text.trim().to_owned(),
         (Some(_), Some(_)) => format!("{}px", metrics.line_height),

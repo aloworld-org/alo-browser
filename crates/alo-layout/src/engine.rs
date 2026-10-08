@@ -53,6 +53,7 @@ use crate::measure::{MeasureText, TextStyle};
 use crate::placement::{GridLine, GridPlacement};
 use crate::sizing::{AutoLength, Sizing};
 use crate::style::{self, LayoutStyle};
+use crate::text_style::text_style_of;
 use crate::track::{RepeatCount, Track, TrackList, TrackListEntry, TrackSize};
 use crate::tree::{BoxGeometry, LayoutTree};
 use crate::vertical_align::LineAlign;
@@ -407,66 +408,9 @@ fn added(left: Edges, right: Edges) -> Edges {
 /// to ask. Passing this to the measurer per box rather than once per document
 /// is what makes a heading and a caption on the same page different sizes.
 fn text_style_for(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> TextStyle {
-    let Some(style) = boxes.nearest_style(styles, id) else {
-        return TextStyle::default();
-    };
-    TextStyle {
-        families: style
-            .get("font-family")
-            .map(|value| {
-                value
-                    .split(',')
-                    .map(|part| {
-                        part.trim()
-                            .trim_matches(|c| c == '"' || c == '\'')
-                            .trim()
-                            .to_owned()
-                    })
-                    .filter(|part| !part.is_empty())
-                    .collect()
-            })
-            .unwrap_or_default(),
-        size: style.font_size(),
-        weight: weight_of(style),
-        italic: style
-            .get("font-style")
-            .is_some_and(|value| !value.eq_ignore_ascii_case("normal")),
-        // `normal` and a value this engine cannot read are both no extra room,
-        // which is what CSS says the initial value is.
-        letter_spacing: style
-            .get("letter-spacing")
-            .filter(|value| !value.eq_ignore_ascii_case("normal"))
-            .and_then(|value| {
-                style
-                    .px("letter-spacing", 0.0)
-                    .filter(|_| !value.is_empty())
-            })
-            .unwrap_or(0.0),
-        white_space: style
-            .get("white-space")
-            .and_then(alo_box::WhiteSpace::parse)
-            .unwrap_or_default(),
-        line_height: style.set_line_height(),
-    }
-}
-
-/// `font-weight` as a number, taking the two keywords that are numbers in
-/// disguise.
-fn weight_of(style: &alo_style::ComputedStyle) -> u16 {
-    if let Some(number) = style.number("font-weight") {
-        let clamped = number.clamp(1.0, 1000.0).round();
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "clamped to one..=1000 and rounded"
-        )]
-        let weight = clamped as u16;
-        return weight;
-    }
-    match style.get("font-weight") {
-        Some(value) if value.eq_ignore_ascii_case("bold") => 700,
-        _ => 400,
-    }
+    boxes
+        .nearest_style(styles, id)
+        .map_or_else(TextStyle::default, text_style_of)
 }
 
 /// Whether an inline-level box is laid out on its own rather than joining the

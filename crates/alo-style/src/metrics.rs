@@ -57,6 +57,19 @@ pub fn resolve_font_size(
     root: f32,
     viewport: Option<Viewport>,
 ) -> f32 {
+    font_size_against(
+        specified,
+        with_window(FontMetrics::estimated(parent, root), viewport),
+    )
+}
+
+/// Work out the font size of an element against the parent's whole font.
+///
+/// [`resolve_font_size`] is this with a parent nobody measured. The cascade
+/// has measured it, and `font-size: 2ex` is two of the **parent's** `x`, so
+/// what it hands here carries the parent's face rather than half its size.
+pub(crate) fn font_size_against(specified: Option<&str>, parent_font: FontMetrics) -> f32 {
+    let parent = parent_font.font_size;
     let Some(text) = specified else {
         // Nothing said anything, so it is whatever was inherited.
         return parent;
@@ -76,15 +89,14 @@ pub fn resolve_font_size(
     }
 
     // Relative lengths in a font size resolve against the parent's font, so
-    // that is the font handed to the resolver.
-    // The window as well as the font: `font-size: clamp(2.4rem, 4vw, 3.5rem)`
-    // is a real thing a design system writes, and a font size resolved without
-    // a window would silently take the smaller bound.
-    let against_parent = with_window(FontMetrics::estimated(parent, root), viewport);
+    // that is the font handed to the resolver — with the window as well:
+    // `font-size: clamp(2.4rem, 4vw, 3.5rem)` is a real thing a design system
+    // writes, and a font size resolved without a window would silently take
+    // the smaller bound.
     match parse_length_percentage(text) {
         // A negative font size is not a font size.
         Some(value) => {
-            let pixels = value.to_px(against_parent, parent);
+            let pixels = value.to_px(parent_font, parent);
             if pixels.is_finite() && pixels >= 0.0 {
                 pixels
             } else {
@@ -126,6 +138,19 @@ pub(crate) fn set_line_height(
     root: f32,
     viewport: Option<Viewport>,
 ) -> Option<f32> {
+    set_line_height_in(
+        specified,
+        with_window(FontMetrics::estimated(font_size, root), viewport),
+    )
+}
+
+/// The line height an element was given, against its own measured font, or
+/// [`None`] for `normal`.
+///
+/// [`set_line_height`] is this with a font nobody measured; the cascade has
+/// measured it, so `line-height: 3ex` is three of this face's `x`.
+pub(crate) fn set_line_height_in(specified: Option<&str>, font: FontMetrics) -> Option<f32> {
+    let font_size = font.font_size;
     let text = specified?.trim();
     if text.is_empty() || text.eq_ignore_ascii_case("normal") {
         return None;
@@ -134,33 +159,15 @@ pub(crate) fn set_line_height(
     if let Some(multiple) = parse_number(text) {
         return Some(font_size * multiple).filter(|pixels| usable(*pixels));
     }
-    let metrics = with_window(FontMetrics::estimated(font_size, root), viewport);
     // A percentage line height is a percentage of the font size.
     parse_length_percentage(text)
-        .map(|value| value.to_px(metrics, font_size))
+        .map(|value| value.to_px(font, font_size))
         .filter(|pixels| usable(*pixels))
 }
 
-/// The metrics an element's own lengths resolve against.
-pub fn metrics_for(
-    font_size: f32,
-    root_font_size: f32,
-    line_height: f32,
-    root_line_height: f32,
-) -> FontMetrics {
-    FontMetrics {
-        font_size,
-        root_font_size,
-        // `ex` and `ch` are still estimates until there is a font to measure;
-        // queue item 6 replaces them.
-        x_height: font_size * 0.5,
-        zero_width: font_size * 0.5,
-        line_height,
-        root_line_height,
-        // The window is not the font's business, so it is added by whoever
-        // knows one — see `resolve_metrics`.
-        viewport: None,
-    }
+/// The line height an element ends up with, against its own measured font.
+pub(crate) fn line_height_in(specified: Option<&str>, font: FontMetrics) -> f32 {
+    set_line_height_in(specified, font).unwrap_or(font.font_size * NORMAL_LINE_HEIGHT)
 }
 
 /// The same metrics, in a window when there is one.
@@ -361,13 +368,34 @@ mod tests {
     }
 
     #[test]
-    fn the_metrics_carry_both_this_font_and_the_roots() {
-        let metrics = metrics_for(20.0, 16.0, 30.0, 19.2);
-        assert!(close(metrics.font_size, 20.0));
-        assert!(close(metrics.root_font_size, 16.0));
-        assert!(close(metrics.line_height, 30.0));
-        assert!(close(metrics.root_line_height, 19.2));
-        assert!(close(metrics.x_height, 10.0));
+    fn a_font_size_in_ex_or_ch_is_of_the_parents_measured_face() {
+        let parent = FontMetrics {
+            x_height: 11.0,
+            zero_width: 12.5,
+            ..FontMetrics::estimated(20.0, 16.0)
+        };
+        assert!(close(font_size_against(Some("2ex"), parent), 22.0));
+        assert!(close(font_size_against(Some("2ch"), parent), 25.0));
+        assert!(close(font_size_against(Some("2em"), parent), 40.0));
+        // And without a measured parent it is still half an em each.
+        assert!(close(
+            resolve_font_size(Some("2ch"), 20.0, 16.0, None),
+            20.0
+        ));
+    }
+
+    #[test]
+    fn a_line_height_in_ex_or_ch_is_of_this_elements_measured_face() {
+        let font = FontMetrics {
+            x_height: 11.0,
+            zero_width: 12.5,
+            ..FontMetrics::estimated(20.0, 16.0)
+        };
+        assert!(close(line_height_in(Some("3ex"), font), 33.0));
+        assert!(close(line_height_in(Some("2ch"), font), 25.0));
+        assert!(close(line_height_in(Some("1.5"), font), 30.0));
+        assert!(close(line_height_in(None, font), 24.0));
+        assert_eq!(set_line_height_in(Some("normal"), font), None);
     }
 
     #[test]

@@ -6365,7 +6365,7 @@ The long pole, and the thing most of section E is unreachable without.
   break; fourteen odd placements and enormous values drawn without a
   panic). No other case holds a `<br>`, so no other reference moved.
 
-- [ ] **320. `ch` and `ex` from the font.** *Opened by `alo-downloads`
+- [x] **320. `ch` and `ex` from the font.** *Opened by `alo-downloads`
   (iteration 198).* `.lede` is `max-width: 44ch` at 17.28 px: in DejaVu
   Sans, the `0` is 0.636 em, so 44ch is about 483.7 px, and it is laid out
   380.16 because `alo-style`'s `metrics_for` still gives `ch` and `ex` as
@@ -6377,6 +6377,34 @@ The long pole, and the thing most of section E is unreachable without.
   `.lede` 44 times the face's `0` advance at 17.28 px, `ex` is the face's
   x-height in a `numbers.rs` assertion, a face with no `0` still falls back
   to half an em, and every reference that moves is read.
+  **Built (iteration 210):** `alo-style`'s `font_units.rs` is the seam:
+  `MeasureFace::face_units(&ComputedStyle)` answers a face's `x` height and
+  `0` advance, `FaceUnits::or_assumed` replaces a non-finite or negative one
+  with half an em, and `NoFaces` is the answer with no fonts. `resolve` is
+  `resolve_measured(…, &NoFaces)`; `resolve_measured` settles each element's
+  font in CSS's order — the font size against the parent's measured font
+  (so `2ex` is the parent's), then the face asked, then the line height
+  against it (`lh`/`rlh` in a line height are now the parent's and the
+  root's). The initial face the root inherits from is measured too.
+  `alo-layout`'s `text_style.rs` (`text_style_of`) is the one reading of a
+  style's font, used by layout and by `alo-renderer`'s `font_units.rs`,
+  whose `Faces` answers from `TextMeasurer::face` — the first font in the
+  chain, so `ch` is the face the text is set in. The pipeline resolves with
+  it; an SVG file's styles keep `NoFaces`, as it draws no text. Tests:
+  `font_units.rs` 3, `metrics.rs` 2; `alo-layout/tests/numbers.rs`
+  `ex_and_ch_are_the_measured_faces` (a fixed face: 30ch, 10ex, a child at
+  `2ex` and its own lengths, and an unmeasurable face at half an em);
+  `alo-renderer/tests/what_ex_and_ch_measure.rs` 5 (DejaVu's `0` and `x`;
+  regular, bold and mono and a fallback family each their own `0`; `font-size:
+  2ex` and `line-height: 3ex`; a hand-built face with no characters and no
+  fonts at all both half an em); `alo-corpus/tests/alo_downloads.rs`
+  `.lede` 483.7388, 44 × the `0` at 17.28. Two mutations were caught: the
+  pipeline on `NoFaces` (3 of 5 fail) and the font size against an
+  unmeasured parent (1 fails). References moved and read: `alo-downloads`
+  (the lede, now three lines of up to 480.39 wide), `alo-settings` (each
+  date field 178.14 wide, from the user-agent sheet's `20ch`) and
+  `web-a-form` (each field 209.59). The `font` shorthand is not expanded,
+  which `docs/conformance.md` now says.
 
 - [ ] **321. Text straight inside a flex or grid container takes its
   `line-height`.** *Opened by `alo-downloads` (iteration 198).* The

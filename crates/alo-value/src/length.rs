@@ -70,10 +70,11 @@ impl FontMetrics {
     /// The metrics a font of this size has, before there is a real font to
     /// measure.
     ///
-    /// `ex` and `ch` are estimated as one half and one half of the font size —
-    /// which is what every engine does before shaping, and what queue item 6
-    /// replaces with the font's own numbers. It is written here rather than
-    /// buried so that the day it is wrong, the wrongness is findable.
+    /// `ex` and `ch` are half the font size each, which is what CSS says to
+    /// assume when the face cannot be measured. The cascade replaces them with
+    /// the face's own numbers when it has fonts to ask (`alo_style`'s
+    /// `MeasureFace`, queue item 320); what is left here is the answer for a
+    /// value resolved where nobody could.
     pub fn estimated(font_size: f32, root_font_size: f32) -> Self {
         Self {
             font_size,

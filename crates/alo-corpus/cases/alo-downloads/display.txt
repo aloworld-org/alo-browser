@@ -7,9 +7,9 @@ fill box#8 rgb(231 111 81) at (41.43974, 55.133335) 36.89359×29.999996
 unclip
 text box#11 "alomails" rgb(31 43 69) 25.6px at (92, 75.662506)
 text box#15 "Get the alomails app" rgb(31 43 69) 40px at (40, 165.64766)
-text box#18 "Your private, sovereign email as a real" rgb(100 116 139) 17.28px at (40, 212.1742)
-text box#18 "desktop app — on your dock or taskbar, its" rgb(100 116 139) 17.28px at (40, 238.95819)
-text box#18 "own window, always a click away." rgb(100 116 139) 17.28px at (40, 265.7422)
+text box#18 "Your private, sovereign email as a real desktop app —" rgb(100 116 139) 17.28px at (40, 212.1742)
+text box#18 "on your dock or taskbar, its own window, always a click" rgb(100 116 139) 17.28px at (40, 238.95819)
+text box#18 "away." rgb(100 116 139) 17.28px at (40, 265.7422)
 fill box#22 rgb(255 255 255) at (40, 305.15198) 352×205.32098
 fill box#22 rgb(231 224 214) at (40, 305.15198) 352×205.32098
 text box#26 "Windows" rgb(31 43 69) 18.4px at (63, 350.7819)

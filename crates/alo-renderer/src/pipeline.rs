@@ -268,7 +268,14 @@ pub fn draw(
         .map(ToString::to_string)
         .collect();
     sheet_issues.extend(missing);
-    let styles = alo_style::resolve(document, &sheets, &device);
+    // `ex` and `ch` measured in the face each element's text is set in,
+    // which needs the fonts before layout does.
+    let styles = alo_style::resolve_measured(
+        document,
+        &sheets,
+        &device,
+        &crate::font_units::Faces::new(fonts),
+    );
     let mut boxes = alo_box::build(document, &styles);
 
     // Pictures, before layout, because a picture's own size is what an `<img>`

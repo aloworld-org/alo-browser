@@ -45,6 +45,7 @@
 
 pub mod cascade;
 pub mod computed;
+pub mod font_units;
 pub mod inheritance;
 pub mod keyword;
 pub mod metrics;
@@ -54,7 +55,8 @@ pub mod user_agent;
 pub mod variables;
 
 pub use cascade::{Applicable, Contender, SourcedSheet};
-pub use computed::{ComputedStyle, StyleTree, resolve};
+pub use computed::{ComputedStyle, StyleTree, resolve, resolve_measured};
+pub use font_units::{FaceUnits, MeasureFace, NoFaces};
 pub use inheritance::inherits;
 pub use keyword::{Resolution, WideKeyword};
 pub use metrics::{DEFAULT_FONT_SIZE, resolve_font_size, resolve_line_height};

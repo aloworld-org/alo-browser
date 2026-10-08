@@ -731,6 +731,15 @@ the embedder's stop on every pass. `alo-bindings` puts the realm's own
 list's getter `length` (231). 142 queue items are open. The next unused
 queue number is 333 and the next unused ADR 0032.
 
+Iteration 210 built item 320: `ex` and `ch` are the `x` height and `0`
+advance of the first face an element's text is set in, asked of the fonts
+through `alo_style::MeasureFace` and answered by `alo-renderer`'s `Faces`;
+half an em where there is no face or glyph. `alo-downloads`' lede is 44 of
+DejaVu's zeros, 483.74, and form fields at the user-agent sheet's `20ch`
+grew in `alo-settings` and `web-a-form`. It served no open roadmap line.
+141 queue items are open; 321 is eligible and next. The next unused queue
+number is 333 and the next unused ADR 0032.
+
 1. **Item 205's plain-header scope is finished.** Iteration 117 rechecks
    function headers under the body's strictness and preserves the remaining
    early errors and import attributes as item 222. Item 60 is `needs design`;

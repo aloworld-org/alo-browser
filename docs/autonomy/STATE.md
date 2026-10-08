@@ -19353,3 +19353,137 @@ the log: exit 0, "The gate is met."
 142 queue items are open: 331 closed. The next unused queue number is
 **333** and the next ADR is **0032**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 210 — queue item 320 built: `ch` and `ex` from the font
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole; stage 2 §§ 1–4),
+`ROADMAP.md`'s state rules and its CSS and text sections, iterations 198,
+206, 208 and 209's entries, queue items 320, 321 and 319 in full,
+`docs/features.md`' lengths line, `docs/conformance.md`' text section. No
+ADR governs units; ADR 0004 (we own the layout tree) and the "rent the
+physics" rule decide where the fonts are, and this keeps them in
+`alo-text`. Code read: `alo-style`'s `metrics.rs`, `computed.rs`
+(`resolve`, `resolve_metrics`, `record_computed_font`), `lib.rs` and the
+user-agent sheet's `20ch`; `alo-value`'s `FontMetrics`; `alo-text`'s
+`font.rs` (`Font::metrics`) and `measure.rs`; `alo-layout`'s
+`text_style_for` and `weight_of`; `alo-renderer`'s `pipeline.rs`,
+`svg_picture.rs` and `drawings.rs`; `ttf-parser`'s required tables. No
+`AGENTS.md` exists. The checkout was clean on entry at `1f87545`. No
+sibling repository was read or written.
+
+**Selection.** Every open item before 320 in the file is blocked or
+depends on something open (iteration 209 listed them). 320 depends on
+nothing and comes before 321 in file order.
+
+**What was built.**
+- `alo-style/src/font_units.rs`: the seam. `MeasureFace::face_units`
+  takes the style mid-computation (font size, family, weight and slant
+  final) and answers `FaceUnits { x_height, zero_width }` or `None`.
+  `FaceUnits::or_assumed` replaces a non-finite or negative measurement
+  with half an em, one field at a time. `NoFaces` answers `None`.
+- `computed.rs`: `resolve_measured(document, sheets, device, faces)`, and
+  `resolve` is it with `NoFaces`. `settle_font` follows CSS's order: the
+  font size against the parent's measured font, so `font-size: 2ex` is the
+  parent's `x`; then the face is asked; then the line height against the
+  measured font. `lh` and `rlh` in a line height are now the parent's and
+  the root's, where they were 1.2 em estimates. The initial face the root
+  inherits from is measured too.
+- `metrics.rs`: `font_size_against` and `set_line_height_in`/
+  `line_height_in` take a whole `FontMetrics`; the public
+  `resolve_font_size`/`resolve_line_height` keep their signatures over an
+  estimated one. `metrics_for` is gone, since nothing used it.
+- `alo-layout/src/text_style.rs`: `text_style_of(&ComputedStyle)`, moved
+  out of `engine.rs` with `weight_of`, so layout and the cascade read a
+  style's font one way.
+- `alo-text`: `TextMeasurer::face` is public, the first font of the chain.
+- `alo-renderer/src/font_units.rs`: `Faces` answers from it, and the
+  pipeline resolves with it. `svg_picture.rs` keeps `resolve` (no text is
+  drawn in an SVG file).
+
+**Tests.**
+- `font_units.rs` 3 and `metrics.rs` 2 unit tests (hostile values; a
+  font size and a line height in a measured face's units).
+- `alo-layout/tests/numbers.rs` `ex_and_ch_are_the_measured_faces`, with a
+  fixed face at 0.53 and 0.6 em: `30ch` is 360 and `10ex` 106 at 20 px; a
+  child at `2ex` is 21.2 px and its own `10ch`/`5ex` are of that size; a
+  face nobody could measure is half an em.
+- `alo-renderer/tests/what_ex_and_ch_measure.rs` 5, expectations taken from
+  `Font::metrics` rather than copied from a run: DejaVu's `0` and `x` at
+  17.28; regular, bold, mono and a list whose first family nobody has each
+  give their own `0`; `font-size: 2ex; line-height: 3ex`; a hand-built face
+  of only `head`, `hhea` and `maxp` (no characters, so no `0` or `x`) and a
+  page with no fonts both half an em.
+- `alo-corpus/tests/alo_downloads.rs`: `.lede` is 483.7388, 44 × the `0`
+  at 17.28 px.
+
+**Mutation checks.** Each was reverted, and the diff checked afterwards.
+- The pipeline on `NoFaces`: 3 of the 5 renderer tests fail.
+- The font size against an unmeasured parent `x`: the `2ex` test fails.
+
+**References moved, each read.**
+- `alo-downloads`: the lede 380.16 → 483.74 wide, now three lines.
+- `alo-settings`: each date field 140 → 178.14 wide. They are `20ch` from
+  the user-agent sheet and still sit inside their card. A faint shape
+  behind "12 May" is in the old reference too, so this change did not
+  cause it.
+- `web-a-form`: each field 166 → 209.59.
+- The render PNGs were looked at. `alo-offline` did not move, so
+  `alo-window`'s composed references did not either.
+- `alo-renderer/tests/an_agents_text.rs` had the old 166-wide field in two
+  expectations (the field's size, and the echo after it at 174). Both now
+  say 209.59375 and 217.59375, with the reason written beside them. The
+  first gate run caught this. `cargo test --workspace --all-features
+  --no-fail-fast` then passed with nothing failing.
+
+**Queue.** 320 ticked, with a Built note. 321 is eligible and next.
+
+**Roadmap.** This item served **no open roadmap line**, so `ROADMAP.md` is
+unchanged. Like 319, it corrects stage 1's ticked *Layout* and *Text*
+lines and was opened by a page. *CSS beyond what alo needed* and *Text,
+properly* have no line for a unit, and a Built clause on one would be
+decoration. `docs/features.md`' lengths line, `docs/conformance.md`,
+`CHANGELOG.md` and `REMAINING.md` say what is built.
+
+**Gate, mechanical.** Warmed with clippy `--all-features` (silent after
+three doc-markdown fixes in the new tests) and the tests built with
+`--no-run`. The first `scripts/gate.sh` run, in the foreground, failed at
+`an_agents_text` (above). After that fix, the whole workspace's tests
+passed with `--no-fail-fast`. The final `scripts/gate.sh` ran with the
+two-hour bound into a log, and I waited for it in this turn and read it:
+exit 0, "The gate is met."
+- fmt clean, clippy silent, tests pass.
+- No stubs, `unsafe` forbidden, licences present.
+- Every rented crate behind its boundary, no coordinate verbs.
+- The stop rule holds and the changelog changed.
+
+**Gate, manual.**
+- Layout assertions in numbers: `numbers.rs`, the renderer test and
+  `alo_downloads.rs`, above. Reference renders: three cases rewritten
+  with `ALO_UPDATE_REFERENCES=1`, every changed line and PNG read, and the
+  workspace tests run again after the rewrite.
+- One responsibility per file. `font_units.rs` in `alo-style` is the
+  question the cascade asks a font. The one in `alo-renderer` is the
+  answer. `text_style.rs` is reading a style's font, which `engine.rs` no
+  longer does. `computed.rs` still computes a style, and settling the font
+  is part of that.
+- Bytes from outside: a font's measurements are checked by
+  `or_assumed` (non-finite and negative are refused, with unit tests). A
+  page's units reach existing finite-checked resolution. The hand-built
+  face is a truncated font, and it loads and measures without a panic.
+- `docs/features.md` describes what is built. No `unsafe`, no new
+  dependency, no ADR needed.
+
+**Unresolved obligations.**
+- The `font` shorthand is not expanded, so a page that sets its font only
+  with it keeps the inherited one. `docs/conformance.md` says so, and no
+  queue item covers it yet; a frozen page should open one.
+- Each element asks the font database for its face, which builds the
+  whole chain. That is correct, and it is not measured for speed.
+- 321 is eligible and next. Still standing: 322 and 324 wait for a page,
+  323 waits on 73, and 328 waits for a page. 284, 311 and 314 wait for
+  pages; 296 needs a person; 297–300, 302, 304 and 308; 126 and 132.
+- `scripts/gate.sh` still runs past the ten-minute foreground bound.
+
+141 queue items are open: 320 closed. The next unused queue number is
+**333** and the next ADR is **0032**. This is one iteration, not a
+finished queue or roadmap.

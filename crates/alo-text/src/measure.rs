@@ -96,12 +96,15 @@ impl MeasureText for TextMeasurer<'_> {
 }
 
 impl TextMeasurer<'_> {
-    /// The metrics of the first font this style would use.
+    /// The metrics of the first font this style would use, or [`None`] when
+    /// the database has no font at all.
     ///
     /// A line's baseline comes from the font the text is set in; when a line
     /// mixes fonts the tallest wins, and that is the line box's business
-    /// rather than this one's.
-    fn face(self, style: &TextStyle) -> Option<crate::font::FaceMetrics> {
+    /// rather than this one's. The cascade's `ex` and `ch` are this face's
+    /// too, which is why it is public: CSS measures them in the first
+    /// available font, not in whichever font a fallback reached for.
+    pub fn face(self, style: &TextStyle) -> Option<crate::font::FaceMetrics> {
         self.database
             .chain(&Self::request(style))
             .into_iter()

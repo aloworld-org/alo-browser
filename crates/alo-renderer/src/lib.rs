@@ -49,6 +49,7 @@ pub mod drawings;
 pub mod event_loop;
 pub mod face;
 pub mod families;
+pub mod font_units;
 pub mod fonts;
 pub mod frame;
 pub mod generic;
