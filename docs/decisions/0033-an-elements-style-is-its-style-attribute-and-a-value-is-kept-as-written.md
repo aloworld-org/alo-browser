@@ -122,8 +122,7 @@ and traced (ADR 0017 § 3).
 **It holds no declarations.** Every read parses the element's `style`
 attribute (§ 1's parser). Every write parses it, makes the change CSSOM
 describes, serialises the result and **sets the attribute through
-`alo-dom`'s operation** — or removes it when nothing is left, as CSSOM's
-*update style attribute* does. So:
+`alo-dom`'s operation**, as CSSOM's *update style attribute* does. So:
 
 - the attribute and the declaration can never disagree, because there is
   one of them;
@@ -223,6 +222,14 @@ which it is not in stage 2 (law 1). An indexed getter (`style[0]`) comes
 with `item()`. **Nothing else is half-built.** `getComputedStyle`, a
 `CSSStyleSheet` and `document.styleSheets` are the rest of item 89, each
 opened by a page.
+
+**Correction (iteration 221, queue item 342).** This section first said
+the attribute is removed "when nothing is left, as CSSOM's *update style
+attribute* does". CSSOM's steps do not remove it: they set it to the
+serialisation, which is `""` for an empty block, and every engine leaves
+`style=""`. The decision was to follow those steps, so they are what was
+built, and the sentence was corrected above. Nothing else in this ADR
+changed.
 
 ## What this costs
 

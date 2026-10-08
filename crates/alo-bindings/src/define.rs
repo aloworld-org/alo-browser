@@ -116,6 +116,43 @@ pub(crate) fn attribute(
     outcome
 }
 
+/// Put the attribute `name` on `prototype`, read by `get` and written by
+/// `set`, each made around `held` ([`Objects::native_holding`]) — for an
+/// interface with many attributes that differ only in what they are about,
+/// such as `CSSStyleDeclaration`'s one per property (queue item 342), whose
+/// bodies read [`alo_js::object::native::Call::held`] to know which.
+///
+/// `held` must be a primitive or rooted by the caller.
+///
+/// # Errors
+///
+/// As [`operation`].
+pub(crate) fn attribute_holding(
+    objects: &mut Objects,
+    prototype: Ref,
+    function_prototype: Ref,
+    name: &'static str,
+    (get, set): (Body, Body),
+    held: Value,
+) -> Result<(), Escape> {
+    let scope = objects.heap_mut().open();
+    let outcome = held_key(objects, name).and_then(|key| {
+        let mut made = [Value::Undefined; 2];
+        for (slot, body) in made.iter_mut().zip([get, set]) {
+            let function = objects
+                .native_holding(Native::new(name, body), Some(function_prototype), held)
+                .map_err(|why| Escape::refused(why, 0))?;
+            objects.heap_mut().hold(function);
+            *slot = Value::Object(function);
+        }
+        let [getter, setter] = made;
+        let property = Property::accessor(getter, setter, true, true);
+        defined(objects, prototype, key, property)
+    });
+    objects.heap_mut().close(scope);
+    outcome
+}
+
 /// Put the read-only `[LegacyUnforgeable]` attribute `name`, read by `get`,
 /// on an interface's `unforgeables` object: enumerable and **not
 /// configurable**, so that once copied onto an instance no page can delete

@@ -67,6 +67,21 @@
 //! one instance per element is that element's `classList`
 //! ([`crate::token_list`]), holding the element's wrapper.
 //!
+//! # An SVG element is an `SVGElement`
+//!
+//! An element in the SVG namespace inherits from `SVGElement.prototype`,
+//! between `Element` and the interface of its own name, which is not in the
+//! chain yet — a link short, as `HTMLElement`'s own are. Its one member is
+//! `style` (queue item 342).
+//!
+//! # `CSSStyleDeclaration` is an element's, not a node
+//!
+//! `CSSStyleDeclaration` (ADR 0033 § 3, queue item 342) inherits from
+//! `Object.prototype`: its one instance per element is that element's
+//! `style` ([`crate::style_declaration`]), holding the element's wrapper.
+//! `style` itself is the `ElementCSSInlineStyle` mixin's, on `HTMLElement`
+//! and `SVGElement` ([`element_css_inline_style`]).
+//!
 //! # `NodeList` is a list, not a node
 //!
 //! `NodeList` (queue item 329) inherits from `Object.prototype`: a static
@@ -106,11 +121,13 @@
 //! own, added when something needs it.
 
 pub mod child_node;
+pub mod css_style_declaration;
 pub mod custom_event;
 pub mod document;
 pub mod dom_exception;
 pub mod dom_token_list;
 pub mod element;
+pub mod element_css_inline_style;
 pub mod event;
 pub mod event_target;
 pub mod headers;
@@ -185,6 +202,11 @@ pub enum Interface {
     Response,
     /// A response's headers, read.
     Headers,
+    /// An element's `style` attribute as declarations: `style` (ADR 0033
+    /// § 3, queue item 342).
+    CssStyleDeclaration,
+    /// An element in the SVG namespace (queue item 342).
+    SvgElement,
 }
 
 /// What an interface's prototype inherits from.
@@ -201,7 +223,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 25] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -225,6 +247,8 @@ impl Interface {
         Self::NodeList,
         Self::Response,
         Self::Headers,
+        Self::CssStyleDeclaration,
+        Self::SvgElement,
     ];
 
     /// Its name, as the standard spells it.
@@ -253,6 +277,8 @@ impl Interface {
             Self::NodeList => "NodeList",
             Self::Response => "Response",
             Self::Headers => "Headers",
+            Self::CssStyleDeclaration => "CSSStyleDeclaration",
+            Self::SvgElement => "SVGElement",
         }
     }
 
@@ -265,12 +291,13 @@ impl Interface {
             | Self::DomTokenList
             | Self::NodeList
             | Self::Response
-            | Self::Headers => Inherits::Object,
+            | Self::Headers
+            | Self::CssStyleDeclaration => Inherits::Object,
             Self::Node => Inherits::Interface(Self::EventTarget),
             Self::CustomEvent | Self::UiEvent => Inherits::Interface(Self::Event),
             Self::MouseEvent | Self::InputEvent => Inherits::Interface(Self::UiEvent),
             Self::PointerEvent => Inherits::Interface(Self::MouseEvent),
-            Self::HtmlElement => Inherits::Interface(Self::Element),
+            Self::HtmlElement | Self::SvgElement => Inherits::Interface(Self::Element),
             Self::DomException => Inherits::Error,
             Self::Text | Self::Comment | Self::ProcessingInstruction => {
                 Inherits::Interface(Self::CharacterData)
@@ -291,6 +318,9 @@ impl Interface {
             NodeKind::Doctype { .. } => Self::DocumentType,
             NodeKind::Element(element) if matches!(element.name.ns, Namespace::Html) => {
                 Self::HtmlElement
+            }
+            NodeKind::Element(element) if matches!(element.name.ns, Namespace::Svg) => {
+                Self::SvgElement
             }
             NodeKind::Element(_) => Self::Element,
             NodeKind::Text(_) => Self::Text,
@@ -325,6 +355,8 @@ impl Interface {
             Self::NodeList => 20,
             Self::Response => 21,
             Self::Headers => 22,
+            Self::CssStyleDeclaration => 23,
+            Self::SvgElement => 24,
         }
     }
 
@@ -401,7 +433,17 @@ impl Interface {
                 element::furnish(objects, prototype, function_prototype)?;
                 parent_node::furnish(objects, prototype, function_prototype)
             }
-            Self::HtmlElement => html_element::furnish(objects, prototype, function_prototype),
+            // `ElementCSSInlineStyle`'s `style` is on these two, as a mixin.
+            Self::HtmlElement => {
+                html_element::furnish(objects, prototype, function_prototype)?;
+                element_css_inline_style::furnish_html(objects, prototype, function_prototype)
+            }
+            Self::SvgElement => {
+                element_css_inline_style::furnish_svg(objects, prototype, function_prototype)
+            }
+            Self::CssStyleDeclaration => {
+                css_style_declaration::furnish(objects, prototype, function_prototype)
+            }
             Self::Document => {
                 document::furnish(objects, prototype, function_prototype)?;
                 parent_node::furnish(objects, prototype, function_prototype)

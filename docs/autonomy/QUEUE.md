@@ -5297,7 +5297,7 @@ The long pole, and the thing most of section E is unreachable without.
   dropping forbidden headers, and not drawing again after a delivery, each
   fail a test.
 
-- [ ] **339. An element's `style`, from a page.** *Cut from 89 (CSSOM),
+- [x] **339. An element's `style`, from a page.** *Cut from 89 (CSSOM),
   opened by `alo-downloads` (iteration 215).* The page's `mark(a)` sets
   `a.style.background`, `a.style.cursor` and `a.style.pointerEvents` to
   grey a button it has marked, and stops at the first: "TypeError: cannot
@@ -5330,6 +5330,11 @@ The long pole, and the thing most of section E is unreachable without.
   **342** do (344 was cut from 342 and is done). `cursor` and `pointer-events` are acted on by no stage, so
   the page's last two writes set ordinary properties of the object, as in
   every engine for a name it does not support (ADR 0033 § 4).
+  **Done (iteration 221)**, as 341 and 342 closed: the attribute is
+  cascaded (341, corpus case `style-attributes`), and `alo-downloads`'
+  `mark(a)` runs to its end with both offline buttons drawn `#c7bfb2`
+  (342, `tests/alo_downloads.rs` and the moved reference). `el.style[0]`
+  was cut to 345 and 343 remains, neither part of this item's close.
 
 - [x] **341. The `style` attribute, cascaded.** *Cut from 339 (ADR 0033
   § 1). Depends on nothing open.* `alo-css` parses an attribute's value as
@@ -5390,7 +5395,7 @@ The long pole, and the thing most of section E is unreachable without.
   the list. Checked by mutation: a `get("cursor")` added to `alo-box`, and
   `z-index` taken off the list, each fail their crate's test.
 
-- [ ] **342. `element.style`, a `CSSStyleDeclaration`.** *Cut from 339
+- [x] **342. `element.style`, a `CSSStyleDeclaration`.** *Cut from 339
   (ADR 0033 §§ 3–6). Depends on 341 and 344.* The list, the longhand table,
   the block's edits and its serialiser are 344's, in `alo-css`, and this
   item uses them rather than writing its own. `alo-bindings`' `style` on
@@ -5407,6 +5412,22 @@ The long pole, and the thing most of section E is unreachable without.
   `tests/alo_downloads.rs` and the moved reference, with this item's own
   `alo-bindings` tests for every member and a collection at every
   allocation.
+  **Done (iteration 221).** `alo-bindings`' `style_declaration.rs` (the
+  cell, kept by the wrapper as `classList` is), `interface/
+  css_style_declaration.rs` (the members), `interface/
+  element_css_inline_style.rs` (`style`, with `[PutForwards=cssText]` as
+  a real `[[Set]]`) and `style_names.rs` (CSSOM's camel-cased, WebKit-cased
+  and dashed names for each property in `alo-css`'s list). `style` is on
+  `HTMLElement.prototype` and on a new `SVGElement.prototype`, between an
+  SVG element and `Element`. Every member is pinned in
+  `tests/what_an_elements_style_is.rs`, each script run plain and with
+  the collector at every allocation, with the document's change count:
+  a write that changes nothing counts nothing. `alo-downloads`' script
+  runs to its end; both offline buttons are drawn `rgb(199 191 178)`, in
+  `tests/alo_downloads.rs` and the moved `display.txt` and `render.png`.
+  **Cut:** the indexed getter, `el.style[0]`, to 345. The ADR's "removes
+  the attribute when nothing is left" was not built, because CSSOM's
+  update steps set it to `""`; ADR 0033 carries the correction.
 
 - [ ] **343. A page's `style-src`, applied to its inline style.** *Cut from
   339 (ADR 0033 § 2). Depends on 341; the `CSSStyleDeclaration` half
@@ -5424,6 +5445,24 @@ The long pole, and the thing most of section E is unreachable without.
   is applied under a digest with `'unsafe-hashes'`. A value written through
   `element.style` is applied under the refusing policy. Each is pinned in
   a renderer test over a real load.
+
+- [ ] **345. `el.style[0]`, a declaration's indexed getter.** *Cut from 342
+  (iteration 221).* ADR 0033 § 6 has `style[0]` come with `item()`, and
+  `item()` is built. A `CSSStyleDeclaration` is a legacy platform object
+  whose supported indices are the `style` attribute's declarations, read
+  live. An embedder cell answers `[[GetOwnProperty]]` only from what it
+  stores (`alo-js`'s `Internal::own_property` hands back a reference), and
+  the names would have to be interned strings made at the moment of the
+  read, which allocates. So this needs `alo-js` to let an exotic object
+  answer an own property it computes, with the heap in hand. That is the
+  same thing `classList[0]` waits on (328). *Depends on* that hook, which
+  is the first part of whichever of 328 and 345 a page opens first.
+  *Opened by no page yet:* take it when a frozen page reads `style[i]` or
+  walks the declaration by index. *Closes when:* `el.style[0]` is the
+  first declaration's name, an index past the end is `undefined`,
+  `Object.keys(el.style)` lists the indices first, and a write to an
+  index is refused, each pinned in `alo-bindings` with the collector at
+  every allocation.
 
 - [ ] **336. `XMLHttpRequest`, asynchronous.** *Cut from 83 (ADR 0032 § 6).
   Depends on 334 and on event dispatch (254, done).* The same ask, delivered

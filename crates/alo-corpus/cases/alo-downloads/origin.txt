@@ -69,19 +69,18 @@ defined". ADR 0032 (iteration 212) decided what `fetch` is, and items 333,
 334 and 335 built it. Since iteration 215 (item 335) each button's fetch is
 asked for, answered offline as above, and its `.catch` runs `mark(a)`:
 the label becomes *Building — available shortly* and the `href` goes, so
-neither button is a link any more (boxes.txt, agent.txt). It then stops
-at `a.style.background = …`: "TypeError: cannot write property
-'background' of undefined", a rejection nothing handled, because an
-element's `style` is not built (item 339). So the buttons say they are
-building and are **still terracotta**: the greyed `#c7bfb2` the page asks
-for waits for item 339. ADR 0033 (iteration 218) decided how: the write
-sets the `style` attribute, which is cascaded above `.btn`'s `background`,
-and is built as items 341 and 342. The page's `cursor` and `pointerEvents`
-writes will set ordinary properties of the declaration, because no stage of
-this engine acts on either.
-`tests/alo_downloads.rs` pins where the script stops and which card is
-marked. The issues list does not show it, because issues.txt is what the
-markup and style made the engine say.
+neither button is a link any more (boxes.txt, agent.txt). Until iteration
+221 it then stopped at `a.style.background = …`: "TypeError: cannot write
+property 'background' of undefined", because an element's `style` was not
+built (item 339). ADR 0033 (iteration 218) decided how, and items 341 and
+342 built it: the write sets the button's `style` attribute to
+`background: #c7bfb2;`, which is cascaded above `.btn`'s terracotta, and
+the page's `cursor` and `pointerEvents` writes set ordinary properties of
+the declaration, because no stage of this engine acts on either. **The
+script now runs to its end**, and both buttons are drawn `#c7bfb2`
+(display.txt, render.png).
+`tests/alo_downloads.rs` pins that the script says nothing, which card is
+marked, each button's `style` attribute and the colour it is filled with.
 
 ## What it found
 
@@ -130,9 +129,13 @@ markup and style made the engine say.
 - **The script asks whether each installer is there** — item 335.
   **Built (iteration 215):** `fetch` in a page, its `Response`, and the
   corpus answering a case's fetches from what it froze. Offline, both
-  buttons are marked. The next stop is `a.style` — item 339, opened by
+  buttons are marked. The next stop was `a.style` — item 339, opened by
   this page: an element's `style`, whose `background`, `cursor` and
   `pointerEvents` the page sets to grey a button it has marked.
+- **The script greys its buttons** — item 339. **Built (iterations 219
+  and 221, items 341 and 342):** a `style` attribute is cascaded, and
+  `element.style` writes it. Both offline buttons are `#c7bfb2`, and the
+  script runs to its end: there is no next stop in this page's script.
 
 Two things it asks for make no difference at this size and are not faults
 here: `text-wrap: balance` on a heading that fits on one line (item 104), and

@@ -26,7 +26,7 @@
 //! and it waits for a page that needs it.
 
 use alo_dom::{Document, Namespace, NodeId, NodeKind};
-use alo_js::abrupt::Internal;
+use alo_js::abrupt::{Internal, Missing};
 use alo_js::convert::{self, Hint, Primitive};
 use alo_js::heap::Ref;
 use alo_js::object::native::{Answer, Call, Want};
@@ -48,6 +48,8 @@ pub(crate) enum Brand {
     Element,
     /// An element in the HTML namespace.
     HtmlElement,
+    /// An element in the SVG namespace.
+    SvgElement,
     /// The document node.
     Document,
     /// A node the `ChildNode` mixin is on: an element, a doctype or
@@ -66,6 +68,7 @@ impl Brand {
             Self::Node => "Node",
             Self::Element => "Element",
             Self::HtmlElement => "HTMLElement",
+            Self::SvgElement => "SVGElement",
             Self::Document => "Document",
             Self::ChildNode => "ChildNode",
             Self::ParentNode => "ParentNode",
@@ -80,6 +83,10 @@ impl Brand {
             Self::HtmlElement => matches!(
                 kind,
                 NodeKind::Element(element) if matches!(element.name.ns, Namespace::Html)
+            ),
+            Self::SvgElement => matches!(
+                kind,
+                NodeKind::Element(element) if matches!(element.name.ns, Namespace::Svg)
             ),
             Self::Document => matches!(kind, NodeKind::Document),
             Self::ChildNode => matches!(
@@ -292,6 +299,104 @@ pub(crate) fn only_string(call: &Call<'_>) -> Result<Converted, Escape> {
         1 => answered_string(call).map(Converted::Ready),
         _ => Err(Escape::Broken(Internal::BuiltinIsWrong)),
     }
+}
+
+/// How a `DOMString` argument reads one value before it is converted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Spelled {
+    /// `ToString` of whatever was given, `null` and `undefined` included.
+    AsGiven,
+    /// `[LegacyNullToEmptyString]`: `null` is `""`.
+    NullIsEmpty,
+    /// An optional `[LegacyNullToEmptyString]` argument whose default is
+    /// `""`: `null`, `undefined` and nothing passed are each `""`.
+    NullOrAbsentIsEmpty,
+}
+
+/// The arguments `spelled` describes, in order, each a `DOMString` — or what
+/// to ask for first.
+///
+/// A native keeps one answer across what it asks for (`element.rs` says
+/// why), so **one** object among them is converted in full: step 0 converts
+/// the primitives and asks for the first object, coming back at step 1,
+/// which reads that object's string and converts the primitives again,
+/// which runs no script. A second object is refused by name
+/// ([`Missing::ASecondArgumentBehindACall`], queue item 221) after the
+/// first's `toString` has run.
+///
+/// # Errors
+///
+/// A `TypeError` for a symbol, the refusal above, and this crate's own bug
+/// at any step but 0 and 1.
+pub(crate) fn strings(
+    call: &Call<'_>,
+    spelled: &[Spelled],
+) -> Result<Result<Vec<String>, Answer>, Escape> {
+    let mut answered = match call.step() {
+        0 => None,
+        1 => Some(answered_string(call)?),
+        _ => return Err(Escape::Broken(Internal::BuiltinIsWrong)),
+    };
+    let asked = answered.is_some();
+    let mut met_an_object = false;
+    let mut out = Vec::with_capacity(spelled.len());
+    for (which, spelled) in spelled.iter().enumerate() {
+        let argument = call.argument(which);
+        match (spelled, argument) {
+            (Spelled::NullIsEmpty | Spelled::NullOrAbsentIsEmpty, Value::Null)
+            | (Spelled::NullOrAbsentIsEmpty, Value::Undefined) => {
+                out.push(String::new());
+                continue;
+            }
+            _ => {}
+        }
+        if let Some(primitive) = Primitive::of(argument) {
+            out.push(primitive_string(call, primitive)?);
+            continue;
+        }
+        if met_an_object {
+            return Err(Escape::NotBuiltYet(Missing::ASecondArgumentBehindACall));
+        }
+        met_an_object = true;
+        match answered.take() {
+            Some(string) => out.push(string),
+            None if !asked => match string(call, argument, 1)? {
+                Converted::Ready(string) => out.push(string),
+                Converted::Asked(answer) => return Ok(Err(answer)),
+            },
+            None => return Err(Escape::Broken(Internal::BuiltinIsWrong)),
+        }
+    }
+    Ok(Ok(out))
+}
+
+/// A member's one `unsigned long` argument, the first: Web IDL's
+/// conversion — `ToNumber`, then modulo 2³² — or what to ask for first.
+/// Step 1 has the primitive an object's `valueOf` or `toString` made.
+///
+/// # Errors
+///
+/// A `TypeError` for a symbol, as `ToNumber` throws, and this crate's own
+/// bug at any step but 0 and 1.
+pub(crate) fn only_unsigned_long(call: &Call<'_>) -> Result<Result<u32, Answer>, Escape> {
+    let primitive = match call.step() {
+        0 => match Primitive::of(call.argument(0)) {
+            Some(primitive) => primitive,
+            None => {
+                return Ok(Err(Answer::want(
+                    Want::Primitive {
+                        of: call.argument(0),
+                        hint: Hint::Number,
+                    },
+                    1,
+                )));
+            }
+        },
+        1 => Primitive::of(call.answer()?).ok_or(Escape::Broken(Internal::BuiltinIsWrong))?,
+        _ => return Err(Escape::Broken(Internal::BuiltinIsWrong)),
+    };
+    let number = convert::to_number(call.seen(), primitive, call.at())?;
+    Ok(Ok(convert::to_uint32(number)))
 }
 
 /// The string a conversion [`string`] asked for came back as.

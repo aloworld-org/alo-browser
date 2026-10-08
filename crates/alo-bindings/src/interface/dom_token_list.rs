@@ -36,8 +36,8 @@
 //! and `Symbol.iterator`), and `classList`'s `[PutForwards=value]`, so
 //! assigning to `el.classList` is ignored rather than setting `value`.
 
-use alo_js::abrupt::{Internal, Missing};
-use alo_js::convert::{self, Primitive};
+use alo_js::abrupt::Internal;
+use alo_js::convert;
 use alo_js::heap::Ref;
 use alo_js::object::Objects;
 use alo_js::object::native::{Answer, Call};
@@ -46,7 +46,7 @@ use alo_js::{Escape, Value};
 use super::dom_exception;
 use crate::define;
 use crate::embed;
-use crate::idl::{self, Converted, This};
+use crate::idl::{self, Converted, Spelled, This};
 use crate::token_list::TokenList;
 use crate::tokens::{self, Invalid};
 
@@ -176,40 +176,8 @@ fn contains(call: &mut Call<'_>) -> Result<Answer, Escape> {
 }
 
 /// Every argument as a `DOMString`, in order — or what to ask for first.
-///
-/// Step 0 converts the primitives and asks for the first object, coming
-/// back at step 1, which reads that object's string and converts the
-/// primitives again, which runs no script.
 fn every_token(call: &Call<'_>) -> Result<Result<Vec<String>, Answer>, Escape> {
-    let mut answered = match call.step() {
-        0 => None,
-        1 => Some(idl::answered_string(call)?),
-        _ => return Err(Escape::Broken(Internal::BuiltinIsWrong)),
-    };
-    let asked = answered.is_some();
-    let mut met_an_object = false;
-    let mut out = Vec::with_capacity(call.count());
-    for which in 0..call.count() {
-        let argument = call.argument(which);
-        if let Some(primitive) = Primitive::of(argument) {
-            let units = convert::to_units(call.seen(), primitive, call.at())?;
-            out.push(String::from_utf16_lossy(&units));
-            continue;
-        }
-        if met_an_object {
-            return Err(Escape::NotBuiltYet(Missing::ASecondArgumentBehindACall));
-        }
-        met_an_object = true;
-        match answered.take() {
-            Some(string) => out.push(string),
-            None if !asked => match idl::string(call, argument, 1)? {
-                Converted::Ready(string) => out.push(string),
-                Converted::Asked(answer) => return Ok(Err(answer)),
-            },
-            None => return Err(Escape::Broken(Internal::BuiltinIsWrong)),
-        }
-    }
-    Ok(Ok(out))
+    idl::strings(call, &vec![Spelled::AsGiven; call.count()])
 }
 
 /// `add(...tokens)`.

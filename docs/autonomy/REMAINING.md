@@ -898,3 +898,10 @@ each of the six crates that read one, the longhands each shorthand covers
 serialiser over a `style` attribute's text. 342 is now only the binding
 over it, eligible and next, then 343. 145 queue items are open. The next
 unused queue number is 345 and the next unused ADR 0034.
+
+Iteration 221 built item 342: `element.style`, a `CSSStyleDeclaration` over
+the `style` attribute, on HTML elements and a new `SVGElement`, with every
+member of ADR 0033 § 6 but the indexed getter, which was cut to 345.
+`alo-downloads`' script runs to its end and its offline buttons are greyed,
+so 339 closed with it. 343 is eligible and next. 144 queue items are open.
+The next unused queue number is 346 and the next unused ADR 0034.

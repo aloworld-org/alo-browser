@@ -20,7 +20,8 @@
 //! listeners (queue item 261).
 //!
 //! And, once a page has read it, the element's `classList` (queue item 327,
-//! [`crate::token_list`]): `[SameObject]`, so made once and kept here.
+//! [`crate::token_list`]): `[SameObject]`, so made once and kept here — and
+//! its `style` (queue item 342, [`crate::style_declaration`]), the same way.
 //!
 //! It holds its document **strongly**: a node a script holds keeps the page's
 //! document, which is what makes `node.ownerDocument` an answer rather than a
@@ -43,6 +44,7 @@ pub struct Wrapper {
     listeners: Listeners,
     clicking: Option<Clicking>,
     class_list: Field,
+    style: Field,
 }
 
 impl Wrapper {
@@ -56,6 +58,7 @@ impl Wrapper {
             listeners: Listeners::default(),
             clicking: None,
             class_list: Field::default(),
+            style: Field::default(),
         }
     }
 
@@ -100,6 +103,16 @@ impl Wrapper {
     /// Keep `list` as its element's `classList`, through the barrier.
     pub(crate) fn keep_class_list(&mut self, barrier: &mut Barrier, list: Ref) {
         self.class_list.set(barrier, Some(list));
+    }
+
+    /// Its element's `style`, once one has been made.
+    pub const fn style(&self) -> Option<Ref> {
+        self.style.get()
+    }
+
+    /// Keep `declaration` as its element's `style`, through the barrier.
+    pub(crate) fn keep_style(&mut self, barrier: &mut Barrier, declaration: Ref) {
+        self.style.set(barrier, Some(declaration));
     }
 
     /// The node this is the wrapper of.
@@ -153,6 +166,7 @@ impl Trace for Wrapper {
         self.own.trace(tracer);
         self.listeners.trace(tracer);
         self.class_list.trace(tracer);
+        self.style.trace(tracer);
         if let Some(clicking) = &self.clicking {
             clicking.trace(tracer);
         }

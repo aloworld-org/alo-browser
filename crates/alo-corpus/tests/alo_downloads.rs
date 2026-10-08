@@ -21,11 +21,15 @@
 //! `fetch(href, { method: "HEAD" })` is asked for, and its `.then` or
 //! `.catch` decides the button when the answer comes: an installer that is
 //! there leaves its button as it is, and one that is not — a `404`, or no
-//! answer at all — has it marked *Building — available shortly* and its
-//! `href` taken away. The corpus froze no installer, so offline both are
-//! marked; and the script then stops at `a.style`, which is not built (item
-//! 339), before it can grey them. The corpus renders it as the Mac
-//! `alo_corpus::SYSTEM` says it is.
+//! answer at all — has it marked *Building — available shortly*, its
+//! `href` taken away and, since item 342, its `style` set: the button's
+//! `background` is `#c7bfb2`, written to its `style` attribute and cascaded
+//! above `.btn`'s terracotta (item 341), and its `cursor` and
+//! `pointerEvents` writes are ordinary properties of the declaration, since
+//! no stage of this engine acts on either (ADR 0033 § 4). The script runs
+//! to its end. The corpus froze no installer, so offline both buttons are
+//! marked and greyed. The corpus renders it as the Mac `alo_corpus::SYSTEM`
+//! says it is.
 
 use alo_corpus::{Case, Rendering, cases_directory, corpus_fonts};
 use alo_layout::Rect;
@@ -44,14 +48,13 @@ const INSTALLERS: [&str; 2] = [
     "https://alomails.com/download/alomails-mac-universal.dmg",
 ];
 
-/// What the page's script says once it has marked a button and reached
-/// `a.style`, which is not built (item 339): the `.catch` or `.then` that
-/// threw, as a rejection nobody handled.
-const STOPS_AT_STYLE: &str =
-    "the answer to a fetch: uncaught: TypeError: cannot write property 'background' of undefined";
-
 /// What a marked button says.
 const MARKED: &str = "Building — available shortly";
+
+/// The `style` attribute `mark(a)` leaves on a button it greys (item 342):
+/// its `background`, serialised as written. Its `cursor` and
+/// `pointerEvents` are not in it, because no stage acts on either.
+const GREYED: &str = "background: #c7bfb2;";
 
 /// The note's line height: `0.86rem` at `line-height: 1.55` from `body`.
 const NOTE_LINE: f32 = 0.86 * 16.0 * 1.55;
@@ -322,10 +325,8 @@ fn loaded(case: &Case, user_agent: &str, platform: &str) -> Option<(Renderer, Lo
     }
 }
 
-/// The text of the download button in the card `id`, and whether it still
-/// has an `href`.
-fn button(renderer: &Renderer, id: &str) -> Option<(String, bool)> {
-    let document = renderer.document()?;
+/// The download button in the card `id`: its element.
+fn button_node(document: &alo_dom::Document, id: &str) -> Option<alo_dom::NodeId> {
     let card = document.descendants(document.root()).find(|node| {
         document
             .element(*node)
@@ -338,8 +339,40 @@ fn button(renderer: &Renderer, id: &str) -> Option<(String, bool)> {
                 .is_some_and(|class| class.split_ascii_whitespace().any(|token| token == "btn"))
         })
     })?;
-    let has_href = document.element(link)?.attr("href").is_some();
-    Some((document.text_content(link), has_href))
+    Some(link)
+}
+
+/// The text of the download button in the card `id`, whether it still has
+/// an `href`, and its `style` attribute.
+fn button(renderer: &Renderer, id: &str) -> Option<(String, bool, Option<String>)> {
+    let document = renderer.document()?;
+    let link = button_node(document, id)?;
+    let element = document.element(link)?;
+    let has_href = element.attr("href").is_some();
+    let style = element.attr("style").map(str::to_owned);
+    Some((document.text_content(link), has_href, style))
+}
+
+/// The colour the download button in the card `id` is filled with, as the
+/// display list holds it.
+fn button_fill(renderer: &Renderer, id: &str) -> Option<String> {
+    let link = button_node(renderer.document()?, id)?;
+    let drawing = renderer.rendered()?;
+    let boxes = &drawing.boxes;
+    let held = boxes.ids().find(|held| {
+        matches!(
+            boxes.get(*held).map(|node| &node.kind),
+            Some(alo_box::BoxKind::Element { node, .. }) if *node == link
+        )
+    })?;
+    drawing.display.items().iter().find_map(|item| match item {
+        alo_paint::DisplayItem::Fill {
+            box_id,
+            paint: alo_paint::Paint::Solid(colour),
+            ..
+        } if *box_id == held => Some(colour.to_string()),
+        _ => None,
+    })
 }
 
 /// Deliver `answer` to ask `number`, answering what the delivery said —
@@ -412,19 +445,19 @@ fn the_pages_script_marks_the_card_of_the_system_it_is_told() {
                 "{platform}: the {id} card is marked {mark}",
             );
         }
-        // Offline: each answer is a network error, its `.catch` marks the
-        // button, and the script stops at `a.style`.
+        // Offline: each answer is a network error, and its `.catch` marks
+        // and greys the button, running to its end with nothing to say.
         for ask in &fetches {
             assert_eq!(
                 deliver(&mut renderer, ask.number, Answer::NetworkError),
-                Some(vec![STOPS_AT_STYLE.to_owned()]),
+                Some(Vec::new()),
                 "{platform}"
             );
         }
         for id in ["win", "mac"] {
             assert_eq!(
                 button(&renderer, id),
-                Some((MARKED.to_owned(), false)),
+                Some((MARKED.to_owned(), false, Some(GREYED.to_owned()))),
                 "{platform}: the {id} button"
             );
         }
@@ -457,12 +490,15 @@ fn each_buttons_then_decides_it_from_its_answer() {
         mac.number,
         answered(INSTALLERS[1], 404, "Not Found"),
     );
-    assert_eq!(issues, Some(vec![STOPS_AT_STYLE.to_owned()]));
+    assert_eq!(issues, Some(Vec::new()));
     assert_eq!(
         button(&renderer, "win"),
-        Some(("Download for Windows".to_owned(), true))
+        Some(("Download for Windows".to_owned(), true, None))
     );
-    assert_eq!(button(&renderer, "mac"), Some((MARKED.to_owned(), false)));
+    assert_eq!(
+        button(&renderer, "mac"),
+        Some((MARKED.to_owned(), false, Some(GREYED.to_owned())))
+    );
     // Each answer is delivered once; a second is answered by nobody.
     let again = deliver(&mut renderer, mac.number, Answer::NetworkError).unwrap_or_default();
     assert!(
@@ -483,9 +519,20 @@ fn the_corpus_answers_it_offline_and_says_so() {
     assert!(case.responses.is_empty());
     assert_eq!(answered.delivered, 2);
     assert_eq!(answered.unfrozen, INSTALLERS);
-    assert_eq!(answered.issues, [STOPS_AT_STYLE, STOPS_AT_STYLE]);
+    // The script runs to its end: nothing it does is refused.
+    assert!(answered.issues.is_empty(), "{:?}", answered.issues);
     for id in ["win", "mac"] {
-        assert_eq!(button(&renderer, id), Some((MARKED.to_owned(), false)));
+        assert_eq!(
+            button(&renderer, id),
+            Some((MARKED.to_owned(), false, Some(GREYED.to_owned())))
+        );
+        // Drawn `#c7bfb2`, the `style` attribute's, over `.btn`'s
+        // terracotta `rgb(231 111 81)`.
+        assert_eq!(
+            button_fill(&renderer, id).as_deref(),
+            Some("rgb(199 191 178)"),
+            "the {id} button"
+        );
     }
     let origin = std::fs::read_to_string(case.expectation("origin.txt")).unwrap_or_default();
     for url in INSTALLERS {

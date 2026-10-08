@@ -20745,3 +20745,126 @@ says 342 is the binding over `InlineStyle`.
 145 queue items are open: 344 added and closed. The next unused queue
 number is **345** and the next ADR is **0034**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 221 — queue item 342 built: `element.style`, a `CSSStyleDeclaration`
+
+**Read before choosing.** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 220's entry, the queue from 339 to 345, ADR 0033
+and the CSSOM line of `docs/features.md`. There is no `AGENTS.md` in the
+repository. 342 was the first open item whose dependencies (341, 344) were
+done.
+
+**What was built.** In `alo-bindings`:
+- `style_declaration.rs`: the `StyleDeclaration` cell. It holds only its
+  element's wrapper, with an ordinary part for expandos. The wrapper keeps
+  it once made (`Wrapper::style`), as it keeps `classList`, and both edges
+  are traced.
+- `interface/css_style_declaration.rs`: `cssText` (get and set), `length`,
+  `item()`, `getPropertyValue`, `getPropertyPriority`, `setProperty`,
+  `removeProperty` and `parentRule` (`null`). Also a named accessor for
+  each property in `alo-css`'s `SUPPORTED`. Each accessor's natives are
+  made around the name's index (`define::attribute_holding`, through
+  `Objects::native_holding`). Every member parses the attribute with
+  `InlineStyle`. A member writes the serialisation back through `alo-dom`
+  only when `InlineStyle` reports `Edit::Changed`, but `cssText` always
+  writes, as CSSOM's steps do.
+- `style_names.rs`: CSSOM's *CSS property to IDL attribute* algorithm. It
+  gives each property its camel-cased name, its WebKit-cased name (none on
+  today's list) and its dashed name, in the order of CSSOM's three partial
+  interfaces. They are kept in a `LazyLock` so each native has a
+  `&'static` name.
+- `interface/element_css_inline_style.rs`: the `style` mixin. Its getter
+  and setter are separate on `HTMLElement` and `SVGElement`, as Web IDL
+  makes a mixin's members per interface. `[PutForwards=cssText]` is a real
+  `[[Set]]` on the declaration. It calls whatever setter the chain holds,
+  with the value unconverted.
+- `Interface::SvgElement`: an SVG element's chain is now `SVGElement` and
+  then `Element`, and `Brand::SvgElement` checks for it. A MathML element
+  has no `style`.
+- `idl::strings`: several `DOMString` arguments with `[LegacyNullToEmptyString]`
+  and optional defaults, at most one object converted. It is the old
+  `classList` `every_token` generalised, and `classList` now uses it.
+  `idl::only_unsigned_long` is moved out of `NodeList.item`, which uses it
+  too.
+
+**What changed outside the crate.**
+- `alo-downloads`: `mark(a)` runs to its end. Both offline buttons carry
+  `style="background: #c7bfb2;"` and are filled `rgb(199 191 178)`. In
+  `display.txt` exactly those two fills moved (from `rgb(231 111 81)`),
+  and `render.png` shows the two buttons greyed. The test is
+  `tests/alo_downloads.rs`. The page reports nothing, so `STOPS_AT_STYLE`
+  is gone, and `button_fill` reads the colour from the display list.
+- `alo-renderer`'s `a_scripts_click.rs` asserted that an SVG element's
+  prototype is `Element.prototype`. With `SVGElement` in the chain it is
+  that prototype's prototype, so the assertion and its message were
+  updated. That was the first gate run's one failure. The change was
+  intended, not a regression.
+
+**Cut, written down.** `el.style[0]` is now queue item 345. A
+declaration's indices are live from the attribute, and an embedder cell
+can only answer `[[GetOwnProperty]]` from what it stores. `classList[0]`
+(328) waits on the same `alo-js` hook. `item()` is built.
+
+**A correction to ADR 0033.** § 3 said the attribute is removed "when
+nothing is left, as CSSOM's *update style attribute* does". That is not
+what CSSOM does: its update steps set the attribute to the serialisation,
+and `style=""` remains in every engine. The decision was to follow those
+steps, so I built them, corrected the sentence and added a dated
+correction paragraph. Nothing else in the ADR changed. A person reviewing
+this should confirm that reading.
+
+**Tests.** `alo-bindings/tests/what_an_elements_style_is.rs`, 11 tests.
+Every script runs plain and again with the collector at every allocation,
+and both its answer and its document change count must agree. Covered:
+- `[SameObject]`, on HTML and SVG elements and on no others;
+- named accessors in both spellings, and `[LegacyNullToEmptyString]`;
+- `cursor` and `pointerEvents` as ordinary properties;
+- every method, `unsigned long` conversion included;
+- `cssText` and `PutForwards`, emptying to `""`;
+- change counting, where a no-op write is 0;
+- brand checks on members, on named accessors and on `style`;
+- a second object refused by name (item 221);
+- the declaration keeping its element through a collection;
+- hostile values: `;`, `!important`, unclosed `(`, `"` and `/*`, blank,
+  NUL, 2000 `(` as an attribute, `}}}}`, and a 1 MiB value kept, read back
+  and removed.
+
+`style_names.rs` has 3 unit tests. What is not tested: that HTMLElement's
+`style` getter refuses an SVG element. No script in this engine can lift
+an accessor off a prototype (`Object.getOwnPropertyDescriptor` is not
+built). The brand is `idl::this`'s, the same check every member uses.
+
+**Gate, mechanical.** After `cargo fmt`, `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` was silent and `cargo test
+--no-run` warmed the build. The first `scripts/gate.sh` run failed on
+`a_scripts_click` (above). After the fix, `cargo test --workspace
+--all-features --no-fail-fast` passed: 210 binaries, exit 0. The second
+`scripts/gate.sh` run, in the foreground session with a two-hour bound,
+ended with exit 0 and "The gate is met". fmt was clean, clippy silent and
+the tests passed. Nothing is stubbed, `unsafe` stays forbidden, every
+rented crate is still behind its boundary, and the changelog changed.
+
+**Gate, manual.**
+- Layout assertion and reference render: `alo-downloads`' `display.txt`
+  and `render.png` moved and were reviewed. Only the two buttons' fills
+  changed, and `tests/alo_downloads.rs` pins the fill in numbers. Nothing
+  else positions or sizes differently.
+- One responsibility per file: the cell, the members, the mixin and the
+  naming are four files, following `token_list.rs` and `tokens.rs`.
+- Docs in the same change: `docs/features.md`, `docs/conformance.md`,
+  `ROADMAP.md` (the CSSOM line's Built and Owed clauses, not ticked),
+  `REMAINING.md`, `CHANGELOG.md`, the queue (342 and 339 ticked, 345
+  added), the case's `origin.txt` and ADR 0033's correction.
+- No `unsafe` and no new dependency.
+
+**Roadmap.** The CSSOM line's Built clause gains `element.style` (342).
+Its Owed clause is now 345, 343 and the rest of item 89.
+
+**Unresolved obligations.**
+- 343 is eligible and next. ADR 0033 § 2 says it may need an ADR first.
+- 345 waits on an `alo-js` hook shared with 328, and on a page.
+- Everything iteration 220 listed as standing still stands.
+
+144 queue items are open: 342 and 339 closed, 345 added. The next unused
+queue number is **346** and the next ADR is **0034**. This is one
+iteration, not a finished queue or roadmap.

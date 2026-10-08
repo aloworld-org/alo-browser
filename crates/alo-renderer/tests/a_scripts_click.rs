@@ -319,7 +319,7 @@ fn click_is_an_html_elements_and_no_other_nodes() {
         "<div>d</div><svg><g></g></svg>",
         "const g = first.nextSibling.firstChild; const html = first.__proto__;",
         "say(typeof first.click + ' ' + typeof g.click + ' ' + typeof HTMLElement);\
-         say(html.__proto__ === g.__proto__ && html !== g.__proto__);\
+         say(html.__proto__ === g.__proto__.__proto__ && html !== g.__proto__);\
          say(out.__proto__ === html && html.hasOwnProperty('click'));\
          try { first.click.call(g); } catch (e) { say(e.name); }\
          try { first.click.call(out.firstChild); } catch (e) { say(e.name); }\
@@ -327,6 +327,7 @@ fn click_is_an_html_elements_and_no_other_nodes() {
     );
     assert_eq!(
         said, "- function undefined undefined true true TypeError TypeError TypeError",
-        "an HTML element's chain has HTMLElement between it and Element; an SVG one's does not"
+        "an HTML element's chain has HTMLElement between it and Element; an SVG one's has \
+         SVGElement there instead (queue item 342), which has no click"
     );
 }

@@ -52,6 +52,10 @@
 //! - An element's `classList` is a [`TokenList`] (queue item 327), made once
 //!   and kept by its wrapper, computing its tokens from the `class`
 //!   attribute each time it is asked ([`token_list`]).
+//! - An HTML or SVG element's `style` is a [`StyleDeclaration`] (ADR 0033,
+//!   queue item 342), made once and kept by its wrapper the same way, which
+//!   parses the `style` attribute every time it is asked and writes every
+//!   change back to it ([`style_declaration`]).
 //! - `querySelectorAll` on a document, an element or a fragment answers a
 //!   static [`NodeList`] (queue item 329): `alo-css` parses the string and
 //!   its one matcher matches it, and the list holds each match's wrapper,
@@ -110,6 +114,8 @@ pub mod navigator;
 pub mod node_list;
 pub mod response;
 mod scripted;
+pub mod style_declaration;
+mod style_names;
 pub mod token_list;
 mod tokens;
 pub mod tree;
@@ -127,5 +133,6 @@ pub use interface::{Interface, Interfaces, prototype_of};
 pub use navigator::{Identity, Navigator, introduce};
 pub use node_list::NodeList;
 pub use response::{Responded, Response};
+pub use style_declaration::StyleDeclaration;
 pub use token_list::TokenList;
 pub use wrapper::Wrapper;

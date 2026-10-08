@@ -21,10 +21,9 @@
 //! `length` and its indices like any other array-like.
 
 use alo_js::abrupt::Internal;
-use alo_js::convert::{self, Hint, Primitive};
 use alo_js::heap::Ref;
 use alo_js::object::Objects;
-use alo_js::object::native::{Answer, Call, Want};
+use alo_js::object::native::{Answer, Call};
 use alo_js::{Escape, Value};
 
 use crate::define;
@@ -76,23 +75,10 @@ fn length(call: &mut Call<'_>) -> Result<Answer, Escape> {
 fn item(call: &mut Call<'_>) -> Result<Answer, Escape> {
     this(call, "item")?;
     idl::needs(call, 1, "item")?;
-    let primitive = match call.step() {
-        0 => match Primitive::of(call.argument(0)) {
-            Some(primitive) => primitive,
-            None => {
-                return Ok(Answer::want(
-                    Want::Primitive {
-                        of: call.argument(0),
-                        hint: Hint::Number,
-                    },
-                    1,
-                ));
-            }
-        },
-        1 => Primitive::of(call.answer()?).ok_or(Escape::Broken(Internal::BuiltinIsWrong))?,
-        _ => return Err(Escape::Broken(Internal::BuiltinIsWrong)),
+    let index = match idl::only_unsigned_long(call)? {
+        Ok(index) => index,
+        Err(asked) => return Ok(asked),
     };
-    let index = convert::to_uint32(convert::to_number(call.seen(), primitive, call.at())?);
     // Read again after the conversion: the list is the same object, and
     // static, but a borrow does not live across a call into the page.
     let found = usize::try_from(index)

@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page's script can change an element's style.** `el.style.color =
+  "red"`, `el.style.setProperty(…)`, `el.style.cssText` and the rest write
+  the element's `style` attribute, and read it back, on HTML elements and
+  SVG shapes alike. alo's download page now greys the button of an
+  installer that is not built yet, as it was written to. A colour reads
+  back as the page wrote it, and a property the browser does not draw is
+  not pretended to exist: writing one sets an ordinary value on the object,
+  as every browser does for a name it does not know (decision 0033).
+
 - **The browser keeps one list of the style properties it draws.** Each
   property on it names the parts of the browser that act on it, and each of
   those parts has a test that fails if it starts reading a property the
