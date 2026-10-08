@@ -890,3 +890,11 @@ from the document on every draw. Corpus case `style-attributes` is its
 layout assertion and reference render. 342 is eligible and next, then 343.
 145 queue items are open. The next unused queue number is 344 and the next
 unused ADR 0034.
+
+Iteration 220 cut item 344 from 342 and built it: `alo-css`'s list of the
+properties this engine acts on (`properties.rs`), held true by a test in
+each of the six crates that read one, the longhands each shorthand covers
+(`longhand.rs`), and `InlineStyle` (`inline.rs`), CSSOM's edits and
+serialiser over a `style` attribute's text. 342 is now only the binding
+over it, eligible and next, then 343. 145 queue items are open. The next
+unused queue number is 345 and the next unused ADR 0034.

@@ -5327,7 +5327,7 @@ The long pole, and the thing most of section E is unreachable without.
   is kept when a style sheet would keep it. A shorthand read by kind stays
   one declaration, and setting it removes its longhands from the block.
   Nothing is built, and this item stays open: it closes when **341** and
-  **342** do. `cursor` and `pointer-events` are acted on by no stage, so
+  **342** do (344 was cut from 342 and is done). `cursor` and `pointer-events` are acted on by no stage, so
   the page's last two writes set ordinary properties of the object, as in
   every engine for a name it does not support (ADR 0033 § 4).
 
@@ -5363,13 +5363,37 @@ The long pole, and the thing most of section E is unreachable without.
   corpus reference moved: no other case's page carries a `style`
   attribute.
 
+- [x] **344. What an inline block is to a script, in `alo-css`.** *Cut
+  from 342 (iteration 220): ADR 0033 §§ 3–5 without a heap, so that 342 is
+  only the binding.* `properties.rs`: one sorted list of the properties
+  this engine acts on, each naming the crates that read it. Each reading
+  crate gets a test that every property it reads is listed with it, and the
+  list gets a test that each entry names a crate. `longhand.rs`: the
+  longhands each shorthand covers, the kind-read ones included. `inline.rs`:
+  the block parsed from the attribute, CSSOM's `setProperty`,
+  `removeProperty`, `getPropertyValue`, `getPropertyPriority`, `length`
+  and `item` over it, and a serialiser that writes only what was written.
+  Hostile input: a value with `;`, `!important`, unbalanced brackets, a NUL
+  or a megabyte is refused or kept exactly as § 5 says, never panicking.
+  Feature contract: `docs/features.md`'s CSSOM line. *Closes when:* each of
+  those is pinned in a unit test, and each reading crate's test fails when
+  that crate reads a property the list does not name, or the list names one
+  it does not read, shown by mutation.
+  **Done (iteration 220).** `alo-css`'s `properties.rs` (`SUPPORTED`,
+  `is_supported`, `read_by`, and `named_in`, the scan each crate's test
+  uses), `longhand.rs` and `inline.rs` (`InlineStyle`, `Edit`).
+  `DeclarationBlock` now knows which of its declarations were written
+  (`written()`), so a counted shorthand's implied longhands are never
+  serialised. `tests/what_it_reads_is_listed.rs` in `alo-style`, `alo-box`,
+  `alo-layout`, `alo-paint`, `alo-svg` and `alo-renderer`. `alo-svg`'s also
+  holds the eight properties it reads only to say they are not applied off
+  the list. Checked by mutation: a `get("cursor")` added to `alo-box`, and
+  `z-index` taken off the list, each fail their crate's test.
+
 - [ ] **342. `element.style`, a `CSSStyleDeclaration`.** *Cut from 339
-  (ADR 0033 §§ 3–6). Depends on 341.* `alo-css`'s `properties.rs`: one
-  sorted list of the properties this engine acts on, each naming the crate
-  that reads it. Each reading crate gets a test that every property it reads
-  is listed, and the list gets a test that each entry names a crate.
-  `alo-css` gains the kind-read shorthands' longhand table and a block
-  serialiser that writes only what was written. `alo-bindings`' `style` on
+  (ADR 0033 §§ 3–6). Depends on 341 and 344.* The list, the longhand table,
+  the block's edits and its serialiser are 344's, in `alo-css`, and this
+  item uses them rather than writing its own. `alo-bindings`' `style` on
   every HTML and SVG element is `[SameObject, PutForwards=cssText]`, an
   embedder cell holding its element's wrapper as `classList` does. Its
   members are those of ADR 0033 § 6, each reading the attribute and

@@ -122,6 +122,9 @@ impl fmt::Display for Declaration {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DeclarationBlock {
     declarations: Vec<Declaration>,
+    /// Beside each declaration, whether it was written rather than implied
+    /// by a counted shorthand written after it.
+    written: Vec<bool>,
 }
 
 impl DeclarationBlock {
@@ -154,8 +157,20 @@ impl DeclarationBlock {
         for (name, value) in shorthand::expand(&declaration) {
             self.declarations
                 .push(Declaration::new(&name, &value, declaration.importance));
+            self.written.push(false);
         }
         self.declarations.push(declaration);
+        self.written.push(true);
+    }
+
+    /// The declarations that were written, in order, without the longhands
+    /// a counted shorthand implied — what a block is serialised from, since
+    /// nobody wrote those (ADR 0033 § 3).
+    pub fn written(&self) -> impl Iterator<Item = &Declaration> {
+        self.declarations
+            .iter()
+            .zip(&self.written)
+            .filter_map(|(declaration, written)| written.then_some(declaration))
     }
 
     /// The declarations, in the order they were written.
@@ -270,6 +285,16 @@ mod tests {
             Some("blue"),
         );
         assert_eq!(block.get(&PropertyName::parse("padding")), None);
+    }
+
+    #[test]
+    fn a_block_knows_which_declarations_were_written() {
+        let mut block = DeclarationBlock::new();
+        block.push(Declaration::new("margin", "0 4px", Importance::Normal));
+        block.push(Declaration::new("margin-top", "2px", Importance::Normal));
+        let written: Vec<String> = block.written().map(ToString::to_string).collect();
+        assert_eq!(written, ["margin: 0 4px", "margin-top: 2px"]);
+        assert_eq!(block.len(), 6, "the four implied sides are still held");
     }
 
     #[test]

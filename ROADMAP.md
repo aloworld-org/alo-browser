@@ -1077,8 +1077,13 @@ unreachable without it.
       `alo-css`'s `parse_declaration_list` reads it as a sheet's block, and
       `alo-style`'s `attached.rs` and the cascade's element-attached step
       place it, for HTML and SVG elements, read from the document on every
-      draw (corpus case `style-attributes`)
-      · Owed: `element.style` (342), a page's `style-src` applied to inline
+      draw (corpus case `style-attributes`); and what the inline block is to
+      a script, without a heap (queue item 344) — `alo-css`'s
+      `properties.rs`, the properties this engine acts on, each with the
+      crates that read it and held true by a test in each of them;
+      `longhand.rs`; and `inline.rs`'s `InlineStyle`, CSSOM's edits and
+      serialiser over the attribute's text
+      · Owed: `element.style` itself, the binding over `InlineStyle` (342), a page's `style-src` applied to inline
       style (343), and `getComputedStyle`, `document.styleSheets` and the
       rest of item 89, each opened by a page
 - [ ] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them

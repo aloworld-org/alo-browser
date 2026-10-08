@@ -20606,3 +20606,142 @@ the rest of item 89 remain.
 145 queue items are open: 341 closed. The next unused queue number is
 **344** and the next ADR is **0034**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 220 — queue item 344 cut from 342 and built: what an inline block is to a script
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole), `ROADMAP.md`'s
+head and its CSSOM line, and iteration 219, which named 342 as eligible and
+next. Queue items 339, 341, 342 and 343, ADR 0033 (whole), and
+`docs/features.md`'s CSSOM line, the item's feature contract. Code read:
+`alo-css`'s `lib.rs`, `declaration.rs`, `shorthand.rs` and `parse.rs`;
+`alo-style`'s `attached.rs` and `computed.rs`'s readers; `alo-bindings`'
+`lib.rs`, `interface.rs`, `token_list.rs`, `tokens.rs`,
+`interface/dom_token_list.rs`, `define.rs` and `wrapper.rs`; `alo-js`'s
+`Native` and `native_holding`. An Explore agent audited, read-only,
+every property each crate reads from a computed style; its findings were
+checked against `alo-layout`'s `style.rs`, `alo-paint`'s `build.rs` and
+`corner.rs` and `alo-svg`'s `walk.rs` and `shape.rs`. No `AGENTS.md`
+exists. The checkout was clean on entry at `01cca85`. No sibling
+repository was read or written.
+
+**The cut.** 342 as written is two things, each large: the supported list,
+held true by a test in every crate that reads a property (an audit of six
+crates), and the whole `CSSStyleDeclaration` binding (every member, three
+spellings of every named property, a cell traced like `classList`, stress
+tests). LOOP.md step 3 says cut scope, never depth, and write the cut down.
+So 344 is everything of ADR 0033 §§ 3–5 that needs no heap, in `alo-css`,
+built and tested whole. 342 is now the binding over it and depends on 344.
+The binding's named accessors can each hold their property's index in
+`SUPPORTED` through `Objects::native_holding`, which this iteration
+checked exists. That is a note for 342, not something built.
+
+**What was built.**
+- `properties.rs`: `SUPPORTED`, 106 properties, sorted, each naming the
+  crates that read it (`Reader`); `is_supported` (a binary search);
+  `read_by`; and `named_in`, which scans a crate's non-test source for the
+  string literals passed to the named readers, `{side}` templates expanded.
+- `tests/what_it_reads_is_listed.rs` in `alo-style`, `alo-box`,
+  `alo-layout`, `alo-paint`, `alo-svg` and `alo-renderer`. Each one scans
+  every file for `ComputedStyle`'s own readers, and the files that have
+  wrappers for those wrappers. It lists by hand the names that reach a
+  reader through a variable, and asserts each is written in the source.
+  It names the files where a reader's name means something else, such as
+  a header map's `get` or an SVG attribute's `length`. Then it asserts the
+  crate's reads equal `read_by` for it. `alo-svg`'s also holds the eight
+  properties it reads only to say they are not applied (ADR 0022 § 7's
+  `clip-path`, `mask`, `filter`, the markers, `paint-order`,
+  `vector-effect`) off the list, since a property is supported only when
+  a stage acts on it (ADR 0033 § 4). `alo-agent`, `alo-text` and
+  `alo-window` read no property.
+- `longhand.rs`: `longhands(name)`, the counted shorthands from
+  `shorthand.rs`'s tables (now `pub(crate) static`) and `background`,
+  `border` and `font` with every longhand each sets or resets.
+- `inline.rs`: `InlineStyle::parse` (one declaration per property, the
+  cascade's pick between duplicates, implied longhands not held),
+  `len`/`item`, `value`/`priority` (read through the implied longhands, so
+  `margin-left` after `margin: 0 4px` is `4px`), `set` (CSSOM's steps; step
+  6 replaced by § 5's rule, and a shorthand's written longhands removed
+  first), `remove`, and `serialize`. `Edit` says whether an edit changed
+  the block, changed nothing (so nothing is written back, § 3), or was
+  ignored by CSSOM's early returns.
+- `DeclarationBlock::written()`: what was written, without the longhands a
+  counted shorthand implied.
+
+**Two readings of the ADR, stated rather than chosen silently.**
+- § 3 says a serialised block is declarations "joined by `; `" and also
+  that it is CSSOM's serialisation without shorthand combining. CSSOM puts
+  `;` after every declaration and joins with a space (`color: red; width:
+  1px;`), which is what `DeclarationBlock`'s `Display` already wrote. That
+  is what was built.
+- § 5 says a value reads from "the last declaration of that name". With
+  `color: red !important; color: blue` the last is not the one drawn.
+  Parsing therefore holds the cascade's pick, as CSSOM's parse does, and
+  the last held is then the one drawn.
+
+**What a value must survive.** Two probe parses decide whether a set value
+is one a sheet would keep as one declaration's. `name: value;
+--alo-inline-end: 0` must read as a normal declaration and the sentinel.
+That refuses `!important`, a second declaration, and an unclosed string,
+comment or bracket. `name: value alo-inline-end` must keep the word in its
+value. That refuses a `;` of its own, which the first probe misses because
+an empty declaration reads as nothing. That gap was found when the first
+version's test failed on `"red;"`. A declaration the attribute already
+holds is put through the same test, and one that would swallow what
+follows it (unclosed at the attribute's end) is not held.
+`docs/conformance.md` says so.
+
+**Hostile input.** `inline.rs`'s
+`hostile_attributes_and_values_are_answered_never_panicked_on`: 100 000
+`(` and 100 000 `{` as an attribute and as a value (refused), `}}}}`, a
+BOM, NULs, an `@media` and a nested rule as an attribute, and a megabyte
+value (kept, read back and removed). `a_value_a_sheet_would_not_keep_…`
+covers `;`, `!important` in two spellings, unclosed `rgb(`, `"`, `url(`,
+`/*`, `[` and `{`, and the sentinel itself. A value is only sliced and
+compared; no new arithmetic reads a length the page chose.
+
+**Gate, mechanical.** I warmed the build with clippy `--workspace
+--all-targets --all-features` (silent) and `cargo test --workspace
+--all-features --no-run`. Then I started `scripts/gate.sh` in the
+background with a two-hour bound, writing to a log, and polled it in this
+turn. Result: exit 0, "The gate is met". fmt is clean, clippy silent and
+the tests pass. Nothing is stubbed, `unsafe` is forbidden, every rented
+crate stays behind its boundary, and the changelog changed.
+
+**Checked by mutation**, restored: a `style.get("cursor")` added to
+`alo-box`'s `tree.rs` fails `alo-box`'s test; `z-index` taken off
+`SUPPORTED` fails `alo-paint`'s.
+
+**Gate, manual.**
+- Nothing positions, sizes or draws differently: no layout, paint or
+  corpus code changed, and `DeclarationBlock::push` holds exactly what it
+  held. So there is no new layout assertion or reference render, and no
+  corpus reference moved. The gate's corpus run is the evidence.
+- One responsibility per file: `properties.rs` is what the engine acts on
+  and how a crate proves it; `longhand.rs` which longhands a shorthand
+  covers (kept out of `shorthand.rs`, which is about splitting);
+  `inline.rs` the inline block as a script edits it.
+- `docs/features.md`'s CSSOM line, `docs/conformance.md`, `ROADMAP.md`
+  (a Built clause; the line is not ticked), `REMAINING.md`, `CHANGELOG.md`
+  and the queue say the same. No `unsafe`, no new dependency. No ADR was
+  needed, since ADR 0033 §§ 3–5 decide all of this. The two readings above
+  are recorded here and in `inline.rs`.
+
+**Roadmap.** The CSSOM line's Built clause gains 344. Its Owed clause now
+says 342 is the binding over `InlineStyle`.
+
+**Unresolved obligations.**
+- 342 is eligible and next: the binding, closing `alo-downloads`' grey
+  buttons. Then 343. 339 stays open until 342 closes.
+- `named_in` sees a name only where it is written in a reader's call. A
+  name that reaches a reader through a variable is listed by hand in that
+  crate's `INDIRECT`. A new loop over names would be missed until someone
+  adds it there. Each test file says this.
+- Everything 219 listed as standing still stands:
+  - 337, 322, 324, 328, 284, 311 and 314 wait for pages;
+  - 323 waits on 73;
+  - 296 needs a person;
+  - 297–300, 302, 304, 308, 126, 132 and 336 remain.
+
+145 queue items are open: 344 added and closed. The next unused queue
+number is **345** and the next ADR is **0034**. This is one iteration, not
+a finished queue or roadmap.

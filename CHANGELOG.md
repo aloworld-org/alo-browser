@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The browser keeps one list of the style properties it draws.** Each
+  property on it names the parts of the browser that act on it, and each of
+  those parts has a test that fails if it starts reading a property the
+  list leaves out, or stops reading one the list names. A page's script
+  will be told about exactly these when it asks whether a property exists,
+  so it reads the truth. How a script's changes to an element's style turn
+  into the element's `style` attribute is built beneath that too, and
+  tested against hostile values. A script still cannot change an element's
+  style; that comes next (decision 0033).
+
 - **A `style` attribute styles its element.** `<p style="color: red">` is
   red. What an element's own attribute says beats anything a style sheet's
   selector says, however specific, and loses only to what a sheet insists

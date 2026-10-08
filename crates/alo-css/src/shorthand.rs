@@ -34,7 +34,7 @@ use crate::declaration::Declaration;
 /// `border-radius` is one value per *corner* and pairs the diagonals rather
 /// than opposite sides, so it is not one of these however much it looks like
 /// one. It is `alo_paint::corner`'s.
-const SIDED: [(&str, [&str; 4]); 5] = [
+pub(crate) static SIDED: [(&str, [&str; 4]); 5] = [
     (
         "margin",
         ["margin-top", "margin-right", "margin-bottom", "margin-left"],
@@ -143,7 +143,7 @@ fn sides(longhands: &[&str; 4], value: &str) -> Vec<(String, String)> {
 /// `display: grid; place-items: center` is how alo's offline screen centres
 /// itself, and with the shorthand left whole the screen was laid out at the
 /// top of its window.
-const PAIRED: [(&str, [&str; 2]); 3] = [
+pub(crate) static PAIRED: [(&str, [&str; 2]); 3] = [
     ("place-items", ["align-items", "justify-items"]),
     ("place-self", ["align-self", "justify-self"]),
     ("place-content", ["align-content", "justify-content"]),

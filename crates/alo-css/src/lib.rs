@@ -38,13 +38,25 @@
 //!   before the rented parser recurses into it, and only it. A page chose
 //!   the depth, and a stack overflow would take the renderer down with it.
 
+//!
+//! # What a script's `element.style` stands on
+//!
+//! ADR 0033: [`properties`] is the one list of the properties this engine
+//! acts on, each with the crates that read it; [`longhand`] says which
+//! longhands a shorthand covers; and [`inline`] is an element's `style`
+//! attribute as a script edits it — parsed, changed by CSSOM's steps and
+//! written back — with no heap and no document in this crate.
+
 pub mod declaration;
 pub mod ident;
+pub mod inline;
 pub mod issue;
+pub mod longhand;
 pub mod matching;
 pub mod media;
 mod nesting;
 pub mod parse;
+pub mod properties;
 pub mod selector;
 mod shorthand;
 pub mod state;
@@ -52,6 +64,7 @@ pub mod stylesheet;
 
 pub use declaration::{Declaration, DeclarationBlock, Importance, PropertyName};
 pub use ident::Ident;
+pub use inline::{Edit, InlineStyle};
 pub use issue::{IssueKind, Location, StyleIssue};
 pub use matching::{MatchContext, matches};
 pub use media::{ColorScheme, MediaCondition, MediaContext, MediaQueryList, QueryLength};

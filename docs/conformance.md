@@ -306,8 +306,15 @@ Cascade 4 places it: above every declaration a selector reaches, below any
 `!important` one in a sheet, and an important one above an important sheet
 declaration whatever its selector (item 341, corpus case
 `style-attributes`). A script still has no `element.style` to write (item
-342). Once it does, a value will be kept as written: `#c7bfb2` will read
-back as `#c7bfb2`, where other engines say `rgb(199, 191, 178)`. And a page's
+342), though what its edits do to the attribute is built and tested
+beneath it (item 344). Once it does, a value will be kept as written:
+`#c7bfb2` will read back as `#c7bfb2`, where other engines say `rgb(199,
+191, 178)`. `backgroundColor` after `background: red` will read `""`, where
+they answer the colour. `length` will count what was written, so `margin:
+0` is one declaration where they count its four sides. And a declaration
+left unclosed at the very end of a `style` attribute — a string or a
+bracket never closed — is left out when a script first writes the
+attribute, where other engines would close it. And a page's
 `style-src` is applied by no renderer to its inline style, a `<style>`
 element or a `style` attribute, until item 343.
 Most targets below are still
