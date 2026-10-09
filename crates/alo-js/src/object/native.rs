@@ -53,6 +53,14 @@
 //! reference its embedder set, of a type this engine never learns. A builtin
 //! of the engine's own never asks for it.
 //!
+//! # A native that reads the time is told the realm's clock
+//!
+//! `Date.now()` and `new Date()` ask what time it is, and the engine has no
+//! clock of its own (ADR 0013 § 5): the embedder hands a realm one, or none
+//! (ADR 0036 § 1). The interpreter hands it on to every builtin
+//! ([`Call::now`]), which answers a time value or, in a realm with no clock,
+//! the `TypeError` that says so.
+//!
 //! # A native that runs a long loop is told the embedder's stop
 //!
 //! The interpreter asks [`Stop`](crate::interpret::Stop) on every backward
@@ -110,6 +118,7 @@
 
 use crate::abrupt::{Escape, Internal};
 use crate::builtin::Intrinsics;
+use crate::clock::Clock;
 use crate::convert::Hint;
 use crate::heap::Ref;
 use crate::interpret::Stop;
@@ -150,7 +159,8 @@ impl Answer {
 /// is a search over two names and may be two calls or none. That algorithm
 /// lives in [`convert`](crate::convert) and the interpreter drives it; a
 /// builtin spelling it out again would be a second copy of a rule that has to
-/// agree with the first. A job is the third, and runs nothing now at all. A
+/// agree with the first — and so is its ordinary half alone, which a
+/// `Symbol.toPrimitive` method ends with. A job is the third, and runs nothing now at all. A
 /// reported call is the fourth: a call, but one whose throw the builtin never
 /// sees (ADR 0018 § 3). A caught call is the fifth: a call whose throw the
 /// builtin is handed as its answer. Settling a promise is the sixth, because
@@ -178,6 +188,17 @@ pub enum Want {
         /// The object to convert.
         of: Value,
         /// Which primitive is wanted.
+        hint: Hint,
+    },
+    /// `OrdinaryToPrimitive(of, hint)`, and answer with the primitive: the
+    /// search over `valueOf` and `toString` alone, without asking for
+    /// `Symbol.toPrimitive` first — which is what a `Symbol.toPrimitive`
+    /// method's own last step is, and asking for it again would never end
+    /// (queue item 356). `hint` is [`Hint::Number`] or [`Hint::String`].
+    Ordinary {
+        /// The object to convert.
+        of: Value,
+        /// Which primitive is tried for first.
         hint: Hint,
     },
     /// Queue a call of `callee` with `arguments` as a job, to run at the next
@@ -285,6 +306,11 @@ pub enum Instance {
     /// when constructed**: `Promise()` without `new` is a `TypeError`, which
     /// its body throws on seeing [`Call::constructing`] false.
     Promise,
+    /// An Invalid Date, whose time value the body sets (queue item 356) —
+    /// **only when constructed**: `Date()` without `new` answers a string and
+    /// makes no object, which its body does on seeing [`Call::constructing`]
+    /// false.
+    Date,
 }
 
 /// How an embedder's constructor makes its instance: from the prototype it
@@ -385,6 +411,7 @@ pub struct Call<'a> {
     intrinsics: Option<&'a Intrinsics>,
     host: Option<Ref>,
     stop: Option<&'a Stop>,
+    clock: Option<&'a dyn Clock>,
     held: Value,
     this: Value,
     arguments: &'a [Value],
@@ -410,6 +437,7 @@ impl<'a> Call<'a> {
             intrinsics: None,
             host: None,
             stop: None,
+            clock: None,
             held: Value::Undefined,
             this,
             arguments,
@@ -559,6 +587,33 @@ impl<'a> Call<'a> {
     /// — only a test that built a [`Call`] by hand — is never stopped.
     pub fn stop_asked(&self) -> bool {
         self.stop.is_some_and(Stop::asked)
+    }
+
+    /// The same call, in a realm whose time is told by `clock` — or by none
+    /// (ADR 0036 § 1).
+    #[must_use]
+    pub const fn timed_by(mut self, clock: Option<&'a dyn Clock>) -> Self {
+        self.clock = clock;
+        self
+    }
+
+    /// The time value now, by the realm's clock, through `TimeClip`: an
+    /// integral number of milliseconds in range, or `NaN` from a clock that
+    /// cannot say (ADR 0036 § 1).
+    ///
+    /// # Errors
+    ///
+    /// A `TypeError` saying so when the realm was given no clock: a realm with
+    /// none refuses to say what time it is, by name, rather than make an
+    /// instant up — which a page could not tell from the truth.
+    pub fn now(&self) -> Result<f64, Escape> {
+        match self.clock {
+            Some(clock) => Ok(crate::time::time_clip(clock.now())),
+            None => Err(Escape::type_error(
+                "this realm was given no clock, so it cannot say what time it is",
+                self.at,
+            )),
+        }
     }
 
     /// The same call, in a realm whose `[[HostDefined]]` is `host`.

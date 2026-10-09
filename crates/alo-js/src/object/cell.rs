@@ -10,11 +10,11 @@
 //! nothing in that file changes when it does.* This is that enumeration, and
 //! nothing in `heap.rs` changed.
 //!
-//! # Twelve kinds, and two of them are not a script's
+//! # Thirteen kinds, and two of them are not a script's
 //!
 //! An [`Ordinary`] object, an [`Array`] (queue item 225), an error (queue item
 //! 227), an [`ArrayIterator`] (queue item 230), a [`RegExp`] (queue item 74), a
-//! [`Promise`] (queue item 333), a [`Function`], a [`Text`], a [`Symbol`] — and
+//! [`Promise`] (queue item 333), a [`Date`] (queue item 356), a [`Function`], a [`Text`], a [`Symbol`] — and
 //! [`Cell::Foreign`], which is an [`Exotic`] an embedder supplied. That one is
 //! ADR 0013 § 6 and ADR 0014 § 6 in a single line of code: the DOM is **in this
 //! heap**, traced by this collector, in the same graph as the closure that
@@ -38,6 +38,7 @@ use crate::heap::{Survivors, Trace, Tracer};
 
 use super::array::Array;
 use super::array_iterator::ArrayIterator;
+use super::date::Date;
 use super::environment::Environment;
 use super::function::Function;
 use super::internal::{Exotic, Internal};
@@ -74,6 +75,9 @@ pub enum Cell {
     /// What `new Promise(…)` makes: an ordinary object with a promise's state
     /// beside it (queue item 333).
     Promise(Promise),
+    /// What `new Date(…)` makes: an ordinary object with a time value beside
+    /// it (queue item 356).
+    Date(Date),
     /// A function, which is an ordinary object that can also be called (queue
     /// item 209).
     Function(Function),
@@ -107,6 +111,7 @@ impl Cell {
             Cell::ArrayIterator(iterator) => Some(iterator.ordinary()),
             Cell::RegExp(regexp) => Some(regexp.ordinary()),
             Cell::Promise(promise) => Some(promise.ordinary()),
+            Cell::Date(date) => Some(date.ordinary()),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_ref()),
             Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) | Cell::Environment(_) => None,
@@ -121,6 +126,7 @@ impl Cell {
             Cell::ArrayIterator(iterator) => Some(iterator.ordinary_mut()),
             Cell::RegExp(regexp) => Some(regexp.ordinary_mut()),
             Cell::Promise(promise) => Some(promise.ordinary_mut()),
+            Cell::Date(date) => Some(date.ordinary_mut()),
             Cell::Function(function) => Some(function),
             Cell::Foreign(exotic) => Some(exotic.as_mut()),
             Cell::Text(_) | Cell::Symbol(_) | Cell::Slots(_) | Cell::Environment(_) => None,
@@ -205,6 +211,22 @@ impl Cell {
         }
     }
 
+    /// The `Date` object this cell is, if it is one (queue item 356).
+    pub const fn date(&self) -> Option<&Date> {
+        match self {
+            Cell::Date(date) => Some(date),
+            _ => None,
+        }
+    }
+
+    /// The same, to be written through.
+    pub const fn date_mut(&mut self) -> Option<&mut Date> {
+        match self {
+            Cell::Date(date) => Some(date),
+            _ => None,
+        }
+    }
+
     /// Whether this cell has the `[[ErrorData]]` slot (queue item 227).
     pub const fn is_error(&self) -> bool {
         matches!(self, Cell::Error(_))
@@ -260,6 +282,7 @@ impl Cell {
             Cell::ArrayIterator(_) => "an array iterator",
             Cell::RegExp(_) => "a regular expression",
             Cell::Promise(_) => "a promise",
+            Cell::Date(_) => "a date",
             Cell::Function(_) => "a function",
             Cell::Text(_) => "a string",
             Cell::Symbol(_) => "a symbol",
@@ -278,6 +301,7 @@ impl Trace for Cell {
             Cell::ArrayIterator(iterator) => iterator.trace(tracer),
             Cell::RegExp(regexp) => regexp.trace(tracer),
             Cell::Promise(promise) => promise.trace(tracer),
+            Cell::Date(date) => date.trace(tracer),
             Cell::Function(function) => function.trace(tracer),
             Cell::Symbol(symbol) => symbol.trace(tracer),
             Cell::Foreign(exotic) => exotic.trace(tracer),
@@ -297,6 +321,7 @@ impl Trace for Cell {
             Cell::ArrayIterator(iterator) => iterator.footprint(),
             Cell::RegExp(regexp) => regexp.footprint(),
             Cell::Promise(promise) => promise.footprint(),
+            Cell::Date(date) => date.footprint(),
             Cell::Function(function) => function.footprint(),
             Cell::Text(text) => text.footprint(),
             Cell::Foreign(exotic) => exotic.footprint(),

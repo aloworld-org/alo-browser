@@ -53,6 +53,7 @@
 //! still rendered: a page whose script cannot run is still a page.
 
 use core::fmt;
+use std::rc::Rc;
 
 use alo_bindings::fetching::{self, Asked};
 use alo_bindings::navigating::{self, By, Ongoing};
@@ -299,8 +300,9 @@ impl Held {
 
     /// The page's event loop, making it — and moving the document into its
     /// heap, at `url`, with `document` on its global object, `navigator`
-    /// saying what `identity` says (ADR 0030 § 4) and `fetch` asking the
-    /// browser process (ADR 0032) — if no script has run yet.
+    /// saying what `identity` says (ADR 0030 § 4), `fetch` asking the
+    /// browser process (ADR 0032) and its realm told the time by `clock`
+    /// (ADR 0036 § 2) — if no script has run yet.
     ///
     /// **Called when the page's first script is about to run**, and not
     /// before: a page none of whose scripts may run never builds a heap.
@@ -314,9 +316,10 @@ impl Held {
         &mut self,
         url: &Url,
         identity: Identity<'_>,
+        clock: &Rc<dyn alo_js::Clock>,
     ) -> Result<&mut EventLoop, NoScript> {
         if let Held::Parsed(parsed) = self {
-            let mut script = EventLoop::new().map_err(NoScript::Engine)?;
+            let mut script = EventLoop::new(Rc::clone(clock)).map_err(NoScript::Engine)?;
             let taken = core::mem::take(parsed);
             let engine = script.engine();
             let made = match adopt(engine.objects(), taken) {

@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html><body><main><h1>Today</h1><p>Not yet</p><script>
+// The corpus's clock is stopped at 2026-10-09T00:00:00.000Z, a Friday
+// (alo-corpus's INSTANT, ADR 0036 § 5), so this page draws the same date on
+// every day it is rendered. Only item 80's members: the page is walked.
+const main = document.documentElement.lastChild.firstChild;
+const when = new Date();
+main.firstChild.textContent = 'Day ' + when.getDay() + ', ' + when.getHours() + ':00';
+main.firstChild.nextSibling.textContent = when.toISOString();
+</script></main></body></html>

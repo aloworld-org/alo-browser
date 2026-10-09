@@ -222,6 +222,17 @@ pub enum Missing {
     /// read, and refuse here when it is not `Promise`; a value that is not a
     /// constructor at all is still the `TypeError` the specification gives.
     APromiseOfAnotherConstructor,
+    /// A date as text, either way (queue item 357): `Date.parse`, `new
+    /// Date(string)`, `Date()` called as a function, and `toString`,
+    /// `toDateString`, `toTimeString` and `toUTCString`.
+    ///
+    /// ADR 0036 § 4 decides what they read and write — the language's own
+    /// forms, the page's zone being UTC, and nothing older — and item 357
+    /// builds them when a frozen page writes or reads a date as text. Until
+    /// then each is refused here rather than left to
+    /// `Object.prototype.toString`, whose `"[object Date]"` would be a wrong
+    /// answer that reads like a right one.
+    ADateAsText,
     /// Something an **embedder's** native reached and its embedder has not
     /// built, in the embedder's own words — which name the embedder's queue
     /// item, as every other variant names this engine's.
@@ -270,6 +281,10 @@ impl fmt::Display for Missing {
             Missing::APromiseOfAnotherConstructor => write!(
                 out,
                 "a promise made by a constructor other than Promise is queue item 337"
+            ),
+            Missing::ADateAsText => write!(
+                out,
+                "a date as text — Date.parse, new Date(string), Date() and the toString family — is queue item 357"
             ),
             Missing::InTheEmbedder(what) => out.write_str(what),
         }

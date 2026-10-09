@@ -16,11 +16,12 @@
 //! and requeues itself for ever would otherwise grow without bound until the
 //! page was stopped.
 
+use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 
 use alo_js::interpret::Trouble;
-use alo_js::{Escape, Value, script};
+use alo_js::{Escape, Fixed, Value, script};
 use alo_layout::Size;
 use alo_renderer::event_loop::{MOST_REPORTS, Stopped};
 use alo_renderer::scripts::MOST_SAID;
@@ -199,7 +200,7 @@ fn every_prefix_of_a_page_that_throws_in_a_loop_loads_within_the_ceiling() {
 
 /// A loop with this script queued, or [`None`] if one could not be made.
 fn a_loop_with(source: &str) -> Option<EventLoop> {
-    let mut looping = EventLoop::new().ok()?;
+    let mut looping = EventLoop::new(Rc::new(Fixed::at(0.0))).ok()?;
     looping.queue_script("a script", source).ok()?;
     Some(looping)
 }

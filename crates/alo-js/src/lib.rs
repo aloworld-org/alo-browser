@@ -98,12 +98,16 @@
 //! filesystem, no clock, no entropy. The one dependency is a table of Unicode
 //! properties ([`unicode`]), which reaches nothing either. Every capability a
 //! script has will arrive from the embedder, which is what makes *the browser
-//! process never runs page script* structural rather than remembered.
+//! process never runs page script* structural rather than remembered. The
+//! time is one of them (ADR 0036 § 1): `Date` is the engine's arithmetic
+//! ([`time`]), and *now* is a [`Clock`](clock::Clock) the embedder hands a
+//! realm, or none.
 
 pub mod abrupt;
 pub mod ast;
 pub mod bounds;
 pub mod builtin;
+pub mod clock;
 pub mod code;
 pub mod compile;
 pub mod convert;
@@ -124,6 +128,7 @@ pub mod realm;
 pub mod regexp;
 pub mod string;
 pub mod template;
+pub mod time;
 pub mod token;
 pub mod unicode;
 pub mod unit;
@@ -131,6 +136,7 @@ pub mod word;
 
 pub use abrupt::{Escape, Thrown};
 pub use ast::{Program, Source};
+pub use clock::{Clock, Fixed};
 pub use code::{Chunk, Op};
 pub use compile::compile;
 pub use error::{Position, Reason, SyntaxError};

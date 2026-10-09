@@ -71,6 +71,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use crate::abrupt::{Escape, Internal, Missing, Thrown};
 use crate::ast::Program;
 use crate::bounds;
+use crate::clock::Clock;
 use crate::code::{Half, Op};
 use crate::compile::{self, Refusal};
 use crate::convert::{self, Hint, Names, Primitive};
@@ -166,16 +167,40 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// An engine with an empty heap and an empty realm.
+    /// An engine with an empty heap and an empty realm, which was given no
+    /// clock: `Date.now()` and `new Date()` are a `TypeError` in it, and every
+    /// use of `Date` that needs no clock works (ADR 0036 § 1).
     ///
     /// # Errors
     ///
     /// [`Escape::Full`] if the heap cannot hold a realm, which is a heap that
     /// was full before anything ran.
     pub fn new() -> Result<Self, Escape> {
+        Self::made(None)
+    }
+
+    /// An engine whose realm is told the time by `clock` (ADR 0036 § 1): the
+    /// renderer's wall clock, or a fixed instant for a test or a corpus case.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`Engine::new`].
+    pub fn with_clock(clock: Rc<dyn Clock>) -> Result<Self, Escape> {
+        Self::made(Some(clock))
+    }
+
+    /// [`Engine::new`] or [`Engine::with_clock`].
+    fn made(clock: Option<Rc<dyn Clock>>) -> Result<Self, Escape> {
         let mut objects = Objects::new();
-        let realm = Realm::new(&mut objects)?;
-        let names = Names::new(&mut objects).map_err(|why| Escape::refused(why, 0))?;
+        let realm = Realm::new(&mut objects, clock)?;
+        // `ToPrimitive` asks the realm's `Symbol.toPrimitive` first, which the
+        // realm roots (queue item 356).
+        let to_primitive = realm
+            .intrinsics()
+            .well_known_key(&objects, crate::object::symbol::WellKnown::ToPrimitive)?;
+        let names = Names::new(&mut objects)
+            .map_err(|why| Escape::refused(why, 0))?
+            .exotic(to_primitive);
         let jobs = Jobs::new(&mut objects)?;
         let rejections = settle::Rejections::new(&mut objects)?;
         Ok(Self {

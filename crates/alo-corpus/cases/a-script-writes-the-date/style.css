@@ -1,0 +1,6 @@
+:root { --ink: #101014; --surface: #ffffff; --date: #1d4ed8 }
+body { margin: 0; background: var(--surface); color: var(--ink);
+       font-family: system-ui; font-size: 14px }
+main { padding: 8px }
+h1 { font-size: 20px; margin: 0 }
+p { margin: 8px 0 0 0; color: var(--date) }

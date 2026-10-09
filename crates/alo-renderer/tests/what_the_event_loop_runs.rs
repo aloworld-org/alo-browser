@@ -19,11 +19,12 @@
 //! a root, and a job waits inside it, and a collection between the two is
 //! exactly where either would be lost.
 
+use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 
 use alo_js::interpret::Trouble;
-use alo_js::{Escape, Ref, Value, script};
+use alo_js::{Escape, Fixed, Ref, Value, script};
 use alo_renderer::EventLoop;
 use alo_renderer::event_loop::{Report, Stopped, Turn};
 
@@ -40,7 +41,7 @@ enum Queue {
 /// A loop, collecting at every allocation if `stress`, or [`None`] if one
 /// could not be made.
 fn a_loop(stress: bool) -> Option<EventLoop> {
-    let mut looping = EventLoop::new().ok()?;
+    let mut looping = EventLoop::new(Rc::new(Fixed::at(0.0))).ok()?;
     looping.engine().objects().heap_mut().stress(stress);
     Some(looping)
 }

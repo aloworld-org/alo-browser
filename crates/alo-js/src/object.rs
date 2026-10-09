@@ -47,7 +47,8 @@
 //! ordinary object with one slot that holds nothing (item 227), and an array
 //! iterator, which is an ordinary object with a generator's state beside it
 //! (item 230), and a `RegExp`, which is an ordinary object with a compiled
-//! pattern beside it (item 74). Everything else is absent
+//! pattern beside it (item 74), and a `Date`, which is an ordinary object with
+//! a time value beside it (item 356). Everything else is absent
 //! rather than stubbed, because a stub is the one answer that defeats a page's
 //! own feature test.
 
@@ -55,6 +56,7 @@ pub mod access;
 pub mod array;
 pub mod array_iterator;
 pub mod cell;
+pub mod date;
 pub mod environment;
 pub mod function;
 pub mod intern;
@@ -81,6 +83,7 @@ pub use access::{Fault, Found, Named, Set};
 pub use array::Array;
 pub use array_iterator::ArrayIterator;
 pub use cell::Cell;
+pub use date::Date;
 pub use environment::Environment;
 pub use function::{Code, Function};
 pub use intern::Interner;
@@ -326,6 +329,34 @@ impl Objects {
             .write(held, |cell, barrier| {
                 cell.promise_mut().map(|promise| with(promise, barrier))
             })
+            .flatten()
+    }
+
+    /// Make an Invalid Date with this prototype: the object `new Date` makes
+    /// before its body works out which instant it is (queue item 356).
+    ///
+    /// **This is a safepoint**, and the prototype is the caller's to have
+    /// rooted, as [`Objects::object`]'s is.
+    ///
+    /// # Errors
+    ///
+    /// [`Refused::Full`] when the heap is at its ceiling.
+    pub fn date(&mut self, prototype: Option<Ref>) -> Result<Ref, Refused> {
+        Ok(self.heap.allocate(Cell::Date(Date::new(prototype)))?)
+    }
+
+    /// The `Date` object a reference names, or [`None`] if it names anything
+    /// else — `RequireInternalSlot(O, [[DateValue]])`.
+    pub fn as_date(&self, held: Ref) -> Option<&Date> {
+        self.heap.get(held)?.date()
+    }
+
+    /// Set a `Date` object's time value, clipped, answering [`None`] if
+    /// `held` is not one. A time value holds no reference, so nothing passes
+    /// the barrier, but the write is still the heap's.
+    pub fn set_date(&mut self, held: Ref, value: f64) -> Option<()> {
+        self.heap
+            .write(held, |cell, _| cell.date_mut().map(|date| date.set(value)))
             .flatten()
     }
 

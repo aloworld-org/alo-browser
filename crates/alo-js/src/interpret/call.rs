@@ -88,7 +88,7 @@ use std::rc::Rc;
 
 use crate::abrupt::{Escape, Internal, Missing};
 use crate::bounds;
-use crate::convert::{Hint, Primitive};
+use crate::convert::{self, Hint, Primitive};
 use crate::heap::Ref;
 use crate::object::native::{Answer, Call, Native, Want};
 use crate::object::{Code, Value};
@@ -410,6 +410,7 @@ impl Engine {
             .keeping(run.stack, waiting.kept_at(), waiting.kept)
             .within(self.realm.intrinsics())
             .hosted_by(host)
+            .timed_by(self.realm.clock())
             .stopped_by(&self.stop);
         if waiting.after == After::Construct {
             call = call.constructed();
@@ -481,7 +482,10 @@ impl Engine {
                 },
             ),
             Want::Primitive { of, hint } => {
-                self.want_primitive_for(run, place, of, hint, waiting.at)
+                self.want_primitive_for(run, place, of, hint, convert::EXOTIC, waiting.at)
+            }
+            Want::Ordinary { of, hint } => {
+                self.want_primitive_for(run, place, of, hint, convert::ORDINARY, waiting.at)
             }
             Want::Job { callee, arguments } => {
                 self.want_job_for(run, place, callee, &arguments, waiting.at)
@@ -539,7 +543,8 @@ impl Engine {
         self.answer_undefined(run, place)
     }
 
-    /// `ToPrimitive` for a builtin: the object goes in the answer slot, and the
+    /// `ToPrimitive` for a builtin — or, from [`convert::ORDINARY`],
+    /// `OrdinaryToPrimitive` — the object goes in the answer slot, and the
     /// primitive is written over it when there is one.
     fn want_primitive_for(
         &mut self,
@@ -547,6 +552,7 @@ impl Engine {
         place: usize,
         of: Value,
         hint: Hint,
+        from: usize,
         at: usize,
     ) -> Result<(), Escape> {
         if Primitive::of(of).is_some() {
@@ -560,7 +566,7 @@ impl Engine {
             .with_slots(stack, |slots, _| slots.truncate(place))
             .ok_or(Escape::Broken(Internal::StackIsWrong))?;
         self.push(run, of)?;
-        self.want_primitive(run, place, hint, 0, at, Then::Builtin)
+        self.want_primitive(run, place, hint, from, at, Then::Builtin)
     }
 
     /// `Op::Return`: the answer is on top of the stack.

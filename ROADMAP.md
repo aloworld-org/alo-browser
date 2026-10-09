@@ -870,11 +870,16 @@ unreachable without it.
       three iterators and `forEach`, `Math`, `JSON`, the wrapper objects, the `Symbol`
       function and the other eleven well-known symbols, the iterator helpers
       and the weak collections are still item 73, which is what remains of it;
-      and **`Date`**, which alo Sites' analytics script stops at: ADR 0036
-      decided its clock (queue item 353) — handed to the engine by the
-      renderer, the wall clock in whole milliseconds, and UTC until the
-      person chooses a zone. Built by item 356; a date as text is 357, and
-      the person's zone 358
+      and **`Date` as text**: ADR 0036 decided `Date` (queue item 353), and
+      item 356 built it — the engine's `Clock` and a realm given one or
+      none, ECMA-262's time arithmetic (`alo-js/src/time.rs`), the
+      constructor but from a string, `Date.now`, `Date.UTC`, every getter
+      and setter, `toISOString`, `toJSON` and `Symbol.toPrimitive`, with
+      `ToPrimitive` now asking for that symbol first; the renderer's wall
+      clock in whole milliseconds (`alo-renderer/src/clock.rs`); and the
+      corpus's one fixed instant. alo Sites' analytics script runs past it
+      and stops at `encodeURIComponent` (359). Still owed: a date as text
+      (357) and the person's zone (358)
 - [ ] Regular expressions, with the syntax the language actually has
       · Built: the engine ADR 0029 decided, in `alo-js/src/regexp/` (queue
       item 74) — the pattern parser for the whole grammar, so a bad pattern

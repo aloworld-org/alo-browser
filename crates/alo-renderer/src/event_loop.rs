@@ -112,7 +112,7 @@ use alo_bindings::Firing;
 use alo_dom::NodeId;
 use alo_js::heap::Ref;
 use alo_js::interpret::{Engine, Stop};
-use alo_js::{Escape, Thrown, Value, compile, script};
+use alo_js::{Clock, Escape, Thrown, Value, compile, script};
 
 pub use activated::Clicked;
 pub use report::Report;
@@ -237,15 +237,15 @@ pub struct EventLoop {
 
 impl EventLoop {
     /// A loop with nothing waiting, over an engine with `queueMicrotask` on its
-    /// global object.
+    /// global object, whose realm is told the time by `clock` (ADR 0036 § 2).
     ///
     /// # Errors
     ///
     /// [`Escape::Full`] if the heap cannot hold a realm, and
     /// [`Escape::Broken`] if the engine could not be given `queueMicrotask`,
     /// which is its bug.
-    pub fn new() -> Result<Self, Escape> {
-        let mut engine = Engine::new()?;
+    pub fn new(clock: Rc<dyn Clock>) -> Result<Self, Escape> {
+        let mut engine = Engine::with_clock(clock)?;
         microtask::install(&mut engine)?;
         let stop = engine.stop();
         Ok(Self {

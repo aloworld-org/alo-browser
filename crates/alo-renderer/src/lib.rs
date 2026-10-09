@@ -24,7 +24,10 @@
 //!   handle to call back through, and nowhere to wait.
 //! - **Nothing ambient.** Everything a renderer needs arrives in the message
 //!   or in its constructor. Two renderers built the same way and sent the same
-//!   messages answer the same way.
+//!   messages answer the same way — with one exception, written down: the
+//!   time a page reads is the machine's wall clock ([`clock`], ADR 0036 § 2),
+//!   and a renderer that must answer the same way every time, as a corpus
+//!   case does, is handed a fixed one instead ([`Renderer::told_the_time_by`]).
 //! - **Everything crossing is a value that could be sent.** Every message type
 //!   is owned, `Clone` and `Send + 'static` — no borrows, no lifetimes, no
 //!   pointers into somebody else's tree. That is the property that makes a
@@ -45,6 +48,7 @@
 
 pub mod answers;
 pub mod ask;
+pub mod clock;
 mod deliver;
 pub mod drawings;
 pub mod event_loop;

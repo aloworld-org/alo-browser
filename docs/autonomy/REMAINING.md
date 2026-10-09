@@ -990,3 +990,15 @@ build is cut as 356 (`Date` with a clock; depends on nothing open, eligible
 and next), 357 (a date as text; waits for a page) and 358 (the person's
 zone; on settings, 128). 353 closes when 356 does. 152 queue items are
 open. The next unused queue number is 359 and the next unused ADR 0037.
+
+Iteration 230 built item 356, and with it closed 353: `alo-js` is handed a
+`Clock` (or none, and refuses by name), does ECMA-262's time arithmetic in
+`f64`, and has `Date` but for text — the constructor, `now`, `UTC`, the
+getters and setters, `toISOString`, `toJSON` and `Symbol.toPrimitive`,
+which `ToPrimitive` now asks for first. The renderer reads the wall clock
+in whole milliseconds; the corpus loads every case at one fixed instant
+(`INSTANT`), and `a-script-writes-the-date` draws it. alo Sites' analytics
+script stops next at `encodeURIComponent`, opened as 359 (depends on
+nothing open, eligible and next). 357 waits for a page, 358 for settings.
+151 queue items are open. The next unused queue number is 360 and the next
+unused ADR 0037.

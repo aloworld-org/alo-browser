@@ -31,6 +31,8 @@
 //! it and committed that way, so the frozen file nobody asked for is refused
 //! by name instead.
 
+use std::rc::Rc;
+
 use alo_dom::Document;
 use alo_dom::scripts::{Carried, carried};
 use alo_layout::Size;
@@ -71,7 +73,8 @@ impl Rendering {
                 &case.resources,
             ))));
         }
-        let mut renderer = Renderer::new(crate::corpus_fonts());
+        let mut renderer = Renderer::new(crate::corpus_fonts())
+            .told_the_time_by(Rc::new(alo_js::Fixed::at(crate::INSTANT)));
         let mut page = Page::new(case.html.clone(), size).with_sheet(case.css.clone());
         page.user_agent = crate::SYSTEM.user_agent();
         crate::SYSTEM.platform.clone_into(&mut page.platform);

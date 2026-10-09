@@ -97,7 +97,7 @@ pub(crate) enum After {
 /// converted is named by *where it is on the stack* rather than held here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Converting {
-    /// Which of the two calls is outstanding.
+    /// Which call is outstanding.
     pub(crate) step: Step,
     /// Where the object being converted is in the stack — and where its
     /// primitive is written when there is one, so that the instruction reading
@@ -128,7 +128,7 @@ pub(crate) enum Then {
     Builtin,
 }
 
-/// Which of a conversion's two kinds of call is outstanding.
+/// Which of a conversion's four kinds of call is outstanding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Step {
     /// A getter was called to *find* the method, so what it answers **is** the
@@ -137,6 +137,13 @@ pub(crate) enum Step {
     /// The method itself was called, so what it answers is the primitive, or is
     /// an object and the search carries on.
     Calling,
+    /// A getter was called to find the `Symbol.toPrimitive` method (queue item
+    /// 356): `undefined` or `null` means there is none and the search carries
+    /// on at `OrdinaryToPrimitive`'s first name.
+    FetchingExotic,
+    /// The `Symbol.toPrimitive` method was called, so what it answers is the
+    /// primitive — and an object is a `TypeError`, with no other name to try.
+    CallingExotic,
 }
 
 /// One program, with its constants made and its keys interned.

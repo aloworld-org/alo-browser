@@ -12,7 +12,11 @@
 //!
 //! # Nothing ambient
 //!
-//! Everything a renderer needs arrives in a message or in [`Renderer::new`].
+//! Everything a renderer needs arrives in a message or in [`Renderer::new`],
+//! but for one thing it reads itself: the time a page's `Date` reads, which
+//! is the machine's wall clock in whole milliseconds ([`crate::clock`], ADR
+//! 0036 § 2). A renderer that must draw the same on every day — a corpus
+//! case's — is handed a fixed clock ([`Renderer::told_the_time_by`]).
 //! Fonts are the interesting case: a sandboxed renderer cannot open a font
 //! file, so in the split they are handed to it by the browser process. They
 //! are a constructor argument here for that reason rather than for tidiness.
@@ -72,7 +76,10 @@
 //! What is not here yet is the loop running between messages — a task a
 //! page queues for itself has no idle moment to run in (queue item 233).
 
+use std::rc::Rc;
+
 use crate::ask;
+use crate::clock::WallClock;
 use crate::deliver::deliver;
 use crate::event_loop::EventLoop;
 use crate::face::Face;
@@ -132,6 +139,9 @@ pub struct Renderer {
     /// Whether a sheet arrived since the page was last drawn, which changes
     /// its rendering without changing its document.
     restyle: bool,
+    /// What every page's realm is told the time by: the machine's wall clock
+    /// (ADR 0036 § 2), unless the renderer was made with another.
+    clock: Rc<dyn alo_js::Clock>,
 }
 
 impl Renderer {
@@ -149,7 +159,17 @@ impl Renderer {
             metas: alo_net::Policies::none(),
             linked: Linked::new(),
             restyle: false,
+            clock: Rc::new(WallClock),
         }
+    }
+
+    /// The same renderer, whose pages read the time from `clock` rather than
+    /// the machine's wall clock: a fixed instant, so that a corpus case or a
+    /// test draws the same pixels on every day it is run (ADR 0036 § 5).
+    #[must_use]
+    pub fn told_the_time_by(mut self, clock: Rc<dyn alo_js::Clock>) -> Self {
+        self.clock = clock;
+        self
     }
     /// Take a font the browser process handed over.
     ///
@@ -484,7 +504,14 @@ impl Renderer {
         let mut held = Held::Parsed(document);
         let mut said = Vec::new();
         let mut objections = Vec::new();
-        let policies = scripts::at_load(&mut held, &mut parsing, &page, &mut said, &mut objections);
+        let policies = scripts::at_load(
+            &mut held,
+            &mut parsing,
+            &page,
+            &self.clock,
+            &mut said,
+            &mut objections,
+        );
         self.under = Page::policies_of(&policies);
         // The header policies come first, and every policy after them is a
         // `<meta>`'s ([`scripts::at_load`]).

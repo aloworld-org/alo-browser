@@ -28,6 +28,14 @@
 //! Before this, every one of these functions had an object arm that answered
 //! *this is not built yet*, and the arm was reachable from a dozen operators.
 //!
+//! # `Symbol.toPrimitive` is asked first
+//!
+//! `ToPrimitive` on an object asks for its `Symbol.toPrimitive` method before
+//! either of `OrdinaryToPrimitive`'s names, calls it with the hint as a string,
+//! and takes what it answers as final (queue item 356). No page can spell the
+//! symbol yet — the `Symbol` function is item 73's — but `Date.prototype` has
+//! one, and it is why `date + ''` is a date's text rather than its number.
+//!
 //! # The names the engine needs are interned once
 //!
 //! Interning a name allocates, and allocating is a safepoint (ADR 0014 § 2), so
@@ -87,45 +95,80 @@ impl Primitive {
 /// The property names the engine itself has to be able to ask for.
 ///
 /// Rooted for as long as the engine is, because a [`Key`] is a reference to the
-/// string that spells it and this engine may be the only thing holding it.
+/// string that spells it and this engine may be the only thing holding it. The
+/// three hints `Symbol.toPrimitive` is called with are spelled once here too,
+/// for the same reason and so that calling it allocates nothing.
 #[derive(Debug)]
 pub struct Names {
     value_of: Key,
     to_string: Key,
+    /// `Symbol.toPrimitive`, once the realm that made it has said so
+    /// ([`Names::exotic`]). A symbol is rooted by its realm.
+    to_primitive: Option<Key>,
+    /// `"default"`, `"number"` and `"string"`, in [`Hint`]'s order.
+    hints: [Key; HINTS],
     /// The roots that keep the strings above alive. Never released: they live
     /// as long as the engine does, and the heap goes with it.
     _held: Vec<Root>,
 }
+
+/// How many hints there are.
+const HINTS: usize = 3;
 
 impl Names {
     /// Intern them, and root them.
     ///
     /// # Errors
     ///
-    /// [`Refused`] if the heap cannot hold two short strings, which is a heap
+    /// [`Refused`] if the heap cannot hold five short strings, which is a heap
     /// that was full before anything ran.
     pub fn new(objects: &mut Objects) -> Result<Self, Refused> {
-        let value_of = objects.key(&units("valueOf"))?;
-        let to_string = objects.key(&units("toString"))?;
-        let held = [value_of, to_string]
-            .iter()
-            .filter_map(|key| key.reference())
-            .map(|held| objects.heap_mut().root(held))
-            .collect();
+        let mut held = Vec::new();
+        let mut keyed = |objects: &mut Objects, name: &str| -> Result<Key, Refused> {
+            let key = objects.key(&units(name))?;
+            if let Some(reference) = key.reference() {
+                held.push(objects.heap_mut().root(reference));
+            }
+            Ok(key)
+        };
+        let value_of = keyed(objects, "valueOf")?;
+        let to_string = keyed(objects, "toString")?;
+        let hints = [
+            keyed(objects, "default")?,
+            keyed(objects, "number")?,
+            keyed(objects, "string")?,
+        ];
         Ok(Self {
             value_of,
             to_string,
+            to_primitive: None,
+            hints,
             _held: held,
         })
     }
 
+    /// The same names, with `Symbol.toPrimitive` asked before both (queue item
+    /// 356). The key is a realm's well-known symbol, which the realm roots.
+    #[must_use]
+    pub const fn exotic(mut self, to_primitive: Key) -> Self {
+        self.to_primitive = Some(to_primitive);
+        self
+    }
+
+    /// The string a `Symbol.toPrimitive` method is handed for `hint`: one of
+    /// `"default"`, `"number"` and `"string"`, rooted here.
+    pub fn hint_text(&self, hint: Hint) -> Value {
+        let [default, number, string] = self.hints;
+        let key = match hint {
+            Hint::Default => default,
+            Hint::Number => number,
+            Hint::String => string,
+        };
+        key.as_text().map_or(Value::Undefined, Value::Text)
+    }
+
     /// The two names `OrdinaryToPrimitive` tries, in the order this hint asks
     /// for.
-    ///
-    /// `Symbol.toPrimitive` comes before both in the specification and is a
-    /// well-known symbol, which arrives with the builtins (queue item 73).
-    /// Until then no object can have one, because a script cannot spell the
-    /// symbol.
     const fn order(&self, hint: Hint) -> [Key; ORDER] {
         match hint {
             Hint::String => [self.to_string, self.value_of],
@@ -137,11 +180,24 @@ impl Names {
 /// How many names a conversion tries before it gives up.
 const ORDER: usize = 2;
 
+/// Where a conversion begins: `Symbol.toPrimitive`, which `ToPrimitive` asks
+/// before either of `OrdinaryToPrimitive`'s names (queue item 356).
+pub const EXOTIC: usize = 0;
+
+/// Where `OrdinaryToPrimitive` begins: its first name, past
+/// `Symbol.toPrimitive`. A conversion that found no `Symbol.toPrimitive`
+/// carries on from here, and so does `Date.prototype[Symbol.toPrimitive]`,
+/// whose last step is `OrdinaryToPrimitive` itself.
+pub const ORDINARY: usize = 1;
+
 /// What turning an object into a primitive needs the interpreter to call.
 ///
-/// Two shapes rather than one because the method may itself be behind an
-/// accessor: `valueOf` is usually a value on a prototype, and it is allowed to
-/// be a getter, in which case *finding* it is a call before *calling* it is.
+/// Two shapes for each kind of method rather than one, because the method may
+/// itself be behind an accessor: `valueOf` is usually a value on a prototype,
+/// and it is allowed to be a getter, in which case *finding* it is a call
+/// before *calling* it is. And two kinds, because a `Symbol.toPrimitive`
+/// method is handed the hint and its answer is final, where `valueOf` and
+/// `toString` are handed nothing and an object from one moves the search on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Wanted {
     /// Call this method with the object as its receiver. If what it answers is
@@ -162,20 +218,40 @@ pub enum Wanted {
         /// Where the search carries on if what it answers is not callable.
         next: usize,
     },
+    /// Call this `Symbol.toPrimitive` method with the object as its receiver
+    /// and the hint's string as its one argument. What it answers is the
+    /// primitive, and an object is a `TypeError`: there is no second name to
+    /// try (queue item 356).
+    Exotic {
+        /// The method to call.
+        method: Ref,
+    },
+    /// Call this getter with the object as its receiver: whatever it answers is
+    /// the `Symbol.toPrimitive` method — `undefined` and `null` meaning there is
+    /// none, so the search carries on at [`ORDINARY`], and anything else not
+    /// callable a `TypeError`.
+    FetchExotic {
+        /// The getter to call.
+        getter: Ref,
+    },
 }
 
-/// `OrdinaryToPrimitive`, as far as the next thing that has to be called.
+/// `ToPrimitive` on an object, as far as the next thing that has to be called:
+/// `Symbol.toPrimitive` first, and then `OrdinaryToPrimitive`.
 ///
-/// `from` is where to start, which is `0` for a conversion that has not begun
-/// and the `next` of a previous answer for one that has: a method that answered
-/// with an object has not converted anything, and the specification's rule is
-/// to try the *other* name rather than to throw or to ask the same one again.
+/// `from` is where to start, which is [`EXOTIC`] for a conversion that has not
+/// begun, [`ORDINARY`] for one that has found no `Symbol.toPrimitive` — or that
+/// is `OrdinaryToPrimitive` itself — and the `next` of a previous answer for one
+/// that has: a method that answered with an object has not converted anything,
+/// and the specification's rule is to try the *other* name rather than to throw
+/// or to ask the same one again.
 ///
 /// # Errors
 ///
-/// A `TypeError` when neither name is callable — which is the answer the
-/// specification gives for `Object.create(null) + ""` — and a fault for a
-/// prototype chain this engine has lost.
+/// A `TypeError` when `Symbol.toPrimitive` is there and is not a function, and
+/// when neither name is callable — which is the answer the specification gives
+/// for `Object.create(null) + ""` — and a fault for a prototype chain this
+/// engine has lost.
 pub fn primitive_of(
     objects: &Objects,
     names: &Names,
@@ -184,8 +260,38 @@ pub fn primitive_of(
     from: usize,
     at: usize,
 ) -> Result<Wanted, Escape> {
-    for (which, key) in names.order(hint).into_iter().enumerate().skip(from) {
-        let next = which.saturating_add(1);
+    if from == EXOTIC
+        && let Some(key) = names.to_primitive
+    {
+        // `GetMethod(input, @@toPrimitive)`: `undefined` and `null` are none.
+        match objects.get(object, key)? {
+            Found::Missing
+            | Found::Value(Value::Undefined | Value::Null)
+            | Found::Getter(Value::Undefined) => {}
+            Found::Value(value) => {
+                return function_of(objects, value)
+                    .map(|method| Wanted::Exotic { method })
+                    .ok_or_else(|| {
+                        Escape::type_error("this object's Symbol.toPrimitive is not a function", at)
+                    });
+            }
+            Found::Getter(getter) => {
+                let Some(getter) = function_of(objects, getter) else {
+                    return Err(Escape::type_error(
+                        "the getter for Symbol.toPrimitive is not a function",
+                        at,
+                    ));
+                };
+                return Ok(Wanted::FetchExotic { getter });
+            }
+        }
+    }
+    for (which, key) in names.order(hint).into_iter().enumerate() {
+        let index = which.saturating_add(ORDINARY);
+        if index < from {
+            continue;
+        }
+        let next = index.saturating_add(1);
         match objects.get(object, key)? {
             // Not there — or there as an accessor with no getter, which reads
             // as `undefined` and is therefore not callable either.
@@ -456,7 +562,7 @@ mod tests {
             primitive_of(&objects, &names, held, Hint::Number, 0, 0),
             Ok(Wanted::Call {
                 method: function,
-                next: 1
+                next: 2
             })
         );
         // A hint decides the order, so the same object asked for a string looks
@@ -465,12 +571,12 @@ mod tests {
             primitive_of(&objects, &names, held, Hint::String, 0, 0),
             Ok(Wanted::Call {
                 method: function,
-                next: 2
+                next: 3
             })
         );
         // Carrying on past the last name is the same `TypeError`, which is what
         // stops a method that keeps answering with an object from looping.
-        assert!(primitive_of(&objects, &names, held, Hint::Number, 2, 0).is_err());
+        assert!(primitive_of(&objects, &names, held, Hint::Number, 3, 0).is_err());
     }
 
     #[test]

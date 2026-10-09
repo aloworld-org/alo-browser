@@ -20,8 +20,10 @@
 //! of flow and off the page until it is focused. Until queue item 352 it
 //! was drawn in a line at the top left, pushing the section down by that
 //! line; this says it no longer is. And it pins where the page's analytics
-//! script stops, at `Date` on its third line (queue item 353), which
-//! changes nothing drawn.
+//! script stops, which changes nothing drawn: past `Date.now()` on its third
+//! line since queue item 356 gave the corpus a clock stopped at
+//! [`alo_corpus::INSTANT`], and at `encodeURIComponent` on its eighth (queue
+//! item 359).
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
@@ -91,14 +93,15 @@ fn its_sheet_is_asked_for_and_answered_from_what_was_frozen() {
     // The sheet's task said nothing: it arrived.
     assert!(answered.issues.is_empty(), "{:?}", answered.issues);
     // What the load said: its first draw was before the sheet's answer and
-    // said so truly; and the analytics script stops at its third line, which
-    // is queue item 353. Nothing else.
+    // said so truly; and the analytics script runs past `Date.now()` on its
+    // third line (queue item 356) and stops at its eighth, which is queue
+    // item 359. Nothing else.
     assert_eq!(
         answered.loaded,
         [
             "no style sheet was loaded for \"/assets/site.css\"",
-            "script 1: uncaught: ReferenceError: 'Date' is not defined (at script 1, line 3, \
-             column 15; called from script 1, line 1, column 1)",
+            "script 1: uncaught: ReferenceError: 'encodeURIComponent' is not defined (at script 1, \
+             line 8, column 22; called from script 1, line 1, column 1)",
         ]
     );
     let origin = std::fs::read_to_string(case.expectation("origin.txt")).unwrap_or_default();

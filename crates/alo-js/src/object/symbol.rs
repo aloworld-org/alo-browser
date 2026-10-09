@@ -14,11 +14,13 @@
 //! # The ones the language names, and the ones it does not yet
 //!
 //! A well-known symbol is one of these, made once and rooted by the realm that
-//! owns it — not a change to what a symbol is. [`WellKnown`] names the three
+//! owns it — not a change to what a symbol is. [`WellKnown`] names the four
 //! this engine makes: `Symbol.iterator`, which `for…of` calls, and
 //! `Symbol.toStringTag`, which `Object.prototype.toString` reads (queue item
-//! 230); and `Symbol.species`, which a promise's `then` reads to learn what
-//! to make (queue item 333). The other ten, the `Symbol` function that would let a page name any of
+//! 230); `Symbol.species`, which a promise's `then` reads to learn what
+//! to make (queue item 333); and `Symbol.toPrimitive`, which `ToPrimitive`
+//! asks before anything else and `Date.prototype` answers (queue item 356).
+//! The other nine, the `Symbol` function that would let a page name any of
 //! them, and the cross-realm registry behind `Symbol.for` are queue item 73's.
 
 use crate::heap::{Field, Ref, Tracer};
@@ -59,7 +61,7 @@ impl Symbol {
 
 /// A symbol the language itself names, made once per realm (queue item 230).
 ///
-/// Only the two something here reads. Each is a key on an intrinsic, and the
+/// Only the four something here reads. Each is a key on an intrinsic, and the
 /// realm's [`Intrinsics`](crate::builtin::Intrinsics) hold one of each,
 /// rooted, for as long as the realm lives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,14 +74,18 @@ pub enum WellKnown {
     /// `Symbol.species`: the constructor a method that makes a new object of
     /// its receiver's kind makes it with (`SpeciesConstructor`).
     Species,
+    /// `Symbol.toPrimitive`: the method `ToPrimitive` calls before
+    /// `valueOf` and `toString`, which `Date.prototype` has (queue item 356).
+    ToPrimitive,
 }
 
 impl WellKnown {
     /// Every one, in the order a realm makes them.
-    pub const ALL: [WellKnown; 3] = [
+    pub const ALL: [WellKnown; 4] = [
         WellKnown::Iterator,
         WellKnown::ToStringTag,
         WellKnown::Species,
+        WellKnown::ToPrimitive,
     ];
 
     /// Where it is in [`WellKnown::ALL`].
@@ -88,6 +94,7 @@ impl WellKnown {
             WellKnown::Iterator => 0,
             WellKnown::ToStringTag => 1,
             WellKnown::Species => 2,
+            WellKnown::ToPrimitive => 3,
         }
     }
 
@@ -97,6 +104,7 @@ impl WellKnown {
             WellKnown::Iterator => "Symbol.iterator",
             WellKnown::ToStringTag => "Symbol.toStringTag",
             WellKnown::Species => "Symbol.species",
+            WellKnown::ToPrimitive => "Symbol.toPrimitive",
         }
     }
 }

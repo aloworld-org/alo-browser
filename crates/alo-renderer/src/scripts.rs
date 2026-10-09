@@ -101,6 +101,8 @@
 //! not come and the tab says what happened ([`crate::answers`]) — the bound
 //! that already holds for a renderer that stops answering for any reason.
 
+use std::rc::Rc;
+
 use alo_dom::scripts::{Kind, Script, Source, prepared, stated};
 use alo_dom::{Parsing, Reached};
 use alo_net::csp::{Content, Inline, Placement};
@@ -169,7 +171,8 @@ impl Said {
 /// scripts as the parser reaches its end tag, moving the document into the
 /// page's heap before the first of them runs; with everything that did not
 /// run or did not finish added to `issues`, and every header policy's
-/// objection to a script written into the page added to `objections`.
+/// objection to a script written into the page added to `objections`. The
+/// page's realm, once made, is told the time by `clock` (ADR 0036 § 2).
 ///
 /// Answers the text of every enforced policy the page holds at its end —
 /// its headers', then each `<meta>` policy the parser made — which the
@@ -179,6 +182,7 @@ pub(crate) fn at_load(
     held: &mut Held,
     parsing: &mut Parsing,
     page: &Page,
+    clock: &Rc<dyn alo_js::Clock>,
     issues: &mut Vec<String>,
     objections: &mut Vec<Objection>,
 ) -> Vec<String> {
@@ -254,7 +258,7 @@ pub(crate) fn at_load(
                 continue;
             }
         };
-        if let Err(why) = held.scripted(&page.url, page.identity()) {
+        if let Err(why) = held.scripted(&page.url, page.identity(), clock) {
             said.script(number, &format!("not run: {why}"));
             ended = true;
             continue;

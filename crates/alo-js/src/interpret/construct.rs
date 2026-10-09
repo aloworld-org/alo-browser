@@ -211,6 +211,7 @@ impl Engine {
             Instance::Error => self.objects.error(Some(above)),
             Instance::Made(make) => self.objects.foreign(make(Some(above))),
             Instance::Promise => self.objects.promise(Some(above)),
+            Instance::Date => self.objects.date(Some(above)),
         }
         .map_err(|why| Escape::refused(why, at))?;
         self.write_at(run, callee_at.saturating_add(1), Value::Object(made))

@@ -21819,3 +21819,195 @@ third gave a result.
 152 queue items are open: 356, 357 and 358 added, and 353 still open. The
 next unused queue number is **359** and the next ADR is **0037**. This is
 one iteration, not a finished queue or roadmap.
+
+## Iteration 230 — queue item 356 built: `Date`, with a clock (and 353 closed)
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`,
+iteration 229's entry, and queue items 347–358. No `AGENTS.md` exists in
+this repository. Iteration 229 named 356 as eligible and next. Nothing
+earlier in the queue is eligible: 354, 355 and 357 wait for pages, 351
+needs design, 358 waits for settings, and the rest are as iteration 226
+listed them. For the build I read:
+- ADR 0036 in full: the clock, the grain, the zone, text, fixed clocks;
+- ADR 0031: slots, the step and the bound of eight;
+- ADR 0013 §§ 3–5 and ADR 0014 § 2: precise roots and stress;
+- the feature line, `docs/features.md`' *ECMAScript standard library*;
+- `alo-sites-cta`'s script;
+- `alo-js`'s realm, builtins, `Promise` (as the pattern for a cell kind
+  and a constructor), `convert.rs` and `interpret/primitive.rs`;
+- `alo-renderer`'s `EventLoop`, `Held::scripted`, `scripts::at_load` and
+  `Renderer`;
+- `alo-corpus`'s `rendering.rs`.
+
+**What was built.**
+- `alo-js`, the clock and the realm:
+  - `clock.rs`: the `Clock` trait, and `Fixed`, an instant that never
+    moves.
+  - `Engine::with_clock(Rc<dyn Clock>)`. `Engine::new` makes a realm with
+    no clock.
+  - The realm holds the clock, and the interpreter hands it to every
+    builtin. `Call::now` answers through `TimeClip`. Without a clock it
+    throws the `TypeError` "this realm was given no clock, so it cannot
+    say what time it is".
+- `alo-js`, the arithmetic and the cell:
+  - `time.rs`: ECMA-262 § 21.4.1, named as the specification names it and
+    all in `f64`. `LocalTZA` is one constant, zero (ADR 0036 § 3), so item
+    358 changes `local_time` and `utc` and nothing else.
+  - `MakeDay` answers `NaN` past year 10¹³, where its count of days would
+    round. The reason is written beside the bound.
+  - `object/date.rs`: the `[[DateValue]]` cell (`Cell::Date`,
+    `Instance::Date`, `Objects::date`, `as_date`, `set_date`). It is
+    always clipped.
+- `alo-js`, the builtins, one file each:
+  - `date.rs`: the constructor in every form but a string; `now`; `UTC`;
+    `parse`, which is refused.
+  - `date_numbers.rs`: converts each argument with `ToNumber` once, in
+    order, into ADR 0031's slots. The argument's index rides in the step,
+    bounded at six.
+  - `date_prototype.rs`: 16 getters, `getTime`, `valueOf`,
+    `getTimezoneOffset` and `toISOString`. The `toString` family is
+    refused after the brand check.
+  - `date_set.rs`: 14 setters and `setTime`. The time value is read
+    before any argument runs script, and kept. An Invalid Date read first
+    answers `NaN` and is not written over. `setFullYear` starts from +0.
+  - `date_convert.rs`: `toJSON`, and `[Symbol.toPrimitive]`, which is not
+    writable.
+  - `Missing::ADateAsText` names item 357. `Object.prototype.toString`
+    says `[object Date]`.
+- **`ToPrimitive` now asks for `Symbol.toPrimitive` first.** This was
+  needed and is not in the ADR's text, so it is said here.
+  - Without it, `date + ''` would answer the date's number, a wrong answer
+    that reads like a right one.
+  - `convert.rs`: `Wanted::Exotic` and `Wanted::FetchExotic`, and `Names`
+    roots the symbol's key and the three hint strings, so no call
+    allocates.
+  - `interpret/primitive.rs`: `CallingExotic` and `FetchingExotic`. An
+    object answered is a `TypeError`, and a getter answering `undefined`
+    or `null` goes on to the ordinary search.
+  - `Want::Ordinary` is `OrdinaryToPrimitive` alone, which the method's
+    last step asks for.
+  - `Symbol.toPrimitive` is a fourth well-known symbol. No page can spell
+    it yet (item 73).
+- `alo-renderer`:
+  - `clock.rs`'s `WallClock`: the machine's wall clock, floored to a
+    millisecond. It answers `NaN` before 1970 or past 8.64 × 10¹⁵. The
+    arithmetic is on integers until the value is known to fit.
+  - The clock reaches every realm through `EventLoop::new(clock)`,
+    `Held::scripted` and `scripts::at_load`.
+  - `Renderer::told_the_time_by` hands in another clock. *Nothing ambient*
+    in `lib.rs` and `renderer.rs` now names this one exception (ADR 0036
+    § 2).
+- `alo-corpus`:
+  - `INSTANT`: 2026-10-09T00:00:00.000Z, named once with its reason, for
+    every loaded case. It needed a path dependency on `alo-js`, which is
+    ours, not rented.
+  - A new case, `a-script-writes-the-date`. Its script writes "Day 5,
+    0:00" and `2026-10-09T00:00:00.000Z` into its own heading and
+    paragraph.
+
+**What the render shows.**
+- `alo-sites-cta`'s script runs past `Date.now()` on line 3 and stops at
+  `encodeURIComponent` on line 8 ("ReferenceError: 'encodeURIComponent' is
+  not defined"). That is opened as **359**. No pixel of that case moved.
+- The new case: the heading is at (8, 8), 224 × 23.28, and the paragraph
+  at (8, 39.28), 224 × 16.30. Its text is 193.55 wide, blue as its sheet
+  says. I checked the numbers against the sheet and looked at the PNG.
+
+**Tests.**
+- `alo-js`'s `what_a_date_is.rs` (12 tests, each program run ordinarily
+  and under `Heap::stress`):
+  - a realm with no clock refuses `Date.now()`, `new Date()` and `Date()`,
+    and still does arithmetic;
+  - a fixed clock answers the same instant in every run;
+  - every getter;
+  - **both ends of the range and one past them**, through getters,
+    setters, `Date.UTC` and `setTime`;
+  - each argument converted once, in order;
+  - setters work from the value they read first;
+  - the brand check comes before any conversion;
+  - `toISOString`'s `RangeError`, and `toJSON`;
+  - a date as a number and as text;
+  - what is refused, and Annex B absent;
+  - hostile numbers.
+- `alo-js`'s `what_to_primitive_asks_first.rs`: every shape of
+  `Symbol.toPrimitive` an embedder can make (a method, a non-function,
+  `undefined`, `null`, and a getter answering each), also under stress.
+- Unit tests: `time.rs` (11: the epoch, −1 ms, both ends, one past,
+  `TimeClip`, leap years, carrying, today, six-digit years, hostile
+  input, a far year brought back), `object/date.rs`, `clock.rs`, and
+  `alo-renderer`'s `clock.rs` (floored, within the machine's own reading,
+  `NaN` out of range, never a panic).
+- `alo-corpus`: `a_script_writes_the_date.rs` ties `INSTANT` to the drawn
+  text, twice. `alo_sites_cta.rs` now pins line 8.
+- Updated for the new signatures: two `EventLoop` tests and
+  `a_dispatch_from_the_browser.rs`, each handed a `Fixed` clock that
+  nothing in them reads.
+
+**Checked by mutation**, each restored from a scratchpad copy:
+- `ToPrimitive` skipping the symbol failed the hint test.
+- A setter re-reading its date instead of the kept value failed the
+  kept-value test (88200000 where 1800000 is right).
+
+**A mistake, recovered.** I first undid the `ToPrimitive` mutation with
+`git checkout`, which reverted the file to `HEAD` and dropped this
+iteration's edits to it. I had taken a copy before mutating, restored that,
+and checked that the exotic path was back. Every later mutation was
+restored from a copy.
+
+**Gate, mechanical.** The touched crates' suites passed first:
+`cargo test -p alo-js -p alo-bindings -p alo-corpus --no-fail-fast`, 62
+runs, all ok. Then the gate, detached with `nohup`, logging to a file
+ending `exit $?`, and polled in this same turn.
+- I stopped the first gate run myself after about a minute, before it
+  answered. `valueOf` shared `getTime`'s body, so its brand message named
+  the wrong method. That is now fixed, with a test.
+- **The second run:** `exit 0` and "The gate is met":
+  - fmt clean, clippy silent, tests pass;
+  - no stubs, `unsafe` forbidden, the licence on every file;
+  - every rented crate behind its boundary, no verb takes a coordinate;
+  - the supervisor's stop rule holds, and `CHANGELOG.md` changed.
+
+**Gate, manual.**
+- Layout assertion: the new case's `layout.txt` is committed in numbers,
+  and its test asserts the drawn text. Nothing else positions or sizes.
+- Reference render: `cases/a-script-writes-the-date/render.png` is new.
+  No other case's reference moved. `alo-window`'s references compose
+  `alo-offline`, which is unchanged.
+- Hostile input: no bytes from outside are read. Hostile *numbers* (1e300,
+  `f64::MAX`, ±∞, `NaN`) are tested in `time.rs` and in scripts. Every
+  bound is a loop of at most four steps or a constant.
+- One responsibility per file:
+  - the clock, the arithmetic and the cell are three files;
+  - `Date` is five: making it, converting its arguments, reading a date,
+    changing one, converting one;
+  - the renderer's clock is one file.
+  - `convert.rs` and `primitive.rs` still each do one job: turning a
+    value into a primitive, and that conversation with the script.
+- The feature is in `docs/features.md`. No `unsafe`, no rented
+  dependency. `alo-workplace` was not touched.
+
+**Owed, and why.** ADR 0036 § 5 asks `alo-bindings`' tests to read a fixed
+clock "likewise". None of them reads a date, so none was given one. A
+realm without a clock refuses a date by name, so a future test that reads
+one cannot get a made-up time silently.
+
+**Roadmap.** The standard-library line under stage 2's JavaScript heading
+now says that `Date` is built, with the files that build it and that
+`ToPrimitive` asks for the symbol. What is owed is a date as text (357) and
+the person's zone (358). The line is not ticked. `docs/features.md`,
+`docs/conformance.md` (alo Sites' row), `CHANGELOG.md` and `REMAINING.md`
+are updated.
+
+**Queue.** 356 and 353 are ticked, with Done paragraphs. **359**
+(`encodeURIComponent`, cut from 73) depends on nothing open, is eligible,
+and is next.
+
+**Unresolved obligations.**
+- 357 waits for a page, and 358 for settings (128).
+- 351 still needs design.
+- 354 and 355 wait for pages.
+- Everything iteration 226 listed still stands.
+
+151 queue items are open: 353 and 356 closed, 359 added. The next unused
+queue number is **360** and the next ADR is **0037**. This is one
+iteration, not a finished queue or roadmap.

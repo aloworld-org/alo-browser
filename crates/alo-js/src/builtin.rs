@@ -43,6 +43,12 @@
 //! three functions only the engine calls — the two jobs a promise queues and
 //! the one resolve procedure. Its combinators are item 75's.
 //!
+//! `Date` (`date` and its four siblings, queue item 356, ADR 0036) is the
+//! third: the constructor, `Date.now`, `Date.UTC`, the getters and setters,
+//! `toISOString`, `toJSON` and `Symbol.toPrimitive`. Its arithmetic is
+//! [`time`](crate::time)'s and its *now* is the realm's clock. A date as
+//! text is item 357's, and refused by name.
+//!
 //! # A well-known symbol is an intrinsic too
 //!
 //! `Symbol.iterator` is a key on `Array.prototype` and `%IteratorPrototype%`,
@@ -66,12 +72,17 @@
 //! (item 323). No `Array` constructor and no array method but the three
 //! iterators and `forEach`, no
 //! `Math`, `JSON`, `String`, `Number` or `Boolean`, no `AggregateError` (queue
-//! item 229), no `Symbol` and ten of the thirteen well-known symbols, and no
+//! item 229), no `Symbol` and nine of the thirteen well-known symbols, and no
 //! weak collections. Each is named in the queue rather than half-built here.
 
 pub mod array_iterator;
 mod array_like;
 pub mod array_prototype;
+mod date;
+mod date_convert;
+mod date_numbers;
+mod date_prototype;
+mod date_set;
 pub mod error;
 mod for_each;
 pub mod function_prototype;
@@ -116,6 +127,8 @@ pub struct Intrinsics {
     /// `Promise`, its prototype and the functions only the engine calls
     /// (queue item 333).
     promise: promise::Made,
+    /// `Date` and its prototype (queue item 356).
+    date: date::Made,
 }
 
 impl Intrinsics {
@@ -194,6 +207,12 @@ impl Intrinsics {
                 to_string_tag: symbol_key(objects, &symbols, WellKnown::ToStringTag)?,
             },
         )?;
+        let date = date::make(
+            objects,
+            above,
+            functions,
+            symbol_key(objects, &symbols, WellKnown::ToPrimitive)?,
+        )?;
 
         let intrinsics = Self {
             object: object_prototype,
@@ -205,6 +224,7 @@ impl Intrinsics {
             array_iterator,
             regexp,
             promise,
+            date,
         };
         object_prototype::furnish(objects, &intrinsics)?;
         function_prototype::furnish(objects, &intrinsics)?;
@@ -394,6 +414,24 @@ impl Intrinsics {
     /// A fault if this engine has lost the root, which is its own bug.
     pub fn thenable_job(&self, objects: &Objects) -> Result<Ref, Escape> {
         held(objects, &self.promise.thenable_job)
+    }
+
+    /// `Date`, which the realm binds to its name (queue item 356).
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn date_constructor(&self, objects: &Objects) -> Result<Ref, Escape> {
+        held(objects, &self.date.constructor)
+    }
+
+    /// `Date.prototype`, which every date inherits from (queue item 356).
+    ///
+    /// # Errors
+    ///
+    /// A fault if this engine has lost the root, which is its own bug.
+    pub fn date_prototype(&self, objects: &Objects) -> Result<Ref, Escape> {
+        held(objects, &self.date.prototype)
     }
 
     /// `%ResolvePromise%`, the one resolve procedure.

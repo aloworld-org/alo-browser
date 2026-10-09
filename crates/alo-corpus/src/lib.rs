@@ -88,6 +88,19 @@ pub fn cases_directory() -> PathBuf {
 /// when the corpus began saying it.
 pub const SYSTEM: alo_net::user_agent::System = alo_net::user_agent::MACOS;
 
+/// The instant every case's page reads as *now*: 2026-10-09T00:00:00.000Z, as
+/// a time value (ADR 0036 § 5).
+///
+/// A renderer's pages read the machine's wall clock (ADR 0036 § 2), and a case
+/// rendered at whatever moment the suite ran would draw a page that writes the
+/// date differently every day — a reference that moves for a reason that is
+/// not a bug, the fonts' reason again. So every case is loaded with a clock
+/// stopped here, and a reference moves only when the engine does. This
+/// instant is the day the decision was accepted, so a date a case draws is a
+/// plausible one, and it is midnight UTC, so an hour or a minute that is not
+/// zero in a reference is visibly the engine's doing.
+pub const INSTANT: f64 = 1_791_504_000_000.0;
+
 /// The fonts every case is rendered with.
 ///
 /// One font family, committed as a dependency rather than as a file, so that

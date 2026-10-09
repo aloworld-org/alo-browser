@@ -47,11 +47,18 @@
 //! The first **named** builtins are the seven error constructors (queue item
 //! 227): `Error`, `TypeError` and the rest, writable and configurable and not
 //! enumerable, as every constructor on the global object is; `Promise` (queue
-//! item 333) is bound the same way. There is still no
+//! item 333) and `Date` (queue item 356) are bound the same way. There is still no
 //! `Object`, no `Array`, no `Math` and no `console`. ADR 0013 § 3 — *absent
 //! beats approximate* — and each is a queue item. An embedder may put its own
 //! things on the global object today, which is how a test harness reaches a
 //! script.
+//!
+//! # A realm is told the time, or is not
+//!
+//! ADR 0036 § 1: the engine never reads the machine's clock. A realm is made
+//! with a [`Clock`] its embedder chose — the renderer's wall clock, or a test's
+//! fixed instant — or with none, and a realm with none refuses to say what time
+//! it is, by name, rather than make an instant up.
 //!
 //! # A realm names its host
 //!
@@ -65,9 +72,11 @@
 //! constructor's instance — and so reaches nothing.
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::abrupt::Escape;
 use crate::builtin::{Family, Intrinsics};
+use crate::clock::Clock;
 use crate::heap::{Ref, Root};
 use crate::object::{Found, Held, Objects, Property, Refused, Set, Value};
 
@@ -89,6 +98,8 @@ pub struct Realm {
     intrinsics: Intrinsics,
     /// `[[HostDefined]]`: the embedder's, set once (ADR 0019 § 1).
     host: Option<Root>,
+    /// Where *now* comes from, or nowhere (ADR 0036 § 1).
+    clock: Option<Rc<dyn Clock>>,
 }
 
 /// What a name resolved to.
@@ -126,13 +137,14 @@ pub enum Assigned {
 
 impl Realm {
     /// A realm with its intrinsics, an empty global object and nothing
-    /// declared.
+    /// declared, whose time is told by `clock` — or which refuses to say what
+    /// time it is, given none (ADR 0036 § 1).
     ///
     /// # Errors
     ///
     /// [`Escape::Full`] if the heap cannot hold them, which is a heap that was
     /// full before anything ran, and a fault for a root this engine has lost.
-    pub fn new(objects: &mut Objects) -> Result<Self, Escape> {
+    pub fn new(objects: &mut Objects, clock: Option<Rc<dyn Clock>>) -> Result<Self, Escape> {
         // The intrinsics come first, because the global object inherits from
         // one of them: it is an ordinary object, and `globalThis.toString` is a
         // name a page may reach for.
@@ -150,13 +162,21 @@ impl Realm {
             bindings: HashMap::new(),
             intrinsics,
             host: None,
+            clock,
         };
         realm
             .name_the_values(objects)
             .map_err(|why| Escape::refused(why, 0))?;
         realm.name_the_errors(objects)?;
         realm.name_the_promise(objects)?;
+        realm.name_the_date(objects)?;
         Ok(realm)
+    }
+
+    /// The clock this realm was made with, if it was given one (ADR 0036
+    /// § 1).
+    pub fn clock(&self) -> Option<&dyn Clock> {
+        self.clock.as_deref()
     }
 
     /// The objects the language itself is made of (queue item 218).
@@ -259,6 +279,21 @@ impl Realm {
         // Rooted by the intrinsics, so it survives the interning below.
         let constructor = self.intrinsics.promise_constructor(objects)?;
         let units: Vec<u16> = "Promise".encode_utf16().collect();
+        let key = objects.key(&units).map_err(|why| Escape::refused(why, 0))?;
+        objects.define(
+            global,
+            key,
+            Property::data(Value::Object(constructor), true, false, true),
+        )?;
+        Ok(())
+    }
+
+    /// `Date`, bound to its name as `Promise` is (queue item 356).
+    fn name_the_date(&self, objects: &mut Objects) -> Result<(), Escape> {
+        let global = self.global(objects)?;
+        // Rooted by the intrinsics, so it survives the interning below.
+        let constructor = self.intrinsics.date_constructor(objects)?;
+        let units: Vec<u16> = "Date".encode_utf16().collect();
         let key = objects.key(&units).map_err(|why| Escape::refused(why, 0))?;
         objects.define(
             global,
@@ -548,7 +583,7 @@ mod tests {
     #[test]
     fn a_let_shadows_a_property_of_the_global_object() {
         let mut objects = Objects::new();
-        let Ok(mut realm) = Realm::new(&mut objects) else {
+        let Ok(mut realm) = Realm::new(&mut objects, None) else {
             panic!("an empty heap holds a realm");
         };
         let name = units("a");
@@ -590,7 +625,7 @@ mod tests {
     #[test]
     fn a_constant_refuses_to_be_assigned_to() {
         let mut objects = Objects::new();
-        let Ok(mut realm) = Realm::new(&mut objects) else {
+        let Ok(mut realm) = Realm::new(&mut objects, None) else {
             panic!("an empty heap holds a realm");
         };
         let name = units("a");
@@ -613,7 +648,7 @@ mod tests {
     #[test]
     fn assigning_to_nothing_is_a_property_in_sloppy_code_and_an_error_in_strict() {
         let mut objects = Objects::new();
-        let Ok(mut realm) = Realm::new(&mut objects) else {
+        let Ok(mut realm) = Realm::new(&mut objects, None) else {
             panic!("an empty heap holds a realm");
         };
         let name = units("loose");

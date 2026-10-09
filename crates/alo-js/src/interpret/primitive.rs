@@ -27,6 +27,14 @@
 //! sides runs three times and calls each side's `valueOf` once, in the order
 //! [`operate`](crate::operate) asks for them.
 //!
+//! # `Symbol.toPrimitive` first
+//!
+//! Before either name, an object's `Symbol.toPrimitive` is asked for (queue
+//! item 356). If there is one it is called with the hint as a string and its
+//! answer is final — an object is a `TypeError`, not a reason to try `valueOf`
+//! — and if there is none the search below begins. Only `Date.prototype` has
+//! one today, since no page can spell the symbol (item 73).
+//!
 //! # It cannot loop
 //!
 //! Two things could. A method that keeps answering with an object does not,
@@ -62,7 +70,7 @@ impl Engine {
         source: usize,
     ) -> Result<(), Escape> {
         run.frame_mut()?.pc = pc;
-        self.want_primitive(run, at, hint, 0, source, Then::Instruction)
+        self.want_primitive(run, at, hint, convert::EXOTIC, source, Then::Instruction)
     }
 
     /// `OrdinaryToPrimitive` from the name at `from`, as the call it needs.
@@ -84,16 +92,26 @@ impl Engine {
             match convert::primitive_of(&self.objects, &self.names, object, hint, from, source)? {
                 Wanted::Call { method, next } => (method, Step::Calling, next),
                 Wanted::Fetch { getter, next } => (getter, Step::Fetching, next),
+                Wanted::Exotic { method } => (method, Step::CallingExotic, convert::ORDINARY),
+                Wanted::FetchExotic { getter } => (getter, Step::FetchingExotic, convert::ORDINARY),
             };
         let receiver = self.value_at(run, at)?;
         let callee_at = self.height(run)?;
+        // `Symbol.toPrimitive` is handed the hint as a string, which `Names`
+        // roots, so nothing here allocates before the call holds it.
+        let hinted = [self.names.hint_text(hint)];
+        let arguments: &[Value] = if step == Step::CallingExotic {
+            &hinted
+        } else {
+            &[]
+        };
         self.begin_call(
             run,
             callee_at,
             Ask {
                 callee: Value::Object(callee),
                 receiver,
-                arguments: &[],
+                arguments,
                 at: source,
                 after: After::Convert(Converting {
                     step,
@@ -125,6 +143,44 @@ impl Engine {
                     state.then,
                 ),
             },
+            // `GetMethod`: `undefined` and `null` are no method, so the search
+            // carries on at `OrdinaryToPrimitive`; anything else must be
+            // callable.
+            Step::FetchingExotic => match answered {
+                Value::Undefined | Value::Null => self.want_primitive(
+                    run,
+                    state.at,
+                    state.hint,
+                    convert::ORDINARY,
+                    state.source,
+                    state.then,
+                ),
+                _ if self.function_of(answered).is_some() => self.call_method(
+                    run,
+                    answered,
+                    Converting {
+                        step: Step::CallingExotic,
+                        ..state
+                    },
+                ),
+                _ => Err(Escape::type_error(
+                    "the getter for Symbol.toPrimitive answered something that is not a function",
+                    state.source,
+                )),
+            },
+            Step::CallingExotic => {
+                if Primitive::of(answered).is_none() {
+                    return Err(Escape::type_error(
+                        "Symbol.toPrimitive answered an object, which is not a primitive value",
+                        state.source,
+                    ));
+                }
+                self.write_at(run, state.at, answered)?;
+                match state.then {
+                    Then::Instruction => Ok(()),
+                    Then::Builtin => run.answered(),
+                }
+            }
             Step::Calling => {
                 if Primitive::of(answered).is_some() {
                     // The answer takes the place the object was in — an
@@ -150,7 +206,8 @@ impl Engine {
         }
     }
 
-    /// Call the method a getter handed over.
+    /// Call the method a getter handed over: `valueOf` or `toString` with no
+    /// arguments, or `Symbol.toPrimitive` with the hint's string.
     fn call_method(
         &mut self,
         run: &mut Run,
@@ -159,18 +216,21 @@ impl Engine {
     ) -> Result<(), Escape> {
         let receiver = self.value_at(run, state.at)?;
         let callee_at = self.height(run)?;
+        let hinted = [self.names.hint_text(state.hint)];
+        let (step, arguments): (Step, &[Value]) = if state.step == Step::CallingExotic {
+            (Step::CallingExotic, &hinted)
+        } else {
+            (Step::Calling, &[])
+        };
         self.begin_call(
             run,
             callee_at,
             Ask {
                 callee: method,
                 receiver,
-                arguments: &[],
+                arguments,
                 at: state.source,
-                after: After::Convert(Converting {
-                    step: Step::Calling,
-                    ..state
-                }),
+                after: After::Convert(Converting { step, ..state }),
             },
         )
     }

@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Pages can tell the time.** `Date` works: the current time, dates made
+  from numbers or from a year, month and day, every getter and setter, and
+  the standard ISO format. A page reads the computer's clock to the
+  millisecond and no finer, and sees times in UTC until the person chooses
+  a time zone. Writing a date out as words, and reading one from text, is
+  not built yet and says so rather than guessing. alo Sites' analytics
+  script now gets past its third line; it stops next at
+  `encodeURIComponent` (queue items 356 and 359, decision 0036).
+
 - **How a page tells the time is decided.** Pages ask for the date and
   time constantly — alo Sites' own analytics script stops at its third line
   because this browser cannot answer yet. The page's process will read the

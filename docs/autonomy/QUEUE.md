@@ -5741,7 +5741,7 @@ The long pole, and the thing most of section E is unreachable without.
   against the viewport, in numbers. *Opened by a frozen page whose
   absolute box is not its containing block's child, and not before.*
 
-- [ ] **353. `Date`.** *Opened by `alo-sites-cta` (iteration 227); cut from
+- [x] **353. `Date`.** *Opened by `alo-sites-cta` (iteration 227); cut from
   73.* alo Sites' analytics script, which every page it publishes carries,
   stops at its third line, `var since = Date.now();`, with "ReferenceError:
   'Date' is not defined", before it adds a listener. *Needs ADR*: what clock
@@ -5764,8 +5764,11 @@ The long pole, and the thing most of section E is unreachable without.
   a fixed clock. Nothing is built, and this item stays open: it closes when
   **356** does. **357** (a date as text) waits for a page, and **358** (the
   person's zone) for settings (128).
+  **Done (iteration 230)** with 356: `alo-sites-cta`'s script runs past
+  `Date.now()` on line 3 and stops at `encodeURIComponent` on line 8,
+  opened as **359**.
 
-- [ ] **356. `Date`, with a clock.** *Cut from 353 (ADR 0036 §§ 1, 2, 3
+- [x] **356. `Date`, with a clock.** *Cut from 353 (ADR 0036 §§ 1, 2, 3
   and 5). Depends on nothing open.* `alo-js`: the `Clock` trait and a realm
   made with one or none; the `Date` constructor in every form but a
   string, `Date.now`, `Date.UTC`, the getters and setters, local and UTC
@@ -5786,6 +5789,66 @@ The long pole, and the thing most of section E is unreachable without.
   fixed clock makes the same answer in every run; and getters and setters
   agree with ECMA-262's worked values at the range's ends (±8.64 × 10¹⁵)
   and one past them, in tests.
+  **Done (iteration 230).** `alo-js`: `clock.rs` (the `Clock` trait and
+  `Fixed`, an instant that never moves); `Engine::with_clock`, and
+  `Engine::new` a realm with none; the realm holds it and the interpreter
+  hands it to every builtin (`Call::now`, through `TimeClip`, or the
+  `TypeError` "this realm was given no clock"). `time.rs` is ECMA-262
+  § 21.4.1's arithmetic in `f64`, `LocalTZA` zero in one constant, and
+  `MakeDay` refusing a year past 10¹³ where its count of days would round.
+  `object/date.rs` is the `[[DateValue]]` cell (`Instance::Date`).
+  `builtin/date.rs` (the constructor in every form but a string, `now`,
+  `UTC`, `parse` refused), `date_numbers.rs` (each argument through
+  `ToNumber` once, in order, kept in ADR 0031's slots, the argument's
+  index in the step), `date_prototype.rs` (16 getters, `getTime`,
+  `valueOf`, `getTimezoneOffset`, `toISOString`, and the `toString`
+  family refused after the brand check), `date_set.rs` (14 setters and
+  `setTime`, the time value read first and kept, an Invalid Date not
+  written over) and `date_convert.rs` (`toJSON`, and
+  `[Symbol.toPrimitive]`, not writable). **`ToPrimitive` now asks for
+  `Symbol.toPrimitive` first** (`convert.rs`, `interpret/primitive.rs`),
+  calls it with the hint's string and takes its answer as final, and
+  `Want::Ordinary` is `OrdinaryToPrimitive` alone for that method's last
+  step: without it `date + ''` would have answered the number. A fourth
+  well-known symbol, `Symbol.toPrimitive`. `Object.prototype.toString`
+  says `[object Date]`. A date as text is `Missing::ADateAsText` (357).
+  `alo-renderer`: `clock.rs`'s `WallClock` (the machine's wall clock,
+  floored to a millisecond, `NaN` before 1970 or past 8.64 × 10¹⁵),
+  handed to every realm through `EventLoop::new(clock)` and
+  `Held::scripted`; `Renderer::told_the_time_by` hands a fixed one in.
+  `alo-corpus`: `INSTANT` (2026-10-09T00:00:00.000Z), named once with its
+  reason, for every loaded case, and a new case `a-script-writes-the-date`.
+  Tests: `alo-js`'s `what_a_date_is.rs` (a realm with no clock refuses and
+  still does arithmetic; a fixed clock; every getter; both ends of the
+  range and one past them, by getters, setters, `Date.UTC` and `setTime`;
+  arguments converted once each and in order; setters working from the
+  value read first; the brand; `toJSON`; a date as text and as a number;
+  hostile numbers), `what_to_primitive_asks_first.rs` (every shape of
+  `Symbol.toPrimitive` an embedder can make, getters included), `time.rs`'s
+  and `object/date.rs`'s unit tests; `alo-renderer`'s `clock.rs` tests
+  (floored, within the machine's own reading, `NaN` out of range);
+  `alo-corpus`'s `a_script_writes_the_date.rs` and `alo_sites_cta.rs`,
+  whose script now stops at line 8. Checked by mutation: `ToPrimitive`
+  skipping the symbol fails the hint test, and a setter re-reading its
+  date fails the kept-value test. `alo-bindings`' tests read no date, so
+  none needed a clock; a realm with none refuses one by name.
+  **Cut (iteration 230):** what the script stops at next is **359**.
+
+- [ ] **359. `encodeURIComponent`.** *Opened by `alo-sites-cta` (iteration
+  230); cut from 73. Depends on nothing open.* alo Sites' analytics script
+  stops at its eighth line, `var page = "&p=" +
+  encodeURIComponent(location.pathname) + "&w=";`, with "ReferenceError:
+  'encodeURIComponent' is not defined". ECMA-262 § 19.2.6 specifies it
+  whole: `ToString` of the argument, each code point outside the unreserved
+  set written as the percent-escaped bytes of its UTF-8, and a lone
+  surrogate the `URIError` the specification gives. `encodeURI`,
+  `decodeURI` and `decodeURIComponent` are the same section, and are taken
+  only if a page needs them. *Closes when:* the script runs past line 8,
+  in `tests/alo_sites_cta.rs`, and what it stops at next is opened as an
+  item; and every code point class — unreserved, reserved, two-, three-
+  and four-byte, a paired and a lone surrogate — is written as the
+  specification says, in tests, with a long and a hostile string refused
+  or answered in bounded work.
 
 - [ ] **357. A date as text.** *Cut from 353 (ADR 0036 § 4). Depends on
   356.* `Date.parse` and `new Date(string)` over the Date Time String

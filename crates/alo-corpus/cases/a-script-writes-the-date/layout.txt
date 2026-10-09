@@ -1,0 +1,7 @@
+block flow · document → 240×63.578125 at (0, 0)
+  block flow · generic → 240×63.578125 at (0, 0)
+    block flow · main → 240×63.578125 at (0, 0)
+      block flow · heading [level=1] → 224×23.28125 at (8, 8)
+        text "Day 5, 0:00" → 127.70508×23.28125 at (8, 8)
+      block flow · paragraph → 224×16.296875 at (8, 39.28125)
+        text "2026-10-09T00:00:00.000Z" → 193.55273×16.296875 at (8, 39.28125)
