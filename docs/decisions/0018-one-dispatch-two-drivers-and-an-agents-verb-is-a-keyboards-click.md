@@ -103,6 +103,11 @@ is absent, not a function that registers listeners nothing ever dispatches to.
 The path of a dispatch ends at the document, and gains the global when it is a
 `Window`.
 
+*Amended by ADR 0037 §§ 3 and 6:* the global object becomes a `Window`, and an
+event target, with item 362 rather than 251, and does not wait on item 73. Only
+`document`'s accessor does. A path ends at the `Window`, after the page's own
+document, for every event but `load`.
+
 ## 2. The dispatch algorithm is one stepper, and the event holds its state
 
 The DOM standard's *dispatch* is written once, in `alo-bindings`

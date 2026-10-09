@@ -882,7 +882,7 @@ unreachable without it.
       `alo-js/src/uri.rs`, bounded by the longest string, the function in
       `builtin/encode_uri_component.rs`, and `URIError` as an error the
       engine throws. The script now runs past that call, whose argument
-      `location` is built (360), and stops at `window` (362). Still owed: a date as text (357), the person's zone
+      `location` is built (360), and stops at `window` (362, decided by ADR 0037). Still owed: a date as text (357), the person's zone
       (358), and `encodeURI` and the two decoders (73)
 - [ ] Regular expressions, with the syntax the language actually has
       · Built: the engine ADR 0029 decided, in `alo-js/src/regexp/` (queue
@@ -1084,9 +1084,15 @@ unreachable without it.
       `Loaded` and `Acted` (`alo-renderer`'s `ask.rs`, `Page::url`), and the
       browser process decides it (`navigate.rs`: parsed again, the scheme
       table, `Referer` from its own copy) with the cause from which message
-      it answered (`Tabs::load`, `Tabs::act`, `Tabs::navigation`) · Owed:
-      going there (85), a link's download (264), each element's own
-      interface (262), focus (258) and event handler attributes (259)
+      it answered (`Tabs::load`, `Tabs::act`, `Tabs::navigation`).
+      **The window as an event target is decided** (ADR 0037, queue item
+      362; nothing built yet): the global object becomes a `Window` that
+      `alo-bindings` makes and that holds its own listeners, and every path
+      ends at it after the document, except for `load` · Owed:
+      the window as a target (362, eligible), its immutable prototype (363),
+      the page lifecycle at it (364, needs design), going there (85), a
+      link's download (264), each element's own interface (262), focus
+      (258) and event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs
       · Built: **a control draws its own state** (queue item 182) — a tick in a
       checked box, a dot in a chosen radio, a dash in one that is neither, in

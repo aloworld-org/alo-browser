@@ -1024,3 +1024,20 @@ related). `Location`'s exotic internal methods are cut into **361**
 (waits for a page or item 73). 357 waits for a page, 358 for settings.
 152 queue items are open. The next unused queue number is 363 and the next
 unused ADR 0037.
+
+Iteration 233 decided item 362 as ADR 0037, and built nothing. ADRs
+0017–0019 had not answered the item's two questions.
+- The global object becomes a `Window` that `alo-bindings` makes. The
+  engine gains a realm whose global the host makes, which is ECMAScript's
+  own provision.
+- The `Window` holds its own listeners, and every path ends at it after the
+  document, except for `load`.
+- `window`, `self` and `globalThis` are all the global object, with no
+  `WindowProxy` until frames, and there is no named access, by law 1.
+- This comes before 251. 251 shrinks to `document`'s accessor and still
+  waits on 73. ADR 0018 § 1 is amended.
+
+362 is designed, eligible and next. Cut from it: **363**, the window's
+immutable prototype (waits on 73), and **364**, the page lifecycle at the
+window (`pagehide`, `visibilitychange`; needs design). 154 queue items are
+open. The next unused queue number is 365 and the next unused ADR 0038.

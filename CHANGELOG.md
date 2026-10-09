@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: how a page's `window` will work.** `window` will be a real
+  object that a page can listen on. Every event sent to something in the
+  page reaches the window last: it is the first to hear an event on its way
+  down and the last on its way back up, as in every other browser. The one
+  exception is `load`, which stops at the document. `window`, `self` and
+  `globalThis` will be the same object. Looking an element up by its `id`
+  as a property of the window, a pre-standard habit, will not be supported.
+  Nothing is built yet. alo Sites' analytics script still stops at
+  `window`, and building it is next (ADR 0037, queue item 362).
+
 - **Pages can read where they are.** `location` works for reading: the
   page's whole address, its origin, scheme, host, port, path, query and
   fragment, each as every other browser writes it, from the window or from

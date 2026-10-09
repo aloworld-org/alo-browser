@@ -22140,3 +22140,137 @@ whether it needs design first (251 is related).
 
 152 queue items are open. The next unused queue number is **363** and the next
 ADR is **0037**. This is one iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 233 — queue item 362 decided: ADR 0037, the global object as a `Window`
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`,
+iteration 232's entry, and queue items 251 and 357–362. No `AGENTS.md`
+exists in this repository. Iteration 232 named 362 as next. Nothing earlier
+in the queue is eligible: 361 waits for a page or 73, 357 for a page, 358 for
+settings, 354 and 355 for pages, 351 needs design, and the rest are as
+iteration 226 listed them.
+
+362 asked, before anything was built, whether ADRs 0017–0019 decide two
+things:
+- whether the global object becoming an event target is 251's step;
+- where the window sits on an event's path.
+
+For that I read:
+- ADR 0018 in full: its § 1 ties the window to 251 and 251 to 73, and says
+  only that a path "gains the global when it is a `Window`";
+- ADR 0019 in full: `[[HostDefined]]` and unforgeables;
+- ADR 0013 §§ 3 and 6, ADR 0017 § 4, and ADR 0036's form;
+- the feature line, `docs/features.md`' *Events*;
+- the code: `alo-js`'s `realm.rs` (the global is made inside `Realm::new`,
+  ordinary), `interpret.rs` (`Engine::new`, `with_clock`, `host_defined`)
+  and `object/native.rs` (`Make`); `alo-bindings`' `install.rs`,
+  `location.rs`, `listeners.rs`, `dispatch.rs` (the path is a
+  `Vec<NodeId>`) and `interface/event_target.rs` (the brand check takes a
+  node's wrapper);
+- `alo-sites-cta`'s script.
+
+Neither question was decided. Under LOOP.md's stage 2 § 4, the decision is
+this iteration, and no code depends on it yet.
+
+**What was decided.** ADR 0037, *The global object is a `Window` the
+embedder makes, and it is last on every path*, accepted:
+1. A realm's global object may be the host's, which is ECMAScript's
+   *InitializeHostDefinedRealm* provision. `alo-js` can make an engine whose
+   global is an embedder cell made by a `Make`, and every way a script reaches
+   the global must work on it, under stress. `install` sets its prototype to
+   `Window.prototype` before any script runs. `Engine::new` is unchanged.
+2. The `Window` cell holds its own listener list and an edge to the document
+   cell, and the document cell holds one back. `EventTarget`'s brand check
+   accepts a node's wrapper or a `Window`. ADR 0018 § 1's *a listener lives
+   in its target's wrapper* holds unchanged.
+3. A path is the node and its ancestors, then the `Window` if the root is the
+   realm's own document and the type is not `load`, following HTML's *get the
+   parent*. A dispatch at the window has a path of the `Window` alone.
+4. Its members are its own (`[Global]`):
+   - `window` is unforgeable;
+   - `self` is `[Replaceable]`;
+   - `location` moves to its unforgeables and gains the brand check;
+   - `document` stays a data property until 251.
+
+   `window`, `self`, `globalThis` and the top-level `this` are all the global
+   object. There is no `WindowProxy` until a second window is reachable
+   (frames, `window.open`). There is no named properties object and no
+   named access, by law 1.
+5. The browser fires nothing at the window until the page lifecycle is
+   built (364).
+6. This comes before 251. 251 shrinks to `document`'s accessor and still
+   waits on 73. ADR 0018 § 1 has an *Amended by ADR 0037* note.
+
+The ADR names its costs: an engine change, one more step on every path, and
+named access refused. It also names its rejected alternatives and when it
+would be wrong.
+
+**A mistake caught before committing.** My first draft listed "`window ===
+globalThis`" as a cost. It is true in every browser too, so it is not a
+cost. The paragraph was removed.
+
+**Queue.**
+- 362 has a *Decided* paragraph and its closing condition, taken from the
+  ADR. It stays open: it is the build, and it is designed, depends on
+  nothing open, is eligible, and is next.
+- Cut from it:
+  - **363**, the window's immutable prototype, which waits on 73;
+  - **364**, the page lifecycle at the window (`pagehide`,
+    `visibilitychange`, `visibilityState`), which needs design.
+- 251 is narrowed, with a note.
+
+**Roadmap.** The *Events* line's Built clause says the window is decided,
+naming ADR 0037 and saying nothing is built. Its Owed clause gains 362, 363
+and 364. The standard-library line's "stops at `window` (362)" names the
+ADR. Nothing is ticked.
+
+Also updated:
+- `docs/features.md`' *Events* line, which named 251 for the window and now
+  names 362 as decided and not built;
+- `docs/conformance.md`' alo Sites row;
+- `REMAINING.md`;
+- `CHANGELOG.md`.
+
+**Gate, mechanical.** `scripts/gate.sh` was started in the foreground. It
+passed the tool's 600 s limit and was moved to the background, where the
+harness killed it at its background limit, still in `cargo test`. Fmt and
+clippy had already passed. No result was read from that run.
+
+I then detached it with `nohup`, logging to a file ending `exit $?`, and
+polled it with foreground loops in this same turn. The machine was shared
+with other sessions' `alo-os` VM builds (load around 10). `alo-renderer`'s
+`what_a_pages_markup_says` took about 30 minutes of wall-clock time on
+about 8 minutes of CPU. No code changed in this iteration, so that is
+contention and not a regression. The run ended `exit 0`, "The gate is met":
+- fmt clean, clippy silent, tests pass;
+- no stubs, `unsafe` forbidden, the licence on every file;
+- every rented crate behind its boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds.
+
+Its documentation check reported no uncommitted code to judge. That is
+right: this change is documentation only, and `CHANGELOG.md` has its line.
+
+**Gate, manual.**
+- Layout assertion and reference render: none applies. Nothing positions,
+  sizes or draws, and no reference moved.
+- Hostile bytes: nothing new reads from outside.
+- One responsibility per file: the ADR is one decision. It places the
+  `Window` cell in one file of its own and keeps one stepper in
+  `dispatch.rs`.
+- The feature is in `docs/features.md` before it is built.
+- Nothing is ticked: 362 is decided, not done.
+- No `unsafe`, no new dependency, no code changed. `alo-workplace` and
+  `alo-os` were not touched.
+
+**Unresolved obligations.**
+- 362 is next, and eligible.
+- 364 needs design, and 363 waits on 73.
+- 361 waits for a page or 73; 357 waits for a page and 358 for settings.
+- 351 still needs design, and 354 and 355 wait for pages.
+- Everything iteration 226 listed still stands.
+
+154 queue items are open: 363 and 364 added, and 362 still open. The next
+unused queue number is **365** and the next ADR is **0038**. This is one
+iteration, not a finished queue or roadmap.

@@ -4414,6 +4414,11 @@ The long pole, and the thing most of section E is unreachable without.
   73). Closes when:* the global object is an embedder cell that holds its
   document, `document` is an accessor whose getter reads it, and a
   descriptor reads as Web IDL's.
+  *Narrowed by ADR 0037 § 6 (iteration 233):* the global object becomes a
+  `Window` holding its document with item 362, before this one. What is left
+  here is `document` as an unforgeable accessor on the `Window`, whose getter
+  reads the document through the `Window`'s edge. It still waits on item 73,
+  the only thing that can observe it.
 
 - [x] **252. A thrown `DOMException` is reported by its name.** *Found by 250.*
   A script that lets a refusal escape — `appendChild(document)` — is said in
@@ -5999,6 +6004,54 @@ The long pole, and the thing most of section E is unreachable without.
   HTML puts the `Window` after the document on every path, which ADR 0018
   § 2's path does not have yet. If either is not decided by ADRs 0017–0019,
   the item is `needs design` first.
+  **Decided (iteration 233): ADR 0037.** ADRs 0017–0019 did not decide
+  either question, so this iteration wrote the decision and built nothing. It
+  is now designed, depends on nothing open, and is eligible.
+  - The global object is a `Window`, an embedder cell `alo-bindings` makes.
+    `alo-js` gains a realm whose global object the host makes, ECMAScript's
+    own provision (§ 1).
+  - The `Window` holds its own listener list and an edge to its document.
+    `EventTarget`'s brand check accepts it (§ 2).
+  - A path ends at the `Window` after the realm's own document, for every
+    event but `load` (§ 3).
+  - Its members are its own (`[Global]`): `window` (unforgeable), `self`
+    (`[Replaceable]`) and `location` (moved to its unforgeables). `window`,
+    `self`, `globalThis` and the top-level `this` are all the global object,
+    with no `WindowProxy` until frames. There is no named properties object,
+    by law 1 (§ 4).
+  - The browser fires nothing at the window until the lifecycle (**364**) is
+    built (§ 5).
+  - This comes before 251. 251 shrinks to `document`'s accessor and still
+    waits on 73 (§ 6), and ADR 0018 § 1 is amended to say so.
+
+  *Closes when*, from ADR 0037's *What this makes buildable*:
+  - `alo-sites-cta`'s script runs past line 32, in `tests/alo_sites_cta.rs`,
+    and what it stops at next is opened as an item;
+  - `window === self`, and both are `globalThis`;
+  - a listener added to the window is kept through collections and called by
+    a dispatch at it, and by a dispatch at a node, after the document when
+    bubbling and before it when capturing;
+  - a `load` event stops at the document;
+  - every script runs ordinarily and under `Heap::stress`.
+
+- [ ] **363. The `Window`'s immutable prototype.** *Cut from 362 by ADR 0037
+  § 6. Depends on 362; observable only through `Object.setPrototypeOf` and
+  `Reflect.setPrototypeOf`, item 73's.* A `[Global]` object's
+  `[[SetPrototypeOf]]` is `SetImmutablePrototype`, so setting the window's
+  prototype to anything but what it is answers `false` and throws from
+  `Object.setPrototypeOf`. *Opened by a frozen page that re-prototypes the
+  window, or by item 73 making it reachable. Closes when:* it answers as Web
+  IDL says, in `alo-bindings`' tests, under `Heap::stress`.
+
+- [ ] **364. The page lifecycle at its window.** *Cut from 362 by ADR 0037
+  § 5. Depends on 362. **Needs design**: when the browser process tells a
+  renderer its page is hidden, shown or being left, and how long the page's
+  listeners are given before the renderer goes.* `pagehide`, `pageshow` and
+  `visibilitychange`, and `document.visibilityState` and `document.hidden`.
+  `alo-sites-cta`'s analytics script waits on `pagehide` at the window and
+  `visibilitychange` at the document to send what it measured. *Closes
+  when:* the decision is an ADR, and the item it makes buildable fires each
+  event at the moment HTML says, in tests.
 
 - [ ] **357. A date as text.** *Cut from 353 (ADR 0036 § 4). Depends on
   356.* `Date.parse` and `new Date(string)` over the Date Time String
