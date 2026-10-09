@@ -12,8 +12,10 @@
 //! file.
 //!
 //! A `[LegacyUnforgeable]` attribute is the same accessor **not
-//! configurable**, and goes on an interface's unforgeables object rather than
-//! its prototype, to be copied onto each instance (ADR 0019 § 3).
+//! configurable**, and a `[LegacyUnforgeable]` operation the same data
+//! property neither writable nor configurable; each goes on an interface's
+//! unforgeables object rather than its prototype, to be copied onto each
+//! instance (ADR 0019 § 3).
 //!
 //! Both allocate — the name is interned, the functions are made — so every
 //! one of them is held in a scope until the prototype owns it, and the
@@ -153,10 +155,10 @@ pub(crate) fn attribute_holding(
     outcome
 }
 
-/// Put the read-only `[LegacyUnforgeable]` attribute `name`, read by `get`,
-/// on an interface's `unforgeables` object: enumerable and **not
-/// configurable**, so that once copied onto an instance no page can delete
-/// or redefine it.
+/// Put the `[LegacyUnforgeable]` attribute `name`, read by `get` and written
+/// by `set` or, without one, read-only, on an interface's `unforgeables`
+/// object: enumerable and **not configurable**, so that once copied onto an
+/// instance no page can delete or redefine it.
 ///
 /// # Errors
 ///
@@ -166,7 +168,7 @@ pub(crate) fn unforgeable_attribute(
     unforgeables: Ref,
     function_prototype: Ref,
     name: &'static str,
-    get: Body,
+    (get, set): (Body, Option<Body>),
 ) -> Result<(), Escape> {
     let scope = objects.heap_mut().open();
     let outcome = held_attribute(
@@ -174,9 +176,34 @@ pub(crate) fn unforgeable_attribute(
         unforgeables,
         function_prototype,
         name,
-        (get, None),
+        (get, set),
         Configurable::No,
     );
+    objects.heap_mut().close(scope);
+    outcome
+}
+
+/// Put the `[LegacyUnforgeable]` operation `name`, whose body is `body`, on
+/// an interface's `unforgeables` object: a data property that is enumerable
+/// and **neither writable nor configurable**, as Web IDL defines one, so
+/// that once copied onto an instance no page can replace it.
+///
+/// # Errors
+///
+/// As [`operation`].
+pub(crate) fn unforgeable_operation(
+    objects: &mut Objects,
+    unforgeables: Ref,
+    function_prototype: Ref,
+    name: &'static str,
+    body: Body,
+) -> Result<(), Escape> {
+    let scope = objects.heap_mut().open();
+    let outcome = held_key(objects, name).and_then(|key| {
+        let function = held_native(objects, function_prototype, name, body)?;
+        let property = Property::data(Value::Object(function), false, true, false);
+        defined(objects, unforgeables, key, property)
+    });
     objects.heap_mut().close(scope);
     outcome
 }

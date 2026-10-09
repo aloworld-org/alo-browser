@@ -22045,3 +22045,98 @@ decision for the owner — pace it with `--items`, or rent a different worker's
 allowance — and not something to change unasked. It is written here so the
 next run does not rediscover it as a mystery.
 
+
+---
+
+## Iteration 232 — queue item 360: `location`, read
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`,
+iteration 231's entry, the item, ADR 0019 (unforgeables, `[[HostDefined]]`)
+and ADR 0020 (a page asks to navigate; *What this does not decide* gives
+`location` to item 85). No `AGENTS.md` exists in the repository. Feature:
+`docs/features.md`, stage 2, navigation and session history.
+
+**Was it designed?** The item asked two questions before building. Both were
+already answered. A document with no address is at `about:blank`, which is
+HTML's own URL for a document nobody gave another one and what
+`DocumentCell::url` already held. The navigating half is item 85's by ADR 0020,
+and refusing it by name until then is ADR 0013 § 3. So no ADR was needed.
+
+**Built.**
+- `alo-url/src/reading.rs`: the URL Standard's nine readings, written once
+  over our `Url`.
+- `alo-bindings/src/location.rs`: the page's one `Location`, an embedder
+  cell holding its document cell, so every read is of the address stated
+  last. It is made by `install` as HTML's *Location object creation*:
+  unforgeables copied, own fixed `valueOf` and `Symbol.toPrimitive`. The
+  document cell keeps it and traces it. It sits on the global object as an
+  enumerable, non-configurable accessor that reaches the location through
+  `[[HostDefined]]`, with a `[PutForwards=href]` setter that is refused.
+- `interface/location.rs`: every member `[LegacyUnforgeable]` under a new
+  `Interface::Location` whose prototype is empty.
+- `Document` gained unforgeables (`location`), copied onto the document
+  node's wrapper in `install`.
+- `define.rs`: an unforgeable attribute may have a setter, and there is an
+  unforgeable operation.
+- Every navigating member is refused as "a script navigating by 'location'
+  is queue item 85, through the ask of ADR 0020".
+
+**Closing condition.** `alo-sites-cta`'s script runs past line 8 and past
+`document.addEventListener` on line 29. It stops at line 32,
+`window.addEventListener("pagehide", record)`: "ReferenceError: 'window' is not
+defined". This is pinned in `tests/alo_sites_cta.rs` and opened as **362**.
+`Location`'s exotic internal methods are cut into **361**. `ancestorOrigins` is
+absent, which is item 86's.
+
+**Tests.**
+- `reading.rs`: 8 unit tests.
+- `tests/where_a_page_is.rs`: 13, each script run ordinarily and under
+  `Heap::stress`.
+- Before the gate: `cargo test -p alo-bindings -p alo-url -p alo-renderer
+  -p alo-corpus -p alo-window --no-fail-fast`, all ok. That summary was cut
+  short by `head`, so the gate's own full run is the evidence.
+
+**Checked by mutation**, each restored from a scratchpad copy:
+- An empty query read as `?` fails `an_empty_query_or_fragment_reads_as_none_at_all`.
+- Not copying `Document`'s unforgeables fails four of the binding tests.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground and outlasted
+the tool's 600 s limit, so it was moved to the background. I waited for it in
+the next step without doing other work, and read its result: `exit 0`, "The
+gate is met". fmt clean, clippy silent, tests pass, no stubs, `unsafe`
+forbidden, licences present, rented crates behind their boundaries, no verb
+takes a coordinate, stop rule holds, and `CHANGELOG.md` changed.
+
+**Gate, manual.**
+- Layout assertion: nothing positions or sizes. `alo_sites_cta.rs`'s
+  numbers are unchanged and pass.
+- Reference render: nothing visual changed and no committed reference
+  moved. `git status` shows no case file touched.
+- Hostile input: no new bytes come from outside. The URL is one the
+  browser process already parsed, and each reading is linear in its
+  length.
+- One responsibility per file:
+  - the readings are `alo-url`'s, one file;
+  - making the `Location` and putting it where a page reaches it is
+    `location.rs`;
+  - its members are `interface/location.rs`.
+- The feature is in `docs/features.md`. No `unsafe`, no new dependency.
+  `alo-workplace` was not touched.
+
+**Roadmap.** The *Navigation and session history* line now has a
+`· Built: … · Owed: …` clause: owed are 85, 361 and 86. It is not ticked.
+The standard-library line's mention of `location` is updated. Also updated:
+`docs/features.md`, `docs/conformance.md` (alo Sites' row), `CHANGELOG.md`
+and `REMAINING.md`.
+
+**Queue.** 360 is ticked with a Done paragraph. 361 is new and waits for a
+page or item 73. 362 (`window`) is new; the iteration that takes it decides
+whether it needs design first (251 is related).
+
+**Unresolved obligations.**
+- 357 waits for a page, and 358 for settings.
+- 351 still needs design, and 354 and 355 wait for pages.
+- Everything iteration 226 listed still stands.
+
+152 queue items are open. The next unused queue number is **363** and the next
+ADR is **0037**. This is one iteration, not a finished queue or roadmap.

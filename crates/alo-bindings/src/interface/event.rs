@@ -105,7 +105,7 @@ pub(super) fn unforgeables(
         unforgeables,
         function_prototype,
         "isTrusted",
-        is_trusted,
+        (is_trusted, None),
     )
 }
 

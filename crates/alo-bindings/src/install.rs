@@ -13,6 +13,11 @@
 //! the document on the global object as `document`: the moment a page's
 //! script can reach it.
 //!
+//! And it makes the page's one `Location` and puts it on the global object
+//! as `location` ([`crate::location`], queue item 360), and gives the
+//! document node's wrapper `Document`'s unforgeable `location`, which
+//! answers the same object.
+//!
 //! It also puts the two interface objects a page constructs with on the
 //! global object — `Event` and `CustomEvent` (ADR 0018 § 8), since a page
 //! cannot make an event any other way. Each is a constructor whose
@@ -49,6 +54,8 @@ use crate::document_cell::DocumentCell;
 use crate::embed::{self, Wrapping};
 use crate::event::{make_custom_event, make_event};
 use crate::interface::{Inherits, Interface, custom_event, event};
+use crate::location;
+use crate::unforgeable;
 
 /// Make every interface's prototype in `engine`'s realm and give them to the
 /// document `cell` holds.
@@ -146,6 +153,7 @@ pub fn install(engine: &mut Engine, cell: Ref) -> Result<Ref, Escape> {
     engine.host_defined(cell)?;
     furnish(engine, cell)?;
     constructors(engine, cell)?;
+    location::make(engine, cell)?;
     let global = engine.global()?;
     let objects = engine.objects();
     let root = embed::document(objects, cell)
@@ -159,6 +167,10 @@ pub fn install(engine: &mut Engine, cell: Ref) -> Result<Ref, Escape> {
             return Err(Escape::fault(Fault::NotAnObject));
         }
     };
+    // The document node is the one `Document` a page has, and this is where
+    // its wrapper is made, so this is where it is given `Document`'s
+    // unforgeable `location` (ADR 0019 § 3). Nothing is allocated.
+    unforgeable::copy(objects, cell, wrapper, Interface::Document)?;
     // The document node's wrapper is held by the cell, which the caller
     // roots, so interning the name below cannot take it.
     let name: Vec<u16> = "document".encode_utf16().collect();

@@ -881,8 +881,8 @@ unreachable without it.
       and **`encodeURIComponent`** (queue item 359): ECMA-262's `Encode` in
       `alo-js/src/uri.rs`, bounded by the longest string, the function in
       `builtin/encode_uri_component.rs`, and `URIError` as an error the
-      engine throws. The script now stops at that call's argument,
-      `location` (360). Still owed: a date as text (357), the person's zone
+      engine throws. The script now runs past that call, whose argument
+      `location` is built (360), and stops at `window` (362). Still owed: a date as text (357), the person's zone
       (358), and `encodeURI` and the two decoders (73)
 - [ ] Regular expressions, with the syntax the language actually has
       · Built: the engine ADR 0029 decided, in `alo-js/src/regexp/` (queue
@@ -1104,6 +1104,15 @@ unreachable without it.
       (queue item 81) — constraint validation, submission, file inputs — the
       focus ring, which needs something to have focus (queue item 43)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
+      · Built: **`location`, read** (queue item 360) — `alo-url`'s
+      `reading.rs` (the URL Standard's nine readings over our `Url`) and
+      `alo-bindings`' `location.rs` and `interface/location.rs`: the page's
+      one `Location`, every member `[LegacyUnforgeable]`, reading the
+      document's URL at each read (`about:blank` when none was stated), the
+      same object from the global object and from `document.location`;
+      everything that navigates refused by name · Owed: navigating through
+      it, by ADR 0020's ask (85); `Location`'s exotic internal methods
+      (361); `ancestorOrigins`, with frames (86)
 - [ ] `iframe`s and the sandbox attribute — a document inside a document, where a great many security bugs live
 - [ ] Shadow DOM and custom elements; component frameworks are not optional on the modern web
 - [ ] Selection and ranges

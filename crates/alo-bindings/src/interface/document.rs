@@ -25,6 +25,12 @@
 //!   `getElementById("")` is always `null`; a `<template>`'s contents are not
 //!   descendants, so nothing in one is found.
 //!
+//! - `location` (queue item 360): the page's `Location`, the same object as
+//!   the global object's `location`, or `null` for a document that is no
+//!   page's. It is `[LegacyUnforgeable]`, so it is an own property of the
+//!   document node's wrapper, copied there by [`crate::install`]; assigning
+//!   to it navigates, and is refused by name until item 85.
+//!
 //! A node made and never inserted is a tree of its own, kept while a script
 //! holds it and released at the collection after it does not (ADR 0017 § 3).
 //!
@@ -40,6 +46,7 @@ use alo_js::{Escape, Value};
 use super::dom_exception;
 use crate::define;
 use crate::idl::{self, Brand, Converted};
+use crate::location;
 
 /// `Document.prototype`'s members.
 pub(super) fn furnish(
@@ -84,6 +91,34 @@ pub(super) fn furnish(
         "getElementById",
         get_element_by_id,
     )
+}
+
+/// `Document`'s unforgeable member, on its unforgeables object: `location`.
+pub(super) fn unforgeables(
+    objects: &mut Objects,
+    unforgeables: Ref,
+    function_prototype: Ref,
+) -> Result<(), Escape> {
+    define::unforgeable_attribute(
+        objects,
+        unforgeables,
+        function_prototype,
+        "location",
+        (location, Some(set_location)),
+    )
+}
+
+/// `get location`: the page's `Location` — the same object the global
+/// object's `location` answers — or `null` for a document that is no page's.
+fn location(call: &mut Call<'_>) -> Result<Answer, Escape> {
+    let this = idl::this(call, Brand::Document, "location")?;
+    location::of(call.seen(), this.owner).map(Answer::Value)
+}
+
+/// `set location`: `[PutForwards=href]`, a navigation, refused by name.
+fn set_location(call: &mut Call<'_>) -> Result<Answer, Escape> {
+    idl::this(call, Brand::Document, "location")?;
+    Err(location::refused())
 }
 
 /// `get documentElement`.

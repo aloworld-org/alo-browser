@@ -49,6 +49,11 @@
 //!   platform the browser process told the renderer, as an [`Identity`], and
 //!   nothing this crate composes.
 //!
+//! - `location`, on the global object and on the document, is the page's one
+//!   [`Location`] (queue item 360), made by [`install()`] and reading the
+//!   document's URL each time it is asked; everything that would navigate
+//!   is refused by name until item 85 ([`location`]).
+//!
 //! - An element's `classList` is a [`TokenList`] (queue item 327), made once
 //!   and kept by its wrapper, computing its tokens from the `class`
 //!   attribute each time it is asked ([`token_list`]).
@@ -112,6 +117,7 @@ pub mod install;
 pub mod interface;
 pub mod listeners;
 pub mod liveness;
+pub mod location;
 pub mod navigating;
 pub mod navigator;
 pub mod node_list;
@@ -134,6 +140,7 @@ pub use headers::Headers;
 pub use install::{furnish, install};
 pub use interface::dom_exception::DomException;
 pub use interface::{Interface, Interfaces, prototype_of};
+pub use location::Location;
 pub use navigator::{Identity, Navigator, introduce};
 pub use node_list::NodeList;
 pub use response::{Responded, Response};

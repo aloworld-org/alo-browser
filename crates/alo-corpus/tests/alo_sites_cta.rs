@@ -22,9 +22,9 @@
 //! line; this says it no longer is. And it pins where the page's analytics
 //! script stops, which changes nothing drawn: past `Date.now()` on its third
 //! line since queue item 356 gave the corpus a clock stopped at
-//! [`alo_corpus::INSTANT`], past `encodeURIComponent` since queue item 359
-//! built it, and at `location`, the argument it is handed on that same eighth
-//! line (queue item 360).
+//! [`alo_corpus::INSTANT`], past `encodeURIComponent` and `location` on its
+//! eighth line since queue items 359 and 360 built them, and at `window`, on
+//! its thirty-second, where it listens for `pagehide` (queue item 362).
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
@@ -95,15 +95,16 @@ fn its_sheet_is_asked_for_and_answered_from_what_was_frozen() {
     assert!(answered.issues.is_empty(), "{:?}", answered.issues);
     // What the load said: its first draw was before the sheet's answer and
     // said so truly; and the analytics script runs past `Date.now()` on its
-    // third line (queue item 356) and resolves `encodeURIComponent` on its
-    // eighth (queue item 359), and stops at that call's argument,
-    // `location.pathname`, which is queue item 360. Nothing else.
+    // third line (queue item 356), past `encodeURIComponent(location.pathname)`
+    // on its eighth (queue items 359 and 360) and past `document`'s
+    // `addEventListener`, and stops at `window.addEventListener` on its
+    // thirty-second, which is queue item 362. Nothing else.
     assert_eq!(
         answered.loaded,
         [
             "no style sheet was loaded for \"/assets/site.css\"",
-            "script 1: uncaught: ReferenceError: 'location' is not defined (at script 1, line 8, \
-             column 41; called from script 1, line 1, column 1)",
+            "script 1: uncaught: ReferenceError: 'window' is not defined (at script 1, line 32, \
+             column 3; called from script 1, line 1, column 1)",
         ]
     );
     let origin = std::fs::read_to_string(case.expectation("origin.txt")).unwrap_or_default();

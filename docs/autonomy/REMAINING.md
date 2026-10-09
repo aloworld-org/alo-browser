@@ -1012,3 +1012,15 @@ met and is cut into **360** (`location`, read; whether it needs design
 first is the next iteration's question). 357 waits for a page, 358 for
 settings. 151 queue items are open. The next unused queue number is 361
 and the next unused ADR 0037.
+
+Iteration 232 built item 360: `location`, read (`alo-url/src/reading.rs`
+for the URL Standard's nine readings; `alo-bindings`' `location.rs` for the
+page's one `Location` and the global's accessor, `interface/location.rs`
+for its unforgeable members, and `Document`'s unforgeable `location`).
+Navigating through it is refused by name until 85. alo Sites' analytics
+script runs past line 8 and stops at line 32, `window`, opened as **362**
+(whether it needs design is the next iteration's question; 251 is
+related). `Location`'s exotic internal methods are cut into **361**
+(waits for a page or item 73). 357 waits for a page, 358 for settings.
+152 queue items are open. The next unused queue number is 363 and the next
+unused ADR 0037.

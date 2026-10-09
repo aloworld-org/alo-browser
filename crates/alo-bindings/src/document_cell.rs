@@ -30,7 +30,8 @@
 //! whose `this` is a fresh instance holding nothing — finds it (§ 2).
 //!
 //! And it holds where the document **is** — its URL, stated by the browser
-//! process — and where the page has **asked to go** since the renderer last
+//! process, and the page's one `Location` that reads it ([`crate::location`])
+//! — and where the page has **asked to go** since the renderer last
 //! answered ([`crate::navigating`], ADR 0020 § 1): HTML's ongoing navigation
 //! is a fact about the page's one navigable, which here is this document's.
 //! Beside it, what the page has asked to **fetch** and the promises waiting
@@ -45,7 +46,7 @@
 //! there is: no prototype, no properties, and it refuses any.
 
 use alo_dom::{Document, NodeId};
-use alo_js::heap::{Barrier, Ref};
+use alo_js::heap::{Barrier, Field, Ref};
 use alo_js::object::{Exotic, Internal, Key, Property};
 use alo_net::Policies;
 use alo_url::Url;
@@ -77,6 +78,9 @@ pub struct DocumentCell {
     /// The document's URL: `about:blank` until the browser process says
     /// otherwise ([`crate::navigating::locate`]).
     pub(crate) url: Url,
+    /// The page's one `Location`, once [`crate::install`] has made it: what
+    /// `location` answers on the global object and on the document.
+    pub(crate) location: Field,
     /// The policies the page holds: its headers' and every `<meta>`'s the
     /// parser has made so far, stated by the renderer
     /// ([`crate::style_policy::state`]). None until it does.
@@ -108,6 +112,7 @@ impl DocumentCell {
             interfaces: Interfaces::default(),
             on_path: Vec::new(),
             url: Url::about_blank(),
+            location: Field::default(),
             policies: Policies::none(),
             ongoing: Ongoing::default(),
             fetches: Fetches::default(),
@@ -128,6 +133,11 @@ impl DocumentCell {
     /// The document's URL.
     pub const fn url(&self) -> &Url {
         &self.url
+    }
+
+    /// The page's one `Location`, once it has been made.
+    pub const fn location(&self) -> Option<Ref> {
+        self.location.get()
     }
 
     /// The policies the page holds, as the renderer last stated them.

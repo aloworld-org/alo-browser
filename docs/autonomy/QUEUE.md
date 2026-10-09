@@ -5886,7 +5886,7 @@ The long pole, and the thing most of section E is unreachable without.
   whose closing condition is the script running past line 8; the rest of
   this item's conditions are met in tests.
 
-- [ ] **360. `location`, read.** *Opened by `alo-sites-cta` (iteration
+- [x] **360. `location`, read.** *Opened by `alo-sites-cta` (iteration
   231); cut from 359. ADRs: 0019 (`Window`'s and `Document`'s `location`
   are `[LegacyUnforgeable]`, copied from the unforgeables object), 0020
   (a script that navigates asks the browser process, through item 85) and
@@ -5911,6 +5911,94 @@ The long pole, and the thing most of section E is unreachable without.
   document loaded with no address answers, and whether refusing the
   navigating half is a decision ADR 0020 has already made. If either is
   not, the item is `needs design` first.
+  **Done (iteration 232).** *Designed, both questions answered by what was
+  already decided:* a document with no address is at `about:blank`, which
+  is HTML's own URL for a document nobody gave another one and what the
+  document cell already held (`DocumentCell::url`), so `href` is
+  `"about:blank"` and `origin` `"null"`; and ADR 0020, *What this does not
+  decide*, gives `location` and every other way a script navigates to item
+  85 through the same ask, so until then each is refused by name under ADR
+  0013 § 3. `alo-url`: `reading.rs`, the URL Standard's nine readings
+  (`href`, `origin`, `protocol`, `host`, `hostname`, `port`, `pathname`,
+  `search`, `hash`) written once over our `Url`, for `Location` now and
+  `a.hostname` and `URL` later. `alo-bindings`: `location.rs`, the page's one
+  `Location` — an embedder cell holding an edge to its document cell and
+  nothing else, so every read is of the address the browser process stated
+  last — made by `install` as HTML's *Location object creation* (the
+  unforgeables copied, then own `valueOf`, the realm's
+  `Object.prototype.valueOf`, and own `Symbol.toPrimitive`, `undefined`,
+  each fixed), kept by the document cell, and put on the global object as
+  an enumerable, non-configurable accessor whose getter finds it through
+  `[[HostDefined]]` (ADR 0019 § 2) and whose setter is `[PutForwards=href]`,
+  refused. `interface/location.rs`: every member `[LegacyUnforgeable]`,
+  on `Location`'s unforgeables (a new `Interface::Location` whose
+  prototype is empty) — the nine getters, `toString` as the stringifier,
+  the eight setters and `assign`, `replace` and `reload` refused by name
+  ("a script navigating by 'location' is queue item 85, through the ask of
+  ADR 0020"), each behind the brand check. `Document` gained unforgeables
+  too: `location`, the same object, copied onto the document node's
+  wrapper by `install`. `define.rs` gained an unforgeable attribute's
+  setter and an unforgeable operation (enumerable, neither writable nor
+  configurable). Tests: `reading.rs`'s eight unit tests (every part; only
+  a host; the scheme's own port never read; an empty query or fragment
+  read as none; IPv6 in brackets; `about:blank`; `data:`; what the parser
+  escaped) and `tests/where_a_page_is.rs`'s thirteen (both address shapes,
+  `about:blank`, one object from both places, a held `Location` reading the
+  address stated after it was taken, `"" + location` by way of `toString`,
+  fifteen navigating forms refused by name in sloppy and strict code,
+  `origin` read-only, the brand check, every member own and unforgeable,
+  `valueOf` and `Symbol.toPrimitive` own and fixed, the global's and the
+  document's `location` own and unforgeable with nothing on either
+  prototype, and the object kept through 64 collections), every script
+  run ordinarily and under `Heap::stress`. Checked by mutation: an empty
+  query read as `?` fails the readings' test, and the document's wrapper
+  not given its unforgeables fails four binding tests.
+  **Closing condition:** `alo-sites-cta`'s script runs past line 8, past
+  `document.addEventListener` on line 29, and stops at line 32,
+  `window.addEventListener("pagehide", record)`, with "ReferenceError:
+  'window' is not defined", pinned in `tests/alo_sites_cta.rs` and opened
+  as **362**. `ancestorOrigins` is absent (always empty with no frames,
+  item 86) and `Location`'s exotic internal methods are cut into **361**.
+
+- [ ] **361. `Location`'s exotic internal methods.** *Cut from 360. Depends
+  on nothing open; observable only through `Object.preventExtensions`,
+  `Object.setPrototypeOf` and `Object.getOwnPropertyDescriptor`, which are
+  item 73's.* HTML makes a `Location` an exotic object: same-origin, its
+  `[[PreventExtensions]]` answers `false`, its prototype is immutable
+  (`SetImmutablePrototype`), its `[[GetOwnProperty]]` reports each of its
+  default properties configurable, and its `[[DefineOwnProperty]]` refuses
+  a default property. With no frames every `Location` is same-origin, so
+  the cross-origin half is item 86's. Today a `Location` is an ordinary
+  object carrying its unforgeable members, which no reading member can
+  tell apart. *Opened by a frozen page that freezes, re-prototypes or
+  describes `location`, or by item 73 making those reachable. Closes
+  when:* each of the four answers as HTML says, in `alo-bindings`' tests,
+  under `Heap::stress`.
+
+- [ ] **362. `window`, and the global object as an event target.**
+  *Opened by `alo-sites-cta` (iteration 232); cut from 360's closing
+  condition. ADRs: 0018 § 1 (an event target is any node *until the global
+  object is a `Window`*), 0019 (a `Window`'s unforgeable members are copied
+  from its unforgeables object). Feature: `docs/features.md` stage 2,
+  events. Related: 251 (`document` as a `Window`'s accessor).* alo Sites'
+  analytics script stops on line 32, `window.addEventListener("pagehide",
+  record)`, with "ReferenceError: 'window' is not defined" at column 3; it
+  reads `window.innerWidth`, `window.scrollY` and `window.innerHeight` on
+  the lines after, which are each their own question when a script reaches
+  them. HTML's `window` (and `self`) answer the global object, and a
+  `Window` is an `EventTarget`, so `addEventListener` on it keeps a
+  listener the browser can later fire `pagehide` and `visibilitychange`
+  at. *Closes when:* the script runs past line 32, in
+  `tests/alo_sites_cta.rs`, and what it stops at next is opened as an item;
+  `window === self` and both are the global object; and a listener added
+  to the window is kept and called by a dispatch at it, in tests.
+  *Is it designed?* The iteration that takes it decides whether the global
+  object becoming an event target is 251's step (the global an embedder
+  cell holding its document, and now its listeners) or can come before
+  it, and where an event dispatched at the window sits on a node's path —
+  HTML puts the `Window` after the document on every path, which ADR 0018
+  § 2's path does not have yet. If either is not decided by ADRs 0017–0019,
+  the item is `needs design` first.
 
 - [ ] **357. A date as text.** *Cut from 353 (ADR 0036 § 4). Depends on
   356.* `Date.parse` and `new Date(string)` over the Date Time String

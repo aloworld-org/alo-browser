@@ -106,9 +106,17 @@
 //! per realm (ADR 0019 § 3). So beside each prototype the document cell
 //! holds that interface's **unforgeables** — Web IDL's `[[Unforgeables]]`, an
 //! object with no prototype made once in [`crate::install::furnish`] — and
-//! [`crate::unforgeable`] copies them onto each instance as it is made. Only
-//! `Event` has one: `isTrusted`. Every other interface's slot is empty rather
-//! than an empty object.
+//! [`crate::unforgeable`] copies them onto each instance as it is made.
+//! `Event` has `isTrusted`, `Document` has `location`, and every member of
+//! `Location` is one (queue item 360). Every other interface's slot is empty
+//! rather than an empty object.
+//!
+//! # `Location` is where the page is, not a node
+//!
+//! `Location` (queue item 360) inherits from `Object.prototype`: its one
+//! instance is the page's, made by [`crate::install`] and held by the
+//! document cell ([`crate::location`]), reading the document's URL each time
+//! it is asked.
 //!
 //! # What is not here
 //!
@@ -134,6 +142,7 @@ pub mod headers;
 pub mod hidden;
 pub mod html_element;
 pub mod input_event;
+pub mod location;
 pub mod mouse_event;
 pub mod navigator;
 pub mod node;
@@ -207,6 +216,8 @@ pub enum Interface {
     CssStyleDeclaration,
     /// An element in the SVG namespace (queue item 342).
     SvgElement,
+    /// Where the page is: `location` (queue item 360).
+    Location,
 }
 
 /// What an interface's prototype inherits from.
@@ -223,7 +234,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 26] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -249,6 +260,7 @@ impl Interface {
         Self::Headers,
         Self::CssStyleDeclaration,
         Self::SvgElement,
+        Self::Location,
     ];
 
     /// Its name, as the standard spells it.
@@ -279,6 +291,7 @@ impl Interface {
             Self::Headers => "Headers",
             Self::CssStyleDeclaration => "CSSStyleDeclaration",
             Self::SvgElement => "SVGElement",
+            Self::Location => "Location",
         }
     }
 
@@ -292,7 +305,8 @@ impl Interface {
             | Self::NodeList
             | Self::Response
             | Self::Headers
-            | Self::CssStyleDeclaration => Inherits::Object,
+            | Self::CssStyleDeclaration
+            | Self::Location => Inherits::Object,
             Self::Node => Inherits::Interface(Self::EventTarget),
             Self::CustomEvent | Self::UiEvent => Inherits::Interface(Self::Event),
             Self::MouseEvent | Self::InputEvent => Inherits::Interface(Self::UiEvent),
@@ -357,6 +371,7 @@ impl Interface {
             Self::Headers => 22,
             Self::CssStyleDeclaration => 23,
             Self::SvgElement => 24,
+            Self::Location => 25,
         }
     }
 
@@ -375,7 +390,7 @@ impl Interface {
     /// Whether it has `[LegacyUnforgeable]` members, which go on an
     /// unforgeables object rather than its prototype (ADR 0019 § 3).
     pub const fn has_unforgeables(self) -> bool {
-        matches!(self, Self::Event)
+        matches!(self, Self::Event | Self::Document | Self::Location)
     }
 
     /// Put this interface's `[LegacyUnforgeable]` members on `unforgeables`,
@@ -395,6 +410,8 @@ impl Interface {
     ) -> Result<(), Escape> {
         match self {
             Self::Event => event::unforgeables(objects, unforgeables, function_prototype),
+            Self::Document => document::unforgeables(objects, unforgeables, function_prototype),
+            Self::Location => location::unforgeables(objects, unforgeables, function_prototype),
             _ => Ok(()),
         }
     }
@@ -456,8 +473,10 @@ impl Interface {
             }
             // In the chain, with none of their members built: `Text`'s
             // `splitText` and `wholeText`, `CharacterData`'s `data`. Each is
-            // added here when something needs it.
-            Self::Text | Self::Comment | Self::ProcessingInstruction => Ok(()),
+            // added here when something needs it. And every member of
+            // `Location` is `[LegacyUnforgeable]`, so all of them are on its
+            // unforgeables and its prototype is empty.
+            Self::Text | Self::Comment | Self::ProcessingInstruction | Self::Location => Ok(()),
         }
     }
 }

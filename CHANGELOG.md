@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Pages can read where they are.** `location` works for reading: the
+  page's whole address, its origin, scheme, host, port, path, query and
+  fragment, each as every other browser writes it, from the window or from
+  `document.location`. A page nobody gave an address is at `about:blank`
+  and says so. Going somewhere by changing `location` is not built yet and
+  stops the script saying so, rather than pretending to have gone. alo
+  Sites' analytics script now gets past its eighth line and stops next at
+  `window` (queue items 360 and 362).
+
 - **Pages can make text safe to put in a web address.**
   `encodeURIComponent` works: it writes every character that is not a
   letter, a digit or one of `-_.!~*'()` as the bytes it is made of, so a
