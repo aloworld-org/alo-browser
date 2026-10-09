@@ -5751,6 +5751,58 @@ The long pole, and the thing most of section E is unreachable without.
   in which zone, is decided before `Date` is built. *Closes when:* the
   script runs past line 3, in `tests/alo_sites_cta.rs`; and what it stops
   at next, if anything, is opened as an item.
+  **Decided (iteration 229): ADR 0036, accepted.** `Date` is the engine's
+  and the instant is the embedder's: `alo-js` defines a `Clock` a realm is
+  handed, and a realm with none refuses `Date.now()`, `new Date()` and
+  `Date()` by name while every other use works. The renderer's clock is the
+  machine's wall clock, read by the renderer in one file, floored to a
+  whole millisecond — the language's own grain — with no jitter, because
+  site isolation (ADR 0005) is the Spectre answer. A page's local zone is
+  UTC until the person chooses one in settings; the renderer never reads
+  the machine's zone. `Date.parse` reads the language's forms and nothing
+  older, and Annex B's date methods are absent. Tests and corpus cases read
+  a fixed clock. Nothing is built, and this item stays open: it closes when
+  **356** does. **357** (a date as text) waits for a page, and **358** (the
+  person's zone) for settings (128).
+
+- [ ] **356. `Date`, with a clock.** *Cut from 353 (ADR 0036 §§ 1, 2, 3
+  and 5). Depends on nothing open.* `alo-js`: the `Clock` trait and a realm
+  made with one or none; the `Date` constructor in every form but a
+  string, `Date.now`, `Date.UTC`, the getters and setters, local and UTC
+  with `LocalTZA` zero, `valueOf`, `getTime`, `getTimezoneOffset`,
+  `toISOString`, `toJSON` and `[Symbol.toPrimitive]`, each under ADR 0031's
+  rules, with ECMA-262's arithmetic in `f64` so a hostile year cannot
+  overflow. `new Date(string)`, `Date.parse` and the `toString` family are
+  refused by name, pointing at 357; Annex B's `getYear`, `setYear` and
+  `toGMTString` are absent. `alo-renderer`: ADR 0036 § 2's clock in one
+  file (the wall clock, floored to a millisecond, `NaN` out of range),
+  handed to every realm it makes. `alo-corpus`: one fixed instant, named in
+  one place with its reason, for every loaded case; `alo-js`' and
+  `alo-bindings`' tests likewise. *Closes when:* `alo-sites-cta`'s script
+  runs past line 3, in `tests/alo_sites_cta.rs`, and what it stops at next
+  is opened as an item; a realm with no clock throws a `TypeError` for
+  `Date.now()` and still answers `new Date(0).getTime()`; the renderer's
+  clock is floored and within the machine's own reading, in a test; a
+  fixed clock makes the same answer in every run; and getters and setters
+  agree with ECMA-262's worked values at the range's ends (±8.64 × 10¹⁵)
+  and one past them, in tests.
+
+- [ ] **357. A date as text.** *Cut from 353 (ADR 0036 § 4). Depends on
+  356.* `Date.parse` and `new Date(string)` over the Date Time String
+  Format and this engine's own `toString` and `toUTCString` forms, anything
+  else `NaN`; `toString`, `toDateString`, `toTimeString`, `toUTCString`
+  with ADR 0036 § 3's zone; and `Date()` called as a function. *Closes
+  when:* every form round-trips; a form the language does not specify is
+  `NaN`; and malformed, truncated and adversarial strings are refused
+  without a panic and in bounded work, in tests. *Opened by a frozen page
+  that writes or reads a date as text, and not before.*
+
+- [ ] **358. The person's time zone.** *Cut from 353 (ADR 0036 § 3).
+  Depends on 128 (settings).* The setting; the zone told to a renderer
+  with the page, as the user agent is (ADR 0030 § 4); the IANA rules
+  rented behind one file, the crate chosen then; and `Intl`'s default zone
+  (79) the same one. *Closes when:* a person who chose a zone sees a
+  page's local time in it, and one who did not sees UTC, in tests.
 
 - [ ] **351. The window waits for a load's style sheets.** *Cut from 348
   (ADR 0035 § 5). Depends on 348 (done).* The browser process presents no

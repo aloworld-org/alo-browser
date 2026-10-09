@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How a page tells the time is decided.** Pages ask for the date and
+  time constantly — alo Sites' own analytics script stops at its third line
+  because this browser cannot answer yet. The page's process will read the
+  computer's clock to the millisecond and no finer, so the clock cannot be
+  used as a fine stopwatch against the hardware. A page will see times in
+  UTC until the person chooses a time zone in the browser's settings,
+  because the computer's zone says where somebody is. Nothing is built yet
+  (decision 0036).
+
 - **A hidden "skip to content" link stays hidden.** An inline element given
   `position: absolute` is now taken out of the line it was in and placed
   where its offsets say, as browsers do. Every page alo Sites publishes

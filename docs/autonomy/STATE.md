@@ -21711,3 +21711,111 @@ items wait for a page, as LOOP.md asks.
 149 queue items are open: 352 closed, 354 and 355 added. The next unused
 queue number is **356** and the next ADR is **0036**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 229 — queue item 353 decided: ADR 0036, the clock a page reads
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`,
+iteration 228's entry, and queue items 347–355. No `AGENTS.md` exists in
+this repository. Iteration 228 named 353 as the next thing an iteration
+could do. Nothing earlier in the queue is eligible: 354 and 355 wait for
+pages, 351 needs design, and the rest are as iteration 226 listed them.
+353 is marked **needs ADR**, so under LOOP.md's stage 2 § 4 the ADR is this
+iteration and no code depends on it yet. For the decision I read:
+- ADR 0005 (Spectre, and that site isolation is the mitigation);
+- ADR 0010 (the sandbox);
+- ADR 0013 §§ 3–5 (absent beats approximate; no panic or overflow; `alo-js`
+  has no clock, and `Date.now` arrives from the embedder);
+- ADR 0016's *What this does not decide* (timers' clock and coarsening are
+  item 92);
+- ADR 0030 in full (nothing about the machine; `language` left to the
+  person's settings; the renderer told the user agent with the page);
+- `alo-corpus/cases/alo-sites-cta`'s `page.html` script and `origin.txt`;
+- `alo-js/src/realm.rs` (no `Date`, no `Math`, no clock) and
+  `alo-renderer/src/page.rs`.
+The feature line is `docs/features.md`' *ECMAScript standard library*.
+
+**What was decided.** ADR 0036, *A page reads the wall clock in whole
+milliseconds, and in UTC*, accepted:
+1. `Date` is the engine's, and the instant is the embedder's. `alo-js`
+   defines a `Clock` a realm is handed. A realm with none throws a
+   `TypeError` for `Date.now()`, `new Date()` and `Date()`, by name, and
+   every use that needs no clock still works. A clock that cannot say
+   answers `NaN`, never a panic.
+2. The renderer's clock is the machine's wall clock, read by the renderer in
+   one file and floored to a whole millisecond. That is the language's own
+   grain, and nothing finer is handed to the engine. There is no jitter,
+   because site isolation is the Spectre answer, and no monotonicity
+   promise. A clock frozen per task was rejected because it makes a busy
+   wait never end. Other clocks (`performance.now`, timers) are their own
+   decisions, but none may read `Date` finer than a millisecond.
+3. A page's local zone is UTC (`LocalTZA` zero) until the person chooses
+   one in settings, which the browser process then tells the renderer with
+   the page. The renderer never reads the machine's zone. This follows ADR
+   0030: a zone is a fact about the person, like `language`. `Intl` must
+   agree.
+4. As text: ECMA-262's forms, and `Date.parse` reads the Date Time String
+   Format and this engine's own output, anything else `NaN`. The forgiving
+   legacy parser is refused (law 1) until a page names a form. The
+   `toLocale*` methods wait for `Intl`, Annex B's `getYear`, `setYear` and
+   `toGMTString` are absent, and parsing is hostile input.
+5. Tests and corpus cases read a fixed clock, so no reference depends on
+   the day it was rendered.
+The ADR names its costs (times "in your zone" are UTC; clock skew is
+readable) and when it would be wrong.
+
+**Queue.** 353 has a *Decided* paragraph and stays open until 356 closes.
+Cut from it:
+- **356**, `Date` with a clock. It depends on nothing open, is eligible, and
+  is next. It is closed by `alo-sites-cta`'s script running past line 3.
+- **357**, a date as text. It waits for a page.
+- **358**, the person's time zone. It waits for settings (128).
+
+**Roadmap.** The standard-library line under stage 2's JavaScript heading
+(*the ECMAScript builtins, in the order real pages need them*) gained, in
+its Owed clause, `Date`: decided by ADR 0036 and built by 356, 357 and 358.
+It is not ticked. `docs/features.md`' same line says `Date` is decided and
+not built. `docs/conformance.md`'s alo Sites row names the ADR and 356.
+`CHANGELOG.md` and `REMAINING.md` are updated too.
+
+**Gate, mechanical.** The build was warm: `cargo test --workspace
+--all-features --no-run` took 7 s. I ran the gate three times; only the
+third gave a result.
+- **First run:** started in the foreground. It passed the 10-minute
+  foreground limit, so the harness moved it to the background, and the
+  harness then killed it at its background limit while it was still in
+  `cargo test`. No result.
+- **Second run:** started in the background with the 2-hour bound. The
+  harness killed it again after about 10 minutes, still in `cargo test`.
+  No result.
+- **Third run:** detached with `nohup`, logging to a file that ends with
+  `exit $?`, and polled with foreground loops in this same turn. It ended
+  `exit 0` and "The gate is met":
+  - fmt clean, clippy silent, tests pass;
+  - no stubs, `unsafe` forbidden, the licence on every file;
+  - every rented crate behind its boundary, no verb takes a coordinate;
+  - the supervisor's stop rule holds.
+  Its documentation check reported no uncommitted code to judge. That is
+  right: this change is documentation only, and `CHANGELOG.md` has its line.
+
+**Gate, manual.**
+- Layout assertion and reference render: none applies. Nothing positions,
+  sizes or draws, and no reference moved.
+- Hostile bytes: nothing new reads from outside. ADR 0036 § 4 writes the
+  clause down for 357's parser.
+- One responsibility per file: the ADR is one decision. The clock is placed
+  in one file of its own in `alo-renderer` (§ 2).
+- The feature is in `docs/features.md` before it is built.
+- Nothing is ticked: 353 is decided, not done.
+- No `unsafe`, no new dependency, no code changed. `alo-workplace` was not
+  touched.
+
+**Unresolved obligations.**
+- 356 is next, and eligible.
+- 351 still needs design.
+- 354 and 355 wait for pages, and so does 357.
+- 358 waits for settings.
+- Everything iteration 226 listed still stands.
+
+152 queue items are open: 356, 357 and 358 added, and 353 still open. The
+next unused queue number is **359** and the next ADR is **0037**. This is
+one iteration, not a finished queue or roadmap.

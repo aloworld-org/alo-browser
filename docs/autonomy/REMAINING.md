@@ -981,3 +981,12 @@ pages: 354 (one among a line's content splits the line, and the static
 position) and 355 (the nearest positioned ancestor). 353 (`Date`) needs
 its ADR as an iteration of its own. 351 still needs design. 149 queue items
 are open. The next unused queue number is 356 and the next unused ADR 0036.
+
+Iteration 229 decided item 353 as ADR 0036: `Date` is the engine's and the
+instant is the embedder's (a `Clock` handed to a realm, refused by name
+when absent), the renderer reads the wall clock in whole milliseconds with
+no jitter, and a page's local zone is UTC until the person sets one. The
+build is cut as 356 (`Date` with a clock; depends on nothing open, eligible
+and next), 357 (a date as text; waits for a page) and 358 (the person's
+zone; on settings, 128). 353 closes when 356 does. 152 queue items are
+open. The next unused queue number is 359 and the next unused ADR 0037.
