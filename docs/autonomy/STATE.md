@@ -22011,3 +22011,37 @@ and is next.
 151 queue items are open: 353 and 356 closed, 359 added. The next unused
 queue number is **360** and the next ADR is **0037**. This is one
 iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 231 — queue item 359: `encodeURIComponent`
+
+Opened by the frozen `alo-sites-cta` case. `uri.rs` holds the escaping, with
+`encode_uri_component.rs` the builtin over it; item 360, `location` read, is
+cut from it.
+
+**The worker built this and did not journal or commit it, and the reason is
+not a defect.** It hit the account's weekly usage limit mid-iteration. Its own
+final record says so: status 429, `usage_limit_reached`, *"You've hit your
+weekly limit · resets 7pm (Europe/Brussels)"*. The supervisor saw a worker
+exit 1, preserved the changes and stopped, which is right — an iteration that
+ended for reasons outside the repository is exactly the case for stopping and
+letting a person look.
+
+The cost was twelve hours of idleness: the limit was reached at 06:52 and did
+not reset until 19:00.
+
+**Verified before committing.** The gate is green and the five tests were read
+rather than counted. Four of them are the ones that matter: a lone surrogate
+is the `URIError` a page can catch rather than a panic or a replacement
+character; the argument is converted to a string *once*, which is observable
+to a page that hands it an object; it is a function of the global object shaped
+the way the specification makes one; and a long string is answered in one pass,
+so a page cannot make escaping quadratic.
+
+**What this says about running the loop.** Flat out, it exhausts a weekly
+allowance before the week ends and then sits idle until the reset. That is a
+decision for the owner — pace it with `--items`, or rent a different worker's
+allowance — and not something to change unasked. It is written here so the
+next run does not rediscover it as a mystery.
+

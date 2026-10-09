@@ -49,6 +49,11 @@
 //! [`time`](crate::time)'s and its *now* is the realm's clock. A date as
 //! text is item 357's, and refused by name.
 //!
+//! `encodeURIComponent` ([`encode_uri_component`], queue item 359) is the
+//! first function of the global object rather than of a prototype. It is no
+//! intrinsic: nothing in the engine calls it, so the global object, which the
+//! realm roots, is all that holds it.
+//!
 //! # A well-known symbol is an intrinsic too
 //!
 //! `Symbol.iterator` is a key on `Array.prototype` and `%IteratorPrototype%`,
@@ -83,6 +88,7 @@ mod date_convert;
 mod date_numbers;
 mod date_prototype;
 mod date_set;
+pub(crate) mod encode_uri_component;
 pub mod error;
 mod for_each;
 pub mod function_prototype;

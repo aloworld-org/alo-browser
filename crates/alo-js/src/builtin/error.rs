@@ -121,6 +121,7 @@ impl From<crate::abrupt::Kind> for Family {
             crate::abrupt::Kind::TypeError => Self::TypeError,
             crate::abrupt::Kind::RangeError => Self::RangeError,
             crate::abrupt::Kind::ReferenceError => Self::ReferenceError,
+            crate::abrupt::Kind::UriError => Self::UriError,
         }
     }
 }
@@ -632,6 +633,7 @@ mod tests {
         assert_eq!(Family::from(Kind::TypeError), Family::TypeError);
         assert_eq!(Family::from(Kind::RangeError), Family::RangeError);
         assert_eq!(Family::from(Kind::ReferenceError), Family::ReferenceError);
+        assert_eq!(Family::from(Kind::UriError), Family::UriError);
         for (at, family) in Family::ALL.into_iter().enumerate() {
             assert_eq!(family.index(), at);
         }

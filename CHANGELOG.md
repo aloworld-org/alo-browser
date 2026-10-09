@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Pages can make text safe to put in a web address.**
+  `encodeURIComponent` works: it writes every character that is not a
+  letter, a digit or one of `-_.!~*'()` as the bytes it is made of, so a
+  path or a search term can go into an address without breaking it. Text
+  that cannot be written that way — half of a character, which the
+  language allows in a string — is an error the page can catch, as the
+  language says. alo Sites' analytics script now gets as far as reading
+  the page's own address, `location`, which is not built yet and is next
+  (queue items 359 and 360).
+
 - **Pages can tell the time.** `Date` works: the current time, dates made
   from numbers or from a year, month and day, every getter and setter, and
   the standard ISO format. A page reads the computer's clock to the

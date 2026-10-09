@@ -5834,7 +5834,7 @@ The long pole, and the thing most of section E is unreachable without.
   none needed a clock; a realm with none refuses one by name.
   **Cut (iteration 230):** what the script stops at next is **359**.
 
-- [ ] **359. `encodeURIComponent`.** *Opened by `alo-sites-cta` (iteration
+- [x] **359. `encodeURIComponent`.** *Opened by `alo-sites-cta` (iteration
   230); cut from 73. Depends on nothing open.* alo Sites' analytics script
   stops at its eighth line, `var page = "&p=" +
   encodeURIComponent(location.pathname) + "&w=";`, with "ReferenceError:
@@ -5849,6 +5849,68 @@ The long pole, and the thing most of section E is unreachable without.
   and four-byte, a paired and a lone surrogate — is written as the
   specification says, in tests, with a long and a hostile string refused
   or answered in bounded work.
+  **Done (iteration 231).** `alo-js`: `uri.rs` is § 19.2.6's `Encode` over
+  UTF-16 code units — the unreserved set (`uriAlpha`, `DecimalDigit`,
+  `uriMark`) as itself, every other code point as its UTF-8 bytes in
+  uppercase `%XX`, a pair as one four-byte code point, and a lone
+  surrogate refused with its unit and index. The output is checked
+  against `LONGEST_STRING` before every write and stops the moment it
+  would pass it, so the work is bounded by what was written.
+  `builtin/encode_uri_component.rs` is the function: `ToString` of its
+  argument (an object's conversion asked for under ADR 0031 and resumed
+  at a step of its own), the encoding, and the errors. A fourth `Kind`,
+  `URIError`, which a `catch` makes an instance of the `URIError`
+  constructor. `Realm::name_the_functions` puts it on the global object,
+  writable, configurable and not enumerable; it is no intrinsic, since
+  nothing in the engine calls it. Tests: `uri.rs`'s five unit tests (the
+  71 unreserved units and nothing else below 128; reserved and the rest of
+  ASCII; two-, three- and four-byte; lone leading and trailing surrogates,
+  two leading ones, a pair then a trailing one; the length bound, lowered
+  for the test, refused as the output grows, with a lone surrogate the
+  string reaches first reported first, and a 2²⁰-unit string answered);
+  `tests/what_encode_uri_component_answers.rs` (every class as a program;
+  the `URIError` caught, named and an instance; the argument converted
+  once, `toString` before `valueOf`, a throw passed through, a converted
+  lone surrogate refused; the property's attributes, replaceable,
+  deletable, no constructor; 2²⁰ `é`s by doubling), each run ordinarily
+  and under `Heap::stress`. Checked by mutation: lowercase digits fail
+  three tests, and a trailing surrogate written as U+FFFD fails two.
+  `encodeURI`, `decodeURI` and `decodeURIComponent` stay `undefined`
+  (item 73), as the item said.
+  **Closing condition, said plainly:** the script does **not** yet run past
+  line 8. `encodeURIComponent` now resolves and is called, and the stop
+  moved to its argument on the same line: "ReferenceError: 'location' is
+  not defined" at line 8, column 41, pinned in `tests/alo_sites_cta.rs`.
+  The item was written without seeing that `location` is absent too. The
+  part of the condition this function cannot meet is cut into **360**,
+  whose closing condition is the script running past line 8; the rest of
+  this item's conditions are met in tests.
+
+- [ ] **360. `location`, read.** *Opened by `alo-sites-cta` (iteration
+  231); cut from 359. ADRs: 0019 (`Window`'s and `Document`'s `location`
+  are `[LegacyUnforgeable]`, copied from the unforgeables object), 0020
+  (a script that navigates asks the browser process, through item 85) and
+  0035 (the page's address is what its URLs resolve against). Feature:
+  `docs/features.md` stage 2, the DOM bindings.* alo Sites' analytics
+  script stops on its eighth line, `encodeURIComponent(location.pathname)`,
+  with "ReferenceError: 'location' is not defined" at column 41, and reads
+  `location.hostname` again on its click handler. HTML's `Location`: the
+  `location` getters on `Window` and `Document` answering the same object,
+  and its reading members — `href`, `origin`, `protocol`, `host`,
+  `hostname`, `port`, `pathname`, `search`, `hash` and `toString` — from
+  the document's URL, which the renderer already holds as the address it
+  loaded the page at. Everything that navigates (`assign`, `replace`,
+  `reload`, and every setter) is item 85's under ADR 0020, and is refused
+  by name until then rather than silently doing nothing. *Closes when:*
+  `alo-sites-cta`'s script runs past line 8, in `tests/alo_sites_cta.rs`,
+  and what it stops at next is opened as an item; each reading member
+  answers the specification's value for an address with and without a
+  port, query and fragment, in tests; a document with no address says so
+  rather than inventing one; and a navigating member is refused by name.
+  *Is it designed?* The next iteration that takes it decides: what a
+  document loaded with no address answers, and whether refusing the
+  navigating half is a decision ADR 0020 has already made. If either is
+  not, the item is `needs design` first.
 
 - [ ] **357. A date as text.** *Cut from 353 (ADR 0036 § 4). Depends on
   356.* `Date.parse` and `new Date(string)` over the Date Time String

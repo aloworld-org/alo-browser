@@ -877,9 +877,13 @@ unreachable without it.
       and setter, `toISOString`, `toJSON` and `Symbol.toPrimitive`, with
       `ToPrimitive` now asking for that symbol first; the renderer's wall
       clock in whole milliseconds (`alo-renderer/src/clock.rs`); and the
-      corpus's one fixed instant. alo Sites' analytics script runs past it
-      and stops at `encodeURIComponent` (359). Still owed: a date as text
-      (357) and the person's zone (358)
+      corpus's one fixed instant. alo Sites' analytics script runs past it;
+      and **`encodeURIComponent`** (queue item 359): ECMA-262's `Encode` in
+      `alo-js/src/uri.rs`, bounded by the longest string, the function in
+      `builtin/encode_uri_component.rs`, and `URIError` as an error the
+      engine throws. The script now stops at that call's argument,
+      `location` (360). Still owed: a date as text (357), the person's zone
+      (358), and `encodeURI` and the two decoders (73)
 - [ ] Regular expressions, with the syntax the language actually has
       · Built: the engine ADR 0029 decided, in `alo-js/src/regexp/` (queue
       item 74) — the pattern parser for the whole grammar, so a bad pattern

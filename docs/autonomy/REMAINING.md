@@ -1002,3 +1002,13 @@ script stops next at `encodeURIComponent`, opened as 359 (depends on
 nothing open, eligible and next). 357 waits for a page, 358 for settings.
 151 queue items are open. The next unused queue number is 360 and the next
 unused ADR 0037.
+
+Iteration 231 built item 359: `encodeURIComponent` (`alo-js/src/uri.rs`
+for ECMA-262's `Encode`, bounded by `LONGEST_STRING` as it grows, and
+`builtin/encode_uri_component.rs` for the function), with `URIError` now an
+error the engine throws. alo Sites' analytics script resolves it and stops
+at its argument on the same line, `location`, so "runs past line 8" is not
+met and is cut into **360** (`location`, read; whether it needs design
+first is the next iteration's question). 357 waits for a page, 358 for
+settings. 151 queue items are open. The next unused queue number is 361
+and the next unused ADR 0037.

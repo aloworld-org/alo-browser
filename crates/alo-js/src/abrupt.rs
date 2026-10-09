@@ -34,11 +34,10 @@ use crate::object::{Fault, Named, Refused, Value};
 
 /// Which of the language's errors this is.
 ///
-/// The four this engine can produce before it has builtins. Each is a real
-/// error the specification names, thrown where the specification says to throw
-/// it — ADR 0013 § 3: *where the language itself specifies an error, we produce
-/// that error, because a script's own `catch` is the page's way of surviving
-/// us.*
+/// The four this engine throws itself. Each is a real error the specification
+/// names, thrown where the specification says to throw it — ADR 0013 § 3:
+/// *where the language itself specifies an error, we produce that error,
+/// because a script's own `catch` is the page's way of surviving us.*
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     /// A value was not of a kind the operation could work on.
@@ -47,6 +46,9 @@ pub enum Kind {
     RangeError,
     /// A name that resolves to nothing, or one read inside its dead zone.
     ReferenceError,
+    /// A string that cannot be written as a URI: a lone surrogate, which no
+    /// UTF-8 can spell (queue item 359).
+    UriError,
 }
 
 impl Kind {
@@ -56,6 +58,7 @@ impl Kind {
             Kind::TypeError => "TypeError",
             Kind::RangeError => "RangeError",
             Kind::ReferenceError => "ReferenceError",
+            Kind::UriError => "URIError",
         }
     }
 }
@@ -111,6 +114,15 @@ impl Thrown {
     pub fn reference_error(message: impl Into<String>, at: usize) -> Self {
         Self::Error {
             kind: Kind::ReferenceError,
+            message: message.into(),
+            at,
+        }
+    }
+
+    /// A `URIError` saying `message`.
+    pub fn uri_error(message: impl Into<String>, at: usize) -> Self {
+        Self::Error {
+            kind: Kind::UriError,
             message: message.into(),
             at,
         }
@@ -375,6 +387,11 @@ impl Escape {
     /// A `ReferenceError`.
     pub fn reference_error(message: impl Into<String>, at: usize) -> Self {
         Self::Thrown(Thrown::reference_error(message, at))
+    }
+
+    /// A `URIError`.
+    pub fn uri_error(message: impl Into<String>, at: usize) -> Self {
+        Self::Thrown(Thrown::uri_error(message, at))
     }
 
     /// What the object model refused, as the escape it is.

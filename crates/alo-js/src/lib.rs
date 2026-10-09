@@ -132,6 +132,7 @@ pub mod time;
 pub mod token;
 pub mod unicode;
 pub mod unit;
+pub mod uri;
 pub mod word;
 
 pub use abrupt::{Escape, Thrown};

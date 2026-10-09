@@ -47,9 +47,11 @@
 //! The first **named** builtins are the seven error constructors (queue item
 //! 227): `Error`, `TypeError` and the rest, writable and configurable and not
 //! enumerable, as every constructor on the global object is; `Promise` (queue
-//! item 333) and `Date` (queue item 356) are bound the same way. There is still no
-//! `Object`, no `Array`, no `Math` and no `console`. ADR 0013 § 3 — *absent
-//! beats approximate* — and each is a queue item. An embedder may put its own
+//! item 333) and `Date` (queue item 356) are bound the same way, and the first
+//! global *function*, `encodeURIComponent` (queue item 359), has the same
+//! attributes. There is still no `Object`, no `Array`, no `Math` and no
+//! `console`. ADR 0013 § 3 — *absent beats approximate* — and each is a queue
+//! item. An embedder may put its own
 //! things on the global object today, which is how a test harness reaches a
 //! script.
 //!
@@ -170,6 +172,7 @@ impl Realm {
         realm.name_the_errors(objects)?;
         realm.name_the_promise(objects)?;
         realm.name_the_date(objects)?;
+        realm.name_the_functions(objects)?;
         Ok(realm)
     }
 
@@ -301,6 +304,15 @@ impl Realm {
             Property::data(Value::Object(constructor), true, false, true),
         )?;
         Ok(())
+    }
+
+    /// The functions of the global object that are built (ECMA-262 § 19.2):
+    /// `encodeURIComponent` (queue item 359).
+    fn name_the_functions(&self, objects: &mut Objects) -> Result<(), Escape> {
+        // Both rooted, so both survive the allocations the definition makes.
+        let global = self.global(objects)?;
+        let functions = self.intrinsics.function_prototype(objects)?;
+        crate::builtin::encode_uri_component::furnish(objects, global, functions)
     }
 
     /// The global object, which is what an embedder puts its own things on.
