@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Pages have a `window` they can listen on.** `window`, `self`,
+  `globalThis` and a script's top-level `this` are now the same object, and
+  a page can add listeners to it, remove them and send events to it. Every
+  event sent to something in the page reaches the window too: it hears an
+  event first on its way down and last on its way back up, as in every
+  other browser, except `load`, which stops at the document. Listening on
+  the window for scrolling and touch is passive unless the page says
+  otherwise, as the standard asks. `window` cannot be replaced or deleted;
+  `self` can be, as in every browser. `location` is now the window's own,
+  checked to be used on a window. Looking an element up by its `id` as a
+  property of the window, a pre-standard habit, is not supported. alo
+  Sites' analytics script now runs to its end. The browser itself sends the
+  window nothing yet (`pagehide` and the rest are queue item 364), and when
+  the page's own `pagehide` listener is reached it stops next at `Math`,
+  which is not built (ADR 0037, queue items 362 and 365).
+
 - **Decided: how a page's `window` will work.** `window` will be a real
   object that a page can listen on. Every event sent to something in the
   page reaches the window last: it is the first to hear an event on its way

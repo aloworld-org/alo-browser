@@ -77,7 +77,7 @@ use crate::compile::{self, Refusal};
 use crate::convert::{self, Hint, Names, Primitive};
 use crate::heap::{Ref, Root};
 use crate::job::Jobs;
-use crate::object::native::Native;
+use crate::object::native::{Make, Native};
 use crate::object::{Held, Key, Objects, Property, Value};
 use crate::operate::{self, Applied, Side, Simple};
 use crate::realm::{Assigned, Realm, Resolved};
@@ -176,7 +176,7 @@ impl Engine {
     /// [`Escape::Full`] if the heap cannot hold a realm, which is a heap that
     /// was full before anything ran.
     pub fn new() -> Result<Self, Escape> {
-        Self::made(None)
+        Self::made(None, None)
     }
 
     /// An engine whose realm is told the time by `clock` (ADR 0036 § 1): the
@@ -186,13 +186,31 @@ impl Engine {
     ///
     /// The same as [`Engine::new`].
     pub fn with_clock(clock: Rc<dyn Clock>) -> Result<Self, Escape> {
-        Self::made(Some(clock))
+        Self::made(Some(clock), None)
     }
 
-    /// [`Engine::new`] or [`Engine::with_clock`].
-    fn made(clock: Option<Rc<dyn Clock>>) -> Result<Self, Escape> {
+    /// An engine whose realm's global object is the embedder's: what `make`
+    /// makes from the realm's `Object.prototype`, furnished with the
+    /// language's values and builtins as an ordinary one is (ADR 0037 § 1).
+    /// Its time is told by `clock`, or it has none, as [`Engine::new`] has
+    /// none.
+    ///
+    /// ECMAScript's `InitializeHostDefinedRealm` provision, for a host whose
+    /// global object is exotic — a page's `Window`. The engine never learns
+    /// what the object is; an embedder reads it back as its own type through
+    /// [`Engine::global`] and [`Objects::embedded`].
+    ///
+    /// # Errors
+    ///
+    /// The same as [`Engine::new`].
+    pub fn with_global(make: Make, clock: Option<Rc<dyn Clock>>) -> Result<Self, Escape> {
+        Self::made(clock, Some(make))
+    }
+
+    /// [`Engine::new`], [`Engine::with_clock`] or [`Engine::with_global`].
+    fn made(clock: Option<Rc<dyn Clock>>, global: Option<Make>) -> Result<Self, Escape> {
         let mut objects = Objects::new();
-        let realm = Realm::new(&mut objects, clock)?;
+        let realm = Realm::new(&mut objects, clock, global)?;
         // `ToPrimitive` asks the realm's `Symbol.toPrimitive` first, which the
         // realm roots (queue item 356).
         let to_primitive = realm

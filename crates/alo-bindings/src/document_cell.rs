@@ -40,6 +40,13 @@
 //! so that `element.style` reads a refused `style` attribute as the draw
 //! does (ADR 0034 § 3, [`crate::style_policy`]).
 //!
+//! And it holds an edge to the page's **`Window`**, the realm's global
+//! object, set by [`crate::install`] as the window is given an edge back
+//! (ADR 0037 § 2): a dispatch that starts at a node of this document ends at
+//! the window ([`crate::dispatch`]), and this is where it finds it. A
+//! document no page's window was associated with — a second one, made by
+//! [`crate::furnish`] alone — has none, and its paths stop at its root.
+//!
 //! It is an object only because everything in the heap that is not the
 //! engine's own is one. No script is ever handed it — the document *node* a
 //! page sees is a wrapper like any other — so as an object it is the plainest
@@ -81,6 +88,8 @@ pub struct DocumentCell {
     /// The page's one `Location`, once [`crate::install`] has made it: what
     /// `location` answers on the global object and on the document.
     pub(crate) location: Field,
+    /// The page's `Window`, once [`crate::install`] has associated it.
+    pub(crate) window: Field,
     /// The policies the page holds: its headers' and every `<meta>`'s the
     /// parser has made so far, stated by the renderer
     /// ([`crate::style_policy::state`]). None until it does.
@@ -113,6 +122,7 @@ impl DocumentCell {
             on_path: Vec::new(),
             url: Url::about_blank(),
             location: Field::default(),
+            window: Field::default(),
             policies: Policies::none(),
             ongoing: Ongoing::default(),
             fetches: Fetches::default(),
@@ -138,6 +148,12 @@ impl DocumentCell {
     /// The page's one `Location`, once it has been made.
     pub const fn location(&self) -> Option<Ref> {
         self.location.get()
+    }
+
+    /// The page's `Window`, once it has been associated: the realm's global
+    /// object, whose document this is.
+    pub const fn window(&self) -> Option<Ref> {
+        self.window.get()
     }
 
     /// The policies the page holds, as the renderer last stated them.

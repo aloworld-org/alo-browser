@@ -65,7 +65,7 @@ macro_rules! doc {
 /// An engine with the page installed, collecting at every allocation when
 /// `stress` says so; the root that keeps its document cell, and the cell.
 fn page(stress: bool) -> Result<(Engine, Root, Ref), String> {
-    let mut engine = Engine::new().map_err(|why| why.to_string())?;
+    let mut engine = alo_bindings::engine(None).map_err(|why| why.to_string())?;
     engine.objects().heap_mut().stress(stress);
     let cell = adopt(engine.objects(), parse_document(PAGE)).map_err(|why| why.to_string())?;
     let root = engine.objects().heap_mut().root(cell);

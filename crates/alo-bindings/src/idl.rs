@@ -39,9 +39,6 @@ use crate::interface;
 /// What a member requires its `this` to be.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Brand {
-    /// Any event target, which is any node until the global object is a
-    /// `Window` (ADR 0018 § 1).
-    EventTarget,
     /// Any node.
     Node,
     /// An element.
@@ -64,7 +61,6 @@ impl Brand {
     /// The interface's name, for the message.
     const fn name(self) -> &'static str {
         match self {
-            Self::EventTarget => "EventTarget",
             Self::Node => "Node",
             Self::Element => "Element",
             Self::HtmlElement => "HTMLElement",
@@ -78,7 +74,7 @@ impl Brand {
     /// Whether a node of `kind` is one.
     const fn admits(self, kind: &NodeKind) -> bool {
         match self {
-            Self::EventTarget | Self::Node => true,
+            Self::Node => true,
             Self::Element => matches!(kind, NodeKind::Element(_)),
             Self::HtmlElement => matches!(
                 kind,

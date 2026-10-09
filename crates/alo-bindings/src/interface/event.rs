@@ -46,6 +46,7 @@ use alo_js::{Escape, Fault, Value};
 
 use super::Interface;
 use crate::dictionary::{self, Member};
+use crate::dispatch::{self, Entry};
 use crate::embed::{self, Wrapping};
 use crate::event::{Event, Init, Phase};
 use crate::{define, unforgeable};
@@ -242,7 +243,8 @@ fn prevent_default(call: &mut Call<'_>) -> Result<Answer, Escape> {
 
 /// `composedPath()`: the path's targets, from the target up, as an array —
 /// empty when the event is not being dispatched. With no shadow trees
-/// nothing on the path is hidden, so it is the whole path.
+/// nothing on the path is hidden, so it is the whole path, the window at its
+/// end when the path reaches it (ADR 0037 § 3).
 ///
 /// **A safepoint** at every target that has no wrapper yet. The array is held
 /// in a scope while they are made, and each node is kept by the dispatch
@@ -275,17 +277,24 @@ fn fill(
     objects: &mut Objects,
     array: Ref,
     cell: Ref,
-    path: &[alo_dom::NodeId],
+    path: &[Entry],
     at: usize,
 ) -> Result<(), Escape> {
-    for (index, node) in path.iter().enumerate() {
-        let prototype = interface::prototype_of(objects, cell, *node);
-        let wrapper = match embed::wrap(objects, cell, *node, prototype) {
-            Ok(wrapper) => wrapper,
-            Err(Wrapping::Refused(refused)) => return Err(Escape::refused(refused, at)),
-            Err(Wrapping::NotADocument | Wrapping::NoSuchNode(_)) => {
-                return Err(Escape::Broken(Internal::BuiltinIsWrong));
+    for (index, entry) in path.iter().enumerate() {
+        let wrapper = match entry {
+            Entry::Node(node) => {
+                let prototype = interface::prototype_of(objects, cell, *node);
+                match embed::wrap(objects, cell, *node, prototype) {
+                    Ok(wrapper) => wrapper,
+                    Err(Wrapping::Refused(refused)) => return Err(Escape::refused(refused, at)),
+                    Err(Wrapping::NotADocument | Wrapping::NoSuchNode(_)) => {
+                        return Err(Escape::Broken(Internal::BuiltinIsWrong));
+                    }
+                }
             }
+            // The realm roots it, and the document cell holds it.
+            Entry::Window => dispatch::object_of(objects, cell, *entry)
+                .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?,
         };
         let key = u32::try_from(index)
             .ok()

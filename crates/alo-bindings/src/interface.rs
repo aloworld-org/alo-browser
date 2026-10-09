@@ -107,8 +107,9 @@
 //! holds that interface's **unforgeables** — Web IDL's `[[Unforgeables]]`, an
 //! object with no prototype made once in [`crate::install::furnish`] — and
 //! [`crate::unforgeable`] copies them onto each instance as it is made.
-//! `Event` has `isTrusted`, `Document` has `location`, and every member of
-//! `Location` is one (queue item 360). Every other interface's slot is empty
+//! `Event` has `isTrusted`, `Document` has `location`, every member of
+//! `Location` is one (queue item 360), and `Window` has `window` and
+//! `location` (queue item 362). Every other interface's slot is empty
 //! rather than an empty object.
 //!
 //! # `Location` is where the page is, not a node
@@ -117,6 +118,17 @@
 //! instance is the page's, made by [`crate::install`] and held by the
 //! document cell ([`crate::location`]), reading the document's URL each time
 //! it is asked.
+//!
+//! # `Window` is the global object, not a node
+//!
+//! `Window` (ADR 0037, queue item 362) inherits from `EventTarget` directly:
+//! Web IDL's *named properties object* between them exists only for named
+//! access on the window, which law 1 refuses, so neither it nor the access
+//! is here. Its one instance is the realm's global object
+//! ([`crate::window`]). `Window` is `[Global]`, so its members are on that
+//! instance rather than its prototype, which is empty: its unforgeables
+//! (`window`, `location`) are copied there and its `self` defined there by
+//! [`crate::install`] ([`window`]).
 //!
 //! # What is not here
 //!
@@ -151,6 +163,7 @@ pub mod parent_node;
 pub mod pointer_event;
 pub mod response;
 pub mod ui_event;
+pub mod window;
 
 use alo_dom::{Namespace, NodeId, NodeKind};
 use alo_js::Escape;
@@ -218,6 +231,8 @@ pub enum Interface {
     SvgElement,
     /// Where the page is: `location` (queue item 360).
     Location,
+    /// The page's global object (ADR 0037, queue item 362).
+    Window,
 }
 
 /// What an interface's prototype inherits from.
@@ -234,7 +249,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 26] = [
+    pub const ALL: [Self; 27] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -261,6 +276,7 @@ impl Interface {
         Self::CssStyleDeclaration,
         Self::SvgElement,
         Self::Location,
+        Self::Window,
     ];
 
     /// Its name, as the standard spells it.
@@ -292,6 +308,7 @@ impl Interface {
             Self::CssStyleDeclaration => "CSSStyleDeclaration",
             Self::SvgElement => "SVGElement",
             Self::Location => "Location",
+            Self::Window => "Window",
         }
     }
 
@@ -307,7 +324,7 @@ impl Interface {
             | Self::Headers
             | Self::CssStyleDeclaration
             | Self::Location => Inherits::Object,
-            Self::Node => Inherits::Interface(Self::EventTarget),
+            Self::Node | Self::Window => Inherits::Interface(Self::EventTarget),
             Self::CustomEvent | Self::UiEvent => Inherits::Interface(Self::Event),
             Self::MouseEvent | Self::InputEvent => Inherits::Interface(Self::UiEvent),
             Self::PointerEvent => Inherits::Interface(Self::MouseEvent),
@@ -372,6 +389,7 @@ impl Interface {
             Self::CssStyleDeclaration => 23,
             Self::SvgElement => 24,
             Self::Location => 25,
+            Self::Window => 26,
         }
     }
 
@@ -390,7 +408,10 @@ impl Interface {
     /// Whether it has `[LegacyUnforgeable]` members, which go on an
     /// unforgeables object rather than its prototype (ADR 0019 § 3).
     pub const fn has_unforgeables(self) -> bool {
-        matches!(self, Self::Event | Self::Document | Self::Location)
+        matches!(
+            self,
+            Self::Event | Self::Document | Self::Location | Self::Window
+        )
     }
 
     /// Put this interface's `[LegacyUnforgeable]` members on `unforgeables`,
@@ -412,6 +433,7 @@ impl Interface {
             Self::Event => event::unforgeables(objects, unforgeables, function_prototype),
             Self::Document => document::unforgeables(objects, unforgeables, function_prototype),
             Self::Location => location::unforgeables(objects, unforgeables, function_prototype),
+            Self::Window => window::unforgeables(objects, unforgeables, function_prototype),
             _ => Ok(()),
         }
     }
@@ -475,8 +497,14 @@ impl Interface {
             // `splitText` and `wholeText`, `CharacterData`'s `data`. Each is
             // added here when something needs it. And every member of
             // `Location` is `[LegacyUnforgeable]`, so all of them are on its
-            // unforgeables and its prototype is empty.
-            Self::Text | Self::Comment | Self::ProcessingInstruction | Self::Location => Ok(()),
+            // unforgeables and its prototype is empty. `Window` is `[Global]`,
+            // so its members are on the one instance, not its prototype
+            // (ADR 0037 § 4).
+            Self::Text
+            | Self::Comment
+            | Self::ProcessingInstruction
+            | Self::Location
+            | Self::Window => Ok(()),
         }
     }
 }

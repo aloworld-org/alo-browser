@@ -32,7 +32,7 @@ fn audit(engine: &mut Engine) -> (usize, Option<String>) {
 
 #[test]
 fn every_builtin_installed_for_a_page_keeps_no_more_than_eight() {
-    let Ok(mut engine) = Engine::new() else {
+    let Ok(mut engine) = alo_bindings::engine(None) else {
         panic!("an engine");
     };
     let (engines, over) = audit(&mut engine);

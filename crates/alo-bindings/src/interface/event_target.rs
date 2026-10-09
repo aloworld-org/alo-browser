@@ -10,14 +10,23 @@
 //!   `signal`. A `null` callback adds nothing; one with the same type,
 //!   callback and `capture` as a listener already there adds nothing either.
 //!   A `passive` nobody gave is the standard's default: true for `touchstart`,
-//!   `touchmove`, `wheel` and `mousewheel` on the document, its document
-//!   element or its body.
+//!   `touchmove`, `wheel` and `mousewheel` on the window, the document, its
+//!   document element or its body.
 //! - `removeEventListener(type, callback, options)` — `options` a boolean or
 //!   a dictionary of `capture`.
 //! - `dispatchEvent(event)` — the event dispatched to this target, untrusted,
 //!   its listeners called by this native one at a time through the stepper
 //!   ([`crate::dispatch`]), driven as `scripted.rs` drives it; a listener that throws is **reported** and the
 //!   next one runs, and the answer is whether nobody cancelled it.
+//!
+//! # A node or the window
+//!
+//! Every member's `this` is a node's wrapper **or the page's `Window`**
+//! (ADR 0037 § 2), and anything else is the `TypeError` of Web IDL's brand
+//! check — except `undefined` and `null`, which Web IDL makes the realm's
+//! global object, so a bare `addEventListener(…)` is the window's. Both hold their listeners the same way and are reached through
+//! the same two functions ([`crate::listeners`]), so nothing here differs
+//! between them but the default `passive`.
 //!
 //! # `signal` is a `TypeError`
 //!
@@ -37,22 +46,25 @@
 //! 221), as `setAttribute` with two objects is. Either alone is converted in
 //! full, and every boolean converted so far rides in the step number.
 
+use alo_dom::NodeId;
 use alo_js::abrupt::{Internal, Missing};
 use alo_js::convert::{self, Hint, Primitive};
 use alo_js::heap::Ref;
 use alo_js::object::Objects;
 use alo_js::object::native::{Answer, Call, Want};
-use alo_js::{Escape, Value};
+use alo_js::{Escape, Fault, Value};
 
 use super::dom_exception;
 use crate::define;
 use crate::dictionary::{self, Member};
 use crate::dispatch::{self, Refusal};
+use crate::document_cell::DocumentCell;
+use crate::embed;
 use crate::event::Event;
-use crate::idl::{self, Brand, This};
-use crate::listeners::Wanted;
+use crate::idl;
+use crate::listeners::{self, Wanted};
 use crate::scripted::{self, Driven};
-use crate::wrapper::Wrapper;
+use crate::window::Window;
 
 /// `EventTarget.prototype`'s members.
 pub(super) fn furnish(
@@ -93,7 +105,7 @@ const PASSIVE: u32 = 8;
 /// `addEventListener(type, callback, options)`.
 fn add_event_listener(call: &mut Call<'_>) -> Result<Answer, Escape> {
     let member = "addEventListener";
-    let this = idl::this(call, Brand::EventTarget, member)?;
+    let this = target(call, member)?;
     idl::needs(call, 2, member)?;
     let (kind, options) = match arguments(call, &ADD_MEMBERS, member)? {
         Read::Ready(kind, options) => (kind, options),
@@ -107,28 +119,26 @@ fn add_event_listener(call: &mut Call<'_>) -> Result<Answer, Escape> {
     } else {
         options & PASSIVE != 0
     };
-    let wrapper = target(call)?;
-    call.objects()
-        .write_embedded::<Wrapper, _>(wrapper, |held, barrier| {
-            held.listeners_mut().add(
-                barrier,
-                Wanted {
-                    kind: &kind,
-                    callback,
-                    capture: options & CAPTURE != 0,
-                    once: options & ONCE != 0,
-                    passive,
-                },
-            )
-        })
-        .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
+    listeners::change(call.objects(), this.object, |list, barrier| {
+        list.add(
+            barrier,
+            Wanted {
+                kind: &kind,
+                callback,
+                capture: options & CAPTURE != 0,
+                once: options & ONCE != 0,
+                passive,
+            },
+        )
+    })
+    .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
     Ok(Answer::Value(Value::Undefined))
 }
 
 /// `removeEventListener(type, callback, options)`.
 fn remove_event_listener(call: &mut Call<'_>) -> Result<Answer, Escape> {
     let member = "removeEventListener";
-    idl::this(call, Brand::EventTarget, member)?;
+    let this = target(call, member)?;
     idl::needs(call, 2, member)?;
     let (kind, options) = match arguments(call, &REMOVE_MEMBERS, member)? {
         Read::Ready(kind, options) => (kind, options),
@@ -137,13 +147,10 @@ fn remove_event_listener(call: &mut Call<'_>) -> Result<Answer, Escape> {
     let Some(callback) = callback(call, member)? else {
         return Ok(Answer::Value(Value::Undefined));
     };
-    let wrapper = target(call)?;
-    call.objects()
-        .write_embedded::<Wrapper, _>(wrapper, |held, barrier| {
-            held.listeners_mut()
-                .remove(barrier, &kind, callback, options & CAPTURE != 0)
-        })
-        .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
+    listeners::change(call.objects(), this.object, |list, barrier| {
+        list.remove(barrier, &kind, callback, options & CAPTURE != 0)
+    })
+    .ok_or(Escape::Broken(Internal::BuiltinIsWrong))?;
     Ok(Answer::Value(Value::Undefined))
 }
 
@@ -301,32 +308,83 @@ fn callback(call: &Call<'_>, member: &'static str) -> Result<Option<Ref>, Escape
     }
 }
 
-/// The standard's *default passive value*.
-fn passive_by_default(call: &Call<'_>, this: This, kind: &[u16]) -> Result<bool, Escape> {
+/// The standard's *default passive value*: the window is the first target
+/// it names.
+fn passive_by_default(call: &Call<'_>, this: Target, kind: &[u16]) -> Result<bool, Escape> {
     let scrolls = ["touchstart", "touchmove", "wheel", "mousewheel"]
         .iter()
         .any(|name| name.encode_utf16().eq(kind.iter().copied()));
     if !scrolls {
         return Ok(false);
     }
+    let Some(node) = this.node else {
+        return Ok(true);
+    };
     let document = idl::read(call, this.owner)?;
-    Ok(this.node == document.root()
-        || Some(this.node) == document.document_element()
-        || Some(this.node) == document.body())
+    Ok(node == document.root()
+        || Some(node) == document.document_element()
+        || Some(node) == document.body())
 }
 
-/// The wrapper the member was called on, which the brand check has passed.
-fn target(call: &Call<'_>) -> Result<Ref, Escape> {
-    match call.this() {
-        Value::Object(held) => Ok(held),
-        _ => Err(Escape::Broken(Internal::BuiltinIsWrong)),
+/// A member's `this`, once the brand check has passed.
+#[derive(Debug, Clone, Copy)]
+struct Target {
+    /// The object: a node's wrapper or the window.
+    object: Ref,
+    /// The document cell it belongs to: its node's, or the window's
+    /// document's.
+    owner: Ref,
+    /// Its node, or [`None`] for the window.
+    node: Option<NodeId>,
+}
+
+/// The brand check: `this` as a node's wrapper or a `Window` (ADR 0037
+/// § 2).
+///
+/// # Errors
+///
+/// A `TypeError` naming `member` for anything else.
+fn target(call: &Call<'_>, member: &'static str) -> Result<Target, Escape> {
+    let refused = || {
+        Escape::type_error(
+            format!("'{member}' was called on something that is not an EventTarget"),
+            call.at(),
+        )
+    };
+    let object = match call.this() {
+        Value::Object(object) => object,
+        // Web IDL: an operation called with no `this` is called on the
+        // realm's global object, which is the window — so a page's bare
+        // `addEventListener(…)` is the window's.
+        Value::Undefined | Value::Null => call
+            .host_defined()
+            .and_then(|cell| call.seen().embedded::<DocumentCell>(cell))
+            .and_then(DocumentCell::window)
+            .ok_or_else(refused)?,
+        _ => return Err(refused()),
+    };
+    if let Some((owner, node)) = embed::node_of(call.seen(), object) {
+        return Ok(Target {
+            object,
+            owner,
+            node: Some(node),
+        });
     }
+    let window = call.seen().embedded::<Window>(object).ok_or_else(refused)?;
+    // A window is given its document before any script can run, and a
+    // member of `EventTarget` cannot be reached before then.
+    let owner = window.document().ok_or(Escape::fault(Fault::Gone))?;
+    Ok(Target {
+        object,
+        owner,
+        node: None,
+    })
 }
 
 /// `dispatchEvent(event)`.
 fn dispatch_event(call: &mut Call<'_>) -> Result<Answer, Escape> {
     let member = "dispatchEvent";
-    let this = idl::this(call, Brand::EventTarget, member)?;
+    let this = target(call, member)?;
     idl::needs(call, 1, member)?;
     let event = match call.argument(0) {
         Value::Object(held) if call.seen().embedded::<Event>(held).is_some() => held,
@@ -338,8 +396,7 @@ fn dispatch_event(call: &mut Call<'_>) -> Result<Answer, Escape> {
         }
     };
     let driven = if call.step() == 0 {
-        let wrapper = target(call)?;
-        match dispatch::begin(call.objects(), event, wrapper, false) {
+        match dispatch::begin(call.objects(), event, this.object, false) {
             Ok(()) => {}
             Err(Refusal::Dispatching) => {
                 return Err(dom_exception::thrown_named(

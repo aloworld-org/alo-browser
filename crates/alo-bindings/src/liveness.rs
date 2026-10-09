@@ -59,8 +59,9 @@ impl Trace for DocumentCell {
     fn trace(&self, tracer: &mut Tracer) {
         // The prototypes are the page's, alive as long as its document is.
         self.interfaces.trace(tracer);
-        // So is its `Location`.
+        // So is its `Location`, and its `Window`.
         self.location.trace(tracer);
+        self.window.trace(tracer);
         // A promise waiting for a fetch's answer lives until it comes.
         self.fetches.trace(tracer);
         let document = &self.document;

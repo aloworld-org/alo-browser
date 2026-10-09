@@ -20,10 +20,12 @@
 //!
 //! On a `Window`, `navigator` is a `[Replaceable]` attribute: reading it
 //! answers the one `Navigator`, and assigning to it replaces it with what was
-//! assigned. Until the global object is a `Window` (item 251) it is a data
-//! property that is writable, enumerable and configurable — which is what
-//! reading, assigning and deleting can observe of `[Replaceable]`, as
-//! [`crate::install`] says of `document`.
+//! assigned. The global object is a `Window` now (ADR 0037), and `self` is
+//! built as that accessor ([`crate::interface::window`]); `navigator` is
+//! still a data property that is writable, enumerable and configurable —
+//! which is what reading, assigning and deleting can observe of
+//! `[Replaceable]`, as [`crate::install`] says of `document`. Only a
+//! property descriptor, item 73's, tells the two apart.
 
 use alo_js::heap::{Barrier, Ref, Trace, Tracer};
 use alo_js::interpret::Engine;

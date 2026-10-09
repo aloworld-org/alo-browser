@@ -12,8 +12,8 @@
 //! Those are the only `UIEvent`s this engine makes
 //! ([`Shape::Pointer`](crate::event::Shape) and `Shape::Input`).
 //!
-//! **Absent**: `view`, a `Window`, which the global object is not until
-//! item 251; `which`, law 1's; and the constructor, since a page makes no
+//! **Absent**: `view`, the event's `Window` — the global object is one now
+//! (ADR 0037), and `view` waits for a page that reads it; `which`, law 1's; and the constructor, since a page makes no
 //! event of this family yet that a test or a page has asked for — each of
 //! the three would be its own item, not a member here answering wrongly.
 

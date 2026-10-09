@@ -44,6 +44,13 @@
 //!   prototypes in an engine's realm and puts the document on its global
 //!   object as `document`; [`furnish()`] makes them without the global, for a
 //!   second document.
+//! - The global object is the page's [`Window`] (ADR 0037, queue item 362):
+//!   an engine made by [`engine()`] has one, which [`install()`] makes whole
+//!   — `Window.prototype`, its `window`, `self` and `location`, and an edge
+//!   to and from its document. It is an event target: it holds its own
+//!   listeners, and every event dispatched at a node of its document but
+//!   `load` reaches it last when bubbling and first when capturing
+//!   ([`dispatch`]).
 //! - [`introduce()`] puts the page's [`Navigator`] on the global object as
 //!   `navigator` (ADR 0030, queue item 325): the user agent string and the
 //!   platform the browser process told the renderer, as an [`Identity`], and
@@ -130,6 +137,7 @@ pub mod token_list;
 mod tokens;
 pub mod tree;
 mod unforgeable;
+pub mod window;
 pub mod wrapper;
 
 pub use document_cell::{DocumentCell, Released};
@@ -146,4 +154,5 @@ pub use node_list::NodeList;
 pub use response::{Responded, Response};
 pub use style_declaration::StyleDeclaration;
 pub use token_list::TokenList;
+pub use window::{Window, engine};
 pub use wrapper::Wrapper;

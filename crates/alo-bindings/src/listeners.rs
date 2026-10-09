@@ -22,6 +22,13 @@
 //! the list no longer has, so the copy names it and finds nothing: the flag,
 //! without a second place to keep it.
 //!
+//! # A node's wrapper or the window
+//!
+//! The window holds a list too (ADR 0037 § 2), and it is reached through
+//! the same two functions as a node's — [`of`] to read and [`change`] to
+//! write — so `addEventListener`'s options, `handleEvent`, `once`, `passive`
+//! and the *removed* rule cannot come to differ between the two.
+//!
 //! # Its size is counted
 //!
 //! Every entry counts in its wrapper's footprint, type and all (ADR 0014
@@ -29,6 +36,39 @@
 //! an array that grows for ever does.
 
 use alo_js::heap::{Barrier, Field, Ref, Tracer};
+use alo_js::object::Objects;
+
+use crate::window::Window;
+use crate::wrapper::Wrapper;
+
+/// The listener list of `target` — a node's wrapper or a `Window` — or
+/// [`None`] for any other object.
+pub fn of(objects: &Objects, target: Ref) -> Option<&Listeners> {
+    match objects.embedded::<Wrapper>(target) {
+        Some(wrapper) => Some(wrapper.listeners()),
+        None => objects.embedded::<Window>(target).map(Window::listeners),
+    }
+}
+
+/// Change the listener list of `target` — a node's wrapper or a `Window` —
+/// with `change`, answering what it answers, or [`None`] for any other
+/// object.
+///
+/// Not a safepoint: nothing in `change` can reach the heap but the barrier.
+pub fn change<R>(
+    objects: &mut Objects,
+    target: Ref,
+    change: impl FnOnce(&mut Listeners, &mut Barrier) -> R,
+) -> Option<R> {
+    if objects.embedded::<Wrapper>(target).is_some() {
+        return objects.write_embedded::<Wrapper, _>(target, |held, barrier| {
+            change(held.listeners_mut(), barrier)
+        });
+    }
+    objects.write_embedded::<Window, _>(target, |held, barrier| {
+        change(held.listeners_mut(), barrier)
+    })
+}
 
 /// One listener: what is called, and when.
 #[derive(Debug)]

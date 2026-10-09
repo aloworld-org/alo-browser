@@ -41,8 +41,20 @@
 //!
 //! What a realm also owns now is its [`Intrinsics`] (queue item 218):
 //! `Object.prototype` and `Function.prototype`, which are not a library but
-//! what an object and a function *are*. The global object is an ordinary object
-//! and inherits from the first of them like any other.
+//! what an object and a function *are*. The global object inherits from the
+//! first of them like any other.
+//!
+//! # The global object may be the host's
+//!
+//! ECMAScript's `InitializeHostDefinedRealm` lets a host make the global
+//! object itself, and HTML does: a page's global is a `Window` (ADR 0037
+//! § 1). So a realm is made with an ordinary global object, or with one an
+//! embedder's [`Make`] makes from `Object.prototype`, which the realm then
+//! furnishes exactly as it would an ordinary one. Every way a script reaches
+//! the global — a name, a `var`, a function declaration, `globalThis`, the
+//! top-level `this`, an assignment — goes through the object's own internal
+//! methods, so nothing here asks which of the two it has. The engine learns
+//! nothing of what the embedder's object is.
 //!
 //! The first **named** builtins are the seven error constructors (queue item
 //! 227): `Error`, `TypeError` and the rest, writable and configurable and not
@@ -80,6 +92,7 @@ use crate::abrupt::Escape;
 use crate::builtin::{Family, Intrinsics};
 use crate::clock::Clock;
 use crate::heap::{Ref, Root};
+use crate::object::native::Make;
 use crate::object::{Found, Held, Objects, Property, Refused, Set, Value};
 
 /// One `let` or `const` the realm holds.
@@ -142,19 +155,28 @@ impl Realm {
     /// declared, whose time is told by `clock` — or which refuses to say what
     /// time it is, given none (ADR 0036 § 1).
     ///
+    /// The global object is ordinary when `global` is [`None`], and otherwise
+    /// what `global` makes from the realm's `Object.prototype` (ADR 0037 § 1).
+    ///
     /// # Errors
     ///
     /// [`Escape::Full`] if the heap cannot hold them, which is a heap that was
     /// full before anything ran, and a fault for a root this engine has lost.
-    pub fn new(objects: &mut Objects, clock: Option<Rc<dyn Clock>>) -> Result<Self, Escape> {
+    pub fn new(
+        objects: &mut Objects,
+        clock: Option<Rc<dyn Clock>>,
+        global: Option<Make>,
+    ) -> Result<Self, Escape> {
         // The intrinsics come first, because the global object inherits from
-        // one of them: it is an ordinary object, and `globalThis.toString` is a
-        // name a page may reach for.
+        // one of them, and `globalThis.toString` is a name a page may reach
+        // for.
         let intrinsics = Intrinsics::new(objects)?;
         let above = intrinsics.object_prototype(objects)?;
-        let global = objects
-            .object(Some(above))
-            .map_err(|why| Escape::refused(why, 0))?;
+        let global = match global {
+            Some(make) => objects.foreign(make(Some(above))),
+            None => objects.object(Some(above)),
+        }
+        .map_err(|why| Escape::refused(why, 0))?;
         let global = objects.heap_mut().root(global);
         let record = objects.slots().map_err(|why| Escape::refused(why, 0))?;
         let record = objects.heap_mut().root(record);
@@ -595,7 +617,7 @@ mod tests {
     #[test]
     fn a_let_shadows_a_property_of_the_global_object() {
         let mut objects = Objects::new();
-        let Ok(mut realm) = Realm::new(&mut objects, None) else {
+        let Ok(mut realm) = Realm::new(&mut objects, None, None) else {
             panic!("an empty heap holds a realm");
         };
         let name = units("a");
@@ -637,7 +659,7 @@ mod tests {
     #[test]
     fn a_constant_refuses_to_be_assigned_to() {
         let mut objects = Objects::new();
-        let Ok(mut realm) = Realm::new(&mut objects, None) else {
+        let Ok(mut realm) = Realm::new(&mut objects, None, None) else {
             panic!("an empty heap holds a realm");
         };
         let name = units("a");
@@ -660,7 +682,7 @@ mod tests {
     #[test]
     fn assigning_to_nothing_is_a_property_in_sloppy_code_and_an_error_in_strict() {
         let mut objects = Objects::new();
-        let Ok(mut realm) = Realm::new(&mut objects, None) else {
+        let Ok(mut realm) = Realm::new(&mut objects, None, None) else {
             panic!("an empty heap holds a realm");
         };
         let name = units("loose");

@@ -22,9 +22,13 @@
 //!
 //! - The **path** is the target and its ancestors up to the root of its
 //!   tree, computed when the dispatch begins and not changed by a listener
-//!   moving anything. It ends at the document: the global object is not an
-//!   event target until it is a `Window` (item 251). There are no shadow
-//!   trees and so no retargeting (item 87).
+//!   moving anything — then, when that root is the page's own document and
+//!   the event is not a `load`, the page's **`Window`** (ADR 0037 § 3):
+//!   HTML's *get the parent* of a `Document` is its relevant global object,
+//!   unless the event is `load`. A dispatch **at** the window has a path of
+//!   the window alone. A document no window was associated with has paths
+//!   that stop at its root. There are no shadow trees and so no retargeting
+//!   (item 87).
 //! - The **capture pass** goes root to target, the **bubble pass** target to
 //!   root — the second skipping every ancestor when the event does not
 //!   bubble. At the target the phase is `AT_TARGET` in both, its capture
@@ -38,6 +42,10 @@
 //! - At the end the phase is `NONE`, `currentTarget` is `null`, the dispatch
 //!   and stop flags are unset, and the answer is whether it was cancelled.
 //!
+//! A step of the path is an [`Entry`]: a node, or the window. The window is
+//! found through the document cell's edge to it, so a target of either kind
+//! is one more step of the same stepper, never a second one.
+//!
 //! # A node on the path is kept for as long as the dispatch
 //!
 //! The standard's path holds its targets strongly, so a listener that
@@ -45,7 +53,8 @@
 //! ancestor's bubble listeners called. A node here is an id, so the document
 //! cell is told which nodes are on a dispatch's path and keeps their trees and
 //! wrappers through any collection until the dispatch ends
-//! ([`DocumentCell`](crate::DocumentCell), [`crate::liveness`]).
+//! ([`DocumentCell`](crate::DocumentCell), [`crate::liveness`]). The window
+//! needs no keeping: the realm roots it, and the document cell holds it.
 
 use alo_dom::NodeId;
 use alo_js::heap::{Barrier, Field, Ref, Tracer};
@@ -55,8 +64,9 @@ use alo_js::{Escape, Fault};
 use crate::document_cell::DocumentCell;
 use crate::embed;
 use crate::event::{Event, Phase};
+use crate::listeners;
 use crate::tree;
-use crate::wrapper::Wrapper;
+use crate::window::Window;
 
 /// Which of the two passes along the path a dispatch is in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,13 +75,43 @@ enum Pass {
     Bubbling,
 }
 
+/// One step of a dispatch's path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Entry {
+    /// A node of the document cell the path is in.
+    Node(NodeId),
+    /// That document's `Window`.
+    Window,
+}
+
+impl Entry {
+    /// The node, if it is one.
+    pub const fn node(self) -> Option<NodeId> {
+        match self {
+            Self::Node(node) => Some(node),
+            Self::Window => None,
+        }
+    }
+}
+
+/// The object an entry of the path in the document `cell` holds is: the
+/// node's wrapper, if it has one, or the window.
+pub fn object_of(objects: &Objects, cell: Ref, entry: Entry) -> Option<Ref> {
+    let held = objects.embedded::<DocumentCell>(cell)?;
+    match entry {
+        Entry::Node(node) => held.wrapper(node),
+        Entry::Window => held.window(),
+    }
+}
+
 /// A dispatch in progress: the event holds it.
 #[derive(Debug)]
 pub struct Progress {
     /// The document cell whose nodes the path is.
     document: Field,
-    /// The target, then each ancestor up to its tree's root.
-    path: Vec<NodeId>,
+    /// The target, then each ancestor up to its tree's root, then the
+    /// window when the path reaches it.
+    path: Vec<Entry>,
     pass: Pass,
     /// Where on the path the dispatch is; [`None`] before the first target.
     at: Option<usize>,
@@ -96,12 +136,12 @@ impl Progress {
     pub fn footprint(&self) -> usize {
         self.path
             .capacity()
-            .saturating_mul(size_of::<NodeId>())
+            .saturating_mul(size_of::<Entry>())
             .saturating_add(self.listeners.capacity().saturating_mul(size_of::<u64>()))
     }
 
     /// The path, target first.
-    pub fn path(&self) -> &[NodeId] {
+    pub fn path(&self) -> &[Entry] {
         &self.path
     }
 
@@ -129,7 +169,7 @@ pub enum Refusal {
     Dispatching,
     /// The object given is not an event.
     NotAnEvent,
-    /// The target is not a node's wrapper.
+    /// The target is not a node's wrapper or a `Window` with a document.
     NotATarget,
 }
 
@@ -142,7 +182,7 @@ pub enum Next {
     Call {
         /// The callback.
         callback: Ref,
-        /// The current target's wrapper.
+        /// The current target: a node's wrapper, or the window.
         this: Ref,
     },
     /// The dispatch is over; `canceled` is whether a listener cancelled it.
@@ -217,36 +257,32 @@ pub fn invoke(objects: &Objects, callback: Ref, this: Ref) -> Result<Invoke, Esc
     })
 }
 
-/// Begin dispatching `event` to `target`, a node's wrapper — `trusted` when
-/// the browser dispatches it (ADR 0018 § 4).
+/// Begin dispatching `event` to `target`, a node's wrapper or a `Window` —
+/// `trusted` when the browser dispatches it (ADR 0018 § 4).
 ///
 /// Allocates nothing in the heap.
 ///
 /// # Errors
 ///
 /// [`Refusal`]: an event already being dispatched, or a value that is not an
-/// event or not a node's wrapper.
+/// event or not an event target.
 pub fn begin(objects: &mut Objects, event: Ref, target: Ref, trusted: bool) -> Result<(), Refusal> {
-    let (cell, node) = embed::node_of(objects, target).ok_or(Refusal::NotATarget)?;
-    match objects.embedded::<Event>(event) {
+    let kind = match objects.embedded::<Event>(event) {
         Some(held) if held.dispatching() => return Err(Refusal::Dispatching),
-        Some(_) => {}
+        Some(held) => held.kind().to_vec(),
         None => return Err(Refusal::NotAnEvent),
-    }
-    let document = embed::document(objects, cell).ok_or(Refusal::NotATarget)?;
-    let mut path = vec![node];
-    let limit = tree::budget(document);
-    let mut at = node;
-    while let Some(parent) = document.parent(at) {
-        if path.len() > limit {
-            // A cycle, which `alo-dom`'s validity rules make impossible: the
-            // path stops rather than going round for ever.
-            break;
-        }
-        path.push(parent);
-        at = parent;
-    }
-    objects.write_embedded::<DocumentCell, _>(cell, |held, _| held.enter_path(&path));
+    };
+    let (cell, path) = if let Some((cell, node)) = embed::node_of(objects, target) {
+        (cell, path_from(objects, cell, node, &kind)?)
+    } else {
+        let cell = objects
+            .embedded::<Window>(target)
+            .and_then(Window::document)
+            .ok_or(Refusal::NotATarget)?;
+        (cell, vec![Entry::Window])
+    };
+    let nodes: Vec<NodeId> = path.iter().filter_map(|entry| entry.node()).collect();
+    objects.write_embedded::<DocumentCell, _>(cell, |held, _| held.enter_path(&nodes));
     let started = objects.write_embedded::<Event, _>(event, |held, barrier| {
         let mut document = Field::empty();
         document.set(barrier, Some(cell));
@@ -262,6 +298,38 @@ pub fn begin(objects: &mut Objects, event: Ref, target: Ref, trusted: bool) -> R
         held.start(barrier, target, trusted, progress);
     });
     started.ok_or(Refusal::NotAnEvent)
+}
+
+/// The path of an event of type `kind` dispatched at `node`, in the document
+/// `cell` holds: the node and its ancestors up to their root, then the
+/// window when that root is the document and `kind` is not `load`.
+fn path_from(
+    objects: &Objects,
+    cell: Ref,
+    node: NodeId,
+    kind: &[u16],
+) -> Result<Vec<Entry>, Refusal> {
+    let held = objects
+        .embedded::<DocumentCell>(cell)
+        .ok_or(Refusal::NotATarget)?;
+    let document = held.document();
+    let mut path = vec![Entry::Node(node)];
+    let limit = tree::budget(document);
+    let mut at = node;
+    while let Some(parent) = document.parent(at) {
+        if path.len() > limit {
+            // A cycle, which `alo-dom`'s validity rules make impossible: the
+            // path stops rather than going round for ever.
+            break;
+        }
+        path.push(Entry::Node(parent));
+        at = parent;
+    }
+    let load = "load".encode_utf16().eq(kind.iter().copied());
+    if at == document.root() && held.window().is_some() && !load {
+        path.push(Entry::Window);
+    }
+    Ok(path)
 }
 
 /// What to do next in `event`'s dispatch.
@@ -334,12 +402,11 @@ fn take_listener(
         })
         .flatten()
         .ok_or(Escape::fault(Fault::Gone))?;
-    let Some(wrapper) = current else {
+    let Some(target) = current else {
         return Ok(None);
     };
-    let Some((callback, capture, once, passive)) = objects
-        .embedded::<Wrapper>(wrapper)
-        .and_then(|held| held.listeners().get(id))
+    let Some((callback, capture, once, passive)) = listeners::of(objects, target)
+        .and_then(|list| list.get(id))
         .and_then(|listener| {
             Some((
                 listener.callback()?,
@@ -360,9 +427,7 @@ fn take_listener(
         return Ok(None);
     }
     if once {
-        objects.write_embedded::<Wrapper, _>(wrapper, |held, barrier| {
-            held.listeners_mut().remove_id(barrier, id);
-        });
+        listeners::change(objects, target, |list, barrier| list.remove_id(barrier, id));
     }
     objects.write_embedded::<Event, _>(event, |held, barrier| {
         held.calling(passive);
@@ -372,7 +437,7 @@ fn take_listener(
     });
     Ok(Some(Next::Call {
         callback,
-        this: wrapper,
+        this: target,
     }))
 }
 
@@ -414,7 +479,7 @@ fn advance(objects: &mut Objects, event: Ref, cell: Ref) -> Result<bool, Escape>
 
         // Where the dispatch is, recorded first, so that an ancestor skipped
         // because the event does not bubble is passed rather than reached.
-        let node = objects
+        let entry = objects
             .write_embedded::<Event, _>(event, |held, _| {
                 held.progress_mut().and_then(|progress| {
                     progress.pass = pass;
@@ -434,15 +499,13 @@ fn advance(objects: &mut Objects, event: Ref, cell: Ref) -> Result<bool, Escape>
             .embedded::<Event>(event)
             .map(|held| held.kind().to_vec())
             .unwrap_or_default();
-        let wrapper = objects
-            .embedded::<DocumentCell>(cell)
-            .and_then(|held| held.wrapper(node));
-        let listeners = wrapper
-            .and_then(|wrapper| objects.embedded::<Wrapper>(wrapper))
-            .map(|held| held.listeners().matching(&kind))
+        let current = object_of(objects, cell, entry);
+        let listeners = current
+            .and_then(|target| listeners::of(objects, target))
+            .map(|list| list.matching(&kind))
             .unwrap_or_default();
         objects.write_embedded::<Event, _>(event, |held, barrier| {
-            held.reach(barrier, phase, wrapper);
+            held.reach(barrier, phase, current);
             if let Some(progress) = held.progress_mut() {
                 progress.listeners = listeners;
             }
@@ -461,7 +524,12 @@ fn finish(objects: &mut Objects, event: Ref, cell: Ref) -> Result<Next, Escape> 
         })
         .ok_or(Escape::fault(Fault::NotAnObject))?;
     if let Some(progress) = progress {
-        objects.write_embedded::<DocumentCell, _>(cell, |held, _| held.leave_path(&progress.path));
+        let nodes: Vec<NodeId> = progress
+            .path
+            .iter()
+            .filter_map(|entry| entry.node())
+            .collect();
+        objects.write_embedded::<DocumentCell, _>(cell, |held, _| held.leave_path(&nodes));
     }
     Ok(Next::Done { canceled })
 }

@@ -36,7 +36,7 @@ struct Page {
 
 impl Page {
     fn new(stress: bool) -> Result<Self, String> {
-        let mut engine = Engine::new().map_err(|why| why.to_string())?;
+        let mut engine = alo_bindings::engine(None).map_err(|why| why.to_string())?;
         let cell = adopt(engine.objects(), parse_document(PAGE)).map_err(|why| why.to_string())?;
         let root = engine.objects().heap_mut().root(cell);
         install(&mut engine, cell).map_err(|why| why.to_string())?;

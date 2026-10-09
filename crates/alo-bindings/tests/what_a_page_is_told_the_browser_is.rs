@@ -48,7 +48,7 @@ struct Page {
 
 impl Page {
     fn new(identity: Identity<'_>, stress: bool) -> Result<Self, String> {
-        let mut engine = Engine::new().map_err(|why| why.to_string())?;
+        let mut engine = alo_bindings::engine(None).map_err(|why| why.to_string())?;
         let cell = adopt(engine.objects(), parse_document("<!DOCTYPE html><p>x</p>"))
             .map_err(|why| why.to_string())?;
         let root = engine.objects().heap_mut().root(cell);

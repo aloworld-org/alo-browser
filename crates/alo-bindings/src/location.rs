@@ -23,21 +23,19 @@
 //!
 //! It is reached from two places, each answering the same object: the
 //! document's own `location` (`Document`'s unforgeable member,
-//! [`crate::interface::document`]) and the global object's, which [`make`]
-//! puts there.
+//! [`crate::interface::document`]) and the `Window`'s
+//! ([`crate::interface::window`]).
 //!
-//! # The global object's `location` is an accessor on an ordinary object
+//! # The global object's `location` is the `Window`'s
 //!
 //! On a `Window`, `location` is a `[LegacyUnforgeable]`,
-//! `[PutForwards=href]` attribute. Until the global object is a `Window`
-//! (item 251) it is an accessor on the global object itself — enumerable,
-//! not configurable — whose getter answers the realm's `Location`, found
-//! through the realm's `[[HostDefined]]` (ADR 0019 § 2), and whose setter is
-//! assigning to `location.href`. With no `Window` brand to check, the getter
-//! answers whatever its `this`; that is the one thing it does that a
-//! `Window`'s would not, and only a getter taken off the global object can
-//! show it.
-//!
+//! `[PutForwards=href]` attribute: an own accessor of the global object,
+//! enumerable and not configurable, copied there from `Window`'s
+//! unforgeables ([`crate::interface::window`], ADR 0037 § 4). Its getter
+//! checks that its `this` is a `Window` and answers this `Location`,
+//! through the window's document; its setter is assigning to
+//! `location.href`.
+
 //! # Everything that navigates is refused by name
 //!
 //! Assigning to `location`, to `location.href` or to any other part of it,
@@ -61,7 +59,6 @@
 use alo_js::abrupt::Missing;
 use alo_js::heap::{Barrier, Field, Ref, Trace, Tracer};
 use alo_js::interpret::Engine;
-use alo_js::object::native::{Answer, Call, Native};
 use alo_js::object::symbol::WellKnown;
 use alo_js::object::{Exotic, Found, Internal, Key, Objects, Ordinary, Property, Value};
 use alo_js::{Escape, Fault};
@@ -145,8 +142,9 @@ pub(crate) const fn refused() -> Escape {
     Escape::NotBuiltYet(Missing::InTheEmbedder(NAVIGATING))
 }
 
-/// Make the page's `Location` in the document `cell` holds, keep it there,
-/// and put it on `engine`'s global object as `location`, answering it.
+/// Make the page's `Location` in the document `cell` holds and keep it
+/// there, answering it. The global object's `location` reads it from there
+/// ([`crate::interface::window`]).
 ///
 /// Called by [`crate::install`], after the interfaces are made.
 ///
@@ -157,13 +155,11 @@ pub(crate) const fn refused() -> Escape {
 ///
 /// [`Escape::Full`] when the heap cannot hold it; a fault when `cell` is not
 /// a document cell, its interfaces were never made or the realm has lost an
-/// intrinsic; a `TypeError` when the global object already has a
-/// `location` — an embedder making it twice.
+/// intrinsic; a `TypeError` when the document already has one — an
+/// embedder making it twice.
 pub(crate) fn make(engine: &mut Engine, cell: Ref) -> Result<Ref, Escape> {
-    let global = engine.global()?;
     let (intrinsics, objects) = engine.intrinsics();
     let object_prototype = intrinsics.object_prototype(objects)?;
-    let function_prototype = intrinsics.function_prototype(objects)?;
     let to_primitive = intrinsics.well_known_key(objects, WellKnown::ToPrimitive)?;
     let objects = engine.objects();
     let value_of_key = objects
@@ -202,63 +198,7 @@ pub(crate) fn make(engine: &mut Engine, cell: Ref) -> Result<Ref, Escape> {
             return Err(Escape::fault(Fault::NotAnObject));
         }
     }
-    on_the_global(objects, global, function_prototype)?;
     Ok(made)
-}
-
-/// Put `location` on `global`: an accessor, enumerable and not
-/// configurable, read by [`window_location`] and written by
-/// [`set_window_location`].
-///
-/// **A safepoint.** Each function is held in a scope until the global object
-/// owns it.
-fn on_the_global(
-    objects: &mut Objects,
-    global: Ref,
-    function_prototype: Ref,
-) -> Result<(), Escape> {
-    let name = units("location");
-    if let Some(key) = objects.existing_key(&name)
-        && objects.own_property(global, key)?.is_some()
-    {
-        return Err(Escape::type_error("this realm already has a location", 0));
-    }
-    let scope = objects.heap_mut().open();
-    let outcome = held_on_the_global(objects, global, function_prototype, &name);
-    objects.heap_mut().close(scope);
-    outcome
-}
-
-/// [`on_the_global`], with the scope open.
-fn held_on_the_global(
-    objects: &mut Objects,
-    global: Ref,
-    function_prototype: Ref,
-    name: &[u16],
-) -> Result<(), Escape> {
-    let mut made = [Value::Undefined; 2];
-    for (slot, body) in made.iter_mut().zip([
-        window_location as fn(&mut Call<'_>) -> _,
-        set_window_location,
-    ]) {
-        let function = objects
-            .native(Native::new("location", body), Some(function_prototype))
-            .map_err(|why| Escape::refused(why, 0))?;
-        objects.heap_mut().hold(function);
-        *slot = Value::Object(function);
-    }
-    let [getter, setter] = made;
-    match objects.define_named(
-        global,
-        name,
-        Property::accessor(getter, setter, true, false),
-    ) {
-        Ok(true) => Ok(()),
-        // A global object refusing a new property is a reference to
-        // something else: this crate's bug, not a page's.
-        Ok(false) => Err(Escape::fault(Fault::NotAnObject)),
-        Err(named) => Err(Escape::named(named, 0)),
-    }
 }
 
 /// The `Location` of the document cell `cell`, or `null` for a document
@@ -268,19 +208,6 @@ pub(crate) fn of(objects: &Objects, cell: Ref) -> Result<Value, Escape> {
         .embedded::<DocumentCell>(cell)
         .ok_or(Escape::fault(Fault::NotAnObject))?;
     Ok(held.location().map_or(Value::Null, Value::Object))
-}
-
-/// The global object's `get location`: the realm's `Location`.
-fn window_location(call: &mut Call<'_>) -> Result<Answer, Escape> {
-    // A realm with no host is an embedder that never installed a document,
-    // and could not have made this getter.
-    let document = call.host_defined().ok_or(Escape::fault(Fault::Gone))?;
-    of(call.seen(), document).map(Answer::Value)
-}
-
-/// The global object's `set location`: `[PutForwards=href]`, a navigation.
-fn set_window_location(_call: &mut Call<'_>) -> Result<Answer, Escape> {
-    Err(refused())
 }
 
 /// `text` as UTF-16 code units.

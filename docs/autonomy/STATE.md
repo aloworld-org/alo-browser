@@ -22274,3 +22274,171 @@ right: this change is documentation only, and `CHANGELOG.md` has its line.
 154 queue items are open: 363 and 364 added, and 362 still open. The next
 unused queue number is **365** and the next ADR is **0038**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 234 — queue item 362 built: the global object is a `Window`
+
+**Contracts read.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`'s
+three states and the lines 362 serves, iteration 233's entry, and queue
+items 361–364. No `AGENTS.md` exists in this repository. Iteration 233
+named 362 as designed, eligible and next; nothing earlier is eligible (361
+waits for a page or 73, 357 for a page, 358 for settings, 354 and 355 for
+pages, 351 needs design, and the rest as iteration 226 listed them).
+
+For the item I read ADR 0037 in full, its contract, and ADRs 0018 § 1–2,
+0019 §§ 1–3, 0013 §§ 3 and 6, 0014 § 9 and 0017 § 4 where it leans on
+them; the feature line, `docs/features.md`' *Events*; and the code it
+changes: `alo-js`'s `realm.rs`, `interpret.rs` and `object/native.rs`
+(`Make`); `alo-bindings`' `install.rs`, `location.rs`,
+`interface/location.rs`, `unforgeable.rs`, `listeners.rs`, `dispatch.rs`,
+`document_cell.rs`, `liveness.rs`, `wrapper.rs`, `idl.rs`, `interface.rs`,
+`interface/event.rs` and `interface/event_target.rs`; `alo-renderer`'s
+`event_loop.rs` and `held.rs`; and `alo-sites-cta`'s page and test.
+
+**What was built**, as ADR 0037 designs it:
+- **§ 1, `alo-js`.** `Realm::new` takes an optional `Make`: the global
+  object is ordinary, or what the embedder's `Make` makes from the realm's
+  `Object.prototype`, furnished identically. `Engine::with_global(make,
+  clock)` makes such an engine; `Engine::new` and `with_clock` are
+  unchanged. Nothing else in the engine changed: every way a script reaches
+  the global already went through the object's internal methods.
+- **§ 2, `alo-bindings`' `window.rs`.** The `Window` cell: an ordinary
+  part, a `Listeners` list traced and counted like a wrapper's, and an edge
+  to its document cell. `engine(clock)` makes a page's engine; the document
+  cell gains `window`, traced in `liveness.rs`. `listeners::of` and
+  `listeners::change` reach a node's or a window's list, and
+  `EventTarget`'s members and the dispatch use only them.
+  `event_target.rs`' brand check takes a node's wrapper or a `Window`, and
+  `undefined` or `null` is the window, as Web IDL makes it for an operation
+  (a page's bare `addEventListener(…)`); the window is passive by default
+  for the four scrolling types.
+- **§ 3, `dispatch.rs`.** The path is a list of `Entry` (a node, or the
+  window). After the node's ancestors comes the window, when their root is
+  the document and the document has a window, unless the type is `load`. A
+  dispatch at the window has a path of the window alone. `composedPath()`
+  answers it. Only nodes are entered on and left off the document cell's
+  path count; the window is rooted by the realm.
+- **§ 4.** `Interface::Window` inherits `EventTarget` and has an empty
+  prototype. `interface/window.rs` holds:
+  - the unforgeable `window` and `location`, the latter moved off the
+    global's own accessor in `location.rs` and now brand-checked;
+  - the `[Replaceable]` `self`, defined on the instance.
+  `install` now requires a `Window` global and refuses an ordinary one by
+  name. It then sets the prototype, links window and document both ways,
+  copies the unforgeables and defines `self`, all before any script runs.
+  There is no named access and no `Window` interface object.
+- **`alo-renderer`.** `EventLoop::new` makes its engine with
+  `alo_bindings::engine`.
+- Module docs that said the global "is not a `Window` until 251" were
+  corrected (`navigator.rs`, `interface/ui_event.rs`, `install.rs`,
+  `location.rs`, `dispatch.rs`); neither `navigator` nor `view` was built.
+
+**Tests.**
+- `alo-js`' `tests/a_global_the_host_makes.rs`, three tests, against a
+  global cell of the test's own, ordinarily and under `Heap::stress`.
+- `alo-bindings`' `tests/what_a_window_is.rs`, thirteen tests, every
+  script run ordinarily and under `Heap::stress`. They cover:
+  - identity, unforgeable `window`, replaceable `self`, and `location`;
+  - the prototype chain, and no named access;
+  - a dispatch at the window, and capture-first and bubble-last around
+    the document, with both stops;
+  - `load` stopping at the document, and a detached tree not reaching
+    the window;
+  - the brand check, and the window's passive default;
+  - a listener kept through explicit collections;
+  - `install` refusing an ordinary global;
+  - alo Sites' script, read from the frozen page.
+- Changed pins, each because the ADR changes what it pinned:
+  - `what_an_event_does.rs`: `composedPath()` now ends at the window, and
+    `addEventListener` is a global name;
+  - `alo-corpus`' `alo_sites_cta.rs`: the load no longer reports a throw.
+- The twelve `alo-bindings` test files that made `Engine::new()` and
+  installed now make `alo_bindings::engine(None)`.
+
+**Checked by mutation**, each restored from a copy:
+- the window left off the path fails 2 of the new tests;
+- the window not tracing its listeners fails 5;
+- the realm ignoring the embedder's `Make` fails 2 of the engine's;
+- the test cell not tracing its own edge first passed. The test only
+  compared the reference, and a swept slot reused for another object kept
+  the same reference. It now reads a marker property back through the
+  edge, and the mutation fails it.
+
+**Closing condition.** Met, each in a test:
+- `alo-sites-cta`'s script runs past line 32 to its end;
+- `window === self`, and both are `globalThis`;
+- a window listener is kept through collections, and is called by a
+  dispatch at it and at a node, capturing first and bubbling last;
+- `load` stops at the document;
+- every script runs ordinarily and under stress.
+
+What the script stops at next is opened. Nothing in a load fires
+`pagehide` (364), so a test dispatches it at the window. `record` then:
+- reads `window.scrollY` and `innerHeight` as `undefined`;
+- stops at `Math.max` in `height()`, the script's seventeenth line, with
+  "ReferenceError: 'Math' is not defined".
+
+A throwaway probe found this first and was deleted; the test pins it.
+- **365, `Math`**, is opened, cut from 73. Whether `Math.random` needs an
+  ADR is that item's question.
+- **366, the viewport a script reads**, is opened and needs an ADR, as
+  ADR 0037 left it.
+
+**Roadmap.** No line is ticked. Two lines moved:
+- *Events*: its Built clause now says the window is an event target,
+  naming `window.rs`, `interface/window.rs`, `dispatch.rs` and
+  `Engine::with_global`. The owed "362, eligible" is gone; 363 and 364
+  remain owed.
+- The standard-library line: the script runs past `window` to its end,
+  and `Math` (365) is owed.
+
+Also updated:
+- `docs/features.md`' *Events*, `docs/conformance.md`' alo Sites row,
+  `REMAINING.md` and `CHANGELOG.md`;
+- the queue: 362 ticked with its *Built* paragraph, 365 and 366 added,
+  and 73 told `Math` was cut from it.
+
+**Gate, mechanical.** `scripts/gate.sh` took longer than one foreground tool
+call on this machine, which another session's `alo-os` builds share (load
+5–9). So it ran detached under `nohup`, its log ending `exit $?`, and was
+read by foreground loops in this iteration until it finished. It ended
+`exit 0`, "The gate is met":
+- fmt clean, clippy silent, tests pass;
+- no stubs, `unsafe` forbidden, the licence on every file;
+- every rented crate behind its boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds, and `CHANGELOG.md` changed with the
+  code.
+
+Before it, fmt and clippy were run by hand, and clippy's four findings
+were fixed: two doc-markdown, one single-pattern `match` and one float
+comparison in a test. An earlier `cargo test -p alo-js -p alo-renderer`,
+started in the foreground, was moved to the background and killed at the
+limit unfinished. Its result was never read and is not counted; the
+gate's full run is the evidence.
+
+**Gate, manual.**
+- Layout assertion and reference render: none applies. Nothing positions,
+  sizes or draws, and the gate's corpus run diffs every committed render
+  and box tree unchanged.
+- Hostile bytes: nothing new reads bytes from outside. A page's script
+  reaching the window goes through the same brand checks, and every
+  refusal is a `TypeError` or a fault, never a panic.
+- One responsibility per file:
+  - `window.rs` is the cell;
+  - `interface/window.rs` is the interface's members;
+  - `listeners.rs` gained the two functions that reach a target's list,
+    which is its own subject;
+  - `dispatch.rs` is still the one stepper.
+- No `unsafe`, and no new dependency. `alo-workplace` and `alo-os` were not
+  touched.
+
+**Unresolved obligations.**
+- 363 waits on 73, and 364 needs design.
+- 365 is new, and may need an ADR for `Math.random`.
+- 366 is new and needs an ADR.
+- 361 waits for a page or 73; 357 for a page; 358 for settings.
+- 351 still needs design; 354 and 355 wait for pages.
+- Everything iteration 226 listed still stands.
+
+155 queue items are open: 362 closed, 365 and 366 added. The next unused
+queue number is **367** and the next ADR is **0038**. This is one
+iteration, not a finished queue or roadmap.

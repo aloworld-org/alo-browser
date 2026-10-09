@@ -34,7 +34,7 @@ struct Page {
 
 impl Page {
     fn new(markup: &str, stress: bool) -> Result<Self, String> {
-        let mut engine = Engine::new().map_err(|why| why.to_string())?;
+        let mut engine = alo_bindings::engine(None).map_err(|why| why.to_string())?;
         let cell =
             adopt(engine.objects(), parse_document(markup)).map_err(|why| why.to_string())?;
         let root = engine.objects().heap_mut().root(cell);
@@ -489,13 +489,13 @@ fn an_event_is_made_by_its_constructor() {
 fn what_is_read_during_a_dispatch_and_after() {
     table(&[
         // `composedPath()` is the path from the target up while it is
-        // dispatched, and empty after.
+        // dispatched, the window at its end (ADR 0037 § 3), and empty after.
         (
             "var seen; span.addEventListener('x', e => { seen = e.composedPath(); }); \
              var e = new Event('x'); span.dispatchEvent(e); \
              '' + seen.length + (seen[0] === span) + (seen[1] === p) + (seen[5] === document) + \
-             ' ' + e.composedPath().length;",
-            "6truetruetrue 0",
+             (seen[6] === window) + ' ' + e.composedPath().length;",
+            "7truetruetruetrue 0",
         ),
         // A page may hang its own properties off an event.
         (
@@ -512,10 +512,8 @@ fn the_legacy_members_and_what_waits_for_its_item_are_absent() {
         "var e = new Event('x'); \
          say(typeof e.returnValue); say(typeof e.cancelBubble); say(typeof e.srcElement); \
          say(typeof e.initEvent); say(typeof document.createEvent); say(typeof e.timeStamp); \
-         say(typeof addEventListener); say(typeof EventTarget); \
-         say(typeof new CustomEvent('x').initCustomEvent); out;",
-        "undefined,undefined,undefined,undefined,undefined,undefined,undefined,undefined,\
-         undefined",
+         say(typeof EventTarget); say(typeof new CustomEvent('x').initCustomEvent); out;",
+        "undefined,undefined,undefined,undefined,undefined,undefined,undefined,undefined",
     )]);
 }
 

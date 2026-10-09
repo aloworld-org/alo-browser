@@ -13,10 +13,18 @@
 //! the document on the global object as `document`: the moment a page's
 //! script can reach it.
 //!
-//! And it makes the page's one `Location` and puts it on the global object
-//! as `location` ([`crate::location`], queue item 360), and gives the
-//! document node's wrapper `Document`'s unforgeable `location`, which
-//! answers the same object.
+//! The global object must be a [`Window`] — an engine made by
+//! [`crate::window::engine`] — and `install` makes it one in full (ADR 0037
+//! §§ 1, 2 and 4): its prototype becomes `Window.prototype`, it and the
+//! document cell are given an edge to each other, `Window`'s unforgeables
+//! (`window` and `location`) are copied onto it, and its `self` is defined
+//! on it. All of that before any of the page's script can run, so no page
+//! sees a global object that is half a window.
+//!
+//! And it makes the page's one `Location` ([`crate::location`], queue item
+//! 360), which the window's `location` answers, and gives the document
+//! node's wrapper `Document`'s unforgeable `location`, which answers the
+//! same object.
 //!
 //! It also puts the two interface objects a page constructs with on the
 //! global object — `Event` and `CustomEvent` (ADR 0018 § 8), since a page
@@ -29,12 +37,9 @@
 //!
 //! # `document` is a value, not yet a getter
 //!
-//! Web IDL makes `document` an unforgeable **accessor** on the window. Its
-//! getter would be a native whose `this` is the global object, an ordinary
-//! object here; the realm's host now lets such a getter find the document
-//! (ADR 0019), but the accessor belongs on a `Window`, which is item 251's.
-//! Until the global object is a `Window` of its own, `document` is a data
-//! property that is neither writable nor
+//! Web IDL makes `document` an unforgeable **accessor** on the window, and
+//! that accessor is item 251's (ADR 0037 § 6). Until it is built, `document`
+//! is a data property of the window that is neither writable nor
 //! configurable, which is what every member a script has today can observe of
 //! the accessor: reading it answers the document, assigning to it does
 //! nothing (or throws in strict code), and deleting it fails. Only a
@@ -53,9 +58,10 @@ use crate::define;
 use crate::document_cell::DocumentCell;
 use crate::embed::{self, Wrapping};
 use crate::event::{make_custom_event, make_event};
-use crate::interface::{Inherits, Interface, custom_event, event};
+use crate::interface::{Inherits, Interface, custom_event, event, window};
 use crate::location;
 use crate::unforgeable;
+use crate::window::Window;
 
 /// Make every interface's prototype in `engine`'s realm and give them to the
 /// document `cell` holds.
@@ -135,23 +141,33 @@ fn unforgeables(
 }
 
 /// Name the document `cell` holds as the realm's `[[HostDefined]]`, then
-/// [`furnish`], then put the document on `engine`'s global object as
-/// `document`, answering the document node's wrapper.
+/// [`furnish`], then make the global object the page's `Window` and put the
+/// document on it as `document`, answering the document node's wrapper.
 ///
 /// **A safepoint.** `cell` must be rooted by the caller; the realm roots it
 /// too from here on, for as long as the realm lives.
 ///
 /// # Errors
 ///
-/// As [`furnish`]; a `TypeError` when the realm already has a host — an
-/// embedder installing twice, where the first document stands — and
-/// [`Escape::Full`] when the heap cannot hold the wrapper.
+/// As [`furnish`]; a `TypeError` when the realm's global object is not a
+/// [`Window`] — an engine not made by [`crate::window::engine`] — or the
+/// realm already has a host — an embedder installing twice, where the first
+/// document stands — and [`Escape::Full`] when the heap cannot hold the
+/// wrapper.
 pub fn install(engine: &mut Engine, cell: Ref) -> Result<Ref, Escape> {
     if engine.objects().embedded::<DocumentCell>(cell).is_none() {
         return Err(Escape::fault(Fault::NotAnObject));
     }
+    let global = engine.global()?;
+    if engine.objects().embedded::<Window>(global).is_none() {
+        return Err(Escape::type_error(
+            "this realm's global object is not a Window, so it cannot be a page's",
+            0,
+        ));
+    }
     engine.host_defined(cell)?;
     furnish(engine, cell)?;
+    the_window(engine, cell)?;
     constructors(engine, cell)?;
     location::make(engine, cell)?;
     let global = engine.global()?;
@@ -182,6 +198,36 @@ pub fn install(engine: &mut Engine, cell: Ref) -> Result<Ref, Escape> {
         Ok(false) => Err(Escape::type_error("this realm already has a document", 0)),
         Err(named) => Err(Escape::named(named, 0)),
     }
+}
+
+/// Make `engine`'s global object the page's `Window` in full (ADR 0037):
+/// `Window.prototype` its prototype, it and the document `cell` associated
+/// with each other, `Window`'s unforgeables copied onto it, and its `self`.
+///
+/// **A safepoint.** The global object is rooted by the realm, and `cell` by
+/// the caller.
+fn the_window(engine: &mut Engine, cell: Ref) -> Result<(), Escape> {
+    let global = engine.global()?;
+    let (intrinsics, objects) = engine.intrinsics();
+    let function_prototype = intrinsics.function_prototype(objects)?;
+    let objects = engine.objects();
+    let prototype = objects
+        .embedded::<DocumentCell>(cell)
+        .and_then(|held| held.interfaces().prototype(Interface::Window))
+        .ok_or(Escape::fault(Fault::Gone))?;
+    if !objects.set_prototype(global, Some(prototype))? {
+        return Err(Escape::fault(Fault::NotAnObject));
+    }
+    objects
+        .write_embedded::<Window, _>(global, |held, barrier| held.associate(barrier, cell))
+        .ok_or(Escape::fault(Fault::NotAnObject))?;
+    objects.write_embedded::<DocumentCell, _>(cell, |held, barrier| {
+        held.window.set(barrier, Some(global));
+    });
+    // Nothing is allocated: the keys are interned and held by the
+    // unforgeables object.
+    unforgeable::copy(objects, cell, global, Interface::Window)?;
+    window::members(objects, global, function_prototype)
 }
 
 /// Put `Event` and `CustomEvent` on `engine`'s global object.

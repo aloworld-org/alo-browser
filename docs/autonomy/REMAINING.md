@@ -1041,3 +1041,19 @@ Iteration 233 decided item 362 as ADR 0037, and built nothing. ADRs
 immutable prototype (waits on 73), and **364**, the page lifecycle at the
 window (`pagehide`, `visibilitychange`; needs design). 154 queue items are
 open. The next unused queue number is 365 and the next unused ADR 0038.
+
+Iteration 234 built item 362 as ADR 0037 designs it. `alo-js` makes a
+realm whose global object an embedder makes (`Engine::with_global`), and
+`alo-bindings` makes it a `Window` (`window.rs`, `interface/window.rs`):
+- `window`, `self`, `globalThis` and the top-level `this` are one object;
+- it holds its own listeners;
+- `location` is its own unforgeable member.
+Every event path ends at it after the document, except for `load`, and the
+renderer's event loop makes its engine that way. alo Sites' analytics
+script runs to its end. Its `pagehide` listener, dispatched by a test,
+stops at `Math`, opened as **365** (cut from 73; whether `Math.random`
+needs an ADR is that item's question). The viewport it reads
+(`innerWidth`, `scrollY` and the rest, `undefined` today) is opened as
+**366**, which needs an ADR. 363 waits on 73 and 364 needs design. 155
+queue items are open. The next unused queue number is 367 and the next
+unused ADR 0038.

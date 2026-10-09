@@ -3061,6 +3061,8 @@ The long pole, and the thing most of section E is unreachable without.
   `keys`, `values`, `entries` and `[Symbol.iterator]` on `Array.prototype`,
   over `%ArrayIteratorPrototype%`. The `Symbol` function, the other eleven
   symbols and the iterator helpers stay here.
+  **`Math` is cut into 365** (iteration 234), opened by alo Sites'
+  analytics script.
 
 - [x] **74. Regular expressions**, with the syntax the language actually has.
   *Depends on 72. Closes when:* a hostile pattern is refused or bounded rather
@@ -5980,7 +5982,7 @@ The long pole, and the thing most of section E is unreachable without.
   when:* each of the four answers as HTML says, in `alo-bindings`' tests,
   under `Heap::stress`.
 
-- [ ] **362. `window`, and the global object as an event target.**
+- [x] **362. `window`, and the global object as an event target.**
   *Opened by `alo-sites-cta` (iteration 232); cut from 360's closing
   condition. ADRs: 0018 § 1 (an event target is any node *until the global
   object is a `Window`*), 0019 (a `Window`'s unforgeable members are copied
@@ -6033,6 +6035,67 @@ The long pole, and the thing most of section E is unreachable without.
     bubbling and before it when capturing;
   - a `load` event stops at the document;
   - every script runs ordinarily and under `Heap::stress`.
+
+  **Built (iteration 234)**, as ADR 0037 designs it:
+  - `alo-js`: `Engine::with_global(make, clock)` and `Realm::new`'s
+    `global`, a realm whose global object an embedder's `Make` makes from
+    `Object.prototype`; `Engine::new` and `with_clock` unchanged.
+    `tests/a_global_the_host_makes.rs` (three tests) runs every way a script
+    reaches the global against a cell of the test's own, under stress.
+  - `alo-bindings`: `window.rs`, the `Window` cell (an ordinary part, its
+    `Listeners`, an edge to its document) and `engine(clock)`, which
+    `install` now requires, refusing an ordinary global by name;
+    `Interface::Window` inheriting `EventTarget`, with
+    `interface/window.rs`' unforgeable `window` and `location` (moved from
+    the global's own accessor in `location.rs`, now brand-checked) and its
+    `[Replaceable]` `self` on the instance; the document cell's edge back;
+    `listeners::of` and `listeners::change` for a node or a window;
+    `EventTarget`'s brand check taking either, `undefined` and `null`
+    meaning the window, and the window passive by default for the four
+    scrolling types; `dispatch.rs`' path of `Entry`s, the window last
+    after the realm's own document except for `load`, and `composedPath()`
+    ending with it.
+  - `alo-renderer`: the event loop's engine is `alo_bindings::engine`.
+  - Tests: `alo-bindings`' `tests/what_a_window_is.rs`, thirteen, every
+    script ordinarily and under `Heap::stress`; `what_an_event_does.rs`'
+    path now ends at the window and `addEventListener` is a global name;
+    `alo-corpus`' `tests/alo_sites_cta.rs` no longer reports a throw.
+  **Closing condition met:** `alo-sites-cta`'s script runs to its end; its
+  `pagehide` listener, dispatched at the window by a test (nothing fires it
+  until 364), reads `window.scrollY` and `innerHeight` as `undefined` and
+  stops at `Math.max` on the script's seventeenth line with
+  "ReferenceError: 'Math' is not defined", opened as **365**; the
+  viewport reads are opened as **366**.
+
+- [ ] **365. `Math`.** *Cut from 73. Opened by `alo-sites-cta` (iteration
+  234): its `pagehide` listener's `height()` calls `Math.max`, and
+  `permille` calls `Math.max`, `Math.min` and `Math.round`; `shape()` calls
+  `Math.round`. Depends on 218 (done). ADRs: 0013 § 3 (absent beats
+  approximate), 0031 (a builtin's state). Feature: `docs/features.md` stage
+  2, the language.* The `Math` namespace object on the global object,
+  writable and configurable and not enumerable, its value properties and
+  its functions as ECMA-262 § 21.3 gives them. *Is it designed?*
+  `Math.random` needs a source the engine does not read from the machine on
+  its own (ADR 0036 § 1's reasoning, for a clock); the iteration that takes
+  this decides whether that needs an ADR first or is cut out by name.
+  *Closes when:* `alo-sites-cta`'s `pagehide` listener runs past `height()`
+  in `alo-bindings`' `tests/what_a_window_is.rs`, what it stops at next is
+  opened as an item, and each function answers ECMA-262's values for the
+  edge cases (`-0`, `NaN`, infinities, no arguments) under `Heap::stress`.
+
+- [ ] **366. The viewport a script reads.** *Opened by `alo-sites-cta`
+  (iteration 234): `record` reads `window.scrollY` and
+  `window.innerHeight`, `shape()` `window.innerWidth`, and `height()`
+  `document.documentElement.scrollHeight` and `body.scrollHeight`; each
+  answers `undefined` today, so the script's arithmetic is `NaN` rather
+  than a throw. Depends on 362 (done). **Needs ADR**: each tells a page
+  something about the person's window, and ADR 0030's rule — *nothing
+  about the machine* — is where the question starts; ADR 0037 names these
+  as undecided.* Which of `innerWidth`, `innerHeight`, `scrollX`,
+  `scrollY` and an element's `scrollWidth` and `scrollHeight` a page may
+  read, from where the renderer knows them, and what an agent's renderer
+  with no window answers. *Closes when:* the decision is an ADR, and the
+  item it makes buildable answers each in numbers, in tests.
 
 - [ ] **363. The `Window`'s immutable prototype.** *Cut from 362 by ADR 0037
   § 6. Depends on 362; observable only through `Object.setPrototypeOf` and
