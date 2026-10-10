@@ -1201,3 +1201,12 @@ to be shown before its style. 376 is unchanged: a trickling sheet still
 holds the network thread's queue, though no longer the window. 157 queue
 items are open. The next unused queue number is 377 and the next unused ADR
 0042.
+
+Iteration 247 found every open item blocked or waiting for a page (296's
+screen is still locked), so it froze the next alo Sites section with no
+picture, its pricing section, as `alo-sites-pricing`. Its highlighted tier's
+shadow is a `color-mix(in srgb, …)`, which was refused, and with it the
+shadow: that opened item 377, built in the same iteration. `currentColor` in
+a mix is cut to 378, which waits for a page. 158 queue items are open (377
+added closed, 378 added open). The next unused queue number is 379 and the
+next unused ADR 0042.

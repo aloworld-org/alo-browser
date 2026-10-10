@@ -1,0 +1,61 @@
+alo-workplace, products/sites/alo-sites/tests/golden/section_pricing.html and
+products/sites/alo-sites/tests/golden/site.css — a page alo Sites publishes
+for its customers: the subscriptions section of a demonstration coffee
+roaster's home page, with the style sheet every alo Sites page links.
+
+Taken 2026-10-10 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit
+`alo-sites-cta` was taken at. The page's last change is
+0cadb3c079867b004fac3f2bdd82c13685209695 (2026-09-01). The bytes are those
+files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  1f860534c32b7baba86f5ecae395ea9e5156b32b8e48137a3ce57826ce8bd1e2
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+The sheet is byte for byte `alo-sites-cta`'s. `alo-workplace` is read-only
+reference; nothing was written back to it. Both files are golden outputs of
+alo Sites' own renderer, pinned by its tests, so they are what it really
+serves rather than something rebuilt from it.
+
+Why this page. Once the call-to-action section rendered, every queue item
+was blocked or waiting for a page, so the next alo Sites section was frozen
+to find what fails. This one has no picture, so every request it makes can
+be frozen with provenance, and it is the `pricing-featured` variant: one
+tier, `highlighted`, lifted by `transform: translateY(-.75rem)` and given a
+shadow, `0 1.5rem 3rem color-mix(in srgb, var(--text) 12%, transparent)`.
+That shadow opened queue item 377.
+
+**Where it is served from, and what its sheet is answered with,** are the
+call-to-action section's, for the same reasons (see that case's origin.txt):
+the page's own `<link rel="canonical">` says
+`https://nordwind.alosites.com/` (address.txt), and its `/assets/site.css`
+is answered from site.css (linked.txt). Its analytics script is the same
+script, and sends nothing in a reference render.
+
+Rendered at 800 × 600, wider than the sheet's breakpoints, as
+`alo-sites-cta` is.
+
+## What it found
+
+- **`color-mix()` was refused, and the shadow with it** — item 377. The
+  engine read no colour space but sRGB's own functions and refused
+  `color-mix()` whole, and a shadow whose colour cannot be read is refused
+  whole, as CSS refuses a declaration it cannot parse. So the highlighted
+  card was drawn lifted and flat. A mix *in sRGB* converts nothing, so it is
+  now read: `#17212b` at 12% over nothing is `#17212b` at an alpha of 0.12,
+  and the card casts it, 1.5rem down and blurred over 3rem, under the same
+  transform as the card. `tests/alo_sites_pricing.rs` says so in numbers.
+
+Everything else checks against the sheet by hand and is pinned as it is:
+`repeat(auto-fit, minmax(16rem, 1fr))` in 760 px collapses its empty second
+track and gives the one tier the whole width; the tier's layout box stays
+at y 139.8 and is drawn 12 px higher; `.price` is 28 px with its
+`.period` at 16 beside it; each feature is a line of `body` and 0.35rem
+above and below, over a 1 px rule.
+
+What the sheet asks for that this engine does not do, and which makes no
+difference to this page, is in issues.txt, and is the call-to-action
+section's list exactly: `::before` and `::after`, `@keyframes`, and
+`prefers-reduced-motion`.

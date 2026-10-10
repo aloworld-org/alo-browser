@@ -6754,6 +6754,50 @@ The long pole, and the thing most of section E is unreachable without.
   section has an `<img>`, but its bytes are served from the site's own
   store and are in no repository.
 
+- [x] **377. `color-mix()` in sRGB.** *Opened by `alo-sites-pricing`
+  (iteration 247), frozen in the same change. Feature: `docs/features.md`
+  stage 1, "Colours as channels". Depends on nothing open.* alo Sites'
+  `pricing-featured` tier has `box-shadow: 0 1.5rem 3rem color-mix(in srgb,
+  var(--text) 12%, transparent)`, and its sheet writes seven more of them.
+  `alo-value` refused `color-mix()` in every space, so the shadow was
+  refused whole and the lifted card drawn flat. Every other space is a
+  conversion and stays refused (`color.rs`); a mix in sRGB is CSS Color 5
+  § 2's arithmetic on the channels already held, premultiplied, with its
+  shares normalised and a total under a hundred kept as an alpha
+  multiplier. *Closes when:* the tier's shadow is in the display list as
+  `#17212b` at an alpha of 0.12, blur 48, 24 px below the box, and the page
+  below the card is darker than white in pixels; `cases/alo-sites-pricing`'s
+  references say so; and malformed, truncated and deeply nested mixes are
+  refused without a panic.
+  **Done (iteration 247).** `alo-value`'s new `mix.rs` holds the
+  arithmetic (`mix_srgb`); `parse.rs` reads `color-mix(in srgb, …)` with
+  two colours, each share before or after its colour, wherever a colour is
+  read (a shadow, a gradient's stop, a border, `color`), nested at most
+  sixteen deep. Refused by name in the parser's comment: any other space,
+  a mix naming no space (which means `oklab`), one colour or three, a share
+  outside 0–100% or two of nothing, and `currentColor` in a mix (378).
+  Tests: `mix.rs` (9), `parse.rs` (3: read, refused, hostile — every
+  prefix, 10 000 deep open and closed, huge, `NaN` and tiny shares), and
+  `tests/alo_sites_pricing.rs` (4: the sheet answered; the tier at (20,
+  139.8), 760 wide, drawn through a −12 px transform; its one shadow in
+  numbers; the pixels under the card). Doctored twice: with the mix
+  refused again, the two shadow tests fail; with the channels mixed
+  unpremultiplied, two `mix.rs` tests, one `parse.rs` test and the same two
+  shadow tests fail. Only `alo-sites-pricing`'s references were written;
+  no other case moved.
+
+- [ ] **378. `currentColor` in a mix.** *Cut from 377 (iteration 247).
+  Feature: `docs/features.md` stage 1, "Colours as channels". Waits for a
+  page.* `color-mix(in srgb, currentColor 40%, transparent)` cannot be mixed
+  when it is read, because `currentColor` is not known until there is an
+  element; `alo_value::Color` carries it as itself and resolves it later.
+  A mix holding it is refused today. Premultiplied, a mix is affine in the
+  current colour's premultiplied channels, so it can be carried as a fixed
+  part plus a weight on `currentColor` and still be `Copy`. *Blocked: no
+  page yet* — alo Sites mixes only `var()`s. *Closes when:* a frozen page's
+  mix of `currentColor` draws its element's own colour mixed, in pixels,
+  and a mix inherited as text resolves against each element's `color`.
+
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
 

@@ -23903,3 +23903,123 @@ was owed there.
 157 queue items are open: 351 and 347 closed. The next unused queue number
 is **377** and the next ADR is **0042**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 247 — queue item 377 opened and built: `color-mix()` in sRGB, found by freezing alo Sites' pricing section
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md`, `REMAINING.md`
+and iteration 246's entry. No `AGENTS.md` exists in this repository. For
+377: `docs/features.md`' *Colours as channels* line, `alo-value`'s
+`color.rs` and `parse.rs` (whose refusal of `color-mix()` was a comment, not
+an ADR: no ADR decides colour functions), the `box-shadow` path in
+`alo-paint`'s `build.rs`, and the `alo-sites-cta` case and its test as the
+pattern for a frozen alo Sites page.
+
+**Choosing.**
+- 296 first, since its capture is owed. A Swift check of
+  `CGSessionCopyCurrentDictionary` answered `CGSSessionScreenIsLocked` = 1,
+  with `CGPreflightScreenCaptureAccess` true. Still locked, so 296 is not
+  takeable and nothing of it was started; 297–300 wait on it.
+- Iteration 245 found every open item before 351 page-gated or waiting on
+  a dependency. After 351: 376 is *found, not opened by a page*; 350 needs a
+  picture no repository holds; 84, 91, 92, 94, 100–103 wait on 76 or 81;
+  85–89, 95–99, 104, 105, 108, 111, 117, 121 and 122 are *needs design*;
+  43 waits on 81; 284, 286, 274–276, 278, 288, 311, 179 and 289 wait for
+  a page; 302–305, 308, 317, 318 and 125–134 wait on dependencies; 293–295
+  are blocked on decoders; stage 3 waits on pages and stage 4 on stage 2's
+  exit gate.
+- So, as iteration 198 did, the eligible work was a real page that fails.
+  alo Sites' golden pricing section has no picture, so all of it can be
+  frozen. Frozen locally and rendered, every number in its layout checked
+  against the sheet by hand except one thing: the highlighted tier's
+  `box-shadow` was not drawn. Its colour is `color-mix(in srgb,
+  var(--text) 12%, transparent)`, which `alo-value` refused, refusing the
+  shadow whole. No queue item named `color-mix()`, so 377 was written with
+  its closing conditions and its feature line, and built.
+
+**Why no ADR.** The old refusal was a code comment, and its reason was
+"a different colour space, converted by guesswork". A mix *in sRGB*
+converts nothing. It is CSS Color 5 § 2's arithmetic on the channels
+already held, so it is a value of the existing colour layer rather than a
+decision. Every other space stays refused for exactly the old reason.
+
+**What was built.**
+- `alo-value/src/mix.rs`, new: `mix_srgb`. It normalises the shares
+  (neither written is half each, one written leaves the other the rest, a
+  total that is not a hundred is scaled, a total under a hundred becomes an
+  alpha multiplier, two zeros are no mix), mixes premultiplied, and scales
+  the alpha last. A share out of range or not a number is refused.
+- `parse.rs`: `color-mix(in srgb, A [p], B [p])`, either share before or
+  after its colour, read wherever `one_color` is, so in shadows, gradient
+  stops, borders and `color` alike. It nests at most `MAX_MIX_DEPTH` (16)
+  deep. Refused: other spaces, no space (`oklab`), one colour or three,
+  `currentColor` in a mix (cut to **378**, waiting for a page).
+- `color.rs`' and `parse_color`'s refusal notes now say sRGB mixes are read.
+- `crates/alo-corpus/cases/alo-sites-pricing`: `section_pricing.html` and
+  `site.css`, byte for byte, from `alo-workplace` at 738de614, with
+  hashes, provenance and findings in `origin.txt`. The sheet is
+  `alo-sites-cta`'s exactly.
+- `crates/alo-corpus/tests/alo_sites_pricing.rs`, 4 tests.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log.
+The harness moved it to the background at 600 s, and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is met",
+with no `FAILED` or `panicked` in its log:
+- formatting clean, clippy silent, tests pass;
+- no stubs, `unsafe` forbidden everywhere;
+- every source file carries its licence notice;
+- every rented crate behind its boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds;
+- `CHANGELOG.md` changed with the code.
+
+This entry was written after that run, and is documentation only.
+
+**Gate, manual.**
+- Layout assertion: `the_highlighted_tier_fills_the_grid_and_is_lifted`.
+  The tier is at (20, 139.8), 760 × 350.8, because `auto-fit` collapses
+  the empty second track. It is drawn through a (0, −12) transform.
+  `the_highlighted_tier_casts_its_mixed_shadow`: one shadow, (23, 33, 43)
+  at alpha 0.12 (31 as a byte), blur 48, bounds the box moved 24 down.
+- Reference render: `alo-sites-pricing`'s references were written by
+  `ALO_UPDATE_REFERENCES=1`, then the corpus ran clean without it. Before
+  the fix the same case's `display.txt` had no shadow line, and its render
+  was white below the card. After the fix the display list gains `shadow
+  box#19 rgb(23 33 43 / 0.12) blur 48 at (20, 163.8) 760×350.8`, and the
+  pixels are 234 at y 485, 245 at 510, 252 at 530 and 255 at 590, under
+  x 400. Looked at: the card is lifted with a soft shadow under it. **No
+  other corpus case moved**, though `alo-sites-cta` carries the same sheet
+  (its seven other mixes are on rules that page does not match).
+- Hostile input: `a_hostile_mix_is_refused_rather_than_crashing` feeds
+  every prefix of a nested mix, 10 000 unclosed `color-mix(`, 10 000
+  closed (refused past 16), `1e39%`, `NaN%`, two `1e-45%` shares and two
+  transparent halves (no division by zero). None panics.
+- Mutation, each restored from a copy and checked with `cmp`. With the mix
+  refused again, the two shadow tests fail. With the channels mixed
+  unpremultiplied, two `mix.rs` tests, one `parse.rs` test and the same two
+  shadow tests fail.
+- One responsibility per file: the arithmetic is `mix.rs`, and reading the
+  text stays in `parse.rs` with every other colour function.
+- No `unsafe`, no new dependency. No new CSS property is read, so
+  `alo-css`' `properties.rs` is unchanged. `alo-workplace` and `alo-os`
+  were not touched: `git status` in `alo-workplace` is clean.
+
+**Queue.** 377 is added ticked, with its *Done* paragraph. 378 is added
+open. **Roadmap: no line moved, and why.** `color-mix()` serves no line in
+`ROADMAP.md`. Stage 1's colour work is inside its ticked *Computed style*
+and *Paint* lines, and stage 2's *CSS beyond what alo needed* names
+animations, container queries, filters, sticky, writing modes and print,
+not colour functions. Adding a line to claim it would be decoration. Also
+updated: `docs/features.md`' *Colours as channels*, `docs/conformance.md`'
+alo Sites row and its colour sentence, `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- A `box-shadow` whose value cannot be read is dropped without being said,
+  unlike a background (`DisplayList::issues`). That is how this fault went
+  unseen in `issues.txt`. It is not queued here. Worth an item if another
+  page hides a fault the same way.
+- 378 waits for a page. 376 still needs design.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- Everything iteration 246 listed still stands.
+
+158 queue items are open: 377 was added closed and 378 open. The next
+unused queue number is **379** and the next ADR is **0042**. This is one
+iteration, not a finished queue or roadmap.

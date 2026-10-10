@@ -1,0 +1,18 @@
+document at (0, 0) 800×538.6
+  link "Skip to content" at (-15984, 0) 161.11035×43.2
+  main at (0, 0) 800×538.6
+    heading "Subscriptions" [level=2] at (20, 48) 760×33.600002
+    paragraph at (20, 95.600006) 720×27.2
+      text "Pause or cancel any time." at (20, 99.30547) 219.13232×19.789063
+    list at (20, 139.8) 760×350.8
+      listitem "Weekly €18/week billed weekly Two 250g bags every week. Free shipping Roast-day dispatch Start weekly" at (20, 139.8) 760×350.8
+        heading "Weekly" [level=3] at (46, 165.8) 708×21.599998
+        paragraph at (46, 196.4) 708×44.800003
+          text "€18/week" at (46, 202.50311) 151.14258×32.59375
+          text "billed weekly" at (206.89063, 213.64178) 104.53125×18.625
+        paragraph at (46, 269.2) 708×27.2
+          text "Two 250g bags every week." at (46, 272.9055) 235.68408×19.789063
+        list at (46, 313.4) 708×78.8
+          listitem "Free shipping" at (46, 313.4) 708×39.4
+          listitem "Roast-day dispatch" at (46, 352.8) 708×39.4
+        link "Start weekly" at (46, 416.2) 161.6495×48.4

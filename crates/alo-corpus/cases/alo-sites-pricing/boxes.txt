@@ -1,0 +1,30 @@
+block flow · document
+  block flow · generic
+    block flow · link
+      text "Skip to content"
+    block flow · main
+      block flow · generic
+        block flow · heading [level=2]
+          text "Subscriptions"
+        block flow · paragraph
+          text "Pause or cancel any time."
+        block grid · list
+          block flow list-item · listitem
+            block flow · heading [level=3]
+              text "Weekly"
+            block flow · paragraph
+              text "€18/week "
+              inline flow · generic
+                text "billed weekly"
+            block flow · paragraph
+              text "Two 250g bags every week."
+            block flow · list
+              block flow list-item · listitem
+                text "Free shipping"
+              block flow list-item · listitem
+                text "Roast-day dispatch"
+            anonymous block
+              text " "
+              inline flow-root · link
+                text "Start weekly"
+              text " "

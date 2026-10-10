@@ -63,14 +63,25 @@ pub fn parse_number(text: &str) -> Option<f32> {
 /// Read a whole value as a colour.
 ///
 /// [`None`] for anything this engine does not implement — `oklch`, `lab`,
-/// `color()`, `color-mix()`. Those are different colour spaces, and a colour
-/// converted by guesswork is a wrong pixel that looks nearly right, which law
-/// 3 calls a bug rather than a task.
+/// `color()`, and `color-mix()` in any space but sRGB. Those are different
+/// colour spaces, and a colour converted by guesswork is a wrong pixel that
+/// looks nearly right, which law 3 calls a bug rather than a task.
 pub fn parse_color(text: &str) -> Option<Color> {
     entirely(text, one_color)
 }
 
-fn one_color<'i>(input: &mut CssParser<'i, '_>) -> Option<Color> {
+fn one_color(input: &mut CssParser<'_, '_>) -> Option<Color> {
+    nested_color(input, 0)
+}
+
+/// How deep `color-mix(in srgb, color-mix(…), …)` may nest.
+///
+/// A depth nobody writes, and a bound so that a pathological value is refused
+/// rather than running out of stack, as `calc()`'s is.
+const MAX_MIX_DEPTH: u8 = 16;
+
+/// One colour, `depth` mixes inside another.
+fn nested_color<'i>(input: &mut CssParser<'i, '_>, depth: u8) -> Option<Color> {
     let token = input.next().ok()?.clone();
     match token {
         // `#101014` and its three-, four- and eight-digit relatives. The table
@@ -101,6 +112,9 @@ fn one_color<'i>(input: &mut CssParser<'i, '_>) -> Option<Color> {
             input
                 .parse_nested_block(
                     |arguments| -> Result<Option<Color>, cssparser::ParseError<'i, ()>> {
+                        if name == "color-mix" {
+                            return Ok(color_mix(arguments, depth));
+                        }
                         Ok(color_function(&name, arguments))
                     },
                 )
@@ -148,6 +162,43 @@ fn color_function(name: &str, input: &mut CssParser<'_, '_>) -> Option<Color> {
         Some(Color::Rgba(Rgba::new(first, second, third, alpha)))
     } else {
         Some(Color::Rgba(from_hsl(first, second, third, alpha)))
+    }
+}
+
+/// What is inside `color-mix()`'s brackets: `in srgb`, then two colours, each
+/// with a share or without one, in either order.
+///
+/// Refused, each as an invalid value is: any space but `srgb`, which would be
+/// a conversion (`oklab` included, which is also what a mix that names no
+/// space means); a mix of one colour or of more than two, which CSS Color 5's
+/// latest draft allows and no page has asked for; and `currentColor` in a mix,
+/// which cannot be mixed until there is an element to ask (queue item 378).
+fn color_mix(input: &mut CssParser<'_, '_>, depth: u8) -> Option<Color> {
+    if depth >= MAX_MIX_DEPTH {
+        return None;
+    }
+    input.expect_ident_matching("in").ok()?;
+    input.expect_ident_matching("srgb").ok()?;
+    input.expect_comma().ok()?;
+    let first = mix_part(input, depth)?;
+    input.expect_comma().ok()?;
+    let second = mix_part(input, depth)?;
+    input.expect_exhausted().ok()?;
+    crate::mix::mix_srgb(first, second).map(Color::Rgba)
+}
+
+/// One colour in a mix, and its share if one is written, before it or after.
+fn mix_part(input: &mut CssParser<'_, '_>, depth: u8) -> Option<crate::mix::Part> {
+    let before = input.try_parse(CssParser::expect_percentage).ok();
+    let color = nested_color(input, depth + 1)?;
+    let after = if before.is_none() {
+        input.try_parse(CssParser::expect_percentage).ok()
+    } else {
+        None
+    };
+    match color {
+        Color::Rgba(rgba) => Some((rgba, before.or(after))),
+        Color::CurrentColor => None,
     }
 }
 
@@ -1299,6 +1350,117 @@ mod tests {
         ] {
             assert_eq!(parse_color(text), None, "{text} should be refused");
         }
+    }
+
+    #[test]
+    fn a_mix_in_srgb_is_read_wherever_a_colour_is() {
+        // alo Sites' shadow colour, as its sheet writes it once `var()` is in.
+        assert_eq!(
+            colour("color-mix(in srgb, #17212b 12%, transparent)"),
+            Some((0x17, 0x21, 0x2b, 31)),
+        );
+        assert_eq!(
+            colour("color-mix(in srgb, red, blue)"),
+            Some((128, 0, 128, 255))
+        );
+        // A share before its colour is the same share.
+        assert_eq!(
+            colour("color-mix(in srgb, 25% red, blue)"),
+            colour("color-mix(in srgb, red 25%, blue)"),
+        );
+        assert_eq!(
+            colour("COLOR-MIX(IN SRGB, red 25%, blue 75%)"),
+            Some((64, 0, 191, 255))
+        );
+        // A mix is a colour, so a mix can be mixed.
+        assert_eq!(
+            colour("color-mix(in srgb, color-mix(in srgb, red, blue), white 0%)"),
+            Some((128, 0, 128, 255))
+        );
+        // And it is a colour everywhere one is read: in a shadow and in a
+        // gradient's stop.
+        let shadows =
+            parse_box_shadows("0 1.5rem 3rem color-mix(in srgb, #17212b 12%, transparent)");
+        assert_eq!(shadows.map(|shadows| shadows.len()), Some(1));
+        assert!(parse_gradient("linear-gradient(color-mix(in srgb, red, blue), white)").is_some());
+    }
+
+    #[test]
+    fn a_mix_this_engine_cannot_do_exactly_is_refused() {
+        for text in [
+            // Every other space is a conversion.
+            "color-mix(in oklab, red, blue)",
+            "color-mix(in srgb-linear, red, blue)",
+            "color-mix(in hsl, red, blue)",
+            "color-mix(in hsl longer hue, red, blue)",
+            // Naming no space means oklab.
+            "color-mix(red, blue)",
+            // One colour, or three.
+            "color-mix(in srgb, red)",
+            "color-mix(in srgb, red, blue, white)",
+            // `currentColor` cannot be mixed before there is an element.
+            "color-mix(in srgb, currentColor 12%, transparent)",
+            "color-mix(in srgb, red, color-mix(in srgb, currentcolor, blue))",
+            // Shares that are not a mix.
+            "color-mix(in srgb, red 0%, blue 0%)",
+            "color-mix(in srgb, red 101%, blue)",
+            "color-mix(in srgb, red -1%, blue)",
+            "color-mix(in srgb, red 10% 20%, blue)",
+            "color-mix(in srgb, 10% red 20%, blue)",
+            "color-mix(in srgb, red 50, blue)",
+            // Something that is not a colour where one belongs.
+            "color-mix(in srgb, red, 16px)",
+            "color-mix(in srgb red, blue)",
+        ] {
+            assert_eq!(parse_color(text), None, "{text} should be refused");
+        }
+    }
+
+    #[test]
+    fn a_hostile_mix_is_refused_rather_than_crashing() {
+        let real = "color-mix(in srgb, color-mix(in srgb, #17212b 12%, transparent), red 1%)";
+        // Every prefix, which is every way the value can be cut short.
+        for end in 0..=real.len() {
+            if let Some(prefix) = real.get(..end) {
+                let _ = parse_color(prefix);
+                let _ = parse_box_shadows(prefix);
+            }
+        }
+        let deep = "color-mix(in srgb, ".repeat(10_000);
+        let deep_and_closed = format!(
+            "{}red{}",
+            "color-mix(in srgb, white, ".repeat(10_000),
+            ")".repeat(10_000)
+        );
+        for text in [
+            deep.as_str(),
+            deep_and_closed.as_str(),
+            "color-mix(in srgb, red 1e39%, blue)",
+            "color-mix(in srgb, red NaN%, blue)",
+            "color-mix(in srgb, red 1e-45%, blue 1e-45%)",
+            "color-mix(in srgb, rgb(0 0 0 / 0) 50%, transparent 50%)",
+            "color-mix(in",
+            "color-mix(\\",
+            "color-mix(in srgb,,,)",
+        ] {
+            let _ = parse_color(text);
+        }
+        assert_eq!(parse_color(&deep_and_closed), None, "too deep to read");
+        // Sixteen deep is still read.
+        let sixteen = format!(
+            "{}red{}",
+            "color-mix(in srgb, red, ".repeat(16),
+            ")".repeat(16)
+        );
+        assert_eq!(colour(&sixteen), Some((255, 0, 0, 255)));
+        let seventeen = format!("color-mix(in srgb, red, {sixteen})");
+        assert_eq!(parse_color(&seventeen), None);
+        // Two shares of nearly nothing still add to something, and a mix of
+        // nothing is nothing rather than a division by zero.
+        assert_eq!(
+            colour("color-mix(in srgb, rgb(0 0 0 / 0) 50%, transparent 50%)"),
+            Some((0, 0, 0, 0))
+        );
     }
 
     #[test]

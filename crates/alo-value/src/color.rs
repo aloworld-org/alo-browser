@@ -24,10 +24,11 @@
 //!
 //! # What is refused
 //!
-//! `oklch`, `lab`, `color()` and `color-mix()` are not implemented and are
-//! refused rather than approximated. They are a different colour space, and a
-//! colour converted by guesswork is a wrong pixel that looks nearly right —
-//! which law 3 calls a bug.
+//! `oklch`, `lab`, `color()`, and `color-mix()` in any space but sRGB, are not
+//! implemented and are refused rather than approximated. They are a different
+//! colour space, and a colour converted by guesswork is a wrong pixel that
+//! looks nearly right — which law 3 calls a bug. A mix in sRGB converts
+//! nothing, so it is arithmetic on these channels, in `mix.rs`.
 
 use core::fmt;
 

@@ -1,0 +1,22 @@
+fill box#2 rgb(255 255 255) at (0, 0) 800×538.6
+text box#12 "Subscriptions" rgb(23 33 43) 28px at (20, 74.49336)
+text box#15 "Pause or cancel any time." rgb(76 88 102) 17px at (20, 115.08526)
+transform box#19 by matrix(1, 0, 0, 1, 0, -12)
+shadow box#19 rgb(23 33 43 / 0.12) blur 48 at (20, 163.8) 760×350.8
+fill box#19 rgb(242 245 248) at (20, 139.8) 760×350.8
+fill box#19 rgb(29 78 216) at (20, 139.8) 760×350.8
+text box#22 "Weekly" rgb(23 33 43) 18px at (46, 182.83145)
+text box#25 "€18/week" rgb(23 33 43) 28px at (46, 228.49335)
+text box#27 "billed weekly" rgb(76 88 102) 16px at (206.89063, 228.49335)
+text box#30 "Two 250g bags every week." rgb(76 88 102) 17px at (46, 288.68527)
+fill box#34 rgb(221 227 233) at (46, 351.8) 708×1
+text box#35 "Free shipping" rgb(23 33 43) 17px at (46, 338.48526)
+fill box#37 rgb(221 227 233) at (46, 391.19998) 708×1
+text box#38 "Roast-day dispatch" rgb(23 33 43) 17px at (46, 377.88525)
+fill box#41 rgb(29 78 216) at (46, 416.2) 161.6495×48.399994
+fill box#41 rgb(29 78 216) at (46, 416.2) 161.6495×48.399994
+text box#42 "Start weekly" rgb(255 255 255) 17px at (66.2, 446.28528)
+untransform
+fill box#4 rgb(242 245 248) at (-15984, 0) 161.11035×43.2
+text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27.485254)
+fill box#5 rgb(23 33 43) at (-15968, 28.564356) 129.11035×1

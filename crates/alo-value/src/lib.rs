@@ -45,6 +45,7 @@ pub mod calc;
 pub mod color;
 pub mod gradient;
 pub mod length;
+pub mod mix;
 pub mod parse;
 pub mod shadow;
 pub mod shorthand;

@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`color-mix()` in sRGB.** A colour written as a mix of two others in
+  sRGB — `color-mix(in srgb, var(--text) 12%, transparent)`, as alo Sites
+  writes its shadows — is now drawn. Before, it was refused, and a shadow
+  or border using it was not drawn at all. Mixes in other colour spaces are
+  still refused rather than approximated (queue item 377, opened by alo
+  Sites' pricing section, now frozen in the corpus as `alo-sites-pricing`).
+
 - **A page waits for its style, but not for ever.** A page that links a
   style sheet is no longer shown unstyled first: the window shows it once
   the sheet has arrived. If the sheet takes longer than three seconds, the
