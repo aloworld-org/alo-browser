@@ -1,0 +1,11 @@
+document at (0, 0) 800×408.6
+  link "Skip to content" at (-15984, 0) 161.11035×43.2
+  main at (0, 0) 800×408.6
+    heading "Why Nordwind" [level=2] at (20, 80) 760×33.600002
+    paragraph at (20, 127.600006) 720×27.2
+      text "Three promises on every bag." at (252.91089, 131.30548) 254.17822×19.789063
+    list at (20, 171.8) 760×156.8
+      listitem "Roasted to order Your batch goes in the drum after you order." at (20, 171.8) 760×156.8
+        heading "Roasted to order" [level=3] at (41, 212.8) 718×21.599998
+        paragraph at (41, 243.4) 718×27.2
+          text "Your batch goes in the drum after you order." at (41, 247.10547) 377.1626×19.789063

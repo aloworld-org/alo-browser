@@ -24023,3 +24023,121 @@ alo Sites row and its colour sentence, `REMAINING.md` and `CHANGELOG.md`.
 158 queue items are open: 377 was added closed and 378 open. The next
 unused queue number is **379** and the next ADR is **0042**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 248 — queue item 379 opened and built: `padding-block` and `margin-block`, found by freezing alo Sites' features section
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md`, `REMAINING.md`
+and iteration 247's entry. No `AGENTS.md` exists in this repository. For
+379: `docs/features.md`' *Shorthands compete with longhands* and
+*`place-items`* lines, `alo-css`' `shorthand.rs`, `longhand.rs`,
+`declaration.rs` (`DeclarationBlock::push`, why shorthands split before the
+cascade), `inline.rs` (CSSOM's use of `longhands`) and `properties.rs`, and
+the `alo-sites-pricing` case and test as the pattern for a frozen alo Sites
+page. No ADR decides logical properties; the roadmap's *Writing modes* line
+is the nearest, and nothing in it is decided.
+
+**Choosing.**
+- 296 first: a Swift check answered `CGSSessionScreenIsLocked` = 1, with
+  capture access true. Still locked, so 296 is not takeable and nothing of
+  it was started; 297–300 wait on it.
+- Every other open item stands as iteration 247 listed it: blocked, page-
+  gated, *needs design* or waiting on a dependency.
+- So the eligible work was a real page that fails. alo Sites' golden
+  features section has no picture. Frozen and rendered, its layout checked
+  against the sheet by hand, and one number was wrong: the `features-bento`
+  first card's `padding-block: 2.5rem` was dropped, so the card was 116.8
+  tall rather than 156.8. No queue item named logical properties, so 379
+  was written with its closing conditions and its feature line, and built.
+
+**Why no ADR.** This engine reads no `writing-mode`; every box is laid out
+`horizontal-tb`, where block-start is the top and block-end the bottom, for
+every element. So splitting the two block-axis shorthands into `*-top` and
+`*-bottom` is exact, not a guess, and it is a value of the existing counted-
+shorthand layer. The inline axis is not exact (it is `direction`'s), so it
+is not built and is cut to 380 rather than decided in passing.
+
+**What was built.**
+- `alo-css/src/shorthand.rs`: a third counted family, `BLOCK_AXIS`
+  (`margin-block`, `padding-block`): one value both ends, two start then
+  end, anything else left whole. Its comment says why it is exact today and
+  that it must move to computed-value time when `writing-mode` is read (98).
+- `alo-css/src/longhand.rs`: CSSOM's longhands of a block-axis shorthand
+  are its logical ones (`padding-block-start`, `padding-block-end`), so
+  `removeProperty('padding-block')` never removes a written `padding-top`.
+  The shorthands are not added to `properties.rs`, as `place-items` is not:
+  no crate reads them, they are split before any crate looks.
+- `crates/alo-corpus/cases/alo-sites-features`: `section_features.html` and
+  `site.css`, byte for byte, from `alo-workplace` at 738de614, with hashes,
+  provenance and findings in `origin.txt`.
+- `crates/alo-corpus/cases/block-axis-spacing`: a page of our own showing
+  one value, two values with a `margin-block`, a later `padding-top` beating
+  the shorthand, and an inline `style`, as a picture.
+- `crates/alo-corpus/tests/alo_sites_features.rs`, 3 tests.
+
+**Second finding, queued, not built.** The features section is drawn at
+opacity 0 through a 24 px transform: the page's first script adds `js`,
+which hides every `.section-motion` until an `IntersectionObserver` adds
+`is-visible`, and the engine has none. The script checks for it first, so
+nothing fails and the picture is white — what the page does in any browser
+without the interface. That is **381**, *needs ADR*, after 234's rendering
+steps. It has a line in `docs/features.md` now.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log; the
+harness moved it to the background at 600 s, and the next call waited on it
+in a foreground `until` loop. The first run read `exit 1`: clippy refused
+an uninlined format argument in the new hostile test. Fixed; workspace
+clippy then refused a redundant closure in the new corpus test. Fixed; the
+workspace clippy run was silent and the touched tests passed. The second
+gate run, the same way, read `exit 0` and "The gate is met", with no
+`FAIL`, `FAILED` or `panicked` in its log: formatting clean, clippy silent,
+tests pass, no stubs, `unsafe` forbidden everywhere, licence notices,
+rented crates behind their boundaries, no verb takes a coordinate, the
+supervisor's stop rule holds, `CHANGELOG.md` changed with the code. This
+entry was written after that run, and is documentation only.
+
+**Gate, manual.**
+- Layout assertion: `the_first_bento_card_is_padded_by_its_block_axis`:
+  the card at (20, 171.8), 760 × 156.8, its heading 41 px below its top
+  (1 border + 40 padding) and 21 in from its left. `block-axis-spacing`'s
+  layout: 34 tall (12 + 10 + 12); 20 tall (2 + 10 + 8) at y 48 after a 6
+  margin and followed by a 10; 26 tall with its fill at its top edge (a
+  later `padding-top: 0`); 26 tall from the `style` attribute's `2px 14px`.
+  Every number checked by hand.
+- Reference render: both new cases' references were written by
+  `ALO_UPDATE_REFERENCES=1`, then the corpus ran clean without it. Looked
+  at `block-axis-spacing`'s picture: four blue cards, the bars inside sitting
+  as the numbers say. `alo-sites-features`' picture is white, for 381, and
+  a test asserts it so (pixel (400, 250) is white). **No other corpus case
+  moved.**
+- Hostile input: `a_hostile_block_axis_value_is_split_or_left_whole` feeds
+  10 000 unclosed `(`, 10 000 closed (with extra `)`), 10 000 values and
+  stray `)`; none panics, each splits into two ends or nothing.
+- Mutation: the split taken out (copy in the scratchpad, restored with `cp`
+  and checked with `cmp`): two `shorthand.rs` tests, the card test and
+  exactly the two new corpus cases fail.
+- One responsibility per file: splitting stays in `shorthand.rs` with the
+  other counted families; CSSOM's longhand question stays in `longhand.rs`.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` in `alo-workplace` is clean.
+
+**Queue.** 379 added ticked, with its *Done* paragraph. 380 (the inline
+axis and the logical longhands, waits for a page) and 381
+(`IntersectionObserver`, needs ADR, depends on 234) added open.
+**Roadmap:** the *Writing modes* line gains a *Built* clause (379's
+block-axis split in `alo-css`, exact under `horizontal-tb`) and an *Owed*
+clause (`writing-mode` and `direction` themselves, 380, moving the mapping
+to computed time, and 100). Not ticked. `IntersectionObserver` has no
+roadmap line and was not given one; it is in `docs/features.md` and the
+queue. Also updated: `docs/features.md`, `docs/conformance.md`' alo Sites
+row (now three sections), `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 381 needs an ADR before any code, and 234 before it can be built; until
+  then every alo Sites section that moves into view is invisible here.
+- 380 waits for a page. 378 waits for a page. 376 still needs design.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- Everything iteration 247 listed still stands.
+
+160 queue items are open: 379 was added closed, 380 and 381 open. The next
+unused queue number is **382** and the next ADR is **0042**. This is one
+iteration, not a finished queue or roadmap.

@@ -207,6 +207,13 @@ The reason this exists rather than a faster fork of somebody else's engine.
   and `justify-*` pair — one value for both, two for block then inline, a
   two-word value such as `safe center` counted as one — so a grid centred
   with `place-items: center` is centred
+- [2] **`padding-block` and `margin-block`** set the top and the bottom —
+  one value for both, two for start then end — which is exactly what they
+  mean in the one writing mode this engine lays out, `horizontal-tb`; they
+  compete with `padding-top` and the rest by order, as CSS Logical says
+  (queue item 379, opened by alo Sites' bento features card; corpus case
+  `block-axis-spacing`). The inline axis waits, since which side it names
+  is `direction`'s (380)
 - [2] **Fonts handed across the boundary** — the browser process opens the
   files, the renderer opens nothing
 - [2] **A font a page asked for by name, fetched on demand** — a renderer says
@@ -476,6 +483,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (301–306)
 - [2] Workers: dedicated, shared, and service workers with their fetch interception
 - [2] Timers, clipboard, drag and drop
+- [2] `IntersectionObserver` — what alo Sites asks before it shows a section that moves into view. Not built and not yet decided (queue item 381, needs ADR, after the rendering steps of 234); until then such a section stays at the opacity its sheet hides it at, as it would in any browser without the interface
 - [2] `navigator`, and what the browser says it is. Decided in ADR 0030.
   Built: the `User-Agent` header, on every request over HTTP/1.1 and HTTP/2
   and in a CSP report's envelope (326), and `navigator` with every member

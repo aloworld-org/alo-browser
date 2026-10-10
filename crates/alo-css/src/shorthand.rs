@@ -7,12 +7,14 @@
 //! [`DeclarationBlock::push`](crate::DeclarationBlock::push) says why this has
 //! to happen before the cascade. This file says *which* shorthands are split
 //! and by what rule, and it holds only the ones that split by **counting** —
-//! the position of a value says which longhand it is. Two families do:
+//! the position of a value says which longhand it is. Three families do:
 //!
 //! - **One value per side** ([`SIDED`]): `margin`, `padding` and the three
 //!   border shorthands that are one value per side.
 //! - **One value per axis** ([`PAIRED`]): `place-items`, `place-self` and
 //!   `place-content`, block axis first.
+//! - **One value per end of the block axis** ([`BLOCK_AXIS`]):
+//!   `margin-block` and `padding-block`, start first.
 //!
 //! A shorthand whose parts are told apart by *kind* — `border`, `background`,
 //! `font` — is not here: that is parsing, and it is `alo_value::shorthand`'s.
@@ -98,6 +100,12 @@ pub(crate) fn expand(declaration: &Declaration) -> Vec<(String, String)> {
     if let Some((_, axes)) = PAIRED.iter().find(|(shorthand, _)| *shorthand == name) {
         return axes_of(axes, value);
     }
+    if let Some((_, _, sides)) = BLOCK_AXIS
+        .iter()
+        .find(|(shorthand, _, _)| *shorthand == name)
+    {
+        return ends(sides, value);
+    }
     Vec::new()
 }
 
@@ -135,6 +143,63 @@ fn sides(longhands: &[&str; 4], value: &str) -> Vec<(String, String)> {
         .zip(sides)
         .map(|(longhand, side)| ((*longhand).to_owned(), side.to_owned()))
         .collect()
+}
+
+/// The block-axis logical shorthands: each one's name, the logical longhands
+/// CSS Logical Properties 1 § 4 says it sets, and the physical sides those
+/// are in the one writing mode this engine lays out.
+///
+/// # Why they become physical sides here, and why that is exact
+///
+/// Which side a logical property names is decided by the element's
+/// `writing-mode`, and this engine reads none: every box is laid out
+/// `horizontal-tb`, where the block axis runs top to bottom. So block-start
+/// *is* the top and block-end the bottom, for every element on every page
+/// this engine can lay out, and splitting into `margin-top` and
+/// `margin-bottom` as the shorthand is written makes the two compete in the
+/// cascade as the one property they are, by the reasoning
+/// [`DeclarationBlock::push`](crate::DeclarationBlock::push) gives for
+/// `padding` — and as CSS Logical 1 § 3 says a logical property and its
+/// physical counterpart do, by order of appearance.
+///
+/// The day `writing-mode` is read (queue item 98) that stops being true, and
+/// the mapping must move to computed-value time, per element. The inline
+/// axis is **not** here for the same reason sooner: which side
+/// `margin-inline-start` is depends on `direction`, which this engine does
+/// not read either, and a right-to-left page would have it on the wrong
+/// side. That is queue item 380.
+///
+/// alo Sites' `features-bento` card is what asked: `padding-block: 2.5rem`
+/// on its first card was dropped, and the card drawn with half its padding.
+pub(crate) static BLOCK_AXIS: [(&str, [&str; 2], [&str; 2]); 2] = [
+    (
+        "margin-block",
+        ["margin-block-start", "margin-block-end"],
+        ["margin-top", "margin-bottom"],
+    ),
+    (
+        "padding-block",
+        ["padding-block-start", "padding-block-end"],
+        ["padding-top", "padding-bottom"],
+    ),
+];
+
+/// A block-axis shorthand's two sides, start first: one value is both ends,
+/// two are start then end, and anything else is left whole to be refused
+/// where it is read. A `var()` is one value, with [`SIDED`]'s rare wrong
+/// answer when the variable holds two.
+fn ends(sides: &[&str; 2], value: &str) -> Vec<(String, String)> {
+    let parts = top_level_parts(value);
+    let (start, end) = match parts.as_slice() {
+        [both] => (both, both),
+        [start, end] => (start, end),
+        _ => return Vec::new(),
+    };
+    let [top, bottom] = sides;
+    vec![
+        ((*top).to_owned(), start.clone()),
+        ((*bottom).to_owned(), end.clone()),
+    ]
 }
 
 /// The shorthands that are one value per axis, and the longhands each becomes:
@@ -520,6 +585,93 @@ mod tests {
                 "var(--where)"
             ),
         );
+    }
+
+    fn ends_of(shorthand: &str, value: &str) -> Vec<(String, String)> {
+        expand(&Declaration::new(shorthand, value, Importance::Normal))
+    }
+
+    /// One value is both ends of the block axis; two are start then end —
+    /// the top and the bottom, in the one writing mode laid out.
+    #[test]
+    fn a_block_axis_shorthand_becomes_its_top_and_bottom() {
+        for (shorthand, top, bottom) in [
+            ("padding-block", "padding-top", "padding-bottom"),
+            ("margin-block", "margin-top", "margin-bottom"),
+        ] {
+            assert_eq!(
+                ends_of(shorthand, "2.5rem"),
+                pair(top, "2.5rem", bottom, "2.5rem"),
+                "{shorthand} with one value",
+            );
+            assert_eq!(
+                ends_of(shorthand, "1px calc(2px + 3px)"),
+                pair(top, "1px", bottom, "calc(2px + 3px)"),
+                "{shorthand} with two values",
+            );
+            assert_eq!(
+                ends_of(shorthand, "var(--a, 1px 2px)"),
+                pair(top, "var(--a, 1px 2px)", bottom, "var(--a, 1px 2px)"),
+                "{shorthand} holding a variable",
+            );
+            assert!(ends_of(shorthand, "1px 2px 3px").is_empty());
+            assert!(ends_of(shorthand, "").is_empty());
+        }
+    }
+
+    /// The inline axis is not split: which side it names is `direction`'s.
+    #[test]
+    fn the_inline_axis_is_left_whole() {
+        assert!(ends_of("padding-inline", "1px").is_empty());
+        assert!(ends_of("margin-inline", "auto").is_empty());
+        assert!(ends_of("padding-block-start", "1px").is_empty());
+    }
+
+    /// A block-axis shorthand and a physical side compete by order, as one
+    /// property: the later one wins, whichever it is.
+    #[test]
+    fn a_block_axis_shorthand_and_a_side_compete_by_order() {
+        let value = |block: &crate::DeclarationBlock, name: &str| {
+            block
+                .get(&crate::PropertyName::parse(name))
+                .map(|declaration| declaration.value.clone())
+        };
+        let mut block = crate::DeclarationBlock::new();
+        block.push(Declaration::new("padding", "1px", Importance::Normal));
+        block.push(Declaration::new(
+            "padding-block",
+            "2px 3px",
+            Importance::Normal,
+        ));
+        assert_eq!(value(&block, "padding-top").as_deref(), Some("2px"));
+        assert_eq!(value(&block, "padding-bottom").as_deref(), Some("3px"));
+        assert_eq!(value(&block, "padding-left").as_deref(), Some("1px"));
+        block.push(Declaration::new("padding-top", "4px", Importance::Normal));
+        assert_eq!(value(&block, "padding-top").as_deref(), Some("4px"));
+        assert_eq!(
+            block.written().count(),
+            3,
+            "the sides it implies are not written"
+        );
+    }
+
+    /// What a stranger's sheet can put in one: deep, unclosed, long. None
+    /// panics, and none is split into anything but two ends or nothing.
+    #[test]
+    fn a_hostile_block_axis_value_is_split_or_left_whole() {
+        let deep = "(".repeat(10_000);
+        let closed = format!("{}{}", "(".repeat(10_000), ")".repeat(20_000));
+        let many = "1px ".repeat(10_000);
+        for value in [
+            deep.as_str(),
+            closed.as_str(),
+            many.as_str(),
+            ")))",
+            "1px )",
+        ] {
+            let split = ends_of("padding-block", value);
+            assert!(split.is_empty() || split.len() == 2, "{value:.20}");
+        }
     }
 
     /// In a block, the longhands sit at the shorthand's position, so a

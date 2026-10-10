@@ -1210,3 +1210,15 @@ shadow: that opened item 377, built in the same iteration. `currentColor` in
 a mix is cut to 378, which waits for a page. 158 queue items are open (377
 added closed, 378 added open). The next unused queue number is 379 and the
 next unused ADR 0042.
+
+Iteration 248 found every open item blocked or waiting for a page (296's
+screen is still locked), so it froze the next alo Sites section with no
+picture, its features section, as `alo-sites-features`. Its bento grid's
+first card's `padding-block: 2.5rem` was dropped, since no logical shorthand
+was split: that opened item 379, built in the same iteration for the block
+axis, which is exact under the only writing mode laid out. The inline axis
+is cut to 380, waiting for a page. The section itself is drawn at opacity 0
+until an `IntersectionObserver` reports it, so the page's picture is white:
+that opened 381, which needs an ADR and depends on 234's rendering steps.
+160 queue items are open (379 added closed, 380 and 381 added open). The
+next unused queue number is 382 and the next unused ADR 0042.

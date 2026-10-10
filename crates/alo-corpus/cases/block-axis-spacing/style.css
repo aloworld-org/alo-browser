@@ -1,0 +1,10 @@
+body { margin: 0; background: #fafafa }
+#list { width: 160px; padding: 8px; background: #ffffff }
+.card { padding: 4px; background: #1d4ed8 }
+.fill { height: 10px; background: #e4e4e7 }
+/* One value is both ends of the block axis, beating the 4px all round. */
+#card { padding-block: 12px }
+/* Two values are start then end; margin-block spaces it from its siblings. */
+#pair { padding-block: 2px 8px; margin-block: 6px 10px }
+/* A side written after the shorthand wins over it, by order. */
+#later { padding-block: 16px; padding-top: 0 }

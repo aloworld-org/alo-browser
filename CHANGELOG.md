@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`padding-block` and `margin-block`.** Spacing written for the top and
+  bottom of a box together — `padding-block: 2.5rem`, as alo Sites writes
+  for the first card of a features grid — is now applied. Before, it was
+  ignored and the card had half its padding. The left-and-right forms
+  (`padding-inline`, `margin-inline`) are still ignored, because which side
+  they mean depends on the text's direction, which the engine does not read
+  yet (queue item 379, opened by alo Sites' features section, now frozen in
+  the corpus as `alo-sites-features`). That section is also drawn
+  invisible, as it would be in any browser without `IntersectionObserver`;
+  the interface is queued (381).
+
 - **`color-mix()` in sRGB.** A colour written as a mix of two others in
   sRGB — `color-mix(in srgb, var(--text) 12%, transparent)`, as alo Sites
   writes its shadows — is now drawn. Before, it was refused, and a shadow

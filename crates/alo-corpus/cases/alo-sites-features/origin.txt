@@ -1,0 +1,74 @@
+alo-workplace, products/sites/alo-sites/tests/golden/section_features.html and
+products/sites/alo-sites/tests/golden/site.css — a page alo Sites publishes
+for its customers: the features section of a demonstration coffee roaster's
+home page, with the style sheet every alo Sites page links.
+
+Taken 2026-10-10 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit
+`alo-sites-cta` and `alo-sites-pricing` were taken at. The page's last change
+is 5be41b70be364f8e1e0e158a8619e4e94455321c (2026-09-02). The bytes are those
+files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  57f32343cc8b211d20b43f003fdd190d36aec5947903d555c3a67880e9ce83ae
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+The sheet is byte for byte `alo-sites-cta`'s and `alo-sites-pricing`'s.
+`alo-workplace` is read-only reference; nothing was written back to it. Both
+files are golden outputs of alo Sites' own renderer, pinned by its tests, so
+they are what it really serves rather than something rebuilt from it.
+
+Why this page. After the pricing section rendered, every queue item was
+blocked or waiting for a page, so the next alo Sites section with no picture
+was frozen to find what fails. It is the `features-bento` variant, with one
+feature, presented as cards, generously spaced, and set to fade up as it
+scrolls into view (`section-motion section-enter-fade-up`).
+
+**Where it is served from, and what its sheet is answered with,** are the
+call-to-action section's, for the same reasons (see that case's origin.txt):
+the page's own `<link rel="canonical">` says
+`https://nordwind.alosites.com/` (address.txt), and its `/assets/site.css`
+is answered from site.css (linked.txt). Its analytics script is the same
+script, and sends nothing in a reference render.
+
+Rendered at 800 × 600, wider than the sheet's breakpoints, as the other two
+alo Sites cases are.
+
+## What it found
+
+- **`padding-block` was not read** — item 379. The sheet gives a bento
+  grid's first card `padding-block: 2.5rem`, and the engine split no
+  logical shorthand, so the card kept the 1.25rem all round that
+  `.section-cards` gives every card: 116.8 px tall where it should be 156.8.
+  `padding-block` and `margin-block` are now split into the top and bottom
+  they are in the one writing mode this engine lays out, and the card is
+  40 px inside its border above and below. `tests/alo_sites_features.rs`
+  says so in numbers, and `cases/block-axis-spacing` shows the same rule as
+  a picture.
+- **The whole section is drawn at opacity 0, so the reference render is
+  white** — item 381. The page's first script adds `js` to `<html>`, which
+  makes every `.section-motion` transparent and 1.5rem low until a class
+  `is-visible` is added; and only an `IntersectionObserver` adds it. This
+  engine has none, and the script asks `"IntersectionObserver" in window`
+  before using it, so nothing fails and nothing is shown. That is what this
+  page does in any browser without the interface — the page's choice, drawn
+  correctly — and it is why the picture here is blank while the layout,
+  the display list and the agent's tree are not. The sheet's own escape,
+  `@media (prefers-reduced-motion: reduce)`, is not understood and so does
+  not match, which is what a person who has not asked for less motion gets
+  anyway.
+
+Everything else checks against the sheet by hand and is pinned as it is:
+`main > section`'s 1.25rem sides and `section-spacing-generous`'s 5rem top
+and bottom put the heading at (20, 80); `h2`'s `clamp(1.5rem, 3.5vw,
+2.125rem)` is 28 px at 800 wide; the intro is 45rem wide and its text is
+centred in it; the grid is two `minmax(0, 1fr)` tracks and the first card
+spans `1 / -1`, so it is the whole 760; the card's background is
+`color-mix(in srgb, #4c5866 92%, #17212b)`, `rgb(72 84 97)`; and the
+section is drawn through `translateY(1.5rem)`, 24 px.
+
+What the sheet asks for that this engine does not do, and which makes no
+difference to this page beyond the above, is in issues.txt, and is the
+call-to-action section's list exactly: `::before` and `::after`,
+`@keyframes`, and `prefers-reduced-motion`.

@@ -23,7 +23,7 @@
 //! same longhands. Whether this engine acts on a longhand does not matter
 //! here: a written declaration of it is removed either way.
 
-use crate::shorthand::{PAIRED, SIDED};
+use crate::shorthand::{BLOCK_AXIS, PAIRED, SIDED};
 
 /// The shorthands read by kind, and every longhand each one sets or resets.
 static BY_KIND: [(&str, &[&str]); 3] = [
@@ -111,6 +111,15 @@ pub fn longhands(name: &str) -> Option<&'static [&'static str]> {
     if let Some((_, longhands)) = PAIRED.iter().find(|(shorthand, _)| *shorthand == name) {
         return Some(longhands.as_slice());
     }
+    // A block-axis shorthand sets its logical longhands, as CSS Logical says,
+    // and not the physical sides they are laid out as: removing
+    // `padding-block` must not take a written `padding-top` with it.
+    if let Some((_, longhands, _)) = BLOCK_AXIS
+        .iter()
+        .find(|(shorthand, _, _)| *shorthand == name)
+    {
+        return Some(longhands.as_slice());
+    }
     BY_KIND
         .iter()
         .find(|(shorthand, _)| *shorthand == name)
@@ -130,6 +139,11 @@ mod tests {
         assert_eq!(
             longhands("place-items"),
             Some(["align-items", "justify-items"].as_slice()),
+        );
+        assert_eq!(
+            longhands("padding-block"),
+            Some(["padding-block-start", "padding-block-end"].as_slice()),
+            "its logical longhands, not the sides they are laid out as",
         );
     }
 

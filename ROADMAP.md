@@ -1274,6 +1274,14 @@ unreachable without it.
 - [ ] Filters, `backdrop-filter`, blend modes, masks, `clip-path`
 - [ ] `position: sticky`, multi-column, scroll snap, overscroll behaviour
 - [ ] Writing modes, and layout that is right-to-left rather than mirrored afterwards
+      · Built: `padding-block` and `margin-block`, split in `alo-css` into
+      the top and bottom they are under `horizontal-tb`, the one writing mode
+      laid out (queue item 379, opened by `alo-sites-features`; corpus case
+      `block-axis-spacing`).
+      · Owed: `writing-mode` and `direction` themselves, read by nobody yet;
+      the inline-axis logical properties and the block-axis longhands (380);
+      moving the logical mapping to computed-value time once a box can be
+      other than `horizontal-tb`; and layout that is right-to-left (100)
 - [ ] Paged media and print styles
 
 ### Text, properly

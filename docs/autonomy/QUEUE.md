@@ -6798,6 +6798,73 @@ The long pole, and the thing most of section E is unreachable without.
   mix of `currentColor` draws its element's own colour mixed, in pixels,
   and a mix inherited as text resolves against each element's `color`.
 
+- [x] **379. `padding-block` and `margin-block`.** *Opened by
+  `alo-sites-features` (iteration 248), frozen in the same change. Feature:
+  `docs/features.md` stage 2, "Shorthands compete with longhands". Depends
+  on nothing open.* alo Sites' `features-bento` gives its first card
+  `padding-block: 2.5rem` over the 1.25rem every presented card has, and no
+  logical shorthand was split, so the card kept 1.25rem above and below.
+  This engine reads no `writing-mode`: every box is laid out
+  `horizontal-tb`, where block-start is the top and block-end the bottom,
+  so the two block-axis shorthands are exactly `*-top` and `*-bottom`, and
+  split there as they are written they compete with the physical sides by
+  order, as CSS Logical 1 § 3 says. *Closes when:* the card's heading is
+  41 px below the card's top edge (1 px of border and 40 of padding) and
+  the card is 156.8 tall; a one-value, a two-value and a later-side
+  declaration are drawn as such in a corpus case of their own; and a
+  hostile value is left whole without a panic.
+  **Done (iteration 248).** `alo-css`' `shorthand.rs` has a third counted
+  family, `BLOCK_AXIS`: one value is both ends, two are start then end,
+  anything else is left whole. Its comment says why the mapping is exact
+  today and that it must move to computed-value time when `writing-mode` is
+  read (98). `longhand.rs` answers CSSOM with the logical longhands
+  (`padding-block-start`, `padding-block-end`), so removing `padding-block`
+  never takes a written `padding-top`. Tests: `shorthand.rs` (4: split,
+  inline axis left whole, competing by order, hostile — 10 000 deep open
+  and closed, 10 000 values), `longhand.rs` (1 assertion), the new case
+  `block-axis-spacing` (its picture: 34, 20 with a 6 and 10 margin, 26
+  with no top, and an inline `style` of 2 and 14), and
+  `tests/alo_sites_features.rs` (3: the sheet answered; the card at (20,
+  171.8), 760 × 156.8, its heading at 41 inside it; the section at opacity
+  0 through a 24 px transform, white in pixels, for 381). Mutation, the
+  split taken out and restored from a copy: two `shorthand.rs` tests, the
+  card test and exactly the two new corpus cases fail. No other case
+  moved.
+
+- [ ] **380. The inline-axis logical properties.** *Cut from 379
+  (iteration 248). Feature: `docs/features.md` stage 2, "Shorthands compete
+  with longhands". Waits for a page.* `margin-inline`, `padding-inline`,
+  their `-start` and `-end` longhands, and the block-axis longhands
+  (`padding-block-start` and its kin). The inline ones are not split as
+  379's are, because which side `margin-inline-start` names is decided by
+  `direction`, which this engine does not read: mapped to the left today, a
+  right-to-left page would have it on the wrong side, a wrong answer baked
+  into the cascade. So they wait on either a page that needs them under
+  `ltr` with the mapping said to be `ltr`'s, or 98 and 100. alo Sites'
+  sheet writes `margin-inline: auto` and `padding-inline`, on sections not
+  frozen yet. *Closes when:* a frozen page's inline-axis declaration places
+  its box in numbers, and a page with `dir="rtl"` is either right or said.
+
+- [ ] **381. `IntersectionObserver`.** *Opened by `alo-sites-features`
+  (iteration 248). Feature: `docs/features.md` stage 2, "The DOM as pages
+  use it". **Needs ADR.** Depends on 234 (the rendering steps).* Every alo
+  Sites section set to move (`section-motion`) is drawn at opacity 0 until
+  an observer adds `is-visible`: the page's first script adds `js` to
+  `<html>`, which hides them, and only then asks `"IntersectionObserver" in
+  window`. Without the interface nothing fails and nothing is shown, so the
+  frozen features section's picture is white. The specification computes
+  intersections in the rendering steps (HTML's *update the rendering*,
+  step "run the update intersection observations steps"), which is 234's,
+  and delivers them as a task. What needs deciding first: what the root is
+  in a page that does not scroll yet, when the first observation is
+  delivered relative to the held first frame (ADR 0041), what a tab no
+  window shows reports (371), and whether `rootMargin`'s percentages and
+  `threshold` lists are whole from the start. *Closes when:* the frozen
+  features section, in a renderer that runs its rendering steps, gains
+  `is-visible` and is drawn at opacity 1 once its transition ends, in
+  pixels, and an element outside the viewport is not reported
+  intersecting.
+
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
 

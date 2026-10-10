@@ -1,0 +1,15 @@
+fill box#2 rgb(255 255 255) at (0, 0) 800×408.6
+group box#9 at opacity 0
+transform box#9 by matrix(1, 0, 0, 1, 0, 24)
+fill box#9 rgb(76 88 102) at (0, 0) 800×408.6
+text box#12 "Why Nordwind" rgb(23 33 43) 28px at (284.60938, 106.49336)
+text box#15 "Three promises on every bag." rgb(76 88 102) 17px at (252.91089, 147.08527)
+fill box#19 rgb(72 84 97) at (20, 171.8) 760×156.8
+fill box#19 rgb(23 33 43) at (20, 171.8) 760×156.8
+text box#22 "Roasted to order" rgb(23 33 43) 18px at (41, 229.83145)
+text box#25 "Your batch goes in the drum after you order." rgb(23 33 43) 17px at (41, 262.88525)
+untransform
+ungroup
+fill box#4 rgb(242 245 248) at (-15984, 0) 161.11035×43.2
+text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27.485254)
+fill box#5 rgb(23 33 43) at (-15968, 28.564356) 129.11035×1
