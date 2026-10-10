@@ -1068,3 +1068,15 @@ ADR, and **368**, `f16round` and `sumPrecise`. Opened: **369**,
 `navigator.sendBeacon`, which needs an ADR (ADR 0032 left it undecided).
 157 queue items are open. The next unused queue number is 370 and the next
 unused ADR 0038.
+
+Iteration 237 found the screen still locked, so 296's capture is not
+takeable. 367 has no page that opens it, and 369 waits on 364. So it
+decided item 366 as ADR 0038, and built nothing. A page reads its viewport
+(`innerWidth`, `innerHeight`), a scroll position the renderer holds at zero
+(`scrollX`, `scrollY`, `pageXOffset`, `pageYOffset`), and an element's
+scrolling area measured from the layout it would be drawn with at that
+moment (`scrollWidth`, `scrollHeight`). It reads these through a `View`
+trait the renderer implements, and reads nothing beyond the window. 366 is
+now the first build, designed and eligible. The scrolling area is cut to
+**370**, which depends on 366. 158 queue items are open. The next unused
+queue number is 371 and the next unused ADR 0039.

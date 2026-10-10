@@ -6155,6 +6155,60 @@ The long pole, and the thing most of section E is unreachable without.
   with no window answers. *Closes when:* the decision is an ADR, and the
   item it makes buildable answers each in numbers, in tests.
 
+  **Decided (iteration 237): ADR 0038.** A page reads its own viewport
+  and its own content's size, and nothing beyond the window:
+  - `innerWidth` and `innerHeight` are `Page::viewport` in whole CSS
+    pixels, read at each read so that a `Resize` shows (§ 2);
+  - `scrollX`, `scrollY`, `pageXOffset` and `pageYOffset` are a scroll
+    position the renderer holds. It is zero because nothing scrolls a
+    viewport yet, and whatever first does must move it (§ 3);
+  - `scrollWidth` and `scrollHeight` are CSSOM View's scrolling area, with
+    no quirks branch, measured from the layout the page would be drawn
+    with at the moment it is read. That layout is kept for the next draw
+    (§ 4);
+  - `alo-bindings` asks through one trait, `View`, that the renderer
+    implements, and gains no layout dependency. A page with no view throws
+    by name (§ 5);
+  - a tab no window shows is told the first window's size, 1000 × 700
+    (§ 6).
+
+  The screen, the window's outer size and place, and `devicePixelRatio`
+  stay absent. This item is now the first build: `View`, the renderer's
+  implementation, and the six `[Replaceable]` window accessors. The
+  scrolling area is cut to **370**.
+
+  *Closes when* (ADR 0038 § 7):
+  - `alo-sites-cta`'s `shape()` answers `&p=%2F&w=800` at 800 × 600, in
+    `tests/alo_sites_cta.rs`;
+  - `innerHeight` is 600 and both scroll positions are 0;
+  - after a `Resize` to 640 × 480 a script reads 640 and 480;
+  - a fractional, a negative and an infinite viewport answer as § 2 says;
+  - every script runs ordinarily and under `Heap::stress`.
+
+- [ ] **370. An element's scrolling area.** *Cut from 366 by ADR 0038 § 7.
+  Depends on 366.* `scrollWidth` and `scrollHeight` on `Element`, by § 4:
+  - no box answers 0;
+  - the root answers the larger of the viewport's scrolling area and the
+    viewport;
+  - any other element answers its padding box extended toward its end
+    edges only;
+  - rounded and clamped as a `long`.
+
+  It also builds the renderer's measurement at the moment of the read, with
+  the layout kept for the next draw and first-found objections owed as a
+  draw's are, and § 6's windowless size if nothing has given it first.
+  *Closes when:*
+  - at 800 × 600, `alo-sites-cta`'s `documentElement.scrollHeight` is 600,
+    `body.scrollHeight` is 253, and `documentElement.scrollWidth` is 800,
+    with the skip link's leftward overflow not counted;
+  - with a beacon the test lends, its `pagehide` listener sends
+    `d=1000&p=%2F&w=800` and then `t=0`;
+  - a script that appends a tall element and reads `scrollHeight` in the
+    same task reads the new height, and the next draw does not lay out
+    again;
+  - an element with no box, and one in a detached tree, answer 0;
+  - every script runs ordinarily and under `Heap::stress`.
+
 - [ ] **363. The `Window`'s immutable prototype.** *Cut from 362 by ADR 0037
   § 6. Depends on 362; observable only through `Object.setPrototypeOf` and
   `Reflect.setPrototypeOf`, item 73's.* A `[Global]` object's

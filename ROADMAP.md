@@ -1154,7 +1154,15 @@ unreachable without it.
       offline buttons `#c7bfb2`; and a page's `style-src` applied to inline
       style (queue item 343, ADR 0034), what `element.style` wrote exempt by
       its text and a refused attribute read through it as `""`
-      · Owed: `el.style[0]`, the indexed getter (345), and `getComputedStyle`,
+      · Decided (ADR 0038, queue item 366): what a script reads of the
+      page's size — `innerWidth`/`innerHeight` from `Page::viewport`,
+      `scrollX`/`scrollY` from a scroll position the renderer holds at zero,
+      `scrollWidth`/`scrollHeight` from the layout the page would be drawn
+      with when asked, through a `View` trait the renderer implements;
+      nothing beyond the window. Nothing of it is built
+      · Owed: the window's viewport accessors and `View` (366), an
+      element's scrolling area (370),
+      `el.style[0]`, the indexed getter (345), and `getComputedStyle`,
       `document.styleSheets` and the rest of item 89, each opened by a page
 - [ ] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them
       · Built: `alo-storage`, the browser process's store (queue item 301).

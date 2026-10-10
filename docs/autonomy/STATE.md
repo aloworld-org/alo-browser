@@ -22613,3 +22613,125 @@ written down.
 157 queue items are open: 365 closed; 367, 368 and 369 added. The next
 unused queue number is **370** and the next ADR is **0038**. This is one
 iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 237 — queue item 366 decided: ADR 0038, what a page reads of its window
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` and iteration
+236's entry. No `AGENTS.md` exists in this repository. For 366: ADRs 0030,
+0037 (§ *What this does not decide*), 0036 § 1, 0013 §§ 3 and 6, 0018 § 4,
+0005 and 0002, and `docs/features.md`' CSSOM line.
+
+**Choosing.**
+- 296 first, since its capture is owed. A Swift check of
+  `CGSessionCopyCurrentDictionary` answered `CGSSessionScreenIsLocked` = 1,
+  with `CGPreflightScreenCaptureAccess` true. The screen is still locked,
+  and only a person can unlock it, so 296 is not takeable and nothing was
+  started.
+- 367 needs an ADR but no frozen page calls `Math.random`, so nothing
+  makes it reachable (LOOP.md stage 2 § 3).
+- 369 depends on 364.
+- 366 and 364 are both opened by `alo-sites-cta` and both need a decision.
+  366 comes first in the queue, so it was taken, as its own iteration
+  (LOOP.md stage 2 § 4).
+
+**What the code showed, before deciding.**
+- `alo-bindings` does not depend on `alo-layout`, and no binding reads
+  layout today.
+- Nothing keeps a scroll offset:
+  - `alo-agent`'s `apply.rs` makes an agent's `Scroll` change nothing;
+  - `alo-window` takes no scrolling input;
+  - the frame is always the top of the page.
+- `Page::viewport` already sizes layout and `MediaContext::sized`, so `vw`
+  and `@media` already depend on it.
+- `alo-window`'s `place.rs` sends whole CSS pixels.
+- The case's layout puts the root and body at 800 × 253.2 at 800 × 600, and
+  the skip link at x = −15984.
+
+**What was decided.** ADR 0038, *A page reads the size of its window and of
+its content, and nothing beyond the window*, accepted:
+1. A page may read what its layout already depends on: its viewport, its
+   content's size and its scroll position. The screen, the window's outer
+   size and place, and `devicePixelRatio` stay absent until a page opens
+   each, under ADR 0030's rule.
+2. `innerWidth` and `innerHeight` are `Page::viewport`, read at each read.
+   They are rounded to the nearest integer and clamped as a `long`, and a
+   value that is not finite answers 0. No scrollbar is subtracted, since
+   none is drawn.
+3. `scrollX`, `scrollY`, `pageXOffset` and `pageYOffset` are a position the
+   renderer holds. It is zero, which is the truth, since nothing scrolls a
+   viewport. Whatever first scrolls one must move that position: never built
+   apart.
+4. `scrollWidth` and `scrollHeight` are CSSOM View's scrolling area, with
+   no quirks branch. Overflow counts toward the end edges only. They are
+   measured from the layout the page would be drawn with at the moment of
+   the read, and that layout is kept for the next draw. Layout runs no
+   script, which is what makes measuring mid-script safe.
+5. `alo-bindings` asks through one trait, `View`, implemented in one
+   renderer file. It gains no layout dependency, and a page with no view
+   throws by name, as a realm with no clock does.
+6. A tab no window shows is told the first window's size, 1000 × 700, so
+   its size does not single out an agent (ADR 0018 § 4).
+
+The ADR names its costs, the alternatives it rejected and how we will know
+it was wrong. The rejected alternatives are: absent forever, letterboxing,
+the last drawing's layout, bindings laying out themselves, the viewport
+copied at install, and a fixed size for every page.
+
+**Numbers worked out for the closing conditions.**
+- `documentElement.scrollHeight` is max(600, 253.2) = 600, and
+  `body.scrollHeight` is 253.
+- So `record`'s reach is 1000 and its report is `d=1000&p=%2F&w=800`.
+- The skip link's leftward overflow must not widen the root past 800. That
+  is a real check for item 370, since taffy's scrollable rectangle is not
+  known to exclude it.
+
+**Queue.**
+- 366 has a *Decided* paragraph and a closing condition from the ADR. It
+  stays open: it is the build (`View` and the six window accessors), it is
+  designed and eligible, and it is next.
+- Cut from it: **370**, an element's scrolling area, which depends on 366.
+
+**Roadmap.** No line is ticked. The CSSOM line gains a *Decided* clause
+naming ADR 0038 and saying nothing is built, and its Owed clause gains 366
+and 370. Also updated: `docs/features.md`' CSSOM line,
+`docs/conformance.md`' alo Sites row, `REMAINING.md` and `CHANGELOG.md`.
+
+**Gate, mechanical.** `scripts/gate.sh` was detached under `nohup` to a
+log, because a whole run outlasts one tool call. This iteration waited on
+it in foreground loops in the same turn and read the result there: `exit
+0`, "The gate is met", in about twelve minutes.
+- fmt clean, clippy silent, tests pass, with no `FAILED` or `panicked`
+  anywhere in the log;
+- no stubs, `unsafe` forbidden, the licence on every file;
+- every rented crate behind its boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds;
+- "no uncommitted code to judge" for documentation, which is right for a
+  change with no code. `CHANGELOG.md` has its line.
+
+**Gate, manual.**
+- Layout assertion and reference render: none applies. Nothing positions,
+  sizes or draws, and no reference moved. The closing conditions written
+  for 366 and 370 are in numbers, for when they are built.
+- Hostile input: nothing new reads from outside. The ADR states how a
+  hostile viewport (fractional, negative, not finite) is answered, for
+  the build to test.
+- One responsibility per file: the ADR is one decision. It places `View`'s
+  implementation in one renderer file and keeps one layout pipeline.
+- The feature is in `docs/features.md` before it is built, as *decided,
+  not built*. Nothing is ticked: 366 is decided, not done.
+- No `unsafe`, no new dependency, no code changed. `alo-workplace` and
+  `alo-os` were not touched.
+
+**Unresolved obligations.**
+- 366 is next and eligible. 370 follows it.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- 364 needs design, 367 needs an ADR and a page, and 369 needs an ADR and
+  waits on 364.
+- 368 waits on typed arrays and 231, and 363 on 73.
+- Everything iteration 236 listed still stands.
+
+158 queue items are open: 370 added, and 366 still open. The next unused
+queue number is **371** and the next ADR is **0039**. This is one
+iteration, not a finished queue or roadmap.

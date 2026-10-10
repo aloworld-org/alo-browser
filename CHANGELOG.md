@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: what a page may learn about its window.** A page will be able
+  to read its window's size, where it is scrolled to, and how tall and wide
+  its own content is, because its layout already depends on all of them and
+  hiding them would hide nothing. It will not be told anything beyond the
+  window: not the screen's size, not where the window sits on the screen,
+  and not the display's scale. A height a script reads will be measured
+  from the page as it would be drawn at that moment, never from an older
+  drawing. A tab that no window shows, such as an agent's, is laid out at
+  the size a new window opens at, so its size cannot give the agent away.
+  Nothing is built yet (ADR 0038, queue items 366 and 370).
+
 - **Pages have `Math`.** Its constants and its functions — `Math.max`,
   `Math.round`, `Math.floor`, `Math.pow`, the trigonometry and the rest —
   answer what the language says, including for negative zero, infinities,
