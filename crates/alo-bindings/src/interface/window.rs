@@ -16,6 +16,9 @@
 //!   defined on the instance by [`members`]. Its getter answers the window;
 //!   its setter defines an own data property `self` holding the value
 //!   assigned, so a page's `self = 1` replaces it, as Web IDL says.
+//! - `innerWidth`, `innerHeight`, `scrollX`, `scrollY`, `pageXOffset` and
+//!   `pageYOffset` — CSSOM View's, in [`super::window_cssom_view`], defined
+//!   on the instance beside `self`.
 //! - `location` — `[LegacyUnforgeable]`, `[PutForwards=href]`: an accessor
 //!   answering the page's one `Location` ([`crate::location`]), read
 //!   through the window's document. Assigning to it navigates, and is
@@ -70,7 +73,8 @@ pub(super) fn unforgeables(
 }
 
 /// `Window`'s regular members, on the one instance, `global`, since
-/// `Window` is `[Global]`: `self`.
+/// `Window` is `[Global]`: `self`, and CSSOM View's partial interface's
+/// ([`super::window_cssom_view`]).
 ///
 /// **A safepoint.** `global` is the realm's global object, which the realm
 /// roots.
@@ -91,7 +95,8 @@ pub(crate) fn members(
         "self",
         window,
         Some(set_self),
-    )
+    )?;
+    super::window_cssom_view::members(objects, global, function_prototype)
 }
 
 /// The brand check: `this` as a `Window` — the realm's own when `this` is
@@ -100,7 +105,7 @@ pub(crate) fn members(
 /// # Errors
 ///
 /// A `TypeError` naming `member` for anything else.
-fn this(call: &Call<'_>, member: &'static str) -> Result<Ref, Escape> {
+pub(super) fn this(call: &Call<'_>, member: &'static str) -> Result<Ref, Escape> {
     let this = match call.this() {
         Value::Undefined | Value::Null => call
             .host_defined()
@@ -122,20 +127,29 @@ fn window(call: &mut Call<'_>) -> Result<Answer, Escape> {
     this(call, "window").map(|window| Answer::Value(Value::Object(window)))
 }
 
-/// `set self`: `[Replaceable]`, an own data property in its place.
+/// `set self`: `[Replaceable]`.
 fn set_self(call: &mut Call<'_>) -> Result<Answer, Escape> {
-    let window = this(call, "self")?;
+    replace(call, "self")
+}
+
+/// The setter of a `[Replaceable]` attribute `member` of the window: an own
+/// data property of that name, holding the value assigned, in its place.
+pub(super) fn replace(call: &mut Call<'_>, member: &'static str) -> Result<Answer, Escape> {
+    let window = this(call, member)?;
     let value = call.argument(0);
     let at = call.at();
-    let name: Vec<u16> = "self".encode_utf16().collect();
+    let name: Vec<u16> = member.encode_utf16().collect();
     match call
         .objects()
         .define_named(window, &name, Property::data(value, true, true, true))
     {
         Ok(true) => Ok(Answer::Value(Value::Undefined)),
         // `CreateDataPropertyOrThrow`: a window made non-extensible after
-        // `self` was deleted, which nothing a page can call today does.
-        Ok(false) => Err(Escape::type_error("'self' cannot be replaced", at)),
+        // the member was deleted, which nothing a page can call today does.
+        Ok(false) => Err(Escape::type_error(
+            format!("'{member}' cannot be replaced"),
+            at,
+        )),
         Err(named) => Err(Escape::named(named, at)),
     }
 }

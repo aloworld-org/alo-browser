@@ -26,18 +26,25 @@ use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 
-use alo_bindings::{Fired, Firing, Identity};
+use alo_bindings::{Fired, Firing, Identity, View};
 use alo_dom::{NodeId, parse_document};
 use alo_js::interpret::Trouble;
 use alo_js::{Clock, Fixed, Value, script};
 use alo_renderer::EventLoop;
 use alo_renderer::event_loop::{MOST_REPORTS, Stopped, Unqueued};
 use alo_renderer::held::Held;
+use alo_renderer::view::PageView;
 
 /// What a page's realm here is told the time by: an instant that never
 /// moves, which nothing in this file reads.
 fn clock() -> Rc<dyn Clock> {
     Rc::new(Fixed::at(0.0))
+}
+
+/// What the page's window is shown by: a viewport of 800 × 600, as a
+/// renderer's would be.
+fn view() -> Rc<dyn View> {
+    Rc::new(PageView::at(alo_layout::Size::new(800.0, 600.0)))
 }
 
 /// A `div` holding a `button`, nothing between them.
@@ -80,7 +87,7 @@ impl Page {
         let button = document.first_child(outer).ok_or("no button")?;
         let mut held = Held::Parsed(document);
         let looping = held
-            .scripted(&alo_url::Url::about_blank(), IDENTITY, &clock())
+            .scripted(&alo_url::Url::about_blank(), IDENTITY, &clock(), &view())
             .map_err(|why| why.to_string())?;
         looping.engine().objects().heap_mut().stress(stress);
         let mut page = Self {
@@ -471,7 +478,8 @@ fn a_target_with_no_wrapper_is_given_one_and_its_ancestors_listeners_hear() {
             panic!("the div has a button");
         };
         let mut held = Held::Parsed(document);
-        let Ok(looping) = held.scripted(&alo_url::Url::about_blank(), IDENTITY, &clock()) else {
+        let Ok(looping) = held.scripted(&alo_url::Url::about_blank(), IDENTITY, &clock(), &view())
+        else {
             panic!("an empty heap takes the page");
         };
         looping.engine().objects().heap_mut().stress(stress);

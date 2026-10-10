@@ -128,7 +128,8 @@
 //! ([`crate::window`]). `Window` is `[Global]`, so its members are on that
 //! instance rather than its prototype, which is empty: its unforgeables
 //! (`window`, `location`) are copied there and its `self` defined there by
-//! [`crate::install`] ([`window`]).
+//! [`crate::install`] ([`window`]), with CSSOM View's viewport members
+//! beside it ([`window_cssom_view`], ADR 0038).
 //!
 //! # What is not here
 //!
@@ -164,6 +165,7 @@ pub mod pointer_event;
 pub mod response;
 pub mod ui_event;
 pub mod window;
+pub mod window_cssom_view;
 
 use alo_dom::{Namespace, NodeId, NodeKind};
 use alo_js::Escape;

@@ -1159,9 +1159,16 @@ unreachable without it.
       `scrollX`/`scrollY` from a scroll position the renderer holds at zero,
       `scrollWidth`/`scrollHeight` from the layout the page would be drawn
       with when asked, through a `View` trait the renderer implements;
-      nothing beyond the window. Nothing of it is built
-      · Owed: the window's viewport accessors and `View` (366), an
-      element's scrolling area (370),
+      nothing beyond the window
+      · Built: the window's viewport (queue item 366) — `alo-bindings`'
+      `view.rs`, the `View` trait and `show`, and
+      `interface/window_cssom_view.rs`, `innerWidth`, `innerHeight`,
+      `scrollX`, `scrollY`, `pageXOffset` and `pageYOffset` as the window's
+      own `[Replaceable]` accessors, asked at every read and refusing by
+      name with no view; `alo-renderer`'s `view.rs`, `PageView`, set at load
+      and at every `Resize`, its scroll position zero. alo Sites' analytics
+      script reports `&p=%2F&w=800` at 800 × 600
+      · Owed: an element's scrolling area (370),
       `el.style[0]`, the indexed getter (345), and `getComputedStyle`,
       `document.styleSheets` and the rest of item 89, each opened by a page
 - [ ] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them

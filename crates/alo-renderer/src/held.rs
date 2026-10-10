@@ -59,8 +59,8 @@ use alo_bindings::fetching::{self, Asked};
 use alo_bindings::navigating::{self, By, Ongoing};
 use alo_bindings::style_policy;
 use alo_bindings::{
-    Firing, Identity, Responded, Unadopted, adopt, change_document, document, install, introduce,
-    offer,
+    Firing, Identity, Responded, Unadopted, View, adopt, change_document, document, install,
+    introduce, offer, show,
 };
 use alo_dom::{Document, NodeId};
 use alo_js::Escape;
@@ -301,8 +301,9 @@ impl Held {
     /// The page's event loop, making it — and moving the document into its
     /// heap, at `url`, with `document` on its global object, `navigator`
     /// saying what `identity` says (ADR 0030 § 4), `fetch` asking the
-    /// browser process (ADR 0032) and its realm told the time by `clock`
-    /// (ADR 0036 § 2) — if no script has run yet.
+    /// browser process (ADR 0032), its realm told the time by `clock`
+    /// (ADR 0036 § 2) and its window shown by `view` (ADR 0038 § 5) — if no
+    /// script has run yet.
     ///
     /// **Called when the page's first script is about to run**, and not
     /// before: a page none of whose scripts may run never builds a heap.
@@ -317,6 +318,7 @@ impl Held {
         url: &Url,
         identity: Identity<'_>,
         clock: &Rc<dyn alo_js::Clock>,
+        view: &Rc<dyn View>,
     ) -> Result<&mut EventLoop, NoScript> {
         if let Held::Parsed(parsed) = self {
             let mut script = EventLoop::new(Rc::clone(clock)).map_err(NoScript::Engine)?;
@@ -337,7 +339,8 @@ impl Held {
             navigating::locate(engine.objects(), made, url.clone());
             let cell = engine.objects().heap_mut().root(made);
             let installed = install(engine, made)
-                .and_then(|_| introduce(engine, made, identity).map(drop))
+                .and_then(|_| show(engine, Rc::clone(view)))
+                .and_then(|()| introduce(engine, made, identity).map(drop))
                 .and_then(|()| offer(engine, made));
             *self = Held::Scripted(Box::new(Scripted { script, cell }));
             installed.map_err(NoScript::Engine)?;

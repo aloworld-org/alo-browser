@@ -183,3 +183,73 @@ fn the_skip_link_is_out_of_flow_and_off_the_page() {
     // The band's own blue, where the link's line used to be.
     assert_eq!(drawn_at(&rendering, 40, 10), Some([29, 78, 216, 255]));
 }
+
+/// The root element's attribute `name`, as a script in the page left it.
+fn left(rendering: &Rendering, name: &str) -> Option<String> {
+    let document = rendering.document()?;
+    let html = document
+        .descendants(document.root())
+        .find(|id| document.element(*id).is_some())?;
+    document.element(html)?.attr(name).map(ToOwned::to_owned)
+}
+
+/// Queue item 366 (ADR 0038): the analytics script reads the window it is
+/// drawn in, 800 × 600 at its top, and `shape()` reports that width.
+///
+/// Its own two ways to `shape()` each need something not built. `record`,
+/// on `pagehide`, calls it only once the page's height is known, which is
+/// `scrollHeight` (queue item 370); the click listener calls it only for an
+/// event with a numeric `pageX`, which no event has yet. So a later task
+/// lends what it needs and nothing else, as a timer or an event will run
+/// one: a beacon in `navigator.sendBeacon`'s place (queue item 369), and a
+/// click with `pageX` and `pageY` of `0`. Run ordinarily and with the
+/// collector at every allocation.
+#[test]
+fn its_script_reads_the_window_it_is_drawn_in_and_reports_its_width() {
+    for stress in [false, true] {
+        let Some((_, mut rendering)) = cta() else {
+            panic!("the case renders");
+        };
+        let Rendering::Loaded(renderer, _) = &mut rendering else {
+            panic!("the case is loaded by a renderer");
+        };
+        let looping = renderer
+            .event_loop()
+            .unwrap_or_else(|| panic!("the page's script ran"));
+        looping.engine().objects().heap_mut().stress(stress);
+        let queued = looping.queue_script(
+            "later",
+            "var root = document.documentElement; \
+             root.setAttribute('data-read', innerWidth + 'x' + innerHeight + ' at ' + \
+               scrollX + ',' + scrollY); \
+             var sent = ''; \
+             navigator.sendBeacon = function (to, body) { sent += body + ';'; return true; }; \
+             window.dispatchEvent(new Event('pagehide')); \
+             var click = new Event('click', { bubbles: true }); \
+             click.pageX = 0; click.pageY = 0; \
+             document.body.dispatchEvent(click); \
+             root.setAttribute('data-sent', sent);",
+        );
+        assert!(queued.is_ok(), "{queued:?}");
+        let turn = looping.run_next();
+        assert!(
+            turn.as_ref()
+                .is_some_and(|turn| turn.reports.is_empty() && turn.stopped.is_none()),
+            "{turn:?}"
+        );
+        assert_eq!(
+            left(&rendering, "data-read").as_deref(),
+            Some("800x600 at 0,0")
+        );
+        // `pagehide`: it reaches 600 pixels down, but over a height that is
+        // `NaN` until item 370 that is no share, so no depth; then the
+        // seconds read, none on the corpus's fixed clock. The click: no
+        // share of a width or a height not known yet, and `shape()`: the
+        // page's path, and the window's width.
+        assert_eq!(
+            left(&rendering, "data-sent").as_deref(),
+            Some("t=0;x=0&y=0&p=%2F&w=800;"),
+            "stress: {stress}"
+        );
+    }
+}

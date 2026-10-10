@@ -22735,3 +22735,146 @@ it in foreground loops in the same turn and read the result there: `exit
 158 queue items are open: 370 added, and 366 still open. The next unused
 queue number is **371** and the next ADR is **0039**. This is one
 iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 238 — queue item 366 built: the viewport a script reads
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` and iteration
+237's entry. No `AGENTS.md` exists in this repository. For 366: ADR 0038
+(all of it), and ADRs 0036 § 1, 0037 § 4, 0013 § 3 and 0018 § 4 where it
+cites them. `docs/features.md`' CSSOM line.
+
+**Choosing.**
+- 296 first, since its capture is owed. A Swift check answered
+  `CGSSessionScreenIsLocked` = 1, with `CGPreflightScreenCaptureAccess`
+  true. The screen is still locked, so 296 is not takeable and nothing was
+  started.
+- 366 is designed (ADR 0038), depends only on 362 (done), and is next in
+  the queue. It was taken.
+
+**Built.**
+- `alo-bindings`' `view.rs`:
+  - the `View` trait, with `Extent` and `Scrolled`;
+  - `show`, which hands a page's window its view once, after `install`. A
+    second `show` is refused by name.
+  - Of § 5's three questions, the trait asks two. The third, the scrolling
+    area, is 370's. A method nothing implements would have been a stub.
+- `window.rs`: the `Window` cell keeps the view as an `Rc` outside the heap.
+  It is not traced, since it holds no heap reference.
+- `interface/window_cssom_view.rs`, one file for CSSOM View's partial
+  interface:
+  - six accessors on the window instance, enumerable and configurable,
+    each made around its index in one table;
+  - each asks the view at every read;
+  - `long` rounds a half up, clamps to `0 ..= 2³¹ − 1`, and gives 0 for a
+    size that is not finite, never `-0`;
+  - a position that is not finite is 0;
+  - with no view, each throws a `TypeError` naming itself.
+- `interface/window.rs`: `set self`'s body became `replace(call, member)`,
+  shared by all seven `[Replaceable]` setters. `this` is now `pub(super)`.
+- `alo-renderer`'s `view.rs`: `PageView`, a `Cell<Size>` and a scroll
+  position of zero.
+  - The renderer makes one per page from `Page::viewport` at load, and
+    `resize` sets it beside `page.viewport`. Those are the only two places
+    a page's size is set.
+  - `scripts::at_load` and `Held::scripted` pass it to `show`, between
+    `install` and `introduce`.
+
+**Tests.**
+- `alo-bindings`' `tests/what_a_page_reads_of_its_window.rs`: 9 tests,
+  every script ordinarily and under `Heap::stress`. They cover:
+  - the values at 800 × 600;
+  - a view changed between tasks being read anew;
+  - 800.5 × 599.4 reading 801 × 599 and 0.5 reading 1;
+  - −5, −0, ∞, `NaN` and −∞ reading 0, with `1 / innerWidth` = `Infinity`
+    showing no `-0`; 10¹² reading 2147483647;
+  - a position that is not finite reading 0;
+  - own, not on the prototype, enumerable, replaceable in sloppy and strict
+    code, and deletable;
+  - no view refusing by name, and a second `show` refused;
+  - `screen`, `outerWidth`, `outerHeight`, `screenX`, `screenY`,
+    `screenLeft`, `screenTop` and `devicePixelRatio` all `undefined`.
+- `Array.prototype.join` is not built (item 73), so these tests define a
+  `j` helper in a prelude.
+- Unit tests: 4 in `window_cssom_view.rs`, 1 in the renderer's `view.rs`.
+- `alo-renderer`'s `tests/a_page_reads_its_viewport.rs`: 4 tests.
+  - A load-time script reads `800x600 at 0,0 0,0`.
+  - After `Resize` to 640 × 480, a later task reads `640x480`, ordinarily
+    and under stress, and the widest laid-out box is 640.
+  - A fractional viewport reads whole pixels.
+  - A second page is shown at its own size.
+- `what_a_window_is.rs`: the CTA page is shown an 800 × 600 view. Its
+  comments now say `scrollY` and `innerHeight` read 0 and 600.
+- `a_dispatch_from_the_browser.rs`: its two direct `Held::scripted` calls
+  pass a `PageView`.
+
+**Closing condition met.**
+- `alo-corpus`' `tests/alo_sites_cta.rs` has a new test. In the case
+  rendered at 800 × 600, a later task reads `800x600 at 0,0`.
+- The test lends a beacon (369) and a click with `pageX` and `pageY` of 0.
+  `pageX` is not built, and only these two paths call `shape()`. The page's
+  script then sends `t=0;x=0&y=0&p=%2F&w=800;`. So `shape()` answers
+  `&p=%2F&w=800`.
+- The test ran both ordinarily and under stress.
+- The resize, fractional, negative and infinite conditions are in the
+  tests above.
+
+**Checked by mutation**, each restored from a copy:
+- `resize` not setting the view fails
+  `after_a_resize_a_script_reads_the_new_size`;
+- rounding `> 0.5` instead of `>= 0.5` fails the unit test
+  `a_size_is_rounded_to_the_nearest_whole_pixel_a_half_up`.
+
+**Gate, mechanical.** `scripts/gate.sh` ran detached under `nohup` to a
+log. This iteration waited on it in foreground loops in the same step and
+read the result there.
+- The first run ended `exit 1`. Only `cargo fmt --check` failed, on a line
+  in `a_dispatch_from_the_browser.rs` edited after the formatter ran.
+  Clippy, the tests and every other check passed in that run.
+- After `cargo fmt`, the second run ended `exit 0`, "The gate is met", with
+  no `FAILED` or `panicked` in the log:
+  - formatting clean, clippy silent, tests pass;
+  - no stubs, `unsafe` forbidden, the licence on every file;
+  - every rented crate behind its boundary, no verb takes a coordinate;
+  - the supervisor's stop rule holds, and `CHANGELOG.md` changed with the
+    code.
+
+**Gate, manual.**
+- Layout assertion: nothing new positions or sizes. The resize test
+  asserts in numbers that the page is laid out 640 wide at the size its
+  script reads.
+- Reference render: none applies. Nothing draws differently. The gate's
+  corpus run diffs every committed render and box tree, and they are
+  unchanged.
+- Hostile input: a size from outside the page is clamped, and a non-finite
+  value answers 0, in unit and integration tests. A page's assignment only
+  defines an own property. Nothing panics: the native's failures are
+  `Escape`s.
+- One responsibility per file: the trait (`view.rs`), CSSOM View's window
+  members (`window_cssom_view.rs`) and the renderer's view (`view.rs`) are
+  each their own file. `replace` moved where both setters use it.
+- The feature was in `docs/features.md` before it was built. It now says
+  the window's half is built.
+- No `unsafe`, no new dependency, and `alo-bindings` gained no layout
+  dependency. `alo-workplace` and `alo-os` were not touched.
+
+**Roadmap.** No line is ticked. The CSSOM line gains a *Built* clause for
+366, and 366 leaves its Owed list. Also updated: `docs/features.md`' CSSOM
+line, `docs/conformance.md`' alo Sites row, `REMAINING.md`,
+`CHANGELOG.md`, and the queue, where 366 is ticked with its *Built*
+paragraph.
+
+**Unresolved obligations.**
+- 370 is next and eligible. It builds `scrollWidth`, `scrollHeight`, the
+  view's third question, and § 6's windowless size. Its test should replace
+  the lent click's `x=0&y=0` once the width and height are known.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- 364 needs design, 367 needs an ADR and a page, and 369 needs an ADR and
+  waits on 364.
+- 368 waits on typed arrays and 231, and 363 on 73.
+- Everything iteration 237 listed still stands.
+
+157 queue items are open: 366 closed. The next unused queue number is
+**371** and the next ADR is **0039**. This is one iteration, not a
+finished queue or roadmap.

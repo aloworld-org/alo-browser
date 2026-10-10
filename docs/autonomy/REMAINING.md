@@ -1080,3 +1080,12 @@ trait the renderer implements, and reads nothing beyond the window. 366 is
 now the first build, designed and eligible. The scrolling area is cut to
 **370**, which depends on 366. 158 queue items are open. The next unused
 queue number is 371 and the next unused ADR 0039.
+
+Iteration 238 found the screen still locked, so 296's capture is still not
+takeable. It built item 366: `alo-bindings`' `View` trait and `show`, the
+window's `innerWidth`, `innerHeight`, `scrollX`, `scrollY`, `pageXOffset`
+and `pageYOffset` (`interface/window_cssom_view.rs`), and `alo-renderer`'s
+`PageView`, which the renderer sets at load and at every `Resize`. alo
+Sites' analytics script reads 800 × 600 at the top, and its `shape()`
+reports `&p=%2F&w=800`. 370 is now eligible and next. 157 queue items are
+open. The next unused queue number is 371 and the next unused ADR 0039.

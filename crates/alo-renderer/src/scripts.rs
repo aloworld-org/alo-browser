@@ -172,7 +172,8 @@ impl Said {
 /// page's heap before the first of them runs; with everything that did not
 /// run or did not finish added to `issues`, and every header policy's
 /// objection to a script written into the page added to `objections`. The
-/// page's realm, once made, is told the time by `clock` (ADR 0036 § 2).
+/// page's realm, once made, is told the time by `clock` (ADR 0036 § 2), and
+/// its window shown by `view` (ADR 0038 § 5).
 ///
 /// Answers the text of every enforced policy the page holds at its end —
 /// its headers', then each `<meta>` policy the parser made — which the
@@ -183,6 +184,7 @@ pub(crate) fn at_load(
     parsing: &mut Parsing,
     page: &Page,
     clock: &Rc<dyn alo_js::Clock>,
+    view: &Rc<dyn alo_bindings::View>,
     issues: &mut Vec<String>,
     objections: &mut Vec<Objection>,
 ) -> Vec<String> {
@@ -258,7 +260,7 @@ pub(crate) fn at_load(
                 continue;
             }
         };
-        if let Err(why) = held.scripted(&page.url, page.identity(), clock) {
+        if let Err(why) = held.scripted(&page.url, page.identity(), clock, view) {
             said.script(number, &format!("not run: {why}"));
             ended = true;
             continue;

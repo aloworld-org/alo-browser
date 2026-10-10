@@ -57,6 +57,13 @@
 //! page's ongoing navigation is taken when the work is done ([`crate::ask`])
 //! and the renderer never learns what became of it.
 //!
+//! # What a page reads of its window
+//!
+//! Its viewport and its scroll position, through a [`PageView`] made for
+//! each page loaded and handed to its realm (ADR 0038 § 5,
+//! [`crate::view`]). A `Resize` sets it with the page's size, so a script
+//! reads the size the page is drawn at.
+//!
 //! # What a page asks to fetch
 //!
 //! Likewise a claim in the answer to the message whose work made it (ADR
@@ -99,6 +106,7 @@ use crate::said;
 use crate::scripts;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::snapshot::Snapshot;
+use crate::view::PageView;
 use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Outcome, Target, Verb};
 use alo_bindings::navigating::{self, By};
@@ -142,6 +150,10 @@ pub struct Renderer {
     /// What every page's realm is told the time by: the machine's wall clock
     /// (ADR 0036 § 2), unless the renderer was made with another.
     clock: Rc<dyn alo_js::Clock>,
+    /// How the page is shown, as its script reads it: its viewport, kept
+    /// with [`Page::viewport`] at load and at every resize, and its scroll
+    /// position (ADR 0038 §§ 2–3). One for each page loaded.
+    view: Rc<PageView>,
 }
 
 impl Renderer {
@@ -160,6 +172,7 @@ impl Renderer {
             linked: Linked::new(),
             restyle: false,
             clock: Rc::new(WallClock),
+            view: Rc::new(PageView::at(Size::default())),
         }
     }
 
@@ -504,11 +517,15 @@ impl Renderer {
         let mut held = Held::Parsed(document);
         let mut said = Vec::new();
         let mut objections = Vec::new();
+        // A new page is shown at its own size, scrolled to its top.
+        self.view = Rc::new(PageView::at(page.viewport));
+        let view: Rc<dyn alo_bindings::View> = Rc::clone(&self.view) as _;
         let policies = scripts::at_load(
             &mut held,
             &mut parsing,
             &page,
             &self.clock,
+            &view,
             &mut said,
             &mut objections,
         );
@@ -553,12 +570,14 @@ impl Renderer {
 
     /// The same page at another size: the document it has, drawn again,
     /// running none of its script — never its markup parsed again, which
-    /// would lose everything its script and the agent changed.
+    /// would lose everything its script and the agent changed. What its
+    /// script reads of its viewport is the new size from here on.
     fn resize(&mut self, viewport: Size) -> FromRenderer {
         let Some(page) = &mut self.page else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
         page.viewport = viewport;
+        self.view.resized(viewport);
         self.draw();
         self.loaded()
     }

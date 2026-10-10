@@ -92,6 +92,7 @@ pub mod site;
 pub mod snapshot;
 pub mod svg_picture;
 pub mod tab;
+pub mod view;
 pub mod violations;
 pub mod wire;
 

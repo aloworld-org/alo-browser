@@ -25,7 +25,7 @@
 //! Every script runs twice — once with the collector at every allocation —
 //! and the two must agree.
 
-use alo_bindings::{Identity, Window, adopt, install, introduce};
+use alo_bindings::{Extent, Identity, Scrolled, View, Window, adopt, install, introduce, show};
 use alo_dom::parse_document;
 use alo_js::abrupt::Thrown;
 use alo_js::heap::{Ref, Root};
@@ -480,8 +480,25 @@ fn install_refuses_an_engine_whose_global_object_is_not_a_window() {
     );
 }
 
+/// A window 800 × 600, at its top: the size the corpus draws the page at.
+#[derive(Debug)]
+struct Corpus;
+
+impl View for Corpus {
+    fn viewport(&self) -> Extent {
+        Extent {
+            width: 800.0,
+            height: 600.0,
+        }
+    }
+
+    fn scrolled(&self) -> Scrolled {
+        Scrolled::default()
+    }
+}
+
 /// alo Sites' call-to-action page with its script run, as the renderer
-/// leaves it: the clock fixed, `navigator` introduced.
+/// leaves it: the clock fixed, shown at 800 × 600, `navigator` introduced.
 fn the_cta_page(stress: bool) -> Result<Page, String> {
     let (Some(start), Some(end)) = (CTA.find("<script>"), CTA.find("</script>")) else {
         return Err("the frozen page has no inline script".to_owned());
@@ -492,6 +509,7 @@ fn the_cta_page(stress: bool) -> Result<Page, String> {
     let cell = adopt(engine.objects(), parse_document(CTA)).map_err(|why| why.to_string())?;
     let root = engine.objects().heap_mut().root(cell);
     install(&mut engine, cell).map_err(|why| why.to_string())?;
+    show(&mut engine, std::rc::Rc::new(Corpus)).map_err(|why| why.to_string())?;
     // As the renderer does, so that `navigator.sendBeacon` is a property read
     // rather than a `ReferenceError`.
     let identity = Identity {
@@ -529,9 +547,8 @@ fn alo_sites_analytics_script_runs_to_its_end_and_its_pagehide_listener_is_reach
             "true"
         );
         // `pagehide` at the window reaches `record`, which reads the window's
-        // `scrollY` and `innerHeight` — absent, so `undefined` (item 366) —
-        // and runs past `Math.max` in `height()` and `Math.round` (item 365)
-        // to its end. `navigator.sendBeacon` is absent (item 369), so it
+        // `scrollY` and `innerHeight` — 0 and 600 (item 366) — and runs past
+        // `Math.max` in `height()` and `Math.round` (item 365) to its end. `navigator.sendBeacon` is absent (item 369), so it
         // sends nothing and nothing is thrown.
         assert_eq!(
             page.run("window.dispatchEvent(new Event('pagehide'))"),
@@ -545,9 +562,10 @@ fn alo_sites_pagehide_listener_reports_once_what_it_measured() {
     for stress in [false, true] {
         let mut page = the_cta_page(stress).unwrap_or_else(|why| panic!("{why}"));
         // What it sends, read through a beacon this test lends it in item
-        // 369's place: no depth, since `NaN` is not past the zero it starts
-        // at, and the seconds it was read, rounded by `Math.round` — none, on
-        // a fixed clock.
+        // 369's place: no depth — it reaches 600 pixels down, but the
+        // content's height is `NaN` until `scrollHeight` (item 370), so the
+        // share is 0 and not past the zero it starts at — and the seconds it
+        // was read, rounded by `Math.round`: none, on a fixed clock.
         assert_eq!(
             page.run(
                 "var sent = ''; navigator.sendBeacon = function (to, body) { \

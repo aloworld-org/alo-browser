@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can read the size of its window.** `innerWidth` and
+  `innerHeight` answer the size the page is laid out at, in whole pixels,
+  and a page reading them after the window is resized reads the new size.
+  `scrollX` and `scrollY` (and their older names `pageXOffset` and
+  `pageYOffset`) answer where the page is scrolled to, which is always the
+  top today because nothing scrolls a page yet. Nothing beyond the window —
+  the screen, the window's place on it, the display's scale — is told. alo
+  Sites' analytics script now reports the real width of the window it is
+  drawn in. How tall a page's content is, `scrollHeight`, is next (queue
+  items 366 and 370, ADR 0038).
+
 - **Decided: what a page may learn about its window.** A page will be able
   to read its window's size, where it is scrolled to, and how tall and wide
   its own content is, because its layout already depends on all of them and

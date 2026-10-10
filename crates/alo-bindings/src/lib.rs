@@ -51,6 +51,11 @@
 //!   listeners, and every event dispatched at a node of its document but
 //!   `load` reaches it last when bubbling and first when capturing
 //!   ([`dispatch`]).
+//! - The window's `innerWidth`, `innerHeight`, `scrollX`, `scrollY`,
+//!   `pageXOffset` and `pageYOffset` (ADR 0038, queue item 366) ask the
+//!   page's [`View`], which the embedder hands it with [`show()`]: this crate
+//!   has no layout, so it asks, at every read, and a page shown nothing
+//!   refuses by name.
 //! - [`introduce()`] puts the page's [`Navigator`] on the global object as
 //!   `navigator` (ADR 0030, queue item 325): the user agent string and the
 //!   platform the browser process told the renderer, as an [`Identity`], and
@@ -137,6 +142,7 @@ pub mod token_list;
 mod tokens;
 pub mod tree;
 mod unforgeable;
+pub mod view;
 pub mod window;
 pub mod wrapper;
 
@@ -154,5 +160,6 @@ pub use node_list::NodeList;
 pub use response::{Responded, Response};
 pub use style_declaration::StyleDeclaration;
 pub use token_list::TokenList;
+pub use view::{Extent, Scrolled, View, show};
 pub use window::{Window, engine};
 pub use wrapper::Wrapper;

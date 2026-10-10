@@ -6141,7 +6141,7 @@ The long pole, and the thing most of section E is unreachable without.
   page being left. *Closes when:* the decision is an ADR, and the item it
   makes buildable sends or refuses the frozen page's report in tests.
 
-- [ ] **366. The viewport a script reads.** *Opened by `alo-sites-cta`
+- [x] **366. The viewport a script reads.** *Opened by `alo-sites-cta`
   (iteration 234): `record` reads `window.scrollY` and
   `window.innerHeight`, `shape()` `window.innerWidth`, and `height()`
   `document.documentElement.scrollHeight` and `body.scrollHeight`; each
@@ -6184,6 +6184,36 @@ The long pole, and the thing most of section E is unreachable without.
   - after a `Resize` to 640 × 480 a script reads 640 and 480;
   - a fractional, a negative and an infinite viewport answer as § 2 says;
   - every script runs ordinarily and under `Heap::stress`.
+
+  **Built (iteration 238).**
+  - `alo-bindings`' `view.rs`: the `View` trait, with two of § 5's three
+    questions (the viewport and the scroll position; the scrolling area is
+    370's), its `Extent` and `Scrolled`, and `show`, which hands a page's
+    window its view once, after `install`. The `Window` cell keeps it as
+    Rust state outside the heap.
+  - `interface/window_cssom_view.rs`: the six members, accessors on the
+    window instance, enumerable and configurable, each `[Replaceable]`
+    through `interface/window.rs`' `replace`, now shared with `self`. Each
+    asks the view at every read. Sizes are rounded a half up, clamped to
+    `0 ..= 2³¹ − 1`, and a size that is not finite is `0`. A position that
+    is not finite is `0`. With no view, each throws a `TypeError` naming
+    itself.
+  - `alo-renderer`'s `view.rs`: `PageView`, one per page loaded, made from
+    `Page::viewport` at load and set by `resize`; its scroll position is
+    zero. `scripts::at_load` and `Held::scripted` pass it to `show`.
+  - Tests: `alo-bindings`' `tests/what_a_page_reads_of_its_window.rs` (9
+    tests, every script ordinarily and under `Heap::stress`), unit tests in
+    `window_cssom_view.rs` and the renderer's `view.rs`,
+    `alo-renderer`'s `tests/a_page_reads_its_viewport.rs` (4 tests), and
+    `what_a_window_is.rs`' CTA page now shown at 800 × 600.
+  **Closing condition met.** In `alo-corpus`' `tests/alo_sites_cta.rs`, a
+  later task reads `800x600 at 0,0` in the case, and, given a beacon and a
+  click with `pageX` and `pageY` of 0 in place of what is not built, the
+  script sends `t=0;x=0&y=0&p=%2F&w=800;`: `shape()` answers
+  `&p=%2F&w=800`. After a `Resize` to 640 × 480 a script reads `640x480`
+  and the page is drawn 640 wide. 800.5 × 599.4 reads `801x599`; negative,
+  infinite and `NaN` sizes read 0; 10¹² reads 2147483647. Each ran both
+  ordinarily and under `Heap::stress`.
 
 - [ ] **370. An element's scrolling area.** *Cut from 366 by ADR 0038 § 7.
   Depends on 366.* `scrollWidth` and `scrollHeight` on `Element`, by § 4:

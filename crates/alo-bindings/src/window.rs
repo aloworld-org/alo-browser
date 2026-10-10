@@ -22,7 +22,10 @@
 //!   node behind it for a wrapper to stand in for;
 //! - **an edge to its document cell**, its *associated `Document`*, set by
 //!   [`crate::install`] — which also gives the document cell an edge back,
-//!   so a dispatch that starts at a node finds the window there.
+//!   so a dispatch that starts at a node finds the window there;
+//! - **its [`View`]**, once the embedder has shown it one
+//!   ([`crate::view::show`], ADR 0038 § 5): Rust state outside the heap,
+//!   holding no reference into it, so nothing here traces it.
 //!
 //! The engine roots the global object for the realm's life, so the window,
 //! its listeners and its document live as long as the page does.
@@ -44,6 +47,7 @@ use alo_js::object::{Exotic, Internal, Key, Ordinary, Property};
 use alo_js::{Clock, Escape};
 
 use crate::listeners::Listeners;
+use crate::view::View;
 
 /// A page's global object.
 #[derive(Debug)]
@@ -51,6 +55,7 @@ pub struct Window {
     own: Ordinary,
     listeners: Listeners,
     document: Field,
+    view: Option<Rc<dyn View>>,
 }
 
 impl Window {
@@ -75,6 +80,20 @@ impl Window {
     pub(crate) fn associate(&mut self, barrier: &mut Barrier, document: Ref) {
         self.document.set(barrier, Some(document));
     }
+
+    /// How it is shown, once the embedder has said.
+    pub fn view(&self) -> Option<&Rc<dyn View>> {
+        self.view.as_ref()
+    }
+
+    /// Be shown by `view`, unless it already is: answers whether it was.
+    pub(crate) fn show(&mut self, view: Rc<dyn View>) -> bool {
+        if self.view.is_some() {
+            return false;
+        }
+        self.view = Some(view);
+        true
+    }
 }
 
 /// How the engine makes a page's global object: a `Window` inheriting from
@@ -85,6 +104,7 @@ pub fn make(prototype: Option<Ref>) -> Box<dyn Exotic> {
         own: Ordinary::with_prototype(prototype),
         listeners: Listeners::default(),
         document: Field::default(),
+        view: None,
     })
 }
 
