@@ -38,7 +38,10 @@
 //! for the answers ([`crate::fetching`], ADR 0032 § 1). And the
 //! **policies** the page holds, stated by the renderer as it states the URL,
 //! so that `element.style` reads a refused `style` attribute as the draw
-//! does (ADR 0034 § 3, [`crate::style_policy`]).
+//! does (ADR 0034 § 3, [`crate::style_policy`]). And whether the page can
+//! be **seen**, stated the same way when the heap is made and changed only
+//! by the task that fires `visibilitychange` (ADR 0039 § 1,
+//! [`crate::visibility`]).
 //!
 //! And it holds an edge to the page's **`Window`**, the realm's global
 //! object, set by [`crate::install`] as the window is given an edge back
@@ -61,6 +64,7 @@ use alo_url::Url;
 use crate::fetching::Fetches;
 use crate::interface::Interfaces;
 use crate::navigating::Ongoing;
+use crate::visibility::Visibility;
 
 /// One slot of the table: the node, and its wrapper.
 pub(crate) type Entry = Option<(NodeId, Ref)>;
@@ -99,6 +103,9 @@ pub struct DocumentCell {
     /// What the page has asked to fetch, and the promises waiting for the
     /// answers ([`crate::fetching`]).
     pub(crate) fetches: Fetches,
+    /// Whether the page can be seen: `hidden`, HTML's initial state, until
+    /// the renderer states otherwise ([`crate::visibility`]).
+    pub(crate) visibility: Visibility,
 }
 
 /// What collections have let go of, counted.
@@ -126,6 +133,7 @@ impl DocumentCell {
             policies: Policies::none(),
             ongoing: Ongoing::default(),
             fetches: Fetches::default(),
+            visibility: Visibility::Hidden,
         }
     }
 
@@ -169,6 +177,11 @@ impl DocumentCell {
     /// What the page has asked to fetch, and what it waits for.
     pub const fn fetches(&self) -> &Fetches {
         &self.fetches
+    }
+
+    /// Whether the page can be seen, as the renderer last stated it.
+    pub const fn visibility(&self) -> Visibility {
+        self.visibility
     }
 
     /// The wrapper `node` has, if it has one.

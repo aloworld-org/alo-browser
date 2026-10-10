@@ -1098,10 +1098,18 @@ unreachable without it.
       `alo-js`'s `Engine::with_global`) holding its own listeners, with
       `window`, `self` and `location` as its own members
       (`interface/window.rs`), and every path in `dispatch.rs` ends at it
-      after the document, except for `load` · Owed:
+      after the document, except for `load`. **A page is told whether it can
+      be seen** (ADR 0039 § 1, queue item 364): `Page::visibility` and
+      `ToRenderer::Visibility` (wire tag 9), a task that sets the document
+      cell's state and fires `visibilitychange` only on a change
+      (`alo-renderer`'s `event_loop/shown.rs` and `show.rs`), answered as a
+      delivery is and decided as the document's (`Tabs::visibility`);
+      `document.visibilityState` and `document.hidden` (`alo-bindings`'
+      `visibility.rs`, `interface/document_visibility.rs`); and `alo-window`
+      telling the selected tab on `Occluded` (`Order::Visibility`) · Owed:
       its immutable prototype (363),
-      the page lifecycle at it (decided by ADR 0039, nothing built: the
-      visibility state, 364, and a page left, 373), going there (85), a
+      a page left (373: `pagehide`, `pageshow`, `unload`, the leaving
+      deadline), choosing among tabs telling each (297), going there (85), a
       link's download (264), each element's own interface (262), focus
       (258) and event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs

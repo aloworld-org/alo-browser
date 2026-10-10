@@ -145,6 +145,7 @@ pub mod child_node;
 pub mod css_style_declaration;
 pub mod custom_event;
 pub mod document;
+pub mod document_visibility;
 pub mod dom_exception;
 pub mod dom_token_list;
 pub mod element;
@@ -489,6 +490,7 @@ impl Interface {
             }
             Self::Document => {
                 document::furnish(objects, prototype, function_prototype)?;
+                document_visibility::furnish(objects, prototype, function_prototype)?;
                 parent_node::furnish(objects, prototype, function_prototype)
             }
             Self::DocumentFragment => parent_node::furnish(objects, prototype, function_prototype),

@@ -59,8 +59,8 @@ use alo_bindings::fetching::{self, Asked};
 use alo_bindings::navigating::{self, By, Ongoing};
 use alo_bindings::style_policy;
 use alo_bindings::{
-    Firing, Identity, Responded, Unadopted, View, adopt, change_document, document, install,
-    introduce, offer, show,
+    Firing, Identity, Responded, Unadopted, View, Visibility, adopt, change_document, document,
+    install, introduce, offer, show,
 };
 use alo_dom::{Document, NodeId};
 use alo_js::Escape;
@@ -196,6 +196,21 @@ impl Held {
         self.queue(|page_loop, cell| page_loop.queue_put_text(cell, node, text))
     }
 
+    /// Queue the task that tells the page it can or cannot be seen — `to` —
+    /// and fires `visibilitychange` at its document if that is a change
+    /// (ADR 0039 § 1): which task, or [`None`] on a page that has never run
+    /// script, which nothing could have heard and which is not given a heap
+    /// to find that out.
+    ///
+    /// Nothing runs here: the task runs when the loop reaches it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Held::dispatch`].
+    pub fn visibility(&mut self, to: Visibility) -> Result<Option<Seq>, Unqueued> {
+        self.queue(|page_loop, cell| page_loop.queue_visibility(cell, to))
+    }
+
     /// Follow the link `link` as the browser's click, keeping the ask in the
     /// document cell beside any the page's script made: whether a navigation
     /// started — [`None`] on a page that has never run script, whose ask the
@@ -302,7 +317,8 @@ impl Held {
     /// heap, at `url`, with `document` on its global object, `navigator`
     /// saying what `identity` says (ADR 0030 § 4), `fetch` asking the
     /// browser process (ADR 0032), its realm told the time by `clock`
-    /// (ADR 0036 § 2) and its window shown by `view` (ADR 0038 § 5) — if no
+    /// (ADR 0036 § 2), its window shown by `view` (ADR 0038 § 5) and its
+    /// document's visibility state `visibility` (ADR 0039 § 1) — if no
     /// script has run yet.
     ///
     /// **Called when the page's first script is about to run**, and not
@@ -319,6 +335,7 @@ impl Held {
         identity: Identity<'_>,
         clock: &Rc<dyn alo_js::Clock>,
         view: &Rc<dyn View>,
+        visibility: Visibility,
     ) -> Result<&mut EventLoop, NoScript> {
         if let Held::Parsed(parsed) = self {
             let mut script = EventLoop::new(Rc::clone(clock)).map_err(NoScript::Engine)?;
@@ -337,6 +354,7 @@ impl Held {
             // Before any of the page's script can read it. Not a document
             // cell only if `adopt` made something else, which it does not.
             navigating::locate(engine.objects(), made, url.clone());
+            alo_bindings::visibility::update(engine.objects(), made, visibility);
             let cell = engine.objects().heap_mut().root(made);
             let installed = install(engine, made)
                 .and_then(|_| show(engine, Rc::clone(view)))

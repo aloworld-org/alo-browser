@@ -57,6 +57,10 @@
 //!   has no layout, so it asks, at every read, and a page shown nothing
 //!   refuses by name. So do an element's `scrollWidth` and `scrollHeight`
 //!   (queue item 370), which the view measures in the middle of the script.
+//! - `document.visibilityState` and `document.hidden` (ADR 0039 § 1, queue
+//!   item 364) read the [`Visibility`] the renderer states into the
+//!   document cell ([`visibility`]); the renderer's task that changes it
+//!   fires `visibilitychange` ([`Firing::VISIBILITY_CHANGE`]).
 //! - [`introduce()`] puts the page's [`Navigator`] on the global object as
 //!   `navigator` (ADR 0030, queue item 325): the user agent string and the
 //!   platform the browser process told the renderer, as an [`Identity`], and
@@ -144,6 +148,7 @@ mod tokens;
 pub mod tree;
 mod unforgeable;
 pub mod view;
+pub mod visibility;
 pub mod window;
 pub mod wrapper;
 
@@ -162,5 +167,6 @@ pub use response::{Responded, Response};
 pub use style_declaration::StyleDeclaration;
 pub use token_list::TokenList;
 pub use view::{Extent, Scrolled, Unmeasured, View, show};
+pub use visibility::Visibility;
 pub use window::{Window, engine};
 pub use wrapper::Wrapper;

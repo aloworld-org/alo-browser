@@ -110,6 +110,7 @@ use crate::sheet_decide;
 use crate::sheet_owed;
 use crate::site::Site;
 use alo_agent::{Target, Verb};
+use alo_bindings::Visibility;
 use alo_net::cause::{ActionId, Cause, DocumentId, Identities};
 use alo_net::chain::{Chain, Documents};
 use alo_net::csp::Policies;
@@ -755,6 +756,24 @@ impl Tabs {
             tab.delivered(&mut delivered);
         }
         Ok(Some(delivered))
+    }
+
+    /// Tell the page in a tab whether it can be seen (ADR 0039 § 1).
+    ///
+    /// The page's listeners may ask for things as they hear it, and what
+    /// they ask for is the **document's**, as a delivery's is: nobody did
+    /// anything to the page by covering its window or choosing another tab.
+    /// Decided as the answer passes, and waiting on the tab with the rest.
+    ///
+    /// # Errors
+    ///
+    /// As [`Tabs::ask`].
+    pub fn visibility(&mut self, id: TabId, to: Visibility) -> Result<FromRenderer, Lost> {
+        let mut answer = self.ask(id, &ToRenderer::Visibility(to))?;
+        if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
+            tab.delivered(&mut answer);
+        }
+        Ok(answer)
     }
 
     /// Where the page in a tab last asked to go, as this process decided it

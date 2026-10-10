@@ -39,6 +39,7 @@ use crate::page::Page;
 use crate::snapshot::{Snapshot, SnapshotNode};
 use crate::violations::{MOST_OBJECTIONS, Objection};
 use alo_agent::verb::{Outcome, Refusal, ScrollBy, Target, Verb};
+use alo_bindings::Visibility;
 use alo_box::role::{KnownRole, Role};
 use alo_box::state::{Checked, Current, States};
 use alo_box::tree::BoxId;
@@ -131,6 +132,13 @@ impl Writer {
             }
             None => self.bool(false),
         }
+    }
+    /// Whether a page can be seen (ADR 0039 § 1).
+    fn visibility(&mut self, visibility: Visibility) {
+        self.tag(match visibility {
+            Visibility::Visible => 0,
+            Visibility::Hidden => 1,
+        });
     }
     fn maybe_bool(&mut self, value: Option<bool>) {
         match value {
@@ -296,11 +304,16 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             }
             writer.text(&page.user_agent);
             writer.text(&page.platform);
+            writer.visibility(page.visibility);
         }
         ToRenderer::Resize(size) => {
             writer.tag(1);
             writer.float(size.width);
             writer.float(size.height);
+        }
+        ToRenderer::Visibility(to) => {
+            writer.tag(9);
+            writer.visibility(*to);
         }
         ToRenderer::Paint => writer.tag(2),
         ToRenderer::ReadTree => writer.tag(3),
@@ -580,6 +593,14 @@ impl<'a> Reader<'a> {
 
     fn bool(&mut self) -> Result<bool, Unreadable> {
         Ok(self.tag()? != 0)
+    }
+
+    fn visibility(&mut self) -> Result<Visibility, Unreadable> {
+        match self.tag()? {
+            0 => Ok(Visibility::Visible),
+            1 => Ok(Visibility::Hidden),
+            other => Err(unreadable(format!("a visibility state tagged {other}"))),
+        }
     }
 
     fn number(&mut self) -> Result<u64, Unreadable> {
@@ -979,6 +1000,52 @@ impl<'a> Reader<'a> {
         })
     }
 
+    /// A page to load, as [`write_to_renderer`] wrote it.
+    fn page(&mut self) -> Result<Page, Unreadable> {
+        let url = alo_url::parse(&self.text()?)
+            .map_err(|why| unreadable(format!("a page whose address {why}")))?;
+        let html = self.text()?;
+        let how_many = self.count()?;
+        let mut sheets = Vec::new();
+        for _ in 0..how_many {
+            sheets.push(self.text()?);
+        }
+        let viewport = Size {
+            width: self.float()?,
+            height: self.float()?,
+        };
+        let scheme = match self.tag()? {
+            0 => ColorScheme::Light,
+            1 => ColorScheme::Dark,
+            other => return Err(unreadable(format!("a colour scheme tagged {other}"))),
+        };
+        let how_many = self.count()?;
+        let mut policies = Vec::new();
+        for _ in 0..how_many {
+            policies.push(self.text()?);
+        }
+        let how_many = self.count()?;
+        let mut watching = Vec::new();
+        for _ in 0..how_many {
+            watching.push(self.text()?);
+        }
+        let user_agent = self.text()?;
+        let platform = self.text()?;
+        let visibility = self.visibility()?;
+        Ok(Page {
+            url,
+            html,
+            sheets,
+            viewport,
+            visibility,
+            scheme,
+            policies,
+            watching,
+            user_agent,
+            platform,
+        })
+    }
+
     /// Nothing may be left over.
     ///
     /// Trailing bytes mean the two ends disagree about the message, and a
@@ -1007,48 +1074,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
     }
     let mut reader = Reader::new(bytes);
     let message = match reader.tag()? {
-        0 => {
-            let url = alo_url::parse(&reader.text()?)
-                .map_err(|why| unreadable(format!("a page whose address {why}")))?;
-            let html = reader.text()?;
-            let how_many = reader.count()?;
-            let mut sheets = Vec::new();
-            for _ in 0..how_many {
-                sheets.push(reader.text()?);
-            }
-            let viewport = Size {
-                width: reader.float()?,
-                height: reader.float()?,
-            };
-            let scheme = match reader.tag()? {
-                0 => ColorScheme::Light,
-                1 => ColorScheme::Dark,
-                other => return Err(unreadable(format!("a colour scheme tagged {other}"))),
-            };
-            let how_many = reader.count()?;
-            let mut policies = Vec::new();
-            for _ in 0..how_many {
-                policies.push(reader.text()?);
-            }
-            let how_many = reader.count()?;
-            let mut watching = Vec::new();
-            for _ in 0..how_many {
-                watching.push(reader.text()?);
-            }
-            let user_agent = reader.text()?;
-            let platform = reader.text()?;
-            ToRenderer::Load(Box::new(Page {
-                url,
-                html,
-                sheets,
-                viewport,
-                scheme,
-                policies,
-                watching,
-                user_agent,
-                platform,
-            }))
-        }
+        0 => ToRenderer::Load(Box::new(reader.page()?)),
         1 => ToRenderer::Resize(Size {
             width: reader.float()?,
             height: reader.float()?,
@@ -1100,6 +1126,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         }
         7 => ToRenderer::Fetched(Box::new(reader.fetched()?)),
         8 => ToRenderer::Sheet(Box::new(reader.sheet_answer()?)),
+        9 => ToRenderer::Visibility(reader.visibility()?),
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;

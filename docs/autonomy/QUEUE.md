@@ -6313,7 +6313,7 @@ The long pole, and the thing most of section E is unreachable without.
   window, or by item 73 making it reachable. Closes when:* it answers as Web
   IDL says, in `alo-bindings`' tests, under `Heap::stress`.
 
-- [ ] **364. The page lifecycle at its window.** *Cut from 362 by ADR 0037
+- [x] **364. The page lifecycle at its window.** *Cut from 362 by ADR 0037
   § 5. Depends on 362. **Needs design**: when the browser process tells a
   renderer its page is hidden, shown or being left, and how long the page's
   listeners are given before the renderer goes.* `pagehide`, `pageshow` and
@@ -6361,6 +6361,53 @@ The long pole, and the thing most of section E is unreachable without.
   - `alo-window` sends `Hidden` and `Visible` when its window is occluded
     and shown, in a conductor test;
   - every script runs ordinarily and under `Heap::stress`.
+
+  **Built (iteration 241).**
+  - `alo-bindings`: `Visibility` (`visible`, `hidden`; `visibility.rs`),
+    kept in the document cell, `hidden` until stated; `update` says
+    whether it changed. `document.visibilityState` and `document.hidden`
+    are read-only getters on `Document.prototype`
+    (`interface/document_visibility.rs`). `Firing::VISIBILITY_CHANGE`.
+  - `alo-renderer`: `Page::visibility` (`Visible` by default, `shown_as`),
+    given to the document cell when the heap is made (`Held::scripted`);
+    `ToRenderer::Visibility` (wire tag 9, and a last byte on `Load`); the
+    task `Work::Visibility` (`event_loop/shown.rs`), which compares and
+    sets the state when it runs and fires only on a change; `show.rs` runs
+    it and the renderer answers `Delivered` (`after_the_task`, shared with
+    a delivery). `Tabs::visibility` decides what the listeners asked for
+    as the document's.
+  - `alo-window`: `Order::Visibility` from `WindowEvent::Occluded`; the
+    conductor tells the selected tab, takes its fetches, paints it again,
+    and loads every later page in the window's state.
+
+  *Closed by:*
+  - `alo-bindings`' `what_a_page_reads_of_its_visibility.rs`: `hidden`
+    until told, each read now, getters with no setter (strict assignment a
+    `TypeError`), brand-checked, and a second document `hidden` whatever
+    the page is.
+  - `alo-renderer`'s `a_page_is_told_whether_it_is_seen.rs`:
+    - loaded visible reads `visible false`, loaded hidden `hidden true`;
+    - `Hidden` fires one event at the document (phase 2) then the window
+      (phase 3), trusted, bubbling, not cancellable, and `Hidden` again
+      fires none;
+    - a listener's fetch is in the answer, and across the real binary
+      `Tabs::visibility` decides it with `Cause::Document`;
+    - a throwing listener is said and the window still hears;
+    - a page asked to stop says so;
+    - a page with no script answers an empty `Delivered`;
+    - nothing loaded fails.
+  - `messages_across_a_boundary.rs`: both states round-trip, alone and on
+    a page, and an unknown or missing state is refused by name.
+  - `alo-corpus`' `alo_sites_cta.rs`: hidden, the page sends
+    `d=1000&p=%2F&w=800;t=0;`, and visible then hidden again sends
+    nothing more.
+  - `alo-window`'s `a_page_hidden_and_shown_in_the_window.rs`: covered
+    turns the page's box over, covered again does not, and seen again turns
+    it back. A page loaded in a covered window reads `hidden`.
+  - Every script after a load runs ordinarily and under `Heap::stress`.
+
+  A mutation that fired on every task, changed or not, failed three
+  renderer tests and the conductor test.
 
 - [ ] **373. A page left.** *Cut from 364 by ADR 0039 § 7. Depends on 364.*
   `PageTransitionEvent` with `persisted`, and *page showing*; `pageshow` at

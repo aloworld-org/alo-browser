@@ -12,7 +12,7 @@
 //! the window.
 
 use alo_layout::Size;
-use alo_renderer::{Frame, Page};
+use alo_renderer::{Frame, Page, Visibility};
 use alo_url::Url;
 
 /// What the event loop asks of the conductor.
@@ -30,6 +30,10 @@ pub enum Order {
     },
     /// The window is now this many CSS pixels.
     Resize(Size),
+    /// The window can now be seen, or can no longer — covered or minimised
+    /// (ADR 0039 § 1). What the selected tab's page is told, and what the
+    /// next page loaded starts as.
+    Visibility(Visibility),
     /// The window was closed: close every tab, and say [`News::Closed`] when
     /// they are.
     CloseEverything,

@@ -81,7 +81,10 @@
 //! The browser's dispatch is queued through [`Held::dispatch`], and an
 //! agent's `Activate` on a page that runs script is one ([`Held::activate`],
 //! [`activated`], item 256), run before the `Act` is answered, and so is its
-//! `PutText` ([`Held::put_text`], `typed.rs`, item 257). The [`Renderer`]
+//! `PutText` ([`Held::put_text`], `typed.rs`, item 257). So is the page
+//! being told whether it can be seen ([`EventLoop::queue_visibility`],
+//! `shown.rs`, item 364), which fires `visibilitychange` only on a change.
+//! The [`Renderer`]
 //! holds one loop per page and queues a task for each of the page's own
 //! scripts as it loads ([`crate::scripts`], item 236); the loop running between messages,
 //! for tasks a page queued itself, and an `Act` answered after its task's
@@ -100,6 +103,7 @@ mod described;
 mod dispatched;
 mod microtask;
 mod report;
+mod shown;
 mod source;
 mod task;
 mod typed;
@@ -504,6 +508,7 @@ impl EventLoop {
                 Ok(())
             }
             Work::PutText { list, text } => self.put_text(list, text, turn),
+            Work::Visibility { list, to } => self.shown(list, *to, turn),
         }
     }
 

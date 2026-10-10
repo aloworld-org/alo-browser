@@ -229,32 +229,8 @@ pub(crate) fn at_load(
             said.script(number, "not run, because the page's script has stopped");
             continue;
         }
-        if let (Kind::Classic, Source::Written(text)) = (&script.kind, &script.source) {
-            let content = Content::element(text);
-            let nonce = script.nonce.as_deref();
-            for place in stated_by.objecting_to_inline(Inline::Script, nonce, content) {
-                if objections.len() < MOST_OBJECTIONS {
-                    objections.push(Objection {
-                        policy: place,
-                        kind: Inline::Script,
-                        placement: Placement::Element,
-                    });
-                } else {
-                    left_out = left_out.saturating_add(1);
-                }
-            }
-            if stated_by
-                .allows_inline(Inline::Script, nonce, content)
-                .is_ok()
-            {
-                // Every enforced header policy allows it, so any objection
-                // was a watched policy's, and the script will run regardless
-                // (unless a `<meta>` refuses it, which is said below).
-                for watched in stated_by.inline_violations(Inline::Script, nonce, content) {
-                    said.script(number, &format!("runs, but {watched}"));
-                }
-            }
-        }
+        left_out =
+            left_out.saturating_add(heard(&stated_by, &script, number, objections, &mut said));
         let text = match allowed(&script, &policies) {
             Ok(text) => text,
             Err(why) => {
@@ -262,7 +238,8 @@ pub(crate) fn at_load(
                 continue;
             }
         };
-        if let Err(why) = held.scripted(&page.url, page.identity(), clock, &shown) {
+        if let Err(why) = held.scripted(&page.url, page.identity(), clock, &shown, page.visibility)
+        {
             said.script(number, &format!("not run: {why}"));
             ended = true;
             continue;
@@ -297,6 +274,48 @@ pub(crate) fn at_load(
         ));
     }
     policies
+}
+
+/// What the header policies `stated_by` say of `script`, the page's
+/// `number`th, if it is written into the page: each objection, added to
+/// `objections` while there is room, and each watched policy's that does
+/// not stop it running, said. Answers how many objections there was no
+/// room for.
+fn heard(
+    stated_by: &alo_net::Policies,
+    script: &Script,
+    number: usize,
+    objections: &mut Vec<Objection>,
+    said: &mut Said,
+) -> usize {
+    let mut left_out = 0_usize;
+    if let (Kind::Classic, Source::Written(text)) = (&script.kind, &script.source) {
+        let content = Content::element(text);
+        let nonce = script.nonce.as_deref();
+        for place in stated_by.objecting_to_inline(Inline::Script, nonce, content) {
+            if objections.len() < MOST_OBJECTIONS {
+                objections.push(Objection {
+                    policy: place,
+                    kind: Inline::Script,
+                    placement: Placement::Element,
+                });
+            } else {
+                left_out = left_out.saturating_add(1);
+            }
+        }
+        if stated_by
+            .allows_inline(Inline::Script, nonce, content)
+            .is_ok()
+        {
+            // Every enforced header policy allows it, so any objection
+            // was a watched policy's, and the script will run regardless
+            // (unless a `<meta>` refuses it, which is said below).
+            for watched in stated_by.inline_violations(Inline::Script, nonce, content) {
+                said.script(number, &format!("runs, but {watched}"));
+            }
+        }
+    }
+    left_out
 }
 
 /// Tell the page's heap `policies`, if it exists and has not been told this

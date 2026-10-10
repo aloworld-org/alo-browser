@@ -510,6 +510,17 @@ impl Firing<'static> {
         cancelable: false,
         composed: false,
     };
+
+    /// The `visibilitychange` fired at a document whose visibility state
+    /// has changed (ADR 0039 § 1): an `Event`, bubbling and nothing more —
+    /// HTML's *update the visibility state*.
+    pub const VISIBILITY_CHANGE: Self = Self {
+        interface: Fired::Event,
+        kind: "visibilitychange",
+        bubbles: true,
+        cancelable: false,
+        composed: false,
+    };
 }
 
 impl<'a> Firing<'a> {

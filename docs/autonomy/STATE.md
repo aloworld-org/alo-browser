@@ -23154,3 +23154,115 @@ This entry was written after that run and is documentation only.
 159 queue items are open: 373 added, and 364 still open. The next unused
 queue number is **374** and the next ADR is **0040**. This is one
 iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 241 — queue item 364 built: a page is told whether it can be seen
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` and iteration
+240's entry. No `AGENTS.md` exists in this repository. For 364: ADR 0039
+(§ 1 above all, and § 7's cut), ADR 0037 § 3 (every path from the document
+ends at the window), ADR 0016 §§ 2 and 6, ADR 0005, the queue item, and
+`docs/features.md`' Events line.
+
+**Choosing.** Iteration 240 left 364 designed, eligible and next. Its one
+dependency, 362, is done. 296 still waits on an unlocked screen, and the
+other open items before it are blocked or page-gated as earlier entries
+recorded.
+
+**What was built** (ADR 0039 § 1):
+- `alo-bindings`:
+  - `Visibility` (`visible`, `hidden`) in `visibility.rs`, kept in the
+    document cell, `hidden` until stated. `update` sets it and says whether
+    it changed.
+  - `document.visibilityState` and `document.hidden`, read-only getters on
+    `Document.prototype` in `interface/document_visibility.rs`.
+  - `Firing::VISIBILITY_CHANGE`: an `Event`, bubbling, not cancellable.
+- `alo-renderer`:
+  - `Page::visibility`, `Visible` by default, set with `shown_as`. It is
+    stated into the cell when the heap is made (`Held::scripted` gained the
+    argument).
+  - `ToRenderer::Visibility` crosses as wire tag 9. A page's state is a
+    last byte on `Load`.
+  - The task is `Work::Visibility` in `event_loop/shown.rs`. It compares
+    and sets the state when it runs, not when it is queued, and fires only
+    on a change.
+  - `show.rs` runs the task. The renderer answers `Delivered` through
+    `after_the_task`, now shared with a fetch's delivery.
+  - `Tabs::visibility` decides what the listeners asked for as the
+    document's.
+- `alo-window`: `WindowEvent::Occluded` sends `Order::Visibility`. The
+  conductor tells the selected tab, takes its fetches, paints it again,
+  and loads later pages in the window's state.
+
+**Refactors the line limit asked for.** Clippy's `too_many_lines` was met
+by extracting, not by an `allow`:
+- `wire.rs`' page decoding became `Reader::page`;
+- `scripts.rs`' inline-script policy check became `heard`.
+
+**A failure that was explained, not retried away.** The first run of the
+conductor test failed: covering the window twice turned the page's box
+back. The renderer-level test passed, so it was investigated:
+- a probe showed one event per change;
+- the cause was the mutation check run just before (fire on every task).
+  Its `cargo test -p alo-renderer` rebuilt `target/debug/alo-render` with
+  the mutation;
+- restoring the source rebuilt nothing until the next alo-renderer test
+  run, and `cargo test -p alo-window` runs whichever `alo-render` is in
+  `target/`.
+
+Since the rebuild it passed 16 runs out of 16, 12 of them beside the other
+conductor tests. So the conductor test catches that mutation through the
+real process, as three renderer tests do in-process.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log. It
+passed 600 s and the harness moved it to the background. The next call
+waited on it in a foreground `until` loop and read `exit 0`, "The gate is
+met", with no `FAILED` or `panicked` in the log:
+- formatting clean, clippy silent, tests pass;
+- no stubs, `unsafe` forbidden everywhere, the licence on every file;
+- every rented crate behind its boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds;
+- `CHANGELOG.md` changed with the code.
+
+This entry was written after that run, and is documentation only.
+
+**Gate, manual.**
+- Layout assertion and reference render: none applies. Nothing positions,
+  sizes or draws differently, and no reference moved. The conductor
+  test compares frames for sameness only.
+- Hostile input: the wire refuses a third state, a missing one and a
+  trailing byte, by name, alone and on a `Load`. Nothing else new reads
+  from outside, and a page cannot write its own state.
+- One responsibility per file:
+  - the state, the members and the task are each a new file;
+  - `renderer.rs` gained one handler and lost a duplicated tail;
+  - `conductor.rs` gained one order, which is its job.
+- `docs/features.md` named the feature before the build, as decided, and
+  now says it is built.
+- No `unsafe`, no new dependency, and no new `winit` function: `Occluded`
+  is a variant of an event already matched. `alo-workplace` and `alo-os`
+  were not touched.
+
+**Roadmap.** No line is ticked. The Events line gains a *Built* clause for
+364, and its *Owed* now names 373 (a page left) and 297 (choosing among
+tabs). Also updated:
+- `docs/features.md`' Events line;
+- `docs/conformance.md`' alo Sites row;
+- `REMAINING.md` and `CHANGELOG.md`;
+- the queue, where 364 is ticked with its *Built* and *Closed by*
+  paragraphs.
+
+**Unresolved obligations.**
+- 373, a page left, is next and eligible. 369 follows 373.
+- 297, the tab strip, must tell the tab it leaves `hidden` before the one
+  it chooses `visible` (ADR 0039 § 1). Today there is one tab.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- 371 waits for a windowless embedder. 372 is a speed, to be measured.
+- 367 needs an ADR and a page. 368 waits on typed arrays and 231. 363
+  waits on 73.
+- Everything iteration 240 listed still stands.
+
+158 queue items are open: 364 closed. The next unused queue number is
+**374** and the next ADR is **0040**. This is one iteration, not a
+finished queue or roadmap.

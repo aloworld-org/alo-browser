@@ -12,6 +12,7 @@
 //! to steer that process, the stranger is the page.
 
 use alo_agent::verb::{Outcome, Refusal, ScrollBy, Target, Verb};
+use alo_bindings::Visibility;
 use alo_box::role::{KnownRole, Role};
 use alo_box::state::{Checked, Current, States};
 use alo_box::tree::BoxId;
@@ -87,6 +88,8 @@ fn every_message_to_a_renderer_survives_the_crossing() {
                 width: 900.0,
                 height: 600.0,
             },
+            // Not what `Page::new` gives, so a reader that assumed it would show.
+            visibility: Visibility::Hidden,
             scheme: ColorScheme::Dark,
             policies: vec![
                 "script-src 'self' 'nonce-abc'".to_owned(),
@@ -101,6 +104,8 @@ fn every_message_to_a_renderer_survives_the_crossing() {
             width: 320.5,
             height: 480.0,
         }),
+        ToRenderer::Visibility(Visibility::Hidden),
+        ToRenderer::Visibility(Visibility::Visible),
         ToRenderer::Paint,
         ToRenderer::ReadTree,
         ToRenderer::Act {
@@ -551,6 +556,37 @@ fn a_tag_nobody_knows_is_refused_rather_than_ignored() {
         .map(|why| why.why)
         .unwrap_or_default();
     assert!(why.contains("tagged 99"), "{why:?}");
+}
+
+/// Whether a page can be seen is one of two states, on its own and with a
+/// page (ADR 0039 § 1); a third, or none, is refused by name.
+#[test]
+fn a_visibility_state_nobody_knows_is_refused() {
+    let why = read_to_renderer(&[9u8, 2u8])
+        .err()
+        .map(|why| why.why)
+        .unwrap_or_default();
+    assert!(why.contains("a visibility state tagged 2"), "{why:?}");
+    assert!(read_to_renderer(&[9u8]).is_err(), "a state that never came");
+    assert!(
+        read_to_renderer(&[9u8, 1u8, 0u8]).is_err(),
+        "a byte after it"
+    );
+
+    let mut load = write_to_renderer(&ToRenderer::Load(Box::new(Page::new(
+        "<p>hi</p>",
+        Size::new(1.0, 1.0),
+    ))));
+    if let Some(last) = load.last_mut() {
+        *last = 0xff;
+    }
+    let why = read_to_renderer(&load)
+        .err()
+        .map(|why| why.why)
+        .unwrap_or_default();
+    assert!(why.contains("a visibility state tagged 255"), "{why:?}");
+    load.pop();
+    assert!(read_to_renderer(&load).is_err(), "a page that does not say");
 }
 
 /// Nothing at all is not a message.

@@ -46,6 +46,7 @@ fn a_page(text: &str) -> ToRenderer {
             width: 200.0,
             height: 100.0,
         },
+        visibility: alo_renderer::Visibility::Visible,
         scheme: ColorScheme::Light,
         policies: Vec::new(),
         watching: Vec::new(),

@@ -38,6 +38,17 @@
 //! still painted at once, before its sheets have answered: holding it back,
 //! within a bound of its own, is ADR 0035 § 5's and queue item 351's.
 //!
+//! # Whether a page can be seen
+//!
+//! ADR 0039 § 1: a tab is `visible` when it is the selected tab of a window
+//! that is neither covered nor minimised. The window says which it is, and
+//! the conductor tells the selected tab's page — a task that fires
+//! `visibilitychange` if that changed it — and loads every page after it in
+//! the state the window is in. What the page's listeners ask for is made as
+//! a delivery's is, and the page is painted again afterwards, since they may
+//! have changed it. Choosing among tabs is item 297's, and tells the tab it
+//! leaves before the one it chooses.
+//!
 //! # Why a burst of resizes is one resize
 //!
 //! Dragging a window's corner sends a resize for nearly every pixel it
@@ -51,7 +62,7 @@ use alo_layout::Size;
 use alo_net::Cause;
 use alo_renderer::fetch_answering::{Answered, Answering};
 use alo_renderer::fetch_make::Network;
-use alo_renderer::{FromRenderer, Lost, Page, TabId, Tabs, ToRenderer};
+use alo_renderer::{FromRenderer, Lost, Page, TabId, Tabs, ToRenderer, Visibility};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 use std::thread::JoinHandle;
 
@@ -121,6 +132,9 @@ struct Conducting {
     selected: Option<TabId>,
     /// The window's size in CSS pixels, once it has said one.
     viewport: Option<Size>,
+    /// Whether the window can be seen: `visible` until it says otherwise,
+    /// as a window that has just opened can be.
+    visibility: Visibility,
     /// A tab opened before the window had a size, with its page — loaded when
     /// the size arrives, because a page is laid out at the window's size and
     /// there was none to lay it out at.
@@ -144,6 +158,7 @@ fn conduct(
         fonts,
         selected: None,
         viewport: None,
+        visibility: Visibility::Visible,
         waiting: None,
         network,
         fetches: Answering::new(),
@@ -241,6 +256,10 @@ impl Conducting {
                 }
                 self.resize(viewport)
             }
+            Order::Visibility(to) => {
+                self.visibility = to;
+                self.shown(to)
+            }
             Order::CloseEverything => {
                 self.close_everything();
                 vec![News::Closed]
@@ -248,9 +267,37 @@ impl Conducting {
         }
     }
 
+    /// Tell the selected tab's page whether it can be seen, if it is showing
+    /// anything, and paint it again: its listeners may have changed it.
+    fn shown(&mut self, to: Visibility) -> Vec<News> {
+        let Some(id) = self.selected else {
+            return Vec::new();
+        };
+        if self
+            .tabs
+            .tab(id)
+            .and_then(alo_renderer::Tab::document)
+            .is_none()
+        {
+            // Nothing loaded, so nobody to tell; the page it loads will start
+            // as the window is.
+            return Vec::new();
+        }
+        let told = self.tabs.visibility(id, to);
+        self.fetches.take_from(&mut self.tabs, id);
+        match told {
+            Ok(FromRenderer::Delivered { .. }) => self.paint(id),
+            Ok(other) => vec![News::Said(unexpected(&other))],
+            Err(lost) => vec![said_of(&self.tabs, id, &lost)],
+        }
+    }
+
     /// Load `page` into tab `id` at `viewport`, and paint it.
     fn load(&mut self, id: TabId, mut page: Page, viewport: Size) -> Vec<News> {
         page.viewport = viewport;
+        // The tab loading is the selected one, so it is as visible as the
+        // window.
+        page.visibility = self.visibility;
         let loaded = self.tabs.load(id, page, Cause::Person { tab: id });
         self.fetches.take_from(&mut self.tabs, id);
         match loaded {

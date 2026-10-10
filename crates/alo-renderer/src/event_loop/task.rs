@@ -31,7 +31,7 @@
 use std::collections::VecDeque;
 
 use alo_bindings::event::{self, Firing};
-use alo_bindings::{Wrapping, prototype_of, wrap};
+use alo_bindings::{Visibility, Wrapping, prototype_of, wrap};
 use alo_dom::NodeId;
 use alo_js::heap::Ref;
 use alo_js::object::{Held, Objects};
@@ -96,6 +96,16 @@ pub(super) enum Work {
         /// The text, which is Rust's and needs no root.
         text: String,
     },
+    /// The page told whether it can be seen (ADR 0039 § 1, queue item 364):
+    /// the state set, and a `visibilitychange` the browser made fired at the
+    /// document if that changed it.
+    Visibility {
+        /// The document's wrapper, then the `visibilitychange`, in one
+        /// rooted list.
+        list: Root,
+        /// The state it is told.
+        to: Visibility,
+    },
 }
 
 /// A task waiting its turn.
@@ -157,7 +167,8 @@ impl Tasks {
             Work::Calls { list, .. }
             | Work::Dispatch { list }
             | Work::Activate { list }
-            | Work::PutText { list, .. } => {
+            | Work::PutText { list, .. }
+            | Work::Visibility { list, .. } => {
                 engine.objects().heap_mut().release(list);
             }
         }
@@ -265,7 +276,8 @@ impl From<Escape> for Unmade {
 
 /// The rooted list of `node`'s wrapper and the event `firing` describes, in
 /// the document `cell` holds, the node's wrapper made if it has none — what
-/// a [`Work::Dispatch`] or a [`Work::Activate`] holds.
+/// a [`Work::Dispatch`], a [`Work::Activate`] or a [`Work::Visibility`]
+/// holds.
 ///
 /// The list is made and rooted first, so the wrapper and the event, each an
 /// allocation, are held by it from the moment they exist. `cell` must be

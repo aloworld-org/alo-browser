@@ -26,12 +26,15 @@
 //! `location` on its eighth since queue items 359 and 360 built them, and
 //! past `window.addEventListener("pagehide", …)` on its thirty-second since
 //! queue item 362 made the global object a `Window`. Nothing in a load fires
-//! its `pagehide` listener (queue item 364); dispatched by a later task, it
+//! its `pagehide` listener (queue item 373); dispatched by a later task, it
 //! reports the depth the page was read to, since queue items 366 and 370
-//! gave it the window's size and the page's.
+//! gave it the window's size and the page's. And since queue item 364 the
+//! browser tells it when it is hidden, and its `visibilitychange` listener
+//! reports the same.
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
+use alo_renderer::{FromRenderer, ToRenderer, Visibility};
 
 /// Where alo Sites serves the page: the site's root, on its own host.
 const ADDRESS: &str = "https://nordwind.alosites.com/";
@@ -203,7 +206,7 @@ fn left(rendering: &Rendering, name: &str) -> Option<String> {
 /// So `record`, on `pagehide`, reaches 600 pixels down a page 600 tall, all
 /// of it, and reports a depth of 1000 per mille with `shape()`, the page's
 /// path and the window's width; then the seconds read, none on the corpus's
-/// clock. Nothing in a load fires `pagehide` (queue item 364), and the beacon
+/// clock. Nothing in a load fires `pagehide` (queue item 373), and the beacon
 /// it sends with is queue item 369, so a later task lends what it needs and
 /// nothing else, as a timer or an event will run one: a beacon in
 /// `navigator.sendBeacon`'s place, a `pagehide`, and a click with `pageX` and
@@ -259,6 +262,92 @@ fn its_script_reads_the_window_it_is_drawn_in_and_the_page_in_it() {
         assert_eq!(
             left(&rendering, "data-sent").as_deref(),
             Some("d=1000&p=%2F&w=800;t=0;x=0&y=0&p=%2F&w=800;"),
+            "stress: {stress}"
+        );
+    }
+}
+
+/// What the page's lent beacon has sent, as the root element's `data-sent`.
+fn sent(renderer: &alo_renderer::Renderer) -> Option<String> {
+    let document = renderer.document()?;
+    let html = document
+        .descendants(document.root())
+        .find(|id| document.element(*id).is_some())?;
+    document
+        .element(html)?
+        .attr("data-sent")
+        .map(ToOwned::to_owned)
+}
+
+/// Queue item 364 (ADR 0039 § 1): the page is told it is hidden, and its
+/// own `visibilitychange` listener sends what it measured — the depth, the
+/// path and the width, then the seconds — through a beacon a task lends
+/// (`sendBeacon` is queue item 369). Shown again, it starts counting and
+/// sends nothing; hidden again, `record` has already sent. The browser
+/// fires nothing else at it. Run ordinarily and with the collector at every
+/// allocation.
+#[test]
+fn hidden_it_sends_what_it_measured_once() {
+    for stress in [false, true] {
+        let Some((_, mut rendering)) = cta() else {
+            panic!("the case renders");
+        };
+        let Rendering::Loaded(renderer, _) = &mut rendering else {
+            panic!("the case is loaded by a renderer");
+        };
+        let looping = renderer
+            .event_loop()
+            .unwrap_or_else(|| panic!("the page's script ran"));
+        looping.engine().objects().heap_mut().stress(stress);
+        let lent = looping.queue_script(
+            "lend",
+            "var sent = ''; \
+             navigator.sendBeacon = function (to, body) { sent += body + ';'; return true; };",
+        );
+        assert!(lent.is_ok(), "{lent:?}");
+        assert!(
+            looping
+                .run_next()
+                .is_some_and(|turn| turn.reports.is_empty())
+        );
+
+        let mut heard = Vec::new();
+        for to in [Visibility::Hidden, Visibility::Visible, Visibility::Hidden] {
+            match renderer.handle(ToRenderer::Visibility(to)) {
+                FromRenderer::Delivered {
+                    issues,
+                    fetches,
+                    navigation,
+                    ..
+                } => {
+                    assert!(issues.is_empty(), "{to:?}: {issues:?}");
+                    assert!(fetches.is_empty(), "{to:?}: {fetches:?}");
+                    assert_eq!(navigation, None);
+                }
+                other => panic!("{to:?} answered {other:?}"),
+            }
+            let looping = renderer
+                .event_loop()
+                .unwrap_or_else(|| panic!("the page's script ran"));
+            let read = looping.queue_script(
+                "read",
+                "document.documentElement.setAttribute('data-sent', sent);",
+            );
+            assert!(read.is_ok(), "{read:?}");
+            assert!(
+                looping
+                    .run_next()
+                    .is_some_and(|turn| turn.reports.is_empty())
+            );
+            heard.push(sent(renderer).unwrap_or_default());
+        }
+        assert_eq!(
+            heard,
+            [
+                "d=1000&p=%2F&w=800;t=0;",
+                "d=1000&p=%2F&w=800;t=0;",
+                "d=1000&p=%2F&w=800;t=0;",
+            ],
             "stress: {stress}"
         );
     }

@@ -1115,3 +1115,19 @@ There is no back-forward cache and no `beforeunload`. 364 is now the first
 build, designed and eligible. The leaving steps are cut to **373**, and
 369 now depends on 373. 159 queue items are open. The next unused queue
 number is 374 and the next unused ADR 0040.
+
+Iteration 241 built item 364, the visibility state (ADR 0039 § 1). A
+`Page` carries the state it loads in and `ToRenderer::Visibility` changes
+it: a task that sets the document cell's state and fires one
+`visibilitychange`, at the document and then the window, only when it
+changed (`event_loop/shown.rs`, `show.rs`). It is answered as a delivery
+is, and `Tabs::visibility` decides what its listeners ask for as the
+document's. `document.visibilityState` and `document.hidden` read the cell
+(`alo-bindings`' `visibility.rs`, `interface/document_visibility.rs`), and
+a document no window was associated with stays `"hidden"`. `alo-window`
+sends `Order::Visibility` on `Occluded`, and the conductor tells the
+selected tab, paints it again, and loads later pages in the window's
+state. alo Sites' page, hidden, reports `d=1000&p=%2F&w=800` and `t=0`
+from its own listener. 373, a page left, is next and eligible; 369 follows
+it. 158 queue items are open. The next unused queue number is 374 and the
+next unused ADR 0040.

@@ -10,6 +10,7 @@
 //! Fetching is the browser process's, and that is a privilege boundary rather
 //! than a division of labour.
 
+use alo_bindings::Visibility;
 use alo_css::ColorScheme;
 use alo_layout::Size;
 use alo_url::Url;
@@ -35,6 +36,11 @@ pub struct Page {
     pub sheets: Vec<String>,
     /// How big the window is.
     pub viewport: Size,
+    /// Whether the page can be seen as it loads (ADR 0039 § 1): the browser
+    /// process's to know, since only it knows which tab is selected and
+    /// whether its window is covered. A page loaded into a tab opened behind
+    /// the selected one starts `hidden`; a tab no window shows is `visible`.
+    pub visibility: Visibility,
     /// Light or dark, which the browser process knows and a page does not.
     pub scheme: ColorScheme,
     /// Every `Content-Security-Policy` header the response carried, as it
@@ -89,6 +95,7 @@ impl Page {
             html: html.into(),
             sheets: Vec::new(),
             viewport,
+            visibility: Visibility::Visible,
             scheme: ColorScheme::Light,
             policies: Vec::new(),
             watching: Vec::new(),
@@ -171,6 +178,13 @@ impl Page {
         }
     }
 
+    /// The same page, loaded as `visibility` says it can or cannot be seen.
+    #[must_use]
+    pub const fn shown_as(mut self, visibility: Visibility) -> Self {
+        self.visibility = visibility;
+        self
+    }
+
     /// The same page in the dark.
     #[must_use]
     pub fn in_the_dark(mut self) -> Self {
@@ -192,6 +206,7 @@ impl Page {
             html: response.text().text,
             sheets: Vec::new(),
             viewport,
+            visibility: Visibility::Visible,
             scheme: ColorScheme::Light,
             policies: response
                 .headers
@@ -220,6 +235,11 @@ mod tests {
         assert_eq!(page.url.serialised, "about:blank");
         assert!(page.sheets.is_empty());
         assert_eq!(page.scheme, ColorScheme::Light);
+        assert_eq!(
+            page.visibility,
+            Visibility::Visible,
+            "a page nobody said was hidden is seen by whoever loaded it",
+        );
     }
 
     #[test]

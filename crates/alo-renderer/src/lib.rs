@@ -90,6 +90,7 @@ pub mod sheet;
 pub mod sheet_decide;
 pub mod sheet_make;
 pub mod sheet_owed;
+mod show;
 pub mod site;
 pub mod snapshot;
 pub mod svg_picture;
@@ -98,6 +99,7 @@ pub mod view;
 pub mod violations;
 pub mod wire;
 
+pub use alo_bindings::Visibility;
 pub use event_loop::EventLoop;
 pub use families::Wanted;
 pub use frame::Frame;

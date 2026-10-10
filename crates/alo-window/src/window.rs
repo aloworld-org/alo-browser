@@ -43,6 +43,7 @@ use crate::notice::Lettering;
 use crate::place::{replication, viewport};
 use crate::present::Presenter;
 use crate::showing::Showing;
+use alo_renderer::Visibility;
 use std::rc::Rc;
 use std::sync::mpsc::Sender;
 use winit::application::ApplicationHandler;
@@ -210,6 +211,18 @@ impl ApplicationHandler<News> for App {
                 if self.failed.is_some() {
                     self.close(event_loop);
                 }
+            }
+            // Covered or minimised, or seen again (ADR 0039 § 1): `winit`
+            // says both as occlusion on macOS.
+            WindowEvent::Occluded(occluded) => {
+                let to = if occluded {
+                    Visibility::Hidden
+                } else {
+                    Visibility::Visible
+                };
+                // A conductor that has gone is a window closing; there is no
+                // page left to tell.
+                let _ = self.orders.send(Order::Visibility(to));
             }
             WindowEvent::CloseRequested => self.close(event_loop),
             _ => {}

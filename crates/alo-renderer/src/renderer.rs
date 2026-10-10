@@ -88,6 +88,14 @@
 //! answer is a message of its own, [`ToRenderer::Sheet`], whose task keeps the
 //! bytes and draws the page with them.
 //!
+//! # Whether a page can be seen
+//!
+//! The browser process's to know (ADR 0039 § 1): a page starts as its
+//! [`Page::visibility`] says, which its document is given when its heap is
+//! made, and [`ToRenderer::Visibility`] changes it — a task that fires
+//! `visibilitychange` only on a change ([`crate::show`]), answered as a
+//! delivery is.
+//!
 //! What is not here yet is the loop running between messages — a task a
 //! page queues for itself has no idle moment to run in (queue item 233).
 
@@ -112,10 +120,12 @@ use crate::put::put;
 use crate::said;
 use crate::scripts;
 use crate::sheet::{SheetAnswer, SheetAsk};
+use crate::show;
 use crate::snapshot::Snapshot;
 use crate::view::PageView;
 use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Outcome, Target, Verb};
+use alo_bindings::Visibility;
 use alo_bindings::navigating::{self, By};
 use alo_dom::{Document, Parsing};
 use alo_layout::Size;
@@ -221,6 +231,7 @@ impl Renderer {
             ToRenderer::UseGenerics(generics) => self.use_generics(&generics),
             ToRenderer::Load(page) => self.load(*page),
             ToRenderer::Resize(viewport) => self.resize(viewport),
+            ToRenderer::Visibility(to) => self.visibility(to),
             ToRenderer::Paint => self.paint(),
             ToRenderer::ReadTree => self.read_tree(),
             ToRenderer::Act { target, verb } => self.act(&target, &verb),
@@ -424,7 +435,32 @@ impl Renderer {
         let Some(held) = &mut self.held else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
-        let mut issues = deliver(held, arrived);
+        let issues = deliver(held, arrived);
+        self.after_the_task(issues)
+    }
+
+    /// The page told whether it can be seen (ADR 0039 § 1): the state kept
+    /// with the page, and on a page that runs script a task of its own that
+    /// fires `visibilitychange` if the state changed ([`crate::show`]).
+    /// Answered as a delivery is: what the page's listeners asked for is the
+    /// document's.
+    fn visibility(&mut self, to: Visibility) -> FromRenderer {
+        let (Some(page), Some(held)) = (&mut self.page, &mut self.held) else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
+        page.visibility = to;
+        let issues = show::tell(held, to);
+        self.after_the_task(issues)
+    }
+
+    /// The answer to a task the browser process sent that is nobody's but
+    /// the document's — a delivery, a change of visibility — with `issues`,
+    /// what its script said: where it asked to go, what it asked to fetch,
+    /// the sheets it now links, and what its draw objected to.
+    fn after_the_task(&mut self, mut issues: Vec<String>) -> FromRenderer {
+        let Some(held) = &mut self.held else {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        };
         let ongoing = held.take_navigation();
         let (navigation, mut said) = ask::answer(&ongoing);
         issues.append(&mut said);

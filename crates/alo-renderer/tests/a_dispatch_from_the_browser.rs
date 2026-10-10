@@ -92,7 +92,13 @@ impl Page {
         let button = document.first_child(outer).ok_or("no button")?;
         let mut held = Held::Parsed(document);
         let looping = held
-            .scripted(&alo_url::Url::about_blank(), IDENTITY, &clock(), &view())
+            .scripted(
+                &alo_url::Url::about_blank(),
+                IDENTITY,
+                &clock(),
+                &view(),
+                alo_renderer::Visibility::Visible,
+            )
             .map_err(|why| why.to_string())?;
         looping.engine().objects().heap_mut().stress(stress);
         let mut page = Self {
@@ -483,8 +489,13 @@ fn a_target_with_no_wrapper_is_given_one_and_its_ancestors_listeners_hear() {
             panic!("the div has a button");
         };
         let mut held = Held::Parsed(document);
-        let Ok(looping) = held.scripted(&alo_url::Url::about_blank(), IDENTITY, &clock(), &view())
-        else {
+        let Ok(looping) = held.scripted(
+            &alo_url::Url::about_blank(),
+            IDENTITY,
+            &clock(),
+            &view(),
+            alo_renderer::Visibility::Visible,
+        ) else {
             panic!("an empty heap takes the page");
         };
         looping.engine().objects().heap_mut().stress(stress);

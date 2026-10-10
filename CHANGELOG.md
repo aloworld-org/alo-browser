@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page knows whether it can be seen.** `document.visibilityState` and
+  `document.hidden` say whether the page is visible, from the moment it
+  starts loading, and the page hears `visibilitychange` each time that
+  changes: when its window is covered or minimised, and when it is seen
+  again. Told the same thing twice, it hears nothing. A page loaded while
+  the window is covered starts hidden. alo Sites' analytics script now
+  reports how much of the page was read when its window is hidden, as it
+  does in other browsers. A page being left — its tab closed, or the next
+  page replacing it — is still told nothing (queue items 364 and 373,
+  ADR 0039).
+
 - **Decided: when a page is told it is hidden, shown or left.** A page
   will know whether it can be seen — hidden when its window is covered or
   minimised or another tab is in front — and hear `visibilitychange` each

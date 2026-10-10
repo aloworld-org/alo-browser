@@ -130,6 +130,7 @@ fn a_renderer_that_renders_was_confined_before_it_read_anything() {
                 width: 100.0,
                 height: 50.0,
             },
+            visibility: alo_renderer::Visibility::Visible,
             scheme: ColorScheme::Light,
             policies: Vec::new(),
             watching: Vec::new(),

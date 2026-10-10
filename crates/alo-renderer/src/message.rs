@@ -32,6 +32,7 @@ use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::snapshot::Snapshot;
 use crate::violations::Objection;
 use alo_agent::{Outcome, Refusal, Target, Verb};
+use alo_bindings::Visibility;
 use alo_layout::Size;
 use core::fmt;
 
@@ -56,6 +57,14 @@ pub enum ToRenderer {
     Load(Box<Page>),
     /// The window is a different size now.
     Resize(Size),
+    /// The page can, or can no longer, be seen (ADR 0039 § 1).
+    ///
+    /// A task on the page's loop, queued in order with everything else,
+    /// which fires `visibilitychange` at the document only if the state
+    /// changed. Answered as a delivered task is, with
+    /// [`FromRenderer::Delivered`]: what it asked for is the document's,
+    /// since nobody did anything to the page by covering its window.
+    Visibility(Visibility),
     /// Draw what is loaded.
     Paint,
     /// Read the page as an agent reads it.
@@ -299,6 +308,7 @@ impl fmt::Display for ToRenderer {
                 page.viewport.height,
             ),
             ToRenderer::Resize(size) => write!(f, "resize to {}×{}", size.width, size.height),
+            ToRenderer::Visibility(to) => write!(f, "the page is {}", to.as_str()),
             ToRenderer::Paint => f.write_str("paint"),
             ToRenderer::ReadTree => f.write_str("read the tree"),
             ToRenderer::Act { target, verb } => write!(f, "{verb:?} {target}"),
@@ -353,6 +363,7 @@ mod tests {
             | ToRenderer::UseGenerics(_)
             | ToRenderer::Load(_)
             | ToRenderer::Resize(_)
+            | ToRenderer::Visibility(_)
             | ToRenderer::Paint
             | ToRenderer::ReadTree
             | ToRenderer::Act { .. } => "a page, a font, or a thing to do to one",
@@ -391,6 +402,10 @@ mod tests {
         assert_eq!(
             ToRenderer::Resize(Size::new(320.0, 480.0)).to_string(),
             "resize to 320×480",
+        );
+        assert_eq!(
+            ToRenderer::Visibility(Visibility::Hidden).to_string(),
+            "the page is hidden",
         );
     }
 
