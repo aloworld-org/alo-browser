@@ -1243,6 +1243,51 @@ fn every_line_starts_as_tall_as_its_containers_font() {
 }
 
 #[test]
+fn an_empty_field_stands_where_its_text_will() {
+    // A field with nothing typed in it stands on the baseline of the line it
+    // would hold, so that it does not drop when somebody types. Half the font
+    // size a character, three quarters of it above the baseline: at 16 px and
+    // a 20 px line, the strut reaches 14 above and 6 below.
+    let css = "#w, input { font-size: 16px; line-height: 20px } \
+               input { padding: 5px; border: 0; width: 40px }";
+
+    // Empty and filled lay the line out alike. The field is 30 tall — a line
+    // and ten of padding — and its baseline is 19 down, five of padding and
+    // the strut's 14. That sets the line's ascent; its 11 below the baseline
+    // covers the strut's 6. So the line is the field's own 30, the field at
+    // its top, and the text beside it stands on 19: its top at 7.
+    for field in ["<input id=f>", "<input id=f value=cd>"] {
+        let html = format!("<body><div id=w><span id=s>ab</span>{field}</div></body>");
+        let (boxes, layout) = lay_out_measured(&html, css, Size::new(400.0, 300.0), &ScaledFont);
+        let block = rect_of(&boxes, &layout, "w", &html);
+        assert!(close(block.size.height, 30.0), "{field}: {block:?}");
+        let text = rect_of(&boxes, &layout, "s", &html);
+        assert_eq!(text, Rect::new(0.0, 7.0, 16.0, 16.0), "{field}");
+        let input = rect_of(&boxes, &layout, "f", &html);
+        assert_eq!(input, Rect::new(16.0, 0.0, 50.0, 30.0), "{field}");
+    }
+
+    // An empty field alone in a block makes a line of its own height.
+    let html = "<body><div id=w><input id=f></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 30.0));
+
+    // A `<textarea>` and a button with nothing in them have no line, and
+    // stand on their bottom margin edge: 30 above the baseline, and the
+    // strut's 6 below it, so the line is 36 and the text's top at 18.
+    let css = "#w, textarea, button { font-size: 16px; line-height: 20px } \
+               textarea, button { padding: 5px; border: 0; width: 40px; height: auto }";
+    for control in ["<textarea id=f></textarea>", "<button id=f></button>"] {
+        let html = format!("<body><div id=w><span id=s>ab</span>{control}</div></body>");
+        let (boxes, layout) = lay_out_measured(&html, css, Size::new(400.0, 300.0), &ScaledFont);
+        let block = rect_of(&boxes, &layout, "w", &html);
+        assert!(close(block.size.height, 36.0), "{control}: {block:?}");
+        let text = rect_of(&boxes, &layout, "s", &html);
+        assert_eq!(text, Rect::new(0.0, 18.0, 16.0, 16.0), "{control}");
+    }
+}
+
+#[test]
 fn line_height_is_room_split_evenly_above_and_below_the_font() {
     // A line as tall as its `line-height`, with half of what that leaves over
     // the font above the letters and half below. Half the font size a

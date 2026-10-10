@@ -63,7 +63,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] **`text-align`** `start`, `left`, `center`, `end` and `right`: a line, text and inline-blocks together, moves as one, and a line in a box nobody wrote inherits its container's alignment
 - [1] **An image or inline-block's margins on its line**: its margin box takes room across the line, stands on the baseline and makes the line taller, so the space an author writes under a picture is kept
 - [1] **The strut**: every line starts as tall as its container's font, so a line of only a picture keeps the font's descent below it and small text in a large-font block makes a line as tall as the large font; a line with nothing worth a line box is still no line
-- [1] **An inline-block's baseline is its last line's**: a button stands on its label's, a text field on its value's, an inline-block of text on its last line, so each reads level with the text beside it; with no line, or `overflow` other than `visible`, it stands on its bottom margin edge as a picture does. A flex or grid container's baseline (its items') is refused and stands on its bottom edge
+- [1] **An inline-block's baseline is its last line's**: a button stands on its label's, a text field on its value's, an inline-block of text on its last line, so each reads level with the text beside it; **a one-line field with nothing typed in it stands where its text will** (queue item 384), so it does not drop when somebody types; with no line, or `overflow` other than `visible`, it stands on its bottom margin edge as a picture does. A flex or grid container's baseline (its items') is refused and stands on its bottom edge
 - [2] **`line-height` on a line**: text, an inline box and the strut each take their `line-height` on the line, half of the difference from their font's ascent and descent above and half below, so a 16 px line at 1.5 is 24 with the letters 4 down; a `line-height` smaller than the font is a negative leading; an inline box is aligned by that room, not by its letters; `normal` is the font's own ascent and descent; what is drawn is still the font's height, so a link's background does not fill the gap between lines; a value that is negative, not finite or unreadable is `normal`
 - [2] **`vertical-align`**: every keyword, a length and a percentage of the box's own `line-height`, on an image, an inline-block and an inline box with everything inside it. `middle` is half the parent's x-height over its baseline; `top` and `bottom` hold a box, and what is in it, against the line box once the rest has said how tall it is; whatever moved still makes the line taller
 - [2] **A `<br>` ends its line**: what follows starts a new line whether or not the line was full; two in a row leave a blank line, one with nothing after it adds none, and one alone is a line of its own; it takes no room across the line, stands where the line's drawn content ends, and its own `line-height` counts towards the line it ends. A `<br>` given another `display` is the box the author wrote rather than a break
@@ -191,7 +191,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [2] **`text-decoration`**: underline, overline and line-through, stopping at
   the end of the inline rather than the edge of the line
 - [2] **Forms**: labels that wrap their control, fieldsets named by their
-  legend, and a radio you can tell from a checkbox
+  legend, and a radio you can tell from a checkbox. Not yet: what an empty
+  date or time field shows — its format, in the person's locale, and a
+  button that opens a calendar — which is drawn as an empty field (queue
+  item 385, needs an ADR; opened by `alo-sites-booking`)
 - [2] **A fieldset's border, broken by its legend** — the legend sits *in* the
   block-start border rather than above it, and the border is drawn in the two
   pieces it leaves. The band it sits in replaces that border rather than adding

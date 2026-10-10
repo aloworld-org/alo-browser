@@ -137,6 +137,14 @@ pub enum Purpose {
         /// Whether what is inside sits in the middle, which a button does and
         /// a text field does not.
         centred: bool,
+        /// Whether it is a one-line field — an `<input>` a person types into.
+        ///
+        /// Such a field stands on the baseline of the line it holds **even
+        /// when nothing is typed in it**, so that it does not move when
+        /// something is. A button and a `<textarea>` are not, and with
+        /// nothing in them they stand on their bottom margin edge as any
+        /// box with no line does.
+        one_line: bool,
     },
 }
 
@@ -737,12 +745,12 @@ fn build_one(
             // making it a flex or grid container replaces that arrangement
             // with one of their own.
             if matches!(display.inside(), Some(Inside::Flow | Inside::FlowRoot))
-                && let Some(centred) = control_content(element)
+                && let Some(purpose) = control_content(element)
             {
                 let inner = tree.push(
                     BoxKind::Anonymous {
                         outside: Outside::Block,
-                        purpose: Purpose::Control { centred },
+                        purpose,
                     },
                     Semantics::anonymous(),
                 );
@@ -952,17 +960,25 @@ fn legend_of(
 }
 
 /// Whether an element is a form control that holds what it shows in a box of
-/// its own, and whether that box centres what is in it.
+/// its own, and what that box is: whether it centres what is in it, and
+/// whether it is a one-line field.
 ///
 /// A button's label sits in the middle of it; a field's text sits at the start
 /// and one line down. Both are things browsers do with an internal box rather
 /// than with a style sheet rule, which is exactly why they are here.
-fn control_content(element: &alo_dom::Element) -> Option<bool> {
+fn control_content(element: &alo_dom::Element) -> Option<Purpose> {
+    let button = Purpose::Control {
+        centred: true,
+        one_line: false,
+    };
     if element.name.is_html("button") {
-        return Some(true);
+        return Some(button);
     }
     if element.name.is_html("textarea") {
-        return Some(false);
+        return Some(Purpose::Control {
+            centred: false,
+            one_line: false,
+        });
     }
     if !element.name.is_html("input") {
         return None;
@@ -971,11 +987,14 @@ fn control_content(element: &alo_dom::Element) -> Option<bool> {
         .attr("type")
         .map_or_else(|| "text".to_owned(), str::to_ascii_lowercase);
     match kind.as_str() {
-        "button" | "submit" | "reset" => Some(true),
+        "button" | "submit" | "reset" => Some(button),
         // A checkbox and a radio draw themselves; there is nothing inside them
         // to hold, and a box would only make them taller.
         "checkbox" | "radio" | "hidden" | "image" | "range" | "color" => None,
-        _ => Some(false),
+        _ => Some(Purpose::Control {
+            centred: false,
+            one_line: true,
+        }),
     }
 }
 
@@ -1516,6 +1535,55 @@ mod tests {
             2,
             "one piece on each side, even though the first holds nothing:\n{outline}",
         );
+    }
+
+    /// What the box a control holds its content in is, for each control.
+    fn inside_of(html: &str) -> Vec<Purpose> {
+        let tree = boxes(html, "");
+        let Some(root) = tree.root() else {
+            return Vec::new();
+        };
+        tree.descendants(root)
+            .into_iter()
+            .filter_map(|id| match tree.get(id).map(|node| &node.kind) {
+                Some(BoxKind::Anonymous {
+                    purpose: purpose @ Purpose::Control { .. },
+                    ..
+                }) => Some(*purpose),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn only_a_field_a_person_types_one_line_into_holds_one_line() {
+        let field = Purpose::Control {
+            centred: false,
+            one_line: true,
+        };
+        for html in [
+            "<input>",
+            "<input type=date>",
+            "<input type=email value=a>",
+            "<input type=PASSWORD>",
+        ] {
+            assert_eq!(inside_of(html), vec![field], "{html}");
+        }
+        let button = Purpose::Control {
+            centred: true,
+            one_line: false,
+        };
+        for html in ["<button></button>", "<input type=submit>"] {
+            assert_eq!(inside_of(html), vec![button], "{html}");
+        }
+        assert_eq!(
+            inside_of("<textarea></textarea>"),
+            vec![Purpose::Control {
+                centred: false,
+                one_line: false,
+            }],
+        );
+        assert!(inside_of("<input type=checkbox>").is_empty());
     }
 
     /// The box a `<fieldset>` made, found by what it means.

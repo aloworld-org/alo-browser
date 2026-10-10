@@ -24263,3 +24263,125 @@ and `CHANGELOG.md`.
 161 queue items are open: 382 was added closed and 383 open. The next
 unused queue number is **384** and the next ADR is **0042**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 250 — queue item 384 opened and built: an empty field stands where its text will, found by freezing alo Sites' booking section
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` (its head and
+stage 2's *Forms* line), `REMAINING.md` and iteration 249's entry. No
+`AGENTS.md` exists in this repository. For 384: `docs/features.md`' stage 1
+line *An inline-block's baseline is its last line's* and its stage 2
+*Forms* line, queue item 285 (the rule this extends) and 97 (multi-column),
+`alo-layout`'s `baseline.rs`, `engine.rs` (`place_inline_content`,
+`control_content_style`) and `inline.rs` (the strut), `alo-box`'s
+`tree.rs` (`Purpose::Control`, `control_content`), the user-agent sheet's
+control rules, and `alo-sites-features` as the pattern for a frozen alo
+Sites case. No ADR decides control baselines; 285 built the rule without
+one.
+
+**Choosing.**
+- 296 first: a Swift check answered `CGSSessionScreenIsLocked` = 1, with
+  capture access true. Still locked, so 296 is not takeable and nothing of
+  it was started; 297–300 wait on it.
+- Every other open item stands as iterations 247–249 listed it: blocked,
+  page-gated, *needs design*, *needs ADR* behind an unbuilt dependency, or
+  waiting on a dependency.
+- So the eligible work was a real page that fails. Of alo Sites' golden
+  sections with no `<img>` and no `section-motion`, FAQ and booking were
+  frozen locally and rendered. FAQ lays its questions out with `columns: 2
+  20rem`, which is item 97 (needs design), so it was not kept. Booking's
+  numbers all checked against the sheet by hand except one: the empty day
+  field's line was 56.11 where the field is 48.4, the 7.71 being exactly
+  the strut's descent at 17 px and 1.6. The field had no line, so it stood
+  on its bottom margin edge. Browsers stand an empty one-line field where
+  its text will be. No queue item named it (285 covered a field *with* a
+  value), so 384 was written with its closing conditions and built.
+
+**Why no ADR.** It is CSS's and HTML's rule as every engine draws it, the
+completion of 285's, and changes nothing anybody decides: which boxes have
+a baseline is already settled in `baseline.rs`. An empty `<textarea>` and
+button were left on their bottom edge, deliberately, since browsers do not
+agree on the first and no page asks about the second.
+
+**What was built.**
+- `alo-box`: `Purpose::Control` gains `one_line`, true only for an
+  `<input>` holding text; `control_content` now answers the purpose.
+- `alo-layout`: `inline::empty_line_baseline` (the strut's ascent and half
+  its leading); `engine.rs`' `record_an_empty_field` records it, at the
+  top of the field's content box, for a one-line field with no line, both
+  when it has no children and when its value is nothing worth a line;
+  `baseline.rs` reads a recorded line on a box holding no inline content,
+  and its module comment says so.
+- `crates/alo-corpus/cases/alo-sites-booking`: `section_booking.html` and
+  `site.css`, byte for byte, from `alo-workplace` at 738de614, with hashes,
+  provenance and findings in `origin.txt`.
+- `crates/alo-corpus/tests/alo_sites_booking.rs`, 3 tests.
+
+**Gate, mechanical.** Workspace clippy (`--all-targets --all-features`)
+first refused `place_inline_content` at 106 lines; the empty-field
+recording moved into one helper used from both places, rather than an
+`#[expect]`. Then silent. `scripts/gate.sh` ran in the foreground to a
+log; the harness moved it to the background at 600 s, and the next call
+waited on it in a foreground `until` loop. It read `exit 0` and "The gate
+is met", with no `FAILED`, `panicked` or `error` in its log: formatting
+clean, clippy silent, tests pass, no stubs, `unsafe` forbidden everywhere,
+licence notices, rented crates behind their boundaries, no verb takes a
+coordinate, the supervisor's stop rule holds, `CHANGELOG.md` changed with
+the code. This entry was written after that run, and is documentation only.
+
+**Gate, manual.**
+- Layout assertion: `numbers.rs`' `an_empty_field_stands_where_its_text_
+  will` (`ScaledFont`, 20 px lines): an empty field and `value=cd` both
+  make a 30 line beside text, the text at 7 and the field at (16, 0), 50 ×
+  30; an empty field alone makes a 30 line; an empty textarea and button a
+  36 line with the text at 18. `the_empty_day_field_makes_a_line_its_own_
+  height`: the field at (432, 120.6), 343 × 48.4, the button 17 below it
+  at 186, the form 162 tall at 89.4. Every number checked by hand against
+  the sheet (in `origin.txt`).
+- Reference render: `alo-sites-booking`'s references written by
+  `ALO_UPDATE_REFERENCES=1`; `web-a-form` moved (its three empty fields'
+  paragraphs 23.2 from 26.97, the label text level with the field's text
+  at 18, the page 649.6375 from 664.73126). Looked at both pictures: the
+  empty fields sit level with their labels, and the textarea still stands
+  on its bottom edge beside its label, as browsers draw it. **No other
+  case moved.** `alo-agent`'s `reading_an_interface` outline moved by
+  hand-checked numbers (the form 41.604885 from 44.90176; the empty
+  "Amount" field at 120.47363, the checkbox at the line's top; everything
+  after 3.297 higher), and its comment says why.
+- Hostile input: nothing new reads outside bytes.
+- Mutation (copies in the scratchpad, restored with `cp`, checked with
+  `cmp`, `alo-render` rebuilt in the same command): `holds_one_line`
+  answering false fails the `numbers.rs` test, the booking line test and
+  exactly two corpus cases (`alo-sites-booking`, `web-a-form`); the
+  baseline search not reading the recorded line fails the `numbers.rs`
+  test; after the refactor for clippy, the helper doing nothing fails the
+  `numbers.rs` and booking tests again.
+- One responsibility per file: the box tree says what a control's inside
+  is; `inline.rs` says where a strut's baseline is; the engine records
+  lines; `baseline.rs` finds the box's.
+- No `unsafe`, no new dependency. No new CSS property is read. `alo-
+  workplace` and `alo-os` were not touched: `git status` in `alo-workplace`
+  is clean.
+
+**Queue.** 384 added ticked, with its *Done* paragraph. 385 (what an empty
+date field shows: its format in the person's locale and a calendar button)
+added open, *needs ADR*, with `alo-sites-booking` as the page that closes
+it. **Roadmap:** stage 2's *Forms* line gains a Built clause for 384 and
+an Owed clause for 385; it stays an empty box. Also updated:
+`docs/features.md` (the stage 1 baseline line and the stage 2 forms line),
+`docs/conformance.md` (the baseline paragraph, and alo Sites' row, now
+five sections, saying the FAQ waits on 97), `REMAINING.md` and
+`CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 385 needs an ADR before any code: where a date's format comes from.
+- An input's `placeholder` is not drawn at all (`alo-sign-in`'s email
+  field has one). No queue item names it yet and no page has been judged
+  on it; the next iteration that freezes a page with one should open it.
+- 383 waits for a page. 381 needs an ADR, and 234 before it. 380 and 378
+  wait for pages. 376 still needs design.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- Everything iteration 249 listed still stands.
+
+162 queue items are open: 384 was added closed and 385 open. The next
+unused queue number is **386** and the next ADR is **0042**. This is one
+iteration, not a finished queue or roadmap.

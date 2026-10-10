@@ -201,7 +201,7 @@ fn alignment_of(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> inline::TextA
     // field's at the start whatever the page around them says, so the box
     // tree's own word for why it exists is the answer.
     if let Some(BoxKind::Anonymous {
-        purpose: alo_box::Purpose::Control { centred },
+        purpose: alo_box::Purpose::Control { centred, .. },
         ..
     }) = boxes.get(id).map(|node| &node.kind)
     {
@@ -496,6 +496,11 @@ fn place_inline_content(
     out: &mut Placed,
     issues: &mut Vec<StyleIssue>,
 ) {
+    if boxes.children(id).next().is_none() {
+        // Nothing under it: only an empty one-line field has a line to record.
+        record_an_empty_field(boxes, styles, id, measure, out);
+        return;
+    }
     if is_inline_formatting_context(boxes, id) {
         let Some(container) = out.geometry.get(&id).copied() else {
             return;
@@ -527,6 +532,9 @@ fn place_inline_content(
         // the last line of; see `crate::baseline`.
         if let Some(last) = layout.lines.last() {
             out.lines.insert(id, origin.y + last.top + last.baseline);
+        } else {
+            // A field whose value is nothing worth a line, such as a space.
+            record_an_empty_field(boxes, styles, id, measure, out);
         }
         for fragment in layout.fragments() {
             let placed = Fragment {
@@ -619,7 +627,48 @@ fn centres_its_lines(boxes: &BoxTree, id: BoxId) -> bool {
     matches!(
         boxes.get(id).map(|node| &node.kind),
         Some(BoxKind::Anonymous {
-            purpose: alo_box::Purpose::Control { centred: true },
+            purpose: alo_box::Purpose::Control { centred: true, .. },
+            ..
+        })
+    )
+}
+
+/// Record the line a one-line field with nothing typed in it would hold: the
+/// baseline of a line holding only its strut, at the top of its content box,
+/// so that it stands where its text will and does not drop when it is typed
+/// into. See `crate::baseline`. Any other box with no line records none.
+///
+/// A field's text is never centred down it, so the top of its content box is
+/// where a line it held would start.
+fn record_an_empty_field(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    id: BoxId,
+    measure: &impl MeasureText,
+    out: &mut Placed,
+) {
+    if !holds_one_line(boxes, id) {
+        return;
+    }
+    let Some(top) = out
+        .geometry
+        .get(&id)
+        .map(|held| held.content_box().origin.y)
+    else {
+        return;
+    };
+    let strut = text_style_for(boxes, styles, id);
+    out.lines
+        .insert(id, top + inline::empty_line_baseline(&strut, measure));
+}
+
+/// Whether this box is the inside of a one-line field, which stands on the
+/// line it would hold even when it holds none. See `alo_box::Purpose`.
+fn holds_one_line(boxes: &BoxTree, id: BoxId) -> bool {
+    matches!(
+        boxes.get(id).map(|node| &node.kind),
+        Some(BoxKind::Anonymous {
+            purpose: alo_box::Purpose::Control { one_line: true, .. },
             ..
         })
     )
@@ -717,7 +766,7 @@ fn style_for(
         return Style::default();
     };
     if let BoxKind::Anonymous {
-        purpose: alo_box::Purpose::Control { centred },
+        purpose: alo_box::Purpose::Control { centred, .. },
         ..
     } = node.kind
     {

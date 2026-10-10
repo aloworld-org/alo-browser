@@ -1234,3 +1234,16 @@ item 382, built in the same iteration in `alo-paint`'s `synthesis.rs`.
 to 383, waiting for a page. 161 queue items are open (382 added closed, 383
 added open). The next unused queue number is 384 and the next unused ADR
 0042.
+
+Iteration 250 found every open item blocked or waiting for a page (296's
+screen is still locked), so it froze the next alo Sites section with no
+picture and nothing set to move into view whose layout this engine can do:
+its booking section, as `alo-sites-booking` (the FAQ section, first in that
+list, lays out in two columns, item 97, and was not kept). Its empty day
+field stood on its bottom edge with the font's descent under it, so the form
+was 7.71 taller than a browser makes it. That opened item 384, built in the
+same iteration: a one-line field with nothing typed in it stands on its
+strut's baseline. What an empty date field shows, its format and a calendar
+button, is cut to 385, which needs an ADR. 162 queue items are open (384
+added closed, 385 added open). The next unused queue number is 386 and the
+next unused ADR 0042.

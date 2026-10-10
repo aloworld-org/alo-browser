@@ -1,0 +1,17 @@
+fill box#2 rgb(255 255 255) at (0, 0) 800×324.8
+fill box#9 rgb(242 245 248) at (0, 0) 800×324.8
+fill box#9 rgb(221 227 233) at (0, 0) 800×324.8
+text box#12 "Come and talk to us" rgb(23 33 43) 28px at (25, 51.493362)
+text box#15 "Consultation" rgb(23 33 43) 18px at (25, 105.631454)
+text box#18 "30 minutes" rgb(23 33 43) 17px at (25, 154.68527)
+text box#21 "Half an hour, in the studio." rgb(76 88 102) 17px at (25, 214.88527)
+text box#24 "Where: Second floor, ring the bell" rgb(76 88 102) 17px at (25, 275.08527)
+text box#30 "Choose a day" rgb(23 33 43) 17px at (432, 108.88526)
+fill box#31 rgb(255 255 255) at (432, 120.600006) 343×48.399994
+fill box#31 rgb(221 227 233) at (432, 120.600006) 343×48.399994
+fill box#36 rgb(29 78 216) at (432, 186.00002) 179.69543×48.40001
+fill box#36 rgb(29 78 216) at (432, 186.00002) 179.69543×48.40001
+text box#37 "See free times" rgb(255 255 255) 17px at (452.2, 216.08527)
+fill box#4 rgb(242 245 248) at (-15984, 0) 161.11035×43.2
+text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27.485254)
+fill box#5 rgb(23 33 43) at (-15968, 28.564356) 129.11035×1

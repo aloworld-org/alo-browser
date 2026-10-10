@@ -219,9 +219,15 @@ fn the_whole_tree_reads_as_what_the_interface_is() {
     // height: every line starts as tall as its font (item 283), and a button
     // stands on its label's baseline (item 285), so the font's descent is
     // already under the label rather than added below the button.
+    //
+    // The "Amount" field is empty, and stands where its value would (item
+    // 384) rather than on its bottom edge: its baseline is its border,
+    // padding and the font's ascent down, 14.995, so the first line is as
+    // tall as the field and the checkbox, 20.805, where it was 24.1 with the
+    // field standing on the baseline and the font's descent under it.
     let expected = "\
-document at (0, 0) 240×233.96426
-  main at (0, 0) 240×233.96426
+document at (0, 0) 240×230.66739
+  main at (0, 0) 240×230.66739
     heading \"Invoices\" [level=1] at (8, 8) 224×23.28125
     navigation \"Filters\" at (8, 31.28125) 224×16.296875
       link \"All\" at (8, 31.28125) 17.356445×16.296875
@@ -230,11 +236,11 @@ document at (0, 0) 240×233.96426
       listitem \"Invoice 11\" at (8, 47.578125) 224×24.296875
       listitem \"Invoice 12\" [selected=true] at (8, 71.875) 224×24.296875
       listitem \"Invoice 13\" at (8, 96.171875) 224×24.296875
-    form \"New invoice\" at (8, 120.46875) 224×44.90176
-      textbox \"Amount\" [required] at (63.015625, 120.46875) 146×20.800001
-      checkbox \"Recurring\" [checked=true] at (209.01563, 126.26875) 15×15
-      button \"Save\" [disabled] at (8, 144.57051) 48.364258×20.800001
-    text \"a plain div with no meaning\" at (8, 209.66739) 194.50293×16.296875
+    form \"New invoice\" at (8, 120.46875) 224×41.604885
+      textbox \"Amount\" [required] at (63.015625, 120.47363) 146×20.800001
+      checkbox \"Recurring\" [checked=true] at (209.01563, 120.46875) 15×15
+      button \"Save\" [disabled] at (8, 141.27364) 48.364258×20.800001
+    text \"a plain div with no meaning\" at (8, 206.37051) 194.50293×16.296875
 ";
     assert_eq!(tree.to_outline(), expected);
 }

@@ -1,0 +1,27 @@
+block flow · document
+  block flow · generic
+    block flow · link
+      text "Skip to content"
+    block flow · main
+      block grid · generic
+        block flow · heading [level=2]
+          text "Come and talk to us"
+        block flow · heading [level=3]
+          text "Consultation"
+        block flow · paragraph
+          text "30 minutes"
+        block flow · paragraph
+          text "Half an hour, in the studio."
+        block flow · paragraph
+          text "Where: Second floor, ring the bell"
+        block flow · generic
+          block flow · paragraph
+            block flow · generic
+              text "Choose a day"
+            anonymous block
+              inline flow-root · generic [required]
+                anonymous block
+          block flow · paragraph
+            inline flow-root · button
+              anonymous block
+                text "See free times"

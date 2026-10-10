@@ -1148,10 +1148,16 @@ unreachable without it.
       other browsers draw it, with the legend's part cut out (queue item 267,
       `alo-paint`'s `banded.rs`), and a `dashed`, `dotted` or `double` one is
       cut the same way, its pattern laid along the whole side (queue item
-      268, corpus case `fieldset-patterns`) · Owed: everything a control **does**,
+      268, corpus case `fieldset-patterns`). **An empty field stands where
+      its text will** (queue item 384, `alo-layout`'s `baseline.rs` and
+      `inline::empty_line_baseline`): an `<input>` nobody has typed into is
+      level with its label, and does not drop when typed into. Corpus cases
+      `alo-sites-booking` and `web-a-form` · Owed: everything a control **does**,
       which needs events
       (queue item 81) — constraint validation, submission, file inputs — the
-      focus ring, which needs something to have focus (queue item 43)
+      focus ring, which needs something to have focus (queue item 43); and
+      what an empty date or time field shows, its format in the person's
+      locale and a calendar button, which needs an ADR (queue item 385)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
       · Built: **`location`, read** (queue item 360) — `alo-url`'s
       `reading.rs` (the URL Standard's nine readings over our `Url`) and

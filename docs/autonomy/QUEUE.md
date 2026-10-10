@@ -6916,6 +6916,65 @@ The long pole, and the thing most of section E is unreachable without.
   bold is heavier in pixels than the face it came from with its advances
   stated, and an angled `oblique` leans by its own angle.
 
+- [x] **384. An empty field stands where its text will.** *Opened by
+  `alo-sites-booking` (iteration 250), frozen in the same change. Feature:
+  `docs/features.md` stage 1, "An inline-block's baseline is its last
+  line's". Extends 285; depends on nothing open.* alo Sites' booking form
+  holds a day field nobody has typed into. With nothing in it the field
+  held no line, so it stood on its bottom margin edge (285's rule for a box
+  with no line), and its line was the strut's descent taller than the
+  field: 56.11 where the field is 48.4. The form, centred down its grid
+  rows, was 7.71 taller and its label stood 3.86 higher than a browser
+  draws it. Browsers stand a one-line field on the baseline of the line it
+  would hold, typed into or not, so it does not drop when somebody types.
+  `web-a-form`'s three empty fields had the same fault, their labels' text
+  8.35 below their fields' tops. *Closes when:* a `numbers.rs` assertion has
+  an empty field and a filled one lay out a line beside text identically,
+  an empty field alone make a line its own height, and an empty
+  `<textarea>` and button still stand on their bottom edge (browsers do not
+  agree on an empty textarea, and no page asks); the booking field's line
+  is its own 48.4 and the form 162 tall at 89.4; `web-a-form`'s labels
+  stand level with their fields' text.
+  **Done (iteration 250).** `alo-box`'s `Purpose::Control` gains
+  `one_line`, true only for an `<input>` that holds text (not a button,
+  submit or reset, and not a `<textarea>`). `alo-layout`'s engine records,
+  for such a field's inner box with no line, the baseline of a line
+  holding only its strut (`inline::empty_line_baseline`: the strut's
+  ascent and half its leading) where it records any last line, and
+  `baseline.rs` reads a recorded line on a box that holds no inline
+  content. Tests: `numbers.rs`
+  `an_empty_field_stands_where_its_text_will` (`ScaledFont`, a 20 px line:
+  empty and `value=cd` both make a 30 line with the text at 7 and the field
+  at (16, 0), 50 × 30; alone, 30; an empty textarea and button a 36 line
+  with the text at 18); `tree.rs` `only_a_field_a_person_types_one_line_
+  into_holds_one_line`; `tests/alo_sites_booking.rs` (3: the sheet
+  answered; the field, its line and the form; the offer). Mutations, each
+  restored from a copy: `holds_one_line` answering false fails the
+  `numbers.rs` test, the booking line test and exactly two corpus cases
+  (`alo-sites-booking`, `web-a-form`); the baseline search not reading the
+  recorded line fails the `numbers.rs` test. Moved: `web-a-form` (its
+  page 649.6375 tall, from 664.73126; each field's paragraph 23.2, its
+  label's text at the field's text's 18) and `alo-agent`'s
+  `reading_an_interface` outline (its form 41.604885 from 44.90176, the
+  empty "Amount" field at 120.47363 and the checkbox at the line's top,
+  everything after it 3.297 higher).
+
+- [ ] **385. What an empty date field shows.** *Cut from 384 (iteration
+  250). Feature: `docs/features.md` stage 2's forms line. Needs design.*
+  A browser draws an `<input type=date>` with no value as its date's
+  format, `mm/dd/yyyy` in American English and `dd/mm/yyyy` in British, and
+  a button that opens a calendar; `time`, `datetime-local`, `month` and
+  `week` the same in their own forms. This engine draws the field empty,
+  as it draws any field with no value, and an agent reads it as a
+  `generic` box rather than a date. Which format is the person's locale,
+  which is theirs to tell, as their time zone is (358); and a calendar is
+  a control that does something, which needs events (81). So it needs an
+  ADR saying where the format comes from before any code, and a page whose
+  field draws wrong to close it: `alo-sites-booking` is that page.
+  *Closes when:* that ADR is accepted, and `alo-sites-booking`'s field
+  draws its format in the colour a browser gives it, with its role an
+  agent can act on.
+
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
 

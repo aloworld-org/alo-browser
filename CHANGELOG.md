@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An empty form field sits level with its label.** A text field nobody
+  has typed into used to sit a little higher than the words beside it, and
+  made its line taller, so it dropped when somebody typed. It now stands
+  where its text will be, as every browser draws it. alo Sites' booking
+  form, whose day field is empty, is now laid out as a browser lays it out
+  (queue item 384; the section is frozen in the corpus as
+  `alo-sites-booking`). What an empty date field shows — its format and a
+  calendar button — is not drawn yet, and waits for a decision about where
+  the format comes from (385).
+
 - **Italic text in a font with no italic face.** Text a page sets in
   italic, in a font that has only an upright face, is now drawn leaned, as
   every browser draws it, rather than upright. The lean is CSS's default

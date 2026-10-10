@@ -1,0 +1,75 @@
+alo-workplace, products/sites/alo-sites/tests/golden/section_booking.html
+and products/sites/alo-sites/tests/golden/site.css — a page alo Sites
+publishes for its customers: the booking section of a demonstration coffee
+roaster's home page, with the style sheet every alo Sites page links.
+
+Taken 2026-10-10 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit the
+other alo Sites cases were taken at. The page's last change is
+ceaa3d8bb806512ef8c61f310cb3cd03a320367c (2026-09-02). The bytes are those
+files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  d90874ccc6bf39dde293b7cc2d44fdab37e0ba57750e1ecafe5bd2d91856852b
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+The sheet is byte for byte the other alo Sites cases'. `alo-workplace` is
+read-only reference; nothing was written back to it. Both files are golden
+outputs of alo Sites' own renderer, pinned by its tests, so they are what it
+really serves rather than something rebuilt from it.
+
+Why this page. After the testimonials section rendered, every queue item was
+blocked or waiting for a page, so the next alo Sites section with no picture
+and nothing set to move into view was frozen to find what fails. (The FAQ
+section came first in that list and was rendered too, but lays its questions
+out in two columns, which is queue item 97 and still needs design, so it
+was not kept.) This is the `booking-layout-split` variant: the offer down
+the left track of a two-track grid, and a form with a day field and a button
+spanning all five rows of the right one, centred down it.
+
+**Where it is served from, and what its sheet is answered with,** are the
+call-to-action section's, for the same reasons (see that case's origin.txt):
+the page's own `<link rel="canonical">` says
+`https://nordwind.alosites.com/` (address.txt), and its `/assets/site.css`
+is answered from site.css (linked.txt). Its analytics script is the same
+script, and sends nothing in a reference render.
+
+Rendered at 800 × 600, wider than the sheet's breakpoints, as the other alo
+Sites cases are.
+
+## What it found
+
+- **The empty day field stood a font's descent too high** — item 384. The
+  field has nothing typed in it, so it held no line, and an atomic box with
+  no line stands on its bottom margin edge (item 285). Browsers stand a
+  one-line field on the baseline of the line it would hold, typed into or
+  not, so it does not drop when somebody types. Here the field's line was
+  56.11 rather than its own 48.4 (the strut's 7.71 below the baseline at
+  17 px and 1.6), which made the form 7.71 taller and, centred, moved it and
+  its label up by half that. `tests/alo_sites_booking.rs` says so in numbers.
+  `web-a-form`'s three empty fields had the same fault, and moved with it.
+
+- **Not built: what an empty date field shows** — item 385. A browser draws
+  the date's format in it (`mm/dd/yyyy` in English) and a button that opens
+  a calendar. This engine draws the field empty, as it draws any field with
+  no value. Which format is the person's locale, which is theirs to tell, so
+  it waits for a design rather than being guessed here.
+
+Everything else checks against the sheet by hand and is pinned as it is:
+`.s-booking`'s 1.5rem padding inside its 1 px border puts the content at
+(25, 25), 750 wide; `booking-layout-split`'s two `1fr` tracks with a 4rem
+gap are 343 each, the second at 432; the heading is 28 px (3.5vw) at a line
+height of 1.2, 33.6 tall, with 14 below and the 1rem row gap, so the `h3`
+is at 88.6; the paragraphs are 27.2 tall with 17 below, at 135.2, 195.4 and
+255.6, ending at 299.8; the section is 324.8 tall. The form spans rows 1 to
+5 (25 to 299.8, 274.8 tall) and is centred in them: its 1rem top margin,
+the label's 27.2 and 0.25rem, the field's 48.4 (a 27.2 line, 0.6rem of
+padding each side and a 1 px border), 17, the button's 48.4 and 17 make a
+margin box of 178, so the form is at 89.4 and 162 tall, the field at
+(432, 120.6), 343 × 48.4 (`width: 100%`), and the button at 186.
+
+What the sheet asks for that this engine does not do, and which makes no
+difference to this page, is in issues.txt, and is the call-to-action
+section's list exactly: `::before` and `::after`, `@keyframes`, and
+`prefers-reduced-motion`.

@@ -972,6 +972,17 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     }
 }
 
+/// Where the baseline of a line holding nothing but the strut would stand,
+/// below that line's top: the strut's ascent and half its leading.
+///
+/// Nothing makes a line box exist — that rule is above — so this is not a
+/// line. It answers for a box that stands on the line it *would* hold, which
+/// is what a one-line field with nothing typed in it does, so that it does not
+/// move when something is.
+pub fn empty_line_baseline(strut: &TextStyle, measurer: &impl MeasureText) -> f32 {
+    reach_of(strut, measurer).above
+}
+
 /// How far text in this style takes room above and below its baseline.
 ///
 /// With `normal`, as far as its font reaches. With a line height that was
