@@ -111,6 +111,7 @@ use crate::event_loop::MOST_REPORTS;
 use crate::held::Held;
 use crate::page::Page;
 use crate::said;
+use crate::view::PageView;
 use crate::violations::{MOST_OBJECTIONS, Objection};
 
 /// The most lines one load says about its scripts (queue item 242).
@@ -184,11 +185,12 @@ pub(crate) fn at_load(
     parsing: &mut Parsing,
     page: &Page,
     clock: &Rc<dyn alo_js::Clock>,
-    view: &Rc<dyn alo_bindings::View>,
+    view: &Rc<PageView>,
     issues: &mut Vec<String>,
     objections: &mut Vec<Objection>,
 ) -> Vec<String> {
     let stated_by = page.stated();
+    let shown: Rc<dyn alo_bindings::View> = Rc::clone(view) as _;
     let mut said = Said::default();
     let mut left_out = 0_usize;
     let mut policies = page.policies.clone();
@@ -208,7 +210,7 @@ pub(crate) fn at_load(
             if let Some(document) = held.document() {
                 policies.extend(metas.into_iter().filter_map(|meta| stated(document, meta)));
             }
-            tell(held, &policies, &mut told);
+            tell(held, view, &policies, &mut told);
             break;
         };
         // Every `<meta>` the parser made before this end tag, read where it
@@ -260,12 +262,12 @@ pub(crate) fn at_load(
                 continue;
             }
         };
-        if let Err(why) = held.scripted(&page.url, page.identity(), clock, view) {
+        if let Err(why) = held.scripted(&page.url, page.identity(), clock, &shown) {
             said.script(number, &format!("not run: {why}"));
             ended = true;
             continue;
         }
-        tell(held, &policies, &mut told);
+        tell(held, view, &policies, &mut told);
         let Some(page_loop) = held.event_loop() else {
             said.script(number, "not run: this page's heap could not be found");
             ended = true;
@@ -299,11 +301,19 @@ pub(crate) fn at_load(
 
 /// Tell the page's heap `policies`, if it exists and has not been told this
 /// many already: they only ever grow, so a count says whether it is behind.
-fn tell(held: &mut Held, policies: &[String], told: &mut Option<usize>) {
+///
+/// And the page's easel, which a measurement in the next script draws on
+/// (ADR 0038 § 4): its inline style is judged by the same policies there as
+/// `element.style` reads it by. No script is running, so the easel is not in
+/// use.
+fn tell(held: &mut Held, view: &PageView, policies: &[String], told: &mut Option<usize>) {
     if held.event_loop().is_none() || *told == Some(policies.len()) {
         return;
     }
     held.state_policies(Page::policies_of(policies));
+    view.easel()
+        .borrow_mut()
+        .govern(Page::policies_of(policies));
     *told = Some(policies.len());
 }
 

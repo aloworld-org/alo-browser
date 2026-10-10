@@ -22878,3 +22878,157 @@ paragraph.
 157 queue items are open: 366 closed. The next unused queue number is
 **371** and the next ADR is **0039**. This is one iteration, not a
 finished queue or roadmap.
+
+---
+
+## Iteration 239 — queue item 370 built: an element's scrolling area
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` and iteration
+238's entry. No `AGENTS.md` exists in this repository. For 370: ADR 0038
+(all of it), the queue item, and `docs/features.md`' CSSOM line.
+
+**Choosing.**
+- 296 first, since its capture is owed. A Swift check answered
+  `CGSSessionScreenIsLocked` = 1, with `CGPreflightScreenCaptureAccess`
+  true. The screen is still locked, so 296 was not taken.
+- 370 depends only on 366 (done), names its ADR and feature line, and is
+  next. It was taken.
+
+**Built.**
+- `alo-layout`: `BoxGeometry::reach`, `taffy`'s overflow right and bottom
+  measured from the padding box's top left, and
+  `BoxGeometry::scrolling_area`, the padding box extended by it. The old
+  `scrollable` size counted leftward overflow and could not answer this.
+- `alo-bindings`:
+  - `View::scrolling_area(document, node)`, the third question of § 5,
+    with `Unmeasured` for a view whose easel is in use;
+  - `interface/element_cssom_view.rs`: `scrollWidth` and `scrollHeight` on
+    `Element.prototype`, read-only, rounded and clamped by
+    `window_cssom_view.rs`' `long` (now `pub(super)`);
+  - an element of a document no window was associated with answers 0; a
+    page shown no view, or a view that cannot measure, throws a `TypeError`
+    by name.
+- `alo-renderer`:
+  - `easel.rs`: what a page is drawn with and its last drawing, moved out
+    of `Renderer` into an `Rc<RefCell<Easel>>` the renderer and each
+    `PageView` share. `draw` and `fresh` live there, so a measurement and a
+    draw are the one pipeline, and a measurement's drawing is the next
+    one painted.
+  - `view.rs`: `PageView` measures with `try_borrow_mut`, so a busy easel
+    is refused, never a panic.
+  - `scrolling_area.rs`: CSSOM View's steps without quirks.
+  - `renderer.rs`: the renderer borrows the easel only within its own
+    steps. `act` takes its own `Rc<Drawing>` before `press`, which runs
+    script.
+  - `scripts.rs`: `tell` also governs the easel with each `<meta>`'s
+    policies as they are parsed, so a load-time measurement judges inline
+    style as the draw would.
+  - `Renderer::rendered`, `Rendered::drawing` and `alo-corpus`'
+    `Rendering::drawing` are now `Rc<Drawing>`. Three test call sites
+    changed to pass `&drawing`.
+
+**Two choices recorded rather than hidden.**
+- The root element measures the viewport even with no box. CSSOM View
+  asks the root step before the no-box step, and ADR 0038 § 4 says it
+  follows CSSOM View's steps. Its list puts "no box" first, but the only
+  case where the order matters is a root under `display: none`. Noted in
+  `scrolling_area.rs` and the queue.
+- ADR 0038 § 4 says a measurement "is a draw that stops before paint".
+  This one paints too, and keeps the whole drawing for the next `Paint`.
+  No answer a page reads differs, but a script that measures, changes and
+  measures again pays for paints nobody sees. That is a speed, cut to
+  **372**.
+
+**Cut:** § 6's windowless size is **371**. No embedder opens a tab no
+window shows: `alo-window` holds the page until it knows its size. A
+constant nothing used would have been a stub.
+
+**Tests.**
+- `alo-layout`:
+  - `numbers.rs`: a box with content 300 wide, and absolute boxes
+    far left and far above, reaches 310 × 90; the far ones are in
+    `scrollable` and not in the area;
+  - `tree.rs`: unit tests of `scrolling_area`.
+- `alo-bindings`:
+  - `what_a_page_reads_of_its_window.rs`: 5 more tests, with its view
+    lent. They cover asking at every read, rounding and clamping, no box,
+    read-only on `Element.prototype` with a brand check, and refusal by name
+    for no view and a busy view;
+  - `what_a_window_is.rs`: the CTA `pagehide` now reports
+    `d=1000&p=blank&w=800` then `t=0`, at `about:blank`.
+- `alo-renderer`:
+  - `a_page_measures_its_content.rs`: 5 tests, later scripts run ordinarily
+    and under stress:
+    - append and read in one task, with the next paint laying out nothing;
+    - leftward and upward overflow not counted, rightward counted (1600);
+    - `display: none`, a made element and a detached tree answer 0;
+    - a load-time script measures the page parsed so far (700 of 700, then
+      1400 drawn);
+    - a listener on an agent's click measures mid-`act` with no refusal.
+  - unit tests in `view.rs`: one drawing reused until the document changes,
+    and a busy easel refused. Also in `scrolling_area.rs`.
+
+**Closing condition met.**
+- In `alo-corpus`' `tests/alo_sites_cta.rs` at 800 × 600, a later task
+  reads `documentElement` 800 × 600 and `body` 800 × 253, with the skip
+  link not counted.
+- Given a beacon, a `pagehide` and a click, the script sends
+  `d=1000&p=%2F&w=800;t=0;x=0&y=0&p=%2F&w=800;`.
+- Both ran ordinarily and under stress.
+- The other conditions are in the renderer tests above.
+
+**Checked by mutation**, each restored from a scratchpad copy:
+- `scrolling_area` reading `scrollable.width` for `reach.width` fails the
+  CTA test, with `body` 16784 wide;
+- `Easel::fresh` always drawing fails the append-and-read test, with 9
+  draws where 1 more was expected.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log.
+- The first run ended `exit 1`, on one failure: my own unit test in
+  `view.rs` assumed making a node moves the change count. It does not, only
+  putting it in a tree does. The test was corrected to append it.
+- The second run passed 600 s and the harness moved it to the background.
+  The next call waited on it in a foreground `until` loop and read
+  `exit 0`, "The gate is met", with no `FAIL` or `panicked` in the log:
+  - formatting clean, clippy silent, every test passing;
+  - no stubs, `unsafe` forbidden, the licence on every file;
+  - every rented crate behind its boundary, no verb takes a coordinate;
+  - the supervisor's stop rule holds, and `CHANGELOG.md` changed.
+
+**Gate, manual.**
+- Layout assertion: `numbers.rs` asserts `reach` and the area in numbers.
+  The renderer tests assert the drawn heights (2100, 1400, and the click
+  page's body) against what scripts read.
+- Reference render: none applies. Nothing draws differently, and the
+  gate's corpus run diffs every committed render and box tree unchanged.
+- Hostile input: sizes are clamped as `long`. A busy easel is an error, not
+  a panic. A page reading in a loop lays out each pass, which is the page's
+  cost by § 5 and stoppable between passes.
+- One responsibility per file:
+  - the drawing state (`easel.rs`) and the measure arithmetic
+    (`scrolling_area.rs`) are new files;
+  - the element members have their own file;
+  - `renderer.rs` lost its drawing fields rather than gaining a reason.
+- The feature line existed before the build. It now says the content's
+  half is built and 371 is owed.
+- No `unsafe`, no new dependency, and `alo-bindings` still has no layout
+  dependency. `alo-workplace` and `alo-os` were not touched.
+
+**Roadmap.** No line is ticked. The CSSOM line gains a *Built* clause for
+370, and its *Owed* now names 371 and 372. Also updated:
+`docs/features.md`, `docs/conformance.md`' alo Sites row, `REMAINING.md`,
+`CHANGELOG.md`, and the queue, where 370 is ticked with its *Built*
+paragraph and 371 and 372 are added.
+
+**Unresolved obligations.**
+- 371 waits for an embedder that opens a windowless tab. 372 is a speed,
+  and needs a measurement before any claim.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- 364 needs design, 367 needs an ADR and a page, and 369 needs an ADR and
+  waits on 364.
+- 368 waits on typed arrays and 231, and 363 on 73.
+- Everything iteration 238 listed still stands.
+
+158 queue items are open: 370 closed, 371 and 372 added. The next unused
+queue number is **373** and the next ADR is **0039**. This is one
+iteration, not a finished queue or roadmap.

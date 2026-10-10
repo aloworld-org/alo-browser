@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can read how big its own content is.** An element's
+  `scrollWidth` and `scrollHeight` answer how far its content reaches to
+  the right and downward, and the page's root answers at least the
+  window's size. The browser measures the page as it would draw it at the
+  moment a script asks, so a script that adds a row and then asks reads the
+  height with the row in it, and that drawing is the one shown next rather
+  than being made twice. Content pushed off to the left or above, such as a
+  hidden "skip to content" link, is not counted. alo Sites' analytics
+  script now reports how much of the page was read (queue item 370,
+  ADR 0038).
+
 - **A page can read the size of its window.** `innerWidth` and
   `innerHeight` answer the size the page is laid out at, in whole pixels,
   and a page reading them after the window is resized reads the new size.

@@ -17,15 +17,21 @@
 //! - The screen, the window's outer size and place, and the scale factor are
 //!   absent (§ 1).
 //!
+//! And queue item 370: **an element's `scrollWidth` and `scrollHeight`**
+//! answer what the view measures of it at the moment of the read (§ 4),
+//! rounded and clamped as `innerWidth` is; `0` for an element the view finds
+//! no box for, and for one in a document no window shows; and a page shown
+//! no view, or a view that cannot measure, refuses by name.
+//!
 //! The view is this test's own, so it can be given sizes no window has.
 //! Every script runs twice — once with the collector at every allocation —
 //! and the two must agree.
 
-use core::cell::Cell;
+use core::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use alo_bindings::{Extent, Scrolled, View, adopt, install, show};
-use alo_dom::parse_document;
+use alo_bindings::{Extent, Scrolled, Unmeasured, View, adopt, install, show};
+use alo_dom::{Document, NodeId, parse_document};
 use alo_js::heap::Root;
 use alo_js::interpret::{Engine, Trouble};
 use alo_js::object::Value;
@@ -36,6 +42,13 @@ use alo_js::{numeric, script};
 struct Lent {
     viewport: Cell<Extent>,
     scrolled: Cell<Scrolled>,
+    /// The scrolling area of each element measured, by its `id`: an element
+    /// not here has no box.
+    areas: RefCell<Vec<(String, Extent)>>,
+    /// Whether it refuses to measure, as a view whose easel is in use does.
+    busy: Cell<bool>,
+    /// The `id` of each element it was asked to measure, in order.
+    asked: RefCell<Vec<String>>,
 }
 
 impl Lent {
@@ -43,7 +56,18 @@ impl Lent {
         Rc::new(Self {
             viewport: Cell::new(Extent { width, height }),
             scrolled: Cell::new(Scrolled::default()),
+            areas: RefCell::new(Vec::new()),
+            busy: Cell::new(false),
+            asked: RefCell::new(Vec::new()),
         })
+    }
+
+    /// The same, measuring the element with `id` as `width` × `height`.
+    fn measuring(self: Rc<Self>, id: &str, width: f64, height: f64) -> Rc<Self> {
+        self.areas
+            .borrow_mut()
+            .push((id.to_owned(), Extent { width, height }));
+        self
     }
 }
 
@@ -54,6 +78,28 @@ impl View for Lent {
 
     fn scrolled(&self) -> Scrolled {
         self.scrolled.get()
+    }
+
+    fn scrolling_area(
+        &self,
+        document: &Document,
+        node: NodeId,
+    ) -> Result<Option<Extent>, Unmeasured> {
+        if self.busy.get() {
+            return Err(Unmeasured);
+        }
+        let id = document
+            .element(node)
+            .and_then(|element| element.attr("id"))
+            .unwrap_or_default()
+            .to_owned();
+        self.asked.borrow_mut().push(id.clone());
+        Ok(self
+            .areas
+            .borrow()
+            .iter()
+            .find(|(of, _)| *of == id)
+            .map(|(_, area)| *area))
     }
 }
 
@@ -68,7 +114,9 @@ impl Page {
         let mut engine = alo_bindings::engine(None).map_err(|why| why.to_string())?;
         let cell = adopt(
             engine.objects(),
-            parse_document("<!DOCTYPE html><html><body></body></html>"),
+            parse_document(
+                "<!DOCTYPE html><html id=root><body id=body><p id=p>hi</p></body></html>",
+            ),
         )
         .map_err(|why| why.to_string())?;
         let root = engine.objects().heap_mut().root(cell);
@@ -297,4 +345,162 @@ fn nothing_beyond_the_window_is_answered() {
         ),
         "undefined,undefined,undefined,undefined,undefined,undefined,undefined,undefined"
     );
+}
+
+/// Run `source` in a page shown by `view`, both ways; and answer what it
+/// answered, the same both ways.
+fn measured_by(view: impl Fn() -> Rc<Lent>, source: &str) -> String {
+    let answers: Vec<String> = [false, true]
+        .into_iter()
+        .map(|stress| match Page::new(Some(view()), stress) {
+            Ok(mut page) => page.run(source),
+            Err(why) => why,
+        })
+        .collect();
+    assert_eq!(answers.first(), answers.get(1), "{source:?}");
+    answers.first().cloned().unwrap_or_default()
+}
+
+#[test]
+fn an_elements_scrolling_area_is_what_the_view_measures_of_it_now() {
+    let view = || {
+        Lent::at(800.0, 600.0)
+            .measuring("root", 800.0, 600.0)
+            .measuring("body", 800.0, 253.2)
+            .measuring("p", 1200.5, 18.4)
+    };
+    assert_eq!(
+        measured_by(
+            view,
+            "var root = document.documentElement, body = document.body, \
+               p = document.querySelectorAll('p')[0]; \
+             j([root.scrollWidth, root.scrollHeight, body.scrollWidth, body.scrollHeight, \
+               p.scrollWidth, p.scrollHeight, typeof p.scrollWidth])"
+        ),
+        "800,600,800,253,1201,18,number"
+    );
+    // Asked at every read, of the element read, never kept.
+    for stress in [false, true] {
+        let lent = view();
+        let mut page =
+            Page::new(Some(Rc::clone(&lent)), stress).unwrap_or_else(|why| panic!("{why}"));
+        assert_eq!(page.run("document.body.scrollHeight"), "253");
+        // As a script's change leaves it, measured again.
+        lent.areas.borrow_mut().retain(|(id, _)| id != "body");
+        lent.areas.borrow_mut().push((
+            "body".to_owned(),
+            Extent {
+                width: 800.0,
+                height: 2253.0,
+            },
+        ));
+        assert_eq!(page.run("document.body.scrollHeight"), "2253");
+        assert_eq!(*lent.asked.borrow(), ["body", "body"]);
+    }
+}
+
+#[test]
+fn an_element_with_no_box_measures_zero() {
+    // `p` has no box in this view, and neither has an element made and never
+    // put in the document.
+    let view = || Lent::at(800.0, 600.0).measuring("root", 800.0, 600.0);
+    assert_eq!(
+        measured_by(
+            view,
+            "var made = document.createElement('div'); \
+             j([document.querySelectorAll('p')[0].scrollWidth, \
+               document.querySelectorAll('p')[0].scrollHeight, made.scrollWidth, \
+               made.scrollHeight])"
+        ),
+        "0,0,0,0"
+    );
+}
+
+#[test]
+fn a_measure_is_rounded_and_clamped_as_a_long() {
+    let view = || {
+        Lent::at(800.0, 600.0)
+            .measuring("root", 0.5, 0.49)
+            .measuring("body", f64::INFINITY, -3.0)
+            .measuring("p", 1.0e12, f64::NAN)
+    };
+    assert_eq!(
+        measured_by(
+            view,
+            "var root = document.documentElement, body = document.body, \
+               p = document.querySelectorAll('p')[0]; \
+             j([root.scrollWidth, root.scrollHeight, body.scrollWidth, body.scrollHeight, \
+               p.scrollWidth, p.scrollHeight])"
+        ),
+        "1,0,0,0,2147483647,0"
+    );
+}
+
+#[test]
+fn the_members_are_read_only_accessors_on_element_prototype() {
+    let view = || Lent::at(800.0, 600.0).measuring("body", 800.0, 253.0);
+    assert_eq!(
+        measured_by(
+            view,
+            "var body = document.body, element = body.__proto__.__proto__; \
+             j([element.hasOwnProperty('scrollWidth'), \
+               element.hasOwnProperty('scrollHeight'), \
+               body.hasOwnProperty('scrollHeight'), \
+               body.__proto__.hasOwnProperty('scrollHeight'), \
+               element.propertyIsEnumerable('scrollHeight')])"
+        ),
+        "true,true,false,false,true"
+    );
+    // No setter: sloppy code's assignment is dropped, strict code's throws.
+    assert_eq!(
+        measured_by(
+            view,
+            "document.body.scrollHeight = 5; document.body.scrollHeight"
+        ),
+        "253"
+    );
+    assert_eq!(
+        measured_by(
+            view,
+            "try { (function () { 'use strict'; document.body.scrollHeight = 5; })(); 'set' } \
+             catch (e) { e.name }"
+        ),
+        "TypeError"
+    );
+    // Not an element: refused by the brand check, as every member is.
+    assert_eq!(
+        measured_by(
+            view,
+            "var fake = {}; fake.__proto__ = document.body.__proto__.__proto__; \
+             try { fake.scrollWidth; 'answered' } catch (e) { e.name }"
+        ),
+        "TypeError"
+    );
+}
+
+#[test]
+fn a_page_shown_no_view_or_a_view_that_cannot_measure_refuses_by_name() {
+    for stress in [false, true] {
+        let mut page = Page::new(None, stress).unwrap_or_else(|why| panic!("{why}"));
+        for name in ["scrollWidth", "scrollHeight"] {
+            assert_eq!(
+                page.run(&format!(
+                    "try {{ document.body.{name}; 'answered' }} \
+                     catch (e) {{ e.name + ': ' + e.message }}"
+                )),
+                format!("TypeError: this page was given no view, so it cannot say its '{name}'"),
+            );
+        }
+        let busy = Lent::at(800.0, 600.0).measuring("body", 800.0, 253.0);
+        busy.busy.set(true);
+        let mut page = Page::new(Some(busy), stress).unwrap_or_else(|why| panic!("{why}"));
+        assert_eq!(
+            page.run(
+                "try { document.body.scrollHeight; 'answered' } \
+                 catch (e) { e.name + ': ' + e.message }"
+            ),
+            "TypeError: this page could not be measured for its 'scrollHeight': its renderer \
+             was busy"
+        );
+    }
 }

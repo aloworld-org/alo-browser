@@ -175,7 +175,7 @@ fn the_hand_is_a_twenty_pixel_square_on_the_greetings_line() {
     // `.content`'s 24 px padding and `.header`'s 20 px top margin put the
     // greeting's line at 44. The strut's leading reaches higher above the
     // baseline than the hand does, so the hand's top is under the line's.
-    let Some((_, metrics)) = greeting_text(drawing) else {
+    let Some((_, metrics)) = greeting_text(&drawing) else {
         panic!("the greeting's text");
     };
     let (above, _) = greeting_reach(metrics);
@@ -199,7 +199,7 @@ fn the_hand_is_middle_aligned_with_the_greetings_lowercase_letters() {
     // `vertical-align: middle`: the hand's midpoint at the greeting's
     // baseline plus half the x-height of its 13 px semibold face, which is
     // DejaVu Sans Bold's own `x` (queue item 312).
-    let Some((baseline, metrics)) = greeting_text(drawing) else {
+    let Some((baseline, metrics)) = greeting_text(&drawing) else {
         panic!("the greeting's text");
     };
     let x_height = metrics.x_height;

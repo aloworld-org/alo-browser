@@ -1089,3 +1089,14 @@ and `pageYOffset` (`interface/window_cssom_view.rs`), and `alo-renderer`'s
 Sites' analytics script reads 800 × 600 at the top, and its `shape()`
 reports `&p=%2F&w=800`. 370 is now eligible and next. 157 queue items are
 open. The next unused queue number is 371 and the next unused ADR 0039.
+
+Iteration 239 found the screen still locked, so 296's capture is still not
+takeable. It built item 370: `scrollWidth` and `scrollHeight` on `Element`
+(`interface/element_cssom_view.rs`), measured by the renderer mid-script on
+an `Easel` it shares with the page's view (`easel.rs`,
+`scrolling_area.rs`), the drawing kept for the next paint; and
+`BoxGeometry::reach` in `alo-layout`. alo Sites' `pagehide` listener
+reports `d=1000&p=%2F&w=800` and `t=0`. It cut 371, the size a tab no
+window shows (no embedder opens one yet), and 372, a measurement stopping
+before paint. 158 queue items are open. The next unused queue number is
+373 and the next unused ADR 0039.

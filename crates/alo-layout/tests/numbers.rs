@@ -1783,3 +1783,32 @@ fn ex_and_ch_are_the_measured_faces() {
     let c = rect_of(&boxes, &layout, "c", html).size;
     assert!(close(c.width, 300.0) && close(c.height, 100.0), "{c:?}");
 }
+
+/// ADR 0038 § 4: a box's scrolling area is its padding box extended toward
+/// its end edges by what its content reaches, and what spills out to the
+/// left or above counts nothing.
+#[test]
+fn a_scrolling_area_counts_what_reaches_right_and_down_and_not_left_or_up() {
+    let html = "<div id=b><div id=wide></div><div id=left></div><div id=up></div></div>";
+    let css = "#b { position: relative; width: 100px; height: 50px; padding: 10px; } \
+               #wide { width: 300px; height: 80px; } \
+               #left { position: absolute; left: -500px; top: 0; width: 40px; height: 10px; } \
+               #up { position: absolute; left: 0; top: -900px; width: 10px; height: 10px; }";
+    let (boxes, layout) = lay_out(html, css, Size::new(800.0, 600.0));
+    let geometry = geometry_of(&boxes, &layout, "b", html);
+    assert!(
+        close(geometry.padding_box().size.width, 120.0),
+        "{geometry:?}"
+    );
+    // `#wide` starts at the padding box's left plus its 10 px of padding and
+    // is 300 wide; 80 tall below 10 px of padding. Nothing reaches further.
+    assert!(close(geometry.reach.width, 310.0), "{geometry:?}");
+    assert!(close(geometry.reach.height, 90.0), "{geometry:?}");
+    let area = geometry.scrolling_area();
+    assert!(close(area.width, 310.0), "{area:?}");
+    assert!(close(area.height, 90.0), "{area:?}");
+    // The absolutely positioned boxes far to the left and far above are in
+    // `scrollable`, which a scroll cannot reach, and not in the area.
+    assert!(geometry.scrollable.width > 800.0, "{geometry:?}");
+    assert!(geometry.scrollable.height > 900.0, "{geometry:?}");
+}

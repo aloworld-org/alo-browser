@@ -64,6 +64,14 @@
 //! [`crate::view`]). A `Resize` sets it with the page's size, so a script
 //! reads the size the page is drawn at.
 //!
+//! And its elements' scrolling areas, measured **in the middle of a script**
+//! (§ 4). So what a page is drawn with and its last drawing are not the
+//! renderer's alone: they are on an [`Easel`] the renderer and the page's
+//! view share, and a measurement draws on it as the renderer would and
+//! leaves its drawing there for the renderer's next look. The renderer
+//! borrows the easel only for as long as one of its own steps lasts, never
+//! across one that runs the page's script ([`crate::easel`]).
+//!
 //! # What a page asks to fetch
 //!
 //! Likewise a claim in the answer to the message whose work made it (ADR
@@ -83,23 +91,22 @@
 //! What is not here yet is the loop running between messages — a task a
 //! page queues for itself has no idle moment to run in (queue item 233).
 
+use core::cell::RefCell;
 use std::rc::Rc;
 
 use crate::ask;
 use crate::clock::WallClock;
 use crate::deliver::deliver;
+use crate::easel::Easel;
 use crate::event_loop::EventLoop;
 use crate::face::Face;
 use crate::fetch::{FetchAsk, Fetched};
 use crate::frame::Frame;
 use crate::generic::Generics;
 use crate::held::Held;
-use crate::inline_style::Judged;
-use crate::linked::Linked;
 use crate::message::{Failure, FromRenderer, ToRenderer};
-use crate::objected::Objected;
 use crate::page::Page;
-use crate::pipeline::{Drawing, draw};
+use crate::pipeline::Drawing;
 use crate::press::press;
 use crate::put::put;
 use crate::said;
@@ -117,36 +124,20 @@ use alo_text::FontDatabase;
 
 /// Everything that touches a page.
 pub struct Renderer {
-    fonts: FontDatabase,
+    /// What the page is drawn with — the fonts, its sheets, its policies,
+    /// its linked sheets and what they objected to — and its last drawing,
+    /// shared with the page's view so that a script can be measured on it
+    /// ([`crate::easel`]).
+    easel: Rc<RefCell<Easel>>,
     /// The page as it was sent: its sheets and its size, which every drawing
     /// of it is made with.
     page: Option<Page>,
     /// The page's document, and its script once it has run.
     held: Option<Held>,
-    /// What the last drawing produced, and the document's change count when
-    /// it was made.
-    drawn: Option<(Drawing, u64)>,
-    /// How many times a page has been drawn, for a test that asks how often.
-    draws: u64,
-    /// Every enforced policy the page holds — its headers' and each
-    /// `<meta>`'s the parser made — kept for the page's life and asked of
-    /// its inline style at every draw (ADR 0034 § 2).
-    under: alo_net::Policies,
-    /// The policies its headers stated, report-only ones included: those an
-    /// objection is named against ([`Page::stated`]).
-    stated: alo_net::Policies,
-    /// What those policies have objected to in the page's inline style, for
-    /// the page's life, and what of it waits to cross (ADR 0034 § 4).
-    objected: Objected,
     /// The policies each `<meta>` the parser made stated — enforced, and
     /// only those, since a header policy is the browser process's to apply to
     /// a linked sheet (ADR 0035 § 1).
     metas: alo_net::Policies,
-    /// The page's linked style sheets: asked for, and arrived.
-    linked: Linked,
-    /// Whether a sheet arrived since the page was last drawn, which changes
-    /// its rendering without changing its document.
-    restyle: bool,
     /// What every page's realm is told the time by: the machine's wall clock
     /// (ADR 0036 § 2), unless the renderer was made with another.
     clock: Rc<dyn alo_js::Clock>,
@@ -159,20 +150,14 @@ pub struct Renderer {
 impl Renderer {
     /// A renderer that draws with these fonts and holds no page yet.
     pub fn new(fonts: FontDatabase) -> Self {
+        let easel = Rc::new(RefCell::new(Easel::new(fonts)));
         Self {
-            fonts,
+            view: Rc::new(PageView::at(Size::default(), Rc::clone(&easel))),
+            easel,
             page: None,
             held: None,
-            drawn: None,
-            draws: 0,
-            under: alo_net::Policies::none(),
-            stated: alo_net::Policies::none(),
-            objected: Objected::new(),
             metas: alo_net::Policies::none(),
-            linked: Linked::new(),
-            restyle: false,
             clock: Rc::new(WallClock),
-            view: Rc::new(PageView::at(Size::default())),
         }
     }
 
@@ -194,7 +179,7 @@ impl Renderer {
         match Font::load(&face.family, face.weight(), face.slant, face.bytes.clone()) {
             Some(font) => {
                 let family = font.family().to_owned();
-                self.fonts.add(font);
+                self.easel.borrow_mut().fonts.add(font);
                 FromRenderer::UsingFont { family }
             }
             None => FromRenderer::Failed(Failure::NotAFont {
@@ -213,13 +198,14 @@ impl Renderer {
     /// browser process every page here has a `sans-serif` while text kept coming
     /// out in whatever was to hand.
     fn use_generics(&mut self, generics: &Generics) -> FromRenderer {
+        let mut easel = self.easel.borrow_mut();
         for (generic, family) in generics.pairs() {
-            self.fonts.map_generic(generic, family);
+            easel.fonts.map_generic(generic, family);
         }
         let answering = generics
             .named()
             .into_iter()
-            .filter(|generic| self.fonts.holds(generic))
+            .filter(|generic| easel.fonts.holds(generic))
             .map(ToOwned::to_owned)
             .collect();
         FromRenderer::UsingGenerics { answering }
@@ -250,8 +236,8 @@ impl Renderer {
     /// something a browser process asks for. The corpus reaches in because it
     /// is a test of the engine rather than of the browser, and ADR 0005 says
     /// tests stay single-process.
-    pub fn rendered(&self) -> Option<&Drawing> {
-        self.drawn.as_ref().map(|(drawing, _)| drawing)
+    pub fn rendered(&self) -> Option<Rc<Drawing>> {
+        self.easel.borrow().drawn().cloned()
     }
 
     /// The loaded page's document, wherever it is — for a test, for the
@@ -273,8 +259,8 @@ impl Renderer {
     /// change inside a task did not (ADR 0017 § 6).
     ///
     /// Not part of the boundary, for the reason [`Renderer::rendered`] is not.
-    pub const fn draws(&self) -> u64 {
-        self.draws
+    pub fn draws(&self) -> u64 {
+        self.easel.borrow().draws()
     }
 
     /// Draw the page again, whole, from the document it has, its inline
@@ -290,38 +276,20 @@ impl Renderer {
         else {
             return;
         };
-        let judged = Judged::of(document, &self.under, &self.stated, &mut self.objected);
-        let (found, more) = judged.objections();
-        self.objected.owe(found, more);
-        let sheets = page.sheets.join("\n");
-        let linked = self.linked.for_draw(document, &page.url);
-        let drawing = draw(
-            document,
-            &sheets,
-            page.viewport,
-            &self.fonts,
-            &linked,
-            &[],
-            &judged,
-        );
-        self.drawn = Some((drawing, document.change_count()));
-        self.draws = self.draws.saturating_add(1);
-        self.restyle = false;
+        self.easel.borrow_mut().draw(document, page.viewport);
     }
 
     /// Draw the page again if its document has changed since it was last
     /// drawn, or a sheet has arrived — the one question every reader of a
-    /// rendering asks first.
+    /// rendering asks first. A drawing a script's measurement made since is
+    /// the last drawing, and is not made again ([`crate::easel`]).
     fn fresh(&mut self) {
-        let now = self
-            .held
-            .as_ref()
-            .and_then(Held::document)
-            .map(Document::change_count);
-        let then = self.drawn.as_ref().map(|(_, count)| *count);
-        if now.is_some() && (now != then || self.restyle) {
-            self.draw();
-        }
+        let (Some(page), Some(document)) =
+            (&self.page, self.held.as_ref().and_then(Held::document))
+        else {
+            return;
+        };
+        self.easel.borrow_mut().fresh(document, page.viewport);
     }
 
     /// Decide what a verb does, carry it into the document, and render again.
@@ -349,9 +317,15 @@ impl Renderer {
     /// goes nowhere was activated, and the answer says why.
     fn act(&mut self, target: &Target, verb: &Verb) -> FromRenderer {
         self.fresh();
-        let (Some(page), Some(held), Some((drawing, _))) =
-            (&self.page, &mut self.held, &self.drawn)
-        else {
+        // Its own handle on the drawing, not a borrow of the easel: the
+        // page's script runs below, and may measure on the easel, leaving a
+        // drawing of its own there. The decision is against this one, the
+        // tree the agent read.
+        let (Some(page), Some(held), Some(drawing)) = (
+            &self.page,
+            &mut self.held,
+            self.easel.borrow().drawn().cloned(),
+        ) else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
         let Some(document) = held.document() else {
@@ -427,7 +401,10 @@ impl Renderer {
         let sheets = self.sheet_asks(&mut issues);
         self.fresh();
         let mut objections = Vec::new();
-        self.objected.take(&mut objections, &mut issues);
+        self.easel
+            .borrow_mut()
+            .objected
+            .take(&mut objections, &mut issues);
         FromRenderer::Acted {
             outcome,
             issues,
@@ -455,7 +432,10 @@ impl Renderer {
         let sheets = self.sheet_asks(&mut issues);
         self.fresh();
         let mut objections = Vec::new();
-        self.objected.take(&mut objections, &mut issues);
+        self.easel
+            .borrow_mut()
+            .objected
+            .take(&mut objections, &mut issues);
         FromRenderer::Delivered {
             issues,
             objections,
@@ -474,12 +454,18 @@ impl Renderer {
             return FromRenderer::Failed(Failure::NothingLoaded);
         }
         let mut issues = Vec::new();
-        if self.linked.arrived(answer, &mut issues) {
-            self.restyle = true;
+        {
+            let mut easel = self.easel.borrow_mut();
+            if easel.linked.arrived(answer, &mut issues) {
+                easel.restyle = true;
+            }
         }
         self.fresh();
         let mut objections = Vec::new();
-        self.objected.take(&mut objections, &mut issues);
+        self.easel
+            .borrow_mut()
+            .objected
+            .take(&mut objections, &mut issues);
         FromRenderer::Delivered {
             issues,
             objections,
@@ -497,7 +483,10 @@ impl Renderer {
         else {
             return Vec::new();
         };
-        self.linked.asks(document, &page.url, &self.metas, issues)
+        self.easel
+            .borrow_mut()
+            .linked
+            .asks(document, &page.url, &self.metas, issues)
     }
 
     /// A new page: parsed, each of its scripts run as a task when the parser
@@ -507,40 +496,40 @@ impl Renderer {
     /// out to carry.
     fn load(&mut self, page: Page) -> FromRenderer {
         self.held = None;
-        self.drawn = None;
         // A new page has objected to nothing, and is owed nothing the last
         // one's draws found; it has asked for no sheet, and none has arrived.
-        self.objected = Objected::new();
-        self.linked = Linked::new();
-        self.restyle = false;
+        // What a script measures as it loads is drawn with its sheets at its
+        // address, under its headers' policies and then its `<meta>`s'.
+        self.easel.borrow_mut().begin(&page);
         let (mut parsing, document) = Parsing::start(&page.html);
         let mut held = Held::Parsed(document);
         let mut said = Vec::new();
         let mut objections = Vec::new();
         // A new page is shown at its own size, scrolled to its top.
-        self.view = Rc::new(PageView::at(page.viewport));
-        let view: Rc<dyn alo_bindings::View> = Rc::clone(&self.view) as _;
+        self.view = Rc::new(PageView::at(page.viewport, Rc::clone(&self.easel)));
         let policies = scripts::at_load(
             &mut held,
             &mut parsing,
             &page,
             &self.clock,
-            &view,
+            &self.view,
             &mut said,
             &mut objections,
         );
-        self.under = Page::policies_of(&policies);
+        self.easel.borrow_mut().govern(Page::policies_of(&policies));
         // The header policies come first, and every policy after them is a
         // `<meta>`'s ([`scripts::at_load`]).
         self.metas = Page::policies_of(policies.get(page.policies.len()..).unwrap_or_default());
-        self.stated = page.stated();
         self.held = Some(held);
         self.page = Some(page);
         // After the scripts, so what the load says — its issues, the fonts it
         // wants, what a policy objected to in its style — is about the page
         // they left (ADR 0017 § 6).
         self.draw();
-        self.objected.take(&mut objections, &mut said);
+        self.easel
+            .borrow_mut()
+            .objected
+            .take(&mut objections, &mut said);
         let ongoing = self
             .held
             .as_mut()
@@ -584,7 +573,8 @@ impl Renderer {
 
     /// What the page's markup and its drawing say, as a load answers it.
     fn loaded(&self) -> FromRenderer {
-        let (Some(document), Some((drawing, _))) = (self.document(), &self.drawn) else {
+        let easel = self.easel.borrow();
+        let (Some(document), Some(drawing)) = (self.document(), easel.drawn()) else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
         // What the markup made the engine say, as much of it as one load
@@ -610,7 +600,8 @@ impl Renderer {
 
     fn paint(&mut self) -> FromRenderer {
         self.fresh();
-        let Some((drawing, _)) = &self.drawn else {
+        let easel = self.easel.borrow();
+        let Some(drawing) = easel.drawn() else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
         if drawing.canvas.is_empty() {
@@ -623,7 +614,8 @@ impl Renderer {
 
     fn read_tree(&mut self) -> FromRenderer {
         self.fresh();
-        let (Some(document), Some((drawing, _))) = (self.document(), &self.drawn) else {
+        let easel = self.easel.borrow();
+        let (Some(document), Some(drawing)) = (self.document(), easel.drawn()) else {
             return FromRenderer::Failed(Failure::NothingLoaded);
         };
         let tree = AgentTree::new(document, &drawing.boxes, &drawing.layout);

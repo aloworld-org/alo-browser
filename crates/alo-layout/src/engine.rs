@@ -1212,6 +1212,13 @@ fn read_back<M: MeasureText>(
                 layout.scrollable_overflow_rect.right - layout.scrollable_overflow_rect.left,
                 layout.scrollable_overflow_rect.bottom - layout.scrollable_overflow_rect.top,
             ),
+            // `taffy` measures the overflow from the padding box's top left,
+            // its scroll origin, and its right and bottom are never below
+            // zero: what a scroll could reach.
+            reach: Size::new(
+                layout.scrollable_overflow_rect.right.max(0.0),
+                layout.scrollable_overflow_rect.bottom.max(0.0),
+            ),
             // Written by `crate::legend`, once every box has a rectangle: a
             // band is where a legend ended up, and nothing here knows that yet.
             band: None,

@@ -6215,7 +6215,7 @@ The long pole, and the thing most of section E is unreachable without.
   infinite and `NaN` sizes read 0; 10¹² reads 2147483647. Each ran both
   ordinarily and under `Heap::stress`.
 
-- [ ] **370. An element's scrolling area.** *Cut from 366 by ADR 0038 § 7.
+- [x] **370. An element's scrolling area.** *Cut from 366 by ADR 0038 § 7.
   Depends on 366.* `scrollWidth` and `scrollHeight` on `Element`, by § 4:
   - no box answers 0;
   - the root answers the larger of the viewport's scrolling area and the
@@ -6238,6 +6238,68 @@ The long pole, and the thing most of section E is unreachable without.
     again;
   - an element with no box, and one in a detached tree, answer 0;
   - every script runs ordinarily and under `Heap::stress`.
+
+  **Built (iteration 239).**
+  - `alo-layout`: `BoxGeometry::reach`, how far a box's content reaches
+    from its padding box's top left, rightward and downward — `taffy`'s
+    overflow right and bottom, which the old `scrollable` size lost — and
+    `BoxGeometry::scrolling_area`, the padding box extended by it.
+  - `alo-bindings`: `View`'s third question, `scrolling_area(document,
+    node)`, and `Unmeasured`; `interface/element_cssom_view.rs`,
+    `scrollWidth` and `scrollHeight` on `Element.prototype`, rounded and
+    clamped by `window_cssom_view.rs`' `long`. An element in a document no
+    window was associated with answers 0; a page shown no view, or a view
+    that cannot measure, throws a `TypeError` by name.
+  - `alo-renderer`: `easel.rs`, what a page is drawn with (fonts, sheets,
+    address, linked sheets, policies, objections) and its last drawing, an
+    `Rc<RefCell<_>>` the renderer and each page's `PageView` share. The
+    renderer borrows it only within its own steps, never across one that
+    runs script; `act` keeps its own `Rc<Drawing>`. `scripts::tell` governs
+    it with each `<meta>`'s policies as they are parsed. `PageView` measures
+    on it with `fresh`, the renderer's own question, so the drawing a
+    measurement made is the next one painted. `scrolling_area.rs` is CSSOM
+    View's steps: the root the larger of the viewport's scrolling area and
+    the viewport (before the no-box step, as CSSOM View orders them), no box
+    `None`, any other element its own area. `Renderer::rendered` and
+    `Rendered::drawing` are now `Rc<Drawing>`.
+  - Tests: `alo-layout`'s `numbers.rs` and `tree.rs`; `alo-bindings`'
+    `what_a_page_reads_of_its_window.rs` (5 more, its view lent) and
+    `what_a_window_is.rs` (its `pagehide` now reports the depth);
+    `alo-renderer`'s `a_page_measures_its_content.rs` (5) and unit tests in
+    `view.rs` and `scrolling_area.rs`.
+  **Closing condition met.** In `alo-corpus`' `tests/alo_sites_cta.rs`, at
+  800 × 600, a later task reads `documentElement` 800 × 600 and `body`
+  800 × 253 — the skip link's leftward overflow not counted — and, given a
+  beacon, a `pagehide` and a click, the script sends
+  `d=1000&p=%2F&w=800;t=0;x=0&y=0&p=%2F&w=800;`. A task that appends a
+  2000-pixel block reads 2100 in the same task, draws once, and the `Paint`
+  after it draws nothing more. A `display: none` element, a made element
+  and a detached tree answer 0. Every later script ran ordinarily and under
+  `Heap::stress`.
+
+  **Cut from it**, written as their own items: § 6's windowless size (371),
+  since no embedder opens a tab no window shows — `alo-window` waits for
+  its size before it loads — so a constant now would be one nothing uses;
+  and a measurement stopping before paint (372).
+
+- [ ] **371. The size a tab no window shows is told.** *Cut from 370 by
+  ADR 0038 § 6. Depends on 370.* A tab opened with no window to show it is
+  laid out, and read by its script, at `alo-window`'s first size,
+  1000 × 700 CSS pixels, until the person chooses one (item 133). *Opened
+  by* the first embedder that opens such a tab — an agent session without a
+  window. *Closes when:* a page loaded in it reads `innerWidth` 1000 and
+  `innerHeight` 700, and a page in a window reads the window's, in tests.
+
+- [ ] **372. A measurement stops before paint.** *Cut from 370; ADR 0038
+  § 4 says a measurement is a draw that stops before paint.* Today a
+  script's `scrollHeight` draws the page whole, paint included, and keeps
+  it as the next drawing, which is correct and what the next `Paint` shows;
+  but a script that measures, changes the document and measures again pays
+  for a paint nobody sees. Keep the layout and paint it only when a frame
+  is asked for. *A speed, so it is measured on hardware or not claimed
+  (`LOOP.md`).* *Closes when:* a measurement makes no display list or
+  canvas, the next `Paint` paints the kept layout without laying out again,
+  and every reference render is unchanged.
 
 - [ ] **363. The `Window`'s immutable prototype.** *Cut from 362 by ADR 0037
   § 6. Depends on 362; observable only through `Object.setPrototypeOf` and

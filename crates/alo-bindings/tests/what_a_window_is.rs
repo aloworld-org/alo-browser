@@ -20,13 +20,16 @@
 //! - alo Sites' analytics script, which opened the item, runs to its end,
 //!   and its `pagehide` listener on the window is reached by a dispatch at
 //!   it and, since `Math` (queue item 365), runs to its end too, reporting
-//!   once what it measured.
+//!   once what it measured: since `scrollHeight` (queue item 370), the depth
+//!   it read as well as the time.
 //!
 //! Every script runs twice — once with the collector at every allocation —
 //! and the two must agree.
 
-use alo_bindings::{Extent, Identity, Scrolled, View, Window, adopt, install, introduce, show};
-use alo_dom::parse_document;
+use alo_bindings::{
+    Extent, Identity, Scrolled, Unmeasured, View, Window, adopt, install, introduce, show,
+};
+use alo_dom::{Document, NodeId, parse_document};
 use alo_js::abrupt::Thrown;
 use alo_js::heap::{Ref, Root};
 use alo_js::interpret::{Engine, Trouble};
@@ -481,6 +484,11 @@ fn install_refuses_an_engine_whose_global_object_is_not_a_window() {
 }
 
 /// A window 800 × 600, at its top: the size the corpus draws the page at.
+/// It measures what the corpus's committed layout of the page says
+/// (`cases/alo-sites-cta/layout.txt`): the root element the viewport, since
+/// its 253.2 pixels are shorter, and `body` 800 × 253.2. This crate has no
+/// layout, so the numbers are lent; `alo-corpus`' `alo_sites_cta.rs` reads
+/// them from the renderer's own measurement.
 #[derive(Debug)]
 struct Corpus;
 
@@ -494,6 +502,23 @@ impl View for Corpus {
 
     fn scrolled(&self) -> Scrolled {
         Scrolled::default()
+    }
+
+    fn scrolling_area(
+        &self,
+        document: &Document,
+        node: NodeId,
+    ) -> Result<Option<Extent>, Unmeasured> {
+        if document.document_element() == Some(node) {
+            return Ok(Some(self.viewport()));
+        }
+        let body = document
+            .element(node)
+            .is_some_and(|element| &*element.name.local == "body");
+        Ok(body.then_some(Extent {
+            width: 800.0,
+            height: 253.2,
+        }))
     }
 }
 
@@ -547,9 +572,11 @@ fn alo_sites_analytics_script_runs_to_its_end_and_its_pagehide_listener_is_reach
             "true"
         );
         // `pagehide` at the window reaches `record`, which reads the window's
-        // `scrollY` and `innerHeight` — 0 and 600 (item 366) — and runs past
-        // `Math.max` in `height()` and `Math.round` (item 365) to its end. `navigator.sendBeacon` is absent (item 369), so it
-        // sends nothing and nothing is thrown.
+        // `scrollY` and `innerHeight` — 0 and 600 (item 366) — and the
+        // content's `scrollHeight` (item 370), and runs past `Math.max` in
+        // `height()` and `Math.round` (item 365) to its end.
+        // `navigator.sendBeacon` is absent (item 369), so it sends nothing
+        // and nothing is thrown.
         assert_eq!(
             page.run("window.dispatchEvent(new Event('pagehide'))"),
             "true"
@@ -562,17 +589,19 @@ fn alo_sites_pagehide_listener_reports_once_what_it_measured() {
     for stress in [false, true] {
         let mut page = the_cta_page(stress).unwrap_or_else(|why| panic!("{why}"));
         // What it sends, read through a beacon this test lends it in item
-        // 369's place: no depth — it reaches 600 pixels down, but the
-        // content's height is `NaN` until `scrollHeight` (item 370), so the
-        // share is 0 and not past the zero it starts at — and the seconds it
-        // was read, rounded by `Math.round`: none, on a fixed clock.
+        // 369's place: the depth — it reaches 600 pixels down a page whose
+        // height is the larger of the root's 600 and `body`'s 253, all of it,
+        // so 1000 per mille, with the page's path — `blank`, since this page
+        // is at `about:blank` — and the window's width —
+        // and then the seconds it was read, rounded by `Math.round`: none, on
+        // a fixed clock.
         assert_eq!(
             page.run(
                 "var sent = ''; navigator.sendBeacon = function (to, body) { \
                  sent += to + ' ' + body + ';'; return true; }; \
                  window.dispatchEvent(new Event('pagehide')); sent"
             ),
-            "/_alo/collect t=0;"
+            "/_alo/collect d=1000&p=blank&w=800;/_alo/collect t=0;"
         );
         // Once reported, it is not reported again.
         assert_eq!(

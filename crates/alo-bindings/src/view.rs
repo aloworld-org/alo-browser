@@ -21,15 +21,21 @@
 //! test of this crate alone, makes one — refuses each question by name
 //! rather than make up a size (§ 5, ADR 0013 § 3).
 //!
-//! # What is not asked yet
+//! # An element's scrolling area
 //!
-//! An element's scrolling area, the third question § 5 names, is queue item
-//! 370's, and arrives with `scrollWidth` and `scrollHeight`.
+//! The third question (§ 4, queue item 370) is asked **in the middle of a
+//! script**, of the document as it is at that moment: the embedder measures
+//! it from the layout the page would be drawn with now, and keeps that
+//! layout for its next drawing. It is handed the document, lent out of the
+//! heap for as long as the measurement takes, since nothing in the embedder
+//! can reach it while a script runs. Layout runs no script, so nothing can
+//! change the document while it is measured.
 
 use core::fmt;
 
 use std::rc::Rc;
 
+use alo_dom::{Document, NodeId};
 use alo_js::interpret::Engine;
 use alo_js::{Escape, Fault};
 
@@ -54,14 +60,39 @@ pub struct Scrolled {
     pub y: f64,
 }
 
+/// Why a view could not measure a page: what it measures with was already
+/// in use. Only the embedder's own bug can cause it — it asked its view to
+/// measure in the middle of drawing — and it is refused rather than
+/// answered with a size made up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Unmeasured;
+
 /// How a page is shown: what its window's `innerWidth`, `innerHeight`,
-/// `scrollX` and `scrollY` read.
+/// `scrollX` and `scrollY` read, and its elements' `scrollWidth` and
+/// `scrollHeight`.
 pub trait View: fmt::Debug {
     /// The size the page is laid out at: its viewport (ADR 0038 § 2).
     fn viewport(&self) -> Extent;
 
     /// Where the viewport is scrolled to (ADR 0038 § 3).
     fn scrolled(&self) -> Scrolled;
+
+    /// What `scrollWidth` and `scrollHeight` measure of `node`, an element of
+    /// `document`, now (ADR 0038 § 4), before they are rounded: for the root
+    /// element, the larger of the viewport's scrolling area and the
+    /// viewport; for any other, its own scrolling area. [`None`] when it has
+    /// no box — under `display: none`, in a tree not in the document, or in
+    /// a document this view does not show.
+    ///
+    /// # Errors
+    ///
+    /// [`Unmeasured`] when what the view measures with is in use, which is
+    /// the embedder's bug.
+    fn scrolling_area(
+        &self,
+        document: &Document,
+        node: NodeId,
+    ) -> Result<Option<Extent>, Unmeasured>;
 }
 
 /// Show the page `engine` holds by `view`: what its window's viewport

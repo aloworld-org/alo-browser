@@ -141,8 +141,9 @@ fn read(view: &dyn View, reads: Reads) -> f64 {
 
 /// A size, as a Web IDL `long` holds it here (ADR 0038 § 2): the nearest
 /// integer, a half rounded up; clamped to `0 ..= 2³¹ − 1`; and `0` for a
-/// size that is not finite. Never `-0`.
-fn long(size: f64) -> f64 {
+/// size that is not finite. Never `-0`. An element's `scrollWidth` and
+/// `scrollHeight` are held the same way ([`super::element_cssom_view`]).
+pub(super) fn long(size: f64) -> f64 {
     if !size.is_finite() {
         return 0.0;
     }

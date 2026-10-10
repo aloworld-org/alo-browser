@@ -31,6 +31,7 @@ use alo_dom::{NodeId, parse_document};
 use alo_js::interpret::Trouble;
 use alo_js::{Clock, Fixed, Value, script};
 use alo_renderer::EventLoop;
+use alo_renderer::easel::Easel;
 use alo_renderer::event_loop::{MOST_REPORTS, Stopped, Unqueued};
 use alo_renderer::held::Held;
 use alo_renderer::view::PageView;
@@ -41,10 +42,14 @@ fn clock() -> Rc<dyn Clock> {
     Rc::new(Fixed::at(0.0))
 }
 
-/// What the page's window is shown by: a viewport of 800 × 600, as a
-/// renderer's would be.
+/// What the page's window is shown by: a viewport of 800 × 600, drawn on an
+/// easel with no fonts, as a renderer's would be.
 fn view() -> Rc<dyn View> {
-    Rc::new(PageView::at(alo_layout::Size::new(800.0, 600.0)))
+    let easel = Easel::new(alo_text::FontDatabase::new());
+    Rc::new(PageView::at(
+        alo_layout::Size::new(800.0, 600.0),
+        Rc::new(core::cell::RefCell::new(easel)),
+    ))
 }
 
 /// A `div` holding a `button`, nothing between them.

@@ -149,6 +149,7 @@ pub mod dom_exception;
 pub mod dom_token_list;
 pub mod element;
 pub mod element_css_inline_style;
+pub mod element_cssom_view;
 pub mod event;
 pub mod event_target;
 pub mod headers;
@@ -472,6 +473,7 @@ impl Interface {
             // `ParentNode`'s `querySelectorAll` is on these three, as a mixin.
             Self::Element => {
                 element::furnish(objects, prototype, function_prototype)?;
+                element_cssom_view::furnish(objects, prototype, function_prototype)?;
                 parent_node::furnish(objects, prototype, function_prototype)
             }
             // `ElementCSSInlineStyle`'s `style` is on these two, as a mixin.

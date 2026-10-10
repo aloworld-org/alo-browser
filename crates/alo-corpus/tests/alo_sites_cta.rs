@@ -25,9 +25,10 @@
 //! clock stopped at [`alo_corpus::INSTANT`], past `encodeURIComponent` and
 //! `location` on its eighth since queue items 359 and 360 built them, and
 //! past `window.addEventListener("pagehide", …)` on its thirty-second since
-//! queue item 362 made the global object a `Window`. Where its `pagehide`
-//! listener stops when one is dispatched is `alo-bindings`'
-//! `what_a_window_is.rs`: nothing in a load fires it (queue item 364).
+//! queue item 362 made the global object a `Window`. Nothing in a load fires
+//! its `pagehide` listener (queue item 364); dispatched by a later task, it
+//! reports the depth the page was read to, since queue items 366 and 370
+//! gave it the window's size and the page's.
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
@@ -193,19 +194,23 @@ fn left(rendering: &Rendering, name: &str) -> Option<String> {
     document.element(html)?.attr(name).map(ToOwned::to_owned)
 }
 
-/// Queue item 366 (ADR 0038): the analytics script reads the window it is
-/// drawn in, 800 × 600 at its top, and `shape()` reports that width.
+/// Queue items 366 and 370 (ADR 0038): the analytics script reads the window
+/// it is drawn in, 800 × 600 at its top, and the size of the page in it,
+/// which the renderer measures as the script asks: the root element the
+/// viewport, since the page's 253.2 pixels are shorter, `body` 253, and the
+/// root 800 wide — the skip link at `left: -999rem` is not counted.
 ///
-/// Its own two ways to `shape()` each need something not built. `record`,
-/// on `pagehide`, calls it only once the page's height is known, which is
-/// `scrollHeight` (queue item 370); the click listener calls it only for an
-/// event with a numeric `pageX`, which no event has yet. So a later task
-/// lends what it needs and nothing else, as a timer or an event will run
-/// one: a beacon in `navigator.sendBeacon`'s place (queue item 369), and a
-/// click with `pageX` and `pageY` of `0`. Run ordinarily and with the
+/// So `record`, on `pagehide`, reaches 600 pixels down a page 600 tall, all
+/// of it, and reports a depth of 1000 per mille with `shape()`, the page's
+/// path and the window's width; then the seconds read, none on the corpus's
+/// clock. Nothing in a load fires `pagehide` (queue item 364), and the beacon
+/// it sends with is queue item 369, so a later task lends what it needs and
+/// nothing else, as a timer or an event will run one: a beacon in
+/// `navigator.sendBeacon`'s place, a `pagehide`, and a click with `pageX` and
+/// `pageY` of `0`, which no event has yet. Run ordinarily and with the
 /// collector at every allocation.
 #[test]
-fn its_script_reads_the_window_it_is_drawn_in_and_reports_its_width() {
+fn its_script_reads_the_window_it_is_drawn_in_and_the_page_in_it() {
     for stress in [false, true] {
         let Some((_, mut rendering)) = cta() else {
             panic!("the case renders");
@@ -222,6 +227,8 @@ fn its_script_reads_the_window_it_is_drawn_in_and_reports_its_width() {
             "var root = document.documentElement; \
              root.setAttribute('data-read', innerWidth + 'x' + innerHeight + ' at ' + \
                scrollX + ',' + scrollY); \
+             root.setAttribute('data-measured', root.scrollWidth + 'x' + root.scrollHeight + \
+               ' ' + document.body.scrollWidth + 'x' + document.body.scrollHeight); \
              var sent = ''; \
              navigator.sendBeacon = function (to, body) { sent += body + ';'; return true; }; \
              window.dispatchEvent(new Event('pagehide')); \
@@ -241,14 +248,17 @@ fn its_script_reads_the_window_it_is_drawn_in_and_reports_its_width() {
             left(&rendering, "data-read").as_deref(),
             Some("800x600 at 0,0")
         );
-        // `pagehide`: it reaches 600 pixels down, but over a height that is
-        // `NaN` until item 370 that is no share, so no depth; then the
-        // seconds read, none on the corpus's fixed clock. The click: no
-        // share of a width or a height not known yet, and `shape()`: the
-        // page's path, and the window's width.
+        assert_eq!(
+            left(&rendering, "data-measured").as_deref(),
+            Some("800x600 800x253"),
+            "stress: {stress}"
+        );
+        // `pagehide`: all of a page 600 tall, and `shape()`; then the
+        // seconds. The click: at the top left, no share of the width or the
+        // height, and `shape()` again.
         assert_eq!(
             left(&rendering, "data-sent").as_deref(),
-            Some("t=0;x=0&y=0&p=%2F&w=800;"),
+            Some("d=1000&p=%2F&w=800;t=0;x=0&y=0&p=%2F&w=800;"),
             "stress: {stress}"
         );
     }

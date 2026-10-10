@@ -24,7 +24,7 @@ fn every_case_renders_the_way_it_is_committed_to() {
     for case in &cases {
         let differences = match Rendering::of(case) {
             Ok(rendering) => match (rendering.document(), rendering.drawing()) {
-                (Some(document), Some(drawing)) => check(case, document, drawing),
+                (Some(document), Some(drawing)) => check(case, document, &drawing),
                 _ => vec![unrendered(case, "it has no document or no drawing")],
             },
             Err(why) => vec![unrendered(case, &why)],

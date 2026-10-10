@@ -37,6 +37,14 @@ pub struct BoxGeometry {
     /// How big the content inside is, including whatever spills out of the box
     /// — what a scrollbar would be sized against.
     pub scrollable: Size,
+    /// How far the content reaches **toward the box's end edges**, measured
+    /// from the top left of its padding box: rightward and downward.
+    ///
+    /// [`BoxGeometry::scrollable`] counts content that spills out above or to
+    /// the left as well, which nothing can scroll to. This counts only what a
+    /// scroll could reach, and is what an element's scrolling area is made of
+    /// ([`BoxGeometry::scrolling_area`]). Never negative.
+    pub reach: Size,
     /// The band this box's block-start border is drawn in, when something sits
     /// in that border rather than under it.
     ///
@@ -56,6 +64,19 @@ impl BoxGeometry {
     /// The rectangle the content sits in, inside the padding.
     pub fn content_box(self) -> Rect {
         self.padding_box().shrunk_by(self.padding)
+    }
+
+    /// The box's **scrolling area**, as CSSOM View measures it for
+    /// `scrollWidth` and `scrollHeight` (ADR 0038 § 4): its padding box,
+    /// extended by its content's overflow **toward its end edges only**,
+    /// right and bottom. Overflow above or to the left cannot be scrolled to,
+    /// so it is not in the area.
+    pub fn scrolling_area(self) -> Size {
+        let padding = self.padding_box().size;
+        Size::new(
+            padding.width.max(self.reach.width),
+            padding.height.max(self.reach.height),
+        )
     }
 
     /// Whether the content is larger than the box that holds it.
@@ -205,6 +226,7 @@ mod tests {
             padding: Edges::all(8.0),
             margin: Edges::all(4.0),
             scrollable: Size::new(80.0, 40.0),
+            reach: Size::new(88.0, 48.0),
             band: None,
         }
     }
@@ -235,6 +257,27 @@ mod tests {
             ..geometry()
         };
         assert!(spills.overflows());
+    }
+
+    #[test]
+    fn a_scrolling_area_is_the_padding_box_extended_toward_its_end_edges() {
+        // Content that reaches no further than the padding box: the padding
+        // box, 96 × 56.
+        assert_eq!(geometry().scrolling_area(), Size::new(96.0, 56.0));
+        // Content reaching 300 rightward and 20 downward: wider, and no
+        // shorter than the padding box.
+        let wide = BoxGeometry {
+            reach: Size::new(300.0, 20.0),
+            ..geometry()
+        };
+        assert_eq!(wide.scrolling_area(), Size::new(300.0, 56.0));
+        // Spilling far out to the left counts nothing: `scrollable` is huge,
+        // but what reaches rightward is within the box.
+        let leftward = BoxGeometry {
+            scrollable: Size::new(16_000.0, 40.0),
+            ..geometry()
+        };
+        assert_eq!(leftward.scrolling_area(), Size::new(96.0, 56.0));
     }
 
     #[test]

@@ -55,7 +55,8 @@
 //!   `pageXOffset` and `pageYOffset` (ADR 0038, queue item 366) ask the
 //!   page's [`View`], which the embedder hands it with [`show()`]: this crate
 //!   has no layout, so it asks, at every read, and a page shown nothing
-//!   refuses by name.
+//!   refuses by name. So do an element's `scrollWidth` and `scrollHeight`
+//!   (queue item 370), which the view measures in the middle of the script.
 //! - [`introduce()`] puts the page's [`Navigator`] on the global object as
 //!   `navigator` (ADR 0030, queue item 325): the user agent string and the
 //!   platform the browser process told the renderer, as an [`Identity`], and
@@ -160,6 +161,6 @@ pub use node_list::NodeList;
 pub use response::{Responded, Response};
 pub use style_declaration::StyleDeclaration;
 pub use token_list::TokenList;
-pub use view::{Extent, Scrolled, View, show};
+pub use view::{Extent, Scrolled, Unmeasured, View, show};
 pub use window::{Window, engine};
 pub use wrapper::Wrapper;

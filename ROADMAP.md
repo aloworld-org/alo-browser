@@ -1168,7 +1168,19 @@ unreachable without it.
       name with no view; `alo-renderer`'s `view.rs`, `PageView`, set at load
       and at every `Resize`, its scroll position zero. alo Sites' analytics
       script reports `&p=%2F&w=800` at 800 × 600
-      · Owed: an element's scrolling area (370),
+      · Built: an element's scrolling area (queue item 370) —
+      `interface/element_cssom_view.rs`, `scrollWidth` and `scrollHeight`
+      on `Element.prototype`, asking the `View`'s third question;
+      `alo-renderer`'s `easel.rs`, what a page is drawn with and its last
+      drawing, shared by the renderer and the view, so a script is measured
+      mid-task by the one pipeline and the drawing kept for the next paint;
+      `scrolling_area.rs`, CSSOM View's steps without quirks; and
+      `alo-layout`'s `BoxGeometry::reach` and `scrolling_area`, overflow
+      toward the end edges only. alo Sites' `pagehide` listener reports
+      `d=1000&p=%2F&w=800` and then `t=0`
+      · Owed: the size a tab no window shows is told (371, opened by the
+      first embedder that opens one), a measurement stopping before paint
+      (372, a speed),
       `el.style[0]`, the indexed getter (345), and `getComputedStyle`,
       `document.styleSheets` and the rest of item 89, each opened by a page
 - [ ] Storage: `localStorage`, `sessionStorage`, IndexedDB, the Cache API, and one quota policy over all of them

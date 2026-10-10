@@ -111,10 +111,11 @@ impl Rendering {
         }
     }
 
-    /// What was drawn.
-    pub fn drawing(&self) -> Option<&Drawing> {
+    /// What was drawn: the renderer's last drawing, which a script that
+    /// measured the page may have made.
+    pub fn drawing(&self) -> Option<Rc<Drawing>> {
         match self {
-            Self::Markup(rendered) => Some(&rendered.drawing),
+            Self::Markup(rendered) => Some(Rc::clone(&rendered.drawing)),
             Self::Loaded(renderer, _) => renderer.rendered(),
         }
     }

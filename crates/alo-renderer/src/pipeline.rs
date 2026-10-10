@@ -31,6 +31,7 @@ use alo_style::{Origin, SourcedSheet, StyleTree, USER_AGENT_STYLE_SHEET};
 use alo_text::{FontDatabase, TextMeasurer};
 use alo_value::Rgba;
 use std::fmt;
+use std::rc::Rc;
 
 /// Everything one render produced, and the document it was produced from.
 ///
@@ -40,8 +41,10 @@ use std::fmt;
 pub struct Rendered {
     /// The document.
     pub document: Document,
-    /// What was drawn from it.
-    pub drawing: Drawing,
+    /// What was drawn from it: shared, as a renderer's last drawing is
+    /// ([`crate::easel`]), so that whoever reads a drawing reads it the same
+    /// way whichever made it.
+    pub drawing: Rc<Drawing>,
 }
 
 /// Everything one render of a document produced, without the document.
@@ -215,7 +218,10 @@ pub fn render_document_with(
         resources,
         &Judged::nothing(),
     );
-    Rendered { document, drawing }
+    Rendered {
+        document,
+        drawing: Rc::new(drawing),
+    }
 }
 
 /// Draw a document that is only lent: style, boxes, layout and paint.
