@@ -6137,9 +6137,12 @@ The long pole, and the thing most of section E is unreachable without.
   outlive their document, and `sendBeacon`, as undecided, because a request
   that outlives the page that made it is a tracking feature first.* Whether
   a page may send one, to whom, with what credentials, and how it is
-  recorded under ADR 0012. Depends on 364, since the moment it matters is a
-  page being left. *Closes when:* the decision is an ADR, and the item it
-  makes buildable sends or refuses the frozen page's report in tests.
+  recorded under ADR 0012. Depends on 373 (ADR 0039 § 7; it was 364
+  before that ADR cut the leaving steps out of it), since the moment it
+  matters is a page being left, and ADR 0039 § 4 refuses a leaving page's
+  fetches until this item decides. *Closes when:* the decision is an ADR,
+  and the item it makes buildable sends or refuses the frozen page's report
+  in tests.
 
 - [x] **366. The viewport a script reads.** *Opened by `alo-sites-cta`
   (iteration 234): `record` reads `window.scrollY` and
@@ -6319,6 +6322,72 @@ The long pole, and the thing most of section E is unreachable without.
   `visibilitychange` at the document to send what it measured. *Closes
   when:* the decision is an ADR, and the item it makes buildable fires each
   event at the moment HTML says, in tests.
+
+  **Decided (iteration 240): ADR 0039.** A page is told when it is hidden,
+  shown and left, and leaving is one bounded task:
+  - the visibility state, `visible` or `hidden`, is the browser process's:
+    a tab is `visible` when it is the selected tab of a window that is not
+    occluded or minimised, and a tab no window shows is `visible` (§ 1);
+  - the renderer is told it with the `Page` and by
+    `ToRenderer::Visibility`, a task that fires `visibilitychange` at the
+    document only when the state changes, answered as a delivered task is,
+    its asks the document's (§ 1);
+  - a page is left only through HTML's leaving steps — `pagehide`
+    (`persisted` `false`), the state becoming `hidden`, `unload` — as one
+    task, by `Leave`, by every `Load` into a renderer that holds a page, by
+    a closed tab and by the window closing; `pageshow` sets *page showing*
+    at the end of the load (§ 2);
+  - the leaving task has a deadline of one second on the renderer's own
+    `Stop`, the browser process waits no longer than for any answer, and
+    nothing the page queued runs afterwards (§ 3);
+  - a leaving page's fetches cross as claims and are refused by name until
+    369 decides keep-alive; its navigation is not carried (§ 4);
+  - no back-forward cache, so `persisted` is always `false`, and no
+    `beforeunload`, whose prompt nobody has decided (§ 5).
+
+  This item is now the first build: the visibility state. The leaving
+  steps are cut to **373**.
+
+  *Closes when* (ADR 0039 § 7):
+  - a page loaded `visible` reads `"visible"` and `false` from
+    `document.visibilityState` and `document.hidden` while it loads, and one
+    loaded `hidden` reads `"hidden"` and `true`;
+  - `Visibility(Hidden)` fires one `visibilitychange`, at the document and
+    then the window, and a second `Visibility(Hidden)` fires none;
+  - in `tests/alo_sites_cta.rs`, with a beacon the test lends,
+    `Visibility(Hidden)` makes the page send `d=1000&p=%2F&w=800` and then
+    `t=0`, and `Visibility(Visible)` afterwards sends nothing;
+  - a fetch asked during the task is the document's;
+  - `alo-window` sends `Hidden` and `Visible` when its window is occluded
+    and shown, in a conductor test;
+  - every script runs ordinarily and under `Heap::stress`.
+
+- [ ] **373. A page left.** *Cut from 364 by ADR 0039 § 7. Depends on 364.*
+  `PageTransitionEvent` with `persisted`, and *page showing*; `pageshow` at
+  the window as the last step of the load (before `Loaded`, and after
+  `load` once `load` is fired); the leaving steps of § 2 — `pagehide`, the
+  visibility state becoming `hidden`, `unload` — as one task, run by
+  `ToRenderer::Leave` and before every `Load` into a renderer that holds a
+  page, with nothing the page queued running afterwards; § 3's
+  `LONGEST_LEAVING` deadline on the loop's `Stop`, and `FromRenderer::Left`
+  carrying what was said and the fetches asked for, with no navigation;
+  `Tabs::close` and `alo-window`'s `close_everything` sending `Leave`; and
+  § 4's refusal of a leaving page's fetches, by name, in `fetch_decide.rs`.
+  *Closes when:*
+  - in `tests/alo_sites_cta.rs`, with a beacon the test lends, `Leave` of a
+    visible page makes it send `d=1000&p=%2F&w=800` and then `t=0`, from
+    `pagehide`, and its `visibilitychange` listener sends nothing more;
+  - the events arrive in the order `pagehide`, `visibilitychange`,
+    `unload`, and a page already hidden hears no `visibilitychange`;
+  - a page that loops in `pagehide` is stopped at the deadline and the
+    answer says so;
+  - a timer, a delivered response or a job queued during leaving never
+    runs;
+  - a `Load` after a page that listens for `pagehide` runs the listener
+    first, and says so in `Loaded`, marked as the left page's;
+  - a leaving page's fetch is refused by name, and its navigation is not
+    carried;
+  - every script runs ordinarily and under `Heap::stress`.
 
 - [ ] **357. A date as text.** *Cut from 353 (ADR 0036 § 4). Depends on
   356.* `Date.parse` and `new Date(string)` over the Date Time String

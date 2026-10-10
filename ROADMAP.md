@@ -1100,7 +1100,8 @@ unreachable without it.
       (`interface/window.rs`), and every path in `dispatch.rs` ends at it
       after the document, except for `load` · Owed:
       its immutable prototype (363),
-      the page lifecycle at it (364, needs design), going there (85), a
+      the page lifecycle at it (decided by ADR 0039, nothing built: the
+      visibility state, 364, and a page left, 373), going there (85), a
       link's download (264), each element's own interface (262), focus
       (258) and event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs

@@ -23032,3 +23032,125 @@ paragraph and 371 and 372 are added.
 158 queue items are open: 370 closed, 371 and 372 added. The next unused
 queue number is **373** and the next ADR is **0039**. This is one
 iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 240 — queue item 364 decided: ADR 0039, when a page is hidden, shown and left
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` and iteration
+239's entry. No `AGENTS.md` exists in this repository. For 364: ADR 0037
+(all of it, § 5 above all), ADR 0038, ADRs 0005, 0016 (§§ 2, 6, 7), 0018
+§ 4, 0020, 0024 (§§ 2, 6), 0031 § 7 and 0032's *What this does not decide*,
+the queue item, and `docs/features.md`' Events line.
+
+**Choosing.**
+- 296 first, since its capture is owed. A Swift check of
+  `CGSessionCopyCurrentDictionary` answered `CGSSessionScreenIsLocked` = 1,
+  with `CGPreflightScreenCaptureAccess` true. The screen is still locked,
+  so 296 is not takeable and nothing was started.
+- 371 waits for an embedder that opens a windowless tab. 372 is a speed,
+  opened by no page. 363 waits on 73. 367 has no page. 369 depended on 364.
+  The open items before these in the file are blocked or page-gated, as
+  earlier entries recorded.
+- 364 is opened by `alo-sites-cta`, depends only on 362 (done), and names
+  ADR 0037 § 5 and the Events feature line. Its *needs design* is a
+  decision, so it was taken as its own iteration (LOOP.md stage 2 § 4).
+
+**What the code showed, before deciding.**
+- `alo-renderer`'s `renderer.rs` `load` begins with `self.held = None`: a
+  page replaced in the same renderer is dropped without a word to its
+  script.
+- `Tabs::close` reaps a site's renderer once no tab is open on it, and
+  `alo-window`'s `close_everything` closes every tab that way.
+- `alo-window`'s `window.rs` ignores `WindowEvent::Occluded`.
+- Nothing fires `load` or `pageshow`. HTML fires `pagehide` only for a
+  document whose *page showing* is true, which `pageshow` sets, so leaving
+  cannot be built without it.
+- `Stop` is an `Arc<AtomicBool>` any thread may set; `LONGEST_SILENCE` is
+  ten seconds.
+- In the case's script, `record` is idempotent after its first run: a
+  `pagehide` then `visibilitychange` sends `d=1000&p=%2F&w=800`, `t=0` and
+  nothing more.
+
+**What was decided.** ADR 0039, *A page is told when it is hidden, shown
+and left, and leaving is one bounded task*, accepted:
+1. The visibility state (`visible`, `hidden`; no `prerender`) is the
+   browser process's. A tab is `visible` when it is the selected tab of a
+   window not occluded or minimised. A tab no window shows is `visible`, so
+   it does not mark an agent, as ADR 0038 § 6 reasoned for its size. The
+   renderer is told it with the `Page` and by `ToRenderer::Visibility`, a
+   task that fires `visibilitychange` at the document only on a change,
+   answered as a delivered task is, its asks the document's. A document no
+   window was associated with stays `"hidden"`, HTML's initial value.
+2. A page is left only through HTML's leaving steps: `pagehide`
+   (`persisted` `false`), the state becoming `hidden`, `unload`, as one
+   task, after which nothing it queued runs. `Leave`, every `Load` into a
+   renderer holding a page, a closed tab and the closing window all go
+   through it. `pageshow` sets *page showing* as the last step of the load,
+   and goes with `load` when that is built.
+3. The leaving task has a one-second deadline on the renderer's own
+   `Stop`. The browser process waits no longer than for any answer, and the
+   window waits on none of it.
+4. A leaving page's fetches cross as claims and the browser process refuses
+   them by name until 369 decides keep-alive. Its navigation is not carried.
+5. No back-forward cache (`persisted` always `false`, no `freeze` or
+   `resume`) and no `beforeunload`, whose prompt nobody has decided.
+6. An agent acting in a hidden tab of a person's window is visible to the
+   page as such. That question is named for item 133, not answered with a
+   state nobody saw.
+
+The ADR names its costs, the alternatives it rejected and how we will know
+it was wrong.
+
+**Queue.**
+- 364 has a *Decided* paragraph and closing conditions from the ADR. It
+  stays open: it is now the first build (the visibility state), designed
+  and eligible, and next.
+- Cut from it: **373**, a page left, which depends on 364.
+- 369 now depends on 373 rather than 364.
+
+**Roadmap.** No line is ticked. The Events line's *Owed* clause now says
+the lifecycle is decided by ADR 0039 with nothing built, and names 364 and
+373. Also updated: `docs/features.md`' Events line (*decided, not built*),
+`docs/conformance.md`' alo Sites row, `REMAINING.md` and `CHANGELOG.md`.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log.
+It passed 600 s and the harness moved it to the background. The next call
+waited on it in a foreground `until` loop and read `exit 0`, "The gate is
+met", with no `FAILED` or `panicked` in the log:
+- formatting clean, clippy silent, tests pass;
+- no stubs, `unsafe` forbidden everywhere, the licence on every file;
+- every rented crate behind its boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds;
+- "no uncommitted code to judge", which is right for a change with no code.
+  `CHANGELOG.md` has its line.
+
+This entry was written after that run and is documentation only.
+
+**Gate, manual.**
+- Layout assertion and reference render: none applies. Nothing positions,
+  sizes or draws, and no reference moved. The closing conditions for 364
+  and 373 are written in observable numbers and orders for when they are
+  built.
+- Hostile input: nothing new reads from outside. The ADR bounds what a
+  hostile page can do with leaving (a deadline, nothing runs after, no
+  fetch or navigation carried) for the build to test.
+- One responsibility per file: the ADR is one decision, and places the
+  leaving steps in one renderer task and the fetch refusal in
+  `fetch_decide.rs`, the one place asks are decided.
+- The feature is in `docs/features.md` before it is built, as *decided,
+  not built*. Nothing is ticked: 364 is decided, not done.
+- No `unsafe`, no new dependency, no code changed. `alo-workplace` and
+  `alo-os` were not touched.
+
+**Unresolved obligations.**
+- 364 is next and eligible. 373 follows it, and 369 follows 373.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- 371 waits for a windowless embedder; 372 is a speed, to be measured.
+- 367 needs an ADR and a page; 368 waits on typed arrays and 231; 363 on
+  73.
+- Everything iteration 239 listed still stands.
+
+159 queue items are open: 373 added, and 364 still open. The next unused
+queue number is **374** and the next ADR is **0040**. This is one
+iteration, not a finished queue or roadmap.

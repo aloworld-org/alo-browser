@@ -1100,3 +1100,18 @@ reports `d=1000&p=%2F&w=800` and `t=0`. It cut 371, the size a tab no
 window shows (no embedder opens one yet), and 372, a measurement stopping
 before paint. 158 queue items are open. The next unused queue number is
 373 and the next unused ADR 0039.
+
+Iteration 240 found the screen still locked, so 296's capture is still not
+takeable. It decided item 364 as ADR 0039, and built nothing. The browser
+process owns a page's visibility state: a tab is `visible` when it is the
+selected tab of a window that is not occluded or minimised, and a tab no
+window shows is `visible`. The renderer is told it with the `Page` and by
+`ToRenderer::Visibility`, a task that fires `visibilitychange` when it
+changes. A page is left only through HTML's leaving steps (`pagehide`, the
+state becoming `hidden`, `unload`), as one task with a one-second deadline,
+run by `Leave` and before every `Load` into a renderer holding a page. A
+leaving page's fetches are refused by name until 369 decides keep-alive.
+There is no back-forward cache and no `beforeunload`. 364 is now the first
+build, designed and eligible. The leaving steps are cut to **373**, and
+369 now depends on 373. 159 queue items are open. The next unused queue
+number is 374 and the next unused ADR 0040.

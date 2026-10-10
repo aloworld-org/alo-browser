@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: when a page is told it is hidden, shown or left.** A page
+  will know whether it can be seen — hidden when its window is covered or
+  minimised or another tab is in front — and hear `visibilitychange` each
+  time that changes. A page being left, because its tab closed, the window
+  closed or the next page replaced it, hears `pagehide`, `visibilitychange`
+  and `unload` in one go and is given at most a second; nothing it left
+  waiting runs after that, and anything it tries to send on the way out is
+  refused, by name, until the browser decides whether a request may outlive
+  its page. There is no back-forward cache and no "leave this page?"
+  prompt. Nothing is built yet: this is the decision the build follows
+  (queue items 364 and 373, ADR 0039).
+
 - **A page can read how big its own content is.** An element's
   `scrollWidth` and `scrollHeight` answer how far its content reaches to
   the right and downward, and the page's root answers at least the
