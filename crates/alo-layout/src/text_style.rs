@@ -7,7 +7,9 @@
 //! One function, because two readers need the same answer. Layout measures
 //! text in this font, and the cascade's `ex` and `ch` are measured in the
 //! face it picks (`alo_style::MeasureFace`). Two copies of the reading would
-//! be a `ch` taken from one face and a line set in another.
+//! be a `ch` taken from one face and a line set in another. The weight is
+//! read by the style itself ([`ComputedStyle::font_weight`]), because paint
+//! chooses the face it draws in by the same number.
 
 use crate::measure::TextStyle;
 use alo_style::ComputedStyle;
@@ -34,7 +36,7 @@ pub fn text_style_of(style: &ComputedStyle) -> TextStyle {
             })
             .unwrap_or_default(),
         size: style.font_size(),
-        weight: weight_of(style),
+        weight: style.font_weight(),
         italic: style
             .get("font-style")
             .is_some_and(|value| !value.eq_ignore_ascii_case("normal")),
@@ -54,24 +56,5 @@ pub fn text_style_of(style: &ComputedStyle) -> TextStyle {
             .and_then(alo_box::WhiteSpace::parse)
             .unwrap_or_default(),
         line_height: style.set_line_height(),
-    }
-}
-
-/// `font-weight` as a number, taking the two keywords that are numbers in
-/// disguise.
-fn weight_of(style: &ComputedStyle) -> u16 {
-    if let Some(number) = style.number("font-weight") {
-        let clamped = number.clamp(1.0, 1000.0).round();
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "clamped to one..=1000 and rounded"
-        )]
-        let weight = clamped as u16;
-        return weight;
-    }
-    match style.get("font-weight") {
-        Some(value) if value.eq_ignore_ascii_case("bold") => 700,
-        _ => 400,
     }
 }

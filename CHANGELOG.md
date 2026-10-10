@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Bold text is bold.** Headings, `<strong>`, `<b>` and table headers
+  were given the room bold letters take and then drawn in regular ones, so
+  a bold heading looked thin and a bold phrase in a sentence left a gap
+  after it. They are now drawn in the bold face, filling exactly the room
+  they were given, on every page that has them (queue item 402).
+
 - **A list inside a list belongs to it, and a crossed-out word is
   crossed out.** On a page with no style of its own, a list nested under a
   point stood a whole line's height below it, and text marked as deleted or

@@ -85,6 +85,7 @@ and an item marked [2] is a decision that it is *not* stage 1's problem.
 - [1] The fallback chain: a font is *asked* whether it has the character, never guessed at from a language tag
 - [1] **The awkward scripts before the easy ones.** A pipeline that assumed left-to-right and one glyph per character is a pipeline that gets rewritten
 - [1] Line breaking, and the fallback chain when a font lacks a glyph
+- [1] **A run is drawn in the face it was measured in** (queue item 402): `font-weight` is read once, by the style, and layout and paint both ask it, so a heading the user-agent sheet makes `bold` is drawn bold and fills the room it was laid out in. Not yet: `bolder` and `lighter`, which read as `normal` in both (403)
 - [1] Web fonts
 - [2] **A variable font is one file and many weights**: the `wght` axis read as the range it covers rather than the one instance `OS/2` names, so one file answers a request for 400 and one for 700 — and is shaped, measured and outlined at the weight it was set to
 - [2] Web fonts as pages actually ship them: WOFF2, the rest of a variable font's axes, and loading that does not flash

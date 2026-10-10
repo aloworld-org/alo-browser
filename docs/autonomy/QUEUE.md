@@ -7504,7 +7504,7 @@ The long pole, and the thing most of section E is unreachable without.
   "3." and "4." where a browser does, in pixels and numbers, and its agent
   outline reads what the ADR says.
 
-- [ ] **402. `font-weight: bold` is drawn bold.** *Found by
+- [x] **402. `font-weight: bold` is drawn bold.** *Found by
   `alo-sites-rich-text` (iteration 260). Feature: `docs/features.md` stage
   1, Text. Depends on nothing open.* `alo-layout`'s `text_style.rs` reads
   `font-weight: bold` as 700, but `alo-paint`'s `build.rs`
@@ -7518,6 +7518,42 @@ The long pole, and the thing most of section E is unreachable without.
   headings and its `<strong>` are drawn in the bold face, as wide as they
   are laid out, in pixels and numbers; and every reference that moves with
   it is reviewed in the same commit.
+  **Done (iteration 261).** `font-weight` is read in one place,
+  `alo-style`'s new `weight.rs` (`ComputedStyle::font_weight`: a number
+  rounded and held to 1..=1000, `bold` 700, `normal` and anything unread
+  400), and both `alo-layout`'s `text_style.rs` and `alo-paint`'s
+  `font_request` ask it; `alo-css`'s list now names `alo-style` as the
+  property's one reader. Tests: `weight.rs` (4: the keywords, any case;
+  rounding and the scale's ends; unset, unreadable and `bolder` as
+  `normal`; a child inheriting `bold`) and
+  `tests/alo_sites_rich_text.rs` (1: the `h1`, `h2` and `<strong>` runs laid
+  out 471.79688, 333.73828 and 162.36719 wide, each drawn in a 700 face,
+  each run's ink within 3 px of its laid-out right edge and a heading's not
+  past it; the text before the `<strong>` still 400). Mutation, restored
+  from a copy: paint reading only a number fails the weight assertion, and
+  with that assertion removed fails the ink one (the `h1`'s ink ending at
+  424, 56 short). Eleven case references moved, every one a `render.png`
+  and no layout file: `a-script-beside-itself`,
+  `a-script-gives-a-new-body`, `a-script-grows-a-list`,
+  `a-script-writes-the-date`, `alo-downloads`, `alo-meet-greeting`,
+  `alo-sites-rich-text`, `inline-mixed`, `invoice-list`,
+  `web-example-com` and `web-first-website`, each looked at beside its old
+  picture: in every one only bold text changed, now heavier and filling the
+  room it was laid out in (alo Meet's "Your meeting space" lost the gap
+  after "Your"). `bolder` and `lighter` are cut to 403.
+
+- [ ] **403. `bolder` and `lighter` are relative to the parent.** *Cut
+  from 402 (iteration 261). Feature: `docs/features.md` stage 1, Text.
+  Waits for a page.* CSS Fonts 4 § 2.2 computes them from the inherited
+  weight by its table (`bolder` of 400 is 700, `lighter` of 700 is 400), and
+  a child inherits the number, not the word. `alo-style` keeps a written
+  value as text and `ComputedStyle::font_weight` reads both words as 400,
+  the same in layout and paint, so a `<b>` inside a `<b>` is bold and a
+  `bolder` heading in a 300 body is 400 where a browser draws 700. Doing it
+  means resolving the word in the cascade, beside `font-size`, so a
+  grandchild does not apply it twice. No corpus page writes either word.
+  *Closes when:* a page's `bolder` and `lighter` are drawn at the weights
+  CSS's table gives, in numbers, three levels deep.
 
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*

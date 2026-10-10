@@ -113,7 +113,7 @@ pub static SUPPORTED: &[(&str, &[Reader])] = &[
     ("font-family", &[Layout, Paint, Renderer]),
     ("font-size", &[Style]),
     ("font-style", &[Layout, Paint]),
-    ("font-weight", &[Layout, Paint]),
+    ("font-weight", &[Style]),
     ("gap", &[Layout]),
     ("grid-auto-columns", &[Layout]),
     ("grid-auto-flow", &[Layout]),

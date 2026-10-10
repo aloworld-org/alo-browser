@@ -25318,3 +25318,79 @@ line for markers), `docs/conformance.md`, `REMAINING.md`, `CHANGELOG.md`.
 171 queue items are open (400 added closed, 401 and 402 added open). The
 next unused queue number is **403** and the next ADR is **0044**. This is
 one iteration, not a finished queue or roadmap.
+
+
+## Iteration 261 — queue item 402 built: `font-weight: bold` is drawn bold
+
+**Read first.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`, the
+journal's last entry (260), `REMAINING.md`'s continuation and the queue. No
+`AGENTS.md` exists in this repository. Iteration 260 left every other open
+item blocked on dependencies, design, an ADR or a page, and named 402 as
+depending on nothing open, with its page (`alo-sites-rich-text`) already
+frozen; it is the first eligible item. There is no ADR for it: it moves
+one reading to one place and decides nothing. Item 383 was read because it
+asks the same of `font-style` (left to it). Feature: `docs/features.md`
+stage 1, Text. Read before changing: `alo-layout`'s `text_style.rs`,
+`alo-paint`'s `build.rs` (`font_request`), `alo-style`'s `computed.rs` and
+`font_units.rs`, `alo-renderer`'s `families.rs` and `font_units.rs` (both
+already route through `text_style_of`), `alo-css`'s `properties.rs` and
+the crates' `what_it_reads_is_listed.rs`.
+
+**What was built.** `alo-style`'s new `weight.rs`:
+`ComputedStyle::font_weight`, the one reading of `font-weight` (a number
+rounded and held to 1..=1000, a non-finite one `normal`, `bold` 700,
+anything else 400). `alo-layout`'s `text_style_of` and `alo-paint`'s
+`font_request` both ask it; their own copies are gone, and `alo-css`'s
+list names `alo-style` as the property's only reader. `bolder` and
+`lighter` need resolving in the cascade and no page writes them: cut to
+**403**.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log; the
+harness moved it to the background at 600 s and the next call waited on it
+in a foreground `until` loop. It read `exit 0` and "The gate is met", with
+no `FAILED`, `panicked` or line starting `error` in the log. `cargo fmt
+--all` and clippy on the five touched crates (all targets, all features,
+`-D warnings`) were clean before it. This entry and the commit came after
+that run and are documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `tests/alo_sites_rich_text.rs`'s new test
+  (the three bold runs' laid-out widths 471.79688, 333.73828 and 162.36719
+  from `layout.txt`, each drawn at weight 700, the plain run beside them at
+  400). Unit tests: `weight.rs` (4).
+- Reference render: the same test checks pixels (each bold run's ink ends
+  within 3 px of its laid-out right edge, a heading's not past it; before,
+  the `h1`'s ink ended at 424 against 479.8). Eleven case `render.png`s
+  moved and **no layout, display, box, agent or issues file**: each was
+  looked at beside its committed picture (the list is in 402's *Done*
+  paragraph); only bold text changed, now heavier and filling its room.
+  `alo-window`'s composed references were not touched by this and passed.
+- Mutations (a copy in the scratchpad, restored with `cp`, checked with
+  `cmp`, the renderer binary rebuilt after): paint reading only a number
+  fails the weight assertion; with that assertion also removed, the ink
+  assertion fails at 424.
+- Hostile input: the value is a stranger's text, read through the existing
+  `parse_number`; a huge, negative, non-finite or unreadable weight is held
+  to the scale or read as `normal` (unit tests), never panicked on.
+- One responsibility per file: `weight.rs` is one property's reading;
+  `text_style.rs` and `build.rs` lose a duty rather than gain one.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched.
+
+**Queue.** 402 ticked with its *Done* paragraph; **403** added (`bolder`
+and `lighter`, waits for a page). **Roadmap: no line moved, and why.**
+Drawing a run in the face it was measured in is inside stage 1's ticked
+*Text* line; no stage 2 *Text, properly* line names weights, and adding
+one to claim this would be decoration. Also updated: `docs/features.md` (a
+stage 1 Text line), `docs/conformance.md` (the rich-text sentence),
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 403 waits for a page; 401 still needs its ADR; 383 (`font-synthesis`,
+  synthesised bold, `oblique <angle>`, and `font-style` read in two places)
+  still waits for a page.
+- Everything iteration 260 listed still stands.
+
+171 queue items are open (402 closed, 403 added open). The next unused
+queue number is **404** and the next ADR is **0044**. This is one
+iteration, not a finished queue or roadmap.

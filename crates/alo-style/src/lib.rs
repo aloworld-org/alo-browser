@@ -60,6 +60,7 @@ pub mod presentation;
 pub mod pseudo;
 pub mod user_agent;
 pub mod variables;
+pub mod weight;
 
 pub use cascade::{Applicable, Contender, SourcedSheet};
 pub use computed::{ComputedStyle, StyleTree, resolve, resolve_admitting, resolve_measured};
@@ -71,3 +72,4 @@ pub use origin::{CascadeLevel, Origin};
 pub use presentation::{PRESENTATION_PROPERTIES, hints as presentation_hints};
 pub use user_agent::USER_AGENT_STYLE_SHEET;
 pub use variables::{Resolved, Variables, referenced_variables, substitute};
+pub use weight::{BOLD_WEIGHT, NORMAL_WEIGHT};

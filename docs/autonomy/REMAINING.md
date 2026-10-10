@@ -1361,3 +1361,11 @@ layout and drawn regular by paint, which depends on nothing open and is
 buildable next with this page frozen). 171 queue items are open (400 added
 closed, 401 and 402 added open). The next unused queue number is 403 and
 the next unused ADR 0044.
+
+Iteration 261 built item 402: `font-weight` is read once, by
+`alo-style`'s `ComputedStyle::font_weight`, and layout and paint both ask
+it, so text written `bold` is drawn in the bold face it was measured in.
+Eleven case pictures moved, each reviewed (only bold text changed), and no
+layout file. Cut: 403 (`bolder` and `lighter`, waits for a page). 171 queue
+items are open (402 closed, 403 added open). The next unused queue number
+is 404 and the next unused ADR 0044.

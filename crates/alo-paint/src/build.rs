@@ -1019,18 +1019,9 @@ impl Builder<'_> {
                 .get("font-family")
                 .map(FontRequest::parse_families)
                 .unwrap_or_default(),
-            weight: style
-                .number("font-weight")
-                .map_or(Weight::NORMAL, |number| {
-                    let clamped = number.clamp(1.0, 1000.0).round();
-                    #[expect(
-                        clippy::cast_possible_truncation,
-                        clippy::cast_sign_loss,
-                        reason = "clamped to one..=1000 and rounded"
-                    )]
-                    let weight = clamped as u16;
-                    Weight::new(weight)
-                }),
+            // The weight layout measured this run in, read in the one place
+            // both ask (queue item 402).
+            weight: Weight::new(style.font_weight()),
             slant: match style.get("font-style") {
                 Some(value) if value.eq_ignore_ascii_case("italic") => Slant::Italic,
                 Some(value) if value.eq_ignore_ascii_case("oblique") => Slant::Italic,

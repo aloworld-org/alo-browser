@@ -10,6 +10,8 @@
 //! list inside a list the same `1em` above and below as any other, so the
 //! nested point stood 16 pixels under the point it belongs to; and it had no
 //! rule for `<s>`, so the checklist's finished task was drawn as plain text.
+//! It also found item 402: every run written `font-weight: bold` was laid out
+//! in the bold face and drawn in the regular one.
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
@@ -161,4 +163,121 @@ fn nothing_else_on_the_page_is_struck_or_underlined_but_the_link() {
         .filter(|item| matches!(item, DisplayItem::Fill { .. }))
         .count();
     assert_eq!(lines, 2);
+}
+
+/// The font weight the display list draws the run `run` in, if it is drawn.
+fn drawn_weight(rendering: &Rendering, run: alo_box::BoxId) -> Option<u16> {
+    let drawing = rendering.drawing()?;
+    drawing.display.items().iter().find_map(|item| match item {
+        DisplayItem::Text { box_id, font, .. } if *box_id == run => Some(font.weight().value()),
+        _ => None,
+    })
+}
+
+/// The right-most column between `left` and `right` holding ink darker than
+/// mid-grey in the rows of `line`.
+fn ink_ends(rendering: &Rendering, line: Rect, left: u32, right: u32) -> Option<u32> {
+    let drawing = rendering.drawing()?;
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a line on an 800 × 600 page"
+    )]
+    let (top, bottom) = (
+        line.origin.y.floor() as u32,
+        (line.origin.y + line.size.height).ceil() as u32,
+    );
+    (left..right).rev().find(|x| {
+        (top..bottom).any(|y| {
+            drawing.canvas.at(*x, y).is_some_and(|pixel| {
+                let (red, green, blue, _) = pixel.to_rgba8();
+                u32::from(red) + u32::from(green) + u32::from(blue) < 3 * 128
+            })
+        })
+    })
+}
+
+#[test]
+fn bold_text_is_drawn_in_the_bold_face_as_wide_as_it_was_laid_out() {
+    let Some(rendering) = rich_text() else {
+        panic!("the case renders");
+    };
+    let Some(drawing) = rendering.drawing() else {
+        panic!("a drawing");
+    };
+    // The headings are bold by the user-agent sheet and the `<strong>` by its
+    // own rule, each written `bold`: until item 402 paint read only a number
+    // and drew all three in the regular face, which is narrower than the room
+    // layout measured for them in the bold one.
+    let mut bold = Vec::new();
+    for tag in ["h1", "h2", "strong"] {
+        for (element, _) in all(&rendering, tag) {
+            let mut runs = text_in(&rendering, element);
+            // The `<strong>` holds its words in an `<em>`.
+            if runs.is_empty() {
+                let inner: Vec<_> = drawing
+                    .boxes
+                    .ids()
+                    .filter(|id| {
+                        drawing
+                            .boxes
+                            .get(*id)
+                            .is_some_and(|node| node.parent == Some(element))
+                    })
+                    .collect();
+                runs = inner
+                    .iter()
+                    .flat_map(|id| text_in(&rendering, *id))
+                    .collect();
+            }
+            bold.extend(runs);
+        }
+    }
+    assert_eq!(bold.len(), 3, "{bold:?}");
+    let laid: Vec<Rect> = bold
+        .iter()
+        .filter_map(|run| Some(drawing.layout.get(*run)?.border_box))
+        .collect();
+    let [h1, h2, strong] = laid.as_slice() else {
+        panic!("three laid-out runs: {laid:?}");
+    };
+    // The widths layout measured in DejaVu Sans Bold, as `layout.txt` has
+    // them.
+    assert!(near(h1.size.width, 471.79688), "{h1:?}");
+    assert!(near(h2.size.width, 333.73828), "{h2:?}");
+    assert!(near(strong.size.width, 162.36719), "{strong:?}");
+    for run in &bold {
+        assert_eq!(drawn_weight(&rendering, *run), Some(700), "{run:?}");
+    }
+    // In pixels: each run's ink reaches to within three pixels of the right
+    // edge of the room it was given, where the regular face stopped 55, 44
+    // and 19 pixels short. Nothing follows a heading on its line, so its ink
+    // must not run past that edge either.
+    for (line, followed) in [(h1, false), (h2, false), (strong, true)] {
+        let edge = line.origin.x + line.size.width;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a line on an 800 × 600 page"
+        )]
+        let (left, right) = (
+            line.origin.x as u32,
+            if followed { edge.floor() as u32 } else { 800 },
+        );
+        let Some(ends) = ink_ends(&rendering, *line, left, right) else {
+            panic!("ink on the line {line:?}");
+        };
+        assert!(f64::from(ends) >= f64::from(edge) - 3.0, "{ends} {line:?}");
+        assert!(f64::from(ends) <= f64::from(edge) + 1.0, "{ends} {line:?}");
+    }
+    // And the text around them is still the regular face.
+    let paragraphs = all(&rendering, "p");
+    let Some((first, _)) = paragraphs.first() else {
+        panic!("a paragraph");
+    };
+    let plain = text_in(&rendering, *first);
+    let Some(before) = plain.first() else {
+        panic!("text before the <strong>");
+    };
+    assert_eq!(drawn_weight(&rendering, *before), Some(400));
 }
