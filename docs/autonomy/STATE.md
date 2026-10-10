@@ -24141,3 +24141,125 @@ row (now three sections), `REMAINING.md` and `CHANGELOG.md`.
 160 queue items are open: 379 was added closed, 380 and 381 open. The next
 unused queue number is **382** and the next ADR is **0042**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 249 — queue item 382 opened and built: a slant the font has no face for, found by freezing alo Sites' testimonials section
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` (its head, the
+*Text, properly* section and stage 1's *Text* and font lines),
+`REMAINING.md` and iteration 248's entry. No `AGENTS.md` exists in this
+repository. For 382: `docs/features.md`' font lines (*A face's weight and
+slant, from the font*), queue items 194, 196 and 197, `alo-text`'s
+`database.rs` (`best_match`: slant first, then weight, within a family),
+`alo-paint`'s `build.rs` (`font_request`, `draw_text`), `display.rs`,
+`render.rs` and `glyph.rs`, `alo-layout`'s `text_style.rs`, and the
+`alo-sites-features` case and test as the pattern for a frozen alo Sites
+page. No ADR decides font synthesis.
+
+**Choosing.**
+- 296 first: a Swift check answered `CGSSessionScreenIsLocked` = 1, with
+  capture access true. Still locked, so 296 is not takeable and nothing of
+  it was started; 297–300 wait on it.
+- Every other open item stands as iterations 247 and 248 listed it:
+  blocked, page-gated, *needs design*, *needs ADR* behind an unbuilt
+  dependency (381 behind 234, 234 behind 233), or waiting on a dependency.
+- So the eligible work was a real page that fails. Of alo Sites' golden
+  sections with no `<img>`, testimonials is the first with nothing set to
+  move into view (which 381 would leave white). Frozen and rendered, every
+  number in its layout checked against the sheet by hand, but the quote,
+  `font-style: italic`, was drawn upright. The corpus's fonts have no
+  slanted face; a browser given the same fonts leans the upright one. No
+  queue item named synthesis, so 382 was written with its closing
+  conditions and its feature line, and built.
+
+**Why no ADR.** Whether to synthesise is CSS's answer, not ours:
+`font-synthesis`' initial value allows a synthesised style. How far is
+CSS's too: CSS Fonts 4 § 3.3 makes `oblique` with no angle 14°. About the
+baseline with advances unchanged is what every synthesising engine does,
+and it leaves layout alone. So it is a value of the existing paint layer.
+What would be a decision, `font-synthesis` itself, a made-up bold and the
+angle of `oblique <angle>`, is cut to 383 rather than decided in passing.
+
+**What was built.**
+- `alo-paint/src/synthesis.rs`, new: `oblique_for` (a slant asked of an
+  upright face is `SYNTHETIC_OBLIQUE_DEGREES`, 14; anything else none; a
+  slanted face is never straightened) and `leaned` (a shear about the
+  baseline; an angle that is zero, not finite or at least 90° leaves the
+  path alone). Its comment says a `slnt`/`ital` axis (197) must win over a
+  lean when it is read.
+- `DisplayItem::Text` gains `oblique`. `build.rs` sets it from the request
+  and the face the chain chose; `render.rs` applies it through a small
+  `letters` helper before shadows, so a shadow leans with its letters;
+  `to_outline` writes ` leaned 14deg` only when it is there.
+- `crates/alo-corpus/cases/alo-sites-testimonials`:
+  `section_testimonials.html` and `site.css`, byte for byte, from
+  `alo-workplace` at 738de614, with hashes, provenance and findings in
+  `origin.txt`.
+- `crates/alo-corpus/tests/alo_sites_testimonials.rs`, 4 tests.
+
+**Gate, mechanical.** Workspace clippy (`--all-targets --all-features`)
+first refused `render` at 102 lines; the outline and lean moved into a
+helper rather than an `#[expect]`. Then it refused an unticked `DejaVu
+Sans` in a doc comment; fixed. Then silent. `scripts/gate.sh` ran in the
+foreground to a log; the harness moved it to the background at 600 s, and
+the next call waited on it in a foreground `until` loop. It read `exit 0`
+and "The gate is met", with no `FAIL`, `FAILED`, `panicked` or `error` in
+its log: formatting clean, clippy silent, tests pass, no stubs, `unsafe`
+forbidden everywhere, licence notices, rented crates behind their
+boundaries, no verb takes a coordinate, the supervisor's stop rule holds,
+`CHANGELOG.md` changed with the code. This entry was written after that
+run, and is documentation only.
+
+**Gate, manual.**
+- Layout assertion: `the_featured_quote_is_laid_out_as_the_sheet_says`:
+  the card at (20, 95.6), 760 × 180.4; the quote at (69, 144.6), 662 ×
+  31.2 (24 px at 1.3); the caption at 199.8, 27.2 tall (the paragraph's
+  24 px margin collapsing through the blockquote's 16). The section is 324.
+  Every number checked by hand against the sheet. The lean changes no
+  layout number: `alo-sites-testimonials`' and `inline-mixed`'s
+  `layout.txt` are unchanged by it.
+- Reference render: `alo-sites-testimonials`' references were written by
+  `ALO_UPDATE_REFERENCES=1`; `inline-mixed` moved too (its `<em>`, italic
+  by the user-agent sheet, now leans: `display.txt` gains `leaned 14deg`
+  and 127 pixels change). Looked at both pictures: the quote and `small`
+  lean as a browser draws them. `alo-meet-greeting`'s `em`, which its own
+  sheet sets `font-style: normal`, did not move. **No other case moved.**
+  `the_lean_moves_the_quotes_ink_and_nothing_else` redraws the page from
+  its own list with the lean taken out: only rows on the quote's line
+  differ, the `T`'s crossbar starts 3–5 px further right and its stem's
+  foot within a pixel of where it was.
+- Hostile input: nothing new reads outside bytes; `font-style` was already
+  read. `leaned` is fed `NaN`, both infinities, ±90° and 1e30 and leaves the
+  run alone for each.
+- Mutation (copy in the scratchpad, restored with `cp`, checked with
+  `cmp`): with `oblique_for` answering none, one `synthesis.rs` test, two
+  testimonial tests and exactly two corpus cases (`alo-sites-testimonials`,
+  `inline-mixed`) fail.
+- One responsibility per file: the rule and the shear are `synthesis.rs`;
+  the display list only carries the angle, the builder only asks, the
+  renderer only applies.
+- No `unsafe`, no new dependency. No new CSS property is read, so
+  `alo-css`' `properties.rs` is unchanged. `alo-workplace` and `alo-os`
+  were not touched: `git status` in `alo-workplace` is clean.
+
+**Queue.** 382 added ticked, with its *Done* paragraph. 383 (`font-
+synthesis`, a synthesised bold, and `oblique <angle>`, read two ways today
+by layout and paint) added open, waiting for a page. **Roadmap: no line
+moved, and why.** Choosing and drawing a face is inside stage 1's ticked
+*Text* line, and stage 2's *Text, properly* lines are bidi, selection,
+input methods, `contenteditable`, hyphenation and web fonts as shipped,
+none of which this is. Adding a line to claim it would be decoration. Also
+updated: `docs/features.md` (*A slant the font does not have*),
+`docs/conformance.md`' alo Sites row (now four sections), `REMAINING.md`
+and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 383 waits for a page. Until then `font-synthesis: none` is not honoured,
+  and `oblique <angle>` can choose different faces in layout and paint.
+- 381 needs an ADR before any code, and 234 before it can be built.
+- 380 and 378 wait for pages. 376 still needs design.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- Everything iteration 248 listed still stands.
+
+161 queue items are open: 382 was added closed and 383 open. The next
+unused queue number is **384** and the next ADR is **0042**. This is one
+iteration, not a finished queue or roadmap.

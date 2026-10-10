@@ -168,6 +168,10 @@ pub enum DisplayItem {
         origin: (f32, f32),
         /// What font.
         font: alo_text::Font,
+        /// How far the font's letters are leaned, in degrees, because the
+        /// page asked for a slant the font has no face for
+        /// ([`crate::synthesis`]). Nothing for a face drawn as it is.
+        oblique: f32,
         /// How big.
         size: f32,
         /// Extra room after every character, which the pen has to know about
@@ -310,12 +314,18 @@ impl DisplayList {
                     size,
                     color,
                     shadows,
+                    oblique,
                     ..
                 } => {
                     let mut line = format!(
                         "text {box_id} {text:?} {color} {size}px at ({}, {})",
                         origin.0, origin.1,
                     );
+                    // Said only when it is there, so a list of upright text
+                    // reads as it always has.
+                    if *oblique != 0.0 {
+                        let _ = write!(line, " leaned {oblique}deg");
+                    }
                     for shadow in shadows {
                         let _ = write!(
                             line,

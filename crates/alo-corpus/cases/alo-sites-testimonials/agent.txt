@@ -1,0 +1,12 @@
+document at (0, 0) 800×324
+  link "Skip to content" at (-15984, 0) 161.11035×43.2
+  main at (0, 0) 800×324
+    heading "What cafés say" [level=2] at (20, 48) 760×33.600002
+    list at (20, 95.600006) 760×180.4
+      listitem "The freshest beans we've ever pulled shots with. Mara Lindqvist Head barista, Kaffebaren" at (20, 95.600006) 760×180.4
+        figure at (20, 95.600006) 760×180.4
+          blockquote at (69, 144.6) 662×31.199997
+            paragraph at (69, 144.6) 662×31.199997
+              text "The freshest beans we've ever pulled shots with." at (69, 146.23126) 587.6133×27.9375
+          text "Mara Lindqvist" at (69, 203.50548) 142.4165×19.789063
+          text "Head barista, Kaffebaren" at (217.33496, 203.50548) 212.01855×19.789063

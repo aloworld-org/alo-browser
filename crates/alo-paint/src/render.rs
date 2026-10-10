@@ -18,6 +18,7 @@ use crate::glyph::outline;
 use crate::paint::Paint;
 use crate::path::{Path, Point};
 use crate::raster::{fill, fill_on_page};
+use crate::synthesis::leaned;
 use alo_text::{Direction, Font, shape};
 use alo_value::{Matrix, Rgba};
 
@@ -102,6 +103,7 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 text,
                 origin,
                 font,
+                oblique,
                 size,
                 letter_spacing,
                 color,
@@ -110,8 +112,9 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
             } => {
                 // The run is outlined once and drawn once per shadow plus
                 // once for itself: shaping and outlining are the expensive
-                // part, and a shadow is the same letters somewhere else.
-                let outlined = outlined_run(text, font, *size, *letter_spacing, *origin);
+                // part, and a shadow is the same letters somewhere else. A
+                // lean is part of the letters, so a shadow leans with them.
+                let outlined = letters(text, font, *size, *letter_spacing, *origin, *oblique);
                 let target = groups.last_mut().map_or(&mut *canvas, |(_, group)| group);
                 // Furthest back first, so the first shadow written ends up on
                 // top — which is the order CSS draws them in.
@@ -151,6 +154,23 @@ fn moved(path: &Path, transform: Matrix) -> Path {
         return path.clone();
     }
     path.transformed(transform)
+}
+
+/// A text item's letters as one shape: its run outlined, then leaned by
+/// however far the face had to be ([`crate::synthesis`]).
+fn letters(
+    text: &str,
+    font: &Font,
+    size: f32,
+    letter_spacing: f32,
+    origin: (f32, f32),
+    oblique: f32,
+) -> Path {
+    leaned(
+        &outlined_run(text, font, size, letter_spacing, origin),
+        oblique,
+        origin.1,
+    )
 }
 
 /// Every glyph of a run, as one shape, with the pen where the run starts.

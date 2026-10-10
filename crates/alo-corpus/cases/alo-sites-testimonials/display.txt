@@ -1,0 +1,10 @@
+fill box#2 rgb(255 255 255) at (0, 0) 800×324
+text box#12 "What cafés say" rgb(23 33 43) 28px at (20, 74.49336)
+fill box#18 rgb(242 245 248) at (20, 95.600006) 760×180.4
+fill box#18 rgb(221 227 233) at (20, 95.600006) 760×180.4
+text box#22 "The freshest beans we've ever pulled shots with." rgb(23 33 43) 24px at (69, 168.5086) leaned 14deg
+text box#25 "Mara Lindqvist" rgb(23 33 43) 17px at (69, 219.28526)
+text box#27 "Head barista, Kaffebaren" rgb(76 88 102) 17px at (217.33496, 219.28526)
+fill box#4 rgb(242 245 248) at (-15984, 0) 161.11035×43.2
+text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27.485254)
+fill box#5 rgb(23 33 43) at (-15968, 28.564356) 129.11035×1

@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Italic text in a font with no italic face.** Text a page sets in
+  italic, in a font that has only an upright face, is now drawn leaned, as
+  every browser draws it, rather than upright. The lean is CSS's default
+  oblique angle, 14°, and moves only the letters' ink: where lines break
+  and where text sits is unchanged. A font that has an italic face is still
+  drawn in it (queue item 382, opened by alo Sites' testimonials section,
+  now frozen in the corpus as `alo-sites-testimonials`). Turning this off
+  with `font-synthesis: none`, and a made-up bold, are queued (383).
+
 - **`padding-block` and `margin-block`.** Spacing written for the top and
   bottom of a box together — `padding-block: 2.5rem`, as alo Sites writes
   for the first card of a features grid — is now applied. Before, it was

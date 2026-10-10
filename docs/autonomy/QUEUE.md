@@ -6865,6 +6865,57 @@ The long pole, and the thing most of section E is unreachable without.
   pixels, and an element outside the viewport is not reported
   intersecting.
 
+- [x] **382. A slant the font has no face for, synthesised.** *Opened by
+  `alo-sites-testimonials` (iteration 249), frozen in the same change.
+  Feature: `docs/features.md` stage 2, "A slant the font does not have".
+  Depends on nothing open.* alo Sites' featured testimonial sets its quote
+  `font-style: italic`. The corpus's fonts have no slanted face, so the
+  database answers with the upright one, as it should (a face of the right
+  family beats a slanted face of another), and paint drew it upright. A
+  browser given the same fonts leans the upright face: `font-synthesis`'
+  initial value allows a synthesised style, and CSS Fonts 4 § 3.3 makes an
+  `oblique` with no angle 14°. *Closes when:* the quote's text item is
+  drawn in the upright face leaned 14°, and the caption beside it, which
+  asked for no slant, is not; in pixels, the quote's `T` crossbar starts
+  about 4 px further right and its stem's foot where it was, and no row
+  outside the quote's line changes; the layout is unchanged (the card at
+  (20, 95.6), 760 × 180.4); and a lean of no angle or a nonsense one
+  leaves a run where it was.
+  **Done (iteration 249).** `alo-paint`'s new `synthesis.rs` holds the
+  rule (`oblique_for`: a slant asked of an upright face is 14°, anything
+  else none; a slanted face is never straightened) and the shear
+  (`leaned`, about the run's baseline, so advances and layout are
+  untouched; an angle that is zero, not finite or at least 90° leaves the
+  path alone). `DisplayItem::Text` carries `oblique`, set by `build.rs`
+  from the request and the face chosen, applied by `render.rs` before the
+  run's shadows so a shadow leans with its letters, and written in a
+  display list's outline as `leaned 14deg` only when it is there. Tests:
+  `synthesis.rs` (5) and `tests/alo_sites_testimonials.rs` (4: the sheet
+  answered; the card, quote and caption in numbers; the lean and the
+  caption's none in the display list; the page redrawn from its own list
+  with the lean taken out, compared row by row and at the `T`). Mutation,
+  restored from a copy: with the rule answering none, one `synthesis.rs`
+  test, two testimonial tests and exactly two corpus cases fail. Moved:
+  `inline-mixed`, whose `<em>` the user-agent sheet makes italic, now
+  leans; `alo-meet-greeting`'s `em`, set `font-style: normal` by its own
+  sheet, does not.
+
+- [ ] **383. `font-synthesis`, and a bold the font has no face for.** *Cut
+  from 382 (iteration 249). Feature: `docs/features.md` stage 2, "A slant
+  the font does not have". Waits for a page.* `font-synthesis` and its
+  longhands are not read, so `font-synthesis: none` still has a slant made
+  up, which is wrong for a page that asked for none (CJK pages are the
+  usual writer). A weight asked of a family with no heavy enough face is
+  drawn in the nearest face it has, where a browser emboldens it. And
+  `font-style: oblique <angle>` is read two ways: `alo-layout`'s
+  `text_style.rs` takes any value but `normal` as a slant, while
+  `alo-paint`'s `build.rs` matches only the bare `italic` and `oblique`, so
+  the two can choose different faces for one run; it should be one reading
+  in one place, leaning by its angle or choosing a `slnt` axis (197). *Closes when:* a frozen
+  page's `font-synthesis: none` is drawn upright, a page's synthesised
+  bold is heavier in pixels than the face it came from with its advances
+  stated, and an angled `oblique` leans by its own angle.
+
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
 

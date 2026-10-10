@@ -675,6 +675,7 @@ impl Builder<'_> {
             return;
         };
         let ascender = font.metrics(size).ascender;
+        let oblique = crate::synthesis::oblique_for(request.slant, font.slant());
         let shadows = self.text_shadows_of(id);
         let letter_spacing = style
             .get("letter-spacing")
@@ -699,6 +700,7 @@ impl Builder<'_> {
                     text: trimmed.to_owned(),
                     origin: (geometry.border_box.left(), baseline),
                     font: font.clone(),
+                    oblique,
                     size,
                     letter_spacing,
                     color,
@@ -737,6 +739,7 @@ impl Builder<'_> {
                 // the top of the piece.
                 origin: (fragment.rect.left(), baseline),
                 font: font.clone(),
+                oblique,
                 size,
                 letter_spacing,
                 color,

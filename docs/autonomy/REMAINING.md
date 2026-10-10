@@ -1222,3 +1222,15 @@ until an `IntersectionObserver` reports it, so the page's picture is white:
 that opened 381, which needs an ADR and depends on 234's rendering steps.
 160 queue items are open (379 added closed, 380 and 381 added open). The
 next unused queue number is 382 and the next unused ADR 0042.
+
+Iteration 249 found every open item blocked or waiting for a page (296's
+screen is still locked), so it froze the next alo Sites section with no
+picture and nothing set to move into view, its testimonials section, as
+`alo-sites-testimonials`. Its layout checked against the sheet by hand, but
+its italic quote was drawn upright: the corpus has no slanted face, and the
+engine made none up where every browser leans the upright one. That opened
+item 382, built in the same iteration in `alo-paint`'s `synthesis.rs`.
+`font-synthesis` itself, a synthesised bold and an angled `oblique` are cut
+to 383, waiting for a page. 161 queue items are open (382 added closed, 383
+added open). The next unused queue number is 384 and the next unused ADR
+0042.

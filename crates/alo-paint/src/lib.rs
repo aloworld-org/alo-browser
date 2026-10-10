@@ -64,6 +64,7 @@ pub mod picture;
 pub mod raster;
 pub mod render;
 pub mod stroke;
+pub mod synthesis;
 pub mod tone;
 mod webp_picture;
 

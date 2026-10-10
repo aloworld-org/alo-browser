@@ -1,0 +1,18 @@
+block flow · document
+  block flow · generic
+    block flow · link
+      text "Skip to content"
+    block flow · main
+      block flow · generic
+        block flow · heading [level=2]
+          text "What cafés say"
+        block grid · list
+          block flow list-item · listitem
+            block flow · figure
+              block flow · blockquote
+                block flow · paragraph
+                  text "The freshest beans we've ever pulled shots with."
+              block flow · generic
+                text "Mara Lindqvist "
+                inline flow · generic
+                  text "Head barista, Kaffebaren"

@@ -246,6 +246,15 @@ The reason this exists rather than a faster fork of somebody else's engine.
   than everything being one of the two words a filename might carry. A weight of
   zero is a font that did not say rather than the lightest face there is, and a
   font with no such table at all is still a face: normal, upright, and drawn
+- [2] **A slant the font does not have** (queue item 382) — `font-style:
+  italic` or `oblique` asked of a family with no slanted face is drawn in the
+  upright face leaned 14° about its baseline, which is what `font-synthesis`'
+  initial value allows and CSS Fonts 4 § 3.3 makes an angle-less `oblique`.
+  Its advances are the upright face's, so a line's layout is unchanged and
+  only its ink leans; a family that has a slanted face is given it and never
+  leaned twice. Opened by `alo-sites-testimonials`, whose featured quote is
+  italic. Not yet: `font-synthesis: none`, a synthesised bold, and the angle
+  of `oblique <angle>` (383)
 - [2] **What `sans-serif` means on this machine** — `serif`, `sans-serif`,
   `monospace` and `system-ui` are decided by the browser process from the
   families it actually found, and handed to a renderer with the fonts, because a
