@@ -244,7 +244,10 @@ impl<'i> QualifiedRuleParser<'i> for TopLevel {
     ) -> Result<Rule, ParseError<'i, Self::Error>> {
         let (selectors, at) = prelude;
         for selector in &selectors {
-            if let Some(pseudo) = selector.pseudo_element() {
+            if let Some(pseudo) = selector
+                .pseudo_element()
+                .filter(|pseudo| !pseudo.is_produced())
+            {
                 self.issues.push(StyleIssue {
                     kind: IssueKind::PseudoElementNotProduced,
                     source: format!("{selector} names {}", pseudo.as_str()),
@@ -577,6 +580,18 @@ mod tests {
         assert_eq!(sheet.rules().len(), 1);
         assert_eq!(sheet.issues().len(), 1);
         assert_eq!(sheet.issues()[0].kind, IssueKind::PseudoElementNotProduced,);
+        assert!(sheet.issues()[0].source.contains("::before"));
+    }
+
+    #[test]
+    fn a_rule_naming_the_placeholder_is_kept_and_not_recorded() {
+        // ADR 0043: `::placeholder` is produced, so a rule naming it is not a
+        // refusal. One naming `::before` still is, beside it.
+        let sheet =
+            parse_stylesheet(".input::placeholder { color: grey } p::before { color: red }");
+        assert_eq!(sheet.rules().len(), 2);
+        assert_eq!(sheet.issues().len(), 1);
+        assert_eq!(sheet.issues()[0].kind, IssueKind::PseudoElementNotProduced);
         assert!(sheet.issues()[0].source.contains("::before"));
     }
 

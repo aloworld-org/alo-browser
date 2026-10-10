@@ -1159,18 +1159,23 @@ unreachable without it.
       value, and filled by `PutText` of a valid date string only — anything
       else refused as `NotADate`. A field's text no longer paints the field's
       background and border a second time around itself (`alo-paint`'s
-      `style_of`) · Owed: everything a control **does**,
+      `style_of`). **A field's `placeholder` is drawn** (queue item 389,
+      ADR 0043): the first pseudo-element this engine styles, its style
+      computed as its field's child (`alo-css`'s `matches_pseudo`,
+      `alo-style`'s `pseudo.rs` and `StyleTree::pseudo`, `alo-dom`'s
+      `placeholder.rs`); the hint a run in the field's line in
+      `::placeholder`'s colour, adding no width (`alo-box`'s
+      `is_placeholder`, `alo-layout`'s `measure_inline`), read by an agent
+      as a `placeholder` property and never as text, through the renderer's
+      snapshot too. Corpus case `alo-sign-in`. A one-line field taller than
+      its line now holds its line in the middle, as browsers do · Owed: everything a control **does**,
       which needs events
       (queue item 81) — constraint validation, submission, file inputs — the
       focus ring, which needs something to have focus (queue item 43); a
       date field's calendar (386), the person's region (387), the other
-      temporal kinds (388); and a field's `placeholder` (389), **decided
-      and not built** (ADR 0043: a pseudo-element's style is computed as
-      its originating element's child; the hint is drawn in
-      `::placeholder`'s colour in the field's line, adding no width, and an
-      agent reads it as a `placeholder` property and never as text), with
-      a long hint's clipping (390), `:placeholder-shown` (391) and
-      `::placeholder`'s other properties (392) each waiting for a page
+      temporal kinds (388); a long hint's clipping (390),
+      `:placeholder-shown` (391) and `::placeholder`'s other properties
+      (392), each waiting for a page
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
       · Built: **`location`, read** (queue item 360) — `alo-url`'s
       `reading.rs` (the URL Standard's nine readings over our `Url`) and

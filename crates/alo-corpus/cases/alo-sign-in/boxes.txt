@@ -26,6 +26,7 @@ block flow · document
               text "Email"
             inline flow-root · textbox
               anonymous block
+                text "you@company.eu" · ::placeholder
           block flex · generic
             inline flow · generic
               text "Password"

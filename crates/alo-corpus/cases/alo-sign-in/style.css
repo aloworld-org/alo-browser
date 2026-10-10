@@ -124,6 +124,12 @@ html, body { height: 100%; margin: 0; font-family: var(--font-ui); color: var(--
   font-size: var(--text-base);
   color: var(--text-primary);
 }
+/* `alo-workplace`'s `web/src/ds/Input.tsx` gives every field
+   `placeholder:text-tertiary`, which is Tailwind's spelling of this rule
+   (queue item 389, ADR 0043). It was left out until this engine styled a
+   pseudo-element, because a rule that could only ever match nothing was not
+   the screen's rule being honoured. */
+.input::placeholder { color: var(--text-tertiary) }
 
 .row { display: flex; align-items: center; justify-content: space-between }
 .remember { display: flex; align-items: center; gap: var(--space-2);

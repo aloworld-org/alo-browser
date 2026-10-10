@@ -24644,3 +24644,118 @@ screen's placeholder), `REMAINING.md` and `CHANGELOG.md`.
 168 queue items are open (390–392 added open). The next unused queue number
 is **393** and the next ADR is **0044**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 254 — queue item 389 built: a field's `placeholder`, the first pseudo-element styled
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` (its head and
+stage 2's *Forms* line), `REMAINING.md`'s close and iterations 252–253's
+entries. No `AGENTS.md` exists in this repository. For 389: its queue entry
+and *Decided* paragraph, items 384–392, ADR 0043 whole (§ 6 is what closes
+it), ADR 0042 § 3, `docs/features.md`' stage 2 forms line and
+`docs/conformance.md`'s sign-in section. Code read before changing it:
+`alo-css`'s `selector.rs`, `matching.rs`, `parse.rs`, `issue.rs`;
+`selectors` 0.40's `matches_complex_selector` and
+`matches_for_stateless_pseudo_element` (how `ForStatelessPseudoElement`
+consumes a pseudo-element); `alo-style`'s `computed.rs`, `cascade.rs`,
+`user_agent.rs`; `alo-dom`'s `date.rs` and `field.rs`; `alo-box`'s
+`tree.rs`; `alo-layout`'s `engine.rs`, `arena.rs` (how an inline context is
+sized), `baseline.rs`; `alo-paint`'s `build.rs` (`style_of`,
+`nearest_styled_ancestor`); `alo-agent`'s `tree.rs` and `name.rs`;
+`alo-renderer`'s `snapshot.rs` and `wire.rs`; the corpus case and
+`alo_sites_booking.rs`.
+
+**Choosing.** 389 is the first open item in the queue's order whose next
+step depends on nothing unbuilt: decided by iteration 253, its page frozen,
+*depends on nothing open*. Every item before it stands as iteration 253
+listed it.
+
+**What was built.** As 389's *Done* paragraph says: `::placeholder` matched
+through its field (`matches_pseudo`, the rented matcher's own mode for it);
+its style computed straight after the field's, inheriting from it, from the
+declarations `pseudo.rs` lets take part (`color` and custom properties; the
+rest of `::first-line`'s list recorded as `PropertyNotReadOnPseudoElement`,
+anything else ignored) and kept in `StyleTree::pseudo`; made only for a
+field that shows one, by `alo-dom`'s `placeholder.rs`; the user-agent
+`#757575`; a text box marked `::placeholder` that `nearest_style` answers
+with the pseudo-element's style, so paint and layout needed no other
+change; left out of a field's measured size and laid out on one line;
+never exposed or read as text by the agent, a `placeholder` property while
+shown (or an author's `aria-placeholder` on a field with neither a hint nor
+a value), the hint as the name only after `title`; the renderer's snapshot
+and wire carrying it, and writing its outline lines with the agent's own
+`write_described` so the two cannot read differently. `alo-sign-in`'s sheet
+gains `.input::placeholder { color: var(--text-tertiary) }`, said in the
+case.
+
+**Found on the way and fixed in the same change.** A one-line field taller
+than its line drew its text at the top of its content box; browsers centre
+it. The sign-in field is 46 tall with no padding, so the hint stood 13.6
+above where a browser draws it — a wrong pixel the ADR's "at the field's
+text position" would have committed. Centring the *text's* height moved
+`a-filled-form`, `alo-settings` and `web-a-form` by about 0.25, because
+this engine's field line is `1.2em` for `normal` while a `normal` text line
+is the font's own height; so the field's **line** is centred instead
+(`field_line_offset`, and `record_an_empty_field` with it, so empty and
+filled stand alike). No other case moved. Not done: a field *shorter* than
+its line keeps its text at the top (browsers centre it and let it
+overflow); no page has one, noted rather than queued.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log; the
+harness moved it to the background at 600 s and the next call waited on it
+in a foreground `until` loop. It read `exit 0` and "The gate is met", and
+the log has no `FAILED`, `panicked` or line starting `error`. Clippy first
+failed on `place_inline_content` growing past 100 lines (split:
+`lines_start_down`), a missing `# Errors` section and four strict float
+comparisons in new tests (made tolerant); nothing was allowed or silenced.
+This entry and the commit came after that run, and are documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `numbers.rs`' two new tests (an auto-width
+  field 10 × 30 with a hint or without, the hint at (21, 7) 112 × 16 where
+  a value stands, one fragment in a 20-wide field; a 50-tall field's text
+  at 17, the label beside it level, the empty field the same, a textarea's
+  at its top); `alo_sign_in.rs` (the field unchanged at (510, 213.64)
+  400 × 46, the hint at (527, 228.24)). `alo-sign-in`'s `layout.txt` moved
+  only by the new text box; no other case's layout moved.
+- Reference render and pixels: `alo-sign-in`'s `render.png` (663 pixels,
+  looked at by eye in a crop: the grey hint in the middle of the email
+  field, the password field empty); the test checks the display list's
+  `rgb(122 111 98)`, the darkest ink within 24 of it, and no ink in the
+  field outside the hint's rectangle against the page drawn without text.
+- Hostile input: `placeholder.rs` (100 000 bytes, 100 000 line breaks,
+  31 000 control characters); the box test (100 000 bytes); the agent test
+  (100 000 bytes read, nothing but line breaks giving no hint and no name,
+  control characters quoted).
+- Mutations (copies in the scratchpad, restored with `cp`, checked with
+  `cmp`, the workspace rebuilt after): listed in 389's *Done* paragraph;
+  each failed the test named for it.
+- One responsibility per file: `placeholder.rs` says what a field's hint
+  is; `pseudo.rs` which declarations a pseudo-element's style takes;
+  `cascade.rs` still only orders declarations (`gather_pseudo` and
+  `retain` are that, for a pseudo-element); `matching.rs` is still the one
+  adapter between selectors and the document; `engine.rs`' change is where
+  a control's lines are placed. `tree.rs` in `alo-box` is 1 900 lines and
+  was large before; its new part is the box tree's own question.
+- No `unsafe`, no new dependency, no new CSS property read (`color` was
+  listed). `alo-workplace` and `alo-os` were not touched.
+
+**Queue.** 389 ticked with its *Done* paragraph. **Roadmap:** stage 2's
+*Forms* line moves 389 from its Owed clause to its Built clause, with the
+centring fix; the box stays empty. Also updated: `docs/features.md` (the
+forms line), `docs/conformance.md` (the sign-in section), `REMAINING.md`,
+`CHANGELOG.md`, and `alo-style`'s crate documentation (step 5).
+
+**Unresolved obligations.**
+- 390 (a long hint clipped), 391 (`:placeholder-shown`) and 392
+  (`::placeholder`'s other properties) wait for pages.
+- A `<textarea>`'s hint keeps its line breaks in the box tree, as § 2
+  says; how layout draws a line break inside it is not asserted, because
+  no page has one.
+- A field shorter than its line is not centred (above).
+- Everything iteration 253 listed still stands: 386–388 wait on 296, 128
+  and a page; 383, 380 and 378 wait for pages; 381 needs 234 first; 376
+  needs design; 296's capture waits for an unlocked screen.
+
+167 queue items are open (389 closed). The next unused queue number is
+**393** and the next ADR is **0044**. This is one iteration, not a finished
+queue or roadmap.

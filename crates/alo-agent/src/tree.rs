@@ -258,6 +258,12 @@ impl<'a> AgentTree<'a> {
         if self.is_a_date_format(id) {
             return false;
         }
+        // A field's hint looks like text in it and is not: an agent that read
+        // it as the field's text would believe the field filled (ADR 0043
+        // § 5). The field carries it as its `placeholder` instead.
+        if self.boxes.is_placeholder(id) {
+            return false;
+        }
         if node.text().is_some_and(|text| !text.trim().is_empty()) {
             // A `<label>`'s words have already been read, as the name of the
             // control they name. Reading them again would put the same words
@@ -427,6 +433,37 @@ impl<'a> AgentNode<'a> {
         accessible_name(self.tree.document, self.tree.boxes, self.id)
     }
 
+    /// The hint a field gives about what goes in it, while it holds nothing:
+    /// ARIA's `aria-placeholder`, which HTML-AAM maps `placeholder` to (ADR
+    /// 0043 § 5).
+    ///
+    /// A field's own `placeholder` while it shows one; otherwise an author's
+    /// `aria-placeholder`, for a widget of their own, which draws nothing —
+    /// and for a field that holds a value, neither, because a hint is about
+    /// a field with nothing in it. Never its text and never its value.
+    pub fn placeholder(&self) -> Option<String> {
+        let source = self.node()?.kind.node()?;
+        if let Some(shown) = alo_dom::placeholder::shown(self.tree.document, source) {
+            return Some(shown);
+        }
+        let element = self.tree.document.element(source)?;
+        let has_own = element
+            .attr(alo_dom::placeholder::ATTRIBUTE)
+            .is_some_and(|written| !written.is_empty());
+        let holds_a_value = element
+            .attr(alo_dom::field::TEXT)
+            .is_some_and(|value| !value.is_empty())
+            || (element.name.is_html("textarea")
+                && !self.tree.document.text_content(source).is_empty());
+        if has_own || holds_a_value {
+            return None;
+        }
+        element
+            .attr("aria-placeholder")
+            .filter(|written| !written.trim().is_empty())
+            .map(str::to_owned)
+    }
+
     /// What a person would read inside it.
     ///
     /// Every piece of it: an inline box broken around a block says everything
@@ -540,18 +577,47 @@ impl<'a> AgentNode<'a> {
 }
 
 impl fmt::Display for AgentNode<'_> {
-    /// `role "name" [states]`, with the parts that say nothing left out.
+    /// `role "name" [states placeholder="hint"]`, with the parts that say
+    /// nothing left out.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.role())?;
-        if let Some(name) = self.name() {
-            write!(f, " {name:?}")?;
-        }
-        let states = self.states();
-        if !states.is_unremarkable() {
-            write!(f, " [{states}]")?;
-        }
-        Ok(())
+        write_described(
+            f,
+            &self.role(),
+            self.name().as_deref(),
+            &self.states(),
+            self.placeholder().as_deref(),
+        )
     }
+}
+
+/// One node as an outline line writes it: `role "name" [states
+/// placeholder="hint"]`, with the parts that say nothing left out.
+///
+/// Public so that a description of the tree that crossed a process — the
+/// renderer's snapshot — writes the same words as the tree, and a test can
+/// compare the two strings.
+///
+/// # Errors
+///
+/// Only what writing to `f` returns.
+pub fn write_described(
+    f: &mut fmt::Formatter<'_>,
+    role: &Role,
+    name: Option<&str>,
+    states: &States,
+    placeholder: Option<&str>,
+) -> fmt::Result {
+    write!(f, "{role}")?;
+    if let Some(name) = name {
+        write!(f, " {name:?}")?;
+    }
+    match (states.is_unremarkable(), placeholder) {
+        (true, None) => {}
+        (false, None) => write!(f, " [{states}]")?,
+        (true, Some(hint)) => write!(f, " [placeholder={hint:?}]")?,
+        (false, Some(hint)) => write!(f, " [{states} placeholder={hint:?}]")?,
+    }
+    Ok(())
 }
 
 /// The smallest rectangle both of these fit inside.

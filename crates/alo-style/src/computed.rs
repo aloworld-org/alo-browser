@@ -37,7 +37,9 @@ use crate::keyword::{Resolution, WideKeyword};
 use crate::metrics::{DEFAULT_FONT_SIZE, font_size_against, line_height_in};
 use crate::origin::Origin;
 use crate::variables::{Resolved, Variables, resolve_variables, substitute};
-use alo_css::{IssueKind, Location, MatchContext, MediaContext, PropertyName, StyleIssue};
+use alo_css::{
+    IssueKind, Location, MatchContext, MediaContext, PropertyName, PseudoElement, StyleIssue,
+};
 use alo_dom::{Document, NodeId};
 use alo_value::{FontMetrics, LengthPercentage, Rgba, Viewport};
 use std::collections::BTreeMap;
@@ -185,10 +187,15 @@ impl ComputedStyle {
     }
 }
 
-/// The style of every element in a document.
+/// The style of every element in a document, and of every pseudo-element
+/// one makes.
 #[derive(Debug, Clone, Default)]
 pub struct StyleTree {
     styles: BTreeMap<NodeId, ComputedStyle>,
+    /// Kept beside the element's own, under the element and the
+    /// pseudo-element together (ADR 0043 § 1). An element that makes none
+    /// has none kept.
+    pseudo: BTreeMap<(NodeId, PseudoElement), ComputedStyle>,
     issues: Vec<StyleIssue>,
 }
 
@@ -197,6 +204,14 @@ impl StyleTree {
     /// or is not in this document.
     pub fn get(&self, id: NodeId) -> Option<&ComputedStyle> {
         self.styles.get(&id)
+    }
+
+    /// The style of the pseudo-element `pseudo` of the element `id`, or
+    /// [`None`] when that element makes no such pseudo-element — which is
+    /// every element for every pseudo-element but a field's `::placeholder`
+    /// while it is shown (ADR 0043 § 2).
+    pub fn pseudo(&self, id: NodeId, pseudo: PseudoElement) -> Option<&ComputedStyle> {
+        self.pseudo.get(&(id, pseudo))
     }
 
     /// Everything the cascade refused, with the text that caused it.
@@ -306,6 +321,24 @@ pub fn resolve_admitting(
         style.current_color = resolve_color(&style, &parent);
         if root_metrics.is_none() {
             root_metrics = Some(style.metrics);
+        }
+        // Straight after the element's own, which it inherits from, and only
+        // for an element that makes one (ADR 0043 §§ 1–2).
+        if alo_dom::placeholder::shown(document, id).is_some() {
+            let pseudo = PseudoElement::Placeholder;
+            let applicable = crate::pseudo::applicable(
+                sheets,
+                device,
+                &mut matcher,
+                id,
+                pseudo,
+                &mut tree.issues,
+            );
+            let mut made = compute_one(&applicable, &style, &mut tree.issues);
+            settle_font(&mut made, &style, root_metrics, device, faces);
+            record_computed_font(&mut made);
+            made.current_color = resolve_color(&made, &style);
+            tree.pseudo.insert((id, pseudo), made);
         }
         tree.styles.insert(id, style);
     }

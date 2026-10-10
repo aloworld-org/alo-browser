@@ -164,7 +164,13 @@ fn lay_out_subtree(
     })
 }
 
-/// Work out what is on each line of an inline formatting context.
+/// Work out what is on each line of an inline formatting context, to size
+/// the box that holds them.
+///
+/// A field's `::placeholder` takes no part: a browser sizes a field by its
+/// own width or its `size`, never by its hint, and a field that shrank when
+/// somebody started typing would be wrong in a way they would see (ADR 0043
+/// § 3). It is laid out in its line when the field's content is placed.
 pub(crate) fn measure_inline(
     boxes: &BoxTree,
     styles: &StyleTree,
@@ -173,7 +179,8 @@ pub(crate) fn measure_inline(
     measure: &impl MeasureText,
 ) -> InlineLayout {
     let mut issues = Vec::new();
-    let items = collect_inline_items(boxes, styles, id, available_width, measure, &mut issues);
+    let mut items = collect_inline_items(boxes, styles, id, available_width, measure, &mut issues);
+    items.retain(|item| !is_a_placeholder(boxes, item));
     inline::lay_out_aligned(
         &items,
         available_width,
@@ -181,6 +188,11 @@ pub(crate) fn measure_inline(
         &text_style_for(boxes, styles, id),
         measure,
     )
+}
+
+/// Whether an item is the run of a field's `::placeholder`.
+fn is_a_placeholder(boxes: &BoxTree, item: &InlineItem) -> bool {
+    matches!(item, InlineItem::Text { box_id, .. } if boxes.is_placeholder(*box_id))
 }
 
 /// Where the lines of a formatting context sit in it.
@@ -312,13 +324,7 @@ fn collect_inline_items(
 /// author had made a flex container, and an author cannot override a rule they
 /// cannot see.
 fn control_content_style(boxes: &BoxTree, styles: &StyleTree, id: BoxId, centred: bool) -> Style {
-    let line = boxes
-        .get(id)
-        .and_then(|node| node.parent)
-        .and_then(|parent| boxes.get(parent))
-        .and_then(|parent| parent.kind.node())
-        .and_then(|source| styles.get(source))
-        .map_or(0.0, alo_style::ComputedStyle::line_height);
+    let line = control_line(boxes, styles, id);
     Style {
         display: taffy::Display::Flex,
         flex_grow: 1.0,
@@ -338,6 +344,32 @@ fn control_content_style(boxes: &BoxTree, styles: &StyleTree, id: BoxId, centred
         justify_content: centred.then_some(taffy::JustifyContent::CENTER),
         ..Style::default()
     }
+}
+
+/// The one line the box a control holds what it shows in is at least as
+/// tall as: the control's own line height.
+fn control_line(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> f32 {
+    boxes
+        .get(id)
+        .and_then(|node| node.parent)
+        .and_then(|parent| boxes.get(parent))
+        .and_then(|parent| parent.kind.node())
+        .and_then(|source| styles.get(source))
+        .map_or(0.0, alo_style::ComputedStyle::line_height)
+}
+
+/// How far down a one-line field's line starts in its content box: half of
+/// what the box has beyond the one line it is at least as tall as.
+///
+/// A field taller than its line holds its text in the middle of it, as
+/// browsers draw one: alo's sign-in fields are 46 tall with no padding, and
+/// their text at the top was 15 above where a browser draws it, found when
+/// the email field's hint was drawn (queue item 389). It is the field's
+/// *line* that is centred, not its text, so a field exactly one line tall —
+/// nearly every field, whose height comes from its padding — is not moved,
+/// and its text stands where it did, empty or filled.
+fn field_line_offset(boxes: &BoxTree, styles: &StyleTree, id: BoxId, content: Rect) -> f32 {
+    ((content.size.height - control_line(boxes, styles, id)) / 2.0).max(0.0)
 }
 
 /// An inline box's own border and padding, on each side.
@@ -508,26 +540,25 @@ fn place_inline_content(
         let content = container.content_box();
         let items =
             collect_inline_items(boxes, styles, id, Some(content.size.width), measure, issues);
+        // A field's hint is one line, however narrow the field: it was given
+        // no room when the field was sized, so wrapping it to the field would
+        // give the field lines it is not tall enough for. Where it is longer
+        // than its field it runs past it, until it is clipped (item 390).
+        let room =
+            (!items.iter().any(|item| is_a_placeholder(boxes, item))).then_some(content.size.width);
         // The strut is the font of the box that holds the lines, and it is
         // the same one `measure_inline` sized this box with — two different
         // struts would give the box one height and its lines another.
         let layout = inline::lay_out_aligned(
             &items,
-            Some(content.size.width),
+            room,
             alignment_of(boxes, styles, id),
             &text_style_for(boxes, styles, id),
             measure,
         );
 
-        // A control's content box centres what is in it, down as well as
-        // across — which is what puts a tall button's label in the middle
-        // rather than along its top edge. Everything else starts at the top.
-        let centred_by = if centres_its_lines(boxes, id) {
-            ((content.size.height - layout.size.height) / 2.0).max(0.0)
-        } else {
-            0.0
-        };
-        let origin = Point::new(content.origin.x, content.origin.y + centred_by);
+        let down = lines_start_down(boxes, styles, id, content, layout.size.height);
+        let origin = Point::new(content.origin.x, content.origin.y + down);
         // Where its last line stands, for the atomic box this context may be
         // the last line of; see `crate::baseline`.
         if let Some(last) = layout.lines.last() {
@@ -618,11 +649,35 @@ fn place_inline_content(
     }
 }
 
+/// How far down its content box a formatting context's lines start, when
+/// they are `height` tall together.
+///
+/// A control's content box centres what is in it, down as well as across —
+/// which is what puts a tall button's label in the middle rather than along
+/// its top edge — and a one-line field centres its line. Everything else
+/// starts at the top.
+fn lines_start_down(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    id: BoxId,
+    content: Rect,
+    height: f32,
+) -> f32 {
+    if centres_its_lines(boxes, id) {
+        ((content.size.height - height) / 2.0).max(0.0)
+    } else if holds_one_line(boxes, id) {
+        field_line_offset(boxes, styles, id, content)
+    } else {
+        0.0
+    }
+}
+
 /// Whether this box holds its lines in the middle of itself.
 ///
 /// True of exactly one thing: the box a button holds its label in. It is
 /// anonymous and has no style, so the box tree's own word for why it exists is
-/// what answers.
+/// what answers. A one-line field centres its *line* instead
+/// ([`field_line_offset`]), and a `<textarea>` starts its lines at its top.
 fn centres_its_lines(boxes: &BoxTree, id: BoxId) -> bool {
     matches!(
         boxes.get(id).map(|node| &node.kind),
@@ -634,12 +689,10 @@ fn centres_its_lines(boxes: &BoxTree, id: BoxId) -> bool {
 }
 
 /// Record the line a one-line field with nothing typed in it would hold: the
-/// baseline of a line holding only its strut, at the top of its content box,
-/// so that it stands where its text will and does not drop when it is typed
-/// into. See `crate::baseline`. Any other box with no line records none.
-///
-/// A field's text is never centred down it, so the top of its content box is
-/// where a line it held would start.
+/// baseline of a line holding only its strut, where a line it held would
+/// start ([`field_line_offset`]), so that it stands where its text will and
+/// does not drop when it is typed into. See `crate::baseline`. Any other box
+/// with no line records none.
 fn record_an_empty_field(
     boxes: &BoxTree,
     styles: &StyleTree,
@@ -650,16 +703,15 @@ fn record_an_empty_field(
     if !holds_one_line(boxes, id) {
         return;
     }
-    let Some(top) = out
-        .geometry
-        .get(&id)
-        .map(|held| held.content_box().origin.y)
-    else {
+    let Some(content) = out.geometry.get(&id).copied().map(BoxGeometry::content_box) else {
         return;
     };
     let strut = text_style_for(boxes, styles, id);
-    out.lines
-        .insert(id, top + inline::empty_line_baseline(&strut, measure));
+    let down = field_line_offset(boxes, styles, id, content);
+    out.lines.insert(
+        id,
+        content.origin.y + down + inline::empty_line_baseline(&strut, measure),
+    );
 }
 
 /// Whether this box is the inside of a one-line field, which stands on the

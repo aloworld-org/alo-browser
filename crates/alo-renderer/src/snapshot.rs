@@ -38,6 +38,8 @@ pub struct SnapshotNode {
     pub name: Option<String>,
     /// What is true of it.
     pub states: States,
+    /// The hint a field gives while it holds nothing (ADR 0043 § 5).
+    pub placeholder: Option<String>,
     /// Where it is on the page: the union of [`SnapshotNode::rects`].
     ///
     /// Useful for *roughly where is this*, and wrong for anything that has to
@@ -117,6 +119,7 @@ fn describe(node: &alo_agent::AgentNode<'_>) -> SnapshotNode {
         role: node.role(),
         name: node.name(),
         states: node.states(),
+        placeholder: node.placeholder(),
         rects: node.rects(),
         rect: node.rect(),
         offscreen: node.is_offscreen(),
@@ -149,14 +152,14 @@ fn write_node(node: &SnapshotNode, depth: usize, out: &mut String) {
 }
 
 impl fmt::Display for SnapshotNode {
+    /// The words the tree it came from writes, by the same function.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.role)?;
-        if let Some(name) = &self.name {
-            write!(f, " {name:?}")?;
-        }
-        if !self.states.is_unremarkable() {
-            write!(f, " [{}]", self.states)?;
-        }
-        Ok(())
+        alo_agent::write_described(
+            f,
+            &self.role,
+            self.name.as_deref(),
+            &self.states,
+            self.placeholder.as_deref(),
+        )
     }
 }

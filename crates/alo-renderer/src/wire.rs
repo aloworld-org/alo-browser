@@ -244,6 +244,7 @@ impl Writer {
         self.role(&node.role);
         self.maybe_text(node.name.as_deref());
         self.states(&node.states);
+        self.maybe_text(node.placeholder.as_deref());
         self.rect(node.rect);
         self.number(node.rects.len() as u64);
         for rect in &node.rects {
@@ -890,6 +891,7 @@ impl<'a> Reader<'a> {
         let role = self.role()?;
         let name = self.maybe_text()?;
         let states = self.states()?;
+        let placeholder = self.maybe_text()?;
         let rect = self.rect()?;
         let how_many = self.count()?;
         let mut rects = Vec::new();
@@ -909,6 +911,7 @@ impl<'a> Reader<'a> {
             role,
             name,
             states,
+            placeholder,
             rect,
             rects,
             offscreen,

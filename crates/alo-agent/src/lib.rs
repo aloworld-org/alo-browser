@@ -59,5 +59,5 @@ pub mod verb;
 
 pub use apply::{Change, apply};
 pub use name::accessible_name;
-pub use tree::{AgentNode, AgentTree};
+pub use tree::{AgentNode, AgentTree, write_described};
 pub use verb::{Outcome, Refusal, ScrollBy, Target, Verb, perform};

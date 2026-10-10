@@ -18,7 +18,8 @@
 
 use crate::origin::{CascadeLevel, Origin};
 use alo_css::{
-    Declaration, Location, MatchContext, MediaContext, PropertyName, Specificity, Stylesheet,
+    Declaration, Location, MatchContext, MediaContext, PropertyName, PseudoElement, SelectorList,
+    Specificity, Stylesheet,
 };
 use alo_dom::NodeId;
 use std::collections::BTreeMap;
@@ -151,29 +152,11 @@ impl<'a> Applicable<'a> {
             order += 1;
         }
 
-        for sourced in sheets {
-            for rule in sourced.sheet.style_rules_for(device) {
-                let Some(selector) = matcher.most_specific_match(&rule.selectors, id) else {
-                    continue;
-                };
-                let specificity = selector.specificity();
-                for declaration in &rule.declarations {
-                    by_property
-                        .entry(declaration.name.clone())
-                        .or_default()
-                        .push(Contender {
-                            declaration,
-                            origin: sourced.origin,
-                            level: CascadeLevel::of(sourced.origin, declaration.importance),
-                            attached: false,
-                            specificity,
-                            order,
-                            at: rule.at,
-                        });
-                    order += 1;
-                }
-            }
-        }
+        gather_rules(sheets, device, &mut by_property, &mut order, |list| {
+            matcher
+                .most_specific_match(list, id)
+                .map(alo_css::Selector::specificity)
+        });
 
         for declaration in attached {
             by_property
@@ -195,6 +178,56 @@ impl<'a> Applicable<'a> {
             contenders.sort_by_key(Contender::key);
         }
         Self { by_property }
+    }
+
+    /// Every declaration that applies to the pseudo-element `pseudo` of one
+    /// element (ADR 0043 § 1): those of the rules whose selector names it and
+    /// whose compound before it matches the element.
+    ///
+    /// They compete with each other by the same five questions and never
+    /// with the element's own. There are no presentation hints and no
+    /// attached declarations: neither has a selector, so neither can name a
+    /// pseudo-element.
+    pub fn gather_pseudo(
+        sheets: &[SourcedSheet<'a>],
+        device: &MediaContext,
+        matcher: &mut MatchContext<'_>,
+        id: NodeId,
+        pseudo: PseudoElement,
+    ) -> Self {
+        let mut by_property: BTreeMap<PropertyName, Vec<Contender<'a>>> = BTreeMap::new();
+        let mut order = 0usize;
+        gather_rules(sheets, device, &mut by_property, &mut order, |list| {
+            matcher
+                .most_specific_pseudo_match(list, id, pseudo)
+                .map(alo_css::Selector::specificity)
+        });
+        for contenders in by_property.values_mut() {
+            contenders.sort_by_key(Contender::key);
+        }
+        Self { by_property }
+    }
+
+    /// Keep only the properties `keep` says yes to, handing every one it
+    /// refuses, with what won for it, to `refused`.
+    ///
+    /// For a pseudo-element that reads only some of what applies to it
+    /// ([`crate::pseudo`]): a property taken out here was never declared, as
+    /// far as the computed style knows, and inherits from the element.
+    pub fn retain(
+        &mut self,
+        mut keep: impl FnMut(&PropertyName) -> bool,
+        mut refused: impl FnMut(&PropertyName, Contender<'a>),
+    ) {
+        self.by_property.retain(|name, contenders| {
+            if keep(name) {
+                return true;
+            }
+            if let Some(winner) = contenders.last().copied() {
+                refused(name, winner);
+            }
+            false
+        });
     }
 
     /// The declaration that wins for a property, if any does.
@@ -229,6 +262,43 @@ impl<'a> Applicable<'a> {
     /// Whether nothing applied.
     pub fn is_empty(&self) -> bool {
         self.by_property.is_empty()
+    }
+}
+
+/// Every declaration of every style rule in `sheets` whose selector list
+/// `specificity_of` matches, counted on from `order`.
+///
+/// `specificity_of` answers with the specificity of the most specific
+/// selector that matched, which is what the declaration competes at: for an
+/// element, or for one of its pseudo-elements.
+fn gather_rules<'a>(
+    sheets: &[SourcedSheet<'a>],
+    device: &MediaContext,
+    by_property: &mut BTreeMap<PropertyName, Vec<Contender<'a>>>,
+    order: &mut usize,
+    mut specificity_of: impl FnMut(&SelectorList) -> Option<Specificity>,
+) {
+    for sourced in sheets {
+        for rule in sourced.sheet.style_rules_for(device) {
+            let Some(specificity) = specificity_of(&rule.selectors) else {
+                continue;
+            };
+            for declaration in &rule.declarations {
+                by_property
+                    .entry(declaration.name.clone())
+                    .or_default()
+                    .push(Contender {
+                        declaration,
+                        origin: sourced.origin,
+                        level: CascadeLevel::of(sourced.origin, declaration.importance),
+                        attached: false,
+                        specificity,
+                        order: *order,
+                        at: rule.at,
+                    });
+                *order += 1;
+            }
+        }
     }
 }
 

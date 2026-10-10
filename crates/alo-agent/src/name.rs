@@ -24,7 +24,10 @@
 //!    is inside them. A button says what is written on it; a paragraph does
 //!    not have a name at all, and giving it one would fill an agent's view of
 //!    the page with names nobody wrote.
-//! 5. **`title`** — last, because it is a tooltip rather than a name.
+//! 5. **`title`** — because it is a tooltip rather than a name.
+//! 6. **`placeholder`** — last of all, for a field nothing else names: HTML-AAM's
+//!    order (ADR 0043 § 5). A hint about what goes in is a poor name, and
+//!    a field with a label keeps its label's.
 //!
 //! # Where this could not have been
 //!
@@ -96,11 +99,19 @@ pub fn accessible_name(document: &Document, boxes: &BoxTree, id: BoxId) -> Optio
         }
     }
 
-    // 5: a `title`, last, because it is a tooltip rather than a name.
-    source
-        .and_then(|source| document.element(source))
+    // 5: a `title`, because it is a tooltip rather than a name.
+    let element = source.and_then(|source| document.element(source));
+    if let Some(title) = element
         .and_then(|element| element.attr("title"))
         .and_then(normalise)
+    {
+        return Some(title);
+    }
+
+    // 6: a field's hint, last of all, whether or not it is shown.
+    element
+        .and_then(alo_dom::placeholder::hint)
+        .and_then(|hint| normalise(&hint))
 }
 
 /// Whether the declared name came only from a `title`, which is the one
@@ -209,6 +220,10 @@ fn gather(boxes: &BoxTree, id: BoxId, out: &mut String) {
     let Some(node) = boxes.get(id) else {
         return;
     };
+    // A field's hint is not text in it (ADR 0043 § 5).
+    if boxes.is_placeholder(id) {
+        return;
+    }
     let is_block = node.kind.outside() == alo_box::Outside::Block;
     if is_block {
         separate(out);

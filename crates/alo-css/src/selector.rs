@@ -199,12 +199,12 @@ impl NonTSPseudoClassTrait for PseudoClass {
 
 /// The pseudo-elements a style sheet may name.
 ///
-/// **None of them is produced in stage 1.** They are parsed so that a rule
-/// naming one does not take the rest of the style sheet down with it, and the
-/// rule is recorded as targeting something that does not exist rather than
-/// silently doing nothing. Generated content and selection painting are not in
-/// `docs/features.md`; when they arrive, the selectors are already understood.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// **One of them is produced: `::placeholder`** (ADR 0043), styled as its
+/// field's child. The rest are parsed so that a rule naming one does not take
+/// the rest of the style sheet down with it, and the rule is recorded as
+/// targeting something that does not exist rather than silently doing
+/// nothing. Each is produced when a page opens it, by ADR 0043's §§ 1–2.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PseudoElement {
     /// `::before`.
     Before,
@@ -237,6 +237,16 @@ impl PseudoElement {
         ALL.iter()
             .copied()
             .find(|candidate| candidate.as_str()[2..].eq_ignore_ascii_case(name))
+    }
+
+    /// Whether this engine makes a box for this pseudo-element, and so
+    /// computes a style for it (ADR 0043 § 1).
+    ///
+    /// Only `::placeholder`. A rule naming any other is kept, matches
+    /// nothing, and is recorded as `PseudoElementNotProduced`, so a page
+    /// that wants `::before` says so in its issues.
+    pub fn is_produced(self) -> bool {
+        self == PseudoElement::Placeholder
     }
 
     /// The name, with its two leading colons.
@@ -327,8 +337,9 @@ impl Selector {
 
     /// The pseudo-element this selector targets, if it targets one.
     ///
-    /// A selector that targets a pseudo-element matches nothing in stage 1:
-    /// there is no box for it to match. See [`PseudoElement`].
+    /// A selector that targets a pseudo-element never matches an element: it
+    /// matches the pseudo-element an element makes, which only
+    /// `MatchContext::matches_pseudo` asks. See [`PseudoElement`].
     pub fn pseudo_element(&self) -> Option<PseudoElement> {
         self.inner.pseudo_element().copied()
     }
@@ -653,6 +664,22 @@ mod tests {
 
         let plain = parse("p").expect("a plain selector");
         assert_eq!(plain.iter().next().and_then(Selector::pseudo_element), None,);
+    }
+
+    #[test]
+    fn only_the_placeholder_is_produced() {
+        for text in [
+            "before",
+            "after",
+            "marker",
+            "selection",
+            "first-line",
+            "first-letter",
+        ] {
+            let element = PseudoElement::from_name(text).expect("a name we listed");
+            assert!(!element.is_produced(), "{text}");
+        }
+        assert!(PseudoElement::Placeholder.is_produced());
     }
 
     #[test]

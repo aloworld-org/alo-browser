@@ -397,12 +397,15 @@ The headline still wraps one line more than the real screen does, and that is a
 **font** difference rather than an engine one: the corpus renders in DejaVu
 Sans, which is wider than the Inter the app loads. Web fonts are stage 2.
 
-**The email field's placeholder is not drawn.** The real screen shows
-`you@company.eu` in it, in `--text-tertiary`, through alo's `Input` component's
-`placeholder:text-tertiary` — a `::placeholder` rule that the case's stylesheet
-does not carry, and that this engine would not match if it did, because it
-styles no pseudo-element yet. That is item 389, decided by ADR 0043 and not
-built: the case gains that rule when the hint is drawn.
+**The email field's placeholder is drawn** (item 389, ADR 0043):
+`you@company.eu` in `--text-tertiary`, through the rule alo's `Input`
+component writes as `placeholder:text-tertiary` — `.input::placeholder {
+color: var(--text-tertiary) }`, which the case's stylesheet carries and says
+so. It stands in the middle of the 46-pixel field, as a browser draws it; an
+agent reads the field as `textbox "Email" [placeholder="you@company.eu"]`
+with nothing typed in it. Of what a page may set on `::placeholder`, only
+its colour is drawn (item 392), and a hint longer than its field is not yet
+clipped (item 390); neither is on this screen.
 
 `crates/alo-corpus/cases/alo-settings/` is **alo-workplace's own Settings
 screen** — its markup, its rules from `web/src/shell/SettingsModal.module.css`

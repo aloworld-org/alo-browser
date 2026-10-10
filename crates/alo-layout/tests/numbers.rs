@@ -1287,6 +1287,125 @@ fn an_empty_field_stands_where_its_text_will() {
     }
 }
 
+/// The rectangle of the first text box `pick` chooses, or a rectangle no
+/// layout produces so that the assertion which asked reports it.
+fn text_box_rect(boxes: &BoxTree, layout: &LayoutTree, pick: impl Fn(BoxId) -> bool) -> Rect {
+    boxes
+        .ids()
+        .filter(|id| boxes.get(*id).and_then(alo_box::BoxNode::text).is_some())
+        .find(|id| pick(*id))
+        .and_then(|id| layout.border_box(id))
+        .unwrap_or(Rect::new(f32::NAN, f32::NAN, f32::NAN, f32::NAN))
+}
+
+#[test]
+fn a_placeholder_adds_nothing_to_its_field_and_stands_where_its_text_will() {
+    // ADR 0043 § 3. An auto-width field is sized without its hint — here
+    // as narrow as its padding, which is what this engine gives a field with
+    // no `size` and nothing in it — so it is as wide with one as without,
+    // and the line around it does not move.
+    let css = "#w, input { font-size: 16px; line-height: 20px } \
+               input { padding: 5px; border: 0; width: auto }";
+    let bare = "<body><div id=w><span id=s>ab</span><input id=f></div></body>";
+    let hinted = "<body><div id=w><span id=s>ab</span><input id=f placeholder='you@company.eu'></div></body>";
+    let (bare_boxes, bare_layout) =
+        lay_out_measured(bare, css, Size::new(400.0, 300.0), &ScaledFont);
+    let (boxes, layout) = lay_out_measured(hinted, css, Size::new(400.0, 300.0), &ScaledFont);
+    for id in ["w", "s", "f"] {
+        assert_eq!(
+            rect_of(&boxes, &layout, id, hinted),
+            rect_of(&bare_boxes, &bare_layout, id, bare),
+            "{id}"
+        );
+    }
+    assert_eq!(
+        rect_of(&boxes, &layout, "f", hinted),
+        Rect::new(16.0, 0.0, 10.0, 30.0)
+    );
+
+    // The hint is a run in the field's line, where a value is: its pen at the
+    // content edge, 5 in, and the line's top 5 down. Fourteen characters at
+    // eight a character, on one line, past the narrow field's edge.
+    let hint = text_box_rect(&boxes, &layout, |id| boxes.is_placeholder(id));
+    assert_eq!(hint, Rect::new(21.0, 7.0, 112.0, 16.0));
+    let valued = "<body><div id=w><span id=s>ab</span><input id=f value=cd></div></body>";
+    let fixed = format!("{css} input {{ width: 40px }}");
+    let (value_boxes, value_layout) =
+        lay_out_measured(valued, &fixed, Size::new(400.0, 300.0), &ScaledFont);
+    let value = text_box_rect(&value_boxes, &value_layout, |id| {
+        value_boxes.get(id).and_then(alo_box::BoxNode::text) == Some("cd")
+    });
+    assert_eq!(
+        value.origin, hint.origin,
+        "a value stands where the hint did"
+    );
+
+    // A hint with spaces in it is still one line in a field too narrow for
+    // it: it was given no room, and a wrapped hint would be lines the field
+    // is not tall enough for.
+    let spaced = "<body><input id=f placeholder='a b c d e f'></body>";
+    let fixed =
+        "input { font-size: 16px; line-height: 20px; padding: 5px; border: 0; width: 20px }";
+    let (boxes, layout) = lay_out_measured(spaced, fixed, Size::new(400.0, 300.0), &ScaledFont);
+    let field = rect_of(&boxes, &layout, "f", spaced);
+    assert_eq!(field.size, Size::new(30.0, 30.0));
+    let Some(hint) = boxes.ids().find(|id| boxes.is_placeholder(*id)) else {
+        panic!("the field shows its hint");
+    };
+    assert_eq!(layout.fragments(hint).len(), 1);
+}
+
+#[test]
+fn a_field_taller_than_its_line_holds_its_text_in_the_middle() {
+    // As browsers draw a one-line field: alo's sign-in fields are 46 tall
+    // with no padding (queue item 389). Here 50, a 20 line: 15 above it and
+    // 15 below, the text's 16 two into it, so its top at 17.
+    let css = "#w, input { font-size: 16px; line-height: 20px } \
+               input { padding: 0; border: 0; width: 40px; height: 50px }";
+    let filled = "<body><div id=w><span id=s>ab</span><input id=f value=cd></div></body>";
+    let (boxes, layout) = lay_out_measured(filled, css, Size::new(400.0, 300.0), &ScaledFont);
+    let value = text_box_rect(&boxes, &layout, |id| {
+        boxes.get(id).and_then(alo_box::BoxNode::text) == Some("cd")
+    });
+    // The field stands on its text's baseline, 15 + 14 down, so the line's
+    // ascent is 29 and the field at its top: the span's text, on the same
+    // baseline in the same font, is level with the field's at 17.
+    assert_eq!(value, Rect::new(16.0, 17.0, 16.0, 16.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "s", filled),
+        Rect::new(0.0, 17.0, 16.0, 16.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "f", filled),
+        Rect::new(16.0, 0.0, 40.0, 50.0)
+    );
+
+    // Empty, it stands on the same line, so nothing beside it moves.
+    let empty = "<body><div id=w><span id=s>ab</span><input id=f></div></body>";
+    let (empty_boxes, empty_layout) =
+        lay_out_measured(empty, css, Size::new(400.0, 300.0), &ScaledFont);
+    for id in ["w", "s", "f"] {
+        assert_eq!(
+            rect_of(&empty_boxes, &empty_layout, id, empty),
+            rect_of(&boxes, &layout, id, filled),
+            "{id}"
+        );
+    }
+
+    // A `<textarea>` starts its lines at its top.
+    let area = "<body><textarea id=f>cd</textarea></body>";
+    let css = "textarea { font-size: 16px; line-height: 20px; padding: 0; border: 0; \
+               width: 40px; height: 50px }";
+    let (boxes, layout) = lay_out_measured(area, css, Size::new(400.0, 300.0), &ScaledFont);
+    let text = text_box_rect(&boxes, &layout, |id| {
+        boxes.get(id).and_then(alo_box::BoxNode::text) == Some("cd")
+    });
+    assert!(close(
+        text.origin.y - rect_of(&boxes, &layout, "f", area).origin.y,
+        2.0
+    ));
+}
+
 #[test]
 fn line_height_is_room_split_evenly_above_and_below_the_font() {
     // A line as tall as its `line-height`, with half of what that leaves over

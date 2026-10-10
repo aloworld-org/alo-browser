@@ -26,6 +26,9 @@
 //! 4. **Resolve.** Custom properties first, as a group, because one may use
 //!    another declared beside it; then `var()` in everything else. A cycle is
 //!    refused rather than looped.
+//! 5. **Its pseudo-elements.** Straight after the element, for one that makes
+//!    any — a field's `::placeholder` only, today — by the same four steps,
+//!    as the element's child ([`pseudo`], ADR 0043).
 //!
 //! Document order is not an optimisation here. A child's `var(--surface)`
 //! resolves against the map its parent ended up with, so the parent has to be
@@ -54,6 +57,7 @@ pub mod keyword;
 pub mod metrics;
 pub mod origin;
 pub mod presentation;
+pub mod pseudo;
 pub mod user_agent;
 pub mod variables;
 

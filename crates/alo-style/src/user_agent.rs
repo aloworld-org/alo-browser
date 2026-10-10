@@ -15,9 +15,10 @@
 //! **No tables.** `docs/features.md` puts CSS-table layout in stage 3, so
 //! `<table>` has no defaults here rather than defaults that do not work.
 //!
-//! **No `::before` or `::after`.** Stage 1 produces no pseudo-elements, so
-//! there is nothing to give content to — including list markers, which is why
-//! `list-item` appears without one.
+//! **No `::before` or `::after`.** The one pseudo-element this engine
+//! produces is a field's `::placeholder` (ADR 0043), so there is nothing to
+//! give content to — including list markers, which is why `list-item` appears
+//! without one.
 
 /// The engine's style sheet, as CSS text.
 ///
@@ -221,6 +222,16 @@ input[type="button"]:disabled, input[type="submit"]:disabled,
 input[type="reset"]:disabled {
   background-color: #f5f5f5;
 }
+
+/* A field's hint is grey, and a page that says otherwise wins.
+ *
+ * Chromium's colour, a fixed #757575: 4.6:1 against a white field. Firefox
+ * mixes the field's own `currentColor` at 54%, which suits a dark field
+ * better and needs `color-mix()`, which this engine does not read (item
+ * 378); it is not taken by halves (ADR 0043 § 3). The hint inherits the rest
+ * — its font, its line — from its field, so it stands where the field's text
+ * will. */
+::placeholder { color: #757575 }
 
 /* Text defaults. A person reading this is reading in a direction. */
 html { color: black; direction: ltr; font-family: system-ui, sans-serif }

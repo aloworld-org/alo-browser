@@ -11,9 +11,11 @@
 //!
 //! Two refusals are written into the adapter rather than left to chance:
 //!
-//! - **A selector that names a pseudo-element never matches.** Stage 1
-//!   produces no box for one, so there is nothing it could match, and the
-//!   style sheet was told so when it was parsed.
+//! - **A selector that names a pseudo-element never matches an element.** It
+//!   matches the pseudo-element an element makes, which only
+//!   [`MatchContext::matches_pseudo`] asks, and only for one this engine
+//!   produces (ADR 0043 § 1): `::placeholder`. For every other, the style
+//!   sheet was told when it was parsed that it matches nothing.
 //! - **An interaction state never matches.** Nobody is hovering a document
 //!   being rendered to a PNG. `:hover` parses so that a style sheet survives;
 //!   it matches when there is input, which is not stage 1.
@@ -192,8 +194,9 @@ impl SelectorsElement for ElementRef<'_> {
         _pe: &PseudoElement,
         _context: &mut MatchingContext<Self::Impl>,
     ) -> bool {
-        // Stage 1 produces no boxes for pseudo-elements, so there is nothing
-        // here to match. The style sheet was told when it was parsed.
+        // Asked of an element that *is* a pseudo-element, which none of ours
+        // is: a pseudo-element is matched through its originating element, in
+        // `MatchContext::matches_pseudo`, and never as a node of its own.
         false
     }
 
@@ -318,6 +321,61 @@ impl<'a> MatchContext<'a> {
             .and_then(|scope| ElementRef::new(self.document, scope))
             .map(|scope| scope.opaque());
         selectors::matching::matches_selector(selector.inner(), 0, None, &element, &mut context)
+    }
+
+    /// Whether one selector matches the pseudo-element `pseudo` of the
+    /// element `id` — `.input::placeholder` the placeholder of an
+    /// `<input class=input>` (ADR 0043 § 1).
+    ///
+    /// The selector must name `pseudo`, and the compound before it must match
+    /// the element; [`false`] for a pseudo-element this engine does not
+    /// produce, and for a node that is not an element. Whether the element
+    /// *makes* one is the document's question, not the sheet's, and is asked
+    /// by whoever calls this. A state pseudo-class after the pseudo-element
+    /// (`::placeholder:hover`) matches nothing, as the rented matcher
+    /// decides: nothing is hovered here.
+    pub fn matches_pseudo(
+        &mut self,
+        selector: &Selector,
+        id: NodeId,
+        pseudo: PseudoElement,
+    ) -> bool {
+        if !pseudo.is_produced() || selector.pseudo_element() != Some(pseudo) {
+            return false;
+        }
+        let Some(element) = ElementRef::new(self.document, id) else {
+            return false;
+        };
+        let mut context = MatchingContext::new(
+            // The rented matcher's mode for exactly this: it consumes the
+            // pseudo-element, which the check above made sure is there, and
+            // matches the rest against the element it belongs to.
+            MatchingMode::ForStatelessPseudoElement,
+            None,
+            &mut self.caches,
+            QuirksMode::NoQuirks,
+            NeedsSelectorFlags::No,
+            MatchingForInvalidation::No,
+        );
+        context.scope_element = self
+            .scope
+            .and_then(|scope| ElementRef::new(self.document, scope))
+            .map(|scope| scope.opaque());
+        selectors::matching::matches_selector(selector.inner(), 0, None, &element, &mut context)
+    }
+
+    /// The most specific selector in a list that matches the pseudo-element
+    /// `pseudo` of the element `id`, if any — [`Self::most_specific_match`]
+    /// for a pseudo-element, and with the same tie-break.
+    pub fn most_specific_pseudo_match<'l>(
+        &mut self,
+        list: &'l SelectorList,
+        id: NodeId,
+        pseudo: PseudoElement,
+    ) -> Option<&'l Selector> {
+        list.iter()
+            .filter(|selector| self.matches_pseudo(selector, id, pseudo))
+            .min_by_key(|selector| core::cmp::Reverse(selector.specificity()))
     }
 
     /// The most specific selector in a list that matches this node, if any.
@@ -546,6 +604,66 @@ mod tests {
     fn a_selector_naming_a_pseudo_element_never_matches() {
         assert!(matched(LIST, "li::before").is_empty());
         assert!(matched(LIST, "li::after").is_empty());
+    }
+
+    /// Every element whose `pseudo` the selector matches, by `id`.
+    fn matched_pseudo(html: &str, selector: &str, pseudo: PseudoElement) -> Vec<String> {
+        let document = parse_document(html);
+        let list = selectors(selector);
+        let mut context = MatchContext::new(&document);
+        document
+            .descendants(document.root())
+            .filter(|id| list.iter().any(|s| context.matches_pseudo(s, *id, pseudo)))
+            .filter_map(|id| document.element(id)?.attr("id").map(str::to_owned))
+            .collect()
+    }
+
+    #[test]
+    fn a_placeholder_selector_matches_through_its_field() {
+        let html = "<form id=f class=login><input id=a class=input><input id=b>             <textarea id=c class=input></textarea></form>";
+        let placeholder = PseudoElement::Placeholder;
+        assert_eq!(
+            matched_pseudo(html, ".input::placeholder", placeholder),
+            vec!["a", "c"]
+        );
+        assert_eq!(
+            matched_pseudo(html, "::placeholder", placeholder),
+            vec!["f", "a", "b", "c"],
+            "the sheet matches any element; whether one makes a placeholder is the document's",
+        );
+        assert_eq!(
+            matched_pseudo(html, ".login > input::placeholder", placeholder),
+            vec!["a", "b"]
+        );
+        // Not without the pseudo-element, not as the element, and not when
+        // a state follows it that nothing is in.
+        assert!(matched_pseudo(html, ".input", placeholder).is_empty());
+        assert!(matched_pseudo(html, "input::placeholder:hover", placeholder).is_empty());
+        assert!(matched(html, "input::placeholder").is_empty());
+        // A pseudo-element this engine does not produce matches nothing,
+        // asked either way.
+        assert!(matched_pseudo(html, "input::before", PseudoElement::Before).is_empty());
+        assert!(matched_pseudo(html, "input::placeholder", PseudoElement::Before).is_empty());
+    }
+
+    #[test]
+    fn the_most_specific_placeholder_selector_is_the_one_reported() {
+        let document = parse_document("<input id=a class=input>");
+        let list = selectors("::placeholder, #a::placeholder, .input::placeholder");
+        let input = document
+            .descendants(document.root())
+            .find(|id| {
+                document
+                    .element(*id)
+                    .is_some_and(|e| e.attr("id") == Some("a"))
+            })
+            .expect("the field");
+        let mut context = MatchContext::new(&document);
+        let best = context
+            .most_specific_pseudo_match(&list, input, PseudoElement::Placeholder)
+            .map(Selector::to_css_string);
+        assert_eq!(best.as_deref(), Some("#a::placeholder"));
+        assert!(context.most_specific_match(&list, input).is_none());
     }
 
     #[test]

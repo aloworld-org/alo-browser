@@ -65,6 +65,9 @@ fn a_node(children: Vec<SnapshotNode>) -> SnapshotNode {
             current: Some(Current::Page),
             takes_text: true,
         },
+        // A field's hint crosses too, so the outline on the far side reads
+        // as the tree did (ADR 0043 § 5).
+        placeholder: Some("you@company.eu".to_owned()),
         rect: a_rect(),
         // Two pieces, so the round trip carries a wrapped inline rather than
         // only the easy case of one rectangle.

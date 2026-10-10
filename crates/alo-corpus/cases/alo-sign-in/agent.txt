@@ -9,7 +9,7 @@ document at (0, 0) 1000×640
     heading "Sign in" [level=2] at (510, 107.796875) 400×37.25
     paragraph at (510, 149.04688) 400×16.296875
       text "Welcome back. Enter your credentials to continue." at (510, 149.04688) 354.16992×16.296875
-    textbox "Email" at (510, 213.64063) 400×46
+    textbox "Email" [placeholder="you@company.eu"] at (510, 213.64063) 400×46
     generic "Password" at (510, 299.9375) 400×46
     checkbox "Remember me" [checked=false] at (510, 363.0039) 13×13
     link "Forgot password?" at (779.5747, 361.9375) 130.4253×15.1328125

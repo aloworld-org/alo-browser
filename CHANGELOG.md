@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A field's placeholder is drawn.** alo's sign-in screen now shows
+  `you@company.eu` faintly in its empty email field, in the colour alo's
+  design gives a hint, and it disappears as soon as the field holds
+  anything. The field is no wider for it. An agent is told the hint is
+  there, as a hint — `placeholder="you@company.eu"` — and never mistakes
+  it for something typed; a field nothing else names is called by its
+  hint. This is the first of the "pseudo-elements" CSS lets a page style,
+  styled as part of the field it belongs to, as the later ones will be. Of
+  what a page can set on a hint only its colour is drawn so far, and the
+  rest is reported (queue item 389, ADR 0043). Fixed on the way: text in a
+  field taller than one line was drawn at the field's top; it now sits in
+  the middle, as browsers draw it.
+
 - **Decided: how a field's placeholder is drawn and read** (ADR 0043). Not
   built yet. alo's sign-in screen shows `you@company.eu` faintly in its
   empty email field; this browser shows nothing there today. The hint will

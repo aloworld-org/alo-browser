@@ -7066,7 +7066,7 @@ The long pole, and the thing most of section E is unreachable without.
   that kind draws its form and reads its role, and a hostile value is
   sanitised without a panic.
 
-- [ ] **389. A field's `placeholder`.** *Opened by `alo-sign-in`
+- [x] **389. A field's `placeholder`.** *Opened by `alo-sign-in`
   (iteration 251, noticed by 250). Feature: `docs/features.md` stage 2's
   forms line. **Needs ADR.** Depends on nothing open.* alo's sign-in
   email field has `placeholder="you@company.eu"`, and alo's own `Input`
@@ -7120,6 +7120,65 @@ The long pole, and the thing most of section E is unreachable without.
   colour beating `#757575`, and `::before` still recorded; hostile
   `placeholder` attributes are drawn, stripped or read without a panic.
   *Depends on nothing open.*
+  **Done (iteration 254).** `alo-css`: `PseudoElement::is_produced`
+  (only `::placeholder`); `MatchContext::matches_pseudo` and
+  `most_specific_pseudo_match`, matching through the originating element in
+  the rented matcher's `ForStatelessPseudoElement` mode; a rule naming
+  `::placeholder` is no longer recorded, one naming any other still is
+  (its message now says "this engine", not "stage 1"); a new
+  `PropertyNotReadOnPseudoElement` issue. `alo-dom`'s new `placeholder.rs`
+  holds § 2's fact once (`takes_one`, `hint`, `shown`). `alo-style`:
+  `Applicable::gather_pseudo` and `retain` in `cascade.rs`, the sheet loop
+  shared by both gathers; the new `pseudo.rs` says which declarations take
+  part (`color` and custom properties; the rest of `::first-line`'s list
+  recorded, anything else ignored); `StyleTree::pseudo`, computed straight
+  after the element, inheriting from it; the user-agent sheet's
+  `::placeholder { color: #757575 }`. `alo-box`: the hint's text box where
+  the field's text would be, `BoxTree::is_placeholder`, `nearest_style`
+  answering the pseudo-element's style for it, and the outline marking it
+  `· ::placeholder`. `alo-layout`: `measure_inline` leaves the hint out, so
+  it adds nothing to a field's size, and a context holding one lays it out
+  on one line. `alo-agent`: the hint is never exposed or read as text;
+  `AgentNode::placeholder` (the shown hint, or an author's
+  `aria-placeholder` on a field with neither a hint nor a value);
+  `accessible_name` step 6; `write_described`, which the renderer's
+  snapshot now writes with too. `alo-renderer`: `SnapshotNode` and the wire
+  carry `placeholder`. **Found on the way and fixed in the same change:** a
+  one-line field taller than its line drew its text at the top of its
+  content box, where browsers centre it; alo's sign-in fields are 46 tall
+  with no padding, so the hint stood 13.6 above where it belongs. A
+  one-line field now centres its *line* (`engine.rs`'
+  `field_line_offset`, the empty field's recorded baseline with it), so a
+  field one line tall — every other field in the corpus — does not move.
+  Tests: `alo-css` (`only_the_placeholder_is_produced`,
+  `a_rule_naming_the_placeholder_is_kept_and_not_recorded`,
+  `a_placeholder_selector_matches_through_its_field`,
+  `the_most_specific_placeholder_selector_is_the_one_reported`); `alo-dom`
+  `placeholder.rs` (4, hostile hints of 100 000 bytes, 100 000 line
+  breaks and 31 000 control characters included); `alo-style`
+  `tests/a_placeholder.rs` (5: `#757575` and an author's colour beating
+  it, a custom property and the font inherited from the field, only an
+  element that makes one having one, `font-style` and `letter-spacing`
+  recorded and `width` ignored, `::before` still recorded) and
+  `pseudo.rs`; `alo-box` `a_field_holding_nothing_shows_its_hint_as_a_
+  placeholder` and `a_placeholder_is_set_in_its_own_style_and_says_so`;
+  `numbers.rs` `a_placeholder_adds_nothing_to_its_field_and_stands_where_
+  its_text_will` (an auto-width field 10 wide with a hint or without, the
+  hint at (21, 7) where a value stands, one line in a 20-wide field) and
+  `a_field_taller_than_its_line_holds_its_text_in_the_middle`; `alo-agent`
+  `tests/a_field_with_a_hint.rs` (5); `alo-corpus` `tests/alo_sign_in.rs`
+  (5: the rule in the case, the hint at (527, 228.24) in the 400 × 46
+  field, `rgb(122 111 98)` in the display list and the darkest ink within
+  24 of it, no ink elsewhere in the field, the outline, and `PutText`
+  through a renderer hiding it with the value where the hint was).
+  Mutations, each restored from a copy: `nearest_style` not answering the
+  pseudo-element fails the sign-in colour test and the box test; the hint
+  measured fails the numbers test; the line not centred fails the centring
+  and sign-in position tests; the hint exposed fails the agent and sign-in
+  outline tests; the parse filter removed fails the parse test. Moved:
+  `alo-sign-in` (the rule in its sheet, the hint's box, its picture, its
+  outline), and the issue wording in `alo-meet-greeting` and five alo
+  Sites cases. No other layout number moved.
 
 - [ ] **390. A placeholder longer than its field is clipped.** *Cut from
   389 by ADR 0043 § 3. Feature: `docs/features.md` stage 2's forms line.

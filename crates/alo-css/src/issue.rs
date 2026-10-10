@@ -48,10 +48,15 @@ pub enum IssueKind {
     /// selector nobody can evaluate would match either everything or nothing,
     /// and both are worse than not being there.
     InvalidSelector,
-    /// A selector that names a pseudo-element. It is kept and never matched:
-    /// stage 1 produces no boxes for pseudo-elements, so a rule that targets
-    /// one has nothing to apply to.
+    /// A selector that names a pseudo-element this engine makes no box for —
+    /// every one but `::placeholder` (ADR 0043). It is kept and never
+    /// matched, because a rule that targets one has nothing to apply to.
     PseudoElementNotProduced,
+    /// A declaration on a pseudo-element of a property that applies to it
+    /// and that this engine does not read there yet — `font-style` on
+    /// `::placeholder`, say (ADR 0043 § 3, queue item 392). The
+    /// pseudo-element keeps what it inherits from its element instead.
+    PropertyNotReadOnPseudoElement,
     /// A declaration whose value could not be tokenised at all. Dropped, per
     /// CSS's own error handling.
     InvalidDeclaration,
@@ -101,7 +106,10 @@ impl IssueKind {
         match self {
             IssueKind::InvalidSelector => "invalid selector, rule dropped",
             IssueKind::PseudoElementNotProduced => {
-                "selector names a pseudo-element, which stage 1 does not produce"
+                "selector names a pseudo-element this engine does not produce"
+            }
+            IssueKind::PropertyNotReadOnPseudoElement => {
+                "property not read on this pseudo-element, its element's is used"
             }
             IssueKind::InvalidDeclaration => "invalid declaration, dropped",
             IssueKind::UnknownAtRule => "at-rule not implemented, kept unparsed",
@@ -148,6 +156,7 @@ mod tests {
         for kind in [
             IssueKind::InvalidSelector,
             IssueKind::PseudoElementNotProduced,
+            IssueKind::PropertyNotReadOnPseudoElement,
             IssueKind::InvalidDeclaration,
             IssueKind::UnknownAtRule,
             IssueKind::UnknownMediaCondition,

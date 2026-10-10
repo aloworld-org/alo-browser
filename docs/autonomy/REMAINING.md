@@ -1278,3 +1278,15 @@ cuts are 390 (clipping a long hint), 391 (`:placeholder-shown`) and 392
 (`::placeholder`'s other properties), each waiting for a page. 168 queue
 items are open (390–392 added open). The next unused queue number is 393
 and the next unused ADR 0044.
+
+Iteration 254 built item 389 (ADR 0043). `::placeholder` is the first
+pseudo-element this engine styles: matched through its field
+(`alo-css`'s `matches_pseudo`), computed as the field's child and kept
+beside it (`alo-style`'s `pseudo.rs`, `StyleTree::pseudo`), made only for a
+field that shows one (`alo-dom`'s `placeholder.rs`), drawn as a run in the
+field's line that adds nothing to its size, and read by an agent as a
+`placeholder` property, through the renderer's snapshot too. alo's
+sign-in screen draws its email hint in `--text-tertiary`. Found and fixed
+on the way: a one-line field taller than its line now holds its line in
+the middle. 167 queue items are open (389 closed). The next unused queue
+number is 393 and the next unused ADR 0044.

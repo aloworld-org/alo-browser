@@ -24,7 +24,7 @@ use crate::display::{Display, Inside, Outside};
 use crate::natural::NaturalSize;
 use crate::semantics::Semantics;
 use crate::whitespace::WhiteSpace;
-use alo_css::{IssueKind, Location, StyleIssue};
+use alo_css::{IssueKind, Location, PseudoElement, StyleIssue};
 use alo_dom::{Document, NodeId};
 use alo_style::{ComputedStyle, StyleTree};
 use core::fmt;
@@ -270,6 +270,14 @@ pub struct BoxTree {
     /// almost no box is one, and what makes one is the element it came from,
     /// which layout cannot see. See [`crate::line_break`].
     breaks: BTreeSet<BoxId>,
+    /// The boxes that are a field's `::placeholder`: the hint it shows while
+    /// it holds nothing (ADR 0043 § 3).
+    ///
+    /// A text box like the one a value is drawn in, and a different thing:
+    /// it is set in the pseudo-element's style rather than the field's, and
+    /// an agent never reads it as text. A side set for [`BoxTree::breaks`]'
+    /// reason.
+    placeholders: BTreeSet<BoxId>,
 }
 
 impl BoxTree {
@@ -331,6 +339,15 @@ impl BoxTree {
         self.breaks.contains(&id)
     }
 
+    /// Whether a box is a field's `::placeholder` — a hint, not a value.
+    ///
+    /// Layout asks it so that the hint adds nothing to its field's size, and
+    /// the agent tree so that it never reads the hint as the field's text
+    /// (ADR 0043 §§ 3 and 5).
+    pub fn is_placeholder(&self, id: BoxId) -> bool {
+        self.placeholders.contains(&id)
+    }
+
     /// One box.
     pub fn get(&self, id: BoxId) -> Option<&BoxNode> {
         self.boxes.get(id.0)
@@ -360,9 +377,23 @@ impl BoxTree {
     /// chances for one of them to stop agreeing with the others about which
     /// font a line is in, which is a rendering difference nobody could explain.
     ///
+    /// A field's `::placeholder` box is the one box that has a style of its
+    /// own to answer with: the pseudo-element's, computed as its field's
+    /// child (ADR 0043 § 3). So layout and paint read the hint's colour and
+    /// font here, as they read any text's, and neither learns what a
+    /// pseudo-element is.
+    ///
     /// [`None`] only for a box with no styled element above it at all, which is
     /// a box outside any document — a tree built for a test.
     pub fn nearest_style<'s>(&self, styles: &'s StyleTree, id: BoxId) -> Option<&'s ComputedStyle> {
+        if self.is_placeholder(id)
+            && let Some(style) = self
+                .get(id)
+                .and_then(|node| node.kind.node())
+                .and_then(|field| styles.pseudo(field, PseudoElement::Placeholder))
+        {
+            return Some(style);
+        }
         let mut current = Some(id);
         while let Some(box_id) = current {
             if let Some(style) = self
@@ -415,6 +446,7 @@ impl BoxTree {
             natural: BTreeMap::new(),
             legends: BTreeMap::new(),
             breaks: BTreeSet::new(),
+            placeholders: BTreeSet::new(),
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -450,7 +482,12 @@ impl BoxTree {
                     out.push_str(" · line break");
                 }
             }
-            BoxKind::Text { text, .. } => write!(out, "text {text:?}")?,
+            BoxKind::Text { text, .. } => {
+                write!(out, "text {text:?}")?;
+                if self.is_placeholder(id) {
+                    out.push_str(" · ::placeholder");
+                }
+            }
             BoxKind::Anonymous { outside, .. } => {
                 let outside = match outside {
                     Outside::Block => "block",
@@ -609,6 +646,7 @@ pub fn build(document: &Document, styles: &StyleTree) -> BoxTree {
         natural: BTreeMap::new(),
         legends: BTreeMap::new(),
         breaks: BTreeSet::new(),
+        placeholders: BTreeSet::new(),
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),
@@ -650,6 +688,14 @@ fn build_children(
     // nobody wrote, exactly as CSS says the inside of a replaced control is.
     if let Some(text) = field_text(document, parent) {
         generated.push(tree.push(BoxKind::Text { node: parent, text }, Semantics::anonymous()));
+    }
+    // A field holding nothing shows its hint instead, where its text would
+    // be: a run in the same line, set in its `::placeholder` style (ADR 0043
+    // §§ 2–3). Never both — a field that shows a hint holds no value.
+    if let Some(text) = alo_dom::placeholder::shown(document, parent) {
+        let hint = tree.push(BoxKind::Text { node: parent, text }, Semantics::anonymous());
+        tree.placeholders.insert(hint);
+        generated.push(hint);
     }
     for child in document.children(parent) {
         generated.extend(build_one(document, styles, child, tree));
@@ -1639,6 +1685,85 @@ mod tests {
         // text field still shows nothing.
         assert!(shown("<input type=time>").is_empty());
         assert!(shown("<input>").is_empty());
+    }
+
+    /// The hints a document's fields show, in order: the text of every box
+    /// that is a `::placeholder`.
+    fn hints(html: &str) -> Vec<String> {
+        let tree = boxes(html, "");
+        let Some(root) = tree.root() else {
+            return Vec::new();
+        };
+        tree.descendants(root)
+            .into_iter()
+            .filter(|id| tree.is_placeholder(*id))
+            .filter_map(|id| tree.get(id).and_then(BoxNode::text).map(str::to_owned))
+            .collect()
+    }
+
+    /// ADR 0043 § 2: each kind that takes a hint shows it while it holds
+    /// nothing, as a box of its own where its text would be; an `<input>`'s
+    /// line breaks are stripped and a `<textarea>`'s kept; a date field, an
+    /// empty attribute and a held value make none.
+    #[test]
+    fn a_field_holding_nothing_shows_its_hint_as_a_placeholder() {
+        for kind in [
+            "text", "search", "url", "tel", "email", "password", "number", "Email",
+        ] {
+            let html = format!("<input type={kind} placeholder='you@company.eu'>");
+            assert_eq!(hints(&html), ["you@company.eu"], "{kind}");
+            assert_eq!(shown(&html), ["you@company.eu"], "and nothing else: {kind}");
+        }
+        assert_eq!(hints("<input placeholder=hint>"), ["hint"]);
+        assert_eq!(hints("<input placeholder='one\ntwo'>"), ["onetwo"]);
+        assert_eq!(
+            hints("<textarea placeholder='one\ntwo'></textarea>"),
+            ["one\ntwo"]
+        );
+        for none in [
+            "<input type=date placeholder=hint>",
+            "<input type=checkbox placeholder=hint>",
+            "<input placeholder=''>",
+            "<input placeholder='\n\n'>",
+            "<textarea placeholder=hint>held</textarea>",
+        ] {
+            assert!(hints(none).is_empty(), "{none}");
+        }
+        // A value shows instead, and is not a placeholder.
+        assert!(hints("<input placeholder=hint value=held>").is_empty());
+        assert_eq!(shown("<input placeholder=hint value=held>"), ["held"]);
+        // A password's hint is written out: it is not the secret.
+        assert_eq!(
+            shown("<input type=password placeholder=Secret>"),
+            ["Secret"]
+        );
+
+        // A hostile hint is shown without a panic.
+        let long = format!("<input placeholder='{}'>", "x".repeat(100_000));
+        assert_eq!(hints(&long).first().map(String::len), Some(100_000));
+    }
+
+    #[test]
+    fn a_placeholder_is_set_in_its_own_style_and_says_so() {
+        let document = parse_document("<input class=f placeholder=hint>");
+        let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
+        let author = parse_stylesheet(".f { color: #102a43 } .f::placeholder { color: #7a6f62 }");
+        let sheets = [
+            SourcedSheet::new(Origin::UserAgent, &agent),
+            SourcedSheet::new(Origin::Author, &author),
+        ];
+        let styles = resolve(&document, &sheets, &MediaContext::default());
+        let tree = build(&document, &styles);
+        let hint = tree
+            .ids()
+            .find(|id| tree.is_placeholder(*id))
+            .expect("a hint");
+        let colour = tree
+            .nearest_style(&styles, hint)
+            .and_then(|style| style.color("color"))
+            .map(alo_value::Rgba::to_rgba8);
+        assert_eq!(colour, Some((0x7a, 0x6f, 0x62, 255)));
+        assert!(tree.to_outline().contains("text \"hint\" · ::placeholder"));
     }
 
     /// The box a `<fieldset>` made, found by what it means.
