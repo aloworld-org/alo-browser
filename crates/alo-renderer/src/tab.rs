@@ -461,9 +461,11 @@ pub struct Tabs {
     list: Vec<Tab>,
     /// Which tab's page each site's renderer is holding.
     ///
-    /// Kept for a **closed** tab too, deliberately: the renderer still holds
-    /// that page, and forgetting whose it was would let the next tab on the
-    /// site paint it and believe it was its own.
+    /// Kept for a **closed** tab too whose page could not be left — its
+    /// renderer did not answer `Leave` — deliberately: the renderer may still
+    /// hold that page, and forgetting whose it was would let the next tab on
+    /// the site paint it and believe it was its own. A page that was left is
+    /// held by nobody.
     held: HashMap<Site, TabId>,
     /// Where tab identities come from (ADR 0012, ADR 0003). One per browser
     /// process, and this is the browser process — a renderer has no [`Tabs`],
@@ -477,6 +479,59 @@ pub struct Tabs {
     /// acting in one page can open another — and because a document outlives
     /// the tab that showed it for as long as somebody may ask what it fetched.
     documents: Documents,
+    /// What pages said, and which of their fetches were refused, as they were
+    /// left (ADR 0039 §§ 2 and 4), waiting for whoever records them
+    /// ([`Tabs::left`]).
+    leavings: Vec<Leaving>,
+}
+
+/// A page left, as the browser process heard it (ADR 0039 §§ 2–4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Leaving {
+    /// The tab that showed it.
+    pub tab: TabId,
+    /// What its script said as it was left, and each refusal in words —
+    /// empty when a `Load` replaced it, whose `Loaded` says it instead.
+    pub said: Vec<String>,
+    /// Every fetch it asked for as it was left, refused by name until
+    /// keep-alive is decided (§ 4, item 369): each owed a line in the
+    /// session's record ([`fetch_decide::Refusal::record`]), and no answer,
+    /// since there is no page to give one to.
+    pub refused: Vec<fetch_decide::Refusal>,
+}
+
+impl Leaving {
+    /// The refusals of `asks`, made by `document` as it was left, and the
+    /// lines that say them. Asks from a page this process never saw a
+    /// document for are claims with nobody to attribute them to, and are not
+    /// believed: nothing is refused because nothing is recorded.
+    fn refusing(
+        tab: TabId,
+        document: Option<DocumentId>,
+        asks: &[FetchAsk],
+    ) -> (Self, Vec<String>) {
+        let refused: Vec<fetch_decide::Refusal> = match document {
+            Some(document) => {
+                let cause = Cause::Document { document };
+                asks.iter()
+                    .map(|ask| fetch_decide::leaving(ask, &cause))
+                    .collect()
+            }
+            None => Vec::new(),
+        };
+        let lines = refused
+            .iter()
+            .map(|refusal| crate::said::line(refusal))
+            .collect();
+        (
+            Self {
+                tab,
+                said: Vec::new(),
+                refused,
+            },
+            lines,
+        )
+    }
 }
 
 impl Tabs {
@@ -488,6 +543,7 @@ impl Tabs {
             held: HashMap::new(),
             identities: Identities::default(),
             documents: Documents::default(),
+            leavings: Vec::new(),
         }
     }
 
@@ -533,7 +589,14 @@ impl Tabs {
     ///
     /// Closing one of two tabs on a site stops nothing, because the other tab
     /// is still showing a page out of that process.
+    ///
+    /// **The page it shows is left first** (ADR 0039 § 2): if its site's
+    /// renderer is holding it, the renderer is sent `Leave` and waited for
+    /// as for any answer, and what the page said and asked to fetch as it
+    /// went waits in [`Tabs::left`]. A renderer that has died, or holds
+    /// another tab's page, runs nothing for this one.
     pub fn close(&mut self, id: TabId) -> bool {
+        self.leave(id);
         let before = self.list.len();
         self.list.retain(|tab| tab.id != id);
         if self.list.len() == before {
@@ -548,6 +611,34 @@ impl Tabs {
             self.held.remove(&stopped);
         }
         true
+    }
+
+    /// Leave the page tab `id` shows, if its site's renderer is holding it.
+    fn leave(&mut self, id: TabId) {
+        let Some(tab) = self.tab(id) else {
+            return;
+        };
+        let (site, document) = (tab.site.clone(), tab.document);
+        if document.is_none() || self.held.get(&site) != Some(&id) {
+            return;
+        }
+        // Not a deliberate load, so a dead renderer is not started again to
+        // be told to leave a page it no longer has.
+        let Ok(FromRenderer::Left { issues, fetches }) = self.ask(id, &ToRenderer::Leave) else {
+            return;
+        };
+        self.held.remove(&site);
+        let (mut leaving, mut lines) = Leaving::refusing(id, document, &fetches);
+        leaving.said = issues;
+        leaving.said.append(&mut lines);
+        self.leavings.push(leaving);
+    }
+
+    /// Every page left since this was last asked — by a closed tab, or
+    /// replaced by a `Load` — with what it said and the fetches refused,
+    /// taken, so each is recorded once.
+    pub fn left(&mut self) -> Vec<Leaving> {
+        core::mem::take(&mut self.leavings)
     }
 
     /// The sites that still have a tab open on them.
@@ -617,11 +708,29 @@ impl Tabs {
         // Before anything is recorded: a load into a tab nobody opened is not a
         // document, and minting one would put a line in the record for a page
         // that never existed.
-        let _ = self.site_of(id)?;
+        let site = self.site_of(id)?;
         let document = self.documents.opened(&mut self.identities, cause);
         let address = page.url.clone();
         let policies = page.policies();
+        // The page this load will replace in that renderer, if it holds one:
+        // what it asks for as it is left is its own document's (ADR 0039 §
+        // 2), whichever tab showed it.
+        let replaced = self.held.get(&site).and_then(|holder| {
+            self.tab(*holder)
+                .and_then(|tab| tab.document.map(|document| (*holder, document)))
+        });
         let mut answer = self.ask(id, &ToRenderer::Load(Box::new(page)))?;
+        if let FromRenderer::Loaded { left, issues, .. } = &mut answer {
+            let (leaving, mut lines) = Leaving::refusing(
+                replaced.map_or(id, |(holder, _)| holder),
+                replaced.map(|(_, document)| document),
+                &core::mem::take(left),
+            );
+            issues.append(&mut lines);
+            if !leaving.refused.is_empty() {
+                self.leavings.push(leaving);
+            }
+        }
         if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
             tab.loaded(document, address, policies, &mut answer);
         }
@@ -1502,6 +1611,7 @@ mod tests {
             navigation: None,
             fetches,
             sheets: Vec::new(),
+            left: Vec::new(),
         }
     }
 

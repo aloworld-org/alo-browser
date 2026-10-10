@@ -127,6 +127,19 @@ impl Easel {
         self.drawn = None;
     }
 
+    /// No page on it: the one it had was left (ADR 0039 § 2), and nothing
+    /// is drawn until the next is loaded. The fonts stay.
+    pub(crate) fn clear(&mut self) {
+        self.sheets = String::new();
+        self.url = Url::about_blank();
+        self.linked = Linked::new();
+        self.under = Policies::none();
+        self.stated = Policies::none();
+        self.objected = Objected::new();
+        self.restyle = false;
+        self.drawn = None;
+    }
+
     /// The page holds `under` from now on: its headers' policies and every
     /// `<meta>`'s parsed so far. Its inline style is judged by them at the
     /// next drawing, whether or not its document changed.

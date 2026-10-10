@@ -6409,7 +6409,7 @@ The long pole, and the thing most of section E is unreachable without.
   A mutation that fired on every task, changed or not, failed three
   renderer tests and the conductor test.
 
-- [ ] **373. A page left.** *Cut from 364 by ADR 0039 § 7. Depends on 364.*
+- [x] **373. A page left.** *Cut from 364 by ADR 0039 § 7. Depends on 364.*
   `PageTransitionEvent` with `persisted`, and *page showing*; `pageshow` at
   the window as the last step of the load (before `Loaded`, and after
   `load` once `load` is fired); the leaving steps of § 2 — `pagehide`, the
@@ -6435,6 +6435,80 @@ The long pole, and the thing most of section E is unreachable without.
   - a leaving page's fetch is refused by name, and its navigation is not
     carried;
   - every script runs ordinarily and under `Heap::stress`.
+
+  **Built (iteration 242).**
+  - `alo-bindings`: `PageTransitionEvent` (`Interface::PageTransitionEvent`,
+    `Shape::PageTransition`, `interface/page_transition_event.rs`), its
+    `persisted` a brand-checked getter answering `false`, no interface
+    object; `Firing::PAGE_SHOW` and `Firing::PAGE_HIDE` with HTML's flags
+    (bubbling and cancelable — ADR 0039's *Correction*) and
+    `Firing::UNLOAD`.
+  - `alo-renderer`:
+    - `event_loop/transition.rs`: `queue_page_show` (a dispatch at the
+      window) and `queue_leave`, the task `Work::Leave` — `pagehide`, the
+      state `hidden` and `visibilitychange` if it changed, `unload`;
+    - `transition.rs`: `shown`, the load's last step after its scripts and
+      before its draw, so *page showing* is the fact of holding a page;
+      `leave`, which runs that task under a `Deadline` of `LONGEST_LEAVING`
+      (one second, `deadline.rs`, a thread on the page's `Stop` that takes
+      its own ask back) and takes the page's fetches and drops its
+      navigation;
+    - `Renderer::let_go`: every `Load` and `ToRenderer::Leave` (wire tag 10)
+      leaves the page held and lets go of it whole (`Easel::clear`);
+      `FromRenderer::Left` (wire tag 9) and `Loaded`'s `left` carry the left
+      page's fetches; a `Load` puts what it said first, marked *the page that
+      was left*;
+    - `fetch_decide::leaving` and `Rule::Leaving` refuse each such fetch by
+      name; `Tabs::close` sends `Leave` to a renderer holding the tab's page
+      and keeps a `Leaving` per page in `Tabs::left`, and `Tabs::load`
+      refuses a replaced page's asks as that page's document's.
+  - `alo-window`: the conductor records every leaving refusal after a load
+    and as it closes everything (`record_left`), and `Conductor::hand_back`
+    returns the session's network when it finishes.
+
+  *Closed by:*
+  - `alo-corpus`' `alo_sites_cta.rs`: `Leave` makes the frozen page send
+    `d=1000&p=%2F&w=800` and then `t=0` from `pagehide` through a lent
+    beacon, nothing more from `visibilitychange`, and hold nothing after.
+  - `alo-renderer`'s `a_page_shown_and_left.rs`:
+    - `pageshow` once, after every script, a `PageTransitionEvent` not
+      persisted, trusted, at the window; `persisted` brand-checked;
+    - `pagehide`, `visibilitychange`, `unload` in that order; none of the
+      second for a page already hidden;
+    - a page looping in `pagehide` is stopped no sooner than one second,
+      and the answer says so;
+    - the listener's microtasks and jobs run in its checkpoint, and the
+      answer to its fetch reaches a renderer holding nothing;
+    - a `Load` says the left page's throw first, marked, carries its
+      fetches apart, and carries no navigation it asked for;
+    - across the real binary, a closed tab's page's fetches and a replaced
+      page's are refused as `Rule::Leaving` under that page's document.
+  - `fetch_decide.rs`: a leaving ask is refused, recorded, answered with a
+    network error, and a hostile or over-long one refused unparsed.
+  - `alo-window`'s `a_page_left_as_the_window_closes.rs`: closing the
+    window runs the page's `pagehide` in the real renderer and the record
+    holds its fetch, refused as the document's.
+  - The wire: `Leave`, `Left` and `Loaded`'s `left` round-trip, and every
+    cut and every changed byte of each is refused without a panic.
+  - Every script after a load runs ordinarily and under `Heap::stress`.
+
+  A timer queued during leaving cannot be tested: there are no timers yet
+  (92). When there are, `Renderer::let_go` already drops the loop they
+  would wait in. Mutations caught: firing `visibilitychange` on every
+  leave (one renderer test), and not recording on close (the window test).
+
+- [ ] **374. The legacy target override.** *Cut from 373 (ADR 0039's
+  Correction). Depends on 373.* HTML fires `pageshow`, `pagehide` and
+  `unload` at the window with the *legacy target override flag* set, so a
+  listener reads the **document** as the event's `target` though only the
+  window is on its path; `load` too, when item 351 fires it. Today each
+  names the window, which is what it is dispatched at. Builds the flag in
+  `alo-bindings`' dispatch (`begin` takes the target the event reports
+  apart from the one it walks from). *Closes when:* each event's `target`
+  is the document, its `currentTarget` the window and its path the window
+  alone, and a script's own `dispatchEvent` at the window is unchanged,
+  under `Heap::stress`. *Opened by a frozen page that reads such an event's
+  `target`, and not before* — the alo Sites page does not.
 
 - [ ] **357. A date as text.** *Cut from 353 (ADR 0036 § 4). Depends on
   356.* `Date.parse` and `new Date(string)` over the Date Time String

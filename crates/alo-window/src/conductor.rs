@@ -49,6 +49,15 @@
 //! have changed it. Choosing among tabs is item 297's, and tells the tab it
 //! leaves before the one it chooses.
 //!
+//! # A page left
+//!
+//! ADR 0039 § 2: closing the window closes every tab, and each tab's page is
+//! left as it goes — `pagehide`, `hidden`, `unload`, given a second — by
+//! [`Tabs::close`]. What such a page asks to fetch is refused by name (§ 4)
+//! and written into the session's record here, as is what a page replaced by
+//! a load asked for. The window waits on none of it once it has asked to
+//! close (ADR 0024 § 2): this thread finishes leaving behind it.
+//!
 //! # Why a burst of resizes is one resize
 //!
 //! Dragging a window's corner sends a resize for nearly every pixel it
@@ -81,7 +90,8 @@ pub enum Fonts {
 #[derive(Debug)]
 pub struct Conductor {
     orders: Sender<Order>,
-    thread: JoinHandle<()>,
+    /// The thread, which hands back the session's network as it ends.
+    thread: JoinHandle<Network>,
 }
 
 impl Conductor {
@@ -119,8 +129,17 @@ impl Conductor {
     /// Whether it finished rather than panicking — which the lints make
     /// unreachable, and which is said rather than assumed.
     pub fn finish(self) -> bool {
+        self.hand_back().is_some()
+    }
+
+    /// Wait for it to finish, as [`Conductor::finish`] does, and take back
+    /// the session's network: its record of every request made or refused,
+    /// which outlives the window (ADR 0012 § 5) — including what a page asked
+    /// for as the window closed and it was left (ADR 0039 § 4). [`None`] if
+    /// it panicked.
+    pub fn hand_back(self) -> Option<Network> {
         drop(self.orders);
-        self.thread.join().is_ok()
+        self.thread.join().ok()
     }
 }
 
@@ -152,7 +171,7 @@ fn conduct(
     network: Network,
     inbox: &Receiver<Order>,
     tell: &dyn Fn(News) -> bool,
-) {
+) -> Network {
     let mut conducting = Conducting {
         tabs,
         fonts,
@@ -168,15 +187,16 @@ fn conduct(
         for order in latest_size_only(orders) {
             let news = conducting.carry_out(order);
             if !told(&mut conducting, news, tell) {
-                return;
+                return conducting.network;
             }
         }
         let news = conducting.answer_a_fetch();
         if !told(&mut conducting, news, tell) {
-            return;
+            return conducting.network;
         }
     }
     conducting.close_everything();
+    conducting.network
 }
 
 /// Every order waiting — after waiting for one when there is nothing else
@@ -300,6 +320,7 @@ impl Conducting {
         page.visibility = self.visibility;
         let loaded = self.tabs.load(id, page, Cause::Person { tab: id });
         self.fetches.take_from(&mut self.tabs, id);
+        self.record_left();
         match loaded {
             Ok(FromRenderer::Loaded { wanted, .. }) => {
                 if !wanted.is_empty() && self.fonts == Fonts::AsAsked {
@@ -395,8 +416,20 @@ impl Conducting {
         for id in open {
             self.tabs.close(id);
         }
+        self.record_left();
         self.selected = None;
         self.waiting = None;
+    }
+
+    /// Write every fetch a page asked for as it was left, and was refused,
+    /// into the session's record (ADR 0039 § 4): nothing is made, and
+    /// nobody is answered, since the page that asked is gone.
+    fn record_left(&mut self) {
+        for leaving in self.tabs.left() {
+            for refusal in &leaving.refused {
+                refusal.record(&mut self.network.pool);
+            }
+        }
     }
 }
 

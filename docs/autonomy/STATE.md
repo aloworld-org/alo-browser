@@ -23266,3 +23266,131 @@ tabs). Also updated:
 158 queue items are open: 364 closed. The next unused queue number is
 **374** and the next ADR is **0040**. This is one iteration, not a
 finished queue or roadmap.
+
+---
+
+## Iteration 242 — queue item 373 built: a page shown, and a page left
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` and iteration
+241's entry. No `AGENTS.md` exists in this repository. For 373: ADR 0039
+(§§ 2–5 and § 7's cut), ADR 0016 §§ 2 and 7, ADR 0032 § 1, ADR 0012 § 5,
+ADR 0024 § 2, ADR 0005, the queue item, and `docs/features.md`' Events
+line.
+
+**Choosing.** Iteration 241 left 373 next and eligible; its one dependency,
+364, is done. The items before it are blocked or page-gated as earlier
+entries recorded.
+
+**A fact checked, and corrected.** ADR 0039 § 2 says `pagehide` is fired
+"trusted and not bubbling", as HTML's. The HTML standard's *fire a page
+transition event* (read this iteration, `nav-history-apis.html`) sets
+`bubbles` and `cancelable` to `true` "for historical reasons" and sets the
+*legacy target override flag*. That is a slip about what HTML says rather
+than a decision, so `pageshow` and `pagehide` are fired with HTML's flags,
+and the ADR has a dated *Correction* section saying so and nothing else.
+The target override is a separable piece of dispatch and is cut to
+**374**, opened by a page that reads such an event's `target` (the alo
+Sites page does not).
+
+**What was built:**
+- `alo-bindings`:
+  - `PageTransitionEvent`, inheriting `Event`, with a brand-checked
+    `persisted` getter that answers `false`. It has no interface object,
+    as with `InputEvent`.
+  - `Firing::PAGE_SHOW`, `Firing::PAGE_HIDE` and `Firing::UNLOAD`.
+- `alo-renderer`:
+  - `event_loop/transition.rs`: `queue_page_show`, a dispatch at the
+    window, and `queue_leave`, the task `Work::Leave`. It fires
+    `pagehide`, then sets `hidden` and fires `visibilitychange` if that
+    changed, then fires `unload`.
+  - `transition.rs`: `shown` is the load's last step, after its scripts
+    and before its draw. `leave` runs the leaving task under a `Deadline`,
+    takes the page's fetches and drops its navigation.
+  - `deadline.rs`: `LONGEST_LEAVING` is one second. A thread throws the
+    page's `Stop` at the deadline and takes its own ask back when
+    disarmed.
+  - `Renderer::let_go`: `ToRenderer::Leave` (wire tag 10) and every
+    `Load` leave the page held and drop it whole (`Easel::clear`).
+    `FromRenderer::Left` (wire tag 9) and `Loaded`'s new `left` field carry
+    the left page's fetches. A `Load` puts what the left page said first,
+    marked "the page that was left".
+  - `fetch_decide::leaving` and `Rule::Leaving` refuse those fetches by
+    name.
+  - `Tabs::close` sends `Leave` when the tab's site renderer holds its
+    page, and the `held` entry is then dropped. `Tabs::load` refuses a
+    replaced page's asks as that page's document's. Both keep a
+    `Leaving` in `Tabs::left`.
+- `alo-window`:
+  - the conductor records every leaving refusal after a load and on
+    closing everything (`record_left`);
+  - `Conductor::hand_back` returns the session's network when the
+    conductor finishes, so the record can be read.
+
+**Refactor the line limit asked for.** `read_from_renderer` passed 100
+lines. The `Loaded` reading moved into `Reader::loaded` rather than an
+`allow`.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log. It
+passed 600 s and the harness moved it to the background. The next call
+waited on it in a foreground `until` loop and read `exit 0` and "The gate
+is met", with no `FAILED` or `panicked` in the log:
+- formatting clean, clippy silent, tests pass;
+- no stubs, `unsafe` forbidden everywhere;
+- every rented crate behind its boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds;
+- `CHANGELOG.md` changed with the code.
+
+This entry was written after that run, and is documentation only.
+
+**Gate, manual.**
+- Layout assertion and reference render: none applies. Nothing positions,
+  sizes or draws differently, and every committed reference still matches
+  in the gate's run.
+- Hostile input:
+  - `Leave`, `Left` and a `Loaded` carrying left asks were added to the
+    wire tests that cut every message at every length and change every
+    byte. Each is refused or read, never a panic.
+  - `fetch_decide::leaving` refuses an unparseable, a NUL and an over-long
+    URL without parsing past the bound.
+- One responsibility per file:
+  - the deadline, the page's transitions and the transition tasks are
+    each a new file;
+  - `renderer.rs` gained one handler and `let_go`;
+  - `tab.rs` gained the `Leaving` record of a page its tab showed, which
+    is tab bookkeeping. If it grows a second reason to change, it moves
+    out.
+- `docs/features.md` named the feature before the build, and now says it
+  is built.
+- Mutations, each restored from a copy (never `git checkout`), with
+  `alo-render` rebuilt afterwards:
+  - firing `visibilitychange` on every leave failed the already-hidden
+    test;
+  - not recording on close failed the window test.
+- The real, confined `alo-render` binary makes the deadline thread: the
+  two `Tabs` tests and the window test leave pages through it.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched.
+
+**Roadmap.** No line is ticked. The Events line gains a *Built* clause for
+373, and its *Owed* now names 374 (target override) and 369 (keep-alive)
+in place of 373. Also updated: `docs/features.md`' Events line,
+`docs/conformance.md`' alo Sites row, `REMAINING.md`, `CHANGELOG.md`, and
+the queue, where 373 is ticked with its *Built* and *Closed by* paragraphs
+and 374 is added.
+
+**Unresolved obligations.**
+- A timer queued while a page is left cannot be tested: there are no
+  timers yet (92). `let_go` drops the loop any timer would wait in.
+- 374, the legacy target override, waits for a page that reads `target`.
+- 369, `sendBeacon`, now has its dependency met and **needs an ADR**,
+  as its own iteration.
+- 297, the tab strip, must tell the tab it leaves `hidden` first. 296's
+  capture still waits for an unlocked screen.
+- 371 waits for a windowless embedder. 372 is a speed, to be measured.
+  367 needs an ADR and a page. 368 waits on typed arrays and 231. 363
+  waits on 73.
+- Everything iteration 241 listed still stands.
+
+158 queue items are open: 373 closed and 374 added. The next unused queue
+number is **375** and the next ADR is **0040**. This is one iteration,
+not a finished queue or roadmap.

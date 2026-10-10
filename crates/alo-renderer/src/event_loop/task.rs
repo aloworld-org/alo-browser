@@ -106,6 +106,14 @@ pub(super) enum Work {
         /// The state it is told.
         to: Visibility,
     },
+    /// The page left (ADR 0039 § 2, queue item 373): `pagehide` at the
+    /// window, the state `hidden` and a `visibilitychange` at the document
+    /// if that changed it, then `unload` at the window.
+    Leave {
+        /// The window, the `pagehide`, the document's wrapper, the
+        /// `visibilitychange` and the `unload`, in one rooted list.
+        list: Root,
+    },
 }
 
 /// A task waiting its turn.
@@ -168,7 +176,8 @@ impl Tasks {
             | Work::Dispatch { list }
             | Work::Activate { list }
             | Work::PutText { list, .. }
-            | Work::Visibility { list, .. } => {
+            | Work::Visibility { list, .. }
+            | Work::Leave { list } => {
                 engine.objects().heap_mut().release(list);
             }
         }
@@ -338,7 +347,7 @@ pub(super) fn add(
 }
 
 /// Put the target's wrapper, then the event, in the rooted `list`.
-fn fill(
+pub(super) fn fill(
     objects: &mut Objects,
     list: &Root,
     cell: Ref,
@@ -360,7 +369,7 @@ fn fill(
 }
 
 /// Add `value` to the end of the rooted `list`, which allocates nothing.
-fn push(objects: &mut Objects, list: &Root, value: Ref) -> Result<(), Escape> {
+pub(super) fn push(objects: &mut Objects, list: &Root, value: Ref) -> Result<(), Escape> {
     let held = objects
         .heap()
         .holding(list)

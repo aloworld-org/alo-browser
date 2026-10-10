@@ -83,7 +83,10 @@
 //! [`activated`], item 256), run before the `Act` is answered, and so is its
 //! `PutText` ([`Held::put_text`], `typed.rs`, item 257). So is the page
 //! being told whether it can be seen ([`EventLoop::queue_visibility`],
-//! `shown.rs`, item 364), which fires `visibilitychange` only on a change.
+//! `shown.rs`, item 364), which fires `visibilitychange` only on a change,
+//! and so are `pageshow` at the end of a load and the page's leaving steps
+//! ([`EventLoop::queue_page_show`], [`EventLoop::queue_leave`],
+//! `transition.rs`, item 373).
 //! The [`Renderer`]
 //! holds one loop per page and queues a task for each of the page's own
 //! scripts as it loads ([`crate::scripts`], item 236); the loop running between messages,
@@ -106,6 +109,7 @@ mod report;
 mod shown;
 mod source;
 mod task;
+mod transition;
 mod typed;
 
 use core::fmt;
@@ -509,6 +513,7 @@ impl EventLoop {
             }
             Work::PutText { list, text } => self.put_text(list, text, turn),
             Work::Visibility { list, to } => self.shown(list, *to, turn),
+            Work::Leave { list } => self.leave(list, turn),
         }
     }
 

@@ -315,6 +315,7 @@ pub fn write_to_renderer(message: &ToRenderer) -> Vec<u8> {
             writer.tag(9);
             writer.visibility(*to);
         }
+        ToRenderer::Leave => writer.tag(10),
         ToRenderer::Paint => writer.tag(2),
         ToRenderer::ReadTree => writer.tag(3),
         ToRenderer::Act { target, verb } => {
@@ -363,6 +364,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             navigation,
             fetches,
             sheets,
+            left,
         } => {
             writer.tag(0);
             writer.texts(issues);
@@ -371,6 +373,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.navigation(navigation.as_ref());
             writer.fetches(fetches);
             writer.sheets(sheets);
+            writer.fetches(left);
         }
         FromRenderer::Painted(frame) => {
             writer.tag(1);
@@ -417,6 +420,11 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.navigation(navigation.as_ref());
             writer.fetches(fetches);
             writer.sheets(sheets);
+        }
+        FromRenderer::Left { issues, fetches } => {
+            writer.tag(9);
+            writer.texts(issues);
+            writer.fetches(fetches);
         }
         FromRenderer::Refused(refusal) => {
             writer.tag(4);
@@ -1046,6 +1054,26 @@ impl<'a> Reader<'a> {
         })
     }
 
+    /// A load's answer, as [`write_from_renderer`] wrote it.
+    fn loaded(&mut self) -> Result<FromRenderer, Unreadable> {
+        let issues = self.texts()?;
+        let wanted = self.texts()?;
+        let objections = self.objections()?;
+        let navigation = self.navigation()?;
+        let fetches = self.fetches()?;
+        let sheets = self.sheets()?;
+        let left = self.fetches()?;
+        Ok(FromRenderer::Loaded {
+            issues,
+            wanted,
+            objections,
+            navigation,
+            fetches,
+            sheets,
+            left,
+        })
+    }
+
     /// Nothing may be left over.
     ///
     /// Trailing bytes mean the two ends disagree about the message, and a
@@ -1127,6 +1155,7 @@ pub fn read_to_renderer(bytes: &[u8]) -> Result<ToRenderer, Unreadable> {
         7 => ToRenderer::Fetched(Box::new(reader.fetched()?)),
         8 => ToRenderer::Sheet(Box::new(reader.sheet_answer()?)),
         9 => ToRenderer::Visibility(reader.visibility()?),
+        10 => ToRenderer::Leave,
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };
     reader.finished()?;
@@ -1146,22 +1175,7 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
     }
     let mut reader = Reader::new(bytes);
     let message = match reader.tag()? {
-        0 => {
-            let issues = reader.texts()?;
-            let wanted = reader.texts()?;
-            let objections = reader.objections()?;
-            let navigation = reader.navigation()?;
-            let fetches = reader.fetches()?;
-            let sheets = reader.sheets()?;
-            FromRenderer::Loaded {
-                issues,
-                wanted,
-                objections,
-                navigation,
-                fetches,
-                sheets,
-            }
-        }
+        0 => reader.loaded()?,
         1 => FromRenderer::Painted(reader.frame()?),
         2 => {
             let root = if reader.bool()? {
@@ -1234,6 +1248,11 @@ pub fn read_from_renderer(bytes: &[u8]) -> Result<FromRenderer, Unreadable> {
                 fetches,
                 sheets,
             }
+        }
+        9 => {
+            let issues = reader.texts()?;
+            let fetches = reader.fetches()?;
+            FromRenderer::Left { issues, fetches }
         }
         other => return Err(unreadable(format!("a message tagged {other}"))),
     };

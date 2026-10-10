@@ -22,6 +22,13 @@
 //! 5. A `same-origin` ask to another origin is refused before anything is
 //!    sent.
 //!
+//! **A page being left asks for nothing that is made** ([`leaving`]): every
+//! fetch it asks for in its leaving steps is refused by name, its URL parsed
+//! only so the record can say what it was, until keep-alive is decided (ADR
+//! 0039 § 4, item 369). The decision is here rather than in the renderer so
+//! that item 369 changes one process, and a compromised renderer's last asks
+//! are still seen.
+//!
 //! Then the request is built: `Purpose::Fetch`, the document's origin as the
 //! asker, an `Origin` header where Fetch sends one, and the `Referer` worked
 //! out here from this process's copy of the document's URL. What is left —
@@ -170,6 +177,10 @@ pub enum Rule {
     TooManyWaiting,
     /// Something the page's bindings never send.
     Broke(Broke),
+    /// Asked for as the page was being left (ADR 0039 § 4): a request whose
+    /// answer has no document to go to, which is the keep-alive fetch ADR
+    /// 0032 left undecided and item 369 decides.
+    Leaving,
 }
 
 impl fmt::Display for Rule {
@@ -205,6 +216,10 @@ impl fmt::Display for Rule {
                 crate::fetch_owed::MOST_IN_FLIGHT
             ),
             Rule::Broke(broke) => write!(f, "its renderer broke the boundary: {broke}"),
+            Rule::Leaving => f.write_str(
+                "it was asked for as the page was being left, and a fetch that outlives its \
+                 page is not made yet",
+            ),
         }
     }
 }
@@ -361,6 +376,23 @@ fn broken(ask: &FetchAsk, method: &str) -> Option<Broke> {
         }
     }
     None
+}
+
+/// Refuse `ask`, which a page asked for as it was being left, under `cause`
+/// (ADR 0039 § 4).
+pub fn leaving(ask: &FetchAsk, cause: &Cause) -> Refusal {
+    let url = if ask.url.len() > LONGEST_URL {
+        None
+    } else {
+        alo_url::parse(&ask.url).ok()
+    };
+    Refusal {
+        number: ask.number,
+        asked: ask.url.chars().take(LONGEST_SAID).collect(),
+        url,
+        rule: Rule::Leaving,
+        cause: cause.clone(),
+    }
 }
 
 /// Decide `ask`, from the document `asker` as this process knows it, under
@@ -727,6 +759,48 @@ mod tests {
         assert_eq!(line.cause(), &cause());
         assert!(matches!(line.happened(), Happened::Refused { rule } if rule.contains("data:")));
         assert_eq!(scheme.answer(), Fetched::failed(7));
+    }
+
+    #[test]
+    fn a_leaving_pages_ask_is_refused_by_name_and_recorded() {
+        let refusal = leaving(&ask("https://shop.example/_alo/collect?t=0"), &cause());
+        assert_eq!(refusal.rule, Rule::Leaving);
+        assert_eq!(refusal.number, 7);
+        assert_eq!(
+            refusal.url,
+            Some(url("https://shop.example/_alo/collect?t=0"))
+        );
+        assert!(
+            refusal.to_string().contains("as the page was being left"),
+            "{refusal}"
+        );
+        let mut pool = Pool::with_trust(alo_net::tls::Trust::of(&[]).unwrap());
+        assert!(refusal.record(&mut pool));
+        let line = pool.activity().latest().unwrap();
+        assert_eq!(line.cause(), &cause());
+        assert!(
+            matches!(line.happened(), Happened::Refused { rule } if rule.contains("being left"))
+        );
+        assert_eq!(refusal.answer(), Fetched::failed(7));
+
+        // Even an ask that would have been made otherwise, and one that is no
+        // URL at all, which is still refused and said, though not recorded.
+        assert!(matches!(
+            decided(&ask("https://shop.example/x")),
+            Decided::Make(_)
+        ));
+        for hostile in ["not a url", "\u{0}"] {
+            let refused = leaving(&ask(hostile), &cause());
+            assert_eq!(
+                (refused.rule.clone(), refused.url.clone()),
+                (Rule::Leaving, None)
+            );
+            assert!(!refused.record(&mut pool));
+        }
+        let long = format!("https://shop.example/{}", "a".repeat(LONGEST_URL));
+        let refused = leaving(&ask(&long), &cause());
+        assert_eq!(refused.url, None, "too long to be looked at");
+        assert_eq!(refused.asked.chars().count(), LONGEST_SAID);
     }
 
     #[test]

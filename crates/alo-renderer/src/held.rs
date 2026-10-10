@@ -211,6 +211,28 @@ impl Held {
         self.queue(|page_loop, cell| page_loop.queue_visibility(cell, to))
     }
 
+    /// Queue `pageshow` at the page's window, the last step of its load
+    /// (ADR 0039 § 2): which task, or [`None`] on a page that has never run
+    /// script, which nothing could hear.
+    ///
+    /// # Errors
+    ///
+    /// As [`Held::dispatch`].
+    pub fn page_show(&mut self) -> Result<Option<Seq>, Unqueued> {
+        self.queue(EventLoop::queue_page_show)
+    }
+
+    /// Queue the page's leaving steps — `pagehide`, `hidden`, `unload` — as
+    /// one task (ADR 0039 § 2): which task, or [`None`] on a page that has
+    /// never run script, which nothing could hear.
+    ///
+    /// # Errors
+    ///
+    /// As [`Held::dispatch`].
+    pub fn leave(&mut self) -> Result<Option<Seq>, Unqueued> {
+        self.queue(EventLoop::queue_leave)
+    }
+
     /// Follow the link `link` as the browser's click, keeping the ask in the
     /// document cell beside any the page's script made: whether a navigation
     /// started — [`None`] on a page that has never run script, whose ask the

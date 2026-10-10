@@ -1106,10 +1106,20 @@ unreachable without it.
       delivery is and decided as the document's (`Tabs::visibility`);
       `document.visibilityState` and `document.hidden` (`alo-bindings`'
       `visibility.rs`, `interface/document_visibility.rs`); and `alo-window`
-      telling the selected tab on `Occluded` (`Order::Visibility`) · Owed:
-      its immutable prototype (363),
-      a page left (373: `pagehide`, `pageshow`, `unload`, the leaving
-      deadline), choosing among tabs telling each (297), going there (85), a
+      telling the selected tab on `Occluded` (`Order::Visibility`). **A page
+      is shown and left** (ADR 0039 §§ 2–4, queue item 373): `pageshow` at
+      the window as a load's last step, and the leaving steps — `pagehide`,
+      `hidden`, `unload` — as one task (`alo-renderer`'s
+      `event_loop/transition.rs`, `transition.rs`), run by
+      `ToRenderer::Leave` (wire tag 10) and before every `Load` into a
+      renderer holding a page, under a one-second `Deadline` on the page's
+      `Stop` (`deadline.rs`); `FromRenderer::Left` and `Loaded`'s `left`
+      carry the page's last fetches, which `fetch_decide::leaving` refuses by
+      name and `Tabs::close` and the conductor record; `PageTransitionEvent`
+      (`alo-bindings`' `interface/page_transition_event.rs`) · Owed: its
+      immutable prototype (363), the legacy target override (374),
+      keep-alive and `sendBeacon` (369), choosing among tabs telling each
+      (297), going there (85), a
       link's download (264), each element's own interface (262), focus
       (258) and event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs

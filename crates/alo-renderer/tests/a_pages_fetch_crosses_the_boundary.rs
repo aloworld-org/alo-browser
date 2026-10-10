@@ -86,6 +86,9 @@ fn answers() -> Vec<FromRenderer> {
             navigation: None,
             fetches: asks(),
             sheets: Vec::new(),
+            // What the page it replaced asked for as it was left (queue item
+            // 373), apart from its own.
+            left: asks(),
         },
         FromRenderer::Acted {
             outcome: Outcome::Activated {
@@ -111,6 +114,16 @@ fn answers() -> Vec<FromRenderer> {
             navigation: None,
             fetches: Vec::new(),
             sheets: Vec::new(),
+        },
+        // A page left (queue item 373): what it said and asked for, and no
+        // navigation.
+        FromRenderer::Left {
+            issues: vec!["the page that was left: uncaught: TypeError".to_owned()],
+            fetches: asks(),
+        },
+        FromRenderer::Left {
+            issues: Vec::new(),
+            fetches: Vec::new(),
         },
     ]
 }

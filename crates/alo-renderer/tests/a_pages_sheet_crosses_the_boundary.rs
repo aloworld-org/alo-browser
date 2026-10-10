@@ -67,6 +67,7 @@ fn answers() -> Vec<FromRenderer> {
             navigation: None,
             fetches: Vec::new(),
             sheets: asks(),
+            left: Vec::new(),
         },
         FromRenderer::Acted {
             outcome: Outcome::Activated {

@@ -350,6 +350,18 @@ than answering it with a lie.
   fires it in the same steps as `pagehide`, at no extra cost, and a page
   that relies on it would otherwise lose its last word without any sign.
 
+## Correction (iteration 242)
+
+§ 2 says `pagehide` is fired *trusted and not bubbling*. That was a slip
+about what HTML says, not a decision: HTML's *fire a page transition event*
+initialises `bubbles` and `cancelable` to `true` — "for historical
+reasons", since at the window neither means anything — and sets the
+*legacy target override flag*, so a listener reads the document as the
+event's `target`. Queue item 373 fires `pageshow` and `pagehide` with
+HTML's flags. `unload` is an ordinary `Event`, neither bubbling nor
+cancelable. The target override is queue item 374. Nothing else in this
+ADR changes.
+
 ## What this does not decide
 
 - **Going back and forward**, session history, and whether a left page is

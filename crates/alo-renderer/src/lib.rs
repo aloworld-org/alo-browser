@@ -49,6 +49,7 @@
 pub mod answers;
 pub mod ask;
 pub mod clock;
+pub mod deadline;
 mod deliver;
 pub mod drawings;
 pub mod easel;
@@ -95,6 +96,7 @@ pub mod site;
 pub mod snapshot;
 pub mod svg_picture;
 pub mod tab;
+mod transition;
 pub mod view;
 pub mod violations;
 pub mod wire;

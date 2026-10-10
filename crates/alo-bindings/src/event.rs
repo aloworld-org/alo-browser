@@ -25,8 +25,9 @@
 //!
 //! A page makes its events with `new Event(…)`; the browser makes its own
 //! with [`create`], the standard's *create an event*: an `Event` — or a
-//! `PointerEvent`, for a click (queue item 256), or an `InputEvent`, for text
-//! an agent put into a field (queue item 257) — inheriting from the
+//! `PointerEvent`, for a click (queue item 256), an `InputEvent`, for text
+//! an agent put into a field (queue item 257), or a `PageTransitionEvent`, for
+//! a page shown or left (queue item 373) — inheriting from the
 //! prototype the page's document cell holds, its type and init flags as the
 //! browser gives them ([`Firing`]), and nothing else. Its dispatch is
 //! the event loop's (queue item 255), and is trusted (ADR 0018 § 4).
@@ -117,6 +118,11 @@ pub enum Shape {
     /// (`Typing`). No composition is ever in progress, so `isComposing`
     /// is `false` and is not held.
     Input,
+    /// A `PageTransitionEvent` (ADR 0039 § 2): what the browser fires at
+    /// the window as a page is shown and as it is left. Its `persisted` is
+    /// `false` on every one, since nothing keeps a page once it is left
+    /// (§ 5), and so is not held.
+    PageTransition,
 }
 
 /// What an `InputEvent` says was typed: its `inputType` and its `data`.
@@ -198,6 +204,11 @@ impl Event {
     /// Whether it is an `InputEvent` — and so a `UIEvent`.
     pub fn is_input(&self) -> bool {
         self.shape == Shape::Input
+    }
+
+    /// Whether it is a `PageTransitionEvent`.
+    pub fn is_page_transition(&self) -> bool {
+        self.shape == Shape::PageTransition
     }
 
     /// An `InputEvent`'s `inputType`, as code units: empty on any other.
@@ -422,6 +433,7 @@ impl Exotic for Event {
             Shape::Custom => "a CustomEvent",
             Shape::Pointer => "a PointerEvent",
             Shape::Input => "an InputEvent",
+            Shape::PageTransition => "a PageTransitionEvent",
         }
     }
 }
@@ -451,6 +463,8 @@ pub enum Fired<'a> {
         /// Its `data`: the text, or [`None`] for `null`.
         data: Option<&'a str>,
     },
+    /// `PageTransitionEvent`: `pageshow` and `pagehide` (ADR 0039 § 2).
+    PageTransitionEvent,
 }
 
 impl Fired<'_> {
@@ -460,6 +474,7 @@ impl Fired<'_> {
             Self::Event => (Interface::Event, Shape::Event),
             Self::PointerEvent => (Interface::PointerEvent, Shape::Pointer),
             Self::InputEvent { .. } => (Interface::InputEvent, Shape::Input),
+            Self::PageTransitionEvent => (Interface::PageTransitionEvent, Shape::PageTransition),
         }
     }
 }
@@ -518,6 +533,39 @@ impl Firing<'static> {
         interface: Fired::Event,
         kind: "visibilitychange",
         bubbles: true,
+        cancelable: false,
+        composed: false,
+    };
+
+    /// The `pageshow` fired at the window as the last step of a page's load
+    /// (ADR 0039 § 2): HTML's *fire a page transition event*, a
+    /// `PageTransitionEvent` whose `persisted` is `false`, and — HTML says
+    /// so, "for historical reasons" — bubbling and cancelable, though at the
+    /// window there is nowhere to bubble to and nothing to cancel.
+    pub const PAGE_SHOW: Self = Self {
+        interface: Fired::PageTransitionEvent,
+        kind: "pageshow",
+        bubbles: true,
+        cancelable: true,
+        composed: false,
+    };
+
+    /// The `pagehide` fired at the window as the first of a page's leaving
+    /// steps (ADR 0039 § 2), made as [`Firing::PAGE_SHOW`] is.
+    pub const PAGE_HIDE: Self = Self {
+        interface: Fired::PageTransitionEvent,
+        kind: "pagehide",
+        bubbles: true,
+        cancelable: true,
+        composed: false,
+    };
+
+    /// The `unload` fired at the window as the last of a page's leaving
+    /// steps (ADR 0039 § 2): an `Event`, and nothing more.
+    pub const UNLOAD: Self = Self {
+        interface: Fired::Event,
+        kind: "unload",
+        bubbles: false,
         cancelable: false,
         composed: false,
     };

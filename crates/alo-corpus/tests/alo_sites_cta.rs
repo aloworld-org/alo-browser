@@ -26,14 +26,17 @@
 //! `location` on its eighth since queue items 359 and 360 built them, and
 //! past `window.addEventListener("pagehide", …)` on its thirty-second since
 //! queue item 362 made the global object a `Window`. Nothing in a load fires
-//! its `pagehide` listener (queue item 373); dispatched by a later task, it
+//! its `pagehide` listener — leaving does; dispatched by a later task, it
 //! reports the depth the page was read to, since queue items 366 and 370
 //! gave it the window's size and the page's. And since queue item 364 the
 //! browser tells it when it is hidden, and its `visibilitychange` listener
-//! reports the same.
+//! reports the same. Since queue item 373 the browser leaves it, firing its
+//! `pagehide` itself, and what it sends is carried out of the renderer as
+//! the page goes.
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
+use alo_renderer::message::Failure;
 use alo_renderer::{FromRenderer, ToRenderer, Visibility};
 
 /// Where alo Sites serves the page: the site's root, on its own host.
@@ -206,7 +209,7 @@ fn left(rendering: &Rendering, name: &str) -> Option<String> {
 /// So `record`, on `pagehide`, reaches 600 pixels down a page 600 tall, all
 /// of it, and reports a depth of 1000 per mille with `shape()`, the page's
 /// path and the window's width; then the seconds read, none on the corpus's
-/// clock. Nothing in a load fires `pagehide` (queue item 373), and the beacon
+/// clock. Nothing in a load fires `pagehide` (leaving does, below), and the beacon
 /// it sends with is queue item 369, so a later task lends what it needs and
 /// nothing else, as a timer or an event will run one: a beacon in
 /// `navigator.sendBeacon`'s place, a `pagehide`, and a click with `pageX` and
@@ -349,6 +352,58 @@ fn hidden_it_sends_what_it_measured_once() {
                 "d=1000&p=%2F&w=800;t=0;",
             ],
             "stress: {stress}"
+        );
+    }
+}
+
+/// Queue item 373 (ADR 0039 §§ 2–4): the browser leaves the page, and its
+/// own `pagehide` listener sends what it measured — the depth, the path and
+/// the width, then the seconds — through a beacon a task lends, which asks
+/// to fetch what it is given (`sendBeacon` is queue item 369). Its
+/// `visibilitychange` listener, hearing `hidden` next, has already sent and
+/// sends nothing more. What it asked for is carried out as the page goes,
+/// for the browser process to refuse; the renderer holds nothing after.
+/// Run ordinarily and with the collector at every allocation.
+#[test]
+fn left_it_sends_what_it_measured_from_pagehide() {
+    for stress in [false, true] {
+        let Some((_, mut rendering)) = cta() else {
+            panic!("the case renders");
+        };
+        let Rendering::Loaded(renderer, _) = &mut rendering else {
+            panic!("the case is loaded by a renderer");
+        };
+        let looping = renderer
+            .event_loop()
+            .unwrap_or_else(|| panic!("the page's script ran"));
+        looping.engine().objects().heap_mut().stress(stress);
+        let lent = looping.queue_script(
+            "lend",
+            "navigator.sendBeacon = function (to, body) { fetch(to + '?' + body); return true; };",
+        );
+        assert!(lent.is_ok(), "{lent:?}");
+        assert!(
+            looping
+                .run_next()
+                .is_some_and(|turn| turn.reports.is_empty())
+        );
+
+        let FromRenderer::Left { issues, fetches } = renderer.handle(ToRenderer::Leave) else {
+            panic!("the page was not left");
+        };
+        assert!(issues.is_empty(), "{issues:?}");
+        let sent: Vec<&str> = fetches.iter().map(|ask| ask.url.as_str()).collect();
+        assert_eq!(
+            sent,
+            [
+                "https://nordwind.alosites.com/_alo/collect?d=1000&p=%2F&w=800",
+                "https://nordwind.alosites.com/_alo/collect?t=0",
+            ],
+            "stress: {stress}"
+        );
+        assert_eq!(
+            renderer.handle(ToRenderer::Paint),
+            FromRenderer::Failed(Failure::NothingLoaded)
         );
     }
 }

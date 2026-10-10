@@ -65,6 +65,14 @@ pub enum ToRenderer {
     /// [`FromRenderer::Delivered`]: what it asked for is the document's,
     /// since nobody did anything to the page by covering its window.
     Visibility(Visibility),
+    /// The browser process has stopped showing the page, other than by
+    /// loading another into this renderer: its tab was closed, or its
+    /// window (ADR 0039 § 2).
+    ///
+    /// The page's leaving steps — `pagehide`, `hidden`, `unload` — run as
+    /// one task, given at most [`crate::deadline::LONGEST_LEAVING`], and the
+    /// renderer then holds no page. Answered with [`FromRenderer::Left`].
+    Leave,
     /// Draw what is loaded.
     Paint,
     /// Read the page as an agent reads it.
@@ -174,6 +182,12 @@ pub enum FromRenderer {
         /// of them but those it refused itself ([`crate::linked`]). A claim
         /// each, decided by the browser process ([`crate::sheet_decide`]).
         sheets: Vec<SheetAsk>,
+        /// Every fetch the page this load replaced asked for as it was left
+        /// (ADR 0039 § 2), in order: claims, which the browser process
+        /// refuses by name until keep-alive is decided (§ 4). What that
+        /// page said is at the front of [`FromRenderer::Loaded::issues`],
+        /// each line marked as said by the page that was left.
+        left: Vec<FetchAsk>,
     },
     /// A picture.
     Painted(Frame),
@@ -234,6 +248,19 @@ pub enum FromRenderer {
         /// Every linked style sheet the task added that had not been asked
         /// for.
         sheets: Vec<SheetAsk>,
+    },
+    /// The page was left, and the renderer holds none now (ADR 0039 §§ 2–3).
+    Left {
+        /// What the page's script said as it was left, each line marked as
+        /// said by the page that was left — a listener's throw, or the page
+        /// stopped at its deadline — at most
+        /// [`crate::event_loop::MOST_REPORTS`] lines and a count of the rest.
+        issues: Vec<String>,
+        /// Every fetch it asked for as it was left, in order: claims, which
+        /// the browser process refuses by name until keep-alive is decided
+        /// (§ 4). No navigation is carried: a page being left has no tab to
+        /// send anywhere.
+        fetches: Vec<FetchAsk>,
     },
     /// A verb was refused. **Not a failure**: ADR 0002 makes refusing a
     /// result, because acting on the wrong row is worse than acting on none.
@@ -309,6 +336,7 @@ impl fmt::Display for ToRenderer {
             ),
             ToRenderer::Resize(size) => write!(f, "resize to {}×{}", size.width, size.height),
             ToRenderer::Visibility(to) => write!(f, "the page is {}", to.as_str()),
+            ToRenderer::Leave => f.write_str("leave the page"),
             ToRenderer::Paint => f.write_str("paint"),
             ToRenderer::ReadTree => f.write_str("read the tree"),
             ToRenderer::Act { target, verb } => write!(f, "{verb:?} {target}"),
@@ -364,6 +392,7 @@ mod tests {
             | ToRenderer::Load(_)
             | ToRenderer::Resize(_)
             | ToRenderer::Visibility(_)
+            | ToRenderer::Leave
             | ToRenderer::Paint
             | ToRenderer::ReadTree
             | ToRenderer::Act { .. } => "a page, a font, or a thing to do to one",
@@ -382,6 +411,7 @@ mod tests {
             | FromRenderer::Tree(_)
             | FromRenderer::Acted { .. }
             | FromRenderer::Delivered { .. }
+            | FromRenderer::Left { .. }
             | FromRenderer::Refused(_)
             | FromRenderer::Failed(_) => "what became of it, and nothing about any other request",
         };
@@ -407,6 +437,7 @@ mod tests {
             ToRenderer::Visibility(Visibility::Hidden).to_string(),
             "the page is hidden",
         );
+        assert_eq!(ToRenderer::Leave.to_string(), "leave the page");
     }
 
     #[test]

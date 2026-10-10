@@ -50,6 +50,9 @@
 //! chain (§ 5, queue item 256), and `InputEvent`, inheriting `UIEvent`, is
 //! what an agent's `PutText` fires (queue item 257): only the browser makes
 //! one of these, for an agent's verb, so none has an interface object yet.
+//! `PageTransitionEvent`, inheriting `Event`, is what the browser fires at
+//! the window as a page is shown and left (ADR 0039 § 2, queue item 373), and
+//! has no interface object either.
 //! Their prototypes are the document cell's like every other, so the
 //! browser's own dispatch (queue item 255) finds them where a node's native
 //! finds `Element.prototype`.
@@ -162,6 +165,7 @@ pub mod mouse_event;
 pub mod navigator;
 pub mod node;
 pub mod node_list;
+pub mod page_transition_event;
 pub mod parent_node;
 pub mod pointer_event;
 pub mod response;
@@ -237,6 +241,9 @@ pub enum Interface {
     Location,
     /// The page's global object (ADR 0037, queue item 362).
     Window,
+    /// What a page shown or left is told with: `pageshow` and `pagehide`
+    /// (ADR 0039 § 2, queue item 373).
+    PageTransitionEvent,
 }
 
 /// What an interface's prototype inherits from.
@@ -253,7 +260,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 27] = [
+    pub const ALL: [Self; 28] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -281,6 +288,7 @@ impl Interface {
         Self::SvgElement,
         Self::Location,
         Self::Window,
+        Self::PageTransitionEvent,
     ];
 
     /// Its name, as the standard spells it.
@@ -313,6 +321,7 @@ impl Interface {
             Self::SvgElement => "SVGElement",
             Self::Location => "Location",
             Self::Window => "Window",
+            Self::PageTransitionEvent => "PageTransitionEvent",
         }
     }
 
@@ -329,7 +338,9 @@ impl Interface {
             | Self::CssStyleDeclaration
             | Self::Location => Inherits::Object,
             Self::Node | Self::Window => Inherits::Interface(Self::EventTarget),
-            Self::CustomEvent | Self::UiEvent => Inherits::Interface(Self::Event),
+            Self::CustomEvent | Self::UiEvent | Self::PageTransitionEvent => {
+                Inherits::Interface(Self::Event)
+            }
             Self::MouseEvent | Self::InputEvent => Inherits::Interface(Self::UiEvent),
             Self::PointerEvent => Inherits::Interface(Self::MouseEvent),
             Self::HtmlElement | Self::SvgElement => Inherits::Interface(Self::Element),
@@ -394,6 +405,7 @@ impl Interface {
             Self::SvgElement => 24,
             Self::Location => 25,
             Self::Window => 26,
+            Self::PageTransitionEvent => 27,
         }
     }
 
@@ -465,6 +477,9 @@ impl Interface {
             Self::MouseEvent => mouse_event::furnish(objects, prototype, function_prototype),
             Self::PointerEvent => pointer_event::furnish(objects, prototype, function_prototype),
             Self::InputEvent => input_event::furnish(objects, prototype, function_prototype),
+            Self::PageTransitionEvent => {
+                page_transition_event::furnish(objects, prototype, function_prototype)
+            }
             Self::Navigator => navigator::furnish(objects, prototype, function_prototype),
             Self::DomTokenList => dom_token_list::furnish(objects, prototype, function_prototype),
             Self::NodeList => node_list::furnish(objects, prototype, function_prototype),

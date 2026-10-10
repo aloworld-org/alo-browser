@@ -96,6 +96,17 @@
 //! `visibilitychange` only on a change ([`crate::show`]), answered as a
 //! delivery is.
 //!
+//! # A page shown, and a page left
+//!
+//! ADR 0039 § 2. A load's last step, after its scripts, is `pageshow` at
+//! the page's window ([`crate::transition`]). **A page stops being held only
+//! through its leaving steps** — `pagehide`, `hidden`, `unload`, one task
+//! given a second (§ 3) — whether a `Load` replaces it or
+//! [`ToRenderer::Leave`] ends it, and the renderer then lets go of it whole.
+//! What it said goes at the front of the next `Loaded`'s issues, or in
+//! `Left`'s, and the fetches it asked for are carried for the browser process
+//! to refuse.
+//!
 //! What is not here yet is the loop running between messages — a task a
 //! page queues for itself has no idle moment to run in (queue item 233).
 
@@ -122,6 +133,7 @@ use crate::scripts;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::show;
 use crate::snapshot::Snapshot;
+use crate::transition::{self, Left};
 use crate::view::PageView;
 use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Outcome, Target, Verb};
@@ -232,6 +244,7 @@ impl Renderer {
             ToRenderer::Load(page) => self.load(*page),
             ToRenderer::Resize(viewport) => self.resize(viewport),
             ToRenderer::Visibility(to) => self.visibility(to),
+            ToRenderer::Leave => self.leave(),
             ToRenderer::Paint => self.paint(),
             ToRenderer::ReadTree => self.read_tree(),
             ToRenderer::Act { target, verb } => self.act(&target, &verb),
@@ -453,6 +466,34 @@ impl Renderer {
         self.after_the_task(issues)
     }
 
+    /// The page left (ADR 0039 §§ 2–3): its leaving steps run, and then it
+    /// is let go of whole. What it said, and asked to fetch, is the answer.
+    fn leave(&mut self) -> FromRenderer {
+        if self.held.is_none() {
+            return FromRenderer::Failed(Failure::NothingLoaded);
+        }
+        let left = self.let_go();
+        FromRenderer::Left {
+            issues: left.said,
+            fetches: left.fetches,
+        }
+    }
+
+    /// Run the leaving steps of the page held, if there is one, and let go
+    /// of it: its loop, its document and its drawing. What it said and
+    /// asked to fetch as it was left is answered.
+    fn let_go(&mut self) -> Left {
+        let left = self
+            .held
+            .as_mut()
+            .map(transition::leave)
+            .unwrap_or_default();
+        self.held = None;
+        self.page = None;
+        self.easel.borrow_mut().clear();
+        left
+    }
+
     /// The answer to a task the browser process sent that is nobody's but
     /// the document's — a delivery, a change of visibility — with `issues`,
     /// what its script said: where it asked to go, what it asked to fetch,
@@ -528,10 +569,12 @@ impl Renderer {
     /// A new page: parsed, each of its scripts run as a task when the parser
     /// reaches its end tag, and then drawn once.
     ///
-    /// The loop the last page ran in goes with it, whatever this page turns
-    /// out to carry.
+    /// The last page is left first (ADR 0039 § 2): its leaving steps run,
+    /// and the loop it ran in goes with it, whatever this page turns out to
+    /// carry. What it said is at the front of this load's issues, and what it
+    /// asked to fetch is carried apart from this page's.
     fn load(&mut self, page: Page) -> FromRenderer {
-        self.held = None;
+        let left = self.let_go();
         // A new page has objected to nothing, and is owed nothing the last
         // one's draws found; it has asked for no sheet, and none has arrived.
         // What a script measures as it loads is drawn with its sheets at its
@@ -556,9 +599,11 @@ impl Renderer {
         // The header policies come first, and every policy after them is a
         // `<meta>`'s ([`scripts::at_load`]).
         self.metas = Page::policies_of(policies.get(page.policies.len()..).unwrap_or_default());
+        // The load's last step, after its scripts (ADR 0039 § 2).
+        said.append(&mut transition::shown(&mut held));
         self.held = Some(held);
         self.page = Some(page);
-        // After the scripts, so what the load says — its issues, the fonts it
+        // After the scripts and `pageshow`, so what the load says — its issues, the fonts it
         // wants, what a policy objected to in its style — is about the page
         // they left (ADR 0017 § 6).
         self.draw();
@@ -577,8 +622,12 @@ impl Renderer {
         let sheets = self.sheet_asks(&mut said);
         match self.loaded() {
             FromRenderer::Loaded {
-                mut issues, wanted, ..
+                issues: mut markup,
+                wanted,
+                ..
             } => {
+                let mut issues = left.said;
+                issues.append(&mut markup);
                 issues.append(&mut said);
                 FromRenderer::Loaded {
                     issues,
@@ -587,6 +636,7 @@ impl Renderer {
                     navigation,
                     fetches,
                     sheets,
+                    left: left.fetches,
                 }
             }
             other => other,
@@ -631,6 +681,7 @@ impl Renderer {
             navigation: None,
             fetches: Vec::new(),
             sheets: Vec::new(),
+            left: Vec::new(),
         }
     }
 

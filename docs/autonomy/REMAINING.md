@@ -1131,3 +1131,18 @@ state. alo Sites' page, hidden, reports `d=1000&p=%2F&w=800` and `t=0`
 from its own listener. 373, a page left, is next and eligible; 369 follows
 it. 158 queue items are open. The next unused queue number is 374 and the
 next unused ADR 0040.
+
+Iteration 242 built item 373, a page left (ADR 0039 §§ 2–4). A load's last
+step is `pageshow` at the window, and every `Load` into a renderer holding a
+page and every `ToRenderer::Leave` runs the page's leaving steps —
+`pagehide`, `hidden`, `unload` — as one task under a one-second deadline on
+the page's own `Stop`, then lets go of the page whole. `FromRenderer::Left`
+and `Loaded`'s `left` carry its last fetches, which the browser process
+refuses by name (`Rule::Leaving`) as that page's document's, and
+`Tabs::close` and the conductor's `close_everything` leave every page and
+record the refusals. alo Sites' page, left, reports `d=1000&p=%2F&w=800` and
+`t=0` from its own `pagehide`. ADR 0039's flags for `pagehide` were
+corrected to HTML's, and the legacy target override is cut to **374**,
+opened by a page that reads such an event's `target`. 369, `sendBeacon`,
+now has its dependency met and needs its ADR. 158 queue items are open. The
+next unused queue number is 375 and the next unused ADR 0040.

@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page is told when it is shown and when it is left.** The last thing
+  a page hears as it loads is `pageshow`. When its tab is closed, the
+  window closes or the next page replaces it, the page hears `pagehide`,
+  then `visibilitychange` if it was visible, then `unload`, and is given
+  at most a second; a page still running then is stopped, and the browser
+  says so. Nothing it left waiting runs afterwards, and what it said on
+  the way out is reported as its own, never the next page's. Anything it
+  asks to fetch on the way out is refused by name and written in the
+  record, until the browser decides whether a request may outlive its page.
+  alo Sites' analytics script now reports how much of the page was read
+  when the page is left, from its own `pagehide` listener (queue item 373,
+  ADR 0039).
+
 - **A page knows whether it can be seen.** `document.visibilityState` and
   `document.hidden` say whether the page is visible, from the moment it
   starts loading, and the page hears `visibilitychange` each time that
