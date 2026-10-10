@@ -1349,3 +1349,15 @@ container further in, a containing block beyond an atomic inline box, and
 the containing blocks of properties not read). 169 queue items are open
 (355 closed, 399 added open). The next unused queue number is 400 and the
 next unused ADR 0044.
+
+Iteration 260 found every open item as iteration 259 left it, so it froze
+alo Sites' rich text, the golden output of its BlockNote renderer and the
+body of every blog post it publishes, as `alo-sites-rich-text`. It has no
+sheet, so the user-agent sheet draws it all. That opened item 400, built in
+the same iteration: a list in a list has no block margins, and `<s>`,
+`<del>`, `<u>` and `<ins>` are drawn as edits. No other case moved. Found:
+401 (list markers, needs ADR) and 402 (`font-weight: bold` measured bold by
+layout and drawn regular by paint, which depends on nothing open and is
+buildable next with this page frozen). 171 queue items are open (400 added
+closed, 401 and 402 added open). The next unused queue number is 403 and
+the next unused ADR 0044.

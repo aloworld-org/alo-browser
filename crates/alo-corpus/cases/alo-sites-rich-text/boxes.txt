@@ -1,0 +1,38 @@
+block flow · document
+  block flow · generic
+    block flow · heading [level=1]
+      text "A field guide to calm work"
+    block flow · paragraph
+      text "Great work is "
+      inline flow · generic
+        inline flow · generic
+          text "clear & deliberate"
+      text ", not <loud>."
+    block flow · heading [level=2]
+      text "Start with the essentials"
+    block flow · list
+      block flow list-item · listitem
+        text "Choose one useful outcome"
+      block flow list-item · listitem
+        anonymous block
+          text "Make the next step visible "
+        block flow · list
+          block flow list-item · listitem
+            text "Keep supporting detail nested"
+    block flow · list
+      block flow list-item · listitem
+        text "Draft"
+      block flow list-item · listitem
+        text "Review"
+    block flow · list
+      block flow list-item · listitem
+        inline flow · generic
+          text "Publish"
+    block flow · blockquote
+      text "Good tools make the right action obvious."
+    block flow · paragraph
+      text "Read the "
+      inline flow · link
+        inline flow · generic
+          text "full guide"
+      text "."

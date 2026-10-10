@@ -1,0 +1,57 @@
+alo-workplace, products/sites/alo-sites/tests/golden/blocknote_core.html — the
+HTML alo Sites makes of a document written in alo Docs, which is what the body
+of every blog post it publishes is: headings, a paragraph with bold italics and
+escaped markup, a list with a list inside it, a numbered list starting at
+three, a checklist with its finished task struck out, a quotation and a link.
+
+Taken 2026-10-10 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit the
+alo Sites section cases were taken at. The file's last change is
+13f9074d91cf9378014618b996e90e2ea2fce199 (2026-08-09). The bytes are the file
+exactly as it stands, unedited:
+
+- page.html: SHA-256
+  bc6ce69cbd08c7a7c44cfa54233bdd7cbdfbcca2b9c160101b677f7d62f59bdb
+
+It is the golden output of alo Sites' BlockNote renderer
+(`render_blocknote`), pinned by that repository's `tests/blocknote_golden.rs`
+against a real alo Docs document (`fixtures/blocknote/core_document.json`), so
+it is what alo Sites really writes rather than something rebuilt from it.
+`alo-workplace` is read-only reference; nothing was written back to it.
+
+Why this page, and why on its own. It is a fragment: on a published site it
+sits inside a blog post's `.blog-body`, whose sheet sets only widths, `pre`,
+`code`, figures and equations — nothing about lists, quotations or edits. So
+everything here is drawn by the user-agent sheet, which is what is under test,
+exactly as `web-first-website` tests it. The blog post itself is not frozen:
+its cover is an `<img>` whose bytes are in no repository (item 350). Parsed on
+its own the fragment has no doctype, which html5ever reports as
+`line 1: Unexpected token` (issues.txt) and a browser would answer with quirks
+mode; this engine has no quirks mode (law 1), and nothing here is laid out
+differently by one.
+
+## What it found
+
+**A list inside a list stood a line's height below the point it belongs to.**
+The sheet gave every `ul`, `ol` and `menu` `margin: 1em 0`, nested or not, so
+"Keep supporting detail nested" was 16 pixels below "Make the next step
+visible" and every block after it 16 lower than a browser draws it. HTML's
+rendering section gives a list in a list `margin-block: 0`. Queue item 400.
+
+**The finished task was not struck out.** `<s>Publish</s>` drew as plain
+text: the sheet had no rule for `s`, `del`, `u` or `ins`, so an edit looked
+like no edit and a done task like one still to do. Queue item 400.
+
+**There are no list markers at all** — no bullets, no "3." and "4.", no
+hollow bullet on the nested point. This engine makes no `::marker` (ADR 0043,
+*What this does not decide*). Queue item 401, which needs its ADR.
+
+Rendered at 800 × 600, as the alo Sites cases are.
+
+## Checked by hand
+
+The body's 8 pixels of margin; the heading 2em with 0.67em above and below,
+its paragraph 1em under it, the subheading's 0.83em of 24 pixels collapsing
+with the paragraph's 16; the lists 40 pixels in, the nested one 40 more and
+starting where the line above it ends; the quotation 40 pixels in from both
+sides. Every number in `layout.txt` was worked from those and agrees.

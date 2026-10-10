@@ -25236,3 +25236,85 @@ ten sections), `REMAINING.md` and `CHANGELOG.md`.
 queue number is **400** and the next ADR is **0044**. This is one
 iteration, not a finished queue or roadmap.
 
+
+## Iteration 260 — queue item 400 opened and built: a list in a list and an edit, found by freezing alo Sites' rich text
+
+**Read first.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`, the
+journal's last entry (259), `REMAINING.md`'s continuation and the queue. No
+`AGENTS.md` exists in this repository. Every open item stands as iteration
+259 left it (blocked on dependencies, design, an ADR, or waiting for a
+page), and 259 said the picture-free alo Sites sections were nearly
+exhausted, so the next real page was looked for. For 400 there is no ADR:
+it adds HTML's own rendering-section rules to the user-agent sheet and
+decides nothing. ADR 0043 was read because its *What this does not decide*
+leaves `::marker` to the first page that wants one (401). Feature:
+`docs/features.md` stage 1, "A user-agent style sheet". Read before
+changing: `alo-style`'s `user_agent.rs` whole, `alo-css`'s `shorthand.rs`
+(`margin-block` is split there), `alo-box`'s `display.rs` (`list-item`),
+`alo-layout`'s `text_style.rs` and `alo-paint`'s `build.rs` (`font_request`,
+`decorations_of`).
+
+**Page.** `blocknote_core.html` from `alo-workplace` at 738de614 (last
+changed 13f9074d), the golden output of alo Sites' BlockNote renderer,
+pinned there by `tests/blocknote_golden.rs` against a real alo Docs
+document: the body of every blog post alo Sites publishes. Frozen byte for
+byte as `alo-sites-rich-text` (hash in its `origin.txt`). It is a fragment
+with no sheet; on a published site the blog sheet styles nothing in it
+that this case tests, which `origin.txt` says. The blog post itself was not
+frozen: its cover is an `<img>` (350). seo_defaults (empty `main`) and
+blocknote_rich (an `<img>` first) were looked at and not frozen.
+
+**What was built.** Two of HTML's rendering-section rules in the
+user-agent sheet: a `dl`, `menu`, `ol` or `ul` inside another has
+`margin-block: 0`, and `s`/`del` are `line-through`, `u`/`ins` `underline`.
+Obsolete `dir` and `strike` left out (law 1).
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", and the log has no `FAILED`, `panicked` or line starting `error`.
+`cargo fmt --all --check` and clippy on `alo-style` and `alo-corpus` were
+clean before it. This entry and the commit came after that run and are
+documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `tests/alo_sites_rich_text.rs` (the outer
+  list at 166.5325, its second point at 185.1575 and 37.25 tall, the nested
+  list at 203.7825 and x 48, the numbered list 16 under the outer list's
+  end), each worked by hand from the sheet in `origin.txt`.
+- Reference render: `alo-sites-rich-text`'s `render.png` (looked at: the
+  nested point directly under its parent, "Publish" struck through, the
+  link underlined; no markers and regular-weight headings, which are 401
+  and 402), `layout.txt`, `display.txt`, `boxes.txt`, `agent.txt`,
+  `issues.txt` committed. **No other case's reference moved**, checked by
+  rewriting every reference and finding no committed file changed.
+- Unit tests: `user_agent.rs` (2). Mutations (a copy in the scratchpad,
+  restored with `cp`, checked with `cmp`, the renderer binary rebuilt
+  after): each of the three rules removed fails the tests 400's *Done*
+  paragraph names.
+- Hostile input: nothing new reads bytes from outside; the sheet is ours,
+  and the page goes through the existing parsers.
+- One responsibility per file: `user_agent.rs` is still the engine's
+  sheet; the new test file is the case's numbers.
+- No `unsafe`, no new dependency, no new CSS property read. `alo-workplace`
+  and `alo-os` were not touched.
+
+**Queue.** 400 added and ticked with its *Done* paragraph; **401** (list
+markers, needs ADR) and **402** (`font-weight: bold` drawn regular: paint's
+`font_request` reads only a number, layout reads the keyword as 700, so
+every heading and `<strong>` is measured bold and drawn regular) added.
+402 depends on nothing open and is buildable next with this page frozen;
+it will move many references, which is why it was not folded in here.
+**Roadmap: no line moved, and why.** The user-agent sheet is inside stage
+1's ticked *Computed style* and *Layout* lines, as 171 was, and no stage 2
+line names lists or edits; adding one to claim it would be decoration.
+Also updated: `docs/features.md` (the user-agent sheet line, and a [2]
+line for markers), `docs/conformance.md`, `REMAINING.md`, `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 401 needs its ADR before any marker code; 402 is buildable next.
+- Everything iteration 259 listed still stands.
+
+171 queue items are open (400 added closed, 401 and 402 added open). The
+next unused queue number is **403** and the next ADR is **0044**. This is
+one iteration, not a finished queue or roadmap.

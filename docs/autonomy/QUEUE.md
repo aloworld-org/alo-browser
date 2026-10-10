@@ -7455,6 +7455,70 @@ The long pole, and the thing most of section E is unreachable without.
   assertion has the bare text 16 wide in two lines, the same as in an
   element, and a page shows it.
 
+- [x] **400. A list in a list, and an edit, as HTML's rendering section
+  draws them.** *Opened by `alo-sites-rich-text` (iteration 260), alo Sites'
+  BlockNote output frozen in the same change. Feature: `docs/features.md`
+  stage 1, "A user-agent style sheet". Depends on nothing open.* The page
+  has no sheet of its own, so the user-agent sheet is all that draws it.
+  That sheet gave every `ul`, `ol` and `menu` `margin: 1em 0` whether or
+  not it sat in another list, so the nested point "Keep supporting detail
+  nested" stood 16 below the point it belongs to and everything after it 16
+  lower than a browser draws it; and it had no rule for `<s>`, `<del>`,
+  `<u>` or `<ins>`, so the checklist's finished task, `<s>Publish</s>`, was
+  drawn as plain text. *Closes when:* the nested list starts where the
+  line above it ends and its point is two lines tall, in numbers; the task
+  is struck through, in the display list; and no other case moves.
+  **Done (iteration 260).** `alo-style`'s `user_agent.rs` gains HTML's two
+  rules: `:is(dl, menu, ol, ul) :is(dl, menu, ol, ul) { margin-block: 0 }`
+  (`dir` left out, obsolete) and `s, del { text-decoration: line-through }`
+  with `u, ins { text-decoration: underline }` (`strike` left out, obsolete).
+  Tests: `user_agent.rs` (2: a list in a list, in each pairing, has 0 above
+  and below and keeps its 40 px indent, a `dl` on its own keeps 1em; each
+  edit's `text-decoration`, a `span` none) and
+  `tests/alo_sites_rich_text.rs` (3: the nested list at 203.7825, its point
+  37.25 tall, the numbered list 16 under the outer list's end; one strike
+  as wide as "Publish", through the middle of its line; two lines on the
+  page, the strike and the link's underline). Mutations, each restored
+  from a copy: the nested rule removed fails the list tests in both files;
+  the strike rule removed fails all three strike tests; the underline rule
+  removed fails the sheet's edit test. No other case's reference moved.
+  The case also found 401 and 402.
+
+- [ ] **401. A list item's marker.** *Opened by `alo-sites-rich-text`
+  (iteration 260). Feature: `docs/features.md` stage 2, "A list item's
+  marker". **Needs ADR**, which ADR 0043 left to the first page that wants
+  a `::marker`: what makes one and what its box is.* Not one list on the
+  page has a marker: no bullet on "Choose one useful outcome", no hollow
+  one on the nested point, no "3." and "4." on the `<ol start="3">`. A
+  `display: list-item` box records that it is one (`alo-box`'s
+  `display.rs`) and nothing makes its marker. The decision: a marker is
+  `::marker` styled under ADR 0043 §§ 1–2; its text comes from
+  `list-style-type` and the `list-item` counter, which `start`, `reversed`
+  and `value` set (CSS Lists 3); it stands outside the item's first line by
+  default (`list-style-position`) and takes no room in it; the user-agent
+  sheet's nested `circle` and `square`; and what an agent reads — the
+  number is meaning ("item 3"), and ARIA's list markers are text a screen
+  reader speaks, so whether the agent reads it as text or as a property is
+  ADR 0002's to settle, as 0043 § 5 settled a placeholder's.
+  *Closes when:* the ADR is accepted, the case draws a disc, a circle and
+  "3." and "4." where a browser does, in pixels and numbers, and its agent
+  outline reads what the ADR says.
+
+- [ ] **402. `font-weight: bold` is drawn bold.** *Found by
+  `alo-sites-rich-text` (iteration 260). Feature: `docs/features.md` stage
+  1, Text. Depends on nothing open.* `alo-layout`'s `text_style.rs` reads
+  `font-weight: bold` as 700, but `alo-paint`'s `build.rs`
+  (`font_request`) reads only a number, so the keyword is drawn in the
+  regular face. Every heading, `<strong>`, `<b>` and `<th>` the user-agent
+  sheet makes bold is measured bold and drawn regular: the rich text's
+  heading is laid out 471.8 wide and drawn about 420, and "clear &
+  deliberate" leaves a gap before ", not". `bolder` and `lighter`, which
+  are relative to the parent's weight, are read by neither. One reading in
+  one place, as 383 asks for `font-style`. *Closes when:* the case's
+  headings and its `<strong>` are drawn in the bold face, as wide as they
+  are laid out, in pixels and numbers; and every reference that moves with
+  it is reviewed in the same commit.
+
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
 

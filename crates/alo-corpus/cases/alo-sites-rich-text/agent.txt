@@ -1,0 +1,23 @@
+document at (0, 0) 800×395.5325
+  heading "A field guide to calm work" [level=1] at (8, 21.44) 784×37.25
+  paragraph at (8, 80.130005) 784×18.625
+    text "Great work is" at (8, 80.130005) 106.21875×18.625
+    text "clear & deliberate" at (119.30469, 80.130005) 162.36719×18.625
+    text ", not <loud>." at (281.67188, 80.130005) 107.890625×18.625
+  heading "Start with the essentials" [level=2] at (8, 118.675) 784×27.9375
+  list at (8, 166.5325) 784×55.875
+    listitem "Choose one useful outcome" at (48, 166.5325) 744×18.625
+    listitem "Make the next step visible Keep supporting detail nested" at (48, 185.1575) 744×37.25
+      list at (48, 203.7825) 744×18.625
+        listitem "Keep supporting detail nested" at (88, 203.7825) 704×18.625
+  list at (8, 238.4075) 784×37.25
+    listitem "Draft" at (48, 238.4075) 744×18.625
+    listitem "Review" at (48, 257.0325) 744×18.625
+  list at (8, 291.6575) 784×18.625
+    listitem "Publish" at (48, 291.6575) 744×18.625
+  blockquote at (48, 326.2825) 704×18.625
+    text "Good tools make the right action obvious." at (48, 326.2825) 335.52344×18.625
+  paragraph at (8, 360.9075) 784×18.625
+    text "Read the" at (8, 360.9075) 71.546875×18.625
+    link "full guide" at (84.63281, 360.9075) 74.49219×18.625
+    text "." at (159.125, 360.9075) 5.0859375×18.625

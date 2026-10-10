@@ -75,6 +75,11 @@ blockquote, figure { margin: 1em 40px }
 ul, ol, menu { margin: 1em 0; padding-left: 40px }
 dl { margin: 1em 0 }
 dd { margin-left: 40px }
+/* A list inside a list is part of it, not a paragraph after it, so it has no
+ * space above or below: HTML's rendering section says so, and every browser
+ * does it. Found by alo Sites' rich text (queue item 400), whose nested point
+ * stood a line's height away from the point it belongs to. */
+:is(dl, menu, ol, ul) :is(dl, menu, ol, ul) { margin-block: 0 }
 
 ul, ol, menu { display: block; list-style-type: disc }
 ol { list-style-type: decimal }
@@ -257,6 +262,13 @@ pre { white-space: pre }
  * where somebody would otherwise add the rule.
  */
 a:any-link { color: #0000ee; text-decoration: underline }
+/* An edit looks like one. `<s>` and `<del>` are struck through and `<u>` and
+ * `<ins>` underlined, as HTML's rendering section says: a struck-out task in a
+ * checklist drawn as plain text reads as a task still to do. Found by alo
+ * Sites' rich text (queue item 400), whose finished task is `<s>Publish</s>`.
+ * `<strike>` says the same and is left out, because it is obsolete markup. */
+s, del { text-decoration: line-through }
+u, ins { text-decoration: underline }
 small { font-size: smaller }
 mark { background: yellow; color: black }
 
@@ -282,6 +294,65 @@ mod tests {
                 .collect::<Vec<_>>(),
         );
         assert!(!sheet.rules().is_empty());
+    }
+
+    /// What the engine's sheet alone gives the element whose `id` is
+    /// `wanted`, for the property `name`.
+    fn computed(html: &str, wanted: &str, name: &str) -> Option<String> {
+        let document = alo_dom::parse_document(html);
+        let sheet = parse_stylesheet(USER_AGENT_STYLE_SHEET);
+        let sheets = [crate::SourcedSheet::new(crate::Origin::UserAgent, &sheet)];
+        let styles = crate::resolve(&document, &sheets, &alo_css::MediaContext::default());
+        let id = document
+            .descendants(document.root())
+            .find(|id| document.element(*id).and_then(|e| e.attr("id")) == Some(wanted))?;
+        Some(styles.get(id)?.get(name)?.to_owned())
+    }
+
+    #[test]
+    fn a_list_in_a_list_has_no_space_above_or_below_it() {
+        let html = "<ul id=outer><li>a<ul id=inner><li>b</ul></ul>\
+                    <ol><li><dl id=terms><dt>c</dl></ol>\
+                    <dl id=alone><dt>d</dl><menu><li><ol id=numbered><li>e</ol></menu>";
+        for (id, margin) in [
+            ("outer", "1em"),
+            ("inner", "0"),
+            ("terms", "0"),
+            ("alone", "1em"),
+            ("numbered", "0"),
+        ] {
+            for side in ["margin-top", "margin-bottom"] {
+                assert_eq!(
+                    computed(html, id, side).as_deref(),
+                    Some(margin),
+                    "{id} {side}"
+                );
+            }
+        }
+        // Only the block axis: a nested list is still indented.
+        assert_eq!(
+            computed(html, "inner", "padding-left").as_deref(),
+            Some("40px")
+        );
+    }
+
+    #[test]
+    fn an_edit_is_struck_through_or_underlined() {
+        let html = "<p><s id=s>a</s><del id=del>b</del><u id=u>c</u><ins id=ins>d</ins>\
+                    <span id=span>e</span>";
+        for (id, line) in [
+            ("s", Some("line-through")),
+            ("del", Some("line-through")),
+            ("u", Some("underline")),
+            ("ins", Some("underline")),
+            ("span", None),
+        ] {
+            assert_eq!(
+                computed(html, id, "text-decoration").as_deref(),
+                line,
+                "{id}"
+            );
+        }
     }
 
     #[test]

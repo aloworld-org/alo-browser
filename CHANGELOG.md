@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A list inside a list belongs to it, and a crossed-out word is
+  crossed out.** On a page with no style of its own, a list nested under a
+  point stood a whole line's height below it, and text marked as deleted or
+  struck out — a finished task in a checklist — looked like any other text.
+  Both now look as they do in every other browser, and underlined and
+  inserted text is underlined. alo Sites' blog text is now one of the pages
+  checked on every change; it also showed that lists have no bullets or
+  numbers yet, and that bold headings are drawn in the regular face, both
+  now queued (queue items 400, 401 and 402).
+
 - **A box pinned to the page is pinned to the page.** An element set
   `position: absolute` with nothing positioned above it belongs at the top
   of the page, but the browser placed it against whatever it happened to
