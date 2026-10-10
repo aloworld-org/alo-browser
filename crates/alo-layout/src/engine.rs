@@ -51,7 +51,7 @@ use crate::keyword::{
 use crate::legend;
 use crate::measure::{MeasureText, TextStyle};
 use crate::placement::{GridLine, GridPlacement};
-use crate::sizing::{AutoLength, Sizing};
+use crate::sizing::{AutoLength, MaxSizing, Sizing};
 use crate::style::{self, LayoutStyle};
 use crate::text_style::text_style_of;
 use crate::track::{RepeatCount, Track, TrackList, TrackListEntry, TrackSize};
@@ -957,8 +957,8 @@ fn box_model_into(
         height: min_max(&ours.min_size.vertical, metrics, unresolved, issues),
     };
     style.max_size = TaffySize {
-        width: min_max(&ours.max_size.horizontal, metrics, unresolved, issues),
-        height: min_max(&ours.max_size.vertical, metrics, unresolved, issues),
+        width: maximum(&ours.max_size.horizontal, metrics, unresolved, issues),
+        height: maximum(&ours.max_size.vertical, metrics, unresolved, issues),
     };
     style.margin = TaffyRect {
         top: auto_length(&ours.margin.top, metrics, unresolved),
@@ -1137,6 +1137,20 @@ fn dimension(
                 other => Dimension::length(other.to_px(metrics, 0.0)),
             }
         }
+    }
+}
+
+/// A `max-width` or `max-height`. `taffy` says "no limit" as `auto`, so
+/// `none` is that, and a limit is read as a minimum's size is.
+fn maximum(
+    value: &MaxSizing,
+    metrics: FontMetrics,
+    unresolved: &mut Unresolved,
+    issues: &mut Vec<StyleIssue>,
+) -> LengthPercentageAuto {
+    match value {
+        MaxSizing::None => LengthPercentageAuto::auto(),
+        MaxSizing::Limit(limit) => min_max(limit, metrics, unresolved, issues),
     }
 }
 

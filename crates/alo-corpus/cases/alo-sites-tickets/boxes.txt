@@ -1,0 +1,13 @@
+block flow · document
+  block flow · generic
+    block flow · link
+      text "Skip to content"
+    block flow · main
+      block flow · generic
+        block flow · heading [level=2]
+          text "Cupping evenings"
+        block flow · paragraph
+          text "Six seats around the roaster, once a month."
+        block flex · paragraph
+          inline flow-root · link
+            text "See tickets and dates"

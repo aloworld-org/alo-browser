@@ -1,0 +1,8 @@
+document at (0, 0) 800×239.20001
+  link "Skip to content" at (-15984, 0) 161.11035×43.2
+  main at (0, 0) 800×239.20001
+    heading "Cupping evenings" [level=2] at (41, 41) 718×33.600002
+    paragraph at (41, 88.600006) 718×27.2
+      text "Six seats around the roaster, once a month." at (212.9419, 92.30547) 374.1162×19.789063
+    paragraph at (41, 132.8) 718×48.4
+      link "See tickets and dates" at (41, 132.8) 247.27206×48.4

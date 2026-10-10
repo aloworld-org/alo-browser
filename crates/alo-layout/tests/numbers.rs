@@ -325,6 +325,45 @@ fn a_percentage_width_is_of_the_containing_block() {
     );
 }
 
+/// `max-width: none` undoes a limit set further up the sheet, as alo Sites'
+/// banner sections write it, and is read rather than refused. `auto` is not a
+/// maximum's value and is recorded.
+#[test]
+fn a_maximum_of_none_undoes_a_limit_and_says_nothing_about_it() {
+    let html = "<body><div id=card class=card></div><div id=banner class='card banner'></div>\
+                <div id=tall class=tall><div id=fill></div></div></body>";
+    let css = ".card { max-width: 100px; height: 10px } .card.banner { max-width: none }
+               .tall { max-height: 20px } #tall.tall { max-height: none } #fill { height: 50px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+
+    assert_eq!(
+        rect_of(&boxes, &layout, "card", html),
+        Rect::new(0.0, 0.0, 100.0, 10.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "banner", html),
+        Rect::new(0.0, 10.0, 400.0, 10.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "tall", html),
+        Rect::new(0.0, 20.0, 400.0, 50.0)
+    );
+    assert!(layout.issues().is_empty(), "{:?}", layout.issues());
+
+    let css = ".card { max-width: auto; height: 10px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "card", html).size,
+        Size::new(400.0, 10.0)
+    );
+    let refused: Vec<_> = layout
+        .issues()
+        .iter()
+        .map(|issue| issue.source.as_str())
+        .collect();
+    assert_eq!(refused, ["max-width: auto", "max-width: auto"]);
+}
+
 #[test]
 fn an_em_length_is_of_the_font_that_element_ended_up_with() {
     let html = "<body><div id=outer><div id=inner></div></div></body>";

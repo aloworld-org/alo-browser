@@ -65,6 +65,49 @@ impl fmt::Display for Sizing {
     }
 }
 
+/// A `max-width` or `max-height`: a limit, or `none`.
+///
+/// `none` is the initial value and means there is no limit. It is its own
+/// word rather than [`Sizing::Auto`] because a maximum does not take `auto`
+/// at all (CSS Sizing 3 § 5.2), and a reader that let one stand for the other
+/// would accept a value no browser does and refuse the one every page writes
+/// to undo a limit set further up the sheet.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum MaxSizing {
+    /// `none` — no limit.
+    #[default]
+    None,
+    /// A length, a percentage or a content keyword. Never [`Sizing::Auto`]:
+    /// [`MaxSizing::parse`] refuses `auto`.
+    Limit(Sizing),
+}
+
+impl MaxSizing {
+    /// Read a maximum from a property's text, or [`None`] if it says
+    /// something this engine does not implement — `auto` included, which is
+    /// not a maximum's value, so the caller records it rather than reading it
+    /// as no limit.
+    pub fn parse(text: &str) -> Option<Self> {
+        let text = text.trim();
+        if is_keyword(text, "none") {
+            return Some(MaxSizing::None);
+        }
+        match Sizing::parse(text)? {
+            Sizing::Auto => None,
+            limit => Some(MaxSizing::Limit(limit)),
+        }
+    }
+}
+
+impl fmt::Display for MaxSizing {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MaxSizing::None => f.write_str("none"),
+            MaxSizing::Limit(limit) => write!(f, "{limit}"),
+        }
+    }
+}
+
 /// A `margin` or an `inset`: a length, or `auto`.
 ///
 /// `auto` on a margin is what centres a box, so it is a real value rather than
@@ -186,6 +229,40 @@ mod tests {
         ] {
             assert_eq!(Sizing::parse(text), None, "{text} should be refused");
         }
+    }
+
+    #[test]
+    fn a_maximum_of_none_is_no_limit_and_a_maximum_of_auto_is_refused() {
+        assert_eq!(MaxSizing::default(), MaxSizing::None);
+        assert_eq!(MaxSizing::parse("none"), Some(MaxSizing::None));
+        assert_eq!(MaxSizing::parse(" NONE "), Some(MaxSizing::None));
+        assert_eq!(
+            MaxSizing::parse("38rem"),
+            Some(MaxSizing::Limit(Sizing::Length(LengthPercentage::Length(
+                Length {
+                    value: 38.0,
+                    unit: alo_value::Unit::Rem,
+                }
+            )))),
+        );
+        assert_eq!(
+            MaxSizing::parse("max-content"),
+            Some(MaxSizing::Limit(Sizing::MaxContent))
+        );
+        for text in ["auto", "AUTO", "nonee", "none 1px", "", "banana"] {
+            assert_eq!(MaxSizing::parse(text), None, "{text} should be refused");
+        }
+        // What a hostile sheet could write is refused, not panicked on.
+        for text in [
+            "none ".repeat(100_000),
+            "(".repeat(100_000),
+            format!("fit-content({})", "1".repeat(100_000)),
+            "\u{0}none".to_owned(),
+        ] {
+            assert_eq!(MaxSizing::parse(&text), None);
+        }
+        assert_eq!(MaxSizing::None.to_string(), "none");
+        assert_eq!(MaxSizing::parse("50%").expect("limit").to_string(), "50%");
     }
 
     #[test]

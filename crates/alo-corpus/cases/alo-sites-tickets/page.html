@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home — Nordwind Coffee Roasters</title>
+<link rel="canonical" href="https://nordwind.alosites.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Nordwind Coffee Roasters">
+<meta property="og:title" content="Home — Nordwind Coffee Roasters">
+<meta property="og:url" content="https://nordwind.alosites.com/">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<main id="main">
+<section class="s-tickets tickets-layout-banner" id="tickets">
+<h2>Cupping evenings</h2>
+<p>Six seats around the roaster, once a month.</p>
+<p class="actions"><a class="button" href="/tix">See tickets and dates</a></p>
+</section>
+</main>
+<script>(function () {
+  "use strict";
+  var since = Date.now();
+  var read = 0;
+  var reported = false;
+  var clicks = 0;
+  var depth = 0;
+  var page = "&p=" + encodeURIComponent(location.pathname) + "&w=";
+  function send(body) {
+    if (navigator.sendBeacon) { navigator.sendBeacon("/_alo/collect", body); }
+  }
+  function permille(value, total) {
+    return total > 0 ? Math.max(0, Math.min(1000, Math.round((value / total) * 1000))) : 0;
+  }
+  function height() {
+    var body = document.body;
+    return Math.max(document.documentElement.scrollHeight, body ? body.scrollHeight : 0);
+  }
+  function shape() { return page + Math.round(window.innerWidth || 0); }
+  function record() {
+    read += Date.now() - since;
+    since = Date.now();
+    var reach = permille(window.scrollY + window.innerHeight, height());
+    if (reach > depth) { depth = reach; send("d=" + reach + shape()); }
+    if (reported) { return; }
+    reported = true;
+    send("t=" + Math.round(read / 1000));
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") { record(); } else { since = Date.now(); }
+  });
+  window.addEventListener("pagehide", record);
+  document.addEventListener("click", function (event) {
+    var target = event.target;
+    var link = target && target.closest ? target.closest("a[href]") : null;
+    if (link && link.hostname && link.hostname !== location.hostname) {
+      send("o=" + encodeURIComponent(link.hostname));
+    }
+    if (clicks < 20 && typeof event.pageX === "number") {
+      clicks += 1;
+      send("x=" + permille(event.pageX, document.documentElement.scrollWidth) +
+        "&y=" + permille(event.pageY, height()) + shape());
+    }
+  }, true);
+  document.querySelectorAll('form[action^="/f/"]').forEach(function (form) {
+    var point = "c=" + encodeURIComponent(form.getAttribute("action").slice(3));
+    send(point + "&s=view");
+    form.addEventListener("input", function () { send(point + "&s=start"); }, { once: true });
+  });
+})();</script>
+</body>
+</html>

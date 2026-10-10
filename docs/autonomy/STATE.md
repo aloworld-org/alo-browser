@@ -24759,3 +24759,93 @@ forms line), `docs/conformance.md` (the sign-in section), `REMAINING.md`,
 167 queue items are open (389 closed). The next unused queue number is
 **393** and the next ADR is **0044**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 255 — queue item 393 opened and built: a maximum of `none`, found by freezing alo Sites' tickets section
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` (its head, stage
+1's *Layout* line, stage 2's head and *CSS beyond what alo needed*),
+`REMAINING.md`'s close and iterations 253–254's entries. No `AGENTS.md`
+exists in this repository. For 393 there is no ADR: it reads a keyword
+CSS Sizing 3 § 5.2 defines, decides nothing, and items 379 and 384 were
+built the same way. Read: `docs/features.md`' stage 1 *Style* and
+*Layout* sections, `docs/conformance.md`' alo Sites row, queue items 379,
+384 and 389–392, `alo-sites-booking`'s `origin.txt` and test. Code read
+before changing it: `alo-layout`'s `sizing.rs`, `style.rs` (`Reader`),
+`engine.rs` (`min_max`, where `max_size` is set) and `lib.rs`; every
+reader of `max-width`/`max-height` in the workspace (only `alo-layout`).
+
+**Choosing.** Every open item stands as iteration 254 listed it: 390–392
+wait for pages, 386–388 on 296, 128 and a page, 383, 380 and 378 for
+pages, 381 needs 234, 376 needs design, 296's capture waits for an
+unlocked screen, and every item before them as earlier entries say. So,
+as iterations 247–250 did, the next alo Sites sections with no picture and
+nothing set to move into view were frozen into the corpus locally and
+rendered. The shop section checked against the sheet by hand (its
+storefront card, its `color-mix()` shadow, its button) and found nothing,
+so it was not kept. The tickets section's `issues.txt` held one line the
+other alo Sites cases' does not: "value not implemented, property left at
+its initial: max-width: none". That opened 393.
+
+**What was built.** As 393's *Done* paragraph says: `MaxSizing` in
+`sizing.rs` (`none`, the default, or a limit that is never `auto`), read
+for `max-width` and `max-height` in `style.rs`, and said to `taffy` by
+`engine.rs`' `maximum`. `none` was refused before, and the refusal fell
+back to the initial value, which is `none`, so no box moved: the fault
+was the record, which said a page had written something this engine
+could not do. `max-width: auto`, which no browser takes, was read as no
+limit and is refused and recorded now. The case `alo-sites-tickets` is
+frozen byte for byte (hashes in its `origin.txt`).
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", and the log has no `FAILED`, `panicked` or line starting `error`.
+Clippy and `cargo fmt --check` were clean before it. This entry and the
+commit came after that run, and are documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `numbers.rs`' new test (a 100 px card, a
+  400 px banner lifting its limit, a `max-height: none` box 50 tall, no
+  issue; `max-width: auto` recorded); `alo_sites_tickets.rs` (the section
+  at (0, 0) 800 × 239.2, the heading at (41, 41) 718 wide, the offer at
+  88.6, the actions at 132.8, the button at x 41 and 48.4 tall), each
+  number checked against the sheet by hand in `origin.txt`.
+- Reference render: `alo-sites-tickets`' `render.png` (looked at by eye:
+  the banner across the page, centred heading and offer, the button at the
+  start), `layout.txt`, `display.txt`, `boxes.txt`, `agent.txt` and
+  `issues.txt` committed. No other case's reference moved.
+- Hostile input: `sizing.rs`' test (three 100 000-repeat values and a NUL,
+  refused without a panic).
+- Mutations (a copy in the scratchpad, restored with `cp`, checked with
+  `cmp`): `none` refused again fails all three new tests; `auto` read as
+  no limit fails the `sizing.rs` and `numbers.rs` tests.
+- One responsibility per file: `sizing.rs` is still what a size property
+  can say; `engine.rs`' `maximum` is a translation to `taffy`, which is
+  that file's one job.
+- No `unsafe`, no new dependency, no new CSS property read (`max-width`
+  and `max-height` were listed for layout). `alo-workplace` and `alo-os`
+  were not touched; `alo-workplace`'s `git status` is clean.
+
+**Queue.** 393 added ticked with its *Done* paragraph. **Roadmap: no line
+moved, and why.** A box's sizes and their limits are inside stage 1's
+ticked *Layout* line, and stage 2's *CSS beyond what alo needed* names
+animations, container queries, filters, sticky and multi-column, writing
+modes and print, none of which this is. Adding a line to claim it would be
+decoration. Also updated: `docs/features.md` (a stage 1 *Layout* line,
+*A maximum is a limit or `none`*), `docs/conformance.md`' alo Sites row
+(now six sections), `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- `max-width: auto` is refused at layout and falls back to `none`, where a
+  browser drops the declaration at parse time and an earlier one wins.
+  This engine validates no property's value when it parses a sheet; that
+  is general, not this item's, and no page has written it, so it is noted
+  in 393 rather than queued.
+- Everything iteration 254 listed still stands.
+- Sections still unfrozen with no picture: custom_code, transition,
+  footer, nav and contact_form (all `section-motion`, white until 381),
+  and the `_empty`, `_closed` and `_one_category` variants.
+
+167 queue items are open (393 added closed). The next unused queue number
+is **394** and the next ADR is **0044**. This is one iteration, not a
+finished queue or roadmap.

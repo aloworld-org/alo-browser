@@ -66,7 +66,7 @@ pub use keyword::{
 pub use legend::Band;
 pub use measure::{BlockFont, MeasureText, NoText, ScaledFont, TextStyle};
 pub use placement::{GridLine, GridPlacement};
-pub use sizing::{AutoLength, Sizing};
+pub use sizing::{AutoLength, MaxSizing, Sizing};
 pub use style::LayoutStyle;
 pub use text_style::text_style_of;
 pub use track::{RepeatCount, Track, TrackList, TrackSize};

@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`max-width: none` is understood.** A page that sets a limit on a box's
+  width and then lifts it again with `none` — as alo Sites' full-width
+  banner sections do — was laid out correctly, but the browser's own record
+  of what it could not handle said `none` was beyond it, which would have
+  sent anybody debugging the page after the wrong thing. It now reads
+  `none` as no limit and says nothing, for heights too, and refuses
+  `max-width: auto`, which no browser accepts. alo Sites' tickets section
+  is now one of the pages checked on every change (queue item 393).
+
 - **A field's placeholder is drawn.** alo's sign-in screen now shows
   `you@company.eu` faintly in its empty email field, in the colour alo's
   design gives a hint, and it disappears as soon as the field holds

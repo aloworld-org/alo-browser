@@ -1290,3 +1290,14 @@ sign-in screen draws its email hint in `--text-tertiary`. Found and fixed
 on the way: a one-line field taller than its line now holds its line in
 the middle. 167 queue items are open (389 closed). The next unused queue
 number is 393 and the next unused ADR 0044.
+
+Iteration 255 found every open item blocked or waiting for a page (296's
+screen is still locked), so it froze the next alo Sites sections with no
+picture and nothing set to move into view. The shop section rendered and
+checked against the sheet by hand, and found nothing, so it was not kept.
+The tickets section was kept as `alo-sites-tickets`: its banner lifts the
+card's limit with `max-width: none`, which layout recorded as a value it
+did not implement, though the box came out right. That opened item 393,
+built in the same iteration: `max-width` and `max-height` read `none` as
+no limit and refuse `auto`. 167 queue items are open (393 added closed).
+The next unused queue number is 394 and the next unused ADR 0044.

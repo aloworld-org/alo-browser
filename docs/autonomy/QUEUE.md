@@ -7203,6 +7203,44 @@ The long pole, and the thing most of section E is unreachable without.
   declaration of one is drawn, with a layout assertion if it moves the
   run, and its issue is gone.
 
+- [x] **393. A maximum of `none`.** *Opened by `alo-sites-tickets`
+  (iteration 255), frozen in the same change. Feature: `docs/features.md`
+  stage 1, Layout, "A maximum is a limit or `none`". Depends on nothing
+  open.* alo Sites' `tickets-layout-banner` undoes the card's
+  `max-width: 38rem` with `max-width: none`. Layout read a maximum as a
+  width is read, which has no `none`, so it refused the value, recorded
+  "value not implemented, property left at its initial: max-width: none"
+  against the page, and fell back to the initial value — which is `none`.
+  The box was right and the record was wrong, and the record is what makes
+  a wrong layout diagnosable. It also read `max-width: auto` as no limit,
+  a value no browser takes (CSS Sizing 3 § 5.2: `none |
+  <length-percentage> | min-content | max-content | fit-content()`).
+  *Closes when:* `none` is read as no limit, so a later rule undoes an
+  earlier one with no issue recorded; `auto` is refused and recorded; the
+  tickets section is 800 wide with no `max-width` issue; and a hostile
+  value is refused without a panic.
+  **Done (iteration 255).** `alo-layout`'s `sizing.rs` has `MaxSizing`,
+  `None` (the default) or a `Limit` that is never `auto`; `style.rs` reads
+  `max-width` and `max-height` with it, and `engine.rs`' `maximum` says
+  `none` to `taffy` as its no-limit `auto` and a limit as a minimum's size
+  is said. Tests: `sizing.rs` (1: `none` in any case, a length, a content
+  keyword, `auto` and five other refusals, four hostile values — three
+  100 000 repeats and a NUL — and written back out); `numbers.rs` (1: a 100 px card and a
+  400 px banner undoing it, a `max-height: none` box 50 tall, no issue;
+  `max-width: auto` recorded once per box and the box unlimited);
+  `tests/alo_sites_tickets.rs` (3: the sheet answered; no `max-width`
+  issue, only the sheet's pseudo-element, `@keyframes` and reduced-motion
+  lines; the section at (0, 0) 800 wide and 239.2 tall, its heading at
+  (41, 41) 718 wide, the offer at 88.6, the actions at 132.8, the button
+  at 41, 48.4 tall). Mutations, each restored from a copy: `none` refused
+  again fails all three new tests; `auto` read as no limit fails the
+  `sizing.rs` and `numbers.rs` tests. No other case's reference moved.
+  *Not done:* `max-width: auto` is refused at layout and falls back to
+  `none`; a browser drops the declaration when it parses it and an
+  earlier one wins. This engine validates no property's value when it
+  parses a sheet, which is the general rule rather than this item's, and
+  no page has written it.
+
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
 

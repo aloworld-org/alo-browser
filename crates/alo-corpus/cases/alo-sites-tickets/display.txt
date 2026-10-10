@@ -1,0 +1,11 @@
+fill box#2 rgb(255 255 255) at (0, 0) 800×239.20001
+fill box#9 rgb(242 245 248) at (0, 0) 800×239.20001
+fill box#9 rgb(221 227 233) at (0, 0) 800×239.20001
+text box#12 "Cupping evenings" rgb(23 33 43) 28px at (258.85156, 67.49336)
+text box#15 "Six seats around the roaster, once a month." rgb(76 88 102) 17px at (212.9419, 108.08526)
+fill box#18 rgb(29 78 216) at (41, 132.8) 247.27206×48.40001
+fill box#18 rgb(29 78 216) at (41, 132.8) 247.27206×48.40001
+text box#19 "See tickets and dates" rgb(255 255 255) 17px at (61.2, 162.88527)
+fill box#4 rgb(242 245 248) at (-15984, 0) 161.11035×43.2
+text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27.485254)
+fill box#5 rgb(23 33 43) at (-15968, 28.564356) 129.11035×1

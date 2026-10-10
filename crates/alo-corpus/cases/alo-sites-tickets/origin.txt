@@ -1,0 +1,67 @@
+alo-workplace, products/sites/alo-sites/tests/golden/section_tickets.html
+and products/sites/alo-sites/tests/golden/site.css — a page alo Sites
+publishes for its customers: the tickets section of a demonstration coffee
+roaster's home page, with the style sheet every alo Sites page links.
+
+Taken 2026-10-10 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit the
+other alo Sites cases were taken at. The page's last change is
+b19b5ec0e3c9e2c57934e1b83b5e09b8062c2e62 (2026-09-02). The bytes are those
+files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  4ba6848c40542bdbe2e6294d3a2f8fce04ded706e065cc92e65bfb3190970d78
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+The sheet is byte for byte the other alo Sites cases'. `alo-workplace` is
+read-only reference; nothing was written back to it. Both files are golden
+outputs of alo Sites' own renderer, pinned by its tests, so they are what it
+really serves rather than something rebuilt from it.
+
+Why this page. After the placeholder was drawn, every queue item was
+blocked or waiting for a page, so the next alo Sites sections with no
+picture and nothing set to move into view were frozen to find what fails.
+The shop section came first and was rendered too: its storefront card, its
+shadow (`color-mix()`, item 377) and its button check against the sheet by
+hand, but it found nothing, so it was not kept. This is the
+`tickets-layout-banner` variant: a heading, one line of offer and a link to
+the ticket shop, across the whole page with its text centred.
+
+**Where it is served from, and what its sheet is answered with,** are the
+call-to-action section's, for the same reasons (see that case's origin.txt):
+the page's own `<link rel="canonical">` says
+`https://nordwind.alosites.com/` (address.txt), and its `/assets/site.css`
+is answered from site.css (linked.txt). Its analytics script is the same
+script, and sends nothing in a reference render.
+
+Rendered at 800 × 600, wider than the sheet's breakpoints, as the other alo
+Sites cases are.
+
+## What it found
+
+- **`max-width: none` was recorded as a value not implemented** — item
+  393. `.s-tickets` sets `max-width: 38rem` and `.tickets-layout-banner`
+  lifts it with `none`. Layout read a maximum as it reads a width, which
+  has no `none`, so it refused the value and fell back to the initial
+  value, which is `none`: the box was right, and issues.txt said
+  "value not implemented, property left at its initial: max-width: none"
+  against a page that had written nothing wrong. It reads `none` now, and
+  issues.txt is the other alo Sites cases' list exactly.
+  `tests/alo_sites_tickets.rs` says so.
+
+Everything else checks against the sheet by hand and is pinned as it is:
+the banner's `clamp(2rem, 5vw, 4rem)` is 40 at 800 wide, inside a 1 px
+border, so the content is at (41, 41), 718 wide; the heading is 28 px
+(3.5vw) at a line height of 1.2, 33.6 tall, with 14 below, so the offer is
+at 88.6; its 27.2 and its 17 px margin, collapsed with the actions' 1rem,
+put the actions at 132.8; the button is 48.4 tall, and the actions' 17
+below and 40 + 1 make the section 239.2. `text-align: center` centres the
+heading and the offer; the actions are a flex row with no
+`justify-content`, so the button stands at the start, at 41, which is
+where a browser draws it too.
+
+What the sheet asks for that this engine does not do, and which makes no
+difference to this page, is in issues.txt, and is the call-to-action
+section's list exactly: `::before` and `::after`, `@keyframes`, and
+`prefers-reduced-motion`.

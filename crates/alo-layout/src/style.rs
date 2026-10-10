@@ -19,7 +19,7 @@ use crate::keyword::{
     Positioning,
 };
 use crate::placement::GridPlacement;
-use crate::sizing::{AutoLength, Sizing};
+use crate::sizing::{AutoLength, MaxSizing, Sizing};
 use crate::track::TrackList;
 use crate::vertical_align::VerticalAlign;
 use alo_css::{IssueKind, Location, StyleIssue};
@@ -42,7 +42,7 @@ pub struct LayoutStyle {
     /// `min-width` and `min-height`.
     pub min_size: AxisValues<Sizing>,
     /// `max-width` and `max-height`.
-    pub max_size: AxisValues<Sizing>,
+    pub max_size: AxisValues<MaxSizing>,
     /// `margin`.
     pub margin: SideValues<AutoLength>,
     /// `padding`.
@@ -232,6 +232,12 @@ pub trait FromValue: Sized {
 impl FromValue for Sizing {
     fn from_value(text: &str) -> Option<Self> {
         Sizing::parse(text)
+    }
+}
+
+impl FromValue for MaxSizing {
+    fn from_value(text: &str) -> Option<Self> {
+        MaxSizing::parse(text)
     }
 }
 
