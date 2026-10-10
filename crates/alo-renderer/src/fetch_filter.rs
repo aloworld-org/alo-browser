@@ -198,6 +198,7 @@ mod tests {
             credentials: Credentials::SameOrigin,
             redirect,
             referrer: None,
+            keepalive: alo_bindings::fetching::Keepalive::Not,
         };
         let page = url("https://shop.example/");
         let policies = Policies::none();

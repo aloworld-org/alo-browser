@@ -32,6 +32,7 @@
 //! the moment the request is made — the same hops as a fetch's
 //! ([`crate::sheet_make`]).
 
+use alo_bindings::fetching::Keepalive;
 use alo_net::cause::Cause;
 use alo_net::cookie::Partition;
 use alo_net::cors::Mode;
@@ -276,6 +277,7 @@ pub fn decide(ask: &SheetAsk, asker: &Asker<'_>, cause: &Cause) -> Decided {
         referrer: policy,
         policies: asker.policies.clone(),
         nonce: ask.nonce.clone(),
+        keepalive: Keepalive::Not,
     }))
 }
 

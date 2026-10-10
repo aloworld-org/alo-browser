@@ -71,7 +71,7 @@ use crate::document_cell::DocumentCell;
 use crate::fetch_init::{
     self, BODY, CREDENTIALS, HEADERS, INPUT, METHOD, MODE, REDIRECT, REFERRER_POLICY, Reading,
 };
-use crate::fetching::Asked;
+use crate::fetching::{Asked, Keepalive};
 use crate::navigating;
 
 /// The one message every fetch that failed rejects with, whatever happened
@@ -271,6 +271,7 @@ fn record(call: &mut Call<'_>) -> Result<u64, Escape> {
         credentials: wishes.credentials,
         redirect: wishes.redirect,
         referrer: wishes.referrer,
+        keepalive: Keepalive::Not,
     };
     if !fetches.has_room_for(asked.bytes()) {
         return Err(refused(call, FAILED));

@@ -315,6 +315,22 @@ impl Held {
             .map(Option::flatten)
     }
 
+    /// The answer to the page's fetch `number` has arrived: take a
+    /// keep-alive ask's bytes off the page's count (ADR 0040 § 4). Whether
+    /// it was one — a beacon, whose answer nothing on the page waits for.
+    /// A page that has never run script asked for nothing.
+    ///
+    /// # Errors
+    ///
+    /// As [`Held::deliver`], for a root that has stopped naming the
+    /// document.
+    pub fn arrived(&mut self, number: u64) -> Result<bool, Unqueued> {
+        self.queue(|page_loop, cell| {
+            Ok(fetching::answered(page_loop.engine().objects(), cell, number).unwrap_or(false))
+        })
+        .map(|kept| kept.unwrap_or(false))
+    }
+
     /// Queue a task with `queue`, handed the page's loop and its document
     /// cell — [`None`] on a page that has never run script.
     fn queue<T>(

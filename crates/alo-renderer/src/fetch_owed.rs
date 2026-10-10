@@ -20,11 +20,18 @@
 //! whatever the renderer says, and an ask past either is a network error said
 //! among the issues. Refused asks are owed an answer too — the page's promise
 //! is waiting for one — and cost a number each until it is given.
+//!
+//! An ask that claims to outlive its page is bounded once more, after it is
+//! decided, by the bytes of body the document's keep-alive requests may
+//! have in flight ([`KeptAlive`], ADR 0040 § 4). The two bounds above cover
+//! it too, empty bodies included, so a page cannot leave a flood of empty
+//! beacons behind it.
 
 use alo_net::cause::Cause;
 
 use crate::fetch::FetchAsk;
 use crate::fetch_decide::{self, Asker, Decided, Refusal, Rule};
+use crate::fetch_kept::KeptAlive;
 use crate::navigate::LONGEST_SAID;
 use crate::said;
 
@@ -76,14 +83,16 @@ impl Owed {
     }
 
     /// Decide every ask in one answer, in order, under the bounds — each
-    /// from `asker` and under `cause` — and owe each an answer. What comes
-    /// back is the decisions, in the asks' order, and the lines to say among
-    /// the answer's issues.
+    /// from `asker` and under `cause`, a keep-alive one counted in `kept`
+    /// under `cause`'s document — and owe each an answer. What comes back is
+    /// the decisions, in the asks' order, and the lines to say among the
+    /// answer's issues.
     pub fn decide(
         &mut self,
         asks: &[FetchAsk],
         asker: &Asker<'_>,
         cause: &Cause,
+        kept: &mut KeptAlive,
     ) -> (Vec<Decided>, Vec<String>) {
         let mut decisions = Vec::new();
         let mut lines = Vec::new();
@@ -107,9 +116,10 @@ impl Owed {
                     url: None,
                     rule,
                     cause: cause.clone(),
+                    purpose: fetch_decide::purpose(ask),
                 }))
             } else {
-                let decided = fetch_decide::decide(ask, asker, cause);
+                let decided = kept_within(fetch_decide::decide(ask, asker, cause), cause, kept);
                 if let Decided::Refused(refusal) = &decided {
                     lines.push(said::line(refusal));
                 }
@@ -137,8 +147,35 @@ impl Owed {
     }
 }
 
+/// `decided`, counted in `kept` under `cause`'s document if it is a
+/// keep-alive fetch to be made, or refused by [`Rule::KeptAlive`] if
+/// counting it would pass the bound. Every cause a page's ask is given names
+/// its document; one that named none would have nobody to count for.
+fn kept_within(decided: Decided, cause: &Cause, kept: &mut KeptAlive) -> Decided {
+    let Decided::Make(fetch) = decided else {
+        return decided;
+    };
+    let Some(document) = cause.in_document().filter(|_| fetch.outlives()) else {
+        return Decided::Make(fetch);
+    };
+    let (bytes, held) = (fetch.request.body.len(), kept.of(document));
+    if kept.claim(document, bytes) {
+        return Decided::Make(fetch);
+    }
+    let url = fetch.request.url;
+    Decided::Refused(Box::new(Refusal {
+        number: fetch.number,
+        asked: url.serialised.chars().take(LONGEST_SAID).collect(),
+        url: Some(url),
+        rule: Rule::KeptAlive { bytes, held },
+        cause: cause.clone(),
+        purpose: fetch.request.purpose,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
+    use alo_bindings::fetching::Keepalive;
     use alo_net::cause::Identities;
     use alo_net::cors::{Credentials, Mode};
     use alo_net::csp::Policies;
@@ -158,23 +195,52 @@ mod tests {
             credentials: Credentials::SameOrigin,
             redirect: redirect::Mode::Follow,
             referrer: None,
+            keepalive: Keepalive::Not,
         }
     }
 
-    fn decide(owed: &mut Owed, asks: &[FetchAsk]) -> (Vec<Decided>, Vec<String>) {
+    /// A beacon of `bytes`, as `sendBeacon` asks one.
+    fn beacon(number: u64, bytes: usize) -> FetchAsk {
+        FetchAsk {
+            method: "POST".to_owned(),
+            headers: vec![(
+                "Content-Type".to_owned(),
+                "text/plain;charset=UTF-8".to_owned(),
+            )],
+            body: vec![b'x'; bytes],
+            mode: Mode::NoCors,
+            credentials: Credentials::Include,
+            keepalive: Keepalive::Beacon,
+            ..ask(number)
+        }
+    }
+
+    fn cause() -> Cause {
+        Cause::Document {
+            document: Identities::default().a_document(),
+        }
+    }
+
+    fn decide_kept(
+        owed: &mut Owed,
+        asks: &[FetchAsk],
+        kept: &mut KeptAlive,
+    ) -> (Vec<Decided>, Vec<String>) {
         let page: Url = alo_url::parse("https://shop.example/").unwrap();
         let policies = Policies::none();
-        let cause = Cause::Document {
-            document: Identities::default().a_document(),
-        };
         owed.decide(
             asks,
             &Asker {
                 url: &page,
                 policies: &policies,
             },
-            &cause,
+            &cause(),
+            kept,
         )
+    }
+
+    fn decide(owed: &mut Owed, asks: &[FetchAsk]) -> (Vec<Decided>, Vec<String>) {
+        decide_kept(owed, asks, &mut KeptAlive::default())
     }
 
     fn refused_by(decided: &Decided) -> Option<&Rule> {
@@ -252,5 +318,66 @@ mod tests {
         assert!(owed.settle(1000), "the refusal is owed its answer");
         let (decided, _) = decide(&mut owed, &[ask(1001)]);
         assert!(matches!(decided[0], Decided::Make(_)));
+    }
+
+    #[test]
+    fn a_beacon_past_the_documents_keep_alive_bytes_is_refused_by_its_own_rule() {
+        use crate::fetch_kept::MOST_KEPT_ALIVE;
+        let mut owed = Owed::default();
+        let mut kept = KeptAlive::default();
+        // A whole 64 KiB, then one byte: the second is refused by this
+        // process's own count, whatever the renderer's said, and owed its
+        // answer like any refusal.
+        let (decided, lines) = decide_kept(
+            &mut owed,
+            &[beacon(1, MOST_KEPT_ALIVE), beacon(2, 1), ask(3)],
+            &mut kept,
+        );
+        let Decided::Make(made) = &decided[0] else {
+            panic!("{:?}", decided[0]);
+        };
+        assert_eq!(made.request.purpose, alo_net::Purpose::Beacon);
+        assert!(made.outlives());
+        assert_eq!(
+            refused_by(&decided[1]),
+            Some(&Rule::KeptAlive {
+                bytes: 1,
+                held: MOST_KEPT_ALIVE
+            })
+        );
+        assert!(
+            matches!(decided[2], Decided::Make(_)),
+            "a fetch is not counted"
+        );
+        assert!(owed.owes(2));
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert!(lines[0].contains("65536"), "{lines:?}");
+        let Decided::Refused(refusal) = &decided[1] else {
+            panic!("not refused");
+        };
+        assert_eq!(refusal.purpose, alo_net::Purpose::Beacon);
+
+        // Made, it is taken off, and the next fits.
+        let document = cause().in_document().unwrap();
+        kept.release(document, MOST_KEPT_ALIVE);
+        let (decided, _) = decide_kept(&mut owed, &[beacon(4, 1)], &mut kept);
+        assert!(matches!(decided[0], Decided::Make(_)));
+        assert_eq!(kept.of(document), 1);
+    }
+
+    #[test]
+    fn empty_beacons_are_bounded_by_the_bounds_every_ask_is() {
+        let mut owed = Owed::default();
+        let mut kept = KeptAlive::default();
+        let asks: Vec<FetchAsk> = (0..=MOST_ASKED_AT_ONCE as u64)
+            .map(|number| beacon(number, 0))
+            .collect();
+        let (decided, _) = decide_kept(&mut owed, &asks, &mut kept);
+        assert_eq!(
+            refused_by(&decided[MOST_ASKED_AT_ONCE]),
+            Some(&Rule::TooManyAtOnce)
+        );
+        let (decided, _) = decide_kept(&mut owed, &[beacon(1000, 0)], &mut kept);
+        assert_eq!(refused_by(&decided[0]), Some(&Rule::TooManyWaiting));
     }
 }

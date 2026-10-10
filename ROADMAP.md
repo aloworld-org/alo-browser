@@ -445,13 +445,19 @@ unreachable without it.
       now kept by `alo-net` and its disk cache; and every hop after the
       first judged by the document's `connect-src` with its sources' paths
       ignored, as CSP3 has it for a redirected request (queue item 340,
-      `alo-net`'s `Request::redirected`)
+      `alo-net`'s `Request::redirected`); and a request that outlives its
+      page (ADR 0040, queue item 369): `FetchAsk`'s `keepalive` claim across
+      the wire, `Purpose::Beacon` under `connect-src`, the browser process's
+      own 64 KiB count per document (`fetch_kept.rs`, `Rule::KeptAlive`), a
+      left page's keep-alive asks decided rather than refused and made after
+      it has gone, answered by nobody (`Tabs::leaving`,
+      `Answering::outlive`), and what is still waiting when the browser
+      closes recorded as not made (`Answering::close`, `Rule::Closed`)
       · Owed: `Request`, `Headers` and `Response`
       a page constructs, other bodies, `json()`, a `signal` and the `init`
-      members refused by name, each when a page needs one; keep-alive,
-      decided by ADR 0040 and not built — `sendBeacon` (369) and
-      `keepalive` on `fetch` (375); and asynchronous
-      `XMLHttpRequest` when a page uses one (336)
+      members refused by name, each when a page needs one; `keepalive` on
+      `fetch` (375); and asynchronous `XMLHttpRequest` when a page uses one
+      (336)
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action,
       caused it. No other engine has needed to answer that, and an agent-driven
@@ -1118,12 +1124,13 @@ unreachable without it.
       `Stop` (`deadline.rs`); `FromRenderer::Left` and `Loaded`'s `left`
       carry the page's last fetches, which `fetch_decide::leaving` refuses by
       name and `Tabs::close` and the conductor record; `PageTransitionEvent`
-      (`alo-bindings`' `interface/page_transition_event.rs`) · Owed: its
-      immutable prototype (363), the legacy target override (374),
-      `sendBeacon` (369, decided by ADR 0040: a left page's keep-alive
-      request is made, by every rule a fetch is, under 64 KiB in flight;
-      nothing built), choosing among tabs telling each
-      (297), going there (85), a
+      (`alo-bindings`' `interface/page_transition_event.rs`); and
+      `navigator.sendBeacon` (ADR 0040, queue item 369, `alo-bindings`'
+      `beacon.rs`), counted against 64 KiB in flight in the document cell
+      and freed as each answer arrives, so `alo-sites-cta` reports with no
+      beacon lent and its reports are made after it has gone · Owed: its
+      immutable prototype (363), the legacy target override (374), choosing
+      among tabs telling each (297), going there (85), a
       link's download (264), each element's own interface (262), focus
       (258) and event handler attributes (259)
 - [ ] **Forms**: the controls, constraint validation, submission, file inputs

@@ -53,10 +53,15 @@
 //!
 //! ADR 0039 § 2: closing the window closes every tab, and each tab's page is
 //! left as it goes — `pagehide`, `hidden`, `unload`, given a second — by
-//! [`Tabs::close`]. What such a page asks to fetch is refused by name (§ 4)
-//! and written into the session's record here, as is what a page replaced by
-//! a load asked for. The window waits on none of it once it has asked to
-//! close (ADR 0024 § 2): this thread finishes leaving behind it.
+//! [`Tabs::close`]. What such a page asks to fetch without asking to outlive
+//! it is refused by name (§ 4) and written into the session's record here,
+//! as is what a page replaced by a load asked for. What it asks to outlive
+//! it — a beacon — is decided as any fetch is and queued behind the rest,
+//! to be made after the page has gone and answered by nobody (ADR 0040
+//! § 3). The window waits on none of it once it has asked to close (ADR 0024
+//! § 2): this thread finishes leaving behind it, and **makes nothing more**:
+//! every beacon still waiting when the browser closes is written into the
+//! record as not made, because it closed.
 //!
 //! # Why a burst of resizes is one resize
 //!
@@ -410,24 +415,32 @@ impl Conducting {
         news
     }
 
-    /// Close every tab, which stops every renderer (item 64's lifecycle).
+    /// Close every tab, which stops every renderer (item 64's lifecycle),
+    /// and make nothing more: what is still waiting is not made, and each
+    /// beacon among it is recorded so (ADR 0040 § 3).
     fn close_everything(&mut self) {
         let open: Vec<TabId> = self.tabs.all().iter().map(alo_renderer::Tab::id).collect();
         for id in open {
             self.tabs.close(id);
         }
         self.record_left();
+        self.fetches.close(&mut self.tabs, &mut self.network.pool);
         self.selected = None;
         self.waiting = None;
     }
 
     /// Write every fetch a page asked for as it was left, and was refused,
-    /// into the session's record (ADR 0039 § 4): nothing is made, and
-    /// nobody is answered, since the page that asked is gone.
+    /// into the session's record (ADR 0039 § 4), and queue every one it
+    /// asked to outlive it, to be made after it has gone and answered by
+    /// nobody (ADR 0040 § 3).
     fn record_left(&mut self) {
         for leaving in self.tabs.left() {
             for refusal in &leaving.refused {
                 refusal.record(&mut self.network.pool);
+            }
+            if let Some(document) = leaving.document {
+                self.fetches
+                    .outlive(leaving.tab, document, leaving.outliving);
             }
         }
     }

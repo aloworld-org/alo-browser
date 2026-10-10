@@ -17,6 +17,11 @@
 //! **An answer nothing waits for is answered by nobody**: an ask of a page
 //! that has gone, whose promises went with its heap, or a number the page
 //! never chose. It is said, and the page is not touched.
+//!
+//! **Except a beacon's** (ADR 0040 § 3), which nothing on the page ever
+//! waits for: its arrival takes its bytes off the page's keep-alive count
+//! ([`Held::arrived`]), so that `sendBeacon` may send again, and nothing is
+//! said, because nothing went wrong.
 
 use crate::fetch::Fetched;
 use crate::held::Held;
@@ -25,10 +30,18 @@ use crate::run_to::{Said, run_to};
 /// Deliver `fetched` to the page `held` holds, and say what came of it.
 pub(crate) fn deliver(held: &mut Held, fetched: &Fetched) -> Vec<String> {
     let mut said = Said::about("the answer to a fetch");
+    let kept_alive = match held.arrived(fetched.number) {
+        Ok(kept_alive) => kept_alive,
+        Err(why) => {
+            said.say(&why);
+            return said.lines();
+        }
+    };
     match held.deliver(fetched.number, fetched.answer.responded()) {
         Ok(Some(seq)) => {
             run_to(held, seq, &mut said);
         }
+        Ok(None) if kept_alive => {}
         Ok(None) => said.say(&format_args!(
             "nothing on this page is waiting for fetch {}, so its answer was not delivered",
             fetched.number

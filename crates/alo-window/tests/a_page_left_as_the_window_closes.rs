@@ -6,10 +6,15 @@
 //!
 //! Closing the window closes every tab, and each tab's page is left as it
 //! goes: its `pagehide` listener runs, in the real renderer process, before
-//! that process is reaped. What the listener asks to fetch is refused by
-//! name — a fetch that outlives its page is not made yet — and written into
-//! the session's record as the page's own document's, which the conductor
-//! hands back when it finishes.
+//! that process is reaped. What the listener asks to fetch without asking to
+//! outlive the page is refused by name, and written into the session's
+//! record as the page's own document's, which the conductor hands back when
+//! it finishes.
+//!
+//! Queue item 369 (ADR 0040 § 3): a beacon it sends as it goes is decided,
+//! and would be made after the page has gone — but the browser is closing,
+//! and a closed browser makes nothing more. The beacon is written into the
+//! record as not made, because the browser closed.
 
 use alo_layout::Size;
 use alo_net::activity::Happened;
@@ -49,7 +54,8 @@ fn closing_the_window_leaves_the_page_and_records_what_it_asked_for() {
     };
     let page = Page::new(
         "<div></div><script>window.addEventListener('pagehide', function (e) { \
-           fetch('/bye?' + e.type + '-' + document.visibilityState); });</script>",
+           fetch('/bye?' + e.type + '-' + document.visibilityState); \
+           navigator.sendBeacon('/last', 't=0'); });</script>",
         Size::ZERO,
     )
     .at(url.clone())
@@ -98,4 +104,21 @@ fn closing_the_window_leaves_the_page_and_records_what_it_asked_for() {
         matches!(entry.cause(), Cause::Document { .. }),
         "the page's own: {entry:?}"
     );
+
+    // The beacon: decided, as the page's own, and never made.
+    let beacons: Vec<_> = network
+        .pool
+        .activity()
+        .entries()
+        .filter(|entry| entry.url().serialised.contains("/last"))
+        .collect();
+    let [beacon] = beacons.as_slice() else {
+        panic!("one beacon recorded: {beacons:?}");
+    };
+    assert_eq!(beacon.purpose(), &alo_net::Purpose::Beacon);
+    assert!(
+        matches!(beacon.happened(), Happened::Refused { rule } if rule.contains("the browser closed")),
+        "{beacon:?}"
+    );
+    assert_eq!(beacon.cause(), entry.cause(), "the same document's");
 }

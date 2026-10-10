@@ -93,11 +93,14 @@ pub fn what_to_do(request: &Request) -> Verdict {
         // refused for the other reason: it carries the URLs a secure page was
         // refused, and sending that in clear would hand it to exactly the
         // attacker the policy was written about.
-        Purpose::Script | Purpose::Style | Purpose::Fetch | Purpose::Document | Purpose::Report => {
-            Verdict::Refused {
-                what: request.purpose.to_string(),
-            }
-        }
+        Purpose::Script
+        | Purpose::Style
+        | Purpose::Fetch
+        | Purpose::Beacon
+        | Purpose::Document
+        | Purpose::Report => Verdict::Refused {
+            what: request.purpose.to_string(),
+        },
         // Replaced in transit, this is a wrong picture.
         Purpose::Image => match secured(&request.url) {
             Some(instead) => Verdict::TryItSecurely { instead },

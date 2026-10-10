@@ -64,6 +64,14 @@ pub enum Purpose {
     Script,
     /// A fetch a script made.
     Fetch,
+    /// A beacon a script sent: a page's last report, which may be made after
+    /// its page has gone (ADR 0040 § 2).
+    ///
+    /// Its own purpose rather than a [`Purpose::Fetch`] so that a person
+    /// reading what a page sent can tell its last word from its ordinary
+    /// traffic, as Fetch tells them apart by initiator type. `connect-src`
+    /// governs it as it governs a fetch.
+    Beacon,
     /// A violation report, which the *engine* sends on a page's behalf rather
     /// than the page asking for it.
     ///
@@ -83,6 +91,7 @@ impl fmt::Display for Purpose {
             Purpose::Image => "image",
             Purpose::Script => "script",
             Purpose::Fetch => "fetch",
+            Purpose::Beacon => "beacon",
             Purpose::Report => "violation report",
         })
     }

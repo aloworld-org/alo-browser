@@ -50,8 +50,11 @@ pub struct Delivery {
 
 /// The task that delivers the answer to ask `number` — `responded`, or a
 /// network error for [`None`] — to the document `cell` holds, or [`None`]
-/// when nothing there waits for it: an ask of a page that has gone, or a
-/// number the browser process sent that the page never chose.
+/// when nothing there waits for it: an ask of a page that has gone, a
+/// number the browser process sent that the page never chose, or a beacon,
+/// which no promise waits for. A keep-alive ask's body is taken off the
+/// document's count by [`crate::fetching::answered`], as the answer
+/// arrives.
 ///
 /// **A safepoint** when there is a response to make. `cell` must be rooted
 /// by the caller. The response is in the answer's arguments, a Rust local:

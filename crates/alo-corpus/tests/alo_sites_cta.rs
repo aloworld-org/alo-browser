@@ -32,10 +32,21 @@
 //! browser tells it when it is hidden, and its `visibilitychange` listener
 //! reports the same. Since queue item 373 the browser leaves it, firing its
 //! `pagehide` itself, and what it sends is carried out of the renderer as
-//! the page goes.
+//! the page goes. And since queue item 369 what it sends with is the
+//! engine's own `navigator.sendBeacon`: no beacon is lent, and each report
+//! is a beacon the browser process decides as the document's, to be made
+//! after the page has gone (`alo-renderer`'s `a_beacon_outlives_its_page.rs`
+//! makes them, from this page's markup served on this machine).
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
+use alo_net::cause::{Cause, Identities};
+use alo_net::cors::{Credentials, Mode};
+use alo_net::csp::Policies;
+use alo_renderer::fetch::{FetchAsk, Fetched};
+use alo_renderer::fetch_decide::{self, Asker, Decided};
+use alo_renderer::fetch_kept::KeptAlive;
+use alo_renderer::fetch_owed::Owed;
 use alo_renderer::message::Failure;
 use alo_renderer::{FromRenderer, ToRenderer, Visibility};
 
@@ -209,12 +220,12 @@ fn left(rendering: &Rendering, name: &str) -> Option<String> {
 /// So `record`, on `pagehide`, reaches 600 pixels down a page 600 tall, all
 /// of it, and reports a depth of 1000 per mille with `shape()`, the page's
 /// path and the window's width; then the seconds read, none on the corpus's
-/// clock. Nothing in a load fires `pagehide` (leaving does, below), and the beacon
-/// it sends with is queue item 369, so a later task lends what it needs and
-/// nothing else, as a timer or an event will run one: a beacon in
-/// `navigator.sendBeacon`'s place, a `pagehide`, and a click with `pageX` and
-/// `pageY` of `0`, which no event has yet. Run ordinarily and with the
-/// collector at every allocation.
+/// clock. Nothing in a load fires `pagehide` (leaving does, below), so a
+/// later task lends what it needs to read what is sent in one string, as a
+/// timer or an event will run one: a beacon in `navigator.sendBeacon`'s
+/// place, a `pagehide`, and a click with `pageX` and `pageY` of `0`, which no
+/// event has yet. Run ordinarily and with the collector at every
+/// allocation.
 #[test]
 fn its_script_reads_the_window_it_is_drawn_in_and_the_page_in_it() {
     for stress in [false, true] {
@@ -284,8 +295,8 @@ fn sent(renderer: &alo_renderer::Renderer) -> Option<String> {
 
 /// Queue item 364 (ADR 0039 § 1): the page is told it is hidden, and its
 /// own `visibilitychange` listener sends what it measured — the depth, the
-/// path and the width, then the seconds — through a beacon a task lends
-/// (`sendBeacon` is queue item 369). Shown again, it starts counting and
+/// path and the width, then the seconds — through a beacon a task lends, to
+/// read what it sends in one string. Shown again, it starts counting and
 /// sends nothing; hidden again, `record` has already sent. The browser
 /// fires nothing else at it. Run ordinarily and with the collector at every
 /// allocation.
@@ -359,10 +370,10 @@ fn hidden_it_sends_what_it_measured_once() {
 /// Queue item 373 (ADR 0039 §§ 2–4): the browser leaves the page, and its
 /// own `pagehide` listener sends what it measured — the depth, the path and
 /// the width, then the seconds — through a beacon a task lends, which asks
-/// to fetch what it is given (`sendBeacon` is queue item 369). Its
-/// `visibilitychange` listener, hearing `hidden` next, has already sent and
-/// sends nothing more. What it asked for is carried out as the page goes,
-/// for the browser process to refuse; the renderer holds nothing after.
+/// to fetch what it is given. Its `visibilitychange` listener, hearing
+/// `hidden` next, has already sent and sends nothing more. What it asked for
+/// is carried out as the page goes, for the browser process to refuse, since
+/// a `fetch` does not outlive its page; the renderer holds nothing after.
 /// Run ordinarily and with the collector at every allocation.
 #[test]
 fn left_it_sends_what_it_measured_from_pagehide() {
@@ -406,4 +417,179 @@ fn left_it_sends_what_it_measured_from_pagehide() {
             FromRenderer::Failed(Failure::NothingLoaded)
         );
     }
+}
+
+/// What the page reports as it goes: read to the bottom of its window, at
+/// its root path and 800 wide; then no whole second spent.
+const REPORTS: [&str; 2] = ["d=1000&p=%2F&w=800", "t=0"];
+
+/// Where it reports to: its own server's `/_alo/collect`.
+const COLLECT: &str = "https://nordwind.alosites.com/_alo/collect";
+
+/// Each of `asks` as the page's own `sendBeacon` makes one — a `POST` of
+/// text, `no-cors`, credentials `include`, outliving its page — as its body.
+/// [`None`] for one that is not.
+fn sent_as_beacons(asks: &[FetchAsk]) -> Option<Vec<String>> {
+    asks.iter()
+        .map(|ask| {
+            let right = ask.url == COLLECT
+                && ask.method == "POST"
+                && ask.headers
+                    == [(
+                        "Content-Type".to_owned(),
+                        "text/plain;charset=UTF-8".to_owned(),
+                    )]
+                && (ask.mode, ask.credentials) == (Mode::NoCors, Credentials::Include)
+                && ask.keepalive.outlives()
+                && fetch_decide::purpose(ask) == alo_net::Purpose::Beacon;
+            right.then(|| String::from_utf8_lossy(&ask.body).into_owned())
+        })
+        .collect()
+}
+
+/// Queue item 369 (ADR 0040 §§ 3 and 5), with **no beacon lent**: the
+/// browser leaves the page, its `pagehide` listener finds the engine's own
+/// `navigator.sendBeacon`, and its two reports are carried out as the page
+/// goes. The browser process decides each as it decides a left page's
+/// keep-alive ask — by every rule a fetch is, as the document's, counted
+/// against 64 KiB — and each is a beacon to be made. Run ordinarily and with
+/// the collector at every allocation.
+#[test]
+fn left_its_reports_are_its_own_beacons_and_the_browser_makes_them() {
+    for stress in [false, true] {
+        let Some((_, mut rendering)) = cta() else {
+            panic!("the case renders");
+        };
+        let Rendering::Loaded(renderer, _) = &mut rendering else {
+            panic!("the case is loaded by a renderer");
+        };
+        let looping = renderer
+            .event_loop()
+            .unwrap_or_else(|| panic!("the page's script ran"));
+        looping.engine().objects().heap_mut().stress(stress);
+
+        let FromRenderer::Left { issues, fetches } = renderer.handle(ToRenderer::Leave) else {
+            panic!("the page was not left");
+        };
+        assert!(issues.is_empty(), "{issues:?}");
+        assert_eq!(
+            sent_as_beacons(&fetches),
+            Some(REPORTS.map(str::to_owned).to_vec()),
+            "stress: {stress}: {fetches:?}"
+        );
+
+        // The browser process's half, as `Tabs` decides a left page's ask
+        // that outlives it: against the page's own address and policies, as
+        // its document's.
+        let Ok(address) = alo_url::parse(ADDRESS) else {
+            panic!("an address");
+        };
+        let policies = Policies::none();
+        let document = Identities::default().a_document();
+        let cause = Cause::Document { document };
+        let mut kept = KeptAlive::default();
+        let (decided, lines) = Owed::default().decide(
+            &fetches,
+            &Asker {
+                url: &address,
+                policies: &policies,
+            },
+            &cause,
+            &mut kept,
+        );
+        assert!(lines.is_empty(), "{lines:?}");
+        for (made, body) in decided.iter().zip(REPORTS) {
+            let Decided::Make(fetch) = made else {
+                panic!("a report was refused: {made:?}");
+            };
+            assert_eq!(fetch.request.url.serialised, COLLECT);
+            assert_eq!(fetch.request.method, "POST");
+            assert_eq!(fetch.request.purpose, alo_net::Purpose::Beacon);
+            assert_eq!(fetch.request.body, body.as_bytes());
+            assert_eq!(fetch.request.cause, cause);
+            assert!(fetch.outlives());
+        }
+        assert_eq!(decided.len(), 2);
+        assert_eq!(
+            kept.of(document),
+            REPORTS.iter().map(|body| body.len()).sum::<usize>()
+        );
+        assert_eq!(
+            renderer.handle(ToRenderer::Paint),
+            FromRenderer::Failed(Failure::NothingLoaded)
+        );
+    }
+}
+
+/// Queue item 369, hidden rather than left: the same two reports are asked
+/// while the page is held, from its `visibilitychange` listener, with no
+/// beacon lent. Until they are answered the page may not have 64 KiB more
+/// in flight, and `sendBeacon` says `false`; their answers arrive as the
+/// browser process sends them, and free the count. Run ordinarily and with
+/// the collector at every allocation.
+#[test]
+fn hidden_its_reports_are_asked_and_their_answers_free_the_count() {
+    const FULL: &str = "var big = 'x'; for (var i = 0; i < 16; i++) { big = big + big; } \
+         document.documentElement.setAttribute('data-full', \
+           '' + navigator.sendBeacon('/_alo/collect', big));";
+    for stress in [false, true] {
+        let Some((_, mut rendering)) = cta() else {
+            panic!("the case renders");
+        };
+        let Rendering::Loaded(renderer, _) = &mut rendering else {
+            panic!("the case is loaded by a renderer");
+        };
+        let looping = renderer
+            .event_loop()
+            .unwrap_or_else(|| panic!("the page's script ran"));
+        looping.engine().objects().heap_mut().stress(stress);
+
+        let FromRenderer::Delivered {
+            issues, fetches, ..
+        } = renderer.handle(ToRenderer::Visibility(Visibility::Hidden))
+        else {
+            panic!("hiding the page was not a task");
+        };
+        assert!(issues.is_empty(), "{issues:?}");
+        assert_eq!(
+            sent_as_beacons(&fetches),
+            Some(REPORTS.map(str::to_owned).to_vec()),
+            "stress: {stress}"
+        );
+
+        let full = |renderer: &mut alo_renderer::Renderer| {
+            let looping = renderer
+                .event_loop()
+                .unwrap_or_else(|| panic!("the page's script ran"));
+            let queued = looping.queue_script("full", FULL);
+            assert!(queued.is_ok(), "{queued:?}");
+            assert!(
+                looping
+                    .run_next()
+                    .is_some_and(|turn| turn.reports.is_empty())
+            );
+            left_on(renderer, "data-full")
+        };
+        assert_eq!(full(renderer).as_deref(), Some("false"), "stress: {stress}");
+
+        for ask in &fetches {
+            let answered =
+                renderer.handle(ToRenderer::Fetched(Box::new(Fetched::failed(ask.number))));
+            assert!(
+                matches!(answered, FromRenderer::Delivered { ref issues, .. } if issues.is_empty()),
+                "{answered:?}"
+            );
+        }
+        assert_eq!(full(renderer).as_deref(), Some("true"), "stress: {stress}");
+    }
+}
+
+/// The root element's attribute `name`, as a script on `renderer`'s page
+/// left it.
+fn left_on(renderer: &alo_renderer::Renderer, name: &str) -> Option<String> {
+    let document = renderer.document()?;
+    let html = document
+        .descendants(document.root())
+        .find(|id| document.element(*id).is_some())?;
+    document.element(html)?.attr(name).map(ToOwned::to_owned)
 }

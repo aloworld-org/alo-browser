@@ -37,12 +37,29 @@
 //! document that has gone is answered by nobody (ADR 0032 § 1), and a request
 //! made for it would be a request nobody is waiting on, written into the
 //! record as though somebody were.
+//!
+//! **Except a request that asked to outlive its page** (ADR 0040 § 3): a
+//! keep-alive fetch is still made once its document has gone — left, or
+//! replaced by the next — and its answer is read, filtered and recorded as
+//! any is, and sent to nobody. So is each keep-alive fetch a page asked for
+//! as it was left ([`Answering::outlive`]), which takes its turn behind
+//! everything already waiting, as any fetch does. Each one made is taken off
+//! its document's count ([`Tabs::outlived`]).
+//!
+//! # When the browser closes
+//!
+//! What is still waiting then is not made ([`Answering::close`]): a browser
+//! the person has told to close does not go on talking to the network for
+//! pages they have left. Each keep-alive fetch among it is written into the
+//! record as not made, and why; the rest belong to documents that have gone,
+//! and are answered by nobody as above.
 
 use std::collections::VecDeque;
 
 use alo_net::cause::DocumentId;
+use alo_net::pool::Pool;
 
-use crate::fetch_decide;
+use crate::fetch_decide::{self, Fetch, Refusal, Rule};
 use crate::fetch_make::{self, Network};
 use crate::message::FromRenderer;
 use crate::sheet_decide;
@@ -69,6 +86,20 @@ enum Owing {
     Fetch(fetch_decide::Decided),
     /// A style sheet it links.
     Sheet(sheet_decide::Decided),
+    /// A keep-alive fetch its page asked for as it was left: made, and
+    /// answered by nobody.
+    Outliving(Box<Fetch>),
+}
+
+impl Owing {
+    /// The keep-alive fetch to be made, if this is one.
+    fn outliving(&self) -> Option<&Fetch> {
+        match self {
+            Owing::Outliving(fetch) => Some(fetch),
+            Owing::Fetch(fetch_decide::Decided::Make(fetch)) if fetch.outlives() => Some(fetch),
+            Owing::Fetch(_) | Owing::Sheet(_) => None,
+        }
+    }
 }
 
 /// The fetches and sheets waiting to be made, oldest first.
@@ -111,15 +142,37 @@ impl Answering {
             .extend(sheets.chain(fetches).map(|owing| (id, document, owing)));
     }
 
-    /// Answer the oldest fetch or sheet whose document is still showing,
-    /// through `network`, and queue what its delivery asks for. [`None`] when
+    /// Queue the keep-alive fetches `document`, shown by tab `id`, asked
+    /// for as it was left, behind those already waiting: each is made in its
+    /// turn and answered by nobody.
+    pub fn outlive(&mut self, id: TabId, document: DocumentId, fetches: Vec<Fetch>) {
+        self.waiting.extend(
+            fetches
+                .into_iter()
+                .map(|fetch| (id, document, Owing::Outliving(Box::new(fetch)))),
+        );
+    }
+
+    /// Answer the oldest fetch or sheet whose document is still showing, or
+    /// make the oldest keep-alive fetch whatever became of its page, through
+    /// `network`, and queue what its delivery asks for. [`None`] when
     /// nothing is waiting for anybody.
     pub fn answer_next(&mut self, tabs: &mut Tabs, network: &mut Network) -> Option<Answered> {
         loop {
             let (id, document, owing) = self.waiting.pop_front()?;
-            if tabs.tab(id).and_then(Tab::document) != Some(document) {
-                continue;
-            }
+            let showing = tabs.tab(id).and_then(Tab::document) == Some(document);
+            let owing = match owing {
+                Owing::Outliving(fetch) => {
+                    return Some(outlived(tabs, network, id, document, &fetch));
+                }
+                Owing::Fetch(fetch_decide::Decided::Make(fetch))
+                    if fetch.outlives() && !showing =>
+                {
+                    return Some(outlived(tabs, network, id, document, &fetch));
+                }
+                _ if !showing => continue,
+                owing => owing,
+            };
             let mut said = Vec::new();
             let delivered = match owing {
                 Owing::Fetch(decided) => {
@@ -131,6 +184,7 @@ impl Answering {
                         }
                         fetch_decide::Decided::Make(fetch) => {
                             let made = fetch_make::make(&fetch, network);
+                            tabs.outlived(document, &fetch);
                             said.extend(made.said);
                             made.fetched
                         }
@@ -152,6 +206,8 @@ impl Answering {
                     };
                     tabs.styled(id, answer)
                 }
+                // Made above, whether or not its page is showing.
+                Owing::Outliving(_) => continue,
             };
             if matches!(delivered, Ok(Some(_))) {
                 self.take_from(tabs, id);
@@ -162,5 +218,50 @@ impl Answering {
                 said,
             });
         }
+    }
+
+    /// The browser is closing: make nothing more. Each keep-alive fetch
+    /// still waiting is written into `pool`'s record as not made, because
+    /// the browser closed (ADR 0040 § 3), and taken off its document's
+    /// count; everything else waiting belongs to a document that has gone
+    /// and is answered by nobody. How many were recorded.
+    pub fn close(&mut self, tabs: &mut Tabs, pool: &mut Pool) -> usize {
+        let mut recorded = 0_usize;
+        for (_, document, owing) in core::mem::take(&mut self.waiting) {
+            let Some(fetch) = owing.outliving() else {
+                continue;
+            };
+            tabs.outlived(document, fetch);
+            let refusal = Refusal {
+                number: fetch.number,
+                asked: fetch.request.url.serialised.clone(),
+                url: Some(fetch.request.url.clone()),
+                rule: Rule::Closed,
+                cause: fetch.request.cause.clone(),
+                purpose: fetch.request.purpose.clone(),
+            };
+            if refusal.record(pool) {
+                recorded = recorded.saturating_add(1);
+            }
+        }
+        recorded
+    }
+}
+
+/// Make `fetch`, which `document` in tab `id` asked to outlive it, and
+/// answer nobody: its document has gone, or is going (ADR 0040 § 3).
+fn outlived(
+    tabs: &mut Tabs,
+    network: &mut Network,
+    id: TabId,
+    document: DocumentId,
+    fetch: &Fetch,
+) -> Answered {
+    let made = fetch_make::make(fetch, network);
+    tabs.outlived(document, fetch);
+    Answered {
+        tab: id,
+        delivered: Ok(None),
+        said: made.said,
     }
 }

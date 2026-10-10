@@ -22,7 +22,7 @@
 //! failure carries no reason, so that the page cannot tell a refused
 //! connection from a refused read.
 
-use alo_bindings::fetching::Asked;
+use alo_bindings::fetching::{Asked, Keepalive};
 use alo_bindings::{Responded, response};
 use alo_net::cors::{Credentials, Mode};
 use alo_net::redirect;
@@ -54,6 +54,11 @@ pub struct FetchAsk {
     /// The referrer policy the page asked for, if it asked for one this
     /// engine knows.
     pub referrer: Option<Policy>,
+    /// Whether the page asked for it to outlive its document, and as what
+    /// (ADR 0040 § 2). A claim like the rest: it gains a page nothing the
+    /// browser process does not bound by its own count
+    /// ([`crate::fetch_kept`]).
+    pub keepalive: Keepalive,
 }
 
 impl From<Asked> for FetchAsk {
@@ -70,6 +75,7 @@ impl From<Asked> for FetchAsk {
             credentials: asked.credentials,
             redirect: asked.redirect,
             referrer: asked.referrer,
+            keepalive: asked.keepalive,
         }
     }
 }

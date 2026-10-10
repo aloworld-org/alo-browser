@@ -11,6 +11,7 @@
 //! promises.
 
 use alo_agent::verb::Outcome;
+use alo_bindings::fetching::Keepalive;
 use alo_box::tree::BoxId;
 use alo_layout::Size;
 use alo_net::cors::{Credentials, Mode};
@@ -24,8 +25,8 @@ use alo_renderer::wire::{
 use alo_renderer::{Page, Renderer};
 use alo_text::FontDatabase;
 
-/// One ask of every mode, credentials mode, redirect mode and referrer
-/// policy, with headers and a body.
+/// One ask of every mode, credentials mode, redirect mode, referrer policy
+/// and keep-alive claim, with headers and a body.
 fn asks() -> Vec<FetchAsk> {
     let modes = [Mode::Cors, Mode::NoCors, Mode::SameOrigin, Mode::Navigate];
     let credentials = [
@@ -53,6 +54,8 @@ fn asks() -> Vec<FetchAsk> {
     let mut credentials = credentials.iter().cycle();
     let mut redirects = redirects.iter().cycle();
     let mut policies = policies.iter().cycle();
+    let keepalives = [Keepalive::Not, Keepalive::Fetch, Keepalive::Beacon];
+    let mut keepalives = keepalives.iter().cycle();
     (0..12u8)
         .filter_map(|at| {
             Some(FetchAsk {
@@ -72,6 +75,7 @@ fn asks() -> Vec<FetchAsk> {
                 credentials: *credentials.next()?,
                 redirect: *redirects.next()?,
                 referrer: *policies.next()?,
+                keepalive: *keepalives.next()?,
             })
         })
         .collect()
@@ -244,9 +248,10 @@ fn every_byte_of_every_message_changed_is_read_or_refused_never_a_panic() {
     }
 }
 
-/// The last ask's four tags, from the end of a `Delivered` carrying one —
-/// before its empty list of style sheets, eight bytes of count: referrer,
-/// redirect, credentials, mode.
+/// The last ask's five tags, from the end of a `Delivered` carrying one —
+/// before its empty list of style sheets, eight bytes of count: keep-alive,
+/// referrer, redirect, credentials, mode. A keep-alive claim is one of three
+/// tags, and a renderer naming a fourth is refused rather than believed.
 #[test]
 fn an_ask_tagged_with_something_nobody_has_is_refused_by_name() {
     let mut one = asks().remove(0);
@@ -260,10 +265,12 @@ fn an_ask_tagged_with_something_nobody_has_is_refused_by_name() {
     });
     let end = whole.len() - 8;
     for (from_end, value, said) in [
-        (1, 10u8, "referrer policy tagged 9"),
-        (2, 3, "redirect mode tagged 3"),
-        (3, 3, "credentials tagged 3"),
-        (4, 4, "mode tagged 4"),
+        (1, 3u8, "keepalive tagged 3"),
+        (1, 255, "keepalive tagged 255"),
+        (2, 10, "referrer policy tagged 9"),
+        (3, 3, "redirect mode tagged 3"),
+        (4, 3, "credentials tagged 3"),
+        (5, 4, "mode tagged 4"),
     ] {
         let mut strange = whole.clone();
         if let Some(byte) = strange.get_mut(end - from_end) {

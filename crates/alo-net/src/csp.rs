@@ -253,7 +253,7 @@ impl Name {
             Purpose::Script => Some(Name::Script),
             Purpose::Style => Some(Name::Style),
             Purpose::Image => Some(Name::Image),
-            Purpose::Fetch => Some(Name::Connect),
+            Purpose::Fetch | Purpose::Beacon => Some(Name::Connect),
             Purpose::Document | Purpose::Report => None,
         }
     }
@@ -1379,6 +1379,33 @@ mod tests {
         .asked_by(Origin::of(&url("https://example.com/page")));
         assert!(policies.allows(&post, None).is_ok());
         assert!(policies.violations(&post, None).is_empty());
+    }
+
+    /// ADR 0040 § 2: a beacon is governed by `connect-src`, as CSP says, and
+    /// by `default-src` behind it, exactly as a fetch is.
+    #[test]
+    fn a_beacon_is_governed_as_a_fetch_is() {
+        for policy in ["connect-src 'self'", "default-src 'self'"] {
+            let policies = enforcing(policy);
+            for purpose in [Purpose::Fetch, Purpose::Beacon] {
+                assert!(
+                    policies
+                        .allows(
+                            &asking("https://example.com/_alo/collect", purpose.clone()),
+                            None
+                        )
+                        .is_ok(),
+                    "{policy}: {purpose}"
+                );
+                let refused = policies
+                    .allows(&asking("https://collector.test/c", purpose.clone()), None)
+                    .map_err(|refusal| refusal.to_string());
+                assert!(
+                    refused.as_ref().is_err_and(|said| said.contains("-src")),
+                    "{policy}: {purpose}: {refused:?}"
+                );
+            }
+        }
     }
 
     /// A second `report-to` must not be able to send somebody else's

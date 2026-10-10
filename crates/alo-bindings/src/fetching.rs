@@ -28,6 +28,16 @@
 //! process's memory. What the asks waiting to be taken may add up to is
 //! bounded too, by [`MOST_ASKED_BYTES`], because they all cross in one
 //! answer and an answer is one message.
+//!
+//! # What may outlive the page
+//!
+//! An ask may claim to **outlive its document** ([`Keepalive`], ADR 0040
+//! § 2): a beacon, which the browser process makes even after the page has
+//! gone. A page may have at most [`MOST_KEPT_ALIVE`] bytes of such bodies in
+//! flight (§ 4), Fetch's own number, and this cell counts them from the ask
+//! until its answer arrives ([`answered`]), so that `sendBeacon`
+//! can answer `false` before it returns. The count is the page's to be told
+//! by; the browser process counts again and does not believe this one.
 
 use alo_js::heap::{Barrier, Ref, Tracer};
 use alo_js::object::Objects;
@@ -47,6 +57,32 @@ use crate::document_cell::DocumentCell;
 /// never be crowded out of. A fetch past it rejects as a fetch that failed;
 /// the next message's answer has room again.
 pub const MOST_ASKED_BYTES: usize = 32 * 1024 * 1024;
+
+/// The most bytes of body a document's keep-alive asks may have in flight
+/// together: 64 KiB, Fetch's own number (ADR 0040 § 4), which pages are
+/// written against. The renderer counts it so a page is told; the browser
+/// process counts it again because the renderer's count is a claim.
+pub const MOST_KEPT_ALIVE: usize = 64 * 1024;
+
+/// Whether an ask outlives its document, and as what (ADR 0040 §§ 2–3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Keepalive {
+    /// It does not: once its page has gone, it is not made.
+    #[default]
+    Not,
+    /// A fetch with `keepalive` set, which is still a fetch (queue item 375:
+    /// no page's bindings ask one yet).
+    Fetch,
+    /// `navigator.sendBeacon`'s, recorded as a beacon.
+    Beacon,
+}
+
+impl Keepalive {
+    /// Whether it may be made after its page has gone.
+    pub const fn outlives(self) -> bool {
+        !matches!(self, Keepalive::Not)
+    }
+}
 
 /// One fetch a page asked for, as its bindings made it: every forbidden
 /// header already dropped, every value already one the request steps
@@ -71,6 +107,8 @@ pub struct Asked {
     pub redirect: redirect::Mode,
     /// The referrer policy the page asked for, if it asked for one.
     pub referrer: Option<Policy>,
+    /// Whether it may outlive its page.
+    pub keepalive: Keepalive,
 }
 
 impl Asked {
@@ -104,6 +142,9 @@ pub struct Fetches {
     waiting: Vec<(u64, Ref)>,
     /// The function a delivery calls, made once by [`crate::fetch::offer`].
     settle: Option<Ref>,
+    /// Each keep-alive ask whose answer has not arrived, with its body's
+    /// bytes: what [`MOST_KEPT_ALIVE`] counts.
+    kept_alive: Vec<(u64, usize)>,
 }
 
 impl Fetches {
@@ -118,11 +159,38 @@ impl Fetches {
         self.next
     }
 
-    /// Record `asked`, whose number must be [`Fetches::next_number`]'s.
+    /// The bytes of body the document's keep-alive asks have in flight.
+    pub fn kept_alive(&self) -> usize {
+        self.kept_alive
+            .iter()
+            .fold(0, |sum, (_, bytes)| sum.saturating_add(*bytes))
+    }
+
+    /// Whether a keep-alive body of `bytes` more stays within
+    /// [`MOST_KEPT_ALIVE`] beside those in flight.
+    pub fn may_keep_alive(&self, bytes: usize) -> bool {
+        self.kept_alive().saturating_add(bytes) <= MOST_KEPT_ALIVE
+    }
+
+    /// Record `asked`, whose number must be [`Fetches::next_number`]'s, and
+    /// count its body if it outlives its page.
     pub(crate) fn ask(&mut self, asked: Asked) {
         self.next = self.next.saturating_add(1);
         self.asked_bytes = self.asked_bytes.saturating_add(asked.bytes());
+        if asked.keepalive.outlives() {
+            self.kept_alive.push((asked.number, asked.body.len()));
+        }
         self.asked.push(asked);
+    }
+
+    /// The answer to ask `number` has arrived: take its body off the
+    /// keep-alive count if it was counted. Whether it was.
+    pub(crate) fn answered(&mut self, number: u64) -> bool {
+        let Some(at) = self.kept_alive.iter().position(|(held, _)| *held == number) else {
+            return false;
+        };
+        self.kept_alive.swap_remove(at);
+        true
     }
 
     /// Wait for the answer to ask `number` with `promise`, through the
@@ -180,7 +248,21 @@ impl Fetches {
                     .capacity()
                     .saturating_mul(size_of::<(u64, Ref)>()),
             )
+            .saturating_add(
+                self.kept_alive
+                    .capacity()
+                    .saturating_mul(size_of::<(u64, usize)>()),
+            )
     }
+}
+
+/// The answer to ask `number` has arrived at the document `cell` holds:
+/// take its body off the keep-alive count if it was a keep-alive ask (ADR
+/// 0040 § 4). Whether it was — so that an answer nothing waits for, which a
+/// beacon's always is, is known to be expected — or [`None`] if `cell` is
+/// not a document cell.
+pub fn answered(objects: &mut Objects, cell: Ref, number: u64) -> Option<bool> {
+    objects.write_embedded::<DocumentCell, _>(cell, |held, _| held.fetches.answered(number))
 }
 
 /// Take every ask the page has made since this was last called, oldest
@@ -207,6 +289,7 @@ mod tests {
             credentials: Credentials::SameOrigin,
             redirect: redirect::Mode::Follow,
             referrer: None,
+            keepalive: Keepalive::Not,
         }
     }
 
@@ -223,5 +306,25 @@ mod tests {
         assert_eq!(fetches.next_number(), 1);
         assert!(fetches.has_room_for(MOST_ASKED_BYTES - 50));
         assert!(!fetches.has_room_for(MOST_ASKED_BYTES));
+    }
+
+    #[test]
+    fn a_keep_alive_body_is_counted_until_its_answer_arrives() {
+        let mut fetches = Fetches::default();
+        let mut beacon = asked(0, MOST_KEPT_ALIVE - 1);
+        beacon.keepalive = Keepalive::Beacon;
+        assert!(fetches.may_keep_alive(MOST_KEPT_ALIVE));
+        fetches.ask(beacon);
+        // An ordinary fetch is not counted, whatever its body.
+        fetches.ask(asked(1, 10));
+        assert_eq!(fetches.kept_alive(), MOST_KEPT_ALIVE - 1);
+        assert!(fetches.may_keep_alive(1));
+        assert!(!fetches.may_keep_alive(2));
+        assert!(!fetches.answered(1), "not a keep-alive ask");
+        assert!(fetches.answered(0));
+        assert!(!fetches.answered(0), "answered once");
+        assert_eq!(fetches.kept_alive(), 0);
+        assert!(fetches.may_keep_alive(MOST_KEPT_ALIVE));
+        assert!(!fetches.may_keep_alive(MOST_KEPT_ALIVE + 1));
     }
 }

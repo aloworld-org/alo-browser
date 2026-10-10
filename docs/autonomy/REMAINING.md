@@ -1162,3 +1162,18 @@ browser process. 369 is now the first build, designed and eligible.
 `fetch(…, { keepalive: true })` is cut to **375**, opened by a page that
 uses it. 159 queue items are open. The next unused queue number is 376 and
 the next unused ADR 0041.
+
+Iteration 244 built item 369. `navigator.sendBeacon` is on
+`Navigator.prototype` (`alo-bindings`' `beacon.rs`), and an ask carries a
+`keepalive` claim (`Keepalive`) across the wire. The renderer counts
+keep-alive bodies in flight against 64 KiB and frees each as its answer
+arrives, and the browser process counts again (`fetch_kept.rs`) and refuses
+past it by `Rule::KeptAlive`. A beacon is recorded as `Purpose::Beacon`
+under `connect-src`. A left page's asks without `keepalive` are still
+refused by `Rule::Leaving`; its beacons are decided as the document's and
+made after it has gone, answered by nobody (`Tabs::leaving`,
+`Answering::outlive`). What is still waiting when the browser closes is
+recorded as not made (`Answering::close`, `Rule::Closed`). alo Sites' page
+reports with no beacon lent. 375 is now the bindings' `keepalive` member
+alone, still waiting on a page. 158 queue items are open. The next unused
+queue number is 376 and the next unused ADR 0041.

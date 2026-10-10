@@ -712,6 +712,7 @@ fn purpose_tag(purpose: &Purpose) -> u8 {
         Purpose::Script => 3,
         Purpose::Fetch => 4,
         Purpose::Report => 5,
+        Purpose::Beacon => 6,
     }
 }
 
@@ -723,6 +724,7 @@ fn purpose_of(tag: u8) -> Result<Purpose, Unreadable> {
         3 => Ok(Purpose::Script),
         4 => Ok(Purpose::Fetch),
         5 => Ok(Purpose::Report),
+        6 => Ok(Purpose::Beacon),
         other => Err(unreadable(format!(
             "a record naming a purpose this engine does not have ({other})"
         ))),
@@ -831,6 +833,7 @@ mod tests {
                 Purpose::Script,
                 Purpose::Fetch,
                 Purpose::Report,
+                Purpose::Beacon,
             ] {
                 let mut deed = a_deed();
                 if let Some(did) = deed.requests.first_mut() {

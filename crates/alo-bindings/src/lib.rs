@@ -94,6 +94,12 @@
 //!   with [`fetching::take`] and delivers each answer as a task
 //!   ([`delivering::answer`]), settling the promise with a read-only
 //!   [`Response`] and its [`Headers`] ([`response`], [`headers`]).
+//! - `navigator.sendBeacon` (ADR 0040, queue item 369) is an ask too, one
+//!   that claims to outlive its page ([`fetching::Keepalive`]); the cell
+//!   counts what such asks have in flight against
+//!   [`fetching::MOST_KEPT_ALIVE`] so the call can answer `false`, and
+//!   takes each off the count as its answer arrives
+//!   ([`fetching::answered`]; the call's steps are `beacon.rs`'s).
 //!
 //! # What is not here yet
 //!
@@ -117,6 +123,7 @@
 //! `InputEvent`s ([`Firing::before_replacing`], [`Firing::replaced`], queue
 //! item 257), inheriting `UIEvent`, also without a constructor.
 
+mod beacon;
 mod clicking;
 mod define;
 pub mod delivering;

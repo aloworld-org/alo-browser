@@ -16,6 +16,8 @@
 //! - `productSub` `"20100101"` and `vendor` `""`: Gecko's.
 //! - `oscpu` `""` and `taintEnabled()` `false`: Gecko's partial interface;
 //!   HTML allows `oscpu` to be empty, and nothing has asked for more.
+//! - `sendBeacon(url, data)`: Beacon's partial interface (ADR 0040 § 5),
+//!   whose steps are [`crate::beacon`]'s.
 //!
 //! **Absent** (ADR 0030, *What this does not decide*): `language` and
 //! `languages` (item 128), `pdfViewerEnabled`, `plugins` and `mimeTypes`
@@ -29,6 +31,7 @@ use alo_js::object::Objects;
 use alo_js::object::native::{Answer, Call};
 use alo_js::{Escape, Value};
 
+use crate::beacon;
 use crate::define;
 use crate::navigator::Navigator;
 
@@ -59,6 +62,13 @@ pub(super) fn furnish(
         function_prototype,
         "taintEnabled",
         taint_enabled,
+    )?;
+    define::operation(
+        objects,
+        prototype,
+        function_prototype,
+        "sendBeacon",
+        beacon::send,
     )
 }
 

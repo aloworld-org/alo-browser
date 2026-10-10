@@ -22,14 +22,18 @@
 //! 5. A `same-origin` ask to another origin is refused before anything is
 //!    sent.
 //!
-//! **A page being left asks for nothing that is made** ([`leaving`]): every
-//! fetch it asks for in its leaving steps is refused by name, its URL parsed
-//! only so the record can say what it was, until keep-alive is decided (ADR
-//! 0039 § 4, item 369). The decision is here rather than in the renderer so
-//! that item 369 changes one process, and a compromised renderer's last asks
-//! are still seen.
+//! **A page being left has made only what may outlive it** ([`leaving`]):
+//! every fetch it asks for in its leaving steps that did not claim
+//! `keepalive` is refused by name, its URL parsed only so the record can say
+//! what it was, as Fetch aborts such a fetch when its group is terminated
+//! (ADR 0040 § 3). One that did claim it is decided here like any other ask
+//! (§ 2): a page's last report is held to every rule its fetches are. The
+//! decision is in this process rather than the renderer so that a
+//! compromised renderer's last asks are still seen.
 //!
-//! Then the request is built: `Purpose::Fetch`, the document's origin as the
+//! Then the request is built: `Purpose::Fetch` — `Purpose::Beacon` for
+//! `sendBeacon`'s, so that a page's last word reads as one in the record
+//! (ADR 0040 § 2) — the document's origin as the
 //! asker, an `Origin` header where Fetch sends one, and the `Referer` worked
 //! out here from this process's copy of the document's URL. What is left —
 //! the cookies from the jar under the document's top-level site, whether to
@@ -45,6 +49,7 @@
 //! a renderer that broke the boundary ([`Broke`]), because only a renderer
 //! that was taken over sends one (ADR 0032 § 2).
 
+use alo_bindings::fetching::Keepalive;
 use alo_net::cause::Cause;
 use alo_net::cookie::Partition;
 use alo_net::cors::{self, Credentials, Mode};
@@ -177,10 +182,24 @@ pub enum Rule {
     TooManyWaiting,
     /// Something the page's bindings never send.
     Broke(Broke),
-    /// Asked for as the page was being left (ADR 0039 § 4): a request whose
-    /// answer has no document to go to, which is the keep-alive fetch ADR
-    /// 0032 left undecided and item 369 decides.
+    /// Asked for as the page was being left without claiming to outlive it
+    /// (ADR 0039 § 4, narrowed by ADR 0040 § 3): a request whose answer has
+    /// no document to go to, which Fetch aborts as its group is terminated.
     Leaving,
+    /// It claimed to outlive its page, and its body would take what the
+    /// document's keep-alive requests have in flight past
+    /// [`crate::fetch_kept::MOST_KEPT_ALIVE`] (ADR 0040 § 4). Counted by
+    /// this process, whatever the renderer's own count said.
+    KeptAlive {
+        /// Its body's bytes.
+        bytes: usize,
+        /// What the document already had in flight.
+        held: usize,
+    },
+    /// Decided to outlive its page, and still waiting when the browser
+    /// closed (ADR 0040 § 3): a browser told to close sends nothing more for
+    /// pages that were left.
+    Closed,
 }
 
 impl fmt::Display for Rule {
@@ -217,8 +236,17 @@ impl fmt::Display for Rule {
             ),
             Rule::Broke(broke) => write!(f, "its renderer broke the boundary: {broke}"),
             Rule::Leaving => f.write_str(
-                "it was asked for as the page was being left, and a fetch that outlives its \
-                 page is not made yet",
+                "it was asked for as the page was being left, and did not ask to outlive it",
+            ),
+            Rule::KeptAlive { bytes, held } => write!(
+                f,
+                "it asked to outlive its page with {bytes} bytes, and the page already had \
+                 {held} in flight of the {} it may",
+                crate::fetch_kept::MOST_KEPT_ALIVE
+            ),
+            Rule::Closed => f.write_str(
+                "the browser closed before it was made, and a closed browser sends nothing more \
+                 for a page that was left",
             ),
         }
     }
@@ -237,6 +265,8 @@ pub struct Refusal {
     pub rule: Rule,
     /// Who caused the ask.
     pub cause: Cause,
+    /// What the ask was for: a fetch, or a beacon ([`purpose`]).
+    pub purpose: Purpose,
 }
 
 impl Refusal {
@@ -259,7 +289,8 @@ impl Refusal {
         let Some(url) = &self.url else {
             return false;
         };
-        let request = Request::get(url.clone(), self.cause.clone()).for_purpose(Purpose::Fetch);
+        let request =
+            Request::get(url.clone(), self.cause.clone()).for_purpose(self.purpose.clone());
         pool.refused(&request, self.rule.to_string());
         true
     }
@@ -308,9 +339,17 @@ pub struct Fetch {
     /// check is asked with: a linked style sheet's `<link nonce>` (ADR 0035
     /// § 2), and none for a script's fetch.
     pub nonce: Option<String>,
+    /// Whether it may be made after its page has gone (ADR 0040 § 3), and
+    /// as what. A linked style sheet never may.
+    pub keepalive: Keepalive,
 }
 
 impl Fetch {
+    /// Whether it may be made after its page has gone.
+    pub fn outlives(&self) -> bool {
+        self.keepalive.outlives()
+    }
+
     /// Whether it goes to another origin than the document's.
     pub fn is_cross_origin(&self) -> bool {
         !self
@@ -337,6 +376,15 @@ impl Decided {
             Decided::Make(fetch) => fetch.number,
             Decided::Refused(refusal) => refusal.number,
         }
+    }
+}
+
+/// What an ask is for, as the record names it: `sendBeacon`'s is a beacon,
+/// and every other a fetch — a keep-alive `fetch` included (ADR 0040 § 2).
+pub fn purpose(ask: &FetchAsk) -> Purpose {
+    match ask.keepalive {
+        Keepalive::Beacon => Purpose::Beacon,
+        Keepalive::Not | Keepalive::Fetch => Purpose::Fetch,
     }
 }
 
@@ -378,8 +426,10 @@ fn broken(ask: &FetchAsk, method: &str) -> Option<Broke> {
     None
 }
 
-/// Refuse `ask`, which a page asked for as it was being left, under `cause`
-/// (ADR 0039 § 4).
+/// Refuse `ask`, which a page asked for as it was being left without
+/// claiming to outlive it, under `cause` (ADR 0039 § 4, ADR 0040 § 3). An
+/// ask that did claim it is decided by [`decide`] instead, and the caller
+/// chooses which by [`Keepalive::outlives`].
 pub fn leaving(ask: &FetchAsk, cause: &Cause) -> Refusal {
     let url = if ask.url.len() > LONGEST_URL {
         None
@@ -392,6 +442,7 @@ pub fn leaving(ask: &FetchAsk, cause: &Cause) -> Refusal {
         url,
         rule: Rule::Leaving,
         cause: cause.clone(),
+        purpose: purpose(ask),
     }
 }
 
@@ -405,6 +456,7 @@ pub fn decide(ask: &FetchAsk, asker: &Asker<'_>, cause: &Cause) -> Decided {
             url,
             rule,
             cause: cause.clone(),
+            purpose: purpose(ask),
         }))
     };
     if ask.url.len() > LONGEST_URL {
@@ -431,7 +483,7 @@ pub fn decide(ask: &FetchAsk, asker: &Asker<'_>, cause: &Cause) -> Decided {
 
     let origin = Origin::of(asker.url);
     let mut request = Request::sending(url.clone(), &method, ask.body.clone(), cause.clone())
-        .for_purpose(Purpose::Fetch)
+        .for_purpose(purpose(ask))
         .asked_by(origin.clone());
     for (name, value) in &ask.headers {
         request.headers.add(name.clone(), value.clone());
@@ -491,6 +543,7 @@ pub fn decide(ask: &FetchAsk, asker: &Asker<'_>, cause: &Cause) -> Decided {
         referrer: policy,
         policies: asker.policies.clone(),
         nonce: None,
+        keepalive: ask.keepalive,
     }))
 }
 
@@ -529,6 +582,7 @@ mod tests {
             credentials: Credentials::SameOrigin,
             redirect: redirect::Mode::Follow,
             referrer: None,
+            keepalive: Keepalive::Not,
         }
     }
 
@@ -812,6 +866,116 @@ mod tests {
         assert_eq!(
             made(&asked).request.headers.get("Referer"),
             Some("https://shop.example/")
+        );
+    }
+
+    /// `sendBeacon`'s ask, as the bindings make it.
+    fn beacon(to: &str) -> FetchAsk {
+        FetchAsk {
+            method: "POST".to_owned(),
+            headers: vec![(
+                "Content-Type".to_owned(),
+                "text/plain;charset=UTF-8".to_owned(),
+            )],
+            body: b"t=0".to_vec(),
+            mode: Mode::NoCors,
+            credentials: Credentials::Include,
+            keepalive: Keepalive::Beacon,
+            ..ask(to)
+        }
+    }
+
+    #[test]
+    fn a_beacon_is_decided_as_a_fetch_is_and_made_as_a_beacon() {
+        let fetch = made(&beacon("https://shop.example/_alo/collect"));
+        assert_eq!(fetch.request.purpose, Purpose::Beacon);
+        assert_eq!(fetch.request.method, "POST");
+        assert_eq!(fetch.request.body, b"t=0");
+        assert_eq!(
+            fetch.request.headers.get("Content-Type"),
+            Some("text/plain;charset=UTF-8")
+        );
+        assert_eq!(
+            fetch.request.headers.get("Origin"),
+            Some("https://shop.example"),
+            "a POST says where it is from"
+        );
+        assert_eq!(
+            (fetch.mode, fetch.credentials),
+            (Mode::NoCors, Credentials::Include)
+        );
+        assert!(fetch.outlives());
+        assert_eq!(fetch.request.cause, cause());
+
+        // A keep-alive `fetch` outlives its page too, and is still a fetch.
+        let mut kept = ask("https://shop.example/x");
+        kept.keepalive = Keepalive::Fetch;
+        let fetch = made(&kept);
+        assert!(fetch.outlives());
+        assert_eq!(fetch.request.purpose, Purpose::Fetch);
+        assert!(!made(&ask("https://shop.example/x")).outlives());
+    }
+
+    #[test]
+    fn a_beacon_the_pages_connect_src_forbids_is_refused_by_name_and_recorded_as_one() {
+        let mut headers = Headers::new();
+        headers.add("Content-Security-Policy", "connect-src 'self'");
+        let policies = Policies::stated_by(&headers);
+        assert!(matches!(
+            decided_with(
+                &beacon("https://shop.example/_alo/collect"),
+                PAGE,
+                &policies
+            ),
+            Decided::Make(_)
+        ));
+        let Decided::Refused(refusal) =
+            decided_with(&beacon("https://collector.example/c"), PAGE, &policies)
+        else {
+            panic!("connect-src 'self' let a beacon go elsewhere");
+        };
+        assert!(
+            matches!(&refusal.rule, Rule::Policy { said } if said.contains("connect-src")),
+            "{refusal}"
+        );
+        assert!(!refusal.broke_the_boundary());
+        assert_eq!(refusal.purpose, Purpose::Beacon);
+        let mut pool = Pool::with_trust(alo_net::tls::Trust::of(&[]).unwrap());
+        assert!(refusal.record(&mut pool));
+        let line = pool.activity().latest().unwrap();
+        assert_eq!(line.purpose(), &Purpose::Beacon);
+        assert!(
+            matches!(line.happened(), Happened::Refused { rule } if rule.contains("connect-src"))
+        );
+
+        // And insecure from a secure page, as any fetch.
+        assert_eq!(
+            rule(&decided(&beacon("http://shop.example/_alo/collect"))),
+            Some(&Rule::Mixed)
+        );
+    }
+
+    #[test]
+    fn the_rules_a_beacon_meets_say_what_they_are() {
+        assert!(
+            Rule::KeptAlive {
+                bytes: 1,
+                held: 65_536
+            }
+            .to_string()
+            .contains("already had 65536 in flight of the 65536 it may")
+        );
+        assert!(Rule::Closed.to_string().contains("the browser closed"));
+        assert!(
+            Rule::Leaving
+                .to_string()
+                .contains("did not ask to outlive it")
+        );
+        // A refusal by name of a leaving page's beacon is still recorded as
+        // a beacon; only a caller choosing by `outlives` keeps it from here.
+        assert_eq!(
+            leaving(&beacon("https://shop.example/c"), &cause()).purpose,
+            Purpose::Beacon
         );
     }
 }

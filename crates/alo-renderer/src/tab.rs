@@ -98,7 +98,8 @@
 //! looking at anyway.
 
 use crate::fetch::{FetchAsk, Fetched};
-use crate::fetch_decide::{self, Asker};
+use crate::fetch_decide::{self, Asker, Fetch};
+use crate::fetch_kept::KeptAlive;
 use crate::fetch_owed::Owed;
 use crate::frame::Frame;
 use crate::host::{Gone, Renderers};
@@ -241,6 +242,7 @@ impl Tab {
         address: Url,
         policies: Policies,
         answer: &mut FromRenderer,
+        kept: &mut KeptAlive,
     ) {
         self.decided = None;
         let FromRenderer::Loaded {
@@ -266,7 +268,7 @@ impl Tab {
         self.fetches.clear();
         self.sheets_owed = sheet_owed::Owed::default();
         self.sheets.clear();
-        issues.extend(self.fetching(fetches, sheets, &cause));
+        issues.extend(self.fetching(fetches, sheets, &cause, kept));
     }
 
     /// An `Act`'s answer, passing: what the page asked for during the verb's
@@ -274,7 +276,7 @@ impl Tab {
     ///
     /// A tab showing no document cannot have acted; an ask from one is a
     /// renderer's claim with nobody to attribute it to, and is not believed.
-    fn acted(&mut self, action: ActionId, answer: &mut FromRenderer) {
+    fn acted(&mut self, action: ActionId, answer: &mut FromRenderer, kept: &mut KeptAlive) {
         self.decided = None;
         let (
             FromRenderer::Acted {
@@ -294,12 +296,12 @@ impl Tab {
             (Some(asked), Some(address)) => Some(navigate::decide(asked, address, cause.clone())),
             _ => None,
         };
-        issues.extend(self.fetching(fetches, sheets, &cause));
+        issues.extend(self.fetching(fetches, sheets, &cause, kept));
     }
 
     /// A delivered response's answer, passing: its task ran outside any
     /// agent's (ADR 0016 § 6), so what it asked for is the document's.
-    fn delivered(&mut self, answer: &mut FromRenderer) {
+    fn delivered(&mut self, answer: &mut FromRenderer, kept: &mut KeptAlive) {
         self.decided = None;
         let (
             FromRenderer::Delivered {
@@ -319,17 +321,24 @@ impl Tab {
             (Some(asked), Some(address)) => Some(navigate::decide(asked, address, cause.clone())),
             _ => None,
         };
-        issues.extend(self.fetching(fetches, sheets, &cause));
+        issues.extend(self.fetching(fetches, sheets, &cause, kept));
     }
 
     /// Decide the fetches and the linked style sheets an answer carried,
-    /// under `cause`, against this tab's own copy of its document, and keep
-    /// the decisions for whoever makes them. The lines to say among the
-    /// answer's issues come back.
+    /// under `cause`, against this tab's own copy of its document — a
+    /// keep-alive fetch counted in `kept` — and keep the decisions for
+    /// whoever makes them. The lines to say among the answer's issues come
+    /// back.
     ///
     /// A tab with no address has shown no document, so an ask from it is a
     /// claim with nobody to make it for, and is not believed.
-    fn fetching(&mut self, asks: &[FetchAsk], sheets: &[SheetAsk], cause: &Cause) -> Vec<String> {
+    fn fetching(
+        &mut self,
+        asks: &[FetchAsk],
+        sheets: &[SheetAsk],
+        cause: &Cause,
+        kept: &mut KeptAlive,
+    ) -> Vec<String> {
         let Some(address) = &self.address else {
             return Vec::new();
         };
@@ -337,7 +346,7 @@ impl Tab {
             url: address,
             policies: &self.policies,
         };
-        let (decided, mut lines) = self.owed.decide(asks, &asker, cause);
+        let (decided, mut lines) = self.owed.decide(asks, &asker, cause, kept);
         self.fetches.extend(decided);
         let (decided, mut said) = self.sheets_owed.decide(sheets, &asker, cause);
         self.sheets.extend(decided);
@@ -479,59 +488,37 @@ pub struct Tabs {
     /// acting in one page can open another — and because a document outlives
     /// the tab that showed it for as long as somebody may ask what it fetched.
     documents: Documents,
-    /// What pages said, and which of their fetches were refused, as they were
-    /// left (ADR 0039 §§ 2 and 4), waiting for whoever records them
-    /// ([`Tabs::left`]).
+    /// What pages said, and what became of their fetches, as they were
+    /// left (ADR 0039 §§ 2 and 4, ADR 0040 § 3), waiting for whoever records
+    /// and makes them ([`Tabs::left`]).
     leavings: Vec<Leaving>,
+    /// The bytes of body each document's keep-alive requests have in
+    /// flight, as this process decided them (ADR 0040 § 4): kept here
+    /// rather than on a tab because a page's beacons outlive it.
+    kept: KeptAlive,
 }
 
-/// A page left, as the browser process heard it (ADR 0039 §§ 2–4).
+/// A page left, as the browser process heard it (ADR 0039 §§ 2–4, ADR 0040
+/// § 3).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Leaving {
     /// The tab that showed it.
     pub tab: TabId,
+    /// The document it was, when this process knew one.
+    pub document: Option<DocumentId>,
     /// What its script said as it was left, and each refusal in words —
     /// empty when a `Load` replaced it, whose `Loaded` says it instead.
     pub said: Vec<String>,
-    /// Every fetch it asked for as it was left, refused by name until
-    /// keep-alive is decided (§ 4, item 369): each owed a line in the
-    /// session's record ([`fetch_decide::Refusal::record`]), and no answer,
-    /// since there is no page to give one to.
+    /// Every fetch it asked for as it was left that was refused: by name
+    /// when it did not ask to outlive the page ([`fetch_decide::Rule::Leaving`]),
+    /// and by the rule that refused it when it did. Each is owed a line in
+    /// the session's record ([`fetch_decide::Refusal::record`]), and no
+    /// answer, since there is no page to give one to.
     pub refused: Vec<fetch_decide::Refusal>,
-}
-
-impl Leaving {
-    /// The refusals of `asks`, made by `document` as it was left, and the
-    /// lines that say them. Asks from a page this process never saw a
-    /// document for are claims with nobody to attribute them to, and are not
-    /// believed: nothing is refused because nothing is recorded.
-    fn refusing(
-        tab: TabId,
-        document: Option<DocumentId>,
-        asks: &[FetchAsk],
-    ) -> (Self, Vec<String>) {
-        let refused: Vec<fetch_decide::Refusal> = match document {
-            Some(document) => {
-                let cause = Cause::Document { document };
-                asks.iter()
-                    .map(|ask| fetch_decide::leaving(ask, &cause))
-                    .collect()
-            }
-            None => Vec::new(),
-        };
-        let lines = refused
-            .iter()
-            .map(|refusal| crate::said::line(refusal))
-            .collect();
-        (
-            Self {
-                tab,
-                said: Vec::new(),
-                refused,
-            },
-            lines,
-        )
-    }
+    /// Every keep-alive fetch it asked for as it was left that was decided
+    /// to be made: made after the page has gone, by whoever records this,
+    /// and answered by nobody.
+    pub outliving: Vec<Fetch>,
 }
 
 impl Tabs {
@@ -544,6 +531,7 @@ impl Tabs {
             identities: Identities::default(),
             documents: Documents::default(),
             leavings: Vec::new(),
+            kept: KeptAlive::default(),
         }
     }
 
@@ -628,17 +616,91 @@ impl Tabs {
             return;
         };
         self.held.remove(&site);
-        let (mut leaving, mut lines) = Leaving::refusing(id, document, &fetches);
+        let (mut leaving, mut lines) = self.leaving(id, document, &fetches);
         leaving.said = issues;
         leaving.said.append(&mut lines);
         self.leavings.push(leaving);
     }
 
+    /// What `document`, shown by tab `holder`, asked for as it was left:
+    /// each ask that did not claim to outlive it refused by name, and each
+    /// that did decided as the document's, against the tab's own copy of it
+    /// and under every bound an ask is (ADR 0040 §§ 2–4). The lines that say
+    /// each refusal come back too.
+    ///
+    /// Asks from a page this process never saw a document for are claims
+    /// with nobody to attribute them to, and are not believed: nothing is
+    /// refused or made because nothing is recorded.
+    fn leaving(
+        &mut self,
+        holder: TabId,
+        document: Option<DocumentId>,
+        asks: &[FetchAsk],
+    ) -> (Leaving, Vec<String>) {
+        let mut leaving = Leaving {
+            tab: holder,
+            document,
+            said: Vec::new(),
+            refused: Vec::new(),
+            outliving: Vec::new(),
+        };
+        let Some(document) = document else {
+            return (leaving, Vec::new());
+        };
+        let cause = Cause::Document { document };
+        let (outlive, abort): (Vec<FetchAsk>, Vec<FetchAsk>) = asks
+            .iter()
+            .cloned()
+            .partition(|ask| ask.keepalive.outlives());
+        leaving.refused = abort
+            .iter()
+            .map(|ask| fetch_decide::leaving(ask, &cause))
+            .collect();
+        let mut lines: Vec<String> = leaving
+            .refused
+            .iter()
+            .map(|refusal| crate::said::line(refusal))
+            .collect();
+        let kept = &mut self.kept;
+        let tab = self.list.iter_mut().find(|tab| tab.id == holder);
+        if let Some(tab) = tab.filter(|tab| tab.document == Some(document))
+            && let Some(address) = &tab.address
+        {
+            let asker = Asker {
+                url: address,
+                policies: &tab.policies,
+            };
+            let (decided, mut said) = tab.owed.decide(&outlive, &asker, &cause, kept);
+            lines.append(&mut said);
+            for decided in decided {
+                match decided {
+                    fetch_decide::Decided::Make(fetch) => leaving.outliving.push(*fetch),
+                    fetch_decide::Decided::Refused(refusal) => leaving.refused.push(*refusal),
+                }
+            }
+        }
+        (leaving, lines)
+    }
+
     /// Every page left since this was last asked — by a closed tab, or
-    /// replaced by a `Load` — with what it said and the fetches refused,
-    /// taken, so each is recorded once.
+    /// replaced by a `Load` — with what it said, the fetches refused and the
+    /// keep-alive fetches to make, taken, so each is recorded and made once.
     pub fn left(&mut self) -> Vec<Leaving> {
         core::mem::take(&mut self.leavings)
+    }
+
+    /// A keep-alive fetch `document` asked for has been made, or will not
+    /// be: take its body off the document's count (ADR 0040 § 4).
+    pub fn outlived(&mut self, document: DocumentId, fetch: &Fetch) {
+        if fetch.outlives() {
+            self.kept.release(document, fetch.request.body.len());
+        }
+    }
+
+    /// The bytes of body `document`'s keep-alive requests have in flight,
+    /// as this process counts them.
+    pub fn kept_alive(&self, document: DocumentId) -> usize {
+        self.kept.of(document)
     }
 
     /// The sites that still have a tab open on them.
@@ -721,18 +783,18 @@ impl Tabs {
         });
         let mut answer = self.ask(id, &ToRenderer::Load(Box::new(page)))?;
         if let FromRenderer::Loaded { left, issues, .. } = &mut answer {
-            let (leaving, mut lines) = Leaving::refusing(
+            let (leaving, mut lines) = self.leaving(
                 replaced.map_or(id, |(holder, _)| holder),
                 replaced.map(|(_, document)| document),
                 &core::mem::take(left),
             );
             issues.append(&mut lines);
-            if !leaving.refused.is_empty() {
+            if !leaving.refused.is_empty() || !leaving.outliving.is_empty() {
                 self.leavings.push(leaving);
             }
         }
         if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
-            tab.loaded(document, address, policies, &mut answer);
+            tab.loaded(document, address, policies, &mut answer, &mut self.kept);
         }
         Ok(answer)
     }
@@ -774,7 +836,7 @@ impl Tabs {
         let action = self.identities.an_action();
         let mut answer = self.ask(id, &ToRenderer::Act { target, verb })?;
         if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
-            tab.acted(action, &mut answer);
+            tab.acted(action, &mut answer, &mut self.kept);
         }
         Ok((action, answer))
     }
@@ -819,7 +881,7 @@ impl Tabs {
         }
         let mut answer = self.ask(id, &ToRenderer::Fetched(Box::new(fetched)))?;
         if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
-            tab.delivered(&mut answer);
+            tab.delivered(&mut answer, &mut self.kept);
         }
         Ok(Some(answer))
     }
@@ -862,7 +924,7 @@ impl Tabs {
         }
         let mut delivered = self.ask(id, &ToRenderer::Sheet(Box::new(answer)))?;
         if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
-            tab.delivered(&mut delivered);
+            tab.delivered(&mut delivered, &mut self.kept);
         }
         Ok(Some(delivered))
     }
@@ -880,7 +942,7 @@ impl Tabs {
     pub fn visibility(&mut self, id: TabId, to: Visibility) -> Result<FromRenderer, Lost> {
         let mut answer = self.ask(id, &ToRenderer::Visibility(to))?;
         if let Some(tab) = self.list.iter_mut().find(|tab| tab.id == id) {
-            tab.delivered(&mut answer);
+            tab.delivered(&mut answer, &mut self.kept);
         }
         Ok(answer)
     }
@@ -1600,6 +1662,7 @@ mod tests {
             credentials: Credentials::SameOrigin,
             redirect: redirect::Mode::Follow,
             referrer: None,
+            keepalive: alo_bindings::fetching::Keepalive::Not,
         }
     }
 
@@ -1630,7 +1693,13 @@ mod tests {
             .opened(&mut tabs.identities, Cause::Person { tab: id });
         let mut answer = loaded_with(fetches);
         if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
-            tab.loaded(document, url(HERE), policies, &mut answer);
+            tab.loaded(
+                document,
+                url(HERE),
+                policies,
+                &mut answer,
+                &mut KeptAlive::default(),
+            );
         }
         (tabs, id, document, answer)
     }
@@ -1686,7 +1755,7 @@ mod tests {
             sheets: Vec::new(),
         };
         if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
-            tab.acted(action, &mut acted);
+            tab.acted(action, &mut acted, &mut KeptAlive::default());
         }
         assert_eq!(
             causes(&tabs.fetches(id)),
@@ -1701,9 +1770,75 @@ mod tests {
             sheets: Vec::new(),
         };
         if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
-            tab.delivered(&mut delivered);
+            tab.delivered(&mut delivered, &mut KeptAlive::default());
         }
         assert_eq!(causes(&tabs.fetches(id)), [Cause::Document { document }]);
+    }
+
+    /// ADR 0040 § 4: what a renderer claims may outlive its page is counted
+    /// here, whatever the renderer counted itself. A claim past the bound is
+    /// refused by its own rule, as a page's ask rather than a broken
+    /// boundary, and the renderer's next message is decided as ever.
+    #[test]
+    fn a_keep_alive_claim_past_this_processs_count_is_refused_by_name_and_the_next_still_heard() {
+        let beacon = |number: u64, bytes: usize| FetchAsk {
+            method: "POST".to_owned(),
+            body: vec![b'x'; bytes],
+            mode: Mode::NoCors,
+            credentials: Credentials::Include,
+            keepalive: alo_bindings::fetching::Keepalive::Beacon,
+            ..ask_for(number, "https://shop.example/_alo/collect")
+        };
+        let delivering = |fetches: Vec<FetchAsk>| FromRenderer::Delivered {
+            issues: Vec::new(),
+            objections: Vec::new(),
+            navigation: None,
+            fetches,
+            sheets: Vec::new(),
+        };
+        let (mut tabs, id, document, _) = showing(Policies::none(), Vec::new());
+        let mut lying = delivering(vec![beacon(1, 40_000), beacon(2, 40_000)]);
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
+            tab.delivered(&mut lying, &mut tabs.kept);
+        }
+        let decided = tabs.fetches(id);
+        let [Fetching::Make(first), Fetching::Refused(refused)] = decided.as_slice() else {
+            panic!("{decided:?}");
+        };
+        assert_eq!(first.request.purpose, alo_net::Purpose::Beacon);
+        assert_eq!(
+            refused.rule,
+            Rule::KeptAlive {
+                bytes: 40_000,
+                held: 40_000
+            }
+        );
+        assert!(!refused.broke_the_boundary(), "a page's ask, refused");
+        assert!(
+            issues_of(&lying)
+                .iter()
+                .any(|line| line.contains("asked to outlive its page")),
+            "{:?}",
+            issues_of(&lying)
+        );
+        assert_eq!(tabs.kept_alive(document), 40_000);
+
+        let mut next = delivering(vec![
+            ask_for(3, "https://shop.example/c"),
+            beacon(4, 20_000),
+        ]);
+        if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
+            tab.delivered(&mut next, &mut tabs.kept);
+        }
+        let decided = tabs.fetches(id);
+        assert!(
+            decided.iter().all(|one| matches!(one, Fetching::Make(_))),
+            "{decided:?}"
+        );
+        assert_eq!(tabs.kept_alive(document), 60_000);
+        // Made, the first is taken off.
+        tabs.outlived(document, first);
+        assert_eq!(tabs.kept_alive(document), 20_000);
     }
 
     /// An answer goes only to the document that asked, once. A number the
@@ -1732,7 +1867,13 @@ mod tests {
             .opened(&mut tabs.identities, Cause::Person { tab: id });
         let mut again = loaded_with(Vec::new());
         if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
-            tab.loaded(next, url(HERE), Policies::none(), &mut again);
+            tab.loaded(
+                next,
+                url(HERE),
+                Policies::none(),
+                &mut again,
+                &mut KeptAlive::default(),
+            );
         }
         assert_eq!(
             tabs.fetched(id, Fetched::failed(1)),
@@ -1809,7 +1950,7 @@ mod tests {
             sheets: Vec::new(),
         };
         if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
-            tab.acted(action, &mut acted);
+            tab.acted(action, &mut acted, &mut KeptAlive::default());
         }
         assert!(tabs.fetches(id).is_empty());
         assert_eq!(tabs.fetched(id, Fetched::failed(1)), Ok(None));
@@ -1862,6 +2003,7 @@ mod tests {
                 url(HERE),
                 Policies::stated_by(&headers),
                 &mut loaded,
+                &mut KeptAlive::default(),
             );
         }
         let at_load = tabs.sheets(id);
@@ -1896,7 +2038,7 @@ mod tests {
             sheets: vec![sheet_for(2, "https://shop.example/added.css")],
         };
         if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
-            tab.acted(action, &mut acted);
+            tab.acted(action, &mut acted, &mut KeptAlive::default());
         }
         assert_eq!(
             sheet_causes(&tabs.sheets(id)),
@@ -1910,7 +2052,7 @@ mod tests {
             sheets: vec![sheet_for(3, "https://shop.example/later.css")],
         };
         if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
-            tab.delivered(&mut delivered);
+            tab.delivered(&mut delivered, &mut KeptAlive::default());
         }
         assert_eq!(
             sheet_causes(&tabs.sheets(id)),
@@ -1928,7 +2070,13 @@ mod tests {
             .opened(&mut tabs.identities, Cause::Person { tab: id });
         let mut again = loaded_with(Vec::new());
         if let Some(tab) = tabs.list.iter_mut().find(|tab| tab.id == id) {
-            tab.loaded(next, url(HERE), Policies::none(), &mut again);
+            tab.loaded(
+                next,
+                url(HERE),
+                Policies::none(),
+                &mut again,
+                &mut KeptAlive::default(),
+            );
         }
         assert_eq!(tabs.tab(id).map(|tab| tab.sheets_owed.waiting()), Some(0));
         assert_eq!(tabs.styled(id, SheetAnswer::failed(0)), Ok(None));

@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page can send its last report as it is left.** `navigator.sendBeacon`
+  is built: a page sends a short report as text, and the browser makes the
+  request even after the page has gone, by the same rules as any request
+  the page makes — the same cookies, kept apart site by site, and the
+  page's own rules about where it may connect — and writes it in the record
+  as that page's beacon. A page may have at most 64 KiB of reports waiting;
+  past that `sendBeacon` answers `false`, and the browser counts again in
+  case a page's process lies. A report still waiting when the browser
+  closes is not sent, and the record says so. alo Sites' analytics script
+  now reports how much of the page was read with nothing lent to it
+  (queue item 369, ADR 0040).
+
 - **Decided: a page's last report may outlive it.** A page being left may
   send one last report — `navigator.sendBeacon`, and later a `fetch` that
   asks to outlive its page — and the browser will make it after the page

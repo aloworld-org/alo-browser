@@ -26,8 +26,10 @@
 //! Every script runs twice — once with the collector at every allocation —
 //! and the two must agree.
 
+use alo_bindings::fetching;
 use alo_bindings::{
-    Extent, Identity, Scrolled, Unmeasured, View, Window, adopt, install, introduce, show,
+    Extent, Identity, Scrolled, Unmeasured, View, Window, adopt, install, introduce, navigating,
+    show,
 };
 use alo_dom::{Document, NodeId, parse_document};
 use alo_js::abrupt::Thrown;
@@ -44,6 +46,8 @@ const CTA: &str = include_str!("../../alo-corpus/cases/alo-sites-cta/page.html")
 struct Page {
     engine: Engine,
     _root: Root,
+    /// The page's document cell, which [`Page::_root`] keeps.
+    cell: Ref,
 }
 
 impl Page {
@@ -56,6 +60,7 @@ impl Page {
         Ok(Self {
             engine,
             _root: root,
+            cell,
         })
     }
 
@@ -523,7 +528,8 @@ impl View for Corpus {
 }
 
 /// alo Sites' call-to-action page with its script run, as the renderer
-/// leaves it: the clock fixed, shown at 800 × 600, `navigator` introduced.
+/// leaves it: at the address it was frozen from, the clock fixed, shown at
+/// 800 × 600, `navigator` introduced.
 fn the_cta_page(stress: bool) -> Result<Page, String> {
     let (Some(start), Some(end)) = (CTA.find("<script>"), CTA.find("</script>")) else {
         return Err("the frozen page has no inline script".to_owned());
@@ -533,6 +539,9 @@ fn the_cta_page(stress: bool) -> Result<Page, String> {
         .map_err(|why| why.to_string())?;
     let cell = adopt(engine.objects(), parse_document(CTA)).map_err(|why| why.to_string())?;
     let root = engine.objects().heap_mut().root(cell);
+    let address =
+        alo_url::parse("https://nordwind.alosites.com/").map_err(|why| why.to_string())?;
+    navigating::locate(engine.objects(), cell, address);
     install(&mut engine, cell).map_err(|why| why.to_string())?;
     show(&mut engine, std::rc::Rc::new(Corpus)).map_err(|why| why.to_string())?;
     // As the renderer does, so that `navigator.sendBeacon` is a property read
@@ -546,6 +555,7 @@ fn the_cta_page(stress: bool) -> Result<Page, String> {
     let mut page = Page {
         engine,
         _root: root,
+        cell,
     };
     // Past line 32, `window.addEventListener("pagehide", record)`, to the
     // end: nothing is thrown.
@@ -575,11 +585,32 @@ fn alo_sites_analytics_script_runs_to_its_end_and_its_pagehide_listener_is_reach
         // `scrollY` and `innerHeight` — 0 and 600 (item 366) — and the
         // content's `scrollHeight` (item 370), and runs past `Math.max` in
         // `height()` and `Math.round` (item 365) to its end.
-        // `navigator.sendBeacon` is absent (item 369), so it sends nothing
-        // and nothing is thrown.
+        // `navigator.sendBeacon` is the engine's (item 369): nothing is
+        // thrown, and its two reports are asked for, as beacons, at the
+        // page's own collector.
         assert_eq!(
             page.run("window.dispatchEvent(new Event('pagehide'))"),
             "true"
+        );
+        let asked: Vec<(String, String, bool)> = fetching::take(page.engine.objects(), page.cell)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|ask| {
+                (
+                    ask.url.serialised,
+                    String::from_utf8_lossy(&ask.body).into_owned(),
+                    ask.keepalive == fetching::Keepalive::Beacon,
+                )
+            })
+            .collect();
+        let collect = "https://nordwind.alosites.com/_alo/collect".to_owned();
+        assert_eq!(
+            asked,
+            [
+                (collect.clone(), "d=1000&p=%2F&w=800".to_owned(), true),
+                (collect, "t=0".to_owned(), true),
+            ],
+            "stress: {stress}"
         );
     }
 }
@@ -589,10 +620,10 @@ fn alo_sites_pagehide_listener_reports_once_what_it_measured() {
     for stress in [false, true] {
         let mut page = the_cta_page(stress).unwrap_or_else(|why| panic!("{why}"));
         // What it sends, read through a beacon this test lends it in item
-        // 369's place: the depth — it reaches 600 pixels down a page whose
-        // height is the larger of the root's 600 and `body`'s 253, all of it,
-        // so 1000 per mille, with the page's path — `blank`, since this page
-        // is at `about:blank` — and the window's width —
+        // 369's place, to read what it sends in one string: the depth — it
+        // reaches 600 pixels down a page whose height is the larger of the
+        // root's 600 and `body`'s 253, all of it, so 1000 per mille, with the
+        // page's path, `/`, and the window's width —
         // and then the seconds it was read, rounded by `Math.round`: none, on
         // a fixed clock.
         assert_eq!(
@@ -601,7 +632,7 @@ fn alo_sites_pagehide_listener_reports_once_what_it_measured() {
                  sent += to + ' ' + body + ';'; return true; }; \
                  window.dispatchEvent(new Event('pagehide')); sent"
             ),
-            "/_alo/collect d=1000&p=blank&w=800;/_alo/collect t=0;"
+            "/_alo/collect d=1000&p=%2F&w=800;/_alo/collect t=0;"
         );
         // Once reported, it is not reported again.
         assert_eq!(

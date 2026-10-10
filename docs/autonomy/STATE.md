@@ -23513,3 +23513,141 @@ This entry was written after that run, and is documentation only.
 159 queue items are open: 375 added, and 369 still open. The next unused
 queue number is **376** and the next ADR is **0041**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 244 — queue item 369 built: `navigator.sendBeacon`, a request that outlives its page
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` and iteration
+243's entry. No `AGENTS.md` exists in this repository. For 369: ADR 0040
+(all of it), ADR 0032 §§ 1–4, ADR 0039 §§ 2–4, the queue item with its
+*Decided* paragraph and closing conditions, and `docs/features.md`' fetch
+and Events lines.
+
+**Choosing.** 296 first, since its capture is owed. A Swift check of
+`CGSessionCopyCurrentDictionary` answered `CGSSessionScreenIsLocked` = 1,
+so the screen is still locked and 296 is not takeable. 369 is next: decided
+by ADR 0040 in iteration 243, its dependency 373 done, eligible.
+
+**What was built.**
+- `alo-net`: `Purpose::Beacon`. `connect-src` governs it, mixed content
+  blocks it, and the disk record tags it 6.
+- `alo-bindings`: `fetching::Keepalive` (`Not`, `Fetch`, `Beacon`) on every
+  `Asked`. The document cell counts keep-alive bodies in flight against
+  `MOST_KEPT_ALIVE` (65 536), and `fetching::answered` frees one as its
+  answer arrives. `beacon.rs` has `sendBeacon`'s steps on
+  `Navigator.prototype`, by ADR 0040 § 5.
+- `alo-renderer`:
+  - `FetchAsk::keepalive` crosses the wire as one of three tags, and any
+    other tag is refused by name.
+  - `fetch_kept.rs` is the browser process's count per document.
+    `Owed::decide` refuses past it by `Rule::KeptAlive`.
+  - `Tabs::leaving` replaces `Leaving::refusing`. A leaving page's asks
+    without `keepalive` are still refused by `Rule::Leaving`. Those with
+    it are decided as the document's against the tab's own copy, under
+    every bound, and carried in `Leaving::outliving`.
+  - `Answering::outlive` queues them. `answer_next` makes a keep-alive
+    fetch whatever became of its page, and answers nobody once the page
+    has gone. `Answering::close` records what is still waiting by
+    `Rule::Closed`.
+  - `Held::arrived` frees the renderer's count, and `deliver.rs` says
+    nothing for a beacon's answer, which nothing waits for.
+  - `Refusal` carries its purpose, so a refused beacon is recorded as a
+    beacon.
+- `alo-window`: the conductor queues a left page's beacons, and
+  `close_everything` records the ones still waiting as not made.
+
+**Closing conditions (ADR 0040 § 6), each met:**
+- Left with no beacon lent: `alo-corpus`' `alo_sites_cta.rs` shows the two
+  reports carried as beacons and decided by the browser process as the
+  document's, to `POST https://nordwind.alosites.com/_alo/collect`.
+  - A corpus case never touches the network, so the *sending* is shown in
+    `alo-renderer`'s `a_beacon_outlives_its_page.rs`. It uses the same
+    frozen markup (`include_str!`), served from a local server, in real
+    `Tabs` over the confined binary.
+  - The two are made after the tab is closed and its renderer reaped,
+    with bodies `d=1000&p=%2F&w=800` and `t=0`, each
+    `text/plain;charset=UTF-8`. Each is recorded as `Purpose::Beacon`,
+    caused by the document, answered 204.
+- Hidden: the same two are sent while the page is held. Their answers are
+  delivered with nothing said, and both counts are freed. A 64 KiB beacon
+  shows it: refused before the answers, sent after (both files).
+- A `fetch` asked as the page is left is refused by `Rule::Leaving`, beside
+  the beacon that is made.
+- 65 536 bytes, then 1, then 65 537: `alo-bindings`'
+  `a_page_sends_a_beacon.rs`. An unparseable URL, `data:`, `javascript:`
+  and `ftp:` each throw `TypeError`.
+- A keep-alive claim past the browser's count is refused by
+  `Rule::KeptAlive`, not treated as a broken boundary, and the next
+  message is decided as ever (unit tests in `tab.rs` and `fetch_owed.rs`).
+- A beacon `connect-src` forbids is refused by name and recorded as a
+  beacon (`fetch_decide.rs`, `alo-net`'s `csp.rs`).
+- Closing: `alo-window`'s `a_page_left_as_the_window_closes.rs` records
+  the waiting beacon as not made, because the browser closed.
+- `Heap::stress`: every script in the bindings file and the two new corpus
+  tests runs both ways. The process-level tests run in the confined
+  binary, whose heap is not stressed; the same scripts are stressed
+  in-process.
+
+**Mutation checks.** Six, each caught, each restored from a scratchpad copy
+with `cmp` confirming. They were: outliving fetches not made; every leaving
+ask refused; a beacon's arrival not freeing the count; the browser's count
+never refusing; the conductor not recording on close; and the renderer's
+own count ignored. `alo-render` was rebuilt in the same command as each
+restore.
+
+**Gate, mechanical.** The first `scripts/gate.sh` run, foreground to a log,
+failed on one test. `alo-bindings`' `what_a_window_is.rs` ran the frozen
+page at `about:blank`, written when `sendBeacon` was absent. The page's
+relative `/_alo/collect` then threw. A renderer always gives a document its
+address, so the test now locates the page at the address it was frozen
+from. It asserts the two beacons asked, and its lent beacon reads
+`p=%2F` rather than `p=blank`.
+
+The second run passed 600 s and the harness moved it to the background. The
+next call waited on it in a foreground `until` loop and read `exit 0` and
+"The gate is met", with no `FAILED` or `panicked` in the log:
+- formatting clean, clippy silent, tests pass;
+- no stubs, `unsafe` forbidden;
+- every rented crate behind its boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds;
+- `CHANGELOG.md` changed with the code.
+
+This entry was written after that run, and is documentation only.
+
+**Gate, manual.**
+- Layout assertion and reference render: none applies. Nothing positions,
+  sizes or draws, and no reference moved. The closing conditions are
+  requests, bodies, counts and record lines, asserted as such.
+- Hostile input: a fourth keep-alive tag, and 255, are refused by name on
+  the wire (`a_pages_fetch_crosses_the_boundary.rs`). A lying renderer's
+  claims are bounded by the browser's own count. Byte counts use
+  saturating arithmetic, and `usize::MAX` is refused in `fetch_kept.rs`'
+  test.
+- One responsibility per file: `beacon.rs` holds `sendBeacon`'s steps and
+  `fetch_kept.rs` the browser's count. Each new piece sits in the file
+  that already owned its kind of work: the leaving decision in `tab.rs`,
+  making in `fetch_answering.rs`, the bound in `fetch_owed.rs`.
+- The feature was in `docs/features.md` as *decided, not built*, and now
+  says built. `docs/conformance.md`' alo Sites row is updated.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were read,
+  not touched.
+
+**Queue.** 369 is ticked, with a *Built* paragraph naming where each
+closing condition is met. 375 now says the browser half is built and only
+the bindings' `keepalive` member remains, still waiting on a page.
+
+**Roadmap.** No line is ticked. The fetch line's *Built* gains the request
+that outlives its page, and its *Owed* drops `sendBeacon`. The Events
+line's *Built* gains `sendBeacon`, and its *Owed* drops 369. `REMAINING.md`
+and `CHANGELOG.md` are updated.
+
+**Unresolved obligations.**
+- 375 waits on a page that uses `fetch(…, { keepalive: true })`.
+- `Refusal::record` still writes every refused fetch or beacon as a `GET`,
+  whatever its method. That is older than this item; a beacon's line
+  now at least names its purpose.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- Everything iteration 243 listed still stands otherwise.
+
+158 queue items are open. The next unused queue number is **376** and the
+next ADR is **0041**. This is one iteration, not a finished queue or
+roadmap.

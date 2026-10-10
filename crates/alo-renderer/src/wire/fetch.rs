@@ -7,7 +7,8 @@
 //!
 //! The asks come from a renderer, so every field is read as a stranger's:
 //! lengths checked against what is left, enums by a closed list of tags, the
-//! URL as text the browser process parses itself. **How many** is not bounded
+//! URL as text the browser process parses itself, and whether it outlives its
+//! page as one of three tags. **How many** is not bounded
 //! here: an ask past the browser process's bounds is a network error the page
 //! is answered with ([`crate::fetch_owed`]), not a message nobody can read.
 //!
@@ -15,6 +16,7 @@
 //! one check of its own: an opaque answer that carries anything is refused,
 //! because the one promise an opaque answer makes is that it carries nothing.
 
+use alo_bindings::fetching::Keepalive;
 use alo_net::cors::{Credentials, Mode};
 use alo_net::redirect;
 
@@ -33,6 +35,7 @@ const REDIRECTS: [redirect::Mode; 3] = [
     redirect::Mode::Manual,
 ];
 const KINDS: [Kind; 4] = [Kind::Basic, Kind::Cors, Kind::Opaque, Kind::OpaqueRedirect];
+const KEEPALIVES: [Keepalive; 3] = [Keepalive::Not, Keepalive::Fetch, Keepalive::Beacon];
 
 /// The tag of `value` in `list`. Every list here names every variant, so the
 /// fallback is never written.
@@ -75,6 +78,7 @@ impl Writer {
                 .referrer
                 .map_or(0, |policy| tag_of(&POLICIES, &policy).saturating_add(1));
             self.tag(policy);
+            self.tag(tag_of(&KEEPALIVES, &ask.keepalive));
         }
     }
 
@@ -125,6 +129,7 @@ impl Reader<'_> {
                 0 => None,
                 tag => Some(tagged(&POLICIES, tag - 1, "a fetch's referrer policy")?),
             };
+            let keepalive = tagged(&KEEPALIVES, self.tag()?, "a fetch's keepalive")?;
             asks.push(FetchAsk {
                 number,
                 url,
@@ -135,6 +140,7 @@ impl Reader<'_> {
                 credentials,
                 redirect,
                 referrer,
+                keepalive,
             });
         }
         Ok(asks)
