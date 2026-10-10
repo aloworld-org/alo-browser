@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A column of text is never squeezed out by its neighbour's sentence.**
+  When a page split itself into equal columns, a column holding a long
+  sentence took more than its share — the browser thought the sentence
+  could be no narrower than its whole line, so it stole room from the
+  column beside it instead of wrapping. It now knows text can be as narrow
+  as its longest word, so equal columns are equal and the sentence wraps,
+  as in every other browser. alo Sites' booking section, on a day it is
+  closed, is now one of the pages checked on every change (queue item
+  394).
+
 - **`max-width: none` is understood.** A page that sets a limit on a box's
   width and then lifts it again with `none` — as alo Sites' full-width
   banner sections do — was laid out correctly, but the browser's own record

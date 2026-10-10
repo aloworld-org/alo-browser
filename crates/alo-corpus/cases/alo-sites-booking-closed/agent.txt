@@ -1,0 +1,13 @@
+document at (0, 0) 800×245.20001
+  link "Skip to content" at (-15984, 0) 161.11035×43.2
+  main at (0, 0) 800×245.20001
+    heading "Come and talk to us" [level=2] at (25, 25) 343×33.600006
+    heading "Consultation" [level=3] at (432, 25) 343×38.600006
+    paragraph at (25, 88.600006) 343×27.199997
+      text "30 minutes" at (25, 92.30547) 107.09668×19.789063
+    paragraph at (432, 88.600006) 343×27.199997
+      text "Half an hour, in the studio." at (432, 92.30547) 227.17578×19.789063
+    paragraph at (25, 148.8) 343×54.40001
+      text "Where: Second floor, ring the bell" at (25, 152.50548) 286.20264×19.789063
+    paragraph at (432, 148.8) 343×54.40001
+      text "This is not taking bookings at the moment." at (432, 152.50548) 283.36377×46.98906 in 2 pieces

@@ -1301,3 +1301,14 @@ did not implement, though the box came out right. That opened item 393,
 built in the same iteration: `max-width` and `max-height` read `none` as
 no limit and refuse `auto`. 167 queue items are open (393 added closed).
 The next unused queue number is 394 and the next unused ADR 0044.
+
+Iteration 256 found every open item as iteration 255 left it, so it froze
+the next alo Sites sections with no picture and nothing set to move into
+view. The empty catalog and empty collection rendered and checked against
+the sheet by hand, and found nothing, so they were not kept. The closed
+booking section was kept as `alo-sites-booking-closed`: its two `1fr`
+columns came out 320 and 366, because layout answered "how narrow can this
+text be" with its whole line. That opened item 394, built in the same
+iteration: text at min-content is laid out in no room, so it is as narrow
+as its widest word. 167 queue items are open (394 added closed). The next
+unused queue number is 395 and the next unused ADR 0044.

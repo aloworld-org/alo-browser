@@ -276,9 +276,10 @@ impl<M: MeasureText> Arena<'_, M> {
                     if let (Some(width), Some(height)) = (known.width, known.height) {
                         return TaffySize { width, height };
                     }
-                    let size = self
-                        .measure
-                        .measure(text, text_style, width_to_fit(known, room));
+                    let wraps = text_style.white_space.wraps();
+                    let size =
+                        self.measure
+                            .measure(text, text_style, width_to_fit(known, room, wraps));
                     TaffySize {
                         width: size.width,
                         height: size.height,
@@ -308,7 +309,9 @@ impl<M: MeasureText> Arena<'_, M> {
             Some(NodeKind::InlineFormatting(id)) => {
                 let id = *id;
                 compute_leaf_layout(inputs, style, resolve, |known, room| {
-                    let width = width_to_fit(known, room);
+                    // The line builder knows which runs may wrap, and keeps
+                    // `nowrap` on one line however little room it is given.
+                    let width = width_to_fit(known, room, true);
                     let size = crate::engine::measure_inline(
                         self.boxes,
                         self.styles,
@@ -330,15 +333,25 @@ impl<M: MeasureText> Arena<'_, M> {
 
 /// How wide a leaf may be when it is measured.
 ///
-/// `MinContent` and `MaxContent` are the questions "how narrow can this be"
-/// and "how wide would it like to be"; both are answered by measuring with no
-/// width at all.
+/// `MaxContent` is the question "how wide would it like to be", answered by
+/// measuring with no width at all: nothing breaks. `MinContent` is "how
+/// narrow can this be", and CSS Sizing 3 § 5.1 answers it with the widest
+/// piece that cannot be broken, which is what laying the content out in no
+/// room at all gives: every break is taken, and the widest line is the widest
+/// piece. Content that may not wrap is as wide either way.
+///
+/// Both were once answered by measuring with no width, and a paragraph in a
+/// grid column then claimed its whole sentence as its narrowest: alo Sites'
+/// closed booking section split its two `1fr` columns 320 and 366 rather
+/// than 343 and 343, because one of its lines would not wrap (item 394).
 fn width_to_fit(
     known: TaffySize<Option<f32>>,
     available: TaffySize<AvailableSpace>,
+    wraps: bool,
 ) -> Option<f32> {
     known.width.or(match available.width {
         AvailableSpace::Definite(definite) => Some(definite),
+        AvailableSpace::MinContent if wraps => Some(0.0),
         AvailableSpace::MinContent | AvailableSpace::MaxContent => None,
     })
 }
@@ -474,5 +487,41 @@ mod tests {
         unresolved.handle(&LengthPercentage::Percentage(50.0), metrics());
         assert!((unresolved.resolve(core::ptr::null(), 200.0)).abs() < f32::EPSILON);
         assert!((unresolved.resolve(800 as *const (), 200.0)).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn the_narrowest_is_asked_in_no_room_and_the_widest_in_unlimited_room() {
+        let unknown = TaffySize {
+            width: None,
+            height: None,
+        };
+        let asked = |width| TaffySize {
+            width,
+            height: AvailableSpace::MaxContent,
+        };
+        let narrowest = asked(AvailableSpace::MinContent);
+        assert_eq!(width_to_fit(unknown, narrowest, true), Some(0.0));
+        assert_eq!(
+            width_to_fit(unknown, narrowest, false),
+            None,
+            "text that may not wrap is as narrow as its line",
+        );
+        assert_eq!(
+            width_to_fit(unknown, asked(AvailableSpace::MaxContent), true),
+            None
+        );
+        assert_eq!(
+            width_to_fit(unknown, asked(AvailableSpace::Definite(120.0)), true),
+            Some(120.0)
+        );
+        let known = TaffySize {
+            width: Some(40.0),
+            height: None,
+        };
+        assert_eq!(
+            width_to_fit(known, narrowest, true),
+            Some(40.0),
+            "a width already settled is the answer to every question",
+        );
     }
 }

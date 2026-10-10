@@ -1,0 +1,68 @@
+alo-workplace, products/sites/alo-sites/tests/golden/section_booking_closed.html
+and products/sites/alo-sites/tests/golden/site.css — a page alo Sites
+publishes for its customers: the booking section of a demonstration coffee
+roaster's home page, on a day it is not taking bookings, with the style
+sheet every alo Sites page links.
+
+Taken 2026-10-10 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit the
+other alo Sites cases were taken at. The page's last change is
+e4c24e3394106a6d649401be65ad28b7bf6523e6 (2026-09-02). The bytes are those
+files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  b1a88d9dd8eaede8fd1b414d7e87b853397241f46630a9a923bb82921a3077ec
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+The sheet is byte for byte the other alo Sites cases'. `alo-workplace` is
+read-only reference; nothing was written back to it. Both files are golden
+outputs of alo Sites' own renderer, pinned by its tests, so they are what it
+really serves rather than something rebuilt from it.
+
+Why this page. After `max-width: none` was read, every queue item was
+blocked or waiting for a page, so the alo Sites sections with no picture
+and nothing set to move into view were frozen to find what fails. The
+empty catalog and the empty collection came with this one and were
+rendered too: their headings, their bordered notices at 38rem and every
+margin check against the sheet by hand, but they found nothing, so they
+were not kept. This is the `booking-layout-split` variant with no day
+field: a heading, the consultation's name, length, description and place,
+and a notice that it is closed.
+
+**Where it is served from, and what its sheet is answered with,** are the
+call-to-action section's, for the same reasons (see that case's origin.txt):
+the page's own `<link rel="canonical">` says
+`https://nordwind.alosites.com/` (address.txt), and its `/assets/site.css`
+is answered from site.css (linked.txt). Its analytics script is the same
+script, and sends nothing in a reference render.
+
+Rendered at 800 × 600, wider than the sheet's breakpoints, as the other alo
+Sites cases are.
+
+## What it found
+
+- **A paragraph's narrowest was its whole line** — item 394. The split
+  layout is `grid-template-columns: 1fr 1fr`, and a `1fr` column is never
+  narrower than what is in it can be. Layout asked text how narrow it could
+  be by measuring it with no width, which is the max-content answer, so the
+  notice "This is not taking bookings at the moment." claimed its whole
+  365.6 as a minimum: the columns came out 320.4 and 365.6. The narrowest
+  is the widest piece that cannot be broken (CSS Sizing 3 § 5.1); now the
+  columns are 343 each and the notice wraps after "the", as a browser
+  draws it. `tests/alo_sites_booking_closed.rs` says so.
+
+Everything else checks against the sheet by hand and is pinned as it is:
+`.s-booking`'s 1.5rem of padding wins over `main > section`'s 3rem by
+specificity, so with its 1 px border the content is at (25, 25) and 750
+wide; the gap is 1rem by 4rem; with no `.booking-day` the six blocks are
+placed two to a row, the heading beside the consultation's name, which is
+what the sheet asks for when there is no field to put in the second
+column. The rows are 47.6 (28 px heading at 1.2 and its 14 below), 44.2
+and 71.4, the shorter block in each stretched to its row, and the section
+is 245.2 tall.
+
+What the sheet asks for that this engine does not do, and which makes no
+difference to this page, is in issues.txt, and is the call-to-action
+section's list exactly: `::before` and `::after`, `@keyframes`, and
+`prefers-reduced-motion`.

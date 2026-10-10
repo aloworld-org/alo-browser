@@ -7241,6 +7241,44 @@ The long pole, and the thing most of section E is unreachable without.
   parses a sheet, which is the general rule rather than this item's, and
   no page has written it.
 
+- [x] **394. Text is as narrow as its widest unbreakable piece.** *Opened
+  by `alo-sites-booking-closed` (iteration 256), frozen in the same change.
+  Feature: `docs/features.md` stage 1, Layout, "Text's narrowest is its
+  widest word". Depends on nothing open.* alo Sites'
+  `booking-layout-split` is a grid of two `1fr` columns, and a `1fr`
+  column is never narrower than its content's min-content contribution.
+  Layout answered both of `taffy`'s questions about a leaf — "how narrow
+  can this be" and "how wide would it like to be" — by measuring with no
+  width at all, which is the second answer to both, so text never broke
+  for the first. The closed section's notice, "This is not taking bookings
+  at the moment.", 365.6 on one line, claimed that as its narrowest, and
+  the columns came out 320.4 and 365.6 where every browser makes them 343
+  each and wraps the notice. CSS Sizing 3 § 5.1: the min-content size is
+  the narrowest the box can be without overflow that could have been
+  avoided, which for text is its widest piece between break
+  opportunities. *Closes when:* text in an inline formatting context is
+  as narrow as its widest word at min-content, `nowrap` text as wide as
+  its line; a `1fr 1fr` grid holding a long sentence is two equal columns
+  with the sentence wrapped; and the closed booking section is laid out
+  in two columns of 343.
+  **Done (iteration 256).** `alo-layout`'s `arena.rs`: `width_to_fit`
+  answers `MinContent` with no room at all, `Some(0.0)`, so the line
+  builder takes every break and the widest line is the widest piece;
+  `MaxContent` is still no width. Text that may not wrap is measured with
+  no width either way: a bare text leaf says so from its own
+  `white-space`, and a line of inline content leaves it to the line
+  builder, which already keeps a `nowrap` run on one line. Tests:
+  `arena.rs` (1: each question's width, `nowrap` at min-content, a width
+  already known); `numbers.rs` (1: a `1fr 1fr` grid 400 wide, two columns
+  of 200 and a 232-wide sentence in two lines; `width: min-content` on
+  "abcd efghij" 48 wide in two lines; the same `nowrap` 88 wide on one);
+  `tests/alo_sites_booking_closed.rs` (2: the sheet answered; the columns
+  343 at 25 and 432, the notice 343 by 54.4 at 148.8, the place beside it
+  stretched to 54.4, the section 245.2 tall). Mutations, each restored
+  from a copy: the old `width_to_fit` fails the `numbers.rs` test (168 and
+  232) and the case's; a text leaf that wraps whatever its `white-space`
+  fails the `arena.rs` test. No other case's reference moved.
+
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
 

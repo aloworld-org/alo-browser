@@ -457,6 +457,43 @@ fn text_wraps_where_a_line_may_break_and_nowhere_else() {
     );
 }
 
+/// Text's narrowest is its widest unbreakable piece, not its whole line
+/// (CSS Sizing 3 § 5.1), so a `1fr` column holding a sentence is still half
+/// of the grid and the sentence wraps in it — alo Sites' closed booking
+/// section, whose notice took 366 of 686 until item 394. Text that may not
+/// wrap is as narrow as its line.
+#[test]
+fn text_is_as_narrow_as_its_widest_word_and_no_narrower() {
+    let html = "<body><div id=grid><p id=short>ab</p>\
+                <p id=long>abcd efgh ijkl mnop qrst uvwx</p></div>\
+                <div id=word>abcd efghij</div><div id=line>abcd efghij</div></body>";
+    let css =
+        "p { margin: 0 } #grid { display: grid; grid-template-columns: 1fr 1fr; width: 400px }
+               #word, #line { width: min-content } #line { white-space: nowrap }";
+    let (boxes, layout) = lay_out(html, css, Size::new(800.0, 300.0));
+
+    assert_eq!(
+        rect_of(&boxes, &layout, "short", html),
+        Rect::new(0.0, 0.0, 200.0, 32.0),
+        "half the grid, stretched to the row's two lines",
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "long", html),
+        Rect::new(200.0, 0.0, 200.0, 32.0),
+        "29 characters are 232 wide and wrap after the fifth word in 200",
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "word", html),
+        Rect::new(0.0, 32.0, 48.0, 32.0),
+        "efghij is the widest word, six characters, and each word has a line",
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "line", html),
+        Rect::new(0.0, 64.0, 88.0, 16.0),
+        "nowrap leaves nowhere to break, so the narrowest is the whole line",
+    );
+}
+
 /// Every rectangle whose element carries this `id`, in tree order.
 ///
 /// An inline box broken around a block is two boxes from one element, so

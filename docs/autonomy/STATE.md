@@ -24849,3 +24849,88 @@ decoration. Also updated: `docs/features.md` (a stage 1 *Layout* line,
 167 queue items are open (393 added closed). The next unused queue number
 is **394** and the next ADR is **0044**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 256 — queue item 394 opened and built: text is as narrow as its widest word, found by freezing alo Sites' closed booking section
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` (its head and
+stage 1's *Layout* line), `REMAINING.md`'s close and iteration 255's
+entry. No `AGENTS.md` exists in this repository. For 394 there is no ADR:
+it reads what CSS Sizing 3 § 5.1 defines a min-content size to be and
+decides nothing, as 379, 384 and 393 did. Read: `docs/features.md`' stage
+1 *Layout* section, `docs/conformance.md`' alo Sites row, queue item 393,
+`alo-sites-tickets`' `origin.txt` and test. Code read before changing it:
+`alo-layout`'s `arena.rs` (`measure_leaf`, `width_to_fit`), `engine.rs`
+(`measure_inline`, `build`, `is_inline_formatting_context`), `inline.rs`
+(`Builder::fits`, `add_run`, `finish`), `measure.rs` (the trait and the
+test measurers), `alo-text`'s `measure.rs` and `line.rs` (`lay_out`), and
+`alo-box`'s `wrap_text_runs`.
+
+**Choosing.** Every open item stands as iteration 255 listed it. So the
+next alo Sites sections with no picture and nothing set to move into view
+were frozen locally and rendered: the closed booking section, the empty
+catalog and the empty collection. None of their issues.txt held a line
+the other alo Sites cases' lacks. The catalog and collection check
+against the sheet by hand and found nothing, so they were not kept. The
+closed booking section's two `1fr` columns were 320.4 and 365.6 where the
+sheet makes them 343 each, which opened 394.
+
+**What was built.** As 394's *Done* paragraph says: `width_to_fit`
+answers `taffy`'s min-content question with no room, so the line builder
+takes every break and the widest line is the widest piece; the
+max-content question is still no width. Text that may not wrap is as
+wide either way. The case `alo-sites-booking-closed` is frozen byte for
+byte (hashes in its `origin.txt`).
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", and the log has no `FAILED`, `panicked` or line starting `error`.
+`cargo fmt --all` changed nothing and clippy was clean before it. This
+entry and the commit came after that run, and are documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `numbers.rs`' new test (a `1fr 1fr` grid
+  of 400, columns of 200 at 0 and 200, both rows 32 tall with the
+  sentence in two lines; `width: min-content` 48 wide; `nowrap` 88 wide
+  on one line); `arena.rs`' unit test; `alo_sites_booking_closed.rs` (the
+  columns 343 at 25 and 432, the notice 343 × 54.4 at 148.8, the place
+  stretched to 54.4, the section 245.2), each number checked against the
+  sheet by hand in `origin.txt`.
+- Reference render: `alo-sites-booking-closed`' `render.png` (looked at by
+  eye: two equal columns, the notice wrapping after "the"), `layout.txt`,
+  `display.txt`, `boxes.txt`, `agent.txt` and `issues.txt` committed.
+  **No other case's reference moved** with the change, checked by
+  rewriting every reference and finding no committed file changed.
+- Hostile input: no new input is read from outside; the change is which
+  width layout measures in.
+- Mutations (a copy in the scratchpad, restored with `cp`, checked with
+  `cmp`, `alo-render` rebuilt after): the old `width_to_fit` fails the
+  `numbers.rs` test (168 and 232) and the case's; a text leaf that wraps
+  whatever its `white-space` fails the `arena.rs` test only. A bare text
+  leaf is hardly reachable, since `alo-box` wraps text runs in flex, grid
+  and mixed containers, so that rule is pinned by the unit test.
+- One responsibility per file: `arena.rs`' change is how a leaf is asked
+  its size, which is that file's job.
+- No `unsafe`, no new dependency, no new CSS property read. `alo-workplace`
+  and `alo-os` were not touched; `alo-workplace`'s `git status` is clean.
+
+**Queue.** 394 added ticked with its *Done* paragraph. **Roadmap: no line
+moved, and why.** How big a box's content is lies inside stage 1's ticked
+*Layout* line (flexbox and grid sized by their content), and no stage 2
+line names intrinsic sizing. Adding a line to claim it would be
+decoration. Also updated: `docs/features.md` (a stage 1 *Layout* line,
+*Text's narrowest is its widest word*), `docs/conformance.md`' alo Sites
+row (now seven sections), `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- `alo-text`'s `TextMeasurer` ignores `white-space` when it is given a
+  width; layout never hands it one for text that may not wrap at the
+  min-content question, and a bare text leaf is hardly reachable, so no
+  page shows it. Noted, not queued.
+- Everything iteration 255 listed still stands.
+- Sections still unfrozen with no picture: custom_code, transition,
+  footer, nav and contact_form (all `section-motion`, white until 381).
+
+167 queue items are open (394 added closed). The next unused queue number
+is **395** and the next ADR is **0044**. This is one iteration, not a
+finished queue or roadmap.
