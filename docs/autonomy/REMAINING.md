@@ -1146,3 +1146,19 @@ corrected to HTML's, and the legacy target override is cut to **374**,
 opened by a page that reads such an event's `target`. 369, `sendBeacon`,
 now has its dependency met and needs its ADR. 158 queue items are open. The
 next unused queue number is 375 and the next unused ADR 0040.
+
+Iteration 243 decided item 369 as ADR 0040, and built nothing. A
+keep-alive request is a page's fetch that may be made after its page is
+gone. It is decided by every rule an ordinary fetch is (ADR 0032 § 3) and
+gains nothing else: the partitioned jar's cookies, the document's
+`connect-src`, and a record line with a purpose of its own, **beacon**,
+caused by the document. Once its page has gone it is made and answered by
+nobody. Every other fetch for that page is still not made, and
+`Rule::Leaving` now refuses only asks without `keepalive`. One still waiting
+when the browser closes is not made, and is recorded as such. A document may
+have 64 KiB of keep-alive body in flight, Fetch's number, counted by the
+renderer so that `sendBeacon` can answer `false`, and enforced again by the
+browser process. 369 is now the first build, designed and eligible.
+`fetch(…, { keepalive: true })` is cut to **375**, opened by a page that
+uses it. 159 queue items are open. The next unused queue number is 376 and
+the next unused ADR 0041.

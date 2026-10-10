@@ -23394,3 +23394,122 @@ and 374 is added.
 158 queue items are open: 373 closed and 374 added. The next unused queue
 number is **375** and the next ADR is **0040**. This is one iteration,
 not a finished queue or roadmap.
+
+---
+
+## Iteration 243 — queue item 369 decided: ADR 0040, a request that outlives its page
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` and iteration
+242's entry. No `AGENTS.md` exists in this repository. For 369: ADR 0032
+(all of it), ADR 0039 (§§ 2–4 above all, and its Correction), ADR 0012,
+ADR 0005, ADR 0007, the queue item, and `docs/features.md`' fetch and Events
+lines.
+
+**Choosing.**
+- 296 first, since its capture is owed. A Swift check of
+  `CGSessionCopyCurrentDictionary` answered `CGSSessionScreenIsLocked` = 1,
+  with `CGPreflightScreenCaptureAccess` true. The screen is still locked,
+  so 296 is not takeable and nothing was started.
+- 369 is next. Its one dependency, 373, was built in iteration 242. It is
+  opened by `alo-sites-cta`, names ADR 0032's *What this does not decide*
+  and ADR 0039 § 4, and is marked **needs ADR**, so the ADR was taken as its
+  own iteration (LOOP.md stage 2 § 4). The open items before it in the file
+  are blocked or page-gated, as earlier entries recorded.
+
+**What was read, before deciding.**
+- The page sends through `navigator.sendBeacon("/_alo/collect", body)` from
+  `pagehide`, a `visibilitychange` to hidden, a click and each `/f/` form,
+  and only if `sendBeacon` exists.
+- `alo-workplace`'s `products/sites/alo-sites/src/serve/beacon.rs`, read
+  only: a `POST` body of at most 512 bytes, no cookie set or read, `204`
+  with no body.
+- `fetch_answering.rs` makes nothing for a document that has gone.
+  `fetch_decide::leaving` refuses every leaving ask. `Leaving::refusing`
+  assigns the document as the cause. The conductor finishes after
+  `close_everything`, and `fetch_init.rs` refuses `keepalive` by name.
+- Beacon's `sendBeacon` steps and Fetch's keep-alive rules: `POST`,
+  `keepalive`, credentials `include`, `no-cors` unless the content type is
+  not safelisted, `text/plain;charset=UTF-8` for a string, and 64 KiB of
+  keep-alive body in flight per fetch group. When a fetch group is
+  terminated, Fetch aborts every fetch without `keepalive`.
+
+**What was decided.** ADR 0040, *A request may outlive its page, and it is
+held to every rule a fetch is*, accepted:
+1. Outliving adds no identity and no destination a page lacks while open:
+   the cookies are ADR 0007's partitioned jar's, and the `connect-src` is
+   the page's. It adds only the timing of departure, which heartbeats give
+   a page anyway, and more noisily. So a page may send one.
+2. An ask gains a `keepalive` claim. A keep-alive ask is decided by ADR
+   0032 § 3 unchanged. A beacon is recorded with a purpose of its own,
+   **beacon**, governed by `connect-src`.
+3. Once its page has gone, a keep-alive fetch is made and answered by
+   nobody. This is the one exception to ADR 0032 § 1's rule. `Rule::Leaving`
+   now refuses only asks without `keepalive`, as Fetch aborts them. A left
+   page's asks are the document's. One still waiting when the browser closes
+   is not made and is recorded so. A dead renderer sends nothing.
+4. 64 KiB of keep-alive body in flight per document, Fetch's number. The
+   renderer counts it, so that `sendBeacon` answers `false`. The browser
+   process enforces it again, by a rule of its own, because the renderer's
+   count is a claim. The 64-asks bounds cover empty beacons.
+5. `sendBeacon` by Beacon's steps, a string or no body. Web IDL's
+   conversion of anything else to a string is correct while no `BodyInit`
+   object type exists, and each item that builds one adds it.
+
+The ADR names its costs, the alternatives it rejected (refusing all,
+same-site only, no credentials, keeping the renderer alive, a renderer-only
+count, finishing on quit, a number of our own) and how we will know it was
+wrong. ADR 0039 was not edited: its § 4 already said it held only until
+369 decided.
+
+**Queue.**
+- 369 has a *Decided* paragraph and closing conditions from ADR 0040 § 6.
+  It stays open: it is now the first build, designed, eligible and next.
+- Cut from it: **375**, `fetch(…, { keepalive: true })`, which depends on
+  369 and is opened by a page that uses it.
+
+**Roadmap.** No line is ticked. The Events line's *Owed* now says
+`sendBeacon` (369) is decided by ADR 0040 with nothing built. The fetch
+line's *Owed* names keep-alive as decided and not built (369, 375). Also
+updated: `docs/features.md`' fetch and Events lines (*decided, not built*),
+`docs/conformance.md`' alo Sites row, `REMAINING.md` and `CHANGELOG.md`.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log.
+It passed 600 s and the harness moved it to the background. The next call
+waited on it in a foreground `until` loop and read `exit 0` and "The gate
+is met", with no `FAILED` or `panicked` in the log:
+- formatting clean, clippy silent, tests pass;
+- no stubs, `unsafe` forbidden everywhere;
+- every rented crate behind its boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds;
+- "no uncommitted code to judge", which is right for a change with no code.
+  `CHANGELOG.md` has its line.
+
+This entry was written after that run, and is documentation only.
+
+**Gate, manual.**
+- Layout assertion and reference render: none applies. Nothing positions,
+  sizes or draws, and no reference moved. 369's closing conditions are
+  written as observable requests, bodies, counts and record lines.
+- Hostile input: nothing new reads from outside yet. The ADR requires the
+  build to refuse hostile bytes in the new `keepalive` field, and to bound
+  a lying renderer with the browser process's own count.
+- One responsibility per file: the ADR is one decision. It places the
+  keep-alive decision in `fetch_decide.rs`, the outliving in
+  `fetch_answering.rs`, and the count in each process's own bookkeeping.
+- The feature is in `docs/features.md` before it is built, as *decided,
+  not built*. Nothing is ticked: 369 is decided, not done.
+- No `unsafe`, no new dependency, no code changed. `alo-workplace` and
+  `alo-os` were read, not touched.
+
+**Unresolved obligations.**
+- 369 is next and eligible. 375 waits on it and on a page.
+- 374, the legacy target override, waits for a page that reads `target`.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- 371 waits for a windowless embedder. 372 is a speed, to be measured.
+  367 needs an ADR and a page. 368 waits on typed arrays and 231. 363
+  waits on 73.
+- Everything iteration 242 listed still stands.
+
+159 queue items are open: 375 added, and 369 still open. The next unused
+queue number is **376** and the next ADR is **0041**. This is one
+iteration, not a finished queue or roadmap.

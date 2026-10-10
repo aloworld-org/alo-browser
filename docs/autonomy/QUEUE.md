@@ -6144,6 +6144,52 @@ The long pole, and the thing most of section E is unreachable without.
   and the item it makes buildable sends or refuses the frozen page's report
   in tests.
 
+  **Decided (iteration 243): ADR 0040.** A keep-alive request is a page's
+  fetch that may be made after its page is gone, decided by every rule an
+  ordinary fetch is and gaining nothing else (§§ 1–2):
+  - a beacon carries the cookies ADR 0007's partitioned jar would send any
+    fetch, is governed by `connect-src`, and is recorded with a purpose of
+    its own, **beacon**, as the document's when its page asked it as it
+    was left;
+  - an ask gains a `keepalive` claim. Once its page has gone, a keep-alive
+    fetch is still **made and answered by nobody**; every other fetch
+    still waiting for that page is not, and `Rule::Leaving` now refuses
+    only asks without `keepalive` (§ 3);
+  - one still waiting when the browser closes is not made, and the record
+    says so (§ 3);
+  - **64 KiB** of keep-alive body in flight per document, Fetch's own
+    number: counted by the renderer so `sendBeacon` can answer `false`,
+    and enforced again, by a rule of its own, by the browser process (§ 4);
+  - `sendBeacon(url, data)` by Beacon's steps: a `TypeError` for a URL
+    that does not parse or is not `http(s)`; a string body as UTF-8
+    `text/plain;charset=UTF-8`, so `no-cors`; a `POST` with credentials
+    `include` (§ 5).
+
+  This item is now the first build, and it is designed and eligible: its
+  dependency, 373, is done. `fetch(…, { keepalive: true })` is cut to
+  **375**.
+
+  *Closes when* (ADR 0040 § 6):
+  - in `tests/alo_sites_cta.rs`, with no beacon lent, leaving the page
+    makes the browser process send `POST
+    https://nordwind.alosites.com/_alo/collect` with `d=1000&p=%2F&w=800`
+    and then `t=0`, each `text/plain;charset=UTF-8`, recorded as beacons
+    caused by the document and made after the page has gone;
+  - hiding the page sends the same two while it is held, and their answers
+    free the count;
+  - a page's `fetch` asked as it is left is still refused by
+    `Rule::Leaving`, beside the beacon that is made;
+  - a 65 536-byte body answers `true`, then a one-byte one `false` until
+    the first is answered; a 65 537-byte body answers `false` and asks
+    nothing;
+  - an unparseable URL and a `data:` URL throw a `TypeError`;
+  - an ask claiming `keepalive` past the browser process's count is
+    refused by name, and the next message is still read;
+  - a beacon the page's `connect-src` forbids is refused by name;
+  - a beacon still waiting when the conductor closes everything is
+    recorded as not made, in a conductor test;
+  - every script runs ordinarily and under `Heap::stress`.
+
 - [x] **366. The viewport a script reads.** *Opened by `alo-sites-cta`
   (iteration 234): `record` reads `window.scrollY` and
   `window.innerHeight`, `shape()` `window.innerWidth`, and `height()`
@@ -6509,6 +6555,15 @@ The long pole, and the thing most of section E is unreachable without.
   alone, and a script's own `dispatchEvent` at the window is unchanged,
   under `Heap::stress`. *Opened by a frozen page that reads such an event's
   `target`, and not before* — the alo Sites page does not.
+
+- [ ] **375. `fetch(…, { keepalive: true })`.** *Cut from 369 by ADR 0040
+  § 6. Depends on 369.* The same keep-alive ask from `fetch`, under the
+  same 64 KiB count, made after its page is left and answered by nobody.
+  Fetch's refusal of a stream body cannot arise, since no page can make
+  one yet. Until this is built the bindings refuse `keepalive` by name, as
+  *outlives its document*. *Opened by* a frozen page that uses it; none
+  does. *Closes when:* such a fetch is made after its page is left, and a
+  64 KiB total rejects the next one, in tests.
 
 - [ ] **357. A date as text.** *Cut from 353 (ADR 0036 § 4). Depends on
   356.* `Date.parse` and `new Date(string)` over the Date Time String

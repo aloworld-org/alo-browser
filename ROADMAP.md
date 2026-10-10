@@ -448,7 +448,9 @@ unreachable without it.
       `alo-net`'s `Request::redirected`)
       · Owed: `Request`, `Headers` and `Response`
       a page constructs, other bodies, `json()`, a `signal` and the `init`
-      members refused by name, each when a page needs one; and asynchronous
+      members refused by name, each when a page needs one; keep-alive,
+      decided by ADR 0040 and not built — `sendBeacon` (369) and
+      `keepalive` on `fetch` (375); and asynchronous
       `XMLHttpRequest` when a page uses one (336)
 - [ ] WebSocket
 - [ ] ★ **Every request attributable** — which page, and which agent action,
@@ -1118,7 +1120,9 @@ unreachable without it.
       name and `Tabs::close` and the conductor record; `PageTransitionEvent`
       (`alo-bindings`' `interface/page_transition_event.rs`) · Owed: its
       immutable prototype (363), the legacy target override (374),
-      keep-alive and `sendBeacon` (369), choosing among tabs telling each
+      `sendBeacon` (369, decided by ADR 0040: a left page's keep-alive
+      request is made, by every rule a fetch is, under 64 KiB in flight;
+      nothing built), choosing among tabs telling each
       (297), going there (85), a
       link's download (264), each element's own interface (262), focus
       (258) and event handler attributes (259)

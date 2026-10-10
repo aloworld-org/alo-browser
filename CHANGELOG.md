@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: a page's last report may outlive it.** A page being left may
+  send one last report — `navigator.sendBeacon`, and later a `fetch` that
+  asks to outlive its page — and the browser will make it after the page
+  has gone. It gains nothing an ordinary fetch does not have: the same
+  cookies, kept apart site by site, the page's own rules about where it may
+  connect, and a line in the record saying which page sent it and that it
+  was a beacon. A page may have at most 64 KiB of such reports waiting, the
+  standard's own limit. Anything else a page asks for as it is left is
+  still refused, and whatever is still waiting when the browser closes is
+  not sent, and the record says so. Nothing is built yet (queue items 369
+  and 375, ADR 0040).
+
 - **A page is told when it is shown and when it is left.** The last thing
   a page hears as it loads is `pageshow`. When its tab is closed, the
   window closes or the next page replaces it, the page hears `pagehide`,
