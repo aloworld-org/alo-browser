@@ -7085,6 +7085,64 @@ The long pole, and the thing most of section E is unreachable without.
   email field draws `you@company.eu` in `--text-tertiary` in pixels with
   its layout unchanged, the field still reads as empty to an agent, and a
   value hides the placeholder.
+  **Decided (iteration 253, ADR 0043).** A pseudo-element's style is
+  computed as its originating element's child: from the rules that name it
+  and match that element, inheriting from that element's computed style
+  (custom properties included), by the same five cascade questions, only
+  for an element that makes one, and kept beside the element's style; the
+  box tree's `nearest_style` answers it for the pseudo-element's box, so
+  layout and paint read one style in one place. Whether an element makes
+  a `::placeholder` is one fact in `alo-dom`, for style, box and agent: a
+  `<textarea>`, or an `<input>` of kind `text`, `search`, `url`, `tel`,
+  `email`, `password` or `number`, with a non-empty `placeholder` and an
+  empty value (an `<input>`'s hint with its line breaks stripped; a date
+  field none). The hint is a run of text in the field's line, in
+  `::placeholder`'s `color` (the user-agent sheet's `#757575`, Chromium's,
+  unless a page says otherwise), adding no width to an auto-sized field;
+  of the properties that apply to it only `color` is read, and a
+  declaration of another is recorded as an issue (392); a value, typed or
+  put, hides it. An agent reads no text under it, a `placeholder` property
+  (`textbox "Email" [placeholder="you@company.eu"]`, ARIA's
+  `aria-placeholder`) while it is shown, and the hint as the field's name
+  only after `title` (`name.rs` step 6). **Correction to this entry:**
+  HTML-AAM does *not* make a placeholder a description — it removed it
+  from the description computation in 2016 — so it is none. A rule naming
+  a pseudo-element this engine does not make is still recorded as
+  `PseudoElementNotProduced`. Nothing is built yet. *Now closes when*
+  (ADR 0043 § 6): `alo-sign-in`'s `style.css` carries `.input::placeholder
+  { color: var(--text-tertiary) }`, said in the case; its email field
+  draws `you@company.eu` in `#7a6f62` in pixels with its layout numbers
+  unchanged but for the new text box; its outline reads `textbox "Email"
+  [placeholder="you@company.eu"]` with no text under it, and a `PutText`
+  hides the placeholder; a box-tree test covers § 2's rule, and a
+  `numbers.rs` assertion an auto-width field as wide with a placeholder as
+  without; a style test covers inheriting a custom property, an author's
+  colour beating `#757575`, and `::before` still recorded; hostile
+  `placeholder` attributes are drawn, stripped or read without a panic.
+  *Depends on nothing open.*
+
+- [ ] **390. A placeholder longer than its field is clipped.** *Cut from
+  389 by ADR 0043 § 3. Feature: `docs/features.md` stage 2's forms line.
+  Waits for a page.* Both engines clip an `<input>`'s placeholder to its
+  content box (Chromium `overflow: hidden`, Firefox `overflow-inline:
+  clip`). No frozen page has a hint longer than its field, so it is not
+  built unasked. *Closes when:* a frozen page's field whose placeholder
+  overflows draws no ink of it outside the field's content box, in pixels.
+
+- [ ] **391. `:placeholder-shown`.** *Cut from 389 by ADR 0043, What this
+  does not decide. Waits for a page.* Matches an element showing a
+  placeholder, by the same `alo-dom` fact the style, box and agent trees
+  read (ADR 0043 § 2). *Closes when:* a frozen page's rule using it
+  matches an empty field with a hint and no filled one, in a matching test
+  and the page's render.
+
+- [ ] **392. `::placeholder`'s other properties.** *Cut from 389 by ADR
+  0043 § 3. Waits for a page.* The fonts, spacing, `text-transform`,
+  backgrounds and decorations CSS lets `::placeholder` take (those of
+  `::first-line`); until a page asks, a declaration of one is recorded as
+  an issue naming it. *Closes when:* a frozen page's `::placeholder`
+  declaration of one is drawn, with a layout assertion if it moves the
+  run, and its issue is gone.
 
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*

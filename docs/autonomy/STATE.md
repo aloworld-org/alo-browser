@@ -24557,3 +24557,90 @@ booking row), `REMAINING.md` and `CHANGELOG.md`.
 165 queue items are open (385 closed). The next unused queue number is
 **390** and the next ADR is **0043**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 253 — queue item 389 decided: ADR 0043, a pseudo-element's style and a field's placeholder
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` (its head and
+stage 2's *Forms* line), `REMAINING.md` and iterations 251–252's entries.
+No `AGENTS.md` exists in this repository. For 389: its queue entry, 385's
+and 384's, items 371–383 (to confirm nothing before 389 is takeable),
+`docs/features.md`' stage 2 forms line, ADR 0002, ADR 0013 § 3, ADR 0018
+(one kind of input), ADR 0042 (whole, as the form an ADR takes and for § 3,
+the format is not a placeholder); `alo-css`'s `selector.rs`, `matching.rs`,
+`issue.rs` and `parse.rs` (`PseudoElementNotProduced`); `alo-style`'s
+`computed.rs` (`resolve_admitting`), `cascade.rs` and `user_agent.rs`;
+`alo-box`'s `tree.rs` (`field_text`, `nearest_style`), `semantics.rs` and
+`state.rs` (how the outline writes states); `alo-agent`'s `name.rs`;
+`alo-paint`'s `build.rs` (`style_of`); `alo-sign-in`'s page, sheet and
+`agent.txt`; `a-filled-form`'s `agent.txt`. Fetched 2026-10-10 into the
+scratchpad and read: Chromium's `html.css` (placeholder `#757575`,
+`line-height: initial !important`, `overflow: hidden`), Firefox's
+`forms.css` (`color-mix(in srgb, currentColor 54%, transparent)`, inline
+clip) and HTML-AAM's editor's draft (placeholder is name step 5 after
+`title`, maps to `aria-placeholder`, and was removed from the description
+computation in 2016). Read only: `alo-workplace`'s `web/src/ds/Input.tsx`
+(`placeholder:text-tertiary`) and `auth/` (three pages with placeholders).
+
+**Choosing.** 389 is the first open item in the queue's order whose next
+step depends on nothing unbuilt: *needs ADR*, its page (`alo-sign-in`)
+frozen, depending on nothing open. Every item before it stands as
+iteration 252 listed it: 371 waits for an embedder with no window, 372 is
+a speed claim, 374 and 375 wait for pages, 376 needs design, 378, 380 and
+383 wait for pages, 381 needs 234 first, 386–388 wait on 296, 128 and a
+page. LOOP.md § 4: a decision is its own iteration, so this one wrote the
+ADR and no code.
+
+**What was decided** (ADR 0043, accepted). A pseudo-element's style is
+computed as its originating element's child — the rules naming it and
+matching that element, inheriting from its computed style, custom
+properties included, by the unchanged cascade — only for an element that
+makes one, kept beside the element's style and answered by
+`nearest_style`, so layout and paint read one style in one place. Whether
+an element makes a `::placeholder` is one `alo-dom` fact (HTML's kinds, a
+non-empty attribute, an empty value; line breaks stripped on `<input>`).
+The hint is a run in the field's line, in `::placeholder`'s `color`
+(user-agent `#757575`), adding no width; only `color` is read and other
+applicable properties are recorded as issues (392). An agent reads no text,
+a `placeholder` property while shown, and the hint as name only after
+`title`. **Corrected:** the queue entry said HTML-AAM makes a placeholder a
+description; the current draft does not, and the ADR and queue say so. One
+claim was rewritten before committing: a sentence crediting Firefox with
+aligning the placeholder's baseline to the editor's, which the comment
+read in `forms.css` (first baselines of multi-line elements) does not say.
+The 4.6:1 contrast of `#757575` on white was computed, not quoted.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s, and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", and the log has no `FAILED`, `panicked` or line starting `error`.
+This change has no code, so "documentation changed with the code" had
+nothing to judge. This entry and the commit came after that run, and are
+documentation only.
+
+**Gate, manual.** No layout, paint, style or agent code changed, so no
+layout assertion or reference render applies and none moved. One
+responsibility per file: the ADR decides one thing, how a pseudo-element
+is styled, with `::placeholder` as its first and only case; the placeholder
+fact is placed in `alo-dom` beside `date.rs` for the same reason `date.rs`
+is there. `alo-workplace` and `alo-os` were not touched: `git status` in
+each is clean. (`alo-os` *is* checked out beside this repository, at
+`c4f5481a`; iteration 252's entry said it was not. Nothing here read it.)
+
+**Queue.** 389 stays open with a *Decided* paragraph and its closing
+conditions from ADR 0043 § 6; it is buildable next and depends on nothing
+open. Added open: 390 (a long hint clipped), 391 (`:placeholder-shown`)
+and 392 (`::placeholder`'s other properties), each waiting for a page.
+**Roadmap:** stage 2's *Forms* line's Owed clause now says 389 is decided
+and not built, and names 390–392; the box stays empty. Also updated:
+`docs/features.md` (the forms line), `docs/conformance.md` (the sign-in
+screen's placeholder), `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 389 is decided and not built: `alo-sign-in`'s placeholder is still not
+  drawn, and the case does not yet carry the `::placeholder` rule.
+- 390, 391 and 392 wait for pages.
+- Everything iteration 252 listed still stands.
+
+168 queue items are open (390–392 added open). The next unused queue number
+is **393** and the next ADR is **0044**. This is one iteration, not a
+finished queue or roadmap.

@@ -1267,3 +1267,14 @@ and `PutText` takes a valid date string and refuses anything else as
 painted the field's background and border again around itself. 165 queue
 items are open. The next unused queue number is 390 and the next unused
 ADR 0043.
+
+Iteration 253 took item 389, the first open item whose next step depends on
+nothing unbuilt, and wrote its decision rather than code: ADR 0043. A
+pseudo-element's style is computed as its originating element's child and
+kept beside it; `::placeholder` is the first, drawn in its own colour in the
+field's line and read by an agent as a `placeholder` property, never as
+text. 389 stays open with a *Decided* paragraph and is buildable next. The
+cuts are 390 (clipping a long hint), 391 (`:placeholder-shown`) and 392
+(`::placeholder`'s other properties), each waiting for a page. 168 queue
+items are open (390–392 added open). The next unused queue number is 393
+and the next unused ADR 0044.

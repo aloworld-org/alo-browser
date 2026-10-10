@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: how a field's placeholder is drawn and read** (ADR 0043). Not
+  built yet. alo's sign-in screen shows `you@company.eu` faintly in its
+  empty email field; this browser shows nothing there today. The hint will
+  be drawn in the field's own line, in the colour the page gives it — a
+  mid grey if it gives none — without making the field any wider, and it
+  disappears as soon as the field holds anything. An agent will be told
+  the hint is there, as a hint, and never mistake it for something typed.
+  It is the first of the "pseudo-elements" CSS lets a page style, so the
+  same decision sets how the later ones (`::before`, list markers) get
+  their style: as a part of the element they belong to (queue items
+  389–392).
+
 - **An empty date field shows how a date is written.** alo Sites' booking
   form asks for a day, and its field used to be a blank box that an agent
   saw as nothing in particular. It now shows `yyyy-mm-dd` in the field's

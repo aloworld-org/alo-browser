@@ -1164,8 +1164,13 @@ unreachable without it.
       (queue item 81) — constraint validation, submission, file inputs — the
       focus ring, which needs something to have focus (queue item 43); a
       date field's calendar (386), the person's region (387), the other
-      temporal kinds (388), and a field's `placeholder`, which needs an ADR
-      (389)
+      temporal kinds (388); and a field's `placeholder` (389), **decided
+      and not built** (ADR 0043: a pseudo-element's style is computed as
+      its originating element's child; the hint is drawn in
+      `::placeholder`'s colour in the field's line, adding no width, and an
+      agent reads it as a `placeholder` property and never as text), with
+      a long hint's clipping (390), `:placeholder-shown` (391) and
+      `::placeholder`'s other properties (392) each waiting for a page
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
       · Built: **`location`, read** (queue item 360) — `alo-url`'s
       `reading.rs` (the URL Standard's nine readings over our `Url`) and

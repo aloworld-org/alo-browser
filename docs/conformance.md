@@ -401,7 +401,8 @@ Sans, which is wider than the Inter the app loads. Web fonts are stage 2.
 `you@company.eu` in it, in `--text-tertiary`, through alo's `Input` component's
 `placeholder:text-tertiary` — a `::placeholder` rule that the case's stylesheet
 does not carry, and that this engine would not match if it did, because it
-styles no pseudo-element yet. That is item 389, which needs an ADR first.
+styles no pseudo-element yet. That is item 389, decided by ADR 0043 and not
+built: the case gains that rule when the hint is drawn.
 
 `crates/alo-corpus/cases/alo-settings/` is **alo-workplace's own Settings
 screen** — its markup, its rules from `web/src/shell/SettingsModal.module.css`
