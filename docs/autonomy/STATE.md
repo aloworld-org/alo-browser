@@ -25394,3 +25394,88 @@ stage 1 Text line), `docs/conformance.md` (the rich-text sentence),
 171 queue items are open (402 closed, 403 added open). The next unused
 queue number is **404** and the next ADR is **0044**. This is one
 iteration, not a finished queue or roadmap.
+
+
+## Iteration 262 — queue item 401 decided: ADR 0044, a list item's marker
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its head and stage 2's lines), `REMAINING.md` and iterations 253 (the
+form an ADR iteration takes), 260 and 261. No `AGENTS.md` exists in this
+repository. For 401: its queue entry, 402's and 403's, ADR 0002, ADR 0043
+whole (§§ 1–2 are what this follows and § 2 what it extends), ADR 0013
+§ 3 as 0043 cites it; `docs/features.md`' marker line; `alo-css`'s
+`selector.rs` (`PseudoElement`, `is_produced`) and `shorthand.rs` (no
+`list-style` split); `alo-style`'s `pseudo.rs`, `inheritance.rs` and
+`user_agent.rs`; `alo-box`'s `display.rs`, `tree.rs` (the placeholder set,
+`nearest_style`) and `state.rs`; `alo-agent`'s `name.rs` and `tree.rs`;
+`alo-text`'s `database.rs`; the case's `page.html`, `agent.txt` and
+`origin.txt`. Fetched 2026-10-11 and read: Chromium's `list_marker.cc`
+(symbol markers are text; `InlineMarginsForOutside`: a text marker's start
+margin is minus its width, a symbol's `-(ascent × 2 / 3) - 7 - 1`) and
+Chromium's `html.css` (`disc`/`decimal`, nested `circle` and `square`, no
+working `counter-reset: list-item`). Read only: `alo-workplace`'s
+`web/src/ds/global.css` (`list-style: none`).
+
+**Choosing.** Iteration 261 left every other open item blocked on
+dependencies, design, an ADR's code half, or a page, and 401 *needs ADR*
+with its page frozen and nothing open under it. LOOP.md § 4: a decision is
+its own iteration, so this one wrote ADR 0044 and no code.
+
+**What was decided** (ADR 0044, accepted). An element makes a `::marker`
+when its computed `display` is a list item and `list-style-type` is not
+`none` — one fact held where style is computed, extending ADR 0043 § 2 to a
+pseudo-element made by style. Its style is the item's child (ADR 0043
+§ 1); `color` and the font properties are read, the rest recorded. The
+`list-style` shorthand is split in the same change, because alo Sites'
+sheet removes markers with `list-style: none` (eight rules in each of ten
+frozen copies). The user-agent sheet gains the nested `circle` and
+`square`. Numbering is HTML's ordinal value, not CSS counters; integers
+outside `i32` are absent, the arithmetic saturates. Text: `• `, `◦ `,
+`▪ `, `N. `; an undefined name is `decimal`; an unbuilt predefined style,
+a string and `inside` draw nothing and are recorded (ADR 0013 § 3). The
+marker is text, not a shape, as in Chromium; a text box recorded as the
+item's `::marker` on its first line's baseline, taking no room, placed by
+Chromium's outside margins. An agent reads `[marker="3."]`, never the
+marker in the name or as a node. **Corrected before committing:** a draft
+sentence credited Tailwind's preflight under every alo screen with
+`list-style: none`; what was checked is alo Sites' own sheet and the
+workspace's `global.css`, and the ADR says that instead.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", and the log has no `FAILED`, `panicked` or line starting `error`.
+The change has no code, so "documentation changed with the code" had
+nothing to judge. This entry and the commit came after that run and are
+documentation only.
+
+**Gate, manual.** No layout, paint, style or agent code changed, so no
+layout assertion or reference render applies and none moved. One
+responsibility per file: the ADR decides one thing, what a list item's
+marker is, and its extension of ADR 0043 § 2 is stated in it rather than
+by editing that accepted ADR. No `unsafe`, no dependency. `alo-workplace`
+and `alo-os` were not touched: `git status` in each is clean.
+
+**Queue.** 401 stays open with a *Decided* paragraph; its closing
+conditions are ADR 0044 § 6, and it is buildable next, depending on
+nothing open. Added open, each waiting for a page: 404 (`inside`), 405
+(`list-style-image`, also on 311), 406 (other counter styles, `<ol type>`,
+string markers, `::marker { content }`), 407 (CSS counters), 408
+(`::marker`'s other properties), 409 (an item with no line). **Roadmap: no
+line moved, and why.** No stage 2 line names lists, markers or generated
+content (iterations 260 and 261 found the same), and stage 1's ticked
+*Computed style* and *Paint* lines are not reopened by a decision; adding a
+line to claim this would be decoration. Also updated: `docs/features.md`
+(the marker line), `docs/conformance.md` (the rich-text sentence),
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 401 is decided and not built: `alo-sites-rich-text` still draws no
+  markers. Building it will move every corpus reference with a list not
+  styled `list-style: none`; each must be reviewed in that commit.
+- 404–409 wait for pages; 403 waits for a page; 383 waits for a page.
+- Everything iteration 261 listed still stands.
+
+177 queue items are open (404–409 added open). The next unused queue
+number is **410** and the next ADR is **0045**. This is one iteration, not
+a finished queue or roadmap.

@@ -1369,3 +1369,12 @@ Eleven case pictures moved, each reviewed (only bold text changed), and no
 layout file. Cut: 403 (`bolder` and `lighter`, waits for a page). 171 queue
 items are open (402 closed, 403 added open). The next unused queue number
 is 404 and the next unused ADR 0044.
+
+Iteration 262 decided item 401: ADR 0044, a list item's marker. A
+`::marker` is made by the item's computed style (extending ADR 0043 § 2),
+styled as its child, numbered by HTML's ordinal value, written in one of
+five counter styles as text, set outside the item's first line taking no
+room, and read by an agent as the item's `marker` property. No code; 401
+stays open, decided and buildable next. Cut, each waiting for a page:
+404–409. 177 queue items are open (404–409 added open). The next unused
+queue number is 410 and the next unused ADR 0045.

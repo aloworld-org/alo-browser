@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How list bullets and numbers will work is decided.** Lists still have
+  no bullets or numbers. The decision (ADR 0044) says what they will be: a
+  bullet, a hollow bullet for a list inside a list, or the item's number —
+  counting from where the page says the list starts — drawn just outside
+  the point's first line without moving any text, and told to an agent as
+  "this is item 3" rather than mixed into what the item says (queue item
+  401).
+
 - **Bold text is bold.** Headings, `<strong>`, `<b>` and table headers
   were given the room bold letters take and then drawn in regular ones, so
   a bold heading looked thin and a bold phrase in a sentence left a gap

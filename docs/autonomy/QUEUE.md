@@ -7503,6 +7503,30 @@ The long pole, and the thing most of section E is unreachable without.
   *Closes when:* the ADR is accepted, the case draws a disc, a circle and
   "3." and "4." where a browser does, in pixels and numbers, and its agent
   outline reads what the ADR says.
+  **Decided (iteration 262, ADR 0044).** An element makes a `::marker`
+  when its computed `display` is a list item and its `list-style-type` is
+  not `none` — one fact, held where style is computed, which extends ADR
+  0043 § 2 to a pseudo-element made by style; the marker's style is
+  computed as the item's child by ADR 0043 § 1, reading `color` and the
+  font properties and recording the rest (and `content`) as issues.
+  `list-style` is split into its three longhands in the same change, since
+  alo Sites' sheet removes markers with `list-style: none`. The user-agent
+  sheet gains HTML's nested `circle` and `square`. The number is HTML's
+  ordinal value (§ 4.4.8: list owner, `start`, `reversed`, `value`), not
+  CSS counters; integers that do not fit an `i32` are absent and the
+  arithmetic saturates. The text is CSS Counter Styles' representation
+  with its suffix for `disc` (`• `), `circle` (`◦ `), `square` (`▪ `) and
+  `decimal` (`3. `); a name no specification defines is `decimal`; an
+  unbuilt predefined style, a `<string>` and `inside` draw no marker and
+  are recorded. A disc is text, not a shape, as in Chromium. The marker is
+  a text box recorded as the item's `::marker`, styled through
+  `nearest_style`, on the item's first line's baseline, taking no room: a
+  text marker ends at the line's start, a symbol starts `⌊ascent × 2 /
+  3⌋ + 8` before it (Chromium's `InlineMarginsForOutside`); an item with no
+  line draws none. An agent reads `listitem "Draft" [marker="3."]` — the
+  drawn text, trailing space trimmed — never the marker in the name or as
+  a node. Closing conditions are ADR 0044 § 6. Cut, each waiting for a
+  page: 404–409. Buildable next; depends on nothing open.
 
 - [x] **402. `font-weight: bold` is drawn bold.** *Found by
   `alo-sites-rich-text` (iteration 260). Feature: `docs/features.md` stage
@@ -7554,6 +7578,48 @@ The long pole, and the thing most of section E is unreachable without.
   grandchild does not apply it twice. No corpus page writes either word.
   *Closes when:* a page's `bolder` and `lighter` are drawn at the weights
   CSS's table gives, in numbers, three levels deep.
+
+- [ ] **404. `list-style-position: inside`.** *Cut from 401 by ADR 0044
+  § 4. Waits for a page.* An inside marker is an inline box at the start of
+  the item's first line and takes room in it. Until a page asks, an
+  `inside` marker is not drawn and is recorded. *Closes when:* a frozen
+  page's inside markers are drawn at the start of their lines, the text
+  after each moved by the marker's width, in pixels and numbers.
+
+- [ ] **405. `list-style-image`.** *Cut from 401 by ADR 0044, What this
+  does not decide. Waits for a page, and on 311's pictures in style.* A
+  picture as the marker, falling back to the type when it cannot be had.
+  *Closes when:* a frozen page's image marker is drawn where § 4 puts a
+  marker, in pixels and numbers.
+
+- [ ] **406. The counter styles beyond five, `<ol type>` and a string
+  marker.** *Cut from 401 by ADR 0044 § 3. Waits for a page.* `lower-alpha`,
+  `upper-alpha`, `lower-roman`, `upper-roman` and the rest of CSS Counter
+  Styles 3's predefined styles, HTML's `type` attribute that maps to them,
+  `list-style-type: "<string>"` and `::marker { content }`. Each draws no
+  marker and is recorded until then. *Closes when:* a frozen page's
+  lettered or roman list is drawn with its markers, each checked as text in
+  a unit test and in the page's agent outline.
+
+- [ ] **407. CSS counters.** *Cut from 401 by ADR 0044 § 3. Waits for a
+  page.* `counter-reset`, `counter-increment` and `counter-set`, their
+  scoping, the `list-item` counter as CSS defines it and `counter()` in
+  `content`. HTML's ordinal value numbers every list a page here has.
+  *Closes when:* a frozen page's counter is drawn at the number CSS Lists 3
+  gives, in a unit test and the page's render.
+
+- [ ] **408. `::marker`'s other properties.** *Cut from 401 by ADR 0044
+  § 2. Waits for a page.* Of what CSS lets a marker take, only `color`
+  and the font properties are read; the rest is recorded as an issue
+  naming it. *Closes when:* a frozen page's `::marker` declaration of one
+  is drawn and its issue is gone.
+
+- [ ] **409. A list item with no line.** *Cut from 401 by ADR 0044 § 4.
+  Waits for a page.* An item holding no line box — empty, or only a
+  replaced or flex box — has no baseline for an outside marker to stand
+  on, and draws none until a page shows where a browser puts it. *Closes
+  when:* a frozen page's line-less item draws its marker where a browser
+  does, in numbers.
 
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
