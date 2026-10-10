@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A gap that scales with the window is no longer lost.** A page that
+  spaced its columns with a gap written as a formula — "6% of the window,
+  but at least 2rem and at most 5rem" — got no gap at all, because the
+  browser cut the formula apart at its spaces and could read none of the
+  pieces. The columns touched and were the wrong widths. It now reads the
+  formula whole, and a gap set later in a style sheet overrides one set
+  earlier the way CSS says. alo Sites' contact form is now one of the
+  pages checked on every change (queue item 397).
+
 - **A menu of links sits as tall as its links.** A link laid out as a
   small flex box, to centre its text in a tall tap target, used to stand
   on its bottom edge in its line, so the line hung a little space under

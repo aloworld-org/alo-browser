@@ -1327,3 +1327,12 @@ frozen. Cut or found: 396 (a row aligned on baselines) and 398 (bare text
 in a flex item does not shrink), both waiting for a page. 170 queue items
 are open (395 added closed, 396–398 added open). The next unused queue
 number is 399 and the next unused ADR 0044.
+
+Iteration 258 took item 397, which iteration 257 left buildable next, and
+froze alo Sites' contact form as `alo-sites-contact-form`. The `gap`
+shorthand is now split into `row-gap` and `column-gap` in `alo-css` as it
+is written, beside `padding-block`, at the spaces between values only, so
+`clamp(2rem, 6vw, 5rem)` is one 48-pixel gap and the form's columns are
+284.8 and 427.2, 48 apart; no other case moved. Nothing was cut or found.
+169 queue items are open (397 closed). The next unused queue number is 399
+and the next unused ADR 0044.

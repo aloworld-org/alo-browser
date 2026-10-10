@@ -15,6 +15,7 @@
 //!   `place-content`, block axis first.
 //! - **One value per end of the block axis** ([`BLOCK_AXIS`]):
 //!   `margin-block` and `padding-block`, start first.
+//! - **One value per gutter** ([`GAPS`]): `gap`, the row gap first.
 //!
 //! A shorthand whose parts are told apart by *kind* — `border`, `background`,
 //! `font` — is not here: that is parsing, and it is `alo_value::shorthand`'s.
@@ -104,7 +105,10 @@ pub(crate) fn expand(declaration: &Declaration) -> Vec<(String, String)> {
         .iter()
         .find(|(shorthand, _, _)| *shorthand == name)
     {
-        return ends(sides, value);
+        return one_or_two(sides, value);
+    }
+    if let Some((_, longhands)) = GAPS.iter().find(|(shorthand, _)| *shorthand == name) {
+        return one_or_two(longhands, value);
     }
     Vec::new()
 }
@@ -184,23 +188,39 @@ pub(crate) static BLOCK_AXIS: [(&str, [&str; 2], [&str; 2]); 2] = [
     ),
 ];
 
-/// A block-axis shorthand's two sides, start first: one value is both ends,
-/// two are start then end, and anything else is left whole to be refused
-/// where it is read. A `var()` is one value, with [`SIDED`]'s rare wrong
-/// answer when the variable holds two.
-fn ends(sides: &[&str; 2], value: &str) -> Vec<(String, String)> {
+/// A shorthand of two longhands, the first written first: one value is
+/// both, two are the first and then the second, and anything else is left
+/// whole to be refused where it is read. A block-axis shorthand's are its
+/// start and its end; `gap`'s are its row gap and its column gap. A `var()`
+/// is one value, with [`SIDED`]'s rare wrong answer when the variable holds
+/// two.
+fn one_or_two(longhands: &[&str; 2], value: &str) -> Vec<(String, String)> {
     let parts = top_level_parts(value);
-    let (start, end) = match parts.as_slice() {
+    let (first, second) = match parts.as_slice() {
         [both] => (both, both),
-        [start, end] => (start, end),
+        [first, second] => (first, second),
         _ => return Vec::new(),
     };
-    let [top, bottom] = sides;
+    let [first_longhand, second_longhand] = longhands;
     vec![
-        ((*top).to_owned(), start.clone()),
-        ((*bottom).to_owned(), end.clone()),
+        ((*first_longhand).to_owned(), first.clone()),
+        ((*second_longhand).to_owned(), second.clone()),
     ]
 }
+
+/// The gap shorthand, and the longhands it becomes: the row gap first, then
+/// the column gap — CSS Box Alignment 3 § 8.3, and the opposite order to
+/// every other two-value shorthand that names a width before a height.
+///
+/// It is split here, as it is written, for the reason
+/// [`DeclarationBlock::push`](crate::DeclarationBlock::push) gives for
+/// `padding`: left whole, `column-gap: 1rem` in one rule and `gap: 2rem` in
+/// a later one never met in the cascade, and layout let the longhand win
+/// whichever came last. And it is split by [`top_level_parts`], so a value
+/// with spaces inside a function is one value: alo Sites' contact form is
+/// `gap: clamp(2rem, 6vw, 5rem)`, and layout, splitting at every space, read
+/// it as three pieces none of which was a length, and drew no gap at all.
+pub(crate) static GAPS: [(&str, [&str; 2]); 1] = [("gap", ["row-gap", "column-gap"])];
 
 /// The shorthands that are one value per axis, and the longhands each becomes:
 /// the block axis (`align-*`) first, the inline axis (`justify-*`) second.
@@ -696,5 +716,73 @@ mod tests {
         };
         assert_eq!(value("align-items").as_deref(), Some("center"));
         assert_eq!(value("justify-items").as_deref(), Some("start"));
+    }
+
+    /// One value is both gaps; two are the row gap and then the column gap.
+    /// A function's spaces are inside its one value.
+    #[test]
+    fn gap_becomes_its_row_gap_and_then_its_column_gap() {
+        assert_eq!(
+            ends_of("gap", "clamp(2rem, 6vw, 5rem)"),
+            pair(
+                "row-gap",
+                "clamp(2rem, 6vw, 5rem)",
+                "column-gap",
+                "clamp(2rem, 6vw, 5rem)"
+            ),
+        );
+        assert_eq!(
+            ends_of("gap", "1rem calc(2px + 3px)"),
+            pair("row-gap", "1rem", "column-gap", "calc(2px + 3px)"),
+        );
+        assert!(ends_of("gap", "1px 2px 3px").is_empty());
+        assert!(ends_of("gap", "").is_empty());
+        assert!(
+            ends_of("row-gap", "1px").is_empty(),
+            "a longhand is not split"
+        );
+    }
+
+    /// `gap` and its longhands compete by order, as one property, which they
+    /// did not while layout read the shorthand itself.
+    #[test]
+    fn gap_and_a_longhand_compete_by_order() {
+        let value = |block: &crate::DeclarationBlock, name: &str| {
+            block
+                .get(&crate::PropertyName::parse(name))
+                .map(|declaration| declaration.value.clone())
+        };
+        let mut block = crate::DeclarationBlock::new();
+        block.push(Declaration::new("column-gap", "1px", Importance::Normal));
+        block.push(Declaration::new("gap", "2px", Importance::Normal));
+        assert_eq!(value(&block, "column-gap").as_deref(), Some("2px"));
+        block.push(Declaration::new("row-gap", "3px", Importance::Normal));
+        assert_eq!(value(&block, "row-gap").as_deref(), Some("3px"));
+        assert_eq!(value(&block, "column-gap").as_deref(), Some("2px"));
+        assert_eq!(
+            block.written().count(),
+            3,
+            "the gaps it implies are not written"
+        );
+    }
+
+    /// What a stranger's sheet can put in `gap`: none panics, and none is
+    /// split into anything but two gaps or nothing.
+    #[test]
+    fn a_hostile_gap_is_split_or_left_whole() {
+        let deep = "(".repeat(10_000);
+        let closed = format!("{}{}", "(".repeat(10_000), ")".repeat(20_000));
+        let many = "1px ".repeat(10_000);
+        for value in [
+            deep.as_str(),
+            closed.as_str(),
+            many.as_str(),
+            ")))",
+            "1px )",
+            "\u{0} \u{FFFD}",
+        ] {
+            let split = ends_of("gap", value);
+            assert!(split.is_empty() || split.len() == 2, "{value:.20}");
+        }
     }
 }

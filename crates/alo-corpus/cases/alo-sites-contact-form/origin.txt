@@ -1,0 +1,83 @@
+alo-workplace, products/sites/alo-sites/tests/golden/section_contact_form.html
+and products/sites/alo-sites/tests/golden/site.css — a page alo Sites
+publishes for its customers: the wholesale enquiry form of a demonstration
+coffee roaster's home page, with the style sheet every alo Sites page links.
+
+Taken 2026-10-10 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit the
+other alo Sites cases were taken at. The page's last change is
+5be41b70be364f8e1e0e158a8619e4e94455321c (2026-09-02). The bytes are those
+files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  068c6b7f472278605d0bf13bde09e5ffec3fe0c5d325fdb1cc34aedce8e57970
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+The sheet is byte for byte the other alo Sites cases'. `alo-workplace` is
+read-only reference; nothing was written back to it. Both files are golden
+outputs of alo Sites' own renderer, pinned by its tests, so they are what it
+really serves rather than something rebuilt from it.
+
+Why this page. Iteration 257 rendered it while looking for the navigation's
+fault and found this one, queued as item 397; it was left unfrozen there so
+that one case opens one item. It names `section-motion` only in its script,
+not on an element, so it draws at full opacity and can be checked by picture
+as well as by number. This is the `contact-split` variant: the heading and
+its line of introduction on the left, the form on the right.
+
+**Where it is served from, and what its sheet is answered with,** are the
+call-to-action section's, for the same reasons (see that case's origin.txt):
+the page's own `<link rel="canonical">` says
+`https://nordwind.alosites.com/` (address.txt), and its `/assets/site.css`
+is answered from site.css (linked.txt). Its analytics script is the same
+script; it also finds the form (`form[action^="/f/"]`) and sends a view
+through `navigator.sendBeacon`, which sends nothing in a reference render.
+The first script's submit listener is never fired.
+
+Rendered at 800 × 600, wider than the sheet's breakpoints, as the other alo
+Sites cases are.
+
+## What it found
+
+- **A `gap` written with a function was read as no gap** — item 397. The
+  section is `display: grid; grid-template-columns: .8fr 1.2fr; gap:
+  clamp(2rem, 6vw, 5rem)`. Layout split the `gap` shorthand at every space,
+  so `clamp(2rem,`, `6vw,` and `5rem)` each failed to read and were dropped
+  without a record: the columns were 304 and 456, touching, and the
+  introduction sat directly under the heading's row. 6vw of 800 is 48,
+  between 32 and 80, so the gap is 48 both ways; the 712 left of the
+  section's 760 is shared .8 to 1.2, 284.8 and 427.2.
+  `tests/alo_sites_contact_form.rs` says so.
+
+Everything else checks against the sheet by hand and is pinned as it is:
+`main > section` is 70rem at most, so on this page 800 wide with 3rem and
+1.25rem of padding, its content 760 at (20, 48). The heading is 28 px
+(`clamp(1.5rem, 3.5vw, 2.125rem)`) at a line height of 1.2, and "Wholesale
+enquiries" is wider than 284.8 at that size, so it is two lines, 67.2, with
+0.5em (14) under it: its row is 81.2. The introduction, 17 px at 1.6, is two
+lines, 54.4, at 48 + 81.2 + 48 = 177.2. The form is placed in rows one to
+three, `align-items: start`, and is 442.5 tall; what it needs beyond the
+first two rows goes to the third, which holds nothing else, as CSS Grid 1
+§ 11.5 distributes a spanning item's size only up to each track's limit, and
+the first two are already at theirs. So the section is 48 + 442.5 + 48 =
+538.5. In the form: each label is a 27.2 block with 0.25rem under it; each
+field is `width: 100%`, 427.2, with 0.6rem and 0.75rem of padding and a 1 px
+border, so 27.2 + 19.2 + 2 = 48.4 tall; the message field is
+`min-height: 8rem`, 128, and as an inline block standing on its bottom edge
+it leaves the strut's descent, 7.7, under it in its line, as browsers do;
+each paragraph has 1em (17) under it. The button is 27.2 + 19.2 + 2 = 48.4
+tall and its text plus 1.2rem each side and its border, 88.4, wide. The
+honeypot paragraph is `position: absolute !important`, 1 × 1, clipped and
+hidden from the agent tree by `aria-hidden`; its `overflow: hidden` keeps
+its label and field inside that one pixel, which none of their ink reaches,
+so nothing of it is drawn (checked in pixels: white at (352..353, 48..49)).
+Its `clip-path: inset(50%)` is not read by this engine, and an unknown
+property is kept and ignored without a record, so issues.txt does not name
+it; here it would hide nothing more. The
+skip link is `left: -999rem`, as on the other cases.
+
+What the sheet asks for that this engine does not do is in issues.txt: the
+call-to-action section's list exactly — `::before` and `::after`,
+`@keyframes`, and `prefers-reduced-motion`. Nothing on this page uses any of
+them.

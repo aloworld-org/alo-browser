@@ -25033,3 +25033,101 @@ sections, and the baseline paragraph), `REMAINING.md` and `CHANGELOG.md`.
 170 queue items are open (395 added closed, 396–398 added open). The next
 unused queue number is **399** and the next ADR is **0044**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 258 — queue item 397 built: a `gap` written with a function, found in alo Sites' contact form
+
+**Read first.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`, the
+journal's last entry (257) and the queue. No `AGENTS.md` exists in this
+repository. Every item before 397 is still blocked, waiting for a page or
+needing design, as iteration 257 left them; 397 depends on nothing open,
+and 257 named it buildable next. Its feature is stage 1's Layout; ADR 0033
+(a value kept as written, counted shorthands split by
+`DeclarationBlock::push`) governs where a shorthand is split, and was read
+before the change below.
+
+**Page.** `section_contact_form.html` and `site.css` from `alo-workplace`
+at 738de614, frozen byte for byte as `alo-sites-contact-form` (hashes in
+its `origin.txt`, the sheet identical to the other alo Sites cases').
+Rendered before the change, its `contact-split` grid's columns were 304
+and 456 with no gap.
+
+**What was built, and a change of course.** It was first built as the
+queue item described it: a top-level splitter in `alo-value` and the
+shorthand read in `alo-layout`'s `style.rs`. That worked, and was taken out
+again before any commit when `alo-css`'s `shorthand.rs` turned
+out to be where every shorthand split by counting already lives, with a
+top-level splitter of its own, expanded in `DeclarationBlock::push` so
+that shorthand and longhands compete in the cascade by order (ADR 0033).
+A second splitter in `alo-value` would have been the same fact in two
+places, and reading `gap` in layout would have kept the cascade bug that
+`column-gap: 2px; gap: 8px` gave 2 across. So: `alo-css` gains `GAPS`
+(`gap` → `row-gap`, `column-gap`), split by `top_level_parts` through the
+block-axis splitter, renamed `one_or_two` since it now serves both;
+`longhand.rs` names the two for CSSOM's `setProperty`/`removeProperty`;
+`alo-layout` reads only the longhands, and refuses a `gap` with neither
+beside it (one of more than two values) with a record. Detail in 397's
+*Done* paragraph.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", and the log has no `FAILED`, `panicked` or line starting `error`.
+`cargo fmt --all --check` and clippy on the touched crates were clean
+before it. This entry and the commit came after that run, and are
+documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `tests/alo_sites_contact_form.rs` (the
+  section 800; the heading at x 20, 284.8 wide; the form at 352.8, 427.2
+  wide, 48 from the heading; the heading 67.2 tall at y 48; the
+  introduction at 177.2 = 48 + 81.2 + 48; the form at y 48), each checked
+  against the sheet by hand in `origin.txt`, including the rows: the
+  form's span spills only into the empty third row, as CSS Grid 1 § 11.5
+  distributes a spanning item's size up to each track's limit. Unit tests
+  in `alo-css` and `alo-layout`'s `style.rs` as 397 lists.
+- Reference render: `alo-sites-contact-form`'s `render.png` (looked at by
+  eye: the heading in two lines and the introduction on the left, the
+  three labelled fields and the blue Send button on the right, the gap
+  between), `layout.txt`, `display.txt`, `boxes.txt`, `agent.txt` and
+  `issues.txt` committed; the honeypot draws nothing, checked in pixels.
+  **No other case's reference moved**, checked by rewriting every
+  reference and finding no committed file changed — though the sheet
+  every alo Sites case links has three other `gap: clamp(...)` rules, none
+  matches an element on a frozen page.
+- Hostile input: `gap` is a value from a stranger's sheet; a test feeds
+  `alo-css` deep, unclosed, over-closed, ten-thousand-value and NUL
+  values and gets two gaps or nothing, never a panic.
+- Mutations (a copy in the scratchpad, restored with `cp`, checked with
+  `cmp`, the renderer binary rebuilt in the same command): listed in
+  397's *Done* paragraph; each failed the tests named.
+- One responsibility per file: `shorthand.rs` is still the counted
+  shorthands; `longhand.rs` still which longhands a shorthand covers;
+  `style.rs` still reads layout's properties.
+- No `unsafe`, no new dependency, no new CSS property read (`gap`,
+  `row-gap` and `column-gap` were all listed for layout). `alo-workplace`
+  and `alo-os` were not touched; their `git status` is clean.
+
+**Queue.** 397 ticked with its *Done* paragraph. **Roadmap: no line
+moved, and why.** Splitting a shorthand into its longhands is inside
+stage 1's ticked *Computed style* and *Layout* lines, as items 379 and 282
+were, and no stage 2 line names shorthands or gaps; adding one to claim it
+would be decoration. Also updated: `docs/features.md` (a stage 2 line
+beside `padding-block`'s, "`gap` sets `row-gap` and `column-gap`", where
+the counted shorthands are listed, rather than under stage 1's Layout as
+the item said), `docs/conformance.md` (the alo Sites row, now nine
+sections), `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- `gap: normal` (valid CSS, 0 in a flex or grid container) is now
+  recorded as `row-gap: normal`, as the longhand always was; before, the
+  shorthand dropped it silently. No page has it; not queued.
+- A variable holding two values (`gap: var(--two)`) is the same rare
+  wrong answer `padding` has, documented in `shorthand.rs`.
+- Still unfrozen alo Sites sections with no picture: footer and
+  custom_code (`section-motion` on an element), blocknote_core and
+  seo_defaults. 396 and 398 wait for pages; everything iteration 257
+  listed still stands.
+
+169 queue items are open (397 closed). The next unused queue number is
+**399** and the next ADR is **0044**. This is one iteration, not a
+finished queue or roadmap.

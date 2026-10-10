@@ -222,6 +222,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (queue item 379, opened by alo Sites' bento features card; corpus case
   `block-axis-spacing`). The inline axis waits, since which side it names
   is `direction`'s (380)
+- [2] **`gap` sets `row-gap` and `column-gap`** — one value for both, two
+  for the row gap then the column gap — split where it is written, at the
+  spaces between values and not those inside a function, so `gap:
+  clamp(2rem, 6vw, 5rem)` is one gap of 48 on an 800-wide page rather than
+  three pieces read as none, and `gap` and its longhands compete by order
+  (queue item 397, opened by alo Sites' contact form, corpus case
+  `alo-sites-contact-form`). A `gap` of more than two values is refused and
+  recorded where layout reads it
 - [2] **Fonts handed across the boundary** — the browser process opens the
   files, the renderer opens nothing
 - [2] **A font a page asked for by name, fetched on demand** — a renderer says

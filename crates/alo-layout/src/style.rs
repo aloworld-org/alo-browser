@@ -421,27 +421,27 @@ impl Reader<'_> {
         }
     }
 
-    /// `gap`, `row-gap` and `column-gap`.
+    /// `row-gap` and `column-gap`.
+    ///
+    /// The `gap` shorthand is not read here: `alo-css` splits it into these
+    /// two as it is written, at its top-level spaces only, so that it and
+    /// they compete in the cascade as the one property they are. A `gap`
+    /// with neither longhand beside it is one that could not be split, of
+    /// more than two values, and is refused here, where it is read, as a
+    /// side shorthand of no shape is.
     fn gap(&mut self) -> AxisValues<LengthPercentage> {
-        let shorthand: Vec<LengthPercentage> = self
-            .style
-            .get("gap")
-            .map(|text| {
-                text.split_ascii_whitespace()
-                    .filter_map(parse_length_percentage)
-                    .collect()
-            })
-            .unwrap_or_default();
-        // `gap: 8px 16px` is row then column, which is the opposite order to
-        // every other two-value shorthand in CSS.
-        let row = shorthand.first().cloned();
-        let column = shorthand.get(1).or_else(|| shorthand.first()).cloned();
+        if self.style.get("row-gap").is_none()
+            && self.style.get("column-gap").is_none()
+            && let Some(text) = self.style.get("gap")
+        {
+            self.refuse("gap", text);
+        }
         AxisValues {
             horizontal: self
-                .value_or::<LengthPercentage>("column-gap", column)
+                .value_or::<LengthPercentage>("column-gap", None)
                 .unwrap_or(LengthPercentage::ZERO),
             vertical: self
-                .value_or::<LengthPercentage>("row-gap", row)
+                .value_or::<LengthPercentage>("row-gap", None)
                 .unwrap_or(LengthPercentage::ZERO),
         }
     }
@@ -645,6 +645,56 @@ mod tests {
         let split = read_style("gap: 8px; column-gap: 2px").0.gap;
         assert!(close(px(&split.vertical), 8.0));
         assert!(close(px(&split.horizontal), 2.0));
+    }
+
+    #[test]
+    fn a_gap_written_with_a_function_is_one_value_not_its_pieces() {
+        let (style, issues) = read_style("gap: clamp(2px, 6px, 5px)");
+        assert!(issues.is_empty(), "{issues:?}");
+        assert!(close(px(&style.gap.vertical), 5.0));
+        assert!(close(px(&style.gap.horizontal), 5.0));
+
+        let (style, issues) = read_style("gap: calc(1em + 2px) min(3px, 4px)");
+        assert!(issues.is_empty(), "{issues:?}");
+        assert!(
+            close(px(&style.gap.vertical), 18.0),
+            "the row gap is the first"
+        );
+        assert!(close(px(&style.gap.horizontal), 3.0));
+    }
+
+    #[test]
+    fn a_gap_that_does_not_read_is_recorded_and_gives_no_gap() {
+        for (text, refused) in [
+            ("clamp(1px, 2px)", "row-gap: clamp(1px, 2px)"),
+            ("1px 2px 3px", "gap: 1px 2px 3px"),
+        ] {
+            let (style, issues) = read_style(&format!("gap: {text}"));
+            assert!(close(px(&style.gap.vertical), 0.0), "{text}");
+            assert!(close(px(&style.gap.horizontal), 0.0), "{text}");
+            assert!(
+                issues.iter().any(|issue| issue.source == refused),
+                "{text}: {issues:?}"
+            );
+        }
+        // The shorthand is split before either value is read, as `padding`
+        // is, so a part that reads is kept and the other is refused alone.
+        let (style, issues) = read_style("gap: 8px banana");
+        assert!(close(px(&style.gap.vertical), 8.0));
+        assert!(close(px(&style.gap.horizontal), 0.0));
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert_eq!(issues[0].source, "column-gap: banana");
+
+        let (style, _) = read_style("gap: 8px banana; column-gap: 2px");
+        assert!(
+            close(px(&style.gap.horizontal), 2.0),
+            "a longhand still reads"
+        );
+        let (style, _) = read_style("column-gap: 2px; gap: 8px");
+        assert!(
+            close(px(&style.gap.horizontal), 8.0),
+            "the shorthand written later wins"
+        );
     }
 
     #[test]

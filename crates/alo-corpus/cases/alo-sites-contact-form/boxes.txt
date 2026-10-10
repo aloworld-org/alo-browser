@@ -1,0 +1,39 @@
+block flow · document
+  block flow · generic
+    block flow · link
+      text "Skip to content"
+    block flow · main
+      block grid · generic
+        block flow · heading [level=2]
+          text "Wholesale enquiries"
+        block flow · paragraph
+          text "We answer within one business day."
+        block flow · generic
+          block flow · paragraph [hidden]
+            block flow · generic
+              text "Website"
+            anonymous block
+              inline flow-root · textbox
+                anonymous block
+          block flow · paragraph
+            block flow · generic
+              text "Name"
+            anonymous block
+              inline flow-root · textbox [required]
+                anonymous block
+          block flow · paragraph
+            block flow · generic
+              text "Email"
+            anonymous block
+              inline flow-root · textbox [required]
+                anonymous block
+          block flow · paragraph
+            block flow · generic
+              text "Message"
+            anonymous block
+              inline flow-root · textbox [required]
+                anonymous block
+          block flow · paragraph
+            inline flow-root · button
+              anonymous block
+                text "Send"

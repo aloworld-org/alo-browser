@@ -1,0 +1,14 @@
+document at (0, 0) 800×538.5148
+  link "Skip to content" at (-15984, 0) 161.11035×43.2
+  main at (0, 0) 800×538.5148
+    heading "Wholesale enquiries" [level=2] at (20, 48) 284.80002×67.200005
+    paragraph at (20, 177.20001) 284.80002×54.4
+      text "We answer within one business day." at (20, 180.90549) 266.5796×46.98906 in 2 pieces
+    paragraph at (352.80002, 48) 427.19998×79.600006
+      textbox "Name" [required] at (352.80002, 79.2) 427.19998×48.4
+    paragraph at (352.80002, 144.6) 427.19998×79.600006
+      textbox "Email" [required] at (352.80002, 175.8) 427.19998×48.4
+    paragraph at (352.80002, 241.20001) 427.19998×166.91475
+      textbox "Message" [required] at (352.80002, 272.40002) 427.19998×128
+    paragraph at (352.80002, 425.11475) 427.19998×48.4
+      button "Send" at (352.80002, 425.11475) 88.44492×48.4

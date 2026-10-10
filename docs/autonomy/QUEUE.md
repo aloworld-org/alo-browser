@@ -7336,9 +7336,11 @@ The long pole, and the thing most of section E is unreachable without.
   second item is `align-self: baseline` beside text stands on that item's
   baseline, in numbers, and a page shows it.
 
-- [ ] **397. A `gap` written with a function.** *Found by iteration 257 in
-  alo Sites' contact form (`section_contact_form.html`, not yet frozen).
-  Feature: `docs/features.md` stage 1, Layout. Depends on nothing open.*
+- [x] **397. A `gap` written with a function.** *Found by iteration 257 in
+  alo Sites' contact form (`section_contact_form.html`), frozen as
+  `alo-sites-contact-form` by iteration 258. Feature: `docs/features.md`
+  stage 1, Layout; the line is with the other counted shorthands, "`gap`
+  sets `row-gap` and `column-gap`". Depends on nothing open.*
   `.s-contact-form.contact-split` is `grid-template-columns: .8fr 1.2fr;
   gap: clamp(2rem, 6vw, 5rem)`. `alo-layout`'s `style.rs` reads the `gap`
   shorthand by splitting it at white space, so `clamp(2rem,` `6vw,` and
@@ -7351,6 +7353,33 @@ The long pole, and the thing most of section E is unreachable without.
   is recorded as refused rather than dropped; and the contact form, frozen
   as `alo-sites-contact-form`, has its two columns 284.8 and 427.2, 48
   apart.
+  **Done (iteration 258).** Not in layout's reader, as first written, but
+  where the other shorthands split by counting are: `alo-css`'s
+  `shorthand.rs` gains `GAPS`, and `DeclarationBlock::push` writes `gap` as
+  `row-gap` and `column-gap` at its position, one value for both and two
+  for row then column, split by the same `top_level_parts` that splits
+  `padding`, so a function's spaces stay inside its one value. That also
+  makes `gap` and its longhands compete by order (`column-gap: 2px; gap:
+  8px` is 8 across; layout used to let the longhand win whichever came
+  last), and `longhand.rs` names the two for `setProperty` and
+  `removeProperty` (ADR 0033 § 5). The block-axis splitter `ends` became
+  `one_or_two`, serving both. `alo-layout`'s `style.rs` reads only the
+  longhands; a `gap` with neither beside it could not be split (more than
+  two values) and is refused there and recorded. A part that does not
+  read is refused as its longhand (`gap: 8px banana` is a row gap of 8 and
+  `column-gap: banana` recorded), as `padding`'s parts are; a variable
+  holding two values is `padding`'s rare wrong answer too. `gap: normal`
+  is now recorded as `row-gap: normal`, as the longhand always was; no
+  page has it. Tests: `alo-css` (3: one and two values and a function;
+  order against a longhand; hostile values split into two or nothing; and
+  `longhands("gap")`); `alo-layout` `style.rs` (2: a function and a `calc`
+  pair read; unreadable and unsplittable gaps recorded, a part kept, a
+  later shorthand winning); `tests/alo_sites_contact_form.rs` (4: the sheet
+  answered; the record is the sheet's list; the columns 284.8 and 427.2,
+  48 apart; the introduction at 177.2, 48 under the heading's row).
+  Mutations, each restored from a copy: `gap` not expanded fails three of
+  the case's tests and all three layout tests; the refusal left out fails
+  the second layout test. No other case's reference moved.
 
 - [ ] **398. Bare text in a flex container is an item that shrinks.**
   *Found by iteration 257, not opened by a page. Feature:

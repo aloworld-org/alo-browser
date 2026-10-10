@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home — Nordwind Coffee Roasters</title>
+<link rel="canonical" href="https://nordwind.alosites.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Nordwind Coffee Roasters">
+<meta property="og:title" content="Home — Nordwind Coffee Roasters">
+<meta property="og:url" content="https://nordwind.alosites.com/">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<main id="main">
+<section class="s-contact-form contact-split" id="contact_form">
+<h2>Wholesale enquiries</h2>
+<p>We answer within one business day.</p>
+<form action="/f/f4K9sL2wN7qR5tYx8vB1cA" method="post" data-success="Thanks — talk soon.">
+<p class="hp" aria-hidden="true"><label for="form-0-website">Website</label><input id="form-0-website" name="website" type="text" tabindex="-1" autocomplete="off"></p>
+<p><label for="form-0-name">Name</label><input id="form-0-name" name="name" type="text" required maxlength="300"></p>
+<p><label for="form-0-email">Email</label><input id="form-0-email" name="email" type="email" required maxlength="320"></p>
+<p><label for="form-0-message">Message</label><textarea id="form-0-message" name="message" required maxlength="5000"></textarea></p>
+<p><button type="submit">Send</button></p>
+</form>
+</section>
+</main>
+<script>(function () {
+  "use strict";
+  document.documentElement.classList.add("js");
+  document.querySelectorAll(".nav-toggle").forEach(function (toggle) {
+    var menu = document.getElementById(toggle.getAttribute("aria-controls"));
+    function closeMenu(restoreFocus) {
+      toggle.setAttribute("aria-expanded", "false");
+      if (restoreFocus) { toggle.focus(); }
+    }
+    toggle.addEventListener("click", function () {
+      var expanded = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+    });
+    toggle.closest("nav").addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && toggle.getAttribute("aria-expanded") === "true") {
+        closeMenu(true);
+      }
+    });
+    if (menu) {
+      menu.querySelectorAll("a").forEach(function (link) {
+        link.addEventListener("click", function () { closeMenu(false); });
+      });
+    }
+  });
+  document.querySelectorAll(".nav-behavior-auto-hide").forEach(function (nav) {
+    var previous = window.scrollY;
+    window.addEventListener("scroll", function () {
+      var current = window.scrollY;
+      var menuOpen = nav.querySelector('.nav-toggle[aria-expanded="true"]');
+      nav.classList.toggle("is-nav-hidden", !menuOpen && current > previous && current > nav.offsetHeight * 2);
+      previous = current;
+    }, {passive:true});
+  });
+  document.querySelectorAll('form[action^="/f/"]').forEach(function (form) {
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      fetch(form.getAttribute("action"), {
+        method: "POST",
+        body: new URLSearchParams(new FormData(form))
+      }).then(function (response) {
+        if (!response.ok) { form.submit(); return; }
+        var done = document.createElement("p");
+        done.className = "form-success";
+        done.textContent = form.getAttribute("data-success");
+        form.replaceWith(done);
+      }).catch(function () { form.submit(); });
+    });
+  });
+  if ("IntersectionObserver" in window) {
+    document.querySelectorAll(".section-motion").forEach(function (target) {
+      new IntersectionObserver(function (entries, observer) {
+        if (entries[0].isIntersecting) { target.classList.add("is-visible"); observer.unobserve(target); }
+      }, {rootMargin:"0px 0px -12%",threshold:.08}).observe(target);
+    });
+    document.querySelectorAll(".s-transition").forEach(function (marker) {
+      var target = marker.nextElementSibling;
+      while (target && target.classList.contains("s-transition")) { target = target.nextElementSibling; }
+      if (!target) { return; }
+      target.classList.add("alo-transition", "alo-transition-" + marker.dataset.effect, "alo-from-" + marker.dataset.direction, "alo-speed-" + marker.dataset.speed);
+      var margins = {early:"0px 0px 5%",balanced:"0px 0px -15%",late:"0px 0px -35%"};
+      var repeat = marker.dataset.out === "true";
+      new IntersectionObserver(function (entries, observer) {
+        entries.forEach(function (entry) {
+          target.classList.toggle("is-visible", entry.isIntersecting);
+          if (entry.isIntersecting && !repeat) { observer.unobserve(target); }
+        });
+      }, {rootMargin:margins[marker.dataset.trigger] || margins.balanced,threshold:.08}).observe(target);
+    });
+  }
+})();</script>
+<script>(function () {
+  "use strict";
+  var since = Date.now();
+  var read = 0;
+  var reported = false;
+  var clicks = 0;
+  var depth = 0;
+  var page = "&p=" + encodeURIComponent(location.pathname) + "&w=";
+  function send(body) {
+    if (navigator.sendBeacon) { navigator.sendBeacon("/_alo/collect", body); }
+  }
+  function permille(value, total) {
+    return total > 0 ? Math.max(0, Math.min(1000, Math.round((value / total) * 1000))) : 0;
+  }
+  function height() {
+    var body = document.body;
+    return Math.max(document.documentElement.scrollHeight, body ? body.scrollHeight : 0);
+  }
+  function shape() { return page + Math.round(window.innerWidth || 0); }
+  function record() {
+    read += Date.now() - since;
+    since = Date.now();
+    var reach = permille(window.scrollY + window.innerHeight, height());
+    if (reach > depth) { depth = reach; send("d=" + reach + shape()); }
+    if (reported) { return; }
+    reported = true;
+    send("t=" + Math.round(read / 1000));
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") { record(); } else { since = Date.now(); }
+  });
+  window.addEventListener("pagehide", record);
+  document.addEventListener("click", function (event) {
+    var target = event.target;
+    var link = target && target.closest ? target.closest("a[href]") : null;
+    if (link && link.hostname && link.hostname !== location.hostname) {
+      send("o=" + encodeURIComponent(link.hostname));
+    }
+    if (clicks < 20 && typeof event.pageX === "number") {
+      clicks += 1;
+      send("x=" + permille(event.pageX, document.documentElement.scrollWidth) +
+        "&y=" + permille(event.pageY, height()) + shape());
+    }
+  }, true);
+  document.querySelectorAll('form[action^="/f/"]').forEach(function (form) {
+    var point = "c=" + encodeURIComponent(form.getAttribute("action").slice(3));
+    send(point + "&s=view");
+    form.addEventListener("input", function () { send(point + "&s=start"); }, { once: true });
+  });
+})();</script>
+</body>
+</html>
