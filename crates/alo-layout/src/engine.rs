@@ -96,8 +96,8 @@ pub fn compute(
 /// One formatting context, laid out on its own.
 struct LaidOut {
     size: Size,
-    /// How far below the top of its border box the baseline of its last line
-    /// sits, or `None` when it has no line to stand on; see
+    /// How far below the top of its border box the baseline it stands on in
+    /// a line sits, or `None` when it has no line to stand on; see
     /// [`crate::baseline`].
     baseline: Option<f32>,
     geometry: BTreeMap<BoxId, BoxGeometry>,
@@ -112,9 +112,9 @@ struct Placed {
     geometry: BTreeMap<BoxId, BoxGeometry>,
     /// Every piece of every box laid out in a line.
     fragments: BTreeMap<BoxId, Vec<Fragment>>,
-    /// Where the baseline of each inline formatting context's last line
-    /// stands; see [`crate::baseline`].
-    lines: BTreeMap<BoxId, f32>,
+    /// Where the baselines of each inline formatting context's first and
+    /// last lines stand; see [`crate::baseline`].
+    lines: BTreeMap<BoxId, baseline::Lines>,
 }
 
 /// Lay out a subtree as its own formatting context, with its own engine tree.
@@ -158,7 +158,7 @@ fn lay_out_subtree(
     let root_geometry = placed.geometry.get(&root).copied().unwrap_or_default();
     Some(LaidOut {
         size: root_geometry.border_box.size,
-        baseline: baseline::last_line(boxes, styles, root, &placed.lines, &placed.geometry),
+        baseline: baseline::of_atomic(boxes, styles, root, &placed.lines, &placed.geometry),
         geometry: placed.geometry,
         fragments: placed.fragments,
     })
@@ -559,14 +559,7 @@ fn place_inline_content(
 
         let down = lines_start_down(boxes, styles, id, content, layout.size.height);
         let origin = Point::new(content.origin.x, content.origin.y + down);
-        // Where its last line stands, for the atomic box this context may be
-        // the last line of; see `crate::baseline`.
-        if let Some(last) = layout.lines.last() {
-            out.lines.insert(id, origin.y + last.top + last.baseline);
-        } else {
-            // A field whose value is nothing worth a line, such as a space.
-            record_an_empty_field(boxes, styles, id, measure, out);
-        }
+        record_lines(boxes, styles, id, &layout, origin.y, measure, out);
         for fragment in layout.fragments() {
             let placed = Fragment {
                 rect: fragment.rect.translated(origin),
@@ -649,6 +642,32 @@ fn place_inline_content(
     }
 }
 
+/// Record where the first and last lines of the inline formatting context
+/// `id` stand, `down` being where its lines start, for the atomic box this
+/// context may hold the baseline of; see `crate::baseline`.
+fn record_lines(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    id: BoxId,
+    layout: &inline::InlineLayout,
+    down: f32,
+    measure: &impl MeasureText,
+    out: &mut Placed,
+) {
+    if let (Some(first), Some(last)) = (layout.lines.first(), layout.lines.last()) {
+        out.lines.insert(
+            id,
+            baseline::Lines {
+                first: down + first.top + first.baseline,
+                last: down + last.top + last.baseline,
+            },
+        );
+    } else {
+        // A field whose value is nothing worth a line, such as a space.
+        record_an_empty_field(boxes, styles, id, measure, out);
+    }
+}
+
 /// How far down its content box a formatting context's lines start, when
 /// they are `height` tall together.
 ///
@@ -710,7 +729,9 @@ fn record_an_empty_field(
     let down = field_line_offset(boxes, styles, id, content);
     out.lines.insert(
         id,
-        content.origin.y + down + inline::empty_line_baseline(&strut, measure),
+        baseline::Lines::one(
+            content.origin.y + down + inline::empty_line_baseline(&strut, measure),
+        ),
     );
 }
 

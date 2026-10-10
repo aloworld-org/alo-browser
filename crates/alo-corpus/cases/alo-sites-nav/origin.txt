@@ -1,0 +1,73 @@
+alo-workplace, products/sites/alo-sites/tests/golden/section_nav.html
+and products/sites/alo-sites/tests/golden/site.css — a page alo Sites
+publishes for its customers: the navigation bar of a demonstration coffee
+roaster's home page, with the style sheet every alo Sites page links.
+
+Taken 2026-10-10 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit the
+other alo Sites cases were taken at. The page's last change is
+5be41b70be364f8e1e0e158a8619e4e94455321c (2026-09-02). The bytes are those
+files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  66542f41af92f85dbeb9cc7b78550a2e32d0a2a2e8567154cc18a9c4a327ac96
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+The sheet is byte for byte the other alo Sites cases'. `alo-workplace` is
+read-only reference; nothing was written back to it. Both files are golden
+outputs of alo Sites' own renderer, pinned by its tests, so they are what it
+really serves rather than something rebuilt from it.
+
+Why this page. After text's min-content width was fixed, every queue item
+was blocked or waiting for a page, so the alo Sites sections not yet frozen
+were looked at again. The navigation, the contact form and the transition
+name `section-motion` only in their script, not on an element, so they draw
+at full opacity and can be checked by picture as well as by number. The
+transition is `display: none` and draws nothing, so it was not kept. The
+contact form found the fault queued as item 397 (`gap` written with a
+function is read as no gap), and is that item's page to freeze; it was not
+kept here, so that one case opens one item. This is the
+`nav-layout-wide nav-behavior-sticky` variant: the brand at the start, a
+menu of two links and a button at the end.
+
+**Where it is served from, and what its sheet is answered with,** are the
+call-to-action section's, for the same reasons (see that case's origin.txt):
+the page's own `<link rel="canonical">` says
+`https://nordwind.alosites.com/` (address.txt), and its `/assets/site.css`
+is answered from site.css (linked.txt). Its analytics and menu scripts are
+the same scripts, and send nothing in a reference render. Without a narrow
+viewport the menu toggle stays `display: none`.
+
+Rendered at 800 × 600, wider than the sheet's breakpoints, as the other alo
+Sites cases are.
+
+## What it found
+
+- **An `inline-flex` box stood on its bottom edge, not on its first
+  item's baseline** — item 395. Every menu link is `.s-nav a { display:
+  inline-flex; min-height: 2.75rem; align-items: center }`, sitting in its
+  list item's line. Its text is a 27.2 line centred in 44, so CSS Flexbox
+  § 8.5 puts its baseline at its text's, and the link's top is the line's
+  top: each list item is the link's 44 (the button's 48.4). Stood on its
+  bottom edge, the strut's descent, 7.7 at this font, hung under every
+  link, and the list items were 51.7 and 56.1, the bar 81.1. It is 73.4
+  now. `tests/alo_sites_nav.rs` says so.
+
+Everything else checks against the sheet by hand and is pinned as it is:
+the nav is `display: flex`, `align-items: center`, with 0.75rem and
+1.25rem of padding, so its content is 760 wide at (20, 12); the list is
+its tallest item, the button, at 48.4 — 27.2 of text, 0.6rem of padding
+and 1 px of border each side — and the shorter links are centred 2.2
+lower, at 14.2; the brand, 1.25rem at a line height of 1.6 inside
+`min-height: 2.75rem`, is 44 tall at the same 14.2; its `margin-right:
+auto` pushes the list to end at 780. The bar is 48.4 + 24 = 72.4 and the
+header's 1 px border makes it 73.4. The skip link is `left: -999rem`, at
+−15 984, and its 161.1 is its text and 1rem of padding each side.
+
+What the sheet asks for that this engine does not do is in issues.txt: the
+call-to-action section's list exactly — `::before` and `::after`,
+`@keyframes`, and `prefers-reduced-motion` — and `position: sticky`, which
+is item 97's and needs a scroll position. On a page that has not scrolled,
+a bar with `top: 0` that starts at the top stands where a static one does,
+so it moves nothing here.

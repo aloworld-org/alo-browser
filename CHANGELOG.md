@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A menu of links sits as tall as its links.** A link laid out as a
+  small flex box, to centre its text in a tall tap target, used to stand
+  on its bottom edge in its line, so the line hung a little space under
+  it and a navigation bar of such links came out about 8 pixels too tall.
+  It now stands on its text, as CSS says and every browser draws it. alo
+  Sites' navigation bar is now one of the pages checked on every change
+  (queue item 395).
+
 - **A column of text is never squeezed out by its neighbour's sentence.**
   When a page split itself into equal columns, a column holding a long
   sentence took more than its share — the browser thought the sentence

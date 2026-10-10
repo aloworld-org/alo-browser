@@ -1,0 +1,13 @@
+document at (0, 0) 800×73.4
+  link "Skip to content" at (-15984, 0) 161.11035×43.2
+  banner at (0, 0) 800×73.4
+    navigation "Main" at (0, 0) 800×72.4
+      link "Nordwind Coffee Roasters" at (20, 14.200001) 293.65234×44
+      list at (476.92126, 12) 303.0787×48.4
+        listitem "Home" at (476.92126, 14.200001) 55.15039×44
+          link "Home" [current=page] at (476.92126, 14.200001) 55.15039×44
+        listitem "Pricing" at (548.07166, 14.200001) 57.300293×44
+          link "Pricing" at (548.07166, 14.200001) 57.300293×44
+        listitem "Order beans" at (621.37195, 12) 158.62802×48.4
+          link "Order beans" at (621.37195, 12) 158.62802×48.4
+  main at (0, 73.4) 800×0

@@ -1,0 +1,12 @@
+fill box#2 rgb(255 255 255) at (0, 0) 800×73.4
+fill box#4 rgb(242 245 248) at (-15984, 0) 161.11035×43.2
+text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27.485254)
+fill box#5 rgb(23 33 43) at (-15968, 28.564356) 129.11035×1
+fill box#7 rgb(255 255 255) at (0, 0) 800×73.4
+fill box#7 rgb(221 227 233) at (0, 72.4) 800×1
+text box#12 "Nordwind Coffee Roasters" rgb(23 33 43) 20px at (20, 43.12383)
+text box#20 "Home" rgb(29 78 216) 17px at (476.92126, 42.085255)
+text box#25 "Pricing" rgb(23 33 43) 17px at (548.07166, 42.085255)
+fill box#29 rgb(29 78 216) at (621.37195, 12) 158.62805×48.4
+fill box#29 rgb(29 78 216) at (621.37195, 12) 158.62805×48.4
+text box#30 "Order beans" rgb(255 255 255) 17px at (641.57196, 42.085255)

@@ -7279,6 +7279,92 @@ The long pole, and the thing most of section E is unreachable without.
   232) and the case's; a text leaf that wraps whatever its `white-space`
   fails the `arena.rs` test. No other case's reference moved.
 
+- [x] **395. An `inline-flex` box stands on its first item's baseline.**
+  *Opened by `alo-sites-nav` (iteration 257), frozen in the same change.
+  Feature: `docs/features.md` stage 1, Layout, "An inline flex box stands
+  on its text". Depends on nothing open.* alo Sites' menu links are
+  `inline-flex` with `min-height: 2.75rem` and their text centred, each in
+  a list item's line. `baseline.rs` refused a flex container's baseline and
+  stood it on its bottom margin edge, so the strut's descent (7.7 at this
+  font) hung under every link: the list items were 51.7 and 56.1 where a
+  browser makes them 44 and 48.4, and the bar 81.1 where it is 73.4. CSS
+  Flexbox 1 § 8.5: a flex container's first baseline is the shared
+  baseline of the items in its first line that are aligned on it, and
+  otherwise the first item's own first baseline, synthesized from its
+  border box when it has none; an inline-level box aligns on its first
+  baseline (only an `inline-block` takes its last line's). *Closes when:*
+  an `inline-flex` box beside text stands on its first item's first line's
+  baseline, in a row and in a column; an item with no line gives its
+  bottom border edge; an `inline-flex` with no item stands on its bottom
+  margin edge; and the nav's list items are 44 and 48.4 and the bar 73.4.
+  **Done (iteration 257).** `alo-layout`'s `baseline.rs`: the engine
+  records, for each inline formatting context, its first line's baseline
+  as well as its last (`Lines`); `of_atomic` asks an `inline-flex` root for
+  its first baseline and anything else for its last; looking for a first
+  baseline, a flex container answers with its first in-flow item's first
+  baseline, found going down first child first, or that item's bottom
+  border edge when it has no line, or nothing when it has no item. Still
+  refused, standing on the bottom margin edge as before and said so in the
+  module: a grid, a flex container met looking for a last line (an
+  `inline-block` whose last child is one), a row with an item aligned on
+  its baseline (396), and a scroll container. `order` is not read, so the
+  first item is the first in document order. Tests: `numbers.rs` (2: text
+  centred in a 40-tall box gives 24, the text beside it at 12 and the line
+  40; a column's first item, the line 32 not 36; a first item with no line
+  at its bottom edge, 30 of a 50-tall box; one item of two lines gives its
+  first; a nested flex item's; and a baseline row, `align-self: baseline`,
+  a scroll container, an `inline-grid` and an empty box on the bottom
+  edge — the last part was the old test of the refusal, moved here);
+  `tests/alo_sites_nav.rs` (3: the sheet answered; the record is the
+  sheet's list and `position: sticky`; the items, links, list, bar, brand
+  and header in numbers). Mutations, each restored from a copy: the root
+  asked for its last line fails the first `numbers.rs` test and the case's;
+  the synthesized edge left out, or the first line read as the last, fails
+  the first `numbers.rs` test; the baseline row not refused fails the
+  second. No other case's reference moved.
+
+- [ ] **396. A row of flex items aligned on their baselines gives the
+  container its baseline.** *Cut from 395 (iteration 257). Feature:
+  `docs/features.md` stage 1, Layout. Waits for a page.* CSS Flexbox 1
+  § 8.5: when any item in a flex container's first line takes part in
+  baseline alignment (`align-self: baseline`, or `align-items: baseline`
+  with no `align-self`), the container's first baseline is the baseline
+  those items share, not the first item's. `baseline.rs` refuses such a
+  container and stands it on its bottom margin edge, as every atomic box
+  did before. Needs: where `taffy` put the shared baseline, or working it
+  out from the items it aligned. *Closes when:* an `inline-flex` row whose
+  second item is `align-self: baseline` beside text stands on that item's
+  baseline, in numbers, and a page shows it.
+
+- [ ] **397. A `gap` written with a function.** *Found by iteration 257 in
+  alo Sites' contact form (`section_contact_form.html`, not yet frozen).
+  Feature: `docs/features.md` stage 1, Layout. Depends on nothing open.*
+  `.s-contact-form.contact-split` is `grid-template-columns: .8fr 1.2fr;
+  gap: clamp(2rem, 6vw, 5rem)`. `alo-layout`'s `style.rs` reads the `gap`
+  shorthand by splitting it at white space, so `clamp(2rem,` `6vw,` and
+  `5rem)` each fail to parse, are dropped without a record, and the gap is
+  0: the columns came out 304 and 456 where a browser makes them 284.8 and
+  427.2 with 48 between. The same is true of `gap: calc(1rem + 2px)` and
+  of any value with a space inside a function. *Closes when:* the `gap`
+  shorthand is split into its one or two values at the top level only,
+  each read as `row-gap` and `column-gap` are; a value that does not read
+  is recorded as refused rather than dropped; and the contact form, frozen
+  as `alo-sites-contact-form`, has its two columns 284.8 and 427.2, 48
+  apart.
+
+- [ ] **398. Bare text in a flex container is an item that shrinks.**
+  *Found by iteration 257, not opened by a page. Feature:
+  `docs/features.md` stage 1, Layout. Waits for a page.* `<div
+  style="display: flex; width: 16px">cd ef</div>`: the anonymous item
+  holding the text stays 40 wide on one line, where CSS makes its minimum
+  its min-content width (16, "cd") and `flex-shrink: 1` shrinks it to 16,
+  two lines. The same text in an element item does shrink and wrap, so the
+  difference is in how the anonymous run item is sized (`alo-box`'s
+  wrapping of text runs, or `arena.rs`' answer for it). No corpus page has
+  text in a container too narrow for it. *Closes when:* a `numbers.rs`
+  assertion has the bare text 16 wide in two lines, the same as in an
+  element, and a page shows it.
+
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
 

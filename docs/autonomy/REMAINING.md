@@ -1312,3 +1312,18 @@ text be" with its whole line. That opened item 394, built in the same
 iteration: text at min-content is laid out in no room, so it is as narrow
 as its widest word. 167 queue items are open (394 added closed). The next
 unused queue number is 395 and the next unused ADR 0044.
+
+Iteration 257 found every open item as iteration 256 left it, and found
+that three alo Sites sections thought to be set to move into view name
+`section-motion` only in their script: the navigation, the contact form
+and the transition. The transition is `display: none`. The navigation was
+kept as `alo-sites-nav`: its `inline-flex` menu links stood on their
+bottom edges, so every list item had the strut's descent under it and the
+bar was 81.1 where a browser draws 73.4. That opened item 395, built in the
+same iteration: an `inline-flex` box stands on its first item's baseline.
+The contact form found item 397, a `gap` written with a function read as
+no gap, which depends on nothing open and is buildable next with that page
+frozen. Cut or found: 396 (a row aligned on baselines) and 398 (bare text
+in a flex item does not shrink), both waiting for a page. 170 queue items
+are open (395 added closed, 396–398 added open). The next unused queue
+number is 399 and the next unused ADR 0044.

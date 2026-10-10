@@ -1,0 +1,24 @@
+block flow · document
+  block flow · generic
+    block flow · link
+      text "Skip to content"
+    block flow · banner
+      block flex · navigation "Main"
+        inline flex · link
+          anonymous block
+            text "Nordwind Coffee Roasters"
+        block flex · list
+          block flow list-item · listitem
+            inline flex · link [current=page]
+              anonymous block
+                text "Home"
+          block flow list-item · listitem
+            inline flex · link
+              anonymous block
+                text "Pricing"
+          block flow list-item · listitem
+            inline flex · link
+              anonymous block
+                text "Order beans"
+    block flow · main
+      text " "

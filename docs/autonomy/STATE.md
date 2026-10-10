@@ -24934,3 +24934,102 @@ row (now seven sections), `REMAINING.md` and `CHANGELOG.md`.
 167 queue items are open (394 added closed). The next unused queue number
 is **395** and the next ADR is **0044**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 257 — queue item 395 opened and built: an `inline-flex` box stands on its first item's baseline, found by freezing alo Sites' navigation
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` (its head and
+stage 1's *Layout* line), `REMAINING.md`'s close and iterations 254–256's
+entries. No `AGENTS.md` exists in this repository. For 395 there is no ADR:
+it reads what CSS Flexbox 1 § 8.5 defines a flex container's baseline to be
+and decides nothing, as 384, 393 and 394 did. Read: `docs/features.md`'
+stage 1 *Layout* section, `docs/conformance.md`' alo Sites row and its
+baseline paragraph, queue items 286, 97, 233, 234, 381 and 394, and
+`alo-sites-tickets`' `origin.txt` and test. Code read before changing it:
+`alo-layout`'s `baseline.rs` whole, `engine.rs` (`lay_out_subtree`,
+`atomic_item`, `place_inline_content`, `record_an_empty_field`),
+`style.rs` (`LayoutStyle`, `AlignStyle`, the `gap` reader) and
+`keyword.rs` (`Alignment`, `FlexDirection`); `alo-box`'s `Inside`.
+
+**Choosing.** Every open item stands as iteration 256 listed it (233 owes
+only the loop between messages, waiting on 92 or a page; 234 on 233; 381 on
+234; the rest on pages, dependencies or design). So the alo Sites goldens
+not yet frozen were looked at again, and three that the journal and memory
+called `section-motion` name it only in their script: the navigation, the
+contact form and the transition. All three were frozen locally and
+rendered. The transition is `display: none` and draws nothing; dropped. The
+navigation's list items were 51.7 and 56.1 tall where the sheet makes them
+44 and 48.4, which opened 395. The contact form's columns were 304 and 456
+with no gap where the sheet makes them 284.8 and 427.2, 48 apart: queued
+as 397 and dropped here, so one case opens one item.
+
+**What was built.** As 395's *Done* paragraph says: `baseline.rs` records
+each inline formatting context's first and last lines (`Lines`), asks an
+`inline-flex` root for its first baseline — its first in-flow item's first
+line's, or that item's bottom border edge with no line, or none with no
+item — and anything else for its last, as before. A row with an item
+aligned on its baseline, a grid, a flex container met looking for a last
+line, and a scroll container are still refused, and said so in the
+module. `engine.rs` gains `record_lines`, split out when clippy found
+`place_inline_content` at 102 lines; nothing was allowed or silenced. The
+case `alo-sites-nav` is frozen byte for byte (hashes in its `origin.txt`).
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", and the log has no `FAILED`, `panicked` or line starting `error`.
+Clippy (after the split above) and `cargo fmt --all --check` were clean
+before it. This entry and the commit came after that run, and are
+documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `numbers.rs`' two new tests (text centred
+  in a 40-tall `inline-flex` box gives a baseline of 24, the text beside
+  it at 12, the line 40; a column's first item, the line 32; a first item
+  with no line at its bottom edge, 30 in a 50-tall box; one wrapped item
+  gives its first line; a nested flex item's; a baseline row, an item's
+  `align-self: baseline`, `overflow: hidden`, `inline-grid` and an empty
+  box on the bottom edge); `alo_sites_nav.rs` (items 44, 44 and 48.4, each
+  link at its item's top, the shorter ones at 14.2, the list 48.4, the bar
+  72.4, the brand 44 at (20, 14.2), the header 73.4, the list ending at
+  780), each number checked against the sheet by hand in `origin.txt`.
+- Reference render: `alo-sites-nav`'s `render.png` (looked at by eye: the
+  brand, Home in blue, Pricing and the blue button on one line, the
+  border under the bar), `layout.txt`, `display.txt`, `boxes.txt`,
+  `agent.txt` and `issues.txt` committed. **No other case's reference
+  moved**, checked by rewriting every reference and finding no committed
+  file changed.
+- Hostile input: no new input is read from outside; the change is which
+  recorded line an atomic box stands on.
+- Mutations (a copy in the scratchpad, restored with `cp`, checked with
+  `cmp`): listed in 395's *Done* paragraph; each failed the test named.
+- One responsibility per file: `baseline.rs` is still where an atomic box
+  stands; `engine.rs`' `record_lines` is the same recording it did, moved.
+- No `unsafe`, no new dependency, no new CSS property read (`align-items`,
+  `align-self` and `flex-direction` were listed for layout). `alo-workplace`
+  and `alo-os` were not touched; their `git status` is clean.
+
+**Queue.** 395 added ticked with its *Done* paragraph; 396 (a baseline
+row, cut), 397 (`gap` with a function, found in the contact form, depends
+on nothing open) and 398 (bare text in a flex container does not shrink to
+its widest word, found while writing 395's tests, not opened by a page)
+added open. **Roadmap: no line moved, and why.** Where an inline box
+stands on its line is inside stage 1's ticked *Layout* line, and no stage 2
+line names baselines or intrinsic alignment. Adding a line to claim it
+would be decoration. Also updated: `docs/features.md` (a stage 1 *Layout*
+line, *An inline flex box stands on its text*, and the inline-block line's
+note on refusals), `docs/conformance.md` (the alo Sites row, now eight
+sections, and the baseline paragraph), `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 397 is buildable next: freeze `section_contact_form.html` as
+  `alo-sites-contact-form` and read the `gap` shorthand at the top level.
+- 396 and 398 wait for pages; item 286 (an inline-level formatting
+  context broken around a block child) still stands and now also shapes
+  what 395's tests could write.
+- The journal and memory said the navigation, contact form and transition
+  were `section-motion`; they are not. custom_code and footer are.
+- Everything iteration 256 listed still stands.
+
+170 queue items are open (395 added closed, 396–398 added open). The next
+unused queue number is **399** and the next ADR is **0044**. This is one
+iteration, not a finished queue or roadmap.

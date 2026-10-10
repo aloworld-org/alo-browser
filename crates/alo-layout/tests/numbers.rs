@@ -1745,17 +1745,147 @@ fn an_inline_block_with_no_line_or_hidden_overflow_stands_on_its_bottom_edge() {
         Rect::new(0.0, 8.0, 24.0, 16.0)
     );
     assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 24.0));
+}
 
-    // A flex container's baseline is its items', which this engine does not
-    // work out: refused, it stands where every atomic box used to.
-    let css = "#i { display: inline-flex }";
-    let html = "<body><div id=w><span id=t>ab </span><span id=i>cd</span></div></body>";
+/// Item 395: an `inline-flex` box stands on its first item's first baseline
+/// (CSS Flexbox 1 § 8.5), not on its bottom edge. alo Sites' menu links are
+/// `inline-flex` and 44 tall with their text centred, and standing on their
+/// bottom edges put the strut's descent under every one of them.
+#[test]
+fn an_inline_flex_box_stands_on_its_first_items_baseline() {
+    // Sixteen-pixel text, twelve of it above the baseline and four below.
+    let html = "<body><div id=w><span id=t>ab </span><a id=i>cd</a></div></body>";
+
+    // Its text centred in 40: the item's line is 12 down, its baseline 24.
+    // That is lower in the box than the text's beside it is in its line, so
+    // the box's top is the line's, the text beside it 12 down, and the line
+    // exactly the box. On its bottom edge the text was at 28 and the line 44.
+    let css = "#i { display: inline-flex; height: 40px; align-items: center }";
     let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
     assert_eq!(
+        rect_of(&boxes, &layout, "i", html),
+        Rect::new(24.0, 0.0, 16.0, 40.0)
+    );
+    assert_eq!(
         rect_of(&boxes, &layout, "t", html),
+        Rect::new(0.0, 12.0, 24.0, 16.0)
+    );
+    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 40.0));
+
+    // A column takes its *first* item's baseline, 12 down, not its last
+    // line's at 28 as an `inline-block` would: the two boxes start level and
+    // the second line hangs below, 32 in all. On its bottom edge: 36.
+    let css = "#i { display: inline-flex; flex-direction: column }";
+    let html_column =
+        "<body><div id=w><span id=t>ab </span><a id=i><b>cd</b><b>ef</b></a></div></body>";
+    let (boxes, layout) = lay_out_measured(html_column, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "i", html_column),
+        Rect::new(24.0, 0.0, 16.0, 32.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html_column),
+        Rect::new(0.0, 0.0, 24.0, 16.0)
+    );
+    assert!(close(
+        rect_of(&boxes, &layout, "w", html_column).size.height,
+        32.0
+    ));
+
+    // A first item with no line in it has a baseline made from its border
+    // box, along its bottom edge: 30 down, though the text after it has one
+    // at 12 and the box's own bottom is at 50. The text beside the box
+    // stands at 18, and the line is the box.
+    let css = "#i { display: inline-flex; height: 50px; align-items: flex-start } \
+               #e { width: 10px; height: 30px }";
+    let html_empty = "<body><div id=w><span id=t>ab </span><a id=i><b id=e></b>cd</a></div></body>";
+    let (boxes, layout) = lay_out_measured(html_empty, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html_empty),
+        Rect::new(0.0, 18.0, 24.0, 16.0)
+    );
+    assert!(close(
+        rect_of(&boxes, &layout, "w", html_empty).size.height,
+        50.0
+    ));
+
+    // One item of two lines: its *first* line's baseline, 12, not its
+    // second's at 28, which is where an `inline-block` of the same text
+    // stands. (The text is in an element: bare text in a flex container is
+    // an item that does not shrink to its widest word yet, item 398.)
+    let css = "#i { display: inline-flex; width: 16px }";
+    let html_wrapped = "<body><div id=w><span id=t>ab </span><a id=i><b>cd ef</b></a></div></body>";
+    let (boxes, layout) = lay_out_measured(html_wrapped, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "i", html_wrapped),
+        Rect::new(24.0, 0.0, 16.0, 32.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html_wrapped),
+        Rect::new(0.0, 0.0, 24.0, 16.0)
+    );
+
+    // A first item that is a flex container itself gives its own first
+    // item's: the same 12 as the text straight inside. (An inner `inline-flex`
+    // is made a block as a flex item; a `display: flex` would be broken
+    // around by the box tree, which is item 286.)
+    let css = "#i { display: inline-flex } b { display: inline-flex; height: 40px }";
+    let html_nested = "<body><div id=w><span id=t>ab </span><a id=i><b>cd</b></a></div></body>";
+    let (boxes, layout) = lay_out_measured(html_nested, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html_nested),
+        Rect::new(0.0, 0.0, 24.0, 16.0)
+    );
+    assert!(close(
+        rect_of(&boxes, &layout, "w", html_nested).size.height,
+        40.0
+    ));
+}
+
+/// What item 395 does not answer stands where every atomic box used to, on
+/// its bottom margin edge: an `inline-flex` box with no item, a row whose
+/// items line up on their baselines (item 396), a scroll container, and an
+/// `inline-grid`.
+#[test]
+fn an_inline_flex_box_with_no_item_or_a_baseline_row_stands_on_its_bottom_edge() {
+    let html = "<body><div id=w><span id=t>ab </span><a id=i>cd</a></div></body>";
+    for css in [
+        "#i { display: inline-flex; align-items: baseline }",
+        "#i { display: inline-flex; overflow: hidden }",
+        "#i { display: inline-grid }",
+    ] {
+        let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+        assert_eq!(
+            rect_of(&boxes, &layout, "t", html),
+            Rect::new(0.0, 4.0, 24.0, 16.0),
+            "{css}"
+        );
+        assert!(
+            close(rect_of(&boxes, &layout, "w", html).size.height, 20.0),
+            "{css}"
+        );
+    }
+    // An item's own `align-self: baseline` is the same refusal.
+    let css = "#i { display: inline-flex } b { align-self: baseline }";
+    let html_self = "<body><div id=w><span id=t>ab </span><a id=i><b>cd</b></a></div></body>";
+    let (boxes, layout) = lay_out_measured(html_self, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html_self),
         Rect::new(0.0, 4.0, 24.0, 16.0)
     );
-    assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 20.0));
+
+    // Empty, it has no baseline at all.
+    let css = "#i { display: inline-flex; width: 20px; height: 20px }";
+    let html_empty = "<body><div id=w><span id=t>ab </span><a id=i></a></div></body>";
+    let (boxes, layout) = lay_out_measured(html_empty, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html_empty),
+        Rect::new(0.0, 8.0, 24.0, 16.0)
+    );
+    assert!(close(
+        rect_of(&boxes, &layout, "w", html_empty).size.height,
+        24.0
+    ));
 }
 
 #[test]
