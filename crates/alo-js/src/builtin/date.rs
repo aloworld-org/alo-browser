@@ -19,7 +19,7 @@
 //! ([`date_set`](super::date_set)), and turning one into a primitive or into
 //! JSON ([`date_convert`](super::date_convert)). The arguments the
 //! constructor, `Date.UTC` and the setters convert are converted once each,
-//! in order, and kept ([`date_numbers`](super::date_numbers), ADR 0031).
+//! in order, and kept ([`numbers`](super::numbers), ADR 0031).
 //!
 //! # A date as text is item 357's
 //!
@@ -37,7 +37,7 @@ use crate::object::native::{Answer, Call, Instance, Native, Want};
 use crate::object::{Key, Objects, Property, Value};
 use crate::time;
 
-use super::date_numbers::{MOST, Numbers, given_or, numbers};
+use super::numbers::{MOST, Numbers, given_or, numbers};
 
 /// The constructor, keeping up to seven converted arguments.
 const DATE: Native = Native::constructor("Date", construct, Instance::Date).keeping(MOST);

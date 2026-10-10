@@ -1057,3 +1057,14 @@ needs an ADR is that item's question). The viewport it reads
 **366**, which needs an ADR. 363 waits on 73 and 364 needs design. 155
 queue items are open. The next unused queue number is 367 and the next
 unused ADR 0038.
+
+Iteration 236 tried item 296's capture first, since 235 had unblocked it.
+The screen was locked, so the capture came back black: 296 waits for a
+person to unlock the machine. It then built item 365, `Math`, in
+`alo-js`' `builtin/math.rs` and `builtin/math_fold.rs`, and renamed
+`date_numbers.rs` to `numbers.rs`. The frozen page's `pagehide` listener
+now runs to its end. Cut from it: **367**, `Math.random`, which needs an
+ADR, and **368**, `f16round` and `sumPrecise`. Opened: **369**,
+`navigator.sendBeacon`, which needs an ADR (ADR 0032 left it undecided).
+157 queue items are open. The next unused queue number is 370 and the next
+unused ADR 0038.

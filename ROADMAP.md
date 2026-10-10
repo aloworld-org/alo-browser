@@ -867,7 +867,7 @@ unreachable without it.
       constructors item 73 has not built; a
       function's own `name` and `length` and its source text are 220; the
       `Array` constructor, `Array.isArray` and every array method but the
-      three iterators and `forEach`, `Math`, `JSON`, the wrapper objects, the `Symbol`
+      three iterators and `forEach`, `JSON`, the wrapper objects, the `Symbol`
       function and the other eleven well-known symbols, the iterator helpers
       and the weak collections are still item 73, which is what remains of it;
       and **`Date` as text**: ADR 0036 decided `Date` (queue item 353), and
@@ -883,9 +883,15 @@ unreachable without it.
       `builtin/encode_uri_component.rs`, and `URIError` as an error the
       engine throws. The script now runs past that call, whose argument
       `location` is built (360), past `window` (362, ADR 0037) and on to
-      its end; its `pagehide` listener, reached by a dispatch, stops at
-      `Math` (365). Still owed: a date as text (357), the person's zone
-      (358), `Math` (365), and `encodeURI` and the two decoders (73)
+      its end; and **`Math`** (queue item 365): the namespace object in
+      `builtin/math.rs`, its eight values and thirty-four functions, `max`,
+      `min` and `hypot` folding however many arguments a page passes
+      (`builtin/math_fold.rs`), every argument converted once and in order
+      (`builtin/numbers.rs`). The `pagehide` listener, reached by a
+      dispatch, now runs to its end. Still owed: a date as text (357), the
+      person's zone (358), `Math.random` (367, needs an ADR),
+      `Math.f16round` and `Math.sumPrecise` (368), and `encodeURI` and the
+      two decoders (73)
 - [ ] Regular expressions, with the syntax the language actually has
       · Built: the engine ADR 0029 decided, in `alo-js/src/regexp/` (queue
       item 74) — the pattern parser for the whole grammar, so a bad pattern

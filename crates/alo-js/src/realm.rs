@@ -61,11 +61,10 @@
 //! enumerable, as every constructor on the global object is; `Promise` (queue
 //! item 333) and `Date` (queue item 356) are bound the same way, and the first
 //! global *function*, `encodeURIComponent` (queue item 359), has the same
-//! attributes. There is still no `Object`, no `Array`, no `Math` and no
-//! `console`. ADR 0013 § 3 — *absent beats approximate* — and each is a queue
-//! item. An embedder may put its own
-//! things on the global object today, which is how a test harness reaches a
-//! script.
+//! attributes, as does `Math` (queue item 365). There is still no `Object`,
+//! no `Array` and no `console`. ADR 0013 § 3 — *absent beats approximate* —
+//! and each is a queue item. An embedder may put its own things on the global
+//! object today, which is how a test harness reaches a script.
 //!
 //! # A realm is told the time, or is not
 //!
@@ -93,6 +92,7 @@ use crate::builtin::{Family, Intrinsics};
 use crate::clock::Clock;
 use crate::heap::{Ref, Root};
 use crate::object::native::Make;
+use crate::object::symbol::WellKnown;
 use crate::object::{Found, Held, Objects, Property, Refused, Set, Value};
 
 /// One `let` or `const` the realm holds.
@@ -195,6 +195,7 @@ impl Realm {
         realm.name_the_promise(objects)?;
         realm.name_the_date(objects)?;
         realm.name_the_functions(objects)?;
+        realm.name_the_math(objects)?;
         Ok(realm)
     }
 
@@ -335,6 +336,22 @@ impl Realm {
         let global = self.global(objects)?;
         let functions = self.intrinsics.function_prototype(objects)?;
         crate::builtin::encode_uri_component::furnish(objects, global, functions)
+    }
+
+    /// `Math`, the namespace object (ECMA-262 § 21.3, queue item 365): an
+    /// ordinary object rather than an intrinsic, since nothing in the engine
+    /// reads it, so the global object, which the realm roots, is all that
+    /// holds it.
+    fn name_the_math(&self, objects: &mut Objects) -> Result<(), Escape> {
+        // Every one of these is rooted, so each survives the allocations
+        // making `Math` causes.
+        let global = self.global(objects)?;
+        let above = self.intrinsics.object_prototype(objects)?;
+        let functions = self.intrinsics.function_prototype(objects)?;
+        let tag = self
+            .intrinsics
+            .well_known_key(objects, WellKnown::ToStringTag)?;
+        crate::builtin::math::furnish(objects, global, above, functions, tag)
     }
 
     /// The global object, which is what an embedder puts its own things on.

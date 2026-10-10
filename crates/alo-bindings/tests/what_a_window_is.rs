@@ -19,12 +19,13 @@
 //! - `install` refuses an engine whose global object is not a `Window`.
 //! - alo Sites' analytics script, which opened the item, runs to its end,
 //!   and its `pagehide` listener on the window is reached by a dispatch at
-//!   it — and stops at what is not built next.
+//!   it and, since `Math` (queue item 365), runs to its end too, reporting
+//!   once what it measured.
 //!
 //! Every script runs twice — once with the collector at every allocation —
 //! and the two must agree.
 
-use alo_bindings::{Window, adopt, install};
+use alo_bindings::{Identity, Window, adopt, install, introduce};
 use alo_dom::parse_document;
 use alo_js::abrupt::Thrown;
 use alo_js::heap::{Ref, Root};
@@ -479,31 +480,42 @@ fn install_refuses_an_engine_whose_global_object_is_not_a_window() {
     );
 }
 
-#[test]
-fn alo_sites_analytics_script_runs_to_its_end_and_its_pagehide_listener_is_reached() {
+/// alo Sites' call-to-action page with its script run, as the renderer
+/// leaves it: the clock fixed, `navigator` introduced.
+fn the_cta_page(stress: bool) -> Result<Page, String> {
     let (Some(start), Some(end)) = (CTA.find("<script>"), CTA.find("</script>")) else {
-        panic!("the frozen page has its inline script");
+        return Err("the frozen page has no inline script".to_owned());
     };
     let source = CTA.get(start + "<script>".len()..end).unwrap_or_default();
+    let mut engine = alo_bindings::engine(Some(std::rc::Rc::new(Fixed::at(1.0e12))))
+        .map_err(|why| why.to_string())?;
+    let cell = adopt(engine.objects(), parse_document(CTA)).map_err(|why| why.to_string())?;
+    let root = engine.objects().heap_mut().root(cell);
+    install(&mut engine, cell).map_err(|why| why.to_string())?;
+    // As the renderer does, so that `navigator.sendBeacon` is a property read
+    // rather than a `ReferenceError`.
+    let identity = Identity {
+        user_agent: "alo",
+        platform: "MacIntel",
+    };
+    introduce(&mut engine, cell, identity).map_err(|why| why.to_string())?;
+    engine.objects().heap_mut().stress(stress);
+    let mut page = Page {
+        engine,
+        _root: root,
+    };
+    // Past line 32, `window.addEventListener("pagehide", record)`, to the
+    // end: nothing is thrown.
+    match page.run(source).as_str() {
+        "undefined" => Ok(page),
+        other => Err(format!("the script did not run to its end: {other}")),
+    }
+}
+
+#[test]
+fn alo_sites_analytics_script_runs_to_its_end_and_its_pagehide_listener_is_reached() {
     for stress in [false, true] {
-        let Ok(mut engine) = alo_bindings::engine(Some(std::rc::Rc::new(Fixed::at(1.0e12)))) else {
-            panic!("an empty heap holds an engine");
-        };
-        let Ok(cell) = adopt(engine.objects(), parse_document(CTA)) else {
-            panic!("an empty heap holds the page");
-        };
-        let root = engine.objects().heap_mut().root(cell);
-        let Ok(_) = install(&mut engine, cell) else {
-            panic!("the page installs");
-        };
-        engine.objects().heap_mut().stress(stress);
-        let mut page = Page {
-            engine,
-            _root: root,
-        };
-        // Past line 32, `window.addEventListener("pagehide", record)`, to the
-        // end: nothing is thrown.
-        assert_eq!(page.run(source), "undefined", "the script runs to its end");
+        let mut page = the_cta_page(stress).unwrap_or_else(|why| panic!("{why}"));
         // A click is heard by its capturing listener on the document, which
         // finds nothing it sends.
         assert_eq!(
@@ -517,12 +529,37 @@ fn alo_sites_analytics_script_runs_to_its_end_and_its_pagehide_listener_is_reach
             "true"
         );
         // `pagehide` at the window reaches `record`, which reads the window's
-        // `scrollY` and `innerHeight` — absent, so `undefined` — and stops at
-        // `Math.max` in `height()`, the script's seventeenth line: what is
-        // next, queue item 365.
+        // `scrollY` and `innerHeight` — absent, so `undefined` (item 366) —
+        // and runs past `Math.max` in `height()` and `Math.round` (item 365)
+        // to its end. `navigator.sendBeacon` is absent (item 369), so it
+        // sends nothing and nothing is thrown.
         assert_eq!(
             page.run("window.dispatchEvent(new Event('pagehide'))"),
-            "true | ReferenceError: 'Math' is not defined"
+            "true"
+        );
+    }
+}
+
+#[test]
+fn alo_sites_pagehide_listener_reports_once_what_it_measured() {
+    for stress in [false, true] {
+        let mut page = the_cta_page(stress).unwrap_or_else(|why| panic!("{why}"));
+        // What it sends, read through a beacon this test lends it in item
+        // 369's place: no depth, since `NaN` is not past the zero it starts
+        // at, and the seconds it was read, rounded by `Math.round` — none, on
+        // a fixed clock.
+        assert_eq!(
+            page.run(
+                "var sent = ''; navigator.sendBeacon = function (to, body) { \
+                 sent += to + ' ' + body + ';'; return true; }; \
+                 window.dispatchEvent(new Event('pagehide')); sent"
+            ),
+            "/_alo/collect t=0;"
+        );
+        // Once reported, it is not reported again.
+        assert_eq!(
+            page.run("sent = ''; window.dispatchEvent(new Event('pagehide')); sent"),
+            ""
         );
     }
 }

@@ -13,7 +13,7 @@
 //!    because an argument's `valueOf` may change the date and the
 //!    specification works from the value it read first;
 //! 2. each argument converted with `ToNumber`, once, in order, and kept
-//!    ([`date_numbers`](super::date_numbers), ADR 0031) — the first even when
+//!    ([`numbers`](super::numbers), ADR 0031) — the first even when
 //!    it is absent, which makes it `NaN`;
 //! 3. an Invalid Date answers `NaN` and is **not** written, so a date an
 //!    argument's `valueOf` set stays as it set it — except `setFullYear`,
@@ -34,7 +34,7 @@ use crate::object::{Objects, Value};
 use crate::time;
 
 use super::date::date_of;
-use super::date_numbers::{Numbers, given_or, numbers};
+use super::numbers::{Numbers, given_or, numbers};
 
 /// `setMilliseconds(ms)`.
 const MILLISECONDS: u8 = 0;

@@ -380,7 +380,7 @@ fn add(objects: &mut Objects, left: Value, right: Value, at: usize) -> Result<Va
 /// out — and they are written out here rather than left to be discovered,
 /// because `Math.pow(-1, Infinity)` is one of those numbers a test suite
 /// contains and a hand-written test never does.
-fn exponentiate(base: f64, exponent: f64) -> f64 {
+pub(crate) fn exponentiate(base: f64, exponent: f64) -> f64 {
     if exponent.is_nan() {
         return f64::NAN;
     }

@@ -6067,7 +6067,7 @@ The long pole, and the thing most of section E is unreachable without.
   "ReferenceError: 'Math' is not defined", opened as **365**; the
   viewport reads are opened as **366**.
 
-- [ ] **365. `Math`.** *Cut from 73. Opened by `alo-sites-cta` (iteration
+- [x] **365. `Math`.** *Cut from 73. Opened by `alo-sites-cta` (iteration
   234): its `pagehide` listener's `height()` calls `Math.max`, and
   `permille` calls `Math.max`, `Math.min` and `Math.round`; `shape()` calls
   `Math.round`. Depends on 218 (done). ADRs: 0013 § 3 (absent beats
@@ -6082,6 +6082,64 @@ The long pole, and the thing most of section E is unreachable without.
   in `alo-bindings`' `tests/what_a_window_is.rs`, what it stops at next is
   opened as an item, and each function answers ECMA-262's values for the
   edge cases (`-0`, `NaN`, infinities, no arguments) under `Heap::stress`.
+  **Built (iteration 236).** `Math.random` is **cut out by name** to 367:
+  its source is a decision of the shape ADR 0036 § 1 made for a clock, so it
+  gets an ADR before code. `Math.f16round` and `Math.sumPrecise` are cut to
+  368. Everything else of § 21.3 is built:
+  - `builtin/math.rs` holds the namespace object, an ordinary object over
+    `Object.prototype`, bound on the global object (writable, configurable,
+    not enumerable) by `Realm::name_the_math`. It has its eight values
+    (none writable, enumerable or configurable), `Symbol.toStringTag` of
+    `"Math"`, and thirty-four functions. `round` and `sign` are written
+    out; `pow` is `operate::exponentiate`, now `pub(crate)`; the rest are
+    Rust's `f64`, each checked against the specification's edge cases.
+  - `builtin/math_fold.rs` is `max`, `min` and `hypot`: every argument
+    converted as it is reached and folded at once, the index and the answer
+    so far in two slots (ADR 0031 § 5: the count is the page's), and the
+    stop asked on every pass (§ 7).
+  - `builtin/date_numbers.rs` is renamed `builtin/numbers.rs`, since the
+    one-, two- and seven-argument conversions it does are now Math's as
+    well as Date's.
+  - Tests: `alo-js`' `tests/what_math_answers.rs` (12 tests, each program
+    run both ordinarily and under `Heap::stress`), and unit tests in both
+    files.
+  **Closing condition met.** The `pagehide` listener runs past `height()`
+  to its end. With `navigator` introduced, as the renderer does, it throws
+  nothing (`what_a_window_is.rs`); with a beacon the test lends, it sends
+  `/_alo/collect t=0` once. What it reaches next is not a throw but an
+  absence: `navigator.sendBeacon`, opened as **369**. The viewport it reads
+  stays 366.
+
+- [ ] **367. `Math.random`.** *Cut from 365 (iteration 236). **Needs ADR**,
+  as its own iteration, before any code.* Where a renderer's randomness
+  comes from, and who hands it to the engine: ADR 0013 § 5 has `alo-js`
+  read nothing of the machine, and ADR 0036 § 1 answered the same question
+  for a clock with a trait the embedder implements. The decision also
+  covers whether a test or a corpus case reads a seeded source, as § 5 of
+  that ADR gives them a fixed clock, and what a realm given none answers.
+  ECMA-262 asks only for numbers in `[0, 1)`, roughly uniform, and leaves
+  the algorithm to the implementation. *Opened by:* a frozen page that calls
+  it; none does yet. *Closes when:* the ADR is accepted, and the item it
+  makes buildable answers in tests.
+
+- [ ] **368. `Math.f16round` and `Math.sumPrecise`.** *Cut from 365
+  (iteration 236).* `f16round` rounds to binary16, specified beside
+  `Float16Array`; `sumPrecise` reads an iterable through the iteration
+  protocol and adds its numbers exactly. *Depends on* typed arrays for the
+  first and on iteration through a call (item 231) for the second. *Opened
+  by* a frozen page calling either. *Closes when:* each answers ECMA-262's
+  values, the edge cases included, under `Heap::stress`.
+
+- [ ] **369. `navigator.sendBeacon`.** *Opened by `alo-sites-cta`
+  (iteration 236): with `Math` built, the analytics script's `pagehide`
+  listener runs to `send()`, finds `navigator.sendBeacon` absent, and
+  sends nothing. **Needs ADR**: ADR 0032 lists keep-alive requests that
+  outlive their document, and `sendBeacon`, as undecided, because a request
+  that outlives the page that made it is a tracking feature first.* Whether
+  a page may send one, to whom, with what credentials, and how it is
+  recorded under ADR 0012. Depends on 364, since the moment it matters is a
+  page being left. *Closes when:* the decision is an ADR, and the item it
+  makes buildable sends or refuses the frozen page's report in tests.
 
 - [ ] **366. The viewport a script reads.** *Opened by `alo-sites-cta`
   (iteration 234): `record` reads `window.scrollY` and
@@ -8015,6 +8073,15 @@ What stage 2's exit gate actually measures: a person using it.
   4. Record the result here.
 
   Nothing else of 296 is owed.
+
+  **Tried again (iteration 236), and the screen was locked.** `alo` started
+  and showed its window (id 410), with one `alo-render` under it.
+  `CGPreflightScreenCaptureAccess` answered true, so the permission stands.
+  But the session reported `CGSSessionScreenIsLocked` = 1. A whole-display
+  capture returned a black frame, and `screencapture -l 410` answered "could
+  not create image from window". Both processes were gone after `kill -TERM`.
+  A locked screen shows nothing, and only a person can unlock it. So this
+  is taken again when the machine is unlocked, not worked around.
 
 - [ ] **297. The tab strip.** *Cut from 118 (ADR 0024 §§ 4, 6).* Its own
   renderer at an internal site no page can name, under the renderer's

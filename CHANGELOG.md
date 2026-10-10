@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Pages have `Math`.** Its constants and its functions — `Math.max`,
+  `Math.round`, `Math.floor`, `Math.pow`, the trigonometry and the rest —
+  answer what the language says, including for negative zero, infinities,
+  `NaN` and calls with no arguments, and each argument is read once and in
+  order however many a page passes. `Math.random` is not there yet: where a
+  page's randomness comes from is a decision still to be written down
+  (queue item 367). `Math.f16round` and `Math.sumPrecise` are not there
+  either (item 368). alo Sites' analytics script, which stopped at
+  `Math.max` when a page was left, now runs to its end (queue item 365).
+
 - **A verification gate that stops responding no longer stops the build loop
   silently.** The loop watched its worker but not the gates it runs around it,
   so a gate whose pipeline did not survive the machine hibernating blocked

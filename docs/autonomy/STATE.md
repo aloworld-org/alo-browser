@@ -22497,3 +22497,119 @@ depend on it.
 **Not claimed.** No capture of `alo`'s own window has been taken. The display
 capture proves the permission, not the item.
 \n
+---
+
+## Iteration 236 — `Math`, after the window's capture found the screen locked
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` and iteration 235's
+entry. No `AGENTS.md` exists in this repository. For 296: ADR 0024 § 2.
+For 365: ADRs 0013 §§ 3 and 5, 0031 and 0036 § 1, and `docs/features.md`'
+standard-library line.
+
+**296 first, and why it is not closed.** 235 unblocked 296's capture, so it
+was taken first.
+- `target/debug/alo --frozen-fonts …/alo-offline/page.html` started, and the
+  window server listed its window, id 410. One `alo-render` ran under it.
+- `CGPreflightScreenCaptureAccess` answered true: the permission stands.
+- The session reported `CGSSessionScreenIsLocked` = 1. A whole-display
+  `screencapture` returned a black frame, and `screencapture -l 410`
+  answered "could not create image from window".
+- After `kill -TERM`, neither process was left.
+
+A locked screen shows nothing, and only a person can unlock it. 296's
+queue entry says so, and it is taken again on an unlocked machine. No
+pixel of `alo`'s window has been seen, and nothing here claims one has.
+
+**365, `Math`: built.** Cut first, by name:
+- `Math.random` is cut to **367**, which needs an ADR. Its source is the
+  same question ADR 0036 § 1 answered for a clock.
+- `f16round` and `sumPrecise` are cut to **368**. Each is specified with
+  something not built yet: binary16, and iteration through a call.
+
+Built:
+- `builtin/math.rs`: the namespace object over `Object.prototype`, bound by
+  `Realm::name_the_math`. It has eight fixed values, `Symbol.toStringTag`
+  `"Math"`, and thirty-four functions.
+  - `round` (a half towards +∞, a zero's sign kept) and `sign` are written
+    out.
+  - `pow` is `operate::exponentiate`, now `pub(crate)`.
+  - The rest are Rust's `f64`. Each was first checked in a scratch program
+    against ECMA-262's edge cases: signed zeros, the infinities, `acosh`
+    and `asinh` of 1e308, and `hypot(NaN, ∞)`.
+- `builtin/math_fold.rs`: `max`, `min` and `hypot`. Each argument is
+  converted as it is reached and folded at once, so a `NaN` stops no
+  conversion after it. The index and the answer so far are kept in two
+  slots, since ADR 0031 § 5 keeps a count a page sets out of the step. The
+  stop is asked on every pass (§ 7).
+- `date_numbers.rs` is renamed `numbers.rs`, since Math's fixed-arity
+  functions use it too. Its responsibility is unchanged and its name now
+  says it.
+
+Tests:
+- `alo-js`' `tests/what_math_answers.rs`: 12 tests, every program run both
+  ordinarily and under `Heap::stress`. They cover:
+  - the object and its attributes;
+  - the values;
+  - the cut functions being absent;
+  - every function's edge cases;
+  - conversions once and in order, a throw ending the call;
+  - a 2 000-argument fold resuming across 286 conversions, in order.
+- Unit tests in both new files.
+
+**Closing condition met.** The `pagehide` listener runs past `height()` to
+its end (`alo-bindings`' `what_a_window_is.rs`, now two tests).
+- With `navigator` introduced as the renderer does, it throws nothing.
+- With a beacon the test lends, it sends `/_alo/collect t=0` once, and not
+  again on a second `pagehide`.
+
+Its next stop is not a throw but an absence: `navigator.sendBeacon`,
+opened as **369**. It needs an ADR, since ADR 0032 left keep-alive requests
+undecided.
+
+**Checked by mutation**, each restored from a copy:
+- the fold resuming two arguments on, rather than one, fails 2 tests;
+- `max` not ordering `-0` below `+0` fails 1.
+
+A first mutation, a resume that never advanced, made the fold re-ask the
+same conversion forever. It hung the test rather than failing it, so it
+was stopped, killed and restored, and is not counted.
+
+**Gate, mechanical.** `scripts/gate.sh` ran under `nohup`, and this
+iteration read its log in foreground waits until it ended.
+- The first run ended `exit 1`: clippy refused five `panic!`s in a helper
+  of `what_a_window_is.rs`, outside a `#[test]` function. The helper now
+  returns a `Result`.
+- The second run ended `exit 0`, "The gate is met":
+  - fmt clean, clippy silent, tests pass;
+  - no stubs, `unsafe` forbidden, the licence on every file;
+  - every rented crate behind its boundary, no verb takes a coordinate;
+  - the supervisor's stop rule holds, and `CHANGELOG.md` changed with the
+    code.
+
+**Gate, manual.**
+- Layout assertion and reference render: none applies. Nothing positions,
+  sizes or draws. The gate's corpus run diffs every committed render and
+  box tree, and they are unchanged.
+- Hostile input: a page's arguments are converted through the existing
+  `ToNumber` and `ToPrimitive`, and every refusal is an error, not a panic.
+  An argument count a page chooses stays out of the step, and a long fold
+  answers the stop.
+- One responsibility per file, as listed above. No `unsafe`, and no new
+  dependency. `alo-workplace` and `alo-os` were not touched.
+
+**Roadmap.** No line is ticked. The standard-library line's Built clause
+names `Math` and its three files. `Math` is out of the owed list, and 367
+and 368 are in it. `docs/features.md`, `docs/conformance.md`' alo Sites
+row, `REMAINING.md` and `CHANGELOG.md` are updated. The queue has 365
+ticked with its *Built* paragraph, 367–369 added, and 296's locked attempt
+written down.
+
+**Unresolved obligations.**
+- 296's capture waits for an unlocked screen; 297–300 wait on it.
+- 366, 367 and 369 need ADRs, and 364 needs design.
+- 368 waits on typed arrays and 231.
+- Everything iteration 234 listed still stands.
+
+157 queue items are open: 365 closed; 367, 368 and 369 added. The next
+unused queue number is **370** and the next ADR is **0038**. This is one
+iteration, not a finished queue or roadmap.

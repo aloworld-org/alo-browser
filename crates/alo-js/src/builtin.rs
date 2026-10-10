@@ -54,6 +54,12 @@
 //! intrinsic: nothing in the engine calls it, so the global object, which the
 //! realm roots, is all that holds it.
 //!
+//! `Math` ([`math`], queue item 365) is the first namespace object, bound on
+//! the global object the same way and for the same reason. `max`, `min` and
+//! `hypot` fold however many arguments a page passes ([`math_fold`]), and the
+//! fixed-arity functions convert theirs as `Date` does ([`numbers`]).
+//! `Math.random` is item 367's, and `f16round` and `sumPrecise` item 368's.
+//!
 //! # A well-known symbol is an intrinsic too
 //!
 //! `Symbol.iterator` is a key on `Array.prototype` and `%IteratorPrototype%`,
@@ -76,7 +82,7 @@
 //! prototype (queue item 324), and no `String.prototype.match` and its kin
 //! (item 323). No `Array` constructor and no array method but the three
 //! iterators and `forEach`, no
-//! `Math`, `JSON`, `String`, `Number` or `Boolean`, no `AggregateError` (queue
+//! `JSON`, `String`, `Number` or `Boolean`, no `AggregateError` (queue
 //! item 229), no `Symbol` and nine of the thirteen well-known symbols, and no
 //! weak collections. Each is named in the queue rather than half-built here.
 
@@ -85,7 +91,6 @@ mod array_like;
 pub mod array_prototype;
 mod date;
 mod date_convert;
-mod date_numbers;
 mod date_prototype;
 mod date_set;
 pub(crate) mod encode_uri_component;
@@ -93,6 +98,9 @@ pub mod error;
 mod for_each;
 pub mod function_prototype;
 pub mod iterator_prototype;
+pub(crate) mod math;
+mod math_fold;
+mod numbers;
 pub mod object_prototype;
 mod promise;
 mod promise_finally;

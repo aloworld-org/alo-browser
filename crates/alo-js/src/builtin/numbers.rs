@@ -2,11 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! `ToNumber` on each of a date builtin's arguments, in order, with each kept
-//! (queue item 356, ADR 0031).
+//! `ToNumber` on each of a builtin's fixed arguments, in order, with each kept
+//! (queue items 356 and 365, ADR 0031).
 //!
 //! `new Date(2026, 9, 9)`, `Date.UTC(…)` and every setter convert up to seven
-//! arguments before they do any arithmetic, and any of them may be an object
+//! arguments before they do any arithmetic, `Math.atan2` and `Math.pow` two
+//! and `Math.round` one, and any of them may be an object
 //! whose `valueOf` runs the page's script. The specification converts them
 //! **once each, in order**, and a page can count the calls — so each number is
 //! kept the moment it exists, in a slot the builtin declares (ADR 0031 § 1),
@@ -14,7 +15,9 @@
 //! at a step that says which argument it was.
 //!
 //! Which argument rides in the step rather than in a slot: it is at most six,
-//! a bound this file sets and no page can raise (ADR 0031 § 5).
+//! a bound this file sets and no page can raise (ADR 0031 § 5). `Math.max`,
+//! whose arguments are as many as a page passes, is not this file's but
+//! [`math_fold`](super::math_fold)'s.
 
 use crate::abrupt::{Escape, Internal};
 use crate::convert::{self, Hint, Primitive};
@@ -26,7 +29,7 @@ use crate::object::native::{Answer, Call, Want};
 /// own.
 pub(super) const CONVERTED: u32 = 16;
 
-/// The most arguments any date builtin converts: `Date.UTC`'s seven.
+/// The most arguments any builtin here converts: `Date.UTC`'s seven.
 pub(super) const MOST: usize = 7;
 
 /// How far the arguments have got.
