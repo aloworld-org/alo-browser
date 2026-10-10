@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: a page waits for its style, but not for ever.** When a page
+  links a style sheet, the window will not show it until the sheet has
+  arrived, so a person does not see it flash unstyled first. If the sheet
+  takes longer than a few seconds, the page is shown anyway, the window
+  says it is shown before its style, and the style is applied when it does
+  arrive. To make that possible the browser will make a page's requests on
+  a thread of their own, so the window's tabs keep answering a resize or a
+  close however slowly a server sends. Nothing is built yet (queue item
+  351, ADR 0041); a limit on how long one request may take in all is queued
+  separately (item 376).
+
 - **A page can send its last report as it is left.** `navigator.sendBeacon`
   is built: a page sends a short report as text, and the browser makes the
   request even after the page has gone, by the same rules as any request

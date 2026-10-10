@@ -1177,3 +1177,16 @@ recorded as not made (`Answering::close`, `Rule::Closed`). alo Sites' page
 reports with no beacon lent. 375 is now the bindings' `keepalive` member
 alone, still waiting on a page. 158 queue items are open. The next unused
 queue number is 376 and the next unused ADR 0041.
+
+Iteration 245 decided item 351 as ADR 0041, and built nothing. Every
+request the conductor makes for a page moves to one network thread, the
+only holder of the session's `Network`, sent jobs in order and making one
+exchange at a time in `Answering`'s unchanged order. The conductor gains one
+inbox for the window's orders and the network's results, and never waits on
+a server. A tab whose load asked for sheets is held, painting nothing, until
+every owed sheet is answered or the window's own bound passes. At the bound
+the page is shown and said to be shown before its style, and the late sheet
+is still applied when it comes. A bound on a whole exchange is cut to
+**376**, found rather than opened by a page, and needing design. 351 is now
+the first build, designed and eligible. 159 queue items are open. The next
+unused queue number is 377 and the next unused ADR 0042.

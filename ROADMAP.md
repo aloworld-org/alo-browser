@@ -196,8 +196,10 @@ unreachable without it.
       · Owed: the Linux sandbox, queue item 169; the axes that are not
       weight — width, slant and optical size — which are queue item 197;
       the window holding a page's first frame until its load's sheets are
-      answered, within a bound (ADR 0035 § 5, queue item 351, which needs a
-      way to bound a request that trickles); and a loaded page's pictures
+      answered, within a bound (ADR 0035 § 5, queue item 351, decided by
+      ADR 0041 with nothing built: requests move to a network thread of
+      their own so the conductor can keep the bound, and a bound on a whole
+      exchange is item 376); and a loaded page's pictures
       (item 350)
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
       than leaving a blank rectangle (queue items 166 and 65). It is not

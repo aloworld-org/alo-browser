@@ -23651,3 +23651,120 @@ and `CHANGELOG.md` are updated.
 158 queue items are open. The next unused queue number is **376** and the
 next ADR is **0041**. This is one iteration, not a finished queue or
 roadmap.
+
+## Iteration 245 — queue item 351 decided: ADR 0041, requests off the conductor and a bounded wait for style
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` and iteration
+244's entry. No `AGENTS.md` exists in this repository. For 351: ADR 0035
+(all of it), ADR 0024 § 2, ADR 0014 § 9, ADR 0040 § 3 and ADR 0039 §§ 1–2
+as they bear on closing, queue items 347, 348 and 351, `docs/features.md`'
+*A page's own style sheets* line, and the code named below.
+
+**Choosing.**
+- 296 first, since its capture is owed. A Swift check of
+  `CGSessionCopyCurrentDictionary` answered `CGSSessionScreenIsLocked` = 1,
+  with `CGPreflightScreenCaptureAccess` true. The screen is still locked,
+  so 296 is not takeable and nothing was started.
+- After 369, every open item before 351 in the file is page-gated or
+  waits on a dependency: 345, 336, 354, 355, 361, 367, 368, 374, 375 and
+  357 on pages; 371 on a windowless embedder; 372 is a speed; 363 on 73;
+  358 on settings.
+- 351 is opened by `alo-sites-cta` (painted unstyled first in the window),
+  its dependency 348 is done, and it names ADR 0035 § 5, its feature line
+  and its closing conditions. Its *needs design* is a decision, so the
+  decision was taken as its own iteration (LOOP.md stage 2 § 4).
+
+**What the code showed, before deciding.**
+- `conductor.rs` calls `Answering::answer_next` between looks at its
+  orders, and that makes one request **on the conductor's thread** and
+  waits for it. A resize, a visibility change, another tab's answer and
+  `CloseEverything` all wait behind it.
+- `alo-net`'s `PATIENCE` (30 s) is a socket's read and write timeout. No
+  exchange has a deadline of its own.
+- `Network` (pool, jar, preflights) is touched only by the conductor:
+  making, `Refusal::record`, and `Answering::close`.
+- `bin/alo.rs` joins the conductor after the event loop ends on
+  `News::Closed`, and the conductor hands back the `Network`.
+
+**What was decided.** ADR 0041, *Requests are made off the conductor, and
+a page waits for its style only so long*, accepted:
+1. One network thread is the only holder of the session's `Network`. It is
+   sent jobs in order (make, record, close) and makes one exchange at a
+   time. `Answering`'s queue and rules stay on the conductor unchanged, and
+   the next job is handed out only when the last returns.
+2. The conductor has one inbox for orders and results. It never waits on
+   the network, only on the inbox, up to the nearest bound. A network thread
+   that has gone is said, and what is owed is answered as failed.
+3. A tab whose load asked for sheets is held. Everything is done except
+   painting, until every owed sheet is answered (a refusal or failure
+   counts), the window's bound passes, or the tab stops showing that
+   document. A sheet a script adds later is never owed. The bound is a few
+   seconds, well inside `PATIENCE`, and lands in `alo-window` with its
+   reason. The network stack never learns it.
+4. At the bound the page is painted, and *shown before its style arrived*
+   is said. The late sheet is still made and applied when it comes.
+5. Closing tells the window `Closed` without waiting for the network
+   thread. The record is handed back by joining it, which waits for one
+   exchange, no longer than today.
+6. The closing conditions for 351, in `alo-window`, against a local server
+   in real `Tabs`.
+
+The ADR names its costs (a thread; a trickle still holds the queue; a
+moment of nothing; closing waits for one exchange) and the alternatives it
+rejected: an exchange deadline equal to the bound, a network-wide deadline,
+a locked pool, many threads, a rented async runtime, a waiting renderer, and
+no bound. It says how we will know it was wrong. ADR 0035 was not edited:
+its § 5 already left the bound's mechanism to the code, and this ADR keeps
+its *the late sheet is applied when it comes*.
+
+**Queue.**
+- 351 has a *Decided* paragraph and closing conditions from ADR 0041 § 6.
+  It stays open, and is now the first build, designed, eligible and next.
+- Cut from it: **376**, *a bound on a whole exchange*. It was found while
+  deciding, not opened by a page, and is marked needs design.
+
+**Roadmap.** No line is ticked. The process-model line's *Owed* now says
+351 is decided by ADR 0041 with nothing built, and names 376. Also
+updated: `docs/features.md`' sheets line and `docs/conformance.md`' alo
+Sites row (both *decided, not built*), `REMAINING.md` and `CHANGELOG.md`.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log.
+It passed 600 s and the harness moved it to the background. The next call
+waited on it in a foreground `until` loop and read `exit 0` and "The gate
+is met", with no `FAILED` or `panicked` in the log:
+- formatting clean, clippy silent, tests pass;
+- no stubs, `unsafe` forbidden everywhere;
+- every source file carries its licence notice;
+- every rented crate behind its boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds;
+- "no uncommitted code to judge", which is right for a change with no
+  code. `CHANGELOG.md` has its line.
+
+This entry was written after that run, and is documentation only.
+
+**Gate, manual.**
+- Layout assertion and reference render: none applies. Nothing positions,
+  sizes or draws, and no reference moved. 351's closing conditions are
+  written as observable frames, sentences, timings against a bound and
+  record lines.
+- Hostile input: nothing new reads from outside. The ADR exists because a
+  hostile server's trickle must not hold the window, and it says what a
+  trickle still holds (376).
+- One responsibility per file: the ADR is one decision. The network thread
+  is a new place with one reason to change: holding the `Network` and doing
+  its jobs. The hold belongs to the conductor, which decides when to paint.
+- The feature is in `docs/features.md` before it is built, as *decided,
+  not built*. Nothing is ticked: 351 is decided, not done.
+- No `unsafe`, no new dependency, no code changed. `alo-workplace` and
+  `alo-os` were not read or touched this iteration.
+
+**Unresolved obligations.**
+- 351 is next and eligible. Its build may be cut if it proves larger than
+  one iteration, the network thread first and the hold after it.
+- 376 needs design and a page or server that shows the trickle.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- Everything iteration 244 listed still stands.
+
+159 queue items are open: 376 added, and 351 still open. The next unused
+queue number is **377** and the next ADR is **0042**. This is one
+iteration, not a finished queue or roadmap.

@@ -6660,6 +6660,48 @@ The long pole, and the thing most of section E is unreachable without.
   bound, with that said; and a sheet a script adds holds back no frame.
   `alo-window`'s `a_page_styled_in_the_window.rs` asserts today's unstyled
   first frame, and this item changes that assertion.
+  **Decided (iteration 245): ADR 0041, accepted.** Requests leave the
+  conductor's thread. One network thread is the only holder of the
+  session's `Network` and is sent jobs in order (make, record, close). It
+  makes one exchange at a time, in `Answering`'s order, which stays on the
+  conductor unchanged. The conductor has one inbox for the window's orders
+  and the network's results, and never waits on the network. A tab whose
+  load asked for sheets is held: everything is done but nothing is painted
+  until every owed sheet is answered (a refusal or failure counts), or the
+  window's own bound passes, or the tab stops showing that document. At the
+  bound the page is painted and *shown before its style arrived* is said;
+  the late sheet is still applied when it comes. The bound is a few seconds,
+  well inside `PATIENCE`, in `alo-window` with its reason. Closing tells the
+  window `Closed` without waiting for the network thread, which is joined
+  for the record afterwards. A whole-exchange bound is cut to **376**.
+  *Closes when (ADR 0041 § 6),* in `alo-window` against a server on this
+  machine, in real `Tabs` over the confined renderer:
+  - a page whose sheet answers late is not painted before the answer, and
+    is painted styled after it (`a_page_styled_in_the_window.rs`' first
+    assertion becomes styled);
+  - a sheet whose server never finishes has the page painted after the
+    bound and not before, unstyled, with the sentence said; while that
+    exchange is in flight a `Resize` is answered with a frame at the new
+    size and `CloseEverything` with `Closed`;
+  - a sheet a script adds after the load holds back no frame, and a page
+    linking none is painted at once;
+  - a tab closed while held paints nothing more, and its sheet's answer
+    is answered by nobody;
+  - the session's record has every request made, refused and not made, in
+    order, and the existing fetch, beacon and close tests pass unchanged.
+  It stays open: it is now designed and eligible, and is the next build.
+
+- [ ] **376. A bound on a whole exchange.** *Cut from 351 by ADR 0041
+  (*What this does not decide*). Found by iteration 245, not opened by a
+  page. **Needs design.*** `alo-net`'s `PATIENCE` bounds one read, so a
+  server sending a byte every twenty-nine seconds holds one exchange for
+  ever. After 351 that holds the network thread's queue, behind which
+  every tab's fetches and sheets wait, and the hand-back of the session's
+  record at close. A bound on every exchange is a decision about every
+  request the network stack makes, downloads under `LARGEST_BODY`
+  included, so it is its own. *Opened by* a page or a server found holding
+  the queue; *closes when* that trickle is ended by name in a test and a
+  legitimate slow answer is not.
 
 - [ ] **350. A loaded page's pictures.** *Cut from 347 (ADR 0035, *What
   this does not decide*).* An `<img>` or a `background-image` in a page a

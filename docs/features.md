@@ -162,7 +162,11 @@ The reason this exists rather than a faster fork of somebody else's engine.
   and typed by its extension (queue item 349); a file it froze that its page
   never asked for — a picture, until item 350 — is refused by name. alo
   Sites' call-to-action section is frozen so (`alo-sites-cta`). Not yet: the
-  window paints a page's first frame before its sheets arrive (item 351)
+  window paints a page's first frame before its sheets arrive (item 351,
+  decided by ADR 0041, not built: the window will hold a load's first frame
+  until its sheets answer or a bound of its own passes, saying so when it
+  shows a page before its style, while requests are made on a network
+  thread so the window's conductor never waits on a server)
 - [2] **`<img>` lays out at the picture's own size** and keeps its ratio when
   given one dimension
 - [2] **A picture under a transform is drawn transformed** — rotated, skewed
