@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A verification gate that stops responding no longer stops the build loop
+  silently.** The loop watched its worker but not the gates it runs around it,
+  so a gate whose pipeline did not survive the machine hibernating blocked
+  everything for hours with nothing in the log — and, left alone, would have
+  ended by reporting success. Both gates are now watched the way a worker is.
+
 - **Pages have a `window` they can listen on.** `window`, `self`,
   `globalThis` and a script's top-level `this` are now the same object, and
   a page can add listeners to it, remove them and send events to it. Every

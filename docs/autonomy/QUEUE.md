@@ -7998,13 +7998,16 @@ What stage 2's exit gate actually measures: a person using it.
   (id 11971, 1000×732 points) with one confined `alo-render` under it. On
   `kill -TERM` both were gone.
 
-  ***blocked:** the capture.* `screencapture -l 11971 -o` answered "could not
-  create image from window", inside the tool sandbox and outside it. macOS
-  says that when the capturing process has no **Screen Recording**
-  permission. A person grants it to the terminal or app that runs the loop
-  (System Settings → Privacy & Security → Screen Recording). No API reads
-  another process's window without it, by design. Once it is granted, the
-  remaining work is:
+  ***The capture, and nothing else, is owed.*** It was blocked: `screencapture`
+  answered "could not create image from window", and then "could not create
+  image from display" for a whole screen too, because Visual Studio Code — the
+  application the loop runs under — had been **refused** Screen Recording. A
+  refusal is remembered, so nothing re-asked; `tccutil reset ScreenCapture
+  com.microsoft.VSCode` cleared the decision and the owner granted it in
+  System Settings on 2026-10-10. Verified the same minute: a whole-display capture
+  returned a 2.9 MB file and exit 0 where it had failed, with no restart of the
+  application needed. No API reads another process's window without this, by
+  design. The remaining work is:
   1. Start `alo --frozen-fonts crates/alo-corpus/cases/alo-offline/page.html`.
   2. Capture its window.
   3. Compare the content area with `compose` of the same page at the

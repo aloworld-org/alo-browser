@@ -22442,3 +22442,58 @@ gate's full run is the evidence.
 155 queue items are open: 362 closed, 365 and 366 added. The next unused
 queue number is **367** and the next ADR is **0038**. This is one
 iteration, not a finished queue or roadmap.
+
+---
+
+## Iteration 235 — the gates were the one thing nothing was watching
+
+Not a queue item. Two things: a supervisor defect, and item 296 unblocked.
+
+**The defect.** `scripts/loop.sh` has watched its worker since ADR 0006 and
+never watched the two gates it runs itself — the baseline before a worker
+starts, and the independent verification after one commits. On
+2026-10-10 the machine hibernated during that second gate and the `sed` and
+`grep` of a boundary check never resumed. The loop then sat alive and
+completely stopped for four hours after waking, its log saying only that an
+iteration had begun. No bound applied, nothing reported it, and it was found
+by hand.
+
+The quieter half is worse than the stall. A hung pipeline that is eventually
+reaped exits 0, so the old code would have waited however long it took and
+then recorded the iteration as **independently verified**. A guard that was
+missing is one thing; a missing guard whose absence ends in a false pass is
+another.
+
+**Both gates are now watched the way a worker is.** Stalled means the same two
+things it means for a worker: the log is not growing *and* nothing in the
+process tree is burning processor time. `cargo test` writes nothing here for
+minutes together and is plainly working; a pipeline that did not survive
+hibernation does neither. `GATE_STALL_MIN` is fifteen minutes by default, and
+exceeding it stops the run with exit 9 rather than waiting.
+
+**The test, and why it is a test.** A `gatehang` mode finishes its item
+properly and leaves the gate that verifies it hung — no output, no processor
+time, no end. It must exit 9. That code appears nowhere in the version this
+replaces, so the check cannot pass without the change, and under the old code
+the same fixture would have slept out the hang and then passed it.
+
+Twenty-three fixture checks, from twenty-two.
+
+**Item 296 is unblocked.** Visual Studio Code, the application the loop runs
+under, had been *refused* Screen Recording rather than merely not granted, and
+macOS remembers a refusal instead of re-asking — which is why re-running
+`screencapture` only ever failed. `tccutil reset ScreenCapture
+com.microsoft.VSCode` cleared the decision, the owner granted it in System
+Settings on 2026-10-10, and it was verified the same minute: a whole-display
+capture returned a 2.9 MB file and exit 0 where it had failed, with no restart
+of the application needed.
+
+The item carries that history in its own words, so the next iteration does not
+rediscover it. What it still owes is unchanged and is four steps: start `alo`
+on the frozen offline page, capture its window, compare the content area with
+`compose` at the window's size and scale, and record the result. 297 to 300
+depend on it.
+
+**Not claimed.** No capture of `alo`'s own window has been taken. The display
+capture proves the permission, not the item.
+\n

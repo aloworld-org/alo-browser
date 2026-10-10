@@ -128,6 +128,16 @@ CEILING_MIN="${CEILING_MIN:-240}"
 # runaway, and the ceiling is too blunt an instrument to be the only one.
 SILENT_KILL_MIN="${SILENT_KILL_MIN:-60}"
 
+# How long a gate *this script* runs may do nothing before it is presumed hung.
+#
+# The worker has been watched since ADR 0006; the gates run around it were not,
+# and a hung one blocks the loop for ever with nothing written down. On
+# 2026-10-10 the machine hibernated mid-verification and the `sed` and `grep`
+# of a boundary check never resumed: the loop sat alive and stopped for four
+# hours after waking, its log saying only that an iteration had started, and
+# the stall was found by hand. Nothing reported it because nothing was looking.
+GATE_STALL_MIN="${GATE_STALL_MIN:-15}"
+
 # Whether a verified iteration is published to origin.
 #
 # On by default. An unattended run that only commits locally is a run nobody
@@ -216,7 +226,7 @@ if [ "$dry" -eq 1 ] || [ "${selftest:-0}" -eq 1 ]; then
 fi
 
 # Guard values are arithmetic input, never shell expressions.
-for guard in IDLE_KILL_MIN SILENT_KILL_MIN CEILING_MIN; do
+for guard in IDLE_KILL_MIN SILENT_KILL_MIN GATE_STALL_MIN CEILING_MIN; do
   value="${!guard}"
   case "$value" in
     ''|*[!0-9]*) bad "$guard wants a positive integer"; exit 2 ;;
@@ -460,7 +470,7 @@ if [ "$dry" -eq 1 ]; then
   marker="$(stop_marker)"
   say "journal:    $JOURNAL  (stop marker: ${marker:-none})"
   say "queue:      $(open_items) items still open"
-  say "guards:     idle ${IDLE_KILL_MIN}m, no output ${SILENT_KILL_MIN}m, ceiling ${CEILING_MIN}m"
+  say "guards:     idle ${IDLE_KILL_MIN}m, no output ${SILENT_KILL_MIN}m, ceiling ${CEILING_MIN}m, gate stall ${GATE_STALL_MIN}m"
   if [ "$PUSH" = 1 ]; then
     say "publish:    every verified iteration, to $(git remote get-url origin 2>/dev/null || echo 'no origin configured')"
   else
@@ -525,6 +535,49 @@ tree_cpu() {
   '
 }
 
+# Run `scripts/gate.sh`, watched the way a worker is.
+#
+# Stalled means what it means for a worker: the log is not growing *and*
+# nothing in the tree is burning processor time. `cargo test` writes nothing
+# here for minutes together and is plainly working; a pipeline that did not
+# survive hibernation does neither.
+#
+# Answers 0 if the gate passed, 1 if it failed, 125 if it stopped doing
+# anything. 125 rather than a small number because a gate's own exit codes
+# live down there.
+watched_gate() {
+  : > "$LOCK/gate.log"
+  ./scripts/gate.sh > "$LOCK/gate.log" 2>&1 &
+  local gate=$! bytes previous=0 cpu previous_cpu stalled=0 step now last
+  previous_cpu=$(tree_cpu "$gate")
+  last=$(date +%s)
+  while kill -0 "$gate" 2>/dev/null; do
+    sleep "$INTERVAL"
+    kill -0 "$gate" 2>/dev/null || break
+    now=$(date +%s)
+    step=$(( now - last ))
+    last=$now
+    [ "$step" -gt $(( INTERVAL * 3 )) ] && step=$INTERVAL
+    [ "$step" -lt 0 ] && step=0
+    bytes=$(wc -c < "$LOCK/gate.log")
+    cpu=$(tree_cpu "$gate")
+    if [ "$bytes" -ne "$previous" ] || [ "$cpu" -ne "$previous_cpu" ]; then
+      stalled=0
+    else
+      stalled=$(( stalled + step ))
+    fi
+    previous=$bytes
+    previous_cpu=$cpu
+    if [ "$stalled" -ge $(( GATE_STALL_MIN * 60 )) ]; then
+      bad "the gate has done nothing for $(( stalled / 60 )) minutes; stopping."
+      stop_tree "$gate"
+      wait "$gate" 2>/dev/null || true
+      return 125
+    fi
+  done
+  wait "$gate"
+}
+
 stop_tree() {
   local parent="$1" child
   for child in $(pgrep -P "$parent" 2>/dev/null); do
@@ -553,7 +606,14 @@ RUNS="$(git rev-parse --git-path alo-loop-runs)"
 mkdir -p "$RUNS" || { bad "cannot create $RUNS"; exit 2; }
 RUN_DIR="$(mktemp -d "$RUNS/run.XXXXXX")" || exit 2
 say "checking the tree is green before starting…"
-if ! ./scripts/gate.sh >"$LOCK/gate.log" 2>&1; then
+watched_gate
+baseline_code=$?
+if [ "$baseline_code" -eq 125 ]; then
+  cat "$LOCK/gate.log" >> "$LOG"
+  rm -f "$LOCK/gate.log"
+  exit 9
+fi
+if [ "$baseline_code" -ne 0 ]; then
   bad "the baseline gate failed; no worker started."
   cat "$LOCK/gate.log" >> "$LOG"
   tail -20 "$LOCK/gate.log"
@@ -689,7 +749,15 @@ $(( quiet / 60 )) minutes"
     bad "worker made no committed, journalled progress; stopping."
     exit 7
   fi
-  if ! ./scripts/gate.sh >"$LOCK/gate.log" 2>&1; then
+  watched_gate
+  gate_code=$?
+  if [ "$gate_code" -eq 125 ]; then
+    cat "$LOCK/gate.log" >> "$LOG"
+    rm -f "$LOCK/gate.log"
+    finished "$i"
+    exit 9
+  fi
+  if [ "$gate_code" -ne 0 ]; then
     bad "the completed iteration failed independent verification."
     cat "$LOCK/gate.log" >> "$LOG"
     tail -20 "$LOCK/gate.log"

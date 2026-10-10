@@ -16,6 +16,9 @@ printf '%s\n' '- [ ] **1. Fixture.**' > docs/autonomy/QUEUE.md
 printf '%s\n' '## Iteration 0' > docs/autonomy/STATE.md
 cat > scripts/gate.sh <<'GATE'
 #!/usr/bin/env bash
+# Stops doing anything at all when told to, the way a pipeline that did not
+# survive hibernation does: no output, no processor time, no end.
+if [ -f gate-hangs ]; then exec /bin/sleep 600; fi
 [ ! -f broken ]
 GATE
 cat > bin/codex <<'WORKER'
@@ -62,6 +65,8 @@ case "$TEST_MODE" in
     spin=0
     while :; do spin=$(( spin + 1 )); done
     ;;
+  # Finishes its item properly and leaves the gate that verifies it hung.
+  gatehang) : > gate-hangs ;;
   busy)
     stop=$(( SECONDS + 3 ))
     spin=0
@@ -118,7 +123,8 @@ SLEEP
 cat > bin/date <<'DATE'
 #!/usr/bin/env bash
 case "$TEST_MODE" in
-  timeout | streaming | busy | shrinking | spinning | slept) fake=1 ;;
+  timeout | streaming | busy | shrinking | spinning | slept | gatehang)
+    fake=1 ;;
   *) fake=0 ;;
 esac
 if [ "$fake" = 1 ] \
@@ -128,7 +134,8 @@ if [ "$fake" = 1 ] \
   # finer in `streaming` so the window is crossed only by a worker that has
   # genuinely stopped writing, rather than by the clock outrunning it.
   step=60
-  case "$TEST_MODE" in streaming | busy | shrinking | spinning | slept) step=5 ;;
+  case "$TEST_MODE" in
+    streaming | busy | shrinking | spinning | slept | gatehang) step=5 ;;
   esac
   # One observation lands after the machine has been away for eighteen hours.
   # Counted as wall-clock it is past every bound at once; counted as what the
@@ -177,8 +184,9 @@ check() {
   local mode="$1" expected="$2" actual=0
   # These resets affect only this disposable fixture, never the real checkout.
   git reset --hard -q "$base"
-  rm -f work broken bin/clock bin/cpu bin/slept-once
-  TEST_MODE="$mode" IDLE_KILL_MIN=1 scripts/loop.sh --once > "$fixture/result" 2>&1 || actual=$?
+  rm -f work broken bin/clock bin/cpu bin/slept-once gate-hangs
+  TEST_MODE="$mode" IDLE_KILL_MIN=1 GATE_STALL_MIN="${GATE_STALL_MIN:-15}" \
+    scripts/loop.sh --once > "$fixture/result" 2>&1 || actual=$?
   if [ "$actual" != "$expected" ]; then cat "$fixture/result"; exit 1; fi
   [ ! -d .git/alo-loop.lock ]
   printf 'ok    %s (exit %s)\n' "$mode" "$actual"
@@ -212,6 +220,10 @@ check shrinking 0
 # and the clock returns hours ahead. `timeout` still proves a worker that
 # genuinely stops being asked for anything is killed.
 check slept 0
+# The gap that cost four hours of silence: the worker was watched and the gate
+# that verifies its work was not. A gate doing nothing now stops the run and
+# says so, instead of blocking for ever with nothing in the log.
+GATE_STALL_MIN=1 check gatehang 9
 # A pre-existing change must never reach a worker.
 git reset --hard -q "$base"
 echo original > work
