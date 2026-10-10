@@ -217,6 +217,27 @@ fn every_message_from_a_renderer_survives_the_crossing() {
             },
             vec!["the text: the page cancelled it".to_owned()],
         ),
+        FromRenderer::Failed(Failure::NothingLoaded),
+        FromRenderer::Failed(Failure::Unpaintable {
+            why: "a window of no size".to_owned(),
+        }),
+        FromRenderer::UsingGenerics {
+            answering: vec!["sans-serif".to_owned(), "monospace".to_owned()],
+        },
+        FromRenderer::UsingGenerics { answering: vec![] },
+    ];
+    for original in messages {
+        let bytes = write_from_renderer(&original);
+        let back = read_from_renderer(&bytes)
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original, "{original:?} changed on the way across");
+    }
+}
+
+/// Every refusal a verb can meet, each of which an agent is told by name.
+#[test]
+fn every_refusal_survives_the_crossing() {
+    let refusals = vec![
         FromRenderer::Refused(Refusal::NotFound {
             target: Target::Named("Nowhere".to_owned()),
         }),
@@ -235,16 +256,12 @@ fn every_message_from_a_renderer_survives_the_crossing() {
         }),
         FromRenderer::Refused(Refusal::ReadOnly { node: id(11) }),
         FromRenderer::Refused(Refusal::DoesNotScroll { node: id(12) }),
-        FromRenderer::Failed(Failure::NothingLoaded),
-        FromRenderer::Failed(Failure::Unpaintable {
-            why: "a window of no size".to_owned(),
+        FromRenderer::Refused(Refusal::NotADate {
+            node: id(13),
+            text: "12/10/2026".to_owned(),
         }),
-        FromRenderer::UsingGenerics {
-            answering: vec!["sans-serif".to_owned(), "monospace".to_owned()],
-        },
-        FromRenderer::UsingGenerics { answering: vec![] },
     ];
-    for original in messages {
+    for original in refusals {
         let bytes = write_from_renderer(&original);
         let back = read_from_renderer(&bytes)
             .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));

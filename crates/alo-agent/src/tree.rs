@@ -251,6 +251,13 @@ impl<'a> AgentTree<'a> {
         if self.is_a_masked_value(id) {
             return false;
         }
+        // The format an empty date field draws is how a date is written, not
+        // a date. An agent that read `yyyy-mm-dd` as the field's text would
+        // believe the field filled (ADR 0042 § 4); the field itself is in the
+        // tree, as a `date` with no value.
+        if self.is_a_date_format(id) {
+            return false;
+        }
         if node.text().is_some_and(|text| !text.trim().is_empty()) {
             // A `<label>`'s words have already been read, as the name of the
             // control they name. Reading them again would put the same words
@@ -291,6 +298,32 @@ impl<'a> AgentTree<'a> {
                         .attr("type")
                         .is_some_and(|kind| kind.eq_ignore_ascii_case("password"))
             })
+    }
+
+    /// Whether this box is the format an empty date field draws: the text of
+    /// a date field that holds no date.
+    fn is_a_date_format(&self, id: BoxId) -> bool {
+        let Some(node) = self.boxes.get(id) else {
+            return false;
+        };
+        if node.text().is_none() {
+            return false;
+        }
+        node.kind
+            .node()
+            .and_then(|source| self.document.element(source))
+            .is_some_and(|element| {
+                alo_dom::date::is_date_field(element) && alo_dom::date::held_date(element).is_none()
+            })
+    }
+
+    /// Whether the box `id` is a date field, whose text is a date or nothing.
+    pub(crate) fn is_a_date_field(&self, id: BoxId) -> bool {
+        self.boxes
+            .get(id)
+            .and_then(|node| node.kind.node())
+            .and_then(|source| self.document.element(source))
+            .is_some_and(alo_dom::date::is_date_field)
     }
 
     /// Whether this box is inside a `<label>` that names a control.

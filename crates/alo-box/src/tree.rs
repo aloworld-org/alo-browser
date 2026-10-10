@@ -657,15 +657,35 @@ fn build_children(
     generated
 }
 
+/// What an empty date field draws: how a date is written in it (ADR 0042).
+///
+/// The order is the person's region once they choose one (item 387); until
+/// then it is ISO 8601's, which is the field's own value form, so what the
+/// field draws, submits and reads back are one form (§ 2). The words are
+/// English, the language the browser itself is written in, until that is the
+/// person's to choose as well.
+const DATE_FORMAT: &str = "yyyy-mm-dd";
+
 /// The text an `<input>` shows, if it is one and it holds any.
 ///
 /// Only the kinds that show their value as text. A checkbox's `value` is what
 /// it submits, not what it says, and drawing it in the box would be a word
 /// nobody wrote.
+///
+/// A date field always shows something: the date it holds, or — empty, or
+/// holding a `value` HTML sanitises to empty — [`DATE_FORMAT`], as its text
+/// in its own colour, on the line a value would stand on (ADR 0042 § 3).
 fn field_text(document: &Document, id: NodeId) -> Option<String> {
     let element = document.element(id)?;
     if !element.name.is_html("input") {
         return None;
+    }
+    if alo_dom::date::is_date_field(element) {
+        return Some(
+            alo_dom::date::held_date(element)
+                .unwrap_or(DATE_FORMAT)
+                .to_owned(),
+        );
     }
     let kind = element
         .attr("type")
@@ -1584,6 +1604,41 @@ mod tests {
             }],
         );
         assert!(inside_of("<input type=checkbox>").is_empty());
+    }
+
+    /// The text boxes a document's fields show, in order.
+    fn shown(html: &str) -> Vec<String> {
+        let tree = boxes(html, "");
+        let Some(root) = tree.root() else {
+            return Vec::new();
+        };
+        tree.descendants(root)
+            .into_iter()
+            .filter_map(|id| tree.get(id).and_then(BoxNode::text).map(str::to_owned))
+            .collect()
+    }
+
+    /// ADR 0042 §§ 2–3: an empty date field draws how a date is written, as
+    /// its text; one holding a date draws it in the same order; a `value`
+    /// that is not a date is sanitised to empty and draws the format.
+    #[test]
+    fn a_date_field_shows_its_date_or_how_one_is_written() {
+        assert_eq!(shown("<input type=date>"), ["yyyy-mm-dd"]);
+        assert_eq!(shown("<input type=date value=''>"), ["yyyy-mm-dd"]);
+        assert_eq!(shown("<input type=DATE value=2026-10-12>"), ["2026-10-12"]);
+        for sanitised in ["12/10/2026", "2026-02-29", "2026-13-01", "0000-01-01"] {
+            assert_eq!(
+                shown(&format!("<input type=date value={sanitised}>")),
+                ["yyyy-mm-dd"],
+                "{sanitised}",
+            );
+        }
+        let hostile = format!("<input type=date value={}>", "9".repeat(50_000));
+        assert_eq!(shown(&hostile), ["yyyy-mm-dd"]);
+        // The other temporal kinds wait for a page (item 388), and an empty
+        // text field still shows nothing.
+        assert!(shown("<input type=time>").is_empty());
+        assert!(shown("<input>").is_empty());
     }
 
     /// The box a `<fieldset>` made, found by what it means.

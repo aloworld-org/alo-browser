@@ -567,6 +567,11 @@ impl Writer {
                 writer.tag(6);
                 writer.id(*node);
             }
+            Refusal::NotADate { node, text } => {
+                writer.tag(7);
+                writer.id(*node);
+                writer.text(text);
+            }
         }
     }
 }
@@ -866,6 +871,10 @@ impl<'a> Reader<'a> {
             }),
             5 => Ok(Refusal::ReadOnly { node: self.id()? }),
             6 => Ok(Refusal::DoesNotScroll { node: self.id()? }),
+            7 => Ok(Refusal::NotADate {
+                node: self.id()?,
+                text: self.text()?,
+            }),
             other => Err(unreadable(format!("a refusal tagged {other}"))),
         }
     }

@@ -6,18 +6,24 @@
 //! 384 and 385.
 //!
 //! `cases/alo-sites-booking` pins the whole page as files. This says out loud
-//! what item 384 is closed by. The page's form holds a day field nobody has
-//! typed into, beside its label. Until item 384 a field with no line stood
-//! on its bottom margin edge, so its line was a font's descent taller than
-//! the field, and the form, centred down the grid, stood higher than a
-//! browser draws it.
+//! what items 384 and 385 are closed by. The page's form holds a day field
+//! nobody has typed into, beside its label. Until item 384 a field with no
+//! line stood on its bottom margin edge, so its line was a font's descent
+//! taller than the field, and the form, centred down the grid, stood higher
+//! than a browser draws it. Until item 385 the field drew nothing and an
+//! agent read it as a `generic` box; it draws how a date is written now, and
+//! reads as a `date` (ADR 0042).
 //!
 //! It is loaded as the call-to-action section is (`alo_sites_cta.rs`), from
 //! the same frame, sheet and analytics script, so how its sheet is asked for
 //! and answered is said once there and only checked here.
 
+use alo_agent::AgentTree;
+use alo_box::BoxKind;
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
+use alo_paint::{Canvas, DisplayItem, DisplayList, render};
+use alo_value::Rgba;
 
 /// The case, read and rendered.
 fn booking() -> Option<(Case, Rendering)> {
@@ -45,6 +51,55 @@ fn found(rendering: &Rendering, tag: &str, class: &str) -> Option<Rect> {
         )
     })?;
     Some(drawing.layout.get(id)?.border_box)
+}
+
+/// The rectangle of the text the day field shows, which the box tree made
+/// for it: a text box whose node is the `<input>` itself.
+fn field_text(rendering: &Rendering) -> Option<Rect> {
+    let document = rendering.document()?;
+    let drawing = rendering.drawing()?;
+    let input = document.descendants(document.root()).find(|id| {
+        document
+            .element(*id)
+            .is_some_and(|element| element.name.is_html("input"))
+    })?;
+    let boxes = &drawing.boxes;
+    let id = boxes.ids().find(|id| {
+        matches!(
+            boxes.get(*id).map(|box_node| &box_node.kind),
+            Some(BoxKind::Text { node, .. }) if *node == input
+        )
+    })?;
+    Some(drawing.layout.get(id)?.border_box)
+}
+
+/// The page drawn from its display list with every run of text taken out:
+/// what the boxes paint for themselves.
+fn without_text(rendering: &Rendering) -> Option<Canvas> {
+    let drawing = rendering.drawing()?;
+    let mut boxes_only = DisplayList::default();
+    for item in drawing.display.items() {
+        if !matches!(item, DisplayItem::Text { .. }) {
+            boxes_only.push(item.clone());
+        }
+    }
+    let mut canvas = Canvas::new(drawing.canvas.width(), drawing.canvas.height(), Rgba::WHITE);
+    render(&boxes_only, &mut canvas);
+    Some(canvas)
+}
+
+/// The whole pixels inside `rect`, inset by `inset` on every side.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "a rectangle on an 800 × 325 page"
+)]
+fn pixels_inside(rect: Rect, inset: f32) -> impl Iterator<Item = (u32, u32)> {
+    let left = (rect.origin.x + inset).ceil() as u32;
+    let top = (rect.origin.y + inset).ceil() as u32;
+    let right = (rect.origin.x + rect.size.width - inset).floor() as u32;
+    let bottom = (rect.origin.y + rect.size.height - inset).floor() as u32;
+    (top..bottom).flat_map(move |y| (left..right).map(move |x| (x, y)))
 }
 
 /// Equal to within a thousandth of a pixel.
@@ -125,4 +180,119 @@ fn the_offer_is_laid_out_as_the_sheet_says() {
     // The last paragraph ends at 255.6 + 27.2 + 17 = 299.8, the content's
     // end, and the section's 24 + 1 below make it 324.8.
     assert!(near(place.origin.y, 255.6), "{place:?}");
+}
+
+#[test]
+fn the_empty_day_field_draws_how_a_date_is_written_in_its_own_colour() {
+    let Some((_, rendering)) = booking() else {
+        panic!("the case renders");
+    };
+    let (Some(drawing), Some(field), Some(text)) = (
+        rendering.drawing(),
+        found(&rendering, "input", ""),
+        field_text(&rendering),
+    ) else {
+        panic!("the field and the text it shows are laid out");
+    };
+    // ADR 0042 § 2: with no region chosen, ISO 8601's order. § 3: as the
+    // field's own text, in its computed colour — `color: inherit`, so the
+    // page's `--text`, #17212b — with its pen at the content edge, 432 + 1
+    // of border + 0.75rem of padding.
+    let Some((origin, color)) = drawing.display.items().iter().find_map(|item| match item {
+        DisplayItem::Text {
+            text,
+            origin,
+            color,
+            ..
+        } if text == "yyyy-mm-dd" => Some((*origin, *color)),
+        _ => None,
+    }) else {
+        panic!("the format is drawn");
+    };
+    assert!(near(origin.0, 445.0), "{origin:?}");
+    assert_eq!(color.to_rgba8(), (23, 33, 43, 255));
+    // On the field's own line, which 384 already stood the field on: the
+    // 27.2 line 0.6rem and a border below the field's top, the text's
+    // 19.79 centred in it.
+    assert!(near(text.origin.x, 445.0), "{text:?}");
+    assert!(near(
+        text.origin.y,
+        120.6 + 1.0 + 9.6 + (27.2 - text.size.height) / 2.0
+    ));
+
+    // In pixels: the format's ink is in the text's colour and inside the
+    // text's own rectangle…
+    let canvas = &drawing.canvas;
+    let darkest = pixels_inside(text, 0.0)
+        .filter_map(|(x, y)| canvas.at(x, y))
+        .map(Rgba::to_rgba8)
+        .min_by_key(|(red, green, blue, _)| u32::from(*red) + u32::from(*green) + u32::from(*blue));
+    let Some((red, green, blue, _)) = darkest else {
+        panic!("the text's rectangle is on the canvas");
+    };
+    assert!(
+        red <= 23 + 40 && green <= 33 + 40 && blue <= 43 + 40,
+        "the darkest ink is ({red}, {green}, {blue})"
+    );
+    let outside = Rect::new(
+        text.origin.x - 1.0,
+        text.origin.y - 1.0,
+        text.size.width + 2.0,
+        text.size.height + 2.0,
+    );
+    // Three pixels in from the border box, which clears the 1 px border and
+    // the curve of its 0.5rem corners.
+    for (x, y) in pixels_inside(field, 3.0) {
+        let within = f64::from(x) >= f64::from(outside.origin.x)
+            && f64::from(x) < f64::from(outside.origin.x + outside.size.width)
+            && f64::from(y) >= f64::from(outside.origin.y)
+            && f64::from(y) < f64::from(outside.origin.y + outside.size.height);
+        if !within {
+            assert_eq!(
+                canvas.at(x, y).map(Rgba::to_rgba8),
+                Some((255, 255, 255, 255)),
+                "ink at ({x}, {y}), outside the format's rectangle"
+            );
+        }
+    }
+    // …and the field paints nothing around it: with the text taken out,
+    // everything inside the field's border is its white background. Until
+    // item 385 found it, the text box painted the field's background and
+    // border again, as a ring around whatever a field showed.
+    let Some(bare) = without_text(&rendering) else {
+        panic!("the page draws");
+    };
+    for (x, y) in pixels_inside(field, 3.0) {
+        assert_eq!(
+            bare.at(x, y).map(Rgba::to_rgba8),
+            Some((255, 255, 255, 255)),
+            "the field painted ({x}, {y}) for its text"
+        );
+    }
+}
+
+#[test]
+fn an_agent_reads_the_day_field_as_a_date_with_nothing_in_it() {
+    let Some((_, rendering)) = booking() else {
+        panic!("the case renders");
+    };
+    let (Some(document), Some(drawing)) = (rendering.document(), rendering.drawing()) else {
+        panic!("the case has a document and a drawing");
+    };
+    let outline = AgentTree::new(document, &drawing.boxes, &drawing.layout).to_outline();
+    let lines: Vec<&str> = outline.lines().map(str::trim_start).collect();
+    let Some(day) = lines
+        .iter()
+        .position(|line| line.starts_with("date \"Choose a day\" [required] at"))
+    else {
+        panic!("the field is a date, named and required:\n{outline}");
+    };
+    // No value beneath it: the format is how a date is written, not one.
+    assert!(
+        lines
+            .get(day + 1)
+            .is_none_or(|next| !next.starts_with("text")),
+        "{outline}"
+    );
+    assert!(!outline.contains("yyyy-mm-dd"), "{outline}");
 }

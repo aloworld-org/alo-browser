@@ -1152,15 +1152,20 @@ unreachable without it.
       its text will** (queue item 384, `alo-layout`'s `baseline.rs` and
       `inline::empty_line_baseline`): an `<input>` nobody has typed into is
       level with its label, and does not drop when typed into. Corpus cases
-      `alo-sites-booking` and `web-a-form` · Owed: everything a control **does**,
+      `alo-sites-booking` and `web-a-form`. **An empty date field draws how a
+      date is written** (queue item 385, ADR 0042): `yyyy-mm-dd` in the
+      field's own colour (`alo-box`'s `field_text`, `alo-dom`'s `date.rs`, a
+      valid date string or nothing), read by an agent as a `date` with no
+      value, and filled by `PutText` of a valid date string only — anything
+      else refused as `NotADate`. A field's text no longer paints the field's
+      background and border a second time around itself (`alo-paint`'s
+      `style_of`) · Owed: everything a control **does**,
       which needs events
       (queue item 81) — constraint validation, submission, file inputs — the
-      focus ring, which needs something to have focus (queue item 43); and
-      what an empty date field shows, **decided** by ADR 0042 and not built
-      (queue item 385: `yyyy-mm-dd` in the field's own colour until the person
-      chooses a region, a `date` role an agent puts a valid date string into);
-      its calendar (386), the person's region (387), the other temporal
-      kinds (388), and a field's `placeholder`, which needs an ADR (389)
+      focus ring, which needs something to have focus (queue item 43); a
+      date field's calendar (386), the person's region (387), the other
+      temporal kinds (388), and a field's `placeholder`, which needs an ADR
+      (389)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
       · Built: **`location`, read** (queue item 360) — `alo-url`'s
       `reading.rs` (the URL Standard's nine readings over our `Url`) and

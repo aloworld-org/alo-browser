@@ -24465,3 +24465,95 @@ booking row; the sign-in screen's missing placeholder), `REMAINING.md` and
 166 queue items are open (386–389 added open). The next unused queue number
 is **390** and the next ADR is **0043**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 252 — queue item 385 built: an empty date field shows how a date is written
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` (its head and
+stage 2's *Forms* line), `REMAINING.md` and iteration 251's entry. No
+`AGENTS.md` exists in this repository. For 385: its queue entry with its
+*Decided* paragraph, 384's, ADR 0042 (whole), and the code it names —
+`alo-box`'s `tree.rs` (`field_text`) and `role.rs`, `alo-agent`'s
+`verb.rs`, `tree.rs` and `apply.rs`, `alo-dom`'s `field.rs`, `alo-css`'s
+`state.rs` (`is_text_entry` already counts `date`), `alo-renderer`'s
+`wire.rs` and its `act`, `alo-paint`'s `build.rs`; `alo-sites-booking`'s
+page, sheet and test. Feature: `docs/features.md` stage 2's forms line.
+
+**Choosing.** 385 was left by iteration 251 as the first open item whose
+next step depends on nothing unbuilt: decided, its page frozen. Nothing has
+been committed since that changes any earlier item's state.
+
+**What was built.** `alo-dom`'s new `date.rs`: HTML's *valid date string*,
+held once for the box tree, the agent tree and the verb. `field_text`
+draws a date field's held date, or `yyyy-mm-dd` when it holds none (empty,
+or a `value` HTML sanitises away). `KnownRole::Date` (`date`) for `<input
+type=date>`, not declarable by `role`. The agent tree never reads the
+format; `PutText` into a date field takes a valid date string or the empty
+text, and refuses anything else as `Refusal::NotADate`, which the wire
+carries as tag 7. **Found and fixed in the same change:** `alo-paint`'s
+`style_of` gave a field's text box the `<input>`'s style, so every field's
+text painted the field's background and border again around itself — a
+ring visible in `a-filled-form` and `alo-settings` since stage 1 and
+around `yyyy-mm-dd` here. The ADR's closing condition needs the format
+drawn right in pixels, so this was in scope; a text box now has no style
+of its own to paint.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", with no `FAILED`, `panicked` or `error` line. Clippy first failed on
+`messages_across_a_boundary.rs`' test growing past 100 lines; the
+refusals were split into their own test, `every_refusal_survives_the_
+crossing`, rather than the lint allowed. This entry, the queue tick and
+the commit came after that run, and are documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `tests/alo_sites_booking.rs` — the
+  format's pen at 445, its box at (445, 134.905) in the field's 27.2 line,
+  the field still 343 × 48.4 at (432, 120.6) and the form 162 at 89.4;
+  `layout.txt` moved only by the new text box.
+- Reference render and pixels: `alo-sites-booking`'s `render.png` shows
+  `yyyy-mm-dd` in rgb(23 33 43); the test checks the darkest ink is within
+  40 of that colour, no ink outside the text's rectangle inside the field,
+  and that with text taken out the field paints only white inside its
+  border. `a-filled-form` and `alo-settings` lose the ring (761 and 463
+  pixels), looked at by eye: their values sit in their fields with
+  nothing drawn around them.
+- Hostile input: `date.rs` with 100 000-byte years, dashes and days;
+  `a_date_field.rs` refuses ten hostile verb texts without a panic and
+  accepts a 100 000-digit year, which HTML allows; `tree.rs` sanitises a
+  50 000-digit `value`.
+- Mutations (copies in the scratchpad, restored with `cp`, checked with
+  `cmp`): the old `style_of` fails the booking pixel test; the agent tree
+  reading the format fails `a_date_field.rs` and the booking agent test;
+  `PutText` not validating fails two `a_date_field.rs` tests.
+- One responsibility per file: `date.rs` says what a date field holds;
+  `field_text` what a field shows; `role.rs` what it is; `verb.rs` what an
+  agent may put in it; `build.rs`' change is where a box's own style is
+  read, and stays that.
+- No `unsafe`, no new dependency, no new CSS property read. `alo-workplace`
+  and `alo-os` were not touched: `git status` in `alo-workplace` is clean
+  and `alo-os` is not checked out here.
+
+**Queue.** 385 ticked with its *Done* paragraph. **Roadmap:** stage 2's
+*Forms* line moves 385 from its Owed clause to its Built clause (and the
+ring's fix with it); the box stays empty. Also updated: `docs/features.md`
+(stage 1's forms line and stage 2's), `docs/conformance.md` (alo Sites'
+booking row), `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- The format's order is ISO 8601's for everybody until the person's region
+  exists (387, after 128); no calendar is drawn (386, after 296); the
+  other temporal kinds stay `generic` (388, waiting for a page).
+- `role="date"` declared by an author is kept as written (`Declared`),
+  which reads the same word as the platforms' role but is not it; the
+  wire keeps the two apart (tag 3). Nobody has asked; noted, not queued.
+- 389 needs an ADR before any code; `alo-sign-in`'s placeholder is still
+  not drawn.
+- 383 waits for a page. 381 needs an ADR, and 234 before it. 380 and 378
+  wait for pages. 376 still needs design. 296's capture waits for an
+  unlocked screen, and 297–300 wait on it.
+- Everything iteration 251 listed still stands.
+
+165 queue items are open (385 closed). The next unused queue number is
+**390** and the next ADR is **0043**. This is one iteration, not a finished
+queue or roadmap.

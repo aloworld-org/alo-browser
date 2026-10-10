@@ -113,6 +113,16 @@ pub enum KnownRole {
     Slider,
     /// A control set by stepping through numbers.
     SpinButton,
+    /// A field that holds a date.
+    ///
+    /// The first role here that is not ARIA's. HTML-AAM gives
+    /// `<input type=date>` no ARIA role, and a platform role on each
+    /// accessibility API we will speak — AT-SPI's date editor, macOS's date
+    /// field — and the agent's tree and the accessibility tree are one tree
+    /// (ADR 0002). So it is the platforms' role, not one made up here (ADR
+    /// 0042 § 4); an author cannot declare it with `role`, because ARIA has
+    /// no such name.
+    Date,
     /// A bar showing how far something has got.
     ProgressBar,
     /// A gauge.
@@ -163,7 +173,7 @@ impl KnownRole {
     ///
     /// It exists for the round-trip test below: a name and its role are written
     /// in two places, and this is what stops the two drifting apart silently.
-    pub const ALL: [KnownRole; 50] = [
+    pub const ALL: [KnownRole; 51] = [
         KnownRole::Document,
         KnownRole::Banner,
         KnownRole::Navigation,
@@ -195,6 +205,7 @@ impl KnownRole {
         KnownRole::Option,
         KnownRole::Slider,
         KnownRole::SpinButton,
+        KnownRole::Date,
         KnownRole::ProgressBar,
         KnownRole::Meter,
         KnownRole::Dialog,
@@ -257,6 +268,7 @@ impl KnownRole {
             "option" => Some(KnownRole::Option),
             "slider" => Some(KnownRole::Slider),
             "spinbutton" => Some(KnownRole::SpinButton),
+            "date" => Some(KnownRole::Date),
             "progressbar" => Some(KnownRole::ProgressBar),
             "meter" => Some(KnownRole::Meter),
             "dialog" => Some(KnownRole::Dialog),
@@ -314,6 +326,7 @@ impl KnownRole {
             KnownRole::Option => "option",
             KnownRole::Slider => "slider",
             KnownRole::SpinButton => "spinbutton",
+            KnownRole::Date => "date",
             KnownRole::ProgressBar => "progressbar",
             KnownRole::Meter => "meter",
             KnownRole::Dialog => "dialog",
@@ -549,9 +562,14 @@ fn input_role(element: &Element) -> Role {
         "number" => KnownRole::SpinButton,
         "search" => KnownRole::SearchBox,
         "text" | "tel" | "url" | "email" => KnownRole::TextBox,
-        // `hidden`, and the date and colour pickers, which HTML gives no role:
-        // there is nothing true to say, and inventing one is what this file
-        // exists to prevent.
+        // HTML-AAM gives a date field no ARIA role and a platform role on
+        // every accessibility API — a date editor, a date field — so there is
+        // something true to say, and it is the platforms' word, not ours (ADR
+        // 0042 § 4).
+        "date" => KnownRole::Date,
+        // `hidden`, the colour picker, and the other temporal kinds until a
+        // page asks for one (item 388): there is nothing true to say yet, and
+        // inventing one is what this file exists to prevent.
         _ => return Role::Generic,
     };
     Role::Known(known)
@@ -687,10 +705,37 @@ mod tests {
             ("<input id=x type=submit>", "button"),
             ("<input id=x type=hidden>", "generic"),
             ("<input id=x type=color>", "generic"),
+            ("<input id=x type=time>", "generic"),
         ];
         for (html, expected) in cases {
             assert_eq!(role_of(html, "x"), expected, "{html}");
         }
+    }
+
+    /// ARIA has no role for a date field, and HTML-AAM maps it to each
+    /// platform's own — AT-SPI's `ROLE_DATE_EDITOR`, macOS's `AXDateField` —
+    /// so an agent reads that rather than a `generic` box it is told nothing
+    /// about (ADR 0042 § 4). It is not a name an author can declare.
+    #[test]
+    fn a_date_field_is_the_platforms_date() {
+        assert_eq!(role_of("<input id=x type=date>", "x"), "date");
+        assert_eq!(role_of("<input id=x type=Date value=junk>", "x"), "date");
+        assert_eq!(role_of("<div id=x role=date></div>", "x"), "date");
+        let document = parse_document("<div id=x role=date></div>");
+        let Some(id) = document
+            .descendants(document.root())
+            .find(|id| document.element(*id).is_some_and(|e| e.name.is_html("div")))
+        else {
+            panic!("the div is parsed");
+        };
+        let Some(element) = document.element(id) else {
+            panic!("the div is an element");
+        };
+        assert_eq!(
+            Role::of(&document, id, element),
+            Role::Declared("date".into()),
+            "kept as written, not the platforms' role",
+        );
     }
 
     #[test]

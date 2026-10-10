@@ -1039,9 +1039,20 @@ impl Builder<'_> {
         }
     }
 
+    /// The style a box was given for itself.
+    ///
+    /// A run of text has none: it is not an element, and has no background,
+    /// border, shadow, opacity or transform of its own. Most text comes from a
+    /// text node, which has no style anyway; the text a field shows — its
+    /// value, a date field's format — comes from the `<input>` itself, and
+    /// answering with the input's style here drew the field's background and
+    /// border a second time, as a ring around its text (found by queue item
+    /// 385). Its colour and font are read through
+    /// [`Self::nearest_styled_ancestor`], as any text's are.
     fn style_of(&self, id: BoxId) -> Option<&alo_style::ComputedStyle> {
         self.boxes
             .get(id)
+            .filter(|node| node.text().is_none())
             .and_then(|node| node.kind.node())
             .and_then(|source| self.styles.get(source))
     }

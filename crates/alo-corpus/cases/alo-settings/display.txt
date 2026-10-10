@@ -29,13 +29,9 @@ text box#63 "Send automatic replies" rgb(16 42 67) 14px at (280, 348.88654)
 text box#67 "Automatically reply once to anyone who emails you while you're away." rgb(122 111 98) 13px at (259, 373.73877)
 fill box#71 rgb(255 254 252) at (259, 392.2883) 178.14453×34.80002
 fill box#71 rgb(222 215 205) at (259, 392.2883) 178.14453×34.80002
-fill box#72 rgb(255 254 252) at (272, 401.2883) 51.208008×16.296875
-fill box#72 rgb(222 215 205) at (272, 401.2883) 51.208008×16.296875
 text box#72 "12 May" rgb(16 42 67) 14px at (272, 414.28342)
 fill box#75 rgb(255 254 252) at (449.14453, 392.2883) 178.14453×34.80002
 fill box#75 rgb(222 215 205) at (449.14453, 392.2883) 178.14453×34.80002
-fill box#76 rgb(255 254 252) at (462.14453, 401.2883) 51.208008×16.296875
-fill box#76 rgb(222 215 205) at (462.14453, 401.2883) 51.208008×16.296875
 text box#76 "19 May" rgb(16 42 67) 14px at (462.14453, 414.28342)
 unclip
 fill box#84 rgb(232 226 217) at (24, 464.0883) 852×1

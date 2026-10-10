@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An empty date field shows how a date is written.** alo Sites' booking
+  form asks for a day, and its field used to be a blank box that an agent
+  saw as nothing in particular. It now shows `yyyy-mm-dd` in the field's
+  own colour — the international order, until the browser lets a person
+  choose their region — and an agent reads it as a date with nothing in
+  it. An agent fills it by writing a date that way; anything else, such as
+  `12/10/2026`, is refused with the reason rather than silently dropped
+  (queue item 385, ADR 0042). No calendar button is drawn yet. Fixed on the
+  way: the text inside a filled form field — alo's Settings dates, a filled
+  email address — had a faint copy of the field's own border drawn around
+  it, and no longer does.
+
 - **Decided: what an empty date field shows** (ADR 0042). Not built yet.
   An empty date field will show how a date is written — `yyyy-mm-dd` — in
   the field's own colour. The order of a date's parts belongs to the

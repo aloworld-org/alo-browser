@@ -19,8 +19,9 @@ block flow · document
             block flow · generic
               text "Choose a day"
             anonymous block
-              inline flow-root · generic [required]
+              inline flow-root · date [required]
                 anonymous block
+                  text "yyyy-mm-dd"
           block flow · paragraph
             inline flow-root · button
               anonymous block

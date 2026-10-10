@@ -9,9 +9,10 @@ text box#24 "Where: Second floor, ring the bell" rgb(76 88 102) 17px at (25, 275
 text box#30 "Choose a day" rgb(23 33 43) 17px at (432, 108.88526)
 fill box#31 rgb(255 255 255) at (432, 120.600006) 343×48.399994
 fill box#31 rgb(221 227 233) at (432, 120.600006) 343×48.399994
-fill box#36 rgb(29 78 216) at (432, 186.00002) 179.69543×48.40001
-fill box#36 rgb(29 78 216) at (432, 186.00002) 179.69543×48.40001
-text box#37 "See free times" rgb(255 255 255) 17px at (452.2, 216.08527)
+text box#32 "yyyy-mm-dd" rgb(23 33 43) 17px at (445, 150.68526)
+fill box#37 rgb(29 78 216) at (432, 186.00002) 179.69543×48.40001
+fill box#37 rgb(29 78 216) at (432, 186.00002) 179.69543×48.40001
+text box#38 "See free times" rgb(255 255 255) 17px at (452.2, 216.08527)
 fill box#4 rgb(242 245 248) at (-15984, 0) 161.11035×43.2
 text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27.485254)
 fill box#5 rgb(23 33 43) at (-15968, 28.564356) 129.11035×1

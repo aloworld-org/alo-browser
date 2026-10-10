@@ -6959,7 +6959,7 @@ The long pole, and the thing most of section E is unreachable without.
   empty "Amount" field at 120.47363 and the checkbox at the line's top,
   everything after it 3.297 higher).
 
-- [ ] **385. What an empty date field shows.** *Cut from 384 (iteration
+- [x] **385. What an empty date field shows.** *Cut from 384 (iteration
   250). Feature: `docs/features.md` stage 2's forms line. Needs design.*
   A browser draws an `<input type=date>` with no value as its date's
   format, `mm/dd/yyyy` in American English and `dd/mm/yyyy` in British, and
@@ -6994,6 +6994,46 @@ The long pole, and the thing most of section E is unreachable without.
   `12/10/2026` is refused by name; hostile values and verb texts are
   sanitised or refused without a panic; and `role.rs` says why `date` is
   the platforms' role. *Depends on nothing open.*
+  **Done (iteration 252).** `alo-dom`'s new `date.rs` holds HTML's *valid
+  date string* once, for its three askers: `is_date_field`, `held_date`
+  (the value, or nothing when it is not a date — HTML's sanitising) and
+  `is_valid_date_string` (a year of four or more digits not all zero, a
+  month 01–12, a day the month has; a leap year read from the year's last
+  four digits, so no year is ever made a number and none overflows).
+  `alo-box`'s `field_text` gives a date field its held date or
+  `yyyy-mm-dd`; `role.rs` gains `KnownRole::Date`, `date`, for `<input
+  type=date>` only (not declarable with `role`, which ARIA has no name
+  for), its comment and test saying why it is the platforms' role.
+  `alo-agent` reads no text under a date field holding no date, adds
+  `Date` to the roles text goes into, and refuses a non-empty `PutText`
+  that is not a valid date string as `Refusal::NotADate` (after disabled
+  and read-only); the empty text clears it. `alo-renderer`'s wire carries
+  `NotADate` as refusal tag 7. **Found on the way and fixed in the same
+  change:** a field's text box is made from the `<input>` itself, and
+  `alo-paint`'s `style_of` answered with the input's style, so every
+  field's text painted the field's background and border again as a ring
+  around itself — in the committed `a-filled-form` and `alo-settings`
+  references since stage 1, and around `yyyy-mm-dd` here. A run of text
+  now has no style of its own to paint. Tests: `alo-dom` `date.rs` (4,
+  hostile lengths of 100 000 bytes included); `alo-box` `tree.rs`
+  `a_date_field_shows_its_date_or_how_one_is_written` and `role.rs`
+  `a_date_field_is_the_platforms_date`; `alo-agent`
+  `tests/a_date_field.rs` (5: read empty and held, filled and read back,
+  refused by name and left as it was, ten hostile texts refused without a
+  panic, read-only first); `alo-renderer` `every_refusal_survives_the_
+  crossing`; `tests/alo_sites_booking.rs` (5: the format's pen at 445 in
+  rgb(23 33 43), its box at (445, 134.905) in the field's 27.2 line, its
+  darkest ink within 40 of that colour and no ink outside its rectangle,
+  the field painting nothing but white inside its border with text taken
+  out; the agent's `date "Choose a day" [required]` with no value; the
+  layout numbers unchanged). Mutations, each restored from a copy: the
+  old `style_of` fails the booking pixel test; the agent reading the
+  format fails `a_date_field.rs` and the booking agent test; `PutText`
+  not validating fails two `a_date_field.rs` tests. Moved:
+  `alo-sites-booking` (the role, a `text "yyyy-mm-dd"` box at (445,
+  134.90547) 106.91406 × 19.789063, its picture), `a-filled-form` and
+  `alo-settings` (the ring's fills gone from each field's text, 761 and
+  463 pixels).
 
 - [ ] **386. A date field's calendar.** *Cut from 385 by ADR 0042 § 5.
   Feature: `docs/features.md` stage 2's forms line. Depends on 296 (a

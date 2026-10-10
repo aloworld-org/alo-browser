@@ -222,6 +222,18 @@ pub enum Refusal {
         /// Which node.
         node: BoxId,
     },
+    /// It is a date field, and the text is not a date it can hold.
+    ///
+    /// Refused by name rather than put in: HTML would sanitise it to the
+    /// empty string, and an agent whose text the field silently emptied
+    /// would believe it had chosen a day (ADR 0042 § 4). A person typing it
+    /// is stopped by the field's segments; this is the same stop.
+    NotADate {
+        /// Which node.
+        node: BoxId,
+        /// The text that is not a date.
+        text: String,
+    },
     /// It has no more content than room, so there is nothing to scroll.
     DoesNotScroll {
         /// Which node.
@@ -246,6 +258,10 @@ impl fmt::Display for Refusal {
                 write!(f, "{node} is a {role}, which is not a thing text goes into")
             }
             Refusal::ReadOnly { node } => write!(f, "{node} cannot be typed into"),
+            Refusal::NotADate { node, text } => write!(
+                f,
+                "{text:?} is not a date {node} can hold; a date is written yyyy-mm-dd",
+            ),
             Refusal::DoesNotScroll { node } => write!(f, "{node} has nothing to scroll"),
         }
     }
@@ -263,7 +279,7 @@ pub fn perform(tree: &AgentTree<'_>, target: &Target, verb: &Verb) -> Result<Out
     let node = find(tree, target)?;
     match verb {
         Verb::Activate => activate(tree, &node),
-        Verb::PutText(text) => put_text(&node, text),
+        Verb::PutText(text) => put_text(tree, &node, text),
         Verb::Scroll(by) => scroll(&node, *by),
     }
 }
@@ -352,11 +368,13 @@ fn activate(tree: &AgentTree<'_>, node: &AgentNode<'_>) -> Result<Outcome, Refus
 fn is_a_field(role: &Role) -> bool {
     matches!(
         role,
-        Role::Known(KnownRole::TextBox | KnownRole::SearchBox | KnownRole::ComboBox)
+        Role::Known(
+            KnownRole::TextBox | KnownRole::SearchBox | KnownRole::ComboBox | KnownRole::Date
+        )
     )
 }
 
-fn put_text(node: &AgentNode<'_>, text: &str) -> Result<Outcome, Refusal> {
+fn put_text(tree: &AgentTree<'_>, node: &AgentNode<'_>, text: &str) -> Result<Outcome, Refusal> {
     let role = node.role();
     let states = node.states();
     // Either the role says it is a field, or the box says text goes into it.
@@ -374,6 +392,17 @@ fn put_text(node: &AgentNode<'_>, text: &str) -> Result<Outcome, Refusal> {
     }
     if states.read_only {
         return Err(Refusal::ReadOnly { node: node.id() });
+    }
+    // A date field holds a valid date string or nothing (ADR 0042 § 4).
+    // The empty text is nothing, which is how a date is cleared.
+    if tree.is_a_date_field(node.id())
+        && !text.is_empty()
+        && !alo_dom::date::is_valid_date_string(text)
+    {
+        return Err(Refusal::NotADate {
+            node: node.id(),
+            text: text.to_owned(),
+        });
     }
     Ok(Outcome::TextPut {
         node: node.id(),
@@ -428,6 +457,7 @@ mod tests {
         assert!(is_a_field(&Role::Known(KnownRole::SearchBox)));
         assert!(!is_a_field(&Role::Known(KnownRole::Button)));
         assert!(!is_a_field(&Role::Known(KnownRole::CheckBox)));
+        assert!(is_a_field(&Role::Known(KnownRole::Date)));
     }
 
     #[test]
@@ -497,6 +527,15 @@ mod tests {
             node: BoxId::from_index_for_tests(1),
         };
         assert_eq!(disabled.to_string(), "box#1 says it is disabled");
+
+        let not_a_date = Refusal::NotADate {
+            node: BoxId::from_index_for_tests(2),
+            text: "12/10/2026".to_owned(),
+        };
+        assert_eq!(
+            not_a_date.to_string(),
+            "\"12/10/2026\" is not a date box#2 can hold; a date is written yyyy-mm-dd",
+        );
     }
 
     #[test]

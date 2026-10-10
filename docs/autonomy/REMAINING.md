@@ -1259,3 +1259,11 @@ valid date string into it; no calendar is drawn until it opens something.
 was opened by `alo-sign-in` and needs an ADR of its own (the first
 pseudo-element). 166 queue items are open (386–389 added open). The next
 unused queue number is 390 and the next unused ADR 0043.
+
+Iteration 252 built item 385 by ADR 0042: an empty date field draws
+`yyyy-mm-dd` in its own colour, an agent reads it as a `date` with no value,
+and `PutText` takes a valid date string and refuses anything else as
+`NotADate`. It also fixed a stage 1 paint fault it found: a field's text
+painted the field's background and border again around itself. 165 queue
+items are open. The next unused queue number is 390 and the next unused
+ADR 0043.
