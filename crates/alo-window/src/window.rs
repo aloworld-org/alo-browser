@@ -38,6 +38,7 @@
 //! which the commit adding this file checked (ADR 0024 § 1's stop rule).
 
 use crate::compose::compose;
+use crate::inbox::Orders;
 use crate::message::{News, Order};
 use crate::notice::Lettering;
 use crate::place::{replication, viewport};
@@ -45,7 +46,6 @@ use crate::present::Presenter;
 use crate::showing::Showing;
 use alo_renderer::Visibility;
 use std::rc::Rc;
-use std::sync::mpsc::Sender;
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event::WindowEvent;
@@ -66,9 +66,7 @@ const FIRST_SIZE: (f64, f64) = (1000.0, 700.0);
 ///
 /// What `winit` said, in words, when there could be no event loop or no
 /// window.
-pub fn run(
-    start: impl FnOnce(Box<dyn Fn(News) -> bool + Send>) -> Sender<Order>,
-) -> Result<(), String> {
+pub fn run(start: impl FnOnce(Box<dyn Fn(News) -> bool + Send>) -> Orders) -> Result<(), String> {
     let lettering =
         Lettering::compiled_in().ok_or_else(|| "the window's own font is not a font".to_owned())?;
     let event_loop = EventLoop::<News>::with_user_event()
@@ -95,7 +93,7 @@ pub fn run(
 
 /// The event loop's state.
 struct App {
-    orders: Sender<Order>,
+    orders: Orders,
     lettering: Lettering,
     showing: Showing,
     window: Option<Rc<Window>>,

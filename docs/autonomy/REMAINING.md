@@ -1190,3 +1190,14 @@ is still applied when it comes. A bound on a whole exchange is cut to
 **376**, found rather than opened by a page, and needing design. 351 is now
 the first build, designed and eligible. 159 queue items are open. The next
 unused queue number is 377 and the next unused ADR 0042.
+
+Iteration 246 built item 351, and with it closed 347. Requests a page asks
+for are made on `alo-window`'s network thread, the only holder of the
+session's `Network`, one exchange at a time in `Answering`'s order, which is
+now split into `next` and `exchanged` (`alo-renderer`'s `fetch_exchange.rs`).
+The conductor waits only on its inbox. A load's first frame is held until
+its sheets answer or `LONGEST_HOLD`, three seconds, passes, and is then said
+to be shown before its style. 376 is unchanged: a trickling sheet still
+holds the network thread's queue, though no longer the window. 157 queue
+items are open. The next unused queue number is 377 and the next unused ADR
+0042.

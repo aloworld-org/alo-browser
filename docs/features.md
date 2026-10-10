@@ -161,12 +161,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   its `address.txt`, through the browser process's own decision and check
   and typed by its extension (queue item 349); a file it froze that its page
   never asked for — a picture, until item 350 — is refused by name. alo
-  Sites' call-to-action section is frozen so (`alo-sites-cta`). Not yet: the
-  window paints a page's first frame before its sheets arrive (item 351,
-  decided by ADR 0041, not built: the window will hold a load's first frame
-  until its sheets answer or a bound of its own passes, saying so when it
-  shows a page before its style, while requests are made on a network
-  thread so the window's conductor never waits on a server)
+  Sites' call-to-action section is frozen so (`alo-sites-cta`). **The
+  window waits for a load's sheets** (item 351, ADR 0041): its first frame
+  is held until every sheet the load asked for has answered, or three
+  seconds pass and the page is shown with *this page is shown before its
+  style arrived*. A late sheet is still applied when it comes, and a sheet
+  a script adds later holds nothing back. Requests are made on a network
+  thread of their own, so a resize or a close is answered while a server
+  trickles. Not yet: a bound on a whole exchange (item 376)
 - [2] **`<img>` lays out at the picture's own size** and keeps its ratio when
   given one dimension
 - [2] **A picture under a transform is drawn transformed** — rotated, skewed

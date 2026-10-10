@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A page waits for its style, but not for ever.** A page that links a
+  style sheet is no longer shown unstyled first: the window shows it once
+  the sheet has arrived. If the sheet takes longer than three seconds, the
+  page is shown anyway, the window says it is shown before its style
+  arrived, and the style is applied when it comes. A page's requests are
+  now made on a thread of their own, so the window answers a resize or a
+  close at once, however slowly a server sends (queue item 351,
+  ADR 0041).
+
 - **Decided: a page waits for its style, but not for ever.** When a page
   links a style sheet, the window will not show it until the sheet has
   arrived, so a person does not see it flash unstyled first. If the sheet

@@ -23768,3 +23768,138 @@ This entry was written after that run, and is documentation only.
 159 queue items are open: 376 added, and 351 still open. The next unused
 queue number is **377** and the next ADR is **0042**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 246 — queue item 351 built: requests off the conductor, and a load waits for its style only so long
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` and iteration
+245's entry. No `AGENTS.md` exists in this repository. For 351: ADR 0041
+(all of it), ADR 0035 § 5, queue items 347, 348, 351 and 376,
+`docs/features.md`' *A page's own style sheets* line, and the code it
+touches: `alo-window`'s conductor, message, window and binary, and
+`alo-renderer`'s `fetch_answering.rs`, `fetch_make.rs`, `sheet_make.rs`,
+`sheet_decide.rs` and `tab.rs`.
+
+**Choosing.** 296 first, since its capture is owed. A Swift check of
+`CGSessionCopyCurrentDictionary` answered `CGSSessionScreenIsLocked` = 1,
+with `CGPreflightScreenCaptureAccess` true. The screen is still locked, so
+296 was not takeable and nothing of it was started. 351 was next: designed
+by ADR 0041, its dependency 348 done, and opened by `alo-sites-cta`.
+
+**What was built.**
+- `alo-renderer`'s new `fetch_exchange.rs` makes an exchange a value that
+  can cross threads. An `Exchange` is made through a `Network`, and the
+  `Exchanged` it comes to carries its request, so a fetch's outcome cannot
+  be delivered as a sheet's. `Exchange::failed` covers a network that has
+  gone, and `Record` is a refusal's line for whoever holds the pool.
+- `Answering` (`fetch_answering.rs`) is split in two:
+  - `next` takes the queue's turn where the tabs are. A refusal is
+    answered there, with its `Record`; anything else is an `Exchange`.
+  - `exchanged` delivers what that came to. An answer whose document went
+    while it was in flight is delivered to nobody, saying nothing unless
+    it was keep-alive.
+  - `answer_next` is both halves on one thread, and `close` is `closing`
+    plus recording. Their callers in `alo-corpus` and the renderer's tests
+    are unchanged.
+  - `Answered` gained `sheet`, the number a hold counts, and
+    `sheets_waiting` names a load's owed sheets.
+- `alo-window`:
+  - `network.rs` is the network thread, the only holder of the session's
+    `Network`. It takes make, record and close jobs in order, and says
+    `NetworkGone` through a drop guard if it ever ends unasked.
+  - `inbox.rs` is the conductor's one inbox (`Arrival`). `Orders` replaces
+    `Sender<Order>`, and its copies share a `Last` that says `Abandoned` as
+    the last one goes. That keeps *every sender gone is the window gone*
+    now that the network thread also sends into the inbox. Its error is
+    `Finished`.
+  - `hold.rs` keeps the bookkeeping: owed sheet numbers per tab and
+    document, the bound, and sentences deferred while held.
+    `LONGEST_HOLD` is three seconds, with its reason, and
+    `SHOWN_BEFORE_STYLE` is the sentence.
+  - `conductor.rs` waits only on its inbox, up to the nearest bound, or
+    not at all while a turn is waiting. It takes one turn per pass, so a
+    chain of refusals still lets orders in. It hands each exchange to the
+    network thread and takes the next only when that one is back. It
+    paints nothing of a held tab, paints at release or the bound (saying
+    so at the bound), and drops a hold whose tab shows another document.
+    It says `Closed` before joining the network thread for the record.
+  - `window.rs` and `bin/alo.rs` take `Orders`.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log.
+The first run passed 600 s, was moved to the background, and was waited
+on in a foreground `until` loop. It read `exit 1`: clippy denied a
+`panic!` in the new test file's `close` helper, which is not a test. My
+own clippy had run before that file was written. The helper now returns a
+`Result`, and workspace clippy is silent. The second run was also moved at
+600 s and waited on the same way. It read `exit 0` and "The gate is met",
+with no `FAILED` or `panicked` in its log:
+- formatting clean, clippy silent, tests pass;
+- no stubs, `unsafe` forbidden everywhere;
+- every source file carries its licence notice;
+- every rented crate behind its boundary, no verb takes a coordinate;
+- the supervisor's stop rule holds;
+- `CHANGELOG.md` changed with the code.
+
+This entry was written after that run, and is documentation only.
+
+**Gate, manual.**
+- ADR 0041 § 6's closing conditions are `alo-window`'s
+  `a_page_styled_in_the_window.rs`. It runs against a server on this
+  machine that serves one connection per thread, in real `Tabs` over the
+  confined renderer:
+  - a sheet answering after 500 ms: the first frame comes after that and
+    is styled (green at 100,10, white at 100,30). Two links make one
+    request, recorded as `/late.css 200`;
+  - a sheet that never finishes (a byte every 200 ms): the first frame
+    comes after `LONGEST_HOLD`, white, followed by *this page is shown
+    before its style arrived*. A `Resize` then gets a 300 × 80 frame
+    inside two seconds, and `CloseEverything` gets `Closed` inside two
+    seconds, while the exchange is in flight. The record, handed back
+    after the server stops, has `/slow.css 200`, because the record notes
+    the head and a cut-short body does not change that line;
+  - a sheet a fetch's reaction adds: the page, which links nothing, is
+    painted before the bound. While the added sheet trickles, a `Resize`
+    is painted inside two seconds, still unstyled;
+  - a tab closed while held: nothing arrives until just under the bound,
+    `Closed` comes promptly, and nothing follows it.
+- Unchanged and passing: `alo-window`'s fetch, hidden-and-shown,
+  left-as-closing, never-answering, closing and composition tests;
+  `alo-renderer`'s beacon, linked-sheet, decided-fetch and generic-family
+  tests; and `alo-corpus`.
+- Unit tests: `hold.rs` (6), `inbox.rs` (4), and the conductor's
+  resize-burst tests, now over arrivals.
+- Mutation: with `is_held` taken out of `paint`, three of the four window
+  tests fail; the fourth asserts nothing is held, as expected. Restored
+  from a copy.
+- Layout assertion and reference render: nothing new positions, sizes or
+  draws. The frames asserted are the renderer's, read by pixel and size,
+  and no committed reference moved.
+- Hostile input: no new bytes are read from outside. A trickling server
+  can no longer hold the window, only the network thread's queue, which
+  is 376.
+- One responsibility per file: the network thread, the inbox, the hold
+  and the exchange are each a file. The conductor still decides what is
+  painted and when.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched.
+
+**Queue.** 351 is ticked with a *Done* paragraph. 347 is ticked too,
+since its closing condition was 348, 349 and 351 all done, and nothing else
+was owed there.
+
+**Roadmap.** The process-model line stays unticked. 351 moved from its
+*Owed* to its *Built*, and *Owed* now names 376. Also updated:
+`docs/features.md`' sheets line, `docs/conformance.md`' alo Sites row,
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- Not exercised by a test: the network thread ending unasked, which only a
+  panic reaches. It is said, and what is owed is failed.
+- 376 needs design, and a trickling sheet still delays every request
+  behind it.
+- `LONGEST_HOLD` is a guess until measured, as ADR 0041 says.
+- 296's capture waits for an unlocked screen, and 297–300 wait on it.
+- Everything iteration 245 listed still stands.
+
+157 queue items are open: 351 and 347 closed. The next unused queue number
+is **377** and the next ADR is **0042**. This is one iteration, not a
+finished queue or roadmap.

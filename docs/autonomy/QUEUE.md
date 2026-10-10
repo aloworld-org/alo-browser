@@ -5561,7 +5561,7 @@ The long pole, and the thing most of section E is unreachable without.
   promise; a synchronous `open(…, false)` refused by name. *Opened by a
   frozen page that uses one, and not before.*
 
-- [ ] **347. A loaded page's linked style sheets.** *Opened by a page
+- [x] **347. A loaded page's linked style sheets.** *Opened by a page
   (iteration 225):* `alo-workplace`'s
   `products/sites/alo-sites/tests/golden/section_cta.html`, a page alo
   Sites publishes for its customers, links its whole style sheet
@@ -5588,6 +5588,10 @@ The long pole, and the thing most of section E is unreachable without.
   and this item stays open: it closes when **348** and **349** do, and
   **351**, which iteration 226 cut from 348. *348 and 349 are done
   (iterations 226 and 227); 351 remains.*
+  **Done (iteration 246)**, by its last part: 351 is built, so 348, 349
+  and 351 are all done and ADR 0035 is built whole. Nothing else was owed
+  here. What it did not decide stays where it was cut: a loaded page's
+  pictures (350), and `<script>` waiting for a pending sheet.
 
 - [x] **348. A linked sheet asked for, decided and delivered.** *Cut from
   347 (ADR 0035 §§ 1–5). Depends on nothing open.* `alo-renderer`: a sheet
@@ -6641,7 +6645,7 @@ The long pole, and the thing most of section E is unreachable without.
   (79) the same one. *Closes when:* a person who chose a zone sees a
   page's local time in it, and one who did not sees UTC, in tests.
 
-- [ ] **351. The window waits for a load's style sheets.** *Cut from 348
+- [x] **351. The window waits for a load's style sheets.** *Cut from 348
   (ADR 0035 § 5). Depends on 348 (done).* The browser process presents no
   first frame of a document until every sheet asked for in its load's
   answer is answered, within a bound of its own, with the number's reason
@@ -6690,6 +6694,44 @@ The long pole, and the thing most of section E is unreachable without.
   - the session's record has every request made, refused and not made, in
     order, and the existing fetch, beacon and close tests pass unchanged.
   It stays open: it is now designed and eligible, and is the next build.
+  **Done (iteration 246).** `alo-renderer`'s `fetch_exchange.rs` makes an
+  exchange a value that can cross threads: an `Exchange` to make, the
+  `Exchanged` it came to, and a refusal's `Record` line. `Answering` is in
+  two halves: `next` takes the queue's turn where the tabs are, and
+  `exchanged` delivers what making it came to. An answer whose document went
+  while it was in flight is delivered to nobody. `answer_next` is both on
+  one thread, so `alo-corpus` and the renderer's own tests are unchanged.
+  In `alo-window`:
+  - `network.rs` is the network thread, the only holder of the `Network`.
+    It makes, records and closes in order, and says `NetworkGone` if it
+    ever ends unasked.
+  - `inbox.rs` is the conductor's one inbox. `Orders` share a `Last`
+    that says `Abandoned` as the last of them goes, which keeps *every
+    sender gone is the window gone*.
+  - `hold.rs` holds a load's first frame for the sheets its answer asked
+    for, until all are answered, `LONGEST_HOLD` (three seconds, its reason
+    beside it) passes, or the tab shows another document. What would be
+    said meanwhile waits for the first frame.
+  - The conductor never waits on a server. It takes one turn at a time,
+    hands each exchange to the network thread, and is told `Closed` before
+    that thread is joined for the record.
+  `a_page_styled_in_the_window.rs` now has one test per closing condition,
+  against a server that answers late, trickles for ever or answers at once:
+  - a late sheet's page is first painted after 500 ms, styled, with one
+    request recorded;
+  - a trickling sheet's page is painted after the bound, unstyled, with
+    *this page is shown before its style arrived*. A `Resize` then gets a
+    300 × 80 frame inside two seconds, and `CloseEverything` gets `Closed`
+    inside two seconds, while the exchange is still in flight;
+  - a sheet a fetch's reaction adds holds back no frame, and a page linking
+    none is painted before the bound;
+  - a tab closed while held paints nothing, and nothing is said after
+    `Closed`.
+  The existing fetch, beacon, close, hidden and never-answering tests in
+  `alo-window`, and `alo-renderer`'s fetch, sheet and beacon tests, pass
+  unchanged. Mutation: with the hold taken out of `paint`, three of the
+  four fail. Not exercised by a test: the network thread going unasked,
+  which only a panic reaches.
 
 - [ ] **376. A bound on a whole exchange.** *Cut from 351 by ADR 0041
   (*What this does not decide*). Found by iteration 245, not opened by a

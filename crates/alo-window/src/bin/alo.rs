@@ -79,7 +79,7 @@ fn main() -> ExitCode {
                 refused = Some(format!("the conductor could not be started: {why}"));
                 // A sender nobody receives on: the window opens, says nothing
                 // reaches it, and closes when asked.
-                std::sync::mpsc::channel().0
+                alo_window::inbox::inbox().0
             }
         }
     });

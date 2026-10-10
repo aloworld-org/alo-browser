@@ -192,14 +192,15 @@ unreachable without it.
       what arrives. A loaded corpus case's sheets are answered from the files
       frozen beside it, through the browser process's own decision and
       check (queue item 349, ADR 0035 § 6), which froze the first page alo
-      Sites publishes, its call-to-action section, as `alo-sites-cta`
+      Sites publishes, its call-to-action section, as `alo-sites-cta`.
+      Every request the window makes for a page is made on a network thread
+      of its own, so its conductor never waits on a server, and a load's
+      first frame is held until its sheets answer or three seconds pass,
+      said when it is shown before its style (queue item 351, ADR 0041)
       · Owed: the Linux sandbox, queue item 169; the axes that are not
       weight — width, slant and optical size — which are queue item 197;
-      the window holding a page's first frame until its load's sheets are
-      answered, within a bound (ADR 0035 § 5, queue item 351, decided by
-      ADR 0041 with nothing built: requests move to a network thread of
-      their own so the conductor can keep the bound, and a bound on a whole
-      exchange is item 376); and a loaded page's pictures
+      a bound on a whole exchange, so a trickling server cannot hold the
+      network thread's queue (item 376); and a loaded page's pictures
       (item 350)
 - [x] A renderer that dies takes its tab and nothing else — and says so, rather
       than leaving a blank rectangle (queue items 166 and 65). It is not
