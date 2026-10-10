@@ -25131,3 +25131,108 @@ sections), `REMAINING.md` and `CHANGELOG.md`.
 169 queue items are open (397 closed). The next unused queue number is
 **399** and the next ADR is **0044**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 259 — queue item 355 built: an absolute box is placed against its containing block, opened by alo Sites' footer
+
+**Read first.** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`, the
+journal's last entry (258) and the queue. No `AGENTS.md` exists in this
+repository. Every open item stands as iteration 258 left it (blocked on
+dependencies, design, an ADR, or waiting for a page), so, as 255–258 did,
+an unfrozen alo Sites section with no picture was frozen and checked. For
+355 there is no ADR: it reads what CSS 2 § 10.1 and CSS Transforms 1 § 2
+define a containing block to be and decides nothing; ADR 0004 (we own the
+tree, `taffy` owns the algorithms) governs how it was built, and ADR 0038
+§ 4 (an element's scrolling area) was read when its test moved. Feature:
+`docs/features.md` stage 1, "Absolute and relative positioning". Read
+before changing: `alo-layout`'s `engine.rs` (`lay_out_subtree`, `build`,
+`style_for`, `box_model_into`, `read_back`), `arena.rs` whole,
+`baseline.rs`' absolute filter, `tree.rs`' `BoxGeometry`; `alo-renderer`'s
+`scrolling_area.rs`; `taffy` 0.14's `compute_root_layout` and block
+layout's absolute placement; queue items 352, 354 and 355.
+
+**Page.** `section_footer.html` and `site.css` from `alo-workplace` at
+738de614, frozen byte for byte as `alo-sites-footer` (hashes in its
+`origin.txt`). `section_custom_code.html` was looked at and not frozen: its
+first fault is an `<iframe>`, item 86, which needs design. The footer's
+numbers all checked against the sheet by hand except the skip link: its
+`main` is empty, the footer's 3rem collapses through `body`, and the link
+(`top: 0`, nothing positioned) sat at y 48 with `body`. That is item 355's
+closing condition exactly, so 355 was opened by it.
+
+**What was built.** As 355's *Done* paragraph says: `containing.rs` (which
+box contains; positioned or transformed ancestor, initial block, or beyond
+an atomic subtree), `engine.rs` re-homing each displaced box under its
+containing block's node or a viewport-sized node laid out beside the root,
+an empty probe left in the parent for an axis with both insets `auto`, the
+read-back measured from the containing block, and the initial block's
+boxes added to the root's reach. `arena.rs` gains `adopt` and `style_of`.
+`transform` is listed as read by layout in `alo-css`' `properties.rs`.
+
+**Gate, mechanical.** The first `scripts/gate.sh` run, in the foreground,
+read `exit 1`: `alo-renderer`'s `a_page_measures_its_content.rs` expected
+`body` to measure 1600 wide for an absolute box with no positioned
+ancestor. That expectation pinned the fault this item fixes: ADR 0038 § 4
+defines the area by "the scrollable overflow of what it contains", and CSS
+Overflow 3 § 2.2 counts a box only in the boxes its containing-block chain
+passes through, which for this box is the viewport (Blink files positioned
+boxes on their containing block likewise). The test now expects `body`
+800 and the root still 1600, and gains a positioned `body` that measures
+1600 — exact assertions, nothing loosened. The second run was moved to the
+background by the harness at 600 s; the task's completion was read in the
+same turn: `exit 0`, "The gate is met", and no `FAIL` or `panicked` in the
+log. `cargo fmt --all --check` and clippy on the touched crates were clean
+before it. This entry and the commit came after that run and are
+documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: six in `numbers.rs` and four in
+  `tests/alo_sites_footer.rs`, listed in 355's *Done* paragraph (the span
+  at 52, 2 against its positioned ancestor's padding box and 110 wide; the
+  corner box at 390, 290 against the viewport; static position 40, 33 and
+  82, 33; the transformed ancestor's 40, 7; the root's reach 610 × 2050;
+  the footer 800 × 124.2 at y 48, its columns 356 at 20 and 424, the skip
+  link at (-15984, 0)). Unit tests: `containing.rs` (8).
+- Reference render: `alo-sites-footer`'s `render.png` (looked at: white,
+  as the footer is `section-motion` at opacity 0 until item 381),
+  `layout.txt`, `display.txt`, `boxes.txt`, `agent.txt`, `issues.txt`
+  committed. **No other case's reference moved**, checked by rewriting
+  every reference and finding no committed file changed.
+- Mutations (a copy in the scratchpad, restored with `cp`, checked with
+  `cmp`, the renderer binary rebuilt after): every box left under its
+  parent fails five `numbers.rs` tests and the footer's skip-link test;
+  the reach not added fails the reach test; the probe ignored fails the
+  static-position test.
+- Hostile input: the only newly read value from a stranger's sheet is
+  `transform`, through `alo-value`'s existing `parse_transform`, already
+  fed nonsense by its own tests; a nonsense transform makes no containing
+  block (unit test). The containing-block walk is a loop, not recursion.
+- One responsibility per file: `containing.rs` answers one question with
+  no `taffy` in it; `engine.rs` stays the boundary that translates the box
+  tree into `taffy`'s; `arena.rs` stays the tree's storage.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched; their `git status` is clean.
+
+**Queue.** 355 ticked with its *Done* paragraph; **399** cut (static
+position in a flex or grid container further in, recorded; a containing
+block beyond an atomic inline box, recorded and today masked by 286; the
+containing blocks of properties not read). **Roadmap: no line moved, and
+why.** Where an absolute box goes is inside stage 1's ticked *Layout*
+line, as 352 and 393 were, and no stage 2 line names positioning; adding
+one to claim it would be decoration. Also updated: `docs/features.md` (a
+stage 1 line, "An absolute box is placed against its containing block",
+and 352's line narrowed to 354), `docs/conformance.md` (the alo Sites row,
+ten sections), `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 399 waits for a page. 354 still stands: an absolute box among a line's
+  content splits the line and has no static position in it.
+- Still unfrozen alo Sites sections with no picture: custom_code (an
+  `<iframe>`, item 86), blocknote_core (a bare fragment, no sheet) and
+  seo_defaults (empty main). The picture-free supply is nearly exhausted;
+  next would be hand-written cases or the `<img>` sections once 350 lands.
+- Everything iteration 258 listed still stands.
+
+169 queue items are open (355 closed, 399 added open). The next unused
+queue number is **400** and the next ADR is **0044**. This is one
+iteration, not a finished queue or roadmap.
+

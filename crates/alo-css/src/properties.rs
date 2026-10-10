@@ -164,7 +164,7 @@ pub static SUPPORTED: &[(&str, &[Reader])] = &[
     ("text-decoration-line", &[Paint]),
     ("text-shadow", &[Paint]),
     ("top", &[Layout]),
-    ("transform", &[Paint, Svg]),
+    ("transform", &[Layout, Paint, Svg]),
     ("transform-box", &[Svg]),
     ("transform-origin", &[Paint, Svg]),
     ("vertical-align", &[Layout]),

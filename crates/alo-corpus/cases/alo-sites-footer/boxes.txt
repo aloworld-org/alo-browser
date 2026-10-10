@@ -1,0 +1,17 @@
+block flow · document
+  block flow · generic
+    block flow · link
+      text "Skip to content"
+    block flow · main
+      text " "
+    block grid · contentinfo
+      block flow · navigation "Footer"
+        block flex · list
+          block flow list-item · listitem
+            inline flow · link
+              text "Imprint"
+          block flow list-item · listitem
+            inline flow · link
+              text "Privacy"
+      block flow · paragraph
+        text "© Nordwind Coffee Roasters"

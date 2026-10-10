@@ -143,6 +143,23 @@ impl<'a, M: MeasureText> Arena<'a, M> {
         self.nodes.len() - 1
     }
 
+    /// Give a node one more child, after the ones it was made with.
+    ///
+    /// How an absolutely positioned box reaches its containing block when
+    /// that is not its parent: the containing block's node is made after the
+    /// box's, because a node is made after everything under it, so the box is
+    /// handed over once the whole tree exists. See `crate::containing`.
+    pub(crate) fn adopt(&mut self, parent: usize, child: usize) {
+        if let Some(node) = self.nodes.get_mut(parent) {
+            node.children.push(child);
+        }
+    }
+
+    /// The style a node was made with.
+    pub(crate) fn style_of(&self, node: usize) -> Option<&Style> {
+        self.nodes.get(node).map(|held| &held.style)
+    }
+
     /// Lay out a node and everything under it.
     ///
     /// **Sub-pixel throughout**: `taffy`'s rounding is a separate pass over a

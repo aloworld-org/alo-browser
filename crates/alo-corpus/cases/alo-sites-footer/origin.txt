@@ -1,0 +1,70 @@
+alo-workplace, products/sites/alo-sites/tests/golden/section_footer.html
+and products/sites/alo-sites/tests/golden/site.css — a page alo Sites
+publishes for its customers: the footer of a demonstration coffee roaster's
+home page, with the style sheet every alo Sites page links.
+
+Taken 2026-10-10 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit the
+other alo Sites cases were taken at. The page's last change is
+5be41b70be364f8e1e0e158a8619e4e94455321c (2026-09-02). The bytes are those
+files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  2d32b7e7311f23f5c7fec7ebea1334efcc1c6616cd9bd26e825cc53dec3ae0e8
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+The sheet is byte for byte the other alo Sites cases'. `alo-workplace` is
+read-only reference; nothing was written back to it. Both files are golden
+outputs of alo Sites' own renderer, pinned by its tests, so they are what it
+really serves rather than something rebuilt from it.
+
+Why this page. Iteration 259 took it as one of the last alo Sites sections
+with no picture not yet frozen. Its `<main>` is empty and its `<footer>` is
+`footer-layout-split`: the footer navigation on the left, the copyright line
+on the right. The footer element carries `section-motion`, so, as the
+features section is, it is drawn at opacity 0 until `IntersectionObserver`
+exists (queue item 381): render.png is white, and the page is checked in
+numbers (layout.txt, display.txt) instead.
+
+**Where it is served from, and what its sheet is answered with,** are the
+call-to-action section's, for the same reasons (see that case's origin.txt):
+the page's own `<link rel="canonical">` says
+`https://nordwind.alosites.com/` (address.txt), and its `/assets/site.css`
+is answered from site.css (linked.txt). Its analytics script is the same
+script, and finds no form here.
+
+Rendered at 800 × 600, wider than the sheet's breakpoints, as the other alo
+Sites cases are.
+
+## What it found
+
+- **The skip link was placed against `body` rather than the page** — item
+  355. `.skip-link` is `position: absolute; top: 0; left: -999rem`, and
+  nothing above it is positioned, so CSS 2 § 10.1 places it against the
+  initial containing block: the top of the page. Layout placed every
+  absolute box against its parent. On every other alo Sites case `body` is
+  at the top of the page, so that was right by coincidence; here `main` is
+  empty and the footer's `margin-top: 3rem` collapses through it and through
+  `body`, so `body` starts 48 down, and the link was drawn at y 48. It is
+  off the page to the left either way, so no pixel showed it — the layout
+  tree, which an agent reads, did. `tests/alo_sites_footer.rs` says so.
+
+Everything else checks against the sheet by hand and is pinned as it is:
+`body` and the footer are both at y 48, by that collapsed margin, and the
+document is 48 + 124.2 = 172.2 tall. The footer is a grid, `1fr 1fr` with
+`gap: 1rem 3rem`, `align-items: center`; `section-spacing-standard` makes
+its padding 3rem above and below, `.s-footer`'s 1.25rem stays at the sides,
+and its border-top is 1 px, so its content is 760 wide at (20, 97), and each
+column is (760 − 48) / 2 = 356. The navigation and the copyright line are
+`width: 100%` of their columns, at x 20 and 20 + 356 + 48 = 424, and the
+line is `text-align: right`: its text ends at 780. Both are one line of
+17 px at 1.6, 27.2, so the footer is 1 + 48 + 27.2 + 48 = 124.2. The list is
+a flex row with `gap: 1rem`: "Imprint" is 61.5 wide and "Privacy" starts 16
+after it. The footer's own `max-width: none` and its children's
+`max-width: 90rem` (`section-width-wide`) take nothing off at 800.
+
+What the sheet asks for that this engine does not do is in issues.txt: the
+call-to-action section's list exactly — `::before` and `::after`,
+`@keyframes`, and `prefers-reduced-motion`. Nothing on this page uses any of
+them.

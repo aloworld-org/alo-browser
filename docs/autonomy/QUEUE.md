@@ -5737,7 +5737,7 @@ The long pole, and the thing most of section E is unreachable without.
   at its static position, in numbers. *Opened by a frozen page that puts an
   absolutely positioned box in a line, and not before.*
 
-- [ ] **355. An absolute box is placed against its nearest positioned
+- [x] **355. An absolute box is placed against its nearest positioned
   ancestor.** *Found by iteration 228 while building 352, not opened by a
   page. Feature: `docs/features.md` stage 1, "Absolute and relative
   positioning". Waits for a page.* CSS 2 § 10.1 places an absolutely
@@ -5751,6 +5751,67 @@ The long pole, and the thing most of section E is unreachable without.
   when:* that span is at x = 50, and a box with no positioned ancestor is
   against the viewport, in numbers. *Opened by a frozen page whose
   absolute box is not its containing block's child, and not before.*
+  **Opened (iteration 259)** by alo Sites' footer, frozen as
+  `alo-sites-footer`: its `<main>` is empty, so the footer's `margin-top:
+  3rem` collapses through `main` and `body`, `body` starts 48 down, and
+  the skip link (`top: 0`, nothing positioned above it) was drawn at y 48
+  with it rather than at the top of the page. Off the page to the left
+  either way, so only the layout tree an agent reads showed it.
+  **Done (iteration 259).** `alo-layout`'s new `containing.rs` says what
+  an absolute box is placed against: its parent, an ancestor further up,
+  the initial containing block, or — inside an atomic inline box laid out
+  on its own with nothing positioned between — somewhere beyond what that
+  layout can see. An ancestor contains when its `position` is not
+  `static` or it has a `transform` other than `none` as paint reads it
+  (CSS Transforms 1 § 2; `transform` is now listed as layout's too).
+  `engine.rs` builds each box whose containing block is not its parent
+  under that block's node instead (`Arena::adopt`, once the whole tree
+  exists), and one placed against the initial containing block under a
+  node of the viewport's size laid out beside the root, not above it, so
+  the root's margins still do not collapse. An axis whose insets are both
+  `auto` keeps its static position from an empty absolute stand-in left in
+  the parent (`Probe`), plus its own margin, as `taffy` places one.
+  `read_back` measures a displaced box from its containing block's corner
+  or the page's, and what the initial containing block holds is added to
+  the root's reach, which is the viewport's scrolling area (ADR 0038 § 4).
+  The footer's skip link is at (-15984, 0); item 355's span is at x = 50
+  (52 with its ancestor's border, in the test). Tests: `containing.rs`
+  (8: parent, initial, nearest ancestor, absolute ancestor, transforms
+  `translateY`, `scale(1)`, `none` and nonsense, beyond, root) and
+  `numbers.rs` (6: against the nearest positioned ancestor, by `left`/`top`
+  and `right`/`bottom`, with a percentage width of its padding box; against
+  the viewport with `body` pushed down; an axis's static position kept,
+  one axis and both; a transformed ancestor; the page's reach; the flex
+  record), and `tests/alo_sites_footer.rs` (4). Mutations, restored from a
+  copy: with every box left under its parent, five `numbers.rs` tests and
+  the footer's skip-link test fail; without the reach added, the reach
+  test; with the probe ignored, the static-position test. No other
+  corpus reference moved: on every other alo Sites case `body` is at the
+  top, so the skip link was right by coincidence. One test pinned the
+  fault: `alo-renderer`'s `a_page_measures_its_content.rs` had `body`
+  measure 1600 wide for an absolute box with nothing positioned above it,
+  which CSS Overflow 3 § 2.2 and Blink put in the viewport's overflow only;
+  it now reads 800 for `body` (the root still 1600), and a positioned
+  `body` 1600. **Cut** as **399**.
+
+- [ ] **399. The rest of what contains an absolute box.** *Cut from 355
+  (iteration 259). Feature: `docs/features.md` stage 1, "Absolute and
+  relative positioning". Waits for a page.* Three answers 355 records
+  rather than gives: (1) in a flex or grid container that is not its
+  containing block, an axis with no inset takes its static position from
+  an empty stand-in, where CSS Flexbox 1 § 4.1 and CSS Grid 1's section
+  on absolutely positioned items align the box as if it were alone, by its
+  own size — recorded as an issue;
+  (2) a box inside an atomic inline box laid out on its own, with nothing
+  positioned between, is placed against that box rather than its
+  containing block outside it — recorded, and unreachable today because
+  the box tree breaks an atomic inline around a block-level child (286);
+  (3) `filter`, `backdrop-filter`, `perspective`, `will-change`, `contain`
+  and `container-type` each make a containing block, and none is read,
+  because reading one only for this would tell a script the property is
+  supported (`alo-css`' `properties.rs`). *Closes when:* a frozen page
+  that meets one of these is placed as a browser places it, in numbers,
+  and its record is gone.
 
 - [x] **353. `Date`.** *Opened by `alo-sites-cta` (iteration 227); cut from
   73.* alo Sites' analytics script, which every page it publishes carries,

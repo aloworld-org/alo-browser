@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A box pinned to the page is pinned to the page.** An element set
+  `position: absolute` with nothing positioned above it belongs at the top
+  of the page, but the browser placed it against whatever it happened to
+  sit in — so when that was pushed down by a margin, it went down too, and
+  a box set inside a positioned card was measured from the wrong box. It
+  now finds the box CSS says it is placed against: the nearest positioned
+  or transformed ancestor, or the page itself. alo Sites' footer, whose
+  "Skip to content" link had moved 48 pixels down, is now one of the pages
+  checked on every change (queue item 355).
+
 - **A gap that scales with the window is no longer lost.** A page that
   spaced its columns with a gap written as a formula — "6% of the window,
   but at least 2rem and at most 5rem" — got no gap at all, because the

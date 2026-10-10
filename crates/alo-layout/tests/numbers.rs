@@ -430,6 +430,143 @@ fn an_absolutely_positioned_inline_leaves_the_flow_and_its_line() {
     );
 }
 
+/// Queue item 355: an absolutely positioned box is placed against the
+/// padding box of its nearest positioned ancestor (CSS 2 § 10.1), not its
+/// parent. The section between them is 30 further right; the span is not.
+#[test]
+fn an_absolute_box_is_placed_against_its_nearest_positioned_ancestor() {
+    let html = "<body><div id=p><section><span id=t>x</span></section></div></body>";
+    let css = "#p { position: relative; margin-left: 50px; width: 200px; height: 100px; \
+                    padding: 10px; border: 2px solid } \
+               section { margin-left: 30px; width: 100px } \
+               #t { position: absolute; left: 0; top: 0; width: 50% }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+
+    let t = rect_of(&boxes, &layout, "t", html);
+    // The padding box's corner: 50 of margin and 2 of border across, 2 of
+    // border down; and half of the padding box's 220, not of the section's
+    // 100.
+    assert_eq!(t.origin, alo_layout::Point::new(52.0, 2.0), "{t:?}");
+    assert!(close(t.size.width, 110.0), "{t:?}");
+    // `bottom` and `right` are measured from the same box's far edges.
+    let css = css.replace(
+        "left: 0; top: 0; width: 50%",
+        "right: 0; bottom: 0; width: 20px; height: 10px",
+    );
+    let (boxes, layout) = lay_out(html, &css, Size::new(400.0, 300.0));
+    let t = rect_of(&boxes, &layout, "t", html);
+    // 52 + 220 - 20 across; 2 + 120 - 10 down.
+    assert_eq!(t, Rect::new(252.0, 112.0, 20.0, 10.0));
+}
+
+/// Queue item 355, from alo Sites' footer: with nothing positioned above it,
+/// a box is placed against the initial containing block, the viewport at the
+/// top left of the page, even when its parent has been pushed down by a
+/// margin it shares with its first child.
+#[test]
+fn with_nothing_positioned_a_box_is_placed_against_the_viewport() {
+    let html = "<body><a id=skip href=#m>Skip</a><a id=corner>c</a><main id=m></main></body>";
+    let css = "main { margin-top: 48px; height: 40px } \
+               #skip { position: absolute; left: -999rem; top: 0 } \
+               #corner { position: absolute; right: 0; bottom: 0; width: 10px; height: 10px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+
+    assert!(
+        close(rect_of(&boxes, &layout, "m", html).origin.y, 48.0),
+        "the margin collapsed through the body, which is 48 down",
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "skip", html).origin,
+        alo_layout::Point::new(-999.0 * 16.0, 0.0),
+        "the top of the page, not of the body",
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "corner", html),
+        Rect::new(390.0, 290.0, 10.0, 10.0),
+        "the viewport's corner, not the body's, which ends at 88",
+    );
+}
+
+/// An axis whose insets are both `auto` keeps the box where it would have
+/// been in its parent (CSS 2 § 10.3.7), even when the box is placed against
+/// an ancestor further out; an axis with an inset is measured from that
+/// ancestor.
+#[test]
+fn an_axis_with_no_inset_keeps_its_static_position() {
+    let html = "<body><div id=p><section><div id=before></div><span id=t>x</span>\
+                </section></div></body>";
+    let css = "#p { position: relative; margin-left: 40px; padding: 4px } \
+               section { margin-left: 30px; padding: 6px 0 0 8px } \
+               #before { height: 20px } \
+               #t { position: absolute; left: 0; margin-top: 3px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+
+    let t = rect_of(&boxes, &layout, "t", html);
+    // Across, `left: 0` against `#p`'s padding box: 40. Down, no inset, so
+    // where it would have been: 4 of `#p`'s padding, 6 of the section's, the
+    // 20 before it, and its own 3 of margin.
+    assert_eq!(t.origin, alo_layout::Point::new(40.0, 33.0), "{t:?}");
+
+    let both = css.replace("left: 0; ", "");
+    let (boxes, layout) = lay_out(html, &both, Size::new(400.0, 300.0));
+    let t = rect_of(&boxes, &layout, "t", html);
+    // Across too: 40, 4 of padding, 30 of the section's margin and 8 of its
+    // padding.
+    assert_eq!(t.origin, alo_layout::Point::new(82.0, 33.0), "{t:?}");
+    assert!(layout.issues().is_empty(), "{:?}", layout.issues());
+}
+
+/// CSS Transforms 1 § 2: a transformed box contains its absolutely
+/// positioned descendants, positioned or not.
+#[test]
+fn a_transformed_ancestor_contains_an_absolute_box() {
+    let html = "<body><div id=p><section><span id=t>x</span></section></div></body>";
+    let css = "#p { transform: translateX(0); margin-left: 40px; margin-top: 7px } \
+               section { margin-left: 30px } \
+               #t { position: absolute; left: 0; top: 0 }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html).origin,
+        alo_layout::Point::new(40.0, 7.0)
+    );
+}
+
+/// A box placed against the initial containing block counts in the page's
+/// scrolling area — the viewport's, which is made of the root's reach — and
+/// one beyond the left of the page does not.
+#[test]
+fn a_box_placed_against_the_page_reaches_as_far_as_it_goes() {
+    let html = "<body><div id=far></div><div id=left></div></body>";
+    let css = "#far { position: absolute; top: 2000px; left: 10px; width: 600px; height: 50px } \
+               #left { position: absolute; left: -500px; top: 0; width: 10px; height: 10px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    let root = boxes
+        .root()
+        .and_then(|root| layout.get(root))
+        .expect("the root is laid out");
+    assert!(close(root.reach.width, 610.0), "{root:?}");
+    assert!(close(root.reach.height, 2050.0), "{root:?}");
+}
+
+/// In a flex or grid container that is not its containing block, an axis
+/// with no inset takes its static position from an empty stand-in, which a
+/// container aligning by size would place differently; that is said.
+#[test]
+fn a_static_position_in_a_flex_container_further_in_is_recorded() {
+    let html = "<body><div id=p><section><span id=t>x</span></section></div></body>";
+    let css = "#p { position: relative } section { display: flex } \
+               #t { position: absolute; left: 0 }";
+    let (_, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    assert!(
+        layout
+            .issues()
+            .iter()
+            .any(|issue| issue.source.contains("its static position is taken")),
+        "{:?}",
+        layout.issues()
+    );
+}
+
 #[test]
 fn text_wraps_where_a_line_may_break_and_nowhere_else() {
     let html = "<body><div id=a>abcd efgh</div></body>";

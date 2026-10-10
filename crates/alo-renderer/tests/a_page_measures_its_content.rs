@@ -174,14 +174,31 @@ fn what_spills_left_or_above_is_not_counted_and_what_spills_right_is() {
             Some("800x600 800x50"),
             "stress: {stress}"
         );
-        // One past the right edge, 1500 + 100: counted, by the root and by
-        // `body`, whose overflow it is.
+        // One past the right edge, 1500 + 100: counted by the root, which
+        // measures the viewport's area. Not by `body`: nothing is positioned,
+        // so the box is placed against the initial containing block (item
+        // 355), and CSS Overflow 3 § 2.2 puts a box only in the overflow of
+        // the boxes its chain of containing blocks passes through.
         later(
             &mut renderer,
             "var wide = document.createElement('div'); \
              wide.setAttribute('style', 'position: absolute; left: 1500px; top: 0; \
                width: 100px; height: 10px'); \
              document.body.appendChild(wide); \
+             document.documentElement.setAttribute('data-read', measure());",
+            stress,
+        )
+        .unwrap_or_else(|why| panic!("{why}"));
+        assert_eq!(
+            read(renderer.document()).as_deref(),
+            Some("1600x600 800x50"),
+            "stress: {stress}"
+        );
+        // A positioned `body` is the box's containing block, and then it is
+        // `body`'s overflow too.
+        later(
+            &mut renderer,
+            "document.body.setAttribute('style', 'margin: 0; position: relative'); \
              document.documentElement.setAttribute('data-read', measure());",
             stress,
         )

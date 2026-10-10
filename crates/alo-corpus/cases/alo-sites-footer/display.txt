@@ -1,0 +1,15 @@
+fill box#2 rgb(255 255 255) at (0, 48) 800×124.2
+group box#10 at opacity 0
+transform box#10 by matrix(1, 0, 0, 1, 0, 24)
+fill box#10 rgb(23 33 43) at (0, 48) 800×124.2
+fill box#10 rgb(221 227 233) at (0, 48) 800×1
+text box#18 "Imprint" rgb(255 255 255) 17px at (20, 116.48525)
+fill box#18 rgb(255 255 255) at (20, 117.564354) 61.51709×1
+text box#22 "Privacy" rgb(255 255 255) 17px at (97.51709, 116.48525)
+fill box#22 rgb(255 255 255) at (97.51709, 117.564354) 61.550293×1
+text box#27 "© Nordwind Coffee Roasters" rgb(255 255 255) 17px at (537.40137, 116.48525)
+untransform
+ungroup
+fill box#4 rgb(242 245 248) at (-15984, 0) 161.11035×43.2
+text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27.485254)
+fill box#5 rgb(23 33 43) at (-15968, 28.564356) 129.11035×1

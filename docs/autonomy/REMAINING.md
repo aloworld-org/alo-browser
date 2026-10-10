@@ -1336,3 +1336,16 @@ is written, beside `padding-block`, at the spaces between values only, so
 284.8 and 427.2, 48 apart; no other case moved. Nothing was cut or found.
 169 queue items are open (397 closed). The next unused queue number is 399
 and the next unused ADR 0044.
+
+Iteration 259 found every open item as iteration 258 left it, so it froze
+alo Sites' footer, one of the last sections with no picture, as
+`alo-sites-footer`. Its empty `<main>` lets the footer's margin collapse
+through `body`, which starts 48 down, and the skip link went with it: that
+opened item 355, built in the same iteration. An absolute box is now laid
+out against its nearest positioned or transformed ancestor, or the
+initial containing block, keeping its static position on an axis with no
+inset. No other case moved. Cut: 399 (static position in a flex or grid
+container further in, a containing block beyond an atomic inline box, and
+the containing blocks of properties not read). 169 queue items are open
+(355 closed, 399 added open). The next unused queue number is 400 and the
+next unused ADR 0044.

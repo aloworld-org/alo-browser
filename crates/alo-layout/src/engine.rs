@@ -42,6 +42,7 @@
 
 use crate::arena::{Arena, NodeKind, Unresolved};
 use crate::baseline;
+use crate::containing::{self, Containing};
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::inline::{self, Fragment, InlineItem, InlineLayout};
 use crate::keyword::{
@@ -86,8 +87,18 @@ pub fn compute(
         width: AvailableSpace::Definite(viewport.width),
         height: AvailableSpace::Definite(viewport.height),
     };
-    let Some(laid_out) = lay_out_subtree(boxes, styles, root, available, measure, &mut issues)
-    else {
+    let laid_out = lay_out_subtree(
+        boxes,
+        styles,
+        Subtree {
+            root,
+            document: true,
+        },
+        available,
+        measure,
+        &mut issues,
+    );
+    let Some(laid_out) = laid_out else {
         return LayoutTree::from_parts(BTreeMap::new(), BTreeMap::new(), issues, viewport);
     };
     LayoutTree::from_parts(laid_out.geometry, laid_out.fragments, issues, viewport)
@@ -117,6 +128,55 @@ struct Placed {
     lines: BTreeMap<BoxId, baseline::Lines>,
 }
 
+/// What is being laid out on its own.
+#[derive(Clone, Copy)]
+struct Subtree {
+    /// The box at its top.
+    root: BoxId,
+    /// Whether that is the document's root box, above which is the initial
+    /// containing block, rather than an atomic inline box, above which is the
+    /// rest of the page.
+    document: bool,
+}
+
+/// The engine's tree as it is built: which node each box became, and the
+/// absolutely positioned boxes handed to a node other than their parent's.
+#[derive(Default)]
+struct Built {
+    ours_to_theirs: BTreeMap<BoxId, usize>,
+    displaced: BTreeMap<BoxId, Displaced>,
+}
+
+/// An absolutely positioned box `taffy` lays out under its containing block
+/// rather than under its parent, because `taffy` places an absolute child
+/// against the box it is a child of and nothing else. See
+/// [`crate::containing`].
+struct Displaced {
+    /// Its node in the engine's tree.
+    node: usize,
+    /// The box it is placed against, or [`None`] for the initial containing
+    /// block.
+    against: Option<BoxId>,
+    /// What stands in for it where it was, when an axis needs that.
+    probe: Option<Probe>,
+}
+
+/// An empty absolutely positioned node left in a displaced box's parent.
+///
+/// An axis whose two insets are both `auto` puts the box at its **static
+/// position** — where it would have been in its parent's flow (CSS 2
+/// § 10.3.7) — and only its parent's layout knows where that is. An empty
+/// box with no insets is placed exactly there, so the box takes that axis
+/// from it.
+#[derive(Clone, Copy)]
+struct Probe {
+    node: usize,
+    /// Whether the box takes its horizontal position from here.
+    across: bool,
+    /// Whether the box takes its vertical position from here.
+    down: bool,
+}
+
 /// Lay out a subtree as its own formatting context, with its own engine tree.
 ///
 /// Called once for the document, and again for each atomic inline-level box —
@@ -125,29 +185,35 @@ struct Placed {
 fn lay_out_subtree(
     boxes: &BoxTree,
     styles: &StyleTree,
-    root: BoxId,
+    subtree: Subtree,
     available: TaffySize<AvailableSpace>,
     measure: &impl MeasureText,
     issues: &mut Vec<StyleIssue>,
 ) -> Option<LaidOut> {
-    let mut ours_to_theirs: BTreeMap<BoxId, usize> = BTreeMap::new();
+    let root = subtree.root;
+    let mut built = Built::default();
     let mut arena = Arena::new(boxes, styles, measure);
-    let root_node = build(boxes, styles, root, &mut arena, &mut ours_to_theirs, issues)?;
+    let root_node = build(boxes, styles, root, &mut arena, &mut built, subtree, issues)?;
+    let initial = hand_over(&mut arena, &built, available);
     // Sub-pixel throughout: `taffy`'s rounding is a pass over a trait this
     // engine's tree does not implement, so it cannot happen. A box rounded
     // down to 96 while its text measures 96.16 wraps a word early, which is
     // how "Remember me" once became two lines in a box wide enough for one.
     arena.compute(root_node, available);
+    if let Some(initial) = initial {
+        arena.compute(initial, available);
+    }
 
     let mut placed = Placed::default();
     read_back(
         &arena,
-        &ours_to_theirs,
+        &built,
         boxes,
         root,
         Point::ZERO,
         &mut placed.geometry,
     );
+    reach_of_the_initial_block(&built, root, &mut placed.geometry);
     // Before anything is placed inside a box, and after every box has a
     // rectangle: a fieldset's legend sits in its block-start border rather
     // than under it, and the lines of text in it have to be laid out against
@@ -475,7 +541,17 @@ fn atomic_item(
         width: available_width.map_or(AvailableSpace::MaxContent, AvailableSpace::Definite),
         height: AvailableSpace::MaxContent,
     };
-    let laid_out = lay_out_subtree(boxes, styles, id, available, measure, issues);
+    let laid_out = lay_out_subtree(
+        boxes,
+        styles,
+        Subtree {
+            root: id,
+            document: false,
+        },
+        available,
+        measure,
+        issues,
+    );
     let margin = laid_out
         .as_ref()
         .and_then(|held| held.geometry.get(&id))
@@ -604,7 +680,10 @@ fn place_inline_content(
                 if let Some(sub) = lay_out_subtree(
                     boxes,
                     styles,
-                    *box_id,
+                    Subtree {
+                        root: *box_id,
+                        document: false,
+                    },
                     TaffySize {
                         width: AvailableSpace::Definite(
                             placed.rect.size.width + margin.horizontal(),
@@ -788,12 +867,19 @@ fn union_rects(left: Rect, right: Rect) -> Rect {
 /// told how big it is and nothing about what is inside, because what is inside
 /// is a line box and that is [`crate::inline`]'s. Its children are therefore
 /// not in the engine's tree at all, and are positioned by this file afterwards.
+///
+/// An absolutely positioned child whose containing block is not this box is
+/// built here but not made this box's child in the engine's tree: it is
+/// recorded in `built` to be handed to its containing block once that exists
+/// ([`hand_over`]), and an empty [`Probe`] takes its place here when it needs
+/// its static position.
 fn build<M: MeasureText>(
     boxes: &BoxTree,
     styles: &StyleTree,
     id: BoxId,
     arena: &mut Arena<'_, M>,
-    ours_to_theirs: &mut BTreeMap<BoxId, usize>,
+    built: &mut Built,
+    subtree: Subtree,
     issues: &mut Vec<StyleIssue>,
 ) -> Option<usize> {
     let node = boxes.get(id)?;
@@ -801,15 +887,63 @@ fn build<M: MeasureText>(
 
     if is_inline_formatting_context(boxes, id) {
         let made = arena.push(style, NodeKind::InlineFormatting(id), Vec::new());
-        ours_to_theirs.insert(id, made);
+        built.ours_to_theirs.insert(id, made);
         return Some(made);
     }
 
-    let children: Vec<usize> = node
-        .children
-        .iter()
-        .filter_map(|child| build(boxes, styles, *child, arena, ours_to_theirs, issues))
-        .collect();
+    let mut children = Vec::with_capacity(node.children.len());
+    for child in &node.children {
+        let Some(made) = build(boxes, styles, *child, arena, built, subtree, issues) else {
+            continue;
+        };
+        let against = match containing::of(boxes, styles, *child, subtree.root, subtree.document) {
+            Containing::Parent => {
+                children.push(made);
+                continue;
+            }
+            Containing::Beyond => {
+                // Laid out against the atomic box it is in, which is the
+                // nearest this layout can see, and said.
+                issues.push(StyleIssue {
+                    kind: IssueKind::UnsupportedValue,
+                    source: "position: absolute inside an inline-block or other atomic inline \
+                             box with nothing positioned between: placed against that box \
+                             rather than its containing block outside it"
+                        .to_owned(),
+                    at: Location { line: 0, column: 0 },
+                });
+                children.push(made);
+                continue;
+            }
+            Containing::Ancestor(ancestor) => Some(ancestor),
+            Containing::Initial => None,
+        };
+        let probe = probe_for(arena, made);
+        if let Some(probe) = probe {
+            children.push(probe.node);
+            if matches!(node.kind.inside(), Inside::Flex | Inside::Grid) {
+                // A flex or grid container places an absolute child with no
+                // insets by its alignment, which counts the child's own size;
+                // the probe has none.
+                issues.push(StyleIssue {
+                    kind: IssueKind::UnsupportedValue,
+                    source: "position: absolute with both insets auto in an axis, in a flex or \
+                             grid container that is not its containing block: its static \
+                             position is taken as an empty box's"
+                        .to_owned(),
+                    at: Location { line: 0, column: 0 },
+                });
+            }
+        }
+        built.displaced.insert(
+            *child,
+            Displaced {
+                node: made,
+                against,
+                probe,
+            },
+        );
+    }
 
     let kind = match (&node.kind, boxes.natural_size(id)) {
         (BoxKind::Text { text, .. }, _) => {
@@ -823,8 +957,70 @@ fn build<M: MeasureText>(
         _ => NodeKind::Container,
     };
     let made = arena.push(style, kind, children);
-    ours_to_theirs.insert(id, made);
+    built.ours_to_theirs.insert(id, made);
     Some(made)
+}
+
+/// An empty stand-in for a displaced box, when one of its axes has both its
+/// insets `auto` and so takes its static position; [`None`] when neither
+/// does.
+fn probe_for<M: MeasureText>(arena: &mut Arena<'_, M>, displaced: usize) -> Option<Probe> {
+    let inset = arena.style_of(displaced)?.inset;
+    let across = inset.left.is_auto() && inset.right.is_auto();
+    let down = inset.top.is_auto() && inset.bottom.is_auto();
+    if !across && !down {
+        return None;
+    }
+    let style = Style {
+        display: taffy::Display::Block,
+        position: Position::Absolute,
+        ..Style::default()
+    };
+    let node = arena.push(style, NodeKind::Empty, Vec::new());
+    Some(Probe { node, across, down })
+}
+
+/// Hand every displaced box to its containing block's node, once the whole
+/// tree exists; and make the node standing for the initial containing block,
+/// when a box is placed against it, returning it to be laid out.
+///
+/// The initial containing block is the viewport's size at the top left of
+/// the page (CSS 2 § 10.1). It is a node of its own, laid out on its own
+/// beside the document's root rather than above it: the root element's
+/// margins do not collapse (CSS 2 § 8.3.1), and a parent above it would
+/// begin collapsing them.
+fn hand_over<M: MeasureText>(
+    arena: &mut Arena<'_, M>,
+    built: &Built,
+    available: TaffySize<AvailableSpace>,
+) -> Option<usize> {
+    let mut initial = Vec::new();
+    for displaced in built.displaced.values() {
+        match displaced
+            .against
+            .and_then(|against| built.ours_to_theirs.get(&against))
+        {
+            Some(theirs) => arena.adopt(*theirs, displaced.node),
+            None => initial.push(displaced.node),
+        }
+    }
+    if initial.is_empty() {
+        return None;
+    }
+    let side = |space: AvailableSpace| match space {
+        AvailableSpace::Definite(definite) => Dimension::length(definite),
+        AvailableSpace::MinContent | AvailableSpace::MaxContent => Dimension::auto(),
+    };
+    let style = Style {
+        display: taffy::Display::Block,
+        position: Position::Relative,
+        size: TaffySize {
+            width: side(available.width),
+            height: side(available.height),
+        },
+        ..Style::default()
+    };
+    Some(arena.push(style, NodeKind::Container, initial))
 }
 
 /// The `taffy` style for one box.
@@ -1316,24 +1512,51 @@ fn max_track(
 }
 
 /// Walk the tree and turn parent-relative positions into positions on the page.
+///
+/// A displaced box's position is relative to its containing block's node, so
+/// it is measured from there — the containing block is its ancestor and was
+/// read first — or from the top left of the page for the initial containing
+/// block; and an axis it takes from its [`Probe`] is where the probe is, in
+/// its parent, plus its own margin, as `taffy` places a box at its static
+/// position.
 fn read_back<M: MeasureText>(
     arena: &Arena<'_, M>,
-    ours_to_theirs: &BTreeMap<BoxId, usize>,
+    built: &Built,
     boxes: &BoxTree,
     id: BoxId,
     parent_origin: Point,
     out: &mut BTreeMap<BoxId, BoxGeometry>,
 ) {
-    let Some(theirs) = ours_to_theirs.get(&id) else {
+    let Some(theirs) = built.ours_to_theirs.get(&id) else {
         return;
     };
     let Some(layout) = arena.layout(*theirs) else {
         return;
     };
-    let origin = Point::new(
-        parent_origin.x + layout.location.x,
-        parent_origin.y + layout.location.y,
-    );
+    let origin = match built.displaced.get(&id) {
+        None => Point::new(
+            parent_origin.x + layout.location.x,
+            parent_origin.y + layout.location.y,
+        ),
+        Some(displaced) => {
+            let base = displaced.against.map_or(Point::ZERO, |against| {
+                out.get(&against)
+                    .map_or(parent_origin, |held| held.border_box.origin)
+            });
+            let mut origin = Point::new(base.x + layout.location.x, base.y + layout.location.y);
+            if let Some(probe) = displaced.probe
+                && let Some(at) = arena.layout(probe.node)
+            {
+                if probe.across {
+                    origin.x = parent_origin.x + at.location.x + layout.margin.left;
+                }
+                if probe.down {
+                    origin.y = parent_origin.y + at.location.y + layout.margin.top;
+                }
+            }
+            origin
+        }
+    };
     out.insert(
         id,
         BoxGeometry {
@@ -1362,8 +1585,50 @@ fn read_back<M: MeasureText>(
     );
     let children: Vec<BoxId> = boxes.children(id).collect();
     for child in children {
-        read_back(arena, ours_to_theirs, boxes, child, origin, out);
+        read_back(arena, built, boxes, child, origin, out);
     }
+}
+
+/// Count what is placed against the initial containing block in the
+/// document's reach.
+///
+/// The root's [`BoxGeometry::reach`] is what the viewport's scrolling area is
+/// made of (ADR 0038 § 4), and CSS Overflow 3 § 2.2 puts a box in the
+/// scrollable overflow of each box in its chain of containing blocks — which
+/// for these is the viewport's, and not the root element's own. `taffy`
+/// laid them out beside the root rather than in it, so the root's reach is
+/// extended by hand: a box placed at `top: 2000px` against nothing makes the
+/// page that much taller to scroll, as it does in a browser, and one far to
+/// the left, alo Sites' skip link, makes it no wider.
+fn reach_of_the_initial_block(
+    built: &Built,
+    root: BoxId,
+    geometry: &mut BTreeMap<BoxId, BoxGeometry>,
+) {
+    let (mut right, mut bottom) = (0.0_f32, 0.0_f32);
+    for (id, displaced) in &built.displaced {
+        if displaced.against.is_some() {
+            continue;
+        }
+        let Some(held) = geometry.get(id) else {
+            continue;
+        };
+        let padding = held.padding_box();
+        right = right
+            .max(held.border_box.right())
+            .max(padding.origin.x + held.reach.width);
+        bottom = bottom
+            .max(held.border_box.bottom())
+            .max(padding.origin.y + held.reach.height);
+    }
+    let Some(root) = geometry.get_mut(&root) else {
+        return;
+    };
+    let from = root.padding_box().origin;
+    root.reach = Size::new(
+        root.reach.width.max(right - from.x),
+        root.reach.height.max(bottom - from.y),
+    );
 }
 
 fn edges(rect: TaffyRect<f32>) -> Edges {

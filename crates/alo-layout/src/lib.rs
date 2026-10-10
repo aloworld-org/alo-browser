@@ -41,6 +41,7 @@
 
 pub(crate) mod arena;
 pub(crate) mod baseline;
+pub(crate) mod containing;
 pub mod engine;
 pub mod geometry;
 pub mod inline;
