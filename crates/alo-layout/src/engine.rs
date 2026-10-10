@@ -50,6 +50,7 @@ use crate::keyword::{
     Positioning,
 };
 use crate::legend;
+use crate::marker;
 use crate::measure::{MeasureText, TextStyle};
 use crate::placement::{GridLine, GridPlacement};
 use crate::sizing::{AutoLength, MaxSizing, Sizing};
@@ -118,14 +119,14 @@ struct LaidOut {
 /// Where everything in one formatting context ended up, filled in as it is
 /// placed.
 #[derive(Default)]
-struct Placed {
+pub(crate) struct Placed {
     /// Every box's rectangle.
-    geometry: BTreeMap<BoxId, BoxGeometry>,
+    pub(crate) geometry: BTreeMap<BoxId, BoxGeometry>,
     /// Every piece of every box laid out in a line.
-    fragments: BTreeMap<BoxId, Vec<Fragment>>,
+    pub(crate) fragments: BTreeMap<BoxId, Vec<Fragment>>,
     /// Where the baselines of each inline formatting context's first and
     /// last lines stand; see [`crate::baseline`].
-    lines: BTreeMap<BoxId, baseline::Lines>,
+    pub(crate) lines: BTreeMap<BoxId, baseline::Lines>,
 }
 
 /// What is being laid out on its own.
@@ -220,6 +221,9 @@ fn lay_out_subtree(
     // where it ends up. See `crate::legend`.
     legend::raise(boxes, styles, &mut placed.geometry, issues);
     place_inline_content(boxes, styles, root, measure, &mut placed, issues);
+    // Once every line is placed: a list item's marker stands beside its
+    // first line and took no room in it (ADR 0044 § 4).
+    marker::place(boxes, styles, root, measure, &mut placed, issues);
 
     let root_geometry = placed.geometry.get(&root).copied().unwrap_or_default();
     Some(LaidOut {
@@ -311,7 +315,11 @@ fn collect_inline_items(
     issues: &mut Vec<StyleIssue>,
 ) -> Vec<InlineItem> {
     let mut items = Vec::new();
-    let children: Vec<BoxId> = boxes.children(id).collect();
+    // A list item's marker joins none of its lines (ADR 0044 § 4).
+    let children: Vec<BoxId> = boxes
+        .children(id)
+        .filter(|child| !boxes.is_marker(*child))
+        .collect();
     for child in children {
         let Some(node) = boxes.get(child) else {
             continue;
@@ -892,7 +900,13 @@ fn build<M: MeasureText>(
     }
 
     let mut children = Vec::with_capacity(node.children.len());
-    for child in &node.children {
+    // A list item's marker is no node of the engine's: it takes no room,
+    // and `crate::marker` stands it beside the item's first line.
+    for child in node
+        .children
+        .iter()
+        .filter(|child| !boxes.is_marker(**child))
+    {
         let Some(made) = build(boxes, styles, *child, arena, built, subtree, issues) else {
             continue;
         };
@@ -1135,10 +1149,17 @@ pub(crate) fn is_inline_formatting_context(boxes: &BoxTree, id: BoxId) -> bool {
     if !matches!(node.kind.inside(), Inside::Flow | Inside::FlowRoot) {
         return false;
     }
-    if node.children.is_empty() {
+    // A list item's marker is in none of its lines, so it says nothing
+    // about whether the item holds lines (ADR 0044 § 4).
+    let mut children = node
+        .children
+        .iter()
+        .filter(|child| !boxes.is_marker(**child))
+        .peekable();
+    if children.peek().is_none() {
         return false;
     }
-    node.children.iter().all(|child| {
+    children.all(|child| {
         boxes
             .get(*child)
             .is_some_and(|child| child.kind.outside() == Outside::Inline)

@@ -5,8 +5,11 @@ block flow · document
         text "Invoices"
       block flow · list
         block flow list-item · listitem
+          text "• " · ::marker
           text "Invoice 11"
         block flow list-item · listitem
+          text "• " · ::marker
           text "Invoice 12"
         block flow list-item · listitem
+          text "• " · ::marker
           text "Invoice 13"

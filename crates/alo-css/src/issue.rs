@@ -49,8 +49,9 @@ pub enum IssueKind {
     /// and both are worse than not being there.
     InvalidSelector,
     /// A selector that names a pseudo-element this engine makes no box for —
-    /// every one but `::placeholder` (ADR 0043). It is kept and never
-    /// matched, because a rule that targets one has nothing to apply to.
+    /// every one but `::placeholder` and `::marker` (ADRs 0043 and 0044). It
+    /// is kept and never matched, because a rule that targets one has nothing
+    /// to apply to.
     PseudoElementNotProduced,
     /// A declaration on a pseudo-element of a property that applies to it
     /// and that this engine does not read there yet — `font-style` on

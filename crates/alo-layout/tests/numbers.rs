@@ -745,11 +745,106 @@ block flow · document → 200×60 at (0, 0)
         text \"Invoices\" → 64×16 at (8, 8)
       block flex · list → 184×20 at (8, 32)
         block flow list-item · listitem → 60×20 at (8, 32)
+          text \"• \" → 16×16 at (-8, 32)
           text \"One\" → 24×16 at (8, 32)
         block flow list-item · listitem → 60×20 at (72, 32)
+          text \"• \" → 16×16 at (56, 32)
           text \"Two\" → 24×16 at (72, 32)
 ";
+    // Each item's disc stands ⌊12 × 2 / 3⌋ + 8 = 16 before its content
+    // edge, outside it where nothing pads the list (ADR 0044 § 4).
     assert_eq!(layout.to_outline(&boxes), expected);
+}
+
+/// The rectangle of the `::marker` of the list item whose `id` is `wanted`.
+fn marker_rect(boxes: &BoxTree, layout: &LayoutTree, wanted: &str, html: &str) -> Option<Rect> {
+    let document = parse_document(html);
+    let node = document
+        .descendants(document.root())
+        .find(|id| document.element(*id).and_then(|e| e.attr("id")) == Some(wanted))?;
+    let item = boxes.ids().find(|id| {
+        boxes.get(*id).and_then(|b| b.kind.node()) == Some(node) && !boxes.is_marker(*id)
+    })?;
+    let marker = boxes.marker_of(item)?;
+    Some(layout.get(marker)?.border_box)
+}
+
+/// ADR 0044 § 4, worked by hand with the scaled font at 16px — a character
+/// is 8 wide, the ascent 12 and the descent 4: a disc starts ⌊12 × 2 / 3⌋ +
+/// 8 = 16 before the item's content edge at 40, so at 24; "3. " is three
+/// characters, 24 wide, and ends at 40; both stand on the first line's
+/// baseline, 12 below its top, so their tops are its top.
+#[test]
+fn a_marker_stands_outside_the_first_line_and_takes_no_room() {
+    let html = "<body><ul><li id=a>Choose</li></ul><ol start=3><li id=b>Draft</li></ol>\
+                <ul class=bare><li id=c>Choose</li></ul><ul class=big><li id=e>Big</li></ul>\
+                </body>";
+    let css = "body { font-size: 16px; line-height: 20px } ul, ol { margin: 0 } \
+               .bare { list-style: none } .big { font-size: 24px; line-height: 30px }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+
+    let disc = marker_rect(&boxes, &layout, "a", html).expect("a disc");
+    let number = marker_rect(&boxes, &layout, "b", html).expect("a number");
+    // Each line is 20 tall with the 16 of the font in the middle of it.
+    assert!(close(disc.origin.x, 24.0), "{disc:?}");
+    assert!(close(disc.origin.y, 2.0), "{disc:?}");
+    assert!(close(disc.size.width, 16.0), "{disc:?}");
+    assert!(close(disc.size.height, 16.0), "{disc:?}");
+    assert!(close(number.origin.x, 16.0), "{number:?}");
+    assert!(close(number.right(), 40.0), "{number:?}");
+    assert!(close(number.origin.y, 22.0), "{number:?}");
+    assert_eq!(
+        marker_rect(&boxes, &layout, "c", html),
+        None,
+        "`list-style: none`"
+    );
+    // At 16px "• " is 16 wide and the symbol rule gives 16 too; at 24px the
+    // ascent is 18, the rule ⌊18 × 2 / 3⌋ + 8 = 20, and the disc 24 wide:
+    // it starts 20 before the edge, not 24. Three lines of 20 above it, and
+    // its own line 30 tall with the 24 of the font in the middle.
+    let big = marker_rect(&boxes, &layout, "e", html).expect("a big disc");
+    assert!(close(big.origin.x, 20.0), "{big:?}");
+    assert!(close(big.size.width, 24.0), "{big:?}");
+    assert!(close(big.origin.y, 63.0), "{big:?}");
+
+    // No room: the item and its text are where a list with no markers puts
+    // them.
+    let with = rect_of(&boxes, &layout, "a", html);
+    let without = rect_of(&boxes, &layout, "c", html);
+    assert!(
+        close(with.origin.x, without.origin.x),
+        "{with:?} {without:?}"
+    );
+    assert!(close(with.size.width, without.size.width));
+    assert!(close(with.size.height, without.size.height));
+    assert!(close(with.size.height, 20.0), "one line, no more: {with:?}");
+}
+
+/// The first line is found going down into the item, past a block that
+/// holds none; an item with no line draws no marker; a marker in a nested
+/// list stands against its own item's content edge.
+#[test]
+fn a_marker_finds_its_items_first_line_wherever_it_is() {
+    let html = "<body><ul><li id=a><div></div><p>First</p><p>Second</p></li>\
+                <li id=b></li>\
+                <li id=c>Make<ul><li id=d>Keep</li></ul></li></ul></body>";
+    let css = "body { font-size: 16px; line-height: 20px } ul, p { margin: 0 } \
+               p { padding-top: 10px }";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+
+    // The first paragraph's line starts 10 down its padding: its top at 10,
+    // the font's top 2 below that.
+    let a = marker_rect(&boxes, &layout, "a", html).expect("a disc");
+    assert!(close(a.origin.y, 12.0), "{a:?}");
+    assert_eq!(marker_rect(&boxes, &layout, "b", html), None, "no line");
+    // "Make" stands after the 60 of the first item (two paragraphs, 30 each)
+    // and the empty one; the nested item's content edge is 40 further in.
+    let c = marker_rect(&boxes, &layout, "c", html).expect("a disc");
+    let d = marker_rect(&boxes, &layout, "d", html).expect("a circle");
+    assert!(close(c.origin.y, 62.0), "{c:?}");
+    assert!(close(c.origin.x, 24.0), "{c:?}");
+    assert!(close(d.origin.y, 82.0), "{d:?}");
+    assert!(close(d.origin.x, 64.0), "{d:?}");
 }
 
 #[test]

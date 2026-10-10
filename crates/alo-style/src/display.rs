@@ -14,6 +14,11 @@
 //! parses into, and the single keywords are the shorthands for it that they
 //! actually are.
 //!
+//! It is read here, where style is computed, rather than where boxes are
+//! made: whether an element is a list item decides whether it makes a
+//! `::marker`, and that is decided while its style is (ADR 0044 § 1). The box
+//! tree reads the same reading, re-exported from `alo-box`.
+//!
 //! **No table values.** `docs/features.md` puts CSS-table layout in stage 3.
 //! `display: table` is refused rather than approximated, and the box falls back
 //! to the initial value with the refusal recorded, because a table laid out as
@@ -60,9 +65,8 @@ pub enum Display {
         outside: Outside,
         /// How it arranges its children.
         inside: Inside,
-        /// Whether it is a list item. Stage 1 draws no marker for one — that
-        /// is `::marker`, and no pseudo-element is produced — so this changes
-        /// nothing about the box today and is recorded so that it can.
+        /// Whether it is a list item, which makes a `::marker` unless its
+        /// `list-style-type` is `none` (ADR 0044 § 1, [`crate::marker`]).
         list_item: bool,
     },
 }
@@ -172,6 +176,18 @@ impl Display {
     /// Whether the box sits in a line with the text around it.
     pub fn is_inline_level(self) -> bool {
         self.outside() == Some(Outside::Inline)
+    }
+
+    /// Whether the box is a list item, and so makes a `::marker` unless its
+    /// `list-style-type` is `none` (ADR 0044 § 1).
+    pub fn is_list_item(self) -> bool {
+        matches!(
+            self,
+            Display::Box {
+                list_item: true,
+                ..
+            }
+        )
     }
 
     /// Whether the box takes a line of its own.
@@ -305,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    fn a_list_item_is_a_block_that_would_have_had_a_marker() {
+    fn a_list_item_is_a_block_that_says_it_is_one() {
         assert_eq!(parsed("list-item"), "block flow list-item");
         assert_eq!(parsed("inline list-item"), "inline flow list-item");
         assert_eq!(parsed("block flow list-item"), "block flow list-item");

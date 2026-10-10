@@ -25479,3 +25479,119 @@ line to claim this would be decoration. Also updated: `docs/features.md`
 177 queue items are open (404–409 added open). The next unused queue
 number is **410** and the next ADR is **0045**. This is one iteration, not
 a finished queue or roadmap.
+
+
+## Iteration 263 — queue item 401 built: a list item draws its marker
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and stage 2's CSS and text groups), `REMAINING.md`'s continuation and
+iterations 261 and 262. No `AGENTS.md` exists in this repository. For 401:
+its queue entry and 402–409, ADR 0044 whole (§ 6 is what closes it), ADR
+0043 whole (§§ 1–2 are what it follows), `docs/features.md`' marker line,
+and the code ADR 0044 names: `alo-css`'s `selector.rs`, `shorthand.rs`,
+`longhand.rs` and `properties.rs`; `alo-style`'s `computed.rs`,
+`pseudo.rs`, `cascade.rs` and `user_agent.rs`; `alo-box`'s `display.rs`
+and `tree.rs`; `alo-layout`'s `engine.rs`, `baseline.rs`, `inline.rs` and
+`measure.rs`; `alo-paint`'s `build.rs`; `alo-agent`'s `name.rs` and
+`tree.rs`; `alo-renderer`'s `snapshot.rs` and `wire.rs`; the case's page
+and the placeholder commit (`6cb5732`) as the pattern a pseudo-element is
+built by.
+
+**Choosing.** Iteration 262 left 401 decided, buildable and depending on
+nothing open, with every other open item blocked on dependencies, design,
+an ADR's code half or a page. It is the first eligible item.
+
+**What was built.** `alo-css`: `::marker` is produced; `list-style` is
+split as it is written (`list_style.rs`, by kind). `alo-style`:
+`display.rs` moved here from `alo-box` and re-exported there, because
+ADR 0044 § 1 holds "is this a list item" where style is computed and the
+box tree must read the same reading; `marker.rs` (whether an element makes
+a marker; the five styles; refusals by name, once per reason);
+`ordinal.rs` (HTML § 4.4.8 and its integer rules); `::marker`'s style
+computed as the item's child, reading `color` and four font properties;
+`StyleTree::marker_text`; HTML's nested `circle` and `square` (inner
+`menu` and `ul` only — the ADR's sentence reads as including `ol`, and
+HTML's rule, which the ADR cites, does not; the rule was taken as HTML
+writes it). `alo-box`: the marker is a text box first in its item.
+`alo-layout`: kept out of `taffy`, every line and the flow-children
+readings, and stood on the first line's baseline by `marker.rs`. The
+symbol rule reads the ascent as a whole pixel, as Chromium's
+`FontMetrics::Ascent()` does, since the ADR's rule is Chromium's; with
+DejaVu Sans at 16 px that is 15 and the disc stands 18 before the line.
+`alo-agent`: the `marker` property, never in a name or as text; the
+renderer's snapshot and wire carry it. Nothing cut beyond ADR 0044's
+404–409; 409 now also names an inline list item.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log.
+The first run failed on two things this change caused: clippy's
+`doc_markdown` on "DejaVu" in a new test comment, and `alo-agent`'s
+`reading_an_interface.rs`, whose invoice rows now carry their markers.
+Both fixed; the second run failed on `alo-renderer`'s
+`a_script_at_its_own_end_tag.rs` for the same reason (a script-inserted
+row's marker), and a `--no-fail-fast` run of the whole workspace showed it
+was the only one left. Fixed. The third run was moved to the background by
+the harness at 600 s and waited on in a foreground `until` loop; it read
+`exit 0` and "The gate is met", every section `ok`, no `FAILED` or
+`panicked` in the log. This entry and the commit came after that run and
+are documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `numbers.rs` (2 new, worked by hand with
+  the scaled font: disc at 24 and "3." ending at 40 for a 40 px indent,
+  each on its line's top; a 24 px disc at 20, where its 24 width would
+  have put it at 16; no room taken; the first line found through an empty
+  block and a padded paragraph; a nested marker against its own edge; no
+  line, no marker) and `tests/alo_sites_rich_text.rs` (each marker's box
+  from DejaVu Sans' ascent, 1901/2048 of an em).
+- Reference render: `alo-sites-rich-text`'s picture, looked at beside the
+  old one, gains a disc beside "Choose one useful outcome", "Make the next
+  step visible" and "Publish", a circle beside "Keep supporting detail
+  nested", and "3." and "4." beside "Draft" and "Review", and nothing else
+  moved; its test checks ink in each marker's place and none before it or
+  in its gap. `invoice-list`, `a-script-grows-a-list` and
+  `a-script-beside-itself` (a list padded 0) gain discs hanging past the
+  list's edge at -4, as a browser hangs them, each looked at. In all four,
+  every pre-existing `layout.txt` number is unchanged; only marker lines
+  were added. The ten cases whose sheet writes `list-style: none` did not
+  move. `alo-window`'s composed references did not move.
+- Mutations (copies in the scratchpad, restored with `cp`, checked with
+  `cmp`, the workspace rebuilt after): no symbol rule fails `numbers.rs`
+  (only after the 24 px item was added — at 16 px the scaled font's disc
+  width and the rule agree, which the first run of the mutation exposed)
+  and the case's numbers; names reading the marker fail the case's agent
+  test; `list-style` left whole moves five alo Sites cases.
+- Hostile input: `start` and `value` of 100 000 digits, `-2147483649`,
+  `2147483647` counted past, a reversed list of 100 000 items, text and a
+  non-ASCII space (`ordinal.rs`); `list-style` 10 000 functions deep,
+  100 000 bytes, 10 000 `none`s, unbalanced parentheses and quotes
+  (`list_style.rs`): each read or refused, none panicked on.
+- One responsibility per file: `list_style.rs`, `ordinal.rs`, and the two
+  `marker.rs` each hold one thing; `display.rs` moved whole with the same
+  one. `computed.rs` gained `write_markers`, the step that stores what
+  `marker.rs` and `ordinal.rs` answer — judged part of computing the style
+  tree, as computing `::placeholder`'s style there is; a reviewer may
+  disagree.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` in each is clean.
+
+**Queue.** 401 ticked with its *Done* paragraph; 409 widened. **Roadmap:
+no line moved, and why.** No stage 2 line names lists, markers or
+generated content — "CSS beyond what alo needed" lists animations,
+container queries, filters, sticky and writing modes — and stage 1's
+ticked *Computed style*, *Layout* and *Paint* lines are not reopened by
+this; adding a line to claim it would be decoration, as iterations 260–262
+found. Also updated: `docs/features.md` (the marker line),
+`docs/conformance.md` (the rich-text sentence), `REMAINING.md` and
+`CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 404–409 wait for pages; 403 and 383 wait for pages.
+- A list whose markers are wider than its indent, or a right-to-left list,
+  is drawn as § 4 says and has not been compared with a browser on a real
+  page; none is frozen.
+- Everything iteration 262 listed still stands.
+
+176 queue items are open (401 closed). The next unused queue number is
+**410** and the next ADR is **0045**. This is one iteration, not a
+finished queue or roadmap.
+

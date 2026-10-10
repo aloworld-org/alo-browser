@@ -29,7 +29,6 @@
 //! make a box's meaning depend on where it landed, which is the failure this
 //! whole ordering exists to prevent.
 
-pub mod display;
 pub mod line_break;
 pub mod natural;
 pub mod role;
@@ -39,7 +38,10 @@ pub mod svg;
 pub mod tree;
 pub mod whitespace;
 
-pub use display::{Display, Inside, Outside};
+/// `display` is read where style is computed, because whether an element is a
+/// list item decides whether it makes a `::marker` there (ADR 0044 § 1); the
+/// box tree reads the same reading.
+pub use alo_style::display::{self, Display, Inside, Outside};
 pub use natural::NaturalSize;
 pub use role::{KnownRole, Role};
 pub use semantics::Semantics;

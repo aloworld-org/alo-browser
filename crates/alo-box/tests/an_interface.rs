@@ -74,10 +74,13 @@ block flow · document
           text \"Due\"
       block flex · list
         block flow list-item · listitem
+          text \"• \" · ::marker
           text \"Invoice 11\"
         block flow list-item · listitem [selected=true]
+          text \"• \" · ::marker
           text \"Invoice 12\"
         block flow list-item · listitem
+          text \"• \" · ::marker
           text \"Invoice 13\"
       block flow · form \"New invoice\"
         inline flow · generic
@@ -146,12 +149,19 @@ fn an_agent_can_find_the_selected_row_by_what_it_is_rather_than_where() {
 
     // And what it says, which is the other half of ADR 0002's sentence.
     let row = rows.get(1).copied().expect("the selected row");
+    // Its marker is beside it and not what it says (ADR 0044 § 5).
     let text: String = tree
         .descendants(row)
         .into_iter()
+        .filter(|id| !tree.is_marker(*id))
         .filter_map(|id| tree.get(id).and_then(alo_box::BoxNode::text))
         .collect();
     assert_eq!(text, "Invoice 12");
+    let marker = tree
+        .marker_of(row)
+        .and_then(|id| tree.get(id))
+        .and_then(alo_box::BoxNode::text);
+    assert_eq!(marker, Some("• "));
 }
 
 #[test]

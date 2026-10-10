@@ -1378,3 +1378,15 @@ room, and read by an agent as the item's `marker` property. No code; 401
 stays open, decided and buildable next. Cut, each waiting for a page:
 404–409. 177 queue items are open (404–409 added open). The next unused
 queue number is 410 and the next unused ADR 0045.
+
+Iteration 263 built item 401: a list item draws its `::marker`. `list-style`
+is split in `alo-css`; `alo-style` reads `display` (its file moved from
+`alo-box`), decides which elements make a marker, numbers them by HTML's
+ordinal value and writes the five counter styles; `alo-box` makes the
+marker a text box first in its item; `alo-layout` keeps it out of every
+line and stands it outside the item's first line; an agent reads it as the
+item's `marker`. Four case references moved, each only a marker appearing;
+the ten alo Sites copies that write `list-style: none` did not. Nothing
+cut beyond 404–409, and 409 now names an inline list item. 176 queue items
+are open (401 closed). The next unused queue number is 410 and the next
+unused ADR 0045.

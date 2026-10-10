@@ -47,6 +47,7 @@ pub mod geometry;
 pub mod inline;
 pub mod keyword;
 pub mod legend;
+pub(crate) mod marker;
 pub mod measure;
 pub mod placement;
 pub mod replaced;

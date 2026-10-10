@@ -68,6 +68,8 @@ fn a_node(children: Vec<SnapshotNode>) -> SnapshotNode {
         // A field's hint crosses too, so the outline on the far side reads
         // as the tree did (ADR 0043 § 5).
         placeholder: Some("you@company.eu".to_owned()),
+        // And a list item's marker (ADR 0044 § 5).
+        marker: Some("3.".to_owned()),
         rect: a_rect(),
         // Two pieces, so the round trip carries a wrapped inline rather than
         // only the easy case of one rectangle.

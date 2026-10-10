@@ -199,8 +199,9 @@ impl NonTSPseudoClassTrait for PseudoClass {
 
 /// The pseudo-elements a style sheet may name.
 ///
-/// **One of them is produced: `::placeholder`** (ADR 0043), styled as its
-/// field's child. The rest are parsed so that a rule naming one does not take
+/// **Two of them are produced: `::placeholder`** (ADR 0043), styled as its
+/// field's child, **and `::marker`** (ADR 0044), styled as its list item's.
+/// The rest are parsed so that a rule naming one does not take
 /// the rest of the style sheet down with it, and the rule is recorded as
 /// targeting something that does not exist rather than silently doing
 /// nothing. Each is produced when a page opens it, by ADR 0043's §§ 1–2.
@@ -242,11 +243,11 @@ impl PseudoElement {
     /// Whether this engine makes a box for this pseudo-element, and so
     /// computes a style for it (ADR 0043 § 1).
     ///
-    /// Only `::placeholder`. A rule naming any other is kept, matches
-    /// nothing, and is recorded as `PseudoElementNotProduced`, so a page
-    /// that wants `::before` says so in its issues.
+    /// Only `::placeholder` and `::marker`. A rule naming any other is
+    /// kept, matches nothing, and is recorded as `PseudoElementNotProduced`,
+    /// so a page that wants `::before` says so in its issues.
     pub fn is_produced(self) -> bool {
-        self == PseudoElement::Placeholder
+        matches!(self, PseudoElement::Placeholder | PseudoElement::Marker)
     }
 
     /// The name, with its two leading colons.
@@ -667,19 +668,13 @@ mod tests {
     }
 
     #[test]
-    fn only_the_placeholder_is_produced() {
-        for text in [
-            "before",
-            "after",
-            "marker",
-            "selection",
-            "first-line",
-            "first-letter",
-        ] {
+    fn only_the_placeholder_and_the_marker_are_produced() {
+        for text in ["before", "after", "selection", "first-line", "first-letter"] {
             let element = PseudoElement::from_name(text).expect("a name we listed");
             assert!(!element.is_produced(), "{text}");
         }
         assert!(PseudoElement::Placeholder.is_produced());
+        assert!(PseudoElement::Marker.is_produced());
     }
 
     #[test]

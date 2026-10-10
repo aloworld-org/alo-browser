@@ -15,10 +15,10 @@
 //! **No tables.** `docs/features.md` puts CSS-table layout in stage 3, so
 //! `<table>` has no defaults here rather than defaults that do not work.
 //!
-//! **No `::before` or `::after`.** The one pseudo-element this engine
-//! produces is a field's `::placeholder` (ADR 0043), so there is nothing to
-//! give content to — including list markers, which is why `list-item` appears
-//! without one.
+//! **No `::before` or `::after`.** The pseudo-elements this engine produces
+//! are a field's `::placeholder` (ADR 0043) and a list item's `::marker`
+//! (ADR 0044), so there is nothing to give content to. A marker's text comes
+//! from `list-style-type` and the item's number, not from `content`.
 
 /// The engine's style sheet, as CSS text.
 ///
@@ -83,6 +83,12 @@ dd { margin-left: 40px }
 
 ul, ol, menu { display: block; list-style-type: disc }
 ol { list-style-type: decimal }
+/* A bulleted list inside a list is drawn with hollow circles, and one inside
+ * that with squares: HTML's rendering section, whose inner lists are `menu`
+ * and `ul` only, so a numbered list keeps its numbers however deep it is
+ * (ADR 0044 § 2; obsolete `dir` left out). */
+:is(menu, ol, ul) :is(menu, ul) { list-style-type: circle }
+:is(menu, ol, ul) :is(menu, ol, ul) :is(menu, ul) { list-style-type: square }
 li { display: list-item }
 dl { display: block }
 dt { display: block }
@@ -334,6 +340,27 @@ mod tests {
             computed(html, "inner", "padding-left").as_deref(),
             Some("40px")
         );
+    }
+
+    #[test]
+    fn a_bulleted_list_in_a_list_is_circled_and_one_deeper_squared() {
+        let html = "<ul id=one><li><ul id=two><li><ul id=three><li><menu id=four></menu>\
+                    </ul></ul></ul><ol id=n1><li><ol id=n2><li><ul id=b3></ul></ol></ol>";
+        for (id, kind) in [
+            ("one", "disc"),
+            ("two", "circle"),
+            ("three", "square"),
+            ("four", "square"),
+            ("n1", "decimal"),
+            ("n2", "decimal"),
+            ("b3", "square"),
+        ] {
+            assert_eq!(
+                computed(html, id, "list-style-type").as_deref(),
+                Some(kind),
+                "{id}"
+            );
+        }
     }
 
     #[test]

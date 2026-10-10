@@ -29,6 +29,10 @@ const IN_FILE: &[(&str, &[&str])] = &[("computed.rs", &["parse"])];
 /// a `{side}` in one stands for all four sides.
 const INDIRECT: &[&str] = &[];
 
+/// Names read only to say they are not applied, as written in the source: a
+/// marker with a picture is not drawn (ADR 0044, item 405).
+const REFUSED: &[&str] = &["list-style-image"];
+
 /// Every `.rs` file under `dir`, with its path relative to `root`.
 fn sources(root: &Path, dir: &Path) -> Option<Vec<(String, String)>> {
     let mut found = Vec::new();
@@ -85,7 +89,7 @@ fn every_property_it_reads_is_listed_with_it_and_nothing_else_is() {
             "{file} is not in src/"
         );
     }
-    for name in INDIRECT {
+    for name in INDIRECT.iter().chain(REFUSED) {
         let quoted = format!("\"{name}\"");
         assert!(
             files.iter().any(|(_, text)| text.contains(&quoted)),
@@ -93,6 +97,13 @@ fn every_property_it_reads_is_listed_with_it_and_nothing_else_is() {
         );
     }
     read.extend(INDIRECT.iter().flat_map(|name| expanded(name)));
+    for name in REFUSED {
+        assert!(
+            !properties::is_supported(name),
+            "{name} is refused, not acted on"
+        );
+        read.remove(*name);
+    }
     let listed: BTreeSet<String> = properties::read_by(Reader::Style)
         .map(str::to_owned)
         .collect();

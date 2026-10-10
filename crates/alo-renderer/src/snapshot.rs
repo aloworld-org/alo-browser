@@ -40,6 +40,8 @@ pub struct SnapshotNode {
     pub states: States,
     /// The hint a field gives while it holds nothing (ADR 0043 § 5).
     pub placeholder: Option<String>,
+    /// The marker a list item is drawn with — `3.`, `•` (ADR 0044 § 5).
+    pub marker: Option<String>,
     /// Where it is on the page: the union of [`SnapshotNode::rects`].
     ///
     /// Useful for *roughly where is this*, and wrong for anything that has to
@@ -120,6 +122,7 @@ fn describe(node: &alo_agent::AgentNode<'_>) -> SnapshotNode {
         name: node.name(),
         states: node.states(),
         placeholder: node.placeholder(),
+        marker: node.marker(),
         rects: node.rects(),
         rect: node.rect(),
         offscreen: node.is_offscreen(),
@@ -160,6 +163,7 @@ impl fmt::Display for SnapshotNode {
             self.name.as_deref(),
             &self.states,
             self.placeholder.as_deref(),
+            self.marker.as_deref(),
         )
     }
 }

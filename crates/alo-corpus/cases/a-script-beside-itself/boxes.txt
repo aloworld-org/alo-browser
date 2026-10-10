@@ -5,8 +5,11 @@ block flow · document
         text "Inbox"
       block flow · list "Messages"
         block flow list-item · listitem
+          text "• " · ::marker
           text "Older"
         block flow list-item · listitem
+          text "• " · ::marker
           text "From the script"
         block flow list-item · listitem
+          text "• " · ::marker
           text "Newer"

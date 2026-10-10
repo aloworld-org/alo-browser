@@ -12,20 +12,26 @@ block flow · document
       text "Start with the essentials"
     block flow · list
       block flow list-item · listitem
+        text "• " · ::marker
         text "Choose one useful outcome"
       block flow list-item · listitem
+        text "• " · ::marker
         anonymous block
           text "Make the next step visible "
         block flow · list
           block flow list-item · listitem
+            text "◦ " · ::marker
             text "Keep supporting detail nested"
     block flow · list
       block flow list-item · listitem
+        text "3. " · ::marker
         text "Draft"
       block flow list-item · listitem
+        text "4. " · ::marker
         text "Review"
     block flow · list
       block flow list-item · listitem
+        text "• " · ::marker
         inline flow · generic
           text "Publish"
     block flow · blockquote

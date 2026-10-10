@@ -278,6 +278,15 @@ pub struct BoxTree {
     /// an agent never reads it as text. A side set for [`BoxTree::breaks`]'
     /// reason.
     placeholders: BTreeSet<BoxId>,
+    /// The boxes that are a list item's `::marker`: the bullet or number
+    /// beside it (ADR 0044 § 4).
+    ///
+    /// A text box, first among its item's children, that takes no room in
+    /// the item: layout leaves it out of the item's flow and stands it
+    /// outside the item's first line afterwards. Set in the pseudo-element's
+    /// style, and read by an agent as the item's `marker` rather than as
+    /// text. A side set for [`BoxTree::breaks`]' reason.
+    markers: BTreeSet<BoxId>,
 }
 
 impl BoxTree {
@@ -348,6 +357,25 @@ impl BoxTree {
         self.placeholders.contains(&id)
     }
 
+    /// Whether a box is a list item's `::marker`, which stands outside the
+    /// item's first line and takes no room in it.
+    ///
+    /// Layout asks it so that the marker joins no line and is placed beside
+    /// one, and the agent tree so that it reads the marker as the item's
+    /// property rather than as text (ADR 0044 §§ 4–5).
+    pub fn is_marker(&self, id: BoxId) -> bool {
+        self.markers.contains(&id)
+    }
+
+    /// The marker box of the list item `id`, if it has one.
+    pub fn marker_of(&self, id: BoxId) -> Option<BoxId> {
+        self.get(id)?
+            .children
+            .first()
+            .copied()
+            .filter(|child| self.is_marker(*child))
+    }
+
     /// One box.
     pub fn get(&self, id: BoxId) -> Option<&BoxNode> {
         self.boxes.get(id.0)
@@ -386,11 +414,18 @@ impl BoxTree {
     /// [`None`] only for a box with no styled element above it at all, which is
     /// a box outside any document — a tree built for a test.
     pub fn nearest_style<'s>(&self, styles: &'s StyleTree, id: BoxId) -> Option<&'s ComputedStyle> {
-        if self.is_placeholder(id)
+        let pseudo = if self.is_placeholder(id) {
+            Some(PseudoElement::Placeholder)
+        } else if self.is_marker(id) {
+            Some(PseudoElement::Marker)
+        } else {
+            None
+        };
+        if let Some(pseudo) = pseudo
             && let Some(style) = self
                 .get(id)
                 .and_then(|node| node.kind.node())
-                .and_then(|field| styles.pseudo(field, PseudoElement::Placeholder))
+                .and_then(|element| styles.pseudo(element, pseudo))
         {
             return Some(style);
         }
@@ -447,6 +482,7 @@ impl BoxTree {
             legends: BTreeMap::new(),
             breaks: BTreeSet::new(),
             placeholders: BTreeSet::new(),
+            markers: BTreeSet::new(),
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -486,6 +522,9 @@ impl BoxTree {
                 write!(out, "text {text:?}")?;
                 if self.is_placeholder(id) {
                     out.push_str(" · ::placeholder");
+                }
+                if self.is_marker(id) {
+                    out.push_str(" · ::marker");
                 }
             }
             BoxKind::Anonymous { outside, .. } => {
@@ -647,6 +686,7 @@ pub fn build(document: &Document, styles: &StyleTree) -> BoxTree {
         legends: BTreeMap::new(),
         breaks: BTreeSet::new(),
         placeholders: BTreeSet::new(),
+        markers: BTreeSet::new(),
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),
@@ -839,6 +879,20 @@ fn build_one(
                 arranged.retain(|child| *child != legend);
                 arranged.insert(0, legend);
                 tree.legends.insert(box_id, legend);
+            }
+            // A list item's marker, first, after the children are arranged:
+            // it joins none of their lines and no anonymous block, because
+            // it stands outside the item's first line (ADR 0044 § 4).
+            if let Some(text) = styles.marker_text(id) {
+                let marker = tree.push(
+                    BoxKind::Text {
+                        node: id,
+                        text: text.to_owned(),
+                    },
+                    Semantics::anonymous(),
+                );
+                tree.markers.insert(marker);
+                arranged.insert(0, marker);
             }
             tree.adopt(box_id, &arranged);
             vec![box_id]
@@ -1741,6 +1795,51 @@ mod tests {
         // A hostile hint is shown without a panic.
         let long = format!("<input placeholder='{}'>", "x".repeat(100_000));
         assert_eq!(hints(&long).first().map(String::len), Some(100_000));
+    }
+
+    /// ADR 0044 § 4: a list item that draws a marker has it as its first
+    /// box, a text box set in `::marker`'s style, before any anonymous block
+    /// its children were wrapped in; one that makes none, or draws none, has
+    /// none.
+    #[test]
+    fn a_list_items_marker_is_its_first_box_and_joins_no_block() {
+        let html = "<ul><li>one<li>two<ul><li>three</ul></ul><ol start=3><li>Draft</ol>\
+                    <ul class=bare><li>four</ul><ol class=roman><li>five</ol>";
+        let css = ".bare { list-style: none } .roman { list-style-type: upper-roman } \
+                   li::marker { color: #b4532a }";
+        let tree = boxes(html, css);
+        let root = tree.root().expect("a root");
+        let markers: Vec<(BoxId, String)> = tree
+            .descendants(root)
+            .into_iter()
+            .filter(|id| tree.is_marker(*id))
+            .filter_map(|id| Some((id, tree.get(id)?.text()?.to_owned())))
+            .collect();
+        let texts: Vec<&str> = markers.iter().map(|(_, text)| text.as_str()).collect();
+        assert_eq!(texts, ["• ", "• ", "◦ ", "3. "]);
+        for (marker, _) in &markers {
+            let item = tree.get(*marker).and_then(|node| node.parent);
+            assert_eq!(item.and_then(|item| tree.marker_of(item)), Some(*marker));
+        }
+        // "two" sits beside a block, so it is wrapped; the marker is not.
+        let outline = tree.to_outline();
+        assert!(outline.contains("text \"• \" · ::marker"), "{outline}");
+        // Set in its own style, not its item's.
+        let document = parse_document("<ul><li>a</ul>");
+        let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
+        let author = parse_stylesheet("li { color: #102a43 } li::marker { color: #b4532a }");
+        let sheets = [
+            SourcedSheet::new(Origin::UserAgent, &agent),
+            SourcedSheet::new(Origin::Author, &author),
+        ];
+        let styles = resolve(&document, &sheets, &MediaContext::default());
+        let tree = build(&document, &styles);
+        let marker = tree.ids().find(|id| tree.is_marker(*id)).expect("a marker");
+        let colour = tree
+            .nearest_style(&styles, marker)
+            .and_then(|style| style.color("color"))
+            .map(alo_value::Rgba::to_rgba8);
+        assert_eq!(colour, Some((0xb4, 0x53, 0x2a, 255)));
     }
 
     #[test]

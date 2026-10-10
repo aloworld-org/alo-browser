@@ -7484,7 +7484,7 @@ The long pole, and the thing most of section E is unreachable without.
   removed fails the sheet's edit test. No other case's reference moved.
   The case also found 401 and 402.
 
-- [ ] **401. A list item's marker.** *Opened by `alo-sites-rich-text`
+- [x] **401. A list item's marker.** *Opened by `alo-sites-rich-text`
   (iteration 260). Feature: `docs/features.md` stage 2, "A list item's
   marker". **Needs ADR**, which ADR 0043 left to the first page that wants
   a `::marker`: what makes one and what its box is.* Not one list on the
@@ -7527,6 +7527,58 @@ The long pole, and the thing most of section E is unreachable without.
   drawn text, trailing space trimmed — never the marker in the name or as
   a node. Closing conditions are ADR 0044 § 6. Cut, each waiting for a
   page: 404–409. Buildable next; depends on nothing open.
+  **Done (iteration 263).** `alo-css`: `::marker` is produced
+  (`is_produced`), and `list-style` is split into its three longhands as it
+  is written (`list_style.rs`, by kind, `none` to whichever of the type and
+  image is free, `var()` left whole); `alo-css`'s list names `alo-style` as
+  reader of `display`, `list-style-type` and `list-style-position`
+  (`list-style-image` is read only to be refused). `alo-style`: `display.rs`
+  moved here from `alo-box` (re-exported there) so whether an element is a
+  list item is read once; `marker.rs` (`makes_one`, the five styles, a name
+  nothing defines `decimal`, an unbuilt style, a string, `inside` and an
+  image refused by name, said once per reason); `ordinal.rs` (HTML § 4.4.8:
+  list owner, `start`, `reversed`, `value`, rules for parsing integers, past
+  an `i32` absent, saturating); `pseudo.rs` reads `color` and
+  `font-family`, `font-size`, `font-style` and `font-weight` on `::marker`
+  and says the rest of CSS Lists 3 § 3.2's list; the computed style tree
+  holds `::marker`'s style for an item that makes one and
+  `StyleTree::marker_text` for one drawn; the user-agent sheet gains HTML's
+  nested `circle` and `square` (inner `menu` and `ul` only, so a nested
+  `ol` keeps its numbers). `alo-box`: the marker is a text box first among
+  the item's children, after they are arranged (`is_marker`, `marker_of`,
+  `nearest_style` answering `::marker`'s style). `alo-layout`: the engine
+  leaves it out of `taffy`, every line and every flow-children reading,
+  and `marker.rs` stands it on the item's first line's baseline, a number
+  ending at the content edge and a symbol `⌊round(ascent) × 2 / 3⌋ + 8`
+  before it (Chromium's whole-pixel ascent, which is what its rule reads);
+  an item with no line draws none and says so. `alo-agent`: the item's
+  `marker` property, outlined `[marker="3."]` after any placeholder, never
+  in a name or as text; carried by `alo-renderer`'s snapshot and wire.
+  Tests: `list_style.rs` (7), `longhand.rs` (1 more assertion),
+  `selector.rs` (1 changed), `user_agent.rs` (1), `pseudo.rs` (1),
+  `marker.rs` (4), `ordinal.rs` (7, the hostile `start`s and `value`s
+  among them), `tests/a_marker.rs` (4, an author's `::marker { color }`
+  beating the item's), `alo-box`'s `tree.rs` (1) and `an_interface.rs`
+  (the invoice rows' markers), `numbers.rs` (2 new, worked by hand with
+  the scaled font, a 24 px disc among them so the symbol rule and the
+  disc's width cannot agree by chance; the small interface's outline gains
+  its markers), `messages_across_a_boundary.rs` (a marker crosses), and
+  `tests/alo_sites_rich_text.rs` (3: each marker's box from DejaVu Sans'
+  metrics — discs and the circle 18 before the edge, "3." and "4." ending
+  at it, each on its first line; ink in each marker's place and none
+  before it or in its gap; the outline's `[marker=…]` and unchanged
+  names). Mutations, each restored from a copy: layout without the symbol
+  rule fails `numbers.rs` and the case's numbers; names reading the marker
+  fail the case's agent test; `list-style` left whole moves five alo Sites
+  cases. Four cases moved, each a marker appearing and no other number:
+  `alo-sites-rich-text`, `invoice-list`, `a-script-grows-a-list` and
+  `a-script-beside-itself` (the last three pad their list 0, so the discs
+  hang past its edge at -4, as a browser hangs them); every case whose
+  sheet writes `list-style: none` is unchanged. Two expectations outside
+  the corpus moved the same way, each reviewed: `alo-agent`'s
+  `reading_an_interface.rs` (the invoice rows read `[marker="•"]`) and
+  `alo-renderer`'s `a_script_at_its_own_end_tag.rs` (the row a script
+  inserts has its marker as the parsed rows do).
 
 - [x] **402. `font-weight: bold` is drawn bold.** *Found by
   `alo-sites-rich-text` (iteration 260). Feature: `docs/features.md` stage
@@ -7617,7 +7669,9 @@ The long pole, and the thing most of section E is unreachable without.
 - [ ] **409. A list item with no line.** *Cut from 401 by ADR 0044 § 4.
   Waits for a page.* An item holding no line box — empty, or only a
   replaced or flex box — has no baseline for an outside marker to stand
-  on, and draws none until a page shows where a browser puts it. *Closes
+  on, and draws none until a page shows where a browser puts it; layout
+  says so. An `inline list-item` is one too: an inline box holds no line
+  of its own, and one broken around a block makes no marker box at all. *Closes
   when:* a frozen page's line-less item draws its marker where a browser
   does, in numbers.
 

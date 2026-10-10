@@ -19,6 +19,8 @@
 //!
 //! A shorthand whose parts are told apart by *kind* — `border`, `background`,
 //! `font` — is not here: that is parsing, and it is `alo_value::shorthand`'s.
+//! The one of those split as it is written, `list-style`, is split by
+//! [`crate::list_style`], and [`expand`] hands it there.
 
 use crate::declaration::Declaration;
 
@@ -109,6 +111,9 @@ pub(crate) fn expand(declaration: &Declaration) -> Vec<(String, String)> {
     }
     if let Some((_, longhands)) = GAPS.iter().find(|(shorthand, _)| *shorthand == name) {
         return one_or_two(longhands, value);
+    }
+    if name == "list-style" {
+        return crate::list_style::split(value);
     }
     Vec::new()
 }

@@ -220,8 +220,9 @@ fn gather(boxes: &BoxTree, id: BoxId, out: &mut String) {
     let Some(node) = boxes.get(id) else {
         return;
     };
-    // A field's hint is not text in it (ADR 0043 § 5).
-    if boxes.is_placeholder(id) {
+    // A field's hint is not text in it (ADR 0043 § 5), and a list item's
+    // marker is not what the item says (ADR 0044 § 5).
+    if boxes.is_placeholder(id) || boxes.is_marker(id) {
         return;
     }
     let is_block = node.kind.outside() == alo_box::Outside::Block;

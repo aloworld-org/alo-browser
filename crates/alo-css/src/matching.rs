@@ -14,8 +14,9 @@
 //! - **A selector that names a pseudo-element never matches an element.** It
 //!   matches the pseudo-element an element makes, which only
 //!   [`MatchContext::matches_pseudo`] asks, and only for one this engine
-//!   produces (ADR 0043 § 1): `::placeholder`. For every other, the style
-//!   sheet was told when it was parsed that it matches nothing.
+//!   produces (ADR 0043 § 1): `::placeholder` and `::marker`. For every
+//!   other, the style sheet was told when it was parsed that it matches
+//!   nothing.
 //! - **An interaction state never matches.** Nobody is hovering a document
 //!   being rendered to a PNG. `:hover` parses so that a style sheet survives;
 //!   it matches when there is input, which is not stage 1.

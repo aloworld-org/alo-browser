@@ -233,10 +233,12 @@ impl LaidOut<'_> {
     }
 
     /// The children that take part in this box's own layout: everything but
-    /// an absolutely positioned box.
+    /// an absolutely positioned box and a list item's marker, which stands
+    /// beside a line rather than in one (ADR 0044 § 4).
     fn in_flow_children(&self, id: BoxId) -> Vec<BoxId> {
         self.boxes
             .children(id)
+            .filter(|child| !self.boxes.is_marker(*child))
             .filter(|child| {
                 self.style_of(*child)
                     .is_none_or(|held| held.position != Positioning::Absolute)

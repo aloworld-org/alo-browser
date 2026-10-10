@@ -196,6 +196,9 @@ pub struct StyleTree {
     /// pseudo-element together (ADR 0043 § 1). An element that makes none
     /// has none kept.
     pseudo: BTreeMap<(NodeId, PseudoElement), ComputedStyle>,
+    /// What each list item's `::marker` says, for one that makes a marker
+    /// this engine draws (ADR 0044 §§ 3–4).
+    markers: BTreeMap<NodeId, String>,
     issues: Vec<StyleIssue>,
 }
 
@@ -209,9 +212,17 @@ impl StyleTree {
     /// The style of the pseudo-element `pseudo` of the element `id`, or
     /// [`None`] when that element makes no such pseudo-element — which is
     /// every element for every pseudo-element but a field's `::placeholder`
-    /// while it is shown (ADR 0043 § 2).
+    /// while it is shown (ADR 0043 § 2) and a list item's `::marker` (ADR
+    /// 0044 § 1).
     pub fn pseudo(&self, id: NodeId, pseudo: PseudoElement) -> Option<&ComputedStyle> {
         self.pseudo.get(&(id, pseudo))
+    }
+
+    /// What the list item `id`'s marker says — `"• "`, `"3. "` — or
+    /// [`None`] when it makes no marker or makes one this engine does not
+    /// draw, which was recorded as an issue (ADR 0044 § 3).
+    pub fn marker_text(&self, id: NodeId) -> Option<&str> {
+        self.markers.get(&id).map(String::as_str)
     }
 
     /// Everything the cascade refused, with the text that caused it.
@@ -340,9 +351,69 @@ pub fn resolve_admitting(
             made.current_color = resolve_color(&made, &style);
             tree.pseudo.insert((id, pseudo), made);
         }
+        // The same for a list item's marker, made by the item's own style
+        // rather than by the document (ADR 0044 § 1).
+        if crate::marker::makes_one(&style) {
+            let pseudo = PseudoElement::Marker;
+            let applicable = crate::pseudo::applicable(
+                sheets,
+                device,
+                &mut matcher,
+                id,
+                pseudo,
+                &mut tree.issues,
+            );
+            let mut made = compute_one(&applicable, &style, &mut tree.issues);
+            settle_font(&mut made, &style, root_metrics, device, faces);
+            record_computed_font(&mut made);
+            made.current_color = resolve_color(&made, &style);
+            tree.pseudo.insert((id, pseudo), made);
+        }
         tree.styles.insert(id, style);
     }
+    write_markers(document, &mut tree);
     tree
+}
+
+/// What every list item that makes a marker says, once every element is
+/// styled: an item's number depends on the items after it in a reversed
+/// list, so it cannot be known on the way down (ADR 0044 § 3).
+///
+/// A marker this engine does not draw is said once per reason, not once
+/// per item, so a long list in a roman style is one issue.
+fn write_markers(document: &Document, tree: &mut StyleTree) {
+    let makers: Vec<NodeId> = tree
+        .pseudo
+        .keys()
+        .filter(|(_, pseudo)| *pseudo == PseudoElement::Marker)
+        .map(|(id, _)| *id)
+        .collect();
+    if makers.is_empty() {
+        return;
+    }
+    let ordinals = crate::ordinal::ordinal_values(document, |id| tree.styles.get(&id));
+    let mut said = std::collections::BTreeSet::new();
+    for id in makers {
+        let Some(style) = tree.styles.get(&id) else {
+            continue;
+        };
+        // An item with no list owner — the root — counts as the first.
+        let ordinal = ordinals.get(&id).copied().unwrap_or(1);
+        match crate::marker::marker(style, ordinal) {
+            crate::marker::Marker::Drawn(text) => {
+                tree.markers.insert(id, text);
+            }
+            crate::marker::Marker::Refused(why) => {
+                if said.insert(why.clone()) {
+                    tree.issues.push(StyleIssue {
+                        kind: IssueKind::UnsupportedValue,
+                        source: format!("{why}: no marker drawn"),
+                        at: Location { line: 0, column: 0 },
+                    });
+                }
+            }
+        }
+    }
 }
 
 /// Work out the font in force on an element, now that its declarations are

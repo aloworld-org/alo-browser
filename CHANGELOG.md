@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Lists have bullets and numbers.** A bulleted list draws a bullet beside
+  each point, a list inside it hollow bullets and one inside that squares;
+  a numbered list draws its numbers, counting from where the page says it
+  starts, down when it is reversed, and from any number a point sets. Each
+  stands just outside its point's first line and no text moves for it. A
+  list a page styles `list-style: none` still has none. An agent is told
+  "this point is 3." beside what the point says, never mixed into it.
+  Lettered and roman lists, bullets inside the line and picture bullets
+  are not drawn yet, and say so (queue item 401).
+
 - **How list bullets and numbers will work is decided.** Lists still have
   no bullets or numbers. The decision (ADR 0044) says what they will be: a
   bullet, a hollow bullet for a list inside a list, or the item's number —

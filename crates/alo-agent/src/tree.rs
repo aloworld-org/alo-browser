@@ -264,6 +264,11 @@ impl<'a> AgentTree<'a> {
         if self.boxes.is_placeholder(id) {
             return false;
         }
+        // A list item's marker is beside what it says, not part of it: the
+        // item carries it as its `marker` (ADR 0044 § 5).
+        if self.boxes.is_marker(id) {
+            return false;
+        }
         if node.text().is_some_and(|text| !text.trim().is_empty()) {
             // A `<label>`'s words have already been read, as the name of the
             // control they name. Reading them again would put the same words
@@ -464,6 +469,19 @@ impl<'a> AgentNode<'a> {
             .map(str::to_owned)
     }
 
+    /// The marker a list item is drawn with, as drawn and with its trailing
+    /// space trimmed — `3.`, `•`, `◦` — or [`None`] for anything that draws
+    /// none (ADR 0044 § 5).
+    ///
+    /// A fact a screen reader is given too, which speaks it before the
+    /// point. Never part of the item's name, so an agent finds the point that
+    /// says *Draft* by what it says.
+    pub fn marker(&self) -> Option<String> {
+        let marker = self.tree.boxes.marker_of(self.id)?;
+        let text = self.tree.boxes.get(marker)?.text()?.trim_end();
+        (!text.is_empty()).then(|| text.to_owned())
+    }
+
     /// What a person would read inside it.
     ///
     /// Every piece of it: an inline box broken around a block says everything
@@ -577,8 +595,8 @@ impl<'a> AgentNode<'a> {
 }
 
 impl fmt::Display for AgentNode<'_> {
-    /// `role "name" [states placeholder="hint"]`, with the parts that say
-    /// nothing left out.
+    /// `role "name" [states placeholder="hint" marker="3."]`, with the parts
+    /// that say nothing left out.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write_described(
             f,
@@ -586,12 +604,14 @@ impl fmt::Display for AgentNode<'_> {
             self.name().as_deref(),
             &self.states(),
             self.placeholder().as_deref(),
+            self.marker().as_deref(),
         )
     }
 }
 
 /// One node as an outline line writes it: `role "name" [states
-/// placeholder="hint"]`, with the parts that say nothing left out.
+/// placeholder="hint" marker="3."]`, with the parts that say nothing left
+/// out.
 ///
 /// Public so that a description of the tree that crossed a process — the
 /// renderer's snapshot — writes the same words as the tree, and a test can
@@ -606,16 +626,24 @@ pub fn write_described(
     name: Option<&str>,
     states: &States,
     placeholder: Option<&str>,
+    marker: Option<&str>,
 ) -> fmt::Result {
     write!(f, "{role}")?;
     if let Some(name) = name {
         write!(f, " {name:?}")?;
     }
-    match (states.is_unremarkable(), placeholder) {
-        (true, None) => {}
-        (false, None) => write!(f, " [{states}]")?,
-        (true, Some(hint)) => write!(f, " [placeholder={hint:?}]")?,
-        (false, Some(hint)) => write!(f, " [{states} placeholder={hint:?}]")?,
+    let mut parts = Vec::new();
+    if !states.is_unremarkable() {
+        parts.push(states.to_string());
+    }
+    if let Some(hint) = placeholder {
+        parts.push(format!("placeholder={hint:?}"));
+    }
+    if let Some(marker) = marker {
+        parts.push(format!("marker={marker:?}"));
+    }
+    if !parts.is_empty() {
+        write!(f, " [{}]", parts.join(" "))?;
     }
     Ok(())
 }

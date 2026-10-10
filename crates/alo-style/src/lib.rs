@@ -27,8 +27,9 @@
 //!    another declared beside it; then `var()` in everything else. A cycle is
 //!    refused rather than looped.
 //! 5. **Its pseudo-elements.** Straight after the element, for one that makes
-//!    any — a field's `::placeholder` only, today — by the same four steps,
-//!    as the element's child ([`pseudo`], ADR 0043).
+//!    any — a field's `::placeholder` and a list item's `::marker`, today —
+//!    by the same four steps, as the element's child ([`pseudo`], ADR 0043;
+//!    [`marker`], ADR 0044).
 //!
 //! Document order is not an optimisation here. A child's `var(--surface)`
 //! resolves against the map its parent ended up with, so the parent has to be
@@ -51,10 +52,13 @@
 pub mod attached;
 pub mod cascade;
 pub mod computed;
+pub mod display;
 pub mod font_units;
 pub mod inheritance;
 pub mod keyword;
+pub mod marker;
 pub mod metrics;
+pub mod ordinal;
 pub mod origin;
 pub mod presentation;
 pub mod pseudo;
@@ -64,6 +68,7 @@ pub mod weight;
 
 pub use cascade::{Applicable, Contender, SourcedSheet};
 pub use computed::{ComputedStyle, StyleTree, resolve, resolve_admitting, resolve_measured};
+pub use display::{Display, Inside, Outside};
 pub use font_units::{FaceUnits, MeasureFace, NoFaces};
 pub use inheritance::inherits;
 pub use keyword::{Resolution, WideKeyword};

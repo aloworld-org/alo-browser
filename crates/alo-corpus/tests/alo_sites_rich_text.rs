@@ -11,8 +11,10 @@
 //! nested point stood 16 pixels under the point it belongs to; and it had no
 //! rule for `<s>`, so the checklist's finished task was drawn as plain text.
 //! It also found item 402: every run written `font-weight: bold` was laid out
-//! in the bold face and drawn in the regular one.
+//! in the bold face and drawn in the regular one, and item 401: not one list
+//! item had a marker.
 
+use alo_agent::AgentTree;
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
 use alo_paint::DisplayItem;
@@ -280,4 +282,123 @@ fn bold_text_is_drawn_in_the_bold_face_as_wide_as_it_was_laid_out() {
         panic!("text before the <strong>");
     };
     assert_eq!(drawn_weight(&rendering, *before), Some(400));
+}
+
+/// Each list item's border box, its marker's text and its marker's box, in
+/// document order.
+fn markers(rendering: &Rendering) -> Vec<(Rect, String, Rect)> {
+    let Some(drawing) = rendering.drawing() else {
+        return Vec::new();
+    };
+    all(rendering, "li")
+        .into_iter()
+        .filter_map(|(item, rect)| {
+            let marker = drawing.boxes.marker_of(item)?;
+            let text = drawing.boxes.get(marker)?.text()?.to_owned();
+            Some((rect, text, drawing.layout.get(marker)?.border_box))
+        })
+        .collect()
+}
+
+/// ADR 0044 § 4, worked by hand. The page is `DejaVu Sans` at 16 pixels, whose
+/// ascent is 1901/2048 of an em, 14.85, and 15 as Chromium's whole-pixel
+/// metrics have it: a disc or a circle starts ⌊15 × 2 / 3⌋ + 8 = 18 before
+/// its item's content edge, and a number ends at it. Each stands on its
+/// item's first line, in the same face as the line, so its box's top is the
+/// line's.
+#[test]
+fn each_point_has_its_marker_outside_its_first_line() {
+    let Some(rendering) = rich_text() else {
+        panic!("the case renders");
+    };
+    let found = markers(&rendering);
+    let texts: Vec<&str> = found.iter().map(|(_, text, _)| text.as_str()).collect();
+    assert_eq!(texts, ["• ", "• ", "◦ ", "3. ", "4. ", "• "]);
+    for (item, text, marker) in &found {
+        // The item has no padding, so its content edge is its border box's.
+        let start = item.origin.x;
+        if text.starts_with(char::is_numeric) {
+            assert!(
+                near(marker.origin.x + marker.size.width, start),
+                "{text} {marker:?}"
+            );
+        } else {
+            assert!(near(marker.origin.x, start - 18.0), "{text} {marker:?}");
+        }
+        assert!(
+            near(marker.origin.y, item.origin.y),
+            "{text} {marker:?} {item:?}"
+        );
+        assert!(near(marker.size.height, 18.625), "{text} {marker:?}");
+    }
+    // The second point holds a list: its marker is on its first line only.
+    let Some((holding, _, disc)) = found.get(1) else {
+        panic!("the second point: {found:?}");
+    };
+    assert!(near(holding.size.height, 2.0 * 18.625), "{holding:?}");
+    assert!(near(disc.origin.y, 185.1575), "{disc:?}");
+    // The numbers are as wide as DejaVu Sans makes "3. ", so they start
+    // 20.35 before the line.
+    let Some((_, _, three)) = found.get(3) else {
+        panic!("the third step: {found:?}");
+    };
+    assert!(near(three.origin.x, 27.648_438), "{three:?}");
+}
+
+/// Whether any pixel in the columns `left..right` of the rows of `line` is
+/// darker than mid-grey.
+fn inked(rendering: &Rendering, line: Rect, left: u32, right: u32) -> bool {
+    ink_ends(rendering, line, left, right).is_some()
+}
+
+#[test]
+fn each_marker_is_inked_where_it_stands_and_nowhere_else() {
+    let Some(rendering) = rich_text() else {
+        panic!("the case renders");
+    };
+    for (item, text, marker) in markers(&rendering) {
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a line on an 800 × 600 page"
+        )]
+        let (left, start) = (marker.origin.x.floor() as u32, item.origin.x as u32);
+        // Ink from where the marker starts to the item's edge, and none in
+        // the eight pixels before it nor in the gap its suffix leaves.
+        let Some(ends) = ink_ends(&rendering, marker, left, start) else {
+            panic!("no ink for {text:?} at {marker:?}");
+        };
+        assert!(
+            !inked(&rendering, marker, left.saturating_sub(8), left),
+            "{text:?} ink before {left}"
+        );
+        assert!(
+            ends + 3 < start,
+            "{text:?}'s ink runs to {ends}, at the line"
+        );
+    }
+}
+
+#[test]
+fn an_agent_reads_each_marker_as_a_property_and_each_point_by_what_it_says() {
+    let Some(rendering) = rich_text() else {
+        panic!("the case renders");
+    };
+    let (Some(document), Some(drawing)) = (rendering.document(), rendering.drawing()) else {
+        panic!("a document and a drawing");
+    };
+    let outline = AgentTree::new(document, &drawing.boxes, &drawing.layout).to_outline();
+    for line in [
+        "listitem \"Choose one useful outcome\" [marker=\"•\"]",
+        "listitem \"Make the next step visible Keep supporting detail nested\" [marker=\"•\"]",
+        "listitem \"Keep supporting detail nested\" [marker=\"◦\"]",
+        "listitem \"Draft\" [marker=\"3.\"]",
+        "listitem \"Review\" [marker=\"4.\"]",
+        "listitem \"Publish\" [marker=\"•\"]",
+    ] {
+        assert!(outline.contains(line), "{line} in\n{outline}");
+    }
+    // Never as text of its own, and never in a name.
+    assert!(!outline.contains("text \"•"), "{outline}");
+    assert!(!outline.contains("\"3. Draft\""), "{outline}");
 }

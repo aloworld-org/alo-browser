@@ -114,6 +114,9 @@ pub fn longhands(name: &str) -> Option<&'static [&'static str]> {
     if let Some((_, longhands)) = GAPS.iter().find(|(shorthand, _)| *shorthand == name) {
         return Some(longhands.as_slice());
     }
+    if name == "list-style" {
+        return Some(crate::list_style::LONGHANDS.as_slice());
+    }
     // A block-axis shorthand sets its logical longhands, as CSS Logical says,
     // and not the physical sides they are laid out as: removing
     // `padding-block` must not take a written `padding-top` with it.
@@ -149,6 +152,11 @@ mod tests {
             "its logical longhands, not the sides they are laid out as",
         );
         assert_eq!(longhands("gap"), Some(["row-gap", "column-gap"].as_slice()),);
+        assert_eq!(
+            longhands("list-style"),
+            Some(["list-style-position", "list-style-image", "list-style-type"].as_slice()),
+            "split by kind as it is written (ADR 0044 § 2)",
+        );
     }
 
     #[test]
