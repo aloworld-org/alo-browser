@@ -1156,8 +1156,11 @@ unreachable without it.
       which needs events
       (queue item 81) — constraint validation, submission, file inputs — the
       focus ring, which needs something to have focus (queue item 43); and
-      what an empty date or time field shows, its format in the person's
-      locale and a calendar button, which needs an ADR (queue item 385)
+      what an empty date field shows, **decided** by ADR 0042 and not built
+      (queue item 385: `yyyy-mm-dd` in the field's own colour until the person
+      chooses a region, a `date` role an agent puts a valid date string into);
+      its calendar (386), the person's region (387), the other temporal
+      kinds (388), and a field's `placeholder`, which needs an ADR (389)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
       · Built: **`location`, read** (queue item 360) — `alo-url`'s
       `reading.rs` (the URL Standard's nine readings over our `Url`) and

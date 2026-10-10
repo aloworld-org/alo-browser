@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: what an empty date field shows** (ADR 0042). Not built yet.
+  An empty date field will show how a date is written — `yyyy-mm-dd` — in
+  the field's own colour. The order of a date's parts belongs to the
+  person reading it, so it will come from the browser's settings, never
+  from the computer or from the page's language; until somebody chooses,
+  it is the international order, which nobody misreads and which is the
+  form the field submits. An agent will read the field as a date and fill
+  it with one. No calendar button is drawn until it opens a calendar
+  (queue items 385–388). A field's placeholder text, which alo's sign-in
+  screen has, is not drawn yet and needs a decision of its own (389).
+
 - **An empty form field sits level with its label.** A text field nobody
   has typed into used to sit a little higher than the words beside it, and
   made its line taller, so it dropped when somebody typed. It now stands

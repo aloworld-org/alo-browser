@@ -24385,3 +24385,83 @@ five sections, saying the FAQ waits on 97), `REMAINING.md` and
 162 queue items are open: 384 was added closed and 385 open. The next
 unused queue number is **386** and the next ADR is **0042**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 251 — queue item 385 decided: ADR 0042, what an empty date field shows
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md` (its head and
+stage 2's *Forms* line), `REMAINING.md` and iteration 250's entry. No
+`AGENTS.md` exists in this repository. For 385: its queue entry and 384's,
+357 and 358 (the time zone's pattern), `docs/features.md`' stage 2 forms
+line, ADR 0002 (roles declared; typed verbs, no coordinate), ADR 0013 § 3,
+ADR 0018 §§ 4 and 8, ADR 0024's headings and § 4, ADR 0030 § 2 and *What
+this does not decide*, ADR 0036 (whole), ADR 0041 (as the form an ADR
+takes); `alo-box`'s `tree.rs` (`field_text`) and `role.rs` (`input_role`),
+`alo-agent`'s `verb.rs`; `alo-sites-booking`'s page, sheet and
+`origin.txt`; Chromium's user-agent sheet `html.css` (fetched 2026-10-10,
+for the colour of empty date segments and the indicator's size); and, read
+only, `alo-workplace`'s `web/src/ds/Input.tsx` and `auth/LoginPage.tsx`.
+
+**Choosing.** 385 is the first open item in the queue's order whose next
+step depends on nothing unbuilt: it is marked *needs ADR*, its page
+(`alo-sites-booking`) is frozen, and the decision waits on nothing. Every
+item before it stands as iterations 247–250 listed it (blocked, page-gated,
+*needs design* with no page, or *needs ADR* behind an unbuilt dependency,
+as 381 behind 234). LOOP.md § 4: a decision is its own iteration, so this
+one wrote the ADR and no code. 296's screen lock was not re-checked: 296
+comes after 385 in the queue.
+
+**What was decided** (ADR 0042, accepted). The order of a date's parts is
+the reader's: the person's region from the browser's settings, told to the
+renderer with the page, never the machine's locale and never the page's
+`lang`. Until chosen, ISO 8601's `yyyy-mm-dd`, the field's own value form.
+The format is drawn as the field's text, in its computed `color` (Chromium
+gives empty segments no colour of their own), on its own line, so 384's
+numbers do not move; a non-date `value` is sanitised to empty. An agent
+reads the role `date` (HTML-AAM's platform role; ARIA has none, and
+`role.rs`' rule against inventing one is kept), a value in its value form,
+an empty field as having none; `PutText` takes a valid date string and
+refuses anything else by name. No calendar indicator until it opens a
+picker. One unverified claim was taken out before committing (that
+Chromium ignores `lang` for the format), because nothing here checked it;
+Firefox's rendering was not checked and the ADR says so.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log; the
+harness moved it to the background at 600 s, and the next call waited on it
+in a foreground `until` loop. It read `exit 0` and "The gate is met", with
+no `FAILED` or `panicked` and no line starting `error` in its log. This
+change has no code, so "documentation changed with the code" had nothing
+to judge. This entry was written after that run, and is documentation only.
+
+**Gate, manual.** No layout, paint or agent code changed, so no layout
+assertion or reference render applies and none moved. One responsibility
+per file: the ADR decides one thing, what an empty date field shows; the
+placeholder, which looked similar, was kept out of it as a different
+decision (389). `alo-workplace` and `alo-os` were not touched:
+`alo-workplace` has no tracked changes.
+
+**Queue.** 385 stays open with a *Decided* paragraph and its closing
+conditions from ADR 0042 § 6; it is buildable next and depends on nothing
+open. Added open: 386 (the calendar, after 296), 387 (the person's region,
+after 128), 388 (`time`, `datetime-local`, `month`, `week`, waiting for a
+page) and 389 (a field's `placeholder`, opened by `alo-sign-in`: alo's
+`Input` draws it `placeholder:text-tertiary`, and drawing it makes
+`::placeholder` the first pseudo-element this engine styles, so it **needs
+ADR**). **Roadmap:** stage 2's *Forms* line's Owed clause now says 385 is
+decided and not built, and names 386–389; the box stays empty. Also
+updated: `docs/features.md` (the forms line), `docs/conformance.md` (the
+booking row; the sign-in screen's missing placeholder), `REMAINING.md` and
+`CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 385 is decided and not built: the booking field still draws nothing and
+  reads as `generic`.
+- 389 needs an ADR before any code; until then `alo-sign-in`'s placeholder
+  is not drawn.
+- 386 waits on 296, 387 on 128, 388 for a page.
+- 383 waits for a page. 381 needs an ADR, and 234 before it. 380 and 378
+  wait for pages. 376 still needs design.
+- Everything iteration 250 listed still stands.
+
+166 queue items are open (386–389 added open). The next unused queue number
+is **390** and the next ADR is **0043**. This is one iteration, not a
+finished queue or roadmap.

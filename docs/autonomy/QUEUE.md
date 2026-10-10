@@ -6974,6 +6974,77 @@ The long pole, and the thing most of section E is unreachable without.
   *Closes when:* that ADR is accepted, and `alo-sites-booking`'s field
   draws its format in the colour a browser gives it, with its role an
   agent can act on.
+  **Decided (iteration 251, ADR 0042).** The order a date's parts are
+  drawn in is the person's region, chosen in the browser's settings and
+  told to the renderer with the page (387) — never the machine's locale
+  and never the page's `lang`. Until it is chosen the order is ISO 8601's,
+  `yyyy-mm-dd`, the field's own value form: an empty date field draws
+  `yyyy-mm-dd` as its text, in the field's computed `color` (Chromium gives
+  empty segments no colour of their own), on its own line, so 384's
+  numbers do not move; a held value draws in the same order; a `value`
+  that is not a valid date string is sanitised to empty. An agent reads the
+  role `date` (HTML-AAM's platform role; it has no ARIA one), a held value
+  in its value form and an empty field as having none; `PutText` takes a
+  valid date string and refuses anything else by name. No calendar is
+  drawn until it opens something (386). Nothing is built yet. *Now closes
+  when* (ADR 0042 § 6): `alo-sites-booking`'s day field draws `yyyy-mm-dd`
+  in its computed colour in pixels with its layout numbers unchanged; its
+  outline reads `date "Choose a day" [required]` with no value and a
+  filled one reads `yyyy-mm-dd`; `PutText` of `2026-10-12` fills it and of
+  `12/10/2026` is refused by name; hostile values and verb texts are
+  sanitised or refused without a panic; and `role.rs` says why `date` is
+  the platforms' role. *Depends on nothing open.*
+
+- [ ] **386. A date field's calendar.** *Cut from 385 by ADR 0042 § 5.
+  Feature: `docs/features.md` stage 2's forms line. Depends on 296 (a
+  window to open it in).* The indicator at a date field's inline end (1em
+  and its padding, as Chromium draws it) and the picker it opens: a
+  surface of the browser process, rendered by the engine as a document as
+  the tab strip is (ADR 0024 § 4), opened by `Activate` on the indicator,
+  putting its choice into the field as `PutText` does so the page sees one
+  kind of input. Not drawn before then, because an indicator that opens
+  nothing is approximate (ADR 0013 § 3). *Closes when:* in a window, the
+  indicator is drawn and `Activate` on it opens the picker, choosing a day
+  fills the field through `beforeinput` and `input`, and an auto-width
+  field is the indicator wider.
+
+- [ ] **387. The person's region.** *Cut from 385 by ADR 0042 § 1 and
+  *What this does not decide*. Depends on 128 (settings).* The setting
+  beside the time zone (358) and the language (ADR 0030); the region told
+  to a renderer with the page; CLDR's date patterns and their segment
+  words rented behind one file, the crate chosen then; a date field's
+  empty format and held value both drawn in the region's order. *Closes
+  when:* a person who chose a day-first region sees `dd/mm/yyyy` (in
+  their language's letters) in an empty date field and a held value in
+  that order, one who chose none sees `yyyy-mm-dd`, and an agent reads the
+  value as `yyyy-mm-dd` in both, in tests.
+
+- [ ] **388. `time`, `datetime-local`, `month` and `week` fields.** *Cut
+  from 385 by ADR 0042 § 4. Waits for a page.* Each draws its value's own
+  form empty, and reads to an agent by its platform role with its value in
+  that form, by ADR 0042's rule. *Closes when:* a frozen page's field of
+  that kind draws its form and reads its role, and a hostile value is
+  sanitised without a panic.
+
+- [ ] **389. A field's `placeholder`.** *Opened by `alo-sign-in`
+  (iteration 251, noticed by 250). Feature: `docs/features.md` stage 2's
+  forms line. **Needs ADR.** Depends on nothing open.* alo's sign-in
+  email field has `placeholder="you@company.eu"`, and alo's own `Input`
+  draws it `placeholder:text-tertiary`, which is `::placeholder { color:
+  var(--text-tertiary) }`. This engine draws nothing: `field_text` shows a
+  value only, and `alo-css` keeps a selector naming a pseudo-element and
+  never matches it, because stage 1 produced no pseudo-elements. Drawing it
+  in the right colour makes `::placeholder` the first pseudo-element this
+  engine styles, and how a pseudo-element's style is cascaded, inherited,
+  kept and read (and what the agent reads of it — HTML-AAM makes a
+  placeholder a field's description when a label names it) is a decision
+  for every one after it, `::before` and `::marker` included. The
+  user-agent colour is a decision too: Chromium's sheet has `#757575`.
+  `alo-sign-in`'s `style.css` would gain the rule alo's `Input` writes,
+  said in the case. *Closes when:* that ADR is accepted, `alo-sign-in`'s
+  email field draws `you@company.eu` in `--text-tertiary` in pixels with
+  its layout unchanged, the field still reads as empty to an agent, and a
+  value hides the placeholder.
 
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*

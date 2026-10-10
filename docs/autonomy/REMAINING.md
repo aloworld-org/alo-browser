@@ -1247,3 +1247,15 @@ strut's baseline. What an empty date field shows, its format and a calendar
 button, is cut to 385, which needs an ADR. 162 queue items are open (384
 added closed, 385 added open). The next unused queue number is 386 and the
 next unused ADR 0042.
+
+Iteration 251 took item 385, the first open item whose next step depends on
+nothing unbuilt, and wrote its decision rather than code, as LOOP.md § 4
+asks: ADR 0042. An empty date field draws `yyyy-mm-dd` in its own colour
+until the person chooses a region; an agent reads the role `date` and puts a
+valid date string into it; no calendar is drawn until it opens something.
+385 stays open with a *Decided* paragraph and is buildable next. The cuts are
+386 (the calendar, after 296), 387 (the person's region, after 128) and 388
+(the other temporal kinds, waiting for a page); 389, a field's `placeholder`,
+was opened by `alo-sign-in` and needs an ADR of its own (the first
+pseudo-element). 166 queue items are open (386–389 added open). The next
+unused queue number is 390 and the next unused ADR 0043.
