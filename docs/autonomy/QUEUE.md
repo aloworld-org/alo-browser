@@ -7768,6 +7768,36 @@ The long pole, and the thing most of section E is unreachable without.
   accepted and, if it takes the rule, `alo-sites-rich-blocks`' code is
   drawn at the size it decides, in numbers, with `alo-downloads`'
   `rem`-sized `<code>` unmoved.
+  **Decided (iteration 266): ADR 0045, accepted.** It takes the rule.
+  A computed font size carries its origin — a keyword, relative (`em`,
+  `ex`, `ch`, `cap`, `ic`, `lh`, a percentage, `smaller`, `larger`, of a
+  parent that is not fixed) or fixed (absolute units, `rem`, `rlh`, the
+  viewport units, any math function, and a relative size of a fixed
+  parent) — and inheriting keeps it. An element is `monospace`-sized when
+  its computed `font-family` is exactly the generic `monospace`, ASCII
+  case-insensitive; `monospace, monospace`, a named family first and
+  `ui-monospace` are not. Its `medium` is 13 px, two named constants in
+  `alo-style`, the person's later (128). Where an element's side differs
+  from its parent's, a keyword is read again in its family, a relative
+  size is rescaled by the ratio of the two mediums, and a fixed size
+  stays; on the same side nothing changes. Grounded in Chrome 154,
+  measured on this machine (every row in the ADR's § 4), including the
+  frozen page itself: both `pre`s and the equation's `code` at 13px.
+  Keywords stay CSS's ratios of the family's medium; Chrome's integer
+  table, which already differs for sans-serif, is cut to 416. *Closes
+  when:* ADR 0045 § 7. Depends on nothing open; buildable next.
+
+- [ ] **416. The absolute-size keywords as the engines size them.** *Cut
+  from 415 by ADR 0045 § 3. Feature: `docs/features.md` stage 1, "Code is
+  drawn in a monospace face". Waits for a page.* `alo-style`'s
+  `metrics.rs` sizes `xx-small` … `xxx-large` as CSS Fonts' ratios of
+  `medium` (9.6, 12, 14.22, 16, 19.2, 24, 32, 48), where Chrome 154,
+  measured 2026-10-11, draws 9, 10, 13, 16, 18, 24, 32, 48 — and, under
+  `monospace` alone, 9, 10, 12, 13, 16, 20, 26, 39 where ADR 0045's ratios
+  give 7.8 … 39. One question for both families: the specification's
+  ratios or the engines' table. *Blocked: no page yet* writes a keyword
+  size other than `medium`. *Closes when:* a frozen page's keyword-sized
+  text is the size the decision gives, in numbers, under both families.
 
 - [ ] **413. A broken picture is drawn as its text.** *Opened by
   `alo-sites-rich-blocks` (iteration 264). Feature: `docs/features.md`

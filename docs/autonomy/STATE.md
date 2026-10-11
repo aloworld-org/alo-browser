@@ -25761,3 +25761,85 @@ together; adding a line to claim it would be decoration, as iterations
 180 queue items are open (412 closed, 415 added). The next unused queue
 number is **416** and the next ADR is **0045**. This is one iteration,
 not a finished queue or roadmap.
+
+
+
+## Iteration 266 — queue item 415 decided: ADR 0045, `monospace`'s own default size
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and stage 1's Text line), iterations 262 (the form an ADR iteration
+takes) and 265, and `REMAINING.md`'s continuation. No `AGENTS.md` exists
+in this repository. For 415: its queue entry and 412's *Done* paragraph,
+`docs/features.md`' monospace line, ADR 0001 (law 1), ADR 0013 § 3,
+ADR 0036 § 1 and ADR 0042 § 1 (a person's fact told to the engine, a fixed
+one in tests); `alo-style`'s `metrics.rs`, `computed.rs` (`settle_font`)
+and `user_agent.rs`; `alo-corpus`' `corpus_fonts`; `alo-window`'s
+`fonts::frozen`; `alo-sites-rich-blocks`' page and `origin.txt`;
+`alo-downloads`' `.note code`.
+
+**Choosing.** Iteration 265 left every open item blocked on a page, a
+dependency, a design or an ADR. Of the items needing an ADR, 367 and 350
+wait for a page and 381 on 234; 415 and 413 have their page frozen and
+nothing open under them, and 415 comes first in the file. LOOP.md § 4: a
+decision is its own iteration, so this one wrote ADR 0045 and no code.
+
+**Evidence.** Measured on this machine in Google Chrome 154.0.8037.98,
+headless, by throwaway pages in the scratchpad reading
+`getComputedStyle(…).fontSize` — every row of the ADR's § 3 and § 4
+tables, and the frozen `alo-sites-rich-blocks` page itself (both `pre`s
+and the equation's `code` at 13px, each `pre`'s top margin 13px). Chromium's
+source was not read and no other engine is installed, and the ADR says so
+rather than citing either. One unexplained observation (`1ex` and `1cap` at
+9 px) is recorded under *What this does not decide*. **Corrected before
+committing:** the first draft's § 4 table claimed every Chrome number was
+what the rule gives; two rows under a `large` parent differ (16 and 14.625
+in Chrome, 15.6 here) because of the keyword table, and the table now has
+both columns; a `2ch` row's "here" was rewritten as a formula, since `ch`
+depends on the face.
+
+**What was decided** (ADR 0045, accepted). A computed font size carries
+its origin: keyword, relative (parent-font units, percentages, `smaller`,
+`larger`, of a non-fixed parent) or fixed (absolute units, `rem`, `rlh`,
+viewport units, any math function, a relative size of a fixed parent);
+inheriting keeps it. `monospace`-sized is a `font-family` of exactly the
+generic `monospace`, ASCII case-insensitive. Two mediums, 16 and 13, named
+constants in `alo-style` and the person's later (128). Crossing the line, a
+keyword is read again, a relative size rescaled by the mediums' ratio, a
+fixed size kept; on one side, nothing changes. Keywords stay CSS's ratios
+of the family's medium; Chrome's integer table (which already differs for
+sans-serif at four keywords) is cut to 416.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met"; the log has no `FAILED` or `panicked`. The change has no code; the
+only file under `crates/` is the case's `origin.txt` prose. This entry and
+the commit came after that run and are documentation only.
+
+**Gate, manual.** No style, layout, paint or agent code changed, so no
+layout assertion or reference render applies and none moved. One
+responsibility per file: the ADR decides one thing, a font size's origin
+and `monospace`'s medium. No `unsafe`, no dependency. `alo-workplace` and
+`alo-os` were not touched: `git status` in each is clean.
+
+**Queue.** 415 stays open with a *Decided* paragraph; its closing
+conditions are ADR 0045 § 7, and it is buildable next, depending on
+nothing open. Added open: 416 (keyword sizes as the engines' table; waits
+for a page — no frozen page writes an absolute-size keyword). **Roadmap:
+no line moved, and why.** The decision serves stage 1's ticked Text line,
+which a decision does not reopen, and no stage 2 line names font sizes or
+generic families' sizes; adding a line to claim it would be decoration, as
+iterations 260–265 found. Also updated: `docs/features.md` (the monospace
+line), `docs/conformance.md` (the alo Sites row), the case's `origin.txt`,
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 415 is decided and not built: `alo-sites-rich-blocks`' code is still
+  16 px. Building it moves that case's layout and picture; each moved
+  number must be worked by hand and `alo-downloads` must not move.
+- 416 waits for a page; 411, 413 (needs ADR) and 414 still stand, as does
+  everything iteration 265 listed.
+
+181 queue items are open (416 added open). The next unused queue number is
+**417** and the next ADR is **0046**. This is one iteration, not a
+finished queue or roadmap.

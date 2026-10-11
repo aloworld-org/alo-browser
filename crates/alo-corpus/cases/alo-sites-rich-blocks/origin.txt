@@ -63,5 +63,6 @@ the equation's `div` a plain block with `role="math"`, read by an agent as
 `math`. Every number in `layout.txt` was worked from those and agrees, and
 since item 412 every code line is its characters times 9.6328125, DejaVu Sans
 Mono's advance at 16 px. The code blocks are 16 px, not the 13 px a browser
-gives `monospace` by default: whether this engine takes that rule is queue
-item 415, which needs an ADR.
+gives `monospace` by default. ADR 0045 (iteration 266) takes that rule,
+measured in Chrome 154 on this very page — both `pre`s and the equation's
+`code` at 13px, each `pre`'s margin 13px — and queue item 415 builds it.

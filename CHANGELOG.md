@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: code will be drawn at the size other browsers draw it.**
+  Every browser draws text set in the plain `monospace` font a little
+  smaller — 13 pixels where other text is 16 — and a page's code blocks are
+  designed around that. A written decision (ADR 0045) now says this engine
+  will do the same, in the same cases browsers do, checked against Chrome
+  on alo's own published code blocks; nothing is drawn differently yet
+  (queue item 415).
+
 - **Code is drawn in a code font.** Text a page marks as code — a `<pre>`
   block, `<code>`, `<kbd>` and `<samp>` — is drawn in a monospace face in
   the reference renders and in the window started with `--frozen-fonts`,

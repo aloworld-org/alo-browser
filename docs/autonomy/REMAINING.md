@@ -1413,3 +1413,14 @@ other case moved. Whether `monospace` takes browsers' smaller default size
 was cut to 415, which needs its ADR. 180 queue items are open (412 closed,
 415 added). The next unused queue number is 416 and the next unused ADR
 0045.
+
+Iteration 266 decided item 415: ADR 0045, `monospace`'s own default size,
+measured in Chrome 154 on this machine, `alo-sites-rich-blocks` included.
+A computed font size carries whether it came from a keyword, its parent's
+font or a fixed length; `font-family: monospace` alone has a `medium` of
+13 px; where an element crosses into or out of it a keyword is read again
+and a relative size rescaled by 13/16, and a fixed one stays. No code; 415
+stays open, decided and buildable next. Cut: 416 (keyword sizes as the
+engines' integer table rather than CSS's ratios, for every family; waits
+for a page). 181 queue items are open (416 added open). The next unused
+queue number is 417 and the next unused ADR 0046.
