@@ -11315,6 +11315,14 @@ not, and this is where it is found out.
   tree — no screenshot, no scraping, no coordinates.
   *Depends on 68, 81. Closes when:* a frozen real page is read and driven by
   name, with the same verbs and the same refusals.
+  ***Next, by the owner's choice (2026-10-12).*** Both dependencies are done and
+  nothing blocks it. It is taken before the remaining shell work because it is
+  the item this project justifies itself by: if ADR 0002 does not hold on
+  somebody else's page, that is worth finding out now and not after another
+  month of CSS. The owner's standing goal is a browser a person installs,
+  searches with, and drives by agent; of those three this is the only part
+  already unblocked, and 477 to 479 record that the first is stage 4 work no
+  loop may open.
 
 - [ ] **132. Across frames**, without becoming a way around the same-origin
   policy. *Depends on 86, 131. Needs ADR* — this is a security boundary an agent
@@ -11440,6 +11448,37 @@ person unblocks this stage or does not.
 
 - [ ] **151. A mobile port.** Last, and it is a port rather than a feature: what
   it needs is everything above it to be finished. *blocked: stage 2's exit
+  gate.*
+
+- [ ] **477. An application somebody can run.** Written into this queue on
+  2026-10-12 because nothing in it mentioned packaging at all: not a bundle, not a
+  signature, not an installer. The work was invisible rather than deferred, and
+  an engine nobody can open is not a browser somebody chooses. A macOS
+  application bundle holding the browser binary and the renderer beside it
+  (`beside.rs` already decides where `alo-render` is found, and that answer has
+  to hold inside a bundle as well as inside a checkout); the fonts it needs; an
+  icon; a version. *Closes when:* the bundle is built by a documented command,
+  copied to a Mac that never built it, opened by double-clicking, and shows a
+  page — recorded in the journal, with the machine named, and not claimed from
+  this machine alone. *blocked: stage 2's exit gate.*
+
+- [ ] **478. Opened without macOS explaining itself.** A Developer ID
+  signature, the hardened runtime, and a notarisation ticket stapled to the
+  bundle. *Needs an Apple Developer account, which is a thing to buy rather
+  than a thing to build — the item names it so that nobody reads this as
+  engineering work that stalled.* *Depends on 477. Closes when:* `spctl -a -vvv`
+  on a freshly downloaded copy answers *accepted* and names the Developer ID,
+  and a person on another machine opens it with no warning at all.
+  *blocked: stage 2's exit gate.*
+
+- [ ] **479. A first run that asks for nothing.** What a person sees the first
+  time they open it: no account, no sign-in, no telemetry prompt, because
+  `ROADMAP.md` refuses all three — and so the first window has to be a browser
+  rather than an onboarding. What it does say is what the agent surface is and
+  that it is off until granted (ADR 0002, and 93's capabilities).
+  *Depends on 477, 119, 93. Closes when:* a first run on a machine with no alo
+  profile reaches a page a person typed, with nothing asked of them on the way,
+  and the agent surface refused until it is granted. *blocked: stage 2's exit
   gate.*
 
 **Exit gate** (`ROADMAP.md`): somebody outside alo chooses this browser, on a
