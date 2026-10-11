@@ -21,6 +21,11 @@
 //! alone has a `medium` of 13 px, and the code inherits the body's `medium`,
 //! so it is read again at 13 — as every browser draws this page — and so is
 //! every `em` of the `<pre>`s' margins.
+//!
+//! And what item 413 is closed by (ADR 0046 § 7). The figure's `<img>` is a
+//! `data:` URL of 24 bytes that are no picture, so it is its `alt`, "Orange
+//! notebook <front>", drawn as text at the start of the figure's first line,
+//! and an agent reads it as a broken image with that name.
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_paint::DisplayItem;
@@ -246,4 +251,65 @@ fn a_pres_margins_are_its_own_ems() {
         near(equation.0 - (rust.0 + rust.1), CODE),
         "{rust:?} {equation:?}"
     );
+}
+
+/// "Orange notebook <front>" in `DejaVu Sans` at 16 px, as HarfBuzz's own
+/// `hb-shape` shapes it: 26 779 font units of 2048, kerning included.
+const ALT: f32 = 26_779.0 / 2048.0 * 16.0;
+
+/// `DejaVu Sans`' ascent, 1901 of 2048, at the figure's 16 px.
+const ASCENT: f32 = 1901.0 / 2048.0 * 16.0;
+
+#[test]
+fn the_broken_picture_is_its_alt_on_the_figures_first_line() {
+    let Some(rendering) = rich_blocks() else {
+        panic!("the case renders");
+    };
+    let Some(drawing) = rendering.drawing() else {
+        panic!("the case is drawn");
+    };
+    let Some(document) = rendering.document() else {
+        panic!("the case has a document");
+    };
+    let img = drawing.boxes.ids().find(|id| {
+        matches!(
+            drawing.boxes.get(*id).map(|node| &node.kind),
+            Some(alo_box::BoxKind::Element { node, .. })
+                if document.element(*node).is_some_and(|element| element.name.is_html("img"))
+        )
+    });
+    let Some(img) = img else {
+        panic!("the figure's img has a box");
+    };
+    let Some(border) = drawing.layout.get(img).map(|layout| layout.border_box) else {
+        panic!("the img is laid out");
+    };
+    // The figure starts at (48, 16): the body's 8 collapsed into its 16, and
+    // 40 in. Its first line is the alt and nothing else, one 16 px line.
+    assert!(near(border.origin.x, 48.0), "{border:?}");
+    assert!(near(border.origin.y, 16.0), "{border:?}");
+    assert!(near(border.size.width, ALT), "{border:?}");
+    assert!(near(border.size.height, 18.625), "{border:?}");
+    let runs = runs(&rendering);
+    let Some((_, x, baseline)) = runs
+        .iter()
+        .find(|(text, ..)| text == "Orange notebook <front>")
+        .cloned()
+    else {
+        panic!("the alt is drawn: {runs:?}");
+    };
+    assert!(near(x, 48.0), "{x}");
+    assert!(near(baseline, 16.0 + ASCENT), "{baseline}");
+    // The caption is on the line after it, where it was.
+    assert!(
+        runs.iter()
+            .any(|(text, _, line)| text.starts_with("Ideas") && near(*line, 16.0 + 18.625 + ASCENT)),
+        "{runs:?}"
+    );
+    let agent = alo_agent::AgentTree::new(document, &drawing.boxes, &drawing.layout).to_outline();
+    assert!(
+        agent.contains("image \"Orange notebook <front>\" [broken] at (48, 16)"),
+        "{agent}"
+    );
+    assert_eq!(agent.matches("Orange notebook").count(), 1, "{agent}");
 }

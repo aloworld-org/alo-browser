@@ -130,6 +130,14 @@ pub struct States {
     /// type into one. Role says what a thing *is*; this says what can be done
     /// to it.
     pub takes_text: bool,
+    /// The picture this box was to show is not shown: an `<img>` drawn as
+    /// its `alt`, or as nothing (ADR 0046 § 5).
+    ///
+    /// Not declared by anybody: set by the box tree, which alone is told
+    /// whether the bytes became a picture, so [`States::of`] leaves it false.
+    /// An agent told only an image's name would act as if a person could see
+    /// the picture.
+    pub broken: bool,
 }
 
 impl States {
@@ -157,6 +165,7 @@ impl States {
             level: heading_level(element),
             current: current(element),
             takes_text: alo_css::state::is_text_entry(element),
+            broken: false,
         }
     }
 
@@ -221,6 +230,9 @@ impl fmt::Display for States {
         }
         if let Some(current) = self.current {
             write_one(f, &format!("current={current}"))?;
+        }
+        if self.broken {
+            write_one(f, "broken")?;
         }
         Ok(())
     }

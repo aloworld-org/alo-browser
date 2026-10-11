@@ -31,6 +31,7 @@
 
 pub mod line_break;
 pub mod natural;
+pub mod picture;
 pub mod role;
 pub mod semantics;
 pub mod state;
@@ -43,8 +44,9 @@ pub mod whitespace;
 /// box tree reads the same reading.
 pub use alo_style::display::{self, Display, Inside, Outside};
 pub use natural::NaturalSize;
+pub use picture::Shown;
 pub use role::{KnownRole, Role};
 pub use semantics::Semantics;
 pub use state::{Checked, Current, States};
-pub use tree::{BoxId, BoxKind, BoxNode, BoxTree, Purpose, build};
+pub use tree::{BoxId, BoxKind, BoxNode, BoxTree, Purpose, build, build_showing};
 pub use whitespace::WhiteSpace;

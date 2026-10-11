@@ -2,7 +2,8 @@ block flow · document
   block flow · generic
     block flow · figure
       anonymous block
-        inline flow-root · image "Orange notebook <front>"
+        inline flow · image "Orange notebook <front>" [broken]
+          text "Orange notebook <front>"
       block flow · generic
         text "Ideas, captured & shared"
     block flow · generic

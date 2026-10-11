@@ -303,13 +303,14 @@ pub fn draw(
         &crate::font_units::Faces::new(fonts),
         &|id| judged.applies_attribute(id),
     );
-    let mut boxes = alo_box::build(document, &styles);
-
-    // Pictures, before layout, because a picture's own size is what an `<img>`
-    // with no width lays out at — so the size has to be known before anything
-    // is measured.
-    let pictures = Pictures::read(document, &mut boxes, resources);
+    // Pictures, before the boxes, because whether an `<img>` shows one
+    // decides what box it is — the picture's size, its `alt` as text, or
+    // nothing (ADR 0046 § 1) — and a picture's own size is what an `<img>`
+    // with no width lays out at.
+    let pictures = Pictures::read(document, resources);
     sheet_issues.extend(pictures.issues.iter().cloned());
+    let boxes = alo_box::build_showing(document, &styles, &pictures.shown);
+    let drawn_in = pictures.by_box(&boxes);
 
     let measurer = TextMeasurer::new(fonts);
     let layout = alo_layout::compute(&boxes, &styles, size, &measurer);
@@ -321,7 +322,7 @@ pub fn draw(
     sheet_issues.extend(drawing_issues);
     // And what every SVG file an `<img>` shows draws, at the size layout gave
     // the `<img>` (ADR 0027 § 5), through the same seam.
-    let (svg_drawings, svg_issues) = pictures.draw_svgs(&layout);
+    let (svg_drawings, svg_issues) = drawn_in.draw_svgs(&layout);
     drawings.extend(svg_drawings);
     sheet_issues.extend(svg_issues);
 
@@ -331,7 +332,7 @@ pub fn draw(
         &styles,
         PaintContext {
             fonts,
-            pictures: &pictures.rasters,
+            pictures: &drawn_in.rasters,
             drawings: &drawings,
         },
     );

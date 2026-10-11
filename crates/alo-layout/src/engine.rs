@@ -1063,7 +1063,7 @@ fn style_for(
         .unwrap_or_default();
 
     let mut style = Style {
-        display: display_for(&node.kind),
+        display: display_for(&node.kind, boxes.natural_size(id).is_some()),
         box_sizing: match ours.box_sizing {
             BoxSizing::ContentBox => taffy::BoxSizing::ContentBox,
             BoxSizing::BorderBox => taffy::BoxSizing::BorderBox,
@@ -1222,8 +1222,20 @@ fn box_model_into(
     };
 }
 
-fn display_for(kind: &BoxKind) -> taffy::Display {
+/// How `taffy` is to lay out a box, from what its `display` says inside.
+///
+/// A **replaced** box whose `display` is a flow is handed over as a
+/// `flow-root`: it is a leaf whose content is a picture rather than lines,
+/// laid out on its own as an atomic box, and `taffy` stretches a `block` it
+/// lays out on its own to the width it was offered. An `img`, `inline` since
+/// ADR 0046, would otherwise be drawn as wide as its line.
+fn display_for(kind: &BoxKind, replaced: bool) -> taffy::Display {
     match kind {
+        BoxKind::Element { display, .. }
+            if replaced && matches!(display.inside(), Some(Inside::Flow) | None) =>
+        {
+            taffy::Display::FlowRoot
+        }
         BoxKind::Text { .. } => taffy::Display::Block,
         BoxKind::Anonymous { .. } => taffy::Display::Flex,
         BoxKind::Element { display, .. } => match display.inside() {

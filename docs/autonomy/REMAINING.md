@@ -1444,3 +1444,14 @@ code; 413 stays open, decided and buildable next. Cut, each waiting for a
 page: 418 (an icon), 419 (`<img>`'s `width` and `height` attributes), 420
 (a picture on its way). 184 queue items are open (418–420 added open). The
 next unused queue number is 421 and the next unused ADR 0047.
+
+Iteration 269 built item 413 (ADR 0046): whether an `<img>` shows a picture
+is decided by `alo-renderer`'s `pictures.rs` before the boxes and handed to
+`alo-box` as a `Shown`; a broken `<img>` with an `alt` is inline text of it
+in its own style, without one a replaced box of nothing; `img` is `display:
+inline`; an agent reads `[broken]` and the `alt` once. A replaced box with a
+flow `display` is handed to `taffy` as a `flow-root`, found when an inline
+picture stretched. `alo-sites-rich-blocks` draws "Orange notebook <front>";
+no picture moved. 183 queue items are open (413 closed). The next unused
+queue number is 421 and the next unused ADR 0047.
+

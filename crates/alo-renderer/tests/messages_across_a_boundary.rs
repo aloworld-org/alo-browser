@@ -64,6 +64,8 @@ fn a_node(children: Vec<SnapshotNode>) -> SnapshotNode {
             level: Some(3),
             current: Some(Current::Page),
             takes_text: true,
+            // A picture that failed crosses too (ADR 0046 § 5).
+            broken: true,
         },
         // A field's hint crosses too, so the outline on the far side reads
         // as the tree did (ADR 0043 § 5).

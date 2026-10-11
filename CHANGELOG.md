@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A picture that fails to load shows its description.** When a page's
+  picture cannot be shown — its file is missing or damaged — and the page
+  described it in words, those words now appear where the picture would have
+  been, in the page's own text style and flowing with the line, as Chrome
+  draws them. A picture with no description keeps the space the page gave
+  it. An agent reading the page is told the picture is broken, and reads its
+  description once, as its name, so it does not act as if a person could see
+  it. Pictures that do load are drawn exactly where they were. Other browsers
+  also draw a small broken-picture icon; this one does not, for now (queue
+  item 413, ADR 0046).
+
 - **Decided: a picture that fails to load will show its description.**
   When a page's picture cannot be shown — its file is missing or damaged —
   and the page described it in words, those words will appear where the

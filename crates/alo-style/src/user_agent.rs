@@ -100,7 +100,10 @@ abbr, cite, q, time, data, bdi, bdo, ruby, del, ins, br, wbr, picture, slot {
   display: inline;
 }
 
-img, svg, video, audio, canvas, iframe, object, embed, math, progress, meter {
+/* An `img` is `inline`, as every engine computes it: a picture is atomic
+ * whatever its `display` says, and a broken one's `alt` is then a run of text
+ * that wraps with its line and takes no `width` (ADR 0046 § 2). */
+svg, video, audio, canvas, iframe, object, embed, math, progress, meter {
   display: inline-block;
 }
 

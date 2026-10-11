@@ -207,6 +207,7 @@ impl Writer {
             Some(Current::Time) => self.tag(6),
         }
         self.bool(states.takes_text);
+        self.bool(states.broken);
     }
     fn target(&mut self, target: &Target) {
         match target {
@@ -797,6 +798,7 @@ impl<'a> Reader<'a> {
                 other => return Err(unreadable(format!("a current state tagged {other}"))),
             },
             takes_text: self.bool()?,
+            broken: self.bool()?,
         })
     }
 

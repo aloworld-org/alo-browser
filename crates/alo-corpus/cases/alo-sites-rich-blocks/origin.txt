@@ -45,18 +45,20 @@ iteration 265: the corpus carries DejaVu Sans Mono and maps `monospace` to
 it, the code is drawn in it, every character one 1233/2048-em advance, and
 the issue is gone.
 
-**The broken picture shows nothing.** Its `alt`, "Orange notebook <front>",
-is not drawn; the `<img>` is an empty box on the figure's first line, and the
-agent reads it by that `alt`. HTML's rendering section draws a broken
-picture with text as that text. Queue item 413, decided by ADR 0046
-(iteration 268): the `alt` becomes inline text in the `<img>`'s own style,
-`width="640"` applying to it no more than it does in Chrome, and the agent
-reads `image "Orange notebook <front>" [broken]`. Measured on this very page
+**The broken picture showed nothing.** Its `alt`, "Orange notebook <front>",
+was not drawn; the `<img>` was an empty box on the figure's first line, and
+the agent read it by that `alt` as if a person could see a notebook. HTML's
+rendering section draws a broken picture with text as that text. Queue item
+413, decided by ADR 0046 (iteration 268) and built in iteration 269: the
+`alt` is inline text in the `<img>`'s own style, `width="640"` applying to it
+no more than it does in Chrome, and the agent reads `image "Orange notebook
+<front>" [broken]` with no text node repeating it. Measured on this very page
 in Chrome 154: the figure's first line holds a 16 x 16 icon and the text,
-194.796875 x 18 in Chrome's sans-serif; ADR 0046 § 4 leaves the icon out, so
-here the box will be the text alone. That a `data:` URL is never read as a
-picture at all is item 414; here it would not matter, since these bytes are
-no picture.
+194.796875 x 18 in Chrome's sans-serif. ADR 0046 § 4 leaves the icon out, so
+here the box is the text alone, 16 px narrower than Chrome's would be in the
+same face, and a person cannot tell it from the text around it (item 418).
+That a `data:` URL is never read as a picture at all is item 414; here it
+would not matter, since these bytes are no picture.
 
 Rendered at 800 × 600, as the alo Sites cases are.
 
@@ -82,3 +84,12 @@ at 69.25 as before; between the blocks the margins are 13; the equation's
 13 px `code` stands on the 16 px strut of its `div`, 2.78467 below the line's
 top (the faces' ascents, 1901/2048 em at 16 and at 13, differ by that), and
 the line stays 18.625. Before item 415 the code was 16 px.
+
+**The figure's first line is the picture's `alt`** (item 413). The `<img>`
+is an inline box at (48, 16), the figure's top, as wide as "Orange notebook
+<front>" in DejaVu Sans at 16 px — 26779 of 2048 em by `hb-shape`, kerning
+included, 209.21094 — and one 18.625 line tall. The words stand on that
+line's baseline, 16 + 14.851563 (DejaVu Sans' 1901/2048 em ascent) =
+30.851563, where the empty box stood before. The caption is on the next
+line, 34.625, as before, and the figure is still 37.25 tall: the empty box
+already took a line, so nothing below it moved.

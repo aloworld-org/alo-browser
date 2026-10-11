@@ -269,6 +269,11 @@ impl<'a> AgentTree<'a> {
         if self.boxes.is_marker(id) {
             return false;
         }
+        // A broken picture's `alt` is drawn as text and read as the image's
+        // name, once (ADR 0046 § 5): an image's contents are never a node.
+        if self.is_a_pictures_alt(id) {
+            return false;
+        }
         if node.text().is_some_and(|text| !text.trim().is_empty()) {
             // A `<label>`'s words have already been read, as the name of the
             // control they name. Reading them again would put the same words
@@ -309,6 +314,20 @@ impl<'a> AgentTree<'a> {
                         .attr("type")
                         .is_some_and(|kind| kind.eq_ignore_ascii_case("password"))
             })
+    }
+
+    /// Whether this box is the `alt` a broken `<img>` is drawn as: a text
+    /// box whose node is the `<img>` itself rather than a text node.
+    fn is_a_pictures_alt(&self, id: BoxId) -> bool {
+        let Some(node) = self.boxes.get(id) else {
+            return false;
+        };
+        node.text().is_some()
+            && node
+                .kind
+                .node()
+                .and_then(|source| self.document.element(source))
+                .is_some_and(|element| element.name.is_html("img"))
     }
 
     /// Whether this box is the format an empty date field draws: the text of

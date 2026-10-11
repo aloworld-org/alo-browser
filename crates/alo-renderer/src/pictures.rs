@@ -21,54 +21,69 @@
 //! its `src` ends in (ADR 0027 § 1). So the same SVG bytes under any other
 //! type are refused by the raster decoders, which is the point.
 //!
-//! A picture that could not be read is **recorded and skipped**. The box keeps
-//! whatever size its style asked for, which is what a browser shows for a
-//! broken image: an empty box of the right shape rather than a collapsed page.
+//! A picture that could not be read is **recorded and skipped**, and its
+//! `<img>` has no picture: its `alt` drawn as text, or a box of nothing
+//! (ADR 0046).
+//!
+//! # Before the boxes
+//!
+//! Whether an `<img>` shows a picture decides what box it is, so it is
+//! decided **once, here, before the box tree is built**, and handed to it as
+//! an [`alo_box::Shown`] (ADR 0046 § 1). Layout, paint and the agent then read
+//! the one answer the tree holds. Paint is handed the pictures by box
+//! afterwards, through [`Pictures::by_box`].
 
 use crate::resource::Resource;
 use crate::svg_picture::SvgPicture;
-use alo_box::{BoxId, BoxKind, BoxTree, NaturalSize};
-use alo_dom::Document;
+use alo_box::{BoxId, BoxKind, BoxTree, NaturalSize, Shown};
+use alo_dom::{Document, NodeId};
 use alo_layout::LayoutTree;
 use alo_paint::{Canvas, Drawing};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-/// What every `<img>` box shows, read and sized.
+/// Every picture a page's `<img>` elements show, read and sized.
 #[derive(Debug, Default)]
 pub struct Pictures {
-    /// Decoded raster pictures, by box.
-    pub rasters: BTreeMap<BoxId, Arc<Canvas>>,
-    /// SVG files, by box, each with the `src` it was named by, to be drawn
-    /// once layout has said how big the box is.
-    pub svgs: BTreeMap<BoxId, (String, SvgPicture)>,
+    /// Which `<img>` elements show a picture, and at what natural size: what
+    /// the box tree is built knowing.
+    pub shown: Shown,
+    /// Decoded raster pictures, by `<img>` element.
+    rasters: BTreeMap<NodeId, Arc<Canvas>>,
+    /// SVG files, by `<img>` element, each with the `src` it was named by.
+    svgs: BTreeMap<NodeId, (String, SvgPicture)>,
     /// What could not be shown, one line each.
     pub issues: Vec<String>,
 }
 
+/// The pictures of one drawing, by the box each is drawn in.
+#[derive(Debug, Default)]
+pub struct Boxed<'p> {
+    /// Decoded raster pictures, by box: what paint is handed.
+    pub rasters: BTreeMap<BoxId, Arc<Canvas>>,
+    /// SVG files, by box, each with the `src` it was named by, to be drawn
+    /// once layout has said how big the box is.
+    svgs: BTreeMap<BoxId, &'p (String, SvgPicture)>,
+}
+
 impl Pictures {
-    /// Read every picture the page's `<img>` boxes name, and tell the boxes
-    /// how big each one is.
-    pub fn read(document: &Document, boxes: &mut BoxTree, resources: &[Resource]) -> Self {
+    /// Read every picture the page's `<img>` elements name.
+    ///
+    /// Every `<img>` in the document, in document order, including one that
+    /// ends up with no box: a hidden picture is still the page's, and what
+    /// could not be read about it is still said.
+    pub fn read(document: &Document, resources: &[Resource]) -> Self {
         let mut pictures = Self::default();
-        // Every box rather than a walk: this is looking for a kind of box
-        // rather than following the tree's shape.
-        let ids: Vec<BoxId> = boxes.ids().collect();
-        for id in ids {
-            let Some(BoxKind::Element { node, .. }) = boxes.get(id).map(|node| &node.kind) else {
+        for id in document.descendants(document.root()) {
+            let Some(element) = document.element(id) else {
                 continue;
             };
-            let Some(element) = document.element(*node) else {
-                continue;
-            };
-            if !element.name.local.eq_ignore_ascii_case("img") {
+            if !element.name.is_html("img") {
                 continue;
             }
             let Some(src) = element
-                .attrs
-                .iter()
-                .find(|attribute| attribute.name.local.eq_ignore_ascii_case("src"))
-                .map(|attribute| attribute.value.trim().to_owned())
+                .attr("src")
+                .map(|src| src.trim().to_owned())
                 .filter(|src| !src.is_empty())
             else {
                 pictures.issues.push("an <img> with no src".to_owned());
@@ -83,7 +98,7 @@ impl Pictures {
             if resource.is_svg() {
                 match SvgPicture::read(&resource.bytes) {
                     Ok(picture) => {
-                        boxes.set_natural_size(id, picture.natural_size());
+                        pictures.shown.show(id, picture.natural_size());
                         pictures.svgs.insert(id, (src, picture));
                     }
                     Err(why) => pictures.issues.push(format!(
@@ -95,7 +110,7 @@ impl Pictures {
             match alo_paint::picture::read(&resource.bytes) {
                 Ok(canvas) => {
                     let (width, height) = (canvas.width(), canvas.height());
-                    boxes.set_natural_size(
+                    pictures.shown.show(
                         id,
                         NaturalSize::sized(
                             f32::from(u16::try_from(width).unwrap_or(u16::MAX)),
@@ -112,6 +127,27 @@ impl Pictures {
         pictures
     }
 
+    /// The pictures by the box each `<img>` made, once the tree is built.
+    ///
+    /// An `<img>` that made no box — `display: none` — draws nothing.
+    pub fn by_box(&self, boxes: &BoxTree) -> Boxed<'_> {
+        let mut by_box = Boxed::default();
+        for id in boxes.ids() {
+            let Some(BoxKind::Element { node, .. }) = boxes.get(id).map(|node| &node.kind) else {
+                continue;
+            };
+            if let Some(canvas) = self.rasters.get(node) {
+                by_box.rasters.insert(id, Arc::clone(canvas));
+            }
+            if let Some(svg) = self.svgs.get(node) {
+                by_box.svgs.insert(id, svg);
+            }
+        }
+        by_box
+    }
+}
+
+impl Boxed<'_> {
     /// Draw every SVG picture at the content box layout gave its `<img>`.
     ///
     /// After layout, because the picture is drawn as vectors at the box's

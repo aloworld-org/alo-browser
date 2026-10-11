@@ -1,14 +1,14 @@
 block flow · document
   block flow · generic
     block flow · paragraph
-      inline flow-root · image
+      inline flow · image
     block flow · paragraph
-      inline flow-root · image
+      inline flow · image
     block flow · paragraph
-      inline flow-root · image
+      inline flow · image
     block flow · paragraph
-      inline flow-root · image
+      inline flow · image [broken]
     block flow · paragraph
-      inline flow-root · image
+      inline flow · image
     block flow · paragraph
-      inline flow-root · image
+      inline flow · image

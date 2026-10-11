@@ -1,6 +1,6 @@
 document at (0, 0) 800×197.53906
   figure at (48, 16) 704×37.25
-    image "Orange notebook <front>" at (48, 30.851563) 0×0
+    image "Orange notebook <front>" [broken] at (48, 16) 209.21094×18.625
     text "Ideas, captured & shared" at (48, 34.625) 201.58594×18.625
   text "const greeting = \"<hello>\"; console.log(greeting);" at (8, 69.25) 211.31982×30.265625 in 2 pieces
   text "fn main() { println!(\"alo & sites\"); }" at (8, 112.515625) 219.14648×45.398438 in 3 pieces

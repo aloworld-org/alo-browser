@@ -26011,3 +26011,111 @@ Also updated: `docs/features.md` (a new decided line under `<img>`),
 184 queue items are open (418–420 added open). The next unused queue
 number is **421** and the next ADR is **0047**. This is one iteration,
 not a finished queue or roadmap.
+
+
+
+## Iteration 269 — queue item 413 built: a broken picture is its text
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and the *Pictures, and things that move* lines), iterations 267 and
+268, and `REMAINING.md`'s continuation. No `AGENTS.md` exists in this
+repository. For 413: its queue entry and *Decided* paragraph, ADR 0046
+(all of it; § 7 is the closing condition), `docs/features.md`' `<img>`
+lines; `alo-renderer`'s `pictures.rs` and `pipeline.rs`; `alo-box`'s
+`tree.rs`, `natural.rs`, `semantics.rs` and `state.rs`; `alo-layout`'s
+`engine.rs` (`is_atomic`, `atomic_item`, `display_for`) and `arena.rs`;
+`taffy` 0.14's `compute_root_layout`; `alo-agent`'s `tree.rs` and
+`name.rs`; `alo-style`'s user-agent sheet; `alo-renderer`'s `wire.rs`;
+the cases `alo-sites-rich-blocks` and `a-picture`.
+
+**Choosing.** Iteration 268 left 413 decided, depending on nothing open,
+and first among the buildable items; everything else open waits on a
+page, a dependency or an ADR.
+
+**What was built.** `alo-box`'s new `picture.rs` (one responsibility: what
+an `<img>` box is, given whether its picture is shown) holds `Shown` and
+`Img`. `tree.rs`' new `build_showing` builds knowing it; `build` is a
+drawing with no pictures. A picture is a replaced box at its size; an
+`alt` (present, untrimmed, not empty) is one text box whose node is the
+`<img>`, inside a non-replaced box at its style's `display`, collapsed by
+the `<img>`'s `white-space`; anything else is a replaced box of natural
+size 0 × 0 with no ratio; `display: contents` on an `<img>` makes nothing.
+`States::broken` is set by the tree, written last, and crosses the wire.
+`alo-agent` reads no node for the `alt` text. `pictures.rs` reads every
+`<img>` in the document before the boxes, by element, and `by_box` hands
+paint its pictures afterwards; `BoxTree::set_natural_size` is removed, so
+a picture's size has one way in (§ 1). `img` is out of the sheet's
+`inline-block` list. **Found while building:** `taffy` stretches a `block`
+root to the width offered, and an atomic inline box is laid out as a root,
+so `a-picture`'s first picture came out 200 × 200 (the ADR's "how we will
+know if this was wrong": a decoded picture moved). `alo-layout`'s
+`display_for` now hands a replaced box with a flow `display` to `taffy` as
+`flow-root`; with that, no picture moved.
+
+**Gate, mechanical.** Workspace clippy (all targets, all features, `-D
+warnings`) and `cargo fmt --check` clean first. `scripts/gate.sh` ran in
+the foreground to a log; the harness moved it to the background at 600 s
+and the next call waited on it in a foreground `until` loop. It read `exit
+0` and "The gate is met", every section `ok`, no `FAILED` or `panicked` in
+the log. This entry and the commit came after that run and are
+documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `alo-corpus/tests/a_broken_picture.rs`
+  (7 tests, every clause of ADR 0046 § 7: § 1's five ways to have no
+  picture and a shown one at 24 × 24; the `alt` 139.25 wide — 17824/2048 em
+  by `hb-shape` — with `width=640 height=100` and a CSS size inert, red, on
+  its line; "Orange", "notebook", "front cover" in 100 px, 18.625 apart,
+  one image of 87.625 × 55.875 in 3 pieces; `display: block` 300 × 18.625;
+  0 × 0, 40 × 20 and 40 × 0, never 300 × 150; `[broken]` only without a
+  picture, the `alt` read once; a 108 000-character `alt` and one of
+  control characters laid out without a panic) and
+  `tests/alo_sites_rich_blocks.rs` (the `<img>` 209.21094 × 18.625 at
+  (48, 16) — 26779/2048 em by `hb-shape` — its words at baseline 30.851563,
+  the caption unmoved at 34.625, the outline). Unit: `picture.rs` 5,
+  `tree.rs` 2 (the three boxes' outline and natural sizes; `contents`).
+- Every moved number worked by hand and written into the case's
+  `origin.txt`: the figure still 37.25 tall, nothing below it moved.
+- Reference render: `alo-sites-rich-blocks`' picture looked at beside the
+  old one — the words on the figure's first line where the empty box was,
+  nothing else moved. `a-picture` and the other picture cases did not
+  change a pixel.
+- Every reference diff reviewed: `inline flow-root · image` became
+  `inline flow · image` on 16 lines in five cases with no number changed;
+  `a-picture`'s `.missing` reads `image [broken]`, still 40 × 20;
+  `alo-sites-rich-blocks`' display list has the new run, and later box ids
+  are one higher.
+- Mutation (copies in the scratchpad, restored with `cp`, checked with
+  `cmp`): `img` back in the `inline-block` list fails 2 tests; `broken`
+  never set, 4; the `alt` read as a node, 1. Without the `flow-root`
+  hand-over the corpus test fails on `a-picture`.
+- Hostile input: no new reader of outside bytes; § 6's `alt`s tested.
+- One responsibility per file: `picture.rs` is what an `<img>` box is;
+  `pictures.rs` still reads pictures and now hands them out by box, the
+  same responsibility in a new order.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` in each is clean.
+
+**Queue.** 413 ticked with its *Done* paragraph. **Roadmap: no line
+moved, and why.** The nearest line, *Image codecs*, is about decoding,
+which this does not touch, and no roadmap line names what a failed picture
+shows; adding one to claim this would be decoration, as iterations
+260–268 found. Also updated: `docs/features.md` (the broken-picture line,
+now built), `docs/conformance.md` (the alo Sites row), the rich-blocks
+case's `origin.txt`, `a-picture`'s `style.css` comment (no pixel moves),
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- That the real window draws the `alt` was not captured: the window
+  capture is still refused on this machine (296). None of the window's
+  frozen references holds an `<img>`.
+- A link holding a broken `<img>` is now named by content including the
+  `alt` text, as ARIA's name computation does; one holding a shown
+  picture is still not (its `alt` is not text in the box tree). Not
+  opened as an item: no page here has either.
+- 411, 414, 416–420 wait for pages, as does everything iteration 268
+  listed.
+
+183 queue items are open (413 closed). The next unused queue number is
+**421** and the next ADR is **0047**. This is one iteration, not a
+finished queue or roadmap.

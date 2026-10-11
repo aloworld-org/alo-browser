@@ -22,6 +22,7 @@
 
 use crate::display::{Display, Inside, Outside};
 use crate::natural::NaturalSize;
+use crate::picture::{Img, Shown};
 use crate::semantics::Semantics;
 use crate::whitespace::WhiteSpace;
 use alo_css::{IssueKind, Location, PseudoElement, StyleIssue};
@@ -243,9 +244,11 @@ pub struct BoxTree {
     /// here.
     ///
     /// A side map rather than a field on every box, because almost no box has
-    /// one — and because it is filled in *after* the tree is built, by whoever
-    /// decoded the content. This crate knows nothing about pictures and should
-    /// not start.
+    /// one. An `<img>`'s is what [`Shown`] says, told to the tree **before**
+    /// it is built by whoever decoded the content (ADR 0046 § 1), and an
+    /// outermost `<svg>`'s is read from its own attributes. This crate knows
+    /// nothing about pictures and should not start: it is told which `<img>`
+    /// shows one and how big, and never decides it.
     ///
     /// A [`NaturalSize`] rather than a width and a height, because an `<svg>`
     /// with only a `viewBox` has a shape and no size, and one with nothing
@@ -303,17 +306,6 @@ impl BoxTree {
     /// because a broken inline's pieces are siblings here rather than nested.
     pub fn ids(&self) -> impl Iterator<Item = BoxId> + '_ {
         (0..self.boxes.len()).map(BoxId)
-    }
-
-    /// Say that a box has a size of its own.
-    ///
-    /// Called after the tree is built, by whoever decoded the content — a
-    /// picture, and later a video. An outermost `<svg>` is given its own while
-    /// the tree is built, because what it says is in its attributes rather
-    /// than in bytes somebody has to fetch. Setting it twice is the later one winning,
-    /// which is what happens when a picture is replaced.
-    pub fn set_natural_size(&mut self, id: BoxId, size: NaturalSize) {
-        self.natural.insert(id, size);
     }
 
     /// What a replaced box's content says about its size, or [`None`] for a
@@ -675,12 +667,23 @@ impl BoxTree {
     }
 }
 
-/// Build the boxes for a document.
+/// Build the boxes for a document that shows no pictures.
+///
+/// Every `<img>` is then broken: its `alt` as text, or a box of nothing
+/// (ADR 0046). A drawing that read pictures builds with [`build_showing`].
+pub fn build(document: &Document, styles: &StyleTree) -> BoxTree {
+    build_showing(document, styles, &Shown::default())
+}
+
+/// Build the boxes for a document, told which `<img>` elements show a
+/// picture and how big each one is.
 ///
 /// The style tree decides what exists: `display: none` generates nothing at
 /// all, `display: contents` generates no box but keeps its children, and
-/// everything else generates one box that then gets its children.
-pub fn build(document: &Document, styles: &StyleTree) -> BoxTree {
+/// everything else generates one box that then gets its children. `shown`
+/// decides what an `<img>` box is (ADR 0046 § 1): a picture, its `alt` as
+/// text, or a box of nothing.
+pub fn build_showing(document: &Document, styles: &StyleTree, shown: &Shown) -> BoxTree {
     let mut tree = BoxTree {
         natural: BTreeMap::new(),
         legends: BTreeMap::new(),
@@ -691,7 +694,7 @@ pub fn build(document: &Document, styles: &StyleTree) -> BoxTree {
         root: None,
         issues: Vec::new(),
     };
-    let mut roots = build_children(document, styles, document.root(), &mut tree);
+    let mut roots = build_children(document, styles, shown, document.root(), &mut tree);
 
     // A document normally makes exactly one box, for `<html>`. If it made
     // several — which only happens when the root is `display: contents` — they
@@ -719,6 +722,7 @@ pub fn build(document: &Document, styles: &StyleTree) -> BoxTree {
 fn build_children(
     document: &Document,
     styles: &StyleTree,
+    shown: &Shown,
     parent: NodeId,
     tree: &mut BoxTree,
 ) -> Vec<BoxId> {
@@ -738,7 +742,7 @@ fn build_children(
         generated.push(hint);
     }
     for child in document.children(parent) {
-        generated.extend(build_one(document, styles, child, tree));
+        generated.extend(build_one(document, styles, shown, child, tree));
     }
     generated
 }
@@ -798,6 +802,7 @@ fn field_text(document: &Document, id: NodeId) -> Option<String> {
 fn build_one(
     document: &Document,
     styles: &StyleTree,
+    shown: &Shown,
     id: NodeId,
     tree: &mut BoxTree,
 ) -> Vec<BoxId> {
@@ -829,13 +834,22 @@ fn build_one(
     let style = styles.get(id);
     let display = display_of(style, id, tree);
 
+    let img = Img::of(element, id, shown);
+    if let Some(made) = &img
+        && matches!(display, Display::Box { .. })
+    {
+        return img_box(document, styles, id, element, display, made.clone(), tree);
+    }
     match display {
         Display::None => Vec::new(),
         // A replaced element has no children to promote, so CSS makes
         // `contents` on one mean `none` — and an `<svg>`'s children are
-        // shapes, which must not leak into the page as boxes.
-        Display::Contents if crate::svg::is_outermost(document, id, element) => Vec::new(),
-        Display::Contents => build_children(document, styles, id, tree),
+        // shapes, which must not leak into the page as boxes. CSS Display
+        // names `<img>` among them whether or not its picture is shown.
+        Display::Contents if img.is_some() || crate::svg::is_outermost(document, id, element) => {
+            Vec::new()
+        }
+        Display::Contents => build_children(document, styles, shown, id, tree),
         Display::Box { .. } if crate::svg::is_outermost(document, id, element) => {
             vec![svg_box(document, id, element, display, tree)]
         }
@@ -845,7 +859,7 @@ fn build_one(
             if crate::line_break::is_forced_break(element, display) {
                 tree.breaks.insert(box_id);
             }
-            let children = build_children(document, styles, id, tree);
+            let children = build_children(document, styles, shown, id, tree);
             // A form control holds what it displays in a box nobody wrote —
             // only while the author has left it a flow container, because
             // making it a flex or grid container replaces that arrangement
@@ -898,6 +912,45 @@ fn build_one(
             vec![box_id]
         }
     }
+}
+
+/// The box an `<img>` makes (ADR 0046).
+///
+/// A picture is a replaced box of its size. With no picture, an `alt` is one
+/// text box inside a box that is **not** replaced, so its `display` is its
+/// style's: `inline` by default, a run that wraps with its line and takes no
+/// `width`. The text box's node is the `<img>`, so its style is the
+/// `<img>`'s, as a field's value is the field's. With neither, a replaced box
+/// of nothing. Either way without a picture, the box carries `broken` (§ 5).
+fn img_box(
+    document: &Document,
+    styles: &StyleTree,
+    id: NodeId,
+    element: &alo_dom::Element,
+    display: Display,
+    img: Img,
+    tree: &mut BoxTree,
+) -> Vec<BoxId> {
+    let mut semantics = Semantics::of(document, id, element);
+    semantics.states.broken = img.is_broken();
+    let box_id = tree.push(BoxKind::Element { node: id, display }, semantics);
+    match img {
+        Img::Picture(size) => {
+            tree.natural.insert(box_id, size);
+        }
+        Img::Nothing => {
+            tree.natural.insert(box_id, crate::picture::nothing());
+        }
+        Img::Text(alt) => {
+            // Collapsed as the text of a child of the `<img>` would be: by
+            // the `<img>`'s own `white-space`, which the text inherits.
+            let text = white_space_at(styles, document, Some(id)).apply(&alt);
+            let text = tree.push(BoxKind::Text { node: id, text }, Semantics::anonymous());
+            let arranged = arrange(tree, box_id, vec![text]);
+            tree.adopt(box_id, &arranged);
+        }
+    }
+    vec![box_id]
 }
 
 /// The one box an outermost `<svg>` makes (ADR 0022 § 1).
@@ -1124,7 +1177,13 @@ fn control_content(element: &alo_dom::Element) -> Option<Purpose> {
 /// answer comes from the element holding it — the same walk a text box's font
 /// takes, and for the same reason.
 fn white_space_of(document: &Document, styles: &StyleTree, id: NodeId) -> WhiteSpace {
-    let mut current = document.parent(id);
+    white_space_at(styles, document, document.parent(id))
+}
+
+/// The `white-space` of an element, inherited from the nearest ancestor that
+/// has one, for text it holds.
+fn white_space_at(styles: &StyleTree, document: &Document, element: Option<NodeId>) -> WhiteSpace {
+    let mut current = element;
     while let Some(ancestor) = current {
         if let Some(style) = styles.get(ancestor)
             && let Some(text) = style.get("white-space")
@@ -1275,6 +1334,68 @@ mod tests {
         let mut out = String::new();
         let _ = tree.write_outline(body, 0, &mut out);
         out
+    }
+
+    /// The boxes of some markup in which the `<img id=shown>` shows a picture
+    /// eight by four.
+    fn boxes_showing(html: &str) -> BoxTree {
+        let document = parse_document(html);
+        let agent = parse_stylesheet(USER_AGENT_STYLE_SHEET);
+        let sheets = [SourcedSheet::new(Origin::UserAgent, &agent)];
+        let styles = resolve(&document, &sheets, &MediaContext::default());
+        let mut shown = Shown::default();
+        if let Some(img) = document.descendants(document.root()).find(|id| {
+            document
+                .element(*id)
+                .is_some_and(|element| element.attr("id") == Some("shown"))
+        }) {
+            shown.show(img, NaturalSize::sized(8.0, 4.0));
+        }
+        build_showing(&document, &styles, &shown)
+    }
+
+    #[test]
+    fn an_img_is_a_picture_its_alt_or_nothing() {
+        let tree =
+            boxes_showing("<p><img id=shown alt=Shown><img alt='Not shown'><img alt=''></p>");
+        let outline = tree.to_outline();
+        assert!(
+            outline.contains(concat!(
+                "      inline flow · image \"Shown\"\n",
+                "      inline flow · image \"Not shown\" [broken]\n",
+                "        text \"Not shown\"\n",
+                "      inline flow · image [broken]\n",
+            )),
+            "{outline}",
+        );
+        let imgs: Vec<BoxId> = tree
+            .ids()
+            .filter(|id| {
+                tree.get(*id)
+                    .is_some_and(|node| node.semantics.role.to_string() == "image")
+            })
+            .collect();
+        let natural: Vec<Option<NaturalSize>> =
+            imgs.iter().map(|id| tree.natural_size(*id)).collect();
+        assert_eq!(
+            natural,
+            [
+                Some(NaturalSize::sized(8.0, 4.0)),
+                None,
+                Some(NaturalSize::sized(0.0, 0.0)),
+            ],
+            "a picture, text that is not replaced, and a replaced box of nothing",
+        );
+    }
+
+    #[test]
+    fn an_img_with_display_contents_makes_nothing_whatever_it_shows() {
+        let outline = body_outline(
+            "<p><img alt=Gone style='display: contents'><img style='display: contents'></p>",
+            "",
+        );
+        assert!(!outline.contains("image"), "{outline}");
+        assert!(!outline.contains("Gone"), "{outline}");
     }
 
     #[test]

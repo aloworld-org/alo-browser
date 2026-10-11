@@ -52,8 +52,8 @@ pub(crate) enum NodeKind {
     /// A **replaced** box: one sized by its content rather than by its style.
     ///
     /// An image, and later a video. Nothing in CSS says how big the content is,
-    /// so the size arrives from whoever decoded it — see
-    /// `BoxTree::set_natural_size` — and may be only a ratio, or nothing.
+    /// so the size arrives from whoever decoded it, through `alo_box::Shown`
+    /// before the box tree is built, and may be only a ratio, or nothing.
     Replaced(NaturalSize),
     /// A box with nothing to measure — an empty element, or a container
     /// whose children all turned out to be nothing.

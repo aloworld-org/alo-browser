@@ -7837,7 +7837,7 @@ The long pole, and the thing most of section E is unreachable without.
   `font-size: initial` is its family's `medium`, in numbers, with a keyword
   origin.
 
-- [ ] **413. A broken picture is drawn as its text.** *Opened by
+- [x] **413. A broken picture is drawn as its text.** *Opened by
   `alo-sites-rich-blocks` (iteration 264). Feature: `docs/features.md`
   stage 2, "`<img>` lays out at the picture's own size". **Needs ADR.*** The page's `<img>` has
   `alt="Orange notebook <front>"` and bytes that are no picture, and it is
@@ -7871,6 +7871,44 @@ The long pole, and the thing most of section E is unreachable without.
   419 (`<img>`'s `width`/`height` attributes), 420 (a picture on its
   way). *Closes when:* ADR 0046 § 7. Depends on nothing open; buildable
   next.
+  **Done (iteration 269).** `alo-box`'s new `picture.rs` holds `Shown`
+  (which `<img>` elements show a picture, and at what natural size) and what
+  an `<img>` box is given it: a picture, its `alt` as written, or nothing.
+  `build_showing` builds the tree knowing it (`build` is a drawing with no
+  pictures); a picture's box is replaced at its size, an `alt` is one text
+  box whose node is the `<img>` inside a non-replaced box at its style's
+  `display`, nothing is a replaced box of natural size 0 × 0 with no ratio,
+  and `display: contents` on any `<img>` makes nothing. `States` gains
+  `broken`, set by the box tree, written last among the states and carried
+  over the wire; `alo-agent` reads no node for the `alt`'s text box.
+  `alo-renderer`'s `pictures.rs` reads every `<img>` in the document before
+  the boxes and hands paint its pictures by box afterwards;
+  `BoxTree::set_natural_size` is gone, so a picture's size has one way in.
+  The user-agent sheet leaves `img` at `inline`. **Found while building:**
+  `taffy` stretches a `block` it lays out on its own to the width offered,
+  and an `inline` picture is laid out on its own as an atomic box — so
+  `a-picture`'s first picture came out 200 wide; `alo-layout` hands a
+  replaced box whose `display` is a flow over as a `flow-root`. Tests:
+  `alo-corpus/tests/a_broken_picture.rs` (7: § 1's five ways to have no
+  picture and one shown; the `alt` inline at 139.25, as `hb-shape` shapes
+  "Orange notebook", with `width`/`height` attributes and a CSS size doing
+  nothing, in the `<img>`'s colour, on the line with the text around it;
+  wrapping into "Orange", "notebook", "front cover" in 100 px, a line apart,
+  read as one image in 3 pieces; `display: block` 300 × 18.625; § 3's 0 × 0,
+  40 × 20 and 40 × 0, never 300 × 150; § 5's `[broken]` only without a
+  picture and the `alt` read once; § 6's 108 000-character and
+  control-character `alt`s), `tests/alo_sites_rich_blocks.rs` (the `<img>`
+  209.21094 × 18.625 at (48, 16), 26779/2048 em by `hb-shape`, its words on
+  the baseline 30.851563, the caption unmoved, the outline), `picture.rs`'
+  five unit tests and two in `tree.rs`. Mutation, restored from a copy and
+  checked with `cmp`: `img` back in the `inline-block` list fails 2 tests,
+  `broken` never set 4, the `alt` read as a node 1; without the
+  `flow-root` hand-over `a-picture` moves. Moved and reviewed:
+  `alo-sites-rich-blocks`' layout, display list, outline and picture (the
+  words where the empty box was, nothing else moved); `a-picture`'s
+  `.missing` reads `[broken]` and is still 40 × 20; every `<img>` box line
+  in five cases reads `inline flow` for `inline flow-root`, with no number
+  moved.
 
 - [ ] **414. A picture in a `data:` URL.** *Found by
   `alo-sites-rich-blocks` (iteration 264). Feature: `docs/features.md`

@@ -6,5 +6,7 @@ p { margin: 4px 0 }
 /* A height and no width, which is the same rule the other way round. */
 .tall { height: 30px }
 /* A picture that did not arrive keeps the box its style asked for — an empty
-   box of the right shape rather than a collapsed page. */
+   box of the right shape rather than a collapsed page. With no `alt` it is a
+   replaced box of nothing (ADR 0046 § 3): blank, where Chrome 154 draws a grey
+   frame and an icon (§ 4, item 418), and read by an agent as `[broken]`. */
 .missing { width: 40px; height: 20px }
