@@ -6498,7 +6498,7 @@ The long pole, and the thing most of section E is unreachable without.
   with `aria-checked` draws what Chrome draws, and its agent tree still
   says what the page declared.
 
-- [ ] **457. A control's picture is snapped to whole pixels as Chrome's
+- [x] **457. A control's picture is snapped to whole pixels as Chrome's
   is.** *Found building 454 (iteration 288). Feature: `docs/features.md`
   stage 1, forms. Opened by `checkbox-beside-text`. Depends on nothing.*
   A checkbox laid out at y 22.77 is drawn there here, its edges smeared
@@ -6509,6 +6509,28 @@ The long pole, and the thing most of section E is unreachable without.
   edges, and whether anything else it draws is snapped the same way.
   *Closes when:* `checkbox-beside-text`'s controls are within
   `toggle-artwork`'s measured bound of Chrome's screenshot.
+  **Done (iteration 290).** Measured first, in Chrome 154 headless at one
+  device pixel to one without `--disable-gpu`: checkboxes placed at every
+  tenth of a pixel across and down, at 13.4, 13.5, 13.6, 20.4 and 20.5
+  wide, wide ones, radios and boxes at negative coordinates. Chrome rounds
+  each edge of the control's border box to the nearest whole pixel on its
+  own — 13.4 wide at x 10.3 is drawn from 10 to 24 — a half up whatever
+  the sign (10.5 to 11, −5.5 to −5), and then draws the picture in that box
+  as it would anywhere: a checkbox 30 wide still has its 13-pixel square
+  8.5 in, across a pixel's edge. The box itself is not moved: layout, hit
+  testing and the agent tree keep the fractions. `alo-paint`'s new
+  `snap.rs` (`to_whole_pixels`) holds the rule, and `build.rs`' `toggle_of`
+  draws the picture in the snapped box. Something else Chrome draws is
+  snapped the same way: a plain background (461). Evidence: Chrome's
+  screenshot of `checkbox-beside-text` committed beside it as `chrome.png`,
+  and `tests/a_control_on_whole_pixels.rs`: every control drawn from the
+  whole pixels Chrome's are, but where Chrome's rows stand lower (460); each
+  control's square against Chrome's square where each engine put it, 64 of
+  255 at worst, 6.7 on average for the worst control and 2.1 over all 1,752
+  pixels, within `toggle-artwork`'s bound (they were 16.3). Unit tests in
+  `snap.rs` pin the measured cases. Mutations: drawing in the unsnapped box
+  fails both corpus tests; rounding a half away from zero fails the negative
+  case. Found: 460, 461.
 
 - [ ] **458. A light accent's tick is Chrome's dark grey.** *Found
   building 454 (iteration 288). Feature: `docs/features.md` stage 1, a
@@ -6531,6 +6553,34 @@ The long pole, and the thing most of section E is unreachable without.
   (`alo-paint`'s `raster.rs` or the rented crate). *Closes when:* a dot's
   two edges are drawn alike and a rounded corner's pixel is covered within
   a stated bound of its exact area.
+
+- [ ] **460. A line is as tall as Chrome's whole-pixel ascent and descent
+  make it.** *Found building 457 (iteration 290). Feature:
+  `docs/features.md` stage 1, text. Opened by `checkbox-beside-text`.
+  Needs measuring, and its rule written down before it is built: it moves
+  every line.* At 16 px `DejaVu Sans`' ascent is 14.85 here and 15 in
+  Chrome 154, which rounds a font's ascent and descent to whole pixels and
+  floors the half-leading; so the case's first row is 19.77 tall here and
+  20 in Chrome, and by its sixth row a control stands at y 99.25 here and
+  100 in Chrome, by its last 160.05 and 162. `checkbox_beside_text.rs`
+  allows 0.75 px for it. Needs: which metrics Chrome rounds and how (each
+  of ascent and descent, or their sum; a font's line gap), at which sizes,
+  and whether a fallback font's metrics are rounded alike. *Closes when:*
+  `checkbox-beside-text`'s rows are Chrome's heights and its controls at
+  Chrome's y, to 1/64 px.
+
+- [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
+  *Found building 457 (iteration 290). Feature: `docs/features.md` stage
+  1, backgrounds. Opened by `checkbox-beside-text`. Needs measuring.*
+  Chrome 154 draws a white `div` at (10.3, 70.3), 10.4 square, crisply on
+  the pixels from 10 to 21 across and 70 to 81 down, and one at (40.5,
+  70.5) from 41 and 71: each edge rounded as a control's is (457). This
+  engine smooths the edges across two pixels, so `checkbox-beside-text`'s
+  rows, at fractional y, have a blended pixel row between them where
+  Chrome's have none. Needs: whether borders, rounded corners, box shadows
+  and a background image are snapped alike, and what happens under a
+  transform. *Closes when:* `checkbox-beside-text`'s backgrounds are
+  Chrome's pixels exactly outside the controls and text.
 
 - [x] **455. A stopped HTTP/2 body is reported the same way whatever the
   timing.** *Found by the gate in iteration 287, which did not cause it.

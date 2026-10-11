@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A checkbox or radio button between two lines of text is drawn crisp.**
+  When the line it sat on put it part way through a pixel, its edges were
+  smeared across two rows of pixels. Like Chrome, the browser now draws it
+  on whole pixels, rounding each edge to the nearest one, without moving
+  where the control is for clicking or for an agent reading the page.
+  Measured against Chrome, and compared with Chrome's screenshot of the
+  same page (queue item 457).
+
 - **A server that hangs up over HTTP/2 is reported the same way every
   time.** When a server stopped part way through a page, the reason given
   was usually "the connection ended" but, on a busy machine, sometimes

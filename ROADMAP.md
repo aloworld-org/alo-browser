@@ -1222,7 +1222,10 @@ unreachable without it.
       circle inside a grey edge, the accent and a tick or dot when checked,
       translucent greys when disabled, all measured from Chrome 154's
       screenshots. Corpus case `toggle-artwork`, compared with Chrome's
-      screenshot beside it pixel by pixel within a measured bound · Owed:
+      screenshot beside it pixel by pixel within a measured bound. **Drawn
+      on whole pixels** where it stands on fractions (queue item 457,
+      `alo-paint`'s `snap.rs`), each edge rounded as Chrome 154 rounds it;
+      `checkbox-beside-text` compared with Chrome's screenshot · Owed:
       everything a control **does**,
       which needs events
       (queue item 81) — constraint validation, submission, file inputs — the
@@ -1234,8 +1237,7 @@ unreachable without it.
       kept space (438), each waiting for a page; an author's padding and
       border on a checkbox, which Chrome ignores (453, waits for a page);
       a native checkbox's picture following its own checkedness rather
-      than `aria-checked` (456, waits for a page), a control's picture
-      snapped to whole pixels as Chrome's is (457), and a light accent's
+      than `aria-checked` (456, waits for a page), and a light accent's
       dark tick (458, waits for a page)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
       · Built: **`location`, read** (queue item 360) — `alo-url`'s

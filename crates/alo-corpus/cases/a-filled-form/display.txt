@@ -5,6 +5,6 @@ text box#8 "someone@alo.build" rgb(0 0 0) 13px at (13, 39.199707)
 text box#12 "Password" rgb(82 82 91) 13px at (10, 56.799706)
 fill box#14 rgb(161 161 170) at (10, 59.865623) 196×19.599998
 text box#15 "••••••••" rgb(0 0 0) 13px at (13, 73.93252)
-fill box#18 rgb(0 117 255) at (14, 82.46562) 13×13
-fill box#18 rgb(255 255 255) at (15.86461, 84.41594) 9.347495×8.706696
+fill box#18 rgb(0 117 255) at (14, 82) 13×13
+fill box#18 rgb(255 255 255) at (15.86461, 83.95032) 9.347495×8.706696
 text box#20 "Remember me" rgb(82 82 91) 13px at (10, 110.598434)

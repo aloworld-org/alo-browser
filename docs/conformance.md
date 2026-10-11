@@ -181,9 +181,14 @@ committed beside it: inside each shape the colour is Chrome's to a unit, and
 the edges differ only by how each smooths them — Chrome quantises an edge's
 coverage to quarters at one to one and this rasteriser does not — by at most
 64 of 255 and 3.0 on average. Where a control stands on a fraction of a pixel
-Chrome snaps its picture to a whole one and this engine does not (457), so
-`checkbox-beside-text`'s controls differ from Chrome's by 16 on average
-(they differed by 47 before). A native checkbox with `aria-checked` draws the
+its picture is drawn on whole pixels, as Chrome's is (item 457): each edge of
+its box rounded to the nearest pixel, a half up, measured in Chrome 154.
+`checkbox-beside-text`'s controls differ from Chrome's committed screenshot
+by 2.1 on average and 64 at most, where they differed by 16 (and by 47 before
+item 454). Its last four controls stand one or two pixels higher than
+Chrome's, because Chrome's rows are whole pixels tall (460), and a plain
+background at a fraction of a pixel is smoothed here where Chrome draws it on
+whole pixels (461). A native checkbox with `aria-checked` draws the
 state it declares; Chrome draws its own checkedness (456). A light accent's
 tick is black here and Chrome's dark grey `#3b3b3b` (458).
 

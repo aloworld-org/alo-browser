@@ -30,6 +30,7 @@ use crate::drawing::{Drawing, DrawingItem};
 use crate::fill_rule::FillRule;
 use crate::paint::Paint;
 use crate::path::Path;
+use crate::snap;
 use crate::toggle;
 use alo_box::{BoxId, BoxKind, BoxTree};
 use alo_layout::{LayoutTree, Rect};
@@ -895,7 +896,9 @@ impl Builder<'_> {
         });
     }
 
-    /// A checkbox's or a radio's own picture, drawn over its border box.
+    /// A checkbox's or a radio's own picture, drawn over its border box
+    /// moved onto whole pixels, as Chrome draws it (queue item 457); the
+    /// box itself stays where layout put it.
     fn toggle_of(&self, id: BoxId, kind: alo_box::Toggle, out: &mut Vec<DisplayItem>) {
         let (Some(node), Some(geometry)) = (self.boxes.get(id), self.layout.get(id)) else {
             return;
@@ -907,7 +910,7 @@ impl Builder<'_> {
                 .style_of(id)
                 .and_then(|style| style.color("accent-color")),
         };
-        for layer in toggle::artwork(kind, state, geometry.border_box) {
+        for layer in toggle::artwork(kind, state, snap::to_whole_pixels(geometry.border_box)) {
             out.push(DisplayItem::Fill {
                 rule: FillRule::NonZero,
                 box_id: id,

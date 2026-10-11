@@ -1707,3 +1707,16 @@ that stalls is still a write failing. A scripted wire forces the write-first
 order in `a_download_that_stops_over_http_2.rs`. 457 and 459 are buildable
 next. 205 queue items are open (455 closed). The next unused queue number is
 460 and the next unused ADR 0050.
+
+Iteration 290 built item 457: a checkbox's and a radio's picture is drawn on
+whole pixels where layout puts the control at fractions, each edge of its box
+rounded to the nearest pixel, a half up, as measured in Chrome 154
+(`alo-paint`'s `snap.rs`, used by `build.rs`' `toggle_of`); the box itself
+does not move. `checkbox-beside-text` is compared with Chrome's committed
+screenshot of it within `toggle-artwork`'s bound. Found: 460 (a line as tall
+as Chrome's whole-pixel ascent and descent make it; opened by
+`checkbox-beside-text`, needs measuring and its rule written down) and 461 (a
+plain background drawn on whole pixels; opened by the same case, needs
+measuring). 459, 460 and 461 depend on nothing. 206 queue items are open (457
+closed, 460–461 added). The next unused queue number is 462 and the next
+unused ADR 0050.

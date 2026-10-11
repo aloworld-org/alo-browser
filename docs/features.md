@@ -228,7 +228,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
   ticked when checked, a dot in a chosen radio, and translucent greys
   when disabled — every shape and colour measured from Chrome's
   screenshots and the case compared with Chrome's pixel by pixel (queue
-  item 454). Not yet: the person's region
+  item 454). A control laid out at a fraction of a pixel draws its picture
+  on whole pixels, each edge of its box rounded as Chrome rounds it, while
+  the box stays where layout put it (queue item 457). Not yet: the person's region
   for that order (387), the calendar button (386), and what an empty time,
   month or week field shows (388)
 - [2] **A fieldset's border, broken by its legend** — the legend sits *in* the

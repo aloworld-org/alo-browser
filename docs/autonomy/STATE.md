@@ -28224,3 +28224,95 @@ updated: `docs/features.md`, `REMAINING.md`, `CHANGELOG.md`;
 205 queue items are open (455 closed). The next unused queue number is
 **460** and the next ADR is **0050**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 290 — queue item 457 built: a control laid out on fractions draws its picture on whole pixels, as Chrome does
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its stage 1 forms line, which this item serves), iteration 289. No
+`AGENTS.md` exists in this repository or above it. For 457: its queue
+entry, `docs/features.md`' forms entry (items 443 and 454),
+`alo-paint`'s `toggle.rs`, `control.rs` and `build.rs`' `toggle_of`,
+`alo-layout`'s `line_width.rs` (the one other place that rounds to device
+pixels), and `tests/toggle_artwork.rs` and `checkbox_beside_text.rs`. The
+item names no ADR and needs none: it draws an existing picture in a
+measured place and decides no policy.
+
+**Choosing.** Iteration 289 named 457 and 459 buildable; 457 stands first.
+
+**Measured first**, in Chrome 154 headless, one device pixel to one, no
+`--disable-gpu`: checkboxes at every tenth of a pixel across and down
+(0, 0.1 … 0.49, 0.5, 0.51 … 0.9), at 13.4, 13.5, 13.6, 20.4 and 20.5 wide,
+30 and 29 wide, radios, and at −5.5 and −6.5. Chrome rounds each edge of
+the border box to the nearest whole pixel on its own (13.4 at 10.3 is
+drawn 10 to 24), a half up whatever the sign, then places the picture in
+that box as anywhere else (a 30-wide checkbox's square still starts 8.5
+in). A plain `div` background is snapped the same way (filed as 461).
+Chrome's `getBoundingClientRect()` for the case's nine controls was also
+dumped: its last four stand 1–2 px lower than ours because its rows are
+whole pixels tall (filed as 460).
+
+**What was built.** `alo-paint`'s new `snap.rs`, `to_whole_pixels`: one
+responsibility, where a box's picture lands on whole device pixels, with
+the measured rule in its documentation and unit tests. `build.rs`'
+`toggle_of` draws `toggle::artwork` in the snapped border box. Layout,
+hit testing and the agent tree are untouched: only the drawing moves.
+
+**Evidence.** Chrome's screenshot of `checkbox-beside-text`, with the
+corpus font, committed as the case's `chrome.png` (RGBA).
+`tests/a_control_on_whole_pixels.rs`: every control is drawn from the
+whole pixels asserted, which are Chrome's for the first five; an
+unchecked checkbox's edge fills its first column and row exactly and the
+pixel beside it is Chrome's; each control's square against Chrome's
+square at Chrome's own position is within `toggle-artwork`'s bound —
+64 of 255 at worst, 6.7 on average for the worst control, 2.1 over all
+1,752 pixels (16.3 before).
+
+**Gate, mechanical.** `cargo fmt --all --check` clean; `cargo clippy
+--workspace --all-targets --all-features -- -D warnings` clean.
+`scripts/gate.sh` ran once in the foreground; the harness moved it to the
+background at 600 s and the next call waited on it with a foreground
+`until` loop: `exit 0`, "The gate is met", no `FAILED` or `panicked` in
+the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- *Layout assertions:* nothing is laid out differently; the boxes'
+  numbers in every `layout.txt` and `boxes.txt` are unchanged, and the
+  case test still asserts each control's across to 1/64 px of Chrome.
+  The snapped rectangles are asserted in numbers in `snap.rs`' tests and
+  the new corpus test.
+- *Reference renders:* rewritten with `ALO_UPDATE_REFERENCES=1` and
+  reviewed: `display.txt` and `render.png` moved in seven cases
+  (`a-filled-form`, `alo-settings`, `alo-sign-in`, `checkbox-beside-text`,
+  `control-states`, `fieldset-group`, `web-a-form`), and every changed
+  `display.txt` line is a toggle's fill moving to whole pixels.
+  `toggle-artwork`, on whole pixels already, did not move. The window
+  references compose `alo-offline`, which did not change.
+- *Mutations, restored from a copy (`cmp` confirmed):* drawing in the
+  unsnapped box fails both new corpus tests (68 at worst); rounding a
+  half away from zero fails `a_half_rounds_up_below_zero_too`.
+- One responsibility per file: the rounding rule is `snap.rs`'; `build.rs`
+  only uses it. No `unsafe`. Nothing here reads bytes from outside.
+  `alo-workplace` and `alo-os` were not touched.
+
+**Queue.** 457 ticked with its *Done* paragraph. Added 460 (a line as tall
+as Chrome's whole-pixel ascent and descent make it; needs measuring and
+its rule written down, since it moves every line) and 461 (a plain
+background drawn on whole pixels; needs measuring for borders, corners,
+shadows and transforms). Both opened by `checkbox-beside-text`.
+
+**Roadmap.** Stage 1's forms line gains "drawn on whole pixels" in its
+*Built* clause (457, `snap.rs`), and 457 leaves its *Owed* clause. It
+stays unticked: everything a control does, which needs events, is still
+owed. Also updated: `docs/features.md`, `docs/conformance.md`,
+`REMAINING.md`, `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 459, 460 and 461 depend on nothing and are buildable next; 459 stands
+  first in the file. 460 changes every line's height and should write its
+  rule down before code depends on it.
+- 438, 439, 431, 433, 434, 444, 445, 446, 448, 450–453, 456, 458,
+  423–428, 411, 414 and 416–421 wait for pages; 432 depends on 404.
+
+206 queue items are open (457 closed, 460–461 added). The next unused
+queue number is **462** and the next ADR is **0050**. This is one
+iteration, not a finished queue or roadmap.

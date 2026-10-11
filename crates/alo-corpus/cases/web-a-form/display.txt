@@ -15,14 +15,14 @@ fill box#25 rgb(255 255 255) at (10, 141.9125) 580×151.23282
 unclip
 unclip
 text box#28 "Pizza Size" rgb(0 0 0) 16px at (26, 148.45157)
-fill box#33 rgb(255 255 255) at (29, 176.82501) 13×13
-fill box#33 rgb(118 118 118) at (29, 176.82501) 13×13
+fill box#33 rgb(255 255 255) at (29, 177) 13×13
+fill box#33 rgb(118 118 118) at (29, 177) 13×13
 text box#34 "Small" rgb(0 0 0) 16px at (50.085938, 189.82501)
-fill box#39 rgb(255 255 255) at (29, 212.59845) 13×13
-fill box#39 rgb(118 118 118) at (29, 212.59845) 13×13
+fill box#39 rgb(255 255 255) at (29, 213) 13×13
+fill box#39 rgb(118 118 118) at (29, 213) 13×13
 text box#40 "Medium" rgb(0 0 0) 16px at (50.085938, 225.59845)
-fill box#45 rgb(255 255 255) at (29, 248.37189) 13×13
-fill box#45 rgb(118 118 118) at (29, 248.37189) 13×13
+fill box#45 rgb(255 255 255) at (29, 248) 13×13
+fill box#45 rgb(118 118 118) at (29, 248) 13×13
 text box#46 "Large" rgb(0 0 0) 16px at (50.085938, 261.3719)
 clip box#49 to (10, 301.45782) 580×187.00626
 clip box#49 to (10, 301.45782) 580×187.00626
@@ -35,17 +35,17 @@ fill box#49 rgb(255 255 255) at (10, 301.45782) 580×187.00626
 unclip
 unclip
 text box#52 "Pizza Toppings" rgb(0 0 0) 16px at (26, 307.9969)
-fill box#57 rgb(255 255 255) at (28, 336.37033) 13×13
-fill box#57 rgb(118 118 118) at (28, 336.37033) 13×13
+fill box#57 rgb(255 255 255) at (28, 336) 13×13
+fill box#57 rgb(118 118 118) at (28, 336) 13×13
 text box#58 "Bacon" rgb(0 0 0) 16px at (49.085938, 349.37033)
-fill box#63 rgb(255 255 255) at (28, 372.14377) 13×13
-fill box#63 rgb(118 118 118) at (28, 372.14377) 13×13
+fill box#63 rgb(255 255 255) at (28, 372) 13×13
+fill box#63 rgb(118 118 118) at (28, 372) 13×13
 text box#64 "Extra Cheese" rgb(0 0 0) 16px at (49.085938, 385.14377)
-fill box#69 rgb(255 255 255) at (28, 407.9172) 13×13
-fill box#69 rgb(118 118 118) at (28, 407.9172) 13×13
+fill box#69 rgb(255 255 255) at (28, 408) 13×13
+fill box#69 rgb(118 118 118) at (28, 408) 13×13
 text box#70 "Onion" rgb(0 0 0) 16px at (49.085938, 420.9172)
-fill box#75 rgb(255 255 255) at (28, 443.69064) 13×13
-fill box#75 rgb(118 118 118) at (28, 443.69064) 13×13
+fill box#75 rgb(255 255 255) at (28, 444) 13×13
+fill box#75 rgb(118 118 118) at (28, 444) 13×13
 text box#76 "Mushroom" rgb(0 0 0) 16px at (49.085938, 456.69064)
 text box#81 "Preferred delivery time:" rgb(0 0 0) 16px at (8, 521.3157)
 fill box#82 rgb(118 118 118) at (202.48438, 504.46408) 209.59375×23.199982

@@ -63,6 +63,7 @@ pub mod pattern;
 pub mod picture;
 pub mod raster;
 pub mod render;
+pub mod snap;
 pub mod stroke;
 pub mod synthesis;
 pub mod toggle;
