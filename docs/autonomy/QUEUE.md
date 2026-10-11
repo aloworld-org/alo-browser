@@ -6258,7 +6258,7 @@ The long pole, and the thing most of section E is unreachable without.
   recorded. *Closes when:* a frozen page writes one and draws as the
   browsers it targets do.
 
-- [ ] **442. `text-overflow: ellipsis`.** *Found by
+- [x] **442. `text-overflow: ellipsis`.** *Found by
   `alo-agenda-calendars` (iteration 281). Feature: `docs/features.md`
   stage 1, text. Depends on nothing.* Mira's calendar's name is longer
   than its 113.98 px box, which is `white-space: nowrap; overflow: hidden;
@@ -6268,6 +6268,46 @@ The long pole, and the thing most of section E is unreachable without.
   agent reads the whole name, as it does now, because the page wrote it.
   *Closes when:* the frozen name is drawn ending in an ellipsis that fits
   inside its box, in pixels, and the agent's text is unchanged.
+  **Done (iteration 284).** `alo-layout`'s new `ellipsis.rs` ends each
+  line of a block container whose `text-overflow` is `ellipsis` and whose
+  `overflow` is not `visible` on either axis, where the line is wider than
+  the content box: it hides whole clusters and whole atomic boxes from the
+  end until what is left and "…" fit, keeps the first thing on a line
+  whatever the room, and puts the "…" straight after what is left, in the
+  block's font on the line's baseline. Nothing moves: layout records only
+  where each "…" is (relative to its block, so it moves with a box placed
+  after its lines), how much of each piece of text is drawn, and which
+  atomic boxes are not; `alo-paint` draws that, the "…" in the block's
+  colour and shadow, an underline under what was kept and not under the
+  "…". The measurer seam gains `cluster_ends` (one shaping of a line,
+  `alo-text`'s `cluster.rs`, so a hostile 100 000-character line is one
+  pass); `text-overflow` is read as a keyword, `clip` or `ellipsis`, a
+  string and two values refused and recorded as Chrome 154 refuses them.
+  Every rule was measured in Chrome 154 with the corpus's font. In
+  `alo-agenda-calendars` Mira's calendar's name is drawn "Mira's
+  calendar…", the "…" at 143.14 (Chrome's 44 + 6346/64, 143.156) and 13
+  wide, inside the box's 158, its dots in Chrome's pixel columns, and an
+  agent reads the whole name; `cases/text-overflow-ellipsis` pins the
+  measured rules in pixels. Cut: 447, 448.
+
+- [ ] **447. An atomic box in a line that may not wrap stays on it.**
+  *Found building 442 (iteration 284). Feature: `docs/features.md` stage
+  1, inline formatting. Depends on nothing.* `alo-layout`'s `add_atomic`
+  ends the line before an `inline-block` or a picture that does not fit
+  whatever the line's `white-space`, so in a `nowrap` line it starts a new
+  line; Chrome 154 keeps it on the line (measured: `ab <inline-block 60px>
+  cd` in an 80 px `nowrap` box is one line, and an ellipsis hides the box).
+  The item knows no `white-space`, so the line has nothing to ask. *Closes
+  when:* a case pins an atomic box in a `nowrap` line on that line, with
+  Chrome's numbers.
+
+- [ ] **448. An ellipsis after a space that is a text box of its own.**
+  *Cut from 442. Feature: `docs/features.md` stage 1, text. Waits for a
+  page.* A space between two elements (`</a> <a>`) takes room on its line
+  without a fragment, so when the cut falls after it the "…" stands where
+  the text before it ended; Chrome 154 keeps a space before the cut and
+  stands the "…" after it. *Closes when:* a frozen page's ellipsis after
+  such a space stands where Chrome's does.
 
 - [ ] **443. A checkbox's user-agent margin.** *Found re-measuring
   `alo-settings` for 440 (iteration 281). Feature: `docs/features.md`

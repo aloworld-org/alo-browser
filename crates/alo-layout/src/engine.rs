@@ -44,6 +44,7 @@ use crate::arena::{Arena, NodeKind, Unresolved};
 use crate::auto_repeat::Axis;
 use crate::baseline;
 use crate::containing::{self, Containing};
+use crate::ellipsis::{self, Ellipses};
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::inline::{self, Fragment, InlineItem, InlineLayout};
 use crate::keyword::{
@@ -105,6 +106,7 @@ pub fn compute(
         return LayoutTree::from_parts(BTreeMap::new(), BTreeMap::new(), issues, viewport);
     };
     LayoutTree::from_parts(laid_out.geometry, laid_out.fragments, issues, viewport)
+        .with_ellipses(laid_out.ellipses)
 }
 
 /// One formatting context, laid out on its own.
@@ -116,6 +118,8 @@ struct LaidOut {
     baseline: Option<f32>,
     geometry: BTreeMap<BoxId, BoxGeometry>,
     fragments: BTreeMap<BoxId, Vec<Fragment>>,
+    /// What `text-overflow` hid; see [`crate::ellipsis`].
+    ellipses: Ellipses,
 }
 
 /// Where everything in one formatting context ended up, filled in as it is
@@ -132,6 +136,8 @@ pub(crate) struct Placed {
     /// The boxes out of flow written in a line, and which of their axes
     /// that line places.
     pub(crate) in_line: BTreeMap<BoxId, Axes>,
+    /// Where lines end in "…", and what that hid; see [`crate::ellipsis`].
+    pub(crate) ellipses: Ellipses,
 }
 
 /// What is being laid out on its own.
@@ -261,6 +267,7 @@ fn lay_out_subtree(
         baseline: baseline::of_atomic(boxes, styles, root, &placed.lines, &placed.geometry),
         geometry: placed.geometry,
         fragments: placed.fragments,
+        ellipses: placed.ellipses,
     })
 }
 
@@ -737,17 +744,25 @@ fn place_inline_content(
         // The strut is the font of the box that holds the lines, and it is
         // the same one `measure_inline` sized this box with — two different
         // struts would give the box one height and its lines another.
+        let strut = text_style_for(boxes, styles, id);
         let layout = inline::lay_out_aligned(
             &items,
             room,
             alignment_of(boxes, styles, id),
-            &text_style_for(boxes, styles, id),
+            &strut,
             measure,
         );
 
         let down = lines_start_down(boxes, styles, id, content, layout.size.height);
         let origin = Point::new(content.origin.x, content.origin.y + down);
         record_lines(boxes, styles, id, &layout, origin.y, measure, out);
+        let lines = ellipsis::Lines {
+            items: &items,
+            layout: &layout,
+            origin,
+            strut: &strut,
+        };
+        ellipsis::place(boxes, styles, id, &lines, measure, out);
         for fragment in layout.fragments() {
             let placed = Fragment {
                 rect: fragment.rect.translated(origin),
@@ -780,50 +795,7 @@ fn place_inline_content(
                 ..BoxGeometry::default()
             });
         }
-        // An atomic box brought a whole layout of its own with it; place it.
-        for item in &items {
-            if let InlineItem::Atomic { box_id, margin, .. } = item
-                && let Some(placed) = out.fragments.get(box_id).and_then(|pieces| pieces.first())
-            {
-                let offset = placed.rect.origin;
-                // The room it is given is its margin box: a block takes its
-                // margins out of the room it is given, so handing it only its
-                // border box would shrink it by its own margins.
-                if let Some(sub) = lay_out_subtree(
-                    boxes,
-                    styles,
-                    Subtree {
-                        root: *box_id,
-                        document: false,
-                    },
-                    TaffySize {
-                        width: AvailableSpace::Definite(
-                            placed.rect.size.width + margin.horizontal(),
-                        ),
-                        height: AvailableSpace::Definite(
-                            placed.rect.size.height + margin.vertical(),
-                        ),
-                    },
-                    measure,
-                    issues,
-                ) {
-                    for (inner, mut held) in sub.geometry {
-                        held.border_box = held.border_box.translated(offset);
-                        out.geometry.insert(inner, held);
-                    }
-                    for (inner, pieces) in sub.fragments {
-                        let moved: Vec<Fragment> = pieces
-                            .into_iter()
-                            .map(|piece| Fragment {
-                                rect: piece.rect.translated(offset),
-                                ..piece
-                            })
-                            .collect();
-                        out.fragments.insert(inner, moved);
-                    }
-                }
-            }
-        }
+        place_atomics(boxes, styles, &items, measure, out, issues);
         for anchor in &layout.anchors {
             out_of_flow::stand_at_static_position(boxes, anchor, origin, out);
             place_inline_content(boxes, styles, anchor.box_id, measure, out, issues);
@@ -834,6 +806,59 @@ fn place_inline_content(
     let children: Vec<BoxId> = boxes.children(id).collect();
     for child in children {
         place_inline_content(boxes, styles, child, measure, out, issues);
+    }
+}
+
+/// Each atomic box among `items` brought a whole layout of its own with it;
+/// place it where its line put it.
+fn place_atomics(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    items: &[InlineItem],
+    measure: &impl MeasureText,
+    out: &mut Placed,
+    issues: &mut Vec<StyleIssue>,
+) {
+    for item in items {
+        if let InlineItem::Atomic { box_id, margin, .. } = item
+            && let Some(placed) = out.fragments.get(box_id).and_then(|pieces| pieces.first())
+        {
+            let offset = placed.rect.origin;
+            // The room it is given is its margin box: a block takes its
+            // margins out of the room it is given, so handing it only its
+            // border box would shrink it by its own margins.
+            if let Some(sub) = lay_out_subtree(
+                boxes,
+                styles,
+                Subtree {
+                    root: *box_id,
+                    document: false,
+                },
+                TaffySize {
+                    width: AvailableSpace::Definite(placed.rect.size.width + margin.horizontal()),
+                    height: AvailableSpace::Definite(placed.rect.size.height + margin.vertical()),
+                },
+                measure,
+                issues,
+            ) {
+                for (inner, mut held) in sub.geometry {
+                    held.border_box = held.border_box.translated(offset);
+                    out.geometry.insert(inner, held);
+                }
+                for (inner, pieces) in sub.fragments {
+                    let moved: Vec<Fragment> = pieces
+                        .into_iter()
+                        .map(|piece| Fragment {
+                            rect: piece.rect.translated(offset),
+                            ..piece
+                        })
+                        .collect();
+                    out.fragments.insert(inner, moved);
+                }
+                // Relative to the boxes they end, which moved above.
+                out.ellipses.extend(sub.ellipses);
+            }
+        }
     }
 }
 

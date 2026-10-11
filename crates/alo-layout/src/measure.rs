@@ -92,6 +92,19 @@ pub trait MeasureText {
     /// know that either, so it asks.
     fn break_opportunities(&self, text: &str) -> Vec<usize>;
 
+    /// Where each **cluster** of this text ends, in bytes, with how far the
+    /// pen has moved from the start of the text there — the last always the
+    /// end of the text and its whole width, and none at all for no text.
+    ///
+    /// A cluster is the smallest piece that is drawn whole: a letter with its
+    /// combining marks, a ligature, a run the shaper set right to left. It is
+    /// where a line may be cut short without cutting a letter in half, which
+    /// is what `text-overflow: ellipsis` does (`crate::ellipsis`). One
+    /// shaping of the whole text, rather than a measurement of every prefix:
+    /// the second is a question asked once per letter of a line whose length
+    /// a page chose.
+    fn cluster_ends(&self, text: &str, style: &TextStyle) -> Vec<(usize, f32)>;
+
     /// How far above the bottom of a line of this text the baseline sits.
     ///
     /// Two pieces of text set in different sizes sit on the same baseline, not
@@ -125,6 +138,11 @@ impl MeasureText for NoText {
         // The end of the text, which is where it stops rather than a break.
         // With no font there is nothing to break.
         vec![text.len()]
+    }
+
+    fn cluster_ends(&self, text: &str, _style: &TextStyle) -> Vec<(usize, f32)> {
+        // Every character a cluster, and none of them any room.
+        each_character(text, 0.0)
     }
 
     fn ascender(&self, _style: &TextStyle) -> f32 {
@@ -172,6 +190,10 @@ impl MeasureText for BlockFont {
         after_spaces(text)
     }
 
+    fn cluster_ends(&self, text: &str, style: &TextStyle) -> Vec<(usize, f32)> {
+        each_character(text, 8.0 + style.letter_spacing)
+    }
+
     fn ascender(&self, _style: &TextStyle) -> f32 {
         12.0
     }
@@ -213,6 +235,10 @@ impl MeasureText for ScaledFont {
         after_spaces(text)
     }
 
+    fn cluster_ends(&self, text: &str, style: &TextStyle) -> Vec<(usize, f32)> {
+        each_character(text, style.size / 2.0 + style.letter_spacing)
+    }
+
     fn ascender(&self, style: &TextStyle) -> f32 {
         style.size * 0.75
     }
@@ -224,6 +250,18 @@ impl MeasureText for ScaledFont {
     fn x_height(&self, style: &TextStyle) -> f32 {
         style.size * 0.5
     }
+}
+
+/// The end of every character, each `advance` further on than the last: the
+/// test measurers' clusters.
+fn each_character(text: &str, advance: f32) -> Vec<(usize, f32)> {
+    let mut pen = 0.0;
+    text.char_indices()
+        .map(|(offset, character)| {
+            pen += advance;
+            (offset + character.len_utf8(), pen)
+        })
+        .collect()
 }
 
 /// The offsets just after every space, and the end of the text: where the
@@ -314,6 +352,26 @@ mod tests {
         assert!((ScaledFont.x_height(&large) - 20.0).abs() < f32::EPSILON);
         assert_eq!(ScaledFont.measure("", &large, None), Size::ZERO);
         assert_eq!(ScaledFont.break_opportunities("one two"), vec![4, 7]);
+    }
+
+    #[test]
+    fn the_test_fonts_clusters_are_their_characters() {
+        let style = TextStyle {
+            size: 20.0,
+            letter_spacing: 1.0,
+            ..TextStyle::default()
+        };
+        assert_eq!(
+            BlockFont.cluster_ends("aé", &style),
+            vec![(1, 9.0), (3, 18.0)],
+            "the end of each character in bytes, and the pen there",
+        );
+        assert_eq!(
+            ScaledFont.cluster_ends("ab", &style),
+            vec![(1, 11.0), (2, 22.0)]
+        );
+        assert_eq!(NoText.cluster_ends("ab", &style), vec![(1, 0.0), (2, 0.0)]);
+        assert!(BlockFont.cluster_ends("", &style).is_empty());
     }
 
     #[test]

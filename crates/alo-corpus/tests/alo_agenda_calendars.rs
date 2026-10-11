@@ -21,6 +21,12 @@
 //! held in their case when their text boxes are built, so they are measured
 //! and drawn as Chrome draws them and read by an agent as a person sees
 //! them.
+//!
+//! And it closes queue item 442. Mira's calendar's name is longer than its
+//! box, which is `overflow: hidden; text-overflow: ellipsis`: Chrome ends it
+//! "Mira's calendar…" inside the box, where until item 442 it was cut
+//! mid-letter at the box's edge. Nothing moved; only what is drawn did, and
+//! an agent still reads the whole name.
 
 use alo_agent::AgentTree;
 use alo_corpus::{Case, Rendering, cases_directory};
@@ -294,4 +300,153 @@ fn an_agent_reads_the_headings_as_drawn_and_finds_them_as_written() {
         .map(alo_agent::AgentNode::name)
         .collect();
     assert_eq!(found, [Some("MY CALENDARS".to_owned())]);
+}
+
+/// The box of the element whose `class` names `class`, the `index`th of
+/// them, and the box of the first text inside it.
+fn box_and_text_of(
+    rendering: &Rendering,
+    class: &str,
+    index: usize,
+) -> Option<(alo_box::BoxId, alo_box::BoxId)> {
+    let document = rendering.document()?;
+    let drawing = rendering.drawing()?;
+    let boxes = &drawing.boxes;
+    let node = document
+        .descendants(document.root())
+        .filter(|id| {
+            document.element(*id).is_some_and(|element| {
+                element
+                    .attr("class")
+                    .is_some_and(|classes| classes.split_whitespace().any(|name| name == class))
+            })
+        })
+        .nth(index)?;
+    let element = boxes.ids().find(|id| {
+        matches!(
+            boxes.get(*id).map(|box_node| &box_node.kind),
+            Some(alo_box::BoxKind::Element { node: of, .. }) if *of == node
+        )
+    })?;
+    let text = boxes.children(element).find(|id| {
+        boxes
+            .get(*id)
+            .is_some_and(|box_node| box_node.text().is_some())
+    })?;
+    Some((element, text))
+}
+
+#[test]
+fn miras_name_ends_in_an_ellipsis_inside_its_box() {
+    let Some(rendering) = agenda() else {
+        panic!("the case renders");
+    };
+    let Some(drawing) = rendering.drawing() else {
+        panic!("a drawing");
+    };
+    let Some((name, text)) = box_and_text_of(&rendering, "calName", 3) else {
+        panic!("Mira's calendar's name and its text");
+    };
+    let layout = &drawing.layout;
+    let Some(room) = layout.get(name).map(alo_layout::BoxGeometry::content_box) else {
+        panic!("the name is laid out");
+    };
+    let ended = layout.ellipses(name);
+    let [ellipsis] = ended.as_slice() else {
+        panic!("one line, one ellipsis: {ended:?}");
+    };
+    // Chrome 154, with the corpus's font: "Mira's calendar" is 6346 of its
+    // 1/64 px units wide and "…" 832, so the ellipsis stands at 44 +
+    // 99.15625 and is 13 wide. With the comma it would be 6610 + 832 units,
+    // 116.28, past the box's 114.
+    let chrome_start = room.origin.x + 6346.0 / 64.0;
+    assert!(
+        (ellipsis.rect.origin.x - chrome_start).abs() < 1.0 / 64.0,
+        "{ellipsis:?} {chrome_start}"
+    );
+    assert!(
+        (ellipsis.rect.size.width - 832.0 / 64.0).abs() < 1.0 / 64.0,
+        "{ellipsis:?}"
+    );
+    assert!(
+        right(&ellipsis.rect) <= right(&room),
+        "{ellipsis:?} {room:?}"
+    );
+    // On the line's baseline, in the name's own font: the text's top.
+    let fragments = layout.fragments(text);
+    let [fragment] = fragments else {
+        panic!("one piece: {fragments:?}");
+    };
+    assert!(near(ellipsis.rect.origin.y, fragment.rect.origin.y));
+    // The text is where it was and as wide as it was, and drawn up to the
+    // comma.
+    assert!(near(fragment.rect.size.width, 296.664_06), "{fragment:?}");
+    let drawn = layout.cut(fragment).and_then(|cut| {
+        drawing
+            .boxes
+            .get(text)?
+            .text()?
+            .get(..cut.end)
+            .map(str::to_owned)
+    });
+    assert_eq!(drawn.as_deref(), Some("Mira's calendar"));
+    // The other three names fit, and end in nothing.
+    for index in 0..3 {
+        let Some((other, _)) = box_and_text_of(&rendering, "calName", index) else {
+            panic!("name {index}");
+        };
+        assert!(layout.ellipses(other).is_empty(), "{index}");
+    }
+}
+
+#[test]
+fn the_ellipsis_is_drawn_where_chrome_draws_its_dots() {
+    let Some(rendering) = agenda() else {
+        panic!("the case renders");
+    };
+    let Some(drawing) = rendering.drawing() else {
+        panic!("a drawing");
+    };
+    // Whether any pixel of the column at `x`, across the name's line, is
+    // the dark of its text rather than the sidebar behind it.
+    let inked = |x: u32| {
+        (250..266).any(|y| {
+            drawing
+                .canvas
+                .at(x, y)
+                .map(Rgba::to_rgba8)
+                .is_some_and(|(red, green, blue, _)| {
+                    u32::from(red) + u32::from(green) + u32::from(blue) < 450
+                })
+        })
+    };
+    // Chrome 154's screenshot of the same page: the three dots in columns
+    // 145, 149 and 153, and nothing from 155 to the box's edge at 158 —
+    // where the "s" of "shared" was cut in half before item 442.
+    for x in [145, 149, 153] {
+        assert!(inked(x), "a dot at {x}");
+    }
+    for x in [147, 151, 155, 156, 157] {
+        assert!(!inked(x), "nothing at {x}");
+    }
+}
+
+#[test]
+fn an_agent_reads_the_whole_name_the_page_wrote() {
+    let Some(rendering) = agenda() else {
+        panic!("the case renders");
+    };
+    let (Some(document), Some(drawing)) = (rendering.document(), rendering.drawing()) else {
+        panic!("the case has a document and a drawing");
+    };
+    let tree = AgentTree::new(document, &drawing.boxes, &drawing.layout);
+    // The toggle is named by its `aria-label`, and what is inside it is the
+    // name the page wrote, whole: the ellipsis is drawn, never read.
+    let read: Vec<String> = tree
+        .named("Mira's calendar")
+        .iter()
+        .map(|node| node.text().trim().to_owned())
+        .collect();
+    assert_eq!(read, ["Mira's calendar, shared from the design team"]);
+    assert!(!tree.to_outline().contains('\u{2026}'));
 }

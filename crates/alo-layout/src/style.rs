@@ -16,7 +16,7 @@
 
 use crate::keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
-    Positioning,
+    Positioning, TextOverflow,
 };
 use crate::line_width;
 use crate::placement::GridPlacement;
@@ -52,6 +52,8 @@ pub struct LayoutStyle {
     pub border: SideValues<LengthPercentage>,
     /// `overflow-x` and `overflow-y`.
     pub overflow: AxisValues<Overflow>,
+    /// `text-overflow`, which only a box that clips its lines reads.
+    pub text_overflow: TextOverflow,
     /// `column-gap` and `row-gap`.
     pub gap: AxisValues<LengthPercentage>,
     /// `aspect-ratio`.
@@ -192,6 +194,7 @@ pub fn read(style: &ComputedStyle, issues: &mut Vec<StyleIssue>) -> LayoutStyle 
             left: reader.border_width("left"),
         },
         overflow: reader.overflow(),
+        text_overflow: reader.keyword("text-overflow"),
         gap: reader.gap(),
         aspect_ratio: reader.aspect_ratio(),
         flex: FlexStyle {
@@ -535,6 +538,7 @@ keyword_value!(
     Positioning,
     BoxSizing,
     Overflow,
+    TextOverflow,
     FlexDirection,
     FlexWrap,
     Alignment,
@@ -724,6 +728,27 @@ mod tests {
             .overflow;
         assert_eq!(split.horizontal, Overflow::Hidden);
         assert_eq!(split.vertical, Overflow::Scroll);
+    }
+
+    #[test]
+    fn text_overflow_is_clip_or_ellipsis_and_anything_else_is_recorded() {
+        assert_eq!(read_style("").0.text_overflow, TextOverflow::Clip);
+        assert_eq!(
+            read_style("text-overflow: ellipsis").0.text_overflow,
+            TextOverflow::Ellipsis
+        );
+        assert_eq!(
+            read_style("text-overflow: CLIP").0.text_overflow,
+            TextOverflow::Clip
+        );
+        // A string and two values are CSS's and refused by Chrome 154 as it
+        // parses them; here they are refused as they are read, and said.
+        for refused in ["text-overflow: \"-\"", "text-overflow: ellipsis ellipsis"] {
+            let (style, issues) = read_style(refused);
+            assert_eq!(style.text_overflow, TextOverflow::Clip, "{refused}");
+            assert_eq!(issues.len(), 1, "{refused}: {issues:?}");
+            assert_eq!(issues[0].kind, IssueKind::UnsupportedValue);
+        }
     }
 
     #[test]

@@ -1,0 +1,35 @@
+/* `text-overflow: ellipsis`, queue item 442, by the rules measured in
+   Chrome 154 (crates/alo-layout/src/ellipsis.rs). Each row clips its lines
+   and ends the one that overflows in "…", hiding whole letters from the end
+   until what is left and the "…" fit inside the content edge.
+   - #space: 61 wide, "aaaa " and "…" are 60.3, so the space stays and the
+     "…" stands after it.
+   - #narrow: 20 wide, too narrow for "a" and "…": the "a" stays, and the
+     box's clip cuts the "…" after it.
+   - #bold: the "…" is set in the block's font, not the bold text's.
+   - #padded: the span's background and padding are not hidden; its text is,
+     and the "…" stands straight after "aaa", over the background.
+   - #wraps: only the line that overflows — the long word — is ended.
+   - #visible: `overflow: visible`, so nothing is hidden and nothing ended.
+   - #coloured: the "…" is the block's blue, not the text's red.
+   - #underlined: the underline runs under what is kept, the space too, and
+     not under the "…". */
+body { margin: 8px; background: #ffffff; color: #000000; font-size: 16px }
+div {
+  width: 61px;
+  height: 22px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #dde2ee;
+}
+#narrow { width: 20px }
+#bold { width: 90px }
+#padded { width: 60px }
+#padded span { background: #f4a6a6; padding: 0 6px }
+#wraps { width: 70px; height: auto; white-space: normal; line-height: 20px }
+#visible { overflow: visible }
+#coloured { width: 100px; color: #1d4ed8 }
+#coloured em { color: #c81e1e; font-style: normal; font-weight: bold }
+#underlined { text-decoration: underline }

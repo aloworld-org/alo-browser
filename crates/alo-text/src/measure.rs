@@ -79,6 +79,16 @@ impl MeasureText for TextMeasurer<'_> {
         points
     }
 
+    fn cluster_ends(&self, text: &str, style: &TextStyle) -> Vec<(usize, f32)> {
+        crate::cluster::cluster_ends(
+            text,
+            self.database,
+            &Self::request(style),
+            style.size,
+            style.letter_spacing,
+        )
+    }
+
     fn ascender(&self, style: &TextStyle) -> f32 {
         self.face(style)
             .map_or(style.size * 0.8, |metrics| metrics.ascender)

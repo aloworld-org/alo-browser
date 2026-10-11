@@ -1,0 +1,12 @@
+document at (0, 0) 200×258
+  text "aaaa bbbbbbbbb" at (8, 8) 135.71094×18.625
+  text "abc" at (8, 34) 28.757813×18.625
+  text "one" at (8, 60) 29.773438×18.625
+  text "two three four" at (42.859375, 60) 130.42969×18.625
+  text "aaa" at (8, 86) 29.414063×18.625
+  text "bbbbbbbbb" at (43.414063, 86) 91.40625×18.625
+  text "aa supercalifragilistic bb" at (8, 112.6875) 145.55469×58.625 in 3 pieces
+  text "aaaa bbbbbbbbb" at (8, 176) 135.71094×18.625
+  text "aaa" at (8, 202) 29.414063×18.625
+  text "bbbbbbbbbbbbb" at (42.5, 202) 148.89063×18.625
+  text "aaaa bbbbbbbbb" at (8, 228) 135.71094×18.625

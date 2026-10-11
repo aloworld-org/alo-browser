@@ -36,6 +36,17 @@ use alo_style::StyleTree;
 use alo_text::{FontDatabase, FontRequest, Slant, Weight};
 use alo_value::{DrawnShadow, Rgba};
 
+/// How one box's text is set, read once for all of its pieces.
+struct Pen {
+    font: alo_text::Font,
+    oblique: f32,
+    size: f32,
+    letter_spacing: f32,
+    color: Rgba,
+    /// How far below the top of a piece its baseline is.
+    ascender: f32,
+}
+
 /// What paint needs that is not in the layout: the fonts, and the colour of
 /// the page behind everything.
 #[derive(Debug, Clone, Copy)]
@@ -115,6 +126,14 @@ impl Builder<'_> {
     /// one list for the page — a positioned box inside a transformed one is
     /// painted inside that transform, not over the whole document.
     fn paint(&mut self, id: BoxId) -> Painted {
+        // An atomic box an ellipsis hid is laid out and read, and not drawn
+        // (`alo_layout::ellipsis`).
+        if self.layout.is_hidden(id) {
+            return Painted {
+                items: Vec::new(),
+                escaped: Vec::new(),
+            };
+        }
         let mut own = Vec::new();
         let refused = self.draw_box(id, &mut own);
         self.refused.extend(refused);
@@ -149,6 +168,8 @@ impl Builder<'_> {
             }
             escaped.extend(painted.escaped);
         }
+        // Over the lines it ends, as the last of them.
+        self.draw_ellipses(id, &mut flow);
 
         let mut items = own;
         if let Some(path) = clip.clone() {
@@ -665,23 +686,18 @@ impl Builder<'_> {
     /// rectangle per line, and drawing from the union would put the second
     /// line's text on the first line's row.
     fn draw_text(&self, id: BoxId, text: &str, out: &mut Vec<DisplayItem>) {
-        let Some(style) = self.nearest_styled_ancestor(id) else {
+        let Some(pen) = self.pen_for(id) else {
             return;
         };
-        let color = style.color("color").unwrap_or(style.current_color());
-        let size = style.font_size();
-        let request = self.font_request(id);
-        let Some(font) = self.context.fonts.chain(&request).into_iter().next() else {
-            return;
-        };
-        let ascender = font.metrics(size).ascender;
-        let oblique = crate::synthesis::oblique_for(request.slant, font.slant());
+        let Pen {
+            font,
+            oblique,
+            size,
+            letter_spacing,
+            color,
+            ascender,
+        } = pen;
         let shadows = self.text_shadows_of(id);
-        let letter_spacing = style
-            .get("letter-spacing")
-            .filter(|value| !value.eq_ignore_ascii_case("normal"))
-            .and_then(|_| style.px("letter-spacing", 0.0))
-            .unwrap_or(0.0);
 
         let decorations = self.decorations_of(id);
         let fragments = self.layout.fragments(id);
@@ -724,6 +740,13 @@ impl Builder<'_> {
             let Some(range) = fragment.text.clone() else {
                 continue;
             };
+            // Where an ellipsis ended the line, only what it left is drawn,
+            // and only that is underlined.
+            let cut = self.layout.cut(fragment);
+            let range = match cut {
+                Some(cut) => range.start..cut.end.max(range.start),
+                None => range,
+            };
             let Some(piece) = text.get(range) else {
                 continue;
             };
@@ -749,17 +772,72 @@ impl Builder<'_> {
             // at the end of the inline rather than running to the edge of the
             // line it sits on. A fragment is one piece of one inline on one
             // line, so drawing per fragment is the whole of that rule.
+            let width = cut.map_or(fragment.rect.size.width, |cut| cut.width);
             for (line, colour) in &decorations {
                 out.push(Self::decoration_at(
                     id,
                     *line,
                     *colour,
                     fragment.rect.left(),
-                    fragment.rect.right() - fragment.rect.left(),
+                    width,
                     baseline,
                     font.metrics(size),
                 ));
             }
+        }
+    }
+
+    /// How a box's text is set: the face, size, spacing and colour, and
+    /// where the baseline is below the top of a piece. [`None`] with no style
+    /// to ask or no font at all.
+    fn pen_for(&self, id: BoxId) -> Option<Pen> {
+        let style = self.nearest_styled_ancestor(id)?;
+        let color = style.color("color").unwrap_or(style.current_color());
+        let size = style.font_size();
+        let request = self.font_request(id);
+        let font = self.context.fonts.chain(&request).into_iter().next()?;
+        let ascender = font.metrics(size).ascender;
+        let oblique = crate::synthesis::oblique_for(request.slant, font.slant());
+        let letter_spacing = style
+            .get("letter-spacing")
+            .filter(|value| !value.eq_ignore_ascii_case("normal"))
+            .and_then(|_| style.px("letter-spacing", 0.0))
+            .unwrap_or(0.0);
+        Some(Pen {
+            font,
+            oblique,
+            size,
+            letter_spacing,
+            color,
+            ascender,
+        })
+    }
+
+    /// The "…" a block's lines end in where `text-overflow` cut them: set in
+    /// the block's own font and colour, whatever the text before it is set
+    /// in, on the line's baseline (`alo_layout::ellipsis`, measured in Chrome
+    /// 154). Its shadow is the block's too, as the text's is the text's.
+    fn draw_ellipses(&self, id: BoxId, out: &mut Vec<DisplayItem>) {
+        let ellipses = self.layout.ellipses(id);
+        if ellipses.is_empty() {
+            return;
+        }
+        let Some(pen) = self.pen_for(id) else {
+            return;
+        };
+        let shadows = self.text_shadows_of(id);
+        for ellipsis in ellipses {
+            out.push(DisplayItem::Text {
+                box_id: id,
+                text: alo_layout::ELLIPSIS.to_owned(),
+                origin: (ellipsis.rect.left(), ellipsis.rect.top() + pen.ascender),
+                font: pen.font.clone(),
+                oblique: pen.oblique,
+                size: pen.size,
+                letter_spacing: pen.letter_spacing,
+                color: pen.color,
+                shadows: shadows.clone(),
+            });
         }
     }
 

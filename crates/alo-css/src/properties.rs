@@ -164,6 +164,7 @@ pub static SUPPORTED: &[(&str, &[Reader])] = &[
     ("text-decoration", &[Paint]),
     ("text-decoration-color", &[Paint]),
     ("text-decoration-line", &[Paint]),
+    ("text-overflow", &[Layout]),
     ("text-shadow", &[Paint]),
     ("text-transform", &[Boxes]),
     ("top", &[Layout]),

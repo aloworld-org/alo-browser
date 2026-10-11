@@ -74,7 +74,8 @@ clip box#77 to (22, 251.25) 12×12
 fill box#77 rgb(255 255 255) at (23.25, 253.5) 9.5×7
 unclip
 clip box#78 to (44, 247.5) 113.99609×19.5
-text box#79 "Mira's calendar, shared from the design team" rgb(16 42 67) 13px at (44, 261.7505)
+text box#79 "Mira's calendar" rgb(16 42 67) 13px at (44, 261.7505)
+text box#78 "…" rgb(16 42 67) 13px at (143.14404, 261.7505)
 unclip
 text box#82 "can view" rgb(122 111 98) 12px at (165.9961, 261.4043)
 clip box#87 to (24, 300.25) 15×15

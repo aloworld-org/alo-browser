@@ -45,6 +45,7 @@ pub(crate) mod arena;
 pub(crate) mod auto_repeat;
 pub(crate) mod baseline;
 pub(crate) mod containing;
+pub mod ellipsis;
 pub mod engine;
 pub mod geometry;
 pub mod inline;
@@ -63,12 +64,13 @@ pub mod track;
 pub mod tree;
 pub mod vertical_align;
 
+pub use ellipsis::{Cut, ELLIPSIS, Ellipsis, Truncated, truncate};
 pub use engine::compute;
 pub use geometry::{Edges, Point, Rect, Size};
 pub use inline::{Anchor, Fragment, InlineItem, InlineLayout, LineBox, TextAlignment};
 pub use keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
-    Positioning,
+    Positioning, TextOverflow,
 };
 pub use legend::Band;
 pub use measure::{BlockFont, MeasureText, NoText, ScaledFont, TextStyle};

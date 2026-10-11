@@ -53,6 +53,9 @@ DejaVu Sans through `@font-face`:
   1.77 — item 441, which needs an ADR for what an agent reads.
 - Mira's calendar's name ends in "…" in Chrome (`text-overflow:
   ellipsis`) and is cut mid-letter at its box's edge here — item 442.
+  **Fixed by item 442 (iteration 284):** the line is ended in "…" by
+  the rules measured in Chrome 154. "Mira's calendar…", the "…" at
+  143.14 and 13 wide, inside the box; nothing else moved.
 
 `tests/alo_agenda_calendars.rs` says it in numbers.
 

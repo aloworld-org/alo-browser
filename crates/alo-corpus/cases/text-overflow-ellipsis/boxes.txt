@@ -1,0 +1,24 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      text "aaaa bbbbbbbbb"
+    block flow · generic
+      text "abc"
+    block flow · generic
+      text "one "
+      inline flow · generic
+        text "two three four"
+    block flow · generic
+      text "aaa"
+      inline flow · generic
+        text "bbbbbbbbb"
+    block flow · generic
+      text "aa supercalifragilistic bb"
+    block flow · generic
+      text "aaaa bbbbbbbbb"
+    block flow · generic
+      text "aaa "
+      inline flow · generic
+        text "bbbbbbbbbbbbb"
+    block flow · generic
+      text "aaaa bbbbbbbbb"

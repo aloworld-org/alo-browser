@@ -27573,3 +27573,139 @@ docs, and ADR 0049's amendment.
 198 queue items are open (441 closed, 446 added). The next unused queue
 number is **447** and the next ADR is **0050**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 284 — queue item 442 built: a line too long for its box ends in "…", drawn only, by rules measured in Chrome
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its head and stage 1, whose Text line this item serves), iteration 283.
+No `AGENTS.md` exists in this repository or above it. For 442: its queue
+entry, `docs/features.md`' Text section, `docs/conformance.md`' calendar
+list row, the frozen `alo-agenda-calendars` case and its test, ADR 0002
+(the agent surface reads what the page is; no verb takes a coordinate),
+ADR 0001 (rented crates behind one file; `scripts/gate.sh`'s boundaries),
+`alo-layout`'s `inline.rs`, `engine.rs`, `measure.rs`, `style.rs`,
+`keyword.rs` and `tree.rs`, `alo-text`'s `measure.rs`, `line.rs`,
+`shape.rs` and `run.rs`, `alo-paint`'s `build.rs`, and `alo-css`'
+`properties.rs`. The item names no ADR and needs none: what an agent reads
+was settled in the item itself (the whole text, as the page wrote it), and
+nothing here is a policy or a rental.
+
+**Choosing.** 442 is the first open item that is neither blocked nor
+waiting on a page (iteration 283 named 442 and 443 buildable).
+
+**Measured first.** Headless Chrome 154 with the corpus's `DejaVu Sans`
+by `@font-face`, screenshots at 1× and 4× in the scratchpad, and
+`getBoundingClientRect` in 1/64 px units: the frozen page draws "Mira's
+calendar…"; "Mira's calendar" is 6346 units and "…" 832, and with the
+comma 6610 + 832 = 116.28 px, past the 114 px box. Rules, each from a
+probe row: whole clusters are hidden from the end and a space before the
+cut kept (`aaaa bbbbbbbbb` in 61 px is `aaaa …`); the first character
+stays when nothing fits (`abc` in 20 px is `a` and a clipped "…"); an
+atomic box that does not fit with its margins is hidden whole; an inline
+box's background stays and only its text is hidden; the "…" is in the
+block's font, colour and shadow on the line's baseline; an underline runs
+under the kept text and space and not under the "…"; only overflowing
+lines are ended, a wrapped box's too; `overflow` other than `visible` on
+**either** axis is enough, `overflow-y: clip` alone included (CSS would
+leave `overflow-x` at `visible` there; Chrome ends the line anyway); a
+flex container's text is not ended and an anonymous run beside a block
+is; a string and two values are refused as Chrome parses them.
+
+**What was built.**
+- `alo-layout`: `ellipsis.rs` — `truncate`, pure over a laid-out context
+  and the items it came from, and `place`, which decides from the block's
+  style whether its lines end (`Inside::Flow` or `FlowRoot`, the element's
+  own or the element around an anonymous box) and records three things:
+  each "…" relative to its block's border box (so a box moved after its
+  lines are placed — an `inline-block` put in its line, an absolute box at
+  its static position — carries it), how much of each text piece is drawn
+  (`Cut`), and which atomic boxes are hidden. `LayoutTree` gains
+  `ellipses`, `cut` and `is_hidden`, and its outline writes
+  `ellipsis on line N → …`, `· drawn "…"` and `· hidden`. `TextOverflow`
+  is a keyword in `keyword.rs`, read into `LayoutStyle`. `engine.rs`
+  calls `place` per inline formatting context and merges an atomic box's
+  own; its atomic-placing loop moved into `place_atomics`, which clippy's
+  line limit asked for and which is one responsibility of its own.
+- The measurer seam gains `cluster_ends`: where each cluster ends and how
+  far the pen is there, from one shaping. `alo-text`'s new `cluster.rs`
+  answers it from the shaper's glyph clusters (a letter and its marks are
+  one; a right-to-left run is one, until bidirectional reordering); the
+  test fonts answer per character.
+- `alo-paint`: a hidden atomic box paints nothing; a cut piece draws only
+  what was kept and underlines only that; each "…" is drawn after the
+  block's in-flow content, inside its clip, with the block's pen (the
+  setup `draw_text` and it share is `pen_for`).
+- `alo-css`: `text-overflow` is listed as read by `alo-layout`.
+
+**Evidence.** `alo-agenda-calendars`: the "…" at 143.14404 (Chrome's
+44 + 6346/64 = 143.15625, inside 1/64), 13 wide (832/64), ending at 156.14
+inside the box's 158; the text fragment still 296.66 at 44; drawn
+"Mira's calendar"; the dots in columns 145, 149 and 153 as in Chrome's
+screenshot, nothing at 155–157; an agent's text of the toggle the whole
+name. The new case `text-overflow-ellipsis` was compared with Chrome's
+screenshot of the same bytes row by row and agrees in what is drawn (the
+pixel differences are the two rasterisers' anti-aliasing, as everywhere).
+
+**Gate, mechanical.** `cargo fmt --check` clean; `cargo clippy --workspace
+--all-targets --all-features -D warnings` clean (it first refused
+`place`'s eight arguments and `place_inline_content`'s 111 lines, fixed by
+`Lines` and `place_atomics`, and two test lints). `scripts/gate.sh` ran in
+the foreground to a log; the harness moved it to the background at 600 s
+and the next call waited on it with a foreground `until` loop: `exit 0`,
+"The gate is met", no failing test in the log. Only this entry and the
+commit came after it.
+
+**Gate, manual.**
+- *Layout assertions in numbers:* `alo-layout`'s `ellipsis.rs` unit tests
+  (ten: fits, kept prefix, kept space, everything after the cut, atomic
+  hidden or kept with margins, the first thing kept, only overflowing
+  lines, the block's font on the baseline, a 100 000-character line in one
+  pass, nothing to hide) and `tests/ellipsis.rs` (which boxes end their
+  lines, every `overflow` value, anonymous runs, flex, no inheritance, and
+  the "…" moving with an `inline-block` and an absolute box);
+  `alo-corpus`' `alo_agenda_calendars.rs` (three new tests, above);
+  `style.rs`' keyword reading and refusals.
+- *Reference renders:* `alo-agenda-calendars` rewritten with
+  `ALO_UPDATE_REFERENCES=1` — layout, display and render, and only Mira's
+  row moved; `text-overflow-ellipsis` added. Both looked at and compared
+  with Chrome.
+- *Paint:* `alo-paint`'s `tests/an_ellipsis.rs` (a hidden box not drawn,
+  a kept box drawn and the "…" after it in the block's blue, the underline
+  only under what was kept).
+- *Hostile input:* a 100 000-character line in a box of 40 and of 0, in
+  `ellipsis.rs` and `alo-text`'s `cluster.rs`; nothing indexes or
+  unwraps.
+- *Mutations, restored from copies:* skipping the hidden-box check,
+  ignoring the cut in paint, storing the "…" on the page rather than
+  relative to its block, dropping the first-thing rule and the either-axis
+  rule — each fails a test.
+- One responsibility per file: the rule has its own file; clusters have
+  their own file in `alo-text`. No `unsafe`. `alo-workplace` and `alo-os`
+  were not touched.
+
+**Queue.** 442 ticked with its *Done* paragraph. Added 447 (an atomic box
+in a `nowrap` line wraps where Chrome keeps it on the line — found while
+testing, buildable) and 448 (a "…" after a space that is a text box of its
+own stands before the space; waits for a page).
+
+**Roadmap.** Stage 1's Text line gains an italic note that
+`text-overflow` was read by nothing until 442. It stays ticked: the line is
+now true, and the note says what was not. Also updated:
+`docs/features.md` (built, with what is not yet), `docs/conformance.md`
+(the calendar list now **yes**), the case's `origin.txt`, `REMAINING.md`,
+`CHANGELOG.md`, `alo-text`'s crate docs.
+
+**Unresolved obligations.**
+- An atomic box in a `nowrap` line wraps (447).
+- A "…" after a space that is its own text box (448).
+- Right to left: the end of a line is its right edge, and a right-to-left
+  run is one cluster, until bidirectional text (stage 2).
+- A line that overflows only by an inline box's end padding gets a "…"
+  after its last glyph; not measured in Chrome.
+- 443 and 447 are buildable next and depend on nothing.
+- 438, 439, 431, 433, 434, 444, 445, 446, 448, 423–428, 411, 414 and
+  416–421 wait for pages; 432 depends on 404.
+
+199 queue items are open (442 closed, 447 and 448 added). The next unused
+queue number is **449** and the next ADR is **0050**. This is one
+iteration, not a finished queue or roadmap.

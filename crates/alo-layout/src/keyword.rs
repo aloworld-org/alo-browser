@@ -111,6 +111,23 @@ keywords! {
 }
 
 keywords! {
+    /// `text-overflow`: what is drawn where a line runs past the end of a box
+    /// that clips it (CSS Overflow 4 § 6.1).
+    ///
+    /// A string to draw instead, and two values for the two ends, are CSS's
+    /// too; Chrome 154 refuses both when it parses them (measured), and this
+    /// engine refuses them when it reads them, which a sheet is told.
+    TextOverflow {
+        /// The line is cut at the box's edge, mid-letter if need be.
+        #[default]
+        Clip => "clip",
+        /// The line ends in "…" inside the box; see `crate::ellipsis`.
+        Ellipsis => "ellipsis",
+    }
+    default = Clip
+}
+
+keywords! {
     /// `box-sizing`.
     BoxSizing {
         /// `width` is the content, and padding and border are added to it.
@@ -264,6 +281,7 @@ mod tests {
     fn every_keyword_round_trips_and_refuses_what_it_does_not_have() {
         check!(Positioning);
         check!(Overflow);
+        check!(TextOverflow);
         check!(BoxSizing);
         check!(FlexDirection);
         check!(FlexWrap);

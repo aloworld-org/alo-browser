@@ -33,6 +33,9 @@
 //!   [`database`]. That is a policy question rather than a physics one.
 //! - **Where a line does break** is ours: [`line`]. Take the last opportunity
 //!   that fits; overflow rather than cut a word in half.
+//! - **Where a line may be cut short** — between clusters, never inside a
+//!   letter — is ours too, read off one shaping of the line: [`cluster`],
+//!   for `text-overflow: ellipsis`.
 //!
 //! `scripts/gate.sh` checks both boundaries on every run.
 //!
@@ -49,6 +52,7 @@
 //! and the runs are laid down in the order the text is written, which is right
 //! for text that is one direction and honest about text that is two.
 
+pub mod cluster;
 pub mod database;
 pub mod font;
 pub mod line;
@@ -58,6 +62,7 @@ pub mod measure;
 pub mod run;
 pub mod shape;
 
+pub use cluster::cluster_ends;
 pub use database::{Absent, FontDatabase, Instead};
 pub use font::{
     FaceMetrics, Font, FontRequest, LONGEST_NAME, Slant, Style, THINNEST_CSS_NAMES, WEIGHT_AXIS,

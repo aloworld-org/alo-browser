@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A line too long for its box ends in "…".** alo Agenda's shared
+  calendar, "Mira's calendar, shared from the design team", is drawn
+  "Mira's calendar…" inside its row, as browsers draw it, where it was
+  cut through the middle of a letter at the row's edge. Whole letters are
+  hidden from the end until the rest and the "…" fit, in the box's own
+  font and colour, by rules measured in Chrome; nothing on the page
+  moves, and an agent still reads the whole name (queue item 442).
+
 - **Uppercased and lowercased text is drawn, measured and read as a
   person sees it.** alo Agenda's list headings, written "My calendars",
   are drawn "MY CALENDARS" at the width browsers draw them, and its

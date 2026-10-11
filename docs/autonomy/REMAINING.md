@@ -1633,3 +1633,16 @@ match Chrome 154 to its layout unit. Cut: 446 (`aria-labelledby` as drawn,
 waits for a page). 442 and 443 are buildable next and depend on nothing.
 198 queue items are open (441 closed, 446 added). The next unused queue
 number is 447 and the next unused ADR 0050.
+
+Iteration 284 built item 442: `text-overflow: ellipsis`, by rules measured
+in Chrome 154 (`alo-layout`'s `ellipsis.rs`). A line wider than a block
+container whose `overflow` is not `visible` ends in "…" inside its content
+box; whole clusters (`alo-text`'s `cluster.rs`, behind the measurer seam's
+new `cluster_ends`) and whole atomic boxes are hidden, and only what is
+drawn changes. alo Agenda's "Mira's calendar…" matches Chrome to its layout
+unit and its pixel columns; `cases/text-overflow-ellipsis` pins the rules.
+Found: 447 (an atomic box in a `nowrap` line wraps; buildable). Cut: 448 (a
+"…" after a space that is its own text box; waits for a page). 443 and 447
+are buildable next and depend on nothing. 199 queue items are open (442
+closed, 447 and 448 added). The next unused queue number is 449 and the
+next unused ADR 0050.

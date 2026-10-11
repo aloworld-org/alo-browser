@@ -12,6 +12,7 @@
 //!
 //! Every number is a CSS pixel.
 
+use crate::ellipsis::{Cut, Ellipses, Ellipsis};
 use crate::geometry::{Edges, Rect, Size};
 use crate::inline::Fragment;
 use alo_box::BoxId;
@@ -97,6 +98,7 @@ impl fmt::Display for BoxGeometry {
 pub struct LayoutTree {
     geometry: BTreeMap<BoxId, BoxGeometry>,
     fragments: BTreeMap<BoxId, Vec<Fragment>>,
+    ellipses: Ellipses,
     issues: Vec<StyleIssue>,
     viewport: Size,
 }
@@ -148,6 +150,45 @@ impl LayoutTree {
         self.fragments.get(&id).map_or(&[], Vec::as_slice)
     }
 
+    /// The "…" each of a box's lines ends in where `text-overflow` cut it,
+    /// on the page, in the order of its lines; see [`crate::ellipsis`].
+    pub fn ellipses(&self, id: BoxId) -> Vec<Ellipsis> {
+        let Some(corner) = self.get(id).map(|geometry| geometry.border_box.origin) else {
+            return Vec::new();
+        };
+        self.ellipses
+            .by_block
+            .get(&id)
+            .into_iter()
+            .flatten()
+            .map(|ellipsis| Ellipsis {
+                rect: ellipsis.rect.translated(corner),
+                ..*ellipsis
+            })
+            .collect()
+    }
+
+    /// How much of a piece of text is drawn, when an ellipsis hid the end of
+    /// its line: [`None`] when all of it is, which is every piece but those.
+    ///
+    /// The piece is where it was and as wide as it was; this is what paint
+    /// leaves out, never what layout measured.
+    pub fn cut(&self, fragment: &Fragment) -> Option<Cut> {
+        self.ellipses
+            .cuts
+            .get(&fragment.box_id)?
+            .iter()
+            .find(|cut| cut.line == fragment.line)
+            .copied()
+    }
+
+    /// Whether an atomic box is not drawn at all, because an ellipsis hid
+    /// the end of the line it stands on. It is still laid out, and an agent
+    /// still reads it.
+    pub fn is_hidden(&self, id: BoxId) -> bool {
+        self.ellipses.hidden.contains(&id)
+    }
+
     /// Whether a box was drawn in more than one piece.
     pub fn is_fragmented(&self, id: BoxId) -> bool {
         self.fragments(id).len() > 1
@@ -162,9 +203,14 @@ impl LayoutTree {
         Self {
             geometry,
             fragments,
+            ellipses: Ellipses::default(),
             issues,
             viewport,
         }
+    }
+
+    pub(crate) fn with_ellipses(self, ellipses: Ellipses) -> Self {
+        Self { ellipses, ..self }
     }
 
     /// The layout as one line per box: what it is, and where it ended up.
@@ -197,16 +243,38 @@ impl LayoutTree {
             alo_box::BoxKind::Element { display, .. } => {
                 format!("{display} · {}", node.semantics)
             }
-            alo_box::BoxKind::Text { text, .. } => format!("text {text:?}"),
+            alo_box::BoxKind::Text { text, .. } => {
+                let mut description = format!("text {text:?}");
+                // What an ellipsis left of it, piece by piece.
+                for fragment in self.fragments(id) {
+                    if let (Some(cut), Some(range)) = (self.cut(fragment), fragment.text.clone())
+                        && let Some(drawn) = text.get(range.start..cut.end)
+                    {
+                        let _ = write!(description, " · drawn {drawn:?}");
+                    }
+                }
+                description
+            }
             alo_box::BoxKind::Anonymous { .. } => "anonymous".to_owned(),
         };
+        let hidden = if self.is_hidden(id) { " · hidden" } else { "" };
         match self.get(id) {
             Some(geometry) => {
-                let _ = writeln!(out, "{description} → {}", geometry.border_box);
+                let _ = writeln!(out, "{description} → {}{hidden}", geometry.border_box);
             }
             None => {
                 let _ = writeln!(out, "{description} → not laid out");
             }
+        }
+        for ellipsis in self.ellipses(id) {
+            for _ in 0..=depth {
+                out.push_str("  ");
+            }
+            let _ = writeln!(
+                out,
+                "ellipsis on line {} → {}",
+                ellipsis.line, ellipsis.rect
+            );
         }
         for child in node.children.clone() {
             self.write_outline(boxes, child, depth + 1, out);

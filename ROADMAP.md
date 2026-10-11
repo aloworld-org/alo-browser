@@ -73,6 +73,11 @@ correctness, not before it.
       and read as written. `uppercase` and `lowercase` are now applied as
       a text box is built, by Unicode's language-sensitive mapping rented
       from ICU4X, measured against Chrome 154 on alo Agenda's lists.*
+      *`text-overflow` was read by nothing until queue item 442
+      (iteration 284): a name too long for its row was cut mid-letter at
+      the box's edge. A line that overflows a clipping box now ends in "…"
+      by the rules measured in Chrome 154, drawn only, with every box and
+      line where it was and the whole text read by an agent.*
 - [x] **Paint**: a display list, then a software raster to a PNG
 - [x] **Reference renders**: a committed corpus, diffed on every change
 - [x] ★ **The agent tree**: the layout tree read as roles, states and positions
