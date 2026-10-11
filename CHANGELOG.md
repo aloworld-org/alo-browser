@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Code keeps its indentation.** A line of code in a `<pre>` block that
+  starts with spaces now starts that far in, instead of flush with the line
+  above it, so an indented line in a published blog post's code block reads
+  as indented. Spaces at the start of an ordinary paragraph's line are still
+  removed, as CSS says. A blank line inside a code block is still lost
+  (queue items 410 and 411).
+
 - **Lists have bullets and numbers.** A bulleted list draws a bullet beside
   each point, a list inside it hollow bullets and one inside that squares;
   a numbered list draws its numbers, counting from where the page says it

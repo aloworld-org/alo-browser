@@ -1,0 +1,61 @@
+alo-workplace, products/sites/alo-sites/tests/golden/blocknote_rich.html — the
+HTML alo Sites makes of the blocks in an alo Docs document that are not
+prose: a figure with its caption, two code blocks, one in TypeScript and one
+in Rust with an indented line, and an equation.
+
+Taken 2026-10-11 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit the
+other alo Sites cases were taken at. The file's last change is
+856c736543218910eace4ed3f694e109676280b1 (2026-08-09). The bytes are the file
+exactly as it stands, unedited:
+
+- page.html: SHA-256
+  819071477b87f05a74e292a64e6e18ea7545dc77aea0df1968b452fdb30573d3
+
+It is the golden output of alo Sites' BlockNote renderer
+(`render_blocknote`), pinned by that repository's `tests/blocknote_golden.rs`
+against a real alo Docs document (`fixtures/blocknote/rich_document.json`),
+so it is what alo Sites really writes rather than something rebuilt from it.
+`alo-workplace` is read-only reference; nothing was written back to it.
+
+Why this page. Like `alo-sites-rich-text` it is a fragment that sits inside a
+blog post's `.blog-body`, and it is frozen without that sheet so the
+user-agent sheet is what is under test. Parsed on its own it has no doctype,
+which html5ever reports as `line 1: Unexpected token` (issues.txt); this
+engine has no quirks mode (law 1), and nothing here is laid out differently
+by one. Its picture needs no network: it is a `data:` URL, and the document
+it was made from holds the same 24 bytes — a PNG signature and the start of a
+header, cut off. It is a broken picture in any browser, which is what makes
+it a fair case: what a page shows when its picture fails.
+
+## What it found
+
+**The Rust block's indentation was gone.** `println!("alo & sites");` stood
+flush with the `fn main() {` above it. `<pre>` is `white-space: pre`, and the
+text arrived with its four spaces, but the line builder dropped a run of
+spaces at the start of a line whatever `white-space` said. CSS Text 3
+§ 4.1.2 removes only collapsible spaces there. Queue item 410, built with
+this case: the line now starts 20.34375 in, four of DejaVu Sans' spaces.
+
+**The code is not in a monospace face.** The user-agent sheet asks for
+`monospace` and the corpus has no such face, so it is drawn in DejaVu Sans
+and said so (issues.txt), as `alo-downloads` already says. Queue item 412.
+
+**The broken picture shows nothing.** Its `alt`, "Orange notebook <front>",
+is not drawn; the `<img>` is an empty box on the figure's first line, and the
+agent reads it by that `alt`. HTML's rendering section draws a broken
+picture with text as that text. Queue item 413, which needs its ADR. That a
+`data:` URL is never read as a picture at all is item 414; here it would not
+matter, since these bytes are no picture.
+
+Rendered at 800 × 600, as the alo Sites cases are.
+
+## Checked by hand
+
+The body's 8 pixels of margin collapsing with the figure's 16; the figure 40
+in from both sides; each `pre` 1em above and below, those margins collapsing
+between blocks; every line 18.625 tall, DejaVu Sans' normal line at 16 px;
+the equation's `div` a plain block with `role="math"`, read by an agent as
+`math`. Every number in `layout.txt` was worked from those and agrees. The
+code blocks are 16 px, not the 13 px a browser gives `monospace` by default:
+that size belongs to the face this corpus does not have (412).

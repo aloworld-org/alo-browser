@@ -1,0 +1,16 @@
+block flow · document
+  block flow · generic
+    block flow · figure
+      anonymous block
+        inline flow-root · image "Orange notebook <front>"
+      block flow · generic
+        text "Ideas, captured & shared"
+    block flow · generic
+      inline flow · generic
+        text "const greeting = \"<hello>\";\nconsole.log(greeting);"
+    block flow · generic
+      inline flow · generic
+        text "fn main() {\n    println!(\"alo & sites\");\n}"
+    block flow · math
+      inline flow · generic
+        text "E = mc^2 & x < y"

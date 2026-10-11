@@ -1390,3 +1390,17 @@ the ten alo Sites copies that write `list-style: none` did not. Nothing
 cut beyond 404–409, and 409 now names an inline list item. 176 queue items
 are open (401 closed). The next unused queue number is 410 and the next
 unused ADR 0045.
+
+Iteration 264 found every open item blocked, as iteration 263 left it, so
+it froze alo Sites' other rich blocks — a figure, two code blocks and an
+equation, the golden output of its BlockNote renderer — as
+`alo-sites-rich-blocks`. That opened item 410, built in the same
+iteration: a space `pre` keeps takes its room at the start of a line, so
+the Rust block's indented line starts four spaces in. No other case moved.
+Found: 411 (a line of only kept white space, such as a blank line in a
+`<pre>`, is no line; waits for a page), 412 (a monospace face in the
+corpus; depends on nothing open and is buildable next), 413 (a broken
+picture drawn as its `alt`; needs ADR) and 414 (a picture in a `data:`
+URL; waits for a page). 180 queue items are open (410 added closed,
+411–414 added open). The next unused queue number is 415 and the next
+unused ADR 0045.

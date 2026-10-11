@@ -7675,6 +7675,88 @@ The long pole, and the thing most of section E is unreachable without.
   when:* a frozen page's line-less item draws its marker where a browser
   does, in numbers.
 
+- [x] **410. A kept space at the start of a line takes its room.** *Opened
+  by `alo-sites-rich-blocks` (iteration 264), alo Sites' BlockNote output
+  for figures, code and equations, frozen in the same change. Feature:
+  `docs/features.md` stage 1, "`white-space`". Depends on nothing open.*
+  The page's Rust code block is a `<pre>`, `white-space: pre`, and its
+  second line is indented four spaces. The box tree kept them (item 47),
+  and `alo-layout`'s line builder dropped them: a run of only spaces at
+  the start of a line took no room whatever `white-space` said, so
+  `println!` stood flush with `fn`. CSS Text 3 § 4.1.2 removes only
+  *collapsible* spaces at a line's start. *Closes when:* the indented line
+  starts four spaces in, in the display list and in numbers; the block is
+  as wide as that line, spaces included; a collapsed space after a break
+  still takes none; and no other case moves.
+  **Done (iteration 264).** `inline.rs`' `add_run` lets a run of spaces at
+  a line's start take its room when the style does not collapse spaces
+  (`pre`, `pre-wrap`). Tests: `inline.rs` (1: three lines at 0, 32 and 0
+  with the block font, the max-content width 120, and a collapsed space
+  after a `<br>` still at 0) and `tests/alo_sites_rich_blocks.rs` (2: the
+  line at 8 + 20.34375, four of DejaVu Sans' 651/2048-em spaces, each line
+  18.625 under the last, the unindented TypeScript lines unmoved; the
+  block's text 195.45313 wide, the spaces plus the letters' 175.10938).
+  Mutation, restored from a copy: the old condition fails all three. No
+  other case's reference moved. Found 411 by probing beside it, and the
+  page found 412–414.
+
+- [ ] **411. A line of nothing but kept white space is a line.** *Found
+  beside 410 (iteration 264), by a probe. Feature: `docs/features.md`
+  stage 1, "`white-space`". Waits for a page.* CSS 2 § 9.4.2: a line box
+  holding preserved white space is not zero-height. `alo-layout`'s
+  `end_line` makes a line only when something was placed on it, and a run
+  of kept spaces places nothing, so `<div style="white-space: pre-wrap">
+  </div>` is 0 tall rather than a line, and `<pre>a\n\nb</pre>` is two
+  lines, 32 tall, rather than three — the blank line between two
+  paragraphs of code is gone, and so is a line of only spaces. A forced
+  break with nothing before it sets `content` and is then dropped for
+  holding no piece. *Blocked: no page yet* — the two alo Sites code blocks
+  have no blank line. *Closes when:* a frozen page's blank line of code is
+  a line of its own, in numbers, and a line of only kept spaces is as
+  tall as its strut.
+
+- [ ] **412. A monospace face in the corpus.** *Opened by
+  `alo-sites-rich-blocks` (iteration 264); `alo-downloads` has said the
+  same since iteration 198. Feature: `docs/features.md` stage 1, "The
+  fallback chain".
+  Depends on nothing open.* The user-agent sheet's `pre`, `code`, `kbd`
+  and `samp` ask for `monospace`, and `alo-corpus`'s `corpus_fonts` maps
+  `sans-serif`, `serif` and `system-ui` and no `monospace`, so code is
+  drawn in DejaVu Sans and an issue says so. The rented `dejavu` crate
+  already holds DejaVu Sans Mono. Browsers also give `monospace` at
+  `medium` 13 px rather than 16 (CSS Fonts 4 leaves the generic's size to
+  the UA); whether this engine does is part of the item, decided with a
+  reason. *Closes when:* both cases draw their code in DejaVu Sans Mono,
+  in the display list and their pictures; the issue is gone from both;
+  and every case that moves is reviewed in that commit.
+
+- [ ] **413. A broken picture is drawn as its text.** *Opened by
+  `alo-sites-rich-blocks` (iteration 264). Feature: `docs/features.md`
+  stage 2, "`<img>` lays out at the picture's own size". **Needs ADR.*** The page's `<img>` has
+  `alt="Orange notebook <front>"` and bytes that are no picture, and it is
+  drawn as an empty box on its line. HTML's rendering section (§ 15.4.4):
+  an `img` that represents text is expected to be a non-replaced phrasing
+  element whose content is that text, optionally with an icon; one with
+  no `alt` keeps its box. What that box is — a text box of the `alt`
+  inside the element, or the element made inline — what its `width`
+  attribute does, whether an icon is drawn, and what an agent reads (the
+  `alt` as its name, and that the picture failed) are decisions. *Closes
+  when:* its ADR is accepted and the case's `alt` is drawn on the
+  figure's first line, in numbers and its picture, and the agent reads
+  the image by that name and as broken.
+
+- [ ] **414. A picture in a `data:` URL.** *Found by
+  `alo-sites-rich-blocks` (iteration 264). Feature: `docs/features.md`
+  stage 2, "PNG and JPEG from a page". Waits for a page.* `alo-renderer`'s `pictures.rs`
+  looks a picture up by its address among what it was given, and a
+  `data:` URL is content rather than an address (`alo-net`'s `deed.rs`
+  says so of a request), so it is never read: the page says "no picture
+  was loaded for" it. The case's bytes are cut off and no picture anyway.
+  *Blocked: no page yet* with a `data:` picture that decodes. *Closes
+  when:* such a page's picture is drawn from its URL's bytes, with no
+  request, and malformed, truncated and huge `data:` URLs are refused
+  without a panic.
+
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*
 

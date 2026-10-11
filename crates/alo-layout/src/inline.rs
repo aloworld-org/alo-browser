@@ -673,8 +673,11 @@ impl<'a, M: MeasureText> Builder<'a, M> {
                 // arrives as a text box in its own right. It draws nothing, and
                 // it still takes room: without this, `All` and `Due` touch.
                 // At the start of a line it takes none, because a line does not
-                // begin with a space.
-                if !self.current.is_empty() {
+                // begin with a space — a *collapsible* one. CSS Text 3 § 4.1.2
+                // removes only those: a space `pre` kept is the indentation of
+                // a line of code, and it takes its room wherever it stands.
+                let preserved = !style.white_space.collapses_spaces();
+                if preserved || !self.current.is_empty() {
                     self.pen += self.measurer.measure(piece, style, None).width;
                 }
                 start = end;
@@ -1161,6 +1164,40 @@ mod tests {
         );
         let tops: Vec<f32> = layout.lines.iter().map(|line| line.top).collect();
         assert_eq!(tops, [0.0, 16.0, 32.0]);
+    }
+
+    #[test]
+    fn a_kept_space_at_the_start_of_a_line_takes_its_room() {
+        // `<pre>` code: the second line is indented four spaces, and each
+        // space of the test font is eight pixels.
+        let pre = TextStyle {
+            white_space: alo_box::WhiteSpace::Pre,
+            ..TextStyle::default()
+        };
+        let items = [InlineItem::Text {
+            box_id: box_id(1),
+            text: "fn main() {\n    println!();\n}".to_owned(),
+            style: pre.clone(),
+        }];
+        let layout = lay_out(&items, Some(1000.0), &BlockFont);
+        assert_eq!(
+            lines_of(&layout),
+            [vec!["1@0"], vec!["1@32"], vec!["1@0"]],
+            "the indentation is four spaces of room",
+        );
+        // The widest line is the indented one: thirty-two and eleven
+        // characters of eight.
+        assert_eq!(
+            lay_out(&items, None, &BlockFont).size.width.to_bits(),
+            120.0_f32.to_bits()
+        );
+
+        // Collapsed, the same space after a break takes none.
+        let items = [text(1, "one"), line_break(2), text(3, " two")];
+        assert_eq!(
+            lines_of(&lay_out(&items, Some(1000.0), &BlockFont)),
+            [vec!["1@0", "2@24"], vec!["3@0"]],
+        );
     }
 
     #[test]

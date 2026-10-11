@@ -25595,3 +25595,89 @@ found. Also updated: `docs/features.md` (the marker line),
 **410** and the next ADR is **0045**. This is one iteration, not a
 finished queue or roadmap.
 
+
+
+## Iteration 264 — queue item 410 opened and built: code keeps its indentation, found by freezing alo Sites' rich blocks
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head; searched for any line naming `white-space`, code or pictures),
+`REMAINING.md`'s continuation and iterations 262 and 263. No `AGENTS.md`
+exists in this repository. For 410: item 47's entry (what `white-space`
+already did), 400–409 (the neighbouring page-opened items, as the form),
+`docs/features.md`' `white-space` line, `alo-box`'s `whitespace.rs`
+(what survives) and `tree.rs` (whitespace-only runs between blocks are
+dropped), `alo-layout`'s `inline.rs` (`add_text`, `add_run`,
+`break_line`, `end_line`) and `text_style.rs`, `alo-corpus`'s
+`corpus_fonts`, `alo-renderer`'s `pictures.rs` message, and the case's
+source in `alo-workplace` (`tests/blocknote_golden.rs`,
+`fixtures/blocknote/rich_document.json`). No ADR governs `white-space`;
+none was needed for a rule CSS Text 3 § 4.1.2 states.
+
+**Choosing.** Every open item was blocked on dependencies, design, an
+ADR or a page, as iteration 263 left them. LOOP.md's stage 2 rule is that
+a real page that fails opens the work, so this iteration froze one:
+`blocknote_rich.html`, the last picture-free alo Sites golden not yet
+frozen or dropped (its one `<img>` is a `data:` URL of 24 cut-off bytes,
+so it needs no network and is a broken picture in any browser). Its first
+fault, the dropped indentation, depends on nothing open.
+
+**What was built.** `alo-layout`'s `add_run`: a run of only spaces at the
+start of a line takes its room when the style does not collapse spaces
+(`pre`, `pre-wrap`); a collapsible one still takes none. A draft also
+made a line of only kept spaces count as a line; it could not, because
+`end_line` needs a placed piece, and a probe beside it showed
+`<pre>a\n\nb</pre>` is 32 tall rather than 48. That was taken out of this
+change and queued as 411 rather than half-built.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", every section `ok`, and the log has no `FAILED` or `panicked`. Before
+it, clippy's `doc_markdown` on "DejaVu" in the new test was fixed and the
+workspace clippy ran clean. This entry and the commit came after that run
+and are documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `inline.rs` (the three lines' fragments at
+  0, 32 and 0 with the block font; max-content width 120; a collapsed
+  space after a `<br>` still at 0) and `tests/alo_sites_rich_blocks.rs`
+  (the indented line drawn at 8 + 20.34375, four of DejaVu Sans' 651/2048
+  em spaces at 16 px, worked by hand; lines 18.625 apart; the unindented
+  TypeScript lines at 8; the block's text 195.45313 wide, spaces plus the
+  letters' 175.10938, and three lines tall).
+- Reference render: `alo-sites-rich-blocks`' picture, looked at before and
+  after: `println!` moved four spaces right and nothing else changed.
+  Every other case's references were rewritten by the corpus run and none
+  changed (`git status` shows only the new case). `layout.txt` checked by
+  hand against the user-agent sheet; see the case's `origin.txt`.
+- Mutation (a copy in the scratchpad, restored with `cp`, checked with
+  `cmp`): the old condition fails the unit test and both case tests.
+- Hostile input: no new reader of outside bytes; the change is a branch in
+  an existing layout path over text the box tree already holds.
+- One responsibility per file: the change stays in `inline.rs`' line
+  builder, where the start-of-line rule already lived; the new test file
+  holds one case.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` in each is clean.
+
+**Queue.** 410 added and ticked with its *Done* paragraph. Added open: 411
+(a line of only kept white space is a line; waits for a page), 412 (a
+monospace face in the corpus; depends on nothing open — buildable next),
+413 (a broken picture drawn as its text; needs ADR), 414 (a picture in a
+`data:` URL; waits for a page). **Roadmap: no line moved, and why.** The
+fix belongs to stage 1's ticked text and layout work (item 47's
+`white-space`), which a correction does not reopen, and no stage 2 line
+names `white-space`, code blocks or broken pictures; adding a line to
+claim it would be decoration, as iterations 260–263 found. Also updated:
+`docs/features.md` (the `white-space` line), `docs/conformance.md` (the
+alo Sites row), `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- The case's code is drawn in DejaVu Sans, and its broken picture draws
+  nothing (412, 413); both are written into its `origin.txt`.
+- 411 and 414 wait for pages; everything iteration 263 listed still
+  stands.
+
+180 queue items are open (410 added closed, 411–414 added open). The next
+unused queue number is **415** and the next ADR is **0045**. This is one
+iteration, not a finished queue or roadmap.
