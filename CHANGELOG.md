@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: upper- and lowercased text will be drawn, measured and read
+  as a person sees it.** alo Agenda's list headings are written "My
+  calendars" and shown "MY CALENDARS"; the text will be transformed once,
+  when the page's boxes are built, so its width, its picture and what an
+  agent or a screen reader is told all agree, as Chrome's accessibility
+  tree was measured to. Turkish, Lithuanian and Greek text is cased by its
+  language's rules, from a rented Unicode library. A label, a link and a
+  button read as drawn; an `aria-label`, an `alt` and what is typed in a
+  field read as the page wrote them. Capitalising each word comes later,
+  as its own item (queue items 441, 444 and 445, ADR 0049).
+
 - **`flex: 1` grows.** The `flex` shorthand was read by nothing, so an
   element written `flex: 1` did not grow at all. alo Agenda's calendar
   rows left their share and delete buttons beside the name instead of at

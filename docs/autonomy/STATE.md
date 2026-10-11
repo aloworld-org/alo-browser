@@ -27367,3 +27367,91 @@ row for the calendar list, the Settings row corrected, corpus 67 → 68),
 196 queue items are open (440 closed, 441–443 added). The next unused
 queue number is **444** and the next ADR is **0049**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 282 — queue item 441 decided: ADR 0049, text is transformed where it is collapsed, and an agent reads what is drawn
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its head and stage 1, whose Text line this item serves), iteration 281
+and `REMAINING.md`'s continuation. No `AGENTS.md` exists in this
+repository or above it. For 441: its queue entry, ADR 0002, ADR 0013 § 3,
+ADR 0043 § 5, ADR 0044 whole, `docs/features.md`' Text section,
+`docs/conformance.md`' calendar-list row, the frozen
+`alo-agenda-calendars` case (`origin.txt`, `style.css`, `agent.txt`),
+`alo-box`'s `whitespace.rs`, `alo-style`'s `inheritance.rs` and
+`pseudo.rs`, `alo-agent`'s `name.rs`, `tree.rs` and `verb.rs`, and
+`scripts/gate.sh`'s rented-crate boundaries.
+
+**Choosing.** Iteration 281 left 441 (needs ADR), 442 and 443 eligible;
+every earlier open item waits on a page, a dependency or a design. 441 is
+first in the queue, and LOOP.md § 4 makes a decision its own iteration,
+so this iteration is the ADR only.
+
+**What was decided.** ADR 0049: `text-transform` is applied when a text
+box is built, after white space is collapsed (CSS Text 3's order), so
+layout, paint and the agent read one text, the transformed one. `none`,
+`uppercase` and `lowercase` are built by Unicode's full case mapping,
+language-sensitive by the nearest inclusive ancestor's `lang`, rented from
+ICU4X's `icu_casemap` behind one new boundary file, `alo-text`'s
+`case.rs`. An agent reads text, names from content and names from labels
+as drawn; attributes (`aria-label`, `alt`, `title`, a placeholder) and a
+field's value as written. Finding by name stays ASCII-case-insensitive.
+`::marker { text-transform: none }` joins the user-agent sheet.
+`capitalize`, `full-width`, `full-size-kana` and `math-auto` draw as
+written and are recorded.
+
+**Evidence.** Measured in Google Chrome 154, headless, with DejaVu Sans by
+`@font-face`, through the DevTools protocol (`Accessibility.getFullAXTree`
+and `innerText`) driven by a scratchpad Node script: transformed text in
+the accessibility tree for headings, buttons, links, static text and
+names from wrapping, `for` and `aria-labelledby` labels; `aria-label`,
+`alt`, `title`, `placeholder` and a field's value untransformed; `ß` to
+`SS`, final sigma, `ŉ ǰ ΐ` expanded; Turkish `i` under `tr`, `TR`,
+`tr-CY` and `az-Latn` and not under `en` or `""`; Greek accents dropped
+under `el`; Lithuanian's kept dot; `capitalize`'s word rule differing from
+UAX #29 (`ab.cd` is `Ab.Cd`); `full-width` and `full-size-kana` drawn as
+written; preserved white space kept. Chromium's source was not read. This
+also closes iteration 276's gap: the accessibility tree *was* dumped this
+time, through the protocol, which `--dump-dom` alone cannot do.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop: `exit 0` after 668 s, "The gate is
+met", no `FAIL` or `panicked` in the log. Only this entry and the commit
+came after it.
+
+**Gate, manual.** No code, so no layout assertion or reference render is
+owed by this change; ADR 0049 § 7 states the ones 441's build owes, in
+numbers (the heading 111.69, the badge 48.42, the toggle moved 1.77,
+`alo-downloads`' badge against Chrome, the outline, the unit tests, the
+hostile input). No `unsafe`, no dependency yet: the ADR names the rented
+crate, and the build adds it with its boundary line in `gate.sh`.
+`alo-workplace` and `alo-os` were not touched.
+
+**Queue.** 441 stays open with a *Decided* paragraph; it depends on
+nothing open and is buildable next. Added 444 (`capitalize`, with
+Chrome's measured word rule; waits for a page) and 445 (`full-width`,
+`full-size-kana`, `math-auto`; waits for a page).
+
+**Roadmap: no line moved, and why.** 441 serves stage 1's Text line, which
+is ticked, and no stage 2 line names text transformation; an ADR with no
+code moves no Built clause, and ticking is never the answer. Also
+updated: `docs/features.md` (the `text-transform` line),
+`docs/conformance.md` (the calendar-list row), `REMAINING.md` and
+`CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 441 is decided, not built: the frozen headings and badges are still
+  drawn and read as written.
+- The build adds a rented crate (`icu_casemap`); whether its version
+  agrees with the `icu_*` 2.1 crates already locked through `url`, or
+  moves them, is the build's to find and say.
+- `label_for` reading the label's box text rather than `text_content` will
+  move any outline whose label holds collapsed white space differently;
+  the build must grep tests outside the corpus.
+- 442 and 443 remain buildable and depend on nothing.
+- 438, 439, 431, 433, 434, 444, 445, 423–428, 411, 414 and 416–421 wait for
+  pages; 432 depends on 404.
+
+198 queue items are open (444 and 445 added). The next unused queue
+number is **446** and the next ADR is **0050**. This is one iteration,
+not a finished queue or roadmap.

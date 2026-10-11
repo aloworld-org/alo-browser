@@ -6184,6 +6184,43 @@ The long pole, and the thing most of section E is unreachable without.
   surface. `capitalize` and `full-width` are the same property. *Closes
   when:* the ADR is accepted and the frozen headings and badges are the
   widths Chrome gives, in `tests/alo_agenda_calendars.rs`.
+  **Decided (iteration 282): ADR 0049.** The transform is applied when a
+  text box is built, after white space is collapsed, so layout, paint and
+  the agent read one text, the transformed one. `none`, `uppercase` and
+  `lowercase` are built by Unicode's full, language-sensitive case mapping,
+  rented from ICU4X's `icu_casemap` behind `alo-text`'s one `case.rs`; the
+  language is the nearest `lang` attribute, and Turkish, Azeri, Lithuanian
+  and Greek are tailored as Chrome 154 was measured to. An agent reads
+  text, names from content and names from labels as drawn
+  (`text "MY CALENDARS"`), and attributes (`aria-label`, `alt`, `title`, a
+  placeholder) and a field's value as written, as Chrome's accessibility
+  tree was measured to; finding by name stays ASCII-case-insensitive, so
+  "My calendars" still finds it. The user-agent sheet gains `::marker {
+  text-transform: none }`. `capitalize`, `full-width`, `full-size-kana`
+  and `math-auto` draw as written and are recorded. Its closing condition
+  is ADR 0049 § 7: the headings 111.69 and the badge 48.42 with the toggle
+  moved 1.77, `alo-downloads`' badge checked against Chrome, the outline,
+  the unit tests and the hostile input it names. Buildable next; depends on
+  nothing open. Cut: 444, 445.
+
+- [ ] **444. `text-transform: capitalize`.** *Cut from 441 by ADR 0049
+  § 3. Feature: `docs/features.md` stage 1, text. Waits for a page.*
+  Chrome 154's word rule is not UAX #29's, measured: `ab.cd` is `Ab.Cd`,
+  `ab_cd` `Ab_cd`, `can't` `Can't`, `o'neil` `O'neil`, `3d` `3d`, `a1b`
+  `A1b`, `x—y` `X—Y`; a word running across elements is capitalised once
+  (`one<b>two</b>` is `Onetwo`); `ǆ` is titlecased to `ǅ`, and `ßtraße`,
+  `ﬁsh` and Dutch `ijsland` (even under `lang="nl"`) keep their first
+  letters as `ß`, `ﬁ` and `I`+`j`. Until then it draws as written and is
+  recorded. *Closes when:* a frozen page's capitalised text is the width
+  Chrome gives and reads as drawn.
+
+- [ ] **445. `text-transform: full-width`, `full-size-kana` and
+  `math-auto`.** *Cut from 441 by ADR 0049 § 3. Feature:
+  `docs/features.md` stage 1, text. Waits for a page.* Chrome 154 draws
+  `full-width` and `full-size-kana` as written too (measured: `innerText`
+  and its accessibility text unchanged). They draw as written here and are
+  recorded. *Closes when:* a frozen page writes one and draws as the
+  browsers it targets do.
 
 - [ ] **442. `text-overflow: ellipsis`.** *Found by
   `alo-agenda-calendars` (iteration 281). Feature: `docs/features.md`

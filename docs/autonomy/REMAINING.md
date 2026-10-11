@@ -1607,3 +1607,16 @@ now match Chrome's and its reference was redrawn. Found: 441
 ellipsis`, buildable), 443 (a checkbox's user-agent margin, buildable). 196
 queue items are open (440 closed, 441–443 added). The next unused queue
 number is 444 and the next unused ADR 0049.
+
+Iteration 282 decided item 441: ADR 0049, measured in Chrome 154 through
+its accessibility tree. `text-transform` is applied when a text box is
+built, after white space is collapsed, so layout, paint and the agent read
+one text; `uppercase` and `lowercase` are Unicode's full, language-sensitive
+case mapping, rented from ICU4X's `icu_casemap` behind `alo-text`'s
+`case.rs`. An agent reads drawn text, names from content and from labels as
+drawn, and attributes and a field's value as written. No code; 441 stays
+open, decided and buildable next. Cut: 444 (`capitalize`, whose word rule
+Chrome was measured not to take from UAX #29) and 445 (`full-width`,
+`full-size-kana`, `math-auto`); both wait for a page. 442 and 443 remain
+buildable. 198 queue items are open (444 and 445 added). The next unused
+queue number is 446 and the next unused ADR 0050.
