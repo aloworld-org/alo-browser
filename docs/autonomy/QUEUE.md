@@ -5936,6 +5936,21 @@ The long pole, and the thing most of section E is unreachable without.
   *Closes when:* the ADR is accepted, and the frozen FAQ's `<details>` is
   its summary's height plus its padding and border, its answer neither
   drawn nor read as the ADR says, in numbers; an `open` one as today.
+  **Decided (iteration 276): ADR 0048.** A `details` is its first
+  `<summary>` child, laid out first wherever it is written, then an
+  anonymous content box holding the rest; closed, that box is present (a
+  flex or grid `details` keeps the gap before it, as Chrome 154 was
+  measured to) but takes no room and its children make no boxes, so
+  nothing in it is laid out, drawn or read. The summary carries `expanded`,
+  the `details` group none, and only that summary has the `Summary` role;
+  `Activate` on it toggles `open` by HTML's activation behaviour in
+  `alo-dom`'s `activation.rs`. A `details` with no summary has an empty
+  summary slot and an issue. Its closing condition is ADR 0048 § 6: the
+  frozen `details` 53.2 tall and the CTA 39.2 higher, the outline's
+  `summary "How fresh is the coffee?" [expanded=false]`, `Activate`
+  opening it to 92.4 and closing it again, and the flex-gap, late-summary,
+  second-summary and no-summary cases, all in numbers. Buildable next;
+  depends on nothing open. Cut: 432, 433, 434.
 
 - [x] **430. A border's width is whole device pixels.** *Opened by
   `alo-sites-full-page` (iteration 274), its custom-code section.
@@ -5976,6 +5991,37 @@ The long pole, and the thing most of section E is unreachable without.
   a bare style or a percentage. *Closes when:* that page's border is 1, 3
   or 5 wide as written, `border: 1px solid` then `border-style: solid`
   alone are 1 and 3, and a percentage is refused and recorded, in numbers.
+
+- [ ] **432. A `<summary>` draws its disclosure triangle.** *Cut from 429
+  by ADR 0048 § 5. Opened by `alo-sites-full-page`'s FAQ. Feature:
+  `docs/features.md` stage 1, a list item's marker (ADR 0044). Depends on
+  429, and on 404 (`inside`), which this page now opens.* Chrome 154 makes
+  a `details`' summary `display: list-item` with an inside
+  `disclosure-closed` marker (`disclosure-open` when open): a filled
+  triangle after which the summary's text starts 16.9375 to the right at
+  16 px and 33.90625 at 32 px, the same in DejaVu Sans, Courier and Times.
+  Whether it is a glyph or a drawn shape is this item's to establish,
+  measured, and what an agent reads of it (ADR 0044 § 5 reads a marker as
+  a property; the summary's `expanded` already says what the triangle
+  says). *Closes when:* the frozen FAQ's question starts 16.9375 right of
+  its summary's content edge as Chrome's does, the triangle is drawn
+  pointing right closed and down open, in pixels and numbers.
+
+- [ ] **433. A `<details>` with no `<summary>` is given one.** *Cut from
+  429 by ADR 0048 § 1. Waits for a page.* A browser makes a summary
+  reading "Details", in its own language, where the page wrote none;
+  Chrome's `details` is then as tall as with a one-line summary. Making
+  text the page did not write, and in which language, is a decision.
+  Until then the summary slot is empty and recorded. *Closes when:* a
+  frozen page's summary-less `details` is its generated summary's height
+  plus padding and border, and an agent reads what the ADR decides.
+
+- [ ] **434. A `<details>` for script: `toggle`, `open` and `name`.** *Cut
+  from 429 by ADR 0048 § 4. Waits for a page.* HTML's `toggle` event,
+  queued when `open` changes, `HTMLDetailsElement.open`, and the `name`
+  attribute's exclusive accordion (opening one closes the others).
+  *Closes when:* a frozen page's script that listens for `toggle` or
+  sets `open` does what it does in Chrome, in a bindings test.
 
 - [x] **355. An absolute box is placed against its nearest positioned
   ancestor.** *Found by iteration 228 while building 352, not opened by a
@@ -7912,7 +7958,8 @@ The long pole, and the thing most of section E is unreachable without.
   CSS's table gives, in numbers, three levels deep.
 
 - [ ] **404. `list-style-position: inside`.** *Cut from 401 by ADR 0044
-  § 4. Waits for a page.* An inside marker is an inline box at the start of
+  § 4. Opened by `alo-sites-full-page`'s FAQ summary through 432 (ADR
+  0048 § 5), and buildable with it once 429 is built.* An inside marker is an inline box at the start of
   the item's first line and takes room in it. Until a page asks, an
   `inside` marker is not drawn and is recorded. *Closes when:* a frozen
   page's inside markers are drawn at the start of their lines, the text

@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: a closed question in an FAQ will show only the question, and
+  an agent will open it the way a person does.** A `<details>` without
+  `open` will keep its answer out of sight, out of the page's layout and
+  out of what an agent reads, as every browser does; the question will say
+  whether it is open, and activating it will open or close it. Chrome was
+  measured on this machine for the numbers. The small triangle beside the
+  question comes later, as its own item (queue items 429 and 432–434,
+  ADR 0048).
+
 - **A border is drawn in whole pixels, as browsers draw it.** A border
   written as `.3rem` is 4.8 pixels; browsers lay it out and draw it 4, and
   a hairline of half a pixel as one solid pixel. Here it was 4.8, smearing

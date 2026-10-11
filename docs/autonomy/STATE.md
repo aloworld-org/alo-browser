@@ -26723,3 +26723,79 @@ the case's `origin.txt`, `REMAINING.md` and `CHANGELOG.md`.
 189 queue items are open (430 closed, 431 added). The next unused queue
 number is **432** and the next ADR is **0048**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 276 — queue item 429 decided: ADR 0048, a closed `<details>` is its summary
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and stage 1), iteration 275 and `REMAINING.md`'s continuation. No
+`AGENTS.md` exists in this repository or above it. For 429: its queue entry,
+ADR 0002, ADR 0013 § 3, ADR 0018 §§ 5–7, ADR 0043 and ADR 0044 (with
+404's entry), `docs/features.md`' user-agent sheet and marker lines,
+`docs/conformance.md`' alo Sites row, the frozen `alo-sites-full-page`
+case (`page.html`, `site.css`' FAQ rules, `layout.txt`, `agent.txt`),
+`alo-box`'s `role.rs` and `state.rs`, `alo-agent`'s `verb.rs` and
+`apply.rs`, and `alo-dom`'s `activation.rs`.
+
+**Choosing.** Iteration 275 left 429 (needs ADR) as the one eligible item;
+every other open item waits on a page, a dependency or a design. LOOP.md
+§ 4 makes a decision its own iteration, so this iteration is the ADR only.
+
+**What was decided.** ADR 0048: a `details` is its first `<summary>` child,
+laid out first wherever it is written, then an anonymous content box with
+everything else; closed, that box is present, takes no room and its
+children make no boxes, so nothing in it is laid out, drawn or read. The
+summary carries `expanded` (moved off the `details` group, per HTML-AAM),
+and only a `details`' first summary has the `Summary` role. `Activate` on
+it toggles `open` by HTML's activation behaviour, in `alo-dom`'s
+`activation.rs`, for a verb and a script's `click()` alike. A `details`
+with no summary gets an empty slot and an issue.
+
+**Evidence.** Measured in Google Chrome 154.0.8037.98, headless, with
+DejaVu Sans by `@font-face`, from scratchpad pages: the frozen FAQ's rules
+give 53.1875 closed and 92.375 open; the closed answer fails
+`checkVisibility()`; `::details-content` is `display: block;
+content-visibility: hidden`; a closed flex or grid `details` with a 10 px
+gap is 30 tall with a 20 px summary, so the content box exists (this
+rejected "make no box", which would be 20); a summary written last is
+laid out first; a second summary is an ordinary block; a summary-less
+`details` is as tall as with one summary. The disclosure triangle shifts
+the text 16.9375 at 16 px in three families, 33.90625 at 32 px. HTML-AAM
+§§ 3.5.31 and 3.5.124 were fetched for the role and state mapping.
+Chromium's source was not read.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log; the
+harness moved it to the background at 600 s and the next call waited on it
+in a foreground `until` loop: `exit 0`, "The gate is met", no `FAIL`,
+`FAILED` or `panicked` in the log. Only this entry and the commit came
+after it.
+
+**Gate, manual.** No code, so no layout assertion or reference render is
+owed by this change; ADR 0048 § 6 states the ones 429's build owes, in
+numbers (the frozen `details` 53.2, the CTA 39.2 higher, 92.4 opened, the
+flex-gap, late-summary, second-summary and no-summary cases). No `unsafe`,
+no dependency. `alo-workplace` and `alo-os` were not touched.
+
+**Queue.** 429 stays open with a *Decided* paragraph; it depends on nothing
+open and is buildable next. Added 432 (the disclosure triangle; depends on
+429 and 404), 433 (a generated "Details" summary; waits for a page) and
+434 (`toggle`, `open` and `name` for script; waits for a page). 404's entry
+now says the FAQ summary opens it through 432.
+
+**Roadmap: no line moved, and why.** 429 is stage 1's user-agent sheet and
+agent tree, both lines already ticked, and no stage 2 line names
+`<details>` or alo Sites' pages; an ADR with no code moves no Built
+clause. Also updated: `docs/features.md` (a new line), `docs/conformance.md`
+(the alo Sites row), `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 429 is decided, not built: the frozen FAQ still lays out, draws and reads
+  its answer.
+- Moving `expanded` to the summary will move every outline with a
+  `details`; 429's build must grep tests outside the corpus for them.
+- What a screen reader is actually told in Chrome was not measured (no
+  accessibility dump was taken); the ADR rests on HTML-AAM for that.
+- 431, 423–428, 433, 434, 411, 414 and 416–421 wait for pages.
+
+192 queue items are open (432–434 added). The next unused queue number is
+**435** and the next ADR is **0049**. This is one iteration, not a
+finished queue or roadmap.

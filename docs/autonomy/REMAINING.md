@@ -1532,3 +1532,16 @@ section starts its content at 44 as Chrome does, and the new corpus case
 (border-width keywords, the initial `medium`, and percentages refused;
 waits for a page). 189 queue items are open (430 closed, 431 added). The
 next unused queue number is 432 and the next unused ADR 0048.
+
+Iteration 276 decided item 429: ADR 0048, measured in Chrome 154 and
+grounded in HTML-AAM. A `details` is its first `<summary>`, laid out first,
+then an anonymous content box; closed, the box is present but takes no room
+and its children make no boxes, so the answer is neither laid out, drawn nor
+read. The summary carries `expanded` (the `details` group no longer does)
+and only it has the `Summary` role; `Activate` on it toggles `open` by
+HTML's activation behaviour in `alo-dom`. No code; 429 stays open, decided
+and buildable next. Cut: 432 (the disclosure triangle, with 404's `inside`,
+which this page now opens), 433 (a generated "Details" summary; waits for a
+page) and 434 (`toggle`, `open` and `name` for script; waits for a page).
+192 queue items are open (432–434 added). The next unused queue number is
+435 and the next unused ADR 0049.
