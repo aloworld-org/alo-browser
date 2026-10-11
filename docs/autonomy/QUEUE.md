@@ -6613,6 +6613,60 @@ The long pole, and the thing most of section E is unreachable without.
   and whether a fallback font's metrics are rounded alike. *Closes when:*
   `checkbox-beside-text`'s rows are Chrome's heights and its controls at
   Chrome's y, to 1/64 px.
+  **Rule decided (iteration 292): ADR 0050, by item 464.** What to build
+  is its §§ 1–4 for the primary font. A line's ascent, descent and line
+  gap are each rounded half up to a whole pixel, and `normal` adds the line
+  gap. A set line height is quantised to 1/64: a number by the font size
+  rounded to 1/64 times the number, floored, and a length or percentage
+  rounded. The leading's top half is floored to a whole pixel. Underlines,
+  `ex`, `ch`, `middle`'s x-height and the computed value stay exact. The
+  rounding belongs where a line asks a font for its room
+  (`MeasureText::ascender`, `descender` and a new line gap), and what
+  crosses from style to layout must say whether the line height was a
+  number. `alo-text`'s `line.rs` follows the same rule. *Depends on:* 464
+  (done). Buildable next. The fallback rule is 465.
+
+- [x] **464. The rule a line's height is built by.** *Cut from 460
+  (iteration 292), whose entry asked for its rule to be written down
+  before code depends on it (LOOP.md § 4). Feature: `docs/features.md`
+  stage 1, `line-height` on a line. **Needs ADR.*** The rule moves every
+  line on every page, keeps whole pixels where this engine has kept the
+  font's exact numbers, and is specified by no standard. *Closes when:*
+  its ADR is accepted, grounded in Chrome 154 measured on this machine.
+  **Decided (iteration 292): ADR 0050, accepted.** Measured on 704 probe
+  lines in `DejaVu Sans` and five fonts made from it that differ only in
+  `hhea`: Gap (a line gap), Odd (which table is read), Half (exact
+  halves), and Prim + Tall (a fallback). The `hhea` ascent, descent and
+  line gap are each rounded half up on their own. Gap at 9 px is
+  `normal` 11, where rounding the sum would give 12, and Half at 10 px has
+  a content area of 11, where rounding halves to even would give 10. The
+  content area is the rounded ascent plus the rounded descent. A
+  `normal` line adds the rounded line gap, its top half floored. A number
+  line height is floored from the font size rounded to 1/64: 1 at
+  13.309 px is 13.3125, where flooring the raw size would give 13.296875.
+  A length or percentage is rounded: `17.34px` is 17.34375. The room above
+  the baseline is the ascent plus the leading's half, floored towards
+  negative infinity: at 8 px, a `line-height` of 1 puts the letters 1 px
+  up. Each inline box applies the same rule with its own font and line
+  height: a 30.5 px span at `1.5` makes a 16 px line 45.75 tall. On a
+  `normal` line a fallback font adds its own rounded room (`aZ` at 24 px
+  is 32 tall where `ab` is 28), and with a set line height it adds
+  nothing. `middle` uses the exact x-height. Not decided: fonts with
+  `USE_TYPO_METRICS`, a fallback font's line gap, other operating
+  systems, and other device pixel ratios. Found: 465.
+
+- [ ] **465. A fallback font makes a `normal` line as tall as its own
+  whole-pixel ascent and descent.** *Found deciding 464 (iteration 292),
+  ADR 0050 § 2. Feature: `docs/features.md` stage 1, text and the
+  fallback chain. Depends on 460. Waits for a page.* In Chrome 154, `aZ`
+  at 24 px, with `Z` only in a fallback font whose rounded ascent and
+  descent are 25 and 7, makes a line 32 tall, where `ab` in the primary
+  font (22 and 6) makes one 28 tall. The span's content area stays the
+  primary font's. `alo-layout` asks only the first font in the chain
+  (`TextMeasurer::face`), so a fallback glyph that reaches further
+  overflows its line. `alo-text`'s paragraph lines already take the
+  tallest run. *Closes when:* a frozen page whose `normal` line holds a
+  taller fallback font has Chrome's line heights to 1/64 px.
 
 - [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage

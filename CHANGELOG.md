@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The rule for how tall a line of text is has been written down,
+  measured against Chrome.** Chrome rounds a font's height above and
+  below the baseline to whole pixels, and this browser does not, so its
+  lines of text slowly drift away from Chrome's on a long page. A new
+  design record (ADR 0050) sets out the rule Chrome follows, measured on
+  704 test lines across six fonts. It covers the font's height, the extra
+  space between lines, and how fallback fonts count. Nothing on screen
+  changes yet. Building the rule is the next step (queue items 460 and
+  465).
+
 - **Rounded corners and circles are smoother and even on both sides.** The
   drawing library the browser uses to fill shapes checked too few points
   inside each pixel. A small curve came out thinner than it should, and

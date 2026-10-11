@@ -1732,3 +1732,16 @@ disabled control's translucent pieces leave a seam; needs measuring). 460,
 461, 462 and 463 depend on nothing. 207 queue items are open (459 closed,
 462–463 added). The next unused queue number is 464 and the next unused ADR
 0050.
+
+Iteration 292 decided the rule for queue item 460, as item 464: ADR 0050,
+measured in Chrome 154 on 704 probe lines in `DejaVu Sans` and five fonts
+made from it that differ only in `hhea`. A line's ascent, descent and line
+gap are each rounded half up to a whole pixel, and a `normal` line adds the
+line gap. A set line height is quantised to 1/64 px: a number by the font
+size rounded to 1/64, floored, and a length or percentage rounded. The
+leading's top half is floored to a whole pixel. On a `normal` line a
+fallback font adds its own rounded room. No code changed. 460 stays open,
+decided and buildable next. Found: 465 (a fallback font's room on a
+`normal` line; depends on 460, waits for a page). 461, 462 and 463 still
+depend on nothing. 208 queue items are open (464 added and closed, 465
+added). The next unused queue number is 466 and the next unused ADR 0051.

@@ -28447,3 +28447,73 @@ fixed, and that letters are owed (462). Also updated: `docs/features.md`,
 207 queue items are open (459 closed, 462–463 added). The next unused
 queue number is **464** and the next ADR is **0050**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 292 — queue item 464 decided: ADR 0050, a line is built from whole pixels of font and its leading is floored
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md` (§ 4, a decision
+is its own iteration), `ROADMAP.md` (its stage 1 Text line, which this
+serves), iteration 291. No `AGENTS.md` exists in this repository or above
+it. For 460: its queue entry, `docs/features.md`' line-height entry, ADR
+0001 and ADR 0045, `alo-text`'s `font.rs`, `measure.rs` and `line.rs`,
+`alo-layout`'s `inline.rs`, `measure.rs`, `text_style.rs`, `marker.rs`,
+`ellipsis.rs` and `vertical_align.rs`, `alo-style`'s `metrics.rs` and
+`computed.rs`, and `checkbox_beside_text.rs`.
+
+**Choosing.** Iteration 291 named 460, 461, 462 and 463 buildable. 460
+stands first, and its entry says its rule must be written down before code
+depends on it, because it moves every line. Under LOOP.md § 4 that is a
+decision and gets its own iteration. So it was cut from 460 as item 464
+(needs ADR), and 464 is this iteration's item. 460 stays open.
+
+**Measured**, in Chrome 154 headless without `--disable-gpu`, on 704 probe
+lines in three probe pages kept in the scratchpad only. The fonts were
+`DejaVu Sans` and five fonts made from it with `fontTools` that differ only
+in `hhea`: Gap (line gap 300), Odd (1700/−700, to show which table is
+read), Half (exact halves), and Prim + Tall (a fallback). The rule
+predicts every probe line except two kinds of artefact, both explained in
+the ADR. A zero-height marker below a negative-leading line's bottom grows
+the line (correct CSS). Rows at 26.7 and 15.3 px follow once the font size
+is rounded to 1/64 before a number multiplies it.
+
+**What was decided (ADR 0050).** The `hhea` ascent, descent and line gap
+are each rounded half up to whole pixels. `normal` is A + D + G, which
+corrects this engine's "normal adds no leading". A set line height is
+quantised to 1/64: a number is floored from the font size rounded to 1/64,
+and a length or percentage is rounded. Above the baseline goes
+A + floor(leading / 2), and the rest goes below. On a `normal` line a
+fallback font adds its own rounded room. `middle`'s x-height, underlines,
+`ex`, `ch` and the computed value stay exact. The rounding lives where a
+line asks a font for room (`MeasureText`), and style must tell layout
+whether the line height was a number. Not decided: `USE_TYPO_METRICS`, a
+fallback font's line gap, other operating systems, other pixel ratios.
+
+**Gate, mechanical.** `scripts/gate.sh` ran once in the foreground. The
+harness moved it to the background at 600 s, and the next call waited on
+it with a foreground `until` loop: `exit 0`, "The gate is met", no `FAILED`
+or `panicked` in the log. Only this entry came after it, and the commit.
+
+**Gate, manual.** No code changed, so there is no layout assertion or
+reference render to add, and no file gained a responsibility. Nothing is
+built, so `docs/features.md` and `docs/conformance.md` are unchanged. The
+ADR says they change in the change that builds 460. No `unsafe`.
+`alo-workplace` and `alo-os` were not touched.
+
+**Queue.** 464 added and ticked with its *Decided* paragraph. 460 records
+the rule it builds and depends on 464 (done). Added 465: a fallback font's
+room on a `normal` line, which depends on 460 and waits for a page.
+
+**Roadmap.** Stage 1's Text line, already ticked, gains a note: the rule
+is decided (ADR 0050), and building it (460) and the fallback rule (465)
+are owed. Also updated: `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 460 is decided and buildable next. It moves every corpus case's layout
+  and render, and its 0.75 px bound in `checkbox_beside_text.rs` becomes
+  1/64.
+- 461, 462 and 463 depend on nothing.
+- 438, 439, 431, 433, 434, 444, 445, 446, 448, 450–453, 456, 458, 465,
+  423–428, 411, 414 and 416–421 wait for pages, and 432 depends on 404.
+
+208 queue items are open (464 added and closed, 465 added). The next
+unused queue number is **466** and the next ADR is **0051**. This is one
+iteration, not a finished queue or roadmap.
