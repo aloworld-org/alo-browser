@@ -19,9 +19,10 @@
 //!    remembers what it changed;
 //! 2. the dispatch;
 //! 3. [`cancelled`] if a listener cancelled the click, which puts back what
-//!    step 1 changed — or [`after`] if nobody did, which says what follows
-//!    ([`Follows`]): the `input` and `change` a toggled box fires, or a link
-//!    to follow.
+//!    step 1 changed — or [`after`] if nobody did, which runs the activation
+//!    behaviour that changes the document (a `<details>` opened or closed)
+//!    and says what follows ([`Follows`]): the `input` and `change` a
+//!    toggled box fires, a link to follow, or the `<details>` toggled.
 //!
 //! These are rules about the document with two callers — an agent's
 //! `Activate`, which the renderer dispatches, and a script's `el.click()`
@@ -47,7 +48,9 @@
 //! # What has an activation behaviour
 //!
 //! An `input` that is a checkbox or a radio, an `a` or `area` with an
-//! `href` (following it), and a `button`, whose activation behaviour —
+//! `href` (following it), a `summary` that is its `details`' summary
+//! (toggling the `details`' `open`, ADR 0048 § 4), and a `button`, whose
+//! activation behaviour —
 //! submitting or resetting its form — is item 82's, and which so does
 //! nothing yet. A `button` still counts for the search in step 1: a click
 //! on a `<span>` inside a button inside a link is the button's, not the
@@ -92,6 +95,13 @@ pub enum Activation {
         /// The button.
         node: NodeId,
     },
+    /// A `details`' summary, which nothing changes before the click: its
+    /// behaviour is activation behaviour, run by [`after`] only for a click
+    /// nobody cancelled.
+    Summary {
+        /// The `summary`.
+        node: NodeId,
+    },
 }
 
 impl Activation {
@@ -102,7 +112,8 @@ impl Activation {
             Activation::Checkbox { node, .. }
             | Activation::Radio { node, .. }
             | Activation::Link { node }
-            | Activation::Button { node } => Some(*node),
+            | Activation::Button { node }
+            | Activation::Summary { node } => Some(*node),
         }
     }
 }
@@ -122,6 +133,15 @@ pub enum Follows {
         /// Its `href`, as written.
         href: String,
     },
+    /// A `details` was opened or closed by its summary. HTML queues a
+    /// `toggle` event at it, which is script's and queue item 434's; the
+    /// page is to be drawn again either way.
+    Toggled {
+        /// The `details`.
+        details: NodeId,
+        /// Whether it is open now.
+        open: bool,
+    },
 }
 
 /// Which kind of activation behaviour an element has.
@@ -130,6 +150,7 @@ enum Behaviour {
     Radio,
     Link,
     Button,
+    Summary,
 }
 
 /// The activation behaviour `node` has, if any.
@@ -151,6 +172,9 @@ fn behaviour(document: &Document, node: NodeId) -> Option<Behaviour> {
     }
     if element.name.is_html("button") {
         return Some(Behaviour::Button);
+    }
+    if element.name.is_html("summary") && crate::details::details_of(document, node).is_some() {
+        return Some(Behaviour::Summary);
     }
     None
 }
@@ -200,6 +224,7 @@ pub fn before(document: &mut Document, target: NodeId) -> Activation {
         }
         Some(Behaviour::Link) => Activation::Link { node },
         Some(Behaviour::Button) => Activation::Button { node },
+        Some(Behaviour::Summary) => Activation::Summary { node },
         None => Activation::None,
     }
 }
@@ -239,17 +264,24 @@ pub fn cancelled(document: &mut Document, activation: &Activation) {
                 }
             }
         }
-        Activation::None | Activation::Link { .. } | Activation::Button { .. } => {}
+        Activation::None
+        | Activation::Link { .. }
+        | Activation::Button { .. }
+        | Activation::Summary { .. } => {}
     }
 }
 
-/// Step 3, when nobody cancelled the click: what the activation behaviour
-/// says follows.
+/// Step 3, when nobody cancelled the click: the activation behaviour, and
+/// what it says follows.
 ///
 /// A checkbox or radio fires `input` and `change` **only if it is in its
 /// document** (the standard's *connected*): a box a listener took out of
 /// the page changes, and nobody is told. A link is followed wherever it is.
-pub fn after(document: &Document, activation: &Activation) -> Follows {
+///
+/// A summary toggles its `details`' `open` attribute — **if it is still the
+/// summary for its parent `details`**, which HTML asks now rather than when
+/// the click began, so a listener that moved it decides.
+pub fn after(document: &mut Document, activation: &Activation) -> Follows {
     match activation {
         Activation::Checkbox { node, .. } | Activation::Radio { node, .. } => {
             if document.is_attached(*node) {
@@ -266,6 +298,15 @@ pub fn after(document: &Document, activation: &Activation) -> Follows {
             // A listener took the `href` away: there is nowhere to go.
             None => Follows::Nothing,
         },
+        Activation::Summary { node } => {
+            let Some(details) = crate::details::details_of(document, *node) else {
+                return Follows::Nothing;
+            };
+            match crate::details::toggle(document, details) {
+                Some(open) => Follows::Toggled { details, open },
+                None => Follows::Nothing,
+            }
+        }
         Activation::None | Activation::Button { .. } => Follows::Nothing,
     }
 }

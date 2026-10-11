@@ -29,6 +29,7 @@
 //! make a box's meaning depend on where it landed, which is the failure this
 //! whole ordering exists to prevent.
 
+mod details;
 pub mod line_break;
 pub mod natural;
 pub mod picture;

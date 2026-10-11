@@ -221,6 +221,11 @@ pub enum PseudoElement {
     FirstLine,
     /// `::first-letter`.
     FirstLetter,
+    /// `::details-content`: the slot a `<details>` holds everything but its
+    /// summary in. The box exists (ADR 0048 § 1) and is styled as an
+    /// anonymous box, by its `details`; a rule naming it is recorded until a
+    /// page styles it.
+    DetailsContent,
 }
 
 impl PseudoElement {
@@ -234,6 +239,7 @@ impl PseudoElement {
             PseudoElement::Selection,
             PseudoElement::FirstLine,
             PseudoElement::FirstLetter,
+            PseudoElement::DetailsContent,
         ];
         ALL.iter()
             .copied()
@@ -260,6 +266,7 @@ impl PseudoElement {
             PseudoElement::Selection => "::selection",
             PseudoElement::FirstLine => "::first-line",
             PseudoElement::FirstLetter => "::first-letter",
+            PseudoElement::DetailsContent => "::details-content",
         }
     }
 }

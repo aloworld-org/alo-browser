@@ -36,7 +36,7 @@
 //! ran script, which never reaches this.
 
 use alo_bindings::navigating::{self, By};
-use alo_bindings::{Firing, change_document, document, node_of};
+use alo_bindings::{Firing, change_document, node_of};
 use alo_dom::activation::{self, Follows};
 use alo_js::{Escape, Fault, Root};
 
@@ -84,9 +84,10 @@ impl EventLoop {
             });
         }
 
-        let follows = document(self.engine.objects(), cell)
-            .map(|document| activation::after(document, &done))
-            .ok_or(Escape::fault(Fault::NotAnObject))?;
+        let follows = change_document(self.engine.objects(), cell, |document| {
+            activation::after(document, &done)
+        })
+        .ok_or(Escape::fault(Fault::NotAnObject))?;
         if let Follows::InputAndChange(at) = follows {
             for firing in [Firing::INPUT, Firing::CHANGE] {
                 self.awake()?;
@@ -100,7 +101,9 @@ impl EventLoop {
                 navigating::start(self.engine.objects(), cell, *node, By::Browser)
                     .ok_or(Escape::fault(Fault::NotAnObject))?
             }
-            Follows::Nothing | Follows::InputAndChange(_) => false,
+            // A `details` opened or closed changed the document, which is
+            // drawn again; its `toggle` event is script's (queue item 434).
+            Follows::Nothing | Follows::InputAndChange(_) | Follows::Toggled { .. } => false,
         };
         Ok(Clicked {
             canceled,

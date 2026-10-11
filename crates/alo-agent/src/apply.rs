@@ -43,6 +43,11 @@
 //! that promise, and alo's own scriptless screens were tested against it. On
 //! a page with script, the page's listener keeps it.
 //!
+//! **Activating a `<details>`' summary opens or closes it** on a page
+//! without script as on one with: toggling `open` is HTML's activation
+//! behaviour, not a promise a script keeps (ADR 0048 § 4), so it is the
+//! same `alo-dom` rule and the change is reported as the `details`'.
+//!
 //! **Activating a plain button changes nothing** on a page without script,
 //! and that is correct rather than missing: what a button does is run a
 //! script, and there is none. **Following a link changes nothing here**
@@ -51,7 +56,7 @@
 
 use crate::verb::Outcome;
 use alo_box::{BoxId, BoxTree};
-use alo_dom::activation::{self, Activation};
+use alo_dom::activation::{self, Activation, Follows};
 use alo_dom::field;
 use alo_dom::{Document, NodeId};
 
@@ -146,13 +151,15 @@ fn activate(document: &mut Document, node: NodeId) -> Vec<Change> {
     }
     let done = activation::before(document, node);
     // `after`'s `input` and `change` go to nobody on a page with no script,
-    // and a link's destination is already the outcome's.
-    let _follows = activation::after(document, &done);
-    changes(&done)
+    // and a link's destination is already the outcome's. A `details` it
+    // opened or closed is a change to the document.
+    let follows = activation::after(document, &done);
+    changes(&done, &follows)
 }
 
-/// What [`activation::before`] changed, as [`Change`]s.
-fn changes(done: &Activation) -> Vec<Change> {
+/// What [`activation::before`] and [`activation::after`] changed, as
+/// [`Change`]s.
+fn changes(done: &Activation, follows: &Follows) -> Vec<Change> {
     let checked = |node: NodeId, now: bool| {
         if now {
             Change::Set {
@@ -183,8 +190,25 @@ fn changes(done: &Activation) -> Vec<Change> {
             }
             changes
         }
-        Activation::None | Activation::Link { .. } | Activation::Button { .. } => Vec::new(),
+        Activation::None
+        | Activation::Link { .. }
+        | Activation::Button { .. }
+        | Activation::Summary { .. } => Vec::new(),
     };
+    if let Follows::Toggled { details, open } = follows {
+        changes.push(if *open {
+            Change::Set {
+                node: *details,
+                attribute: "open".to_owned(),
+                value: String::new(),
+            }
+        } else {
+            Change::Removed {
+                node: *details,
+                attribute: "open".to_owned(),
+            }
+        });
+    }
     if changes.is_empty() {
         changes.push(Change::Nothing);
     }

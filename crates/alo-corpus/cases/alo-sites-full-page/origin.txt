@@ -56,15 +56,18 @@ is pinned by layout.txt, display.txt and agent.txt.
   32 tall — Chrome's numbers exactly. Its width is its `alt`'s, 293.65;
   Chrome's is 309.66, the 16 of the broken-picture icon it draws before the
   text (item 418). `tests/alo_sites_full_page.rs` says so.
-- **A closed `<details>` shows what it hides** — item 429, needs ADR. The
-  FAQ's one `<details>` has no `open`, and Chrome shows only its summary,
-  53.19 tall; here it is 92.4 tall, its answer is drawn, and an agent reads
-  the answer while also reading `expanded=false`. Every section below it
-  stands 39.2 lower than Chrome's for it, and 12 more because Chrome's
-  columns (below) drop the `<details>`' 0.75rem margin at a column's end.
-  Which of a closed `<details>`'s content an
-  agent may read is a decision about the agent's tree, so it waits for its
-  ADR.
+- **A closed `<details>` showed what it hides** — item 429, built by ADR
+  0048. The FAQ's one `<details>` has no `open`, and Chrome shows only its
+  summary, 53.19 tall; here it was 92.4 tall, its answer drawn, and an
+  agent read the answer while also reading `expanded=false` on the group.
+  Now it is 53.2, its answer neither laid out, drawn nor read, and every
+  section below it stands 39.2 higher than it did; the summary reads
+  `[expanded=false]`, and activating it opens the `details` to 92.4, as
+  Chrome's. `tests/alo_sites_full_page.rs` says so. Still different: no
+  disclosure triangle is drawn (item 432), so the question starts 16.94
+  left of Chrome's, and every section below the FAQ stands 12 lower than
+  Chrome's because Chrome's columns (below) drop the `<details>`' 0.75rem
+  margin at a column's end.
 - **A border 4.8 wide was drawn 4.8 wide** — item 430, built. The
   custom-code section's `border-left: .3rem` is 4.8 px, and Chrome draws
   and lays out 4: a border width of a device pixel or more is floored to

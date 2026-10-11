@@ -1075,7 +1075,10 @@ unreachable without it.
       position (`alo-bindings`' `UIEvent`, `MouseEvent`, `PointerEvent`),
       wrapped in `alo-dom`'s `activation.rs` (a checkbox or radio changed
       before the listeners and put back if one cancels; `input` and
-      `change` after; a link followed only if nobody cancelled) — answered
+      `change` after; a link followed only if nobody cancelled; a
+      `<details>`' summary toggling its `open` after a click nobody
+      cancelled, on a page with script or without — queue item 429, ADR
+      0048) — answered
       after the task, with what its script said in `Acted`'s issues; the
       agent changes no ARIA state there. `alo-settings` carries
       `SettingsModal.tsx`'s nav script, and pressing *Sharing* makes it the

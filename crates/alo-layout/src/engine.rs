@@ -1473,7 +1473,13 @@ fn display_for(kind: &BoxKind, replaced: bool) -> taffy::Display {
         {
             taffy::Display::FlowRoot
         }
-        BoxKind::Text { .. } => taffy::Display::Block,
+        // A `<details>`' content box holds blocks as any block does, and its
+        // children's margins collapse through it (ADR 0048 § 1).
+        BoxKind::Text { .. }
+        | BoxKind::Anonymous {
+            purpose: alo_box::Purpose::DetailsContent,
+            ..
+        } => taffy::Display::Block,
         BoxKind::Anonymous { .. } => taffy::Display::Flex,
         BoxKind::Element { display, .. } => match display.inside() {
             Some(Inside::Flex) => taffy::Display::Flex,

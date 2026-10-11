@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A closed question in an FAQ shows only the question, and an agent
+  opens it the way a person does.** alo Sites makes every FAQ entry a
+  `<details>`; closed, its answer was laid out, drawn and read out to an
+  agent anyway, and the box was 92.4 pixels tall where every browser shows
+  the question alone in 53.2. Now a closed `<details>` keeps its answer out
+  of sight, out of the layout and out of what an agent reads; the question
+  says whether it is open, and activating it — by an agent, by a script's
+  `click()`, or with nobody's script running at all — opens or closes it,
+  unless the page's own listener cancels the click. A rule naming
+  `::details-content` no longer takes the selectors beside it down with it
+  (queue item 429, ADR 0048). The small triangle beside the question is
+  still to come (432).
+
 - **Decided: a closed question in an FAQ will show only the question, and
   an agent will open it the way a person does.** A `<details>` without
   `open` will keep its answer out of sight, out of the page's layout and

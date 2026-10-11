@@ -1545,3 +1545,19 @@ which this page now opens), 433 (a generated "Details" summary; waits for a
 page) and 434 (`toggle`, `open` and `name` for script; waits for a page).
 192 queue items are open (432–434 added). The next unused queue number is
 435 and the next unused ADR 0049.
+
+Iteration 277 built item 429 by ADR 0048. `alo-dom`'s new `details.rs`
+answers which `<summary>` is a `<details>`' summary for every reader, and
+`activation.rs` gives that summary HTML's activation behaviour: `after`
+toggles `open` (it now takes the document mutably and reports
+`Follows::Toggled`). `alo-box` slots a `details`' children (`details.rs`):
+the summary first, then an anonymous `DetailsContent` block that holds the
+rest only when open; layout lays that block out as a block. The summary
+carries `expanded` and the `Summary` role, the `details` neither. The
+frozen FAQ is 53.2 tall and everything under it 39.2 higher, its answer in
+no reference; activating it opens it to 92.4 and closes it again. The new
+corpus case `details-closed-and-open` draws the three shapes. Found: 435
+(a functional colour in the `border` shorthand is torn apart at its
+spaces and the border drawn in `currentColor`). 192 queue items are open
+(429 closed, 435 added). The next unused queue number is 436 and the next
+unused ADR 0049.

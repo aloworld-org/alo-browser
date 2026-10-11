@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! alo Sites' full page, in numbers: the page that opened queue items 286
-//! and 430.
+//! alo Sites' full page, in numbers: the page that opened queue items 286,
+//! 429 and 430.
 //!
 //! `cases/alo-sites-full-page` pins the whole page as files. This says out
 //! loud what item 286 is closed by. The brand is `<a class="brand"><img
@@ -24,9 +24,10 @@
 //! the same frame, sheet and analytics script, so how its sheet is asked
 //! for and answered is said once there and only checked here.
 
-use alo_agent::AgentTree;
+use alo_agent::{AgentTree, Target, Verb};
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
+use alo_renderer::{FromRenderer, Renderer, ToRenderer};
 
 /// The case, read and rendered.
 fn full_page() -> Option<(Case, Rendering)> {
@@ -199,5 +200,154 @@ fn the_custom_code_sections_border_is_whole_pixels_as_chrome_draws_it() {
             .lines()
             .any(|line| line.starts_with("fill ") && line.contains(&border)),
         "the border is drawn 4 wide, looked for{border}:\n{display}"
+    );
+}
+
+/// The border box of the `details` in the FAQ and of the CTA's heading, in
+/// a drawing of the page, or [`None`] when either made no box.
+fn faq_and_cta(rendering: &Rendering) -> Option<(Rect, Rect)> {
+    let faq = with_class(rendering, "s-faq");
+    let cta = with_class(rendering, "s-cta");
+    let details = faq.first()?.1.get(1).copied()?;
+    let heading = cta.first()?.1.first().copied()?;
+    Some((details, heading))
+}
+
+/// The agent's outline of what the renderer drew last.
+fn outline(renderer: &Renderer) -> String {
+    match (renderer.document(), renderer.rendered()) {
+        (Some(document), Some(drawing)) => {
+            AgentTree::new(document, &drawing.boxes, &drawing.layout).to_outline()
+        }
+        _ => String::new(),
+    }
+}
+
+/// The FAQ's lines of an outline: the `group` and what is read inside it.
+fn faq_lines(tree: &str) -> Vec<String> {
+    let indent = |line: &str| line.len() - line.trim_start().len();
+    let mut lines = tree
+        .lines()
+        .skip_while(|line| !line.trim_start().starts_with("group"));
+    let Some(group) = lines.next() else {
+        return Vec::new();
+    };
+    let depth = indent(group);
+    core::iter::once(group)
+        .chain(lines.take_while(|line| indent(line) > depth))
+        .map(|line| line.trim_start().to_owned())
+        .collect()
+}
+
+/// Whether the renderer answered that it activated the question, and said
+/// nothing but that no script heard the click: this page's stopped.
+fn acted_unheard(answer: &FromRenderer) -> bool {
+    matches!(
+        answer,
+        FromRenderer::Acted { outcome: alo_agent::Outcome::Activated { name, .. }, issues, .. }
+            if name.as_deref() == Some("How fresh is the coffee?")
+                && !issues.is_empty()
+                && issues.iter().all(|issue| issue.contains("nobody heard it"))
+    )
+}
+
+/// Activate the FAQ's summary, as an agent does, answering what the
+/// renderer said.
+fn activate_the_question(renderer: &mut Renderer) -> FromRenderer {
+    renderer.handle(ToRenderer::Act {
+        target: Target::Named("How fresh is the coffee?".to_owned()),
+        verb: Verb::Activate,
+    })
+}
+
+#[test]
+fn the_faqs_closed_details_is_its_summary_as_chrome_draws_it() {
+    // Item 429, ADR 0048 § 6. Chrome 154: the `details` is 53.1875 tall —
+    // 1 + 12 + the summary's 27.1875 + 12 + 1 — and its answer takes no
+    // room. Here it was 92.4, holding the answer, and the CTA after it was
+    // 39.2 lower than it is now.
+    let Some((_, rendering)) = full_page() else {
+        panic!("the case renders");
+    };
+    let Some((details, heading)) = faq_and_cta(&rendering) else {
+        panic!("the FAQ and the CTA are laid out");
+    };
+    assert!(
+        near(details.origin.y, 2902.2) && near(details.size.height, 53.2),
+        "{details:?}"
+    );
+    assert!(near(heading.origin.y, 3102.6 - 39.2), "{heading:?}");
+    let Some(drawing) = rendering.drawing() else {
+        panic!("the case has a drawing");
+    };
+    let answer = "It ships the day it is roasted.";
+    assert!(
+        !drawing.display.to_outline().contains(answer),
+        "the answer is not drawn"
+    );
+    assert!(
+        !drawing.layout.to_outline(&drawing.boxes).contains(answer),
+        "nor laid out"
+    );
+}
+
+#[test]
+fn an_agent_reads_the_question_and_that_it_is_closed_and_not_the_answer() {
+    let Some((_, Rendering::Loaded(renderer, _))) = full_page() else {
+        panic!("the case is loaded by a renderer");
+    };
+    assert_eq!(
+        faq_lines(&outline(&renderer)),
+        [
+            "group at (20, 2902.2) 760×53.2",
+            "summary \"How fresh is the coffee?\" [expanded=false] at (37, 2915.2) 726×27.2",
+        ],
+    );
+}
+
+#[test]
+fn activating_the_question_opens_it_and_activating_it_again_closes_it() {
+    // ADR 0048 § 4: HTML's activation behaviour, in `alo-dom`. This page's
+    // script stopped while it loaded (queue item 73), so nothing hears the
+    // click and the renderer says so; the click still does what a click
+    // does to the document. A page whose script is running is
+    // `alo-renderer`'s `an_agents_click.rs`. Chrome 154, opened: 92.375
+    // tall, the answer 27.1875 under a 12 margin.
+    let Some((_, Rendering::Loaded(mut renderer, _))) = full_page() else {
+        panic!("the case is loaded by a renderer");
+    };
+    let answer = activate_the_question(&mut renderer);
+    assert!(acted_unheard(&answer), "{answer:?}");
+    assert_eq!(
+        faq_lines(&outline(&renderer)),
+        [
+            "group at (20, 2902.2) 760×92.4",
+            "summary \"How fresh is the coffee?\" [expanded=true] at (37, 2915.2) 726×27.2",
+            "paragraph at (37, 2954.4) 726×27.2",
+            "text \"It ships the day it is roasted.\" at (37, 2958.1055) 241.85156×19.789063",
+        ],
+    );
+    let opened = renderer.document().and_then(|document| {
+        document.descendants(document.root()).find(|id| {
+            document
+                .element(*id)
+                .is_some_and(|element| element.name.is_html("details"))
+        })
+    });
+    assert!(
+        opened.is_some_and(|details| renderer
+            .document()
+            .is_some_and(|document| alo_dom::details::is_open(document, details))),
+        "the document's details has `open`"
+    );
+
+    let answer = activate_the_question(&mut renderer);
+    assert!(acted_unheard(&answer), "{answer:?}");
+    assert_eq!(
+        faq_lines(&outline(&renderer)),
+        [
+            "group at (20, 2902.2) 760×53.2",
+            "summary \"How fresh is the coffee?\" [expanded=false] at (37, 2915.2) 726×27.2",
+        ],
     );
 }

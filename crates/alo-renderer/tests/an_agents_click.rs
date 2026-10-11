@@ -290,6 +290,87 @@ fn a_link_is_followed_only_when_nobody_cancels_its_click() {
 }
 
 #[test]
+fn a_summarys_click_opens_its_details_after_the_listeners_unless_one_cancels() {
+    // ADR 0048 § 4: toggling `open` is a summary's activation behaviour, so
+    // its listeners read the `details` still closed, and one that cancels
+    // the click leaves it closed.
+    let page = |cancel: bool| {
+        format!(
+            "<p>-</p><details><summary>Question</summary>Answer</details><script>{SAY}\
+             const details = out.nextSibling;\
+             details.firstChild.addEventListener('click', e => {{\
+               say('click:' + (details.getAttribute('open') !== null)); {}\
+             }});\
+             </script>",
+            if cancel { "e.preventDefault();" } else { "" }
+        )
+    };
+    for stress in [false, true] {
+        let mut renderer = loaded(&page(false), stress);
+        let (outcome, issues) = activate(&mut renderer, "Question").expect("an operable summary");
+        assert!(issues.is_empty(), "{issues:?}");
+        assert!(
+            matches!(&outcome, Outcome::Activated { name, .. } if name.as_deref() == Some("Question")),
+            "{outcome:?}"
+        );
+        assert_eq!(heard(&renderer), "- click:false", "stress {stress}");
+        assert_eq!(
+            attribute(&renderer, "details", 0, "open").as_deref(),
+            Some("")
+        );
+        let tree = outline(&mut renderer);
+        assert!(
+            tree.contains("summary \"Question\" [expanded=true]") && tree.contains("\"Answer\""),
+            "the agent reads it open, and its answer: {tree}"
+        );
+        let (_, issues) = activate(&mut renderer, "Question").expect("an operable summary");
+        assert!(issues.is_empty(), "{issues:?}");
+        assert_eq!(
+            attribute(&renderer, "details", 0, "open"),
+            None,
+            "closed again"
+        );
+    }
+
+    let mut renderer = loaded(&page(true), false);
+    let (_, issues) = activate(&mut renderer, "Question").expect("an operable summary");
+    assert!(issues.is_empty(), "{issues:?}");
+    assert_eq!(heard(&renderer), "- click:false");
+    assert_eq!(
+        attribute(&renderer, "details", 0, "open"),
+        None,
+        "cancelled"
+    );
+    let tree = outline(&mut renderer);
+    assert!(
+        tree.contains("summary \"Question\" [expanded=false]") && !tree.contains("Answer"),
+        "the agent reads it closed, and not its answer: {tree}"
+    );
+}
+
+#[test]
+fn a_scripts_click_on_a_summary_opens_its_details_too() {
+    // The same rule for a script's `click()` (ADR 0018 § 6), and none for a
+    // second summary, which is an ordinary element.
+    let renderer = loaded(
+        &format!(
+            "<p>-</p><details><summary>One</summary><summary>Two</summary></details>\
+             <script>{SAY}\
+             const details = out.nextSibling;\
+             details.lastChild.click(); say((details.getAttribute('open') !== null));\
+             details.firstChild.click(); say((details.getAttribute('open') !== null));\
+             </script>"
+        ),
+        false,
+    );
+    assert_eq!(heard(&renderer), "- false true");
+    assert_eq!(
+        attribute(&renderer, "details", 0, "open").as_deref(),
+        Some("")
+    );
+}
+
+#[test]
 fn on_a_page_that_runs_script_aria_state_is_the_pages_to_change() {
     // A listener that keeps the promise: flipped once, by the page — an
     // agent that flipped it as well would flip it back.

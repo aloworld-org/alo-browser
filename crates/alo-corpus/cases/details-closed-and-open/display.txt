@@ -1,0 +1,10 @@
+fill box#3 rgb(239 246 255) at (8, 8) 184×30
+fill box#3 rgb(29 78 216) at (8, 8) 184×30
+text box#5 "Closed" rgb(23 33 43) 14px at (17, 27.84668)
+fill box#8 rgb(239 246 255) at (8, 44) 184×54
+fill box#8 rgb(29 78 216) at (8, 44) 184×54
+text box#10 "Open" rgb(23 33 43) 14px at (17, 63.84668)
+text box#13 "Shown answer" rgb(185 28 28) 14px at (17, 87.84668)
+fill box#15 rgb(239 246 255) at (8, 104) 184×30
+fill box#15 rgb(29 78 216) at (8, 104) 184×30
+text box#17 "Late" rgb(23 33 43) 14px at (17, 123.84668)

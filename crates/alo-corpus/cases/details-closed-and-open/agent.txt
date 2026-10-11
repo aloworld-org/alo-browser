@@ -1,0 +1,9 @@
+document at (0, 0) 200×142
+  group at (8, 8) 184×30
+    summary "Closed" [expanded=false] at (17, 13) 166×20
+  group at (8, 44) 184×54
+    summary "Open" [expanded=true] at (17, 49) 166×20
+    paragraph at (17, 73) 166×20
+      text "Shown answer" at (17, 74.85156) 101.66406×16.296875
+  group at (8, 104) 184×30
+    summary "Late" [expanded=false] at (17, 109) 166×20

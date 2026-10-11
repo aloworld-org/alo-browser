@@ -148,7 +148,8 @@ impl States {
                 .unwrap_or_else(|| alo_css::state::is_disabled(document, id, element)),
             checked: checked(document, id, element),
             selected: selected(element),
-            expanded: aria_flag(element, "aria-expanded").or_else(|| open_flag(element)),
+            expanded: aria_flag(element, "aria-expanded")
+                .or_else(|| open_flag(document, id, element)),
             pressed: aria_flag(element, "aria-pressed"),
             required: aria_flag(element, "aria-required")
                 .unwrap_or_else(|| alo_css::state::is_required(element)),
@@ -305,11 +306,17 @@ fn selected(element: &Element) -> Option<bool> {
     None
 }
 
-/// `<details open>` and `<dialog open>` are the two HTML elements that say
-/// outright whether they are open.
-fn open_flag(element: &Element) -> Option<bool> {
-    if element.name.is_html("details") || element.name.is_html("dialog") {
+/// Whether a thing HTML opens is open: a `<dialog>` by its `open`, and a
+/// `<details>`' summary by its `details`' — the summary is the button that
+/// opens it, so it is the one node that says so, as HTML-AAM puts it, and
+/// the `details` itself says nothing (ADR 0048 § 3).
+fn open_flag(document: &Document, id: NodeId, element: &Element) -> Option<bool> {
+    if element.name.is_html("dialog") {
         return Some(element.attr("open").is_some());
+    }
+    if element.name.is_html("summary") {
+        return alo_dom::details::details_of(document, id)
+            .map(|details| alo_dom::details::is_open(document, details));
     }
     None
 }
@@ -424,14 +431,41 @@ mod tests {
     }
 
     #[test]
-    fn a_disclosure_says_whether_it_is_open() {
+    fn a_disclosure_says_whether_it_is_open_on_its_summary() {
         assert_eq!(
-            states_of("<details id=x open><summary>s</summary></details>", "x").expanded,
+            states_of("<details open><summary id=x>s</summary></details>", "x").expanded,
             Some(true),
         );
         assert_eq!(
-            states_of("<details id=x><summary>s</summary></details>", "x").expanded,
+            states_of("<details><summary id=x>s</summary></details>", "x").expanded,
             Some(false),
+        );
+        assert_eq!(
+            states_of("<details id=x><summary>s</summary></details>", "x").expanded,
+            None,
+            "the details says nothing: its summary does",
+        );
+        assert_eq!(
+            states_of(
+                "<details><summary>a</summary><summary id=x>b</summary></details>",
+                "x"
+            )
+            .expanded,
+            None,
+            "a second summary opens nothing",
+        );
+        assert_eq!(
+            states_of(
+                "<details id=x aria-expanded=true><summary>s</summary></details>",
+                "x"
+            )
+            .expanded,
+            Some(true),
+            "an author's own state is still read where it is written",
+        );
+        assert_eq!(
+            states_of("<dialog id=x open>d</dialog>", "x").expanded,
+            Some(true),
         );
         assert_eq!(
             states_of("<div id=x role=button aria-expanded=false>b</div>", "x").expanded,

@@ -121,11 +121,10 @@ block flow · document
       block flow · generic
         block flow · heading [level=2]
           text "Questions"
-        block flow · group [expanded=false]
-          block flow · summary
+        block flow · group
+          block flow · summary [expanded=false]
             text "How fresh is the coffee?"
-          block flow · paragraph
-            text "It ships the day it is roasted."
+          anonymous block
       block flow · generic
         block flow · heading [level=2]
           text "Taste the difference"

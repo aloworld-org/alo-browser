@@ -35,8 +35,10 @@
 //!   `textContent` writes.
 //! - [`activation`] is what a click does to the element it activates — a
 //!   checkbox or radio changed before the listeners run and put back if one
-//!   cancels, a link to follow after (ADR 0018 § 6) — for both of a click's
-//!   callers.
+//!   cancels, a link to follow after, a `<details>` opened or closed by its
+//!   summary (ADR 0018 § 6, ADR 0048 § 4) — for both of a click's callers.
+//!   [`details`] says which `<summary>` is a `<details>`' summary, which the
+//!   box tree and the agent's role and state ask too.
 //! - [`Document::set_declared_style`] is the one way `element.style` writes
 //!   its element's `style` attribute, remembering the text it wrote, and
 //!   [`Element::style_is_declared`] asks whether the attribute still is that
@@ -101,6 +103,7 @@ pub mod body;
 pub mod by_name;
 pub mod date;
 pub mod declared;
+pub mod details;
 pub mod document;
 pub mod field;
 pub mod footprint;

@@ -26799,3 +26799,151 @@ clause. Also updated: `docs/features.md` (a new line), `docs/conformance.md`
 192 queue items are open (432–434 added). The next unused queue number is
 **435** and the next ADR is **0049**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 277 — queue item 429 built: a closed `<details>` is its summary, and an agent opens it
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head, stage 1, and stage 2's *Events* line), iterations 274–276 and
+`REMAINING.md`'s continuation. No `AGENTS.md` exists in this repository or
+above it. For 429: its queue entry with 432–434, ADR 0048 whole (and
+through it ADRs 0002, 0013 § 3, 0018 §§ 5–7, 0043 and 0044),
+`docs/features.md`' `<details>` line, `docs/conformance.md`' alo Sites
+row, the frozen `alo-sites-full-page` case (`page.html`, `site.css`' FAQ
+rules, `layout.txt`, `agent.txt`, `origin.txt`), `alo-box`'s `tree.rs`,
+`role.rs`, `state.rs` and `semantics.rs`, `alo-dom`'s `activation.rs`,
+`alo-agent`'s `apply.rs`, `alo-layout`'s `engine.rs` (`display_for`,
+`style_for`), `alo-css`' `selector.rs`, and every caller of
+`activation::after` (`alo-renderer`'s `press.rs` and
+`event_loop/activated.rs`, `alo-bindings`' `interface/html_element.rs`).
+
+**Choosing.** Iteration 276 left 429 decided and buildable, depending on
+nothing open; every other open item waits on a page, a dependency, a
+design or an ADR.
+
+**What was built.**
+- `alo-dom`'s new `details.rs`: a `details`' summary is its first
+  `summary` child (`summary_of`, `details_of`), whether it is open, and
+  `toggle`. The box tree, the role, the state and the activation rule all
+  ask it.
+- `activation.rs`: a summary that is its `details`' summary has an
+  activation behaviour (`Activation::Summary`). Nothing changes before the
+  click or on cancelling it; `after` — which now takes `&mut Document` —
+  re-asks whether it is still the summary and toggles `open`, answering
+  `Follows::Toggled`. The three callers pass the document mutably; the
+  `toggle` event stays 434's.
+- `apply.rs` reports the toggle as a `Set` or `Removed` `open` on the
+  `details`, on a page that never ran script.
+- `alo-box`'s new `details.rs` slots the children; `tree.rs` builds the
+  summary first, then an anonymous `Purpose::DetailsContent` block that
+  holds the rest, arranged, only when open. A `details` with no summary
+  records an issue. `role.rs`: only the summary for its `details` is
+  `summary`, any other generic. `state.rs`: `expanded` is on that summary;
+  the `details` has none; `<dialog open>` is unchanged.
+- `alo-layout`'s `display_for`: the content block is a `taffy` block (an
+  anonymous box was a row flex, which would have laid an open answer's
+  paragraphs side by side).
+- `alo-css`: `::details-content` is a known, unproduced pseudo-element, so
+  `details::details-content, p { … }` keeps `p` and records the rule — it
+  was an invalid selector, dropping the whole rule.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -D warnings` were clean first, after three
+lint fixes in the new code (a single-arm `match`, identical arms, and
+indexing in a test helper). `scripts/gate.sh` ran in the foreground to a
+log. The harness moved it to the background at 600 s, and the next call
+waited on it in a foreground `until` loop. It read `exit 0` and "The gate
+is met", with no `FAILED` or `panicked` in the log. Only this entry and the
+commit came after it.
+
+**Gate, manual.**
+- Layout assertions in numbers. `alo-layout/tests/details.rs` (7): the
+  FAQ's rules with a 20-tall summary are 46 closed, the summary at 13, the
+  answer no box and what follows at 58; open, 78, the answer at 45. An
+  open `details` is box for box a `div` holding the same children (80
+  tall, margins collapsing through the content block). A closed flex
+  column and a grid with a 10 gap are 30. A late summary is at 0, before
+  the paragraph written ahead of it. A second summary is a block at 20
+  open, no box closed. A summary-less `details` is 26, with its issue.
+  `alo_sites_full_page.rs` (+3): the frozen `details` at y 2902.2, 53.2
+  tall, the CTA heading 39.2 higher (3063.4), the answer in neither the
+  display list nor the layout. The FAQ outline reads `group at (20,
+  2902.2) 760×53.2` and then `summary "How fresh is the coffee?"
+  [expanded=false]`. `Activate` makes it 92.4 with the paragraph and its
+  text at (37, 2954.4) and (37, 2958.1055), as before 429, and a second
+  `Activate` closes it. Those are Chrome 154's numbers in its 1/64 unit.
+- Behaviour, by path: `what_a_click_activates.rs` (+4) covers a click
+  bubbling to the summary, nothing changed before or on cancel, a link
+  inside a summary keeping its click, a second or loose summary having no
+  behaviour, and a summary moved by a listener toggling nothing.
+  `an_agents_click.rs` (+2): on a live page the listener reads the
+  `details` closed, it then opens and is read with its answer, and the
+  second click closes it. A cancelled click leaves it closed and its answer
+  unread, and a script's `click()` on the second summary does nothing
+  while one on the first opens it; the collector stress-tests both.
+  `alo-agent`'s new `a_details.rs` (3) is the page with no script, its
+  `Change` on the `details`, and a second summary refused. Unit tests:
+  3 in `alo-dom`'s `details.rs`, 3 in `alo-box`'s, 3 in `tree.rs`, 1 in
+  `role.rs`; `state.rs`' disclosure test rewritten for the summary; 1 in
+  `alo-css`' `parse.rs`.
+- Reference renders. The new case `details-closed-and-open` (200 × 144)
+  draws a closed, an open and a late-summary `details`, with red answers so
+  a hidden one drawn would show. The picture was looked at, and its pixels
+  decoded: red only on rows 78–87, inside the open box (y 44–98), and
+  the closed box's edge solid `rgb(29 78 216)` from y 8 to 37 with white at
+  38. `alo-sites-full-page`'s `boxes.txt`, `layout.txt`, `display.txt`
+  and `agent.txt` were rewritten and reviewed. `expanded=false` moved to
+  the summary, an anonymous block of 726 × 0 replaced the paragraph, and
+  everything below moved 39.2 up. Its `render.png` did not move, the FAQ
+  being below the 600-pixel picture. No other case moved, so every
+  `open` case stands.
+- Mutation checks, from scratchpad copies restored with `cp` and checked
+  with `cmp`, run with `--no-fail-fast`:
+  - building a closed `details`' content anyway fails 2 tree tests, 5
+    layout tests and 2 agent tests;
+  - the content block as the old row flex fails the `div` equivalence;
+  - the summary's toggle doing nothing fails 1 `alo-dom`, 1 agent, 2
+    renderer and 1 corpus test;
+  - no summary slot (document order) fails 4 layout tests.
+- Hostile input: nothing new reads outside bytes. Slotting is one pass
+  over a `details`' children, building each once, as before.
+- One file, one responsibility: which summary is the summary is
+  `alo-dom/src/details.rs`; how the box tree slots it is
+  `alo-box/src/details.rs`; `tree.rs` gained only the builder that uses
+  them; the layout assertions and the agent test are their own files.
+- No `unsafe`, no dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` is clean in each.
+
+**Queue.** 429 ticked with its *Done* paragraph. Added 435: `parse_border`
+splits the `border` shorthand at spaces, so `rgb(29 78 216)` or a
+`color-mix()` written in it is dropped and the border drawn in
+`currentColor`. It was found when the new case first drew blue borders
+black, so the case writes its colour in hex. Two frozen pages carry such a
+rule; whether either draws it visibly was not checked.
+
+**Roadmap.** Stage 2's *Events* line ("default actions") had its Built
+clause extended: `activation.rs` now has a `<details>`' summary toggling
+`open` after a click nobody cancelled, with or without script. Not
+ticked. No stage 1 line moved: the user-agent sheet and agent tree lines
+are already ticked. Also updated: `docs/features.md`, `docs/conformance.md`
+(a `<details>` paragraph and the alo Sites row), the case's `origin.txt`,
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- No disclosure triangle (432): the frozen question starts 16.94 left of
+  Chrome's.
+- A `details` that is `display: contents` is not slotted; its children are
+  built in document order, the summary included. Not measured in Chrome,
+  and no page has one.
+- The full page's `Activate` runs on a page whose script has stopped
+  (item 73), so on that page the renderer's stopped path is what is
+  checked. The live-script path is checked on markup in
+  `an_agents_click.rs`, not on a frozen page.
+- What a screen reader is told in Chrome was not measured, as in 276.
+- That the window draws this was not captured: the window capture is still
+  refused on this machine (296).
+- 431, 433–435, 423–428, 411, 414 and 416–421 wait for pages, or, for
+  435, depend on nothing and are buildable; 432 depends on 404.
+
+192 queue items are open (429 closed, 435 added). The next unused queue
+number is **436** and the next ADR is **0049**. This is one iteration, not
+a finished queue or roadmap.

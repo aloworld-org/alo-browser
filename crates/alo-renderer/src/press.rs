@@ -81,6 +81,6 @@ pub(crate) fn press(held: &mut Held, node: NodeId) -> Option<Pressed> {
 fn href(follows: Follows) -> Option<String> {
     match follows {
         Follows::Link { href, .. } => Some(href),
-        Follows::Nothing | Follows::InputAndChange(_) => None,
+        Follows::Nothing | Follows::InputAndChange(_) | Follows::Toggled { .. } => None,
     }
 }

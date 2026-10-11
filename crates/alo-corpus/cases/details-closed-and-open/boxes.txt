@@ -1,0 +1,16 @@
+block flow · document
+  block flow · generic
+    block flow · group
+      block flow · summary [expanded=false]
+        text "Closed"
+      anonymous block
+    block flow · group
+      block flow · summary [expanded=true]
+        text "Open"
+      anonymous block
+        block flow · paragraph
+          text "Shown answer"
+    block flow · group
+      block flow · summary [expanded=false]
+        text "Late"
+      anonymous block

@@ -147,6 +147,14 @@ pub enum Purpose {
         /// box with no line does.
         one_line: bool,
     },
+    /// The content slot of a `<details>`: every child but its summary, in
+    /// one block (ADR 0048 § 1).
+    ///
+    /// A block container laid out as any block is, holding blocks or lines.
+    /// While its `details` is closed it holds nothing at all and so takes no
+    /// room — but it is still there, so a flex or grid `details` keeps the
+    /// gap before it (§ 2).
+    DetailsContent,
 }
 
 impl BoxKind {
@@ -908,7 +916,10 @@ fn build_element(
             if crate::line_break::is_forced_break(element, display) {
                 tree.breaks.insert(box_id);
             }
-            let children = build_children(document, styles, shown, id, tree);
+            let children = match crate::details::slots(document, id) {
+                Some(slots) => details_children(document, styles, shown, id, &slots, tree),
+                None => build_children(document, styles, shown, id, tree),
+            };
             // A form control holds what it displays in a box nobody wrote —
             // only while the author has left it a flow container, because
             // making it a flex or grid container replaces that arrangement
@@ -964,6 +975,54 @@ fn build_element(
             vec![box_id]
         }
     }
+}
+
+/// The boxes a `<details>` holds (ADR 0048 §§ 1–2): its summary's, first
+/// wherever it was written, then one content box holding every other
+/// child's — or, closed, holding nothing, because a closed `details`' content
+/// makes no boxes and so is neither laid out, drawn nor read.
+///
+/// A `details` with no summary has an empty summary slot, recorded: a
+/// browser makes it a summary saying "Details", which is text nobody wrote
+/// and is queue item 433's to decide.
+fn details_children(
+    document: &Document,
+    styles: &StyleTree,
+    shown: &Shown,
+    id: NodeId,
+    slots: &crate::details::Slots,
+    tree: &mut BoxTree,
+) -> Vec<BoxId> {
+    let mut made = Vec::new();
+    if let Some(summary) = slots.summary {
+        made = build_one(document, styles, shown, summary, tree);
+    } else {
+        tree.issues.push(StyleIssue {
+            kind: IssueKind::UnsupportedValue,
+            source: format!(
+                "a <details> with no <summary> (on {id}): the summary a browser makes for it was not made"
+            ),
+            at: Location { line: 0, column: 0 },
+        });
+    }
+    let content = tree.push(
+        BoxKind::Anonymous {
+            outside: Outside::Block,
+            purpose: Purpose::DetailsContent,
+        },
+        Semantics::anonymous(),
+    );
+    if slots.open {
+        let held: Vec<BoxId> = slots
+            .content
+            .iter()
+            .flat_map(|child| build_one(document, styles, shown, *child, tree))
+            .collect();
+        let arranged = arrange(tree, content, held);
+        tree.adopt(content, &arranged);
+    }
+    made.push(content);
+    made
 }
 
 /// The box an `<img>` makes (ADR 0046).
@@ -2208,6 +2267,60 @@ mod tests {
     /// box, a text box set in `::marker`'s style, before any anonymous block
     /// its children were wrapped in; one that makes none, or draws none, has
     /// none.
+    #[test]
+    fn a_closed_details_is_its_summary_and_an_empty_content_box() {
+        assert_eq!(
+            body_outline(
+                "<body><details><summary>Q</summary><p>A</p></details></body>",
+                ""
+            ),
+            "block flow · generic\n\
+             \x20 block flow · group\n\
+             \x20   block flow · summary [expanded=false]\n\
+             \x20     text \"Q\"\n\
+             \x20   anonymous block\n"
+        );
+    }
+
+    #[test]
+    fn an_open_details_holds_the_rest_in_its_content_box_after_the_summary() {
+        // The summary first wherever it was written; a second summary is an
+        // ordinary block in the content; text beside a block is wrapped.
+        assert_eq!(
+            body_outline(
+                "<body><details open>x<p>A</p><summary>Q</summary><summary>R</summary></details></body>",
+                ""
+            ),
+            "block flow · generic\n\
+             \x20 block flow · group\n\
+             \x20   block flow · summary [expanded=true]\n\
+             \x20     text \"Q\"\n\
+             \x20   anonymous block\n\
+             \x20     anonymous block\n\
+             \x20       text \"x\"\n\
+             \x20     block flow · paragraph\n\
+             \x20       text \"A\"\n\
+             \x20     block flow · generic\n\
+             \x20       text \"R\"\n"
+        );
+    }
+
+    #[test]
+    fn a_details_with_no_summary_has_only_its_content_box_and_says_so() {
+        let tree = boxes("<details><p>A</p></details>", "");
+        let issues: Vec<String> = tree.issues().iter().map(ToString::to_string).collect();
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert!(
+            issues[0].contains("<details> with no <summary>"),
+            "{issues:?}"
+        );
+        assert!(
+            !tree.to_outline().contains("paragraph"),
+            "closed, its content makes no boxes:\n{}",
+            tree.to_outline()
+        );
+    }
+
     #[test]
     fn a_list_items_marker_is_its_first_box_and_joins_no_block() {
         let html = "<ul><li>one<li>two<ul><li>three</ul></ul><ol start=3><li>Draft</ol>\

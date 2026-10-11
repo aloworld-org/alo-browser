@@ -584,6 +584,18 @@ mod tests {
     }
 
     #[test]
+    fn a_rule_naming_a_details_content_slot_is_kept_and_recorded() {
+        // ADR 0048 § 1: the slot is a box, styled by its `details` until a
+        // page styles it. A rule naming it is not an invalid selector, so it
+        // does not take the selectors beside it down with it.
+        let sheet = parse_stylesheet("details::details-content, p { color: red }");
+        assert_eq!(sheet.rules().len(), 1);
+        assert_eq!(sheet.issues().len(), 1);
+        assert_eq!(sheet.issues()[0].kind, IssueKind::PseudoElementNotProduced);
+        assert!(sheet.issues()[0].source.contains("::details-content"));
+    }
+
+    #[test]
     fn a_rule_naming_the_placeholder_is_kept_and_not_recorded() {
         // ADR 0043: `::placeholder` is produced, so a rule naming it is not a
         // refusal. One naming `::before` still is, beside it.

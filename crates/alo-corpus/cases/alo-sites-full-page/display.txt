@@ -1,4 +1,4 @@
-fill box#2 rgb(255 255 255) at (0, 0) 800×6522.6753
+fill box#2 rgb(255 255 255) at (0, 0) 800×6483.4756
 text box#41 "Coffee roasted the morning it" rgb(23 33 43) 40px at (66.083984, 175.24765)
 text box#41 "ships" rgb(23 33 43) 40px at (340.78125, 223.24765)
 text box#44 "Small-batch roastery on the harbour" rgb(76 88 102) 20px at (217.86133, 276.32382)
@@ -57,108 +57,107 @@ text box#192 "Jonas Meer" rgb(23 33 43) 18px at (356.47058, 2654.5315)
 text box#195 "Founder & head roaster" rgb(76 88 102) 17px at (20, 2738.3853)
 text box#198 "Twenty years at the drum." rgb(23 33 43) 17px at (356.47058, 2733.8853)
 text box#206 "Questions" rgb(23 33 43) 28px at (20, 2881.0933)
-fill box#208 rgb(242 245 248) at (20, 2902.2) 760×92.3999
-fill box#208 rgb(221 227 233) at (20, 2902.2) 760×92.3999
-text box#211 "How fresh is the coffee?" rgb(23 33 43) 17px at (37, 2934.6853)
-text box#214 "It ships the day it is roasted." rgb(23 33 43) 17px at (37, 2973.8853)
-fill box#218 rgb(29 78 216) at (0, 3054.5999) 800×253.19995
-text box#221 "Taste the difference" rgb(255 255 255) 28px at (242.56836, 3129.0933)
-text box#224 "First bag ships free." rgb(255 255 255) 17px at (316.54395, 3169.6853)
-fill box#227 rgb(255 255 255) at (218.41763, 3194.4) 140.72324×48.399902
-fill box#227 rgb(255 255 255) at (218.41763, 3194.4) 140.72324×48.399902
-text box#228 "Order now" rgb(29 78 216) 17px at (238.61763, 3224.4854)
-fill box#229 rgb(255 255 255) at (371.14087, 3194.4) 210.44153×48.399902
-text box#230 "See subscriptions" rgb(255 255 255) 17px at (391.34088, 3224.4854)
-text box#236 "Wholesale" rgb(23 33 43) 28px at (20, 3382.2932)
-text box#236 "enquiries" rgb(23 33 43) 28px at (20, 3415.893)
-text box#239 "We answer within one business" rgb(23 33 43) 17px at (20, 3504.485)
-text box#239 "day." rgb(23 33 43) 17px at (20, 3531.685)
-text box#252 "Name" rgb(23 33 43) 17px at (352.80002, 3375.2852)
-fill box#253 rgb(255 255 255) at (352.80002, 3386.9998) 427.19998×48.399902
-fill box#253 rgb(221 227 233) at (352.80002, 3386.9998) 427.19998×48.399902
-text box#259 "Email" rgb(23 33 43) 17px at (352.80002, 3471.8853)
-fill box#260 rgb(255 255 255) at (352.80002, 3483.5999) 427.19998×48.399902
-fill box#260 rgb(221 227 233) at (352.80002, 3483.5999) 427.19998×48.399902
-text box#266 "Message" rgb(23 33 43) 17px at (352.80002, 3568.485)
-fill box#267 rgb(255 255 255) at (352.80002, 3580.1997) 427.19998×128
-fill box#267 rgb(221 227 233) at (352.80002, 3580.1997) 427.19998×128
-fill box#272 rgb(29 78 216) at (352.80002, 3732.9146) 88.444916×48.399902
-fill box#272 rgb(29 78 216) at (352.80002, 3732.9146) 88.444916×48.399902
-text box#273 "Send" rgb(255 255 255) 17px at (373.00003, 3762.9998)
-text box#281 "Seasonal roasts" rgb(23 33 43) 28px at (20, 3920.8079)
-fill box#285 rgb(221 227 233) at (20, 3941.9146) 760×1
-clip box#285 to (20, 3942.9146) 760×686.6001
-text box#288 "Harbour Blend" rgb(23 33 43) 17px at (20, 3986.4)
-text box#292 "Harbour Blend" rgb(23 33 43) 20px at (20, 4476.8384)
-fill box#292 rgb(23 33 43) at (20, 4478.108) 163.4375×1
-text box#295 "Chocolate, hazelnut and red apple." rgb(76 88 102) 17px at (20, 4509.4)
-text box#298 "A balanced roast for espresso or filter." rgb(23 33 43) 17px at (20, 4553.6)
-text box#301 "2026-08-11" rgb(76 88 102) 15px at (20, 4597.8)
+fill box#208 rgb(242 245 248) at (20, 2902.2) 760×53.19995
+fill box#208 rgb(221 227 233) at (20, 2902.2) 760×53.19995
+text box#210 "How fresh is the coffee?" rgb(23 33 43) 17px at (37, 2934.6853)
+fill box#214 rgb(29 78 216) at (0, 3015.4) 800×253.19995
+text box#217 "Taste the difference" rgb(255 255 255) 28px at (242.56836, 3089.8933)
+text box#220 "First bag ships free." rgb(255 255 255) 17px at (316.54395, 3130.4854)
+fill box#223 rgb(255 255 255) at (218.41763, 3155.2) 140.72324×48.399902
+fill box#223 rgb(255 255 255) at (218.41763, 3155.2) 140.72324×48.399902
+text box#224 "Order now" rgb(29 78 216) 17px at (238.61763, 3185.2854)
+fill box#225 rgb(255 255 255) at (371.14087, 3155.2) 210.44153×48.399902
+text box#226 "See subscriptions" rgb(255 255 255) 17px at (391.34088, 3185.2854)
+text box#232 "Wholesale" rgb(23 33 43) 28px at (20, 3343.0933)
+text box#232 "enquiries" rgb(23 33 43) 28px at (20, 3376.693)
+text box#235 "We answer within one business" rgb(23 33 43) 17px at (20, 3465.2852)
+text box#235 "day." rgb(23 33 43) 17px at (20, 3492.485)
+text box#248 "Name" rgb(23 33 43) 17px at (352.80002, 3336.0852)
+fill box#249 rgb(255 255 255) at (352.80002, 3347.7998) 427.19998×48.399902
+fill box#249 rgb(221 227 233) at (352.80002, 3347.7998) 427.19998×48.399902
+text box#255 "Email" rgb(23 33 43) 17px at (352.80002, 3432.6853)
+fill box#256 rgb(255 255 255) at (352.80002, 3444.4) 427.19998×48.399902
+fill box#256 rgb(221 227 233) at (352.80002, 3444.4) 427.19998×48.399902
+text box#262 "Message" rgb(23 33 43) 17px at (352.80002, 3529.2852)
+fill box#263 rgb(255 255 255) at (352.80002, 3540.9998) 427.19998×128
+fill box#263 rgb(221 227 233) at (352.80002, 3540.9998) 427.19998×128
+fill box#268 rgb(29 78 216) at (352.80002, 3693.7146) 88.444916×48.399902
+fill box#268 rgb(29 78 216) at (352.80002, 3693.7146) 88.444916×48.399902
+text box#269 "Send" rgb(255 255 255) 17px at (373.00003, 3723.7998)
+text box#277 "Seasonal roasts" rgb(23 33 43) 28px at (20, 3881.6082)
+fill box#281 rgb(221 227 233) at (20, 3902.7148) 760×1
+clip box#281 to (20, 3903.7148) 760×686.6001
+text box#284 "Harbour Blend" rgb(23 33 43) 17px at (20, 3947.2002)
+text box#288 "Harbour Blend" rgb(23 33 43) 20px at (20, 4437.6387)
+fill box#288 rgb(23 33 43) at (20, 4438.908) 163.4375×1
+text box#291 "Chocolate, hazelnut and red apple." rgb(76 88 102) 17px at (20, 4470.2)
+text box#294 "A balanced roast for espresso or filter." rgb(23 33 43) 17px at (20, 4514.4004)
+text box#297 "2026-08-11" rgb(76 88 102) 15px at (20, 4558.6)
 unclip
-text box#310 "On the counter" rgb(23 33 43) 28px at (20, 4752.008)
-text box#315 "Brews" rgb(23 33 43) 18px at (20, 4790.146)
-fill box#319 rgb(221 227 233) at (20, 4971.655) 760×1
-clip box#319 to (20, 4810.715) 760×160.93994
-text box#322 "Filter brew" rgb(23 33 43) 18px at (20, 4879.286)
-text box#325 "€ 3.50" rgb(23 33 43) 17px at (649.83545, 4854.2)
-text box#327 "per cup" rgb(76 88 102) 17px at (715.4448, 4854.2)
-text box#330 "Whatever came off the drum this morning." rgb(76 88 102) 17px at (20, 4922.9404)
+text box#306 "On the counter" rgb(23 33 43) 28px at (20, 4712.808)
+text box#311 "Brews" rgb(23 33 43) 18px at (20, 4750.9463)
+fill box#315 rgb(221 227 233) at (20, 4932.455) 760×1
+clip box#315 to (20, 4771.515) 760×160.93994
+text box#318 "Filter brew" rgb(23 33 43) 18px at (20, 4840.0864)
+text box#321 "€ 3.50" rgb(23 33 43) 17px at (649.83545, 4815.0005)
+text box#323 "per cup" rgb(76 88 102) 17px at (715.4448, 4815.0005)
+text box#326 "Whatever came off the drum this morning." rgb(76 88 102) 17px at (20, 4883.7407)
 unclip
-fill box#333 rgb(221 227 233) at (20, 5130.3945) 760×1
-clip box#333 to (20, 4972.655) 760×157.73975
-text box#336 "Cold brew" rgb(23 33 43) 18px at (20, 5041.226)
-text box#339 "€ 42.50" rgb(23 33 43) 17px at (708.48047, 5016.14)
-fill box#341 rgb(221 227 233) at (20, 5061.395) 664.48047×30
-text box#342 "Unavailable" rgb(76 88 102) 15px at (29, 5081.588)
+fill box#329 rgb(221 227 233) at (20, 5091.1953) 760×1
+clip box#329 to (20, 4933.455) 760×157.74023
+text box#332 "Cold brew" rgb(23 33 43) 18px at (20, 5002.0264)
+text box#335 "€ 42.50" rgb(23 33 43) 17px at (708.48047, 4976.9404)
+fill box#337 rgb(221 227 233) at (20, 5022.1953) 664.48047×30
+text box#338 "Unavailable" rgb(76 88 102) 15px at (29, 5042.388)
 unclip
-text box#350 "Beans" rgb(23 33 43) 18px at (20, 5188.426)
-fill box#354 rgb(221 227 233) at (20, 5313.735) 760×1
-clip box#354 to (20, 5208.9946) 760×104.740234
-text box#358 "Harbour blend, 1 kg" rgb(23 33 43) 18px at (20, 5277.566)
-text box#361 "€ 1,234.50" rgb(23 33 43) 17px at (678.36523, 5252.48)
+text box#346 "Beans" rgb(23 33 43) 18px at (20, 5149.226)
+fill box#350 rgb(221 227 233) at (20, 5274.535) 760×1
+clip box#350 to (20, 5169.795) 760×104.740234
+text box#354 "Harbour blend, 1 kg" rgb(23 33 43) 18px at (20, 5238.366)
+text box#357 "€ 1,234.50" rgb(23 33 43) 17px at (678.36523, 5213.2803)
 unclip
-fill box#370 rgb(221 227 233) at (20, 5459.4746) 760×1
-clip box#370 to (20, 5354.7344) 760×104.740234
-text box#374 "Standing order" rgb(23 33 43) 18px at (20, 5423.3057)
-text box#377 "Tell us how much you drink; we work it out." rgb(76 88 102) 17px at (411.57813, 5406.2197)
+fill box#366 rgb(221 227 233) at (20, 5420.2754) 760×1
+clip box#366 to (20, 5315.535) 760×104.740234
+text box#370 "Standing order" rgb(23 33 43) 18px at (20, 5384.1064)
+text box#373 "Tell us how much you drink; we work it out." rgb(76 88 102) 17px at (411.57813, 5367.0205)
 unclip
-fill box#383 rgb(242 245 248) at (0, 5508.4746) 800×239.2002
-fill box#383 rgb(221 227 233) at (0, 5508.4746) 800×239.2002
-text box#386 "Cupping evenings" rgb(23 33 43) 28px at (258.85156, 5575.968)
-text box#389 "Six seats around the roaster, once a month." rgb(76 88 102) 17px at (212.9419, 5616.56)
-fill box#392 rgb(29 78 216) at (41, 5641.2744) 247.27206×48.399902
-fill box#392 rgb(29 78 216) at (41, 5641.2744) 247.27206×48.399902
-text box#393 "See tickets and dates" rgb(255 255 255) 17px at (61.2, 5671.36)
-shadow box#396 rgb(23 33 43 / 0.1) blur 48 at (0, 5771.675) 800×239.2002
-fill box#396 rgb(242 245 248) at (0, 5747.675) 800×239.2002
-fill box#396 rgb(221 227 233) at (0, 5747.675) 800×239.2002
-text box#399 "The roastery shop" rgb(23 33 43) 28px at (41, 5815.168)
-text box#402 "Beans and brew gear, shipped from the roastery." rgb(76 88 102) 17px at (41, 5855.7603)
-fill box#405 rgb(29 78 216) at (41, 5880.4746) 172.82236×48.399902
-fill box#405 rgb(29 78 216) at (41, 5880.4746) 172.82236×48.399902
-text box#406 "Visit the shop" rgb(255 255 255) 17px at (61.2, 5910.56)
-group box#410 at opacity 0
-transform box#410 by matrix(1, 0, 0, 1, 0, 24)
-fill box#410 rgb(255 255 255) at (0, 5986.875) 800×363.6001
-fill box#410 rgb(29 78 216) at (0, 5986.875) 4×363.6001
-text box#413 "Roast timer" rgb(23 33 43) 28px at (44, 6061.368)
+fill box#379 rgb(242 245 248) at (0, 5469.275) 800×239.2002
+fill box#379 rgb(221 227 233) at (0, 5469.275) 800×239.2002
+text box#382 "Cupping evenings" rgb(23 33 43) 28px at (258.85156, 5536.768)
+text box#385 "Six seats around the roaster, once a month." rgb(76 88 102) 17px at (212.9419, 5577.3604)
+fill box#388 rgb(29 78 216) at (41, 5602.0747) 247.27206×48.399902
+fill box#388 rgb(29 78 216) at (41, 5602.0747) 247.27206×48.399902
+text box#389 "See tickets and dates" rgb(255 255 255) 17px at (61.2, 5632.16)
+shadow box#392 rgb(23 33 43 / 0.1) blur 48 at (0, 5732.475) 800×239.2002
+fill box#392 rgb(242 245 248) at (0, 5708.475) 800×239.2002
+fill box#392 rgb(221 227 233) at (0, 5708.475) 800×239.2002
+text box#395 "The roastery shop" rgb(23 33 43) 28px at (41, 5775.9683)
+text box#398 "Beans and brew gear, shipped from the roastery." rgb(76 88 102) 17px at (41, 5816.5605)
+fill box#401 rgb(29 78 216) at (41, 5841.275) 172.82236×48.399902
+fill box#401 rgb(29 78 216) at (41, 5841.275) 172.82236×48.399902
+text box#402 "Visit the shop" rgb(255 255 255) 17px at (61.2, 5871.3604)
+group box#406 at opacity 0
+transform box#406 by matrix(1, 0, 0, 1, 0, 24)
+fill box#406 rgb(255 255 255) at (0, 5947.6753) 800×363.6001
+fill box#406 rgb(29 78 216) at (0, 5947.6753) 4×363.6001
+text box#409 "Roast timer" rgb(23 33 43) 28px at (44, 6022.1685)
 untransform
 ungroup
-group box#419 at opacity 0
-transform box#419 by matrix(1, 0, 0, 1, 0, 24)
-fill box#419 rgb(23 33 43) at (0, 6398.475) 800×124.200195
-fill box#419 rgb(221 227 233) at (0, 6398.475) 800×1
-text box#427 "Imprint" rgb(255 255 255) 17px at (20, 6466.9604)
-fill box#427 rgb(255 255 255) at (20, 6468.0396) 61.51709×1
-text box#431 "Privacy" rgb(255 255 255) 17px at (97.51709, 6466.9604)
-fill box#431 rgb(255 255 255) at (97.51709, 6468.0396) 61.550293×1
-text box#436 "© Nordwind Coffee Roasters" rgb(255 255 255) 17px at (537.40137, 6466.9604)
+group box#415 at opacity 0
+transform box#415 by matrix(1, 0, 0, 1, 0, 24)
+fill box#415 rgb(23 33 43) at (0, 6359.2754) 800×124.200195
+fill box#415 rgb(221 227 233) at (0, 6359.2754) 800×1
+text box#423 "Imprint" rgb(255 255 255) 17px at (20, 6427.7607)
+fill box#423 rgb(255 255 255) at (20, 6428.84) 61.51709×1
+text box#427 "Privacy" rgb(255 255 255) 17px at (97.51709, 6427.7607)
+fill box#427 rgb(255 255 255) at (97.51709, 6428.84) 61.550293×1
+text box#432 "© Nordwind Coffee Roasters" rgb(255 255 255) 17px at (537.40137, 6427.7607)
 untransform
 ungroup
-clip box#243 to (352.80002, 3355.7998) 1×1
-text box#245 "Website" rgb(23 33 43) 17px at (352.80002, 3375.2852)
-fill box#246 rgb(255 255 255) at (352.80002, 3386.9998) 26×48.399902
-fill box#246 rgb(221 227 233) at (352.80002, 3386.9998) 26×48.399902
+clip box#239 to (352.80002, 3316.5999) 1×1
+text box#241 "Website" rgb(23 33 43) 17px at (352.80002, 3336.0852)
+fill box#242 rgb(255 255 255) at (352.80002, 3347.7998) 26×48.399902
+fill box#242 rgb(221 227 233) at (352.80002, 3347.7998) 26×48.399902
 unclip
 fill box#4 rgb(242 245 248) at (-15984, 0) 161.11035×43.2
 text box#5 "Skip to content" rgb(23 33 43) 17px at (-15968, 27.485254)

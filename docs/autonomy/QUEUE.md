@@ -5919,7 +5919,7 @@ The long pole, and the thing most of section E is unreachable without.
   read. *Closes when:* every calculation's text reads back as a valid CSS
   value, tested on each kind.
 
-- [ ] **429. A closed `<details>` shows only its summary.** *Opened by
+- [x] **429. A closed `<details>` shows only its summary.** *Opened by
   `alo-sites-full-page` (iteration 274), its FAQ. Feature:
   `docs/features.md` stage 1, the user-agent style sheet, and the agent's
   tree (ADR 0002). **Needs ADR.** Depends on nothing built.* The FAQ's
@@ -5951,6 +5951,31 @@ The long pole, and the thing most of section E is unreachable without.
   opening it to 92.4 and closing it again, and the flex-gap, late-summary,
   second-summary and no-summary cases, all in numbers. Buildable next;
   depends on nothing open. Cut: 432, 433, 434.
+  **Done (iteration 277).** `alo-dom`'s `details.rs` says which `summary`
+  is a `details`' summary (its first `summary` child) and toggles `open`;
+  `activation.rs` gives that summary its activation behaviour, run by
+  `after` — which now takes the document mutably — for a click nobody
+  cancelled, re-asking whether it is still the summary, and reports
+  `Follows::Toggled`. `alo-box`'s `details.rs` slots the children and
+  `tree.rs` builds the summary first, then an anonymous
+  `Purpose::DetailsContent` block holding the rest only when open; layout
+  lays that block out as a block. Only the first summary has the `Summary`
+  role and it carries `expanded`; the `details` carries none. A `details`
+  with no summary records an issue; `::details-content` is a known,
+  unproduced pseudo-element, so a rule naming it is kept and recorded. The
+  frozen FAQ is 53.2 tall at y 2902.2, the CTA 39.2 higher, and its answer
+  in none of `layout.txt`, `display.txt` and `agent.txt`; the outline reads
+  `group` then `summary "How fresh is the coffee?" [expanded=false]`, and
+  `Activate` opens it to 92.4 with the answer read and closes it again
+  (`tests/alo_sites_full_page.rs`; that page's script has stopped, so the
+  renderer says nobody heard the click). `alo-layout`'s `tests/details.rs`
+  pins the FAQ's rules closed (46) and open (78), an open `details` equal
+  box for box to a `div`, the flex and grid gap (30), a late summary first,
+  a second summary an ordinary block, and a summary-less one 26 with its
+  issue. `alo-renderer`'s `an_agents_click.rs` covers a listener reading
+  it closed, a cancelled click, and a script's `click()`; `alo-agent`'s
+  `a_details.rs` the page with no script; the corpus case
+  `details-closed-and-open` the picture.
 
 - [x] **430. A border's width is whole device pixels.** *Opened by
   `alo-sites-full-page` (iteration 274), its custom-code section.
@@ -5991,6 +6016,21 @@ The long pole, and the thing most of section E is unreachable without.
   a bare style or a percentage. *Closes when:* that page's border is 1, 3
   or 5 wide as written, `border: 1px solid` then `border-style: solid`
   alone are 1 and 3, and a percentage is refused and recorded, in numbers.
+
+- [ ] **435. A colour written as a function in the `border` shorthand is
+  drawn.** *Found while building 429 (iteration 277). Feature:
+  `docs/features.md` stage 1, borders. Depends on nothing.* `alo-value`'s
+  `parse_border` splits the shorthand at every space, so `border: 1px
+  solid rgb(29 78 216)` reads `rgb(29`, `78` and `216)` as three words,
+  none a colour, and paint draws the border in `currentColor`. A hex
+  colour, a keyword and the `border-color` longhand are read. alo Sites'
+  sheet writes `border: 1px solid color-mix(in srgb, var(--section-text)
+  14%, transparent)` on a presented section's cards, and two frozen pages
+  (`alo-sites-features`, `alo-sites-full-page`) carry that rule; whether
+  either draws such a card visibly was not checked. *Closes when:* a
+  border written with `rgb()`, `hsl()` and `color-mix()` in the shorthand
+  is drawn that colour, in a reference render and in the display list,
+  and the frozen cards' borders are checked against Chrome.
 
 - [ ] **432. A `<summary>` draws its disclosure triangle.** *Cut from 429
   by ADR 0048 § 5. Opened by `alo-sites-full-page`'s FAQ. Feature:

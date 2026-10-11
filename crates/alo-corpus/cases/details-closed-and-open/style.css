@@ -1,0 +1,11 @@
+/* ADR 0048: a closed <details> is its summary, its padding and its border,
+   and its answer is neither laid out nor drawn; an open one holds its
+   answer under the summary; a summary written after the answer is laid out
+   first, and the answer before it is hidden with the rest. No disclosure
+   triangle is drawn yet (queue item 432). The answers are red so that a
+   hidden one drawn would show. */
+body { margin: 8px; font-family: "DejaVu Sans"; font-size: 14px; line-height: 20px; color: rgb(23 33 43) }
+details { border: 1px solid #1d4ed8; padding: 4px 8px; margin-bottom: 6px;
+          background: rgb(239 246 255) }
+summary { font-weight: normal }
+details p { margin: 4px 0 0; color: rgb(185 28 28) }

@@ -489,7 +489,15 @@ fn implicit_role(document: &Document, id: NodeId, element: &Element) -> Role {
         "meter" => KnownRole::Meter,
         "dialog" => KnownRole::Dialog,
         "output" => KnownRole::Status,
-        "summary" => KnownRole::Summary,
+        // Only the summary for its parent `details` discloses anything;
+        // any other `summary` is generic, as HTML-AAM says (ADR 0048 § 3).
+        "summary" => {
+            return if alo_dom::details::details_of(document, id).is_some() {
+                Role::Known(KnownRole::Summary)
+            } else {
+                Role::Generic
+            };
+        }
         "details" => KnownRole::Details,
         "fieldset" => KnownRole::Group,
         "input" => return input_role(element),
@@ -684,6 +692,24 @@ mod tests {
         for (html, expected) in cases {
             assert_eq!(role_of(html, "x"), expected, "{html}");
         }
+    }
+
+    #[test]
+    fn only_a_details_summary_is_a_summary() {
+        let late =
+            "<details id=d><p>a</p><summary id=x>s</summary><summary id=y>t</summary></details>";
+        assert_eq!(role_of(late, "d"), "group");
+        assert_eq!(role_of(late, "x"), "summary", "the first, wherever it is");
+        assert_eq!(role_of(late, "y"), "generic", "a second one is ordinary");
+        assert_eq!(
+            role_of("<div><summary id=x>s</summary></div>", "x"),
+            "generic"
+        );
+        assert_eq!(
+            role_of("<div><summary id=x role=button>s</summary></div>", "x"),
+            "button",
+            "and an author's role still wins",
+        );
     }
 
     #[test]

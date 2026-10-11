@@ -172,8 +172,12 @@ fn finished(
                 })?;
                 return end(call, wrapper);
             }
-            match activation::after(idl::read(call, this.owner)?, &done) {
-                Follows::Nothing => end(call, wrapper),
+            match idl::change(call, this.owner, |document| {
+                activation::after(document, &done)
+            })? {
+                // A `details` opened or closed has changed the document; its
+                // `toggle` event is queue item 434's.
+                Follows::Nothing | Follows::Toggled { .. } => end(call, wrapper),
                 Follows::InputAndChange(at) => {
                     let target = wrap(call, this.owner, at)?;
                     fire(call, this, wrapper, target, INPUT)
