@@ -140,8 +140,8 @@ text box#406 "Visit the shop" rgb(255 255 255) 17px at (61.2, 5910.56)
 group box#410 at opacity 0
 transform box#410 by matrix(1, 0, 0, 1, 0, 24)
 fill box#410 rgb(255 255 255) at (0, 5986.875) 800×363.6001
-fill box#410 rgb(29 78 216) at (0, 5986.875) 4.8×363.6001
-text box#413 "Roast timer" rgb(23 33 43) 28px at (44.8, 6061.368)
+fill box#410 rgb(29 78 216) at (0, 5986.875) 4×363.6001
+text box#413 "Roast timer" rgb(23 33 43) 28px at (44, 6061.368)
 untransform
 ungroup
 group box#419 at opacity 0

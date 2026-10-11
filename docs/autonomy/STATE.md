@@ -26628,3 +26628,98 @@ paragraph and the alo Sites row), `REMAINING.md` and `CHANGELOG.md`.
 189 queue items are open (286 closed, 429 and 430 added). The next unused
 queue number is **431** and the next ADR is **0048**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 275 — queue item 430 built: a border is whole device pixels wide
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and stage 1), iteration 274 and `REMAINING.md`'s continuation. No
+`AGENTS.md` exists in this repository or above it. For 430: its queue entry,
+299 (device pixels), `docs/features.md`' box-model and border lines,
+`docs/conformance.md`' border paragraphs, the frozen
+`alo-sites-full-page` case and its `origin.txt`, `alo-layout`'s `style.rs`
+(the border reader) and `engine.rs` (every reader of the width), and
+`alo-paint`'s `build.rs` (borders drawn from layout's geometry). No ADR
+governs border widths; CSS Values 4 *snap as a border width* does.
+
+**Choosing.** Iteration 274 left 430 as the one eligible item: it depends on
+nothing at one device pixel to the CSS pixel, and its page is frozen.
+
+**What was built.** `alo-layout`'s new `line_width.rs`: `snap`, a width in
+CSS pixels snapped as a border width — under a pixel and above zero is one,
+a pixel or more is floored — at one device pixel to the CSS pixel, a named
+constant for 299 to replace. Zero, negative, NaN and infinite widths are
+returned as they came. `style.rs`' `border_width` now resolves what
+`declared_border_width` (the old reader, unchanged) found, with the box's
+own font metrics and viewport, and hands layout the snapped length; a
+percentage, which CSS does not accept as a border width, is passed on as
+before. Every reader of the width — `taffy`, an inline box's own border, a
+legend's band, the auto repetition — and paint, which draws from layout's
+geometry, see the drawn width.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log; the
+harness moved it to the background at 600 s and the next call waited on it
+in a foreground `until` loop. The first run failed on clippy:
+`float_cmp` in the new tests' exact float assertions. Those were rewritten
+to the `close` helper `numbers.rs` already uses, clippy was rerun silent on
+the workspace, and the gate was run again in full: `exit 0`, "The gate is
+met", no `FAIL`, `FAILED` or `panicked` in the log. Only this entry and the
+commit came after it.
+
+**Gate, manual.**
+- Layout assertions in numbers. `numbers.rs`'
+  `a_border_is_whole_device_pixels_wide`: `.3rem` is 4 and the content
+  starts at x 4 in a 104-wide box; `0.5px` is 1 on all four sides, a 102 ×
+  12 box; 3 and 1 stay; `calc(1rem + 0.9px)` is 16.
+  `alo_sites_full_page.rs`' new test: the custom-code section's heading and
+  frame are at x 44, 736 wide — Chrome 154's numbers — and its border is a
+  fill 4 wide at the section's top, its full height. 4 unit tests in
+  `line_width.rs`.
+- Reference render: the new synthetic corpus case `border-widths` (192 ×
+  48): `.3rem`, `0.5px`, `1.5px`, `2px` and `calc(.25rem + 0.75px)` laid
+  out 32, 26, 26, 28 and 32 square. The picture was looked at, and its
+  pixels decoded: the first and last borders are exactly four solid
+  `rgb(29 78 216)` pixels with white on both sides, the half-pixel one a
+  single solid pixel. `alo-sites-full-page`'s `layout.txt`, `display.txt`
+  and `agent.txt` were rewritten (heading and frame 44.8 → 44, 735.2 →
+  736; the border fill 4.8 → 4 wide); its `render.png` did not move, the
+  section being below the 600-pixel picture. No other case moved.
+- Mutation check, from a scratchpad copy restored with `cp` and checked
+  with `cmp`: `snap` returning its input fails 2 unit tests, the
+  `numbers.rs` test, the frozen page's new test, and the corpus reference
+  check (`border-widths`). The workspace was rebuilt by the gate afterwards.
+- Hostile input: nothing new reads outside bytes; `snap` takes any `f32`
+  without panicking, NaN and infinity tested.
+- One file, one responsibility: the snapping is its own file; `style.rs`
+  still only reads, and the reader was split in two functions rather than
+  grown. The case's test is beside the page's other tests.
+- No `unsafe`, no dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` is clean in each.
+
+**Queue.** 430 ticked with its *Done* paragraph. 299's entry now says that
+a snapped border is the one layout number that will differ at scale 2,
+which its closing condition ("layout identical in CSS pixels") will have to
+account for. Added 431 (waits for a page): `thin`, `medium` and `thick` are
+refused, `border: solid` is 0 wide where browsers draw 3, and a percentage
+border width is accepted — all found reading the border reader for 430.
+
+**Roadmap: no line moved, and why.** 430 is a border, under stage 1's
+*Paint* and *Layout* lines, both already ticked, and no stage 2 line names
+border widths or alo Sites' pages. As in iterations 269–274, moving one
+would be decoration. Also updated: `docs/features.md`,
+`docs/conformance.md` (a border-width paragraph and the alo Sites row),
+the case's `origin.txt`, `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- At a scale factor other than one the snap is wrong (it floors to CSS
+  pixels); 299 owns that and now says so.
+- `outline-width` and `column-rule-width` are snapped the same way in CSS
+  and are not here, because neither is drawn yet.
+- That the window draws this was not captured: the window capture is still
+  refused on this machine (296).
+- 431, 423–428, 411, 414 and 416–421 wait for pages; 429 needs its ADR.
+  Every alo Sites golden page has been frozen or measured; the workspace's
+  screens are what is left to freeze.
+
+189 queue items are open (430 closed, 431 added). The next unused queue
+number is **432** and the next ADR is **0048**. This is one iteration, not
+a finished queue or roadmap.

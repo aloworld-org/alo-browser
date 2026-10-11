@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A border is drawn in whole pixels, as browsers draw it.** A border
+  written as `.3rem` is 4.8 pixels; browsers lay it out and draw it 4, and
+  a hairline of half a pixel as one solid pixel. Here it was 4.8, smearing
+  its inner edge and moving everything inside it a fraction over, and alo
+  Sites' editorial sections started their text at 44.8 where Chrome starts
+  it at 44. Now every border width is floored to whole pixels once it is a
+  number, and anything under a pixel is one (queue item 430).
+
 - **A link made into a small flex box keeps the picture inside it.** alo
   Sites' brand link, which centres the site's logo, was split in two around
   the logo as if it were ordinary text running round a paragraph: two

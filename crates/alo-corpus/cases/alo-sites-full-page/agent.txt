@@ -144,8 +144,8 @@ document at (0, 0) 800×6522.6753
       text "Beans and brew gear, shipped from the roastery." at (41, 5839.9805) 415.90234×19.789063
     paragraph at (41, 5880.4746) 718×48.4
       link "Visit the shop" at (41, 5880.4746) 172.82236×48.4
-    heading "Roast timer" [level=2] at (44.8, 6034.875) 735.2×33.600002
-    generic "A timer counting down the current roast" at (44.8, 6082.475) 735.2×220
+    heading "Roast timer" [level=2] at (44, 6034.875) 736×33.600002
+    generic "A timer counting down the current roast" at (44, 6082.475) 736×220
   contentinfo at (0, 6398.475) 800×124.2
     navigation "Footer" at (20, 6447.475) 356×27.2
       list at (20, 6447.475) 356×27.2

@@ -1,0 +1,6 @@
+fill box#1 rgb(255 255 255) at (8, 8) 176×32
+fill box#3 rgb(29 78 216) at (8, 8) 32×32
+fill box#4 rgb(29 78 216) at (48, 8) 26×26
+fill box#5 rgb(29 78 216) at (82, 8) 26×26
+fill box#7 rgb(29 78 216) at (116, 8) 28×28
+fill box#8 rgb(29 78 216) at (152, 8) 32×32

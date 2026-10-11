@@ -2,7 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! alo Sites' full page, in numbers: the page that opened queue item 286.
+//! alo Sites' full page, in numbers: the page that opened queue items 286
+//! and 430.
 //!
 //! `cases/alo-sites-full-page` pins the whole page as files. This says out
 //! loud what item 286 is closed by. The brand is `<a class="brand"><img
@@ -166,5 +167,37 @@ fn an_agent_reads_the_brand_once_holding_its_picture() {
             .starts_with("image \"Nordwind Coffee Roasters\" [broken]")
             && indent(next) > indent(link),
         "the picture is read inside it:\n{tree}"
+    );
+}
+
+#[test]
+fn the_custom_code_sections_border_is_whole_pixels_as_chrome_draws_it() {
+    // Item 430. The section's `border-left: .3rem` is 4.8 pixels as written;
+    // Chrome 154 snaps a border width to whole device pixels, lays it out 4
+    // and starts what is inside at 44 — the 4 and `clamp(1.5rem, 5vw, 4rem)`'s
+    // 40 at 800 wide. Here it was 44.8, and drawn 4.8 wide.
+    let Some((_, rendering)) = full_page() else {
+        panic!("the case renders");
+    };
+    let sections = with_class(&rendering, "s-custom-code");
+    assert_eq!(sections.len(), 1, "{sections:?}");
+    let (section, held) = &sections[0];
+    assert!(!held.is_empty(), "it holds its heading and its frame");
+    for inside in held {
+        assert!(
+            near(inside.origin.x, 44.0) && near(inside.size.width, 736.0),
+            "{inside:?}"
+        );
+    }
+    let Some(drawing) = rendering.drawing() else {
+        panic!("the case has a drawing");
+    };
+    let display = drawing.display.to_outline();
+    let border = format!(" at (0, {}) 4×{}", section.origin.y, section.size.height);
+    assert!(
+        display
+            .lines()
+            .any(|line| line.starts_with("fill ") && line.contains(&border)),
+        "the border is drawn 4 wide, looked for{border}:\n{display}"
     );
 }

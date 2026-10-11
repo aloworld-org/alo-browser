@@ -65,10 +65,12 @@ is pinned by layout.txt, display.txt and agent.txt.
   Which of a closed `<details>`'s content an
   agent may read is a decision about the agent's tree, so it waits for its
   ADR.
-- **A border 4.8 wide is drawn 4.8 wide** — item 430. The custom-code
-  section's `border-left: .3rem` is 4.8 px, and Chrome draws and lays out
-  4: a border width of a device pixel or more is floored to whole device
-  pixels. The section's content starts at 44.8 here and at 44 in Chrome.
+- **A border 4.8 wide was drawn 4.8 wide** — item 430, built. The
+  custom-code section's `border-left: .3rem` is 4.8 px, and Chrome draws
+  and lays out 4: a border width of a device pixel or more is floored to
+  whole device pixels. Now it is 4 here too, and the section's content
+  starts at 44, as in Chrome; it was 44.8. `tests/alo_sites_full_page.rs`
+  says so.
 
 Everything else matches Chrome to its layout unit apart from what is already
 in the queue: the FAQ is `columns: 2 20rem` (item 97, multi-column, needs

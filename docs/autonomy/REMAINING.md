@@ -1523,3 +1523,12 @@ depends on nothing and is buildable next). 426's box-tree half is done; it
 still waits for a page. Every alo Sites golden page has now been frozen or
 measured. 189 queue items are open (286 closed, 429 and 430 added). The
 next unused queue number is 431 and the next unused ADR 0048.
+
+Iteration 275 built item 430: `alo-layout`'s `line_width.rs` snaps a
+border width to whole device pixels (one to the CSS pixel until 299), and
+the border reader hands layout the snapped length, so alo Sites' editorial
+section starts its content at 44 as Chrome does, and the new corpus case
+`border-widths` pins 4.8, 0.5, 1.5, 2 and a `calc()` in pixels. Found: 431
+(border-width keywords, the initial `medium`, and percentages refused;
+waits for a page). 189 queue items are open (430 closed, 431 added). The
+next unused queue number is 432 and the next unused ADR 0048.

@@ -1,0 +1,15 @@
+/* Border widths that are not whole pixels, drawn as CSS computes them:
+   snapped to whole device pixels (CSS Values 4, "snap as a border width"),
+   one CSS pixel to a device pixel until queue item 299. .3rem is 4.8 and
+   drawn 4, as alo Sites' editorial section is; half a pixel is one; one and
+   a half is one; two is two; and a calculation, 4.75, is snapped once it is
+   a number, to 4. Drawn as written, the first and last would smear a fifth
+   of a pixel across their inner edges, and the half pixel would be a grey
+   one. */
+body { margin: 8px; background: #ffffff; display: flex; gap: 8px }
+div { width: 24px; height: 24px; border-style: solid; border-color: #1d4ed8 }
+#rem { border-width: .3rem }
+#half { border-width: 0.5px }
+#one-and-a-half { border-width: 1.5px }
+#whole { border-width: 2px }
+#calculated { border-width: calc(.25rem + 0.75px) }

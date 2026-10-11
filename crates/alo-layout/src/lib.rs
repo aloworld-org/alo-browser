@@ -50,6 +50,7 @@ pub mod geometry;
 pub mod inline;
 pub mod keyword;
 pub mod legend;
+pub(crate) mod line_width;
 pub(crate) mod marker;
 pub mod measure;
 pub(crate) mod out_of_flow;

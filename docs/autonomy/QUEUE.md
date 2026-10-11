@@ -5937,7 +5937,7 @@ The long pole, and the thing most of section E is unreachable without.
   its summary's height plus its padding and border, its answer neither
   drawn nor read as the ADR says, in numbers; an `open` one as today.
 
-- [ ] **430. A border's width is whole device pixels.** *Opened by
+- [x] **430. A border's width is whole device pixels.** *Opened by
   `alo-sites-full-page` (iteration 274), its custom-code section.
   Feature: `docs/features.md` stage 1, borders. Depends on nothing at one
   device pixel to the CSS pixel, which is all a render has until 299.*
@@ -5949,6 +5949,33 @@ The long pole, and the thing most of section E is unreachable without.
   `column-rule-width`). *Closes when:* the frozen section's content starts
   at 44 and its border is drawn 4 wide, and a 0.5 px border is 1, in
   numbers.
+  **Done (iteration 275).** `alo-layout`'s new `line_width.rs` snaps a
+  width in CSS pixels as a border width, at one device pixel to the CSS
+  pixel (a constant there, for 299 to replace). `style.rs`' border reader
+  resolves what it read — `rem`, `em`, `vw`, `calc()` — and hands layout
+  the snapped length, so `taffy`, an inline box's own border, a legend's
+  band and the auto repetition all see the width that is drawn, and paint
+  draws from layout's geometry. The frozen section's heading and frame are
+  at x 44, 736 wide, and its border is filled 4 wide
+  (`tests/alo_sites_full_page.rs`); in `numbers.rs` `.3rem` is 4, `0.5px`
+  is 1 on every side, 3 and 1 stay, and `calc(1rem + 0.9px)` is 16. The
+  corpus case `border-widths` draws 4.8, 0.5, 1.5, 2 and 4.75 as 4, 1, 1,
+  2 and 4 solid pixels. `outline-width` and `column-rule-width` are not
+  snapped because neither is drawn yet; a percentage, which CSS does not
+  accept as a border width, is still read and left unsnapped (431).
+
+- [ ] **431. A border width is a length or a keyword, and starts at
+  `medium`.** *Found while building 430 (iteration 275). Feature:
+  `docs/features.md` stage 1, the box model. Waits for a page.* CSS
+  Backgrounds 3: `border-width` is `<line-width>` — a length, `thin`,
+  `medium` or `thick` (1, 3 and 5 px in every browser) — and its initial
+  value is `medium`. Here `thin`, `medium` and `thick` are refused, a
+  percentage is accepted and laid out against the containing block, and a
+  border with a style but no width (`border: solid`) is 0 wide where a
+  browser draws it 3. *Blocked: no page yet* that writes a keyword width,
+  a bare style or a percentage. *Closes when:* that page's border is 1, 3
+  or 5 wide as written, `border: 1px solid` then `border-style: solid`
+  alone are 1 and 3, and a percentage is refused and recorded, in numbers.
 
 - [x] **355. An absolute box is placed against its nearest positioned
   ancestor.** *Found by iteration 228 while building 352, not opened by a
@@ -10122,7 +10149,9 @@ What stage 2's exit gate actually measures: a person using it.
 - [ ] **299. Device pixels.** *Cut from 118 (ADR 0024 § 3).* The renderer lays
   out in CSS pixels and paints at the window's scale factor; `Resize` carries
   it; `devicePixelRatio` and the `resolution` media feature are read from it;
-  the window stops replicating pixels. *Depends on 296. Opened by:* this
+  the window stops replicating pixels. A border width is snapped to whole
+  device pixels (430, `alo-layout`'s `line_width.rs`), so at scale 2 it
+  floors to half CSS pixels: the one layout number that is not identical. *Depends on 296. Opened by:* this
   machine's window at scale 2. *Closes when:* reference renders of the same
   frozen page at scale 1 and 2, with layout identical in CSS pixels, and
   every existing reference render unchanged at scale 1.

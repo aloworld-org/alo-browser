@@ -159,6 +159,44 @@ fn the_box_model_adds_up_the_way_css_says_it_does() {
 }
 
 #[test]
+fn a_border_is_whole_device_pixels_wide() {
+    // alo Sites' editorial section: `border-left: .3rem` is 4.8 pixels as
+    // written and 4 as laid out — Chrome 154's number — so what is inside it
+    // starts 4 in. Under a pixel is one; whole pixels are left alone; and a
+    // calculation is snapped once it is a number.
+    let html = "<body><div id=a></div><div id=b></div><div id=c></div><div id=d></div></body>";
+    let css = "div { width: 100px; height: 10px } \
+               #a { border-left: .3rem solid } \
+               #b { border: 0.5px solid } \
+               #c { border-top: 3px solid; border-bottom: 1px solid } \
+               #d { border-left-width: calc(1rem + 0.9px); border-left-style: solid }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+
+    let a = geometry_of(&boxes, &layout, "a", html);
+    assert!(close(a.border.left, 4.0), "{a:?}");
+    assert_eq!(a.border_box, Rect::new(0.0, 0.0, 104.0, 10.0));
+    assert!(close(a.content_box().origin.x, 4.0), "{a:?}");
+
+    let b = geometry_of(&boxes, &layout, "b", html);
+    assert!(
+        [b.border.top, b.border.right, b.border.bottom, b.border.left]
+            .into_iter()
+            .all(|side| close(side, 1.0)),
+        "{b:?}"
+    );
+    assert_eq!(b.border_box, Rect::new(0.0, 10.0, 102.0, 12.0));
+
+    let c = geometry_of(&boxes, &layout, "c", html);
+    assert!(
+        close(c.border.top, 3.0) && close(c.border.bottom, 1.0),
+        "{c:?}"
+    );
+
+    let d = geometry_of(&boxes, &layout, "d", html);
+    assert!(close(d.border.left, 16.0), "{d:?}");
+}
+
+#[test]
 fn border_box_sizing_puts_the_padding_and_border_inside_the_width() {
     let html = "<body><div id=a></div></body>";
     let css = "div { box-sizing: border-box; width: 100px; height: 50px; \

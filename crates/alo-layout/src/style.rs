@@ -18,13 +18,14 @@ use crate::keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
     Positioning,
 };
+use crate::line_width;
 use crate::placement::GridPlacement;
 use crate::sizing::{AutoLength, MaxSizing, Sizing};
 use crate::track::TrackList;
 use crate::vertical_align::VerticalAlign;
 use alo_css::{IssueKind, Location, StyleIssue};
 use alo_style::ComputedStyle;
-use alo_value::{FontMetrics, LengthPercentage, parse_length_percentage, parse_number};
+use alo_value::{FontMetrics, Length, LengthPercentage, parse_length_percentage, parse_number};
 
 /// Everything layout needs to know about one box.
 #[derive(Debug, Clone, Default)]
@@ -372,7 +373,22 @@ impl Reader<'_> {
     ///
     /// A border with a style of `none` is no border however thick it was
     /// declared, which is why a width alone never draws one.
+    ///
+    /// What is read is snapped to whole device pixels ([`line_width::snap`]),
+    /// as CSS computes a border width, so that layout and paint both see the
+    /// width that is drawn.
     fn border_width(&mut self, side: &str) -> LengthPercentage {
+        let width = self.declared_border_width(side);
+        match width.to_px_without_basis(self.style.metrics()) {
+            Some(px) => LengthPercentage::Length(Length::px(line_width::snap(px))),
+            // A percentage is not a border width CSS accepts; it is left to
+            // layout as it was read rather than snapped against a guess.
+            None => width,
+        }
+    }
+
+    /// One border's width as the style sheet says it, before it is snapped.
+    fn declared_border_width(&mut self, side: &str) -> LengthPercentage {
         for (property, whole) in [
             (format!("border-{side}-width"), false),
             (format!("border-{side}"), true),
