@@ -30,6 +30,7 @@ use crate::drawing::{Drawing, DrawingItem};
 use crate::fill_rule::FillRule;
 use crate::paint::Paint;
 use crate::path::Path;
+use crate::toggle;
 use alo_box::{BoxId, BoxKind, BoxTree};
 use alo_layout::{LayoutTree, Rect};
 use alo_style::StyleTree;
@@ -853,10 +854,17 @@ impl Builder<'_> {
     ///
     /// The area is the **padding box**: inside the author's border, which they
     /// can see and set, and which this does not paint over.
+    ///
+    /// A checkbox or a radio draws more than its state: its whole picture,
+    /// which is [`crate::toggle`]'s.
     fn control_state_of(&self, id: BoxId, out: &mut Vec<DisplayItem>) {
         let Some(node) = self.boxes.get(id) else {
             return;
         };
+        if let Some(kind) = self.boxes.toggle(id) {
+            self.toggle_of(id, kind, out);
+            return;
+        }
         let Some(kind) = Mark::for_state(&node.semantics.role, node.semantics.states.checked)
         else {
             return;
@@ -885,6 +893,28 @@ impl Builder<'_> {
             path: control::mark(kind, area),
             paint: Paint::Solid(control::mark_color(accent)),
         });
+    }
+
+    /// A checkbox's or a radio's own picture, drawn over its border box.
+    fn toggle_of(&self, id: BoxId, kind: alo_box::Toggle, out: &mut Vec<DisplayItem>) {
+        let (Some(node), Some(geometry)) = (self.boxes.get(id), self.layout.get(id)) else {
+            return;
+        };
+        let state = toggle::State {
+            checked: node.semantics.states.checked,
+            disabled: node.semantics.states.disabled,
+            accent: self
+                .style_of(id)
+                .and_then(|style| style.color("accent-color")),
+        };
+        for layer in toggle::artwork(kind, state, geometry.border_box) {
+            out.push(DisplayItem::Fill {
+                rule: FillRule::NonZero,
+                box_id: id,
+                path: layer.path,
+                paint: Paint::Solid(layer.color),
+            });
+        }
     }
 
     /// Into the *content* box rather than the border box, because a picture

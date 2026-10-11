@@ -24,6 +24,7 @@ use crate::display::{Display, Inside, Outside};
 use crate::natural::NaturalSize;
 use crate::picture::{Img, Shown};
 use crate::semantics::Semantics;
+use crate::toggle::Toggle;
 use crate::transform::{TextTransform, language_of};
 use crate::whitespace::WhiteSpace;
 use alo_css::{IssueKind, Location, PseudoElement, StyleIssue};
@@ -333,11 +334,12 @@ pub struct BoxTree {
     /// takes its static position from there. A side set for
     /// [`BoxTree::breaks`]' reason.
     out_of_flow: BTreeSet<BoxId>,
-    /// The boxes that stand on their bottom border edge rather than their
-    /// bottom margin edge when they have no line in them: a checkbox's and
-    /// a radio's (queue item 443). See [`crate::toggle`]. A side set for
+    /// The boxes of a checkbox and a radio, and which each is: they stand on
+    /// their bottom border edge rather than their bottom margin edge when
+    /// they have no line in them (queue item 443), and they draw themselves
+    /// (queue item 454). See [`crate::toggle`]. A side map for
     /// [`BoxTree::breaks`]' reason.
-    border_baselines: BTreeSet<BoxId>,
+    toggles: BTreeMap<BoxId, Toggle>,
 }
 
 impl BoxTree {
@@ -422,7 +424,14 @@ impl BoxTree {
     /// Layout asks it of an atomic box to know where its baseline is
     /// (queue item 443).
     pub fn stands_on_border_edge(&self, id: BoxId) -> bool {
-        self.border_baselines.contains(&id)
+        self.toggles.contains_key(&id)
+    }
+
+    /// Which toggle a box is, if it is a checkbox's or a radio's: paint asks,
+    /// to draw the control's own artwork in place of a border and a
+    /// background (queue item 454).
+    pub fn toggle(&self, id: BoxId) -> Option<Toggle> {
+        self.toggles.get(&id).copied()
     }
 
     /// The marker box of the list item `id`, if it has one.
@@ -542,7 +551,7 @@ impl BoxTree {
             placeholders: BTreeSet::new(),
             markers: BTreeSet::new(),
             out_of_flow: BTreeSet::new(),
-            border_baselines: BTreeSet::new(),
+            toggles: BTreeMap::new(),
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -759,7 +768,7 @@ pub fn build_showing(document: &Document, styles: &StyleTree, shown: &Shown) -> 
         placeholders: BTreeSet::new(),
         markers: BTreeSet::new(),
         out_of_flow: BTreeSet::new(),
-        border_baselines: BTreeSet::new(),
+        toggles: BTreeMap::new(),
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),
@@ -964,8 +973,8 @@ fn build_element(
             if crate::line_break::is_forced_break(element, display) {
                 tree.breaks.insert(box_id);
             }
-            if crate::toggle::stands_on_its_border_edge(element) {
-                tree.border_baselines.insert(box_id);
+            if let Some(toggle) = crate::toggle::of(element) {
+                tree.toggles.insert(box_id, toggle);
             }
             let children = match crate::details::slots(document, id) {
                 Some(slots) => details_children(document, styles, shown, id, &slots, tree),
@@ -2651,6 +2660,8 @@ mod tests {
             2,
             "the checkbox and the radio, and nothing else"
         );
+        let toggles: Vec<Toggle> = tree.ids().filter_map(|id| tree.toggle(id)).collect();
+        assert_eq!(toggles, vec![Toggle::CheckBox, Toggle::Radio]);
     }
 
     #[test]

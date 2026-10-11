@@ -6447,7 +6447,7 @@ The long pole, and the thing most of section E is unreachable without.
   author's border and pads the box inside its 13 × 13. *Closes when:* a
   frozen page's styled checkbox is the size and position Chrome draws.
 
-- [ ] **454. A checkbox and a radio draw Chrome's artwork.** *Found
+- [x] **454. A checkbox and a radio draw Chrome's artwork.** *Found
   building 443 (iteration 287). Feature: `docs/features.md` stage 1, a
   form control draws its state. Opened by alo Settings.* Chrome 154 draws
   an unchecked checkbox white inside a rounded grey border, where this
@@ -6457,6 +6457,80 @@ The long pole, and the thing most of section E is unreachable without.
   colours measured from screenshots before anything is drawn. *Closes
   when:* `checkbox-beside-text`'s controls match Chrome's screenshot pixel
   for pixel, or within a stated, measured bound.
+  **Done (iteration 288).** Measured first, in Chrome 154 headless with no
+  `--disable-gpu`: shapes at eight device pixels to one, fitted by
+  coverage at 13 and 20 pixels; colours at one to one, the disabled ones
+  over black, white and grey to separate each grey from its opacity. Chrome
+  computes no border for either control and draws it itself: a square
+  rounded 2 (its one-pixel `#767676` edge stroked half a pixel in, so
+  rounded 2.5 outside and 1.5 inside) or a circle, white inside; checked,
+  a checkbox filled `#0075ff` with a white tick — a stroke 0.16 of the box
+  wide through (0.2, 0.5), (0.4, 0.7), (0.8, 0.2) — and a radio with an
+  accent edge, white ring and an accent dot 0.6 across; mixed, a bar 0.62
+  by 0.15; disabled, translucent greys whatever the accent, each shape
+  beside the others rather than over them; all in the largest square the
+  box holds, centred. `alo-style`'s sheet gives both `border: none` and
+  drops the radio's `border-radius`; `alo-box`'s `toggle.rs` says which of
+  the two a box is (`BoxTree::toggle`, by the element's type, not its
+  role); `alo-paint`'s new `toggle.rs` draws the picture, and `control.rs`'
+  marks and default accent are Chrome's. A box an author made a checkbox
+  with `role` still marks its state inside its own border. Evidence:
+  `cases/toggle-artwork`, 32 controls on whole pixels, with Chrome's
+  screenshot of the same bytes committed beside it as `chrome.png`, and
+  `tests/toggle_artwork.rs`: inside each shape the colour is Chrome's to a
+  unit; across all 6,264 control pixels the difference is 3.0 of 255 on
+  average and 64 at most, every pixel over 48 on a tick's edge, where
+  Chrome's one-to-one raster quantises coverage to quarters and this one
+  does not; a disabled control's seams over black are up to 44. Outside
+  the controls the page is Chrome's exactly. `checkbox-beside-text`'s
+  controls, at fractional positions, differ from Chrome's by 16.3 on
+  average where they differed by 46.6 (457). Found: 456, 457, 458, 459.
+
+- [ ] **456. A native checkbox draws its own checkedness, not
+  `aria-checked`.** *Found building 454 (iteration 288). Feature:
+  `docs/features.md` stage 1, a form control draws its state. Waits for a
+  page.* Chrome 154 draws `<input type=checkbox aria-checked=mixed>`
+  unchecked: ARIA speaks to assistive technology and does not change a
+  native control's picture. This engine draws the state the box's
+  semantics carry, which `aria-checked` overrides, so it draws the bar.
+  Chrome draws the bar for a checkbox whose `indeterminate` is set, which
+  needs that property (82). *Closes when:* a frozen page's native checkbox
+  with `aria-checked` draws what Chrome draws, and its agent tree still
+  says what the page declared.
+
+- [ ] **457. A control's picture is snapped to whole pixels as Chrome's
+  is.** *Found building 454 (iteration 288). Feature: `docs/features.md`
+  stage 1, forms. Opened by `checkbox-beside-text`. Depends on nothing.*
+  A checkbox laid out at y 22.77 is drawn there here, its edges smeared
+  across two rows; Chrome 154 draws its picture on whole pixels, so the
+  case's controls differ from Chrome's screenshot by 16.3 of 255 on
+  average where `toggle-artwork`'s, on whole pixels, differ by 3.0. Needs
+  measuring: which way Chrome rounds, whether by the box's origin or its
+  edges, and whether anything else it draws is snapped the same way.
+  *Closes when:* `checkbox-beside-text`'s controls are within
+  `toggle-artwork`'s measured bound of Chrome's screenshot.
+
+- [ ] **458. A light accent's tick is Chrome's dark grey.** *Found
+  building 454 (iteration 288). Feature: `docs/features.md` stage 1, a
+  form control draws its state. Waits for a page.* Chrome 154 ticks a
+  checkbox with `accent-color: yellow` in `#3b3b3b`; this engine ticks it
+  black (`control::mark_color`). Where Chrome changes from white to dark
+  was not measured. *Closes when:* a frozen page's light-accented checkbox
+  is ticked in Chrome's colour, from the threshold measured.
+
+- [ ] **459. A small curve's edge pixels are covered as much as its area
+  says.** *Found building 454 (iteration 288). Feature: `docs/features.md`
+  stage 1, a rounded border. Opened by `toggle-artwork`. Needs measuring.*
+  A radio's dot, symmetric about its pixel column, is drawn 159 on its
+  left edge and 191 on its right in the same column pair (Chrome: 153 and
+  153), and the corner pixel of a square rounded 2.5 is covered 0.066
+  where its exact area is 0.137. So the rented rasteriser under-covers a
+  small convex curve and is biased to one side. Every rounded border and
+  every circle this engine draws is affected. Needs: whether the curve is
+  flattened inside itself or the coverage sampled off centre, and where
+  (`alo-paint`'s `raster.rs` or the rented crate). *Closes when:* a dot's
+  two edges are drawn alike and a rounded corner's pixel is covered within
+  a stated bound of its exact area.
 
 - [ ] **455. A stopped HTTP/2 body is reported the same way whatever the
   timing.** *Found by the gate in iteration 287, which did not cause it.

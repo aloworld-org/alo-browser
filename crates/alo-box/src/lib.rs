@@ -59,6 +59,7 @@ pub use picture::Shown;
 pub use role::{KnownRole, Role};
 pub use semantics::Semantics;
 pub use state::{Checked, Current, States};
+pub use toggle::Toggle;
 pub use transform::TextTransform;
 pub use tree::{BoxId, BoxKind, BoxNode, BoxTree, Purpose, build, build_showing};
 pub use whitespace::WhiteSpace;

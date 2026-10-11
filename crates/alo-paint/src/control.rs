@@ -18,13 +18,23 @@
 //! the mercy of whichever font happened to load. This is what `appearance:
 //! auto` means in a real browser: the control draws itself.
 //!
-//! # What it draws over
+//! # Two kinds of control draw a mark
 //!
-//! The **padding box** — inside the border, not over it. A page that sets a
-//! border on a checkbox can see that border and asked for it; what the control
-//! draws for its own state goes inside. Browsers replace the border entirely
-//! when a box is checked; that would be one fewer thing an author can control,
-//! for no gain in legibility.
+//! An `<input type=checkbox>` or `type=radio` draws Chrome's whole picture
+//! of itself — its edge, its inside, its fill — and that is
+//! [`crate::toggle`]. Anything else an author made into a checkbox with
+//! `role` and `aria-checked` has no picture of its own: it draws its state
+//! inside its **padding box**, over its own background and inside the
+//! border its author can see and set. Both draw the same marks, from here.
+//!
+//! # The marks are Chrome's
+//!
+//! Measured from Chrome 154's screenshots at eight device pixels to one,
+//! at 13 and 20 pixels square (queue item 454), by fitting each shape's
+//! coverage pixel by pixel: the tick is a stroke along three points, the
+//! dash a rounded bar, the dot a circle six tenths across. Each is a
+//! fraction of the control, not a number of pixels, because Chrome's grow
+//! with the control.
 //!
 //! # The colours
 //!
@@ -39,15 +49,16 @@ use alo_box::{Checked, KnownRole, Role};
 use alo_layout::Rect;
 use alo_value::Rgba;
 
-/// The colour a control draws its state in when the page has not said.
+/// The colour a control draws its state in when the page has not said:
+/// Chrome 154's `#0075ff`, measured from its screenshots (queue item 454).
 ///
 /// A blue rather than the text colour: a control's state is a different kind
 /// of thing from the words around it, and every platform says so in colour. A
 /// page that wants another one writes `accent-color`.
 pub const DEFAULT_ACCENT: Rgba = Rgba {
-    red: 0.043,
-    green: 0.341,
-    blue: 0.816,
+    red: 0.0,
+    green: 117.0 / 255.0,
+    blue: 1.0,
     alpha: 1.0,
 };
 
@@ -145,13 +156,15 @@ pub fn mark(kind: Mark, within: Rect) -> Path {
     }
 }
 
-/// Where a mark is drawn: the largest square that fits in the control.
+/// Where a mark is drawn: the largest square that fits in the control,
+/// centred in it.
 ///
 /// A square rather than the box itself, so that a checkbox somebody made
 /// forty pixels wide draws a tick rather than a stretched one. A mark is a
 /// symbol, and a symbol that changes shape with its container stops being
-/// readable as the same symbol.
-fn field(within: Rect) -> Rect {
+/// readable as the same symbol. Chrome 154 does the same: a checkbox 30 by
+/// 13 draws a 13-pixel square in its middle (queue item 454).
+pub(crate) fn field(within: Rect) -> Rect {
     let side = within.size.width.min(within.size.height).max(0.0);
     Rect::new(
         within.left() + (within.size.width - side) / 2.0,
@@ -161,54 +174,106 @@ fn field(within: Rect) -> Rect {
     )
 }
 
-/// The tick, as a closed six-point outline in a unit square.
+/// The tick: a stroke through three points of a unit square, a sixth of
+/// it wide, with flat ends and a sharp corner at the bottom.
 ///
-/// A filled polygon rather than a stroked polyline, because this engine fills
-/// paths and does not stroke them — the two straight strokes of a check and
-/// their mitred join, written out. Reading them in order: down the right side
-/// of the long stroke, back up the short one, and along the top of both.
-const TICK: [(f32, f32); 6] = [
-    (0.7825, 0.190),
-    (0.8975, 0.305),
-    (0.3925, 0.810),
-    (0.1025, 0.520),
-    (0.2175, 0.405),
-    (0.3925, 0.580),
-];
+/// Chrome 154's, fitted to its screenshots: at 20 pixels square, eight
+/// device pixels to one, this stroke's coverage differs from Chrome's by
+/// 0.2% of a pixel on average.
+const TICK: [(f32, f32); 3] = [(0.2, 0.5), (0.4, 0.7), (0.8, 0.2)];
 
+/// How wide the tick's stroke is, as a share of the control.
+const TICK_WIDTH: f32 = 0.16;
+
+/// The stroke along [`TICK`], written out as the outline a stroke with flat
+/// ends and a mitred corner covers: down one side of both strokes and back
+/// up the other.
+///
+/// Written out rather than handed to the rented stroker, because the shape
+/// is fixed and six points are a shape that can be read and tested; a
+/// stroker that could fail would make a tick that could fail.
 fn tick(field: Rect) -> Path {
-    let mut path = Path::new();
-    for (index, (x, y)) in TICK.iter().enumerate() {
-        let point = Point::new(
+    let at = |(x, y): (f32, f32)| {
+        (
             field.left() + x * field.size.width,
             field.top() + y * field.size.height,
-        );
-        if index == 0 {
-            path.move_to(point);
+        )
+    };
+    let [start, corner, end] = TICK.map(at);
+    let half = TICK_WIDTH * field.size.height / 2.0;
+    let first = offset(start, corner, half);
+    let second = offset(corner, end, half);
+    let mut path = Path::new();
+    let mut point = |(x, y): (f32, f32), first_point: bool| {
+        if first_point {
+            path.move_to(Point::new(x, y));
         } else {
-            path.line_to(point);
+            path.line_to(Point::new(x, y));
         }
+    };
+    // One side of the stroke, then the other: each side is the two strokes'
+    // edges on it, meeting where their lines cross.
+    for (index, side) in [1.0_f32, -1.0].into_iter().enumerate() {
+        let along = |(x, y): (f32, f32), (dx, dy): (f32, f32)| (x + side * dx, y + side * dy);
+        let ends = [along(start, first), along(end, second)];
+        let meet = crossing(
+            (along(start, first), along(corner, first)),
+            (along(corner, second), along(end, second)),
+        )
+        .unwrap_or_else(|| along(corner, first));
+        let [from, to] = if index == 0 { ends } else { [ends[1], ends[0]] };
+        point(from, index == 0);
+        point(meet, false);
+        point(to, false);
     }
     path.close();
     path
 }
 
-/// How much of the control's width a dash covers, and how thick it is.
-const DASH: (f32, f32) = (0.62, 0.18);
+/// The offset, `half` long, square to the line from `from` to `to`.
+fn offset(from: (f32, f32), to: (f32, f32), half: f32) -> (f32, f32) {
+    let (dx, dy) = (to.0 - from.0, to.1 - from.1);
+    let length = dx.hypot(dy);
+    if length > 0.0 {
+        (-dy / length * half, dx / length * half)
+    } else {
+        (0.0, 0.0)
+    }
+}
+
+/// Where the line through `a` crosses the line through `b`, if they cross.
+fn crossing(a: ((f32, f32), (f32, f32)), b: ((f32, f32), (f32, f32))) -> Option<(f32, f32)> {
+    let ((ax, ay), (ax2, ay2)) = a;
+    let ((bx, by), (bx2, by2)) = b;
+    let (adx, ady) = (ax2 - ax, ay2 - ay);
+    let (bdx, bdy) = (bx2 - bx, by2 - by);
+    let denominator = adx * bdy - ady * bdx;
+    if denominator.abs() <= f32::EPSILON {
+        return None;
+    }
+    let t = ((bx - ax) * bdy - (by - ay) * bdx) / denominator;
+    Some((ax + t * adx, ay + t * ady))
+}
+
+/// How much of the control's width a dash covers, and how thick it is: a
+/// bar with round ends, Chrome 154's, fitted to its screenshots.
+const DASH: (f32, f32) = (0.62, 0.15);
 
 fn dash(field: Rect) -> Path {
     let width = field.size.width * DASH.0;
     let height = field.size.height * DASH.1;
-    Path::rectangle(
+    let bar = Rect::new(
         field.left() + (field.size.width - width) / 2.0,
         field.top() + (field.size.height - height) / 2.0,
         width,
         height,
-    )
+    );
+    rounded_rectangle(bar, Corners::all(height / 2.0))
 }
 
-/// How much of the control a radio's dot covers across.
-const DOT: f32 = 0.52;
+/// How much of the control a radio's dot covers across: Chrome 154's, 7.8
+/// pixels of 13 and 12 of 20.
+const DOT: f32 = 0.6;
 
 fn dot(field: Rect) -> Path {
     let diameter = field.size.width.min(field.size.height) * DOT;
@@ -310,11 +375,11 @@ mod tests {
 
     #[test]
     fn every_mark_is_centred_in_its_control() {
-        // The numbers in `TICK` were written by hand, so this is the assertion
-        // that says they are the numbers of a *centred* tick rather than of
-        // one that leans.
+        // Chrome's tick is not centred — it sits a little low and a little
+        // right, and is drawn where Chrome draws it — so it is the dash and
+        // the dot that are.
         let control = Rect::new(10.0, 20.0, 12.0, 12.0);
-        for kind in [Mark::Tick, Mark::Dash, Mark::Dot] {
+        for kind in [Mark::Dash, Mark::Dot] {
             let (left, top, right, bottom) = bounds_of(&mark(kind, control));
             let across =
                 f32::midpoint(left, right) - f32::midpoint(control.left(), control.right());
@@ -375,6 +440,48 @@ mod tests {
                 .segments()
                 .iter()
                 .any(|segment| matches!(segment, crate::path::Segment::CubicTo(..)))
+        );
+    }
+
+    #[test]
+    fn the_tick_is_chromes_stroke_through_three_points() {
+        // At 20 pixels the stroke is 3.2 wide, so its flat end at the top
+        // right is 3.2 long, square to the long stroke, and centred on
+        // (16, 4).
+        let tick = mark(Mark::Tick, Rect::new(0.0, 0.0, 20.0, 20.0));
+        let points: Vec<Point> = tick
+            .segments()
+            .iter()
+            .filter_map(|segment| match segment {
+                crate::path::Segment::MoveTo(to) | crate::path::Segment::LineTo(to) => Some(*to),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(points.len(), 6, "six corners: {points:?}");
+        let near =
+            |point: Point, x: f32, y: f32| (point.x - x).abs() < 0.01 && (point.y - y).abs() < 0.01;
+        // The long stroke's direction is (8, -10); its half-width offset is
+        // 1.6 along (10, 8) / √164.
+        let (dx, dy) = (1.6 * 10.0 / 164.0_f32.sqrt(), 1.6 * 8.0 / 164.0_f32.sqrt());
+        let top_end: Vec<&Point> = points
+            .iter()
+            .filter(|point| {
+                near(**point, 16.0 + dx, 4.0 + dy) || near(**point, 16.0 - dx, 4.0 - dy)
+            })
+            .collect();
+        assert_eq!(top_end.len(), 2, "the flat end at the top: {points:?}");
+        // The short stroke's end is centred on (4, 10), and runs along
+        // (1, 1), so its end is square to that.
+        let half = 1.6 / 2.0_f32.sqrt();
+        assert!(
+            points
+                .iter()
+                .any(|point| near(*point, 4.0 + half, 10.0 - half))
+        );
+        assert!(
+            points
+                .iter()
+                .any(|point| near(*point, 4.0 - half, 10.0 + half))
         );
     }
 

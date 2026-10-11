@@ -9,9 +9,10 @@ fill box#3 rgb(255 255 255) at (10, 16.3125) 220×67.45937
 unclip
 unclip
 text box#6 "Pizza size" rgb(0 0 0) 16px at (26, 22.851563)
-fill box#10 rgb(118 118 118) at (29, 35.225) 13×13
-fill box#10 rgb(11 87 208) at (30, 36.225) 11×11
-fill box#10 rgb(255 255 255) at (32.64, 38.864998) 5.720001×5.720001
+fill box#10 rgb(255 255 255) at (29, 35.225) 13×13
+fill box#10 rgb(0 117 255) at (29, 35.225) 13×13
+fill box#10 rgb(0 117 255) at (31.6, 37.824997) 7.800001×7.799999
 text box#11 "Small" rgb(0 0 0) 16px at (50.085938, 48.225)
+fill box#15 rgb(255 255 255) at (29, 54.998436) 13×13
 fill box#15 rgb(118 118 118) at (29, 54.998436) 13×13
 text box#16 "Large" rgb(0 0 0) 16px at (50.085938, 67.998436)

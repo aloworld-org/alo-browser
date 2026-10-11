@@ -161,15 +161,35 @@ author cannot override a rule they cannot see.
 
 **A form control draws its state.** A checked checkbox draws a tick, a chosen
 radio a dot, and a checkbox that is neither on nor off — `aria-checked="mixed"`,
-the "select all" box above a half-selected list — a dash. The colour is
-`accent-color` if the page names one, and the mark on top of it is black or
-white by whichever shows up against it. The mark is drawn by the engine rather
-than set in the user-agent sheet, for the same reason a control's inner box is:
-CSS has no way to say "and draw a check inside it".
+the "select all" box above a half-selected list — a bar. The colour is
+`accent-color` if the page names one, Chrome's `#0075ff` if not, and the mark
+on top of it is black or white by whichever shows up against it. The mark is
+drawn by the engine rather than set in the user-agent sheet, for the same
+reason a control's inner box is: CSS has no way to say "and draw a check
+inside it".
+
+**A checkbox and a radio draw Chrome's picture of themselves** (item 454). Not
+a CSS border — Chrome computes none — but a square rounded 2 pixels, or a
+circle, white inside a one-pixel `#767676` edge; checked, a checkbox filled
+with the accent and ticked, a radio with an accent edge, a white ring and an
+accent dot six tenths of it across; drawn in the largest square that fits
+the box, centred. Every shape was fitted to Chrome 154's screenshots at eight
+device pixels to one and every colour read from them at one, the disabled
+greys over black, white and grey to separate colour from opacity.
+`cases/toggle-artwork` is compared with Chrome's own screenshot of it,
+committed beside it: inside each shape the colour is Chrome's to a unit, and
+the edges differ only by how each smooths them — Chrome quantises an edge's
+coverage to quarters at one to one and this rasteriser does not — by at most
+64 of 255 and 3.0 on average. Where a control stands on a fraction of a pixel
+Chrome snaps its picture to a whole one and this engine does not (457), so
+`checkbox-beside-text`'s controls differ from Chrome's by 16 on average
+(they differed by 47 before). A native checkbox with `aria-checked` draws the
+state it declares; Chrome draws its own checkedness (456). A light accent's
+tick is black here and Chrome's dark grey `#3b3b3b` (458).
 
 **A control nobody can operate says so, and still says what state it is in.** A
-disabled control draws its mark in grey rather than the accent, and its border
-pales — so on, off, on-and-locked and off-and-locked are four different
+disabled control draws its mark in grey rather than the accent, whatever its
+`accent-color`, and its border or edge pales — so on, off, on-and-locked and off-and-locked are four different
 pictures. That much is ordinary colour and does live in the user-agent sheet,
 where a page can override it.
 

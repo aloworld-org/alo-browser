@@ -172,29 +172,24 @@ button {
  * (queue item 443). The margins are not symmetrical, and not the same for
  * the two: a radio is a pixel further from the text before it and sits on
  * the baseline with nothing below it. Without them alo Settings' checkbox
- * stood 4 pixels left of Chrome's and its label 7. */
+ * stood 4 pixels left of Chrome's and its label 7.
+ *
+ * And no border. Chrome computes none for either, and draws the control
+ * itself instead: a rounded square or a circle, white inside a grey edge,
+ * filled with the accent colour when it is checked (queue item 454). That
+ * picture is `alo_paint::toggle`'s, for the reason a tick is not a property.
+ * Which shape a control is — one answer or several — is drawn there, by the
+ * element's type, and not by a `border-radius` here that an author could
+ * take away without meaning to. */
 input[type="checkbox"], input[type="radio"] {
   box-sizing: border-box;
   width: 13px;
   height: 13px;
   padding: 0;
+  border: none;
 }
 input[type="checkbox"] { margin: 3px 3px 3px 4px }
 input[type="radio"] { margin: 3px 3px 0 5px }
-/* A radio is round and a checkbox is square, and that is not decoration.
- *
- * The agent tree told them apart from the first commit — `radio "Small"` and
- * `checkbox "Bacon"` — while a person looking at the page could not, because
- * both drew as a bordered square. Found by the first page with a form: the alo
- * screens have checkboxes and no radios, so nothing had ever put the two side
- * by side.
- *
- * A radio group and a checkbox group mean different things: one answer or
- * several. Somebody who cannot see which they are looking at is being asked a
- * question without being told its shape. */
-input[type="radio"] {
-  border-radius: 50%;
-}
 input[type="button"], input[type="submit"], input[type="reset"] {
   width: auto;
   padding: 1px 6px;
@@ -381,7 +376,7 @@ mod tests {
     }
 
     #[test]
-    fn a_checkbox_and_a_radio_have_chromes_margins_and_size() {
+    fn a_checkbox_and_a_radio_have_chromes_margins_size_and_no_border() {
         let html = "<input id=check type=checkbox><input id=radio type=radio><input id=text>";
         for (id, top, right, bottom, left) in [
             ("check", "3px", "3px", "3px", "4px"),
@@ -404,6 +399,14 @@ mod tests {
                 Some("border-box"),
                 "{id}"
             );
+            // Chrome computes no border and no rounding: the control draws
+            // its own edge (queue item 454).
+            assert_eq!(
+                computed(html, id, "border").as_deref(),
+                Some("none"),
+                "{id}"
+            );
+            assert_eq!(computed(html, id, "border-radius"), None, "{id}");
         }
         // A field keeps no margin of its own.
         assert_eq!(computed(html, "text", "margin-left"), None);

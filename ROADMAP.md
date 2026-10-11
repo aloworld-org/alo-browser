@@ -1214,7 +1214,14 @@ unreachable without it.
       3px 0 5px`), standing on the baseline by their bottom border edge
       (`alo-box`'s `toggle.rs`, read by `alo-layout`'s `baseline.rs`), so
       alo Settings' row is 19 tall with its checkbox and label at Chrome's
-      x. Corpus case `checkbox-beside-text` · Owed: everything a control **does**,
+      x. Corpus case `checkbox-beside-text`. **And each draws Chrome's
+      picture of itself** (queue item 454, `alo-paint`'s `toggle.rs`; the
+      marks' shapes in `control.rs`): no CSS border, a rounded square or a
+      circle inside a grey edge, the accent and a tick or dot when checked,
+      translucent greys when disabled, all measured from Chrome 154's
+      screenshots. Corpus case `toggle-artwork`, compared with Chrome's
+      screenshot beside it pixel by pixel within a measured bound · Owed:
+      everything a control **does**,
       which needs events
       (queue item 81) — constraint validation, submission, file inputs — the
       focus ring, which needs something to have focus (queue item 43); a
@@ -1223,8 +1230,11 @@ unreachable without it.
       `:placeholder-shown` (391) and `::placeholder`'s other properties
       (392), and a button's two measured edges, an empty `<span>` and a
       kept space (438), each waiting for a page; an author's padding and
-      border on a checkbox, which Chrome ignores (453, waits for a page),
-      and a checkbox's and radio's own artwork (454)
+      border on a checkbox, which Chrome ignores (453, waits for a page);
+      a native checkbox's picture following its own checkedness rather
+      than `aria-checked` (456, waits for a page), a control's picture
+      snapped to whole pixels as Chrome's is (457), and a light accent's
+      dark tick (458, waits for a page)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
       · Built: **`location`, read** (queue item 360) — `alo-url`'s
       `reading.rs` (the URL Standard's nine readings over our `Url`) and

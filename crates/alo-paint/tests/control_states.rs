@@ -4,12 +4,13 @@
 
 //! What a control draws for its own state, asserted rather than pictured.
 //!
-//! The committed picture is `alo-corpus`'s `control-states` case, which is
-//! where a reference render belongs. What is here is the half a picture cannot
-//! say: *why* it is right. An image can only tell you that a checkbox changed;
-//! these say the ink inside it is the accent colour, that a radio's is round
-//! and a checkbox's is not, and that a disabled control draws its state in a
-//! colour that says it is not live.
+//! The committed pictures are `alo-corpus`'s `control-states` case, which is
+//! where a reference render belongs, and `toggle-artwork`, which is compared
+//! with Chrome's screenshot pixel by pixel. What is here is the half a
+//! picture cannot say: *why* it is right. An image can only tell you that a
+//! checkbox changed; these say the ink inside it is the accent colour, that
+//! a radio's is round and a checkbox's is not, and that a disabled control
+//! draws its state in a colour that says it is not live.
 //!
 //! Every one of these was true and invisible before queue item 182: the agent
 //! tree said `checkbox "Remember me" [checked=true]` and the picture showed an
@@ -19,7 +20,8 @@ use alo_box::build as build_boxes;
 use alo_css::{MediaContext, parse_stylesheet};
 use alo_dom::parse_document;
 use alo_layout::{Size, compute};
-use alo_paint::control::{DEFAULT_ACCENT, DISABLED_ACCENT};
+use alo_paint::control::DEFAULT_ACCENT;
+use alo_paint::toggle::{DISABLED_FILL, EDGE};
 use alo_paint::{Canvas, DisplayList, PaintContext, build, render};
 use alo_style::{Origin, SourcedSheet, USER_AGENT_STYLE_SHEET, resolve};
 use alo_text::{Font, FontDatabase, Slant, TextMeasurer, Weight};
@@ -80,12 +82,10 @@ fn draw(html: &str, css: &str) -> (DisplayList, Canvas) {
 }
 
 /// The page a single control is put on. No background of its own, so that
-/// every fill in the list belongs to the control. Its margin and its
-/// `box-sizing` are the page's, so that it stands at the body's corner with
-/// its border outside the 16×16 it asked for, whatever the user-agent sheet
-/// gives a checkbox (queue item 443).
-const PAGE: &str =
-    "body { margin: 8px }\n#c { width: 16px; height: 16px; margin: 0; box-sizing: content-box }";
+/// every fill in the list belongs to the control. Its margin is the page's,
+/// so that it stands at the body's corner, 16×16, whatever the user-agent
+/// sheet gives a checkbox (queue item 443).
+const PAGE: &str = "body { margin: 8px }\n#c { width: 16px; height: 16px; margin: 0 }";
 
 /// One control on an otherwise empty page, at a known place.
 fn control(attributes: &str) -> (DisplayList, Canvas) {
@@ -95,12 +95,23 @@ fn control(attributes: &str) -> (DisplayList, Canvas) {
     )
 }
 
-/// The control's **padding box**, which is where a mark is drawn: the 16×16
-/// the page asked for, inside the one-pixel border, at the body's margin.
-const INSIDE: (u32, u32, u32, u32) = (9, 9, 25, 25);
+/// What is inside a checkbox's or a radio's one-pixel edge: the 16×16 the
+/// page asked for, at the body's margin, less the edge (queue item 454).
+const INSIDE: (u32, u32, u32, u32) = (9, 9, 23, 23);
 
 /// The top third of it, which a tick reaches and a dash does not.
-const UPPER: (u32, u32, u32, u32) = (9, 9, 25, 14);
+const UPPER: (u32, u32, u32, u32) = (9, 9, 23, 13);
+
+/// What a translucent colour reads as over the white page.
+fn over_white(colour: Rgba) -> Rgba {
+    let blend = |channel: f32| channel * colour.alpha + (1.0 - colour.alpha);
+    Rgba::new(
+        blend(colour.red),
+        blend(colour.green),
+        blend(colour.blue),
+        1.0,
+    )
+}
 
 /// How many things the list fills, which is the count that changes when a
 /// control starts drawing its state.
@@ -154,18 +165,22 @@ fn close(a: Rgba, b: Rgba) -> bool {
 #[test]
 fn an_unchecked_checkbox_draws_nothing_inside_itself() {
     let (list, canvas) = control("type=checkbox");
-    // The border, and nothing else: no accent, no mark.
-    assert_eq!(fills(&list), 1, "{}", list.to_outline());
+    // Its white inside and its grey edge, and nothing else: no accent, no
+    // mark.
+    assert_eq!(fills(&list), 2, "{}", list.to_outline());
     assert_eq!(
         pixels(&canvas, INSIDE, DEFAULT_ACCENT),
         0,
         "an unchecked box has no accent in it",
     );
-    assert_eq!(
-        pixels(&canvas, INSIDE, Rgba::WHITE),
-        16 * 16,
-        "it is the page all the way across",
+    assert!(
+        pixels(&canvas, INSIDE, Rgba::WHITE) >= 14 * 14 - 4,
+        "it is white all the way across, but for where its inner corners round",
     );
+    let edge = canvas
+        .at(8, 16)
+        .expect("the middle of the control's left edge");
+    assert!(close(edge, EDGE), "inside a grey edge: {edge}");
 }
 
 #[test]
@@ -173,8 +188,8 @@ fn a_checked_checkbox_fills_with_the_accent_and_marks_it() {
     let (list, canvas) = control("type=checkbox checked");
     assert_eq!(
         fills(&list),
-        3,
-        "the border, the accent and the tick:\n{}",
+        2,
+        "the accent and the tick:\n{}",
         list.to_outline(),
     );
     let accent = pixels(&canvas, INSIDE, DEFAULT_ACCENT);
@@ -205,8 +220,10 @@ fn the_three_states_of_a_checkbox_are_three_different_pictures() {
         dash_above, 0,
         "a dash does not, so the two are different pictures",
     );
+    // Chrome's bar is 0.62 of the control across and 0.15 of it down: at
+    // 16 pixels, about ten by two and a half.
     assert!(
-        nearer(&mixed, INSIDE, Rgba::WHITE, DEFAULT_ACCENT) > 20,
+        nearer(&mixed, INSIDE, Rgba::WHITE, DEFAULT_ACCENT) > 12,
         "and the dash is still drawn",
     );
 }
@@ -215,8 +232,9 @@ fn the_three_states_of_a_checkbox_are_three_different_pictures() {
 fn a_checked_radio_is_round_where_a_checked_checkbox_is_not() {
     let (_, radio) = control("type=radio checked");
     let (_, checkbox) = control("type=checkbox checked");
-    // The very corner of the control: a radio is a circle and the page shows
-    // past it, a checkbox is a square and it does not.
+    // A pixel in from the very corner of the control: a radio is a circle
+    // and the page shows past it, a checkbox is a square rounded only two
+    // pixels and it does not.
     let corner = |canvas: &Canvas| canvas.at(9, 9).expect("the control's top-left corner");
     assert!(
         corner(&radio).red > 0.8,
@@ -228,9 +246,13 @@ fn a_checked_radio_is_round_where_a_checked_checkbox_is_not() {
         "a checkbox's corner is the control: {}",
         corner(&checkbox),
     );
-    // And the dot is drawn in the middle of it either way round.
+    // And the dot is drawn in the middle of it, with white around it.
     let middle = radio.at(16, 16).expect("the middle of the radio");
-    assert!(close(middle, Rgba::WHITE), "the dot is there: {middle}");
+    assert!(close(middle, DEFAULT_ACCENT), "the dot is there: {middle}");
+    let around = radio
+        .at(16, 10)
+        .expect("between the radio's edge and its dot");
+    assert!(close(around, Rgba::WHITE), "inside a white ring: {around}");
 }
 
 #[test]
@@ -239,11 +261,12 @@ fn a_disabled_control_still_says_what_state_it_is_in() {
     assert_eq!(
         fills(&list),
         3,
-        "a disabled control draws its state like any other:\n{}",
+        "a disabled control draws its state like any other, inside its edge:\n{}",
         list.to_outline(),
     );
+    let grey = over_white(DISABLED_FILL);
     assert!(
-        pixels(&canvas, INSIDE, DISABLED_ACCENT) > 100,
+        pixels(&canvas, INSIDE, grey) > 100,
         "in the colour that says it is not live",
     );
     assert_eq!(
@@ -252,7 +275,7 @@ fn a_disabled_control_still_says_what_state_it_is_in() {
         "and not in the live one, which a page cannot make it use",
     );
     assert!(
-        nearer(&canvas, UPPER, Rgba::WHITE, DISABLED_ACCENT) > 3,
+        nearer(&canvas, UPPER, Rgba::WHITE, grey) > 3,
         "with the same tick on it, because it is still checked",
     );
 }
@@ -261,13 +284,13 @@ fn a_disabled_control_still_says_what_state_it_is_in() {
 fn a_disabled_control_that_is_off_is_not_the_same_picture_as_a_live_one() {
     // "You cannot change this" and "this is off" are different things to be
     // told. The mark cannot say the first, because an unchecked control has
-    // none — so the border does, from the user-agent sheet.
+    // none — so the edge does, in Chrome's paler, translucent grey.
     let (_, live) = control("type=checkbox");
     let (_, dead) = control("type=checkbox disabled");
     let edge = |canvas: &Canvas| canvas.at(14, 8).expect("the control's top edge");
     assert!(
         edge(&dead).red > edge(&live).red + 0.1,
-        "a disabled control's border is paler: {} against {}",
+        "a disabled control's edge is paler: {} against {}",
         edge(&dead),
         edge(&live),
     );
@@ -281,7 +304,7 @@ fn a_page_may_choose_the_colour_and_the_mark_stays_readable() {
     let (_, canvas) = draw(
         "<!DOCTYPE html><html><body><input id=c type=checkbox checked></body></html>",
         "body { margin: 8px }\n\
-         #c { width: 16px; height: 16px; margin: 0; box-sizing: content-box; accent-color: #b8f000 }",
+         #c { width: 16px; height: 16px; margin: 0; accent-color: #b8f000 }",
     );
     assert!(
         pixels(&canvas, INSIDE, pale) > 100,
@@ -300,25 +323,48 @@ fn a_page_may_choose_the_colour_and_the_mark_stays_readable() {
 
 #[test]
 fn a_control_the_page_made_large_still_draws_a_mark_it_can_hold() {
-    // A stretched tick is not the same symbol. The mark is drawn in the
-    // largest square that fits, so a wide checkbox has wide empty margins
-    // rather than a wide tick.
+    // A stretched tick is not the same symbol. The control is drawn in the
+    // largest square that fits, as Chrome draws it, so a wide checkbox is a
+    // 16-pixel checkbox in the middle of a box with the page either side.
     let (_, canvas) = draw(
         "<!DOCTYPE html><html><body><input id=c type=checkbox checked></body></html>",
-        "body { margin: 8px }\n#c { width: 40px; height: 16px; margin: 0; box-sizing: content-box }",
+        "body { margin: 8px }\n#c { width: 40px; height: 16px; margin: 0 }",
     );
-    // The control's padding box runs from x=9 to x=49; its mark sits in the
-    // 16-wide square in the middle of that, so both ends are bare accent.
-    let ends = (9, 9, 20, 25);
+    // The box runs from x=8 to x=48, and its square from 20 to 36.
+    let ends = (8, 8, 20, 24);
+    assert_eq!(
+        pixels(&canvas, ends, DEFAULT_ACCENT),
+        0,
+        "no accent near the left end of a wide control",
+    );
     assert_eq!(
         pixels(&canvas, ends, Rgba::WHITE),
-        0,
-        "no mark near the left end of a wide control",
+        12 * 16,
+        "which is the page",
     );
     assert!(
-        pixels(&canvas, ends, DEFAULT_ACCENT) > 100,
-        "which is accent rather than page: a wide control is still filled",
+        pixels(&canvas, (21, 9, 35, 23), DEFAULT_ACCENT) > 100,
+        "and the square in the middle is the checkbox",
     );
+}
+
+#[test]
+fn a_box_an_author_made_a_checkbox_marks_its_state_inside_its_own_border() {
+    // Not an `<input>`: it has no picture of its own, so its state is drawn
+    // inside the border its author gave it, over its padding box.
+    let (list, canvas) = draw(
+        "<!DOCTYPE html><html><body><div id=c role=checkbox aria-checked=true></div></body></html>",
+        "body { margin: 8px }\n#c { width: 16px; height: 16px; border: 1px solid #767676 }",
+    );
+    assert_eq!(
+        fills(&list),
+        3,
+        "the author's border, the accent and the tick:\n{}",
+        list.to_outline(),
+    );
+    let edge = canvas.at(8, 16).expect("the box's left border");
+    assert!(close(edge, EDGE), "the author's border stays: {edge}");
+    assert!(pixels(&canvas, (9, 9, 25, 25), DEFAULT_ACCENT) > 100);
 }
 
 #[test]

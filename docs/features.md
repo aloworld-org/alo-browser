@@ -222,7 +222,13 @@ The reason this exists rather than a faster fork of somebody else's engine.
   with nothing of the field's own around it. A checkbox and a radio are 13
   by 13 with their border, carry Chrome's user-agent margins and stand on
   the baseline by their bottom border edge, so a label beside one starts
-  where it does in Chrome (queue item 443). Not yet: the person's region
+  where it does in Chrome (queue item 443). Each draws Chrome's own
+  picture of itself rather than a CSS border: a rounded square or a
+  circle, white inside a grey edge, filled with the accent colour and
+  ticked when checked, a dot in a chosen radio, and translucent greys
+  when disabled — every shape and colour measured from Chrome's
+  screenshots and the case compared with Chrome's pixel by pixel (queue
+  item 454). Not yet: the person's region
   for that order (387), the calendar button (386), and what an empty time,
   month or week field shows (388)
 - [2] **A fieldset's border, broken by its legend** — the legend sits *in* the

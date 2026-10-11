@@ -1683,3 +1683,18 @@ needs measuring), and 455 (an HTTP/2 body that stops is sometimes reported
 as a failed write; the gate hit it once, not caused by this item). 203 queue
 items are open (443 closed, 453–455 added). The next unused queue number is
 456 and the next unused ADR 0050.
+
+Iteration 288 built item 454: a checkbox and a radio draw Chrome 154's own
+picture of themselves — no CSS border, a rounded square or a circle inside a
+grey edge, the accent with a tick or a dot when checked, translucent greys
+when disabled — every shape and colour measured from Chrome's screenshots
+(`alo-paint`'s `toggle.rs`, the marks in `control.rs`, `alo-box`'s
+`toggle.rs`, `alo-style`'s sheet). `cases/toggle-artwork` is compared with
+Chrome's committed screenshot of it within a measured bound. Found: 456 (a
+native checkbox's picture follows `aria-checked`; waits for a page), 457 (a
+control's picture snapped to whole pixels as Chrome's is; opened by
+`checkbox-beside-text`), 458 (a light accent's dark tick; waits for a page)
+and 459 (the rasteriser under-covers a small curve, and to one side; opened
+by `toggle-artwork`, needs measuring). 206 queue items are open (454 closed,
+456–459 added). The next unused queue number is 460 and the next unused ADR
+0050.

@@ -28038,3 +28038,113 @@ opened by Settings, needs measuring), 455 (the `alo-net` flake above).
 203 queue items are open (443 closed, 453–455 added). The next unused
 queue number is **456** and the next ADR is **0050**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 288 — queue item 454 built: a checkbox and a radio draw Chrome's picture of themselves, measured
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its stage 2 Forms line, which this item serves), iteration 287. No
+`AGENTS.md` exists in this repository or above it. For 454: its queue
+entry, `docs/features.md`' forms entry, `docs/conformance.md`' paragraphs
+on a control's state, `alo-paint`'s `control.rs`, `build.rs`,
+`corner.rs` and `raster.rs`, `alo-style`'s `user_agent.rs`, `alo-box`'s
+`toggle.rs` and `tree.rs`, and `alo-corpus`' `checkbox-beside-text`. The
+item names no ADR and needs none: it is Chrome's picture, measured, with
+no policy, rental or agent-surface choice in it. The agent tree is
+unchanged.
+
+**Choosing.** Iteration 287 named 454 and 455 buildable, 454 first in the
+file; everything else open waits for a page or for 404.
+
+**Measured first.** Headless Chrome 154 without `--disable-gpu`. Shapes at
+eight device pixels to one (and the corner at two and four), fitted by
+coverage at 13 and 20 pixels square; colours at one to one, the disabled
+ones over black, white and grey, which is what separates a grey from its
+opacity; computed style by `--dump-dom`. Chrome computes `border: 0 none`
+and no radius for both controls and draws them itself: a square rounded 2
+(its one-pixel `#767676` edge stroked half a pixel in, so 2.5 outside) or
+a circle, white inside; checked, `#0075ff` with a white tick (a stroke
+0.16 wide through (0.2, 0.5), (0.4, 0.7), (0.8, 0.2), coverage within
+0.2% at 20 px) or an accent edge, white ring and a 0.6 dot; mixed, a bar
+0.62 by 0.15; disabled, translucent greys whatever the accent, each beside
+the others, never over them; all in the largest square the box holds,
+centred (a 30 × 13 checkbox is a 13-pixel square in its middle).
+
+**What was built.**
+- `alo-style`'s user-agent sheet: `border: none` on both; the radio's
+  `border-radius: 50%` gone (Chrome computes none). Its test asserts both.
+- `alo-box`'s `toggle.rs`: `Toggle` (checkbox or radio, by the element's
+  type, never its role) and a side map in `tree.rs`,
+  `BoxTree::toggle`, which `stands_on_border_edge` now reads.
+- `alo-paint`'s new `toggle.rs`: the picture, as layers, each colour
+  written as the readings it came from. `control.rs`: Chrome's default
+  accent, tick (now a stroke outline worked out from three points), bar
+  and dot, and `field` shared. `build.rs` draws a toggle's picture and
+  leaves a `role=checkbox` box marking its state inside its own border.
+
+**Evidence.** `cases/toggle-artwork`, 32 controls on whole pixels, with
+Chrome's screenshot of the same bytes committed as `chrome.png`, and
+`tests/toggle_artwork.rs` (three tests): inside each shape the colour is
+Chrome's to one unit at 16 named pixels; over 6,264 control pixels the
+difference is 3.0 of 255 on average and 64 at most, all twelve pixels over
+48 on a tick's edge, where Chrome's one-to-one raster quantises coverage
+to quarters (0, 64, 128, 191) and this one does not; a disabled control's
+seams over black reach 44; outside the controls the page is identical.
+The item's own case, `checkbox-beside-text`, has its controls at
+fractional positions, which Chrome snaps and this engine does not: its
+controls differ from Chrome's screenshot by 16.3 on average where they
+differed by 46.6. That is the stated, measured bound the item allowed,
+and the rest is queued as 457 rather than claimed.
+
+**Gate, mechanical.** `cargo fmt --all`; `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean. `scripts/gate.sh` ran
+once, in the foreground; the harness moved it to the background at 600 s
+and the next call waited on it with a foreground `until` loop: `exit 0`,
+"The gate is met", no `FAILED` in the log. Only this entry and the commit
+came after it.
+
+**Gate, manual.**
+- *Layout assertions in numbers:* layout did not move (no `layout.txt` or
+  `boxes.txt` changed); `toggle_artwork.rs` asserts the controls' count
+  and where their squares are; `alo-paint`'s toggle tests assert the
+  shapes' bounds (the inside, the wide square at 8.5–21.5, the dot at
+  4–16 of 20), and `control.rs`' the tick's six corners at 20 px.
+- *Reference renders:* the new case written with `ALO_UPDATE_REFERENCES=1`
+  and compared with Chrome's as above. Moved, and looked at before and
+  after: `a-filled-form`, `alo-settings`, `alo-sign-in`,
+  `checkbox-beside-text`, `control-states`, `fieldset-group` and
+  `web-a-form` — only their controls' pixels. No other case moved.
+- `alo-paint`'s `control_states.rs` rewritten for the new picture (its
+  edge, its white ring, a wide control's page either side, the disabled
+  grey over white) and given a test that a `role=checkbox` box keeps its
+  author's border and marks inside it.
+- *Mutations, restored from copies (`cmp` confirmed):* tick width 0.2, the
+  old tick's points, a 0.52 dot, a 2.5 fill radius, no `border: none` in
+  the sheet, and a disabled dot drawn over the inside — each fails
+  `toggle_artwork.rs`.
+- *Hostile input:* nothing new reads bytes from outside.
+- One responsibility per file: which element is a toggle is `alo-box`'s
+  `toggle.rs`; what the picture is, `alo-paint`'s `toggle.rs`; the marks'
+  shapes stay `control.rs`'. No `unsafe`. `alo-workplace` and `alo-os` were
+  not touched.
+
+**Queue.** 454 ticked with its *Done* paragraph. Added 456 (a native
+checkbox's picture follows `aria-checked`, which Chrome's does not; waits
+for a page), 457 (a control's picture snapped to whole pixels; opened by
+`checkbox-beside-text`, needs measuring), 458 (a light accent's tick is
+Chrome's `#3b3b3b`; waits for a page), 459 (the rasteriser under-covers a
+small curve, and to one side: a dot's left edge 159 and right 191 where
+Chrome's are both 153; opened by `toggle-artwork`, needs measuring).
+
+**Roadmap.** Stage 2's Forms line gains a *Built* clause for 454 and owes
+456–458 in place of 454. It stays unticked. Also updated:
+`docs/features.md`, `docs/conformance.md`, `REMAINING.md`, `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 456–459, above. 455, 457 and 459 depend on nothing and are buildable
+  next; 455 stands first in the file.
+- 438, 439, 431, 433, 434, 444, 445, 446, 448, 450–453, 456, 458,
+  423–428, 411, 414 and 416–421 wait for pages; 432 depends on 404.
+
+206 queue items are open (454 closed, 456–459 added). The next unused
+queue number is **460** and the next ADR is **0050**. This is one
+iteration, not a finished queue or roadmap.

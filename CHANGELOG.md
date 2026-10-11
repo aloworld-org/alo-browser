@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Checkboxes and radio buttons look like Chrome's.** An unchecked one is
+  white inside a rounded grey edge rather than a grey square over whatever
+  is behind it; a checked checkbox is filled blue with a white tick, and a
+  chosen radio has a blue ring around a blue dot. A disabled one is drawn
+  in Chrome's pale, see-through greys whatever colour the page asked for.
+  Every shape and colour was measured from Chrome's screenshots, and a new
+  test page is compared with Chrome's screenshot of it pixel by pixel
+  (queue item 454).
+
 - **A checkbox and a radio sit beside their text as browsers put them.**
   Each is 13 pixels square with its border, stands a few pixels off the
   words around it by Chrome's own margins, and sits on the line by the

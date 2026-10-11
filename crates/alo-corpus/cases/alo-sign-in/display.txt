@@ -19,6 +19,7 @@ text box#48 "you@company.eu" rgb(122 111 98) 14px at (527, 239.30215)
 text box#55 "Password" rgb(16 42 67) 14px at (510, 286.70215)
 fill box#57 rgb(255 254 252) at (510, 298.0039) 400×46
 fill box#57 rgb(222 215 205) at (510, 298.0039) 400×46
+fill box#64 rgb(255 255 255) at (514, 363.0039) 13×13
 fill box#64 rgb(118 118 118) at (514, 363.0039) 13×13
 text box#66 "Remember me" rgb(95 85 75) 13px at (538, 374.0044)
 text box#69 "Forgot password?" rgb(217 98 71) 13px at (779.5747, 374.0044)

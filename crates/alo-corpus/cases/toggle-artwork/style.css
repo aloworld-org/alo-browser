@@ -1,0 +1,26 @@
+/* A checkbox's and a radio's own picture: queue item 454, by Chrome 154's
+   screenshot of these bytes, measured. Every control stands on a whole
+   pixel, as a flex item with no margin, so the comparison is of the
+   picture alone and not of where a fraction of a pixel puts it.
+   - The first row, over white: unchecked, checked, a radio of each, and
+     the same four disabled.
+   - The second, the same over #dde2ee; the third, the disabled four over
+     black, which is what tells a translucent grey from an opaque one, then
+     `accent-color: green`, live and disabled.
+   - The fourth, 20 by 20, and 30 by 13, which Chrome draws as a 13-pixel
+     square in its middle.
+   - The last, `aria-checked="mixed"`, which this engine draws as the bar
+     Chrome draws for a checkbox whose `indeterminate` is set (Chrome
+     itself draws these unchecked, since `aria-checked` does not change a
+     native control's picture; queue item 456), and `role=switch`, still a
+     checkbox. The mixed row is left out of the comparison with Chrome. */
+body { margin: 0; background: #ffffff }
+.row { display: flex; gap: 8px; padding: 4px; height: 13px }
+.ground { background: #dde2ee }
+.dark { background: #000000 }
+.large { height: 20px }
+input { margin: 0 }
+.large input { width: 20px; height: 20px }
+.large .wide { width: 30px; height: 13px }
+.large .big { width: 20px; height: 20px }
+.green { accent-color: #008000 }
