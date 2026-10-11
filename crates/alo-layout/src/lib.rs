@@ -58,6 +58,7 @@ pub(crate) mod out_of_flow;
 pub mod placement;
 pub mod replaced;
 pub mod sizing;
+pub(crate) mod soft_wrap;
 pub mod style;
 pub mod text_style;
 pub mod track;

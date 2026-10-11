@@ -27709,3 +27709,114 @@ now true, and the note says what was not. Also updated:
 199 queue items are open (442 closed, 447 and 448 added). The next unused
 queue number is **449** and the next ADR is **0050**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 285 — queue item 447 built: an atomic box in a line that may not wrap stays on it, by the rule measured in Chrome
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its head and stage 1, whose Text line this item serves), iteration 284.
+No `AGENTS.md` exists in this repository or above it. For 447: its queue
+entry, `docs/features.md`' Layout section (inline formatting and
+`white-space`), `docs/conformance.md`' `white-space` paragraph,
+`alo-layout`'s `inline.rs`, `engine.rs` (where atomic items are made),
+`text_style.rs`, `alo-box`'s `whitespace.rs`, and the
+`text-overflow-ellipsis` case and `alo_agenda_calendars.rs` for the corpus
+idiom. The item names no ADR and needs none: it is CSS Text 3 § 5.1 as
+Chrome applies it, with no policy, rental or agent-surface choice in it.
+
+**Choosing.** Iteration 284 named 443 and 447 buildable. 447 stands
+before 443 in the queue file, and everything above both waits for a page.
+
+**Measured first.** Headless Chrome 154 with the corpus's `DejaVu Sans`
+by `@font-face`, `getBoundingClientRect` in 1/64 px units, in boxes 80
+wide holding an `inline-block` 60 wide, over 18 probe rows. The box's own
+`white-space` never decides: `nowrap` on the box in a `normal` block still
+breaks, and `normal` on it in a `nowrap` block does not. After a space,
+the space's box decides: `ab <span normal>x </span><ib>` in `nowrap`
+breaks, and `ab <span normal><ib>` does not, because its space is the
+block's. Otherwise the nearest box holding both decides:
+`abc<span normal><ib>` in `nowrap` stays, `abc<span nowrap><ib>` in
+`normal` breaks, and `ab <span normal>x<ib>` in `nowrap` breaks between
+"x" and the box. Two rows do not fit that rule. Chrome breaks *after* the
+box in `<span normal>x<ib></span> cd` inside `nowrap`, and before text by
+the space before it (`ab <span nowrap>cdefghij</span>` in `normal`). Both
+are in 449, not here.
+
+**What was built.**
+- `alo-layout`: `soft_wrap.rs` — `SoftWrap`, what the line builder last
+  laid down: a space and whether its box wraps, or something else and how
+  many inline boxes deep, lowered by `closed` as boxes close. `allows`
+  answers whether a line may break before an atomic box, given whether
+  each depth's box wraps. It has four unit tests of its own.
+- `inline.rs`: `OpenBox` records `wraps`, and the builder records the
+  block's (`strut_wraps`) and a `SoftWrap`. A text piece reports itself as
+  a space if it ends in a space, tab or newline, and as a letter otherwise
+  (`laid`), so a no-break space is a letter. `close` lowers the depth.
+  `add_atomic` breaks only when `may_break_before_atomic` and the box does
+  not fit. A module-doc section says so; seven unit tests in
+  `atomic_wrapping` reproduce the measured rows in the test font.
+
+**Evidence.** `cases/atomic-in-nowrap-line`, nine rows, against Chrome's
+`getBoundingClientRect` for the same bytes. Every box's x is within 1/64
+(33.046875 for 2115/64, 36.7578 for 2353/64, 8 and 68), every box is on
+Chrome's line, and every row's height matches (20 × 5, 40, 60, 40, 20).
+Every box is 0.54 lower here, Chrome flooring half-leading below an
+`inline-block`, as already recorded in an earlier iteration and unchanged
+here. A screenshot comparison with PIL found the same red columns and
+rows, one pixel higher in Chrome. The `#ended` row draws no box in either,
+and has ink in the same columns ("ab" 9–26, the dots at 35, 40 and
+45/46). A side-by-side view showed the two renders alike row for row.
+
+**Gate, mechanical.** `cargo fmt --all`; `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean. It first refused three
+lints in the new corpus test: a binding too like another, a complex type
+and a `usize` cast. They were fixed with a `Row` alias, a `u8` and a
+rename. `scripts/gate.sh` ran in the foreground to a log. The harness
+moved it to the background at 600 s, and the next call waited on it with
+a foreground `until` loop: `exit 0`, "The gate is met", no failing test in
+the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- *Layout assertions in numbers:* `soft_wrap.rs`' four tests;
+  `inline.rs`' seven `atomic_wrapping` tests; `alo-corpus`'
+  `tests/atomic_in_nowrap_line.rs` (each box's x and line and each row's
+  height, Chrome's; the box on the clipped line hidden, its "…" at
+  2115/64).
+- *Reference render:* `cases/atomic-in-nowrap-line` written with
+  `ALO_UPDATE_REFERENCES=1`, after a corpus run without it showed no
+  committed case moved. It was looked at and compared with Chrome's
+  screenshot.
+- *Mutations, restored from copies (`cmp` confirmed):* breaking
+  regardless of the rule fails five unit tests and both corpus tests;
+  ignoring the space fails three; `closed` doing nothing fails one;
+  counting a no-break space as a space fails one.
+- *Hostile input:* nothing here reads bytes from outside; the new state
+  is two small fields, and nothing indexes or unwraps.
+- One responsibility per file: the rule has its own file, and the builder
+  only reports to it and asks it. No `unsafe`. `alo-workplace` and
+  `alo-os` were not touched.
+
+**Queue.** 447 ticked with its *Done* paragraph. Three items were found
+while building it, each with Chrome's numbers. 449: a break before text
+by the same rule, and Chrome's break after an atomic box; buildable. 450:
+a trailing space at a line's end still widens its inline box; waits for a
+page. 451: an inline box opened just before a break keeps an empty piece
+on the line before; waits for a page.
+
+**Roadmap.** Stage 1's Text line (line breaking) gains an italic note
+that a `nowrap` line broke before an atomic box until 447, and that 449,
+450 and 451 are owed. It stays ticked, as with 442's note. Also updated:
+`docs/features.md` (`white-space`, built and not yet),
+`docs/conformance.md`, `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- Breaking before text by the space before it, and Chrome's break after
+  an atomic box in a `normal` span (449). The second contradicts the
+  common-ancestor rule and needs a closer measurement first.
+- 450 and 451, above.
+- 443 and 449 are buildable next and depend on nothing.
+- 438, 439, 431, 433, 434, 444, 445, 446, 448, 450, 451, 423–428, 411,
+  414 and 416–421 wait for pages; 432 depends on 404.
+
+201 queue items are open (447 closed, 449–451 added). The next unused
+queue number is **452** and the next ADR is **0050**. This is one
+iteration, not a finished queue or roadmap.

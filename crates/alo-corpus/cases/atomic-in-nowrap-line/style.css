@@ -1,0 +1,29 @@
+/* An atomic box in a line that may not wrap stays on it, queue item 447, by
+   the rules measured in Chrome 154 (crates/alo-layout/src/soft_wrap.rs).
+   Each row is 80 wide and holds a box 60 wide; `.wraps` is `normal` and
+   `.nowrap` is `nowrap`.
+   - #kept: `ab <ib> cd` in `nowrap` is one line, overflowing.
+   - #own: the box's own `white-space` is about what is in it, not the line.
+   - #pair: two boxes side by side in `nowrap`, one line.
+   - #blocks-space: `ab <span normal><ib>`: the space is the block's, which
+     does not wrap, so one line.
+   - #blocks-letter: `abc<span normal><ib>`: the block holds both, one line.
+   - #spans-space: `ab <span normal>x </span><ib> cd`: the space is the
+     span's, which wraps, so the box starts the second line and " cd" stays
+     beside it.
+   - #wrapping: a `normal` block breaks before a `nowrap` box.
+   - #wrapping-letter: `abc<span nowrap><ib>` in a `normal` block: the block
+     holds both, so it breaks.
+   - #ended: #kept clipped and ended in "…": the box stays on the line, so
+     the ellipsis hides it whole. */
+body { margin: 8px; background: #ffffff; color: #000000; font-size: 16px }
+div {
+  width: 80px;
+  line-height: 20px;
+  margin-bottom: 4px;
+  background: #dde2ee;
+}
+.nowrap { white-space: nowrap }
+.wraps { white-space: normal }
+.ib { display: inline-block; width: 60px; height: 10px; background: #c81e1e }
+#ended { overflow: hidden; text-overflow: ellipsis }

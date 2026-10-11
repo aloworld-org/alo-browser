@@ -6290,7 +6290,7 @@ The long pole, and the thing most of section E is unreachable without.
   agent reads the whole name; `cases/text-overflow-ellipsis` pins the
   measured rules in pixels. Cut: 447, 448.
 
-- [ ] **447. An atomic box in a line that may not wrap stays on it.**
+- [x] **447. An atomic box in a line that may not wrap stays on it.**
   *Found building 442 (iteration 284). Feature: `docs/features.md` stage
   1, inline formatting. Depends on nothing.* `alo-layout`'s `add_atomic`
   ends the line before an `inline-block` or a picture that does not fit
@@ -6300,6 +6300,61 @@ The long pole, and the thing most of section E is unreachable without.
   The item knows no `white-space`, so the line has nothing to ask. *Closes
   when:* a case pins an atomic box in a `nowrap` line on that line, with
   Chrome's numbers.
+  **Done (iteration 285).** The box's own `white-space` is not the one to
+  ask: it governs what is inside it. Measured in Chrome 154, in boxes 80
+  wide holding a box 60 wide, the rule is CSS Text 3 § 5.1's. After a
+  space, the box holding the space decides (`ab <span normal>x </span><ib>`
+  in `nowrap` breaks, `ab <span normal><ib>` does not). Otherwise, the
+  nearest box holding both what came before and the atomic box decides
+  (`abc<span normal><ib>` in `nowrap` does not break, `abc<span
+  nowrap><ib>` in `normal` does). `alo-layout`'s new `soft_wrap.rs` keeps
+  what the line builder last laid down (a space and whether its box wraps,
+  or something else and how deep), lowered as inline boxes close. The
+  builder asks it before breaking for an atomic box; a no-break space
+  counts as a letter. `cases/atomic-in-nowrap-line` pins nine rows. Its
+  test `tests/atomic_in_nowrap_line.rs` gives Chrome's numbers for each
+  box: across to its 1/64 px unit, which line it is on, and each row's
+  height. The `#ended` row shows the box kept on a clipped line, hidden
+  whole by its "…" as in Chrome's screenshot. No committed case moved.
+  Found: 449, 450, 451.
+
+- [ ] **449. A line breaks before text where the space before it allows.**
+  *Found building 447 (iteration 285). Feature: `docs/features.md` stage
+  1, inline formatting. Depends on nothing.* `alo-layout`'s `add_run`
+  decides a break before a run's first piece by that run's own
+  `white-space`. CSS Text 3 § 5.1 and Chrome 154 decide it by the space
+  before it, or else by the box holding both, as 447 does for an atomic
+  box. Measured in an 80 px box: `ab <span nowrap>cdefghij</span>` in
+  `normal` breaks at the space and puts the span on line 2, where this
+  engine keeps it on line 1. And Chrome breaks after an atomic box in a
+  `normal` span inside a `nowrap` block (`ab <span normal>x<ib></span>
+  cd`: three lines, " cd" on the third), where this engine keeps " cd"
+  beside the box. That second case contradicts the common-ancestor rule,
+  so it needs a closer look before it is built. *Closes when:* a case pins
+  both rows with Chrome's numbers. `soft_wrap.rs` is where the rule
+  already lives.
+
+- [ ] **450. A space that ends a line does not widen its inline box.**
+  *Found building 447 (iteration 285). Feature: `docs/features.md` stage
+  1, inline formatting. Waits for a page.* In
+  `cases/atomic-in-nowrap-line`'s `#spans-space` row, `<span>x </span>`
+  ends line 1 before a box that moved to line 2. Chrome's span is 9.47
+  wide, the "x" alone, because the space at the end of a line hangs. This
+  engine's is 14.55, space included, because the span closed mid-line
+  before the line ended. A background on such a span would run 5 px
+  further here. *Closes when:* a frozen page's inline box ending a line
+  in a space is as wide as Chrome's.
+
+- [ ] **451. An inline box opened just before a break starts on the next
+  line.** *Found building 447 (iteration 285). Feature:
+  `docs/features.md` stage 1, inline formatting. Waits for a page.* In
+  `#wrapping-letter`, `abc<span nowrap><ib></span>` in `normal` breaks
+  before the box. Chrome's span is on line 2 only (60 × 19). This
+  engine's span opens on line 1, so it gets an empty piece there and its
+  union is 60 × 38.6. Nothing draws, because the span has no edges, but a
+  span with padding or a border would draw a sliver at the end of line 1,
+  and its bounds are what an agent reads. *Closes when:* a frozen page's
+  inline box opened before such a break has no piece on the line before.
 
 - [ ] **448. An ellipsis after a space that is a text box of its own.**
   *Cut from 442. Feature: `docs/features.md` stage 1, text. Waits for a

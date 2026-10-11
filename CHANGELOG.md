@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A line that may not wrap keeps its inline blocks.** A button, a badge or
+  a picture in a `white-space: nowrap` line stays on that line and
+  overflows it, as browsers do, where it used to drop to a line of its own
+  whenever it did not fit. In a row that clips and ends in "…", the "…"
+  now hides it. Whether a line breaks before such a box depends on the
+  space before it or the element holding both, never on the box's own
+  `white-space`. Each rule was measured in Chrome (queue item 447).
+
 - **A line too long for its box ends in "…".** alo Agenda's shared
   calendar, "Mira's calendar, shared from the design team", is drawn
   "Mira's calendar…" inside its row, as browsers draw it, where it was

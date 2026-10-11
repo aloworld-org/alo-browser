@@ -304,7 +304,19 @@ lines break rather than only how the letters sit.
 **`white-space` is processed**: runs of whitespace collapse to one space when
 a box is built, `pre-line` keeps the newlines, `pre` and `pre-wrap` keep
 everything, and `pre` and `nowrap` refuse to wrap. Before this the engine did
-none of it and drew markup's own indentation.
+none of it and drew markup's own indentation. **That includes an
+`inline-block` or a picture** (queue item 447): a box in a `nowrap` line
+stays on it and overflows. Whether a line may break before such a box is
+decided by the space before it, or else by the box holding both it and what
+came before, never by the box's own `white-space`. Chrome 154 agrees on
+every row of `crates/alo-corpus/cases/atomic-in-nowrap-line`, to its layout
+unit across, line for line. Until then every such box that did not fit
+started a new line. Three differences from Chrome are known, each in the
+queue: a line here breaks before text by the text's own `white-space` and
+not by the space before it (449), and Chrome breaks after an atomic box
+where this engine does not (449 too); an inline box's trailing space at the
+end of a line still widens the box (450); and an inline box that opens just
+before a break keeps an empty piece on the line before (451).
 
 **A `<br>` ends its line**, as HTML's rendering section says, even under
 `nowrap`. Two in a row leave a blank line, one at the end of a paragraph adds

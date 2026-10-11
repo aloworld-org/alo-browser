@@ -1,0 +1,39 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      text "ab "
+      inline flow-root · generic
+      text " cd"
+    block flow · generic
+      text "ab "
+      inline flow-root · generic
+      text " cd"
+    block flow · generic
+      inline flow-root · generic
+      inline flow-root · generic
+    block flow · generic
+      text "ab "
+      inline flow · generic
+        inline flow-root · generic
+    block flow · generic
+      text "abc"
+      inline flow · generic
+        inline flow-root · generic
+    block flow · generic
+      text "ab "
+      inline flow · generic
+        text "x "
+      inline flow-root · generic
+      text " cd"
+    block flow · generic
+      text "ab "
+      inline flow-root · generic
+      text " cd"
+    block flow · generic
+      text "abc"
+      inline flow · generic
+        inline flow-root · generic
+    block flow · generic
+      text "ab "
+      inline flow-root · generic
+      text " cd"

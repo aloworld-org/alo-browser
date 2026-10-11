@@ -78,6 +78,12 @@ correctness, not before it.
       the box's edge. A line that overflows a clipping box now ends in "…"
       by the rules measured in Chrome 154, drawn only, with every box and
       line where it was and the whole text read by an agent.*
+      *Line breaking broke a `nowrap` line before an `inline-block` that
+      did not fit until queue item 447 (iteration 285). A line now breaks
+      before an atomic box only where the space before it or the box
+      holding both allows it, measured row by row against Chrome 154.
+      Breaking before text by the same rule is still owed (449), and so
+      are 450 and 451.*
 - [x] **Paint**: a display list, then a software raster to a PNG
 - [x] **Reference renders**: a committed corpus, diffed on every change
 - [x] ★ **The agent tree**: the layout tree read as roles, states and positions

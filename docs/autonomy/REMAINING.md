@@ -1646,3 +1646,16 @@ Found: 447 (an atomic box in a `nowrap` line wraps; buildable). Cut: 448 (a
 are buildable next and depend on nothing. 199 queue items are open (442
 closed, 447 and 448 added). The next unused queue number is 449 and the
 next unused ADR 0050.
+
+Iteration 285 built item 447: an atomic box in a line that may not wrap
+stays on it. Whether a line breaks before an `inline-block` or a picture
+is decided by the space before it, or else by the nearest box holding both
+it and what came before (CSS Text 3 § 5.1, `alo-layout`'s `soft_wrap.rs`),
+measured row by row against Chrome 154 in `cases/atomic-in-nowrap-line`.
+Found: 449 (a break before text by the same rule, and Chrome's break after
+an atomic box; buildable), 450 (a trailing space at a line's end widens its
+inline box; waits for a page), 451 (an inline box opened before a break
+keeps an empty piece on the line before; waits for a page). 443 and 449 are
+buildable next and depend on nothing. 201 queue items are open (447 closed,
+449–451 added). The next unused queue number is 452 and the next unused ADR
+0050.
