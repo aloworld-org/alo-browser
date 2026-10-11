@@ -58,6 +58,15 @@ alo Sites cases are.
   `@media (prefers-reduced-motion: reduce)`, is not understood and so does
   not match, which is what a person who has not asked for less motion gets
   anyway.
+- **A card's border was drawn in its text's colour** — item 435, built.
+  `.section-presented.section-cards` gives every card `border: 1px solid
+  color-mix(in srgb, var(--section-text) 14%, transparent)`, and the
+  shorthand was split at every space, so the mix was five words, none a
+  colour, and the ring was drawn opaque `rgb(23 33 43)`. Chrome 154
+  computes it `color(srgb 0.0901961 0.129412 0.168627 / 0.14)`, 1px, and so
+  it is drawn here now, `rgb(23 33 43 / 0.14)` in display.txt. The section
+  is at opacity 0 (item 381), so the picture does not move;
+  `cases/border-colour-functions` draws the same rule where it shows.
 
 Everything else checks against the sheet by hand and is pinned as it is:
 `main > section`'s 1.25rem sides and `section-spacing-generous`'s 5rem top

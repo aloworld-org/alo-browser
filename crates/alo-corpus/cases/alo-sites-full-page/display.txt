@@ -14,7 +14,7 @@ fill box#57 rgb(76 88 102) at (0, 461) 800×408.59998
 text box#60 "Why Nordwind" rgb(23 33 43) 28px at (284.60938, 567.49335)
 text box#63 "Three promises on every bag." rgb(76 88 102) 17px at (252.91089, 608.0852)
 fill box#67 rgb(72 84 97) at (20, 632.8) 760×156.79999
-fill box#67 rgb(23 33 43) at (20, 632.8) 760×156.79999
+fill box#67 rgb(23 33 43 / 0.14) at (20, 632.8) 760×156.79999
 text box#70 "Roasted to order" rgb(23 33 43) 18px at (41, 690.8314)
 text box#73 "Your batch goes in the drum after you order." rgb(23 33 43) 17px at (41, 723.8852)
 untransform

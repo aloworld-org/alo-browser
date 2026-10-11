@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A border whose colour is written as a function is drawn that colour.**
+  `border: 1px solid rgb(29 78 216)` — or `hsl()`, or `color-mix()` — was
+  torn apart at its spaces, the colour lost, and the border drawn in the
+  text's colour; a width written as `calc()` in the same shorthand was lost
+  the same way and the border not drawn at all. alo Sites' cards, ringed
+  in their text colour at 14%, were drawn with a solid dark ring and now
+  have the faint one every browser draws (queue item 435).
+
 - **A closed question in an FAQ shows only the question, and an agent
   opens it the way a person does.** alo Sites makes every FAQ entry a
   `<details>`; closed, its answer was laid out, drawn and read out to an

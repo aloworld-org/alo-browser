@@ -6017,7 +6017,7 @@ The long pole, and the thing most of section E is unreachable without.
   or 5 wide as written, `border: 1px solid` then `border-style: solid`
   alone are 1 and 3, and a percentage is refused and recorded, in numbers.
 
-- [ ] **435. A colour written as a function in the `border` shorthand is
+- [x] **435. A colour written as a function in the `border` shorthand is
   drawn.** *Found while building 429 (iteration 277). Feature:
   `docs/features.md` stage 1, borders. Depends on nothing.* `alo-value`'s
   `parse_border` splits the shorthand at every space, so `border: 1px
@@ -6031,6 +6031,40 @@ The long pole, and the thing most of section E is unreachable without.
   border written with `rgb()`, `hsl()` and `color-mix()` in the shorthand
   is drawn that colour, in a reference render and in the display list,
   and the frozen cards' borders are checked against Chrome.
+  **Done (iteration 278).** `alo-value`'s `parse.rs` splits a value into
+  its top-level parts (`components`), a function or bracket being one part
+  to its closing bracket, and `parse_border` reads those parts rather than
+  space-separated words. So `rgb(29 78 216)`, `rgb(29, 78, 216)`,
+  `hsl(120 100% 25%)` and `color-mix(in srgb, …)` are colours in the
+  shorthand and `calc(2px + 2px)` a width (which was 0 wide); `oklch()` is
+  still refused whole, its numbers not leaking out as a width. The corpus
+  case `border-colour-functions` draws all of them with black text, so a
+  lost colour would be a black ring: decoded, each ring is its colour and
+  the card's, `color-mix(in srgb, #17212b 14%, transparent)`, is `rgb(23
+  33 43 / 0.14)` in the display list and `(223, 224, 225)` over white.
+  Chrome 154 computes the same six colours and widths, and the frozen
+  cards' — `alo-sites-features`' and `alo-sites-full-page`'s one each —
+  as `color(srgb 0.0901961 0.129412 0.168627 / 0.14)`, 1px; both
+  `display.txt`s moved from `rgb(23 33 43)` to that. Their pictures do not
+  move: the sections are at opacity 0 (381). `alo-layout`'s `numbers.rs`
+  pins a `calc()` top border at 4 and one beside a comma `rgb()` at 9 on
+  every side. Chrome draws the card's ring over white `(222, 224, 225)`,
+  a unit off in red: 436.
+
+- [ ] **436. A translucent colour blends a unit away from Chrome's.**
+  *Found while building 435 (iteration 278). Feature: `docs/features.md`
+  stage 1, colours. Depends on nothing.* `cases/border-colour-functions`'
+  ring, `rgb(23 33 43 / 0.14)` over white, is `(223, 224, 225)` here and
+  `(222, 224, 225)` in a Chrome 154 screenshot of the same page. 255 × 0.86
+  + 23 × 0.14 is 222.48, so this rounds the exact blend; Chrome's
+  `222` is what an alpha first quantised to a byte, 36 / 255, gives
+  (222.25). Which of the two it is — and whether it is the alpha, the
+  premultiplication or the rounding — is for this item to measure across
+  more than one colour before anything changes, since every translucent
+  fill would move. *Closes when:* a reference render of several
+  translucent fills over white and over a colour matches Chrome's
+  screenshot pixel for pixel, or the remaining difference is measured and
+  explained.
 
 - [ ] **432. A `<summary>` draws its disclosure triangle.** *Cut from 429
   by ADR 0048 § 5. Opened by `alo-sites-full-page`'s FAQ. Feature:

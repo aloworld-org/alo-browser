@@ -74,6 +74,15 @@ is pinned by layout.txt, display.txt and agent.txt.
   whole device pixels. Now it is 4 here too, and the section's content
   starts at 44, as in Chrome; it was 44.8. `tests/alo_sites_full_page.rs`
   says so.
+- **A card's border was drawn in its text's colour** — item 435, built.
+  `.section-presented.section-cards` gives every card `border: 1px solid
+  color-mix(in srgb, var(--section-text) 14%, transparent)`, and the
+  shorthand was split at every space, so the mix was five words, none a
+  colour, and the ring was drawn opaque `rgb(23 33 43)`. Chrome 154
+  computes it `color(srgb 0.0901961 0.129412 0.168627 / 0.14)`, 1px, and so
+  it is drawn here now, `rgb(23 33 43 / 0.14)` in display.txt. The section
+  is at opacity 0 (item 381), so the picture does not move;
+  `cases/border-colour-functions` draws the same rule where it shows.
 
 Everything else matches Chrome to its layout unit apart from what is already
 in the queue: the FAQ is `columns: 2 20rem` (item 97, multi-column, needs

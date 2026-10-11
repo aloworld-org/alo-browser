@@ -26947,3 +26947,105 @@ are already ticked. Also updated: `docs/features.md`, `docs/conformance.md`
 192 queue items are open (429 closed, 435 added). The next unused queue
 number is **436** and the next ADR is **0049**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 278 — queue item 435 built: a function in the `border` shorthand is read whole
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its head and stage 1's opening), iterations 275–277 and `REMAINING.md`'s
+continuation. No `AGENTS.md` exists in this repository or above it. For
+435: its queue entry with 430 and 431, `docs/features.md`' border lines,
+`docs/conformance.md`' border paragraphs and alo Sites row, `alo-value`'s
+`shorthand.rs` and `parse.rs`, and every caller of `parse_border`
+(`alo-layout`'s `style.rs` border width reader, `alo-paint`'s `build.rs`
+`border_style` and `border_color`). No ADR governs it: it is a parsing
+fault in a shorthand stage 1 already reads, under features' stage 1
+borders, and decides nothing new.
+
+**Choosing.** Iteration 277 left 435 the only open item depending on
+nothing open and needing no page; every other open item waits on a page,
+a dependency, a design or an ADR.
+
+**What was built.**
+- `alo-value`'s `parse.rs`: `components`, a value's top-level parts as
+  written. A function or bracketed block is one part to its matching
+  bracket; comments are not parts; an unclosed function runs to the end
+  and a stray `)` is a part nobody recognises. It is beside `is_keyword`
+  because `parse.rs` is the one file in the crate that names `cssparser`.
+- `shorthand.rs`: `parse_border` reads those parts instead of
+  `split_ascii_whitespace`. Nothing else changed in how a part is
+  classified.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean. `scripts/gate.sh`
+ran in the foreground to a log. The harness moved it to the background at
+600 s, and the next call waited on it in a foreground `until` loop. It read
+`exit 0` and "The gate is met", with no `FAILED` or `panicked` in the log.
+Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout assertion in numbers: `alo-layout/tests/numbers.rs`'
+  `a_function_in_the_border_shorthand_is_read_whole`. `border-top:
+  calc(2px + 2px) solid hsl(0 100% 50%)` is 4 on top, 0 below, the box 24
+  × 28 with its content at y 4 (it was 0 wide). `border: rgb(29, 78, 216)
+  solid calc(1px + 0.5rem)` is 9 on every side, 42 × 42 at y 28. Chrome
+  154 reported the first one's top width as 4px.
+- Reference render: the new case `border-colour-functions` (248 × 48) has
+  six 24-pixel boxes with 4-pixel rings and black text, so a lost colour
+  would be a black ring. The picture was looked at, and its pixels decoded:
+  the rings are `(29, 78, 216)` twice, `(0, 128, 0)`, `(128, 0, 128)`,
+  `(223, 224, 225)` for alo Sites' card mix over white, and a red top-only
+  ring, with white inside each from x+4. A Chrome 154 screenshot of the
+  same page has the same pixels, except the card ring, which is `(222, 224,
+  225)` (436). Chrome's computed colours are the same six, `color-mix` of
+  red and blue being `color(srgb 0.5 0 0.5)`.
+- Frozen pages: `alo-sites-features` and `alo-sites-full-page` each have
+  one presented card. Chrome 154 computes its border on the frozen bytes,
+  with the sheet linked locally, as `color(srgb 0.0901961 0.129412
+  0.168627 / 0.14)`, 1px. Each `display.txt` moved by exactly one line,
+  from `rgb(23 33 43)` to `rgb(23 33 43 / 0.14)`. That was reviewed in the
+  diff after `ALO_UPDATE_REFERENCES=1`, and no other case moved
+  (`border-widths` was rewritten identically). Neither picture moves:
+  both sections are at opacity 0 (381). Both `origin.txt`s say so.
+- Unit tests: 2 in `parse.rs` (the splitting, and malformed input: an
+  unclosed function, a stray bracket, 10 000 nested functions and an
+  unclosed string, none panicking) and 3 in `shorthand.rs` (four colour
+  functions in any order, a `calc()` width, `oklch()` left out whole).
+- Mutation check, from a scratchpad copy restored with `cp` and checked
+  with `cmp`: putting back the whitespace split fails 2 `alo-value` tests,
+  the layout assertion and the corpus (`alo-sites-features`,
+  `alo-sites-full-page`, `border-colour-functions`).
+- Hostile input: `components` reads sheet text, which in stage 2 is a
+  stranger's. It is a single pass with `cssparser`'s own block skipping,
+  bounded by the input's length, and the malformed-input test covers it.
+- One file, one responsibility: splitting a value is reading it
+  (`parse.rs`); classifying a border's parts stays in `shorthand.rs`.
+- No `unsafe`, no dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` is clean in each.
+
+**Queue.** 435 ticked with its *Done* paragraph. Added 436: a translucent
+colour over white blends one unit off Chrome's in the red channel (222.48
+rounded to 223 here, 222 in Chrome, which is what an alpha quantised to a
+byte gives). Depends on nothing; it is to be measured across several
+colours before anything changes, because every translucent fill would move.
+
+**Roadmap: no line moved, and why.** 435 is a border colour, under stage
+1's *Paint* line, which is already ticked, and no stage 2 line names
+shorthands or alo Sites' cards. As in iterations 269–275, moving one would
+be decoration. Also updated: `docs/features.md`, `docs/conformance.md` (a
+paragraph and the alo Sites row), both frozen cases' `origin.txt`,
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 436, above: the blend's one unit in one channel.
+- Other shorthands that may split at spaces were not audited. 397 fixed
+  `gap`; whether `outline`, `column-rule` or `text-decoration` tear a
+  function the same way was not checked, and none of them is drawn from a
+  function on a frozen page known to this iteration.
+- That the window draws this was not captured: the window capture is
+  still refused on this machine (296).
+- 431, 433, 434, 436, 423–428, 411, 414 and 416–421 wait for pages, or,
+  for 436, depend on nothing and are buildable; 432 depends on 404.
+
+192 queue items are open (435 closed, 436 added). The next unused queue
+number is **437** and the next ADR is **0049**. This is one iteration, not
+a finished queue or roadmap.

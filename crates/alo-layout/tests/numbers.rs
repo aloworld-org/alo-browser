@@ -197,6 +197,36 @@ fn a_border_is_whole_device_pixels_wide() {
 }
 
 #[test]
+fn a_function_in_the_border_shorthand_is_read_whole() {
+    // Queue item 435: the shorthand was split at every space, so a width
+    // written as `calc()` was three words, none a width, and the border was
+    // laid out 0 wide; a colour function beside it tore the same way. Chrome
+    // 154 lays the first one's top out 4 wide.
+    let html = "<body><div id=a></div><div id=b></div></body>";
+    let css = "div { width: 24px; height: 24px } \
+               #a { border-top: calc(2px + 2px) solid hsl(0 100% 50%) } \
+               #b { border: rgb(29, 78, 216) solid calc(1px + 0.5rem) }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+
+    let a = geometry_of(&boxes, &layout, "a", html);
+    assert!(
+        close(a.border.top, 4.0) && close(a.border.bottom, 0.0),
+        "{a:?}"
+    );
+    assert_eq!(a.border_box, Rect::new(0.0, 0.0, 24.0, 28.0));
+    assert!(close(a.content_box().origin.y, 4.0), "{a:?}");
+
+    let b = geometry_of(&boxes, &layout, "b", html);
+    assert!(
+        [b.border.top, b.border.right, b.border.bottom, b.border.left]
+            .into_iter()
+            .all(|side| close(side, 9.0)),
+        "{b:?}"
+    );
+    assert_eq!(b.border_box, Rect::new(0.0, 28.0, 42.0, 42.0));
+}
+
+#[test]
 fn border_box_sizing_puts_the_padding_and_border_inside_the_width() {
     let html = "<body><div id=a></div></body>";
     let css = "div { box-sizing: border-box; width: 100px; height: 50px; \

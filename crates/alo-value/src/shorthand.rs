@@ -20,7 +20,7 @@
 
 use crate::color::Color;
 use crate::length::LengthPercentage;
-use crate::parse::{parse_color, parse_length_percentage};
+use crate::parse::{components, parse_color, parse_length_percentage};
 
 /// The border-style keywords CSS has.
 ///
@@ -60,9 +60,13 @@ impl Border {
 ///
 /// The keywords `thin`, `medium` and `thick` are the widths CSS names, and
 /// they are the values a sheet uses when it says `border: thin solid`.
+///
+/// The value is split into its top-level parts, not at every space, so a
+/// colour or a width written as a function — `rgb(29 78 216)`,
+/// `color-mix(in srgb, …)`, `calc(1rem + 1px)` — is read whole.
 pub fn parse_border(text: &str) -> Border {
     let mut border = Border::default();
-    for part in text.split_ascii_whitespace() {
+    for part in components(text) {
         if border.style.is_none()
             && let Some(style) = STYLES.iter().find(|style| part.eq_ignore_ascii_case(style))
         {
@@ -173,6 +177,40 @@ mod tests {
         assert!(parse_border("").is_empty());
         assert!(parse_border("   ").is_empty());
         assert!(Border::default().is_empty());
+    }
+
+    #[test]
+    fn a_colour_written_as_a_function_is_read_whole() {
+        for (text, expected) in [
+            ("1px solid rgb(29 78 216)", (29, 78, 216, 255)),
+            ("1px solid rgb(29, 78, 216)", (29, 78, 216, 255)),
+            ("hsl(120 100% 25%) solid 1px", (0, 128, 0, 255)),
+            (
+                "solid color-mix(in srgb, #ff0000 50%, #0000ff) 2px",
+                (128, 0, 128, 255),
+            ),
+        ] {
+            let border = parse_border(text);
+            assert_eq!(color(&border), Some(expected), "{text}");
+            assert_eq!(border.style.as_deref(), Some("solid"), "{text}");
+            assert!(border.width.is_some(), "{text}");
+        }
+    }
+
+    #[test]
+    fn a_width_written_as_a_function_is_read_whole() {
+        let border = parse_border("calc(1px + 2px) solid red");
+        assert_eq!(width_px(&border), Some(3.0));
+        assert_eq!(color(&border), Some((255, 0, 0, 255)));
+    }
+
+    #[test]
+    fn a_colour_function_nobody_implements_is_left_out_whole() {
+        // `oklch()` is refused by the colour reader; what matters here is that
+        // its numbers do not leak out as a width.
+        let border = parse_border("solid oklch(0.5 0.1 200)");
+        assert!(border.color.is_none() && border.width.is_none());
+        assert_eq!(border.style.as_deref(), Some("solid"));
     }
 
     #[test]

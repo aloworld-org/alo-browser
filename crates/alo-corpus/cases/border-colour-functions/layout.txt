@@ -1,0 +1,8 @@
+block flow · document → 248×48 at (0, 0)
+  block flex · generic → 232×32 at (8, 8)
+    block flow · generic → 32×32 at (8, 8)
+    block flow · generic → 32×32 at (48, 8)
+    block flow · generic → 32×32 at (88, 8)
+    block flow · generic → 32×32 at (128, 8)
+    block flow · generic → 32×32 at (168, 8)
+    block flow · generic → 24×28 at (208, 8)

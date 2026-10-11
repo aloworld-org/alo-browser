@@ -1561,3 +1561,14 @@ corpus case `details-closed-and-open` draws the three shapes. Found: 435
 spaces and the border drawn in `currentColor`). 192 queue items are open
 (429 closed, 435 added). The next unused queue number is 436 and the next
 unused ADR 0049.
+
+Iteration 278 built item 435: `alo-value` splits a shorthand into its
+top-level parts (`parse.rs`' `components`) and `parse_border` reads those,
+so a colour written `rgb(29 78 216)`, `hsl()` or `color-mix()` and a width
+written `calc()` survive the `border` shorthand. alo Sites' presented cards
+are ringed `rgb(23 33 43 / 0.14)`, as Chrome 154 computes them, where they
+were drawn in their opaque text colour; the new corpus case
+`border-colour-functions` draws each form. Found: 436 (a translucent colour
+over white blends a unit off Chrome's in one channel; depends on nothing).
+192 queue items are open (435 closed, 436 added). The next unused queue
+number is 437 and the next unused ADR 0049.

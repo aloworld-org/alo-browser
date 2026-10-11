@@ -880,6 +880,46 @@ pub fn is_keyword(text: &str, keyword: &str) -> bool {
     text.trim().eq_ignore_ascii_case(keyword)
 }
 
+/// A value's top-level parts, each as it was written.
+///
+/// `1px solid rgb(29 78 216)` is three parts, not five: a function is one
+/// part with everything up to its closing bracket, whatever spaces are inside
+/// it. That is what a shorthand which splits by kind needs, and splitting at
+/// every space is how `rgb(29`, `78` and `216)` became three words none of
+/// which is a colour (queue item 435).
+///
+/// Comments are not parts. An unclosed function runs to the end of the value,
+/// as CSS says it does, and a stray closing bracket is a part of its own,
+/// which nothing will recognise.
+pub(crate) fn components(text: &str) -> Vec<&str> {
+    let mut input = ParserInput::new(text);
+    let mut parser = CssParser::new(&mut input);
+    let mut parts = Vec::new();
+    loop {
+        parser.skip_whitespace();
+        let start = parser.position();
+        let opens_a_block = match parser.next_including_whitespace() {
+            Ok(token) => matches!(
+                token,
+                Token::Function(_)
+                    | Token::ParenthesisBlock
+                    | Token::SquareBracketBlock
+                    | Token::CurlyBracketBlock
+            ),
+            Err(_) => break,
+        };
+        if opens_a_block {
+            // Read to the matching bracket, so the slice ends after it.
+            let _ = parser.parse_nested_block(|inner| {
+                while inner.next().is_ok() {}
+                Ok::<(), cssparser::ParseError<'_, ()>>(())
+            });
+        }
+        parts.push(parser.slice_from(start));
+    }
+    parts
+}
+
 /// Run a parser over the whole of a value, refusing anything left over.
 fn entirely<T>(text: &str, parse: impl FnOnce(&mut CssParser<'_, '_>) -> Option<T>) -> Option<T> {
     let mut input = ParserInput::new(text);
@@ -2028,5 +2068,34 @@ mod tests {
         assert!(is_keyword("  AUTO  ", "auto"));
         assert!(!is_keyword("auto auto", "auto"));
         assert!(!is_keyword("automatic", "auto"));
+    }
+
+    #[test]
+    fn a_function_is_one_part_whatever_spaces_are_inside_it() {
+        assert_eq!(
+            components("1px solid rgb(29 78 216)"),
+            ["1px", "solid", "rgb(29 78 216)"],
+        );
+        assert_eq!(
+            components("  color-mix(in srgb, #123456 14%, transparent)\tsolid   calc(1rem + 2px) "),
+            [
+                "color-mix(in srgb, #123456 14%, transparent)",
+                "solid",
+                "calc(1rem + 2px)",
+            ],
+        );
+        assert_eq!(components("a (b c) [d e]"), ["a", "(b c)", "[d e]"]);
+        assert_eq!(components("1px /* a note */ solid"), ["1px", "solid"]);
+        assert!(components("   ").is_empty());
+    }
+
+    #[test]
+    fn a_malformed_value_is_split_without_panicking() {
+        assert_eq!(components("1px rgb(1 2 3"), ["1px", "rgb(1 2 3"]);
+        assert_eq!(components("1px ) solid"), ["1px", ")", "solid"]);
+        assert_eq!(components("rgb(((("), ["rgb(((("]);
+        let deep = format!("{}{}", "f(".repeat(10_000), ")".repeat(10_000));
+        assert_eq!(components(&deep).len(), 1);
+        assert_eq!(components("\"unclosed string"), ["\"unclosed string"]);
     }
 }
