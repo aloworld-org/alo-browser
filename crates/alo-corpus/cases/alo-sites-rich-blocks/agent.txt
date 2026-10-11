@@ -2,7 +2,7 @@ document at (0, 0) 800×221
   figure at (48, 16) 704×37.25
     image "Orange notebook <front>" at (48, 30.851563) 0×0
     text "Ideas, captured & shared" at (48, 34.625) 201.58594×18.625
-  text "const greeting = \"<hello>\"; console.log(greeting);" at (8, 69.25) 224.67188×37.25 in 2 pieces
-  text "fn main() { println!(\"alo & sites\"); }" at (8, 122.5) 195.45313×55.875 in 3 pieces
+  text "const greeting = \"<hello>\"; console.log(greeting);" at (8, 69.25) 260.08594×37.25 in 2 pieces
+  text "fn main() { println!(\"alo & sites\"); }" at (8, 122.5) 269.71875×55.875 in 3 pieces
   math at (8, 194.375) 784×18.625
-    text "E = mc^2 & x < y" at (8, 194.375) 146.82031×18.625
+    text "E = mc^2 & x < y" at (8, 194.375) 154.125×18.625

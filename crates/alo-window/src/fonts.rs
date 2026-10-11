@@ -7,7 +7,7 @@
 //! A renderer cannot open a font file (ADR 0010), so the browser process
 //! hands every one its fonts as it starts. Ordinarily they are this machine's
 //! (`alo-renderer`'s `fonts::from_this_machine`). Under `--frozen-fonts` they
-//! are the corpus's: the same three `DejaVu` faces, compiled in, that every
+//! are the corpus's: the same five `DejaVu` faces, compiled in, that every
 //! committed render was drawn with, and the same meaning for the generic
 //! families — so a frozen page in the window is the page in the corpus, pixel
 //! for pixel, and a capture of the window can be compared with a reference
@@ -29,6 +29,12 @@ pub fn frozen() -> Machine {
         ("DejaVu Sans", Weight::NORMAL, dejavu::sans::regular()),
         ("DejaVu Sans", Weight::BOLD, dejavu::sans::bold()),
         ("DejaVu Serif", Weight::NORMAL, dejavu::serif::regular()),
+        (
+            "DejaVu Sans Mono",
+            Weight::NORMAL,
+            dejavu::sans_mono::regular(),
+        ),
+        ("DejaVu Sans Mono", Weight::BOLD, dejavu::sans_mono::bold()),
     ]
     .into_iter()
     .filter_map(|(family, weight, bytes)| Face::new(family, weight, Slant::Normal, bytes.to_vec()))
@@ -38,6 +44,7 @@ pub fn frozen() -> Machine {
             ("sans-serif", "DejaVu Sans"),
             ("system-ui", "DejaVu Sans"),
             ("serif", "DejaVu Serif"),
+            ("monospace", "DejaVu Sans Mono"),
         ]
         .into_iter()
         .map(|(generic, family)| (generic.to_owned(), family.to_owned()))
@@ -51,7 +58,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_frozen_faces_are_the_corpus_three() {
+    fn the_frozen_faces_are_the_corpus_five() {
         let machine = frozen();
         let named: Vec<(&str, u16)> = machine
             .faces
@@ -63,13 +70,15 @@ mod tests {
             vec![
                 ("DejaVu Sans", 400),
                 ("DejaVu Sans", 700),
-                ("DejaVu Serif", 400)
+                ("DejaVu Serif", 400),
+                ("DejaVu Sans Mono", 400),
+                ("DejaVu Sans Mono", 700)
             ]
         );
     }
 
     #[test]
-    fn the_frozen_generics_are_the_corpus_three() {
+    fn the_frozen_generics_are_the_corpus_four() {
         let machine = frozen();
         assert_eq!(
             machine.generics.families_of("sans-serif"),
@@ -80,5 +89,9 @@ mod tests {
             vec!["DejaVu Sans"]
         );
         assert_eq!(machine.generics.families_of("serif"), vec!["DejaVu Serif"]);
+        assert_eq!(
+            machine.generics.families_of("monospace"),
+            vec!["DejaVu Sans Mono"]
+        );
     }
 }

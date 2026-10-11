@@ -141,6 +141,56 @@ fn the_lede_is_forty_four_of_the_faces_zeros() {
     assert!((width - 483.7388).abs() < 0.001, "{width}");
 }
 
+/// The note's two `<code>`s are drawn in the corpus's monospace face (queue
+/// item 412), at the note's `0.86rem`, 13.76 px, which they inherit as a
+/// length; until 412 they were `DejaVu Sans` and an issue said so. Every
+/// advance in `DejaVu Sans Mono` is 1233/2048 of an em, so each is as many
+/// of those wide as it has characters, the arrow included.
+#[test]
+fn the_notes_code_is_drawn_in_the_monospace_face() {
+    let Some((_, rendering)) = downloads() else {
+        panic!("the case renders");
+    };
+    let Some(drawing) = rendering.drawing() else {
+        panic!("the page is drawn");
+    };
+    let size = 0.86 * 16.0;
+    let advance = 1233.0 / 2048.0 * size;
+    for (code, characters) in [("More info → Run anyway", 22.0), ("Open", 4.0)] {
+        let drawn = drawing.display.items().iter().find_map(|item| match item {
+            alo_paint::DisplayItem::Text {
+                box_id,
+                text,
+                font,
+                size,
+                ..
+            } if text == code => Some((*box_id, font.family().to_owned(), *size)),
+            _ => None,
+        });
+        let Some((id, family, drawn_size)) = drawn else {
+            panic!("{code} is drawn");
+        };
+        assert_eq!(family, "DejaVu Sans Mono", "{code}");
+        assert!((drawn_size - size).abs() < 0.001, "{code} at {drawn_size}");
+        let Some(laid) = drawing.layout.get(id) else {
+            panic!("{code} is laid out");
+        };
+        let width = laid.border_box.size.width;
+        assert!(
+            (width - characters * advance).abs() < 0.001,
+            "{code} is {width}, not {characters} × {advance}"
+        );
+    }
+    // The sentence around them keeps the page's sans-serif.
+    let around = drawing.display.items().iter().find_map(|item| match item {
+        alo_paint::DisplayItem::Text { text, font, .. } if text == "; on" => {
+            Some(font.family().to_owned())
+        }
+        _ => None,
+    });
+    assert_eq!(around.as_deref(), Some("DejaVu Sans"));
+}
+
 /// Each download button is `display: inline-flex` with its label as its
 /// only child, and the label is wrapped in an anonymous block (queue item
 /// 321): its line is the body's `line-height: 1.55` at 16 px, 24.8, and the

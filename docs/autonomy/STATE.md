@@ -25681,3 +25681,83 @@ alo Sites row), `REMAINING.md` and `CHANGELOG.md`.
 180 queue items are open (410 added closed, 411–414 added open). The next
 unused queue number is **415** and the next ADR is **0045**. This is one
 iteration, not a finished queue or roadmap.
+
+
+
+## Iteration 265 — queue item 412 built: code is drawn in a monospace face
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and stage 1's Text line; searched for `monospace` and
+`--frozen-fonts`), iteration 264's entry and `REMAINING.md`'s continuation.
+No `AGENTS.md` exists in this repository. For 412: its queue entry, 410
+and 411 beside it, `docs/features.md`' Text section and its stage 2
+generic-family line, `alo-corpus`' `corpus_fonts`, `alo-window`'s
+`fonts::frozen` (which must stay the corpus's), the user-agent sheet's
+`monospace` rule, and both cases' pages and `origin.txt`. No ADR governs
+the corpus's fonts; none was needed to add a face of the family it
+already rents.
+
+**Choosing.** Iteration 264 left every open item blocked on a page, a
+design or an ADR except 412, which depends on nothing open.
+
+**What was built.** `corpus_fonts` and `fonts::frozen` load DejaVu Sans
+Mono, regular and bold, and map `monospace` to it — the same in both, so
+`--frozen-fonts` still draws the corpus's picture. **The size question was
+decided not here, with a reason:** browsers' 13 px is not a property of
+the face but a rule about the generic (a keyword-derived size rescaled
+through inheritance when the family is exactly `monospace`), which moves
+every `em` under code and is a decision about law 1. LOOP.md § 4 makes it
+its own iteration; it is queued as 415, needs ADR. Code keeps the size it
+inherits.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", every section `ok`, no `FAILED` or `panicked` in the log. Workspace
+clippy ran clean before it. This entry and the commit came after that run
+and are documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `tests/alo_sites_rich_blocks.rs` (every
+  code line and the equation drawn in DejaVu Sans Mono at 16 px, the
+  caption in DejaVu Sans; the TypeScript line 27 and the equation 16
+  advances of 1233/2048 em wide; the indent 4 advances, 38.53125, and the
+  Rust block 28 advances, 269.71875) and `tests/alo_downloads.rs` (both
+  `<code>`s in DejaVu Sans Mono at 13.76 px, 22 and 4 advances wide,
+  182.2528 and 33.136875; the sentence around them in DejaVu Sans). Every
+  moved `layout.txt` number was worked by hand from that advance.
+- Reference render: both pictures looked at beside the old ones. Rich
+  blocks: all three blocks monospaced, nothing else moved. Downloads: the
+  two `<code>` chips monospaced, their fills resized, the line breaks and
+  everything else unchanged. No other case and no `alo-window` reference
+  moved; both `issues.txt` lost the missing-family line and nothing else.
+- Mutation (a copy in the scratchpad, restored with `cp`, checked with
+  `cmp`): without the `monospace` mapping the downloads test, all three
+  rich-blocks tests and the corpus test fail.
+- Hostile input: no new reader of outside bytes; the faces are compiled
+  in from the rented `dejavu` crate.
+- One responsibility per file: each edit stays in the file that already
+  held the corpus's or the window's fonts; each test is in its case's file.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` in each is clean.
+
+**Queue.** 412 ticked with its *Done* paragraph; 415 added (needs ADR).
+**Roadmap: no line moved, and why.** The face serves stage 1's ticked Text
+and Reference renders lines, which a missing corpus face does not reopen,
+and the window line's `--frozen-fonts` claim (still "identical to the
+corpus's committed render") stays true because both lists changed
+together; adding a line to claim it would be decoration, as iterations
+260–264 found. Also updated: `docs/features.md` (a Text line),
+`docs/conformance.md` (the alo Sites row), both cases' `origin.txt`,
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 415 needs its ADR before code depends on it; until then
+  `alo-sites-rich-blocks`' code is 16 px where browsers draw 13.
+- That `--frozen-fonts` in the real window draws the code monospaced was
+  not captured: the window capture is still refused on this machine (296).
+- Everything iteration 264 listed still stands (411, 413, 414).
+
+180 queue items are open (412 closed, 415 added). The next unused queue
+number is **416** and the next ADR is **0045**. This is one iteration,
+not a finished queue or roadmap.

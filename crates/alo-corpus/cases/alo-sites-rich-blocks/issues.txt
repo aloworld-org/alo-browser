@@ -1,3 +1,2 @@
 line 1: Unexpected token
 no picture was loaded for "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"
-nothing here is "monospace", so text asking for it was drawn in "DejaVu Sans"

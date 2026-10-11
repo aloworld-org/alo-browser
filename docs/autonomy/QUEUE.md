@@ -7715,7 +7715,7 @@ The long pole, and the thing most of section E is unreachable without.
   a line of its own, in numbers, and a line of only kept spaces is as
   tall as its strut.
 
-- [ ] **412. A monospace face in the corpus.** *Opened by
+- [x] **412. A monospace face in the corpus.** *Opened by
   `alo-sites-rich-blocks` (iteration 264); `alo-downloads` has said the
   same since iteration 198. Feature: `docs/features.md` stage 1, "The
   fallback chain".
@@ -7729,6 +7729,45 @@ The long pole, and the thing most of section E is unreachable without.
   reason. *Closes when:* both cases draw their code in DejaVu Sans Mono,
   in the display list and their pictures; the issue is gone from both;
   and every case that moves is reviewed in that commit.
+  **Done (iteration 265).** `alo-corpus`' `corpus_fonts` and
+  `alo-window`'s `fonts::frozen` load DejaVu Sans Mono, regular and bold,
+  and map `monospace` to it, the same in both so a frozen page in the
+  window stays the corpus's picture. The size question is decided *not
+  here*: code keeps the size it inherits. A browser's 13 px is not a
+  property of the face but a rule about the generic — a size derived from
+  a keyword is rescaled through inheritance when the family is exactly
+  `monospace`, which moves every `em` under it — and LOOP.md § 4 makes a
+  rule like that its own decision; it is cut to 415. Tests:
+  `tests/alo_sites_rich_blocks.rs` (3: every code line and the equation
+  drawn in DejaVu Sans Mono at 16 px and the caption in DejaVu Sans; the
+  TypeScript line and the equation 27 and 16 advances of 1233/2048 em
+  wide; the indented line at 8 + 4 advances and the Rust block 28
+  advances wide), `tests/alo_downloads.rs` (1: both `<code>`s in DejaVu
+  Sans Mono at the note's 13.76 px, 22 and 4 advances wide, the sentence
+  around them in DejaVu Sans) and `alo-window`'s two `fonts` tests (the
+  five faces, the four generics). Mutation, restored from a copy: without
+  the `monospace` mapping all four case tests and the corpus fail. Moved,
+  each looked at beside its old picture: `alo-sites-rich-blocks` (all
+  three blocks monospaced, the indent now 38.53125) and `alo-downloads`
+  (the note's two `<code>`s; "More info → Run anyway" 13.8 wider, "Open"
+  3.6 narrower, the line breaks unchanged). Both issues are gone; no other
+  case or window reference moved.
+
+- [ ] **415. `monospace`'s own default size.** *Cut from 412 (iteration
+  265). Feature: `docs/features.md` stage 1, "Code is drawn in a monospace
+  face". **Needs ADR.*** Every engine a person compares us with draws
+  `font-family: monospace` text at 13 px where the page asked for
+  `medium`, and rescales a size reached from a keyword through `em` and
+  percentages by 13/16 — while `monospace, monospace` or any named family
+  first is left at 16. CSS Fonts 4 leaves the generic's size to the user
+  agent and specifies none of this; it is a convention of thirty years'
+  standing, and a page written for it (alo Sites' rich blocks, drawn by
+  the user-agent sheet alone) is 16 px here. Taking it means carrying,
+  beside every computed `font-size`, whether it came from a keyword, and
+  is a decision about law 1 rather than a chore. *Closes when:* its ADR is
+  accepted and, if it takes the rule, `alo-sites-rich-blocks`' code is
+  drawn at the size it decides, in numbers, with `alo-downloads`'
+  `rem`-sized `<code>` unmoved.
 
 - [ ] **413. A broken picture is drawn as its text.** *Opened by
   `alo-sites-rich-blocks` (iteration 264). Feature: `docs/features.md`

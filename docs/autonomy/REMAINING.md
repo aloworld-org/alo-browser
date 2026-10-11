@@ -1404,3 +1404,12 @@ picture drawn as its `alt`; needs ADR) and 414 (a picture in a `data:`
 URL; waits for a page). 180 queue items are open (410 added closed,
 411–414 added open). The next unused queue number is 415 and the next
 unused ADR 0045.
+
+Iteration 265 built item 412, the one item iteration 264 left buildable:
+the corpus and `--frozen-fonts` carry DejaVu Sans Mono and answer
+`monospace` with it, so `alo-sites-rich-blocks`' code and `alo-downloads`'
+`<code>`s are drawn monospaced and neither says the family is missing. No
+other case moved. Whether `monospace` takes browsers' smaller default size
+was cut to 415, which needs its ADR. 180 queue items are open (412 closed,
+415 added). The next unused queue number is 416 and the next unused ADR
+0045.

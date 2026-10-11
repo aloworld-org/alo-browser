@@ -10,6 +10,12 @@
 //! Until item 410 a run of spaces at the start of a line took no room
 //! whatever `white-space` said, so the Rust block's `println!` stood flush
 //! with the `fn` above it, its four spaces of indentation gone.
+//!
+//! It also says what item 412 is closed by. The user-agent sheet gives
+//! `pre` and `code` `font-family: monospace`, and until item 412 the corpus
+//! mapped no face to that generic, so all three blocks were drawn in
+//! `DejaVu Sans` and an issue said so. They are drawn in `DejaVu Sans Mono`,
+//! where every character is one advance wide.
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_paint::DisplayItem;
@@ -41,8 +47,12 @@ fn near(left: f32, right: f32) -> bool {
     (left - right).abs() < 1e-3
 }
 
-/// Four spaces of `DejaVu Sans` at 16 px: its space is 651/2048 of an em.
-const INDENT: f32 = 4.0 * 651.0 / 2048.0 * 16.0;
+/// One character of `DejaVu Sans Mono` at 16 px: every advance in the face
+/// is 1233/2048 of an em.
+const ADVANCE: f32 = 1233.0 / 2048.0 * 16.0;
+
+/// Four spaces of it.
+const INDENT: f32 = 4.0 * ADVANCE;
 
 #[test]
 fn a_line_of_code_keeps_its_indentation() {
@@ -91,7 +101,8 @@ fn the_indentation_is_room_the_block_is_measured_with() {
     };
     // The Rust block's text is as wide as its widest line, and that line is
     // the indented one: four spaces, then `println!("alo & sites");`, whose
-    // letters alone are 175.10938 wide. Without the spaces the box was that.
+    // 24 letters alone are 24 advances wide. Without the spaces the box was
+    // that.
     let text = drawing
         .boxes
         .ids()
@@ -105,6 +116,73 @@ fn the_indentation_is_room_the_block_is_measured_with() {
         panic!("the Rust block's text has a box");
     };
     assert!(near(text.origin.x, 8.0), "{text:?}");
-    assert!(near(text.size.width, INDENT + 175.109_38), "{text:?}");
+    assert!(near(text.size.width, INDENT + 24.0 * ADVANCE), "{text:?}");
     assert!(near(text.size.height, 3.0 * 18.625), "{text:?}");
+}
+
+#[test]
+fn code_is_drawn_in_the_monospace_face() {
+    let Some(rendering) = rich_blocks() else {
+        panic!("the case renders");
+    };
+    let Some(drawing) = rendering.drawing() else {
+        panic!("the case is drawn");
+    };
+    let drawn: Vec<(&str, &str, f32)> = drawing
+        .display
+        .items()
+        .iter()
+        .filter_map(|item| match item {
+            DisplayItem::Text {
+                text, font, size, ..
+            } => Some((text.as_str(), font.family(), *size)),
+            _ => None,
+        })
+        .collect();
+    let face = |wanted: &str| {
+        drawn
+            .iter()
+            .find(|(text, ..)| *text == wanted)
+            .map(|(_, family, size)| (*family, *size))
+    };
+    // Every line of the two `<pre>` blocks and the equation's `<code>`, at
+    // the 16 px they inherit: the generic's size is not changed (item 415).
+    for line in [
+        "const greeting = \"<hello>\";",
+        "console.log(greeting);",
+        "fn main() {",
+        "println!(\"alo & sites\");",
+        "}",
+        "E = mc^2 & x < y",
+    ] {
+        assert_eq!(
+            face(line),
+            Some(("DejaVu Sans Mono", 16.0)),
+            "{line}: {drawn:?}"
+        );
+    }
+    // The caption is not code, and keeps the sans-serif face.
+    assert_eq!(
+        face("Ideas, captured & shared"),
+        Some(("DejaVu Sans", 16.0)),
+        "{drawn:?}"
+    );
+    // And each line is as many advances wide as it has characters: the
+    // TypeScript block's first, 27 of them, is its widest.
+    let widths: Vec<f32> = drawing
+        .boxes
+        .ids()
+        .filter(|id| {
+            drawing.boxes.get(*id).is_some_and(|node| {
+                matches!(&node.kind, alo_box::BoxKind::Text { text, .. }
+                    if text.starts_with("const") || text.starts_with("E = "))
+            })
+        })
+        .filter_map(|id| Some(drawing.layout.get(id)?.border_box.size.width))
+        .collect();
+    let [typescript, equation] = widths.as_slice() else {
+        panic!("two text boxes: {widths:?}");
+    };
+    assert!(near(*typescript, 27.0 * ADVANCE), "{typescript}");
+    assert!(near(*equation, 16.0 * ADVANCE), "{equation}");
 }

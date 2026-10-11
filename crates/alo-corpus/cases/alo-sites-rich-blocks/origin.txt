@@ -35,11 +35,15 @@ flush with the `fn main() {` above it. `<pre>` is `white-space: pre`, and the
 text arrived with its four spaces, but the line builder dropped a run of
 spaces at the start of a line whatever `white-space` said. CSS Text 3
 § 4.1.2 removes only collapsible spaces there. Queue item 410, built with
-this case: the line now starts 20.34375 in, four of DejaVu Sans' spaces.
+this case: the line now starts four spaces in (20.34375 in DejaVu Sans then;
+38.53125 in DejaVu Sans Mono since item 412).
 
-**The code is not in a monospace face.** The user-agent sheet asks for
-`monospace` and the corpus has no such face, so it is drawn in DejaVu Sans
-and said so (issues.txt), as `alo-downloads` already says. Queue item 412.
+**The code was not in a monospace face.** The user-agent sheet asks for
+`monospace` and the corpus had no such face, so it was drawn in DejaVu Sans
+and said so in issues.txt, as `alo-downloads` did. Queue item 412, built in
+iteration 265: the corpus carries DejaVu Sans Mono and maps `monospace` to
+it, the code is drawn in it, every character one 1233/2048-em advance, and
+the issue is gone.
 
 **The broken picture shows nothing.** Its `alt`, "Orange notebook <front>",
 is not drawn; the `<img>` is an empty box on the figure's first line, and the
@@ -56,6 +60,8 @@ The body's 8 pixels of margin collapsing with the figure's 16; the figure 40
 in from both sides; each `pre` 1em above and below, those margins collapsing
 between blocks; every line 18.625 tall, DejaVu Sans' normal line at 16 px;
 the equation's `div` a plain block with `role="math"`, read by an agent as
-`math`. Every number in `layout.txt` was worked from those and agrees. The
-code blocks are 16 px, not the 13 px a browser gives `monospace` by default:
-that size belongs to the face this corpus does not have (412).
+`math`. Every number in `layout.txt` was worked from those and agrees, and
+since item 412 every code line is its characters times 9.6328125, DejaVu Sans
+Mono's advance at 16 px. The code blocks are 16 px, not the 13 px a browser
+gives `monospace` by default: whether this engine takes that rule is queue
+item 415, which needs an ADR.

@@ -16,7 +16,7 @@ document at (0, 0) 800×786.032
     link "mail.alomails.com" at (220.73438, 628.28723) 140.15985×16.0175
     text "in any browser." at (365.26813, 628.28723) 104.752045×16.0175
     text "On first launch your system may warn about an “unidentified developer” — that's because the app isn't code-signed yet, not because anything is wrong. On Windows choose" at (40, 670.94324) 717.3408×37.34552 in 2 pieces
-    text "More info → Run anyway" at (528.27185, 692.27124) 168.45245×16.0175
-    text "; on macOS right-click the app and choose" at (40, 692.27124) 688.87366×37.34552 in 2 pieces
-    text "Open" at (312.3783, 713.59924) 36.751564×16.0175
-    text "." at (355.12985, 713.59924) 4.373906×16.0175
+    text "More info → Run anyway" at (528.27185, 692.27124) 182.2528×16.0175
+    text "; on macOS right-click the app and choose" at (40, 692.27124) 702.674×37.34552 in 2 pieces
+    text "Open" at (312.3783, 713.59924) 33.136875×16.0175
+    text "." at (351.51517, 713.59924) 4.373906×16.0175

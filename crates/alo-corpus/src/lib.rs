@@ -103,8 +103,9 @@ pub const INSTANT: f64 = 1_791_504_000_000.0;
 
 /// The fonts every case is rendered with.
 ///
-/// One font family, committed as a dependency rather than as a file, so that
-/// every machine draws the same pixels. A corpus rendered with whatever the
+/// One font family, `DejaVu`, in a face for each generic the user-agent sheet
+/// asks for — sans, serif and mono — committed as a dependency rather than as
+/// a file, so that every machine draws the same pixels. A corpus rendered with whatever the
 /// machine happened to have would be a corpus that fails on somebody else's
 /// laptop for a reason that is not a bug.
 pub fn corpus_fonts() -> alo_text::FontDatabase {
@@ -128,6 +129,18 @@ pub fn corpus_fonts() -> alo_text::FontDatabase {
             alo_text::Slant::Normal,
             dejavu::serif::regular(),
         ),
+        (
+            "DejaVu Sans Mono",
+            alo_text::Weight::NORMAL,
+            alo_text::Slant::Normal,
+            dejavu::sans_mono::regular(),
+        ),
+        (
+            "DejaVu Sans Mono",
+            alo_text::Weight::BOLD,
+            alo_text::Slant::Normal,
+            dejavu::sans_mono::bold(),
+        ),
     ] {
         if let Some(font) = alo_text::Font::load(family, weight, slant, data.to_vec()) {
             database.add(font);
@@ -136,5 +149,6 @@ pub fn corpus_fonts() -> alo_text::FontDatabase {
     database.map_generic("sans-serif", "DejaVu Sans");
     database.map_generic("system-ui", "DejaVu Sans");
     database.map_generic("serif", "DejaVu Serif");
+    database.map_generic("monospace", "DejaVu Sans Mono");
     database
 }

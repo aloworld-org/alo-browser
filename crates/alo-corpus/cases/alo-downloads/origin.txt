@@ -140,8 +140,10 @@ marked, each button's `style` attribute and the colour it is filled with.
 Two things it asks for make no difference at this size and are not faults
 here: `text-wrap: balance` on a heading that fits on one line (item 104), and
 `system-ui` first in a font list (drawn in DejaVu Sans, as every case is).
-The issues list names the one family it could not find, `monospace`, for
-`<code>`.
+Until item 412 (iteration 265) the issues list named the one family it could
+not find, `monospace`, for `<code>`; the two `<code>`s are now drawn in DejaVu
+Sans Mono at the note's 13.76 px, which a browser gives them too, since the
+size is inherited as a length rather than a keyword. The list is empty.
 
 The reference render pins the page as it renders today, faults included, so
 that each of those items moves it and says so.

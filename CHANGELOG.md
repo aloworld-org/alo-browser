@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Code is drawn in a code font.** Text a page marks as code — a `<pre>`
+  block, `<code>`, `<kbd>` and `<samp>` — is drawn in a monospace face in
+  the reference renders and in the window started with `--frozen-fonts`,
+  every character the same width, so code lines up as it was written.
+  Before, it was drawn in the ordinary sans-serif face and the page said
+  the font was missing. Code is still drawn at the size of the text around
+  it, where other browsers draw it a little smaller (queue item 412).
+
 - **Code keeps its indentation.** A line of code in a `<pre>` block that
   starts with spaces now starts that far in, instead of flush with the line
   above it, so an indented line in a published blog post's code block reads
