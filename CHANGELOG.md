@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The gate says what it is a verdict about.** It now prints the checkout, the
+  commit and whether the tree is clean before it checks anything. Taken from
+  alo OS, who landed the same lesson after five measurements of the wrong
+  subject; this repository had made the same mistake twice in a week in its
+  build loop, sampling processor time off the wrong process tree and reading a
+  worker's progress from a stale transcript. Both were clean measurements of
+  the wrong thing, and both would have been obvious had the number arrived with
+  its subject attached.
+
 - **Where this browser runs is written down: built on macOS, destined for alo
   OS.** alo OS is a Linux system whose own roadmap pins Firefox for its web
   browser "since our own engine is not scheduled" — which it now is. Running

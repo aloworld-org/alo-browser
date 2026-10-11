@@ -12,6 +12,36 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 fail=0
+
+# What this verdict is about, printed before any of it.
+#
+# A measurement must name its own subject. Taken from alo OS, who landed the
+# same lesson after five of them and wrote the cure down: their gate had
+# silently measured a different checkout, and making the subject a field in
+# the result is cheaper than remembering to ask.
+#
+# It is the same mistake this repository has made twice in one week in the
+# supervisor — processor time sampled off the wrong process tree because
+# `pgrep -f` matched the measuring command itself, and a worker's progress read
+# from a transcript four iterations stale. Both were clean measurements of the
+# wrong thing, and both would have been obvious if the number had arrived with
+# its subject attached.
+subject() {
+  local where commit state
+  where="$(pwd -P)"
+  commit="$(git rev-parse --short HEAD 2>/dev/null || echo 'no commit')"
+  if git diff --quiet 2>/dev/null && git diff --cached --quiet 2>/dev/null; then
+    state='clean'
+  else
+    state='UNCOMMITTED CHANGES'
+  fi
+  printf '\033[1m== the subject of this verdict\033[0m\n'
+  printf '   checkout  %s\n' "$where"
+  printf '   commit    %s\n' "$commit"
+  printf '   tree      %s\n' "$state"
+}
+subject
+
 step() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
 bad() { printf '\033[31mFAIL\033[0m  %s\n' "$1"; fail=1; }
 good() { printf '\033[32mok\033[0m    %s\n' "$1"; }

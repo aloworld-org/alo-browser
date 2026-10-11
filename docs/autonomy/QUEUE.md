@@ -1003,6 +1003,16 @@ wrong, which is the argument for the fourth.
   machine of whoever wrote it stops working on a Tuesday without anybody
   noticing.
 
+  ***Held, 2026-10-12, and not blocked by anything in this repository.*** alo OS
+  is the destination (`ROADMAP.md`, *Where it runs*) and two things about their
+  platform are unmeasured: whether a Flatpak can host a nested user namespace
+  and seccomp filter, and whether Landlock is active there at all — their image
+  sets no `lsm=` argument, so `CONFIG_LSM`'s default decides and nothing
+  records it. Either answer being *no* changes what this item builds, and they
+  have asked us plainly not to start on anything they have *said* rather than
+  measured. So this waits for their probes and their
+  `/sys/kernel/security/lsm`, and the wait is the cheaper half of the work.
+
 - [x] **168. Fonts across the boundary.** ADR 0010's consequence: a confined
   renderer cannot open a font file, and the rule is that the browser process
   passes bytes rather than the policy permitting a directory. `alo-render`
@@ -11421,6 +11431,56 @@ What stage 2's exit gate actually measures: a person using it.
   and one handed while no browser runs starts one — both asserted, and the
   hostile cases with them: an address that is not `http` or `https`, one with
   a name and password in it, and one long enough to be a weapon.
+
+- [ ] **484. ★ `@browser`, as far as alo OS can carry it.** The adapter
+  declaration for item 131's verbs, against
+  `alo-os`'s `docs/contracts/app-adapters.md` — declared data, an
+  `alo_adapters::Adapter` constant, `Mechanism::DBus` because that is the one
+  tier their loader carries out and a declaration that answers
+  `NotCarriedOutHere` cannot be gated at all. *Depends on 131, 480, 481.*
+
+  **What they confirmed is declarable (2026-10-12), from their loader rather than
+  their prose:**
+  - `read()` — no arguments, effect `read`, `reaches: OnlyItsApplication`.
+  - `activate(name)` — the element as `Kind::Name { longest }`, **and the
+    D-Bus method named as a literal**. Their loader refuses *an action chosen
+    by an argument*, so one verb per action; a dispatching method earns
+    `NotLoaded::ChoosesWhatRuns`, whose words would blame our argument for a
+    fault in our method.
+  - `fill(field, text)` — **only with `Kind::Name`, and only for values with no
+    slash.** `Kind::Text` is refused outright (`NotLoaded::TakesCode`): *"text
+    a model writes is not an argument."* `Name` additionally refuses empty, a
+    control character, `.`, `..`, over `longest`, and `/` or `\`. So a name, an
+    amount, an email address or a search phrase can be filled; **a date
+    written `12/10/2026` cannot**, and would be refused with `NotOneName` —
+    filename words, in a browser, to a person filling in a date.
+  - **Every verb needs `by_hand`** — how a person does the same thing
+    themselves — or `NoByHand`. **Every `Word` must appear in the adapter's
+    `words` list** or `WordNotDeclared`. Neither was in our letter.
+
+  **What cannot be declared at all, and is theirs to fix:**
+  - `open(address)`. `Takes` is a closed list of five — `Path`, `Application`,
+    `Name`, `Count`, `Choice` — and none of them is a web address. `Path`
+    demands a grant over a machine path; `Name` refuses the slashes every URL
+    contains. They *have* `alo_software::WebAddress` and it is not an argument
+    kind. Their own comment settles the order: adding to `Takes` belongs in
+    their ADR 0001 and their `agent-verbs.md` before it belongs in code. **Do
+    not declare `open` as a `Name`** — it would load and then refuse every real
+    address at validation, which is the worst of both.
+  - Model-written text that may legitimately contain a slash. No kind for it.
+  - **A grant narrower than an application** — and this is the large one.
+    `Reaches` offers only `Over(paths)` and `OnlyItsApplication`. Granting
+    `@text_editor` grants a text editor; granting `@browser` would grant every
+    page a person can reach — their mail, their bank, their employer — as one
+    approval over one application. Their grant model has no vocabulary for a
+    *site*, and they have put that to their owner as ADR 0001's natural
+    extension to the web. **This is the reason this item cannot simply be
+    built small and shipped**, and it is not a fault in item 131's shape:
+    their letter says the shape is right and their models are short of it.
+
+  *Closes when:* the declarable subset above loads on a real alo OS machine,
+  each verb's refusals asserted, and the three gaps recorded as theirs with
+  whatever they have answered by then.
 
 ## K. ★ The agent, on somebody else's pages
 
