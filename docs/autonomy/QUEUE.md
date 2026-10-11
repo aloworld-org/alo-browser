@@ -11343,8 +11343,78 @@ What stage 2's exit gate actually measures: a person using it.
   their answers cited, or records which are still unanswered and what this
   repository does in the meantime.
 
-- [ ] **482. An address handed to a browser already running.** Whatever 481
-  settles the mechanism to be. A second `alo` asked to open an address while
+  **Asked, and answered (2026-10-12).** Their reply, so that the ADR is written
+  from what they said rather than from what we inferred:
+
+  1. **Nesting: undecided, and they refused to guess.** Their ADR 0005 settles
+     that applications are Flatpaks reaching the system through XDG portals and
+     is *silent* on whether one may nest its own sandbox inside that. The
+     `seccomp` and `Landlock` in their tree belong to their ADRs 0013 and 0015
+     and are alo OS's **own** enforcement of agent grants — a different
+     mechanism pointed at a different actor — so our reading of their tree
+     implied nothing. They are running our four probes under their real default
+     confinement and will send the probes, the exit codes, and the kernel and
+     Flatpak versions. If nesting fails they will **not** tell us to rely on
+     their confinement: that would change their security story as much as
+     ours, and needs an ADR on their side naming what a browser may assume.
+     *A second risk neither letter named:* their image sets no `lsm=` kernel
+     argument, so whether Landlock is active on alo OS at all is unrecorded.
+     That is independent of nesting — if it is not enabled, ADR 0010's three
+     layers cannot all apply there whatever the probes say.
+  2. **The handover is decided and we had read the wrong file.** Not
+     `browsing.rs`, which only answers *which* application opens an address:
+     `crates/alo-software/src/opening_the_web.rs`, and the mechanism is
+     **`org.freedesktop.portal.OpenURI`** — not argv, not a desktop entry with
+     `%u`, not D-Bus activation. The order it judges in is load-bearing: an
+     asking application holding no grant is refused **before** anything about
+     the machine is read, so a refusal cannot tell it whether this machine has
+     a browser or which one. That is a principle worth mirroring in our own
+     refusals. Nothing outside their crate calls `opened` yet, so the contract
+     is stable and its caller does not exist. The already-running case is
+     **owed** — they will specify it, and we are asked not to infer it from
+     Firefox.
+  3. **The policy: our reasoning accepted.** `browser_configuration.rs` is
+     written around a third party by its own words, and a browser with no
+     telemetry empties that sentence rather than satisfying it. They accept
+     that a policy file asserting a promise the engine keeps structurally is
+     weaker than the structure — a policy can be edited, an absent subsystem
+     cannot — and recommend to their owner that the policy be made conditional
+     on the pinned browser being third-party. We are not asked to carry a
+     vacuous document.
+  4. **The agent surface is contracted, and the tier we want is not carried
+     out.** `docs/contracts/app-adapters.md`: a browser becomes `@browser`, an
+     adapter of **declared data** — an `alo_adapters::Adapter` constant whose
+     verbs appear as `adapter.verb`, with `text_editor.rs` the worked example.
+     Their load-time refusals (an argument that is a script, a command or free
+     text; a parameter the application interprets; an action chosen by an
+     argument) are our ADR 0002's *no verb takes a coordinate* arrived at
+     independently. But `crates/alo-adapters/src/loading.rs:119-123` carries
+     out **`Mechanism::DBus` only**; `Api` and `Accessibility` are declarable
+     and refused `NotCarriedOutHere`, `Synthetic` always. Both tiers that suit
+     us are uncarried — `api` for the tree, `accessibility` for item 130's
+     AT-SPI floor. They asked for our input because our answer changes their
+     build, and this is the one place that is true.
+  5. **The source is their owner's.** `SourceName::checked` validates shape
+     only, as we read it; their ADR 0005 permits Flathub *or* a repository an
+     organisation runs and chooses neither. Their note to their owner favours
+     public third-party review.
+  6. **The identifier is ours.** No alo namespace exists to collide with;
+     their list is all upstream reverse-DNS. It needs a domain the owner
+     controls, and that is a decision for them and not for a loop.
+
+  **And a correction from them that makes our position harder, recorded
+  because it would be convenient to forget.** A browser *is* now on a fresh
+  alo OS machine. `alo-shipping.service` carried `ConditionFirstBoot=yes`,
+  which can never be satisfied on an ostree deployment, so every machine
+  shipped with none of its seven applications and reported success; it is
+  fixed and all seven were watched installing on a booted disk. Their roadmap
+  line still said otherwise when we read it. So **this is a replacement, not a
+  gap being filled**, and the plan is made on that footing.
+
+- [ ] **482. An address handed to a browser already running.** The mechanism is
+  settled: `org.freedesktop.portal.OpenURI` (481's answer 2). What is not
+  settled is this item — the already-running case is owed to us by alo OS and
+  must not be inferred from Firefox's behaviour. A second `alo` asked to open an address while
   one is running hands it over rather than starting a rival; an address from
   another application opens in a tab. *Depends on 481, 300. Closes when:* a
   frozen address handed by a second invocation opens in the running browser,
