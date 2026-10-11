@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Text hidden for screen readers no longer breaks the line it is in.**
+  Pages often put a few words inside a link that only a screen reader
+  should hear — "Read article" followed by a hidden ": Launch notes" — in
+  an element taken out of the page's flow. This engine treated that
+  element as a block and broke the line around it, so the link became two
+  pieces and an agent reading the page found it in the wrong place. The
+  line now stays whole, and the hidden element stands where the browser
+  would put it: at the end of the link, at the top of its line, as Chrome
+  does. alo Sites' blog cards are drawn and read this way. One thing on
+  the same page is still wrong and is now tracked: its cards are one
+  column where other browsers show two (queue items 354 and 422).
+
 - **Spacing written by the direction of reading is applied.** A page can
   set a margin or padding by where it falls in the text's flow —
   `margin-inline-start`, `padding-inline`, `margin-block-end` — rather than

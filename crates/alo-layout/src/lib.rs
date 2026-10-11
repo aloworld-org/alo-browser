@@ -49,6 +49,7 @@ pub mod keyword;
 pub mod legend;
 pub(crate) mod marker;
 pub mod measure;
+pub(crate) mod out_of_flow;
 pub mod placement;
 pub mod replaced;
 pub mod sizing;
@@ -60,7 +61,7 @@ pub mod vertical_align;
 
 pub use engine::compute;
 pub use geometry::{Edges, Point, Rect, Size};
-pub use inline::{Fragment, InlineItem, InlineLayout, LineBox, TextAlignment};
+pub use inline::{Anchor, Fragment, InlineItem, InlineLayout, LineBox, TextAlignment};
 pub use keyword::{
     Alignment, BoxSizing, Distribution, FlexDirection, FlexWrap, GridAutoFlow, Overflow,
     Positioning,

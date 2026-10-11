@@ -1,0 +1,29 @@
+document at (0, 0) 800×1158.775
+  link "Skip to content" at (-15984, 0) 161.11035×43.2
+  banner at (0, 0) 800×65
+    navigation "Main" at (0, 0) 800×64
+      link "North Studio" at (20, 16) 144.21875×32
+      link "Home" at (618.8252, 18.4) 50.203125×27.2
+      link "Blog" at (689.0283, 18.4) 37.577637×27.2
+      link "RSS" at (746.60596, 18.4) 33.394043×27.2
+  main at (0, 65) 800×1093.775
+    heading "Blog" [level=1] at (20, 113) 760×48
+    list "Blog" at (20, 193) 760×800.575
+      listitem "2026-08-09 Launch notes What we learned & what comes next. Read article : Launch notes" at (20, 193) 760×623.575
+        paragraph at (45, 644.375) 710×24
+          text "2026-08-09" at (45, 647.64453) 87.17285×17.460938
+        heading "Launch notes" [level=2] at (45, 683.375) 710×28.800003
+          link "Launch notes" at (45, 683.8063) 180.9375×27.9375
+        paragraph at (45, 720.175) 710×27.2
+          text "What we learned & what comes next." at (45, 723.88043) 319.47217×19.789063
+        link "Read article : Launch notes" at (45, 768.08044) 115.42236×19.789063
+      listitem "2026-08-01 Behind the scenes Read article : Behind the scenes" at (20, 840.575) 760×153
+        paragraph at (45, 865.575) 710×24
+          text "2026-08-01" at (45, 868.84454) 87.17285×17.460938
+        heading "Behind the scenes" [level=2] at (45, 904.575) 710×28.800003
+          link "Behind the scenes" at (45, 905.0063) 248.13281×27.9375
+        link "Read article : Behind the scenes" at (45, 945.08044) 115.42236×19.789063
+    navigation "Blog pages" at (20, 1033.575) 760×45.2
+      link "Previous" at (20, 1033.575) 101.84326×45.2
+      text "Page 2 of 3" at (352.30786, 1046.2804) 95.38428×19.789063
+      link "Next" at (710.397, 1033.575) 69.60303×45.2

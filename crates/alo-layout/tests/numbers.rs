@@ -631,6 +631,156 @@ fn text_is_as_narrow_as_its_widest_word_and_no_narrower() {
     );
 }
 
+/// The fragments of the text boxes inside the element carrying `wanted`,
+/// in order: where its words were drawn.
+fn text_inside(boxes: &BoxTree, layout: &LayoutTree, wanted: &str, html: &str) -> Vec<Rect> {
+    let rect = rect_of(boxes, layout, wanted, html);
+    let Some(root) = boxes.root() else {
+        return Vec::new();
+    };
+    let Some(held) = core::iter::once(root)
+        .chain(boxes.descendants(root))
+        .find(|id| layout.border_box(*id) == Some(rect))
+    else {
+        return Vec::new();
+    };
+    boxes
+        .descendants(held)
+        .into_iter()
+        .flat_map(|id| layout.fragments(id).iter().map(|piece| piece.rect))
+        .collect()
+}
+
+/// Queue item 354: a box out of flow in a line does not break the line.
+/// `one<a>two</a> three` is one line of 16, "one three", and the `<a>`, with
+/// its insets `auto`, stands at its static position (CSS 2 § 10.3.7): after
+/// "one", at the top of the line, as small as what it holds.
+#[test]
+fn a_box_out_of_flow_in_a_line_leaves_it_one_line() {
+    let html = "<body><div id=p>one<a id=t href=#x>two</a> three</div></body>";
+    let css = "#p { margin-left: 10px } #t { position: absolute }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+
+    assert_eq!(
+        rect_of(&boxes, &layout, "p", html),
+        Rect::new(10.0, 0.0, 390.0, 16.0),
+        "one line, where breaking around the box made two",
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html),
+        Rect::new(34.0, 0.0, 24.0, 16.0),
+        "ten of margin and three letters along",
+    );
+    assert_eq!(
+        text_inside(&boxes, &layout, "t", html),
+        vec![Rect::new(34.0, 0.0, 24.0, 16.0)],
+        "its own text went with it",
+    );
+    assert_eq!(
+        text_inside(&boxes, &layout, "p", html)
+            .iter()
+            .map(|rect| rect.origin.x)
+            .collect::<Vec<_>>(),
+        vec![10.0, 34.0, 42.0],
+        "\"one\", the box's own \"two\", and \"three\" one space after \"one\"",
+    );
+    assert!(layout.issues().is_empty(), "{:?}", layout.issues());
+
+    // alo Sites' `.sr-only` is `margin: -1px`: its margin goes from there.
+    let css = "#p { margin-left: 10px } #t { position: absolute; margin: -1px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html).origin,
+        alo_layout::Point::new(33.0, -1.0),
+    );
+}
+
+/// An axis with an inset is measured from the containing block — here the
+/// viewport, with nothing positioned — and the other keeps the line's place.
+/// A line moved by `text-align` moves the place with it.
+#[test]
+fn a_box_out_of_flow_in_a_line_takes_only_its_free_axes_from_it() {
+    let html = "<body><div id=p>one<a id=t href=#x>two</a> three</div></body>";
+    let css = "#p { margin: 20px 0 0 10px } #t { position: absolute; top: 50px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html).origin,
+        alo_layout::Point::new(34.0, 50.0),
+    );
+    let css = "#p { margin: 20px 0 0 10px } #t { position: absolute; left: 5px }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html).origin,
+        alo_layout::Point::new(5.0, 20.0),
+    );
+
+    // Centred in 200, "one three" is 72 wide and starts at 64: the box
+    // stands 24 further on.
+    let css = "#p { width: 200px; text-align: center } #t { position: absolute }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html).origin,
+        alo_layout::Point::new(88.0, 0.0),
+    );
+}
+
+/// Bytes from outside: thousands of boxes out of flow in one line, and a
+/// hundred written nested in links, are laid out without a panic as one
+/// line. The parser closes each `<a>` at the next, so the hundred are links
+/// side by side, each holding nothing but a box out of flow: brackets in the
+/// line, which were once each laid out as an atomic box a line wide.
+#[test]
+fn a_line_of_many_boxes_out_of_flow_is_laid_out() {
+    let many = format!(
+        "<body><div id=p>x{}</div></body>",
+        "<span class=a>y</span>".repeat(5_000)
+    );
+    let (boxes, layout) = lay_out(&many, ".a { position: absolute }", Size::new(400.0, 300.0));
+    assert_eq!(
+        rect_of(&boxes, &layout, "p", &many),
+        Rect::new(0.0, 0.0, 400.0, 16.0),
+        "one line of one letter",
+    );
+
+    let nested = format!(
+        "<body><div id=p>x{}z{}</div></body>",
+        "<a href=#y><span class=a>y".repeat(100),
+        "</span></a>".repeat(100)
+    );
+    let (boxes, layout) = lay_out(
+        &nested,
+        ".a { position: absolute }",
+        Size::new(400.0, 300.0),
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "p", &nested),
+        Rect::new(0.0, 0.0, 400.0, 16.0),
+    );
+}
+
+/// A containing block inside the lines — the block holding them, positioned —
+/// is no box the engine places children against. The box is placed against
+/// the viewport instead and that is said; the axis the line places is still
+/// right.
+#[test]
+fn a_containing_block_inside_the_lines_is_recorded() {
+    let html = "<body><div id=p>one<a id=t href=#x>two</a></div></body>";
+    let css = "#p { position: relative; margin-top: 30px } #t { position: absolute; left: 0 }";
+    let (boxes, layout) = lay_out(html, css, Size::new(400.0, 300.0));
+    assert!(
+        close(rect_of(&boxes, &layout, "t", html).origin.y, 30.0),
+        "the top of its line",
+    );
+    assert!(
+        layout
+            .issues()
+            .iter()
+            .any(|issue| issue.source.contains("whose containing block is the block")),
+        "{:?}",
+        layout.issues()
+    );
+}
+
 /// Every rectangle whose element carries this `id`, in tree order.
 ///
 /// An inline box broken around a block is two boxes from one element, so

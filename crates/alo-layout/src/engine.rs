@@ -52,6 +52,7 @@ use crate::keyword::{
 use crate::legend;
 use crate::marker;
 use crate::measure::{MeasureText, TextStyle};
+use crate::out_of_flow::{self, Axes};
 use crate::placement::{GridLine, GridPlacement};
 use crate::sizing::{AutoLength, MaxSizing, Sizing};
 use crate::style::{self, LayoutStyle};
@@ -127,6 +128,9 @@ pub(crate) struct Placed {
     /// Where the baselines of each inline formatting context's first and
     /// last lines stand; see [`crate::baseline`].
     pub(crate) lines: BTreeMap<BoxId, baseline::Lines>,
+    /// The boxes out of flow written in a line, and which of their axes
+    /// that line places.
+    pub(crate) in_line: BTreeMap<BoxId, Axes>,
 }
 
 /// What is being laid out on its own.
@@ -160,6 +164,11 @@ struct Displaced {
     against: Option<BoxId>,
     /// What stands in for it where it was, when an axis needs that.
     probe: Option<Probe>,
+    /// Which of its axes take their place from the line it was written in,
+    /// when it was written in one. Its parent then holds lines and is no
+    /// node `taffy` lays children out in, so no probe can stand there: the
+    /// line's [`inline::Anchor`] says where it would have stood instead.
+    in_line: Option<Axes>,
 }
 
 /// An empty absolutely positioned node left in a displaced box's parent.
@@ -214,6 +223,25 @@ fn lay_out_subtree(
         Point::ZERO,
         &mut placed.geometry,
     );
+    // A box out of flow in a line is under a box no walk of the engine's
+    // tree reaches, so it is read back on its own, against what it is placed
+    // against; its line moves it to its static position once lines exist.
+    for (id, displaced) in &built.displaced {
+        let Some(axes) = displaced.in_line else {
+            continue;
+        };
+        placed.in_line.insert(*id, axes);
+        if !placed.geometry.contains_key(id) {
+            read_back(
+                &arena,
+                &built,
+                boxes,
+                *id,
+                Point::ZERO,
+                &mut placed.geometry,
+            );
+        }
+    }
     reach_of_the_initial_block(&built, root, &mut placed.geometry);
     // Before anything is placed inside a box, and after every box has a
     // rectangle: a fieldset's legend sits in its block-start border rather
@@ -330,12 +358,16 @@ fn collect_inline_items(
                 text: text.clone(),
                 style: text_style_for(boxes, styles, child),
             }),
+            // Out of flow: no room here, only a place it would have stood.
+            _ if boxes.is_out_of_flow(child) => {
+                items.push(InlineItem::OutOfFlow { box_id: child });
+            }
             // A `<br>`: the line ends here. It has no children to bracket.
             _ if boxes.is_forced_break(child) => items.push(InlineItem::Break {
                 box_id: child,
                 style: text_style_for(boxes, styles, child),
             }),
-            _ if is_inline_formatting_context(boxes, child) || node.children.is_empty() => {
+            _ if holds_only_what_sits_in_a_line(boxes, child) => {
                 if is_atomic(boxes, child) {
                     items.push(atomic_item(
                         boxes,
@@ -720,6 +752,10 @@ fn place_inline_content(
                 }
             }
         }
+        for anchor in &layout.anchors {
+            out_of_flow::stand_at_static_position(boxes, anchor, origin, out);
+            place_inline_content(boxes, styles, anchor.box_id, measure, out, issues);
+        }
         return;
     }
 
@@ -896,6 +932,9 @@ fn build<M: MeasureText>(
     if is_inline_formatting_context(boxes, id) {
         let made = arena.push(style, NodeKind::InlineFormatting(id), Vec::new());
         built.ours_to_theirs.insert(id, made);
+        for held in out_of_flow_in_line(boxes, id) {
+            build_out_of_flow_in_line(boxes, styles, held, id, arena, built, subtree, issues);
+        }
         return Some(made);
     }
 
@@ -955,6 +994,7 @@ fn build<M: MeasureText>(
                 node: made,
                 against,
                 probe,
+                in_line: None,
             },
         );
     }
@@ -973,6 +1013,89 @@ fn build<M: MeasureText>(
     let made = arena.push(style, kind, children);
     built.ours_to_theirs.insert(id, made);
     Some(made)
+}
+
+/// Build a box out of flow that was written in the lines of `lines`, and
+/// hand it to its containing block.
+///
+/// `lines` is a leaf of the engine's tree — its lines are
+/// [`crate::inline`]'s — so the box can never be its child there: it is
+/// always displaced, and the axes whose insets are both `auto` take its
+/// static position from its line rather than from a probe.
+///
+/// A containing block inside the lines — `lines` itself, positioned, or a
+/// positioned inline box in them — is no node the engine places children
+/// against. The box is placed against the initial containing block instead,
+/// and said; the axes that take the static position are still right.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the same tree, styles, arena and record `build` threads through"
+)]
+fn build_out_of_flow_in_line<M: MeasureText>(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    held: BoxId,
+    lines: BoxId,
+    arena: &mut Arena<'_, M>,
+    built: &mut Built,
+    subtree: Subtree,
+    issues: &mut Vec<StyleIssue>,
+) {
+    let Some(node) = build(boxes, styles, held, arena, built, subtree, issues) else {
+        return;
+    };
+    let in_the_lines = |at: BoxId| {
+        let mut chain = boxes.get(held).and_then(|node| node.parent);
+        while let Some(up) = chain {
+            if up == at {
+                return true;
+            }
+            if up == lines {
+                return false;
+            }
+            chain = boxes.get(up).and_then(|node| node.parent);
+        }
+        false
+    };
+    let against = match containing::of(boxes, styles, held, subtree.root, subtree.document) {
+        Containing::Initial => None,
+        Containing::Ancestor(at) if !in_the_lines(at) => Some(at),
+        Containing::Beyond if subtree.root != lines => {
+            issues.push(StyleIssue {
+                kind: IssueKind::UnsupportedValue,
+                source: "position: absolute inside an inline-block or other atomic inline \
+                         box with nothing positioned between: placed against that box \
+                         rather than its containing block outside it"
+                    .to_owned(),
+                at: Location { line: 0, column: 0 },
+            });
+            Some(subtree.root)
+        }
+        Containing::Parent | Containing::Ancestor(_) | Containing::Beyond => {
+            issues.push(StyleIssue {
+                kind: IssueKind::UnsupportedValue,
+                source: "position: absolute in a line whose containing block is the block \
+                         holding the line or an inline box in it: placed against the \
+                         initial containing block, its static position kept"
+                    .to_owned(),
+                at: Location { line: 0, column: 0 },
+            });
+            None
+        }
+    };
+    let in_line = arena.style_of(node).map(|style| Axes {
+        across: style.inset.left.is_auto() && style.inset.right.is_auto(),
+        down: style.inset.top.is_auto() && style.inset.bottom.is_auto(),
+    });
+    built.displaced.insert(
+        held,
+        Displaced {
+            node,
+            against,
+            probe: None,
+            in_line,
+        },
+    );
 }
 
 /// An empty stand-in for a displaced box, when one of its axes has both its
@@ -1159,11 +1282,66 @@ pub(crate) fn is_inline_formatting_context(boxes: &BoxTree, id: BoxId) -> bool {
     if children.peek().is_none() {
         return false;
     }
-    children.all(|child| {
+    // A box out of flow among them takes no room in the lines and does not
+    // stop them being lines; it alone, with nothing in flow, makes none.
+    let in_line = |child: &BoxId| {
         boxes
             .get(*child)
-            .is_some_and(|child| child.kind.outside() == Outside::Inline)
-    })
+            .is_some_and(|node| node.kind.outside() == Outside::Inline)
+    };
+    let mut any_in_flow = false;
+    for child in children {
+        if in_line(child) {
+            any_in_flow = true;
+        } else if !boxes.is_out_of_flow(*child) {
+            return false;
+        }
+    }
+    any_in_flow
+}
+
+/// Whether every child of `id` sits in a line or is out of flow, which is
+/// true of nothing at all: what a nested inline box holds once the box tree
+/// has broken it around every block in it.
+///
+/// Not [`is_inline_formatting_context`], which asks whether a block makes
+/// lines: an `<a>` holding nothing but a box out of flow makes none and is
+/// still a bracket in its parent's line, not an atomic box laid out on its
+/// own — which is what it was, a whole line wide, until this.
+fn holds_only_what_sits_in_a_line(boxes: &BoxTree, id: BoxId) -> bool {
+    boxes
+        .children(id)
+        .filter(|child| !boxes.is_marker(*child))
+        .all(|child| {
+            boxes.is_out_of_flow(child)
+                || boxes
+                    .get(child)
+                    .is_some_and(|node| node.kind.outside() == Outside::Inline)
+        })
+}
+
+/// The boxes out of flow written in the lines of `id`, in order: among its
+/// children and inside the inline boxes it holds, though not inside an
+/// atomic one, which is laid out on its own and finds its own.
+pub(crate) fn out_of_flow_in_line(boxes: &BoxTree, id: BoxId) -> Vec<BoxId> {
+    let mut found = Vec::new();
+    for child in boxes.children(id).filter(|child| !boxes.is_marker(*child)) {
+        if boxes.is_out_of_flow(child) {
+            found.push(child);
+            continue;
+        }
+        let Some(node) = boxes.get(child) else {
+            continue;
+        };
+        let nested = !matches!(node.kind, BoxKind::Text { .. })
+            && !boxes.is_forced_break(child)
+            && holds_only_what_sits_in_a_line(boxes, child)
+            && !is_atomic(boxes, child);
+        if nested {
+            found.extend(out_of_flow_in_line(boxes, child));
+        }
+    }
+    found
 }
 
 /// The sizes, the four edges and the gap — everything measured in lengths.

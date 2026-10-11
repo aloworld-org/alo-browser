@@ -89,6 +89,21 @@
 //! why two in a row leave a blank line; one with nothing after it starts no
 //! line at all, which is why a paragraph ending in a `<br>` is no taller for
 //! it. That is the rule a kept newline in `white-space: pre` follows too.
+//!
+//! # A box out of flow takes no room
+//!
+//! A box `position: absolute` takes out of flow stays where it was written, in
+//! its line, as an [`InlineItem::OutOfFlow`] — and the line goes on as if it
+//! were not there. alo Sites writes `Read article<span class=sr-only>: Launch
+//! notes</span>` in every blog card: one line, and the `<span>` a box of one
+//! pixel that a reader of the screen hears. Breaking the line around it, as
+//! around a block, made the link two pieces on two lines (queue item 354).
+//!
+//! What the line says about it is its **static position**: across, where the
+//! pen was when it was met, moved with the line by `text-align`; down, the top
+//! of that line. A box whose insets are `auto` stands there. That is an
+//! [`Anchor`], and the box's own size and the rest of its place are its own
+//! layout's, against its containing block, which this file never sees.
 
 use crate::geometry::{Edges, Point, Rect, Size};
 use crate::measure::{MeasureText, TextStyle};
@@ -169,6 +184,18 @@ pub enum InlineItem {
         /// Its `vertical-align`: what its margin box is lined up with.
         align: LineAlign,
     },
+    /// A box `position: absolute` takes out of flow, where it was written.
+    ///
+    /// It takes no room on the line, makes no line exist and is never a
+    /// place to break. The line only says where it would have stood — its
+    /// **static position**, at the pen and the top of the line it is on (CSS
+    /// 2 § 10.3.7) — as an [`Anchor`], because a box whose insets are `auto`
+    /// stands there. Its size is its own layout's, against its containing
+    /// block. See the module's own section.
+    OutOfFlow {
+        /// The box.
+        box_id: BoxId,
+    },
 }
 
 impl InlineItem {
@@ -179,7 +206,8 @@ impl InlineItem {
             | InlineItem::Atomic { box_id, .. }
             | InlineItem::Open { box_id, .. }
             | InlineItem::Break { box_id, .. }
-            | InlineItem::Close { box_id, .. } => *box_id,
+            | InlineItem::Close { box_id, .. }
+            | InlineItem::OutOfFlow { box_id } => *box_id,
         }
     }
 }
@@ -232,11 +260,26 @@ pub struct LineBox {
     pub top: f32,
 }
 
+/// Where a box out of flow would have stood on its line: its static
+/// position.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Anchor {
+    /// The box.
+    pub box_id: BoxId,
+    /// The point, relative to the top-left of the formatting context: across,
+    /// where the pen was when the box was met, moved with its line by
+    /// `text-align`; down, the top of that line.
+    pub at: Point,
+}
+
 /// Everything an inline formatting context worked out.
 #[derive(Debug, Clone, Default)]
 pub struct InlineLayout {
     /// The lines, top to bottom.
     pub lines: Vec<LineBox>,
+    /// Where each box out of flow among them would have stood, in the order
+    /// they were met.
+    pub anchors: Vec<Anchor>,
     /// How big the whole thing is.
     pub size: Size,
 }
@@ -368,6 +411,7 @@ pub fn lay_out_aligned(
             } => builder.open(*box_id, *edge, style, (*over, *under), *align),
             InlineItem::Close { box_id, edge } => builder.close(*box_id, *edge),
             InlineItem::Break { box_id, style } => builder.add_break(*box_id, style),
+            InlineItem::OutOfFlow { box_id } => builder.waiting.push((*box_id, builder.pen)),
         }
     }
     builder.finish()
@@ -400,6 +444,11 @@ struct Builder<'a, M: MeasureText> {
     /// How far the strut reaches above and below the baseline, leading and
     /// all: where every line's ascent and descent start.
     strut_reach: Reach,
+    /// The boxes out of flow met on this line, each with where the pen was:
+    /// they become anchors once it is known where the line is.
+    waiting: Vec<(BoxId, f32)>,
+    /// The anchors of the lines already finished.
+    anchors: Vec<Anchor>,
 }
 
 /// How far something takes room above and below its baseline on a line: its
@@ -485,6 +534,8 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             }],
             strut,
             strut_reach,
+            waiting: Vec::new(),
+            anchors: Vec::new(),
         }
     }
 
@@ -852,7 +903,12 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     /// Finish the line being built: put every fragment on the baseline, and
     /// start a new one.
     fn end_line(&mut self) {
+        let top = self.lines.last().map_or(0.0, |line| line.top + line.height);
         if self.current.is_empty() || !self.content {
+            // A box out of flow on a line that does not exist stands where
+            // the line would have: at its top, aligned as a line of nothing.
+            let start = self.available_width.unwrap_or(0.0).max(0.0) * self.alignment.share();
+            self.anchor_waiting(start, top);
             // Either nothing was laid down at all, or what was laid down is
             // only empty inline boxes with no edges of their own — which CSS
             // says is a zero-height line box, treated as not existing. Either
@@ -884,7 +940,6 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             })
             .collect();
 
-        let top = self.lines.last().map_or(0.0, |line| line.top + line.height);
         let (baseline, height, hung) = self.settle();
         let width = self
             .current
@@ -898,6 +953,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             .available_width
             .map_or(0.0, |available| (available - width).max(0.0));
         let start = leftover * self.alignment.share();
+        self.anchor_waiting(start, top);
 
         let fragments: Vec<Fragment> = merge_adjacent(core::mem::take(&mut self.current))
             .into_iter()
@@ -926,6 +982,17 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         });
         self.start_line();
         self.content = false;
+    }
+
+    /// Every box out of flow met on this line stands where the pen was when
+    /// it was met, the line starting `start` along and `top` down.
+    fn anchor_waiting(&mut self, start: f32, top: f32) {
+        for (box_id, pen) in self.waiting.drain(..) {
+            self.anchors.push(Anchor {
+                box_id,
+                at: Point::new(start + pen, top),
+            });
+        }
     }
 
     /// How tall the line is and where its baseline is, and where each
@@ -970,6 +1037,7 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         let height = self.lines.iter().map(|line| line.height).sum();
         InlineLayout {
             lines: self.lines,
+            anchors: self.anchors,
             size: Size::new(width, height),
         }
     }
@@ -1879,5 +1947,94 @@ mod tests {
                 "the range names real bytes of the text",
             );
         }
+    }
+
+    fn out_of_flow(index: usize) -> InlineItem {
+        InlineItem::OutOfFlow {
+            box_id: box_id(index),
+        }
+    }
+
+    fn anchor(index: usize, x: f32, y: f32) -> Anchor {
+        Anchor {
+            box_id: box_id(index),
+            at: Point::new(x, y),
+        }
+    }
+
+    /// Queue item 354: `one<a>two</a> three` with the `<a>` out of flow is
+    /// "one three" on one line, as if the `<a>` were not there, and the `<a>`
+    /// stands where it was met: after "one", at the top of the line.
+    #[test]
+    fn a_box_out_of_flow_takes_no_room_and_stands_where_it_was_met() {
+        let layout = lay_out(
+            &[text(1, "one"), out_of_flow(2), text(3, " three")],
+            Some(1000.0),
+            &BlockFont,
+        );
+        assert_eq!(lines_of(&layout).len(), 1, "{:?}", lines_of(&layout));
+        assert!(close(layout.size.width, 72.0), "{:?}", layout.size);
+        assert_eq!(
+            rect_of(&layout, 3).map(|rect| rect.origin.x),
+            Some(32.0),
+            "three letters and a space along, nothing for the box between",
+        );
+        assert_eq!(rect_of(&layout, 2), None, "it is not a piece of the line");
+        assert_eq!(layout.anchors, vec![anchor(2, 24.0, 0.0)]);
+    }
+
+    #[test]
+    fn a_box_out_of_flow_on_a_later_line_stands_at_that_lines_top() {
+        // "one" fits in 40 and "two" does not fit after it, so "two" starts
+        // the second line, 16 down, and the box is met at its end.
+        let layout = lay_out(
+            &[text(1, "one two"), out_of_flow(2)],
+            Some(40.0),
+            &BlockFont,
+        );
+        assert_eq!(lines_of(&layout).len(), 2, "{:?}", lines_of(&layout));
+        assert_eq!(layout.anchors, vec![anchor(2, 24.0, 16.0)]);
+    }
+
+    #[test]
+    fn a_box_out_of_flow_moves_with_its_line() {
+        // Centred in 100, "ab" starts at 42; the box after it at 58.
+        let layout = lay_out_aligned(
+            &[text(1, "ab"), out_of_flow(2)],
+            Some(100.0),
+            TextAlignment::Center,
+            &TextStyle::default(),
+            &BlockFont,
+        );
+        assert_eq!(rect_of(&layout, 1).map(|rect| rect.origin.x), Some(42.0));
+        assert_eq!(layout.anchors, vec![anchor(2, 58.0, 0.0)]);
+    }
+
+    #[test]
+    fn a_box_out_of_flow_alone_makes_no_line_and_stands_where_one_would() {
+        let layout = lay_out_aligned(
+            &[out_of_flow(1)],
+            Some(100.0),
+            TextAlignment::Center,
+            &TextStyle::default(),
+            &BlockFont,
+        );
+        assert!(layout.lines.is_empty(), "{:?}", layout.lines);
+        assert_eq!(layout.size, Size::ZERO);
+        assert_eq!(layout.anchors, vec![anchor(1, 50.0, 0.0)]);
+    }
+
+    #[test]
+    fn a_box_out_of_flow_after_a_line_stands_under_it() {
+        // A line the box is not on: it ended at a `<br>`, and what follows
+        // the break is nothing but the box, so it stands where the next line
+        // would start.
+        let layout = lay_out(
+            &[text(1, "one"), line_break(2), out_of_flow(3)],
+            Some(100.0),
+            &BlockFont,
+        );
+        assert_eq!(lines_of(&layout).len(), 1, "{:?}", lines_of(&layout));
+        assert_eq!(layout.anchors, vec![anchor(3, 0.0, 16.0)]);
     }
 }

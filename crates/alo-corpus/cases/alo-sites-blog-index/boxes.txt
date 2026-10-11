@@ -1,0 +1,59 @@
+block flow · document
+  block flow · generic
+    block flow · link
+      text "Skip to content"
+    block flow · banner
+      block flex · navigation "Main"
+        inline flex · link
+          anonymous block
+            text "North Studio"
+        inline flow · link
+          text "Home"
+        inline flow · link
+          text "Blog"
+        inline flow · link
+          text "RSS"
+    block flow · main
+      block flow · generic
+        block flow · heading [level=1]
+          text "Blog"
+      block grid · list "Blog"
+        block flow · listitem
+          block flow · link [hidden]
+            block flow · image [broken]
+          block flow · generic
+            block flow · paragraph
+              inline flow · generic
+                text "2026-08-09"
+            block flow · heading [level=2]
+              inline flow · link
+                text "Launch notes"
+            block flow · paragraph
+              text "What we learned & what comes next."
+            anonymous block
+              inline flow · link
+                text "Read article"
+                block flow · generic
+                  text ": Launch notes"
+        block flow · listitem
+          block flow · generic
+            block flow · paragraph
+              inline flow · generic
+                text "2026-08-01"
+            block flow · heading [level=2]
+              inline flow · link
+                text "Behind the scenes"
+            anonymous block
+              inline flow · link
+                text "Read article"
+                block flow · generic
+                  text ": Behind the scenes"
+      block grid · navigation "Blog pages"
+        inline flex · link
+          anonymous block
+            text "Previous"
+        inline flow · generic
+          text "Page 2 of 3"
+        inline flex · link
+          anonymous block
+            text "Next"

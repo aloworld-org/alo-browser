@@ -1,0 +1,80 @@
+alo-workplace, products/sites/alo-sites/tests/golden/blog_index.html and
+products/sites/alo-sites/tests/golden/site.css — a page alo Sites publishes
+for its customers: the second page of a demonstration studio's blog index,
+with the style sheet every alo Sites page links.
+
+Taken 2026-10-11 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit the
+other alo Sites cases were taken at. The page's last change is
+e5c83df6bb9d816d6fd8061e3acaf10bb2e7d2b5 (2026-08-12); the sheet's is
+5be41b70be364f8e1e0e158a8619e4e94455321c (2026-09-02). The bytes are those
+files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  93af50cbac4e5fee43d92aaa67a1a9fafe7a2ccf9b447b7a7cb69647f1adf5aa
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+The sheet is byte for byte the other alo Sites cases'. `alo-workplace` is
+read-only reference; nothing was written back to it. Both files are golden
+outputs of alo Sites' own renderer, pinned by its tests, so they are what it
+really serves rather than something rebuilt from it.
+
+Why this page. Iteration 271 took it when every open queue item was waiting
+on a page. It first froze and measured six alo Sites sections — team,
+gallery, hero, collection, catalog and the catalog that takes orders —
+against Google Chrome 154, headless, at 800 wide, with the corpus' DejaVu
+Sans handed to Chrome so that the two lay out the same glyphs. All six
+matched to Chrome's layout unit, apart from Chrome's broken-picture icon
+(item 418) and its whole-pixel half-leading below an inline-block (0.47
+taller under the order form's `<textarea>`), and were dropped, as found
+nothing. This page was the seventh, and found two things.
+
+**Where it is served from: `https://north.sites.test/blog?page=2`**
+(address.txt). The page's own `<link rel="canonical">` and `og:url` say so.
+**What its sheet is answered with: site.css** (linked.txt): it links
+`/assets/site.css`, as every alo Sites page does, and that path is answered
+as the call-to-action section's is (see that case's origin.txt). Its
+analytics script is the same script, and finds no form here. Its one cover
+picture, `/assets/img/blob_cover`, is a name in alo Sites' test fixtures
+with no bytes behind it anywhere, so it is broken here and in every browser;
+its `alt` is empty, so it is a box of nothing, 16:9 by the sheet's
+`aspect-ratio` (ADR 0046 § 3).
+
+Rendered at 800 × 600, wider than the sheet's breakpoints, as the other alo
+Sites cases are.
+
+## What it found
+
+- **A box out of flow broke the line it was in** — item 354, built. Every
+  card ends in `<a class="blog-read">Read article<span class="sr-only">:
+  Launch notes</span></a>`, and `.sr-only` is `position: absolute`, one
+  pixel square with `margin: -1px`. The engine broke the link around the
+  `<span>` as around a block: the link was two pieces, the `<span>` a block
+  of its own at x 44 below the link's line, and an agent read the link "in
+  2 pieces" at (44, 768.08). Now the line is whole and the `<span>` stands
+  at its static position: the end of "Read article" less its margin,
+  45 + 115.42236 − 1 = 159.42236 across, and the top of the link's line
+  less its margin, 764.375 − 1 = 763.375 down. Chrome puts it at the same
+  place relative to the link: 45 + 115.4375 − 1 = 159.4375, one pixel above
+  the line's top. `tests/alo_sites_blog_index.rs` says so.
+- **The cards are one column, and Chrome's are two** — item 422, not built.
+  `.blog-grid` is `repeat(auto-fit, minmax(min(100%, 18rem), 1fr))`. `taffy`
+  counts an `auto-fit` repetition only when every track's size is a plain
+  length or percentage; a `min()` is a calculation, so it throws the whole
+  template away and every card is a row of its own, 760 wide, where Chrome
+  puts two of 368 side by side. Working around a rented crate's refusal is
+  a decision rather than a chore, so it waits for its ADR. This is pinned as
+  it is: the cover 758 × 426.375 (16:9 of 758) and the list 800.575 tall.
+
+Everything else checks against the sheet by hand and is pinned as it is. The
+first card's copy is 1.5rem of padding each side and, in one column of 758
+less its 1px border, 710 wide: the date, 15 px at 1.6, 24 with 15 below it;
+the heading, 1.5rem at 1.2, 28.8 with 0.5rem below; the summary, one line of
+27.2 with 17 below; and the link's line, 27.2: 24 + 39 + 36.8 + 44.2 + 27.2
++ 24 = 195.2. The pager is a grid of `1fr auto 1fr`: "Page 2 of 3" in the
+middle, its links pushed to each end by `justify-self`.
+
+What the sheet asks for that this engine does not do is in issues.txt: the
+call-to-action section's list exactly — `::before` and `::after`,
+`@keyframes`, and `prefers-reduced-motion` — and the cover nobody has.

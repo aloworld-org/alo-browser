@@ -290,6 +290,15 @@ pub struct BoxTree {
     /// style, and read by an agent as the item's `marker` rather than as
     /// text. A side set for [`BoxTree::breaks`]' reason.
     markers: BTreeSet<BoxId>,
+    /// The boxes `position: absolute` takes out of flow (queue item 354).
+    ///
+    /// Each is block-level, because CSS blockifies it, and none of them is a
+    /// block among blocks: it takes no room where it stands. So it does not
+    /// break the inline box it was written in, and it stays among the inline
+    /// content beside it, where layout gives it no room on the line and
+    /// takes its static position from there. A side set for
+    /// [`BoxTree::breaks`]' reason.
+    out_of_flow: BTreeSet<BoxId>,
 }
 
 impl BoxTree {
@@ -357,6 +366,15 @@ impl BoxTree {
     /// property rather than as text (ADR 0044 §§ 4–5).
     pub fn is_marker(&self, id: BoxId) -> bool {
         self.markers.contains(&id)
+    }
+
+    /// Whether `position: absolute` takes a box out of flow.
+    ///
+    /// Layout asks it of every box in a line: such a box takes no room on
+    /// the line, and stands where the line would have put it when its insets
+    /// leave it there (CSS 2 § 10.3.7; queue item 354).
+    pub fn is_out_of_flow(&self, id: BoxId) -> bool {
+        self.out_of_flow.contains(&id)
     }
 
     /// The marker box of the list item `id`, if it has one.
@@ -475,6 +493,7 @@ impl BoxTree {
             breaks: BTreeSet::new(),
             placeholders: BTreeSet::new(),
             markers: BTreeSet::new(),
+            out_of_flow: BTreeSet::new(),
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -690,6 +709,7 @@ pub fn build_showing(document: &Document, styles: &StyleTree, shown: &Shown) -> 
         breaks: BTreeSet::new(),
         placeholders: BTreeSet::new(),
         markers: BTreeSet::new(),
+        out_of_flow: BTreeSet::new(),
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),
@@ -833,7 +853,23 @@ fn build_one(
     };
     let style = styles.get(id);
     let display = display_of(style, id, tree);
+    let made = build_element(document, styles, shown, id, element, display, tree);
+    if is_absolutely_positioned(style) && matches!(display, Display::Box { .. }) {
+        tree.out_of_flow.extend(made.iter().copied());
+    }
+    made
+}
 
+/// The boxes an element generates, its `display` decided.
+fn build_element(
+    document: &Document,
+    styles: &StyleTree,
+    shown: &Shown,
+    id: NodeId,
+    element: &alo_dom::Element,
+    display: Display,
+    tree: &mut BoxTree,
+) -> Vec<BoxId> {
     let img = Img::of(element, id, shown);
     if let Some(made) = &img
         && matches!(display, Display::Box { .. })
@@ -1040,31 +1076,68 @@ fn arrange(tree: &mut BoxTree, parent: BoxId, children: Vec<BoxId>) -> Vec<BoxId
         return wrap_text_runs(tree, children);
     }
 
-    let any_block = children.iter().any(|child| {
-        tree.get(*child)
-            .is_some_and(|node| node.kind.outside() == Outside::Block)
-    });
-    if !any_block {
-        // Every child sits in a line, so this is one run of text and the
-        // spaces in it are the gaps between words.
+    // An inline box holds only what sits in a line: whatever is out of flow
+    // in it stays there, because it was never a block among blocks.
+    let in_an_inline = tree
+        .get(parent)
+        .is_some_and(|node| node.kind.outside() == Outside::Inline);
+    let any_block = children.iter().any(|child| is_in_flow_block(tree, *child));
+    let any_out_of_flow = children.iter().any(|child| tree.is_out_of_flow(*child));
+    if in_an_inline || (!any_block && (!any_out_of_flow || holds_inline_content(tree, &children))) {
+        // Every child sits in a line, or is out of flow among things that
+        // do, so this is one run of text and the spaces in it are the gaps
+        // between words.
         return children;
     }
 
     let mut arranged: Vec<BoxId> = Vec::new();
     let mut run: Vec<BoxId> = Vec::new();
     for child in children {
-        let is_block = tree
-            .get(child)
-            .is_some_and(|node| node.kind.outside() == Outside::Block);
-        if is_block {
-            flush_run(tree, &mut run, &mut arranged);
+        if is_in_flow_block(tree, child) {
+            flush_segment(tree, &mut run, &mut arranged);
             arranged.push(child);
         } else {
             run.push(child);
         }
     }
-    flush_run(tree, &mut run, &mut arranged);
+    flush_segment(tree, &mut run, &mut arranged);
     arranged
+}
+
+/// Whether a box is a block among blocks: block-level and in flow.
+///
+/// A box `position: absolute` takes out of flow is block-level too, and
+/// takes no room where it stands, so it is neither a reason to wrap what is
+/// beside it in anonymous blocks nor to break the inline box it is in.
+fn is_in_flow_block(tree: &BoxTree, id: BoxId) -> bool {
+    !tree.is_out_of_flow(id)
+        && tree
+            .get(id)
+            .is_some_and(|node| node.kind.outside() == Outside::Block)
+}
+
+/// Whether any of these boxes is something a line is made of: an inline-level
+/// box in flow, or text that is not only whitespace.
+fn holds_inline_content(tree: &BoxTree, children: &[BoxId]) -> bool {
+    children
+        .iter()
+        .any(|child| !tree.is_out_of_flow(*child) && !is_only_whitespace(tree, *child))
+}
+
+/// Finish what stood between two blocks.
+///
+/// When it holds something a line is made of, it is one run, and a box out
+/// of flow in it stays in it: `Read article<span class=sr-only>…</span>` is
+/// one line, and the `<span>` stands at its end (queue item 354). When it
+/// holds only boxes out of flow and whitespace, each box stands among the
+/// blocks as it was written, and the whitespace separates nothing: alo
+/// Sites' skip link, before `<header>`, is a box of its own and no line.
+fn flush_segment(tree: &mut BoxTree, run: &mut Vec<BoxId>, arranged: &mut Vec<BoxId>) {
+    if holds_inline_content(tree, run) {
+        flush_run(tree, run, arranged);
+        return;
+    }
+    arranged.extend(run.drain(..).filter(|child| tree.is_out_of_flow(*child)));
 }
 
 /// The items of a flex or grid container.
@@ -1197,12 +1270,10 @@ fn white_space_at(styles: &StyleTree, document: &Document, element: Option<NodeI
     WhiteSpace::default()
 }
 
-/// Whether any of these boxes is block-level.
+/// Whether any of these boxes is a block in flow, which an inline box has
+/// to be broken around.
 fn holds_a_block(tree: &BoxTree, children: &[BoxId]) -> bool {
-    children.iter().any(|child| {
-        tree.get(*child)
-            .is_some_and(|node| node.kind.outside() == Outside::Block)
-    })
+    children.iter().any(|child| is_in_flow_block(tree, *child))
 }
 
 /// Break an inline box around every block-level box inside it.
@@ -1227,10 +1298,7 @@ fn split_around_blocks(tree: &mut BoxTree, first: BoxId, children: Vec<BoxId>) -
     let mut run: Vec<BoxId> = Vec::new();
 
     for child in children {
-        let is_block = tree
-            .get(child)
-            .is_some_and(|node| node.kind.outside() == Outside::Block);
-        if !is_block {
+        if !is_in_flow_block(tree, child) {
             run.push(child);
             continue;
         }
@@ -1775,6 +1843,90 @@ mod tests {
                 .count(),
             2,
             "one piece on each side, even though the first holds nothing:\n{outline}",
+        );
+    }
+
+    /// Queue item 354, from alo Sites' blog cards: a box out of flow is not
+    /// a block among blocks, so the inline box it is in is not broken around
+    /// it, and nothing is wrapped in an anonymous block for it.
+    #[test]
+    fn an_inline_holding_a_box_out_of_flow_is_not_broken_around_it() {
+        let html = "<div><a href=#p>Read article<span id=s>: notes</span></a></div>";
+        let tree = boxes(html, "#s { position: absolute }");
+        let outline = tree.to_outline();
+        assert_eq!(
+            outline
+                .lines()
+                .filter(|line| line.contains("inline flow · link"))
+                .count(),
+            1,
+            "one link, unbroken:\n{outline}",
+        );
+        assert!(!outline.contains("anonymous"), "{outline}");
+        assert!(
+            outline.contains("block flow · generic"),
+            "still blockified:\n{outline}"
+        );
+        let span = (0..tree.len())
+            .map(BoxId)
+            .find(|id| tree.is_out_of_flow(*id))
+            .expect("the span is out of flow");
+        let parent = tree.get(span).and_then(|node| node.parent);
+        assert!(
+            parent
+                .and_then(|parent| tree.get(parent))
+                .is_some_and(|node| node.kind.outside() == Outside::Inline),
+            "it is the link's child:\n{outline}",
+        );
+        assert_eq!(
+            (0..tree.len())
+                .map(BoxId)
+                .filter(|id| tree.is_out_of_flow(*id))
+                .count(),
+            1,
+            "and nothing else is out of flow",
+        );
+    }
+
+    /// Between two blocks, a box out of flow goes with the text it is among:
+    /// one anonymous block holds "one", the box and " three". Among blocks
+    /// with no text beside it, it is a box of its own, as alo Sites' skip
+    /// link is (`an_absolutely_positioned_inline_is_block_level_and_in_no_line`).
+    #[test]
+    fn a_box_out_of_flow_among_text_beside_a_block_stays_in_its_run() {
+        let outline = body_outline(
+            "<div>one<span id=s>two</span> three<p>block</p></div>",
+            "#s { position: absolute }",
+        );
+        assert_eq!(
+            outline.matches("anonymous").count(),
+            1,
+            "one run, not two:\n{outline}",
+        );
+        let lines: Vec<&str> = outline.lines().collect();
+        let depth = |line: &str| line.len() - line.trim_start().len();
+        let two = lines
+            .iter()
+            .position(|line| line.contains("text \"two\""))
+            .expect("the span's text");
+        let span = two
+            .checked_sub(1)
+            .and_then(|at| lines.get(at))
+            .expect("the span");
+        let run = lines
+            .iter()
+            .find(|line| line.contains("anonymous"))
+            .expect("the run");
+        assert!(
+            span.contains("block flow · generic") && depth(span) > depth(run),
+            "the span is inside the run:\n{outline}",
+        );
+        // A container of nothing but whitespace is still one, as it was.
+        let tree = boxes("<div> </div>", "");
+        assert!(
+            tree.to_outline().contains("text \" \""),
+            "{}",
+            tree.to_outline()
         );
     }
 

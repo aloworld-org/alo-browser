@@ -56,6 +56,7 @@ pub(crate) fn place(
         geometry,
         fragments,
         lines,
+        ..
     } = placed;
     let items: Vec<(BoxId, BoxId)> = core::iter::once(root)
         .chain(boxes.descendants(root))

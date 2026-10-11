@@ -1466,3 +1466,18 @@ longhands to their sides under left to right, `margin-inline` and
 x 352, as Chrome 154 measures it. The right-to-left half is cut to 421,
 waiting for a page. 183 queue items are open (380 closed, 421 added). The
 next unused queue number is 422 and the next unused ADR 0047.
+
+Iteration 271 found every open item waiting on a page and probed alo Sites'
+unfrozen goldens against Chrome 154 given the corpus' fonts: team, gallery,
+hero, collection, catalog and the ordering catalog matched and were dropped;
+the blog index did not, and was frozen as `alo-sites-blog-index`. It opened
+item 354, now built: a box `position: absolute` written in a line stays in
+it, takes no room, and stands at its static position in each axis whose
+insets are `auto` (`alo-box`'s `is_out_of_flow`, `inline.rs`'s `Anchor`,
+`alo-layout`'s new `out_of_flow.rs`), so each card's `Read article` link is
+one piece with its screen-reader `<span>` at its end, as in Chrome. It also
+found 422 (needs ADR): `taffy` throws away an `auto-fit` track list whose
+track size is a `min()`, so the cards are one column. Cut: 423 (a containing
+block inside the lines; waits for a page). 184 queue items are open (354
+closed, 422 and 423 added). The next unused queue number is 424 and the next
+unused ADR 0047.

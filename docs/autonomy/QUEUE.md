@@ -5723,7 +5723,7 @@ The long pole, and the thing most of section E is unreachable without.
   both already true of an absolutely positioned *block*, are **354** and
   **355**.
 
-- [ ] **354. An out-of-flow box in a line does not break the line.**
+- [x] **354. An out-of-flow box in a line does not break the line.**
   *Found by iteration 228 while building 352, not opened by a page. Feature:
   `docs/features.md` stage 1, "Absolute and relative positioning". Waits
   for a page.* A box with `position: absolute` among a line's content is
@@ -5736,6 +5736,71 @@ The long pole, and the thing most of section E is unreachable without.
   paragraph is one line, in numbers; and an inset left `auto` puts the box
   at its static position, in numbers. *Opened by a frozen page that puts an
   absolutely positioned box in a line, and not before.*
+  **Done (iteration 271).** Opened by `alo-sites-blog-index`, frozen in the
+  same change: alo Sites' blog index, whose every card ends in `Read
+  article<span class="sr-only">…</span>` with the `<span>` `position:
+  absolute`. The link was two pieces, an agent read it "in 2 pieces" at
+  (44, 768.08), and the `<span>` stood at the start of a line of its own.
+  `alo-box` records the boxes `position: absolute` blockifies as out of
+  flow (`BoxTree::is_out_of_flow`); such a box is no reason to break an
+  inline box or to wrap what is beside it in anonymous blocks, and between
+  two blocks it goes with the text it is among — with none, it stands among
+  the blocks as before, as alo Sites' skip link does. `alo-layout`'s
+  `inline.rs` takes it as `InlineItem::OutOfFlow`: no room, no line of its
+  own, never a break, and an `Anchor` where it would have stood — the pen,
+  moved with its line by `text-align`, and the top of that line. The engine
+  builds its node and hands it to its containing block like any displaced
+  box (`build_out_of_flow_in_line`), and a new `out_of_flow.rs` moves it to
+  its anchor in each axis whose insets are both `auto`, with what is inside
+  it; its margin goes from there. The `<span>` now stands at (159.42236,
+  763.375): the end of "Read article" and the top of its line, less its
+  `margin: -1px`, where Chrome 154 puts it relative to the link; the link
+  is one piece. Found while testing: an inline box holding nothing but a
+  box out of flow was laid out as an atomic box a line wide; it is a
+  bracket in its line (`holds_only_what_sits_in_a_line`). Tests:
+  `alo-corpus/tests/alo_sites_blog_index.rs` (4), `numbers.rs` (one line of
+  16 and the box at (34, 0) 24 × 16 with its text; `margin: -1px`; an inset
+  in one axis, the line's place in the other; a centred line; a containing
+  block inside the lines recorded; 5 000 boxes in a line and 100 links that
+  hold only one), `inline.rs` (5), `tree.rs` (2). Mutations, restored from
+  copies and checked with `cmp`: out-of-flow boxes treated as blocks fails
+  8 tests in three crates; an anchor not moved with its line, 3; the
+  static position never applied, 3. No other corpus case moved. A
+  containing block inside the lines is cut to **423**.
+
+- [ ] **422. A grid track whose size is a calculation, repeated to fit.**
+  *Found by `alo-sites-blog-index` (iteration 271). Feature:
+  `docs/features.md` stage 1, "Flexbox and grid". **Needs ADR.***
+  `.blog-grid` is
+  `grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr))`,
+  which CSS Grid allows: a `<fixed-breadth>` is any `<length-percentage>`,
+  `min()` included. `taffy` 0.14 counts an `auto-fill` or `auto-fit`
+  repetition only when every track has a plain length or percentage
+  (`has_fixed_component`; its `main` is the same), so it throws the whole
+  template away and the grid has no explicit columns: alo Sites' blog cards
+  are a column of rows 760 wide where Chrome 154 puts two of 368 side by
+  side. The value parses and the calculation already resolves (ADR 0004);
+  only the count refuses it. How to count it without forking `taffy`
+  (refused by ADR 0004), and without a second layout pass that is right
+  only when the container's size does not depend on its items (also
+  refused there), is a decision, and it is made in an ADR first. *Closes
+  when:* that ADR is accepted, and the frozen blog index's cards are two
+  columns of 368 at x 20 and 412, in numbers.
+
+- [ ] **423. A containing block inside the lines.** *Cut from 354
+  (iteration 271). Feature: `docs/features.md` stage 1, "Absolute and
+  relative positioning". Waits for a page.* A box out of flow written in a
+  line whose containing block is the block holding the line (`<p
+  style="position: relative">`) or a positioned inline box in it is placed
+  against the initial containing block instead, and that is recorded: the
+  block is a leaf of the engine's tree, whose lines are `inline.rs`', and an
+  inline box is no node at all, so neither can be handed a child. An axis
+  that takes the static position is still right; an axis with an inset, and
+  a size given in percentages, are not. CSS 2 § 10.1 makes an inline
+  containing block the box around its first and last pieces. *Blocked: no
+  page yet* that positions an element holding such a box and gives the box
+  an inset. *Closes when:* that frozen page's box is placed against its
+  containing block in numbers.
 
 - [x] **355. An absolute box is placed against its nearest positioned
   ancestor.** *Found by iteration 228 while building 352, not opened by a

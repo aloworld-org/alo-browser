@@ -26213,3 +26213,126 @@ clause now names 421. Not ticked. Also updated: `docs/features.md`,
 183 queue items are open (380 closed, 421 added). The next unused queue
 number is **422** and the next ADR is **0047**. This is one iteration,
 not a finished queue or roadmap.
+
+
+
+## Iteration 271 — queue item 354 built: a box out of flow in a line does not break it, found by freezing alo Sites' blog index
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and the stage 1 and stage 2 layout lines), iteration 270 and
+`REMAINING.md`'s continuation. No `AGENTS.md` exists in this repository or
+above it. For 354: its queue entry and 355 and 399 beside it,
+`docs/features.md`' positioning lines, ADR 0004 (our tree, `taffy`'s
+algorithms: the displaced-box machinery and the calc handle) and ADR 0044
+§ 4 (the marker, the precedent for a box that takes no room in a line and
+is placed after the lines); `alo-box`'s `tree.rs`, `alo-layout`'s
+`engine.rs`, `inline.rs`, `containing.rs` and `marker.rs`. For 422: ADR
+0004 and 0009, `track.rs`, and `taffy` 0.14's `explicit_grid.rs` and
+`style/grid.rs` (its `main` checked the same day).
+
+**Choosing.** Every open item waited on a page, a dependency, a design or
+an ADR when iteration 270 ended, so this iteration probed the unfrozen alo
+Sites goldens. Each was frozen locally, rendered, and measured in Google
+Chrome 154, headless, at 800 wide — this time with the corpus' DejaVu Sans
+handed to Chrome by an injected `@font-face`, so both lay out the same
+glyphs. Team, gallery, hero, collection, catalog and the ordering catalog
+matched to Chrome's layout unit (apart from its broken-picture icon, 418,
+and its whole-pixel half-leading under an inline-block, 0.47 under the
+order form's `<textarea>`, which Chrome shows under an empty inline-block
+too) and were dropped. The blog index did not, and was frozen as
+`alo-sites-blog-index`. It opened 354, already in the queue and waiting for
+exactly this page, and found 422.
+
+**What was built.** `alo-box` records the boxes `position: absolute`
+blockifies (`BoxTree::is_out_of_flow`). Such a box is not a block among
+blocks: no inline box is broken around it, nothing beside it is wrapped in
+an anonymous block for it, and between two blocks it goes with the text it
+is among; with no text beside it, it stands among the blocks as before
+(alo Sites' skip link). `inline.rs` takes it as `InlineItem::OutOfFlow`: no
+room, no line, never a break, and an `Anchor` — the pen, moved with its
+line by `text-align`, and the line's top. The engine builds its node and
+hands it to its containing block like any displaced box
+(`build_out_of_flow_in_line`; a containing block inside the lines is
+recorded and placed against the page, cut to **423**), and the new
+`out_of_flow.rs` moves it to its anchor in each axis whose insets are both
+`auto`, everything in it with it, its margin going from there. A bug found
+by the hostile test: an inline box holding nothing but a box out of flow
+was laid out as an atomic box a line wide; `holds_only_what_sits_in_a_line`
+makes it a bracket. **422** (needs ADR): `.blog-grid` is `repeat(auto-fit,
+minmax(min(100%, 18rem), 1fr))`, and `taffy` counts an auto repetition only
+when every track size is a plain length or percentage, so it drops the
+template and the cards are one column; forking `taffy` and a second pass
+are both refused by ADR 0004, so the way round is a decision first.
+
+**Gate, mechanical.** Clippy on the touched crates (all targets, all
+features, `-D warnings`) and `cargo fmt` clean first (one `doc_markdown`
+fixed). `scripts/gate.sh` ran in the foreground to a log; the harness moved
+it to the background at 600 s and the next call waited on it in a
+foreground `until` loop. It read `exit 0` and "The gate is met", every
+section `ok`, no `FAILED` or `panicked` in the log. This entry and the
+commit came after that run and are documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `alo-corpus/tests/alo_sites_blog_index.rs`
+  (4: the sheet; the issues are the shared list and the missing cover; each
+  read link's line 27.2, the `<span>` 1 × 1 at the link's end − 1 and the
+  line's top − 1; an agent reads each link in one piece at x 45) and
+  `alo-layout/tests/numbers.rs` (`one<a>two</a> three` one line of 16 with
+  the box at (34, 0) 24 × 16 and its text with it, the words at 10, 34, 42;
+  `margin: -1px` at (33, −1); `top: 50px` at (34, 50) and `left: 5px` at
+  (5, 20); centred at (88, 0); a containing block inside the lines
+  recorded with the line's top kept; 5 000 boxes in one line and 100 links
+  holding only one, each one line). Unit: `inline.rs` 5, `tree.rs` 2.
+- Every number in the case worked by hand in its `origin.txt` (the copy
+  24 + 39 + 36.8 + 44.2 + 27.2 + 24 = 195.2) and the `<span>`'s place
+  compared with Chrome 154's on the same page and fonts: 45 + 115.4375 − 1
+  = 159.4375 there, 45 + 115.42236 − 1 here, one pixel above the line's top
+  in both.
+- Reference render: the case's `render.png` looked at. The line this
+  changes is at y 764, below the 600-pixel render, and the `<span>` is a
+  1 × 1 clipped box drawn by no pixel anyone sees, so the change is pinned
+  by `layout.txt`, `agent.txt` and `display.txt` (the `<span>`'s text
+  clipped to (159.42236, 763.375) 1 × 1, outside the card's clip, as its
+  containing block is the page) rather than by the picture. No other
+  corpus case moved a pixel or a number when every reference was
+  rewritten.
+- Mutation (copies in the scratchpad, restored with `cp`, checked with
+  `cmp`, the renderer binary rebuilt after): out-of-flow boxes treated as
+  blocks fails 8 tests in three crates; an anchor not moved with its line,
+  3; the static position never applied, 3. A first mutation of
+  `holds_a_block` alone survived because `split_around_blocks` checks
+  again; mutating both is the old behaviour, and fails.
+- Hostile input: the box tree is built from page bytes; the many-boxes and
+  nested-links test is the new arrangement under adversarial markup, and
+  found the bug above.
+- One responsibility per file: `out_of_flow.rs` is where a box out of flow
+  in a line stands; `engine.rs` still builds the tree and reads it back;
+  `inline.rs` still builds lines and now reports where a box out of them
+  would have stood.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` in each is clean.
+
+**Queue.** 354 ticked with its *Done* paragraph; 422 (needs ADR) and 423
+(waits for a page) added open. **Roadmap: no line moved, and why.** 354 is
+stage 1's positioning, under the *Layout* line that is already ticked, and
+no stage 2 line names absolute positioning or alo Sites' pages; 422 is
+grid, under the same ticked line. Moving either would be decoration, as
+iteration 269 found. Also updated: `docs/features.md` (the blockified line
+now built, the grid line's 422), `docs/conformance.md` (the alo Sites row),
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- That the real window draws this case was not captured: the window
+  capture is still refused on this machine (296). None of the window's
+  frozen references moved.
+- An agent reads each link as `Read article : Launch notes`, a space before
+  the colon, because the `<span>` is block-level; whether Chrome's
+  accessible name has that space was not measured. Not opened: no item
+  names the name computation's spacing.
+- 422 needs its ADR before any code; it is the next decision this page
+  asks for. 423, 411, 414, 416–421 wait for pages. Still unfrozen alo Sites
+  goldens: the full page and a blog post (and `catalog_one_category`).
+
+184 queue items are open (354 closed, 422 and 423 added). The next unused
+queue number is **424** and the next ADR is **0047**. This is one
+iteration, not a finished queue or roadmap.
