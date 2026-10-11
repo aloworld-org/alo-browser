@@ -1241,10 +1241,21 @@ unreachable without it.
       screenshot beside it pixel by pixel within a measured bound. **Drawn
       on whole pixels** where it stands on fractions (queue item 457,
       `alo-paint`'s `snap.rs`), each edge rounded as Chrome 154 rounds it;
-      `checkbox-beside-text` compared with Chrome's screenshot · Owed:
-      everything a control **does**,
-      which needs events
-      (queue item 81) — constraint validation, submission, file inputs — the
+      `checkbox-beside-text` compared with Chrome's screenshot · Decided
+      (ADR 0051, iteration 294), not built: a control's state is held apart
+      from its attributes; its form owner is worked out when asked for;
+      each constraint is a rule in `alo-dom`, and a constraint not built yet
+      refuses the submission by name; submission is HTML's algorithm, ending
+      in ADR 0020's ask with a method and an entry list that the browser
+      process encodes and decides; an agent submits by activating the submit
+      button; and a file is chosen only by a person · Owed:
+      everything a control **does** (queue items 468–476: the submission in
+      the renderer, 468; the state apart from its attributes, 469; the
+      browser process's decision, 470; script's form members, 471;
+      `FormData` and `URLSearchParams`, 472; the rest of the constraints,
+      473; multipart and plain-text bodies, 474; a file chosen by a person,
+      475; validity in the agent tree, 476) — constraint validation,
+      submission, file inputs — the
       focus ring, which needs something to have focus (queue item 43); a
       date field's calendar (386), the person's region (387), the other
       temporal kinds (388); a long hint's clipping (390),

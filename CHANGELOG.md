@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **How forms will work has been decided and written down.** Today,
+  pressing a form's submit button does nothing, and nothing says so. A new
+  design record (ADR 0051) sets out what will happen instead, measured
+  against Chrome on two real alo Sites forms and the HTML specification's
+  own example. The fields are checked first, and a form that fails is
+  not sent: the page is told which fields failed, and so is an agent,
+  with Chrome's own words for why. A page may take the submission over
+  itself. Otherwise the browser sends the form exactly as Chrome would.
+  It refuses to send a secure page's form over an insecure connection.
+  If the form needs a check this browser cannot make yet, it stops the
+  form and says why, rather than sending it unchecked. Only a person can
+  choose a file to upload, never an agent. Nothing on screen changes yet;
+  the work is queued as items 468 to 476.
+
 - **Lines of text are now as tall as Chrome makes them.** The browser used
   a font's exact height above and below the baseline, where Chrome rounds
   each to a whole pixel, and it placed extra line spacing to a fraction of

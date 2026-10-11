@@ -5013,6 +5013,208 @@ The long pole, and the thing most of section E is unreachable without.
   however much else lands — so it moves from `needs design`, which `LOOP.md`
   step 2 passes over, to work: the ADR as its own iteration (rule 4), then a
   first item cut from it carrying a contract and a closing condition.
+  **Decided (iteration 294): ADR 0051, accepted.** Grounded in Chrome 154,
+  measured over DevTools on a probe page and on `web-a-form` and
+  `alo-sites-booking` served at their own addresses with their frozen bytes.
+  In short:
+  - A control's value, checkedness and selectedness are the document's,
+    held apart from the attributes, which become the defaults
+    (`alo-dom`'s `control.rs`). An agent's `PutText` is a user edit.
+  - A form owner is worked out when asked for: the `form` attribute, else
+    the nearest ancestor `form`. The parser's form element pointer is
+    refused by law 1.
+  - Each constraint is a rule in `alo-dom`'s `constraint.rs`. A constraint
+    not built yet refuses the submission by name if it could fail. Messages
+    are Chrome's English, word for word. `PutText` past `maxlength` is
+    refused as `TooLong`.
+  - Submission is HTML's algorithm in `alo-dom`'s `submission.rs`, driven
+    like a click: `invalid` at each failing control in tree order, then a
+    trusted `SubmitEvent`, then the entry list.
+  - What survives is ADR 0020's ask, with a method, an enctype and the
+    entry list, and the last ask in a task wins, links included. The
+    browser process encodes the entries and decides as for a link, plus
+    `form-action`, mixed content (refused, with no send anyway until a
+    window can ask the person) and the cause.
+  - An agent submits by activating the submit button, with no `Submit`
+    verb, and is answered `Submitted`, `NotSubmitted` (each failing control
+    and its message) or `Activated` (the page took it).
+  - A file is chosen only by a person, in the browser's picker. The
+    renderer holds a number, the browser process puts the bytes in, and an
+    agent's verbs on a file field are refused by name.
+
+  **No code is built and this item is not done.** It is cut into 468–476.
+  It closes when they have.
+
+- [ ] **468. A form's submission, in the renderer.** *Cut from 82 (ADR 0051
+  §§ 2–4 and 6). Depends on 263 (the ask's shape), done, and nothing open.*
+  Opened by `alo-sites-booking`, where pressing *See free times* does
+  nothing today and nothing says so.
+  - `alo-dom`'s `submission.rs`:
+    - the submit button's activation behaviour (`Activation::Button`
+      becomes a submit, a reset or nothing by its type);
+    - § 2's form owner, and `activation.rs`' radio group gaining it;
+    - HTML's two guards;
+    - the entry list for text-like inputs, `textarea`, checkbox, radio,
+      `select`, hidden and the submitter;
+    - method, action (resolved against the base URL), enctype and target,
+      with the submitter's overrides;
+    - `dialog`, another window's target, a non-UTF-8 `accept-charset` and
+      `input type=image` each refused by name.
+  - `alo-dom`'s `constraint.rs`, with what the corpus's forms need:
+    - barring from validation;
+    - `valueMissing`, and `typeMismatch` for `email` and `url`, each with
+      Chrome 154's message;
+    - every other constraint refusing the submission by name when it could
+      fail (§ 3).
+  - `alo-agent`: `PutText` past `maxlength` refused as `TooLong`.
+  - Scripted pages: `invalid` (trusted, cancelable, not bubbling) at each
+    failing control in tree order, and `SubmitEvent` (trusted, bubbling,
+    cancelable, `submitter`), in `alo-bindings`, driven by the renderer for
+    a verb and by `click()` for a script.
+  - Scriptless pages: the same rules in `apply.rs`, without events.
+  - The ask: the document cell's ongoing navigation gains a method, an
+    enctype and an entry list, `Asked` and the wire format carry them, and
+    hostile input is refused rather than panicking. A submission and a link
+    in one task keep the last.
+  - `Outcome::Submitted` and `Outcome::NotSubmitted`.
+  The values are read through one function each, from the attributes until
+  469 builds `control.rs`.
+  *Closes when:*
+  - On `alo-sites-booking`, an agent's `Activate` on *See free times*
+    with no date answers `NotSubmitted` naming the date field,
+    `valueMissing` and `Please fill out this field.`, and asks for no
+    navigation.
+  - After `PutText` of `2026-10-20`, the same press answers `Submitted`,
+    and `Acted` carries an ask for `GET` to
+    `https://nordwind.alosites.com/b/studio-consultation` with the entry
+    `date` = `2026-10-20`.
+  - On `web-a-form`, after `PutText` of `Ada Lovelace` into its first
+    field, pressing *Submit order* asks for `POST` to
+    `https://httpbin.org/post`, urlencoded, with entries in Chrome's order
+    (`custname`, `custtel`, `custemail`, `delivery`, `comments`).
+  - A scripted page's `submit` listener reads `submitter` and
+    `isTrusted`, and its `preventDefault` answers `Activated` with no ask.
+
+- [ ] **469. A control's state apart from its attributes.** *Cut from 82
+  (ADR 0051 § 1). Depends on 468.*
+  - `alo-dom`'s `control.rs`: value and dirty value flag, checkedness and
+    dirty checkedness flag, selectedness and dirtiness, each on the
+    `Document` keyed by node.
+  - Value sanitization, including `date.rs`' rule, moved there.
+  - The `value` and `checked` attributes become the defaults.
+  - `field.rs`' `TEXT` and `activation.rs`' `checked` go.
+  - `:checked`, the box tree's drawn text and the agent tree read
+    `control.rs`.
+  - A reset button's activation behaviour: a trusted, cancelable `reset`,
+    then the defaults back and the dirty flags cleared.
+  *Opened by a page* whose `[value]` selector, reset button or script
+  tells a control's state from its attribute.
+  *Closes when:* that page renders and acts as Chrome measures it, and a
+  `value` attribute set after `PutText` leaves the field's text as the
+  agent put it.
+
+- [ ] **470. A browser process decision for a submission.** *Cut from 82
+  (ADR 0051 § 5). Depends on 468.*
+  - The entry list encoded in the browser process: a GET's query replacing
+    the action's, and an urlencoded POST body with no charset parameter.
+    Newlines are written as CR LF at encoding.
+  - `multipart/form-data` and `text/plain` refused by name until 474.
+  - ADR 0020 § 3's decision, with the 2 MiB bound applied after the query
+    is added.
+  - `form-action` from the browser process's own copy of the header
+    policy.
+  - A secure document submitting to `http`: refused, said and recorded.
+  - The cause from which message was answered.
+  - The jar's `SameSite` rule shown for a cross-site POST navigation.
+  - A method, enctype or file number no form could make, refused as a
+    renderer that broke the boundary.
+  - `Navigation` carries the method and body to whoever drives `Tabs`.
+  *Closes when:* `web-a-form`'s ask from 468 is decided as `Cause::Agent`
+  with Chrome's exact body,
+  `custname=Ada+Lovelace&custtel=&custemail=&delivery=&comments=`, and
+  `Content-Type: application/x-www-form-urlencoded`.
+  `alo-sites-booking`'s is decided as a GET of
+  `https://nordwind.alosites.com/b/studio-consultation?date=2026-10-20`.
+  A query on the action is replaced, as measured. An `http` action from an
+  `https` page is refused and recorded.
+
+- [ ] **471. A form from script: `submit()`, `requestSubmit()`, `reset()`
+  and validity.** *Cut from 82 (ADR 0051 § 7). Depends on 468 and 262
+  (each element's own interface).* The measured behaviour:
+  - `form.submit()` neither checks nor fires `submit`;
+  - `requestSubmit(submitter?)` does both;
+  - `reset()`;
+  - `checkValidity()` and `reportValidity()`;
+  - `setCustomValidity()` with `customError`;
+  - `validity`, `validationMessage`, `willValidate`, `value`, `checked`,
+    `defaultValue`, `defaultChecked` and `form`.
+
+  Each is built when a page needs it. `alo-sites-contact-form`'s fallback
+  calls `form.submit()`, and alo Sites' widget (`serve/widget.rs`) calls
+  `requestSubmit()`.
+  *Closes when:* the contact form's fallback, given a failed fetch, asks for
+  its POST with the values as they stand and no `submit` event.
+
+- [ ] **472. `FormData` and `URLSearchParams`.** *Cut from 82 (ADR 0051
+  § 7). Depends on 468 and 335.* `new FormData(form)` built from 468's
+  entry list by the same function, and `URLSearchParams` from one, as a
+  fetch body. A `FormData` body is multipart, encoded in the renderer
+  because ADR 0032 makes a fetch body bytes. A file entry is refused by
+  name until the File API.
+  *Opened by `alo-sites-contact-form`*, whose submit listener builds
+  `new URLSearchParams(new FormData(form))`.
+  *Closes when:* that listener's fetch is asked for with the body Chrome
+  sends, and with the case's frozen answer the form is replaced by
+  *Thanks — talk soon.*
+
+- [ ] **473. The rest of the constraints.** *Cut from 82 (ADR 0051 § 3).
+  Depends on 468.*
+  - `patternMismatch`, compiled by ADR 0029's engine with the `v` flag;
+    who compiles it, the renderer or `alo-dom`, is decided with the item.
+  - `tooShort`, only after a user edit.
+  - `rangeUnderflow`, `rangeOverflow` and `stepMismatch` for the types
+    that have them.
+  - Each with Chrome 154's message.
+  *Opened by a page* whose form carries one of them with a value it could
+  reject. alo's sign-up and forgot-password screens use `minLength`.
+  *Closes when:* that page's submission is checked as Chrome checks it,
+  and the refusal 468 gives for an unbuilt constraint names nothing still
+  missing.
+
+- [ ] **474. `multipart/form-data` and `text/plain` without files.** *Cut
+  from 82 (ADR 0051 § 5). Depends on 470.* Encoded in the browser process,
+  with a multipart boundary of its own choosing. *Opened by a page* whose
+  form names either enctype. *Closes when:* that page's body is Chrome's,
+  apart from the boundary.
+
+- [ ] **475. A file chosen by a person.** *Cut from 82 (ADR 0051 § 8).
+  Depends on 474 and a window that can show the browser's picker (ADR 0024,
+  item 118).*
+  - The person's picker.
+  - A number per file, unique within its document, with its name, size
+    and type sent to the renderer, and never a path or the bytes.
+  - The browser process putting the bytes into a multipart body, and
+    refusing a number the document was never given.
+  - An agent's `PutText` and `Activate` on a file field refused by name.
+  - The agent tree reading that the field exists, its `accept`, and how
+    many files are chosen.
+  Before a picker exists, the agent refusals and an empty field submitting
+  as `name=` (measured) are buildable on their own.
+  *Opened by a page.* alo's `NewTaskModal.tsx` and `ComposeModal.tsx` carry
+  `type="file"`.
+  *Closes when:* a file the person chose reaches the request body without
+  its bytes crossing to the renderer, and an agent's verb on the field is
+  refused.
+
+- [ ] **476. The agent tree reads a control's validity.** *Cut from 82
+  (ADR 0051 § 6). Depends on 468.* A control that fails a constraint reads
+  as `invalid`, with its `validationMessage`, beside an author's
+  `aria-invalid`. Chrome 154's accessibility tree is measured first, to
+  learn whether a field nobody has touched reads as invalid and when that
+  changes. *Opened by `alo-sites-booking`*, whose required date field an
+  agent reads before pressing. *Closes when:* that case's `agent.txt` says
+  what Chrome's accessibility tree says for the field, before and after
+  the press.
 
 - [ ] **83. `fetch()` and `XMLHttpRequest`**, over the same stack as everything
   else rather than beside it.

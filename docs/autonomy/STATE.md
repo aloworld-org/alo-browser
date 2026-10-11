@@ -28634,3 +28634,107 @@ updated: `docs/features.md` (line-height entry), `docs/conformance.md`,
 209 queue items are open (460 closed, 466–467 added). The next unused queue
 number is **468** and the next ADR is **0051**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 294 — queue item 82 decided: ADR 0051, a form is checked before anybody is asked, and its submission is a navigation the browser process encodes
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md` (whole; § 4, a
+decision is its own iteration), `ROADMAP.md` (its state rules and the stage
+2 Forms line, which this serves), iteration 293, and the owner's commit
+01596ea. No `AGENTS.md` exists in this repository or above it. For 82: its
+queue entry, `docs/features.md`' Forms entries, ADRs 0002, 0018, 0020 and
+0032 in full, and the decisions of 0012, 0026, 0042, 0043 and 0048.
+`alo-dom`'s `activation.rs` and `field.rs` were read in full. A read-only
+survey covered `alo-agent`'s `verb.rs` and `apply.rs`, `alo-renderer`'s
+`ask.rs`, `navigate.rs`, `press.rs` and `put.rs`, `alo-net`'s `request.rs`,
+`alo-box`'s `state.rs`, every corpus case with form markup, and
+`alo-workplace`'s forms.
+
+**Choosing.** The owner's commit 01596ea moved 82, 83 and 85 from `needs
+design` to `needs ADR`. Every open item above 82 in the file is blocked,
+waits for a page, or needs design that only the owner can promote, as
+earlier iterations recorded. So 82 is the first eligible item. Under LOOP.md
+§ 4 its ADR is this iteration, with no code.
+
+**Measured**, in Chrome 154, headless, over DevTools, with every request
+intercepted and failed so nothing reached a network. The probe page and the
+scripts were kept in the scratchpad only, and Chrome's source was not read.
+`web-a-form` and `alo-sites-booking` were served at their own addresses
+from their frozen bytes. Results:
+- A submit press on invalid fields fires `invalid` at each failing control
+  in tree order, and nothing else.
+- `submit` is a trusted `SubmitEvent` even after a script's `click()`.
+- `web-a-form` posts `custname=&custtel=&custemail=&delivery=&comments=`
+  (with `Ada Lovelace`: `custname=Ada+Lovelace&…`), urlencoded with no
+  charset parameter.
+- Booking with a date gets `/b/studio-consultation?date=2026-10-20`.
+- A GET's query replaces the action's.
+- `submit()` neither checks nor fires `submit`, and `requestSubmit()` does
+  both.
+- The last of several submissions in one task wins, in either order.
+- A script-set value is never `tooLong`.
+- `reset` is trusted and puts back the markup's value.
+- Chrome's English validation messages, quoted in the ADR.
+
+**What was decided (ADR 0051).**
+- A control's state is held apart from its attributes, in `alo-dom`'s
+  `control.rs`. An agent's `PutText` is a user edit.
+- A form owner is worked out when asked for. The parser's form element
+  pointer is refused by law 1.
+- Each constraint is a rule in `alo-dom`'s `constraint.rs`. A constraint
+  not built yet refuses the submission by name when it could fail.
+  Messages are Chrome's English, word for word. `PutText` past `maxlength`
+  is refused as `TooLong`.
+- Submission is HTML's algorithm in `alo-dom`'s `submission.rs`, driven
+  like a click. It ends in ADR 0020's ask with a method, an enctype and an
+  entry list, and the last ask in a task wins.
+- The browser process encodes the entries and decides as for a link, plus
+  `form-action`, mixed content (refused, with no send anyway until a window
+  can ask the person) and the cause.
+- No `Submit` verb. The outcomes are `Submitted`, `NotSubmitted` and
+  `Activated`.
+- A file is chosen only by a person. The renderer holds a number, and an
+  agent's verbs on a file field are refused.
+
+**Gate, mechanical.** `scripts/gate.sh` ran once in the foreground. The
+harness moved it to the background at 600 s, and the next call waited on it
+with a foreground `until` loop. Result: `exit 0`, "The gate is met", and no
+`FAILED` or `panicked` in the log. Only this entry came after it, and the
+commit.
+
+**Gate, manual.** No code changed, so there is no layout assertion or
+reference render to add, and no file gained a responsibility. Nothing is
+built. `docs/features.md`' Forms entry says the design is decided and not
+built, as iteration 212 did for fetch. `docs/conformance.md` is unchanged.
+No `unsafe`. `alo-workplace` and `alo-os` were not touched.
+
+**Queue.** 82 records the decision and stays open. Added:
+- 468: the submission in the renderer, depending on nothing open, opened
+  by `alo-sites-booking`, with closing numbers measured in Chrome;
+- 469: a control's state apart from its attributes, waiting for a page;
+- 470: the browser process's decision and the encoding;
+- 471: script's form members, which depend on 262;
+- 472: `FormData` and `URLSearchParams`, opened by
+  `alo-sites-contact-form`;
+- 473: the rest of the constraints, waiting for a page;
+- 474: multipart and plain-text bodies, waiting for a page;
+- 475: a file chosen by a person, which needs a window's picker;
+- 476: validity in the agent tree, with Chrome's accessibility tree
+  measured first.
+
+**Roadmap.** The stage 2 Forms line gains a Decided clause naming ADR 0051,
+and its Owed clause names 468–476. Nothing is ticked and no Built clause was
+added, because nothing is built. Also updated: `docs/features.md`,
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 468 is buildable next. 470 follows it, and 476 and 472 (with 335 done)
+  depend on it.
+- 83 (`XMLHttpRequest`'s half) and 85 (navigation) are the owner's other
+  two promotions and each still needs its ADR.
+- 461, 462, 463 and 467 depend on nothing open. 466 needs measuring.
+- 438, 439, 431, 433, 434, 444, 445, 446, 448, 450–453, 456, 458, 465,
+  423–428, 411, 414 and 416–421 wait for pages, and 432 depends on 404.
+
+218 queue items are open (9 added). The next unused queue number is **477**
+and the next ADR is **0052**. This is one iteration, not a finished queue or
+roadmap.

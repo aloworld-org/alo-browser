@@ -1757,3 +1757,16 @@ Chrome's 1/64 grid; needs measuring and its rule written down) and 467 (a
 control's own `normal` line; depends on 460, buildable). 461, 462, 463 and
 467 depend on nothing open. 209 queue items are open (460 closed, 466–467
 added). The next unused queue number is 468 and the next unused ADR 0051.
+
+Iteration 294 decided item 82 (forms), which the owner had moved to
+`needs ADR` on 2026-10-11: ADR 0051, grounded in Chrome 154's behaviour
+measured over DevTools on a probe page, `web-a-form` and
+`alo-sites-booking`. A control's state is held apart from its attributes,
+a form owner is worked out when asked for, each constraint is an `alo-dom`
+rule, and a constraint not built yet refuses by name. Submission is HTML's
+algorithm, ending in ADR 0020's ask with a method and an entry list that
+the browser process encodes. An agent submits by activating the button,
+and only a person chooses a file. Nothing is built. 82 is cut into
+468–476, and 468 (the submission in the renderer, opened by
+`alo-sites-booking`) depends on nothing open. 218 queue items are open (9
+added). The next unused queue number is 477 and the next unused ADR 0052.
