@@ -333,6 +333,11 @@ pub struct BoxTree {
     /// takes its static position from there. A side set for
     /// [`BoxTree::breaks`]' reason.
     out_of_flow: BTreeSet<BoxId>,
+    /// The boxes that stand on their bottom border edge rather than their
+    /// bottom margin edge when they have no line in them: a checkbox's and
+    /// a radio's (queue item 443). See [`crate::toggle`]. A side set for
+    /// [`BoxTree::breaks`]' reason.
+    border_baselines: BTreeSet<BoxId>,
 }
 
 impl BoxTree {
@@ -409,6 +414,15 @@ impl BoxTree {
     /// leave it there (CSS 2 § 10.3.7; queue item 354).
     pub fn is_out_of_flow(&self, id: BoxId) -> bool {
         self.out_of_flow.contains(&id)
+    }
+
+    /// Whether a box with no line in it stands on its bottom border edge
+    /// rather than its bottom margin edge, as a checkbox and a radio do.
+    ///
+    /// Layout asks it of an atomic box to know where its baseline is
+    /// (queue item 443).
+    pub fn stands_on_border_edge(&self, id: BoxId) -> bool {
+        self.border_baselines.contains(&id)
     }
 
     /// The marker box of the list item `id`, if it has one.
@@ -528,6 +542,7 @@ impl BoxTree {
             placeholders: BTreeSet::new(),
             markers: BTreeSet::new(),
             out_of_flow: BTreeSet::new(),
+            border_baselines: BTreeSet::new(),
             boxes: Vec::new(),
             root: None,
             issues: Vec::new(),
@@ -744,6 +759,7 @@ pub fn build_showing(document: &Document, styles: &StyleTree, shown: &Shown) -> 
         placeholders: BTreeSet::new(),
         markers: BTreeSet::new(),
         out_of_flow: BTreeSet::new(),
+        border_baselines: BTreeSet::new(),
         boxes: Vec::new(),
         root: None,
         issues: Vec::new(),
@@ -947,6 +963,9 @@ fn build_element(
             let box_id = tree.push(BoxKind::Element { node: id, display }, semantics);
             if crate::line_break::is_forced_break(element, display) {
                 tree.breaks.insert(box_id);
+            }
+            if crate::toggle::stands_on_its_border_edge(element) {
+                tree.border_baselines.insert(box_id);
             }
             let children = match crate::details::slots(document, id) {
                 Some(slots) => details_children(document, styles, shown, id, &slots, tree),
@@ -2615,6 +2634,23 @@ mod tests {
         let tree = boxes("<p>one<br><span>two</span></p>", "");
         let breaks: Vec<BoxId> = tree.ids().filter(|id| tree.is_forced_break(*id)).collect();
         assert_eq!(breaks.len(), 1, "the <br> and nothing else");
+    }
+
+    #[test]
+    fn a_checkbox_and_a_radio_stand_on_their_border_edge() {
+        let tree = boxes(
+            "<p>a<input type=checkbox><input type=radio><input><span>b</span></p>",
+            "",
+        );
+        let standing: Vec<BoxId> = tree
+            .ids()
+            .filter(|id| tree.stands_on_border_edge(*id))
+            .collect();
+        assert_eq!(
+            standing.len(),
+            2,
+            "the checkbox and the radio, and nothing else"
+        );
     }
 
     #[test]

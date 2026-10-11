@@ -1,0 +1,19 @@
+/* A checkbox and a radio beside text: queue item 443, by Chrome 154's
+   user-agent values, measured. A checkbox is 13 by 13 with its border and
+   has `margin: 3px 3px 3px 4px`; a radio `3px 3px 0 5px`. Each stands on
+   the baseline by the bottom of its border box.
+   - #checkbox, #radio: between two words; the row is 20 tall, the box 3
+     below its top, and the text after it 7 (8 for a radio) past its edge.
+   - #flex-row: alo Settings' row, centred in a flex container with a gap;
+     19 tall, the box at 4 across, the label at 25.
+   - #taller: `line-height: 1.5`, checked, one of each.
+   - #larger: 32px text; the box still 13 and on the baseline.
+   - #no-margin, #radio-no-margin: an author's `margin: 0` wins; 19 tall.
+   - #sized: 20 by 20, by an author's width and height; 27 tall. */
+body { margin: 0; background: #ffffff; color: #000000; font-size: 16px }
+div { width: 300px; background: #dde2ee }
+.row { display: flex; align-items: center; gap: 8px }
+.taller { line-height: 1.5 }
+.larger { font-size: 32px }
+.flush { margin: 0 }
+.sized { width: 20px; height: 20px }

@@ -27929,3 +27929,112 @@ its own `white-space` where two boxes met until 449, and that 452, 450 and
 201 queue items are open (449 closed, 452 added). The next unused queue
 number is **453** and the next ADR is **0050**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 287 — queue item 443 built: a checkbox and a radio stand beside text where Chrome puts them
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its stage 2 Forms line, which this item serves), iteration 286. No
+`AGENTS.md` exists in this repository or above it. For 443: its queue
+entry, `docs/features.md`' forms entry, `docs/conformance.md`' baseline
+paragraph, `alo-style`'s `user_agent.rs`, `alo-layout`'s `baseline.rs`
+and `engine.rs`' atomic item, `alo-box`'s `tree.rs` (its side sets) and
+`line_break.rs`, `alo-paint`'s `control.rs`, and `alo-settings`' markup
+and sheet. The item names no ADR and needs none: it is Chrome's
+user-agent values and baseline, measured, with no policy, rental or
+agent-surface choice in it.
+
+**Choosing.** Iteration 286 named 443 the one buildable item; everything
+else open waits for a page or for 404.
+
+**Measured first.** Headless Chrome 154 with the corpus's `DejaVu Sans`
+by `@font-face`, a probe of nine rows, then the case's own bytes. A
+checkbox computes `margin: 3px 3px 3px 4px` and a radio `3px 3px 0 5px`
+(the item had guessed the radio's were the checkbox's), both `box-sizing:
+border-box` and 13 × 13 with the border. Each stands on the baseline by
+its bottom *border* edge, at 16 and 32 px, with and without margins, at 13
+and 20 px square. An empty atomic box stands on its bottom margin edge
+(CSS 2 § 10.8.1), which with no margin was the same place, so the margins
+alone would have raised every checkbox 3 px.
+
+**What was built.**
+- `alo-style`'s user-agent sheet: the two margins and `box-sizing:
+  border-box` for both, with a test of their computed values.
+- `alo-box`'s new `toggle.rs`: which elements stand on their border edge
+  (an `<input>` of type `checkbox` or `radio`, any case), two tests; a
+  side set in `tree.rs`, `BoxTree::stands_on_border_edge`, and a test.
+- `alo-layout`'s `baseline::of_atomic`: such a box with no line stands on
+  its border box's height. Module docs say so.
+
+**Evidence.** `cases/checkbox-beside-text`, eight rows, and
+`tests/checkbox_beside_text.rs`: every control's and the following text's
+across within 1/64 px of Chrome's; each control's bottom exactly on the
+text's baseline (`DejaVu Sans`' ascent, 1901/2048 of the size); each
+control's down and each row's height within 0.75 px of Chrome's, which is
+Chrome's whole-pixel ascent, descent and floored half-leading, said in
+the test. Its render beside Chrome's screenshot agrees row for row except
+the control's own artwork (454). alo Settings' checkbox is at 263 and its
+label at 287, the row 19 tall, all as in Chrome (it was 259, 280, 16.3);
+alo sign-in's "Remember me" checkbox is at Chrome's 514 and its row
+Chrome's 19; `web-a-form`'s seven controls are at Chrome's x and their
+row pitch 35.77 against Chrome's 36 (it was 34.77).
+
+**Gate, mechanical.** `cargo fmt --all`; `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean. `scripts/gate.sh` ran
+four times in the foreground. Run 1 failed on `alo_sign_in.rs`, which
+pinned the email field's y: the card is centred, and the taller
+"Remember me" row raised it 1.93 px; updated with the reason. Run 2
+failed in `alo-net` (`a_page_over_http_2_still_refuses_a_body_that_stopped`,
+"Broken pipe" where "connection ended" was expected), which this change
+cannot reach; it passed thirty runs alone and in both later gate runs, and
+is queued as 455 rather than worked around. Run 3 failed on
+`alo-renderer`'s `an_agent_on_settings.rs`, which pinned the Settings nav's
+display numbers; the dialog is centred and rose 1.35 px; updated from the
+new reference. Run 4: the harness moved it to the background at 600 s and
+the next call waited on it with a foreground `until` loop: `exit 0`, "The
+gate is met". Only the queue's 455, `REMAINING.md`'s count, this entry and
+the commit came after it.
+
+**Gate, manual.**
+- *Layout assertions in numbers:* `tests/checkbox_beside_text.rs` (two
+  tests, eight rows), `alo-style`'s
+  `a_checkbox_and_a_radio_have_chromes_margins_and_size`, `alo-box`'s
+  toggle and tree tests, and the updated pins in `alo_sign_in.rs`,
+  `an_agent_on_settings.rs` and `alo-agent`'s `reading_an_interface.rs`
+  (its checkbox now 13 × 13 at 213.02, the line 1 px taller).
+- *Reference renders:* the new case written with `ALO_UPDATE_REFERENCES=1`.
+  Moved, and read: `a-filled-form`, `alo-settings`, `alo-sign-in`,
+  `control-states`, `fieldset-group` and `web-a-form` — every checkbox and
+  radio 13 × 13 with Chrome's margins, and what is centred or below them
+  shifted by the taller rows. No other case moved.
+- `alo-paint`'s `control_states.rs` drew a 16 × 16 control at the body's
+  corner with its border outside; its page now says `margin: 0;
+  box-sizing: content-box` for that fixture, since what it tests is the
+  mark, not the box.
+- *Mutations, restored from copies (`cmp` confirmed):* no checkbox margin
+  fails the across test; the radio given the checkbox's margins fails it;
+  `content-box` fails the row heights; the margin-edge baseline fails both
+  tests.
+- *Hostile input:* nothing new reads bytes from outside; `toggle.rs`
+  compares an attribute without allocating or indexing.
+- One responsibility per file: which boxes stand on their border edge is
+  `toggle.rs`', where they stand `baseline.rs`'. No `unsafe`.
+  `alo-workplace` and `alo-os` were not touched.
+
+**Queue.** 443 ticked with its *Done* paragraph. Added 453 (an author's
+padding and border on a checkbox, which Chrome ignores; waits for a page),
+454 (a checkbox's and radio's own artwork, Chrome's rounded white box;
+opened by Settings, needs measuring), 455 (the `alo-net` flake above).
+
+**Roadmap.** Stage 2's Forms line gains a *Built* clause for 443 and owes
+453 and 454. It stays unticked. Also updated: `docs/features.md`,
+`docs/conformance.md`, `REMAINING.md`, `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 453, 454 and 455, above. 454 and 455 depend on nothing and are
+  buildable next; 455 stands first in the file after 454.
+- 438, 439, 431, 433, 434, 444, 445, 446, 448, 450, 451, 452, 453,
+  423–428, 411, 414 and 416–421 wait for pages; 432 depends on 404.
+
+203 queue items are open (443 closed, 453–455 added). The next unused
+queue number is **456** and the next ADR is **0050**. This is one
+iteration, not a finished queue or roadmap.

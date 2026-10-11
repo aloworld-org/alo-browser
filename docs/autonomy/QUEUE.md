@@ -6409,7 +6409,7 @@ The long pole, and the thing most of section E is unreachable without.
   stands the "…" after it. *Closes when:* a frozen page's ellipsis after
   such a space stands where Chrome's does.
 
-- [ ] **443. A checkbox's user-agent margin.** *Found re-measuring
+- [x] **443. A checkbox's user-agent margin.** *Found re-measuring
   `alo-settings` for 440 (iteration 281). Feature: `docs/features.md`
   stage 1, forms. Depends on nothing.* Chrome 154's user-agent sheet gives
   a checkbox (and a radio) `margin: 3px 3px 3px 4px`; this engine gives it
@@ -6418,6 +6418,61 @@ The long pole, and the thing most of section E is unreachable without.
   here. Measured on the page, not yet against a hand-written case.
   *Closes when:* a case pins a checkbox and a radio beside text where
   Chrome puts them, and Settings' row agrees.
+  **Done (iteration 287).** Measured first in Chrome 154 with the corpus's
+  font: a checkbox computes `margin: 3px 3px 3px 4px` and a radio `3px
+  3px 0 5px` (not the checkbox's, as this item guessed), both
+  `box-sizing: border-box`, 13 × 13 with the border. And each stands on
+  the baseline by its bottom **border** edge, not its margin edge as an
+  empty atomic box does (CSS 2 § 10.8.1): with no margin the two were the
+  same place, so the margins alone would have raised every checkbox three
+  pixels. `alo-style`'s user-agent sheet carries the margins and
+  `box-sizing`; `alo-box`'s new `toggle.rs` says which boxes stand on
+  their border edge (a side set, `BoxTree::stands_on_border_edge`), and
+  `alo-layout`'s `baseline::of_atomic` stands them there.
+  `cases/checkbox-beside-text` pins eight rows (between words, a radio,
+  Settings' flex row, `line-height: 1.5`, 32 px text, an author's `margin:
+  0` on each, 20 × 20): every control's and following text's across within
+  1/64 px of Chrome's, each control's bottom exactly on the text's baseline,
+  and its down and the row's height within 0.75 px, which is Chrome's whole
+  pixel ascent and descent. Its render matches Chrome's screenshot row for
+  row but for the control's own artwork (454). alo Settings' checkbox is
+  at 263 and its label at 287, the row 19 tall, as in Chrome; `web-a-form`'s
+  controls at Chrome's x. Found: 453, 454.
+
+- [ ] **453. An author's padding and border on a checkbox are ignored.**
+  *Found building 443 (iteration 287). Feature: `docs/features.md` stage
+  1, forms. Waits for a page.* Chrome 154 computes `padding: 0` and a zero
+  border for a checkbox or radio whose page sets `padding: 5px; border: 2px
+  solid red`, and draws it 13 × 13 as if unset; this engine draws the
+  author's border and pads the box inside its 13 × 13. *Closes when:* a
+  frozen page's styled checkbox is the size and position Chrome draws.
+
+- [ ] **454. A checkbox and a radio draw Chrome's artwork.** *Found
+  building 443 (iteration 287). Feature: `docs/features.md` stage 1, a
+  form control draws its state. Opened by alo Settings.* Chrome 154 draws
+  an unchecked checkbox white inside a rounded grey border, where this
+  engine draws the user-agent sheet's square `#767676` border over the
+  page's background (`alo-paint`'s `control.rs`). The box and where it
+  stands now agree; the pixels inside it do not. Needs Chrome's shapes and
+  colours measured from screenshots before anything is drawn. *Closes
+  when:* `checkbox-beside-text`'s controls match Chrome's screenshot pixel
+  for pixel, or within a stated, measured bound.
+
+- [ ] **455. A stopped HTTP/2 body is reported the same way whatever the
+  timing.** *Found by the gate in iteration 287, which did not cause it.
+  Feature: `docs/features.md` stage 2, networking. Depends on nothing.*
+  `alo-net`'s `a_download_that_stops_over_http_2.rs`,
+  `a_page_over_http_2_still_refuses_a_body_that_stopped`, failed once under
+  the gate's load: the page was refused, as it should be, but the reason
+  read "could not write to the connection: Broken pipe (os error 32)"
+  rather than "connection ended". The client wrote after the server had
+  closed, so a write failed before the read that would have seen the end.
+  It passed in the next two gate runs and thirty runs alone. A server that
+  stops is one event, and the reason given should not depend on which of
+  read and write noticed first. *Closes when:* the client reports a peer
+  that closed mid-body as the connection ending whichever way it finds
+  out, and a test forces the write-first order rather than waiting for
+  it.
 
 - [ ] **432. A `<summary>` draws its disclosure triangle.** *Cut from 429
   by ADR 0048 § 5. Opened by `alo-sites-full-page`'s FAQ. Feature:

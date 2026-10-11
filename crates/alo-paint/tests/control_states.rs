@@ -80,8 +80,12 @@ fn draw(html: &str, css: &str) -> (DisplayList, Canvas) {
 }
 
 /// The page a single control is put on. No background of its own, so that
-/// every fill in the list belongs to the control.
-const PAGE: &str = "body { margin: 8px }\n#c { width: 16px; height: 16px }";
+/// every fill in the list belongs to the control. Its margin and its
+/// `box-sizing` are the page's, so that it stands at the body's corner with
+/// its border outside the 16×16 it asked for, whatever the user-agent sheet
+/// gives a checkbox (queue item 443).
+const PAGE: &str =
+    "body { margin: 8px }\n#c { width: 16px; height: 16px; margin: 0; box-sizing: content-box }";
 
 /// One control on an otherwise empty page, at a known place.
 fn control(attributes: &str) -> (DisplayList, Canvas) {
@@ -277,7 +281,7 @@ fn a_page_may_choose_the_colour_and_the_mark_stays_readable() {
     let (_, canvas) = draw(
         "<!DOCTYPE html><html><body><input id=c type=checkbox checked></body></html>",
         "body { margin: 8px }\n\
-         #c { width: 16px; height: 16px; accent-color: #b8f000 }",
+         #c { width: 16px; height: 16px; margin: 0; box-sizing: content-box; accent-color: #b8f000 }",
     );
     assert!(
         pixels(&canvas, INSIDE, pale) > 100,
@@ -301,7 +305,7 @@ fn a_control_the_page_made_large_still_draws_a_mark_it_can_hold() {
     // rather than a wide tick.
     let (_, canvas) = draw(
         "<!DOCTYPE html><html><body><input id=c type=checkbox checked></body></html>",
-        "body { margin: 8px }\n#c { width: 40px; height: 16px }",
+        "body { margin: 8px }\n#c { width: 40px; height: 16px; margin: 0; box-sizing: content-box }",
     );
     // The control's padding box runs from x=9 to x=49; its mark sits in the
     // 16-wide square in the middle of that, so both ends are bare accent.

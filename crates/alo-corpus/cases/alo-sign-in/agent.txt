@@ -6,13 +6,13 @@ document at (0, 0) 1000×640
       text "Mail, calendar, chat, and files — sovereign, AI-native, and hosted in Europe." at (64, 387.8078) 275.96777×70.78906 in 3 pieces
     text "Hosted on your infrastructure · EU" at (80, 560.8672) 222.52979×15.1328125
   main at (420, 0) 580×640
-    heading "Sign in" [level=2] at (510, 107.796875) 400×37.25
-    paragraph at (510, 149.04688) 400×16.296875
-      text "Welcome back. Enter your credentials to continue." at (510, 149.04688) 354.16992×16.296875
-    textbox "Email" [placeholder="you@company.eu"] at (510, 213.64063) 400×46
-    generic "Password" at (510, 299.9375) 400×46
-    checkbox "Remember me" [checked=false] at (510, 363.0039) 13×13
+    heading "Sign in" [level=2] at (510, 105.86328) 400×37.25
+    paragraph at (510, 147.11328) 400×16.296875
+      text "Welcome back. Enter your credentials to continue." at (510, 147.11328) 354.16992×16.296875
+    textbox "Email" [placeholder="you@company.eu"] at (510, 211.70703) 400×46
+    generic "Password" at (510, 298.0039) 400×46
+    checkbox "Remember me" [checked=false] at (514, 363.0039) 13×13
     link "Forgot password?" at (779.5747, 361.9375) 130.4253×15.1328125
-    button "Sign in" at (510, 393.0703) 400×46
-    text "or" at (703.3508, 455.0703) 13.29834×15.1328125
-    button "Sign in with SSO" at (510, 486.20313) 400×46
+    button "Sign in" at (510, 395.0039) 400×46
+    text "or" at (703.3508, 457.0039) 13.29834×15.1328125
+    button "Sign in with SSO" at (510, 488.13672) 400×46

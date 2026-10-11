@@ -167,11 +167,20 @@ button {
   background: #efefef;
   text-align: center;
 }
+/* A checkbox and a radio are 13 by 13 *with* their border, and stand a few
+ * pixels off the text beside them: Chrome 154's computed values, measured
+ * (queue item 443). The margins are not symmetrical, and not the same for
+ * the two: a radio is a pixel further from the text before it and sits on
+ * the baseline with nothing below it. Without them alo Settings' checkbox
+ * stood 4 pixels left of Chrome's and its label 7. */
 input[type="checkbox"], input[type="radio"] {
+  box-sizing: border-box;
   width: 13px;
   height: 13px;
   padding: 0;
 }
+input[type="checkbox"] { margin: 3px 3px 3px 4px }
+input[type="radio"] { margin: 3px 3px 0 5px }
 /* A radio is round and a checkbox is square, and that is not decoration.
  *
  * The agent tree told them apart from the first commit — `radio "Small"` and
@@ -369,6 +378,35 @@ mod tests {
                 "{id}"
             );
         }
+    }
+
+    #[test]
+    fn a_checkbox_and_a_radio_have_chromes_margins_and_size() {
+        let html = "<input id=check type=checkbox><input id=radio type=radio><input id=text>";
+        for (id, top, right, bottom, left) in [
+            ("check", "3px", "3px", "3px", "4px"),
+            ("radio", "3px", "3px", "0", "5px"),
+        ] {
+            for (side, value) in [
+                ("margin-top", top),
+                ("margin-right", right),
+                ("margin-bottom", bottom),
+                ("margin-left", left),
+            ] {
+                assert_eq!(
+                    computed(html, id, side).as_deref(),
+                    Some(value),
+                    "{id} {side}"
+                );
+            }
+            assert_eq!(
+                computed(html, id, "box-sizing").as_deref(),
+                Some("border-box"),
+                "{id}"
+            );
+        }
+        // A field keeps no margin of its own.
+        assert_eq!(computed(html, "text", "margin-left"), None);
     }
 
     #[test]

@@ -45,6 +45,7 @@ pub mod role;
 pub mod semantics;
 pub mod state;
 pub mod svg;
+pub mod toggle;
 pub mod transform;
 pub mod tree;
 pub mod whitespace;

@@ -1,5 +1,5 @@
-document at (0, 0) 240×89.77187
-  group "Pizza size" at (10, 8) 220×73.77187
+document at (0, 0) 240×91.77187
+  group "Pizza size" at (10, 8) 220×75.77187
     text "Pizza size" at (26, 8) 76.453125×18.625
-    radio "Small" [checked=true] at (24, 32.225) 15×15
-    radio "Large" [checked=false] at (24, 50.998436) 15×15
+    radio "Small" [checked=true] at (29, 35.225) 13×13
+    radio "Large" [checked=false] at (29, 54.998436) 13×13

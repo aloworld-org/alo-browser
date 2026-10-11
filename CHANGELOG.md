@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A checkbox and a radio sit beside their text as browsers put them.**
+  Each is 13 pixels square with its border, stands a few pixels off the
+  words around it by Chrome's own margins, and sits on the line by the
+  bottom of its box rather than three pixels above it. alo Settings' "Send
+  automatic replies" checkbox and its label now start where Chrome draws
+  them, and the row is Chrome's 19 pixels tall (queue item 443).
+
 - **Lines break where two elements meet as browsers break them.** A
   `nowrap` label after an ordinary space now goes to the next line whole
   rather than overflowing; a word written across two elements, like

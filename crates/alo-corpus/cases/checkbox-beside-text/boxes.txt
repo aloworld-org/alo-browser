@@ -1,0 +1,36 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      text "ab"
+      inline flow-root · checkbox [checked=false]
+      text "cd"
+    block flow · generic
+      text "ab"
+      inline flow-root · radio [checked=false]
+      text "cd"
+    block flex · generic
+      inline flow-root · checkbox [checked=false]
+      inline flow · generic
+        text "Send"
+    block flow · generic
+      text "ab"
+      inline flow-root · checkbox [checked=true]
+      text "cd"
+      inline flow-root · radio [checked=true]
+      text "ef"
+    block flow · generic
+      text "ab"
+      inline flow-root · checkbox [checked=false]
+      text "cd"
+    block flow · generic
+      text "ab"
+      inline flow-root · checkbox [checked=false]
+      text "cd"
+    block flow · generic
+      text "ab"
+      inline flow-root · radio [checked=false]
+      text "cd"
+    block flow · generic
+      text "ab"
+      inline flow-root · checkbox [checked=false]
+      text "cd"

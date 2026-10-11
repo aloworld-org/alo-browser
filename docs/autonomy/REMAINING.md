@@ -1670,3 +1670,16 @@ agrees on all fourteen rows of `cases/soft-wrap-between-boxes`. Found: 452
 break; waits for a page). 443 is buildable next and depends on nothing. 201
 queue items are open (449 closed, 452 added). The next unused queue number is
 453 and the next unused ADR 0050.
+
+Iteration 287 built item 443: a checkbox and a radio carry Chrome 154's
+user-agent margins (a radio's differ from a checkbox's) and `box-sizing:
+border-box`, and stand on the baseline by their bottom border edge
+(`alo-style`'s sheet, `alo-box`'s `toggle.rs`, `alo-layout`'s
+`baseline.rs`). `cases/checkbox-beside-text` agrees with Chrome across to
+1/64 px; alo Settings' row is at Chrome's x and height. Found: 453 (an
+author's padding and border on a checkbox, which Chrome ignores; waits for a
+page) and 454 (a checkbox's and radio's own artwork; opened by Settings,
+needs measuring), and 455 (an HTTP/2 body that stops is sometimes reported
+as a failed write; the gate hit it once, not caused by this item). 203 queue
+items are open (443 closed, 453–455 added). The next unused queue number is
+456 and the next unused ADR 0050.

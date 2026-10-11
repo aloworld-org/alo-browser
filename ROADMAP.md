@@ -1208,7 +1208,13 @@ unreachable without it.
       `control_content_style`): a line tall inside only when it holds text
       or another inline, so an icon button is its icon and its padding, as
       browsers draw it, while an empty field is still a line. Corpus case
-      `alo-agenda-mini-month` · Owed: everything a control **does**,
+      `alo-agenda-mini-month`. **A checkbox and a radio stand where Chrome
+      puts them** (queue item 443): 13 × 13 with their border and Chrome
+      154's user-agent margins (`margin: 3px 3px 3px 4px`, a radio's `3px
+      3px 0 5px`), standing on the baseline by their bottom border edge
+      (`alo-box`'s `toggle.rs`, read by `alo-layout`'s `baseline.rs`), so
+      alo Settings' row is 19 tall with its checkbox and label at Chrome's
+      x. Corpus case `checkbox-beside-text` · Owed: everything a control **does**,
       which needs events
       (queue item 81) — constraint validation, submission, file inputs — the
       focus ring, which needs something to have focus (queue item 43); a
@@ -1216,7 +1222,9 @@ unreachable without it.
       temporal kinds (388); a long hint's clipping (390),
       `:placeholder-shown` (391) and `::placeholder`'s other properties
       (392), and a button's two measured edges, an empty `<span>` and a
-      kept space (438), each waiting for a page
+      kept space (438), each waiting for a page; an author's padding and
+      border on a checkbox, which Chrome ignores (453, waits for a page),
+      and a checkbox's and radio's own artwork (454)
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
       · Built: **`location`, read** (queue item 360) — `alo-url`'s
       `reading.rs` (the URL Standard's nine readings over our `Url`) and

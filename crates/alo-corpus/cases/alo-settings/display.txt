@@ -1,41 +1,41 @@
 fill box#1 rgb(244 241 236) at (0, 0) 900×600
 fill box#3 rgb(31 37 41 / 0.48) at (0, 0) 900×600
-fill box#5 rgb(255 254 252) at (24, 70.111725) 852×459.77658
-clip box#5 to (24, 70.111725) 852×459.77658
-fill box#7 rgb(232 226 217) at (24, 121.90079) 852×1
-text box#9 "Mail settings" rgb(16 42 67) 17px at (44, 101.89151)
-fill box#13 rgb(244 241 236) at (24, 122.90079) 194×341.1875
-fill box#13 rgb(232 226 217) at (217, 122.90079) 1×341.1875
-clip box#13 to (24, 122.90079) 193×341.1875
-fill box#15 rgb(252 234 227) at (36, 134.90079) 169×31.132813
-text box#17 "General" rgb(231 111 81) 13px at (48, 154.96768)
-text box#21 "Filters & rules" rgb(95 85 75) 13px at (48, 188.1005)
-text box#25 "Sharing" rgb(95 85 75) 13px at (48, 221.2333)
-text box#29 "Notifications" rgb(95 85 75) 13px at (48, 254.36612)
-text box#33 "App passwords" rgb(95 85 75) 13px at (48, 287.49893)
+fill box#5 rgb(255 254 252) at (24, 68.76016) 852×462.4797
+clip box#5 to (24, 68.76016) 852×462.4797
+fill box#7 rgb(232 226 217) at (24, 120.549225) 852×1
+text box#9 "Mail settings" rgb(16 42 67) 17px at (44, 100.53995)
+fill box#13 rgb(244 241 236) at (24, 121.549225) 194×343.89063
+fill box#13 rgb(232 226 217) at (217, 121.549225) 1×343.89063
+clip box#13 to (24, 121.549225) 193×343.89063
+fill box#15 rgb(252 234 227) at (36, 133.54922) 169×31.132813
+text box#17 "General" rgb(231 111 81) 13px at (48, 153.61612)
+text box#21 "Filters & rules" rgb(95 85 75) 13px at (48, 186.74893)
+text box#25 "Sharing" rgb(95 85 75) 13px at (48, 219.88174)
+text box#29 "Notifications" rgb(95 85 75) 13px at (48, 253.01456)
+text box#33 "App passwords" rgb(95 85 75) 13px at (48, 286.14737)
 unclip
-clip box#36 to (218, 122.90079) 658×341.1875
-text box#41 "Your signature" rgb(16 42 67) 14px at (242, 155.8959)
-text box#44 "Added to the bottom of messages you send…" rgb(122 111 98) 13px at (242, 180.74815)
-fill box#46 rgb(222 215 205) at (242, 199.29767) 610×42.296875
-clip box#46 to (243, 200.29767) 608×40.296875
-text box#48 "Kind regards," rgb(16 42 67) 14px at (255, 225.29279)
+clip box#36 to (218, 121.549225) 658×343.89063
+text box#41 "Your signature" rgb(16 42 67) 14px at (242, 154.54434)
+text box#44 "Added to the bottom of messages you send…" rgb(122 111 98) 13px at (242, 179.39659)
+fill box#46 rgb(222 215 205) at (242, 197.9461) 610×42.296875
+clip box#46 to (243, 198.9461) 608×40.296875
+text box#48 "Kind regards," rgb(16 42 67) 14px at (255, 223.94122)
 unclip
-fill box#51 rgb(232 226 217) at (242, 265.59454) 610×1
-text box#54 "Out of office" rgb(16 42 67) 14px at (242, 303.58966)
-fill box#56 rgb(222 215 205) at (242, 318.89142) 610×125.19687
-fill box#60 rgb(118 118 118) at (259, 337.53986) 13×13
-text box#63 "Send automatic replies" rgb(16 42 67) 14px at (280, 348.88654)
-text box#67 "Automatically reply once to anyone who emails you while you're away." rgb(122 111 98) 13px at (259, 373.73877)
-fill box#71 rgb(255 254 252) at (259, 392.2883) 282×34.80002
-fill box#71 rgb(222 215 205) at (259, 392.2883) 282×34.80002
-text box#72 "12 May" rgb(16 42 67) 14px at (272, 414.28342)
-fill box#75 rgb(255 254 252) at (553, 392.2883) 282×34.80002
-fill box#75 rgb(222 215 205) at (553, 392.2883) 282×34.80002
-text box#76 "19 May" rgb(16 42 67) 14px at (566, 414.28342)
+fill box#51 rgb(232 226 217) at (242, 264.24298) 610×1
+text box#54 "Out of office" rgb(16 42 67) 14px at (242, 302.2381)
+fill box#56 rgb(222 215 205) at (242, 317.53986) 610×127.899994
+fill box#60 rgb(118 118 118) at (263, 337.53986) 13×13
+text box#63 "Send automatic replies" rgb(16 42 67) 14px at (287, 348.88654)
+text box#67 "Automatically reply once to anyone who emails you while you're away." rgb(122 111 98) 13px at (259, 375.09033)
+fill box#71 rgb(255 254 252) at (259, 393.63986) 282×34.80002
+fill box#71 rgb(222 215 205) at (259, 393.63986) 282×34.80002
+text box#72 "12 May" rgb(16 42 67) 14px at (272, 415.63498)
+fill box#75 rgb(255 254 252) at (553, 393.63986) 282×34.80002
+fill box#75 rgb(222 215 205) at (553, 393.63986) 282×34.80002
+text box#76 "19 May" rgb(16 42 67) 14px at (566, 415.63498)
 unclip
-fill box#84 rgb(232 226 217) at (24, 464.0883) 852×1
-text box#89 "Cancel" rgb(95 85 75) 14px at (714.4209, 502.33496)
-fill box#92 rgb(231 111 81) at (785.84863, 481.0883) 70.15137×32.80002
-text box#93 "Save" rgb(255 254 252) 14px at (801.84863, 502.33496)
+fill box#84 rgb(232 226 217) at (24, 465.43985) 852×1
+text box#89 "Cancel" rgb(95 85 75) 14px at (714.4209, 503.68652)
+fill box#92 rgb(231 111 81) at (785.84863, 482.43985) 70.15137×32.80002
+text box#93 "Save" rgb(255 254 252) 14px at (801.84863, 503.68652)
 unclip

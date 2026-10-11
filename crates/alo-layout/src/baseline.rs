@@ -28,6 +28,13 @@
 //! it, and an empty `<input>` beside a label is the commonest thing on a form.
 //! A button and a `<textarea>` with nothing in them get no such line.
 //!
+//! A **checkbox and a radio** have no line and stand on their bottom
+//! *border* edge instead, which is where Chrome 154 stands them: with the
+//! user-agent sheet's three pixels of margin below a checkbox, the margin
+//! edge would raise it three pixels off the text beside it (queue item
+//! 443). The box tree says which boxes these are
+//! (`BoxTree::stands_on_border_edge`).
+//!
 //! [`crate::engine`] lays out the box's subtree, records the baselines of the
 //! first and last lines of every inline formatting context in it, and asks
 //! [`of_atomic`] which of those is the box's. `None` is the answer "its bottom
@@ -108,6 +115,11 @@ pub(crate) fn of_atomic(
     };
     match laid_out.search(root, which) {
         Found::Line(y) => Some(y - top),
+        // A checkbox and a radio stand on their bottom border edge, as
+        // Chrome 154 stands them (queue item 443).
+        Found::Nothing | Found::Refused if boxes.stands_on_border_edge(root) => {
+            geometry.get(&root).map(|held| held.border_box.size.height)
+        }
         Found::Nothing | Found::Refused => None,
     }
 }

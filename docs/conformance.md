@@ -70,7 +70,10 @@ value's, an inline-block on its last line of text — and an `<input>` with
 nothing typed in it on the line it would hold, its strut's baseline, so it
 stands where it will once typed into (item 384; an empty button and
 `<textarea>` do not) — and on its bottom margin edge when it has no line or its `overflow` is not `visible`, which is where an
-image, an SVG and a checkbox stand. The line is found through the blocks
+image and an SVG stand. A **checkbox and a radio** stand on their bottom
+*border* edge, as Chrome 154 stands them, below the user-agent sheet's 3
+pixels of margin (item 443). Chrome ignores an author's padding and border
+on either and this engine draws them (453). The line is found through the blocks
 inside the box, last first; a flex or grid container, or a scroll container,
 met on the way is **refused**, and the box stands on its bottom margin edge
 instead. An **`inline-flex` box** stands on its *first* baseline, its first

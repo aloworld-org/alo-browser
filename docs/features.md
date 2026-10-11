@@ -219,7 +219,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   legend, and a radio you can tell from a checkbox. An empty date field
   draws how a date is written, `yyyy-mm-dd`, in its own colour (queue item
   385, ADR 0042; opened by `alo-sites-booking`), and a field's text is drawn
-  with nothing of the field's own around it. Not yet: the person's region
+  with nothing of the field's own around it. A checkbox and a radio are 13
+  by 13 with their border, carry Chrome's user-agent margins and stand on
+  the baseline by their bottom border edge, so a label beside one starts
+  where it does in Chrome (queue item 443). Not yet: the person's region
   for that order (387), the calendar button (386), and what an empty time,
   month or week field shows (388)
 - [2] **A fieldset's border, broken by its legend** — the legend sits *in* the

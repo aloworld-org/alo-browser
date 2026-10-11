@@ -1,10 +1,10 @@
 document at (0, 0) 150×196
-  checkbox "Off" [checked=false] at (8, 10.5) 15×15
-  checkbox "On" [checked=true] at (8, 30.5) 15×15
-  checkbox "Some" [checked=mixed] at (8, 50.5) 15×15
-  checkbox "On, locked" [disabled checked=true] at (8, 70.5) 15×15
-  checkbox "Off, locked" [disabled checked=false] at (8, 90.5) 15×15
-  radio "Small" [checked=false] at (8, 110.5) 15×15
-  radio "Medium" [checked=true] at (8, 130.5) 15×15
-  radio "Large, locked" [disabled checked=true] at (8, 150.5) 15×15
-  checkbox "Their colour" [checked=true] at (8, 170.5) 15×15
+  checkbox "Off" [checked=false] at (12, 11.5) 13×13
+  checkbox "On" [checked=true] at (12, 31.5) 13×13
+  checkbox "Some" [checked=mixed] at (12, 51.5) 13×13
+  checkbox "On, locked" [disabled checked=true] at (12, 71.5) 13×13
+  checkbox "Off, locked" [disabled checked=false] at (12, 91.5) 13×13
+  radio "Small" [checked=false] at (13, 113) 13×13
+  radio "Medium" [checked=true] at (13, 133) 13×13
+  radio "Large, locked" [disabled checked=true] at (13, 153) 13×13
+  checkbox "Their colour" [checked=true] at (12, 171.5) 13×13
