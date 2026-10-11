@@ -2209,8 +2209,8 @@ fn an_inline_flex_box_stands_on_its_first_items_baseline() {
 
     // A first item that is a flex container itself gives its own first
     // item's: the same 12 as the text straight inside. (An inner `inline-flex`
-    // is made a block as a flex item; a `display: flex` would be broken
-    // around by the box tree, which is item 286.)
+    // is made a block as a flex item, as a `display: flex` one already is;
+    // neither breaks the outer box, which is atomic, since item 286.)
     let css = "#i { display: inline-flex } b { display: inline-flex; height: 40px }";
     let html_nested = "<body><div id=w><span id=t>ab </span><a id=i><b>cd</b></a></div></body>";
     let (boxes, layout) = lay_out_measured(html_nested, css, Size::new(400.0, 300.0), &ScaledFont);
@@ -2275,9 +2275,8 @@ fn a_button_stands_on_its_labels_baseline() {
     // A button with no edges is its label's line: beside text, both at the
     // top, and alone in a block it adds no descent of the strut's under it.
     // Its label is in a block nobody wrote, so this is also the search for a
-    // line going down through a block. (An author's `inline-block` holding
-    // blocks cannot show that yet: the box tree breaks it around them as if
-    // it were a `<span>`, which is queue item 286.)
+    // line going down through a block, as it is for an author's
+    // `inline-block` holding blocks (queue item 286, the test after this).
     let css = "#b { padding: 0; border: 0; margin: 0 }";
     let html = "<body><div id=w><span id=t>ab </span><button id=b>Go</button></div></body>";
     let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
@@ -2293,6 +2292,65 @@ fn a_button_stands_on_its_labels_baseline() {
     assert!(close(text.top(), 1.6), "{text:?}");
     let block = rect_of(&boxes, &layout, "w", html);
     assert!(close(block.size.height, 19.2), "{block:?}");
+}
+
+/// Queue item 286: an `inline-block` holding blocks is one atomic box on
+/// its line, found by searching down through its blocks for its last line,
+/// rather than an inline box broken around them.
+#[test]
+fn an_inline_block_of_blocks_stands_on_its_last_blocks_baseline() {
+    let css = "#i { display: inline-block } p { margin: 0 }";
+    let html = "<body><div id=w><span id=t>ab </span>\
+                <span id=i><p id=c>cd</p><p id=e>ef</p></span></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    // Two paragraphs of one 16-pixel line each, as wide as their text: the
+    // box is 16 by 32, beside "ab " on the same line.
+    assert_eq!(
+        rect_of(&boxes, &layout, "i", html),
+        Rect::new(24.0, 0.0, 16.0, 32.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "c", html),
+        Rect::new(24.0, 0.0, 16.0, 16.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "e", html),
+        Rect::new(24.0, 16.0, 16.0, 16.0)
+    );
+    // Its baseline is the second paragraph's, 16 + 12 = 28 down, so the text
+    // beside it stands 16 down, and the line is 28 above the baseline and the
+    // strut's 4 below it.
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html),
+        Rect::new(0.0, 16.0, 24.0, 16.0)
+    );
+    let block = rect_of(&boxes, &layout, "w", html);
+    assert!(close(block.size.height, 32.0), "{block:?}");
+}
+
+/// The same for an `inline-flex` holding a block, which is how alo Sites'
+/// brand holds its logo: one box whose item is the block, standing on that
+/// item's first line, 12 down.
+#[test]
+fn an_inline_flex_holding_a_block_is_one_box_on_its_line() {
+    let css = "#i { display: inline-flex } p { margin: 0 }";
+    let html = "<body><div id=w><span id=t>ab </span>\
+                <a id=i><p id=c>cd</p></a> gh</div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    assert_eq!(
+        rect_of(&boxes, &layout, "i", html),
+        Rect::new(24.0, 0.0, 16.0, 16.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "c", html),
+        Rect::new(24.0, 0.0, 16.0, 16.0)
+    );
+    assert_eq!(
+        rect_of(&boxes, &layout, "t", html),
+        Rect::new(0.0, 0.0, 24.0, 16.0)
+    );
+    let block = rect_of(&boxes, &layout, "w", html);
+    assert!(close(block.size.height, 16.0), "one line: {block:?}");
 }
 
 /// Item 279: an outermost `<svg>`'s `width` and `height` attributes are

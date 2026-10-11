@@ -252,9 +252,9 @@ mod tests {
         }
     }
 
-    /// The subtree is named directly: the box tree today breaks an atomic
-    /// inline box around an absolutely positioned child (queue item 286), so
-    /// no page yet puts one inside an `inline-block` for layout to find.
+    /// The subtree is named directly, so that what is asked is only where a
+    /// containing block lies beyond the box a layout started from, whatever
+    /// kind of atomic inline box started it.
     #[test]
     fn inside_a_subtree_laid_out_on_its_own_with_nothing_positioned_it_is_beyond() {
         let (boxes, styles, document) = page(

@@ -1508,3 +1508,18 @@ split as an inline box), 427 (a deep nest of grids overflows the stack;
 needs an ADR) and 428 (`min()` inside a `calc` is written back as
 `calcmin(`). 188 queue items are open (422 closed, 426–428 added). The
 next unused queue number is 429 and the next unused ADR 0048.
+
+Iteration 274 found every open item waiting on a page, a dependency, a
+design or an ADR, and measured the last three unfrozen alo Sites goldens
+against Chrome 154 given the corpus' fonts. A blog post and the catalog with
+one category matched and were dropped; the full page did not, and was
+frozen as `alo-sites-full-page`. It opened item 286, built: `alo-box`
+breaks only an inline box (`display: inline`) around a block, so an
+`inline-block`, `inline-flex` or `inline-grid` is one box holding its
+blocks, and alo Sites' brand link holds its logo where Chrome puts it.
+Found: 429 (a closed `<details>` lays out, draws and reads its answer;
+needs ADR) and 430 (a border width is not floored to whole device pixels;
+depends on nothing and is buildable next). 426's box-tree half is done; it
+still waits for a page. Every alo Sites golden page has now been frozen or
+measured. 189 queue items are open (286 closed, 429 and 430 added). The
+next unused queue number is 431 and the next unused ADR 0048.

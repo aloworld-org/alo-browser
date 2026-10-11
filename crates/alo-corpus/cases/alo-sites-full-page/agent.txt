@@ -1,0 +1,157 @@
+document at (0, 0) 800×6522.6753
+  link "Skip to content" at (-15984, 0) 161.11035×43.2
+  banner at (0, 0) 800×73.4
+    navigation "Main" at (0, 0) 800×72.4
+      link "Nordwind Coffee Roasters" at (20, 14.200001) 293.65234×44
+        image "Nordwind Coffee Roasters" [broken] at (20, 20.2) 293.65234×32
+      list at (476.92126, 12) 303.0787×48.4
+        listitem "Home" at (476.92126, 14.200001) 55.15039×44
+          link "Home" [current=page] at (476.92126, 14.200001) 55.15039×44
+        listitem "Pricing" at (548.07166, 14.200001) 57.300293×44
+          link "Pricing" at (548.07166, 14.200001) 57.300293×44
+        listitem "Order beans" at (621.37195, 12) 158.62802×48.4
+          link "Order beans" at (621.37195, 12) 158.62802×48.4
+  main at (0, 73.4) 800×6277.075
+    heading "Coffee roasted the morning it ships" [level=1] at (20, 137.4) 760×96
+    paragraph at (20, 253.4) 760×32
+      text "Small-batch roastery on the harbour" at (217.86133, 257.75937) 364.27734×23.28125
+    paragraph at (20, 305.4) 760×48.4
+      link "Shop roasts" at (251.47134, 305.4) 154.41122×48.4
+      link "Our story" at (417.88257, 305.4) 130.64609×48.4
+    figure at (20, 385.8) 760×27.2
+      image "Roasting drum mid-batch" [broken] at (20, 385.8) 760×27.2
+    heading "Why Nordwind" [level=2] at (20, 541) 760×33.600002
+    paragraph at (20, 588.6) 720×27.2
+      text "Three promises on every bag." at (252.91089, 592.3054) 254.17822×19.789063
+    list at (20, 632.8) 760×156.8
+      listitem "Roasted to order Your batch goes in the drum after you order." at (20, 632.8) 760×156.8
+        heading "Roasted to order" [level=3] at (41, 673.8) 718×21.599998
+        paragraph at (41, 704.39996) 718×27.2
+          text "Your batch goes in the drum after you order." at (41, 708.1054) 377.1626×19.789063
+    figure at (20, 981.9) 364×27.2
+      image "Roasting drum mid-batch" [broken] at (20, 981.9) 364×27.2
+    heading "The roastery" [level=2] at (384, 949.60004) 364×33.600002
+    paragraph at (384, 997.2001) 364×27.2
+      text "A 1962 Probat drum, rebuilt by hand." at (384, 1000.9055) 316.44238×19.789063
+    heading "Inside the roastery" [level=2] at (20, 1169.4) 760×33.600002
+    list at (20, 1217) 760×408
+      listitem "Roasting drum mid-batch" at (20, 1217) 368×408
+        figure at (20, 1217) 368×27.2
+          image "Roasting drum mid-batch" [broken] at (20, 1217) 368×27.2
+      listitem "The cupping table" at (412, 1217) 172×192
+        figure at (412, 1217) 172×27.2
+          image "The cupping table" [broken] at (412, 1217) 172×27.2
+    heading "What cafés say" [level=2] at (20, 1721) 760×33.600002
+    list at (20, 1768.6) 760×180.4
+      listitem "The freshest beans we've ever pulled shots with. Mara Lindqvist Head barista, Kaffebaren" at (20, 1768.6) 760×180.4
+        figure at (20, 1768.6) 760×180.4
+          blockquote at (69, 1817.6) 662×31.199997
+            paragraph at (69, 1817.6) 662×31.199997
+              text "The freshest beans we've ever pulled shots with." at (69, 1819.2312) 587.6133×27.9375
+          text "Mara Lindqvist" at (69, 1876.5054) 142.4165×19.789063
+          text "Head barista, Kaffebaren" at (217.33496, 1876.5054) 212.01855×19.789063
+    heading "Subscriptions" [level=2] at (20, 2045) 760×33.600002
+    paragraph at (20, 2092.6) 720×27.2
+      text "Pause or cancel any time." at (20, 2096.3057) 219.13232×19.789063
+    list at (20, 2136.8) 760×350.8
+      listitem "Weekly €18/week billed weekly Two 250g bags every week. Free shipping Roast-day dispatch Start weekly" at (20, 2136.8) 760×350.8
+        heading "Weekly" [level=3] at (46, 2162.8) 708×21.599998
+        paragraph at (46, 2193.4001) 708×44.800003
+          text "€18/week" at (46, 2199.5032) 151.14258×32.59375
+          text "billed weekly" at (206.89063, 2210.6418) 104.53125×18.625
+        paragraph at (46, 2266.2) 708×27.2
+          text "Two 250g bags every week." at (46, 2269.9055) 235.68408×19.789063
+        list at (46, 2310.4001) 708×78.8
+          listitem "Free shipping" at (46, 2310.4001) 708×39.4
+          listitem "Roast-day dispatch" at (46, 2349.8) 708×39.4
+        link "Start weekly" at (46, 2413.2) 161.6495×48.4
+    heading "The roasters" [level=2] at (20, 2583.5999) 760×33.600002
+    list at (20, 2631.2) 760×127.399994
+      listitem "Roasting drum mid-batch Jonas Meer Founder & head roaster Twenty years at the drum." at (20, 2631.2) 760×127.399994
+        figure at (20, 2631.2) 296.47058×43.2
+          image "Roasting drum mid-batch" [broken] at (20, 2631.2) 296.47058×27.2
+        heading "Jonas Meer" [level=3] at (356.47058, 2637.5) 423.52942×21.599998
+        paragraph at (20, 2718.9) 296.47058×27.2
+          text "Founder & head roaster" at (20, 2722.6055) 201.67578×19.789063
+        paragraph at (356.47058, 2714.4) 423.52942×27.2
+          text "Twenty years at the drum." at (356.47058, 2718.1055) 223.33252×19.789063
+    heading "Questions" [level=2] at (20, 2854.5999) 760×33.600002
+    group [expanded=false] at (20, 2902.2) 760×92.4
+      summary "How fresh is the coffee?" at (37, 2915.2) 726×27.2
+      paragraph at (37, 2954.4) 726×27.2
+        text "It ships the day it is roasted." at (37, 2958.1055) 241.85156×19.789063
+    heading "Taste the difference" [level=2] at (24, 3102.5999) 752×33.600002
+    paragraph at (24, 3150.2) 752×27.2
+      text "First bag ships free." at (316.54395, 3153.9055) 166.91211×19.789063
+    paragraph at (24, 3194.4) 752×48.4
+      link "Order now" at (218.41763, 3194.4) 140.72324×48.4
+      link "See subscriptions" at (371.14087, 3194.4) 210.4415×48.4
+    heading "Wholesale enquiries" [level=2] at (20, 3355.7998) 284.80002×67.200005
+    paragraph at (20, 3484.9998) 284.80002×54.4
+      text "We answer within one business day." at (20, 3488.7053) 266.5796×46.989014 in 2 pieces
+    paragraph at (352.80002, 3355.7998) 427.19998×79.600006
+      textbox "Name" [required] at (352.80002, 3386.9998) 427.19998×48.4
+    paragraph at (352.80002, 3452.4) 427.19998×79.600006
+      textbox "Email" [required] at (352.80002, 3483.5999) 427.19998×48.4
+    paragraph at (352.80002, 3548.9998) 427.19998×166.91475
+      textbox "Message" [required] at (352.80002, 3580.1997) 427.19998×128
+    paragraph at (352.80002, 3732.9146) 427.19998×48.4
+      button "Send" at (352.80002, 3732.9146) 88.44492×48.4
+    heading "Seasonal roasts" [level=2] at (20, 3894.3145) 760×33.600002
+    list at (20, 3941.9146) 760×687.60004
+      listitem "Harbour Blend Harbour Blend Chocolate, hazelnut and red apple. A balanced roast for espresso or filter. 2026-08-11" at (20, 3941.9146) 760×687.60004
+        image "Harbour Blend" [broken] at (20, 3966.9146) 760×475
+        heading "Harbour Blend" [level=3] at (20, 4457.9146) 760×24
+          link "Harbour Blend" at (20, 4458.274) 163.4375×23.28125
+        paragraph at (20, 4489.9146) 760×27.2
+          text "Chocolate, hazelnut and red apple." at (20, 4493.62) 298.02295×19.789063
+        paragraph at (20, 4534.1147) 760×27.2
+          text "A balanced roast for espresso or filter." at (20, 4537.8203) 324.1787×19.789063
+    heading "On the counter" [level=2] at (20, 4725.5146) 760×33.600002
+    heading "Brews" [level=3] at (20, 4773.1147) 760×21.599998
+    list at (20, 4810.715) 760×320.68
+      listitem "Filter brew € 3.50 per cup Whatever came off the drum this morning." at (20, 4810.715) 760×161.94
+        heading "Filter brew" [level=4] at (20, 4858.655) 605.83545×28.800003
+        paragraph at (649.83545, 4834.715) 130.16455×39.740005
+          text "€ 3.50" at (649.83545, 4838.4204) 59.690918×19.789063
+          text "per cup" at (715.4448, 4838.4204) 64.555176×19.789063
+        paragraph at (20, 4903.455) 605.83545×27.199997
+          text "Whatever came off the drum this morning." at (20, 4907.1606) 364.10547×19.789063
+      listitem "Cold brew € 42.50 Unavailable" at (20, 4972.655) 760×158.73999
+        heading "Cold brew" [level=4] at (20, 5020.5947) 664.48047×28.800003
+        paragraph at (708.48047, 4996.655) 71.51953×39.740005
+          text "€ 42.50" at (708.48047, 5000.3604) 71.51953×19.789063
+        paragraph at (20, 5061.395) 664.48047×30
+          text "Unavailable" at (29, 5067.6646) 88.19092×17.460938
+    heading "Beans" [level=3] at (20, 5171.3945) 760×21.599998
+    list at (20, 5208.9946) 760×105.740005
+      listitem "Harbour blend, 1 kg € 1,234.50" at (20, 5208.9946) 760×105.740005
+        heading "Harbour blend, 1 kg" [level=4] at (20, 5256.9346) 634.36523×28.800003
+        paragraph at (678.36523, 5232.9946) 101.634766×39.740005
+          text "€ 1,234.50" at (678.36523, 5236.7) 101.634766×19.789063
+    list at (20, 5354.7344) 760×105.740005
+      listitem "Standing order Tell us how much you drink; we work it out." at (20, 5354.7344) 760×105.740005
+        heading "Standing order" [level=4] at (20, 5402.6743) 367.57813×28.800003
+        paragraph at (411.57813, 5386.7344) 368.42188×31.740005
+          text "Tell us how much you drink; we work it out." at (411.57813, 5390.44) 368.42188×19.789063
+    heading "Cupping evenings" [level=2] at (41, 5549.4746) 718×33.600002
+    paragraph at (41, 5597.0747) 718×27.2
+      text "Six seats around the roaster, once a month." at (212.9419, 5600.7803) 374.1162×19.789063
+    paragraph at (41, 5641.2744) 718×48.4
+      link "See tickets and dates" at (41, 5641.2744) 247.27206×48.4
+    heading "The roastery shop" [level=2] at (41, 5788.675) 718×33.600002
+    paragraph at (41, 5836.275) 718×27.2
+      text "Beans and brew gear, shipped from the roastery." at (41, 5839.9805) 415.90234×19.789063
+    paragraph at (41, 5880.4746) 718×48.4
+      link "Visit the shop" at (41, 5880.4746) 172.82236×48.4
+    heading "Roast timer" [level=2] at (44.8, 6034.875) 735.2×33.600002
+    generic "A timer counting down the current roast" at (44.8, 6082.475) 735.2×220
+  contentinfo at (0, 6398.475) 800×124.2
+    navigation "Footer" at (20, 6447.475) 356×27.2
+      list at (20, 6447.475) 356×27.2
+        listitem "Imprint" at (20, 6447.475) 61.51709×27.2
+          link "Imprint" at (20, 6451.1807) 61.51709×19.789063
+        listitem "Privacy" at (97.51709, 6447.475) 61.550293×27.2
+          link "Privacy" at (97.51709, 6451.1807) 61.550293×19.789063
+    paragraph at (424, 6447.475) 356×27.2
+      text "© Nordwind Coffee Roasters" at (537.40137, 6451.1807) 242.59863×19.789063

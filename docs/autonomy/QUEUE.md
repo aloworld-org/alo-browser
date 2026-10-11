@@ -5885,9 +5885,12 @@ The long pole, and the thing most of section E is unreachable without.
   shows four empty `inline grid` boxes on four anonymous lines with the
   blocks between them, and no grid lays anything out. An `inline-grid` is
   an atomic inline-level box (CSS Display 3): its children are grid items
-  whatever they are. *Blocked: no page yet* that writes an `inline-grid`
-  holding blocks. *Closes when:* that frozen page's grid places its items
-  in its tracks, in numbers.
+  whatever they are. **The box tree's half was done by item 286
+  (iteration 274):** the `inline-grid` is one box holding both blocks, a
+  unit test in `alo-box`'s `tree.rs` says so. Whether layout then places
+  them in its tracks, on a page, is not measured. *Blocked: no page yet*
+  that writes an `inline-grid` holding blocks. *Closes when:* that frozen
+  page's grid places its items in its tracks, in numbers.
 
 - [ ] **427. A nest of grids deep enough to exhaust the stack is refused,
   not a crash.** *Found while building 422 (iteration 273). Feature:
@@ -5915,6 +5918,37 @@ The long pole, and the thing most of section E is unreachable without.
   text. *Blocked: no page yet* whose recorded issues a person has to
   read. *Closes when:* every calculation's text reads back as a valid CSS
   value, tested on each kind.
+
+- [ ] **429. A closed `<details>` shows only its summary.** *Opened by
+  `alo-sites-full-page` (iteration 274), its FAQ. Feature:
+  `docs/features.md` stage 1, the user-agent style sheet, and the agent's
+  tree (ADR 0002). **Needs ADR.** Depends on nothing built.* The FAQ's
+  `<details>` has no `open`; Chrome 154 shows its summary alone, the box
+  53.19 tall, and here its answer is laid out, drawn and read by an agent
+  (`text "It ships the day it is roasted."`) beside the box's own
+  `expanded=false`, 92.4 tall. HTML's rendering section hides a closed
+  `<details>`' content through a slot (today `::details-content` with
+  `content-visibility: hidden`, which keeps it findable), and draws the
+  summary as a `list-item` with a disclosure triangle (404's `inside` and
+  a counter style beyond 406's five). What an agent may read of what a
+  closed `<details>` hides, and whether opening it is a verb, is a
+  decision about the agent's tree, not a style rule — so the ADR first.
+  *Closes when:* the ADR is accepted, and the frozen FAQ's `<details>` is
+  its summary's height plus its padding and border, its answer neither
+  drawn nor read as the ADR says, in numbers; an `open` one as today.
+
+- [ ] **430. A border's width is whole device pixels.** *Opened by
+  `alo-sites-full-page` (iteration 274), its custom-code section.
+  Feature: `docs/features.md` stage 1, borders. Depends on nothing at one
+  device pixel to the CSS pixel, which is all a render has until 299.*
+  The section's `border-left: .3rem` is 4.8 px; Chrome 154 lays it out
+  and draws it 4, so the section's content starts at 44 there and 44.8
+  here. CSS Values 4 *snap as a border width*: a computed border width of
+  at least one device pixel is floored to a whole number of them, and a
+  smaller non-zero one is one (the same for `outline-width` and
+  `column-rule-width`). *Closes when:* the frozen section's content starts
+  at 44 and its border is drawn 4 wide, and a 0.5 px border is 1, in
+  numbers.
 
 - [x] **355. An absolute box is placed against its nearest positioned
   ancestor.** *Found by iteration 228 while building 352, not opened by a
@@ -8864,7 +8898,7 @@ The long pole, and the thing most of section E is unreachable without.
   `alo-box` as if it were a `<span>`, so the search through blocks is
   tested only through a button's anonymous label box; that is **286**.
 
-- [ ] **286. An inline-block holding a block is not broken around it.**
+- [x] **286. An inline-block holding a block is not broken around it.**
   *Found by iteration 177, not opened by a page.* `alo-box`'s
   `build_one` (`tree.rs`, the `holds_a_block` branch) splits any box whose
   `display` is inline-level around a block-level child — right for an
@@ -8882,6 +8916,22 @@ The long pole, and the thing most of section E is unreachable without.
   holding two paragraphs as one box with two block children, and a
   `numbers.rs` assertion has it standing on its second paragraph's
   baseline beside text (`baseline.rs`'s search through blocks, end to end).
+  *Built (iteration 274), opened by `alo-sites-full-page`:* alo Sites'
+  brand is an `inline-flex` link holding a logo the sheet makes `display:
+  block`, and it was two empty links 0 wide with the logo between them.
+  `alo-box`'s `BoxKind::is_inline_box` — inline-level *and* `Inside::Flow`
+  — is now what both the split and `arrange`'s "everything here sits in a
+  line" ask, so an `inline-block`, `inline-flex` or `inline-grid` is one
+  box holding its blocks, and text beside a block in an `inline-block` is
+  wrapped in anonymous blocks as in any block container. Unit tests in
+  `tree.rs` (4: the inline-block of two paragraphs, its text wrapped, the
+  inline-flex brand, 426's inline-grid); `numbers.rs`: the inline-block
+  of `cd`/`ef` beside `ab ` at (24, 0) 16 × 32, its paragraphs at 0 and 16,
+  the text 16 down and the line 32, on the second paragraph's baseline;
+  an `inline-flex` holding a paragraph one 16 × 16 box on the line. The
+  page: the brand at (20, 14.2), 44 tall, the logo in it at (20, 20.2), 32
+  tall, Chrome 154's numbers; an agent reads the link once, the picture
+  inside it. No other corpus case moved.
 
 - [ ] **94. Animations and transitions.** Stage 1 reads them and they change
   nothing, which is correct for a still picture; this is the clock.

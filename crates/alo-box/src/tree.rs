@@ -181,6 +181,19 @@ impl BoxKind {
     fn lays_children_out_in_flow(&self) -> bool {
         matches!(self.inside(), Inside::Flow | Inside::FlowRoot)
     }
+
+    /// Whether this is an **inline box**: inline-level, and holding what it
+    /// holds in its parent's lines rather than in a formatting context of
+    /// its own — a `<span>`, an `<a>`.
+    ///
+    /// Only an inline box is broken around a block in it and keeps what is
+    /// beside one in its lines. An `inline-block`, `inline-flex` or
+    /// `inline-grid` is inline-level too, but it is one atomic box on the
+    /// line, and inside it a block is a block like any other (CSS Display 3
+    /// § 2.4; queue item 286).
+    fn is_inline_box(&self) -> bool {
+        self.outside() == Outside::Inline && self.inside() == Inside::Flow
+    }
 }
 
 /// One box.
@@ -914,7 +927,10 @@ fn build_element(
                 tree.adopt(box_id, &[inner]);
                 return vec![box_id];
             }
-            if display.outside() == Some(Outside::Inline) && holds_a_block(tree, &children) {
+            let inline_box = tree
+                .get(box_id)
+                .is_some_and(|node| node.kind.is_inline_box());
+            if inline_box && holds_a_block(tree, &children) {
                 // CSS breaks an inline box around a block-level one. The
                 // pieces come back as several boxes rather than one, and the
                 // block goes between them — which is what makes it a *sibling*
@@ -1080,7 +1096,7 @@ fn arrange(tree: &mut BoxTree, parent: BoxId, children: Vec<BoxId>) -> Vec<BoxId
     // in it stays there, because it was never a block among blocks.
     let in_an_inline = tree
         .get(parent)
-        .is_some_and(|node| node.kind.outside() == Outside::Inline);
+        .is_some_and(|node| node.kind.is_inline_box());
     let any_block = children.iter().any(|child| is_in_flow_block(tree, *child));
     let any_out_of_flow = children.iter().any(|child| tree.is_out_of_flow(*child));
     if in_an_inline || (!any_block && (!any_out_of_flow || holds_inline_content(tree, &children))) {
@@ -1843,6 +1859,124 @@ mod tests {
                 .count(),
             2,
             "one piece on each side, even though the first holds nothing:\n{outline}",
+        );
+    }
+
+    /// The inline-level element boxes arranging their children by `inside`.
+    fn inline_level(tree: &BoxTree, inside: Inside) -> Vec<BoxId> {
+        (0..tree.len())
+            .map(BoxId)
+            .filter(|id| {
+                tree.get(*id).is_some_and(|node| {
+                    matches!(node.kind, BoxKind::Element { .. })
+                        && node.kind.outside() == Outside::Inline
+                        && node.kind.inside() == inside
+                })
+            })
+            .collect()
+    }
+
+    /// Whether every child of `id` is an element's block box, and there are
+    /// `count` of them.
+    fn holds_blocks(tree: &BoxTree, id: BoxId, count: usize) -> bool {
+        let children: Vec<&BoxNode> = tree.children(id).filter_map(|c| tree.get(c)).collect();
+        children.len() == count
+            && children.iter().all(|child| {
+                child.kind.outside() == Outside::Block
+                    && matches!(child.kind, BoxKind::Element { .. })
+            })
+    }
+
+    /// Queue item 286: an `inline-block` is one atomic box on its line,
+    /// and a block inside it is a block like any other, not a reason to
+    /// break it.
+    #[test]
+    fn an_inline_block_holding_blocks_is_one_box_holding_them() {
+        let tree = boxes(
+            "<div>ab<span id=i><p>cd</p><p>ef</p></span>gh</div>",
+            "#i { display: inline-block }",
+        );
+        let outline = tree.to_outline();
+        let made = inline_level(&tree, Inside::FlowRoot);
+        assert_eq!(made.len(), 1, "one box, not pieces:\n{outline}");
+        assert!(
+            !(0..tree.len())
+                .map(BoxId)
+                .any(|id| tree.is_continuation(id)),
+            "and nothing continues it:\n{outline}",
+        );
+        assert!(
+            made.iter().all(|id| holds_blocks(&tree, *id, 2)),
+            "its two paragraphs, both blocks, its own:\n{outline}",
+        );
+        // It is inline-level, so the text on each side of it shares its
+        // line: the `<div>` holds one run, with nothing wrapped.
+        assert!(!outline.contains("anonymous"), "{outline}");
+    }
+
+    /// Inside an `inline-block`, text beside a block is wrapped in an
+    /// anonymous block as it is inside any block container, rather than
+    /// left in lines it would share with the block.
+    #[test]
+    fn text_beside_a_block_in_an_inline_block_is_wrapped() {
+        let tree = boxes(
+            "<div><span id=i>cd<p>ef</p>gh</span></div>",
+            "#i { display: inline-block }",
+        );
+        let outline = tree.to_outline();
+        let made = inline_level(&tree, Inside::FlowRoot);
+        assert_eq!(made.len(), 1, "{outline}");
+        let kinds: Vec<Outside> = made
+            .iter()
+            .flat_map(|id| tree.children(*id))
+            .filter_map(|child| tree.get(child).map(|node| node.kind.outside()))
+            .collect();
+        assert_eq!(
+            kinds,
+            [Outside::Block, Outside::Block, Outside::Block],
+            "an anonymous block, the paragraph, an anonymous block:\n{outline}",
+        );
+        assert_eq!(
+            outline.matches("anonymous").count(),
+            2,
+            "one for each run of text:\n{outline}"
+        );
+    }
+
+    /// alo Sites' brand, in its full page: a link made `inline-flex` holds
+    /// its logo, which the sheet makes `display: block`. A flex container's
+    /// children are its items whatever their `display`, so the link is one
+    /// box holding the picture, not two empty pieces with the picture
+    /// between them.
+    #[test]
+    fn an_inline_flex_holding_a_block_is_one_box_holding_it() {
+        let tree = boxes(
+            "<nav><a id=i href=/><img alt=Nordwind></a></nav>",
+            "#i { display: inline-flex } img { display: block }",
+        );
+        let outline = tree.to_outline();
+        let made = inline_level(&tree, Inside::Flex);
+        assert_eq!(made.len(), 1, "one link, not pieces:\n{outline}");
+        assert!(
+            made.iter().all(|id| holds_blocks(&tree, *id, 1)),
+            "holding its picture:\n{outline}",
+        );
+        assert!(!outline.contains("anonymous"), "{outline}");
+    }
+
+    /// Queue item 426's markup: an `inline-grid`'s blocks are its items.
+    #[test]
+    fn an_inline_grid_holding_blocks_is_one_box_holding_them() {
+        let tree = boxes(
+            "<body><div id=i><div></div><div></div></div></body>",
+            "#i { display: inline-grid }",
+        );
+        let outline = tree.to_outline();
+        let made = inline_level(&tree, Inside::Grid);
+        assert_eq!(made.len(), 1, "one grid, not four pieces:\n{outline}");
+        assert!(
+            made.iter().all(|id| holds_blocks(&tree, *id, 2)),
+            "holding both blocks:\n{outline}",
         );
     }
 

@@ -1,0 +1,261 @@
+block flow · document
+  block flow · generic
+    block flow · link
+      text "Skip to content"
+    block flow · banner
+      block flex · navigation "Main"
+        inline flex · link
+          block flow · image "Nordwind Coffee Roasters" [broken]
+            text "Nordwind Coffee Roasters"
+        block flex · list
+          block flow list-item · listitem
+            inline flex · link [current=page]
+              anonymous block
+                text "Home"
+          block flow list-item · listitem
+            inline flex · link
+              anonymous block
+                text "Pricing"
+          block flow list-item · listitem
+            inline flex · link
+              anonymous block
+                text "Order beans"
+    block flow · main
+      block flow · generic
+        block flow · heading [level=1]
+          text "Coffee roasted the morning it ships"
+        block flow · paragraph
+          text "Small-batch roastery on the harbour"
+        block flex · paragraph
+          inline flow-root · link
+            text "Shop roasts"
+          inline flow-root · link
+            text "Our story"
+        block flow · figure
+          block flow · image "Roasting drum mid-batch" [broken]
+            text "Roasting drum mid-batch"
+      block flow · generic
+        block flow · heading [level=2]
+          text "Why Nordwind"
+        block flow · paragraph
+          text "Three promises on every bag."
+        block grid · list
+          block flow list-item · listitem
+            block flow · heading [level=3]
+              text "Roasted to order"
+            block flow · paragraph
+              text "Your batch goes in the drum after you order."
+      block grid · generic
+        block flow · figure
+          block flow · image "Roasting drum mid-batch" [broken]
+            text "Roasting drum mid-batch"
+        block flow · generic
+          block flow · heading [level=2]
+            text "The roastery"
+          block flow · paragraph
+            text "A 1962 Probat drum, rebuilt by hand."
+      block flow · generic
+        block flow · heading [level=2]
+          text "Inside the roastery"
+        block grid · list
+          block flow list-item · listitem
+            block flow · figure
+              block flow · image "Roasting drum mid-batch" [broken]
+                text "Roasting drum mid-batch"
+          block flow list-item · listitem
+            block flow · figure
+              block flow · image "The cupping table" [broken]
+                text "The cupping table"
+      block flow · generic
+        block flow · heading [level=2]
+          text "What cafés say"
+        block grid · list
+          block flow list-item · listitem
+            block flow · figure
+              block flow · blockquote
+                block flow · paragraph
+                  text "The freshest beans we've ever pulled shots with."
+              block flow · generic
+                text "Mara Lindqvist "
+                inline flow · generic
+                  text "Head barista, Kaffebaren"
+      block flow · generic
+        block flow · heading [level=2]
+          text "Subscriptions"
+        block flow · paragraph
+          text "Pause or cancel any time."
+        block grid · list
+          block flow list-item · listitem
+            block flow · heading [level=3]
+              text "Weekly"
+            block flow · paragraph
+              text "€18/week "
+              inline flow · generic
+                text "billed weekly"
+            block flow · paragraph
+              text "Two 250g bags every week."
+            block flow · list
+              block flow list-item · listitem
+                text "Free shipping"
+              block flow list-item · listitem
+                text "Roast-day dispatch"
+            anonymous block
+              text " "
+              inline flow-root · link
+                text "Start weekly"
+              text " "
+      block flow · generic
+        block flow · heading [level=2]
+          text "The roasters"
+        block grid · list
+          block grid · listitem
+            block flow · figure
+              block flow · image "Roasting drum mid-batch" [broken]
+                text "Roasting drum mid-batch"
+            block flow · heading [level=3]
+              text "Jonas Meer"
+            block flow · paragraph
+              text "Founder & head roaster"
+            block flow · paragraph
+              text "Twenty years at the drum."
+      block flow · generic
+        block flow · heading [level=2]
+          text "Questions"
+        block flow · group [expanded=false]
+          block flow · summary
+            text "How fresh is the coffee?"
+          block flow · paragraph
+            text "It ships the day it is roasted."
+      block flow · generic
+        block flow · heading [level=2]
+          text "Taste the difference"
+        block flow · paragraph
+          text "First bag ships free."
+        block flex · paragraph
+          inline flow-root · link
+            text "Order now"
+          inline flow-root · link
+            text "See subscriptions"
+      block grid · generic
+        block flow · heading [level=2]
+          text "Wholesale enquiries"
+        block flow · paragraph
+          text "We answer within one business day."
+        block flow · generic
+          block flow · paragraph [hidden]
+            block flow · generic
+              text "Website"
+            anonymous block
+              inline flow-root · textbox
+                anonymous block
+          block flow · paragraph
+            block flow · generic
+              text "Name"
+            anonymous block
+              inline flow-root · textbox [required]
+                anonymous block
+          block flow · paragraph
+            block flow · generic
+              text "Email"
+            anonymous block
+              inline flow-root · textbox [required]
+                anonymous block
+          block flow · paragraph
+            block flow · generic
+              text "Message"
+            anonymous block
+              inline flow-root · textbox [required]
+                anonymous block
+          block flow · paragraph
+            inline flow-root · button
+              anonymous block
+                text "Send"
+      block flow · generic
+        block flow · heading [level=2]
+          text "Seasonal roasts"
+        block grid · list
+          block flow list-item · listitem
+            block flow · image "Harbour Blend" [broken]
+              text "Harbour Blend"
+            block flow · heading [level=3]
+              inline flow · link
+                text "Harbour Blend"
+            block flow · paragraph
+              text "Chocolate, hazelnut and red apple."
+            block flow · paragraph
+              text "A balanced roast for espresso or filter."
+            anonymous block
+              text " "
+              inline flow · generic
+                text "2026-08-11"
+              text " "
+      block flow · generic
+        block flow · heading [level=2]
+          text "On the counter"
+        block flow · generic
+          block flow · heading [level=3]
+            text "Brews"
+          block grid · list
+            block grid · listitem
+              block flow · heading [level=4]
+                text "Filter brew"
+              block flow · paragraph
+                text "€ 3.50 "
+                inline flow · generic
+                  text "per cup"
+              block flow · paragraph
+                text "Whatever came off the drum this morning."
+            block grid · listitem
+              block flow · heading [level=4]
+                text "Cold brew"
+              block flow · paragraph
+                text "€ 42.50"
+              inline flow-root · paragraph
+                text "Unavailable"
+        block flow · generic
+          block flow · heading [level=3]
+            text "Beans"
+          block grid · list
+            block grid · listitem
+              block flow · heading [level=4]
+                text "Harbour blend, 1 kg"
+              block flow · paragraph
+                text "€ 1,234.50"
+        block flow · generic
+          block grid · list
+            block grid · listitem
+              block flow · heading [level=4]
+                text "Standing order"
+              block flow · paragraph
+                text "Tell us how much you drink; we work it out."
+      block flow · generic
+        block flow · heading [level=2]
+          text "Cupping evenings"
+        block flow · paragraph
+          text "Six seats around the roaster, once a month."
+        block flex · paragraph
+          inline flow-root · link
+            text "See tickets and dates"
+      block flow · generic
+        block flow · heading [level=2]
+          text "The roastery shop"
+        block flow · paragraph
+          text "Beans and brew gear, shipped from the roastery."
+        block flex · paragraph
+          inline flow-root · link
+            text "Visit the shop"
+      block flow · generic
+        block flow · heading [level=2]
+          text "Roast timer"
+        block flow · generic "A timer counting down the current roast"
+    block grid · contentinfo
+      block flow · navigation "Footer"
+        block flex · list
+          block flow list-item · listitem
+            inline flow · link
+              text "Imprint"
+          block flow list-item · listitem
+            inline flow · link
+              text "Privacy"
+      block flow · paragraph
+        text "© Nordwind Coffee Roasters"

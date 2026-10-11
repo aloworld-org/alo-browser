@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A link made into a small flex box keeps the picture inside it.** alo
+  Sites' brand link, which centres the site's logo, was split in two around
+  the logo as if it were ordinary text running round a paragraph: two
+  empty links with the logo standing between them. An inline-block, an
+  inline flex box or an inline grid is now one box holding whatever is in
+  it, as browsers draw it, and an agent reads the brand as one link with
+  its picture inside. Found by freezing alo Sites' whole home page, which
+  also queued a closed `<details>` showing its answer (item 429, needs a
+  decision) and a 4.8-pixel border not drawn as 4 (item 430) (queue
+  item 286).
+
 - **alo Sites' blog cards are two columns, as in Chrome.** A grid written
   as "as many columns as fit, each at least 18rem but never wider than the
   grid" was thrown away by the layout library because its width is a

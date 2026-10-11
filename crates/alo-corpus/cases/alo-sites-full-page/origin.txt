@@ -1,0 +1,88 @@
+alo-workplace, products/sites/alo-sites/tests/golden/full_page.html and
+products/sites/alo-sites/tests/golden/site.css — a page alo Sites publishes
+for its customers: a demonstration roastery's whole home page, one of every
+kind of section alo Sites builds, in the variants the single-section cases
+do not use, with the style sheet every alo Sites page links.
+
+Taken 2026-10-11 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit the
+other alo Sites cases were taken at. The page's last change is
+5be41b70be364f8e1e0e158a8619e4e94455321c (2026-09-02), as is the sheet's.
+The bytes are those files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  667c5c1173c922663261e91db06d518c9649bc5c3b2b0d67df9d2abb0b856a13
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+The sheet is byte for byte the other alo Sites cases'. `alo-workplace` is
+read-only reference; nothing was written back to it. Both files are golden
+outputs of alo Sites' own renderer, pinned by its tests, so they are what it
+really serves rather than something rebuilt from it.
+
+Why this page. Iteration 274 took it when every open queue item was waiting
+on a page, a dependency, a design or an ADR. It first froze and measured the
+other two alo Sites goldens nothing had frozen — a blog post and the catalog
+with one category — against Google Chrome 154, headless, at 800 wide, with
+the corpus' DejaVu Sans handed to Chrome so that the two lay out the same
+glyphs. Both matched to Chrome's layout unit and were dropped, as found
+nothing. This page was the third, and the last alo Sites golden there was.
+
+**Where it is served from: `https://nordwind.alosites.com/`**
+(address.txt). The page's own `<link rel="canonical">` and `og:url` say so.
+**What its sheet is answered with: site.css** (linked.txt): it links
+`/assets/site.css`, as every alo Sites page does, and that path is answered
+as the call-to-action section's is (see that case's origin.txt). Its
+analytics script is the same script; here it finds the contact form. Its
+pictures are names in alo Sites' test fixtures with no bytes behind them
+anywhere, so they are broken here and in every browser, and each with an
+`alt` is drawn as it (ADR 0046).
+
+Rendered at 800 × 600, wider than the sheet's breakpoints, as the other alo
+Sites cases are. The picture is the nav and the hero; everything below 600
+is pinned by layout.txt, display.txt and agent.txt.
+
+## What it found
+
+- **An `inline-flex` was broken around the block in it** — item 286, built.
+  The brand is `<a class="brand"><img class="logo" alt="Nordwind Coffee
+  Roasters"></a>`; the nav makes every link `inline-flex` and the sheet
+  makes every `<img>` `display: block`. The box tree broke the link around
+  the picture as CSS breaks a `<span>` around a block: two empty links 0
+  wide at x 20 and 403.29, and the picture between them, a block of its own
+  at x 93.63. A flex container's children are its items whatever their
+  `display`, and an `inline-flex` is one atomic box on its line. Now the
+  link is one box at (20, 14.2), 44 tall, holding the picture at (20, 20.2),
+  32 tall — Chrome's numbers exactly. Its width is its `alt`'s, 293.65;
+  Chrome's is 309.66, the 16 of the broken-picture icon it draws before the
+  text (item 418). `tests/alo_sites_full_page.rs` says so.
+- **A closed `<details>` shows what it hides** — item 429, needs ADR. The
+  FAQ's one `<details>` has no `open`, and Chrome shows only its summary,
+  53.19 tall; here it is 92.4 tall, its answer is drawn, and an agent reads
+  the answer while also reading `expanded=false`. Every section below it
+  stands 39.2 lower than Chrome's for it, and 12 more because Chrome's
+  columns (below) drop the `<details>`' 0.75rem margin at a column's end.
+  Which of a closed `<details>`'s content an
+  agent may read is a decision about the agent's tree, so it waits for its
+  ADR.
+- **A border 4.8 wide is drawn 4.8 wide** — item 430. The custom-code
+  section's `border-left: .3rem` is 4.8 px, and Chrome draws and lays out
+  4: a border width of a device pixel or more is floored to whole device
+  pixels. The section's content starts at 44.8 here and at 44 in Chrome.
+
+Everything else matches Chrome to its layout unit apart from what is already
+in the queue: the FAQ is `columns: 2 20rem` (item 97, multi-column, needs
+design), so its `<details>` is 760 wide where Chrome's is 372; the nav is
+`position: sticky` (item 97 again, recorded in issues.txt); the custom code
+is an `<iframe>` (item 86, needs design), a box of its size with nothing in
+it; and the sections set to move are drawn at opacity 0 and 24 down until
+`IntersectionObserver` exists (item 381), which is also why Chrome, running
+the page's motion script, puts the custom-code section 40 lower and the
+footer 40 higher than here, the two together the same. The pricing tier's
+`translateY(-.75rem)` moves Chrome's reported box 12 up; it is drawn so here
+(display.txt) and does not move layout in either.
+
+What the sheet asks for that this engine does not do is in issues.txt: the
+call-to-action section's list exactly — `::before` and `::after`,
+`@keyframes`, and `prefers-reduced-motion` — the nav's `position: sticky`,
+and the pictures nobody has.

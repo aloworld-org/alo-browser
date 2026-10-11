@@ -26523,3 +26523,108 @@ moving one would be decoration. Also updated: `docs/features.md`,
 188 queue items are open (422 closed; 426, 427 and 428 added). The next
 unused queue number is **429** and the next ADR is **0048**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 274 — queue item 286 built: an atomic inline box holds its blocks, found by freezing alo Sites' full page
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head, stage 1's *Layout* line, and a search of stage 2 for atomic inline
+boxes and alo Sites), iteration 273 and `REMAINING.md`'s continuation. No
+`AGENTS.md` exists in this repository or above it. For 286: its queue entry
+and 426 beside it, `docs/features.md`' flexbox and inline-flex lines,
+`alo-box`'s `tree.rs` (`build_element`, `arrange`, `split_around_blocks`),
+`alo-style`'s `display.rs`, and `alo-layout`'s `baseline.rs` and
+`engine.rs` (`is_atomic`, `holds_only_what_sits_in_a_line`). No ADR
+governs the split; CSS Display 3 § 2.4 does.
+
+**Choosing.** Iteration 273 left every open item waiting on a page, a
+dependency, a design or an ADR, and a scan of all 188 open entries found
+nothing else eligible. So this iteration measured the three alo Sites
+goldens nothing had frozen against Google Chrome 154, headless, 800 wide,
+with the corpus' DejaVu Sans handed to Chrome. The blog post and the
+catalog with one category matched to Chrome's layout unit and were dropped.
+The full page did not. Its brand link is `inline-flex` holding a logo the
+sheet makes `display: block`, and the box tree broke it like a `<span>`.
+That is item 286, whose block was "a page that puts a block in one opens
+it". The page was frozen as `alo-sites-full-page`.
+
+**What was built.** `alo-box`'s `BoxKind::is_inline_box`: inline-level and
+`Inside::Flow`. Both places that took "inline-level" to mean "inline box"
+now ask it. The first is `build_element`'s split around a block. The second
+is `arrange`'s rule that everything in an inline sits in a line. So an
+`inline-block`, `inline-flex` or `inline-grid` is one box holding its
+blocks, and text beside a block in an `inline-block` is wrapped in
+anonymous blocks as in any block. Layout already lays an atomic box out on
+its own and searches through its blocks for its baseline, so it needed no
+change. Two stale comments that named 286 as unbuilt were rewritten
+(`numbers.rs`, `containing.rs`).
+
+**Gate, mechanical.** `cargo fmt --all` and clippy on `alo-box`,
+`alo-layout` and `alo-corpus` (all targets, all features, `-D warnings`)
+were clean first. `scripts/gate.sh` ran in the foreground to a log. The
+harness moved it to the background at 600 s, and the next call waited on
+it in a foreground `until` loop. It read `exit 0` and "The gate is met",
+with every section `ok` and no `FAILED` or `panicked` in the log. Only
+this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout assertions in numbers. `alo-layout/tests/numbers.rs`: an
+  `inline-block` of two paragraphs `cd`/`ef` beside `ab ` is at (24, 0)
+  16 × 32, with its paragraphs at y 0 and 16. The text beside it is 16
+  down and the line is 32: it stands on the second paragraph's baseline,
+  28 down. An `inline-flex` holding a paragraph is one 16 × 16 box at
+  (24, 0) on a 16 line. `alo-corpus/tests/alo_sites_full_page.rs` (4
+  tests): the sheet is asked for and answered; the issues are the shared
+  list, `position: sticky` and the missing pictures; the brand is one box
+  at (20, 14.2), 44 tall, holding the logo at (20, 20.2), 32 tall, which
+  are Chrome's numbers; an agent reads the link once, at (20, 14.2), with
+  the picture inside it. Unit tests: 4 in `tree.rs` (the inline-block, its
+  text wrapped, the inline-flex brand, and 426's inline-grid).
+- Reference render: the case's `render.png` was looked at, and shows the
+  brand drawn at the left of the nav. With every reference rewritten, no
+  other corpus case moved a pixel or a number.
+- Every difference from Chrome on the page is accounted for in
+  `origin.txt`. The brand is 16 narrower (Chrome's broken-picture icon,
+  418). The FAQ is closed-`<details>` (429) and multi-column (97). The
+  custom-code border is 4.8 against 4 (430), and its frame is an iframe
+  (86). The sections set to move depend on the motion script (381). The
+  pricing tier's transform is drawn here too.
+- Mutation checks, from scratchpad copies restored with `cp` and checked
+  with `cmp`, with the renderer binary rebuilt on each side:
+  - `is_inline_box` as inline-level alone (the old rule) fails all 4 unit
+    tests, both new `numbers.rs` tests and 2 of the page's.
+  - The old rule in `arrange` alone fails the wrapped-text test.
+- Hostile input: unchanged. The box tree already holds an `inline-block`
+  nested in itself; this only stops breaking one.
+- One responsibility per file: the question lives on `BoxKind` beside
+  `lays_children_out_in_flow`, and the case's test is its own file.
+- No `unsafe`, no dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` is clean in each.
+
+**Queue.** 286 is ticked with its *Built* paragraph. 426's box-tree half
+is done and recorded, but it stays open on its own closing condition, a
+page's `inline-grid`. Added:
+- 429 (needs ADR): a closed `<details>` lays out, draws and reads its
+  answer.
+- 430: a border width is not floored to whole device pixels. It depends on
+  nothing at one device pixel to the CSS pixel and is buildable next.
+
+**Roadmap: no line moved, and why.** 286 is stage 1's *Layout* line,
+already ticked, and no stage 2 line names atomic inline boxes or alo Sites'
+pages. As in iterations 269–273, moving one would be decoration. Also
+updated: `docs/features.md`, `docs/conformance.md` (the inline-block
+paragraph and the alo Sites row), `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 426 is not closed: whether layout places an `inline-grid`'s blocks in
+  its tracks is untested on a page.
+- That the window draws this case was not captured. The window capture is
+  still refused on this machine (296).
+- Every alo Sites golden page has now been frozen or measured, so the
+  supply of real pages in `alo-workplace` for a blocked queue is nearly
+  spent. The workspace's React screens remain, rebuilt as markup.
+- 429 needs its ADR; 430 is buildable. 423–428, 411, 414 and 416–421 wait
+  for pages.
+
+189 queue items are open (286 closed, 429 and 430 added). The next unused
+queue number is **431** and the next ADR is **0048**. This is one
+iteration, not a finished queue or roadmap.
