@@ -6,6 +6,22 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent can now fill in a form on a page nobody wrote for us.** The
+  test is the HTML specification's own pizza-order form, frozen exactly as
+  a public test site serves it. An agent finds each field by the words a
+  person would read beside it, types a name, a phone number, an email and
+  delivery instructions, then picks a size and two toppings, and reads all
+  of it back. On the first web page ever published, it follows links by
+  their words. Doing this found three bugs that alo's own screens never
+  showed:
+  - When a field sat inside its label, which is the commonest way to write
+    a form, the agent could not read back what it had typed.
+  - Text typed into a multi-line box was reported as typed but never
+    appeared.
+  - Text typed into a time field was accepted and never shown. The browser
+    cannot show what a time field holds yet, so it now refuses and says
+    so, rather than pretending (queue item 131).
+
 - **How forms will work has been decided and written down.** Today,
   pressing a form's submit button does nothing, and nothing says so. A new
   design record (ADR 0051) sets out what will happen instead, measured

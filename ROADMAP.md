@@ -1550,6 +1550,23 @@ items where being right and being unusable are the same outcome.
 ### ★ The agent, on somebody else's pages
 
 - [ ] The agent reads and acts on ordinary web pages through the same tree — no screenshot, no scraping, no coordinates
+      · Built: on two frozen pages nobody wrote for us (queue item 131,
+      iteration 295). `web-a-form`, the HTML specification's pizza form,
+      is read by the words on it, and its fields, textarea, radios and
+      checkboxes are filled and read back. `web-first-website`'s links are
+      followed by their words, to the URL resolved where the page was
+      served. The same refusals hold there as on alo's own screens
+      (`alo-corpus`' `an_agent_on_somebody_elses_page.rs`, with a reference
+      render of the filled form). What the form found is fixed:
+      - a field's text inside its `<label>` is read, which it was not;
+      - text put into a `<textarea>` is held, drawn and read, which it was
+        not;
+      - a `time` field refuses text by name rather than taking it unseen.
+      · Owed: submitting what was filled (468, then 470); `time`,
+      `month`, `week` and `datetime-local` fields (388); validity in the
+      tree (476); and a stranger's page that runs script, which neither
+      frozen page does — `Activate` and `PutText` through a page's own
+      listeners are tested only on alo's screens
 - [ ] Across frames, without becoming a way around the same-origin policy
 - [ ] Under grants, and recorded: what it read, what it did, on whose approval — `alo-os` ADR 0001's model reaching the web
 - [ ] Agent-driven navigation, and a page that changes underneath an agent mid-action

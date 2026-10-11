@@ -22,9 +22,11 @@
 //!
 //! # What a verb can and cannot change
 //!
-//! An **attribute** — which is what a field's text and a checkbox's state are.
-//! Not the shape of the tree: adding and removing nodes belongs with the DOM
-//! APIs, and nothing an agent does needs it.
+//! An **attribute** — which is what an `<input>`'s text and a checkbox's
+//! state are — and a `<textarea>`'s **content**, which is what its text is
+//! until item 469 holds a field's value apart from its markup. Nothing else
+//! of the shape of the tree: adding and removing nodes belongs with the DOM
+//! APIs, and nothing else an agent does needs it.
 //!
 //! **What a click does to a box is not decided here.** It is `alo-dom`'s
 //! activation rule ([`alo_dom::activation`], ADR 0018 § 6), which a script's
@@ -83,6 +85,14 @@ pub enum Change {
         /// Which attribute.
         attribute: String,
     },
+    /// An element's content was replaced by this text: a `<textarea>`'s,
+    /// whose text is its content (`alo_dom::field`).
+    Content {
+        /// Which element.
+        node: NodeId,
+        /// What it holds now.
+        text: String,
+    },
     /// Nothing about the document changed, and nothing should have.
     Nothing,
 }
@@ -100,8 +110,17 @@ pub fn apply(document: &mut Document, boxes: &BoxTree, outcome: &Outcome) -> Vec
     match outcome {
         Outcome::TextPut { text, .. } => {
             // `alo-dom`'s rule, which the renderer runs on a page with script.
+            let as_content = document
+                .element(node)
+                .is_some_and(field::is_held_as_content);
             if !field::put_text(document, node, text) {
                 return vec![Change::Nothing];
+            }
+            if as_content {
+                return vec![Change::Content {
+                    node,
+                    text: text.clone(),
+                }];
             }
             vec![Change::Set {
                 node,

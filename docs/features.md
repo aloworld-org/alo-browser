@@ -135,7 +135,7 @@ The reason this exists rather than a faster fork of somebody else's engine.
 - [1] ★ **One element, one thing to read** — an inline box broken around a block is read as one node, named by everything the element contains and positioned everywhere it was drawn, with the block inside it rather than beside it
 - [1] ★ Reading is never watching — the tree is exposed when asked, and `alo-os`'s capability model decides who may ask
 - [1] ★ **The same tree is the accessibility tree.** A screen reader and an agent want identical facts, and two implementations would guarantee one is wrong — so EN 301 549 conformance and agent capability are one piece of work, not two competing budgets
-- [2] ★ The same tree over ordinary web pages, which no browser can offer today because none of them owns both halves
+- [2] ★ The same tree over ordinary web pages, which no browser can offer today because none of them owns both halves. **Read and driven by name on two frozen pages nobody wrote for us** (queue item 131). On the HTML specification's own pizza form an agent fills each field by the words of the label wrapped around it, chooses a size and toppings, and reads every one back. On the first web page it follows links by their words. Refusals are the same as on alo's screens. A field's text inside its label is read as the field's. Text put into a `<textarea>` becomes its content, which is what draws and reads, until a control's value is held apart from its markup (469). A `time`, `month`, `week` or `datetime-local` field refuses text by name (`Unbuilt`) until one draws what it holds (388)
 - [2] Assistive technology bridges — AT-SPI on Linux — over that same tree
 
 ## Embedding

@@ -5107,6 +5107,10 @@ The long pole, and the thing most of section E is unreachable without.
     `control.rs`.
   - A reset button's activation behaviour: a trusted, cancelable `reset`,
     then the defaults back and the dirty flags cleared.
+  - A `<textarea>`'s text moves too. Since iteration 295 an agent's
+    `PutText` replaces its content (`field.rs`' `is_held_as_content`),
+    which is its default value. A script reading its `textContent` after
+    that sees the typed text, which Chrome would not show.
   *Opened by a page* whose `[value]` selector, reset button or script
   tells a control's state from its attribute.
   *Closes when:* that page renders and acts as Chrome measures it, and a
@@ -8467,10 +8471,17 @@ The long pole, and the thing most of section E is unreachable without.
   value as `yyyy-mm-dd` in both, in tests.
 
 - [ ] **388. `time`, `datetime-local`, `month` and `week` fields.** *Cut
-  from 385 by ADR 0042 § 4. Waits for a page.* Each draws its value's own
+  from 385 by ADR 0042 § 4. ~~Waits for a page.~~ Opened by `web-a-form`
+  (iteration 295)*, whose "Preferred delivery time:" is `<input type=time
+  min="11:00" max="21:00" step="900">`. It reads as `generic` today and
+  draws an empty box where Chrome draws `--:-- --`. Until this closes, an
+  agent's `PutText` into any of the four is refused as `Refusal::Unbuilt`.
+  That refusal goes when the field draws and reads what it holds.
+  Each draws its value's own
   form empty, and reads to an agent by its platform role with its value in
-  that form, by ADR 0042's rule. *Closes when:* a frozen page's field of
-  that kind draws its form and reads its role, and a hostile value is
+  that form, by ADR 0042's rule. *Measure Chrome's form and role for an
+  empty and a held time field first.* *Closes when:* a frozen page's field
+  of that kind draws its form and reads its role, and a hostile value is
   sanitised without a panic.
 
 - [x] **389. A field's `placeholder`.** *Opened by `alo-sign-in`
@@ -11311,10 +11322,28 @@ What stage 2's exit gate actually measures: a person using it.
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does
 not, and this is where it is found out.
 
-- [ ] **131. The agent reads and acts on ordinary web pages** through the same
+- [x] **131. The agent reads and acts on ordinary web pages** through the same
   tree — no screenshot, no scraping, no coordinates.
   *Depends on 68, 81. Closes when:* a frozen real page is read and driven by
   name, with the same verbs and the same refusals.
+  ***Done (iteration 295).*** `web-a-form`, httpbin's copy of the HTML
+  specification's pizza form, is read and filled by the words on it. Its
+  three fields are filled, then its textarea, then a size and two
+  toppings, and every one is read back. `web-first-website`'s links are
+  followed by their words, to the URL resolved against where it was served.
+  Ambiguous, NotOperable, NotAField and NotFound refuse there as on alo's
+  screens. The form found three things alo's own pages never had:
+  - A field's text inside its wrapping `<label>` was dropped from the tree,
+    so an agent could not read back what it put in.
+  - `PutText` into a `<textarea>` was reported done and wrote a `value`
+    attribute that nothing draws or reads. Its content holds it now, until
+    469.
+  - `PutText` into a `time` field was accepted and drawn by nothing. It is
+    refused by name now (`Refusal::Unbuilt`), until 388.
+  Tests: `alo-corpus`' `an_agent_on_somebody_elses_page.rs`, with a
+  reference render of the filled form (`cases/web-a-form/filled.png`), and
+  `alo-agent`'s `a_field_on_somebody_elses_form.rs`. Submitting the form is
+  468's.
   ***Next, by the owner's choice (2026-10-12).*** Both dependencies are done and
   nothing blocks it. It is taken before the remaining shell work because it is
   the item this project justifies itself by: if ADR 0002 does not hold on

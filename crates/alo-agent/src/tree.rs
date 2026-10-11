@@ -377,11 +377,33 @@ impl<'a> AgentTree<'a> {
             .is_some_and(alo_dom::date::is_date_field)
     }
 
-    /// Whether this box is inside a `<label>` that names a control.
+    /// The type of the field the box `id` is, when it is one whose text this
+    /// engine does not hold yet (`alo_dom::field::unbuilt`).
+    pub(crate) fn unbuilt_field(&self, id: BoxId) -> Option<&'static str> {
+        self.boxes
+            .get(id)
+            .and_then(|node| node.kind.node())
+            .and_then(|source| self.document.element(source))
+            .and_then(alo_dom::field::unbuilt)
+    }
+
+    /// Whether this box is inside a `<label>` that names a control, and is
+    /// not inside a field there.
+    ///
+    /// A field's text is what it holds, not words of the label around it:
+    /// `<label>Customer name: <input></label>` is the commonest form on
+    /// the web, and an agent that could not read back what it had put in
+    /// that field could not tell whether it had (queue item 131).
     fn is_inside_a_label_that_names_something(&self, id: BoxId) -> bool {
         let mut current = Some(id);
         while let Some(box_id) = current {
-            if let Some(source) = self.boxes.get(box_id).and_then(|node| node.kind.node())
+            let Some(node) = self.boxes.get(box_id) else {
+                return false;
+            };
+            if node.semantics.states.takes_text {
+                return false;
+            }
+            if let Some(source) = node.kind.node()
                 && label_names_something(self.document, source)
             {
                 return true;
@@ -498,11 +520,13 @@ impl<'a> AgentNode<'a> {
         let has_own = element
             .attr(alo_dom::placeholder::ATTRIBUTE)
             .is_some_and(|written| !written.is_empty());
-        let holds_a_value = element
-            .attr(alo_dom::field::TEXT)
-            .is_some_and(|value| !value.is_empty())
-            || (element.name.is_html("textarea")
-                && !self.tree.document.text_content(source).is_empty());
+        let holds_a_value = if alo_dom::field::is_held_as_content(element) {
+            !self.tree.document.text_content(source).is_empty()
+        } else {
+            element
+                .attr(alo_dom::field::TEXT)
+                .is_some_and(|value| !value.is_empty())
+        };
         if has_own || holds_a_value {
             return None;
         }

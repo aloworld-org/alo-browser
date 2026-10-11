@@ -234,6 +234,18 @@ pub enum Refusal {
         /// The text that is not a date.
         text: String,
     },
+    /// It is a field of a kind whose text this engine does not hold yet —
+    /// a `time`, `month`, `week` or `datetime-local` field.
+    ///
+    /// Refused by name rather than put in: nothing draws what one holds, and
+    /// an agent told it had put a time in would believe a person could see
+    /// it.
+    Unbuilt {
+        /// Which node.
+        node: BoxId,
+        /// The field's type, as HTML names it.
+        kind: String,
+    },
     /// It has no more content than room, so there is nothing to scroll.
     DoesNotScroll {
         /// Which node.
@@ -261,6 +273,10 @@ impl fmt::Display for Refusal {
             Refusal::NotADate { node, text } => write!(
                 f,
                 "{text:?} is not a date {node} can hold; a date is written yyyy-mm-dd",
+            ),
+            Refusal::Unbuilt { node, kind } => write!(
+                f,
+                "{node} is a {kind} field, and this engine does not hold what one holds yet",
             ),
             Refusal::DoesNotScroll { node } => write!(f, "{node} has nothing to scroll"),
         }
@@ -392,6 +408,13 @@ fn put_text(tree: &AgentTree<'_>, node: &AgentNode<'_>, text: &str) -> Result<Ou
     }
     if states.read_only {
         return Err(Refusal::ReadOnly { node: node.id() });
+    }
+    // A field nothing draws the text of is not told it took some.
+    if let Some(kind) = tree.unbuilt_field(node.id()) {
+        return Err(Refusal::Unbuilt {
+            node: node.id(),
+            kind: kind.to_owned(),
+        });
     }
     // A date field holds a valid date string or nothing (ADR 0042 § 4).
     // The empty text is nothing, which is how a date is cleared.
@@ -527,6 +550,15 @@ mod tests {
             node: BoxId::from_index_for_tests(1),
         };
         assert_eq!(disabled.to_string(), "box#1 says it is disabled");
+
+        let unbuilt = Refusal::Unbuilt {
+            node: BoxId::from_index_for_tests(4),
+            kind: "time".to_owned(),
+        };
+        assert_eq!(
+            unbuilt.to_string(),
+            "box#4 is a time field, and this engine does not hold what one holds yet",
+        );
 
         let not_a_date = Refusal::NotADate {
             node: BoxId::from_index_for_tests(2),

@@ -28738,3 +28738,115 @@ added, because nothing is built. Also updated: `docs/features.md`,
 218 queue items are open (9 added). The next unused queue number is **477**
 and the next ADR is **0052**. This is one iteration, not a finished queue or
 roadmap.
+
+## Iteration 295 — queue item 131 built: the agent reads and drives pages nobody wrote for us, by name
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md` in full,
+`ROADMAP.md` (its state rules and the stage 2 line "The agent reads and acts
+on ordinary web pages"), iteration 294, and the owner's commit c1c6e59. No
+`AGENTS.md` exists in this repository or above it. For 131: its queue entry,
+`docs/features.md`' agent-surface section, ADR 0002 in full, and ADR 0051
+§§ 1 and 6 (the interim rule that markup stays a control's state until 469,
+and how an agent submits). Also ADR 0042 § 4, whose refusal by name
+`Unbuilt` follows. `alo-agent`'s `verb.rs`, `apply.rs` and the relevant
+parts of `tree.rs` were read, along with `alo-dom`'s `field.rs` and
+`placeholder.rs` and the three web cases' `origin.txt`.
+
+**Choosing.** The owner's commit c1c6e59 marked 131 next. Both its
+dependencies (68 and 81) are done and nothing blocks it.
+
+**What a probe found.** Every verb was driven by name on `web-a-form`,
+`web-first-website` and `web-example-com`. Radios, checkboxes, links and
+all four refusals already behaved as on alo's screens. Three defects alo's
+own pages never had:
+1. A field inside its `<label>` (`<label>Customer name: <input></label>`,
+   the commonest form on the web) had its text drawn but left out of the
+   tree. `is_inside_a_label_that_names_something` folded it into the
+   label's words, so an agent could not read back what it had put in.
+2. `PutText` into a `<textarea>` answered `TextPut` and wrote a `value`
+   attribute that nothing draws or reads. The record said done, and the
+   field showed what it held before.
+3. `PutText` into a `time` field was accepted, and nothing draws it
+   (`field_text` draws no temporal kind but `date`).
+
+**What was built.**
+- `alo-agent`'s `tree.rs`: the walk up stops at a field (`takes_text`).
+  A field's text is the field's, never the label's.
+- `alo-dom`'s `field.rs`: a `<textarea>`'s text is its content
+  (`is_held_as_content`). `put_text` replaces that content whole, as
+  `textContent` does. This is the interim the ADR 0051 § 1 rule allows,
+  because a textarea's default is its content and it has no attribute.
+  `placeholder.rs` and the agent's `placeholder()` no longer read a
+  `value` attribute on a textarea, which Chrome ignores. `apply` reports
+  `Change::Content`.
+- `field::unbuilt` names `time`, `month`, `week` and `datetime-local`.
+  `verb.rs` refuses `PutText` into one as `Refusal::Unbuilt { node, kind }`,
+  as ADR 0042 § 4 refuses a non-date and ADR 0051 § 3 refuses an unbuilt
+  constraint. `wire.rs` carries it as tag 8.
+- Tests:
+  - `alo-corpus`' `an_agent_on_somebody_elses_page.rs` (7 tests). The
+    form is read by its words, filled and read back; one size at a time;
+    the refusals; links followed by their words at the address in
+    `origin.txt`.
+  - The layout assertion: the typed text sits at (149.65625, 18)
+    106.33594×19 and (186.67188, 549) 83.390625×19, inside the fields'
+    frozen boxes, with the display list's items at their baselines.
+  - The reference render: `cases/web-a-form/filled.png`, the form after
+    the agent filled it, compared pixel by pixel. It was viewed before
+    commit.
+  - `alo-agent`'s `a_field_on_somebody_elses_form.rs` (5 tests), plus
+    unit tests in `field.rs`, `placeholder.rs`, `verb.rs` and the wire
+    round trip.
+
+**Mutation checks.** With the `takes_text` stop removed, three of the five
+`alo-agent` tests fail. With the textarea branch disabled, the textarea
+test fails. Both were restored from copies.
+
+**Gate, mechanical.** `scripts/gate.sh` ran once in the foreground. The
+harness moved it to the background at 600 s, and the next call waited on it
+with a foreground `until` loop. Result: `exit 0`, "The gate is met", and no
+`FAILED` or `panicked` in the log. Before it, `cargo fmt` and `cargo clippy
+--workspace --all-targets` were clean. No committed corpus expectation
+changed: no case had a value inside a wrapping label or a filled textarea.
+Only this entry was written after the gate, and then the commit.
+
+**Gate, manual.**
+- The layout assertion and reference render are above.
+- One responsibility per file: `field.rs` still answers one question,
+  what text put into a field does, and `tree.rs`' new `unbuilt_field`
+  sits beside `is_a_date_field`.
+- `docs/features.md`' agent-surface line says what is built.
+  `docs/conformance.md` gains a row.
+- No `unsafe`, and no verb takes a coordinate.
+- `alo-workplace` and `alo-os` were not touched.
+- Chrome was not measured this iteration. Nothing here positions anything
+  new: the text boxes are where the engine already put an input's text. A
+  textarea's text follows the same border-and-padding rule.
+
+**Queue.** 131 is ticked, because its closing condition is met on two
+frozen pages. 388 (the temporal kinds) is opened by `web-a-form`'s time
+field. Its note says `Unbuilt` goes when it closes and that Chrome's form
+and role are to be measured first. 469 notes that a textarea's text moves
+from its content to `control.rs`, and that a script reading `textContent`
+after a `PutText` sees the typed text where Chrome would not. That is the
+interim's one visible cost.
+
+**Roadmap.** The stage 2 line "The agent reads and acts on ordinary web
+pages" gains a Built clause and an Owed clause. It is not ticked, because
+the line is about the web, not two pages. Owed: submission (468, 470), the
+temporal kinds (388), validity in the tree (476), and a stranger's page
+that runs script, which neither frozen page does. Also updated:
+`docs/features.md`, `docs/conformance.md`, `REMAINING.md` and
+`CHANGELOG.md`.
+
+**Unresolved obligations.**
+- Submitting the filled form is 468's. Today `Activate` on "Submit order"
+  answers `Activated` and asks to go nowhere, which the test does not pin.
+- No frozen web case runs script, so the agent's verbs through a
+  stranger's own listeners (ADR 0018) are untested on one. A frozen
+  scripted page is the next real test of ADR 0002.
+- 468 is buildable. 461, 462, 463 and 467 depend on nothing open.
+
+220 queue items are open (131 closed). The next unused queue number is
+**480** and the next ADR is **0052**. This is one iteration, not a finished
+queue or roadmap.

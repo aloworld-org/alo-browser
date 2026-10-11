@@ -575,6 +575,11 @@ impl Writer {
                 writer.id(*node);
                 writer.text(text);
             }
+            Refusal::Unbuilt { node, kind } => {
+                writer.tag(8);
+                writer.id(*node);
+                writer.text(kind);
+            }
         }
     }
 }
@@ -878,6 +883,10 @@ impl<'a> Reader<'a> {
             7 => Ok(Refusal::NotADate {
                 node: self.id()?,
                 text: self.text()?,
+            }),
+            8 => Ok(Refusal::Unbuilt {
+                node: self.id()?,
+                kind: self.text()?,
             }),
             other => Err(unreadable(format!("a refusal tagged {other}"))),
         }

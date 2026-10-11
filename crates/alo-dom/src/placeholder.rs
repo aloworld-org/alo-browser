@@ -102,16 +102,17 @@ pub fn hint(element: &Element) -> Option<String> {
 /// written in the page — or when it makes no `::placeholder` at all.
 ///
 /// An `<input>`'s value is its `value` attribute, as the box tree draws it
-/// ([`field::TEXT`](crate::field::TEXT)). A `<textarea>`'s is what was put
-/// into it, which is held in the same attribute, or else its text.
+/// ([`field::TEXT`](crate::field::TEXT)). A `<textarea>`'s is its content,
+/// which is where text put into it goes
+/// ([`field::is_held_as_content`](crate::field::is_held_as_content)); a
+/// `value` attribute written on one is nothing.
 pub fn shown(document: &Document, id: NodeId) -> Option<String> {
     let element = document.element(id)?;
     let hint = hint(element)?;
-    let value = element.attr(crate::field::TEXT);
-    let empty = match value {
-        Some(value) => value.is_empty(),
-        None if element.name.is_html("textarea") => document.text_content(id).is_empty(),
-        None => true,
+    let empty = if crate::field::is_held_as_content(element) {
+        document.text_content(id).is_empty()
+    } else {
+        element.attr(crate::field::TEXT).is_none_or(str::is_empty)
     };
     empty.then_some(hint)
 }
@@ -185,7 +186,16 @@ mod tests {
             shown_by("<textarea placeholder=hint>held</textarea>", "textarea"),
             None
         );
-        // A value put into a textarea is held in the attribute, and hides it.
+        // A `value` attribute on a textarea is nothing, and hides nothing.
+        assert_eq!(
+            shown_by(
+                "<textarea placeholder=hint value=held></textarea>",
+                "textarea"
+            )
+            .as_deref(),
+            Some("hint")
+        );
+        // A value put into a textarea is its content, and hides it.
         let mut document = parse_document("<textarea placeholder=hint></textarea>");
         let Some(id) = document.descendants(document.root()).find(|id| {
             document

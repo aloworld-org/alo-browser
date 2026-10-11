@@ -1770,3 +1770,16 @@ and only a person chooses a file. Nothing is built. 82 is cut into
 468–476, and 468 (the submission in the renderer, opened by
 `alo-sites-booking`) depends on nothing open. 218 queue items are open (9
 added). The next unused queue number is 477 and the next unused ADR 0052.
+
+Iteration 295 built item 131, which the owner marked next on 2026-10-12:
+the agent reads and drives pages nobody wrote for us, by name. On
+`web-a-form` it fills every field, the textarea, a size and two toppings,
+and reads each back. On `web-first-website` it follows links by their
+words. The form found three defects, all fixed or refused by name: a
+field's text inside its `<label>` was left out of the tree; text put into
+a `<textarea>` went into an attribute nothing reads; and a `time` field
+took text it never draws, so it is now refused as `Unbuilt` until 388.
+388 is opened by that page. The roadmap line gains a Built clause, and its
+Owed clause names 468, 470, 388, 476 and a stranger's scripted page. 220
+queue items are open (131 closed). The next unused queue number is 480
+and the next unused ADR 0052.
