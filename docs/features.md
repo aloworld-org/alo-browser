@@ -235,8 +235,17 @@ The reason this exists rather than a faster fork of somebody else's engine.
   mean in the one writing mode this engine lays out, `horizontal-tb`; they
   compete with `padding-top` and the rest by order, as CSS Logical says
   (queue item 379, opened by alo Sites' bento features card; corpus case
-  `block-axis-spacing`). The inline axis waits, since which side it names
-  is `direction`'s (380)
+  `block-axis-spacing`). Their longhands, `padding-block-start` and the
+  rest, are the side they name in the same way
+- [2] **`margin-inline` and `padding-inline`, and the inline-axis
+  longhands** (`margin-inline-start` and the rest) set the left and the
+  right, start first, and compete with `margin-left` and the rest by order
+  (queue item 380, opened by alo Sites' text-and-image section, whose
+  overlapping card is `margin-inline-start: -4rem`; corpus case
+  `alo-sites-text-image`). **This is left to right's answer**, written in
+  where the declaration is: a page with `dir="rtl"` gets them on the wrong
+  side, as it gets its text, flex rows and grid columns, since nothing reads
+  `direction` yet (421)
 - [2] **`gap` sets `row-gap` and `column-gap`** — one value for both, two
   for the row gap then the column gap — split where it is written, at the
   spaces between values and not those inside a function, so `gap:

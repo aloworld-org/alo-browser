@@ -1455,3 +1455,14 @@ picture stretched. `alo-sites-rich-blocks` draws "Orange notebook <front>";
 no picture moved. 183 queue items are open (413 closed). The next unused
 queue number is 421 and the next unused ADR 0047.
 
+
+Iteration 270 found every open item waiting on a page and froze one: alo
+Sites' text-and-image section, `alo-sites-text-image`, whose picture's
+address has no bytes anywhere and is drawn as its `alt` since 413. It
+opened item 380: the overlapping card's `margin-inline-start: -4rem` was
+ignored. `alo-css`' new `logical.rs` maps the logical margin and padding
+longhands to their sides under left to right, `margin-inline` and
+`padding-inline` are split beside the block pair, and the card is 428 at
+x 352, as Chrome 154 measures it. The right-to-left half is cut to 421,
+waiting for a page. 183 queue items are open (380 closed, 421 added). The
+next unused queue number is 422 and the next unused ADR 0047.

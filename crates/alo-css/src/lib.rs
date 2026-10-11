@@ -53,6 +53,7 @@ pub mod ident;
 pub mod inline;
 pub mod issue;
 mod list_style;
+mod logical;
 pub mod longhand;
 pub mod matching;
 pub mod media;

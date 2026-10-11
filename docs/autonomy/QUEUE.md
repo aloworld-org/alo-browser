@@ -6892,7 +6892,7 @@ The long pole, and the thing most of section E is unreachable without.
   card test and exactly the two new corpus cases fail. No other case
   moved.
 
-- [ ] **380. The inline-axis logical properties.** *Cut from 379
+- [x] **380. The inline-axis logical properties.** *Cut from 379
   (iteration 248). Feature: `docs/features.md` stage 2, "Shorthands compete
   with longhands". Waits for a page.* `margin-inline`, `padding-inline`,
   their `-start` and `-end` longhands, and the block-axis longhands
@@ -6905,6 +6905,46 @@ The long pole, and the thing most of section E is unreachable without.
   sheet writes `margin-inline: auto` and `padding-inline`, on sections not
   frozen yet. *Closes when:* a frozen page's inline-axis declaration places
   its box in numbers, and a page with `dir="rtl"` is either right or said.
+  **Done (iteration 270), for left to right; the right-to-left half is
+  cut to 421.** Opened by `alo-sites-text-image`, frozen in the same
+  change: alo Sites' text-and-image section, whose overlapping text card
+  is `margin-inline-start: -4rem` on an `ltr` page. A new
+  `alo-css/src/logical.rs` (one responsibility: which physical side a
+  logical box property names, in the one flow laid out) maps the eight
+  logical margin and padding longhands to their sides, and
+  `DeclarationBlock::push` writes the side beside the logical declaration
+  at its position, as it does a counted shorthand's longhands, so the two
+  compete by order as one property. `shorthand.rs`' `BLOCK_AXIS` became
+  `LOGICAL_AXES` (`margin-inline` and `padding-inline` beside the block
+  pair), each end mapped by `logical.rs`, so the mapping is in one place;
+  `longhand.rs` reports the inline shorthands' logical longhands for CSSOM.
+  The mapping is said to be left to right's in `logical.rs` and
+  `docs/features.md`. The card is now 428 × 155.8 at (352, 48), its text
+  364 wide at x 384 and its sentence one line; the section 251.8 tall —
+  every number also measured in Chrome 154 (428 × 155.78125 at (352, 48),
+  251.78125). Tests: `alo-corpus/tests/alo_sites_text_image.rs` (4),
+  `logical.rs` (4), `shorthand.rs` (the inline shorthands become left and
+  right; a logical longhand is not split; every end has a side; hostile
+  values for all four shorthands). Mutation, restored from a copy and
+  checked with `cmp`: no side written by `push` fails 2 corpus tests and
+  2 unit tests. No other corpus case moved: none of their sheets' inline
+  logical properties applies to a frozen element. `inset-*`,
+  `border-*-start` and the logical sizes are not mapped; no page writes
+  one.
+
+- [ ] **421. A right-to-left page's inline-axis logical properties.** *Cut
+  from 380 (iteration 270). Feature: `docs/features.md` stage 2, "Shorthands
+  compete with longhands". Depends on 98 or 100 for being right. Waits for a
+  page.* `alo-css`' `logical.rs` maps `margin-inline-start` to the left as
+  it is written, which is left to right's answer, baked in before any
+  element's `direction` is known; on a page with `dir="rtl"` it is on the
+  wrong side. Nothing reads `direction` yet, so that page's text, flex rows
+  and grid columns also run left to right, and this is one wrong answer
+  among them rather than a new one. *Blocked: no page yet* with
+  `dir="rtl"` or `direction: rtl`. *Closes when:* such a frozen page's
+  inline-axis declarations place its boxes on the side its direction says,
+  in numbers — the mapping moved to computed-value time, per element — or
+  the page's record says plainly that it was laid out left to right.
 
 - [ ] **381. `IntersectionObserver`.** *Opened by `alo-sites-features`
   (iteration 248). Feature: `docs/features.md` stage 2, "The DOM as pages

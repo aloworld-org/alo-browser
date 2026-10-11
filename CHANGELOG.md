@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Spacing written by the direction of reading is applied.** A page can
+  set a margin or padding by where it falls in the text's flow —
+  `margin-inline-start`, `padding-inline`, `margin-block-end` — rather than
+  by the edge of the screen. These were ignored for the left and right, so
+  alo Sites' text-and-image section drew its text card beside its picture
+  instead of overlapping it, narrower than intended. They are now applied,
+  as left-to-right text places them; a right-to-left page still gets them
+  on the left, as it gets the rest of its layout, for now (queue items 380
+  and 421).
+
 - **A picture that fails to load shows its description.** When a page's
   picture cannot be shown — its file is missing or damaged — and the page
   described it in words, those words now appear where the picture would have

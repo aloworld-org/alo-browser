@@ -1,0 +1,79 @@
+alo-workplace, products/sites/alo-sites/tests/golden/section_text_image.html
+and products/sites/alo-sites/tests/golden/site.css — a page alo Sites
+publishes for its customers: the text-and-image section of a demonstration
+coffee roaster's home page, with the style sheet every alo Sites page links.
+
+Taken 2026-10-11 from the `alo-workplace` repository checked out beside this
+one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef, the commit the
+other alo Sites cases were taken at. The page's last change is
+b7e5c6ffacfac3b910c4f091d60d3cde32f4869e (2026-09-01); the sheet's is
+5be41b70be364f8e1e0e158a8619e4e94455321c (2026-09-02). The bytes are those
+files exactly as they stand, unedited:
+
+- page.html: SHA-256
+  2a2a2bbdac3562bc21fda4d1380b61dd25af69abdc8f94a3a767f87507da0eff
+- site.css: SHA-256
+  27c9bf8e7fb0c0fba4f2facf4ee1b532a08b2f44343bc3e6d41f3f871e9c167e
+
+The sheet is byte for byte the other alo Sites cases'. `alo-workplace` is
+read-only reference; nothing was written back to it. Both files are golden
+outputs of alo Sites' own renderer, pinned by its tests, so they are what it
+really serves rather than something rebuilt from it.
+
+Why this page. Iteration 270 took it when every open queue item was waiting
+on a page: the alo Sites sections without a picture were all frozen or
+dropped, and since item 413 a picture that cannot be had is drawn as its
+`alt`, as any browser draws it. This page's one `<img>` names
+`/assets/img/9hK3vQ2mR8pT1xWz4bC5dg`, a made-up address in alo Sites' test
+fixtures: there are no bytes behind it in any repository or on any server,
+so the picture is broken here and in every browser, and the page records "no
+picture was loaded" for it. The section is `image-left
+text-image-overlap`: a two-column grid, the picture on the left, and a
+padded, shadowed text card that reaches 4rem back over it.
+
+**Where it is served from, and what its sheet is answered with,** are the
+call-to-action section's, for the same reasons (see that case's origin.txt):
+the page's own `<link rel="canonical">` says
+`https://nordwind.alosites.com/` (address.txt), and its `/assets/site.css`
+is answered from site.css (linked.txt). Its analytics script is the same
+script, and finds no form here.
+
+Rendered at 800 × 600, wider than the sheet's breakpoints, as the other alo
+Sites cases are.
+
+## What it found
+
+- **The text card ignored its `margin-inline-start: -4rem`** — item 380.
+  This engine mapped no inline-axis logical property, so the card stood in
+  its own column, 364 wide at x 416, its padding leaving 300 for text and
+  its sentence on two lines; the section was 279 tall. The card now starts
+  at 416 − 64 = 352 and, a stretched grid item, takes the margin into its
+  width: 364 + 64 = 428, over the right end of the picture's column. Its
+  margin is left to right's: a right-to-left page would want it on the
+  other side, and that is item 421. `tests/alo_sites_text_image.rs` says so.
+
+Everything else checks against the sheet by hand and is pinned as it is.
+The section is a grid of two `1fr` columns, `gap: 2rem`, inside 1.25rem of
+padding at the sides and 3rem above and below: (800 − 40 − 32) / 2 = 364
+each, at 20 and 416. The card's padding is `clamp(1.5rem, 4vw, 3rem)`, 32 at
+800 wide, so its heading and sentence are 428 − 64 = 364 wide at x 384. The
+heading is `clamp(1.5rem, 3.5vw, 2.125rem)`, 28 px, at 1.2: 33.6, and 0.5em,
+14, below it; the sentence one line of 17 px at 1.6, 27.2, and 1em, 17,
+below it. The card is 32 + 33.6 + 14 + 27.2 + 17 + 32 = 155.8 tall, the
+section 48 + 155.8 + 48 = 251.8, and `align-items: center` puts the figure,
+one line of 27.2, at 48 + (155.8 − 27.2) / 2 = 112.3. The picture is
+`display: block` (the sheet's `img` rule), so its `alt`, "Roasting drum
+mid-batch", is a block of its column's width holding one line. Its shadow is
+`color-mix(in srgb, var(--text) 12%, transparent)`, which item 377 reads.
+
+Measured the same day in Google Chrome 154, headless, on this page and sheet
+at 800 wide: the card 428 × 155.78125 at (352, 48), its heading 364 wide at
+(384, 80), the sentence one line, the figure at y 112.296875, the section
+251.78125 tall — Chrome's layout unit rounds 27.2 to 27.1875. Chrome's
+picture differs from render.png only in its fonts (it has no DejaVu) and in
+the icon it draws before the `alt` (item 418).
+
+What the sheet asks for that this engine does not do is in issues.txt: the
+call-to-action section's list exactly — `::before` and `::after`,
+`@keyframes`, and `prefers-reduced-motion` — and the picture nobody has.
+Nothing on this page uses any of the rest.

@@ -1,0 +1,14 @@
+block flow · document
+  block flow · generic
+    block flow · link
+      text "Skip to content"
+    block flow · main
+      block grid · generic
+        block flow · figure
+          block flow · image "Roasting drum mid-batch" [broken]
+            text "Roasting drum mid-batch"
+        block flow · generic
+          block flow · heading [level=2]
+            text "The roastery"
+          block flow · paragraph
+            text "A 1962 Probat drum, rebuilt by hand."

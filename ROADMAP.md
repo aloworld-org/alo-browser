@@ -1301,11 +1301,15 @@ unreachable without it.
       · Built: `padding-block` and `margin-block`, split in `alo-css` into
       the top and bottom they are under `horizontal-tb`, the one writing mode
       laid out (queue item 379, opened by `alo-sites-features`; corpus case
-      `block-axis-spacing`).
+      `block-axis-spacing`). The inline axis and every logical margin and
+      padding longhand, mapped to their sides in `alo-css`' `logical.rs`
+      under left to right, said to be left to right's (queue item 380,
+      opened by `alo-sites-text-image`).
       · Owed: `writing-mode` and `direction` themselves, read by nobody yet;
-      the inline-axis logical properties and the block-axis longhands (380);
-      moving the logical mapping to computed-value time once a box can be
-      other than `horizontal-tb`; and layout that is right-to-left (100)
+      a right-to-left page's inline-axis properties (421); moving the
+      logical mapping to computed-value time once a box can be other than
+      `horizontal-tb` and left to right; and layout that is right-to-left
+      (100)
 - [ ] Paged media and print styles
 
 ### Text, properly

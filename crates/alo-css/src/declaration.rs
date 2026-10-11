@@ -154,7 +154,14 @@ impl DeclarationBlock {
         // The longhands are inserted *at the shorthand's position*, so
         // `padding: 1em; padding-left: 0` still ends with a left of zero: the
         // explicit one is written after and the cascade's order rule decides.
-        for (name, value) in shorthand::expand(&declaration) {
+        //
+        // A logical longhand is mapped to its physical side the same way and
+        // for the same reason: `margin-inline-start` and `margin-left` are one
+        // property here, in the one flow this engine lays out
+        // ([`crate::logical`]).
+        let side = crate::logical::physical(declaration.name.as_str())
+            .map(|side| (side.to_owned(), declaration.value.clone()));
+        for (name, value) in shorthand::expand(&declaration).into_iter().chain(side) {
             self.declarations
                 .push(Declaration::new(&name, &value, declaration.importance));
             self.written.push(false);

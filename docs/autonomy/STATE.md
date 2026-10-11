@@ -26119,3 +26119,97 @@ case's `origin.txt`, `a-picture`'s `style.css` comment (no pixel moves),
 183 queue items are open (413 closed). The next unused queue number is
 **421** and the next ADR is **0047**. This is one iteration, not a
 finished queue or roadmap.
+
+
+
+## Iteration 270 — queue item 380 built: the inline-axis logical properties, found by freezing alo Sites' text-and-image section
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and the *Writing modes* line), iteration 269 and `REMAINING.md`'s
+continuation. No `AGENTS.md` exists in this repository or above it. For
+380: its queue entry and 379 beside it, `docs/features.md`' shorthand
+lines, `alo-css`' `shorthand.rs`, `longhand.rs`, `declaration.rs`
+(`push`), `inline.rs` and `properties.rs`; the user-agent sheet's
+`direction`; ADR 0046 for what the page's picture is. No ADR governs the
+logical properties and the item is not marked as needing one: its text
+names the decision (the mapping under `ltr`, said to be `ltr`'s).
+
+**Choosing.** Every open item waited on a page, a dependency, a design or
+an ADR when iteration 269 ended. LOOP.md's stage 2 rule is that a real
+page that fails opens the work, so this iteration froze one. The picture-
+free alo Sites goldens were all frozen or dropped; since 413 a picture
+nobody has is drawn as its `alt`, so a section whose `<img>` names
+alo Sites' made-up fixture address (no bytes anywhere, broken in every
+browser) can be frozen honestly. `section_text_image.html` was probed
+first, and its first fault was 380's: the overlap card's
+`margin-inline-start: -4rem` ignored on an `ltr` page.
+
+**What was built.** `alo-css/src/logical.rs` (one responsibility: which
+physical side a logical box property names in the one flow laid out) maps
+the eight logical margin and padding longhands. `DeclarationBlock::push`
+writes the side beside the logical declaration, at its position and with
+its importance, as it writes a counted shorthand's longhands.
+`shorthand.rs`' `BLOCK_AXIS` became `LOGICAL_AXES`, adding
+`margin-inline` and `padding-inline`, each end mapped through
+`logical.rs` so the mapping lives in one place; `longhand.rs` names the
+inline shorthands' logical longhands for CSSOM. The right-to-left half
+of 380's closing condition was cut to **421** (waits for a page; depends
+on 98 or 100 to be right). The logical properties are not added to
+`properties.rs`, as `margin-block` never was: no crate reads them.
+
+**Gate, mechanical.** Workspace clippy (all targets, all features, `-D
+warnings`) and `cargo fmt --check` clean first (one `float_cmp` in the new
+test fixed). `scripts/gate.sh` ran in the foreground to a log; the harness
+moved it to the background at 600 s and the next call waited on it in a
+foreground `until` loop. It read `exit 0` and "The gate is met", every
+section `ok`, no `FAILED` or `panicked` in the log. This entry and the
+commit came after that run and are documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `alo-corpus/tests/alo_sites_text_image.rs`
+  (4: the sheet asked for and answered; the issues are the other cases'
+  list and the missing picture; the figure 364 at x 20, the card 428 ×
+  155.8 at (352, 48) over the picture's column, the section 251.8; the
+  heading and sentence 364 wide at x 384, the sentence one line of 27.2).
+  Every number worked by hand from the sheet in the case's `origin.txt`
+  and measured in Google Chrome 154, headless, on the same page and sheet
+  (card 428 × 155.78125 at (352, 48), heading 364 at (384, 80), section
+  251.78125). Unit: `logical.rs` 4, `shorthand.rs` 3 new and the hostile
+  test widened to all four logical shorthands, `longhand.rs` 1 assertion.
+- Reference render: the case's `render.png` looked at beside Chrome's
+  screenshot of the same page: the same card, shadow and overlap; it
+  differs only in fonts and in Chrome's broken-picture icon (418).
+- No other corpus case moved when every reference was rewritten: the
+  alo Sites sheet's `margin-inline`/`padding-inline` rules touch no frozen
+  element.
+- Mutation (copy in the scratchpad, restored with `cp`, checked with
+  `cmp`): `push` writing no side fails 2 corpus tests and 2 unit tests.
+- Hostile input: `alo-css` reads outside bytes; the mapping changes only
+  names, and the widened hostile test feeds deep, unclosed and long values
+  to all four shorthands without a panic.
+- One responsibility per file: `logical.rs` is the side a logical name
+  means; `shorthand.rs` still only splits by counting.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` in each is clean.
+
+**Queue.** 380 ticked with its *Done* paragraph; 421 added open.
+**Roadmap:** the *Writing modes, and layout that is right-to-left* line's
+Built clause names the inline axis and the logical longhands; its Owed
+clause now names 421. Not ticked. Also updated: `docs/features.md`,
+`docs/conformance.md` (the alo Sites row, eleven sections),
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- That the real window draws this case was not captured: the window
+  capture is still refused on this machine (296). None of the window's
+  frozen references moved.
+- 421 waits for a right-to-left page. `inset-*`, `border-*-start` and the
+  logical sizes are not mapped; no page writes one, so none is queued.
+- 411, 414, 416–420 wait for pages, as does everything iteration 269
+  listed. Still unfrozen alo Sites goldens: team, gallery, hero,
+  collection, the catalogs, blog index and post, the full page — each
+  with a picture nobody has, now drawable as broken.
+
+183 queue items are open (380 closed, 421 added). The next unused queue
+number is **422** and the next ADR is **0047**. This is one iteration,
+not a finished queue or roadmap.

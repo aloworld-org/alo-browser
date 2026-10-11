@@ -1,0 +1,8 @@
+document at (0, 0) 800×251.8
+  link "Skip to content" at (-15984, 0) 161.11035×43.2
+  main at (0, 0) 800×251.8
+    figure at (20, 112.3) 364×27.2
+      image "Roasting drum mid-batch" [broken] at (20, 112.3) 364×27.2
+    heading "The roastery" [level=2] at (384, 80) 364×33.600002
+    paragraph at (384, 127.600006) 364×27.2
+      text "A 1962 Probat drum, rebuilt by hand." at (384, 131.30548) 316.44238×19.789063

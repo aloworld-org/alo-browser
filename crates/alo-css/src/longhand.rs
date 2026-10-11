@@ -23,7 +23,7 @@
 //! same longhands. Whether this engine acts on a longhand does not matter
 //! here: a written declaration of it is removed either way.
 
-use crate::shorthand::{BLOCK_AXIS, GAPS, PAIRED, SIDED};
+use crate::shorthand::{GAPS, LOGICAL_AXES, PAIRED, SIDED};
 
 /// The shorthands read by kind, and every longhand each one sets or resets.
 static BY_KIND: [(&str, &[&str]); 3] = [
@@ -117,12 +117,12 @@ pub fn longhands(name: &str) -> Option<&'static [&'static str]> {
     if name == "list-style" {
         return Some(crate::list_style::LONGHANDS.as_slice());
     }
-    // A block-axis shorthand sets its logical longhands, as CSS Logical says,
+    // A logical shorthand sets its logical longhands, as CSS Logical says,
     // and not the physical sides they are laid out as: removing
     // `padding-block` must not take a written `padding-top` with it.
-    if let Some((_, longhands, _)) = BLOCK_AXIS
+    if let Some((_, longhands)) = LOGICAL_AXES
         .iter()
-        .find(|(shorthand, _, _)| *shorthand == name)
+        .find(|(shorthand, _)| *shorthand == name)
     {
         return Some(longhands.as_slice());
     }
@@ -150,6 +150,10 @@ mod tests {
             longhands("padding-block"),
             Some(["padding-block-start", "padding-block-end"].as_slice()),
             "its logical longhands, not the sides they are laid out as",
+        );
+        assert_eq!(
+            longhands("margin-inline"),
+            Some(["margin-inline-start", "margin-inline-end"].as_slice()),
         );
         assert_eq!(longhands("gap"), Some(["row-gap", "column-gap"].as_slice()),);
         assert_eq!(
