@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Where this browser runs is written down: built on macOS, destined for alo
+  OS.** alo OS is a Linux system whose own roadmap pins Firefox for its web
+  browser "since our own engine is not scheduled" — which it now is. Running
+  on Linux turns out to be a second target rather than a port: the window is
+  already rented from libraries that speak Wayland, and the sandbox was
+  decided for Linux long ago. Being *installed* there stays behind this
+  browser's own exit gate, and the choice of what a machine ships is alo OS's.
+
 - **An agent can now fill in a form on a page nobody wrote for us.** The
   test is the HTML specification's own pizza-order form, frozen exactly as
   a public test site serves it. An agent finds each field by the words a

@@ -34,6 +34,52 @@ roadmap starts lying slowly.
 
 ---
 
+## Where it runs
+
+**Built on macOS, destined for alo OS.** Both halves of that matter, and until
+2026-10-12 this file said neither.
+
+alo OS is an operating system in the sibling repository `alo-os`: an unmodified
+Linux kernel, a native shell, Wayland through Smithay, x86-64. Its premise is
+that an agent reaches the machine through one enumerated list of verbs, each
+proposed before it runs and recorded after — which is the same claim as law 2
+of `CLAUDE.md`, made about a machine rather than a page.
+
+Its `crates/alo-software/shipped.toml` pins a web browser for
+`Role::WebBrowser`, and today that is Firefox 156.0 from Flathub. Its roadmap
+gives the reason in its own words: *"a pinned upstream one, since our own
+engine is not scheduled."*
+
+**That clause is what changed.** The engine is scheduled. Firefox remains the
+right pin until this browser meets stage 2's exit gate, and nothing here asks
+for the slot before then — a pinned upstream browser that works beats a
+sovereign one that does not, and the gate exists to stop us pretending
+otherwise.
+
+**Running on Linux is stage 2 work, not a stage 4 port.** The distinction is
+load-bearing. Three files carry `cfg(target_os = "macos")` — `sandbox.rs`,
+`fonts.rs`, `generic.rs` — and the window is already rented from `winit` and
+`softbuffer`, both of which speak Wayland. The one real gap is the sandbox:
+ADR 0010 already decided Linux's — *seccomp-bpf, a user namespace and
+Landlock* — and queue item 169 is where it gets built. Until 169 lands, this
+browser cannot run anywhere but macOS, so 169 is the gate on everything
+alo-OS-shaped rather than one item among many.
+
+**Being installed on alo OS is stage 4 work**, and theirs as much as ours: one
+application per role, so a pin for this browser is a pin removed from another,
+and that is their decision made under their gates. What is ours is being
+installable the way any application is — from a source, through the rented
+tool, arriving granted nothing.
+
+**One question is open and could change a decision rather than a detail.**
+ADR 0010 makes it fatal for a renderer to fail to obtain a sandbox. Whether a
+Flatpak can host a nested user namespace and a seccomp filter is not something
+this repository can answer, and if it cannot, ADR 0010 is superseded for that
+platform rather than quietly bent. It is asked of alo OS in writing before 169
+is built.
+
+---
+
 ## Stage 1 — it renders alo
 
 No scripting, no hostile pages, no compatibility burden. The point is that

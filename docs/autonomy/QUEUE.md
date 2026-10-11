@@ -11317,6 +11317,41 @@ What stage 2's exit gate actually measures: a person using it.
   (ADR 0002), keyboard operation of everything, focus always visible, and the
   EN 301 549 conformance the workspace is already held to. *Depends on 122.*
 
+- [ ] **480. Built and run on Linux.** x86-64, Wayland. Written in on 2026-10-12,
+  when alo OS became the destination: `winit` and `softbuffer` already speak
+  Wayland, and three files carry `cfg(target_os = "macos")` — `sandbox.rs`,
+  `fonts.rs` and `generic.rs` — so this is a second target rather than a
+  rewrite. *Depends on 169, which is the gate: until the sandbox exists on
+  Linux a renderer there refuses to read a page, by ADR 0010, and that is
+  correct rather than inconvenient. Closes when:* the workspace builds on
+  x86-64 Linux, the gate passes there, and `alo` opens a frozen page in a
+  Wayland window — captured on that machine and compared to `compose`, the
+  way 296 does it on macOS, and recorded with the machine named.
+
+- [ ] **481. ★ What alo browser is, as an application on alo OS.** *Needs ADR,
+  as its own iteration.* Three things this repository cannot decide alone and
+  must not guess: whether a renderer inside the rented tool's confinement can
+  still apply its own user namespace and seccomp filter — and if it cannot,
+  whether ADR 0010 is superseded for that platform rather than bent; how an
+  address reaches a browser already running, which `alo-software`'s
+  `browsing.rs` names as *the acting half* and leaves to the application; and
+  the shape of the agent surface where law 2's tree meets alo OS's enumerated
+  verbs, which is the whole reason a sovereign browser on a sovereign system
+  is worth more than either alone. *The questions are asked of alo OS in
+  writing before this is taken; `alo-os` is read-only reference and nothing
+  here edits it. Depends on 131. Closes when:* the ADR answers all three with
+  their answers cited, or records which are still unanswered and what this
+  repository does in the meantime.
+
+- [ ] **482. An address handed to a browser already running.** Whatever 481
+  settles the mechanism to be. A second `alo` asked to open an address while
+  one is running hands it over rather than starting a rival; an address from
+  another application opens in a tab. *Depends on 481, 300. Closes when:* a
+  frozen address handed by a second invocation opens in the running browser,
+  and one handed while no browser runs starts one — both asserted, and the
+  hostile cases with them: an address that is not `http` or `https`, one with
+  a name and password in it, and one long enough to be a weapon.
+
 ## K. ★ The agent, on somebody else's pages
 
 The reason this exists rather than a faster fork. ADR 0002 holds here or it does
@@ -11479,7 +11514,7 @@ person unblocks this stage or does not.
   it needs is everything above it to be finished. *blocked: stage 2's exit
   gate.*
 
-- [ ] **477. An application somebody can run.** Written into this queue on
+- [ ] **477. An application somebody can run, on macOS.** Written into this queue on
   2026-10-12 because nothing in it mentioned packaging at all: not a bundle, not a
   signature, not an installer. The work was invisible rather than deferred, and
   an engine nobody can open is not a browser somebody chooses. A macOS
@@ -11491,7 +11526,8 @@ person unblocks this stage or does not.
   page — recorded in the journal, with the machine named, and not claimed from
   this machine alone. *blocked: stage 2's exit gate.*
 
-- [ ] **478. Opened without macOS explaining itself.** A Developer ID
+- [ ] **478. Opened without macOS explaining itself.** *macOS only; alo OS
+  installs from a source instead, which is 483.* A Developer ID
   signature, the hardened runtime, and a notarisation ticket stapled to the
   bundle. *Needs an Apple Developer account, which is a thing to buy rather
   than a thing to build — the item names it so that nobody reads this as
@@ -11509,6 +11545,17 @@ person unblocks this stage or does not.
   profile reaches a page a person typed, with nothing asked of them on the way,
   and the agent surface refused until it is granted. *blocked: stage 2's exit
   gate.*
+
+- [ ] **483. Installable on alo OS, from a source, granted nothing.** A Flatpak
+  and the reverse-DNS identifier its source knows it by, so alo OS can name it
+  in `crates/alo-software/shipped.toml` for `Role::WebBrowser` the way it names
+  any application: `role`, `identifier`, `source`, `version`, `licence` — ours
+  is MPL-2.0 already (ADR 0009), which is what that file wants. It must work
+  **arriving granted nothing**, which is their words and a real constraint on a
+  browser that wants a sandbox of its own. *Whether the source is Flathub or a
+  remote alo OS hosts is theirs to choose; so is the pin itself, since one
+  application per role means ours replaces another. Depends on 480, 481.
+  blocked: stage 2's exit gate.*
 
 **Exit gate** (`ROADMAP.md`): somebody outside alo chooses this browser, on a
 machine we did not set up, and stays.
