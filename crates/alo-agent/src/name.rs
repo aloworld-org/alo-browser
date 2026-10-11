@@ -86,7 +86,7 @@ pub fn accessible_name(document: &Document, boxes: &BoxTree, id: BoxId) -> Optio
 
     // 3: the element's own, which for a form control means a `<label>`.
     if let Some(source) = source
-        && let Some(from_label) = label_for(document, source)
+        && let Some(from_label) = label_for(document, boxes, source)
     {
         return normalise(&from_label);
     }
@@ -132,7 +132,13 @@ fn is_title_only(document: &Document, source: Option<NodeId>) -> bool {
 ///
 /// Both ways HTML allows: a `<label for=...>` pointing at it, and a `<label>`
 /// wrapped around it.
-fn label_for(document: &Document, id: NodeId) -> Option<String> {
+///
+/// **As drawn** (ADR 0049 § 4): the label's boxes' text, so an `uppercase`
+/// label names its field in capitals, as a person sees it and as Chrome
+/// gives a screen reader. The control itself is left out of it — a field
+/// is not named by its own value. A label that makes no box has no drawn
+/// text and is read from the document, as written.
+fn label_for(document: &Document, boxes: &BoxTree, id: NodeId) -> Option<String> {
     let element = document.element(id)?;
     if let Some(own_id) = element.attr("id") {
         let pointing = document.descendants(document.root()).find(|candidate| {
@@ -141,7 +147,7 @@ fn label_for(document: &Document, id: NodeId) -> Option<String> {
             })
         });
         if let Some(label) = pointing {
-            return Some(document.text_content(label));
+            return Some(label_text(document, boxes, label, id));
         }
     }
     // Wrapped: the nearest `<label>` ancestor.
@@ -151,11 +157,27 @@ fn label_for(document: &Document, id: NodeId) -> Option<String> {
             .element(ancestor)
             .is_some_and(|element| element.name.is_html("label"))
         {
-            return Some(document.text_content(ancestor));
+            return Some(label_text(document, boxes, ancestor, id));
         }
         current = document.parent(ancestor);
     }
     None
+}
+
+/// What the label `label` says as drawn, leaving out `control`, the thing it
+/// names; or as written, when it makes no box.
+fn label_text(document: &Document, boxes: &BoxTree, label: NodeId, control: NodeId) -> String {
+    let Some(first) = boxes
+        .ids()
+        .find(|id| boxes.get(*id).and_then(|node| node.kind.node()) == Some(label))
+    else {
+        return document.text_content(label);
+    };
+    let mut out = String::new();
+    for member in boxes.whole_of(boxes.first_piece_of(first)) {
+        gather(boxes, member, Some(control), &mut out);
+    }
+    out
 }
 
 /// Whether a `<label>` element actually names a control.
@@ -205,7 +227,7 @@ fn is_labelable(element: &alo_dom::Element) -> bool {
 pub fn text_of(boxes: &BoxTree, id: BoxId) -> String {
     let mut out = String::new();
     for member in boxes.whole_of(id) {
-        gather(boxes, member, &mut out);
+        gather(boxes, member, None, &mut out);
     }
     out
 }
@@ -216,10 +238,16 @@ pub fn text_of(boxes: &BoxTree, id: BoxId) -> String {
 /// Without the space, `<a>Read the<div>docs</div></a>` is called "Read thedocs".
 /// A block-level box is a line of its own on the screen, and a name read out
 /// has to sound like what a person sees.
-fn gather(boxes: &BoxTree, id: BoxId, out: &mut String) {
+///
+/// The boxes of `leaving_out`, an element, are not gathered, nor anything
+/// under them.
+fn gather(boxes: &BoxTree, id: BoxId, leaving_out: Option<NodeId>, out: &mut String) {
     let Some(node) = boxes.get(id) else {
         return;
     };
+    if leaving_out.is_some() && node.kind.node() == leaving_out {
+        return;
+    }
     // A field's hint is not text in it (ADR 0043 § 5), and a list item's
     // marker is not what the item says (ADR 0044 § 5).
     if boxes.is_placeholder(id) || boxes.is_marker(id) {
@@ -233,7 +261,7 @@ fn gather(boxes: &BoxTree, id: BoxId, out: &mut String) {
         out.push_str(text);
     }
     for child in boxes.children(id) {
-        gather(boxes, child, out);
+        gather(boxes, child, leaving_out, out);
     }
     if is_block {
         separate(out);

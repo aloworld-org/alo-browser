@@ -27455,3 +27455,121 @@ updated: `docs/features.md` (the `text-transform` line),
 198 queue items are open (444 and 445 added). The next unused queue
 number is **446** and the next ADR is **0050**. This is one iteration,
 not a finished queue or roadmap.
+
+## Iteration 283 — queue item 441 built: text is held in its case, measured and drawn as Chrome draws it, and an agent reads what is drawn
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its head and stage 1, whose Text line this item serves), iteration 282.
+No `AGENTS.md` exists in this repository or above it. For 441: its queue
+entry, ADR 0049 whole, ADR 0002, ADR 0043 § 5, ADR 0044 §§ 3–6,
+`docs/features.md`' Text section, `docs/conformance.md`' calendar-list row,
+the frozen `alo-agenda-calendars` and `alo-downloads` cases, `alo-box`'s
+`tree.rs` and `whitespace.rs`, `alo-style`'s `pseudo.rs`, `user_agent.rs`
+and `inheritance.rs`, `alo-agent`'s `name.rs` and `tree.rs`, `alo-css`'
+`properties.rs`, and `scripts/gate.sh`'s rented-crate boundaries.
+
+**Choosing.** 441 is the first open item that is neither blocked nor
+waiting on a page; its ADR was accepted in iteration 282.
+
+**A fact the ADR did not know, amended before code depended on it.**
+ADR 0049 § 2 named `alo-text`'s `case.rs` as the rental's one file, but
+`alo-text` depends on `alo-layout`, which depends on `alo-box`, where § 1
+applies the transform. That file would have been a dependency cycle or a
+seam through every `alo_box::build` caller for one pure function. The
+amendment (dated, appended, decisions unchanged) puts it in `alo-box`'s
+`case.rs`; it also records three measured facts the build met (below) and
+cuts `aria-labelledby` as drawn to 446.
+
+**What was built.**
+- `alo-box`: `case.rs` (the one file naming `icu_casemap` and
+  `icu_locale_core`, 2.1.1, the line `url` already locks; the lock gained
+  `icu_casemap` and `icu_casemap_data` and moved nothing) maps upper and
+  lower case by a `lang` tag, an empty or unreadable one being no language.
+  `transform.rs` reads the computed value (`none`, `uppercase`,
+  `lowercase`; anything else is unbuilt) and finds the nearest inclusive
+  `lang`. `tree.rs` transforms every text box after white space is
+  collapsed: a text node's by its element, a field's value and date text by
+  the field, a hint by its `::placeholder` style, a broken picture's `alt`
+  by the `<img>`, a marker by its `::marker` style. An unbuilt value draws as
+  written and is recorded once, as `UnsupportedValue`, against the element
+  it was given to.
+- `alo-style`: reads `text-transform` on `::placeholder` and `::marker`;
+  the user-agent sheet gains `::marker { text-transform: none }`. Measured
+  in Chrome 154 this iteration (scratchpad screenshot): an author's
+  `::marker { text-transform: uppercase }` draws `A.`, an `uppercase` item
+  alone keeps `a.`, a hint is cased by inheritance and by its own rule, a
+  field's value and a broken `alt` are drawn cased.
+- `alo-agent`: `label_for` reads a `<label>`'s boxes as drawn, leaving out
+  the labelled control's own boxes (a label with no box is read from the
+  document, as written); a field's value text is read as the page wrote it
+  (`<input>`'s `value`, `<textarea>`'s text). Finding by name is unchanged.
+- `alo-css`: `text-transform` is listed as read by `alo-box`, so CSSOM's
+  `style.setProperty` now takes it.
+
+**Evidence.** Chrome 154, headless, the corpus's DejaVu Sans by
+`@font-face`, on the frozen pages: `MY CALENDARS` 111.6875 (ours 111.6799),
+`OTHER CALENDARS` 138.359375 (138.3563), `can edit` 48.421875 (48.4102),
+`can view` 53.015625 (53.0039), the toggles 142.578125 (142.5898) and
+137.984375 (137.9961), `alo-downloads`' badge 108 (107.9863) — each within
+1/64 px. The reference diff moved only those two cases, and only by the
+transforms appearing.
+
+**Gate, mechanical.** `cargo fmt --check` clean and `cargo clippy
+--workspace --all-targets --all-features -D warnings` clean before it.
+`scripts/gate.sh` ran in the foreground to a log; the harness moved it to
+the background at 600 s and the next call waited on it in a foreground
+`until` loop: `exit 0`, "The gate is met", no `FAIL` or `panicked` in the
+log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- *Layout assertions in numbers:* `alo-corpus`' `alo_agenda_calendars.rs`
+  (headings, badges and toggles against Chrome's 1/64 px units, and the
+  outline and `named` lookup) and `alo_downloads.rs` (the badge's 108).
+- *Reference renders:* `alo-agenda-calendars` and `alo-downloads`
+  rewritten with `ALO_UPDATE_REFERENCES=1`; the diffs were read (text, box,
+  display, layout, agent lines all the cased strings and their widths) and
+  the new calendar render was looked at.
+- *Unit tests:* `case.rs` (`ß`, final sigma, Turkish and Azeri under `tr`,
+  `TR`, `tr-CY`, `az-Latn` and not `en` or `""`, Greek under `el`,
+  Lithuanian, unreadable tags, 100 000 doubling characters),
+  `transform.rs`, `alo-box`'s `tests/a_text_in_its_case.rs` (inheritance,
+  `none`, `pre` kept, nearest `lang`, fields, hints, `alt`, markers,
+  `capitalize`/`full-width` drawn as written and recorded once, a 10 000
+  character and a control-character `lang`), `alo-agent`'s
+  `tests/a_text_in_its_case.rs` (text and names from content as drawn,
+  labels as drawn, `aria-label`, `alt` and a field's value as written,
+  `PutText` and `named` by the written words).
+- *Mutations, restored from copies:* removing the user-agent marker rule
+  fails the marker test; reading the drawn text for a field's value and
+  `text_content` for a pointing label fail three agent tests.
+- One responsibility per file: the rental and the property each have their
+  own file; `tree.rs` gained only the call sites and the one helper that
+  records an unbuilt value. No `unsafe`. `alo-workplace` and `alo-os` were
+  not touched.
+
+**Queue.** 441 ticked with its *Done* paragraph. Added 446 (a name from
+`aria-labelledby` as drawn; waits for a page).
+
+**Roadmap.** Stage 1's Text line gains an italic note that
+`text-transform` was read by nothing until 441. It stays ticked: the line
+is now true, and the note says what was not. Also updated:
+`docs/features.md` (the `text-transform` line, built), `docs/conformance.md`
+(the calendar-list row), `REMAINING.md`, `CHANGELOG.md`, `alo-box`'s crate
+docs, and ADR 0049's amendment.
+
+**Unresolved obligations.**
+- A name from `aria-labelledby` is still read as written (446).
+- `capitalize`, `full-width`, `full-size-kana` and `math-auto` draw as
+  written and are recorded (444, 445).
+- A context across text boxes (a final sigma split by an element) is not
+  seen, as ADR 0049 § 1 says.
+- An agent's `text()` of a field reads its drawn text, cased, while the
+  text node beneath it reads the value as written; the outline shows only
+  the latter.
+- 442 and 443 are buildable next and depend on nothing.
+- 438, 439, 431, 433, 434, 444, 445, 446, 423–428, 411, 414 and 416–421
+  wait for pages; 432 depends on 404.
+
+198 queue items are open (441 closed, 446 added). The next unused queue
+number is **447** and the next ADR is **0050**. This is one iteration, not
+a finished queue or roadmap.

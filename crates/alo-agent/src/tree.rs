@@ -297,6 +297,27 @@ impl<'a> AgentTree<'a> {
         }
     }
 
+    /// What a field holds as written, when the box `id` is the text a field
+    /// draws its value in: an `<input>`'s `value`, or a `<textarea>`'s text
+    /// as its document holds it. [`None`] for any other box, and for a date
+    /// field, whose text is a date or its format and has no case.
+    fn written_value(&self, id: BoxId) -> Option<&'a str> {
+        let node = self.boxes.get(id)?;
+        node.text()?;
+        let source = node.kind.node()?;
+        if let Some(element) = self.document.element(source) {
+            if !element.name.is_html("input") || alo_dom::date::is_date_field(element) {
+                return None;
+            }
+            return element.attr(alo_dom::field::TEXT);
+        }
+        let holder = self.document.parent(source)?;
+        self.document
+            .element(holder)
+            .filter(|element| element.name.is_html("textarea"))?;
+        self.document.get(source)?.text()
+    }
+
     /// Whether this box is the text a password field draws.
     fn is_a_masked_value(&self, id: BoxId) -> bool {
         let Some(node) = self.boxes.get(id) else {
@@ -449,10 +470,13 @@ impl<'a> AgentNode<'a> {
     /// What it is called, if anything.
     ///
     /// A run of text is called by what it says, which is the one case where
-    /// the name and the text are the same thing.
+    /// the name and the text are the same thing — as drawn, in the case its
+    /// style puts it in (ADR 0049 § 4). Except a field's value, which is
+    /// read as the page wrote it: it is what the form submits and what
+    /// `PutText` writes, and only its drawing is in a case.
     pub fn name(&self) -> Option<String> {
         if let Some(text) = self.node().and_then(BoxNode::text) {
-            return normalise(text);
+            return normalise(self.tree.written_value(self.id).unwrap_or(text));
         }
         accessible_name(self.tree.document, self.tree.boxes, self.id)
     }

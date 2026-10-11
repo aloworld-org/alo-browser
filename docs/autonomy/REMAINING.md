@@ -1620,3 +1620,16 @@ Chrome was measured not to take from UAX #29) and 445 (`full-width`,
 `full-size-kana`, `math-auto`); both wait for a page. 442 and 443 remain
 buildable. 198 queue items are open (444 and 445 added). The next unused
 queue number is 446 and the next unused ADR 0050.
+
+Iteration 283 built item 441 (ADR 0049, amended): `uppercase` and
+`lowercase` are applied in `alo-box` as a text box is built, after white
+space is collapsed, by ICU4X's `icu_casemap` behind `alo-box`'s `case.rs`
+(not `alo-text`'s, which sits above the box tree; the amendment says so).
+Fields, hints, a broken picture's `alt` and markers are cased by their own
+styles; `::marker { text-transform: none }` is in the user-agent sheet. An
+agent names a field from its `<label>` as drawn and reads a field's value
+as written. alo Agenda's headings and badges, and alo's downloads badge,
+match Chrome 154 to its layout unit. Cut: 446 (`aria-labelledby` as drawn,
+waits for a page). 442 and 443 are buildable next and depend on nothing.
+198 queue items are open (441 closed, 446 added). The next unused queue
+number is 447 and the next unused ADR 0050.

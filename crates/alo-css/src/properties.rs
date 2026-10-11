@@ -165,6 +165,7 @@ pub static SUPPORTED: &[(&str, &[Reader])] = &[
     ("text-decoration-color", &[Paint]),
     ("text-decoration-line", &[Paint]),
     ("text-shadow", &[Paint]),
+    ("text-transform", &[Boxes]),
     ("top", &[Layout]),
     ("transform", &[Layout, Paint, Svg]),
     ("transform-box", &[Svg]),
@@ -343,7 +344,10 @@ mod tests {
     #[test]
     fn a_reader_reads_what_it_is_listed_with() {
         let boxes: Vec<_> = read_by(Reader::Boxes).collect();
-        assert_eq!(boxes, ["display", "position", "white-space"]);
+        assert_eq!(
+            boxes,
+            ["display", "position", "text-transform", "white-space"]
+        );
         assert_eq!(Reader::Svg.crate_name(), "alo-svg");
     }
 

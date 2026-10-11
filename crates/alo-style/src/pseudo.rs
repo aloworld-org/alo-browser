@@ -22,15 +22,22 @@
 //! without a word, as CSS ignores it.
 //!
 //! - **`::placeholder`** takes the properties `::first-line` takes — fonts,
-//!   colour, backgrounds, spacing, decorations — and this engine reads one
-//!   of them, `color`. Each of the others either moves the hint's run or
-//!   paints a box around it, and no page has asked for one (item 392).
+//!   colour, backgrounds, spacing, decorations — and this engine reads two
+//!   of them, `color` and `text-transform`, which puts the hint in its case
+//!   when its box is built (ADR 0049 § 1). Each of the others either moves
+//!   the hint's run or paints a box around it, and no page has asked for one
+//!   (item 392).
 //! - **`::marker`** takes the font properties, `color`, `white-space`,
 //!   `content`, `direction`, `unicode-bidi`, `text-combine-upright` and the
 //!   animations and transitions (CSS Lists 3 § 3.2), and this engine reads
 //!   `color` and the font properties text is set in: `font-family`,
 //!   `font-size`, `font-style` and `font-weight` (ADR 0044 § 2). The rest,
 //!   `content` among them, waits for a page (items 406 and 408).
+//!   `text-transform` is not in CSS Lists' list and does apply: Chrome 154,
+//!   measured, draws `::marker { text-transform: uppercase }` on a
+//!   `lower-alpha` item as `A.`, and its user-agent sheet's
+//!   `::marker { text-transform: none }`, which this engine's now has, is
+//!   what keeps an `uppercase` item's marker as it is (ADR 0049 § 6).
 
 use crate::cascade::{Applicable, SourcedSheet};
 use alo_css::{IssueKind, MatchContext, MediaContext, PropertyName, PseudoElement, StyleIssue};
@@ -74,8 +81,10 @@ const FONT: [&str; 4] = ["font-family", "font-size", "font-style", "font-weight"
 fn is_read(pseudo: PseudoElement, name: &PropertyName) -> bool {
     let name = name.as_str();
     match pseudo {
-        PseudoElement::Marker => name == "color" || FONT.contains(&name),
-        _ => name == "color",
+        PseudoElement::Marker => {
+            name == "color" || name == "text-transform" || FONT.contains(&name)
+        }
+        _ => name == "color" || name == "text-transform",
     }
 }
 
@@ -88,6 +97,8 @@ fn applies(pseudo: PseudoElement, name: &PropertyName) -> bool {
 }
 
 /// Whether a property applies to `::marker`: CSS Lists 3 § 3.2's list.
+/// And `text-transform`, which Chrome 154 applies to one, measured (ADR
+/// 0049 § 6).
 fn applies_to_marker(name: &PropertyName) -> bool {
     let name = name.as_str();
     ["font", "animation", "transition"]
@@ -97,6 +108,7 @@ fn applies_to_marker(name: &PropertyName) -> bool {
             "color",
             "white-space",
             "content",
+            "text-transform",
             "direction",
             "unicode-bidi",
             "text-combine-upright",
@@ -173,6 +185,7 @@ mod tests {
             "font-size",
             "font-style",
             "font-weight",
+            "text-transform",
         ] {
             assert!(is_read(marker, &PropertyName::parse(name)), "{name}");
         }
@@ -186,9 +199,11 @@ mod tests {
         for name in ["width", "margin", "background-color", "padding-left"] {
             assert!(!applies(marker, &PropertyName::parse(name)), "{name}");
         }
-        // A placeholder still reads its colour and nothing of its font.
+        // A placeholder reads its colour and its case, and nothing of its
+        // font.
         let placeholder = PseudoElement::Placeholder;
         assert!(is_read(placeholder, &PropertyName::parse("color")));
+        assert!(is_read(placeholder, &PropertyName::parse("text-transform")));
         assert!(!is_read(placeholder, &PropertyName::parse("font-size")));
     }
 }

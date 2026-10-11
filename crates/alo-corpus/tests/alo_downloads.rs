@@ -97,6 +97,46 @@ fn the_note(rendering: &Rendering) -> Option<(Rect, Vec<Rect>, Rect)> {
     Some((drawing.layout.get(note)?.border_box, breaks, prefer))
 }
 
+/// The shown "Your device" badge is `text-transform: uppercase` (queue
+/// item 441, ADR 0049 § 7): its text is held, measured and drawn as
+/// `YOUR DEVICE`, and the badge, `padding: 3px 8px`, is Chrome 154's 108
+/// wide with the corpus's font, where as written it was 96.32.
+#[test]
+fn the_badge_is_drawn_in_capitals_as_wide_as_chrome_draws_it() {
+    let Some((_, rendering)) = downloads() else {
+        panic!("the case renders");
+    };
+    let Some(drawing) = rendering.drawing() else {
+        panic!("a drawing");
+    };
+    let boxes = &drawing.boxes;
+    let shown: Vec<_> = boxes
+        .ids()
+        .filter(|id| {
+            boxes
+                .get(*id)
+                .and_then(alo_box::BoxNode::text)
+                .is_some_and(|text| text.eq_ignore_ascii_case("your device"))
+        })
+        .collect();
+    let [text] = shown.as_slice() else {
+        panic!("one badge is shown: {shown:?}");
+    };
+    assert_eq!(
+        boxes.get(*text).and_then(alo_box::BoxNode::text),
+        Some("YOUR DEVICE")
+    );
+    let badge = boxes
+        .get(*text)
+        .and_then(|node| node.parent)
+        .and_then(|parent| drawing.layout.get(parent))
+        .map_or_else(
+            || panic!("the badge is laid out"),
+            |geometry| geometry.border_box,
+        );
+    assert!((badge.size.width - 108.0).abs() < 1.0 / 64.0, "{badge:?}");
+}
+
 /// The lede is `max-width: 44ch` at `1.08rem`, and `ch` is the advance of
 /// the face's `0` (queue item 320): 44 of the corpus sans-serif's at
 /// 17.28 px, where half an em made it 380.16.

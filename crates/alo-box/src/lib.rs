@@ -23,12 +23,20 @@
 //!   role from appearance is what screen-scraping already does badly, and
 //!   owning the engine is exactly what lets us not.
 //!
+//! # What is rented
+//!
+//! One thing: **case mapping**, for `text-transform` (ADR 0049), which
+//! [`case`] is the only file to name. A text box holds its text as drawn —
+//! white space collapsed by [`whitespace`], then put in its case by
+//! [`transform`] — so everything after this crate reads one text.
+//!
 //! # No geometry
 //!
 //! Not one number. Where a box ends up is queue item 5; mixing the two would
 //! make a box's meaning depend on where it landed, which is the failure this
 //! whole ordering exists to prevent.
 
+pub mod case;
 mod details;
 pub mod line_break;
 pub mod natural;
@@ -37,6 +45,7 @@ pub mod role;
 pub mod semantics;
 pub mod state;
 pub mod svg;
+pub mod transform;
 pub mod tree;
 pub mod whitespace;
 
@@ -49,5 +58,6 @@ pub use picture::Shown;
 pub use role::{KnownRole, Role};
 pub use semantics::Semantics;
 pub use state::{Checked, Current, States};
+pub use transform::TextTransform;
 pub use tree::{BoxId, BoxKind, BoxNode, BoxTree, Purpose, build, build_showing};
 pub use whitespace::WhiteSpace;

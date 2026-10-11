@@ -14,7 +14,15 @@
 //! and delete buttons stood against it rather than at the row's end. Chrome
 //! 154 gives every number below for the same frozen page, given the
 //! corpus's font, to within its 1/64 px layout unit.
+//!
+//! It also closes queue item 441 (ADR 0049 § 7). The lists' headings are
+//! `text-transform: uppercase` and the shared calendars' badges `lowercase`;
+//! until item 441 they were drawn, measured and read as written. They are
+//! held in their case when their text boxes are built, so they are measured
+//! and drawn as Chrome draws them and read by an agent as a person sees
+//! them.
 
+use alo_agent::AgentTree;
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
 use alo_value::Rgba;
@@ -191,4 +199,99 @@ fn a_shown_calendar_is_filled_with_its_colour_and_a_hidden_one_is_not() {
         pixel(holidays.origin.x + 8.0, holidays.origin.y + 8.0),
         (240, 236, 230, 255)
     );
+}
+
+/// Every text box's text and its border box, in tree order.
+fn texts(rendering: &Rendering) -> Vec<(String, Rect)> {
+    let Some(drawing) = rendering.drawing() else {
+        return Vec::new();
+    };
+    let boxes = &drawing.boxes;
+    boxes
+        .ids()
+        .filter_map(|id| {
+            let text = boxes.get(id)?.text()?;
+            Some((text.to_owned(), drawing.layout.get(id)?.border_box))
+        })
+        .filter(|(text, _)| !text.trim().is_empty())
+        .collect()
+}
+
+#[test]
+fn the_headings_and_badges_are_measured_in_their_case() {
+    let Some(rendering) = agenda() else {
+        panic!("the case renders");
+    };
+    let texts = texts(&rendering);
+    let width = |wanted: &str| {
+        texts.iter().find(|(text, _)| text == wanted).map_or_else(
+            || panic!("{wanted} is drawn: {texts:#?}"),
+            |(_, rect)| rect.size.width,
+        )
+    };
+    // Chrome 154, measured with the corpus's font, in its 1/64 px units:
+    // 111.6875, 138.359375, 48.421875 and 53.015625. As written they were
+    // 95.46, 115.67, 50.19 and 54.79.
+    for (text, units) in [
+        ("MY CALENDARS", 7148.0),
+        ("OTHER CALENDARS", 8855.0),
+        ("can edit", 3099.0),
+        ("can view", 3393.0),
+    ] {
+        let chrome: f32 = units / 64.0;
+        let ours = width(text);
+        assert!(
+            (ours - chrome).abs() < 1.0 / 64.0,
+            "{text}: {ours} {chrome}"
+        );
+    }
+    for written in ["My calendars", "Other calendars", "Can edit", "Can view"] {
+        assert!(
+            !texts.iter().any(|(text, _)| text == written),
+            "{written}: {texts:#?}"
+        );
+    }
+    // The badge is 1.78 narrower than it was, and the toggle beside it as
+    // much wider: Chrome's 142.578125 and 137.984375, 9125 and 8831 of its
+    // 1/64 px units.
+    let toggles = of_class(&rendering, "calToggle");
+    let [_, _, holidays, mira] = toggles.as_slice() else {
+        panic!("four toggles: {toggles:?}");
+    };
+    assert!(
+        (holidays.size.width - 9125.0 / 64.0).abs() < 1.0 / 64.0,
+        "{holidays:?}"
+    );
+    assert!(
+        (mira.size.width - 8831.0 / 64.0).abs() < 1.0 / 64.0,
+        "{mira:?}"
+    );
+}
+
+#[test]
+fn an_agent_reads_the_headings_as_drawn_and_finds_them_as_written() {
+    let Some(rendering) = agenda() else {
+        panic!("the case renders");
+    };
+    let (Some(document), Some(drawing)) = (rendering.document(), rendering.drawing()) else {
+        panic!("the case has a document and a drawing");
+    };
+    let tree = AgentTree::new(document, &drawing.boxes, &drawing.layout);
+    let outline = tree.to_outline();
+    for line in [
+        "text \"MY CALENDARS\"",
+        "text \"OTHER CALENDARS\"",
+        "text \"can edit\"",
+        "text \"can view\"",
+    ] {
+        assert!(outline.contains(line), "{line}: {outline}");
+    }
+    // Finding by name compares ASCII letters without their case, so the
+    // words the page wrote find the words drawn.
+    let found: Vec<Option<String>> = tree
+        .named("My calendars")
+        .iter()
+        .map(alo_agent::AgentNode::name)
+        .collect();
+    assert_eq!(found, [Some("MY CALENDARS".to_owned())]);
 }

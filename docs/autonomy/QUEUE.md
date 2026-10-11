@@ -6171,7 +6171,7 @@ The long pole, and the thing most of section E is unreachable without.
   pins the rows. Unhooking the shorthand from `expand` fails two of that
   file's four tests.
 
-- [ ] **441. `text-transform`.** *Found by `alo-agenda-calendars`
+- [x] **441. `text-transform`.** *Found by `alo-agenda-calendars`
   (iteration 281). Feature: `docs/features.md` stage 1, text. Depends on
   nothing. **needs ADR**: what an agent reads.* The calendar lists'
   headings are `text-transform: uppercase` and the shared calendars'
@@ -6202,6 +6202,42 @@ The long pole, and the thing most of section E is unreachable without.
   moved 1.77, `alo-downloads`' badge checked against Chrome, the outline,
   the unit tests and the hostile input it names. Buildable next; depends on
   nothing open. Cut: 444, 445.
+  **Done (iteration 283).** `alo-box`'s new `transform.rs` reads the
+  computed `text-transform` of whatever holds a text box — a text node's
+  element, a field, a `<img>`'s `alt`, and the `::placeholder` and
+  `::marker` styles — and `case.rs`, the one file that names `icu_casemap`,
+  maps `uppercase` and `lowercase` in the language of the nearest `lang`,
+  after white space is collapsed. Any other value draws as written and is
+  recorded once, against the element it was given to. `alo-style` reads the
+  property on both pseudo-elements, and the user-agent sheet gains
+  `::marker { text-transform: none }`; Chrome 154 was measured to apply an
+  author's `::marker` and `::placeholder` transform. `alo-agent` names a
+  field from its `<label>`'s boxes, as drawn, leaving the field itself out
+  (a label with no box is read from the document), and reads a field's
+  value text as the page wrote it. In `alo-agenda-calendars` the headings
+  are `MY CALENDARS` 111.68 and `OTHER CALENDARS` 138.36, the badges
+  `can edit` 48.41 and `can view` 53.00, the toggles beside them 142.59
+  and 138.00 — each Chrome 154's, re-measured on the frozen page with the
+  corpus's font, to within its 1/64 px unit — and an agent reads
+  `text "MY CALENDARS"` and finds it by `Named("My calendars")`;
+  `alo-downloads`' badge is `YOUR DEVICE`, 107.99 wide to Chrome's 108. No
+  other reference moved. ADR 0049 is amended for where the rented file
+  lives (`alo-box`, not `alo-text`, which is above it) and what the build
+  found. Unit tests in `alo-box` (`case.rs`, `transform.rs`,
+  `tests/a_text_in_its_case.rs`) and `alo-agent`
+  (`tests/a_text_in_its_case.rs`) pin § 7's list; removing the user-agent
+  rule, the value reading or the label reading each fails them. Cut: 446.
+
+- [ ] **446. A name from `aria-labelledby` is its target as drawn.** *Cut
+  from 441 by ADR 0049's amendment. Feature: `docs/features.md` stage 1,
+  text, and the agent surface. Depends on nothing; waits for a page.*
+  Chrome 154, measured for ADR 0049, names a field
+  `aria-labelledby`-pointed at an `uppercase` span `"LABELLED BY"`; this
+  engine reads the span's document text, as written, because
+  `alo-box`'s `semantics.rs` resolves `aria-labelledby` when the pointing
+  element's box is made, before the target's box may exist. *Closes when:*
+  a frozen page names something by an `aria-labelledby` target in a case,
+  and an agent reads the name as Chrome's accessibility tree does.
 
 - [ ] **444. `text-transform: capitalize`.** *Cut from 441 by ADR 0049
   § 3. Feature: `docs/features.md` stage 1, text. Waits for a page.*

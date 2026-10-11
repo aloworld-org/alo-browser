@@ -80,6 +80,16 @@ sha2 = "0.10"
 # that answers the question asked is cheaper than writing down which ones.
 unicode-id-start = "1.4"
 unicode-linebreak = "0.1"
+# Case mapping, rented (ADR 0049 § 2): Unicode's full upper- and lowercase
+# mappings and their language tailorings (Turkish and Azeri `i`, Lithuanian's
+# kept dot, Greek uppercasing without accents), which the standard library has
+# the data for but not the tailorings. ICU4X, the project whose `icu_*` crates
+# are already beneath `url`'s IDNA at this version; pure Rust, with its data
+# compiled in, so there is no file to load. `icu_locale_core` reads the `lang`
+# attribute into the identifier it takes, with `alloc` for that parser. Both
+# named in one file, `alo-box`'s `case.rs`.
+icu_casemap = "2.1"
+icu_locale_core = { version = "2.1", features = ["alloc"] }
 unicode-script = "0.5"
 dejavu = "2.37"
 # The window, rented (ADR 0024 § 1). `winit` is the window and its events and

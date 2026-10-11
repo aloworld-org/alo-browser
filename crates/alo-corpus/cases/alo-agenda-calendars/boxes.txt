@@ -9,7 +9,7 @@ block flow · document
         block flex · generic
           block flex · generic
             inline flow · generic
-              text "My calendars"
+              text "MY CALENDARS"
             inline flex · button "New calendar"
               block flow · image
           block flex · generic
@@ -36,14 +36,14 @@ block flow · document
         block flex · generic
           block flex · generic
             inline flow · generic
-              text "Other calendars"
+              text "OTHER CALENDARS"
           block flex · generic
             block flex · button "Team holidays" [pressed=false]
               inline flex · generic
               inline flow · generic
                 text "Team holidays"
             inline flow · generic
-              text "Can edit"
+              text "can edit"
           block flex · generic
             block flex · button "Mira's calendar" [pressed=true]
               inline flex · generic
@@ -51,7 +51,7 @@ block flow · document
               inline flow · generic
                 text "Mira's calendar, shared from the design team"
             inline flow · generic
-              text "Can view"
+              text "can view"
         inline flex · button
           block flow · image
           anonymous block

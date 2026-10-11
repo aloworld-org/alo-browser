@@ -24,6 +24,7 @@ use crate::display::{Display, Inside, Outside};
 use crate::natural::NaturalSize;
 use crate::picture::{Img, Shown};
 use crate::semantics::Semantics;
+use crate::transform::{TextTransform, language_of};
 use crate::whitespace::WhiteSpace;
 use alo_css::{IssueKind, Location, PseudoElement, StyleIssue};
 use alo_dom::{Document, NodeId};
@@ -784,12 +785,20 @@ fn build_children(
     // document — its text is an attribute — so the box for that text is one
     // nobody wrote, exactly as CSS says the inside of a replaced control is.
     if let Some(text) = field_text(document, parent) {
+        // Drawn in the field's case; read by an agent as the field's value,
+        // which is the field's and not the drawing's (ADR 0049 § 4).
+        let text = transformed(document, styles, styles.get(parent), parent, text, tree);
         generated.push(tree.push(BoxKind::Text { node: parent, text }, Semantics::anonymous()));
     }
     // A field holding nothing shows its hint instead, where its text would
     // be: a run in the same line, set in its `::placeholder` style (ADR 0043
     // §§ 2–3). Never both — a field that shows a hint holds no value.
     if let Some(text) = alo_dom::placeholder::shown(document, parent) {
+        // In the hint's own style's case, which inherits the field's.
+        let style = styles
+            .pseudo(parent, PseudoElement::Placeholder)
+            .or_else(|| styles.get(parent));
+        let text = transformed(document, styles, style, parent, text, tree);
         let hint = tree.push(BoxKind::Text { node: parent, text }, Semantics::anonymous());
         tree.placeholders.insert(hint);
         generated.push(hint);
@@ -869,14 +878,25 @@ fn build_one(
         // `<a>All</a> <a>Due</a>` is the gap between two words, and the newline
         // between two `<p>`s is nothing at all. Dropping it here would have
         // rendered "AllDue".
+        //
+        // Then the text is put in its case, after collapsing and before
+        // anything measures it, so that layout, paint and the agent read one
+        // text, the one drawn (ADR 0049 § 1).
+        let collapsed = white_space_of(document, styles, id).apply(text);
+        let holder = document.parent(id);
+        let text = match holder {
+            Some(holder) => transformed(
+                document,
+                styles,
+                styles.get(holder),
+                holder,
+                collapsed,
+                tree,
+            ),
+            None => collapsed,
+        };
         let semantics = Semantics::anonymous();
-        return vec![tree.push(
-            BoxKind::Text {
-                node: id,
-                text: white_space_of(document, styles, id).apply(text),
-            },
-            semantics,
-        )];
+        return vec![tree.push(BoxKind::Text { node: id, text }, semantics)];
     }
 
     let Some(element) = document.element(id) else {
@@ -974,13 +994,17 @@ fn build_element(
             // it joins none of their lines and no anonymous block, because
             // it stands outside the item's first line (ADR 0044 § 4).
             if let Some(text) = styles.marker_text(id) {
-                let marker = tree.push(
-                    BoxKind::Text {
-                        node: id,
-                        text: text.to_owned(),
-                    },
-                    Semantics::anonymous(),
+                // In the marker's own case, which the user-agent sheet makes
+                // `none` whatever the item's (ADR 0049 § 6).
+                let text = transformed(
+                    document,
+                    styles,
+                    styles.pseudo(id, PseudoElement::Marker),
+                    id,
+                    text.to_owned(),
+                    tree,
                 );
+                let marker = tree.push(BoxKind::Text { node: id, text }, Semantics::anonymous());
                 tree.markers.insert(marker);
                 arranged.insert(0, marker);
             }
@@ -1069,6 +1093,7 @@ fn img_box(
             // Collapsed as the text of a child of the `<img>` would be: by
             // the `<img>`'s own `white-space`, which the text inherits.
             let text = white_space_at(styles, document, Some(id)).apply(&alt);
+            let text = transformed(document, styles, styles.get(id), id, text, tree);
             let text = tree.push(BoxKind::Text { node: id, text }, Semantics::anonymous());
             let arranged = arrange(tree, box_id, vec![text]);
             tree.adopt(box_id, &arranged);
@@ -1362,6 +1387,56 @@ fn control_content(element: &alo_dom::Element) -> Option<Purpose> {
             at_least_a_line: true,
         }),
     }
+}
+
+/// `text`, collapsed already, as it is drawn: in the case `style`'s
+/// `text-transform` asks for, in the language of `element`, which holds it
+/// (ADR 0049 §§ 1–2).
+///
+/// A value this engine does not build draws the text as written and is
+/// recorded once, against the element it was given to (§ 3), rather than
+/// once for every run of text that inherits it.
+fn transformed(
+    document: &Document,
+    styles: &StyleTree,
+    style: Option<&ComputedStyle>,
+    element: NodeId,
+    text: String,
+    tree: &mut BoxTree,
+) -> String {
+    let Some(value) = style.and_then(|style| style.get("text-transform")) else {
+        return text;
+    };
+    let transform = TextTransform::parse(value);
+    if transform == TextTransform::Unbuilt {
+        let source = format!(
+            "text-transform: {value} (on {})",
+            given_to(document, styles, element, value)
+        );
+        if !tree.issues.iter().any(|issue| issue.source == source) {
+            tree.issues.push(StyleIssue {
+                kind: IssueKind::UnsupportedValue,
+                source,
+                at: Location { line: 0, column: 0 },
+            });
+        }
+    }
+    transform.apply(text, language_of(document, Some(element)))
+}
+
+/// The element a `text-transform` of `value` reaching `element` was given
+/// to: the furthest ancestor up to which it is inherited unchanged.
+fn given_to(document: &Document, styles: &StyleTree, element: NodeId, value: &str) -> NodeId {
+    let mut given = element;
+    while let Some(parent) = document.parent(given)
+        && styles
+            .get(parent)
+            .and_then(|style| style.get("text-transform"))
+            == Some(value)
+    {
+        given = parent;
+    }
+    given
 }
 
 /// How the whitespace around a text node is treated.

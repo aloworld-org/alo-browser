@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Uppercased and lowercased text is drawn, measured and read as a
+  person sees it.** alo Agenda's list headings, written "My calendars",
+  are drawn "MY CALENDARS" at the width browsers draw them, and its
+  "Can edit" badges "can edit", which moves the row beside them into
+  place; alo's downloads page's badge reads "YOUR DEVICE". Turkish,
+  Azeri, Lithuanian and Greek text is cased by its own language's rules,
+  from the `lang` the page gives, using ICU4X's Unicode case mapping. An
+  agent reads a heading, a button or a field's label as drawn, and still
+  finds it by the words the page wrote; an `aria-label`, an `alt` and what
+  is typed in a field read as written. Capitalising each word is not done
+  yet and is drawn as written and said (queue item 441, ADR 0049).
+
 - **Decided: upper- and lowercased text will be drawn, measured and read
   as a person sees it.** alo Agenda's list headings are written "My
   calendars" and shown "MY CALENDARS"; the text will be transformed once,

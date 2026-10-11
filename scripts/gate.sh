@@ -39,6 +39,8 @@ declare -a BOUNDARIES=(
   "taffy:crates/alo-layout/src/arena.rs,crates/alo-layout/src/auto_repeat.rs,crates/alo-layout/src/engine.rs"
   "rustybuzz:crates/alo-text/src/font.rs,crates/alo-text/src/shape.rs"
   "unicode_linebreak:crates/alo-text/src/linebreak.rs"
+  "icu_casemap:crates/alo-box/src/case.rs"
+  "icu_locale_core:crates/alo-box/src/case.rs"
   "ttf_parser:crates/alo-paint/src/glyph.rs,crates/alo-text/src/font.rs"
   "tiny_skia:crates/alo-paint/src/raster.rs"
   "png:crates/alo-paint/src/encode.rs"

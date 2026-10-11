@@ -20,7 +20,7 @@ block flow · document
               text "Building — available shortly"
         block flex · generic
           inline flow · generic
-            text "Your device"
+            text "YOUR DEVICE"
           block flow · generic
             text "macOS"
           block flow · generic

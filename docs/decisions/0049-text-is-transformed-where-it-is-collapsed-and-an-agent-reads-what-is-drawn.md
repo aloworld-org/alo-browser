@@ -269,3 +269,41 @@ one text was not kept.
 
 **If a page's language-sensitive text is drawn differently from Chrome's**
 under the same `lang`, § 2's rental was the wrong one.
+
+## Amendment — 2026-10-11: where the rented file lives, and three things the build found
+
+Made by the change that built queue item 441 (iteration 283), before any
+code depended on the parts it changes. None of it changes a decision above;
+each is a fact the build met that this record did not know.
+
+- **The rented file is `alo-box`'s `case.rs`, not `alo-text`'s.** § 2 named
+  `alo-text` because case mapping is text physics, but `alo-text` sits
+  *above* the box tree — it depends on `alo-layout`, which depends on
+  `alo-box` — and § 1 puts the transform in `alo-box`, when a text box is
+  built. Naming the file in `alo-text` would have been a dependency cycle,
+  or a seam threaded through every caller of `alo_box::build` to carry one
+  pure function back down. So the crate that applies the transform rents
+  it: `icu_casemap` and `icu_locale_core` (which reads a `lang` tag) are
+  named in `crates/alo-box/src/case.rs` only, and `scripts/gate.sh` holds
+  both to that file. The versions are the 2.1 line already locked through
+  `url`; adding them moved no other crate.
+- **A marker takes `text-transform` from its own style.** CSS Lists 3's
+  list of what applies to `::marker` does not name the property, but
+  Chrome 154, measured, draws `::marker { text-transform: uppercase }` on a
+  `lower-alpha` item as `A.`, and keeps `a.` when only the item is
+  `uppercase`. So `alo-style` reads it on `::marker`, the user-agent sheet's
+  `::marker { text-transform: none }` (§ 6) is what stops inheritance, and
+  the marker's text box is cased by the marker's style. No marker this
+  engine draws has a letter in it yet (item 406), so nothing moves today.
+- **A field's hint is cased by its `::placeholder` style**, which inherits
+  the field's: Chrome 154 draws both `HINT INHERITS` and, from
+  `::placeholder { text-transform: uppercase }`, `HINT OWN RULE`.
+  `alo-style` now reads the property on `::placeholder`. A broken
+  picture's `alt` is drawn in the `<img>`'s case (`ALT TEXT`, measured) and
+  read, as before, from the attribute.
+- **A name from `aria-labelledby` is still read as written.** § 4's label
+  rule is built for `<label>`; `aria-labelledby` is resolved when the
+  pointing element's box is made, before the box it points at may exist,
+  so reading the target as drawn needs that resolution moved after the
+  tree is built. Cut to queue item 446, with Chrome's `"LABELLED BY"` above
+  as its measurement.

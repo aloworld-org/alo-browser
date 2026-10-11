@@ -90,6 +90,11 @@ ol { list-style-type: decimal }
 :is(menu, ol, ul) :is(menu, ul) { list-style-type: circle }
 :is(menu, ol, ul) :is(menu, ol, ul) :is(menu, ul) { list-style-type: square }
 li { display: list-item }
+/* A marker is not put in its item's case: an `uppercase` list keeps its `a.`
+ * (CSS Lists 3's user-agent sheet, and Chrome 154's, measured; ADR 0049
+ * § 6). Written when `text-transform` was first read, in the change that
+ * read it. */
+::marker { text-transform: none }
 dl { display: block }
 dt { display: block }
 dd { display: block }
