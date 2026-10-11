@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!--
+  The month navigator in the sidebar of alo's Agenda (calendar) screen.
+
+  The markup React produces for `alo-workplace`'s
+  `web/src/agenda/MiniMonth.tsx`, inside the screen's own `.agenda` and
+  `.sidebar` (`web/src/agenda/AgendaModule.tsx`), in English. The clock is
+  fixed: today is Sunday 11 October 2026 and the day picked is Wednesday
+  14 October, so the grid is October's six Monday-first weeks, 28 September
+  to 8 November (`monthGridDays` in `web/src/agenda/dates.ts`). The two
+  arrows are lucide-react 0.468.0's `ChevronLeft` and `ChevronRight` at
+  size 15, written out as the `<svg>` that library renders.
+
+  Only the month navigator is here. The sidebar's "New event" button and
+  its calendar list, and the rest of the screen, are not what this case was
+  frozen for.
+
+  `alo-workplace` is read-only reference. Nothing here was written back to it.
+-->
+<html lang="en">
+<body>
+<div class="agenda">
+  <aside class="sidebar">
+    <div class="mini">
+      <div class="miniHead">
+        <span>October 2026</span>
+        <div class="miniNav">
+          <button aria-label="previous month"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left"><path d="m15 18-6-6 6-6"></path></svg></button>
+          <button aria-label="next month"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"></path></svg></button>
+        </div>
+      </div>
+      <div class="miniGrid">
+        <span class="miniWeekday">M</span>
+        <span class="miniWeekday">T</span>
+        <span class="miniWeekday">W</span>
+        <span class="miniWeekday">T</span>
+        <span class="miniWeekday">F</span>
+        <span class="miniWeekday">S</span>
+        <span class="miniWeekday">S</span>
+        <button class="miniDay miniOther">28</button>
+        <button class="miniDay miniOther">29</button>
+        <button class="miniDay miniOther">30</button>
+        <button class="miniDay">1</button>
+        <button class="miniDay">2</button>
+        <button class="miniDay">3</button>
+        <button class="miniDay">4</button>
+        <button class="miniDay">5</button>
+        <button class="miniDay">6</button>
+        <button class="miniDay">7</button>
+        <button class="miniDay">8</button>
+        <button class="miniDay">9</button>
+        <button class="miniDay">10</button>
+        <button class="miniDay miniToday">11</button>
+        <button class="miniDay">12</button>
+        <button class="miniDay">13</button>
+        <button class="miniDay miniSelected">14</button>
+        <button class="miniDay">15</button>
+        <button class="miniDay">16</button>
+        <button class="miniDay">17</button>
+        <button class="miniDay">18</button>
+        <button class="miniDay">19</button>
+        <button class="miniDay">20</button>
+        <button class="miniDay">21</button>
+        <button class="miniDay">22</button>
+        <button class="miniDay">23</button>
+        <button class="miniDay">24</button>
+        <button class="miniDay">25</button>
+        <button class="miniDay">26</button>
+        <button class="miniDay">27</button>
+        <button class="miniDay">28</button>
+        <button class="miniDay">29</button>
+        <button class="miniDay">30</button>
+        <button class="miniDay">31</button>
+        <button class="miniDay miniOther">1</button>
+        <button class="miniDay miniOther">2</button>
+        <button class="miniDay miniOther">3</button>
+        <button class="miniDay miniOther">4</button>
+        <button class="miniDay miniOther">5</button>
+        <button class="miniDay miniOther">6</button>
+        <button class="miniDay miniOther">7</button>
+        <button class="miniDay miniOther">8</button>
+      </div>
+    </div>
+  </aside>
+</div>
+</body>
+</html>

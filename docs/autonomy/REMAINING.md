@@ -1582,3 +1582,15 @@ the earlier `222` came from. The new corpus case `translucent-fills` and
 `alo-corpus`' `translucent_fills.rs` pin 36 cells over three grounds. 191
 queue items are open (436 closed). The next unused queue number is 437 and
 the next unused ADR 0049.
+
+Iteration 280 found the next real page where iteration 274 pointed: the
+workspace's own screens. alo Agenda's month navigator (`MiniMonth.tsx`),
+rebuilt as the markup React produces with its own rules and tokens, is the
+corpus case `alo-agenda-mini-month`; every box matched Chrome 154 but the
+two arrow buttons, which opened and closed item 437: a `<button>` is a line
+tall inside only when it holds something a line is made of
+(`alo_box::Purpose::Control`'s `at_least_a_line`). Found: 438 (an empty
+`<span>` and a kept space, where the shared line test differs from Chrome)
+and 439 (an empty `<button>` stands on its content box's bottom in Chrome);
+both wait for a page. 193 queue items are open (437 closed, 438 and 439
+added). The next unused queue number is 440 and the next unused ADR 0049.

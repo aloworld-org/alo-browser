@@ -1798,19 +1798,36 @@ fn an_empty_field_stands_where_its_text_will() {
     let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
     assert!(close(rect_of(&boxes, &layout, "w", html).size.height, 30.0));
 
-    // A `<textarea>` and a button with nothing in them have no line, and
-    // stand on their bottom margin edge: 30 above the baseline, and the
-    // strut's 6 below it, so the line is 36 and the text's top at 18.
+    // A `<textarea>` with nothing in it has no line, and stands on its
+    // bottom margin edge: 30 above the baseline, and the strut's 6 below
+    // it, so the line is 36 and the text's top at 18.
     let css = "#w, textarea, button { font-size: 16px; line-height: 20px } \
                textarea, button { padding: 5px; border: 0; width: 40px; height: auto }";
-    for control in ["<textarea id=f></textarea>", "<button id=f></button>"] {
-        let html = format!("<body><div id=w><span id=s>ab</span>{control}</div></body>");
-        let (boxes, layout) = lay_out_measured(&html, css, Size::new(400.0, 300.0), &ScaledFont);
-        let block = rect_of(&boxes, &layout, "w", &html);
-        assert!(close(block.size.height, 36.0), "{control}: {block:?}");
-        let text = rect_of(&boxes, &layout, "s", &html);
-        assert_eq!(text, Rect::new(0.0, 18.0, 16.0, 16.0), "{control}");
-    }
+    let html = "<body><div id=w><span id=s>ab</span><textarea id=f></textarea></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    let block = rect_of(&boxes, &layout, "w", html);
+    assert!(close(block.size.height, 36.0), "{block:?}");
+    assert_eq!(
+        rect_of(&boxes, &layout, "s", html),
+        Rect::new(0.0, 18.0, 16.0, 16.0)
+    );
+
+    // A `<button>` with nothing in it is only its padding, 10 tall, as
+    // Chrome 154 draws it (queue item 437), not a line and its padding. It
+    // has no line either and stands on its bottom margin edge, 10 above the
+    // baseline, under the strut's 14: the line is the strut's 20, as
+    // Chrome's is, and the text's top at 2. Chrome stands it on its content
+    // box's bottom instead, 5 lower (439).
+    let html = "<body><div id=w><span id=s>ab</span><button id=f></button></div></body>";
+    let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
+    let block = rect_of(&boxes, &layout, "w", html);
+    assert!(close(block.size.height, 20.0), "{block:?}");
+    assert_eq!(
+        rect_of(&boxes, &layout, "s", html),
+        Rect::new(0.0, 2.0, 16.0, 16.0)
+    );
+    let button = rect_of(&boxes, &layout, "f", html);
+    assert_eq!(button, Rect::new(16.0, 4.0, 50.0, 10.0), "{button:?}");
 }
 
 /// The rectangle of the first text box `pick` chooses, or a rectangle no

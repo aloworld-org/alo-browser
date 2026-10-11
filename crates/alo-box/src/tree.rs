@@ -146,6 +146,18 @@ pub enum Purpose {
         /// nothing in them they stand on their bottom margin edge as any
         /// box with no line does.
         one_line: bool,
+        /// Whether it is at least one line tall. Every control is **even
+        /// when it holds nothing**, except a `<button>` element, which is
+        /// only when it holds something a line is made of.
+        ///
+        /// An empty field, an empty `<textarea>` and an `<input
+        /// type=submit value="">` are each a line tall in Chrome 154, but
+        /// a `<button>` is exactly what it holds: nothing at all when
+        /// empty, and its block's height when that is all it holds. alo's
+        /// Agenda draws its month arrows as a `<button>` holding a 15 pixel
+        /// `<svg>`, and a line's minimum made each one 4.5 taller than a
+        /// browser draws it (queue item 437).
+        at_least_a_line: bool,
     },
     /// The content slot of a `<details>`: every child but its summary, in
     /// one block (ADR 0048 § 1).
@@ -927,6 +939,7 @@ fn build_element(
             if matches!(display.inside(), Some(Inside::Flow | Inside::FlowRoot))
                 && let Some(purpose) = control_content(element)
             {
+                let purpose = with_its_line(tree, purpose, &children);
                 let inner = tree.push(
                     BoxKind::Anonymous {
                         outside: Outside::Block,
@@ -1191,6 +1204,31 @@ fn is_in_flow_block(tree: &BoxTree, id: BoxId) -> bool {
             .is_some_and(|node| node.kind.outside() == Outside::Block)
 }
 
+/// A control's inside, told whether it is at least a line tall now that what
+/// it holds is known: a `<button>` element is when it holds something a line
+/// is made of — text, an inline `<svg>` — and not when it holds only blocks
+/// or nothing (queue item 437). Every other control already is.
+fn with_its_line(tree: &BoxTree, purpose: Purpose, children: &[BoxId]) -> Purpose {
+    let Purpose::Control {
+        centred,
+        one_line,
+        at_least_a_line: false,
+    } = purpose
+    else {
+        return purpose;
+    };
+    let in_lines: Vec<BoxId> = children
+        .iter()
+        .copied()
+        .filter(|child| !is_in_flow_block(tree, *child))
+        .collect();
+    Purpose::Control {
+        centred,
+        one_line,
+        at_least_a_line: holds_inline_content(tree, &in_lines),
+    }
+}
+
 /// Whether any of these boxes is something a line is made of: an inline-level
 /// box in flow, or text that is not only whitespace.
 fn holds_inline_content(tree: &BoxTree, children: &[BoxId]) -> bool {
@@ -1291,14 +1329,20 @@ fn control_content(element: &alo_dom::Element) -> Option<Purpose> {
     let button = Purpose::Control {
         centred: true,
         one_line: false,
+        at_least_a_line: true,
     };
     if element.name.is_html("button") {
-        return Some(button);
+        return Some(Purpose::Control {
+            centred: true,
+            one_line: false,
+            at_least_a_line: false,
+        });
     }
     if element.name.is_html("textarea") {
         return Some(Purpose::Control {
             centred: false,
             one_line: false,
+            at_least_a_line: true,
         });
     }
     if !element.name.is_html("input") {
@@ -1315,6 +1359,7 @@ fn control_content(element: &alo_dom::Element) -> Option<Purpose> {
         _ => Some(Purpose::Control {
             centred: false,
             one_line: true,
+            at_least_a_line: true,
         }),
     }
 }
@@ -2146,6 +2191,7 @@ mod tests {
         let field = Purpose::Control {
             centred: false,
             one_line: true,
+            at_least_a_line: true,
         };
         for html in [
             "<input>",
@@ -2158,8 +2204,9 @@ mod tests {
         let button = Purpose::Control {
             centred: true,
             one_line: false,
+            at_least_a_line: true,
         };
-        for html in ["<button></button>", "<input type=submit>"] {
+        for html in ["<input type=submit>", "<input type=button value=''>"] {
             assert_eq!(inside_of(html), vec![button], "{html}");
         }
         assert_eq!(
@@ -2167,9 +2214,37 @@ mod tests {
             vec![Purpose::Control {
                 centred: false,
                 one_line: false,
+                at_least_a_line: true,
             }],
         );
         assert!(inside_of("<input type=checkbox>").is_empty());
+    }
+
+    /// Queue item 437: a `<button>` element is what it holds, and nothing
+    /// when it holds nothing, where every other control is at least a line
+    /// tall (measured in Chrome 154).
+    #[test]
+    fn only_a_button_element_is_no_taller_than_what_it_holds() {
+        let button = |at_least_a_line| Purpose::Control {
+            centred: true,
+            one_line: false,
+            at_least_a_line,
+        };
+        for html in [
+            "<button></button>",
+            "<button> </button>",
+            "<BUTTON type=submit>\n  <svg style='display: block'></svg>\n</BUTTON>",
+            "<button><div>Go</div></button>",
+        ] {
+            assert_eq!(inside_of(html), vec![button(false)], "{html}");
+        }
+        for html in [
+            "<button>Go</button>",
+            "<button><svg></svg></button>",
+            "<button><svg style='display: block'></svg>New</button>",
+        ] {
+            assert_eq!(inside_of(html), vec![button(true)], "{html}");
+        }
     }
 
     /// The text boxes a document's fields show, in order.

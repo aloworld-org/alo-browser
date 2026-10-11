@@ -6086,6 +6086,60 @@ The long pole, and the thing most of section E is unreachable without.
   and 37). Quantising the fill's alpha to a byte fails both tests and
   the corpus.
 
+- [x] **437. A `<button>` is no taller than what it holds.** *Opened by
+  `alo-agenda-mini-month`, frozen in iteration 280 from `alo-workplace`'s
+  Agenda sidebar. Feature: `docs/features.md` stage 2, forms. Depends on
+  nothing.* The month's arrows are each a `<button>` with 2 px of padding
+  holding a 15 px `<svg>` that is `display: block`. The box a control holds
+  its content in was at least one line tall whatever it held (19.5 here),
+  so each arrow was 23.5 tall, the header row with it, and the grid 4 px
+  low. Chrome 154, measured: a `<button>` element's inside is what it holds
+  — 0 when empty or only whitespace, a block's height when it holds only
+  blocks, a line when it holds text or an inline `<svg>` — while an empty
+  field, an empty `<textarea>` and `<input type=submit|button value="">`
+  are each a line tall. *Closes when:* the frozen arrows are 19 × 19 and
+  the page's other boxes stand where Chrome's do.
+  **Done (iteration 280).** `alo_box::Purpose::Control` gains
+  `at_least_a_line`, true for every control but a `<button>` element,
+  which is decided once its children are known: true when they hold
+  something a line is made of (the engine's existing
+  `holds_inline_content`, blocks excluded). `alo-layout` gives a control's
+  inside its one-line minimum only when it is. The arrows are 19 × 19 at
+  (183, 16.25) and (204, 16.25); every box in the case matches Chrome's to
+  its 1/64 px unit; no other corpus case moved, so a button with a label
+  is drawn exactly as before. `alo-box` unit tests say which controls are
+  a line tall, and `alo-corpus`' `tests/alo_agenda_mini_month.rs` pins the
+  arrows, the header, and the 42 square days. Putting back the
+  unconditional minimum fails two of its tests; counting a block child as
+  line content fails the `alo-box` test and the same two.
+
+- [ ] **438. What a `<button>` holds a line for, at its two edges.** *Cut
+  from 437. Feature: `docs/features.md` stage 2, forms. Depends on
+  nothing; waits for a page.* 437 reused the box tree's own test of "what
+  a line is made of", and Chrome 154 differs from it in two places,
+  measured: a `<button>` holding only an empty `<span>` is 0 inside there
+  (an empty inline box makes no line) and a line here; and one holding a
+  single space under `white-space: pre` is a line there (the space is
+  kept) and 0 here. Whether `arrange`'s anonymous-block wrapping has the
+  same two edges is the first thing to check, because the test is shared.
+  *Closes when:* a page that has either edge renders as Chrome does.
+
+- [ ] **439. An empty `<button>` stands on its content box's bottom.**
+  *Found while building 437 (iteration 280). Feature: `docs/features.md`
+  stage 2, forms. Depends on nothing; waits for a page.* A control with no
+  line stands on its bottom margin edge here. Chrome 154, measured with
+  DejaVu Sans at 16 px and a 20 px line: an empty `<textarea>` does, but an
+  empty `<button>` with 5 px of padding stands with its **content box's**
+  bottom on the baseline (10 to 20 in that 20 px line), so this engine,
+  standing its margin edge there, draws it its bottom padding (5 px)
+  higher. The line's height is the strut's in both, so nothing around it
+  moves; only the button does. Whether it is the content box or
+  a synthesised baseline that coincides with it is this item's to measure
+  (with a border, and with a block inside that holds no line). *Closes
+  when:* a page with an empty or icon-only `<button>` beside text has it
+  where Chrome does; `alo-layout`'s `an_empty_field_stands_where_its_text_will`
+  says the number.
+
 - [ ] **432. A `<summary>` draws its disclosure triangle.** *Cut from 429
   by ADR 0048 § 5. Opened by `alo-sites-full-page`'s FAQ. Feature:
   `docs/features.md` stage 1, a list item's marker (ADR 0044). Depends on

@@ -27139,3 +27139,118 @@ translucent-fill paragraph, and the corpus count, 43 → 66, which was stale),
 191 queue items are open (436 closed). The next unused queue number is
 **437** and the next ADR is **0049**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 280 — queue item 437, opened by a newly frozen alo page: a `<button>` is no taller than what it holds
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its head, stage 1 and stage 2's *Forms* line), iteration 279 and
+`REMAINING.md`'s continuation. No `AGENTS.md` exists in this repository or
+above it. For 437: `docs/features.md`' stage 2 forms line, `alo-box`'s
+`Purpose::Control` and `control_content`, `alo-layout`'s
+`control_content_style`, and queue items 384 and 389, which built the
+one-line field this must not disturb. No ADR governs a control's inside
+(`docs/decisions/` was searched); the change is a measured correction of
+existing behaviour, so no ADR was needed.
+
+**Choosing.** Iteration 279 left no open item that depends on nothing and
+needs no page, so the eligible work was a real page that fails (LOOP.md
+stage 2 § 1). Every alo Sites golden is frozen or measured, so the source
+was the workspace's React screens, rebuilt as markup as `alo-meet-greeting`
+was. alo Agenda's sidebar month navigator (`web/src/agenda/MiniMonth.tsx`,
+`alo-workplace` 738de61) was chosen: 42 buttons in seven `1fr` columns with
+`aspect-ratio: 1`, and two lucide-react 0.468.0 arrow `<svg>`s.
+
+**What was frozen.** `crates/alo-corpus/cases/alo-agenda-mini-month`
+(320 × 280): the markup React produces with the clock fixed (today 11
+October 2026, 14 October picked), its `AgendaModule.module.css` and
+`global.css` rules and tokens with no substitutions (`:hover` and
+font-smoothing hints left out, and said). `origin.txt` gives the commit,
+lines and what was found.
+
+**What it found.** Measured against headless Chrome 154 on the same bytes,
+given DejaVu Sans by `@font-face`, every element matched to Chrome's 1/64
+px unit except the two arrows: 19 × 23.5 here, 19 × 19 there, with the
+header row 4 taller and the grid 4 low. Cause: the box a control holds its
+content in was always at least one line tall. Chrome, measured: a
+`<button>` element's inside is 0 when empty or whitespace, a block's height
+when it holds only blocks, a line when it holds text or an inline `<svg>`;
+an empty field, `<textarea>` and `<input type=submit|button value="">` are
+a line.
+
+**What was built.** `alo_box::Purpose::Control` gains `at_least_a_line`:
+true for every control but a `<button>` element, whose value is decided
+once its children are known (`with_its_line`, reusing the box tree's own
+`holds_inline_content`, blocks excluded). `alo-layout`'s
+`control_content_style` gives the one-line minimum only when it is set.
+The arrows are now 19 × 19 at (183, 16.25) and (204, 16.25); the grid
+starts at 43.5 and its last week at 209.95 (Chrome: 209.97). The first
+attempt put the minimum on the element alone, and four cases whose buttons
+hold text lost 0.5 px each, because a bare text box in a control is
+measured at its glyphs' height and the minimum had been giving it its
+line; deciding from the children fixed that, and **no other corpus case
+moved**.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean. `scripts/gate.sh`
+ran in the foreground three times to a log. The first failed in the corpus:
+my own comment in the case's `style.css` had moved its recorded issue lines
+from 15 to 17; the reference was rewritten and only `issues.txt` changed.
+The second failed in `alo-layout`'s `numbers.rs`
+(`an_empty_field_stands_where_its_text_will`), which pinned an empty
+`<button>` with 5 px padding at 30 tall. Chrome, measured on that exact
+arrangement, draws it 10 tall and its line 20; the test now says 10 and
+20, and the `<textarea>` half is unchanged. The third ran past 600 s, was
+moved to the background by the harness, and the next call waited on it in
+a foreground `until` loop: `exit 0`, "The gate is met", no `FAIL` or
+`panicked` in the log. Only this entry, `REMAINING.md`, a wording fix in
+439's queue text and the commit came after it.
+
+**Gate, manual.**
+- Layout assertion in numbers: `alo-corpus`' `tests/alo_agenda_mini_month.rs`
+  pins the arrows (19 × 19, the `<svg>` 2 in from each edge, 2 apart), the
+  header's 19.5, the grid's 43.5 and all 42 days square at their places;
+  `alo-box` unit tests say which controls are at least a line, including
+  whitespace and block-only buttons; `numbers.rs` the empty button's 10.
+- Reference render: `alo-agenda-mini-month/render.png`, looked at beside a
+  Chrome 154 screenshot of the same page (default path): the same picture.
+  The test reads the picked day's terracotta and the sidebar outside its
+  circle as pixels.
+- Mutation checks, from scratchpad copies restored with `cp` and checked
+  with `cmp`: the unconditional minimum back in `alo-layout` fails two of
+  the new tests; counting a block child as line content in `alo-box` fails
+  the new `alo-box` test and the same two.
+- Hostile input: nothing new reads outside bytes.
+- One file, one responsibility: what a control holds is decided where the
+  box tree builds it (`tree.rs`), its style where layout makes styles
+  (`engine.rs`); the case's test is its own file.
+- No `unsafe`, no dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` is clean in each.
+
+**Queue.** 437 added and ticked with its *Done* paragraph. Added 438 (an
+empty `<span>` and a `white-space: pre` space: the shared line test and
+Chrome differ, measured) and 439 (Chrome stands an empty `<button>` on its
+content box's bottom, its bottom padding lower than this engine; the
+line's height agrees). Both wait for a page.
+
+**Roadmap.** Stage 2's *Forms* line gains a Built sentence naming
+`alo-box`'s `Purpose::Control` `at_least_a_line`, `alo-layout`'s
+`control_content_style` and the corpus case, and its Owed names 438. Not
+ticked: everything a control does is still owed. Also updated:
+`docs/features.md` (the forms line), `docs/conformance.md` (a row for alo
+Agenda's month navigator, the corpus count 66 → 67), `REMAINING.md` and
+`CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 438 and 439, above, wait for pages.
+- The agent reads the month's days as 42 buttons named by their number,
+  with nothing saying today or picked: alo's markup says neither. That is
+  a finding for `alo-workplace`, which this repository does not edit.
+- That the window draws this was not captured: the window capture is still
+  refused on this machine (296).
+- 431, 433, 434, 423–428, 411, 414 and 416–421 wait for pages; 432 depends
+  on 404. No open item depends on nothing and needs no page; the next
+  iteration should freeze another workspace screen.
+
+193 queue items are open (437 closed, 438 and 439 added). The next unused
+queue number is **440** and the next ADR is **0049**. This is one
+iteration, not a finished queue or roadmap.

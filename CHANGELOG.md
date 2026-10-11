@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A button holding an icon is the icon's size, not a line's.** A
+  `<button>` was always at least one line of text tall inside, whatever it
+  held, so alo Agenda's month arrows — each a 15 pixel icon in 2 pixels of
+  padding — were 23.5 tall where every browser draws 19, and pushed the
+  calendar under them 4 pixels down. Now a `<button>` is as tall as what it
+  holds, and a line tall only when it holds text; an empty text field or
+  submit button is still a line tall, as browsers draw them. The Agenda's
+  month navigator is a new reference page, and every box on it matches
+  Chrome's (queue item 437).
+
 - **Measured: a translucent colour is drawn as browsers draw it.** A
   colour with an alpha over another is blended exactly and rounded once.
   Chrome's default drawing path does the same on all 27 measured cells

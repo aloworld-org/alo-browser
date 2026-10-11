@@ -1,0 +1,85 @@
+fill box#1 rgb(244 241 236) at (0, 0) 320×280
+fill box#3 rgb(244 241 236) at (0, 0) 320×280
+fill box#5 rgb(240 236 230) at (0, 0) 240×280
+fill box#5 rgb(222 215 205) at (239, 0) 1×280
+clip box#5 to (0, 0) 239×280
+text box#12 "October 2026" rgb(16 42 67) 13px at (16, 30.250488)
+clip box#17 to (185, 18.25) 15×15
+fill box#17 rgb(122 111 98) at (190, 21.375) 5×8.75
+unclip
+clip box#21 to (206, 18.25) 15×15
+fill box#21 rgb(122 111 98) at (211, 21.375) 5×8.75
+unclip
+text box#29 "M" rgb(122 111 98) 9.92px at (26.07769, 54.37422)
+text box#32 "T" rgb(122 111 98) 9.92px at (57.041664, 54.37422)
+text box#35 "W" rgb(122 111 98) 9.92px at (84.88142, 54.37422)
+text box#38 "T" rgb(122 111 98) 9.92px at (116.47023, 54.37422)
+text box#41 "F" rgb(122 111 98) 9.92px at (146.36133, 54.37422)
+text box#44 "S" rgb(122 111 98) 9.92px at (175.78012, 54.37422)
+text box#47 "S" rgb(122 111 98) 9.92px at (205.49442, 54.37422)
+group box#49 at opacity 0.5
+text box#50 "28" rgb(122 111 98) 11.52px at (23.027767, 79.725266)
+ungroup
+group box#53 at opacity 0.5
+text box#54 "29" rgb(122 111 98) 11.52px at (52.742054, 79.725266)
+ungroup
+group box#57 at opacity 0.5
+text box#58 "30" rgb(122 111 98) 11.52px at (82.45634, 79.725266)
+ungroup
+text box#62 "1" rgb(95 85 75) 11.52px at (115.83531, 79.725266)
+text box#66 "2" rgb(95 85 75) 11.52px at (145.5496, 79.725266)
+text box#70 "3" rgb(95 85 75) 11.52px at (175.26389, 79.72526)
+text box#74 "4" rgb(95 85 75) 11.52px at (204.97815, 79.72526)
+text box#78 "5" rgb(95 85 75) 11.52px at (26.692455, 109.439545)
+text box#82 "6" rgb(95 85 75) 11.52px at (56.406742, 109.439545)
+text box#86 "7" rgb(95 85 75) 11.52px at (86.121025, 109.439545)
+text box#90 "8" rgb(95 85 75) 11.52px at (115.83531, 109.439545)
+text box#94 "9" rgb(95 85 75) 11.52px at (145.5496, 109.439545)
+text box#98 "10" rgb(95 85 75) 11.52px at (171.5992, 109.439545)
+text box#102 "11" rgb(231 111 81) 11.52px at (200.62723, 109.439545)
+text box#106 "12" rgb(95 85 75) 11.52px at (23.027767, 139.15384)
+text box#110 "13" rgb(95 85 75) 11.52px at (52.742054, 139.15384)
+fill box#113 rgb(231 111 81) at (75.42857, 120.80857) 28.71428×28.714287
+text box#114 "14" rgb(255 255 255) 11.52px at (82.45634, 139.15384)
+text box#118 "15" rgb(95 85 75) 11.52px at (112.17062, 139.15384)
+text box#122 "16" rgb(95 85 75) 11.52px at (141.88492, 139.15384)
+text box#126 "17" rgb(95 85 75) 11.52px at (171.5992, 139.15384)
+text box#130 "18" rgb(95 85 75) 11.52px at (201.31348, 139.15384)
+text box#134 "19" rgb(95 85 75) 11.52px at (23.027767, 168.86813)
+text box#138 "20" rgb(95 85 75) 11.52px at (52.742054, 168.86813)
+text box#142 "21" rgb(95 85 75) 11.52px at (82.45634, 168.86813)
+text box#146 "22" rgb(95 85 75) 11.52px at (112.17062, 168.86813)
+text box#150 "23" rgb(95 85 75) 11.52px at (141.88492, 168.86813)
+text box#154 "24" rgb(95 85 75) 11.52px at (171.5992, 168.86812)
+text box#158 "25" rgb(95 85 75) 11.52px at (201.31348, 168.86812)
+text box#162 "26" rgb(95 85 75) 11.52px at (23.027767, 198.58241)
+text box#166 "27" rgb(95 85 75) 11.52px at (52.742054, 198.58241)
+text box#170 "28" rgb(95 85 75) 11.52px at (82.45634, 198.58241)
+text box#174 "29" rgb(95 85 75) 11.52px at (112.17062, 198.58241)
+text box#178 "30" rgb(95 85 75) 11.52px at (141.88492, 198.58241)
+text box#182 "31" rgb(95 85 75) 11.52px at (171.5992, 198.5824)
+group box#185 at opacity 0.5
+text box#186 "1" rgb(122 111 98) 11.52px at (204.97815, 198.5824)
+ungroup
+group box#189 at opacity 0.5
+text box#190 "2" rgb(122 111 98) 11.52px at (26.692455, 228.29669)
+ungroup
+group box#193 at opacity 0.5
+text box#194 "3" rgb(122 111 98) 11.52px at (56.406742, 228.29669)
+ungroup
+group box#197 at opacity 0.5
+text box#198 "4" rgb(122 111 98) 11.52px at (86.121025, 228.29669)
+ungroup
+group box#201 at opacity 0.5
+text box#202 "5" rgb(122 111 98) 11.52px at (115.83531, 228.29669)
+ungroup
+group box#205 at opacity 0.5
+text box#206 "6" rgb(122 111 98) 11.52px at (145.5496, 228.29669)
+ungroup
+group box#209 at opacity 0.5
+text box#210 "7" rgb(122 111 98) 11.52px at (175.26389, 228.29668)
+ungroup
+group box#213 at opacity 0.5
+text box#214 "8" rgb(122 111 98) 11.52px at (204.97815, 228.29668)
+ungroup
+unclip

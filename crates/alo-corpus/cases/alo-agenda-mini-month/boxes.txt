@@ -1,0 +1,156 @@
+block flow · document
+  block flow · generic
+    block flex · generic
+      block flex · complementary
+        block flow · generic
+          block flex · generic
+            inline flow · generic
+              text "October 2026"
+            block flex · generic
+              inline flow-root · button "previous month"
+                anonymous block
+                  block flow · image
+              inline flow-root · button "next month"
+                anonymous block
+                  block flow · image
+          block grid · generic
+            inline flow · generic
+              text "M"
+            inline flow · generic
+              text "T"
+            inline flow · generic
+              text "W"
+            inline flow · generic
+              text "T"
+            inline flow · generic
+              text "F"
+            inline flow · generic
+              text "S"
+            inline flow · generic
+              text "S"
+            block flex · button
+              anonymous block
+                text "28"
+            block flex · button
+              anonymous block
+                text "29"
+            block flex · button
+              anonymous block
+                text "30"
+            block flex · button
+              anonymous block
+                text "1"
+            block flex · button
+              anonymous block
+                text "2"
+            block flex · button
+              anonymous block
+                text "3"
+            block flex · button
+              anonymous block
+                text "4"
+            block flex · button
+              anonymous block
+                text "5"
+            block flex · button
+              anonymous block
+                text "6"
+            block flex · button
+              anonymous block
+                text "7"
+            block flex · button
+              anonymous block
+                text "8"
+            block flex · button
+              anonymous block
+                text "9"
+            block flex · button
+              anonymous block
+                text "10"
+            block flex · button
+              anonymous block
+                text "11"
+            block flex · button
+              anonymous block
+                text "12"
+            block flex · button
+              anonymous block
+                text "13"
+            block flex · button
+              anonymous block
+                text "14"
+            block flex · button
+              anonymous block
+                text "15"
+            block flex · button
+              anonymous block
+                text "16"
+            block flex · button
+              anonymous block
+                text "17"
+            block flex · button
+              anonymous block
+                text "18"
+            block flex · button
+              anonymous block
+                text "19"
+            block flex · button
+              anonymous block
+                text "20"
+            block flex · button
+              anonymous block
+                text "21"
+            block flex · button
+              anonymous block
+                text "22"
+            block flex · button
+              anonymous block
+                text "23"
+            block flex · button
+              anonymous block
+                text "24"
+            block flex · button
+              anonymous block
+                text "25"
+            block flex · button
+              anonymous block
+                text "26"
+            block flex · button
+              anonymous block
+                text "27"
+            block flex · button
+              anonymous block
+                text "28"
+            block flex · button
+              anonymous block
+                text "29"
+            block flex · button
+              anonymous block
+                text "30"
+            block flex · button
+              anonymous block
+                text "31"
+            block flex · button
+              anonymous block
+                text "1"
+            block flex · button
+              anonymous block
+                text "2"
+            block flex · button
+              anonymous block
+                text "3"
+            block flex · button
+              anonymous block
+                text "4"
+            block flex · button
+              anonymous block
+                text "5"
+            block flex · button
+              anonymous block
+                text "6"
+            block flex · button
+              anonymous block
+                text "7"
+            block flex · button
+              anonymous block
+                text "8"

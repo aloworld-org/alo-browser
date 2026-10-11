@@ -1,0 +1,162 @@
+/*
+ * The month navigator in alo's Agenda sidebar, styled the way it is styled.
+ *
+ * The rules are `alo-workplace`'s `web/src/agenda/AgendaModule.module.css`
+ * (the ones the sidebar and the navigator match) and `web/src/ds/global.css`
+ * (the reset, `body`, `button` and `svg`), and the values are its
+ * `web/src/ds/tokens.css`. The tokens are declared below rather than
+ * imported because that file lives in another repository, which this one
+ * only ever reads.
+ *
+ * **No substitutions.** Each rule is the screen's own, as written there.
+ * `:hover` rules are left out: nothing is under a pointer in a frozen page.
+ * So are `body`'s font-smoothing hints, which say nothing to a software
+ * raster.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  /* ---- tokens: the ones this navigator reads ---- */
+  --ink: #102a43;
+  --terracotta: #e76f51;
+  --warm-500: #7a6f62;
+  --warm-600: #5f554b;
+  --bg-app: #f4f1ec;
+  --bg-sunken: #f0ece6;
+  --border-default: #ded7cd;
+  --text-primary: var(--ink);
+  --text-secondary: var(--warm-600);
+  --text-tertiary: var(--warm-500);
+  --font-ui:
+    "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --leading-normal: 1.5;
+  --space-2: 0.5rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --radius-sm: 4px;
+  --radius-full: 999px;
+}
+
+/* ---- web/src/ds/global.css ---- */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* ---- web/src/agenda/AgendaModule.module.css ---- */
+
+.agenda {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-app);
+}
+
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-default);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  overflow-y: auto;
+  background: var(--bg-sunken);
+}
+
+.mini {
+  user-select: none;
+}
+.miniHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+.miniNav {
+  display: flex;
+  gap: 2px;
+}
+.miniNav button {
+  color: var(--text-tertiary);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+}
+.miniGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+.miniWeekday {
+  text-align: center;
+  font-size: 0.62rem;
+  color: var(--text-tertiary);
+  padding-bottom: 2px;
+}
+.miniDay {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+}
+.miniOther {
+  color: var(--text-tertiary);
+  opacity: 0.5;
+}
+.miniToday {
+  color: var(--terracotta);
+  font-weight: var(--weight-bold);
+}
+.miniSelected {
+  background: var(--terracotta);
+  color: #fff;
+}

@@ -480,16 +480,29 @@ fn collect_inline_items(
 
 /// The style of the box a form control holds what it shows in.
 ///
-/// It fills the control and is **one line tall at least**, which is why an
-/// empty field is still a field rather than a hairline. A button's label sits
-/// in the middle of it; a field's sits at the start.
+/// It fills the control and, unless the control is a `<button>` element, is
+/// **one line tall at least**, which is why an empty field is still a field
+/// rather than a hairline. A `<button>` is what it holds and no more: an
+/// `<svg>` arrow 15 pixels tall makes a button 15 tall inside, as browsers
+/// draw alo's Agenda (queue item 437). A button's label sits in the middle
+/// of it; a field's sits at the start.
 ///
 /// None of this is in the user-agent style sheet, and it cannot be: a rule
 /// that centred a button's label would also centre the children of a button an
 /// author had made a flex container, and an author cannot override a rule they
 /// cannot see.
-fn control_content_style(boxes: &BoxTree, styles: &StyleTree, id: BoxId, centred: bool) -> Style {
-    let line = control_line(boxes, styles, id);
+fn control_content_style(
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    id: BoxId,
+    centred: bool,
+    at_least_a_line: bool,
+) -> Style {
+    let line = if at_least_a_line {
+        control_line(boxes, styles, id)
+    } else {
+        0.0
+    };
     Style {
         display: taffy::Display::Flex,
         flex_grow: 1.0,
@@ -1231,11 +1244,16 @@ fn style_for(
         return Style::default();
     };
     if let BoxKind::Anonymous {
-        purpose: alo_box::Purpose::Control { centred, .. },
+        purpose:
+            alo_box::Purpose::Control {
+                centred,
+                at_least_a_line,
+                ..
+            },
         ..
     } = node.kind
     {
-        return control_content_style(boxes, styles, id, centred);
+        return control_content_style(boxes, styles, id, centred, at_least_a_line);
     }
     let ours = node
         .kind

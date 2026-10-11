@@ -1,0 +1,60 @@
+alo-workplace, web/src/agenda/MiniMonth.tsx — the month navigator in the
+sidebar of alo's Agenda (calendar) screen.
+
+Written out 2026-10-11 from the `alo-workplace` repository checked out beside
+this one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef. React
+renders the screen, so page.html is the markup it produces for `MiniMonth`
+inside the screen's `.agenda` and `<aside class="sidebar">`
+(web/src/agenda/AgendaModule.tsx, lines 336–346), in English: the title is
+`Intl.DateTimeFormat("en", { month: "long", year: "numeric" })` and the
+weekday letters its `weekday: "narrow"`, Monday first. The clock is fixed:
+today is Sunday 11 October 2026 and the day picked is Wednesday 14 October,
+so the grid is `monthGridDays` (web/src/agenda/dates.ts), 28 September to
+8 November. The two arrows are lucide-react 0.468.0's `ChevronLeft` and
+`ChevronRight` at size 15, written out as the `<svg>` that library renders
+(its `defaultAttributes.js` and `Icon.js`, and each icon's one path).
+style.css is the rules of web/src/agenda/AgendaModule.module.css those
+elements match, web/src/ds/global.css's reset, `body`, `button` and `svg`
+rules, and the tokens they read from web/src/ds/tokens.css. `:hover` rules
+and `body`'s font-smoothing hints are left out; nothing else is changed.
+`alo-workplace` is read-only reference; nothing was written back to it.
+
+The sidebar's "New event" button and calendar list, and the rest of the
+screen, are not here.
+
+Rendered at 320 × 280.
+
+Why this page. Every alo Sites golden was frozen or measured (iteration
+274), so the next real pages are the workspace's own screens. This one is a
+grid of 42 buttons sized by `aspect-ratio: 1` and `1fr` columns, which a
+person and an agent both read every day.
+
+## What it found
+
+Measured against headless Chrome 154 on the same bytes, given the corpus's
+DejaVu Sans through `@font-face`, every element's box matched to Chrome's
+1/64 px layout unit, and the two screenshots agree, **except one thing**:
+
+- Each arrow is a `<button>` with 2 px of padding holding a 15 px `<svg>`
+  that global.css makes `display: block`. Chrome draws it 19 × 19. Here the
+  box a control holds its content in was at least a line tall whatever it
+  held — 19.5 at 13 px and 1.5 — so each arrow was 23.5 tall, the header row
+  grew from 19.5 to 23.5, and the grid stood 4 px low — item 437.
+  **Fixed by item 437 (iteration 280):** a `<button>` element is at least a
+  line tall only when it holds something a line is made of. Every other
+  control (a field, a `<textarea>`, `<input type=submit value="">`) is a
+  line tall even when empty, as Chrome draws them. The arrows are 19 × 19 at
+  (183, 16.25) and (204, 16.25), the grid starts at 43.5, and the last week
+  at 209.95 (Chrome: 209.97). No other case in the corpus moved.
+
+`tests/alo_agenda_mini_month.rs` says it in numbers.
+
+What the agent reads is alo's markup, and it is thin: 42 buttons named by
+the day's number, with nothing saying which month a grey one is in, which is
+today, or which is picked. The page says none of that — no `aria-current`,
+no `aria-pressed`, no full date in a name — so an engine that invented it
+would be guessing from colour, which ADR 0002 forbids. It is a finding for
+`alo-workplace`, which this repository does not edit.
+
+The issues list has only the two `::before` and `::after` selectors of
+global.css's `box-sizing` rule.

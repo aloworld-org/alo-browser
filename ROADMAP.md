@@ -1171,14 +1171,21 @@ unreachable without it.
       `is_placeholder`, `alo-layout`'s `measure_inline`), read by an agent
       as a `placeholder` property and never as text, through the renderer's
       snapshot too. Corpus case `alo-sign-in`. A one-line field taller than
-      its line now holds its line in the middle, as browsers do · Owed: everything a control **does**,
+      its line now holds its line in the middle, as browsers do. **A
+      `<button>` is as tall as what it holds** (queue item 437, `alo-box`'s
+      `Purpose::Control` `at_least_a_line`, read by `alo-layout`'s
+      `control_content_style`): a line tall inside only when it holds text
+      or another inline, so an icon button is its icon and its padding, as
+      browsers draw it, while an empty field is still a line. Corpus case
+      `alo-agenda-mini-month` · Owed: everything a control **does**,
       which needs events
       (queue item 81) — constraint validation, submission, file inputs — the
       focus ring, which needs something to have focus (queue item 43); a
       date field's calendar (386), the person's region (387), the other
       temporal kinds (388); a long hint's clipping (390),
       `:placeholder-shown` (391) and `::placeholder`'s other properties
-      (392), each waiting for a page
+      (392), and a button's two measured edges, an empty `<span>` and a
+      kept space (438), each waiting for a page
 - [ ] **Navigation and session history**: `pushState`, back and forward, and what survives each
       · Built: **`location`, read** (queue item 360) — `alo-url`'s
       `reading.rs` (the URL Standard's nine readings over our `Url`) and
