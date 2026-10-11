@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Code is drawn at the size other browsers draw it.** Text set in the
+  plain `monospace` font — a `<pre>` block, `<code>`, `<kbd>`, `<samp>` — is
+  13 pixels where the text around it is 16, as in every other browser, and
+  the space around a code block shrinks with it. A page that asks for a
+  named code font first, or writes `monospace, monospace`, or gives its code
+  a size in pixels or `rem`, is drawn at the size it asked for, as other
+  browsers do. alo's published code blocks now match what their readers see
+  elsewhere (queue item 415, ADR 0045).
+
 - **Decided: code will be drawn at the size other browsers draw it.**
   Every browser draws text set in the plain `monospace` font a little
   smaller — 13 pixels where other text is 16 — and a page's code blocks are

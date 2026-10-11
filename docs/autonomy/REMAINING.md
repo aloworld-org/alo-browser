@@ -1424,3 +1424,12 @@ stays open, decided and buildable next. Cut: 416 (keyword sizes as the
 engines' integer table rather than CSS's ratios, for every family; waits
 for a page). 181 queue items are open (416 added open). The next unused
 queue number is 417 and the next unused ADR 0046.
+
+Iteration 267 built item 415 (ADR 0045): a computed font size carries its
+origin, `font-family: monospace` alone has a `medium` of 13 px, and a size
+crossing into or out of it is read again, rescaled or kept by that origin.
+`font-size` no longer inherits as text. `alo-sites-rich-blocks`' code is
+13 px, as Chrome draws it; no other case moved. Found: 417 (`font-size:
+initial` is the parent's size rather than `medium`; waits for a page). 181
+queue items are open (415 closed, 417 added). The next unused queue number
+is 418 and the next unused ADR 0046.

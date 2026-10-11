@@ -7753,7 +7753,7 @@ The long pole, and the thing most of section E is unreachable without.
   3.6 narrower, the line breaks unchanged). Both issues are gone; no other
   case or window reference moved.
 
-- [ ] **415. `monospace`'s own default size.** *Cut from 412 (iteration
+- [x] **415. `monospace`'s own default size.** *Cut from 412 (iteration
   265). Feature: `docs/features.md` stage 1, "Code is drawn in a monospace
   face". **Needs ADR.*** Every engine a person compares us with draws
   `font-family: monospace` text at 13 px where the page asked for
@@ -7786,6 +7786,30 @@ The long pole, and the thing most of section E is unreachable without.
   Keywords stay CSS's ratios of the family's medium; Chrome's integer
   table, which already differs for sans-serif, is cut to 416. *Closes
   when:* ADR 0045 § 7. Depends on nothing open; buildable next.
+  **Done (iteration 267).** `alo-style`'s new `size_origin.rs` holds a
+  computed size's origin (`SizeOrigin`: a keyword's ratio, relative or
+  fixed), the `monospace`-alone test and the two mediums, and carries a
+  size across the line; `metrics.rs` holds `MONOSPACE_FONT_SIZE` beside
+  `DEFAULT_FONT_SIZE` and reaches a declared size in the element's own
+  medium with its origin (a math function fixed by its text, since the
+  parser folds `calc(1em)` to `1em`); `computed.rs`' `settle_font` reads
+  both families and applies § 4. **`font-size` no longer inherits as
+  text**: its computed `16px` read as a fixed size on every child, so it
+  arrives in the metrics and the origin, and `inherit`/`unset` take it by
+  saying nothing. `alo-css`' `properties.rs` lists style as a reader of
+  `font-family`. Tests: `alo-style/tests/monospace_alone.rs` (18: every row
+  of § 4, every unit of § 1, five math functions and a fixed parent, § 2's
+  spellings and a `var()`, § 3's keywords in both families, `inherit`),
+  `size_origin.rs`' six unit tests, and `tests/alo_sites_rich_blocks.rs`
+  (4: code at 13 px, 27, 28 and 16 advances of 13 × 1233/2048, lines
+  15.1328125 apart, the indent 31.30664, and the `pre`s' 13 px margins).
+  Mutation, restored from a copy and checked with `cmp`: without the
+  rescaling 9 tests fail; with `calc()` relative, the math-function test
+  fails. Moved, looked at beside its old picture: only
+  `alo-sites-rich-blocks` — the three blocks smaller, the gaps between
+  them 13, the page 197.53906 tall rather than 221; every moved
+  `layout.txt` number worked by hand in its `origin.txt`. `alo-downloads`'
+  `rem`-sized `<code>` is unmoved at 13.76, and no other case moved.
 
 - [ ] **416. The absolute-size keywords as the engines size them.** *Cut
   from 415 by ADR 0045 § 3. Feature: `docs/features.md` stage 1, "Code is
@@ -7798,6 +7822,20 @@ The long pole, and the thing most of section E is unreachable without.
   ratios or the engines' table. *Blocked: no page yet* writes a keyword
   size other than `medium`. *Closes when:* a frozen page's keyword-sized
   text is the size the decision gives, in numbers, under both families.
+
+- [ ] **417. `font-size: initial` is `medium`.** *Found beside 415
+  (iteration 267), by reading `apply_one`. Feature: `docs/features.md`
+  stage 1, "Code is drawn in a monospace face". Waits for a page.* CSS
+  Fonts: `font-size`'s initial value is `medium`. `alo-style`'s
+  `apply_one` makes `initial` (and `unset` on a property that does not
+  inherit, and `revert` with no earlier origin) remove the property, which
+  for every other property is its initial value, and for `font-size` has
+  `settle_font` take the parent's size — so `font-size: initial` under a
+  20 px parent is 20 rather than 16 (and, under ADR 0045, 13 in
+  `monospace`). It was so before 415; 415 did not move it. *Blocked: no
+  page yet* writes `font-size: initial`. *Closes when:* a frozen page's
+  `font-size: initial` is its family's `medium`, in numbers, with a keyword
+  origin.
 
 - [ ] **413. A broken picture is drawn as its text.** *Opened by
   `alo-sites-rich-blocks` (iteration 264). Feature: `docs/features.md`

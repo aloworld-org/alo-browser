@@ -36,6 +36,7 @@ use crate::inheritance::inherits;
 use crate::keyword::{Resolution, WideKeyword};
 use crate::metrics::{DEFAULT_FONT_SIZE, font_size_against, line_height_in};
 use crate::origin::Origin;
+use crate::size_origin::{FontSize, SizeOrigin, medium, monospace_sized};
 use crate::variables::{Resolved, Variables, resolve_variables, substitute};
 use alo_css::{
     IssueKind, Location, MatchContext, MediaContext, PropertyName, PseudoElement, StyleIssue,
@@ -50,6 +51,10 @@ pub struct ComputedStyle {
     properties: BTreeMap<PropertyName, String>,
     variables: Variables,
     metrics: FontMetrics,
+    /// How `metrics.font_size` was reached, which a child crossing into or
+    /// out of `monospace` needs (ADR 0045 § 1). Nothing outside the style
+    /// reads it.
+    size_origin: SizeOrigin,
     current_color: Rgba,
 }
 
@@ -59,6 +64,7 @@ impl Default for ComputedStyle {
             properties: BTreeMap::new(),
             variables: Variables::new(),
             metrics: FontMetrics::default(),
+            size_origin: SizeOrigin::default(),
             // The initial `color`. Every `currentColor` on an element nobody
             // has coloured resolves to this.
             current_color: Rgba::BLACK,
@@ -171,10 +177,14 @@ impl ComputedStyle {
 
     fn take_inherited_from(parent: &ComputedStyle) -> Self {
         Self {
+            // Not `font-size`: it arrives in `metrics` and `size_origin`, so
+            // that what is left under the name is only what this element
+            // declared. Its computed text would read as a fixed size and lose
+            // how the parent's was reached (ADR 0045 § 1).
             properties: parent
                 .properties
                 .iter()
-                .filter(|(name, _)| inherits(name))
+                .filter(|(name, _)| inherits(name) && !is_font_size(name))
                 .map(|(name, value)| (name.clone(), value.clone()))
                 .collect(),
             variables: parent.variables.clone(),
@@ -182,6 +192,7 @@ impl ComputedStyle {
             // known; until then the parent's is the right answer, because font
             // size and colour both inherit.
             metrics: parent.metrics,
+            size_origin: parent.size_origin,
             current_color: parent.current_color,
         }
     }
@@ -427,6 +438,11 @@ fn write_markers(document: &Document, tree: &mut StyleTree) {
 /// The root is the case worth naming: `rem` on the root element is relative to
 /// the root's *own* font size, so it is resolved against the default rather
 /// than against something that does not exist yet.
+///
+/// The size is reached in the element's own family's `medium`, and then
+/// carried across if the element's family and its parent's are on different
+/// sides of `monospace` alone (ADR 0045 § 4). `font-family` does not depend
+/// on the size, so it is already computed here.
 fn settle_font(
     style: &mut ComputedStyle,
     parent: &ComputedStyle,
@@ -446,7 +462,21 @@ fn settle_font(
         ..parent.metrics
     }
     .in_viewport(window);
-    let font_size = font_size_against(style.get("font-size"), parent_font);
+    let from = monospace_sized(parent.get("font-family"));
+    let to = monospace_sized(style.get("font-family"));
+    let reached = font_size_against(
+        style.get("font-size"),
+        parent_font,
+        parent.size_origin,
+        medium(to),
+    )
+    .unwrap_or(FontSize {
+        px: parent_font.font_size,
+        origin: parent.size_origin,
+    })
+    .across(from, to);
+    let font_size = reached.px;
+    style.size_origin = reached.origin;
 
     // Asked with the font size settled and nothing else of this element's
     // font yet, which is what `MeasureFace` promises its implementer. `lh`
@@ -676,13 +706,26 @@ fn apply_one(
 
 /// Take whatever the parent ended up with for a property, which for a property
 /// the parent did not set means taking nothing.
+///
+/// `font-size` is taken by saying nothing: the parent's size and how it was
+/// reached are both inherited without the text (ADR 0045 § 1).
 fn take_from_parent(style: &mut ComputedStyle, parent: &ComputedStyle, name: &PropertyName) {
+    if is_font_size(name) {
+        style.properties.remove(name);
+        return;
+    }
     match parent.properties.get(name) {
         Some(value) => style.set(name, value.clone()),
         None => {
             style.properties.remove(name);
         }
     }
+}
+
+/// Whether a property is `font-size`, which inherits as a number and an
+/// origin rather than as text.
+fn is_font_size(name: &PropertyName) -> bool {
+    name.as_str() == "font-size"
 }
 
 #[cfg(test)]

@@ -110,7 +110,7 @@ pub static SUPPORTED: &[(&str, &[Reader])] = &[
     ("flex-grow", &[Layout]),
     ("flex-shrink", &[Layout]),
     ("flex-wrap", &[Layout]),
-    ("font-family", &[Layout, Paint, Renderer]),
+    ("font-family", &[Style, Layout, Paint, Renderer]),
     ("font-size", &[Style]),
     ("font-style", &[Layout, Paint]),
     ("font-weight", &[Style]),

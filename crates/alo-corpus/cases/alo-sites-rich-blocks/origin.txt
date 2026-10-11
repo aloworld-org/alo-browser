@@ -58,11 +58,21 @@ Rendered at 800 × 600, as the alo Sites cases are.
 
 The body's 8 pixels of margin collapsing with the figure's 16; the figure 40
 in from both sides; each `pre` 1em above and below, those margins collapsing
-between blocks; every line 18.625 tall, DejaVu Sans' normal line at 16 px;
-the equation's `div` a plain block with `role="math"`, read by an agent as
-`math`. Every number in `layout.txt` was worked from those and agrees, and
-since item 412 every code line is its characters times 9.6328125, DejaVu Sans
-Mono's advance at 16 px. The code blocks are 16 px, not the 13 px a browser
-gives `monospace` by default. ADR 0045 (iteration 266) takes that rule,
-measured in Chrome 154 on this very page — both `pre`s and the equation's
-`code` at 13px, each `pre`'s margin 13px — and queue item 415 builds it.
+between blocks; the caption's and the equation's line 18.625 tall, DejaVu
+Sans' normal line at 16 px; the equation's `div` a plain block with
+`role="math"`, read by an agent as `math`. Every number in `layout.txt` was
+worked from those and agrees.
+
+**The code is 13 px**, as Chrome 154 draws this very page — both `pre`s and
+the equation's `code` at 13px, each `pre`'s margin 13px (ADR 0045, measured
+in iteration 266; built as queue item 415 in iteration 267). The code
+inherits the body's `medium`, and `monospace` alone has a `medium` of 13.
+So every code line is its characters times 7.8266602, DejaVu Sans Mono's
+1233/2048-em advance at 13 px — the TypeScript block 27 of them, 211.31982,
+the Rust block 28 with its indent, 219.14648, the equation 16, 125.22656 —
+and every code line is 15.1328125 tall, the face's 1.1640625-em normal line.
+The first `pre`'s 13 top margin collapses into the figure's 16, so it starts
+at 69.25 as before; between the blocks the margins are 13; the equation's
+13 px `code` stands on the 16 px strut of its `div`, 2.78467 below the line's
+top (the faces' ascents, 1901/2048 em at 16 and at 13, differ by that), and
+the line stays 18.625. Before item 415 the code was 16 px.

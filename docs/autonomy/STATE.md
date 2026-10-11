@@ -25843,3 +25843,89 @@ line), `docs/conformance.md` (the alo Sites row), the case's `origin.txt`,
 181 queue items are open (416 added open). The next unused queue number is
 **417** and the next ADR is **0046**. This is one iteration, not a
 finished queue or roadmap.
+
+
+
+## Iteration 267 — queue item 415 built: code is 13 px, as browsers draw it
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and stage 1's Text line), iterations 265 and 266, and `REMAINING.md`'s
+continuation. No `AGENTS.md` exists in this repository. For 415: its queue
+entry and *Decided* paragraph, ADR 0045 (all of it; § 7 is the closing
+condition), `docs/features.md`' monospace line, `alo-style`'s `metrics.rs`,
+`computed.rs` (`settle_font`, `take_inherited_from`, `apply_one`,
+`record_computed_font`) and the user-agent sheet's `monospace` rule,
+`alo-value`'s length parser (which folds `calc(1em)` to `1em`), and the
+case's page, `origin.txt` and test.
+
+**Choosing.** Iteration 266 left 415 decided, depending on nothing open,
+and first among the buildable items.
+
+**What was built.** A new `alo-style/src/size_origin.rs` (one
+responsibility: where a font size came from and what crossing `monospace`
+alone does to it) holds `SizeOrigin` (keyword ratio, relative, fixed),
+`FontSize::across`, the § 2 test and the two mediums. `metrics.rs` holds
+`MONOSPACE_FONT_SIZE` beside `DEFAULT_FONT_SIZE` and its
+`font_size_against` now returns the reached size and origin, a keyword in
+the element's own medium; a math function is fixed by its text. `settle_font`
+reads both families and applies § 4. **Found while building:** a child
+inherited its parent's computed `font-size` text, `16px`, so every
+inherited size read as fixed and nothing crossed. `font-size` now arrives
+in the metrics and origin only, and `inherit`/`unset` take it by saying
+nothing; `record_computed_font` still writes the computed text on every
+element, so readers see what they saw. Style reading `font-family` is
+listed in `alo-css`' `properties.rs`. `font-size: initial` being the
+parent's size is older than this and unchanged; queued as 417.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", every section `ok`, no `FAILED` or `panicked` in the log. Workspace
+clippy (all targets) was clean before it. This entry and the commit came
+after that run and are documentation only.
+
+**Gate, manual.**
+- Layout assertions in numbers: `tests/alo_sites_rich_blocks.rs` (code at
+  13 px; 27, 28 and 16 advances of 13 × 1233/2048; lines 15.1328125 apart;
+  the indent at 8 + 31.30664; new: the `pre`s' 13 px margins between the
+  blocks and above the equation, the first collapsing into the figure's
+  16) and `tests/alo_downloads.rs` (unchanged, still 13.76). Unit
+  assertions: `tests/monospace_alone.rs`, 18 tests, every row of ADR 0045
+  § 4 and every unit of § 1.
+- Every moved `layout.txt` number worked by hand and written into the
+  case's `origin.txt`: the page 197.53906 tall (was 221), the TypeScript
+  block 211.31982 × 30.265625, the Rust 219.14648 × 45.398438 at
+  112.515625, the equation's line still 18.625 with its 13 px text 2.78467
+  below the line's top (the two ascents' difference).
+- Reference render: the picture looked at beside the old one. The three
+  blocks smaller and still monospaced, the indent kept, the gaps 13, the
+  caption unmoved. No other case and no `alo-window` reference moved.
+- Mutation (copies in the scratchpad, restored with `cp`, checked with
+  `cmp`): without the rescaling 9 tests fail; with `calc()` relative, the
+  math-function test fails. The bug found while building was itself a
+  failing run of 11 of the new tests.
+- Hostile input: no new reader of outside bytes; a font size's text was
+  already parsed, and an unreadable or negative one still inherits.
+- One responsibility per file: the origin and the crossing are their own
+  file; `metrics.rs` still turns a size's text into a number;
+  `settle_font` still settles the font.
+- No `unsafe`, no new dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` in each is clean.
+
+**Queue.** 415 ticked with its *Done* paragraph; 417 added (waits for a
+page). **Roadmap: no line moved, and why.** The size serves stage 1's
+ticked Text line, which this does not reopen, and no stage 2 line names
+font sizes or generic families' sizes; adding a line to claim it would be
+decoration, as iterations 260–266 found. Also updated: `docs/features.md`
+(the monospace line), `docs/conformance.md` (the alo Sites row), the
+case's `origin.txt`, `REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- That the real window draws this case's code at 13 px was not captured:
+  the window capture is still refused on this machine (296). The window's
+  frozen references did not move, since none holds `monospace` text.
+- 416 and 417 wait for pages; 411, 413 (needs ADR) and 414 still stand.
+
+181 queue items are open (415 closed, 417 added). The next unused queue
+number is **418** and the next ADR is **0046**. This is one iteration,
+not a finished queue or roadmap.

@@ -16,6 +16,11 @@
 //! mapped no face to that generic, so all three blocks were drawn in
 //! `DejaVu Sans` and an issue said so. They are drawn in `DejaVu Sans Mono`,
 //! where every character is one advance wide.
+//!
+//! And what item 415 is closed by (ADR 0045 § 7). `font-family: monospace`
+//! alone has a `medium` of 13 px, and the code inherits the body's `medium`,
+//! so it is read again at 13 — as every browser draws this page — and so is
+//! every `em` of the `<pre>`s' margins.
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_paint::DisplayItem;
@@ -47,9 +52,16 @@ fn near(left: f32, right: f32) -> bool {
     (left - right).abs() < 1e-3
 }
 
-/// One character of `DejaVu Sans Mono` at 16 px: every advance in the face
+/// The size code is drawn at: `monospace`'s own `medium` (ADR 0045 § 3).
+const CODE: f32 = 13.0;
+
+/// One character of `DejaVu Sans Mono` at 13 px: every advance in the face
 /// is 1233/2048 of an em.
-const ADVANCE: f32 = 1233.0 / 2048.0 * 16.0;
+const ADVANCE: f32 = 1233.0 / 2048.0 * CODE;
+
+/// One line of it: `DejaVu Sans`' and `DejaVu Sans Mono`'s `normal` line is
+/// 18.625 at 16 px, the same 1.1640625 em in both.
+const LINE: f32 = 18.625 / 16.0 * CODE;
 
 /// Four spaces of it.
 const INDENT: f32 = 4.0 * ADVANCE;
@@ -78,8 +90,8 @@ fn a_line_of_code_keeps_its_indentation() {
         "println! stands four spaces in, at {}: {body:?}",
         8.0 + INDENT,
     );
-    // Each on its own line, 18.625 apart: three lines, not one.
-    assert!(near(body.1 - open.1, 18.625) && near(close.1 - body.1, 18.625));
+    // Each on its own line, one 13 px line apart: three lines, not one.
+    assert!(near(body.1 - open.1, LINE) && near(close.1 - body.1, LINE));
 
     // A line with no indentation is not moved: the TypeScript block's two
     // lines both start at the body's edge.
@@ -117,7 +129,7 @@ fn the_indentation_is_room_the_block_is_measured_with() {
     };
     assert!(near(text.origin.x, 8.0), "{text:?}");
     assert!(near(text.size.width, INDENT + 24.0 * ADVANCE), "{text:?}");
-    assert!(near(text.size.height, 3.0 * 18.625), "{text:?}");
+    assert!(near(text.size.height, 3.0 * LINE), "{text:?}");
 }
 
 #[test]
@@ -146,7 +158,7 @@ fn code_is_drawn_in_the_monospace_face() {
             .map(|(_, family, size)| (*family, *size))
     };
     // Every line of the two `<pre>` blocks and the equation's `<code>`, at
-    // the 16 px they inherit: the generic's size is not changed (item 415).
+    // 13 px: the body's `medium`, read again in `monospace` (item 415).
     for line in [
         "const greeting = \"<hello>\";",
         "console.log(greeting);",
@@ -157,11 +169,11 @@ fn code_is_drawn_in_the_monospace_face() {
     ] {
         assert_eq!(
             face(line),
-            Some(("DejaVu Sans Mono", 16.0)),
+            Some(("DejaVu Sans Mono", CODE)),
             "{line}: {drawn:?}"
         );
     }
-    // The caption is not code, and keeps the sans-serif face.
+    // The caption is not code, and keeps the sans-serif face and 16 px.
     assert_eq!(
         face("Ideas, captured & shared"),
         Some(("DejaVu Sans", 16.0)),
@@ -185,4 +197,53 @@ fn code_is_drawn_in_the_monospace_face() {
     };
     assert!(near(*typescript, 27.0 * ADVANCE), "{typescript}");
     assert!(near(*equation, 16.0 * ADVANCE), "{equation}");
+}
+
+#[test]
+fn a_pres_margins_are_its_own_ems() {
+    let Some(rendering) = rich_blocks() else {
+        panic!("the case renders");
+    };
+    let Some(drawing) = rendering.drawing() else {
+        panic!("the case is drawn");
+    };
+    // The block boxes of the two `<pre>`s and the equation, top to bottom,
+    // as (top, height).
+    let blocks: Vec<(f32, f32)> = drawing
+        .boxes
+        .ids()
+        .filter(|id| {
+            drawing.boxes.get(*id).is_some_and(|node| {
+                matches!(&node.kind, alo_box::BoxKind::Text { text, .. }
+                    if text.starts_with("const") || text.starts_with("fn ") || text.starts_with("E = "))
+            })
+        })
+        .filter_map(|id| {
+            // The text's block: its parent's parent, the `<code>` between.
+            let code = drawing.boxes.get(id)?.parent?;
+            let block = drawing.boxes.get(code)?.parent?;
+            let border = drawing.layout.get(block)?.border_box;
+            Some((border.origin.y, border.size.height))
+        })
+        .collect();
+    let [typescript, rust, equation] = blocks.as_slice() else {
+        panic!("three blocks: {blocks:?}");
+    };
+    // Two lines, then three, of 13 px code.
+    assert!(near(typescript.1, 2.0 * LINE), "{typescript:?}");
+    assert!(near(rust.1, 3.0 * LINE), "{rust:?}");
+    // The first `pre`'s 13 px top margin collapses into the figure's 16:
+    // the figure ends at 53.25.
+    assert!(near(typescript.0, 53.25 + 16.0), "{typescript:?}");
+    // Between the two, each one's 1em margin is 13 and they collapse to 13.
+    assert!(
+        near(rust.0 - (typescript.0 + typescript.1), CODE),
+        "{typescript:?} {rust:?}"
+    );
+    // And the second's bottom margin is 13 above the equation, which has
+    // none of its own.
+    assert!(
+        near(equation.0 - (rust.0 + rust.1), CODE),
+        "{rust:?} {equation:?}"
+    );
 }

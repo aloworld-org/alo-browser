@@ -12,7 +12,10 @@
 //! It lives beside the cascade rather than in `alo-value` because it needs the
 //! parent's answer, and the parent's answer is something only a tree walk has.
 
-use alo_value::{FontMetrics, LengthPercentage, Viewport, parse_length_percentage, parse_number};
+use crate::size_origin::{FontSize, SizeOrigin};
+use alo_value::{
+    FontMetrics, Length, LengthPercentage, Unit, Viewport, parse_length_percentage, parse_number,
+};
 
 /// The font size a document has when nothing says otherwise.
 ///
@@ -20,6 +23,13 @@ use alo_value::{FontMetrics, LengthPercentage, Viewport, parse_length_percentage
 /// every keyword size below is a ratio of it rather than a number somebody
 /// picked.
 pub const DEFAULT_FONT_SIZE: f32 = 16.0;
+
+/// The `medium` of an element whose family is the generic `monospace` alone.
+///
+/// Thirteen CSS pixels is what every browser ships (ADR 0045 § 3), and like
+/// [`DEFAULT_FONT_SIZE`] it is the person's to change once settings exist
+/// (queue item 128); a test, the corpus and `--frozen-fonts` keep this one.
+pub const MONOSPACE_FONT_SIZE: f32 = 13.0;
 
 /// The ratio each absolute-size keyword is of `medium`.
 const KEYWORD_SIZES: &[(&str, f32)] = &[
@@ -51,6 +61,10 @@ const NORMAL_LINE_HEIGHT: f32 = 1.2;
 /// **parent's** font size, not to its own — which is the one rule here that
 /// surprises people, and the reason this cannot be folded into the generic
 /// length resolution.
+///
+/// This is a family whose `medium` is [`DEFAULT_FONT_SIZE`], under a parent
+/// whose size was not fixed; the cascade, which knows both, asks
+/// `font_size_against` instead.
 pub fn resolve_font_size(
     specified: Option<&str>,
     parent: f32,
@@ -60,32 +74,57 @@ pub fn resolve_font_size(
     font_size_against(
         specified,
         with_window(FontMetrics::estimated(parent, root), viewport),
+        SizeOrigin::default(),
+        DEFAULT_FONT_SIZE,
     )
+    .map_or(parent, |size| size.px)
 }
 
-/// Work out the font size of an element against the parent's whole font.
+/// Work out the font size an element's own declaration reaches, against the
+/// parent's whole font and how the parent's size was reached, or [`None`]
+/// when nothing it says can be used and the size is the parent's.
 ///
 /// [`resolve_font_size`] is this with a parent nobody measured. The cascade
 /// has measured it, and `font-size: 2ex` is two of the **parent's** `x`, so
 /// what it hands here carries the parent's face rather than half its size.
-pub(crate) fn font_size_against(specified: Option<&str>, parent_font: FontMetrics) -> f32 {
+///
+/// A keyword is a ratio of `medium`, the element's own family's (ADR 0045
+/// § 3). Anything relative is the parent's pixels, and relative only while
+/// the parent was not fixed (§ 1): crossing into or out of `monospace` is
+/// the caller's step, once this has said what was reached.
+pub(crate) fn font_size_against(
+    specified: Option<&str>,
+    parent_font: FontMetrics,
+    parent_origin: SizeOrigin,
+    medium: f32,
+) -> Option<FontSize> {
     let parent = parent_font.font_size;
-    let Some(text) = specified else {
-        // Nothing said anything, so it is whatever was inherited.
-        return parent;
+    // Nothing said anything, so it is whatever was inherited.
+    let text = specified?.trim();
+    let relative = match parent_origin {
+        SizeOrigin::Fixed => SizeOrigin::Fixed,
+        _ => SizeOrigin::Relative,
     };
-    let text = text.trim();
 
     for (keyword, ratio) in KEYWORD_SIZES {
         if text.eq_ignore_ascii_case(keyword) {
-            return DEFAULT_FONT_SIZE * ratio;
+            return Some(FontSize {
+                px: medium * ratio,
+                origin: SizeOrigin::Keyword(*ratio),
+            });
         }
     }
     if text.eq_ignore_ascii_case("smaller") {
-        return parent / RELATIVE_STEP;
+        return Some(FontSize {
+            px: parent / RELATIVE_STEP,
+            origin: relative,
+        });
     }
     if text.eq_ignore_ascii_case("larger") {
-        return parent * RELATIVE_STEP;
+        return Some(FontSize {
+            px: parent * RELATIVE_STEP,
+            origin: relative,
+        });
     }
 
     // Relative lengths in a font size resolve against the parent's font, so
@@ -93,18 +132,29 @@ pub(crate) fn font_size_against(specified: Option<&str>, parent_font: FontMetric
     // `font-size: clamp(2.4rem, 4vw, 3.5rem)` is a real thing a design system
     // writes, and a font size resolved without a window would silently take
     // the smaller bound.
-    match parse_length_percentage(text) {
-        // A negative font size is not a font size.
-        Some(value) => {
-            let pixels = value.to_px(parent_font, parent);
-            if pixels.is_finite() && pixels >= 0.0 {
-                pixels
-            } else {
-                parent
-            }
-        }
-        None => parent,
+    let value = parse_length_percentage(text)?;
+    let pixels = value.to_px(parent_font, parent);
+    // A negative font size is not a font size.
+    if !(pixels.is_finite() && pixels >= 0.0) {
+        return None;
     }
+    // A math function is fixed whatever it holds — `calc(1em + 0px)` is 16
+    // under `<code>` in Chrome — and the parser folds `calc(1em)` to a plain
+    // `1em`, so it is the text that says one was written (ADR 0045 § 1).
+    let origin = match value {
+        _ if text.contains('(') => SizeOrigin::Fixed,
+        LengthPercentage::Percentage(_) => relative,
+        LengthPercentage::Length(Length { unit, .. }) if of_the_parents_font(unit) => relative,
+        _ => SizeOrigin::Fixed,
+    };
+    Some(FontSize { px: pixels, origin })
+}
+
+/// Whether a unit in a font size is a measure of the parent's font, and so
+/// relative in ADR 0045 § 1's sense. `rem` and `rlh` are the root's, and are
+/// fixed.
+fn of_the_parents_font(unit: Unit) -> bool {
+    matches!(unit, Unit::Em | Unit::Ex | Unit::Ch | Unit::Lh)
 }
 
 /// Work out the line height of an element.
@@ -374,9 +424,13 @@ mod tests {
             zero_width: 12.5,
             ..FontMetrics::estimated(20.0, 16.0)
         };
-        assert!(close(font_size_against(Some("2ex"), parent), 22.0));
-        assert!(close(font_size_against(Some("2ch"), parent), 25.0));
-        assert!(close(font_size_against(Some("2em"), parent), 40.0));
+        let against = |text| {
+            font_size_against(Some(text), parent, SizeOrigin::default(), 16.0)
+                .map_or(f32::NAN, |size| size.px)
+        };
+        assert!(close(against("2ex"), 22.0));
+        assert!(close(against("2ch"), 25.0));
+        assert!(close(against("2em"), 40.0));
         // And without a measured parent it is still half an em each.
         assert!(close(
             resolve_font_size(Some("2ch"), 20.0, 16.0, None),
