@@ -5006,18 +5006,24 @@ The long pole, and the thing most of section E is unreachable without.
 - [ ] **82. Forms**: the controls, constraint validation, submission, file
   inputs.
   *Depends on 81.*
-  *Needs design (iteration 161):* its dependencies are done, but it names no
-  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
-  not ready to build. Cutting a first item from it, with those written, is
-  the work that opens it.
+  ***Needs ADR.*** *The owner chose this on 2026-10-11.* Its dependencies are
+  done and nothing technical holds it; what was missing was a decision that
+  it is designed next, and only the owner makes that. Stage 2 closes on *a
+  person using alo for a week*, and that is unreachable without this item
+  however much else lands — so it moves from `needs design`, which `LOOP.md`
+  step 2 passes over, to work: the ADR as its own iteration (rule 4), then a
+  first item cut from it carrying a contract and a closing condition.
 
 - [ ] **83. `fetch()` and `XMLHttpRequest`**, over the same stack as everything
   else rather than beside it.
   *Depends on 61, 72.*
-  *Needs design (iteration 161):* its dependencies are done, but it names no
-  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
-  not ready to build. Cutting a first item from it, with those written, is
-  the work that opens it.
+  ***Needs ADR, for the half that is left.*** *The owner chose this on
+  2026-10-11.* `fetch()` is already decided and built — ADR 0032, and a page has
+  called it since — so what this item still owes is `XMLHttpRequest` over the
+  same stack, which no ADR covers. Its dependencies are done and nothing
+  technical holds it. Promoted from `needs design` on the same ground as 82
+  and 85: stage 2 closes on a person using alo for a week, and this is in the
+  way of that.
   **Decided (iteration 212): ADR 0032, accepted.** Opened by
   `alo-downloads`, whose script stops at `fetch(href, { method: "HEAD" })`.
   In short: a script's fetch is an ask in the answer to the message whose
@@ -9103,10 +9109,13 @@ The long pole, and the thing most of section E is unreachable without.
 - [ ] **85. Navigation and session history**: `pushState`, back and forward, and
   what survives each.
   *Depends on 80.*
-  *Needs design (iteration 161):* its dependencies are done, but it names no
-  ADR, feature contract or closing condition, so `LOOP.md` step 2 says it is
-  not ready to build. Cutting a first item from it, with those written, is
-  the work that opens it.
+  ***Needs ADR.*** *The owner chose this on 2026-10-11.* Its dependencies are
+  done and nothing technical holds it; what was missing was a decision that
+  it is designed next, and only the owner makes that. Stage 2 closes on *a
+  person using alo for a week*, and that is unreachable without this item
+  however much else lands — so it moves from `needs design`, which `LOOP.md`
+  step 2 passes over, to work: the ADR as its own iteration (rule 4), then a
+  first item cut from it carrying a contract and a closing condition.
 
 - [ ] **86. `iframe`s and the sandbox attribute** — a document inside a
   document, *"where a great many security bugs live"*.
