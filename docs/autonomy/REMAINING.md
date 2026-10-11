@@ -1572,3 +1572,13 @@ were drawn in their opaque text colour; the new corpus case
 over white blends a unit off Chrome's in one channel; depends on nothing).
 192 queue items are open (435 closed, 436 added). The next unused queue
 number is 437 and the next unused ADR 0049.
+
+Iteration 279 closed item 436 by measurement, with no engine change.
+Chrome 154 draws translucent fills two ways. Its default raster path is the
+exact source-over blend, as this engine's canvas is: the two agree on all 27
+measured cells whose blend is not exactly a half. Its software path
+(`--disable-gpu`) is an eight-bit blend, up to a unit darker, and is where
+the earlier `222` came from. The new corpus case `translucent-fills` and
+`alo-corpus`' `translucent_fills.rs` pin 36 cells over three grounds. 191
+queue items are open (436 closed). The next unused queue number is 437 and
+the next unused ADR 0049.

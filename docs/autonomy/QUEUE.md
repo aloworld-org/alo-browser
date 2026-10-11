@@ -6051,7 +6051,7 @@ The long pole, and the thing most of section E is unreachable without.
   every side. Chrome draws the card's ring over white `(222, 224, 225)`,
   a unit off in red: 436.
 
-- [ ] **436. A translucent colour blends a unit away from Chrome's.**
+- [x] **436. A translucent colour blends a unit away from Chrome's.**
   *Found while building 435 (iteration 278). Feature: `docs/features.md`
   stage 1, colours. Depends on nothing.* `cases/border-colour-functions`'
   ring, `rgb(23 33 43 / 0.14)` over white, is `(223, 224, 225)` here and
@@ -6065,6 +6065,26 @@ The long pole, and the thing most of section E is unreachable without.
   translucent fills over white and over a colour matches Chrome's
   screenshot pixel for pixel, or the remaining difference is measured and
   explained.
+  **Done (iteration 279): measured and explained, and nothing changed.**
+  Twelve translucent colours over white, `rgb(40 120 200)` and `rgb(240
+  200 20)`, screenshotted in Chrome 154 both ways. Its **software path**
+  (`--disable-gpu`, the measuring recipe's, and so iteration 278's) is
+  Skia's eight-bit blend, and accounts for all 36 cells: the alpha rounded
+  to a byte (in `f32`, so 0.3 is 77), the colour premultiplied and rounded,
+  the ground scaled by `(256 − alpha) >> 8` and truncated — up to a unit
+  darker than the blend. Its **default path** is the exact blend: it
+  agrees with this engine on all 27 cells whose blend is not exactly a
+  half, and of the 9 that are it rounds 3 the other way (178.5, 147.5 and
+  247.5 down where this rounds up), as two float arithmetics will. So the
+  card's ring is `(223, 224, 225)` in both engines' default pictures. No
+  code moved: `alo-paint`'s canvas already blends in floats and rounds
+  once, by design, and copying an approximation made for speed would be
+  a wrong pixel on purpose. The corpus case `translucent-fills` draws the
+  36 cells, and `alo-corpus`' `tests/translucent_fills.rs` pins every
+  pixel to the exact blend rounded once (either neighbour on a half), and
+  the card's ring at 223 and 38 over blue (Chrome's software path: 222
+  and 37). Quantising the fill's alpha to a byte fails both tests and
+  the corpus.
 
 - [ ] **432. A `<summary>` draws its disclosure triangle.** *Cut from 429
   by ADR 0048 § 5. Opened by `alo-sites-full-page`'s FAQ. Feature:

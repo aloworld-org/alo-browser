@@ -27049,3 +27049,93 @@ paragraph and the alo Sites row), both frozen cases' `origin.txt`,
 192 queue items are open (435 closed, 436 added). The next unused queue
 number is **437** and the next ADR is **0049**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 279 — queue item 436 measured and explained: a translucent colour is blended exactly, as Chrome's default path draws it
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its head and stage 1), iteration 278 and `REMAINING.md`'s continuation.
+No `AGENTS.md` exists in this repository or above it. For 436: its queue
+entry and 435's, `docs/features.md`' colour line, `docs/conformance.md`'
+border and corpus paragraphs, `alo-paint`'s `canvas.rs` and `alo-value`'s
+`color.rs` (`Rgba::over`). No ADR governs compositing precision; the
+canvas's module doc already settles it (floats, rounded once). Nothing
+here changes that, so no ADR was needed.
+
+**Choosing.** Iteration 278 left 436 the only open item depending on
+nothing open and needing no page.
+
+**What was measured.** Twelve translucent colours over white, `rgb(40 120
+200)` and `rgb(240 200 20)`, as 20 px cells, screenshotted by headless
+Chrome 154 at scale 1, once with `--disable-gpu` and once without. Opaque
+colours were checked first and come through the screenshot exactly.
+- The **software path** (`--disable-gpu`) fits a model on all 36 cells:
+  the alpha rounded to a byte in `f32` (so 0.3 is 77, which Python's
+  doubles had put at 76), the colour premultiplied and rounded, the ground
+  scaled by `(256 − alpha) >> 8` and truncated. That is Skia's eight-bit
+  blend, up to a unit darker than the exact one. Iteration 278 measured
+  this way, per the recipe in memory, and that is where `222` came from.
+- The **default path** differs from the software path in 22 cells. It
+  matches the exact blend rounded on every cell not on a half (27 of 27).
+  Of the 9 that fall exactly on a half, it rounds 3 the other way from
+  this engine.
+- This engine's picture is the exact blend on all 27, and a neighbour on
+  the 9 halves.
+
+**What was built.** No engine code. Copying an eight-bit approximation
+would put a wrong pixel in on purpose (law 3), against the canvas's
+documented design.
+- Corpus case `translucent-fills` (240 × 60), the 36 cells.
+- `alo-corpus/tests/translucent_fills.rs`: every pixel of every cell is the
+  exact blend rounded once (either neighbour on a half), and the card's
+  ring is `(223, 224, 225)` over white and `(38, 108, 178)` over blue,
+  where Chrome's software path draws 222 and 37.
+- `canvas.rs`' module doc records the measurement.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean. `scripts/gate.sh`
+ran in the foreground to a log. The harness moved it to the background at
+600 s, and the next call waited on it in a foreground loop. It read
+`exit 0` and "The gate is met", with no `FAILED` or `panicked` in the log.
+Only this entry, `REMAINING.md` and the commit came after it.
+
+**Gate, manual.**
+- Layout assertion in numbers: nothing positions or sizes. The case's
+  `layout.txt` pins the cells at 20 × 20.
+- Reference render: `translucent-fills/render.png`, its pixels decoded and
+  compared cell by cell with the exact blend and with both Chrome
+  screenshots, as above.
+- Mutation check, from a scratchpad copy restored with `cp` and checked
+  with `cmp`: rounding the fill's alpha to a byte in `Canvas::blend` fails
+  both new tests (the ring becomes 222) and the corpus. A first attempt to
+  mutate `Rgba::over` did not compile, so it is not counted.
+- Hostile input: nothing new reads outside bytes.
+- One file, one responsibility: the new test is its own file, and the case
+  is its own directory.
+- No `unsafe`, no dependency. `alo-workplace` and `alo-os` were not
+  touched: `git status` is clean in each.
+
+**Queue.** 436 ticked with its *Done* paragraph. Nothing added.
+
+**Roadmap: no line moved, and why.** 436 sits under stage 1's *Paint*
+line, which is already ticked, and it changed no behaviour. No stage 2 line
+names compositing. Also updated: `docs/features.md` (the colour line),
+`docs/conformance.md` (the border paragraph's `222` claim corrected, a
+translucent-fill paragraph, and the corpus count, 43 → 66, which was stale),
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- Measuring colours in Chrome needs both paths. `--disable-gpu`'s eight
+  bits are not what a person's Chrome draws.
+- A blend that lands exactly on a half may differ from Chrome's default
+  path by one. Matching that would mean copying its float arithmetic, and
+  no page needs it.
+- Translucency in text coverage, gradients and `opacity` groups was not
+  measured here; only flat fills were.
+- That the window draws this was not captured: the window capture is still
+  refused on this machine (296).
+- 431, 433, 434, 423–428, 411, 414 and 416–421 wait for pages; 432 depends
+  on 404. No open item now depends on nothing and needs no page.
+
+191 queue items are open (436 closed). The next unused queue number is
+**437** and the next ADR is **0049**. This is one iteration, not a finished
+queue or roadmap.

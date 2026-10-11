@@ -221,11 +221,24 @@ rgb(29 78 216)`, a comma-separated `rgb()`, `hsl()`, a `color-mix()` and a
 inside them (corpus case `border-colour-functions`, queue item 435); they
 were split at every space and lost, so the border was drawn in
 `currentColor`, or 0 wide for the `calc()`. alo Sites' presented cards are
-ringed in their text colour at 14%, as Chrome 154 computes it. Over white,
-Chrome draws that ring `(222, 224, 225)` and this draws `(223, 224, 225)`:
-the colour is the same and the blend is a unit off in red (436). A colour
-function this engine does not read, such as `oklch()`, is still left out
-whole, and the border is drawn in `currentColor`.
+ringed in their text colour at 14%, as Chrome 154 computes it, and over
+white that ring is `(223, 224, 225)`, the exact blend, as Chrome's default
+raster path draws it (see the next paragraph). A colour function this
+engine does not read, such as `oklch()`, is still left out whole, and the
+border is drawn in `currentColor`.
+
+**A translucent colour is blended exactly and rounded once** (corpus case
+`translucent-fills`, queue item 436): source-over, in floats, written out
+to bytes when the picture is. Measured on twelve translucent colours over
+white, blue and yellow, Chrome 154 draws two pictures. Its default raster
+path is the same blend: it agrees with this one on every cell whose blend
+is not exactly a half, and on the nine that are, it rounds either way, so
+three of them differ by one. Its software path (`--disable-gpu`) blends in
+eight bits — the alpha rounded to a byte, the colour premultiplied and
+rounded, the ground scaled by (256 − alpha) / 256 and truncated — which
+accounts for every one of its 36 cells and draws up to a unit darker; that
+is where the `(222, 224, 225)` item 435 compared against came from. That is
+an approximation for speed, and it is not copied.
 
 **There is still no focus ring**, which is the rest of queue item 43: a focused
 field looks exactly like an unfocused one. Nothing in this stage has focus to
@@ -470,7 +483,7 @@ another repository — so both are this loop's to close.
 ## The corpus
 
 `crates/alo-corpus/cases/` holds the small cases this engine is checked against
-on every run — forty-three of them today. A case whose page carries script is
+on every run — sixty-six of them today. A case whose page carries script is
 loaded the way a page is, so its script runs — at its own end tag, against the
 page read so far — and the expectations are the page it left
 (`a-script-grows-a-list`, `a-script-beside-itself`,

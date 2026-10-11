@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Measured: a translucent colour is drawn as browsers draw it.** A
+  colour with an alpha over another is blended exactly and rounded once.
+  Chrome's default drawing path does the same on all 27 measured cells
+  whose blend does not fall exactly on a half; the one-unit difference
+  noted last time came from its software path, which blends in eight bits
+  and draws slightly darker. Nothing is drawn differently; a new reference picture of
+  36 translucent fills now pins it (queue item 436).
+
 - **A border whose colour is written as a function is drawn that colour.**
   `border: 1px solid rgb(29 78 216)` — or `hsl()`, or `color-mix()` — was
   torn apart at its spaces, the colour lost, and the border drawn in the

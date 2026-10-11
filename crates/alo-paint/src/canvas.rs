@@ -10,6 +10,12 @@
 //! background, then a border over it, then text over that; three roundings on
 //! every pixel is how a flat colour turns into a slightly wrong one. The eight
 //! bits arrive once, when the picture is written out.
+//!
+//! That is also what Chrome 154's default raster path draws: measured on 36
+//! translucent fills (queue item 436, corpus case `translucent-fills`), it
+//! agrees with this canvas wherever the blend is not exactly a half. Its
+//! software path blends in eight bits and is up to a unit darker, which is
+//! an approximation for speed rather than a different answer.
 
 use alo_value::Rgba;
 

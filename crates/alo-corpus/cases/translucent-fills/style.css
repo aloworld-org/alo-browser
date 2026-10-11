@@ -1,0 +1,26 @@
+/* Translucent fills over three grounds (queue item 436). Each cell is a
+   colour with an alpha, drawn over its row's opaque background, and each
+   pixel is that colour blended source-over and rounded to a byte once.
+   The twelve colours and three grounds are those measured in Chrome 154:
+   its default raster path draws the exact blend too, differing only where
+   it falls on a half, and its software path (`--disable-gpu`) blends in
+   eight bits and draws up to one unit darker. `tests/translucent_fills.rs`
+   says which cell is which. */
+body { margin: 0; background: #ffffff }
+.row { display: flex }
+.row > div { width: 20px; height: 20px }
+#white { background: #ffffff }
+#blue { background: rgb(40 120 200) }
+#yellow { background: rgb(240 200 20) }
+.c1 { background: rgb(23 33 43 / 0.14) }
+.c2 { background: rgb(255 0 0 / 0.5) }
+.c3 { background: rgb(0 0 255 / 0.3) }
+.c4 { background: rgb(100 150 200 / 0.07) }
+.c5 { background: rgb(0 0 0 / 0.33) }
+.c6 { background: rgb(200 50 120 / 0.61) }
+.c7 { background: rgb(10 200 30 / 0.9) }
+.c8 { background: rgb(0 0 0 / 0.14) }
+.c9 { background: rgb(255 255 255 / 0.25) }
+.c10 { background: rgb(17 34 51 / 0.01) }
+.c11 { background: rgb(128 64 32 / 0.77) }
+.c12 { background: rgb(250 128 114 / 0.42) }
