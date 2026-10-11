@@ -178,6 +178,14 @@ The reason this exists rather than a faster fork of somebody else's engine.
   trickles. Not yet: a bound on a whole exchange (item 376)
 - [2] **`<img>` lays out at the picture's own size** and keeps its ratio when
   given one dimension
+- [2] **A broken picture is its text** (queue item 413, ADR 0046, decided and
+  not built): an `<img>` whose picture is not shown and whose `alt` is not
+  empty is an inline run of that `alt` in the element's own style, wrapping
+  with its line and taking no `width`; any other `<img>` without a picture is
+  a box of the size its style gives and nothing else; no icon is drawn (418);
+  an agent reads it as `[broken]`. Whether a picture is shown is decided once,
+  before the boxes are built. Not yet: `<img>`'s `width` and `height`
+  attributes as its size (419), and a picture still on its way (420)
 - [2] **A picture under a transform is drawn transformed** — rotated, skewed
   or mirrored with its box, its outline anti-aliased like any other edge
   (queue item 178); sampled nearest-neighbour inside (item 179)

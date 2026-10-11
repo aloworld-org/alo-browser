@@ -7851,6 +7851,26 @@ The long pole, and the thing most of section E is unreachable without.
   when:* its ADR is accepted and the case's `alt` is drawn on the
   figure's first line, in numbers and its picture, and the agent reads
   the image by that name and as broken.
+  **Decided (iteration 268): ADR 0046, accepted.** Grounded in HTML
+  § 15.4.2's four rules and in Chrome 154, measured on this machine
+  (every row in the ADR's table), the frozen page included: Chrome draws a
+  16 × 16 icon and "Orange notebook <front>" inline, 194.796875 × 18, and
+  `width="640"` does nothing. Whether an `<img>` shows a picture is decided
+  once per drawing by `alo-renderer`'s `pictures.rs`, **before** the box
+  tree is built, and handed to it. With no picture and a non-empty `alt`
+  it is a non-replaced element whose one text box is the `alt`, its node
+  the `<img>`, drawn in the element's style at the `display` its style
+  gives — the user-agent sheet moves `img` from `inline-block` to
+  `inline`, which leaves every decoded picture where it is because a
+  replaced box is atomic whatever its `display`; with no picture and an
+  absent or empty `alt` it is a replaced box with natural dimensions 0 and
+  no ratio (so `a-picture`'s `.missing` stays 40 × 20, never 300 × 150).
+  No icon or frame (cut to 418). An agent reads every `<img>` without a
+  picture with the state `broken`, held in the box tree, its `alt` once as
+  its name and no node for the text. Cut, each waiting for a page: 418,
+  419 (`<img>`'s `width`/`height` attributes), 420 (a picture on its
+  way). *Closes when:* ADR 0046 § 7. Depends on nothing open; buildable
+  next.
 
 - [ ] **414. A picture in a `data:` URL.** *Found by
   `alo-sites-rich-blocks` (iteration 264). Feature: `docs/features.md`
@@ -7863,6 +7883,42 @@ The long pole, and the thing most of section E is unreachable without.
   when:* such a page's picture is drawn from its URL's bytes, with no
   request, and malformed, truncated and huge `data:` URLs are refused
   without a panic.
+
+- [ ] **418. A broken picture's icon.** *Cut from 413 by ADR 0046 § 4.
+  Feature: `docs/features.md` stage 2, "A broken picture is its text".
+  Waits for a page.* Chrome 154 draws a 16 × 16 icon before a broken
+  picture's `alt`, at any font size and with no gap, and a grey frame with
+  the icon inside the box of an `<img>` that represents nothing; HTML
+  § 15.4.2 makes both optional and this engine draws neither, so a broken
+  picture's text cannot be told from the text around it. *Blocked: no page
+  yet* where that matters to somebody reading it. *Closes when:* such a
+  frozen page's broken picture is drawn with a sign a person can see, in
+  pixels and numbers, the icon owned here rather than copied.
+
+- [ ] **419. An `<img>`'s `width` and `height` attributes are its size.**
+  *Found by ADR 0046 (iteration 268), reading `alo-style`'s
+  `presentation.rs`. Feature: `docs/features.md` stage 2, "`<img>` lays out
+  at the picture's own size". Waits for a page.* HTML § 15.4.3 maps an
+  `<img>`'s `width` and `height` attributes to its `width` and `height`
+  properties; here they are presentation attributes on an `<svg>` only, so
+  `<img src=… width=80>` lays out at the picture's own size. The one
+  frozen `<img>` that writes one, `alo-sites-rich-blocks`' `width="640"`,
+  is an inline broken picture, to which a width does not apply. *Blocked:
+  no page yet* with a picture or a box that the attributes size. *Closes
+  when:* such a page's `<img>` is the size its attributes say, in
+  numbers, with a stylesheet's size beating them.
+
+- [ ] **420. A picture on its way keeps a box.** *Cut from 413 by ADR 0046
+  § 1. Feature: `docs/features.md` stage 2, "A broken picture is its text".
+  Waits for a page.* HTML § 15.4.2's second rule: an `<img>` whose picture
+  the browser has reason to believe will arrive is a replaced element of
+  its size meanwhile, not its `alt` as text. Every drawing here is handed
+  its pictures already fetched, so none is ever on its way; a page that
+  fetches its pictures while it is shown would draw its `alt` and then
+  jump. *Blocked: no page yet* whose pictures arrive after it is first
+  drawn. *Closes when:* such a page's `<img>` keeps its box until the
+  picture arrives or fails, in numbers, and then shows the one or the
+  other.
 
 - [ ] **84. WebSocket.**
   *Depends on 53, 76.*

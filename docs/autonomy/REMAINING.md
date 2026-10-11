@@ -1433,3 +1433,14 @@ crossing into or out of it is read again, rescaled or kept by that origin.
 initial` is the parent's size rather than `medium`; waits for a page). 181
 queue items are open (415 closed, 417 added). The next unused queue number
 is 418 and the next unused ADR 0046.
+
+Iteration 268 decided item 413: ADR 0046, a broken picture is its text,
+measured in Chrome 154 on this machine, `alo-sites-rich-blocks` included.
+Whether an `<img>` shows a picture is decided once per drawing, before the
+boxes; with no picture and a non-empty `alt` it is inline text of that
+`alt` in its own style (`img` becomes `display: inline`), otherwise a
+replaced box of natural size 0; no icon; an agent reads `[broken]`. No
+code; 413 stays open, decided and buildable next. Cut, each waiting for a
+page: 418 (an icon), 419 (`<img>`'s `width` and `height` attributes), 420
+(a picture on its way). 184 queue items are open (418–420 added open). The
+next unused queue number is 421 and the next unused ADR 0047.

@@ -25929,3 +25929,85 @@ case's `origin.txt`, `REMAINING.md` and `CHANGELOG.md`.
 181 queue items are open (415 closed, 417 added). The next unused queue
 number is **418** and the next ADR is **0046**. This is one iteration,
 not a finished queue or roadmap.
+
+
+
+## Iteration 268 — queue item 413 decided: ADR 0046, a broken picture is its text
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and the *Pictures, and things that move* lines), iterations 266 and
+267, and `REMAINING.md`'s continuation. No `AGENTS.md` exists in this
+repository. For 413: its queue entry, `docs/features.md`' `<img>` lines,
+ADRs 0002, 0013 § 3, 0022 § 4, 0027, 0043 § 1 and 0044 (the form of an ADR
+iteration and of a property beside a name); `alo-renderer`'s `pictures.rs`,
+`resource.rs` and `pipeline.rs`; `alo-box`'s `tree.rs`, `natural.rs`,
+`semantics.rs` and `state.rs`; `alo-layout`'s `replaced.rs` and
+`engine.rs` (`is_atomic`); `alo-style`'s `user_agent.rs` and
+`presentation.rs`; `alo-agent`'s `tree.rs`; the cases
+`alo-sites-rich-blocks` and `a-picture`.
+
+**Choosing.** Every open item was blocked on a page, a dependency or an
+ADR when iteration 267 ended, and it added only 417 (waits for a page). Of
+the items needing an ADR, 413 alone has its page frozen and nothing open
+under it. LOOP.md § 4: a decision is its own iteration, so this one wrote
+ADR 0046 and no code.
+
+**Evidence.** HTML § 15.4.2, fetched 2026-10-11, its four rules in order.
+Measured on this machine in Google Chrome 154.0.8037.98, headless, by
+throwaway pages in the scratchpad (`getBoundingClientRect`,
+`getComputedStyle`, two screenshots): a broken `<img>` with an `alt` is
+`display: inline`, a 16 × 16 icon and the text with no gap, wrapping with
+its line, in the element's colour and decoration, with `width`/`height`
+attributes and CSS sizes ignored; `display: block` fills; one with no or
+an empty `alt` and a size is that size with a frame and icon; with
+nothing, 0 × 0 (16 × 16 with a `src` and no `alt`, the icon). The frozen
+page itself: 194.796875 × 18, `width="640"` inert. Chromium's source was
+not read; Firefox is not installed and is not cited.
+
+**What was decided** (ADR 0046, accepted). Whether an `<img>` shows a
+picture is decided once per drawing, by `pictures.rs`, before the box tree
+is built. Without one and with a non-empty `alt` it is a non-replaced
+element whose one text box is the `alt` (node: the `<img>`), at the
+`display` its style gives; the user-agent sheet's `img` becomes `inline`,
+which leaves decoded pictures where they are because a replaced box is
+atomic whatever its `display`. Without one and with an absent or empty
+`alt`, a replaced box of natural size 0 and no ratio, so `a-picture`'s
+`.missing` stays 40 × 20. No icon or frame. An agent reads `[broken]` on
+every `<img>` without a picture, its `alt` once, no node for the text.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop. It read `exit 0` and "The gate is
+met", every section `ok`, no `FAILED` or `panicked` in the log. This
+entry and the commit came after that run and are documentation only.
+
+**Gate, manual.** No style, layout, paint or agent code changed, so no
+layout assertion or reference render applies and none moved; the only
+file under `crates/` is the case's `origin.txt` prose. One responsibility
+per file: the ADR decides one thing, what an `<img>` without a picture is.
+No `unsafe`, no dependency. `alo-workplace` and `alo-os` were not touched:
+`git status` in each is clean.
+
+**Queue.** 413 stays open with a *Decided* paragraph; it closes on ADR
+0046 § 7 and is buildable next, depending on nothing open. Added open,
+each waiting for a page: 418 (a broken picture's icon), 419 (`<img>`'s
+`width` and `height` attributes, a gap found reading `presentation.rs`),
+420 (a picture on its way). **Roadmap: no line moved, and why.** The
+nearest line, *Image codecs*, is about decoding, which this does not
+touch, and no roadmap line names what a failed picture shows; adding one
+to claim a decision would be decoration, as iterations 260–267 found.
+Also updated: `docs/features.md` (a new decided line under `<img>`),
+`docs/conformance.md` (the alo Sites row), the case's `origin.txt`,
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 413 is decided and not built: the case's picture still draws nothing.
+  Building it moves `alo-sites-rich-blocks`' layout, picture and outline,
+  `a-picture`'s outline (`[broken]`) and every `boxes.txt` line of an
+  `<img>`; each must be reviewed and no decoded picture may move.
+- 411, 414, 416, 417, 418, 419 and 420 wait for pages, as does everything
+  iteration 267 listed.
+
+184 queue items are open (418–420 added open). The next unused queue
+number is **421** and the next ADR is **0047**. This is one iteration,
+not a finished queue or roadmap.

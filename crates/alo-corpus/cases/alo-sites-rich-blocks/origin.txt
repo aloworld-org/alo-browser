@@ -48,9 +48,15 @@ the issue is gone.
 **The broken picture shows nothing.** Its `alt`, "Orange notebook <front>",
 is not drawn; the `<img>` is an empty box on the figure's first line, and the
 agent reads it by that `alt`. HTML's rendering section draws a broken
-picture with text as that text. Queue item 413, which needs its ADR. That a
-`data:` URL is never read as a picture at all is item 414; here it would not
-matter, since these bytes are no picture.
+picture with text as that text. Queue item 413, decided by ADR 0046
+(iteration 268): the `alt` becomes inline text in the `<img>`'s own style,
+`width="640"` applying to it no more than it does in Chrome, and the agent
+reads `image "Orange notebook <front>" [broken]`. Measured on this very page
+in Chrome 154: the figure's first line holds a 16 x 16 icon and the text,
+194.796875 x 18 in Chrome's sans-serif; ADR 0046 § 4 leaves the icon out, so
+here the box will be the text alone. That a `data:` URL is never read as a
+picture at all is item 414; here it would not matter, since these bytes are
+no picture.
 
 Rendered at 800 × 600, as the alo Sites cases are.
 

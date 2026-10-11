@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: a picture that fails to load will show its description.**
+  When a page's picture cannot be shown — its file is missing or damaged —
+  and the page described it in words, those words will appear where the
+  picture would have been, in the page's own text style and flowing with
+  the line, as Chrome draws it. A picture with no description keeps
+  the space the page gave it. An agent reading the page will be told the
+  picture is broken, so it does not act as if a person could see it. Other
+  browsers also draw a small broken-picture icon; this one will not, for
+  now (queue item 413, ADR 0046).
+
 - **Code is drawn at the size other browsers draw it.** Text set in the
   plain `monospace` font — a `<pre>` block, `<code>`, `<kbd>`, `<samp>` — is
   13 pixels where the text around it is 16, as in every other browser, and
