@@ -1481,3 +1481,16 @@ track size is a `min()`, so the cards are one column. Cut: 423 (a containing
 block inside the lines; waits for a page). 184 queue items are open (354
 closed, 422 and 423 added). The next unused queue number is 424 and the next
 unused ADR 0047.
+
+Iteration 272 decided item 422: ADR 0047, measured in Chrome 154. Where a
+grid's size in an axis is definite (by `taffy`'s own rule), a calculated
+track size in a template holding an `auto-fill` or `auto-fit` repetition is
+resolved against the content box and handed to `taffy` as that length, in a
+copy of the style held for one grid layout call, by a new
+`alo-layout/src/auto_repeat.rs` added to the gate's `taffy` boundary list;
+where it is not, the template is left as written, `taffy` discards it, and
+one issue per node is recorded. No code; 422 stays open, decided and
+buildable next. Cut, each waiting for a page: 424 (a calculated track with
+no definite basis) and 425 (`repeat(auto-fit, 1fr)` accepted when CSS makes
+it invalid). 186 queue items are open (424 and 425 added open). The next
+unused queue number is 426 and the next unused ADR 0048.

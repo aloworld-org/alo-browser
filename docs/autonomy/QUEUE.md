@@ -5786,6 +5786,25 @@ The long pole, and the thing most of section E is unreachable without.
   refused there), is a decision, and it is made in an ADR first. *Closes
   when:* that ADR is accepted, and the frozen blog index's cards are two
   columns of 368 at x 20 and 412, in numbers.
+  **Decided (iteration 272): ADR 0047, accepted.** Measured in Chrome 154:
+  where a grid's size is definite, a calculated track behaves exactly as
+  the length it resolves to (`width: 760px` gives 368 368 for the
+  calculation and for its plain twin; one item under `auto-fit` takes all
+  760); where it is not (`inline-grid` with a size `auto`, a `max-width`
+  only, a `min-width` only) Chrome's columns differ from the plain
+  length's in every case. So, in the axis whose size is definite by
+  `taffy`'s own rule (`outer_node_size`), each calculated track size in a
+  template holding an auto repetition is resolved against the content box
+  and handed to `taffy` as that length, in a copy of the style held for
+  one `compute_grid_layout` call; the node's own style is never changed.
+  The lowering is a new file, `alo-layout`'s `auto_repeat.rs`, added to
+  the gate's `taffy` boundary list, and deleted the day `taffy` counts a
+  calculation itself. In an axis that is not definite the template is
+  left as written, `taffy` still discards it, and one issue per node is
+  recorded. No code yet: **buildable next**, under ADR 0047 § 6, which
+  lists the agreement tests (the calculated grid against its plain twin
+  and Chrome's numbers, cases A–D), the refusals (E–G) and the frozen
+  page's two columns. Cut, each waiting for a page: **424** and **425**.
 
 - [ ] **423. A containing block inside the lines.** *Cut from 354
   (iteration 271). Feature: `docs/features.md` stage 1, "Absolute and
@@ -5801,6 +5820,34 @@ The long pole, and the thing most of section E is unreachable without.
   page yet* that positions an element holding such a box and gives the box
   an inset. *Closes when:* that frozen page's box is placed against its
   containing block in numbers.
+
+- [ ] **424. A calculated track with no definite basis, repeated to fit.**
+  *Cut from 422 (ADR 0047 § 4). Feature: `docs/features.md` stage 1,
+  "Flexbox and grid". Waits for a page.* An `auto-fill` or `auto-fit`
+  repetition whose track size is a calculation with a percentage, in a
+  grid whose size in that axis is not definite — an `inline-grid` sized
+  `auto`, or one with only a `max-width` or a `min-width` — is discarded
+  by `taffy` and recorded (ADR 0047 § 4). Chrome 154, measured with
+  `minmax(min(100%, 288px), 1fr)` and `gap: 24px`: size `auto` with items
+  50, 50 and 0 wide is one column of 50; `max-width: 700px` only is one
+  column of 198; `min-width: 700px` only is two of 338. Each differs from
+  the plain `288px` track's answer, so neither discarding nor lowering is
+  right: it is track sizing with a percentage that has no basis yet, which
+  is `taffy`'s algorithm. *Blocked: no page yet* whose grid is like this.
+  *Closes when:* that frozen page's columns are Chrome's, in numbers,
+  without a fork of `taffy` or a second pass (ADR 0004).
+
+- [ ] **425. An auto repetition of a track that is not fixed is invalid
+  when it is read.** *Found while deciding 422 (ADR 0047, *What this does
+  not decide*). Feature: `docs/features.md` stage 1, "Flexbox and grid".
+  Waits for a page.* CSS Grid's `<auto-repeat>` takes only `<fixed-size>`
+  tracks, so `repeat(auto-fit, 1fr)` matches no grammar and the
+  declaration is invalid at parse time: the cascade keeps an earlier one.
+  `track.rs` accepts it (its own test reads it back), and `taffy` then
+  discards the template, so a sheet that writes a valid fallback before it
+  loses the fallback. *Blocked: no page yet* that writes one. *Closes
+  when:* that frozen page's grid uses its earlier declaration, in numbers,
+  and `track.rs` refuses the value and records it.
 
 - [x] **355. An absolute box is placed against its nearest positioned
   ancestor.** *Found by iteration 228 while building 352, not opened by a

@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: card grids that fit as many columns as there is room for
+  will be laid out in columns.** A common way to write a grid of cards
+  asks for "as many columns as fit, each at least this wide but never
+  wider than the grid". This engine's layout library throws that rule
+  away when the width is written as a calculation, so alo Sites' blog
+  cards are one long column where Chrome shows two side by side. When the
+  grid's own width is known, the calculation will be worked out first and
+  handed over as a plain width, which Chrome was measured to treat the
+  same way. When the width is not yet known, Chrome's answer is different
+  again; those grids stay as they are for now and the engine will say so
+  in its list of issues (queue items 422 and 424, ADR 0047).
+
 - **Text hidden for screen readers no longer breaks the line it is in.**
   Pages often put a few words inside a link that only a screen reader
   should hear — "Read article" followed by a hidden ": Launch notes" — in

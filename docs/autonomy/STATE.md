@@ -26336,3 +26336,90 @@ now built, the grid line's 422), `docs/conformance.md` (the alo Sites row),
 184 queue items are open (354 closed, 422 and 423 added). The next unused
 queue number is **424** and the next ADR is **0047**. This is one
 iteration, not a finished queue or roadmap.
+
+
+## Iteration 272 — queue item 422 decided: ADR 0047, a calculated track in an auto repetition is its length when the grid's size is known
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and the stage 1 *Layout* line), iteration 271 and `REMAINING.md`'s
+continuation. No `AGENTS.md` exists in this repository or above it. For
+422: its queue entry and 423 beside it, `docs/features.md`' *Flexbox and
+grid* line, ADR 0004 (the fork and the second pass it refuses) and ADR 0009;
+`alo-layout`'s `arena.rs` (the taffy traits, `Unresolved::resolve`),
+`engine.rs` (`template`, `min_track`, `max_track`) and `track.rs`;
+`scripts/gate.sh`'s boundary list; `taffy` 0.14.0's `compute/grid/mod.rs`,
+`compute/grid/explicit_grid.rs` and `style/grid.rs`; CSS Grid 1 § 7.2.3 and
+§ 7.2.3.2.
+
+**Choosing.** Every open item ahead of 422 waits on a page, a dependency or
+an ADR already written; iteration 271 named 422's ADR as the next decision.
+`LOOP.md` stage 2 § 4: a needs-ADR item gets its ADR as its own iteration.
+
+**What was decided.** ADR 0047, accepted. Read in `taffy`: the count of an
+auto repetition already resolves a calc handle, but the validity check
+before it (`has_fixed_component`, a tag test) refuses one, and the template
+is discarded silently. Measured in Chrome 154, headless, on a scratch page
+(source not read), track `minmax(min(100%, 288px), 1fr)`, gap 24: a grid of
+definite width behaves exactly as the plain length it resolves to (760 wide:
+368 368, as the plain twin; one item under `auto-fit` 760 and the empty
+track 0; `auto-fill` 368 368; 200 wide: 200; 800 border-box with padding 20
+and border 3: 365 365 at 23 and 412); an `inline-grid` sized `auto`, with
+only a `max-width` or only a `min-width`, differs from the plain length in
+every case (50 against 288; 198 against 288 288; 338 338 against 288 288
+288). So: in the axis whose size is definite by `taffy`'s own
+`outer_node_size` rule, each calculated track size in a template with an
+auto repetition is resolved against the content box with `Unresolved::resolve`
+and handed to `taffy` as that length, in a copy of the style held for one
+`compute_grid_layout` call (the node's own style never changes; the copy is
+a function of the inputs `taffy`'s cache is keyed by). A new
+`auto_repeat.rs`, added to the gate's `taffy` boundary list, does it, and is
+deleted the day `taffy` counts a calculation. Elsewhere the template is
+left, `taffy` discards it, and one issue per node is recorded. Rejected: a
+fork or `[patch]`, counting ourselves into `repeat(N, …)` (loses `auto-fit`'s
+collapse, case B), lowering against a max-size or min-size basis (F, G),
+a second pass, and refusing at parse time. Offering the one-line condition
+to `taffy` upstream is a person's action, not the loop's.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log; the
+harness moved it to the background at 600 s and the next call waited on it
+in a foreground `until` loop. It read `exit 0` and "The gate is met", 39
+`ok` lines, none failing, no `FAILED` or `panicked` in the log. This entry
+and the commit came after that run and are documentation only.
+
+**Gate, manual.** No code changed, so no layout assertion or reference
+render is owed by this iteration; ADR 0047 § 6 lists the ones the build
+owes: agreement tests (cases A–D, the calculated grid against its plain twin
+and Chrome's numbers), refusals in numbers (E–G, one issue each), the frozen
+blog index's two columns of 368 at x 20 and 412, and two mutations. Every
+claim in the ADR about the code was checked against it while writing:
+`Unresolved::resolve` clamps nothing (a first draft said it did, and was
+corrected), `taffy`'s default scrollbar width is 0 and `engine.rs` sets
+none, a repetition's count is bounded by `track.rs` at `u16::MAX` and the
+list's length is not. No `unsafe`, no dependency. `alo-workplace` and
+`alo-os` were not touched: `git status` in each is clean.
+
+**Queue.** 422 stays open with its *Decided* paragraph — decided, not built,
+and buildable next. 424 (a calculated track with no definite basis) and 425
+(`repeat(auto-fit, 1fr)` accepted though CSS makes it invalid; `track.rs`'
+own test reads it back) added open, each waiting for a page. **Roadmap: no
+line moved, and why.** 422 is grid, under stage 1's *Layout* line, which is
+already ticked, and no stage 2 line names grid tracks or alo Sites' pages;
+moving a line for a decision would be decoration, as iterations 269 and 271
+found. Also updated: `docs/features.md` (the grid line names ADR 0047, 424
+and 425), `docs/conformance.md` (the alo Sites row), `REMAINING.md` and
+`CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 422 is not built: the blog index's cards are still one column. It is the
+  next item.
+- B's plain twin (one item, `minmax(288px, 1fr)`, `auto-fit`) was not
+  measured in Chrome; the ADR says so and the build's agreement test
+  should measure it.
+- That `taffy` itself gives Chrome's numbers for the plain-length cases A–D
+  is not yet checked here; the build's agreement tests are where it is.
+- 423, 424, 425, 411, 414, 416–421 wait for pages. Still unfrozen alo Sites
+  goldens: the full page, a blog post and `catalog_one_category`.
+
+186 queue items are open (424 and 425 added). The next unused queue number
+is **426** and the next ADR is **0048**. This is one iteration, not a
+finished queue or roadmap.
