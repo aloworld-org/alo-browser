@@ -27,10 +27,12 @@
 //! dangle, survives the `Vec` growing, and a handle from another arena resolves
 //! to nothing rather than to somebody else's expression.
 
+use crate::auto_repeat::{self, Axis};
 use crate::measure::{MeasureText, TextStyle};
 use alo_box::{BoxId, BoxTree, NaturalSize};
 use alo_style::StyleTree;
 use alo_value::{FontMetrics, LengthPercentage};
+use std::collections::{BTreeMap, BTreeSet};
 use taffy::{
     AvailableSpace, Cache, CacheTree, LayoutInput, LayoutOutput, NodeId, RunMode,
     Size as TaffySize, Style, TraversePartialTree, compute_block_layout, compute_cached_layout,
@@ -109,6 +111,14 @@ impl Unresolved {
 pub(crate) struct Arena<'a, M: MeasureText> {
     nodes: Vec<Node>,
     unresolved: Unresolved,
+    /// The style a grid is being laid out with, for the length of one
+    /// `compute_grid_layout` call, where it is not the node's own: see
+    /// `crate::auto_repeat`. A grid inside a grid holds its own.
+    lowered: BTreeMap<usize, Style>,
+    /// The grids, and the axes, whose template `taffy` discarded in some
+    /// call because a calculated track in an auto repetition had no
+    /// definite size to be counted against (ADR 0047 § 4).
+    refused: BTreeSet<(usize, Axis)>,
     boxes: &'a BoxTree,
     styles: &'a StyleTree,
     measure: &'a M,
@@ -120,6 +130,8 @@ impl<'a, M: MeasureText> Arena<'a, M> {
         Self {
             nodes: Vec::new(),
             unresolved: Unresolved::default(),
+            lowered: BTreeMap::new(),
+            refused: BTreeSet::new(),
             boxes,
             styles,
             measure,
@@ -170,6 +182,13 @@ impl<'a, M: MeasureText> Arena<'a, M> {
         compute_root_layout(self, NodeId::from(root), available);
     }
 
+    /// The grids whose template `taffy` discarded in some call, and
+    /// in which axis, for the engine to say so once per grid and axis rather
+    /// than once per call.
+    pub(crate) fn refused(&self) -> impl Iterator<Item = (usize, Axis)> + '_ {
+        self.refused.iter().copied()
+    }
+
     /// Where a node ended up, relative to the one that holds it.
     pub(crate) fn layout(&self, node: usize) -> Option<taffy::Layout> {
         self.nodes.get(node).map(|held| held.layout)
@@ -189,9 +208,43 @@ impl<'a, M: MeasureText> Arena<'a, M> {
     /// so a node that is not there answers with the default rather than
     /// stopping the layout. It cannot happen: every id `taffy` has came from
     /// [`Arena::push`].
+    ///
+    /// A grid being laid out with a lowered copy answers with the copy, to
+    /// every question, while it is held: its item properties are its own,
+    /// so asking as an item gets the same answer either way.
     fn style(&self, id: NodeId) -> &Style {
         const MISSING: &Style = &Style::DEFAULT;
-        self.node(id).map_or(MISSING, |node| &node.style)
+        let index = usize::from(id);
+        if let Some(lowered) = self.lowered.get(&index) {
+            return lowered;
+        }
+        self.nodes.get(index).map_or(MISSING, |node| &node.style)
+    }
+
+    /// Lay a grid out, with its calculated tracks counted where `taffy`
+    /// would discard them (ADR 0047).
+    ///
+    /// The copy is held for this one call and dropped after it, so the next
+    /// call, with other inputs, starts from what the author wrote. A refusal
+    /// is recorded from whichever call meets it, once per grid and axis
+    /// however many calls do (ADR 0047 § 4): a grid sized by its content is
+    /// measured with no definite size, and what it measures as is the
+    /// template discarded, whatever the final call is then handed.
+    fn lay_out_grid(&mut self, node_id: NodeId, inputs: LayoutInput) -> LayoutOutput {
+        let index = usize::from(node_id);
+        let unresolved = &self.unresolved;
+        let lowering = auto_repeat::lower(self.style(node_id), &inputs, |handle, basis| {
+            unresolved.resolve(handle, basis)
+        });
+        self.refused
+            .extend(lowering.refused.iter().map(|axis| (index, *axis)));
+        let Some(style) = lowering.style else {
+            return compute_grid_layout(self, node_id, inputs);
+        };
+        self.lowered.insert(index, style);
+        let output = compute_grid_layout(self, node_id, inputs);
+        self.lowered.remove(&index);
+        output
     }
 }
 
@@ -269,7 +322,7 @@ impl<M: MeasureText> taffy::LayoutPartialTree for Arena<'_, M> {
                     compute_block_layout(tree, node_id, inputs, None)
                 }
                 (taffy::Display::Flex, true) => compute_flexbox_layout(tree, node_id, inputs),
-                (taffy::Display::Grid, true) => compute_grid_layout(tree, node_id, inputs),
+                (taffy::Display::Grid, true) => tree.lay_out_grid(node_id, inputs),
                 // A node with nothing under it is measured rather than laid
                 // out, and what it measures is what it stands for.
                 (_, false) => tree.measure_leaf(node_id, inputs),

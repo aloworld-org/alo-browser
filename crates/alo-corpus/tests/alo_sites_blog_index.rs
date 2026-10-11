@@ -19,11 +19,11 @@
 //! own `margin: -1px`, a pixel above the top of the link's line — 159.4375
 //! across where the link starts at 45 and is 115.4375 wide.
 //!
-//! The cards are not side by side here, as they are in Chrome: `repeat(
-//! auto-fit, minmax(min(100%, 18rem), 1fr))` is a track list `taffy` throws
-//! away because its smallest size is a `min()`, and that is queue item 422.
-//! The numbers below are about one card's lines, which the grid does not
-//! move.
+//! The cards are side by side, as they are in Chrome: two columns of 368 at
+//! x 20 and 412. The grid is `repeat(auto-fit, minmax(min(100%, 18rem),
+//! 1fr))`, a track list `taffy` throws away because its smallest size is a
+//! `min()`; until queue item 422 (ADR 0047) it was, and the cards were one
+//! column of rows 760 wide.
 //!
 //! It is loaded as the call-to-action section is (`alo_sites_cta.rs`), from
 //! the same frame, sheet and analytics script, so how its sheet is asked
@@ -157,9 +157,42 @@ fn an_agent_reads_each_read_link_in_one_piece() {
         .filter(|line| line.starts_with("link \"Read article"))
         .collect();
     assert_eq!(read.len(), 2, "{tree}");
+    assert!(read.iter().all(|line| !line.contains("pieces")), "{tree}");
+    // Each where its card's padding starts: the first card's at 45, as in
+    // Chrome, and the second's 392 to the right of it, in the second column.
     assert!(
-        read.iter()
-            .all(|line| line.contains(" at (45, ") && !line.contains("pieces")),
+        read.first().is_some_and(|line| line.contains(" at (45, "))
+            && read.get(1).is_some_and(|line| line.contains(" at (437, ")),
         "{tree}"
+    );
+}
+
+#[test]
+fn its_cards_are_two_columns_of_368_as_chromes_are() {
+    let Some((_, rendering)) = blog_index() else {
+        panic!("the case renders");
+    };
+    let cards = with_class(&rendering, "blog-card");
+    assert_eq!(cards.len(), 2, "{cards:?}");
+    let (first, grid) = cards[0];
+    let (second, _) = cards[1];
+    // Chrome 154, on the same page and sheet at 800 wide: `.blog-grid` is
+    // 760 at x 20, and `min(100%, 18rem)` is 288 there, so two tracks and a
+    // gap of 1.5rem fit, each 368 by its `1fr`.
+    assert!(
+        near(grid.origin.x, 20.0) && near(grid.size.width, 760.0),
+        "{grid:?}"
+    );
+    assert!(
+        near(first.origin.x, 20.0) && near(first.size.width, 368.0),
+        "{first:?}"
+    );
+    assert!(
+        near(second.origin.x, 412.0) && near(second.size.width, 368.0),
+        "{second:?}"
+    );
+    assert!(
+        near(first.origin.y, second.origin.y),
+        "one row: {first:?} {second:?}"
     );
 }

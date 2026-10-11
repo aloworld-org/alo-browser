@@ -5768,7 +5768,7 @@ The long pole, and the thing most of section E is unreachable without.
   static position never applied, 3. No other corpus case moved. A
   containing block inside the lines is cut to **423**.
 
-- [ ] **422. A grid track whose size is a calculation, repeated to fit.**
+- [x] **422. A grid track whose size is a calculation, repeated to fit.**
   *Found by `alo-sites-blog-index` (iteration 271). Feature:
   `docs/features.md` stage 1, "Flexbox and grid". **Needs ADR.***
   `.blog-grid` is
@@ -5805,6 +5805,33 @@ The long pole, and the thing most of section E is unreachable without.
   lists the agreement tests (the calculated grid against its plain twin
   and Chrome's numbers, cases A–D), the refusals (E–G) and the frozen
   page's two columns. Cut, each waiting for a page: **424** and **425**.
+  **Built (iteration 273).** `alo-layout`'s new `auto_repeat.rs` (on the
+  gate's `taffy` boundary list) gives a grid whose template holds an auto
+  repetition and a calculated track a copy of its style with each
+  calculated end resolved, by `Unresolved::resolve`, against the content
+  box in each axis definite by `taffy`'s `outer_node_size` rule; an aspect
+  ratio or a scrollbar gutter is refused rather than approximated.
+  `arena.rs`' `lay_out_grid` holds the copy for one `compute_grid_layout`
+  call and every style question about the node is answered from it
+  meanwhile; a refused axis is recorded, and `engine.rs` turns each grid
+  and axis into one issue naming the template. **Met:** the frozen blog
+  index's cards are two columns of 368 at x 20 and 412 in one row
+  (`alo_sites_blog_index.rs`, its references rewritten; no other corpus
+  case moved), the agent reads the second card's link at x 437; agreement
+  tests A, B, B `auto-fill`, C and D in `alo-layout/tests/auto_repeat.rs`
+  each equal to the plain grid of the length the calculation comes to and
+  to Chrome's numbers; E, F and G each record one issue; a grid of grids,
+  and 200 nested grids on an 8 MiB thread, lay out. Mutations: skipping
+  the lowering fails A, B `auto-fill`, D, G, the grid of grids, the nest
+  and the frozen page's two tests; lowering against the parent's width
+  where the grid's is indefinite fails E, F and G. **Found by the build,
+  and written into ADR 0047 as *What the build found*:** `taffy` lays out
+  a grid sized by its content in the width it measured, which is definite
+  by the ADR's rule, so G is lowered in that call and comes out Chrome's
+  338 338 rather than today's single column (§ 6 expected the latter); a
+  grid measured by its parent with no width records the refusal even when
+  its final call lowers, and the issue says it was *measured* without its
+  template. Cut: **426**, **427**, **428**.
 
 - [ ] **423. A containing block inside the lines.** *Cut from 354
   (iteration 271). Feature: `docs/features.md` stage 1, "Absolute and
@@ -5848,6 +5875,46 @@ The long pole, and the thing most of section E is unreachable without.
   loses the fallback. *Blocked: no page yet* that writes one. *Closes
   when:* that frozen page's grid uses its earlier declaration, in numbers,
   and `track.rs` refuses the value and records it.
+
+- [ ] **426. An `inline-grid` holding blocks is a grid, not an inline
+  box split around them.** *Found while building 422 (iteration 273).
+  Feature: `docs/features.md` stage 1, "Flexbox and grid". Waits for a
+  page.* `<body><div style="display: inline-grid"><div></div><div></div>
+  </div></body>`: the box tree splits the `inline-grid` around its block
+  children as CSS 2 § 9.2.1.1 splits an inline box, so the layout outline
+  shows four empty `inline grid` boxes on four anonymous lines with the
+  blocks between them, and no grid lays anything out. An `inline-grid` is
+  an atomic inline-level box (CSS Display 3): its children are grid items
+  whatever they are. *Blocked: no page yet* that writes an `inline-grid`
+  holding blocks. *Closes when:* that frozen page's grid places its items
+  in its tracks, in numbers.
+
+- [ ] **427. A nest of grids deep enough to exhaust the stack is refused,
+  not a crash.** *Found while building 422 (iteration 273). Feature:
+  `docs/features.md` stage 2, the process and sandbox model (ADR 0005),
+  under `LOOP.md` stage 2 § 2's hostile-bytes clause. Waits for a page.* 400 grids nested one in another overflow an 8 MiB
+  thread's stack in a debug build, and 100 a 2 MiB test thread's, with a
+  plain template, `1fr`, or the calculated one alike: layout recurses
+  through `taffy` once per level, and nothing in `alo-dom`, `alo-box` or
+  `alo-layout` bounds how deep elements may nest. A renderer that crashes
+  on a page is a denial of service. *Blocked: no page yet* — and a
+  decision on where the bound lives and what lies past it, which is an ADR
+  of its own first. *Closes when:* that ADR is accepted and a page nested
+  past the bound renders what is above it and says so, on the renderer's
+  own stack size.
+
+- [ ] **428. A calculation written back out reads as the author wrote
+  it.** *Found while building 422 (iteration 273). Feature:
+  `docs/features.md` stage 1, "Flexbox and grid" (the issue its grids
+  record). Waits for a page.*
+  `alo-value`'s `LengthPercentage::Calc` writes `calc` and then its
+  expression, which brackets a sum but not a `min()`, `max()` or
+  `clamp()`, so `min(100%, 18rem)` is written `calcmin(100%, 18rem)` —
+  in the issue 422 records for a grid measured without its template,
+  among others. Diagnostics only: nothing is laid out or drawn from the
+  text. *Blocked: no page yet* whose recorded issues a person has to
+  read. *Closes when:* every calculation's text reads back as a valid CSS
+  value, tested on each kind.
 
 - [x] **355. An absolute box is placed against its nearest positioned
   ancestor.** *Found by iteration 228 while building 352, not opened by a

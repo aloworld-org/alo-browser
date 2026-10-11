@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **alo Sites' blog cards are two columns, as in Chrome.** A grid written
+  as "as many columns as fit, each at least 18rem but never wider than the
+  grid" was thrown away by the layout library because its width is a
+  calculation, and the cards were one long column. Where the grid's width
+  is known the calculation is now worked out first and handed over as a
+  plain width, so the cards are two columns of 368 pixels side by side. A
+  grid whose width depends on its content is still measured without its
+  columns, and the engine says so in its list of issues (queue item 422,
+  ADR 0047).
+
 - **Decided: card grids that fit as many columns as there is room for
   will be laid out in columns.** A common way to write a grid of cards
   asks for "as many columns as fit, each at least this wide but never

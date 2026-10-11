@@ -274,6 +274,40 @@ them. Refusing a valid value would be a wrong pixel that looks deliberate.
 - `fit-content()` tracks, named lines and `subgrid`, which `track.rs`
   refuses already.
 
+## What the build found (iteration 273)
+
+The rule in § 1 was built as written, and three of the expectations around
+it were not quite what it does. None changes the decision; each is said
+here so that the next reader does not take § 4 and § 6 at their word.
+
+- **A grid sized by its content is lowered in its final call.** `taffy`
+  sizes such a grid in two calls: it measures it with no size — the
+  refusal, the template discarded — and then lays it out in the width that
+  measurement gave, handed to it as `known_dimensions`, which is definite
+  by § 1. So § 6's "E, F and G keep today's layout" holds for E and F,
+  whose measured width is no wider than one track (E's 50 is Chrome's
+  too, by coincidence; F's 0 is not Chrome's 198), and not for G: its
+  minimum makes it 700, and counted against 700 it is two columns of 338,
+  which is Chrome's answer. This is `taffy`'s own measure-then-lay-out, not
+  a pass of ours, and it is what `taffy` does with a plain-length track in
+  the same grid.
+- **A refusal is recorded from whichever call meets it**, as § 4 says,
+  once per grid *and axis*. That includes a grid measured for its content
+  by its parent and then laid out with a definite size — a grid of cards
+  inside a grid's track is measured that way — because what it measured
+  as was the template discarded. The issue says the grid was *measured*
+  without its template, which is true in every case, rather than that the
+  template was not used.
+- **The refusal cases were tested out of flow, not as `inline-grid`.** An
+  `inline-grid` holding blocks is split around them by the box tree today,
+  as an inline box would be, so it is no grid at all; that is its own
+  fault, queued as 426. A grid `position: absolute` is sized to fit its
+  content the same way.
+
+The agreement tests compare each calculated grid with the plain grid of
+the length it comes to — 288 for A, B and D, 200 for C — rather than with
+`minmax(288px, 1fr)` throughout, which is not C's equal.
+
 ## How we will know if this was wrong
 
 A frozen page whose grid has a definite size, a calculated track in an

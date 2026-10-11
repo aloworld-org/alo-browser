@@ -26423,3 +26423,103 @@ and 425), `docs/conformance.md` (the alo Sites row), `REMAINING.md` and
 186 queue items are open (424 and 425 added). The next unused queue number
 is **426** and the next ADR is **0048**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 273 — queue item 422 built: a calculated track in an auto repetition is its length when the grid's size is known
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+head and the stage 1 *Layout* line), iteration 272 and `REMAINING.md`'s
+continuation. No `AGENTS.md` exists in this repository or above it. For
+422: its queue entry and *Decided* paragraph, ADR 0047 in full (and ADR
+0004 through it), `docs/features.md`' *Flexbox and grid* line;
+`alo-layout`'s `arena.rs`, `engine.rs` (`style_for`, `template`,
+`min_track`, `max_track`, `lay_out_subtree`), `track.rs`; `scripts/gate.sh`'s
+boundary list; `taffy` 0.14.0's `compute/grid/mod.rs` (the
+`outer_node_size` rule), `compute/grid/explicit_grid.rs`,
+`compute/mod.rs`' `compute_root_layout`, `tree/cache.rs`,
+`util/resolve.rs` and `util/math.rs`.
+
+**Choosing.** Iteration 272 decided 422 and named it buildable next; every
+open item ahead of it waits on a page, a dependency or an ADR.
+
+**What was built.** `crates/alo-layout/src/auto_repeat.rs`, new and on the
+gate's `taffy` boundary list: for a grid whose template holds an
+`auto-fill`/`auto-fit` repetition and a calculated track size, a copy of
+its style with every calculated end, in and out of the repetition,
+resolved by `Unresolved::resolve` against the content box in each axis
+definite by `taffy`'s `outer_node_size` rule (known size, else the style
+size in an inherent-size call, clamped, at least padding and border, less
+them); an aspect ratio or a non-zero scrollbar gutter refuses. Its first
+lines say to delete it the day `taffy` counts a calculation. `arena.rs`'
+`lay_out_grid` holds the copy in a map for one `compute_grid_layout` call
+and `style()` answers from it meanwhile; a refused axis goes into a set,
+and `engine.rs`' `record_refused_templates` turns each grid and axis into
+one issue naming its template. 11 unit tests in the file.
+
+**Found by the build, and written into ADR 0047 (*What the build found*)
+rather than decided here.** `taffy` lays out a grid sized by its content
+in two calls — measured with no size (refused), then laid out in the
+measured width as `known_dimensions`, which ADR § 1 counts as definite —
+so the final call is lowered. E and F come out as with no template (E 50 =
+Chrome's, F 0 against Chrome's 198); G comes out Chrome's 338 338, not
+today's one column as § 6 expected. A refusal is recorded from any call
+(§ 4's "whenever"), so a grid in a grid's track, measured by its parent
+with no width, records one even though its final call lowers; the issue's
+words say it was *measured* without its template, true in every case. I
+first recorded only final-layout refusals; that contradicted § 4 and was
+reverted. The agreement twin is the plain grid of the length the
+calculation comes to (200 for C), not `minmax(288px, 1fr)` throughout.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground to a log;
+the harness moved it to the background at 600 s and the next call waited
+on it in a foreground `until` loop: `exit 0`, "The gate is met", 40 `ok`
+lines, no `FAILED` or `panicked`. Only this entry and the commit came
+after it.
+
+**Gate, manual.** Layout assertions in numbers:
+`alo-layout/tests/auto_repeat.rs` (10 tests) — A 368 368 at 0 and 392; B
+`auto-fit` one item 760; B `auto-fill` 368; C 200; D 365 365 at 23 and
+412; each equal to its plain twin and to Chrome 154's numbers in ADR
+0047; E, F, G one issue each with the numbers above; a grid of grids
+(368, each inner one 368, two issues); 200 nested grids on an 8 MiB
+thread, the item 400 wide. The frozen page:
+`alo_sites_blog_index.rs`'s new test puts the cards at x 20 and 412, 368
+wide, in one row, and the agent reads the links at x 45 and 437.
+Reference render: `alo-sites-blog-index`'s `render.png`, `layout.txt`,
+`display.txt` and `agent.txt` rewritten with `ALO_UPDATE_REFERENCES`, the
+picture looked at (two cards side by side), the suite rerun without it;
+no other corpus case moved. Mutations, restored from copies: skipping the
+lowering fails A, B `auto-fill`, D, G, the grid of grids, the nest and two
+of the frozen page's tests (B `auto-fit` and C pass by coincidence: one
+stretched column is right either way); lowering against the parent's
+width where the grid's is indefinite fails E, F and G. Hostile input: a
+template of 20 000 calculated tracks lowers without a panic. One file,
+one responsibility: `auto_repeat.rs` holds only the lowering; the issue
+lives with the engine's other layout issues. No `unsafe`, no dependency.
+`alo-workplace` and `alo-os` were not touched: `git status` is clean in
+each.
+
+**Queue.** 422 ticked with its *Built* paragraph. Cut, each waiting for a
+page: 426 (an `inline-grid` holding blocks is split around them by the box
+tree, so it lays nothing out — why E–G were tested `position: absolute`),
+427 (400 nested grids overflow an 8 MiB stack, 100 a 2 MiB test thread's,
+with any template; nothing bounds element depth; needs an ADR first), 428
+(`LengthPercentage::Calc` writes `min(…)` as `calcmin(…)`, seen in the new
+issue's text). **Roadmap: no line moved, and why.** 422 is grid, under
+stage 1's *Layout* line, which is already ticked, and no stage 2 line
+names grid tracks or alo Sites' pages; as in iterations 269, 271 and 272,
+moving one would be decoration. Also updated: `docs/features.md`,
+`docs/conformance.md`, `REMAINING.md`, `CHANGELOG.md`, ADR 0047.
+
+**Unresolved obligations.**
+- F is still not Chrome's (0 against 198), and a content-sized grid's
+  measurement discards its template: 424, waiting for a page.
+- B's plain twin, now asserted equal to the calculated grid here, was
+  still never measured in Chrome itself.
+- 427 is a crash on hostile markup that predates this change and is not
+  fixed by it.
+- 423–428, 411, 414, 416–421 wait for pages. Still unfrozen alo Sites
+  goldens: the full page, a blog post and `catalog_one_category`.
+
+188 queue items are open (422 closed; 426, 427 and 428 added). The next
+unused queue number is **429** and the next ADR is **0048**. This is one
+iteration, not a finished queue or roadmap.

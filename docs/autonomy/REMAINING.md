@@ -1494,3 +1494,17 @@ buildable next. Cut, each waiting for a page: 424 (a calculated track with
 no definite basis) and 425 (`repeat(auto-fit, 1fr)` accepted when CSS makes
 it invalid). 186 queue items are open (424 and 425 added open). The next
 unused queue number is 426 and the next unused ADR 0048.
+
+Iteration 273 built item 422 under ADR 0047: `alo-layout`'s new
+`auto_repeat.rs` resolves a calculated track in an auto repetition against
+the grid's content box where that is definite, and `arena.rs` holds the
+copy for one grid layout call, so alo Sites' blog cards are two columns of
+368 at x 20 and 412, as in Chrome 154; a grid measured without a definite
+size is said once per grid and axis. The build found that `taffy` lays out
+a content-sized grid in the width it measured, so the ADR's case G comes
+out Chrome's two columns rather than today's one, and wrote that into the
+ADR. Cut, each waiting for a page: 426 (an `inline-grid` holding blocks is
+split as an inline box), 427 (a deep nest of grids overflows the stack;
+needs an ADR) and 428 (`min()` inside a `calc` is written back as
+`calcmin(`). 188 queue items are open (422 closed, 426–428 added). The
+next unused queue number is 429 and the next unused ADR 0048.

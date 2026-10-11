@@ -41,6 +41,7 @@
 //! refused; now it is a number.
 
 use crate::arena::{Arena, NodeKind, Unresolved};
+use crate::auto_repeat::Axis;
 use crate::baseline;
 use crate::containing::{self, Containing};
 use crate::geometry::{Edges, Point, Rect, Size};
@@ -213,6 +214,7 @@ fn lay_out_subtree(
     if let Some(initial) = initial {
         arena.compute(initial, available);
     }
+    record_refused_templates(&arena, &built, boxes, styles, issues);
 
     let mut placed = Placed::default();
     read_back(
@@ -260,6 +262,63 @@ fn lay_out_subtree(
         geometry: placed.geometry,
         fragments: placed.fragments,
     })
+}
+
+/// Say which grids `taffy` laid out, in some call, without the template
+/// their author wrote.
+///
+/// A calculated track in an `auto-fill` or `auto-fit` repetition is counted
+/// only where the grid's size in that axis is definite (ADR 0047); elsewhere
+/// `taffy` discards the template, the grid has no explicit tracks, and its
+/// items fall into implicit ones. A grid sized by its content is measured
+/// that way, and then laid out in the size the measurement gave — handed to
+/// it, so definite by `taffy`'s rule, and lowered. Neither is what Chrome
+/// does, which sizes such a track against a basis it finds while sizing the
+/// grid (queue item 424), and a page that looks wrong for a reason nobody
+/// can see is the worst kind of wrong, so each grid and axis is one issue,
+/// naming the template.
+fn record_refused_templates<M: MeasureText>(
+    arena: &Arena<'_, M>,
+    built: &Built,
+    boxes: &BoxTree,
+    styles: &StyleTree,
+    issues: &mut Vec<StyleIssue>,
+) {
+    let mut refused = arena.refused().peekable();
+    if refused.peek().is_none() {
+        return;
+    }
+    let theirs_to_ours: BTreeMap<usize, BoxId> = built
+        .ours_to_theirs
+        .iter()
+        .map(|(ours, theirs)| (*theirs, *ours))
+        .collect();
+    for (node, axis) in refused {
+        let Some(computed) = theirs_to_ours
+            .get(&node)
+            .and_then(|id| boxes.get(*id))
+            .and_then(|held| held.kind.node())
+            .and_then(|source| styles.get(source))
+        else {
+            continue;
+        };
+        // Read again only for its text: what reading it had to say was said
+        // when the box was built.
+        let grid = style::read(computed, &mut Vec::new()).grid;
+        let (property, list, size) = match axis {
+            Axis::Columns => ("grid-template-columns", grid.template_columns, "width"),
+            Axis::Rows => ("grid-template-rows", grid.template_rows, "height"),
+        };
+        issues.push(StyleIssue {
+            kind: IssueKind::UnsupportedValue,
+            source: format!(
+                "{property}: {list} — a calculated track in an auto repetition is counted \
+                 only against a definite {size}: this grid was measured without one, and \
+                 without its template"
+            ),
+            at: Location { line: 0, column: 0 },
+        });
+    }
 }
 
 /// Work out what is on each line of an inline formatting context, to size

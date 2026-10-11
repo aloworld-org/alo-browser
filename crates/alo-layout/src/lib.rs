@@ -15,8 +15,10 @@
 //! judgement call rather than physics: a real chunk of engine, taken because
 //! it gets us laying out sooner, and meant to be replaced when we have an
 //! opinion it does not serve. That is only true if it stays behind as little
-//! as possible, so **`engine.rs` and `arena.rs` are the only files in this
-//! repository that name `taffy`**, and `scripts/gate.sh` checks it every run.
+//! as possible, so **`engine.rs`, `arena.rs` and `auto_repeat.rs` are the only
+//! files in this repository that name `taffy`**, and `scripts/gate.sh` checks
+//! it every run. The third exists only until `taffy` counts a calculated
+//! track in an auto repetition itself (ADR 0047), and is then deleted.
 //!
 //! The **algorithms** are rented; the **tree they walk** is ours (`arena.rs`,
 //! ADR 0004). A list of nodes with styles, children and a cache is storage
@@ -40,6 +42,7 @@
 //!   than where anything is. That belongs with paint, queue item 7.
 
 pub(crate) mod arena;
+pub(crate) mod auto_repeat;
 pub(crate) mod baseline;
 pub(crate) mod containing;
 pub mod engine;
