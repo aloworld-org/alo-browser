@@ -54,23 +54,23 @@ text box#40 "Warm" rgb(231 111 81) 12px at (4, 104)
 clip box#41 to (42.677734, 92) 12×12
 fill box#41 rgb(231 111 81) at (43.877735, 93.2) 9.599998×9.600006
 unclip
-text box#44 "Cool" rgb(42 157 143) 12px at (4, 122.83008)
-clip box#45 to (34.210938, 110.83008) 12×12
-fill box#45 rgb(42 157 143) at (35.41094, 112.030075) 9.599998×9.600006
+text box#44 "Cool" rgb(42 157 143) 12px at (4, 123)
+clip box#45 to (34.210938, 111) 12×12
+fill box#45 rgb(42 157 143) at (35.41094, 112.2) 9.599998×9.600006
 unclip
-fill box#50 rgb(241 237 228) at (4, 129.66016) 72×32
-clip box#50 to (4, 129.66016) 72×32
-fill box#50 rgb(38 70 83) at (24, 129.66016) 32×32
+fill box#50 rgb(241 237 228) at (4, 130) 72×32
+clip box#50 to (4, 130) 72×32
+fill box#50 rgb(38 70 83) at (24, 130) 32×32
 unclip
-fill box#52 rgb(241 237 228) at (80, 129.66016) 72×32
-clip box#52 to (80, 129.66016) 72×32
-fill box#52 rgb(38 70 83) at (80, 129.66016) 32×32
+fill box#52 rgb(241 237 228) at (80, 130) 72×32
+clip box#52 to (80, 130) 72×32
+fill box#52 rgb(38 70 83) at (80, 130) 32×32
 unclip
-fill box#54 rgb(241 237 228) at (156, 129.66016) 72×32
-clip box#54 to (156, 129.66016) 72×32
-fill box#54 rgb(38 70 83) at (156, 109.66016) 72×72
+fill box#54 rgb(241 237 228) at (156, 130) 72×32
+clip box#54 to (156, 130) 72×32
+fill box#54 rgb(38 70 83) at (156, 110) 72×72
 unclip
-fill box#56 rgb(241 237 228) at (232, 129.66016) 72×32
-clip box#56 to (232, 129.66016) 72×32
-fill box#56 rgb(38 70 83) at (232, 129.66016) 72×32
+fill box#56 rgb(241 237 228) at (232, 130) 72×32
+clip box#56 to (232, 130) 72×32
+fill box#56 rgb(38 70 83) at (232, 130) 72×32
 unclip

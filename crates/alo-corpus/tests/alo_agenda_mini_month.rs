@@ -125,8 +125,10 @@ fn the_grid_starts_under_the_titles_line_and_its_days_are_square() {
     assert_eq!(days.len(), 42);
     // Seven `1fr` columns of 207 less six 1 px gaps, each as tall as it is
     // wide (`aspect-ratio: 1`), under the weekday row's 0.62rem line and 2 px.
+    // That line is 1.5 times 9.92 px rounded to 1/64, floored to 1/64:
+    // 9.921875 × 1.5 is 952.5 sixty-fourths, so 952 (ADR 0050 § 3).
     let side = (207.0 - 6.0) / 7.0;
-    let weekdays = 0.62 * 16.0 * 1.5 + 2.0;
+    let weekdays = 952.0 / 64.0 + 2.0;
     for (index, day) in days.iter().enumerate() {
         let (row, column) = (index / 7, index % 7);
         assert!(near(day.size.width, side), "{index}: {day:?}");

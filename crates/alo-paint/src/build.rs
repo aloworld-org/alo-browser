@@ -712,7 +712,10 @@ impl Builder<'_> {
             };
             let trimmed = text.trim_end();
             if !trimmed.is_empty() {
-                let baseline = geometry.border_box.top() + ascender;
+                // Measured as a `normal` line, whose top half of the line gap
+                // is above the letters (ADR 0050 § 2).
+                let room = alo_text::LineRoom::of(font.metrics(size));
+                let baseline = geometry.border_box.top() + room.normal_above();
                 out.push(DisplayItem::Text {
                     box_id: id,
                     text: trimmed.to_owned(),
@@ -798,7 +801,9 @@ impl Builder<'_> {
         let size = style.font_size();
         let request = self.font_request(id);
         let font = self.context.fonts.chain(&request).into_iter().next()?;
-        let ascender = font.metrics(size).ascender;
+        // Where a line puts the baseline below the top of a piece of text:
+        // the face's ascent in whole pixels, as layout took it (ADR 0050).
+        let ascender = alo_text::LineRoom::of(font.metrics(size)).ascent;
         let oblique = crate::synthesis::oblique_for(request.slant, font.slant());
         let letter_spacing = style
             .get("letter-spacing")

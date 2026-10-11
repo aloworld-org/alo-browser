@@ -13,8 +13,8 @@ fill box#8 rgb(255 255 255) at (35.5, 34.25) 15×1.5
 fill box#8 rgb(255 255 255) at (45.25, 41) 6×1.5
 fill box#8 rgb(255 255 255) at (47.5, 38.75) 1.5×6
 unclip
-text box#9 "New event" rgb(255 255 255) 14px at (60, 41.34668)
-text box#17 "MY CALENDARS" rgb(95 85 75) 12px at (16, 90.6543)
+text box#9 "New event" rgb(255 255 255) 14px at (60, 41)
+text box#17 "MY CALENDARS" rgb(95 85 75) 12px at (16, 90.5)
 clip box#20 to (206, 79) 15×15
 fill box#20 rgb(95 85 75) at (208.5, 85.875) 10×1.25
 fill box#20 rgb(95 85 75) at (212.875, 81.5) 1.25×10
@@ -25,7 +25,7 @@ clip box#27 to (22, 112.75) 12×12
 fill box#27 rgb(255 255 255) at (23.25, 115) 9.5×7
 unclip
 clip box#28 to (44, 109) 154×19.5
-text box#29 "Personal" rgb(16 42 67) 13px at (44, 123.25049)
+text box#29 "Personal" rgb(16 42 67) 13px at (44, 123)
 unclip
 group box#31 at opacity 0
 clip box#32 to (206, 112.25) 13×13
@@ -42,7 +42,7 @@ clip box#40 to (22, 144.25) 12×12
 fill box#40 rgb(255 255 255) at (23.25, 146.5) 9.5×7
 unclip
 clip box#41 to (44, 140.5) 133×19.5
-text box#42 "Work" rgb(16 42 67) 13px at (44, 154.75049)
+text box#42 "Work" rgb(16 42 67) 13px at (44, 154.5)
 unclip
 group box#44 at opacity 0
 clip box#45 to (185, 143.75) 13×13
@@ -62,25 +62,25 @@ fill box#49 rgb(122 111 98) at (210.875, 149.16667) 1.0833282×4.3333282
 fill box#49 rgb(122 111 98) at (213.04167, 149.16667) 1.0833282×4.3333282
 unclip
 ungroup
-text box#59 "OTHER CALENDARS" rgb(95 85 75) 12px at (16, 198.1543)
+text box#59 "OTHER CALENDARS" rgb(95 85 75) 12px at (16, 198)
 fill box#65 rgb(46 139 87) at (20, 217.75) 16×16
 clip box#66 to (44, 216) 118.58984×19.5
-text box#67 "Team holidays" rgb(16 42 67) 13px at (44, 230.25049)
+text box#67 "Team holidays" rgb(16 42 67) 13px at (44, 230)
 unclip
-text box#70 "can edit" rgb(122 111 98) 12px at (170.58984, 229.9043)
+text box#70 "can edit" rgb(122 111 98) 12px at (170.58984, 229.75)
 fill box#76 rgb(155 109 214) at (20, 249.25) 16×16
 fill box#76 rgb(155 109 214) at (20, 249.25) 16×16
 clip box#77 to (22, 251.25) 12×12
 fill box#77 rgb(255 255 255) at (23.25, 253.5) 9.5×7
 unclip
 clip box#78 to (44, 247.5) 113.99609×19.5
-text box#79 "Mira's calendar" rgb(16 42 67) 13px at (44, 261.7505)
-text box#78 "…" rgb(16 42 67) 13px at (143.14404, 261.7505)
+text box#79 "Mira's calendar" rgb(16 42 67) 13px at (44, 261.5)
+text box#78 "…" rgb(16 42 67) 13px at (143.14404, 261.5)
 unclip
-text box#82 "can view" rgb(122 111 98) 12px at (165.9961, 261.4043)
+text box#82 "can view" rgb(122 111 98) 12px at (165.9961, 261.25)
 clip box#87 to (24, 300.25) 15×15
 fill box#87 rgb(95 85 75) at (24.625, 300.875) 13.75×13.75
 fill box#87 rgb(95 85 75) at (30.875, 303.375) 3.7997932×6.2998047
 unclip
-text box#88 "Working hours" rgb(95 85 75) 13px at (47, 312.2505)
+text box#88 "Working hours" rgb(95 85 75) 13px at (47, 312)
 unclip

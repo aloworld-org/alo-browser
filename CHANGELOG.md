@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Lines of text are now as tall as Chrome makes them.** The browser used
+  a font's exact height above and below the baseline, where Chrome rounds
+  each to a whole pixel, and it placed extra line spacing to a fraction of
+  a pixel, where Chrome rounds that too. On a long page the rows slowly
+  drifted away from Chrome's, by a pixel or two after a few lines. Lines
+  are now built by the rule written down last time (ADR 0050). On a test
+  page of checkboxes beside text, every row and every checkbox now stands
+  exactly where Chrome puts it. Across all the test pages, measured against
+  Chrome with the same fonts, 835 of 1,214 boxes now have Chrome's top
+  and height, up from 498 (queue item 460).
+
 - **The rule for how tall a line of text is has been written down,
   measured against Chrome.** Chrome rounds a font's height above and
   below the baseline to whole pixels, and this browser does not, so its

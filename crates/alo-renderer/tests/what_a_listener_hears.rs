@@ -67,12 +67,12 @@ fn each_listener_heard_in_order_and_the_page_says_so_in_numbers() {
     // (item 283) is already under the label rather than added below it.
     assert!(
         outline.contains(
-            "    block flow · paragraph → 304×24.296875 at (8, 44.800003)\n\
-             \x20     text \"section1 div1 button2 n once div3 true\" → 272.40527×16.296875 at \
+            "    block flow · paragraph → 304×24 at (8, 44.800003)\n\
+             \x20     text \"section1 div1 button2 n once div3 true\" → 272.40527×16 at \
              (12, 48.800003)\n\
-             \x20   block flow · paragraph → 304×24.296875 at (8, 77.09688)\n\
-             \x20     text \"section1 div1 button2 n div3 true\" → 234.20605×16.296875 at \
-             (12, 81.09688)\n"
+             \x20   block flow · paragraph → 304×24 at (8, 76.8)\n\
+             \x20     text \"section1 div1 button2 n div3 true\" → 234.20605×16 at \
+             (12, 80.8)\n"
         ),
         "{outline}"
     );

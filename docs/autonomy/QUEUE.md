@@ -6599,7 +6599,7 @@ The long pole, and the thing most of section E is unreachable without.
   cases' renders and three window references moved, every changed pixel
   on an edge but one row (461). Found: 462, 463.
 
-- [ ] **460. A line is as tall as Chrome's whole-pixel ascent and descent
+- [x] **460. A line is as tall as Chrome's whole-pixel ascent and descent
   make it.** *Found building 457 (iteration 290). Feature:
   `docs/features.md` stage 1, text. Opened by `checkbox-beside-text`.
   Needs measuring, and its rule written down before it is built: it moves
@@ -6625,6 +6625,36 @@ The long pole, and the thing most of section E is unreachable without.
   crosses from style to layout must say whether the line height was a
   number. `alo-text`'s `line.rs` follows the same rule. *Depends on:* 464
   (done). Buildable next. The fallback rule is 465.
+  **Done (iteration 293).** ADR 0050 §§ 1–4, for the primary font.
+  `alo-text`'s new `room.rs` (`LineRoom`) rounds a face's ascent, descent
+  and line gap half up, each on its own; `TextMeasurer::ascender` and
+  `descender` answer with it, and `MeasureText` gains `line_gap`.
+  `FaceMetrics` stays exact, for `ex`, `ch`, `middle` and underlines.
+  `alo-layout`'s new `line_height.rs` (`used_line_height`) puts a set line
+  height on the 1/64 grid: a number floored from the font size rounded to
+  1/64, read from the computed text, which keeps a number; a length or
+  percentage rounded. `inline.rs`' `reach_of` floors the leading's top half
+  and gives `normal` the line gap. `line.rs`' lines and paint's pen take the
+  same whole pixels, so a letter stands on the baseline layout gave it.
+  *Closed:* `checkbox-beside-text`'s rows are Chrome's heights and its
+  controls at Chrome's y to 1/64 px (`checkbox_beside_text.rs`, its 0.75
+  now 1/64), and all nine controls are drawn on Chrome's pixels
+  (`a_control_on_whole_pixels.rs`: 1.5 on average, 61 at worst, where it
+  was 2.1 and 64; the whole page 1.0 from Chrome's screenshot, where it
+  was 4.0). Measured against Chrome 154 with the corpus's fonts, every
+  element box of every case: 835 of 1,214 have Chrome's top and height to
+  1/64 px, where 498 did. Only `alo-agenda-mini-month` lost any (53 to
+  46), where its grid tracks are 1/64 apart from Chrome's (466). Renders
+  compared with Chrome's screenshots all came nearer: `text-decorations`
+  28.3 to 6.6 on average, `invoice-list` 3.0 to 1.5. Evidence: unit tests
+  in `room.rs`, `line_height.rs`, `inline.rs` (an odd, a fractional and a
+  negative leading, and a line gap), `measure.rs` and `line.rs`; 77
+  corpus, renderer and agent assertions rewritten to the rule, each
+  against Chrome's numbers where a case had them. Mutations: no floor
+  fails two layout tests and the case; exact figures fail six text tests
+  and the case; a number rounded rather than floored fails the unit test
+  and `alo_sites_booking_closed.rs`; paint's exact ascent fails the
+  corpus references. Found: 466, 467.
 
 - [x] **464. The rule a line's height is built by.** *Cut from 460
   (iteration 292), whose entry asked for its rule to be written down
@@ -6667,6 +6697,34 @@ The long pole, and the thing most of section E is unreachable without.
   overflows its line. `alo-text`'s paragraph lines already take the
   tallest run. *Closes when:* a frozen page whose `normal` line holds a
   taller fallback font has Chrome's line heights to 1/64 px.
+
+- [ ] **466. A box's paddings, margins and grid tracks are on Chrome's
+  1/64 px grid.** *Found building 460 (iteration 293). Feature:
+  `docs/features.md` stage 1, box model and grid. Needs measuring, and its
+  rule written down before it is built: it moves most boxes.* With lines
+  on Chrome's grid (ADR 0050), what is left between this engine's boxes
+  and Chrome's is other lengths that Chrome keeps in its 1/64 px layout
+  unit. alo Sites' buttons have `padding: 0.6rem` (9.6) and are 48.3875
+  tall here and 48.375 in Chrome, which moves everything centred against
+  them by 1/160 px; `alo-sites-rich-text`'s `h2` margin of 0.83em at 24 px
+  is 19.92 here and 19.921875 there; `alo-agenda-mini-month`'s seven `1fr`
+  columns are 28.714285 here and 28.71875 there, so its sixth row is 1/45
+  px higher. Needs: which lengths Chrome rounds and which it floors, and
+  how a track or a flexible size shares what is left over. *Closes when:*
+  `alo-agenda-mini-month` and `alo-sites-booking` have Chrome's boxes to
+  1/64 px, except what another item names.
+
+- [ ] **467. A control's own line at `normal` is its font's whole pixels.**
+  *Found building 460 (iteration 293). Feature: `docs/features.md` stage
+  1, forms. Depends on 460 (done).* A button or a field holds what it shows
+  in a box at least one line tall (`alo-layout`'s `control_line`), and that
+  line is the computed `line-height`, which answers `normal` with 1.2 em. A
+  line at `normal` is the font's ascent, descent and line gap in whole
+  pixels (ADR 0050 § 2). So `a-script-hears-an-event`'s button is 20.8
+  tall here and 22 in Chrome 154, and `a-filled-form`'s fields 19.6 and 19.
+  Needs the measurer where `control_content_style` and `field_line_offset`
+  are, and Chrome's button padding checked. *Closes when:* those two
+  cases' controls are Chrome's height to 1/64 px.
 
 - [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage

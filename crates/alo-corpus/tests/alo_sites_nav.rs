@@ -129,8 +129,9 @@ fn every_link_in_the_menu_stands_on_its_texts_baseline() {
         panic!("three items, five links, a list, a nav and a header: {items:?} {links:?}");
     };
     // A link is `inline-flex`, `min-height: 2.75rem` (44), and its text is a
-    // 27.2 line centred in it, so its baseline is its text's, 8.4 down plus
-    // the text's own. That is lower in the link than the strut's is in the
+    // 27.1875 line centred in it (17 px at 1.6, floored to 1/64 as Chrome
+    // floors it, ADR 0050 § 3), so its baseline is its text's, 8.40625 down
+    // plus the text's own. That is lower in the link than the strut's is in the
     // item's line, so the link's top is the line's top and the item is as
     // tall as the link: 44. Stood on its bottom edge, the strut's descent
     // hung under it and the item was 51.7.
@@ -139,22 +140,25 @@ fn every_link_in_the_menu_stands_on_its_texts_baseline() {
         assert!(near(link.size.height, 44.0), "{link:?}");
         assert!(near(link.origin.y, item.origin.y), "{link:?} in {item:?}");
     }
-    // The button's 9.6 of padding and 1 of border each side make it 48.4,
-    // taller than its minimum, and its item is that too, not 56.1.
-    assert!(near(order.size.height, 48.4), "{order:?}");
-    assert!(near(order_link.size.height, 48.4), "{order_link:?}");
+    // The button's 9.6 of padding and 1 of border each side make it
+    // 48.3875, taller than its minimum, and its item is that too, not 56.1.
+    // Chrome's is 48.375: it puts the padding on its 1/64 grid too (item
+    // 466), and everything below is Chrome's to that 1/80 of a pixel.
+    assert!(near(order.size.height, 48.3875), "{order:?}");
+    assert!(near(order_link.size.height, 48.3875), "{order_link:?}");
     assert!(near(order_link.origin.y, order.origin.y), "{order_link:?}");
-    // `align-items: center` puts the shorter items 2.2 below the button's.
+    // `align-items: center` puts the shorter items 2.19375 below the
+    // button's.
     assert!(near(order.origin.y, 12.0), "{order:?}");
-    assert!(near(home.origin.y, 14.2), "{home:?}");
+    assert!(near(home.origin.y, 14.193_75), "{home:?}");
     // The list is its tallest item; the bar is the list and its 0.75rem of
     // padding top and bottom, and the brand is centred in it beside the list.
-    assert!(near(list.size.height, 48.4), "{list:?}");
-    assert!(near(bar.size.height, 72.4), "{bar:?}");
+    assert!(near(list.size.height, 48.3875), "{list:?}");
+    assert!(near(bar.size.height, 72.3875), "{bar:?}");
     assert!(near(brand.size.height, 44.0), "{brand:?}");
-    assert!(near(brand.origin.y, 14.2), "{brand:?}");
+    assert!(near(brand.origin.y, 14.193_75), "{brand:?}");
     // The header adds its 1 px border along the bottom.
-    assert!(near(header.size.height, 73.4), "{header:?}");
+    assert!(near(header.size.height, 73.3875), "{header:?}");
     // Across: the menu is pushed to the end by the brand's `margin-right:
     // auto`, and ends at the nav's 1.25rem of padding.
     assert!(near(list.origin.x + list.size.width, 780.0), "{list:?}");

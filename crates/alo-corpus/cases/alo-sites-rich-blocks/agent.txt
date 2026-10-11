@@ -1,8 +1,8 @@
-document at (0, 0) 800×197.53906
-  figure at (48, 16) 704×37.25
-    image "Orange notebook <front>" [broken] at (48, 16) 209.21094×18.625
-    text "Ideas, captured & shared" at (48, 34.625) 201.58594×18.625
-  text "const greeting = \"<hello>\"; console.log(greeting);" at (8, 69.25) 211.31982×30.265625 in 2 pieces
-  text "fn main() { println!(\"alo & sites\"); }" at (8, 112.515625) 219.14648×45.398438 in 3 pieces
-  math at (8, 170.91406) 784×18.625
-    text "E = mc^2 & x < y" at (8, 173.69873) 125.22656×15.1328125
+document at (0, 0) 800×198
+  figure at (48, 16) 704×38
+    image "Orange notebook <front>" [broken] at (48, 16) 209.21094×19
+    text "Ideas, captured & shared" at (48, 35) 201.58594×19
+  text "const greeting = \"<hello>\"; console.log(greeting);" at (8, 70) 211.31982×30 in 2 pieces
+  text "fn main() { println!(\"alo & sites\"); }" at (8, 113) 219.14648×45 in 3 pieces
+  math at (8, 171) 784×19
+    text "E = mc^2 & x < y" at (8, 174) 125.22656×15

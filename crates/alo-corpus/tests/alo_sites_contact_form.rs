@@ -138,12 +138,14 @@ fn its_rows_are_the_same_gap_apart() {
     else {
         panic!("a heading, paragraphs and a form: {headings:?} {paragraphs:?} {forms:?}");
     };
-    // One value is both gaps. The heading is two lines of 28 × 1.2 = 67.2,
-    // with 0.5em (14) of margin under it, so its row is 81.2; the next row,
-    // the introduction, starts 48 below that, at 48 + 81.2 + 48.
+    // One value is both gaps. The heading is two lines of 28 × 1.2, 33.6
+    // floored to 1/64 as Chrome floors it (ADR 0050 § 3), so 67.1875, with
+    // 0.5em (14) of margin under it, so its row is 81.1875; the next row,
+    // the introduction, starts 48 below that, at 48 + 81.1875 + 48. Chrome
+    // 154 measures both.
     assert!(near(heading.origin.y, 48.0), "{heading:?}");
-    assert!(near(heading.size.height, 67.2), "{heading:?}");
-    assert!(near(intro.origin.y, 177.2), "{intro:?}");
+    assert!(near(heading.size.height, 67.1875), "{heading:?}");
+    assert!(near(intro.origin.y, 177.1875), "{intro:?}");
     // The form is placed in rows one to three and starts at the top of the
     // first, `align-items: start`.
     assert!(near(form.origin.y, 48.0), "{form:?}");

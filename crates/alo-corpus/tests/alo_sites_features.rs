@@ -83,7 +83,9 @@ fn the_first_bento_card_is_padded_by_its_block_axis() {
     };
     // The grid's two `minmax(0, 1fr)` tracks, and the card spans `1 / -1`.
     assert_eq!((card.origin.x, card.size.width), (20.0, 760.0), "{card:?}");
-    assert!((card.origin.y - 171.8).abs() < 1e-3, "{card:?}");
+    // Its top and height are Chrome 154's, every line floored to 1/64 as
+    // Chrome floors it (ADR 0050 § 3).
+    assert!((card.origin.y - 171.781_25).abs() < 1e-3, "{card:?}");
     // `padding-block: 2.5rem` (40) inside a 1 px border above the heading,
     // and the inline sides still `.section-cards`' 1.25rem (20).
     assert!(
@@ -94,9 +96,10 @@ fn the_first_bento_card_is_padded_by_its_block_axis() {
         (heading.origin.x - (card.origin.x + 1.0 + 20.0)).abs() < 1e-3,
         "{heading:?}"
     );
-    // 1 + 40 + 21.6 (the heading) + 9 (its 0.5em) + 27.2 (the paragraph)
-    // + 17 (its 1em) + 40 + 1. Before item 379 it was 116.8: 20 each end.
-    assert!((card.size.height - 156.8).abs() < 1e-3, "{card:?}");
+    // 1 + 40 + 21.59375 (the heading, 18 px at 1.2) + 9 (its 0.5em) +
+    // 27.1875 (the paragraph) + 17 (its 1em) + 40 + 1. Before item 379 it
+    // was 116.8: 20 each end.
+    assert!((card.size.height - 156.781_25).abs() < 1e-3, "{card:?}");
     // The first paragraph is the intro, above the card, and is not in it.
     assert!(said.origin.y < card.origin.y, "{said:?}");
 }

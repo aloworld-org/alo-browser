@@ -130,11 +130,16 @@ fn the_text_card_reaches_four_rem_back_over_the_picture() {
     );
     // 3rem of section padding above it. Inside, `clamp(1.5rem, 4vw, 3rem)`
     // is 32 of padding above and below; the heading is `clamp(1.5rem,
-    // 3.5vw, 2.125rem)`, 28 px, at 1.2 (33.6) with 0.5em below (14); the
-    // sentence one line of 17 px at 1.6 (27.2) with 1em below (17).
+    // 3.5vw, 2.125rem)`, 28 px, at 1.2 (33.6, floored to 1/64 as Chrome
+    // floors every line, ADR 0050 § 3: 33.59375) with 0.5em below (14); the
+    // sentence one line of 17 px at 1.6 (27.1875) with 1em below (17).
+    // Chrome 154 measures the card 155.78125 tall too.
     assert!(near(card.origin.y, 48.0), "{card:?}");
     assert!(
-        near(card.size.height, 32.0 + 33.6 + 14.0 + 27.2 + 17.0 + 32.0),
+        near(
+            card.size.height,
+            32.0 + 33.593_75 + 14.0 + 27.1875 + 17.0 + 32.0
+        ),
         "{card:?}"
     );
     // 48 above and below the card, the tallest item.
@@ -158,5 +163,5 @@ fn the_cards_text_is_its_width_less_its_padding() {
     assert!(near(heading.size.width, 364.0), "{heading:?}");
     assert!(near(line.size.width, 364.0), "{line:?}");
     // The sentence, 316.44 in DejaVu Sans at 17 px, is one line in 364.
-    assert!(near(line.size.height, 27.2), "{line:?}");
+    assert!(near(line.size.height, 27.1875), "{line:?}");
 }

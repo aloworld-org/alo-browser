@@ -64,9 +64,13 @@ const CODE: f32 = 13.0;
 /// is 1233/2048 of an em.
 const ADVANCE: f32 = 1233.0 / 2048.0 * CODE;
 
-/// One line of it: `DejaVu Sans`' and `DejaVu Sans Mono`'s `normal` line is
-/// 18.625 at 16 px, the same 1.1640625 em in both.
-const LINE: f32 = 18.625 / 16.0 * CODE;
+/// One line of it: `DejaVu Sans Mono`'s ascent and descent are 1901 and 483
+/// of 2048, as `DejaVu Sans`' are, and a line takes each in whole pixels
+/// (ADR 0050 § 1): at 13 px 12.07 and 3.07, so 12 and 3.
+const LINE: f32 = 15.0;
+
+/// `DejaVu Sans`' `normal` line at 16 px: 14.85 and 3.77, so 15 and 4.
+const SANS_LINE: f32 = 19.0;
 
 /// Four spaces of it.
 const INDENT: f32 = 4.0 * ADVANCE;
@@ -238,8 +242,11 @@ fn a_pres_margins_are_its_own_ems() {
     assert!(near(typescript.1, 2.0 * LINE), "{typescript:?}");
     assert!(near(rust.1, 3.0 * LINE), "{rust:?}");
     // The first `pre`'s 13 px top margin collapses into the figure's 16:
-    // the figure ends at 53.25.
-    assert!(near(typescript.0, 53.25 + 16.0), "{typescript:?}");
+    // the figure, two lines of 16 px from 16, ends at 54.
+    assert!(
+        near(typescript.0, 16.0 + 2.0 * SANS_LINE + 16.0),
+        "{typescript:?}"
+    );
     // Between the two, each one's 1em margin is 13 and they collapse to 13.
     assert!(
         near(rust.0 - (typescript.0 + typescript.1), CODE),
@@ -257,8 +264,9 @@ fn a_pres_margins_are_its_own_ems() {
 /// `hb-shape` shapes it: 26 779 font units of 2048, kerning included.
 const ALT: f32 = 26_779.0 / 2048.0 * 16.0;
 
-/// `DejaVu Sans`' ascent, 1901 of 2048, at the figure's 16 px.
-const ASCENT: f32 = 1901.0 / 2048.0 * 16.0;
+/// `DejaVu Sans`' ascent, 1901 of 2048, at the figure's 16 px: 14.85, which
+/// a line takes as 15 (ADR 0050 § 1).
+const ASCENT: f32 = 15.0;
 
 #[test]
 fn the_broken_picture_is_its_alt_on_the_figures_first_line() {
@@ -289,7 +297,7 @@ fn the_broken_picture_is_its_alt_on_the_figures_first_line() {
     assert!(near(border.origin.x, 48.0), "{border:?}");
     assert!(near(border.origin.y, 16.0), "{border:?}");
     assert!(near(border.size.width, ALT), "{border:?}");
-    assert!(near(border.size.height, 18.625), "{border:?}");
+    assert!(near(border.size.height, SANS_LINE), "{border:?}");
     let runs = runs(&rendering);
     let Some((_, x, baseline)) = runs
         .iter()
@@ -303,7 +311,8 @@ fn the_broken_picture_is_its_alt_on_the_figures_first_line() {
     // The caption is on the line after it, where it was.
     assert!(
         runs.iter()
-            .any(|(text, _, line)| text.starts_with("Ideas") && near(*line, 16.0 + 18.625 + ASCENT)),
+            .any(|(text, _, line)| text.starts_with("Ideas")
+                && near(*line, 16.0 + SANS_LINE + ASCENT)),
         "{runs:?}"
     );
     let agent = alo_agent::AgentTree::new(document, &drawing.boxes, &drawing.layout).to_outline();

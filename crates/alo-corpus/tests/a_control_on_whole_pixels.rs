@@ -5,22 +5,22 @@
 //! A checkbox and a radio laid out at fractions of a pixel, drawn on whole
 //! ones as Chrome draws them: the case that closes queue item 457.
 //!
-//! `cases/checkbox-beside-text` lays its controls out at y 22.77, 42.55,
-//! 99.25 and the like. Until item 457 each was drawn there, its edges
-//! smeared across two rows, and its picture differed from Chrome's by 16.3
+//! `cases/checkbox-beside-text` lays its controls out at x 23.96, 24.96
+//! and the like, and until item 460 at y 22.77, 42.55 and 99.25 too. Until
+//! item 457 each was drawn there, its edges smeared across two pixels, and its picture differed from Chrome's by 16.3
 //! of 255 on average. Chrome 154 rounds each edge of the box to a whole
 //! pixel and draws the picture in that (`alo_paint::snap`).
 //!
 //! `chrome.png` beside the case is Chrome's screenshot of the same bytes,
 //! with the corpus's font, at one device pixel to one and without
 //! `--disable-gpu`. Each control's square is compared with Chrome's square
-//! **where each engine put it**. The first five stand on the same whole
-//! pixels in both; the last four stand one or two pixels lower in Chrome,
-//! whose rows are whole pixels tall because it rounds the font's ascent and
-//! descent (queue item 460), which is where a control stands, not what it
-//! draws. The bound is `toggle-artwork`'s, measured on whole pixels: 64 of
-//! 255 at worst, 9 on average for any one control, 3.0 over all of them.
-//! Here, measured: 64, 6.7 and 2.1.
+//! **where each engine put it**, and since queue item 460 built ADR 0050
+//! that is the same place: every row is whole pixels tall here as there, so
+//! all nine controls stand on Chrome's pixels. Until then the last four stood
+//! one or two pixels higher. The bound is `toggle-artwork`'s, measured on
+//! whole pixels: 64 of 255 at worst, 9 on average for any one control, 3.0
+//! over all of them. Here, measured: 61, 4.7 and 1.5 (64, 6.7 and 2.1
+//! before item 460).
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_paint::Canvas;
@@ -99,22 +99,9 @@ fn each_control_is_drawn_on_the_whole_pixels_chrome_draws_it_on() {
     let Some(pictures) = pictures() else {
         panic!("the case renders and Chrome's screenshot reads");
     };
-    // Laid out at fractions; drawn from whole pixels. The first five are
-    // Chrome's pixels exactly; the rest are lower in Chrome by its rows.
-    assert_eq!(
-        pictures.controls,
-        vec![
-            (24, 3, 13),
-            (25, 23, 13),
-            (4, 43, 13),
-            (24, 63, 13),
-            (64, 63, 13),
-            (44, 99, 13),
-            (20, 122, 13),
-            (20, 140, 13),
-            (24, 160, 20),
-        ]
-    );
+    // Laid out at fractions across; drawn from whole pixels, which are
+    // Chrome's pixels exactly, every one.
+    assert_eq!(pictures.controls, CHROME);
     // An unchecked checkbox's edge fills its first column and row, and the
     // pixel outside it is the row's background, with nothing smeared over.
     let edge = Rgba::new(118.0 / 255.0, 118.0 / 255.0, 118.0 / 255.0, 1.0);
@@ -184,7 +171,7 @@ fn each_controls_picture_is_chromes_within_toggle_artworks_bound() {
         total += sum;
         counted += pixels;
     }
-    // `toggle-artwork`'s 3.0 on whole pixels; measured here, 2.1.
+    // `toggle-artwork`'s 3.0 on whole pixels; measured here, 1.5.
     assert!(
         total * 10 <= 31 * counted,
         "the controls differ from Chrome's by {} on average",

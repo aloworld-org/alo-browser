@@ -108,8 +108,9 @@ fn the_skip_link_is_at_the_top_of_the_page_while_the_body_is_not() {
     // `left: -999rem; top: 0` against the initial containing block.
     assert!(near(skip.origin.x, -999.0 * 16.0), "{skip:?}");
     assert!(near(skip.origin.y, 0.0), "{skip:?}");
-    // One line of 17 px at 1.6 and 0.5rem of padding above and below.
-    assert!(near(skip.size.height, 27.2 + 16.0), "{skip:?}");
+    // One line of 17 px at 1.6, 27.2 floored to 1/64 as Chrome floors it
+    // (ADR 0050 § 3), and 0.5rem of padding above and below.
+    assert!(near(skip.size.height, 1740.0 / 64.0 + 16.0), "{skip:?}");
 }
 
 #[test]
@@ -127,8 +128,8 @@ fn its_two_columns_split_the_footer_three_rem_apart() {
         panic!("a footer, a nav and a line: {footers:?} {navs:?} {paragraphs:?}");
     };
     // At y 48, 800 wide: 1 of border and 3rem of padding above and below one
-    // line of 27.2.
-    assert_eq!(*footer, Rect::new(0.0, 48.0, 800.0, 124.2));
+    // line of 27.1875, as Chrome 154 measures it.
+    assert_eq!(*footer, Rect::new(0.0, 48.0, 800.0, 124.1875));
     // 760 of content less the 3rem column gap, in halves of 356.
     assert!(
         near(nav.origin.x, 20.0) && near(nav.size.width, 356.0),

@@ -139,18 +139,19 @@ fn the_email_field_draws_its_hint_where_its_text_will_be() {
         panic!("the field and its hint are laid out");
     };
     // The field is as it was before it had a hint: the form's 400 wide,
-    // 46 tall, at (510, 211.71). It was at 213.64 until the "Remember me"
+    // 46 tall, at (510, 212). It was at 213.64 until the "Remember me"
     // row became Chrome's 19 tall with the checkbox's margins (item 443),
-    // and the card, centred down the page, rose by half of that.
+    // and the card, centred down the page, rose by half of that; and at
+    // 211.71 until every line above it was whole pixels of font (item 460).
     assert!(near(field.origin.x, 510.0), "{field:?}");
-    assert!(near(field.origin.y, 211.707_03), "{field:?}");
+    assert!(near(field.origin.y, 212.0), "{field:?}");
     assert_eq!(field.size, Size::new(400.0, 46.0));
     // At the content edge, a border and `--space-4` in: 527. Down it, the
     // field's 16.8 line in the middle of its 44 of content, 13.6 below the
-    // border, and the run at that line's top.
+    // border, and the run at that line's top, 14 px text's 13 and 3 tall.
     assert!(near(hint.origin.x, 527.0), "{hint:?}");
-    assert!(near(hint.origin.y, 211.707_03 + 1.0 + 13.6), "{hint:?}");
-    assert!(near(hint.size.height, 16.296_875), "{hint:?}");
+    assert!(near(hint.origin.y, 212.0 + 1.0 + 13.6), "{hint:?}");
+    assert!(near(hint.size.height, 16.0), "{hint:?}");
 }
 
 #[test]

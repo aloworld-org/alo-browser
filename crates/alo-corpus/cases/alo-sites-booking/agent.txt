@@ -1,15 +1,15 @@
-document at (0, 0) 800×324.8
-  link "Skip to content" at (-15984, 0) 161.11035×43.2
-  main at (0, 0) 800×324.8
-    heading "Come and talk to us" [level=2] at (25, 25) 343×33.600006
-    heading "Consultation" [level=3] at (25, 88.600006) 343×21.599998
-    paragraph at (25, 135.20001) 343×27.199997
-      text "30 minutes" at (25, 138.90549) 107.09668×19.789063
-    paragraph at (25, 195.40001) 343×27.199997
-      text "Half an hour, in the studio." at (25, 199.10548) 227.17578×19.789063
-    paragraph at (25, 255.6) 343×27.200012
-      text "Where: Second floor, ring the bell" at (25, 259.30548) 286.20264×19.789063
-    paragraph at (432, 89.40001) 343×79.600006
-      date "Choose a day" [required] at (432, 120.600006) 343×48.4
-    paragraph at (432, 186.00002) 343×48.4
-      button "See free times" at (432, 186.00002) 179.6954×48.4
+document at (0, 0) 800×324.75
+  link "Skip to content" at (-15984, 0) 161.11035×43.1875
+  main at (0, 0) 800×324.75
+    heading "Come and talk to us" [level=2] at (25, 25) 343×33.59375
+    heading "Consultation" [level=3] at (25, 88.59375) 343×21.59375
+    paragraph at (25, 135.1875) 343×27.1875
+      text "30 minutes" at (25, 138.1875) 107.09668×20
+    paragraph at (25, 195.375) 343×27.1875
+      text "Half an hour, in the studio." at (25, 198.375) 227.17578×20
+    paragraph at (25, 255.5625) 343×27.1875
+      text "Where: Second floor, ring the bell" at (25, 258.5625) 286.20264×20
+    paragraph at (432, 89.38125) 343×79.5875
+      date "Choose a day" [required] at (432, 120.56875) 343×48.4
+    paragraph at (432, 185.96875) 343×48.4
+      button "See free times" at (432, 185.96875) 179.6954×48.4

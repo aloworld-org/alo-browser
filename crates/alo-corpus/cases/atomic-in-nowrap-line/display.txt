@@ -1,35 +1,35 @@
 fill box#1 rgb(255 255 255) at (8, 8) 184×292
 fill box#3 rgb(221 226 238) at (8, 8) 80×20
-text box#4 "ab" rgb(0 0 0) 16px at (8, 23.539063)
-fill box#5 rgb(200 30 30) at (33.046875, 13.5390625) 60×10
-text box#6 "cd" rgb(0 0 0) 16px at (98.13281, 23.539063)
+text box#4 "ab" rgb(0 0 0) 16px at (8, 23)
+fill box#5 rgb(200 30 30) at (33.046875, 13) 60×10
+text box#6 "cd" rgb(0 0 0) 16px at (98.13281, 23)
 fill box#8 rgb(221 226 238) at (8, 32) 80×20
-text box#9 "ab" rgb(0 0 0) 16px at (8, 47.539063)
-fill box#10 rgb(200 30 30) at (33.046875, 37.539063) 60×10
-text box#11 "cd" rgb(0 0 0) 16px at (98.13281, 47.539063)
+text box#9 "ab" rgb(0 0 0) 16px at (8, 47)
+fill box#10 rgb(200 30 30) at (33.046875, 37) 60×10
+text box#11 "cd" rgb(0 0 0) 16px at (98.13281, 47)
 fill box#13 rgb(221 226 238) at (8, 56) 80×20
-fill box#14 rgb(200 30 30) at (8, 61.539063) 60×10
-fill box#15 rgb(200 30 30) at (68, 61.539063) 60×10
+fill box#14 rgb(200 30 30) at (8, 61) 60×10
+fill box#15 rgb(200 30 30) at (68, 61) 60×10
 fill box#17 rgb(221 226 238) at (8, 80) 80×20
-text box#18 "ab" rgb(0 0 0) 16px at (8, 95.53906)
-fill box#20 rgb(200 30 30) at (33.046875, 85.53906) 60×10
+text box#18 "ab" rgb(0 0 0) 16px at (8, 95)
+fill box#20 rgb(200 30 30) at (33.046875, 85) 60×10
 fill box#22 rgb(221 226 238) at (8, 104) 80×20
-text box#23 "abc" rgb(0 0 0) 16px at (8, 119.53906)
-fill box#25 rgb(200 30 30) at (36.757813, 109.53906) 60×10
+text box#23 "abc" rgb(0 0 0) 16px at (8, 119)
+fill box#25 rgb(200 30 30) at (36.757813, 109) 60×10
 fill box#27 rgb(221 226 238) at (8, 128) 80×40
-text box#28 "ab" rgb(0 0 0) 16px at (8, 143.53906)
-text box#30 "x" rgb(0 0 0) 16px at (33.046875, 143.53906)
-fill box#31 rgb(200 30 30) at (8, 153.53906) 60×10
-text box#32 "cd" rgb(0 0 0) 16px at (73.08594, 163.53906)
+text box#28 "ab" rgb(0 0 0) 16px at (8, 143)
+text box#30 "x" rgb(0 0 0) 16px at (33.046875, 143)
+fill box#31 rgb(200 30 30) at (8, 153) 60×10
+text box#32 "cd" rgb(0 0 0) 16px at (73.08594, 163)
 fill box#34 rgb(221 226 238) at (8, 172) 80×60
-text box#35 "ab" rgb(0 0 0) 16px at (8, 187.53906)
-fill box#36 rgb(200 30 30) at (8, 197.53906) 60×10
-text box#37 "cd" rgb(0 0 0) 16px at (8, 227.53906)
+text box#35 "ab" rgb(0 0 0) 16px at (8, 187)
+fill box#36 rgb(200 30 30) at (8, 197) 60×10
+text box#37 "cd" rgb(0 0 0) 16px at (8, 227)
 fill box#39 rgb(221 226 238) at (8, 236) 80×40
-text box#40 "abc" rgb(0 0 0) 16px at (8, 251.53906)
-fill box#42 rgb(200 30 30) at (8, 261.53906) 60×10
+text box#40 "abc" rgb(0 0 0) 16px at (8, 251)
+fill box#42 rgb(200 30 30) at (8, 261) 60×10
 fill box#44 rgb(221 226 238) at (8, 280) 80×20
 clip box#44 to (8, 280) 80×20
-text box#45 "ab" rgb(0 0 0) 16px at (8, 295.53906)
-text box#44 "…" rgb(0 0 0) 16px at (33.046875, 295.53906)
+text box#45 "ab" rgb(0 0 0) 16px at (8, 295)
+text box#44 "…" rgb(0 0 0) 16px at (33.046875, 295)
 unclip

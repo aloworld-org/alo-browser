@@ -51,6 +51,7 @@ pub mod geometry;
 pub mod inline;
 pub mod keyword;
 pub mod legend;
+pub mod line_height;
 pub(crate) mod line_width;
 pub(crate) mod marker;
 pub mod measure;
@@ -74,6 +75,7 @@ pub use keyword::{
     Positioning, TextOverflow,
 };
 pub use legend::Band;
+pub use line_height::used_line_height;
 pub use measure::{BlockFont, MeasureText, NoText, ScaledFont, TextStyle};
 pub use placement::{GridLine, GridPlacement};
 pub use sizing::{AutoLength, MaxSizing, Sizing};

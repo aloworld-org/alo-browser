@@ -112,16 +112,21 @@ fn the_banner_is_laid_out_as_the_sheet_says() {
     assert!(near(section.size.width, 800.0), "{section:?}");
     assert_eq!((heading.origin.x, heading.origin.y), (41.0, 41.0));
     assert!(near(heading.size.width, 718.0), "{heading:?}");
-    // 33.6 of heading and its 14 below.
-    assert!(near(offer.origin.y, 88.6), "{offer:?}");
-    // The offer's 27.2, and its 17 px margin collapsed with the actions'
+    // 33.59375 of heading and its 14 below: 28 px at 1.2, floored to 1/64
+    // as Chrome floors every line (ADR 0050 § 3). Chrome 154 measures the
+    // heading, the offer and the actions where they are here.
+    assert!(near(offer.origin.y, 88.593_75), "{offer:?}");
+    // The offer's 27.1875, and its 17 px margin collapsed with the actions'
     // 1rem.
-    assert!(near(actions.origin.y, 132.8), "{actions:?}");
+    assert!(near(actions.origin.y, 132.781_25), "{actions:?}");
     // `.actions` is a flex row with no `justify-content`, so `text-align:
     // center` centres the text and leaves the button at the start, as a
     // browser does.
     assert!(near(button.origin.x, 41.0), "{button:?}");
-    assert!(near(button.size.height, 48.4), "{button:?}");
-    // 132.8 + 48.4, the actions' 17 below, and 40 + 1: 239.2.
-    assert!(near(section.size.height, 239.2), "{section:?}");
+    // 27.1875, 0.6rem of padding each side and a border: 48.3875, where
+    // Chrome puts the padding on its 1/64 grid too and makes 48.375 (item
+    // 466).
+    assert!(near(button.size.height, 48.3875), "{button:?}");
+    // 132.78125 + 48.3875, the actions' 17 below, and 40 + 1: 239.16875.
+    assert!(near(section.size.height, 239.168_75), "{section:?}");
 }

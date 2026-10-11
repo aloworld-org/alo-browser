@@ -135,7 +135,8 @@ fn the_empty_day_field_makes_a_line_its_own_height() {
         panic!("the form, its field and its button are laid out");
     };
     // `width: 100%` of the second track: 343 wide at 432. A 27.2 line,
-    // 0.6rem of padding above and below and a 1 px border: 48.4 tall.
+    // 0.6rem of padding above and below and a 1 px border: 48.4 tall. The
+    // field's line is its computed `line-height`, not the floored one.
     assert!(near(field.origin.x, 432.0), "{field:?}");
     assert!(near(field.size.width, 343.0), "{field:?}");
     assert!(near(field.size.height, 48.4), "{field:?}");
@@ -147,13 +148,15 @@ fn the_empty_day_field_makes_a_line_its_own_height() {
         near(button.origin.y, field.origin.y + field.size.height + 17.0),
         "{button:?} under {field:?}"
     );
-    // So the form is 162 tall: 27.2 + 4 + 48.4 + 17 + 48.4 + 17. With its
-    // 1rem top margin, 178 centred in the rows' 274.8 from 25: 89.4. Before
-    // item 384 it was 169.71 at 85.54.
-    assert!(near(form.size.height, 162.0), "{form:?}");
-    assert!(near(form.origin.y, 89.4), "{form:?}");
-    assert!(near(field.origin.y, 120.6), "{field:?}");
-    assert!(near(button.origin.y, 186.0), "{button:?}");
+    // So the form is 161.9875 tall: the label's line, 17 px at 1.6 floored
+    // to 1/64 (ADR 0050 § 3), 27.1875, + 4 + 48.4 + 17 + 48.4 + 17. With its
+    // 1rem top margin, 177.9875 centred in the rows' 274.75 from 25:
+    // 89.38125. Before item 384 it was 169.71 at 85.54, and before item 460
+    // 162 at 89.4.
+    assert!(near(form.size.height, 161.9875), "{form:?}");
+    assert!(near(form.origin.y, 89.381_25), "{form:?}");
+    assert!(near(field.origin.y, 120.568_75), "{field:?}");
+    assert!(near(button.origin.y, 185.968_75), "{button:?}");
 }
 
 #[test]
@@ -171,15 +174,17 @@ fn the_offer_is_laid_out_as_the_sheet_says() {
     };
     // `booking-layout-split`'s 62rem is wider than the page, so the section
     // is the whole 800; 1.5rem of padding in a 1 px border.
-    assert_eq!(section, Rect::new(0.0, 0.0, 800.0, 324.8));
+    assert_eq!(section, Rect::new(0.0, 0.0, 800.0, 324.75));
     assert_eq!((heading.origin.x, heading.origin.y), (25.0, 25.0));
     // Two `1fr` tracks either side of a 4rem gap in 750: 343 each.
     assert!(near(heading.size.width, 343.0), "{heading:?}");
-    // 33.6 of heading, its 14 below, and the 1rem row gap.
-    assert!(near(name.origin.y, 88.6), "{name:?}");
-    // The last paragraph ends at 255.6 + 27.2 + 17 = 299.8, the content's
-    // end, and the section's 24 + 1 below make it 324.8.
-    assert!(near(place.origin.y, 255.6), "{place:?}");
+    // Every line is floored to 1/64 as Chrome floors it (ADR 0050 § 3), and
+    // every number here is Chrome 154's, measured with the corpus's font:
+    // 33.59375 of heading (28 px at 1.2), its 14 below, and the 1rem row gap.
+    assert!(near(name.origin.y, 88.593_75), "{name:?}");
+    // The last paragraph ends at 255.5625 + 27.1875 + 17 = 299.75, the
+    // content's end, and the section's 24 + 1 below make it 324.75.
+    assert!(near(place.origin.y, 255.5625), "{place:?}");
 }
 
 #[test]
@@ -212,13 +217,15 @@ fn the_empty_day_field_draws_how_a_date_is_written_in_its_own_colour() {
     assert!(near(origin.0, 445.0), "{origin:?}");
     assert_eq!(color.to_rgba8(), (23, 33, 43, 255));
     // On the field's own line, which 384 already stood the field on: the
-    // 27.2 line 0.6rem and a border below the field's top, the text's
-    // 19.79 centred in it.
+    // 27.2 line 0.6rem and a border below the field's top, and the text's 20
+    // in it, with the top half of the leading floored above it (ADR 0050
+    // § 4): 7.19 of leading, half of it 3.59, floored 3.
     assert!(near(text.origin.x, 445.0), "{text:?}");
-    assert!(near(
-        text.origin.y,
-        120.6 + 1.0 + 9.6 + (27.2 - text.size.height) / 2.0
-    ));
+    assert!(near(text.size.height, 20.0), "{text:?}");
+    assert!(
+        near(text.origin.y, 120.568_75 + 1.0 + 9.6 + 3.0),
+        "{text:?}"
+    );
 
     // In pixels: the format's ink is in the text's colour and inside the
     // text's own rectangle…

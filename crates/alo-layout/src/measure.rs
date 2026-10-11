@@ -47,12 +47,14 @@ pub struct TextStyle {
     /// newline is a break it **must** take, and whether it may break anywhere
     /// at all.
     pub white_space: alo_box::WhiteSpace,
-    /// Its `line-height` in CSS pixels, or [`None`] for `normal`.
+    /// Its `line-height` in CSS pixels, as a line box uses it — on the grid
+    /// of 1/64 px that [`crate::line_height`] places it on — or [`None`] for
+    /// `normal`.
     ///
     /// It does not change what the text measures or where it is drawn: the
     /// glyphs are the same size at any line height. It changes how much room
-    /// the text takes on its line, half of the difference above the font and
-    /// half below, which is why it travels with the font.
+    /// the text takes on its line, the difference shared above the font and
+    /// below it (ADR 0050 § 4), which is why it travels with the font.
     pub line_height: Option<f32>,
 }
 
@@ -105,16 +107,27 @@ pub trait MeasureText {
     /// a page chose.
     fn cluster_ends(&self, text: &str, style: &TextStyle) -> Vec<(usize, f32)>;
 
-    /// How far above the bottom of a line of this text the baseline sits.
+    /// How far above its baseline a line of this text reaches: the top of
+    /// its content area.
     ///
     /// Two pieces of text set in different sizes sit on the same baseline, not
     /// on the same top edge, which is the whole reason a line box is not a row
     /// of boxes — and the reason this takes the style rather than answering
     /// once for the document.
+    ///
+    /// This is the room a *line* takes, which is not always the font's own
+    /// figure: a real font answers in whole pixels, its ascent rounded half
+    /// up (ADR 0050 § 1), and everything that asks is laying out a line.
     fn ascender(&self, style: &TextStyle) -> f32;
 
-    /// How far below the baseline it reaches.
+    /// How far below the baseline a line of it reaches, as
+    /// [`MeasureText::ascender`] does above.
     fn descender(&self, style: &TextStyle) -> f32;
+
+    /// The extra room the font asks for between lines, which a `normal` line
+    /// takes as leading (ADR 0050 § 2). Whole pixels from a real font, as the
+    /// other two are.
+    fn line_gap(&self, style: &TextStyle) -> f32;
 
     /// How tall a lowercase `x` is: where the middle of a line of this text
     /// is, which is what `vertical-align: middle` lines a box up with.
@@ -150,6 +163,10 @@ impl MeasureText for NoText {
     }
 
     fn descender(&self, _style: &TextStyle) -> f32 {
+        0.0
+    }
+
+    fn line_gap(&self, _style: &TextStyle) -> f32 {
         0.0
     }
 
@@ -202,6 +219,10 @@ impl MeasureText for BlockFont {
         4.0
     }
 
+    fn line_gap(&self, _style: &TextStyle) -> f32 {
+        0.0
+    }
+
     fn x_height(&self, _style: &TextStyle) -> f32 {
         8.0
     }
@@ -245,6 +266,10 @@ impl MeasureText for ScaledFont {
 
     fn descender(&self, style: &TextStyle) -> f32 {
         style.size * 0.25
+    }
+
+    fn line_gap(&self, _style: &TextStyle) -> f32 {
+        0.0
     }
 
     fn x_height(&self, style: &TextStyle) -> f32 {

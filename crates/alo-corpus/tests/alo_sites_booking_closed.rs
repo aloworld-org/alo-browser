@@ -90,15 +90,16 @@ fn two_fr_columns_are_equal_and_the_notice_wraps_in_its_own() {
     assert!(near(heading.size.width, 343.0), "{heading:?}");
     assert!(near(name.origin.x, 432.0), "{name:?}");
     assert!(near(name.size.width, 343.0), "{name:?}");
-    // The notice is 366 on one line, so in 343 it is two lines of 27.2,
-    // and the place beside it stretches to the row.
+    // The notice is 366 on one line, so in 343 it is two lines of 17 px at
+    // 1.6, each 27.2 floored to 1/64 (ADR 0050 § 3), and the place beside
+    // it stretches to the row. Every number below is Chrome 154's too.
     assert!(near(notice.origin.x, 432.0), "{notice:?}");
     assert!(near(notice.size.width, 343.0), "{notice:?}");
-    assert!(near(notice.size.height, 54.4), "{notice:?}");
-    assert!(near(place.size.height, 54.4), "{place:?}");
-    // Rows of 47.6 and 44.2 (a block and its margin) with 1rem between
-    // them put the third at 148.8; its 54.4 and 17 of margin, then 24 + 1,
-    // make the section 245.2.
-    assert!(near(notice.origin.y, 148.8), "{notice:?}");
-    assert!(near(section.size.height, 245.2), "{section:?}");
+    assert!(near(notice.size.height, 54.375), "{notice:?}");
+    assert!(near(place.size.height, 54.375), "{place:?}");
+    // Rows of 47.59375 and 44.1875 (a block and its margin) with 1rem
+    // between them put the third at 148.78125; its 54.375 and 17 of margin,
+    // then 24 + 1, make the section 245.15625.
+    assert!(near(notice.origin.y, 148.781_25), "{notice:?}");
+    assert!(near(section.size.height, 245.156_25), "{section:?}");
 }

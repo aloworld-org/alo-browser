@@ -1,23 +1,23 @@
 document at (0, 0) 900×600
-  dialog "Mail settings" at (24, 68.76016) 852×462.47968
-    heading "Mail settings" [level=2] at (44, 84.76016) 812×19.789063
-    navigation "Mail settings" at (24, 121.549225) 194×343.89063
-      button "General" [current=true] at (36, 133.54922) 169×31.132813
-      button "Filters & rules" at (36, 166.68204) 169×31.132813
-      button "Sharing" at (36, 199.81485) 169×31.132813
-      button "Notifications" at (36, 232.94766) 169×31.132813
-      button "App passwords" at (36, 266.08047) 169×31.132813
-    heading "Your signature" [level=3] at (242, 141.54922) 610×16.296875
-    paragraph at (242, 163.8461) 610×22.1
-      text "Added to the bottom of messages you send…" at (242, 167.3297) 297.62256×15.1328125
-    text "Kind regards," at (255, 210.9461) 92.94824×16.296875
-    heading "Out of office" [level=3] at (242, 289.24298) 610×16.296875
-    checkbox "Send automatic replies" [checked=false] at (263, 337.53986) 13×13
-    paragraph at (259, 359.53986) 576×22.1
-      text "Automatically reply once to anyone who emails you while you're away." at (259, 363.02344) 460.45264×15.1328125
-    textbox "First day away" at (259, 393.63986) 282×34.800003
-      text "12 May" at (272, 402.63986) 51.208008×16.296875
-    textbox "Last day away" at (553, 393.63986) 282×34.800003
-      text "19 May" at (566, 402.63986) 51.208008×16.296875
-    button "Cancel" at (702.4209, 482.43985) 71.427734×32.800003
-    button "Save" at (785.84863, 482.43985) 70.15137×32.800003
+  dialog "Mail settings" at (24, 69.10626) 852×461.78748
+    heading "Mail settings" [level=2] at (44, 85.10626) 812×20
+    navigation "Mail settings" at (24, 122.10626) 194×342.9875
+      button "General" [current=true] at (36, 134.10626) 169×31
+      button "Filters & rules" at (36, 167.10626) 169×31
+      button "Sharing" at (36, 200.10626) 169×31
+      button "Notifications" at (36, 233.10626) 169×31
+      button "App passwords" at (36, 266.10626) 169×31
+    heading "Your signature" [level=3] at (242, 142.10626) 610×16
+    paragraph at (242, 164.10626) 610×22.09375
+      text "Added to the bottom of messages you send…" at (242, 167.10626) 297.62256×15
+    text "Kind regards," at (255, 211.20001) 92.94824×16
+    heading "Out of office" [level=3] at (242, 289.2) 610×16
+    checkbox "Send automatic replies" [checked=false] at (263, 337.2) 13×13
+    paragraph at (259, 359.2) 576×22.09375
+      text "Automatically reply once to anyone who emails you while you're away." at (259, 362.2) 460.45264×15
+    textbox "First day away" at (259, 393.29376) 282×34.800003
+      text "12 May" at (272, 402.29376) 51.208008×16
+    textbox "Last day away" at (553, 393.29376) 282×34.800003
+      text "19 May" at (566, 402.29376) 51.208008×16
+    button "Cancel" at (702.4209, 482.09375) 71.427734×32.800003
+    button "Save" at (785.84863, 482.09375) 70.15137×32.800003

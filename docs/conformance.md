@@ -54,14 +54,24 @@ and `end` wait on writing modes (item 98). An image or inline-block sits on
 the line by its **margin box**: its margins take room across the line and
 make the line taller. Every line starts with a **strut** — its container's
 font's ascent and descent — so a line of only a picture has the font's
-descent below it, as in other browsers. **`line-height`** sets how much room
-text, an inline box and the strut take on a line: half of the difference
-from the font's ascent and descent goes above the letters and half below,
-and a value smaller than the font is a negative leading. What is drawn is
-still the font's height. `normal` is the font's ascent and descent and
-nothing more. That is right for the faces the corpus uses, whose tables ask
-for no gap between lines; a face whose table asks for one is laid out
-without it. A value that is negative, not finite or cannot be read is
+descent below it, as in other browsers. **A line is whole pixels of font**,
+as Chrome 154's are (ADR 0050, item 460): a font's ascent, descent and line
+gap are each rounded half up, so 16 px `DejaVu Sans` is 15 above its
+baseline and 4 below where its exact figures are 14.85 and 3.77.
+**`line-height`** sets how much room text, an inline box and the strut take
+on a line, placed on Chrome's grid of 1/64 px: a number is floored from the
+font size rounded to 1/64 (16 px at 1.23 is 19.671875), and a length or
+percentage is rounded. What the room has beyond the font is the leading, and
+its top half, floored to a whole pixel, goes above the letters, the rest
+below; a value smaller than the font is a negative leading, floored the same
+way. What is drawn is still the font's height. `normal` is the font's
+ascent, descent and line gap; the corpus's faces have no gap. Of the 1,214
+element boxes in the corpus measured against Chrome with the same fonts,
+835 now have Chrome's top and height to 1/64 px, where 498 did. A fallback
+font on a `normal` line does not yet add its own room (465), a control's own
+line at `normal` is still 1.2 em rather than its font's whole pixels (467),
+and Chrome also puts paddings, margins and grid tracks on its 1/64 grid,
+which this engine does not (466). A value that is negative, not finite or cannot be read is
 `normal`. One that is merely enormous makes a line that tall, as an
 enormous `height` makes a box that tall, and past the range of a float
 both reach geometry that is infinite; the page is still drawn. An atomic box stands on the
@@ -193,9 +203,10 @@ up to 44 of 255 over black, which Chrome's do not (463). Where a control stands 
 its picture is drawn on whole pixels, as Chrome's is (item 457): each edge of
 its box rounded to the nearest pixel, a half up, measured in Chrome 154.
 `checkbox-beside-text`'s controls differ from Chrome's committed screenshot
-by 2.1 on average and 64 at most, where they differed by 16 (and by 47 before
-item 454). Its last four controls stand one or two pixels higher than
-Chrome's, because Chrome's rows are whole pixels tall (460), and a plain
+by 1.5 on average and 61 at most, where they differed by 16 (and by 47 before
+item 454). Since item 460 every row and control stands where Chrome's does to
+1/64 px, and the whole page differs from Chrome's by 1.0 on average where it
+differed by 4.0. A plain
 background at a fraction of a pixel is smoothed here where Chrome draws it on
 whole pixels (461). A native checkbox with `aria-checked` draws the
 state it declares; Chrome draws its own checkedness (456). A light accent's

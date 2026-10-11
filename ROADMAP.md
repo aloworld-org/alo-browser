@@ -91,14 +91,16 @@ correctness, not before it.
       each rule measured against Chrome 154. Owed: moving a word that
       spans two boxes back to an earlier break on its line (452), 450 and
       451.*
-      *Lines are built from a font's exact ascent and descent, where
-      Chrome 154's are whole pixels, so rows drift up to 2 px from Chrome's
-      over a short page. The rule for how tall a line is was decided in
-      iteration 292 (queue item 464, ADR 0050), measured on 704 probe
-      lines: ascent, descent and line gap each rounded half up, a set line
-      height quantised to 1/64 px, and the leading's top half floored.
-      Nothing is built yet. Owed: building it (460), and a fallback font's
-      own room on a `normal` line (465).*
+      *Lines were built from a font's exact ascent and descent, where
+      Chrome 154's are whole pixels, so rows drifted up to 2 px from
+      Chrome's over a short page. The rule was decided in iteration 292
+      (queue item 464, ADR 0050) and built in iteration 293 (460): ascent,
+      descent and line gap each rounded half up, a set line height on a
+      1/64 px grid, and the leading's top half floored. Of 1,214 corpus
+      boxes measured against Chrome with the same fonts, 835 have its top
+      and height to 1/64 px, where 498 did. Owed: a fallback font's own
+      room on a `normal` line (465), paddings, margins and grid tracks on
+      the 1/64 grid (466), and a control's own `normal` line (467).*
 - [x] **Paint**: a display list, then a software raster to a PNG
       *A small curve was under-covered and leaned to one side until queue
       item 459 (iteration 291): the rented rasteriser's four-by-four

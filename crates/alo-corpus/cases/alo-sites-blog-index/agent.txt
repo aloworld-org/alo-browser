@@ -1,29 +1,29 @@
-document at (0, 0) 800×788.47504
-  link "Skip to content" at (-15984, 0) 161.11035×43.2
+document at (0, 0) 800×788.4219
+  link "Skip to content" at (-15984, 0) 161.11035×43.1875
   banner at (0, 0) 800×65
     navigation "Main" at (0, 0) 800×64
       link "North Studio" at (20, 16) 144.21875×32
-      link "Home" at (618.8252, 18.4) 50.203125×27.2
-      link "Blog" at (689.0283, 18.4) 37.577637×27.2
-      link "RSS" at (746.60596, 18.4) 33.394043×27.2
-  main at (0, 65) 800×723.47504
+      link "Home" at (618.8252, 18.40625) 50.203125×27.1875
+      link "Blog" at (689.0283, 18.40625) 37.577637×27.1875
+      link "RSS" at (746.60596, 18.40625) 33.394043×27.1875
+  main at (0, 65) 800×723.4219
     heading "Blog" [level=1] at (20, 113) 760×48
-    list "Blog" at (20, 193) 760×430.27502
-      listitem "2026-08-09 Launch notes What we learned & what comes next. Read article : Launch notes" at (20, 193) 368×430.27502
+    list "Blog" at (20, 193) 760×430.23438
+      listitem "2026-08-09 Launch notes What we learned & what comes next. Read article : Launch notes" at (20, 193) 368×430.23438
         paragraph at (45, 423.875) 318×24
-          text "2026-08-09" at (45, 427.14453) 87.17285×17.460938
-        heading "Launch notes" [level=2] at (45, 462.875) 318×28.800003
-          link "Launch notes" at (45, 463.30624) 180.9375×27.9375
-        paragraph at (45, 499.675) 318×54.4
-          text "What we learned & what comes next." at (45, 503.38046) 271.0039×46.989044 in 2 pieces
-        link "Read article : Launch notes" at (45, 574.78046) 115.42236×19.789063
-      listitem "2026-08-01 Behind the scenes Read article : Behind the scenes" at (412, 193) 368×430.27502
+          text "2026-08-09" at (45, 426.875) 87.17285×18
+        heading "Launch notes" [level=2] at (45, 462.875) 318×28.796875
+          link "Launch notes" at (45, 462.875) 180.9375×28
+        paragraph at (45, 499.67188) 318×54.375
+          text "What we learned & what comes next." at (45, 502.67188) 271.0039×47.1875 in 2 pieces
+        link "Read article : Launch notes" at (45, 574.0469) 115.42236×20
+      listitem "2026-08-01 Behind the scenes Read article : Behind the scenes" at (412, 193) 368×430.23438
         paragraph at (437, 218) 318×24
-          text "2026-08-01" at (437, 221.26953) 87.17285×17.460938
-        heading "Behind the scenes" [level=2] at (437, 257) 318×28.800003
-          link "Behind the scenes" at (437, 257.43124) 248.13281×27.9375
-        link "Read article : Behind the scenes" at (437, 297.50546) 115.42236×19.789063
-    navigation "Blog pages" at (20, 663.275) 760×45.2
-      link "Previous" at (20, 663.275) 101.84326×45.2
-      text "Page 2 of 3" at (352.30786, 675.98047) 95.38428×19.789063
-      link "Next" at (710.397, 663.275) 69.60303×45.2
+          text "2026-08-01" at (437, 221) 87.17285×18
+        heading "Behind the scenes" [level=2] at (437, 257) 318×28.796875
+          link "Behind the scenes" at (437, 257) 248.13281×28
+        link "Read article : Behind the scenes" at (437, 296.79688) 115.42236×20
+    navigation "Blog pages" at (20, 663.2344) 760×45.1875
+      link "Previous" at (20, 663.2344) 101.84326×45.1875
+      text "Page 2 of 3" at (352.30786, 675.2344) 95.38428×20
+      link "Next" at (710.397, 663.2344) 69.60303×45.1875

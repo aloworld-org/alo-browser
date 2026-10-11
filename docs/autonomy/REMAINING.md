@@ -1745,3 +1745,15 @@ decided and buildable next. Found: 465 (a fallback font's room on a
 `normal` line; depends on 460, waits for a page). 461, 462 and 463 still
 depend on nothing. 208 queue items are open (464 added and closed, 465
 added). The next unused queue number is 466 and the next unused ADR 0051.
+
+Iteration 293 built item 460, by ADR 0050. A line takes a font's ascent,
+descent and line gap in whole pixels (`alo-text`'s `room.rs`), a set line
+height on a grid of 1/64 px (`alo-layout`'s `line_height.rs`), and the top
+half of its leading floored (`inline.rs`). `checkbox-beside-text`'s rows and
+controls are Chrome's to 1/64 px. Measured against Chrome 154 with the
+corpus's fonts, 835 of the corpus's 1,214 element boxes have Chrome's top and
+height, where 498 did. Found: 466 (paddings, margins and grid tracks on
+Chrome's 1/64 grid; needs measuring and its rule written down) and 467 (a
+control's own `normal` line; depends on 460, buildable). 461, 462, 463 and
+467 depend on nothing open. 209 queue items are open (460 closed, 466–467
+added). The next unused queue number is 468 and the next unused ADR 0051.

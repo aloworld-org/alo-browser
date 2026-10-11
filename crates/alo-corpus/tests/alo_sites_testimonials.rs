@@ -116,29 +116,32 @@ fn the_featured_quote_is_laid_out_as_the_sheet_says() {
         panic!("the case renders");
     };
     // `main > section` puts 3rem above and 1.25rem beside; the heading is
-    // 28 px (3.5vw at 800) at a line height of 1.2 with 0.5em below it.
+    // 28 px (3.5vw at 800) at a line height of 1.2 with 0.5em below it:
+    // 33.6 floored to 1/64 as Chrome floors every line (ADR 0050 § 3), so
+    // 33.59375. Every number here is Chrome 154's too.
     let Some(figure) = found(&rendering, "figure") else {
         panic!("the testimonial is laid out");
     };
     assert_eq!((figure.origin.x, figure.size.width), (20.0, 760.0));
-    assert!((figure.origin.y - 95.6).abs() < 1e-3, "{figure:?}");
+    assert!((figure.origin.y - 95.593_75).abs() < 1e-3, "{figure:?}");
     // 1 px of border and `clamp(2rem, 6vw, 4rem)`, 48 px, of padding.
     let Some(quote) = found(&rendering, "blockquote") else {
         panic!("the quote is laid out");
     };
     assert_eq!((quote.origin.x, quote.size.width), (69.0, 662.0));
-    assert!((quote.origin.y - 144.6).abs() < 1e-3, "{quote:?}");
-    // `clamp(1.4rem, 3vw, 2.25rem)` is 24 px at 800, at a line height of 1.3.
-    assert!((quote.size.height - 31.2).abs() < 1e-3, "{quote:?}");
+    assert!((quote.origin.y - 144.593_75).abs() < 1e-3, "{quote:?}");
+    // `clamp(1.4rem, 3vw, 2.25rem)` is 24 px at 800, at a line height of 1.3:
+    // 31.2, floored to 31.1875.
+    assert!((quote.size.height - 31.1875).abs() < 1e-3, "{quote:?}");
     // The paragraph's 1em (24 px) below collapses through the blockquote with
     // its 1rem, so the caption is 24 below the quote, and the card closes 48
     // and 1 below that.
     let Some(caption) = found(&rendering, "figcaption") else {
         panic!("the caption is laid out");
     };
-    assert!((caption.origin.y - 199.8).abs() < 1e-3, "{caption:?}");
-    assert!((caption.size.height - 27.2).abs() < 1e-3, "{caption:?}");
-    assert!((figure.size.height - 180.4).abs() < 1e-3, "{figure:?}");
+    assert!((caption.origin.y - 199.781_25).abs() < 1e-3, "{caption:?}");
+    assert!((caption.size.height - 27.1875).abs() < 1e-3, "{caption:?}");
+    assert!((figure.size.height - 180.375).abs() < 1e-3, "{figure:?}");
 }
 
 #[test]

@@ -189,8 +189,12 @@ fn a_font_size_in_ex_is_the_parents_and_a_line_height_the_elements_own() {
         close(width, 4.0 * x_at_child),
         "{width}: its own lengths are of its own face, at its own size"
     );
+    // A line height written as a length is placed on Chrome's grid of 1/64
+    // px, rounded (ADR 0050 § 3); the computed value, and so `lh`, stays
+    // exact.
+    let line = (3.0 * x_at_child * 64.0 + 0.5).floor() / 64.0;
     assert!(
-        close(height, 3.0 * x_at_child),
+        close(height, line),
         "{height}: one line of three of its own `x`"
     );
 }

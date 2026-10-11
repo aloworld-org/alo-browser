@@ -1,42 +1,42 @@
-fill box#2 rgb(250 247 242) at (0, 0) 800×786.032
+fill box#2 rgb(250 247 242) at (0, 0) 800×786.0131
 clip box#8 to (40, 46.800003) 40×40
 fill box#8 rgb(231 111 81) at (61.666664, 51.800003) 10×15
 fill box#8 rgb(231 111 81) at (55, 48.46667) 10×16.66666
 fill box#8 rgb(231 111 81) at (48.333332, 51.800003) 10×20
 fill box#8 rgb(231 111 81) at (41.43974, 55.133335) 36.89359×29.999996
 unclip
-text box#11 "alomails" rgb(31 43 69) 25.6px at (92, 75.662506)
-text box#15 "Get the alomails app" rgb(31 43 69) 40px at (40, 165.64766)
-text box#18 "Your private, sovereign email as a real desktop app —" rgb(100 116 139) 17.28px at (40, 212.1742)
-text box#18 "on your dock or taskbar, its own window, always a click" rgb(100 116 139) 17.28px at (40, 238.95819)
-text box#18 "away." rgb(100 116 139) 17.28px at (40, 265.7422)
-fill box#22 rgb(255 255 255) at (40, 305.15198) 352×211.49597
-fill box#22 rgb(231 224 214) at (40, 305.15198) 352×211.49597
-text box#26 "Windows" rgb(31 43 69) 18.4px at (63, 350.7819)
-text box#29 "Windows 10 & 11 · 64-bit · .msi installer" rgb(100 116 139) 14.4px at (63, 380.8171)
-fill box#31 rgb(199 191 178) at (63, 442.84796) 306×48.799988
-text box#32 "Building — available shortly" rgb(255 255 255) 16px at (90.00781, 472.78702)
-shadow box#36 rgb(231 111 81 / 0.5) blur 24 at (420, 323.15198) 328×187.496
-fill box#36 rgb(255 255 255) at (408, 305.15198) 352×211.49597
-fill box#36 rgb(231 111 81) at (408, 305.15198) 352×211.49597
-fill box#38 rgb(251 230 223) at (431, 330.15198) 107.98633×23.855988
-text box#39 "YOUR DEVICE" rgb(207 91 62) 11.52px at (439, 346.06808)
-text box#42 "macOS" rgb(31 43 69) 18.4px at (431, 386.6379)
-text box#45 "Apple Silicon & Intel · universal · .dmg" rgb(100 116 139) 14.4px at (431, 416.67313)
-fill box#47 rgb(199 191 178) at (431, 442.84796) 306×48.799988
-text box#48 "Building — available shortly" rgb(255 255 255) 16px at (458.0078, 472.78702)
-fill box#53 rgb(231 224 214) at (40, 542.648) 720×1
-text box#54 "The app keeps itself up to date — new versions install automatically in the background, so you" rgb(100 116 139) 13.76px at (40, 577.0756)
-text box#54 "download it once." rgb(100 116 139) 13.76px at (40, 598.4036)
-text box#57 "Prefer the web? Just open" rgb(100 116 139) 13.76px at (40, 641.0596)
-text box#59 "mail.alomails.com" rgb(207 91 62) 13.76px at (220.73438, 641.0596)
-text box#60 "in any browser." rgb(100 116 139) 13.76px at (365.26813, 641.0596)
-text box#63 "On first launch your system may warn about an “unidentified developer” — that's because the app isn't" rgb(100 116 139) 13.76px at (40, 683.7156)
-text box#63 "code-signed yet, not because anything is wrong. On Windows choose" rgb(100 116 139) 13.76px at (40, 705.0436)
-fill box#64 rgb(239 233 224) at (522.27185, 691.27124) 194.2528×18.017517
-text box#65 "More info → Run anyway" rgb(100 116 139) 13.76px at (528.27185, 705.0436)
-text box#66 "; on" rgb(100 116 139) 13.76px at (716.52466, 705.0436)
-text box#66 "macOS right-click the app and choose" rgb(100 116 139) 13.76px at (40, 726.3716)
-fill box#67 rgb(239 233 224) at (306.3783, 712.59924) 45.13687×18.017517
-text box#68 "Open" rgb(100 116 139) 13.76px at (312.3783, 726.3716)
-text box#69 "." rgb(100 116 139) 13.76px at (351.51517, 726.3716)
+text box#11 "alomails" rgb(31 43 69) 25.6px at (92, 74.97188)
+text box#15 "Get the alomails app" rgb(31 43 69) 40px at (40, 165.8)
+text box#18 "Your private, sovereign email as a real desktop app —" rgb(100 116 139) 17.28px at (40, 211.8)
+text box#18 "on your dock or taskbar, its own window, always a click" rgb(100 116 139) 17.28px at (40, 238.58125)
+text box#18 "away." rgb(100 116 139) 17.28px at (40, 265.3625)
+fill box#22 rgb(255 255 255) at (40, 305.14374) 352×211.48438
+fill box#22 rgb(231 224 214) at (40, 305.14374) 352×211.48438
+text box#26 "Windows" rgb(31 43 69) 18.4px at (63, 350.14374)
+text box#29 "Windows 10 & 11 · 64-bit · .msi installer" rgb(100 116 139) 14.4px at (63, 380.65936)
+fill box#31 rgb(199 191 178) at (63, 442.83124) 306×48.796875
+text box#32 "Building — available shortly" rgb(255 255 255) 16px at (90.00781, 471.83124)
+shadow box#36 rgb(231 111 81 / 0.5) blur 24 at (420, 323.14374) 328×187.48438
+fill box#36 rgb(255 255 255) at (408, 305.14374) 352×211.48438
+fill box#36 rgb(231 111 81) at (408, 305.14374) 352×211.48438
+fill box#38 rgb(251 230 223) at (431, 330.14374) 107.98633×23.84375
+text box#39 "YOUR DEVICE" rgb(207 91 62) 11.52px at (439, 345.14374)
+text box#42 "macOS" rgb(31 43 69) 18.4px at (431, 385.9875)
+text box#45 "Apple Silicon & Intel · universal · .dmg" rgb(100 116 139) 14.4px at (431, 416.5031)
+fill box#47 rgb(199 191 178) at (431, 442.83124) 306×48.796875
+text box#48 "Building — available shortly" rgb(255 255 255) 16px at (458.0078, 471.83124)
+fill box#53 rgb(231 224 214) at (40, 542.6281) 720×1
+text box#54 "The app keeps itself up to date — new versions install automatically in the background, so you" rgb(100 116 139) 13.76px at (40, 576.6281)
+text box#54 "download it once." rgb(100 116 139) 13.76px at (40, 597.95624)
+text box#57 "Prefer the web? Just open" rgb(100 116 139) 13.76px at (40, 640.6125)
+text box#59 "mail.alomails.com" rgb(207 91 62) 13.76px at (220.73438, 640.6125)
+text box#60 "in any browser." rgb(100 116 139) 13.76px at (365.26813, 640.6125)
+text box#63 "On first launch your system may warn about an “unidentified developer” — that's because the app isn't" rgb(100 116 139) 13.76px at (40, 683.26874)
+text box#63 "code-signed yet, not because anything is wrong. On Windows choose" rgb(100 116 139) 13.76px at (40, 704.59686)
+fill box#64 rgb(239 233 224) at (522.27185, 690.59686) 194.2528×18
+text box#65 "More info → Run anyway" rgb(100 116 139) 13.76px at (528.27185, 704.59686)
+text box#66 "; on" rgb(100 116 139) 13.76px at (716.52466, 704.59686)
+text box#66 "macOS right-click the app and choose" rgb(100 116 139) 13.76px at (40, 725.925)
+fill box#67 rgb(239 233 224) at (306.3783, 711.925) 45.13687×18
+text box#68 "Open" rgb(100 116 139) 13.76px at (312.3783, 725.925)
+text box#69 "." rgb(100 116 139) 13.76px at (351.51517, 725.925)

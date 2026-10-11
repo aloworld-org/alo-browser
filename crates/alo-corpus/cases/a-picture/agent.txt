@@ -1,13 +1,13 @@
-document at (0, 0) 200×358.98047
-  paragraph at (0, 4) 200×26.830078
+document at (0, 0) 200×360
+  paragraph at (0, 4) 200×27
     image at (0, 4) 24×24
-  paragraph at (0, 34.83008) 200×82.83008
-    image at (0, 34.83008) 80×80
-  paragraph at (0, 121.66016) 200×32.83008
-    image at (0, 121.66016) 30×30
-  paragraph at (0, 158.49023) 200×22.830078
-    image [broken] at (0, 158.49023) 40×20
-  paragraph at (0, 185.32031) 200×82.83008
-    image at (0, 185.32031) 80×80
-  paragraph at (0, 272.1504) 200×82.83008
-    image at (0, 272.1504) 80×80
+  paragraph at (0, 35) 200×83
+    image at (0, 35) 80×80
+  paragraph at (0, 122) 200×33
+    image at (0, 122) 30×30
+  paragraph at (0, 159) 200×23
+    image [broken] at (0, 159) 40×20
+  paragraph at (0, 186) 200×83
+    image at (0, 186) 80×80
+  paragraph at (0, 273) 200×83
+    image at (0, 273) 80×80

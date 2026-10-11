@@ -13,6 +13,7 @@
 use crate::database::FontDatabase;
 use crate::font::{FontRequest, Slant, Weight};
 use crate::line::lay_out;
+use crate::room::LineRoom;
 use alo_layout::{MeasureText, Size, TextStyle};
 
 /// Measures text with real fonts.
@@ -90,13 +91,15 @@ impl MeasureText for TextMeasurer<'_> {
     }
 
     fn ascender(&self, style: &TextStyle) -> f32 {
-        self.face(style)
-            .map_or(style.size * 0.8, |metrics| metrics.ascender)
+        self.room(style).ascent
     }
 
     fn descender(&self, style: &TextStyle) -> f32 {
-        self.face(style)
-            .map_or(style.size * 0.2, |metrics| metrics.descender)
+        self.room(style).descent
+    }
+
+    fn line_gap(&self, style: &TextStyle) -> f32 {
+        self.room(style).line_gap
     }
 
     fn x_height(&self, style: &TextStyle) -> f32 {
@@ -120,6 +123,23 @@ impl TextMeasurer<'_> {
             .into_iter()
             .next()
             .map(|font| font.metrics(style.size))
+    }
+
+    /// The whole pixels a line takes from that face (ADR 0050 § 1), or from
+    /// four fifths of the size above and a fifth below when there is no face.
+    ///
+    /// A line asks for these and nothing else does: the exact figures stay
+    /// [`TextMeasurer::face`]'s, for `ex`, `ch` and `middle`.
+    fn room(self, style: &TextStyle) -> LineRoom {
+        LineRoom::of(self.face(style).unwrap_or(crate::font::FaceMetrics {
+            ascender: style.size * 0.8,
+            descender: style.size * 0.2,
+            line_gap: 0.0,
+            x_height: style.size * 0.5,
+            zero_width: style.size * 0.5,
+            underline_offset: style.size * 0.1,
+            underline_thickness: style.size * 0.06,
+        }))
     }
 }
 
@@ -194,6 +214,27 @@ mod tests {
         assert_eq!(Some(x_height), face, "the face's figure, not a guess");
         assert!(x_height > 0.0 && x_height < measurer.ascender(&style(20.0)));
         assert!((measurer.x_height(&style(40.0)) - x_height * 2.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn a_line_asks_for_whole_pixels_of_the_face() {
+        // ADR 0050 § 1: `DejaVu Sans` at 16 px reaches 14.85 above and 3.77
+        // below, which a line takes as 15 and 4; the face keeps 14.85.
+        let fonts = database();
+        let measurer = TextMeasurer::new(&fonts);
+        let line = (
+            measurer.ascender(&style(16.0)),
+            measurer.descender(&style(16.0)),
+            measurer.line_gap(&style(16.0)),
+        );
+        assert_eq!(line, (15.0, 4.0, 0.0));
+        let exact = measurer.face(&style(16.0)).map(|face| face.ascender);
+        assert!(exact.is_some_and(|ascent| (ascent - 1901.0 / 128.0).abs() < 0.001));
+        let line = (
+            measurer.ascender(&style(8.0)),
+            measurer.descender(&style(8.0)),
+        );
+        assert_eq!(line, (7.0, 2.0), "7.43 and 1.89");
     }
 
     #[test]

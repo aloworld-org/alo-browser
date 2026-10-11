@@ -1,7 +1,7 @@
-document at (0, 0) 240×54.804688
-  group "Dashed" at (8, 8) 68×38.804688
-    text "Dashed" at (20, 8) 41.663574×12.8046875
-  group "Dotted" at (84, 8) 68×38.804688
-    text "Dotted" at (96, 8) 37.57617×12.8046875
-  group "Double" at (160, 8) 72×38.804688
-    text "Double" at (174, 8) 38.978027×12.8046875
+document at (0, 0) 240×55
+  group "Dashed" at (8, 8) 68×39
+    text "Dashed" at (20, 8) 41.663574×13
+  group "Dotted" at (84, 8) 68×39
+    text "Dotted" at (96, 8) 37.57617×13
+  group "Double" at (160, 8) 72×39
+    text "Double" at (174, 8) 38.978027×13

@@ -161,8 +161,10 @@ fn a_pages_input_listener_echoes_the_text_and_the_agent_reads_the_echo() {
 /// with the field's value, because a text field stands on its value's
 /// baseline (item 285) rather than on its bottom edge. It starts where the
 /// field ends: 8 and the field's 209.59375, which is the user-agent sheet's
-/// `20ch` in the face's own `0` (item 320) and its padding and border.
-const ECHO_LAID: &str = "text \"You typed 12.50\" → 129.45313×18.625 at (217.59375, 52.625)";
+/// `20ch` in the face's own `0` (item 320) and its padding and border. It
+/// is 19 tall, 16 px `DejaVu Sans`' ascent and descent in whole pixels
+/// (ADR 0050 § 1).
+const ECHO_LAID: &str = "text \"You typed 12.50\" → 129.45313×19 at (217.59375, 53)";
 
 #[test]
 fn beforeinput_then_input_then_change_each_trusted_and_each_with_its_members() {
@@ -228,7 +230,7 @@ fn a_cancelled_beforeinput_leaves_the_field_as_it_was_and_answers_so() {
         assert_eq!(value(&renderer).as_deref(), Some("kept"));
         let tree = outline(&mut renderer);
         assert!(
-            tree.contains("textbox \"Field\" at (8, 50.625) 209.59375×23.2\n    text \"kept\""),
+            tree.contains("textbox \"Field\" at (8, 51) 209.59375×23.2\n    text \"kept\""),
             "the agent reads the field as it was:\n{tree}"
         );
     }

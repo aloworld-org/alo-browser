@@ -128,7 +128,7 @@ pub static SUPPORTED: &[(&str, &[Reader])] = &[
     ("justify-self", &[Layout]),
     ("left", &[Layout]),
     ("letter-spacing", &[Layout, Paint]),
-    ("line-height", &[Style]),
+    ("line-height", &[Style, Layout]),
     ("list-style-position", &[Style]),
     ("list-style-type", &[Style]),
     ("margin", &[Layout]),

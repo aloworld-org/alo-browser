@@ -65,8 +65,19 @@
 //! Only the room changes. What is drawn — a text fragment, an inline box's
 //! background — is still the font's height, placed on the baseline, which is
 //! why a link's background in a loosely set paragraph does not fill the gap
-//! between its lines. `normal` adds no leading at all: the line is as tall as
-//! its font.
+//! between its lines. `normal` adds the font's own line gap as leading, and
+//! for a font with none, as the corpus's are, the line is as tall as its
+//! font.
+//!
+//! # A line is whole pixels of font, and its leading is floored
+//!
+//! ADR 0050, measured in Chrome 154. The font's ascent and descent arrive
+//! rounded to whole pixels ([`MeasureText::ascender`]), a set line height
+//! arrives on a grid of 1/64 px ([`crate::line_height`]), and the leading's
+//! top half is floored to a whole pixel here. So 16 px text at
+//! `line-height: 1.5` is 15 and 4 of font in 24 of room, with 2 over the
+//! letters and 3 under them, and its baseline 17 down: the same on every
+//! line, which is what keeps a page's rows where Chrome's are.
 //!
 //! # Not everything stands on the baseline
 //!
@@ -1155,21 +1166,26 @@ pub fn empty_line_baseline(strut: &TextStyle, measurer: &impl MeasureText) -> f3
     reach_of(strut, measurer).above
 }
 
-/// How far text in this style takes room above and below its baseline.
+/// How far text in this style takes room above and below its baseline
+/// (ADR 0050 §§ 2 and 4).
 ///
-/// With `normal`, as far as its font reaches. With a line height that was
-/// set, half of the difference between the two is added on each side — or
-/// taken away, when the line height is the smaller.
+/// The room is the line height that was set, or with `normal` the font's
+/// ascent, descent and line gap. The leading is what the room has beyond the
+/// font's content area, and its top half, floored to a whole pixel, goes
+/// above the letters: so a line holding only this is exactly as tall as its
+/// room, and the odd pixel or fraction goes below them. A line height
+/// smaller than the font is a negative leading, floored the same way.
 fn reach_of(style: &TextStyle, measurer: &impl MeasureText) -> Reach {
-    let above = measurer.ascender(style);
-    let below = measurer.descender(style);
-    let half = style
+    let ascent = measurer.ascender(style);
+    let content = ascent + measurer.descender(style);
+    let room = style
         .line_height
         .filter(|height| height.is_finite())
-        .map_or(0.0, |height| (height - (above + below)) / 2.0);
+        .unwrap_or_else(|| content + measurer.line_gap(style));
+    let above = ascent + ((room - content) / 2.0).floor();
     Reach {
-        above: above + half,
-        below: below + half,
+        above,
+        below: room - above,
     }
 }
 
@@ -1422,6 +1438,89 @@ mod tests {
         // Its leading is split above and below its font, as text's is.
         let the_break = layout.union_for(box_id(2)).expect("the break has a place");
         assert!((the_break.top() - 12.0).abs() < 0.001, "{the_break:?}");
+    }
+
+    /// One line of "one" in `style`, its block's font `style` too: the
+    /// line's height, its baseline, and the top of the text on it.
+    fn one_line(style: &TextStyle, measurer: &impl MeasureText) -> (f32, f32, f32) {
+        let items = [InlineItem::Text {
+            box_id: box_id(1),
+            text: "one".to_owned(),
+            style: style.clone(),
+        }];
+        let layout = lay_out_aligned(&items, Some(1000.0), TextAlignment::Start, style, measurer);
+        let line = layout
+            .lines
+            .first()
+            .map_or((f32::NAN, f32::NAN), |line| (line.height, line.baseline));
+        let top = layout.union_for(box_id(1)).map_or(f32::NAN, Rect::top);
+        (line.0, line.1, top)
+    }
+
+    #[test]
+    fn the_leadings_top_half_is_floored_and_the_rest_goes_below() {
+        // ADR 0050 § 4, with the test font's 12 above and 4 below.
+        let at = |height: f32| {
+            one_line(
+                &TextStyle {
+                    line_height: Some(height),
+                    ..TextStyle::default()
+                },
+                &BlockFont,
+            )
+        };
+        // 5 of leading: 2 above, 3 below.
+        assert_eq!(at(21.0), (21.0, 14.0, 2.0));
+        // A fraction goes below whole: 0.25 floored is 0.
+        assert_eq!(at(16.5), (16.5, 12.0, 0.0));
+        // A negative leading is floored too: -1.5 is -2, so the letters
+        // reach 2 above the line and 1 below it.
+        assert_eq!(at(13.0), (13.0, 10.0, -2.0));
+    }
+
+    /// The test font with a line gap of 3, as a face with one has.
+    struct Gapped;
+
+    impl MeasureText for Gapped {
+        fn measure(&self, text: &str, style: &TextStyle, available_width: Option<f32>) -> Size {
+            BlockFont.measure(text, style, available_width)
+        }
+
+        fn break_opportunities(&self, text: &str) -> Vec<usize> {
+            BlockFont.break_opportunities(text)
+        }
+
+        fn cluster_ends(&self, text: &str, style: &TextStyle) -> Vec<(usize, f32)> {
+            BlockFont.cluster_ends(text, style)
+        }
+
+        fn ascender(&self, style: &TextStyle) -> f32 {
+            BlockFont.ascender(style)
+        }
+
+        fn descender(&self, style: &TextStyle) -> f32 {
+            BlockFont.descender(style)
+        }
+
+        fn line_gap(&self, _style: &TextStyle) -> f32 {
+            3.0
+        }
+
+        fn x_height(&self, style: &TextStyle) -> f32 {
+            BlockFont.x_height(style)
+        }
+    }
+
+    #[test]
+    fn a_normal_line_takes_the_fonts_line_gap_as_leading() {
+        // ADR 0050 § 2: 12 + 4 + 3, its top half floored, 1 above.
+        assert_eq!(one_line(&TextStyle::default(), &Gapped), (19.0, 13.0, 1.0));
+        // With a line height set, the gap is nothing to it.
+        let set = TextStyle {
+            line_height: Some(16.0),
+            ..TextStyle::default()
+        };
+        assert_eq!(one_line(&set, &Gapped), (16.0, 12.0, 0.0));
     }
 
     #[test]

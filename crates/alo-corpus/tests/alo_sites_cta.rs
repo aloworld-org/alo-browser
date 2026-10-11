@@ -58,8 +58,8 @@ const ADDRESS: &str = "https://nordwind.alosites.com/";
 const SHEET: &str = "https://nordwind.alosites.com/assets/site.css";
 
 /// `body`'s `font-size: 1.0625rem` at `line-height: 1.6`: one line of the
-/// page's text.
-const LINE: f32 = 17.0 * 1.6;
+/// page's text, 27.2 floored to 1/64 as Chrome floors it (ADR 0050 § 3).
+const LINE: f32 = 1740.0 / 64.0;
 
 /// The case, read and rendered.
 fn cta() -> Option<(Case, Rendering)> {
@@ -141,7 +141,8 @@ fn the_section_is_drawn_as_the_sheet_styles_it() {
     // `max-width: 70rem` is wider than the page, so the band is the page's
     // width, and its height is its padding and what is in it.
     assert_eq!((band.origin.x, band.size.width), (0.0, 800.0));
-    let heading = 28.0 * 1.2 + 14.0;
+    // 28 px at 1.2, 33.6 floored to 1/64, and its 0.5em below.
+    let heading = 2150.0 / 64.0 + 14.0;
     let paragraph = LINE + 17.0;
     let buttons = LINE + 2.0 * 9.6 + 2.0 + 17.0;
     assert!(
@@ -161,10 +162,11 @@ fn the_section_is_drawn_as_the_sheet_styles_it() {
     };
     assert_eq!(colour.as_deref(), Some("#ffffff"));
     // Inside each, clear of its text and its rounded corners: six pixels in
-    // from its left edge, and halfway down a row that starts at 139.8.
+    // from its left edge, and halfway down a row that starts at 139.78125,
+    // as Chrome 154 measures it.
     assert_eq!(drawn_at(&rendering, 224, 164), Some([255, 255, 255, 255]));
     assert_eq!(drawn_at(&rendering, 377, 164), Some([29, 78, 216, 255]));
-    assert!((order.origin.y - 139.8).abs() < 0.01, "{order:?}");
+    assert!((order.origin.y - 139.781_25).abs() < 0.01, "{order:?}");
     assert!((order.size.height - (LINE + 2.0 * 9.6 + 2.0)).abs() < 0.01);
     assert!((subscriptions.origin.x - (order.origin.x + order.size.width + 12.0)).abs() < 0.01);
     let left = order.origin.x - 24.0;

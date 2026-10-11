@@ -204,19 +204,19 @@ fn pressing_a_row_runs_the_screens_own_script_and_the_tree_says_which_is_open_no
         .map(|drawing| drawing.display.to_outline())
         .unwrap_or_default();
     assert!(
-        drawn.contains("rgb(252 234 227) at (36, 199.81485) 169×31.132813"),
+        drawn.contains("rgb(252 234 227) at (36, 200.10626) 169×31"),
         "the highlight is behind Sharing:\n{drawn}"
     );
     assert!(
-        !drawn.contains("rgb(252 234 227) at (36, 133.54922) 169×31.132813"),
+        !drawn.contains("rgb(252 234 227) at (36, 134.10626) 169×31"),
         "and not behind General:\n{drawn}"
     );
     assert!(
-        drawn.contains("\"Sharing\" rgb(231 111 81) 13px at (48, 219.88174)"),
+        drawn.contains("\"Sharing\" rgb(231 111 81) 13px at (48, 220.10626)"),
         "Sharing is in the accent colour:\n{drawn}"
     );
     assert!(
-        drawn.contains("\"General\" rgb(95 85 75) 13px at (48, 153.61612)"),
+        drawn.contains("\"General\" rgb(95 85 75) 13px at (48, 154.10626)"),
         "General is not:\n{drawn}"
     );
 }
@@ -235,7 +235,7 @@ fn the_screen_is_drawn_as_its_markup_says_until_somebody_presses_something() {
         .map(|drawing| drawing.display.to_outline())
         .unwrap_or_default();
     assert!(
-        drawn.contains("rgb(252 234 227) at (36, 133.54922) 169×31.132813"),
+        drawn.contains("rgb(252 234 227) at (36, 134.10626) 169×31"),
         "{drawn}"
     );
 }

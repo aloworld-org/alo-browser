@@ -13,13 +13,13 @@
 //! the baseline. Until item 443 a checkbox had no margin and stood on its
 //! bottom margin edge, which with no margin was the same place.
 //!
-//! Down is asserted to within 0.75 px of Chrome rather than 1/64. Chrome
-//! rounds the font's ascent and descent to whole pixels and floors the
-//! half-leading, and this engine keeps them exact: at 16 px `DejaVu Sans`'
-//! ascent is 14.85 here and 15 there, and at 32 px 29.7 and 30. Standing a
-//! control on its margin edge instead is 3 px out, so the bound still says
-//! which edge it stands on; and here, where the font's ascent is exact, the
-//! control's bottom is asserted to be exactly on the baseline.
+//! Down is asserted to within 1/64 px of Chrome too, and so is each row's
+//! height: the case that closes queue item 460. Chrome takes the font's
+//! ascent and descent in whole pixels and floors the half-leading (ADR
+//! 0050): at 16 px `DejaVu Sans`' ascent is 14.85 and a line takes 15, and
+//! at 32 px 29.7 and 30. Until item 460 this engine kept them exact, and
+//! these were asserted to within 0.75 px: by the last row a control stood at
+//! y 160.05 here and 162 in Chrome.
 
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_layout::Rect;
@@ -156,6 +156,7 @@ const ROWS: [Row; 8] = [
 ];
 
 /// `DejaVu Sans`' ascent, as a fraction of its size: 1901 of 2048 units.
+/// A line takes it in whole pixels, half up (ADR 0050 § 1).
 const ASCENT: f32 = 1901.0 / 2048.0;
 
 #[test]
@@ -168,7 +169,7 @@ fn each_control_stands_where_chrome_puts_it() {
             panic!("#{id} is laid out");
         };
         assert!(
-            (laid.row.size.height - height).abs() <= 0.75,
+            near(laid.row.size.height, height),
             "#{id} is {} tall, where Chrome's is {height}",
             laid.row.size.height,
         );
@@ -181,7 +182,7 @@ fn each_control_stands_where_chrome_puts_it() {
             );
             let own = control.origin.y - laid.row.origin.y;
             assert!(
-                (own - down).abs() <= 0.75,
+                near(own, *down),
                 "#{id}'s control is {own} down its row, where Chrome's is {down}",
             );
         }
@@ -213,7 +214,7 @@ fn a_control_beside_text_stands_on_its_bottom_border_edge() {
         let Some(text) = laid.texts.first() else {
             panic!("#{id} has text");
         };
-        let baseline = text.origin.y + ASCENT * size;
+        let baseline = text.origin.y + (ASCENT * size + 0.5).floor();
         for control in &laid.controls {
             assert!(
                 near(control.origin.y + control.size.height, baseline),

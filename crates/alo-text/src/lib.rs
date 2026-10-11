@@ -36,6 +36,8 @@
 //! - **Where a line may be cut short** — between clusters, never inside a
 //!   letter — is ours too, read off one shaping of the line: [`cluster`],
 //!   for `text-overflow: ellipsis`.
+//! - **How much room a line takes from a font** is ours: [`room`], whole
+//!   pixels of ascent, descent and line gap (ADR 0050).
 //!
 //! `scripts/gate.sh` checks both boundaries on every run.
 //!
@@ -59,6 +61,7 @@ pub mod line;
 pub mod linebreak;
 mod macintosh;
 pub mod measure;
+pub mod room;
 pub mod run;
 pub mod shape;
 
@@ -71,5 +74,6 @@ pub use font::{
 pub use line::{Line, Paragraph, lay_out, measure_unwrapped};
 pub use linebreak::{BreakPoint, opportunities};
 pub use measure::TextMeasurer;
+pub use room::LineRoom;
 pub use run::{TextRun, split};
 pub use shape::{Direction, ShapedGlyph, ShapedRun, shape, spaced};

@@ -28517,3 +28517,120 @@ are owed. Also updated: `REMAINING.md` and `CHANGELOG.md`.
 208 queue items are open (464 added and closed, 465 added). The next
 unused queue number is **466** and the next ADR is **0051**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 293 — queue item 460: a line is built from whole pixels of font, and its leading is floored
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md` (its
+stage 1 Text line, which this serves), iteration 292. No `AGENTS.md` exists
+in this repository or above it. For 460: its queue entry, ADR 0050, the
+line-height entry in `docs/features.md`, `alo-text`'s `font.rs`,
+`measure.rs`, `line.rs` and `shape.rs`, `alo-layout`'s `measure.rs`,
+`text_style.rs`, `inline.rs`, `marker.rs`, `ellipsis.rs` and `engine.rs`,
+`alo-style`'s `computed.rs` and `metrics.rs`, and `alo-paint`'s `build.rs`.
+
+**Choosing.** Iteration 292 decided 460's rule (ADR 0050) and named it
+buildable next. It stands first among the open items whose dependencies are
+done.
+
+**What was built (ADR 0050 §§ 1–4, the primary font).**
+- `alo-text`'s new `room.rs`: `LineRoom::of(FaceMetrics)` rounds a face's
+  ascent, descent and line gap half up, each on its own, and says where a
+  `normal` line's gap goes (top half floored). `FaceMetrics` stays exact.
+- `MeasureText` gains `line_gap`. `TextMeasurer::ascender`, `descender` and
+  `line_gap` answer with `LineRoom`, and `x_height` stays exact.
+- `alo-layout`'s new `line_height.rs`: `used_line_height` puts a set line
+  height on the 1/64 px grid. A number, read from the computed text, which
+  keeps a number, is floored from the font size rounded to 1/64. A length
+  or percentage is rounded. `text_style_of` uses it, and `alo-css` lists
+  `line-height` as read by layout.
+- `inline.rs`' `reach_of`: room is the set line height or, at `normal`,
+  ascent + descent + line gap. Above the baseline goes the ascent plus the
+  leading's top half floored, and the rest goes below.
+- `line.rs`' paragraph lines take the same whole pixels. Paint's pen puts
+  the baseline at a piece's top plus the whole-pixel ascent. A text box
+  outside a line uses a `normal` line's top.
+- Cut, not built, filed: 466 (paddings, margins and grid tracks on Chrome's
+  1/64 grid) and 467 (a control's own `normal` line, still 1.2 em in
+  `engine.rs`' `control_line`).
+
+**Measured against Chrome 154.** A scratchpad harness, not committed, did
+the measuring. It rendered all 73 cases in Chrome over DevTools at each
+case's exact viewport, with the crate's own `DejaVu` files as `@font-face`
+and each linked sheet resolved from `linked.txt`. It compared each element's
+`getBoundingClientRect()` with this engine's border box, before and after.
+835 of 1,214 boxes now have Chrome's top and height to 1/64 px, where 498
+did. Every case kept or gained matches except `alo-agenda-mini-month` (53 to
+46), whose grid tracks Chrome puts on 1/64 (466). Screenshots of eight
+text-heavy cases were compared with the old and new `render.png`, and all
+moved nearer Chrome's. For example, `text-decorations` went from 28.3 to 6.6
+on average, `invoice-list` from 3.0 to 1.5 and `alo-sign-in` from 1.37 to
+1.07. `alo-sites-features` was unchanged, because its section waits for an
+observer.
+
+**Gate, mechanical.** `cargo clippy --workspace --all-targets
+--all-features -- -D warnings` was clean first. Then `scripts/gate.sh` ran
+once in the foreground. The harness moved it to the background at 600 s,
+and the next call waited on it with a foreground `until` loop. Result:
+`exit 0`, "The gate is met", and no `FAILED` or `panicked` in the log. Only
+this entry came after it, and the commit.
+
+**Gate, manual.**
+- *Layout assertions:*
+  - `checkbox_beside_text.rs` now holds each row's height and each control's
+    y to 1/64 px of Chrome. This closes 460. Its 0.75 bound is gone, and the
+    baseline check uses the whole-pixel ascent.
+  - `a_control_on_whole_pixels.rs` asserts that all nine controls are drawn
+    on Chrome's pixels. They are 1.5 from Chrome's on average and 61 at
+    worst, where they were 2.1 and 64.
+  - New unit tests in `room.rs` (ADR 0050 § 1's table), `line_height.rs`
+    (§ 3's table), `inline.rs` (odd, fractional and negative leadings, and
+    a `normal` line gap with a fake font that has one), `measure.rs` and
+    `line.rs`.
+  - 77 hand-written assertions in 30 test files were rewritten to the rule.
+    Where a case had Chrome's numbers, the new numbers are Chrome's, and
+    each comment says so. alo Sites buttons are 48.3875 here and 48.375 in
+    Chrome, which is the 0.6rem padding (466).
+- *Reference renders:* rewritten with `ALO_UPDATE_REFERENCES=1` after
+  copying the old ones to the scratchpad. 229 case files moved, plus three
+  `alo-window` references that compose `alo-offline`. They were compared
+  with Chrome as above. `checkbox-beside-text`'s whole page is 1.0 from
+  `chrome.png` on average, where it was 4.0.
+- *Mutations, restored from copies (`cmp` confirmed):*
+  - Unfloored leading fails two `inline.rs` tests and the case.
+  - Exact figures fail six `alo-text` tests and the case.
+  - A number rounded rather than floored fails the `line_height.rs` test
+    and `alo_sites_booking_closed.rs`.
+  - Paint's exact ascent fails the corpus references.
+  - A `normal` line's gap in paint's no-fragment path cannot be told apart
+    from the ascent with the corpus's gapless faces. That is stated here,
+    not tested.
+- *Hostile input:* a line height too large for the grid keeps its computed
+  value, which the cascade already checks is finite (tested with `1e37px`).
+  No `unwrap` and no indexing outside tests.
+- One responsibility per file. Whole-pixel room is `room.rs`. The 1/64
+  grid is `line_height.rs`. Where room goes on a line stays in `inline.rs`.
+- No `unsafe`. `alo-workplace` and `alo-os` were not touched. The scratch
+  worktree used to measure the old engine was removed.
+
+**Queue.** 460 ticked with its *Done* paragraph. Added 466 (needs measuring,
+and its rule written down) and 467 (depends on 460, buildable).
+
+**Roadmap.** Stage 1's Text line, already ticked, now says the rule is
+built, gives the measured count, and lists 465, 466 and 467 as owed. Also
+updated: `docs/features.md` (line-height entry), `docs/conformance.md`,
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 461, 462, 463 and 467 depend on nothing open. 466 needs measuring and an
+  ADR-sized rule before code.
+- Two Chrome differences seen while measuring are not filed, because each
+  belongs to an existing cause rather than to lines:
+  - A `date` field is 50.375 tall in Chrome and 48.4 here.
+  - `alo-sites-full-page`'s sixth section is 12.6 px taller here (the
+    pictures, item 418).
+- 438, 439, 431, 433, 434, 444, 445, 446, 448, 450–453, 456, 458, 465,
+  423–428, 411, 414 and 416–421 wait for pages, and 432 depends on 404.
+
+209 queue items are open (460 closed, 466–467 added). The next unused queue
+number is **468** and the next ADR is **0051**. This is one iteration, not a
+finished queue or roadmap.

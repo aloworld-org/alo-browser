@@ -1,12 +1,12 @@
-fill box#1 rgb(255 255 255) at (0, 0) 200×123.171875
-text box#4 "Inbox" rgb(16 16 20) 20px at (8, 26.564453)
-fill box#6 rgb(212 212 216) at (8, 63.578125) 184×1
-text box#8 "•" rgb(16 16 20) 14px at (-4, 56.276367)
-text box#7 "Older" rgb(16 16 20) 14px at (12, 56.276367)
-fill box#9 rgb(220 252 231) at (8, 64.578125) 184×25.296875
-fill box#9 rgb(212 212 216) at (8, 88.875) 184×1
-text box#11 "•" rgb(16 16 20) 14px at (-4, 81.57324)
-text box#10 "From the script" rgb(16 16 20) 14px at (12, 81.57324)
-fill box#12 rgb(212 212 216) at (8, 114.171875) 184×1
-text box#14 "•" rgb(16 16 20) 14px at (-4, 106.87012)
-text box#13 "Newer" rgb(16 16 20) 14px at (12, 106.87012)
+fill box#1 rgb(255 255 255) at (0, 0) 200×123
+text box#4 "Inbox" rgb(16 16 20) 20px at (8, 27)
+fill box#6 rgb(212 212 216) at (8, 64) 184×1
+text box#8 "•" rgb(16 16 20) 14px at (-4, 57)
+text box#7 "Older" rgb(16 16 20) 14px at (12, 57)
+fill box#9 rgb(220 252 231) at (8, 65) 184×25
+fill box#9 rgb(212 212 216) at (8, 89) 184×1
+text box#11 "•" rgb(16 16 20) 14px at (-4, 82)
+text box#10 "From the script" rgb(16 16 20) 14px at (12, 82)
+fill box#12 rgb(212 212 216) at (8, 114) 184×1
+text box#14 "•" rgb(16 16 20) 14px at (-4, 107)
+text box#13 "Newer" rgb(16 16 20) 14px at (12, 107)

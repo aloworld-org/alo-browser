@@ -72,6 +72,11 @@ fn near(left: f32, right: f32) -> bool {
     (left - right).abs() < 1e-3
 }
 
+/// A line of the page's 16 px text at `normal`: `DejaVu Sans`' ascent and
+/// descent, 14.85 and 3.77, each in whole pixels (ADR 0050 § 1). Chrome
+/// 154 makes every one of this page's lines 19 tall too.
+const LINE: f32 = 19.0;
+
 #[test]
 fn a_list_in_a_list_starts_where_the_line_above_it_ends() {
     let Some(rendering) = rich_text() else {
@@ -83,17 +88,17 @@ fn a_list_in_a_list_starts_where_the_line_above_it_ends() {
     else {
         panic!("lists and items: {lists:?} {items:?}");
     };
-    // The text is 16 pixels at `normal`, 18.625 a line. The outer list is
+    // The text is 16 pixels at `normal`, 19 a line. The outer list is
     // under the subheading, 16 below a 1em margin: the second point starts
-    // one line down, at 185.1575.
-    assert!(near(outer.origin.y, 166.5325), "{outer:?}");
-    assert!(near(holding.origin.y, 185.1575), "{holding:?}");
+    // one line down, at 186.72.
+    assert!(near(outer.origin.y, 167.72), "{outer:?}");
+    assert!(near(holding.origin.y, 186.72), "{holding:?}");
     // The nested list starts where the point's own line ends, with no margin,
     // 40 further in; the point holding it is two lines tall, not two lines
     // and 16.
-    assert!(near(nested.origin.y, 185.1575 + 18.625), "{nested:?}");
+    assert!(near(nested.origin.y, 186.72 + LINE), "{nested:?}");
     assert!(near(nested.origin.x, 48.0), "{nested:?}");
-    assert!(near(holding.size.height, 2.0 * 18.625), "{holding:?}");
+    assert!(near(holding.size.height, 2.0 * LINE), "{holding:?}");
     // And it gives nothing below either: the numbered list after the outer
     // one is the outer one's 1em below its end, not 1em and 16.
     let numbered = all(&rendering, "ol");
@@ -101,7 +106,7 @@ fn a_list_in_a_list_starts_where_the_line_above_it_ends() {
         panic!("one numbered list: {numbered:?}");
     };
     assert!(
-        near(numbered.origin.y, 166.5325 + 3.0 * 18.625 + 16.0),
+        near(numbered.origin.y, 167.72 + 3.0 * LINE + 16.0),
         "{numbered:?}"
     );
 }
@@ -329,14 +334,14 @@ fn each_point_has_its_marker_outside_its_first_line() {
             near(marker.origin.y, item.origin.y),
             "{text} {marker:?} {item:?}"
         );
-        assert!(near(marker.size.height, 18.625), "{text} {marker:?}");
+        assert!(near(marker.size.height, LINE), "{text} {marker:?}");
     }
     // The second point holds a list: its marker is on its first line only.
     let Some((holding, _, disc)) = found.get(1) else {
         panic!("the second point: {found:?}");
     };
-    assert!(near(holding.size.height, 2.0 * 18.625), "{holding:?}");
-    assert!(near(disc.origin.y, 185.1575), "{disc:?}");
+    assert!(near(holding.size.height, 2.0 * LINE), "{holding:?}");
+    assert!(near(disc.origin.y, 186.72), "{disc:?}");
     // The numbers are as wide as DejaVu Sans makes "3. ", so they start
     // 20.35 before the line.
     let Some((_, _, three)) = found.get(3) else {

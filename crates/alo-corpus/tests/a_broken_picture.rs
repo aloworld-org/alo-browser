@@ -24,8 +24,9 @@ use alo_renderer::{Rendered, Resource, render_with_resources};
 /// The face every page here is set in, so a width is `DejaVu Sans`' own.
 const FACE: &str = "body { margin: 0; font-family: 'DejaVu Sans'; font-size: 16px }";
 
-/// `DejaVu Sans`' `normal` line at 16 px: 1.1640625 em.
-const LINE: f32 = 18.625;
+/// `DejaVu Sans`' `normal` line at 16 px: its ascent of 14.85 and descent
+/// of 3.77, each in whole pixels as Chrome takes them (ADR 0050 § 1).
+const LINE: f32 = 19.0;
 
 /// "Orange notebook" in `DejaVu Sans` at 16 px, as HarfBuzz's own `hb-shape`
 /// shapes it: 17 824 font units of 2048, kerning included.
@@ -204,7 +205,7 @@ fn an_alt_wraps_with_its_line() {
     let tree = outline(&rendered);
     assert!(
         tree.contains(
-            "image \"Orange notebook front cover\" [broken] at (0, 0) 87.625×55.875 in 3 pieces"
+            "image \"Orange notebook front cover\" [broken] at (0, 0) 87.625×57 in 3 pieces"
         ),
         "the image is the union of its three lines:\n{tree}",
     );

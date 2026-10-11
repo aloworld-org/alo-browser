@@ -22,6 +22,7 @@
 use crate::database::FontDatabase;
 use crate::font::FontRequest;
 use crate::linebreak::opportunities;
+use crate::room::LineRoom;
 use crate::run::{TextRun, split};
 use crate::shape::{ShapedRun, shape};
 
@@ -32,9 +33,11 @@ pub struct Line {
     pub runs: Vec<ShapedRun>,
     /// How wide the line is, in CSS pixels.
     pub width: f32,
-    /// How far above the baseline the tallest thing on it reaches.
+    /// How far above the baseline the tallest thing on it takes room: each
+    /// font's whole pixels, as a `normal` line in layout takes them
+    /// ([`LineRoom`], ADR 0050), so that measuring and laying out agree.
     pub ascender: f32,
-    /// How far below the baseline the deepest thing on it reaches.
+    /// How far below the baseline the deepest thing on it takes room.
     pub descender: f32,
 }
 
@@ -271,8 +274,9 @@ fn shape_line(
         };
         let shaped = crate::shape::spaced(shape(text, &font, size, direction), letter_spacing);
         width += shaped.width;
-        ascender = ascender.max(shaped.ascender);
-        descender = descender.max(shaped.descender);
+        let room = LineRoom::of(font.metrics(size));
+        ascender = ascender.max(room.normal_above());
+        descender = descender.max(room.normal_below());
         runs.push(shaped);
     }
 
@@ -281,9 +285,9 @@ fn shape_line(
     if runs.is_empty()
         && let Some(font) = database.chain(request).into_iter().next()
     {
-        let metrics = font.metrics(size);
-        ascender = metrics.ascender;
-        descender = metrics.descender;
+        let room = LineRoom::of(font.metrics(size));
+        ascender = room.normal_above();
+        descender = room.normal_below();
     }
 
     Line {
@@ -421,6 +425,18 @@ mod tests {
         assert!(line.ascender > 0.0);
         assert!(line.descender > 0.0);
         assert!((line.height() - (line.ascender + line.descender)).abs() < 0.001);
+    }
+
+    #[test]
+    fn a_line_is_whole_pixels_of_its_font() {
+        // `DejaVu Sans` at 16 px reaches 14.85 and 3.77, which a line takes
+        // as 15 and 4 (ADR 0050 § 1); empty, it is the same.
+        for text in ["xg", "one\n\ntwo"] {
+            let paragraph = lay_out(text, &database(), &request(), 16.0, Some(1000.0), 0.0);
+            for line in &paragraph.lines {
+                assert_eq!((line.ascender, line.descender), (15.0, 4.0), "{text:?}");
+            }
+        }
     }
 
     #[test]

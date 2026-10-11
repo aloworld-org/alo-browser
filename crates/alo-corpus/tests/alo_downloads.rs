@@ -233,9 +233,10 @@ fn the_notes_code_is_drawn_in_the_monospace_face() {
 
 /// Each download button is `display: inline-flex` with its label as its
 /// only child, and the label is wrapped in an anonymous block (queue item
-/// 321): its line is the body's `line-height: 1.55` at 16 px, 24.8, and the
-/// button that line plus twelve pixels of padding above and below, 48.8.
-/// Measured bare, the label was its font's 18.625 and the button 42.625.
+/// 321): its line is the body's `line-height: 1.55` at 16 px, 24.8 floored
+/// to 1/64 as Chrome floors it (ADR 0050 § 3), 1587 sixty-fourths, and the
+/// button that line plus twelve pixels of padding above and below. Measured
+/// bare, the label was its font's 18.625 and the button 42.625.
 #[test]
 fn each_buttons_label_is_a_line_as_tall_as_its_line_height() {
     let Some((_, rendering)) = downloads() else {
@@ -276,12 +277,12 @@ fn each_buttons_label_is_a_line_as_tall_as_its_line_height() {
         };
         let line = height(wrapper).unwrap_or(f32::NAN);
         assert!(
-            (line - 16.0 * 1.55).abs() < 0.001,
+            (line - 1587.0 / 64.0).abs() < 0.001,
             "{label}'s line is {line}"
         );
         let tall = height(button).unwrap_or(f32::NAN);
         assert!(
-            (tall - (16.0 * 1.55 + 24.0)).abs() < 0.001,
+            (tall - (1587.0 / 64.0 + 24.0)).abs() < 0.001,
             "{label}'s button is {tall}"
         );
     }

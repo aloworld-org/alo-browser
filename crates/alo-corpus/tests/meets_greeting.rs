@@ -54,17 +54,18 @@ fn greeting_text(drawing: &alo_renderer::Drawing) -> Option<(f32, alo_text::Face
 /// How far the greeting's line reaches above and below its baseline.
 ///
 /// The paragraph is 13 px at Meet's inherited `--leading-normal`, 1.5: its
-/// strut takes 19.5, half of what that leaves over the face's ascent and
-/// descent above them and half below. The hand is 20 tall with its middle
-/// half an x-height over the baseline, so it reaches 10 plus that above and
-/// 10 less it below. The line is the further of the two on each side.
+/// strut takes 19.5. The face's ascent and descent are taken in whole
+/// pixels, and the top half of what is left over them, floored to a whole
+/// pixel, goes above them (ADR 0050): 12 and 3, so 2 above and the rest
+/// below. The hand is 20 tall with its middle half an x-height over the
+/// baseline, so it reaches 10 plus that above and 10 less it below: the
+/// exact x-height, which `middle` keeps (ADR 0050 § 5). The line is the
+/// further of the two on each side.
 fn greeting_reach(metrics: alo_text::FaceMetrics) -> (f32, f32) {
-    let half = (13.0 * 1.5 - (metrics.ascender + metrics.descender)) / 2.0;
+    let room = alo_text::LineRoom::of(metrics);
+    let above = room.ascent + ((19.5 - (room.ascent + room.descent)) / 2.0).floor();
     let hand = metrics.x_height / 2.0;
-    (
-        (metrics.ascender + half).max(10.0 + hand),
-        (metrics.descender + half).max(10.0 - hand),
-    )
+    (above.max(10.0 + hand), (19.5 - above).max(10.0 - hand))
 }
 
 /// The case laid out in a window `width` wide: the `<header>`'s border box

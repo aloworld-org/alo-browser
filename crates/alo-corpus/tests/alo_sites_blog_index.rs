@@ -122,8 +122,8 @@ fn each_read_link_is_one_line_with_its_span_at_the_end() {
     assert_eq!(spans.len(), 2, "{spans:?}");
     for ((link, line), (span, _)) in links.iter().zip(&spans) {
         // The link's line is the run that holds it: one line of 17 px at
-        // 1.6, where the link starts.
-        assert!(near(line.size.height, 27.2), "{line:?}");
+        // 1.6, 27.2 floored to 1/64 (ADR 0050 § 3), where the link starts.
+        assert!(near(line.size.height, 1740.0 / 64.0), "{line:?}");
         assert!(near(link.origin.x, line.origin.x), "{link:?} {line:?}");
         // One pixel square, at the end of the link's text and the top of
         // its line, less its margin of -1px each way.

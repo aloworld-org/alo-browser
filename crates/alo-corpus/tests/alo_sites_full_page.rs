@@ -125,14 +125,17 @@ fn the_brand_is_one_link_holding_its_logo_where_chrome_puts_it() {
     let (link, held) = &brands[0];
     // Chrome 154: (20, 14.1875), 44 tall, and the logo (20, 20.1875), 32
     // tall. Its width here is the `alt`'s, Chrome's 16 more (item 418).
+    // Down, it is centred against the menu's last item, whose padding of
+    // 0.6rem Chrome puts on its grid of 1/64 px and this engine does not
+    // (item 466): 48.3875 tall here and 48.375 there, so 14.19375 here.
     assert!(
-        near(link.origin.x, 20.0) && near(link.origin.y, 14.2) && near(link.size.height, 44.0),
+        near(link.origin.x, 20.0) && near(link.origin.y, 14.193_75) && near(link.size.height, 44.0),
         "{link:?}"
     );
     assert_eq!(held.len(), 1, "it holds the logo: {held:?}");
     let logo = held[0];
     assert!(
-        near(logo.origin.x, 20.0) && near(logo.origin.y, 20.2) && near(logo.size.height, 32.0),
+        near(logo.origin.x, 20.0) && near(logo.origin.y, 20.193_75) && near(logo.size.height, 32.0),
         "{logo:?}"
     );
     assert!(near(link.size.width, logo.size.width), "{link:?} {logo:?}");
@@ -160,7 +163,7 @@ fn an_agent_reads_the_brand_once_holding_its_picture() {
     };
     let link = lines[at];
     assert!(!link.contains("pieces"), "{tree}");
-    assert!(link.contains(" at (20, 14.2"), "{tree}");
+    assert!(link.contains(" at (20, 14.19375)"), "{tree}");
     let next = lines.get(at + 1).copied().unwrap_or_default();
     let indent = |line: &str| line.len() - line.trim_start().len();
     assert!(
@@ -265,7 +268,9 @@ fn the_faqs_closed_details_is_its_summary_as_chrome_draws_it() {
     // Item 429, ADR 0048 § 6. Chrome 154: the `details` is 53.1875 tall —
     // 1 + 12 + the summary's 27.1875 + 12 + 1 — and its answer takes no
     // room. Here it was 92.4, holding the answer, and the CTA after it was
-    // 39.2 lower than it is now.
+    // 39.2 lower than it is now. Its height is Chrome's since item 460
+    // floored each line to 1/64 (ADR 0050 § 3); where it stands is this
+    // engine's, which an earlier section moves (12.6 px, not a line).
     let Some((_, rendering)) = full_page() else {
         panic!("the case renders");
     };
@@ -273,10 +278,10 @@ fn the_faqs_closed_details_is_its_summary_as_chrome_draws_it() {
         panic!("the FAQ and the CTA are laid out");
     };
     assert!(
-        near(details.origin.y, 2902.2) && near(details.size.height, 53.2),
+        near(details.origin.y, 2901.953) && near(details.size.height, 53.1875),
         "{details:?}"
     );
-    assert!(near(heading.origin.y, 3102.6 - 39.2), "{heading:?}");
+    assert!(near(heading.origin.y, 3063.1404), "{heading:?}");
     let Some(drawing) = rendering.drawing() else {
         panic!("the case has a drawing");
     };
@@ -299,8 +304,8 @@ fn an_agent_reads_the_question_and_that_it_is_closed_and_not_the_answer() {
     assert_eq!(
         faq_lines(&outline(&renderer)),
         [
-            "group at (20, 2902.2) 760×53.2",
-            "summary \"How fresh is the coffee?\" [expanded=false] at (37, 2915.2) 726×27.2",
+            "group at (20, 2901.953) 760×53.1875",
+            "summary \"How fresh is the coffee?\" [expanded=false] at (37, 2914.953) 726×27.1875",
         ],
     );
 }
@@ -321,10 +326,10 @@ fn activating_the_question_opens_it_and_activating_it_again_closes_it() {
     assert_eq!(
         faq_lines(&outline(&renderer)),
         [
-            "group at (20, 2902.2) 760×92.4",
-            "summary \"How fresh is the coffee?\" [expanded=true] at (37, 2915.2) 726×27.2",
-            "paragraph at (37, 2954.4) 726×27.2",
-            "text \"It ships the day it is roasted.\" at (37, 2958.1055) 241.85156×19.789063",
+            "group at (20, 2901.953) 760×92.375",
+            "summary \"How fresh is the coffee?\" [expanded=true] at (37, 2914.953) 726×27.1875",
+            "paragraph at (37, 2954.1404) 726×27.1875",
+            "text \"It ships the day it is roasted.\" at (37, 2957.1404) 241.85156×20",
         ],
     );
     let opened = renderer.document().and_then(|document| {
@@ -346,8 +351,8 @@ fn activating_the_question_opens_it_and_activating_it_again_closes_it() {
     assert_eq!(
         faq_lines(&outline(&renderer)),
         [
-            "group at (20, 2902.2) 760×53.2",
-            "summary \"How fresh is the coffee?\" [expanded=false] at (37, 2915.2) 726×27.2",
+            "group at (20, 2901.953) 760×53.1875",
+            "summary \"How fresh is the coffee?\" [expanded=false] at (37, 2914.953) 726×27.1875",
         ],
     );
 }

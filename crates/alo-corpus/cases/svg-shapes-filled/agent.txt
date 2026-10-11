@@ -1,4 +1,4 @@
-document at (0, 0) 320×165.66016
+document at (0, 0) 320×166
   paragraph at (4, 4) 312×40
     image "Rect" at (4, 4) 40×40
     image "Rounded rect" at (48, 4) 40×40
@@ -13,12 +13,12 @@ document at (0, 0) 320×165.66016
     image "Fill opacity" at (136, 48) 40×40
     image "Turned" at (180, 48) 40×40
     image "Overridden" at (224, 48) 40×40
-  paragraph at (4, 92) 312×14.830078
-    text "Warm" at (4, 92.86133) 34.86328×13.96875
-  paragraph at (4, 110.83008) 312×14.830078
-    text "Cool" at (4, 111.69141) 26.396484×13.96875
-  paragraph at (4, 129.66016) 312×32
-    image "Meet" at (4, 129.66016) 72×32
-    image "Start" at (80, 129.66016) 72×32
-    image "Slice" at (156, 129.66016) 72×32
-    image "Stretch" at (232, 129.66016) 72×32
+  paragraph at (4, 92) 312×15
+    text "Warm" at (4, 93) 34.86328×14
+  paragraph at (4, 111) 312×15
+    text "Cool" at (4, 112) 26.396484×14
+  paragraph at (4, 130) 312×32
+    image "Meet" at (4, 130) 72×32
+    image "Start" at (80, 130) 72×32
+    image "Slice" at (156, 130) 72×32
+    image "Stretch" at (232, 130) 72×32
