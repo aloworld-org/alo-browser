@@ -49,6 +49,7 @@
 //! written back — with no heap and no document in this crate.
 
 pub mod declaration;
+mod flex;
 pub mod ident;
 pub mod inline;
 pub mod issue;

@@ -1,0 +1,215 @@
+/*
+ * The calendar list in alo's Agenda sidebar, styled the way it is styled.
+ *
+ * The rules are `alo-workplace`'s `web/src/agenda/AgendaModule.module.css`
+ * (the ones the sidebar, its "New event" button, its calendar lists and its
+ * "Working hours" action match) and `web/src/ds/global.css` (the reset,
+ * `body`, `button` and `svg`), and the values are its `web/src/ds/tokens.css`.
+ * The tokens are declared below rather than imported because that file lives
+ * in another repository, which this one only ever reads.
+ *
+ * **No substitutions.** Each rule is the screen's own, as written there.
+ * `:hover` rules are left out: nothing is under a pointer in a frozen page.
+ * So are `body`'s font-smoothing hints, which say nothing to a software
+ * raster.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  /* ---- tokens: the ones this sidebar reads ---- */
+  --ink: #102a43;
+  --terracotta: #e76f51;
+  --warm-500: #7a6f62;
+  --warm-600: #5f554b;
+  --bg-app: #f4f1ec;
+  --bg-sunken: #f0ece6;
+  --bg-raised: #e9e4dc;
+  --border-default: #ded7cd;
+  --text-primary: var(--ink);
+  --text-secondary: var(--warm-600);
+  --text-tertiary: var(--warm-500);
+  --danger: #dc2626;
+  --font-ui:
+    "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 0.9375rem;
+  --weight-semibold: 600;
+  --leading-normal: 1.5;
+  --space-2: 0.5rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-full: 999px;
+  --duration-fast: 150ms;
+  --ease-standard: ease;
+  --transition-fast: var(--duration-fast) var(--ease-standard);
+}
+
+/* ---- web/src/ds/global.css ---- */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* ---- web/src/agenda/AgendaModule.module.css ---- */
+
+.agenda {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-app);
+}
+
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-default);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  overflow-y: auto;
+  background: var(--bg-sunken);
+}
+
+.calList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.calListHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.calAdd {
+  display: inline-flex;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+.calItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 4px;
+  border-radius: var(--radius-sm);
+}
+.calName {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calDel {
+  opacity: 0;
+  color: var(--text-tertiary, var(--text-secondary));
+  transition: opacity 0.12s;
+}
+/* Access badge on a calendar shared with the viewer (view/edit). */
+.calShared {
+  flex-shrink: 0;
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary, var(--text-secondary));
+  text-transform: lowercase;
+}
+
+.newBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+  background: var(--terracotta);
+  color: #fff;
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-base);
+  padding: 10px 18px;
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 8px -3px rgba(231, 111, 81, 0.6);
+  transition: background var(--transition-fast);
+}
+
+.calToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+.calCheck {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  border: 2px solid var(--cal, var(--terracotta));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: background-color var(--transition-fast);
+}
+.calCheckOn {
+  background: var(--cal, var(--terracotta));
+}
+
+.sidebarAction {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  align-self: flex-start;
+}

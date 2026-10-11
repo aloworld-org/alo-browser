@@ -6140,6 +6140,72 @@ The long pole, and the thing most of section E is unreachable without.
   where Chrome does; `alo-layout`'s `an_empty_field_stands_where_its_text_will`
   says the number.
 
+- [x] **440. The `flex` shorthand.** *Opened by `alo-agenda-calendars`,
+  frozen in iteration 281 from `alo-workplace`'s Agenda sidebar. Feature:
+  `docs/features.md` stage 1, layout (flexbox). Depends on nothing.* Each
+  calendar row's toggle (`.calToggle`) and name (`.calName`) grow by
+  `flex: 1`. Nothing split or read the shorthand, so `flex: 1` was no
+  flex at all: each toggle was as wide as its name, and the row's share
+  and delete buttons stood against it rather than at the row's end.
+  alo Settings (stage 1's reference screen) had the same fault unseen:
+  its dialog title, content column and footer message grow by `flex: 1`,
+  so its content was 115.5 px narrower than Chrome draws it and its Cancel
+  and Save buttons stood at the footer's left rather than its right.
+  *Closes when:* the frozen rows' toggles, names, buttons and badges stand
+  where Chrome 154's do, and Settings' widths agree with Chrome's.
+  **Done (iteration 281).** `alo-css`' new `flex.rs` splits `flex` into
+  `flex-grow`, `flex-shrink` and `flex-basis` as a declaration block is
+  written, told apart by kind as `list-style` is: `none` is `0 0 auto`,
+  `auto` `1 1 auto`, a number alone `n 1 0%`, a basis alone `1 1 basis`,
+  the basis before or after the two factors, and a unitless zero after two
+  factors the length `0px`. Every answer was measured against Chrome 154's
+  `getComputedStyle` for thirty-two values, including the five it refuses
+  (`1 2 3`, `1 0px 2`, `30px 40px`, `-1`, `none 1`), which are left whole
+  here; so is a value holding `var()`. `longhand::longhands("flex")` names
+  the three, so CSSOM removes them with it. The toggles are 178 and 157
+  wide at x 20, the share and delete buttons at 206, 185 and 206, as
+  Chrome's; Settings' title is 812 wide, its content 658, its date fields
+  282 at 259 and 553, its footer buttons at 702.41 and 785.84, each
+  Chrome's to its layout unit. `alo-css` unit tests pin the grammar and
+  order against longhands; `alo-corpus`' `tests/alo_agenda_calendars.rs`
+  pins the rows. Unhooking the shorthand from `expand` fails two of that
+  file's four tests.
+
+- [ ] **441. `text-transform`.** *Found by `alo-agenda-calendars`
+  (iteration 281). Feature: `docs/features.md` stage 1, text. Depends on
+  nothing. **needs ADR**: what an agent reads.* The calendar lists'
+  headings are `text-transform: uppercase` and the shared calendars'
+  badges `lowercase`; this engine draws and measures the text as written,
+  so "My calendars" is 95.46 wide where Chrome's "MY CALENDARS" is 111.69,
+  and "Can edit" 50.19 where Chrome's "can edit" is 48.42, which moves
+  the toggle beside it by 1.77. Drawing and measuring the transformed text
+  is CSS Text 3 § 2.1; what an agent reads — the transformed text a person
+  sees, or the text the page wrote — is a decision, and it is ADR 0002's
+  surface. `capitalize` and `full-width` are the same property. *Closes
+  when:* the ADR is accepted and the frozen headings and badges are the
+  widths Chrome gives, in `tests/alo_agenda_calendars.rs`.
+
+- [ ] **442. `text-overflow: ellipsis`.** *Found by
+  `alo-agenda-calendars` (iteration 281). Feature: `docs/features.md`
+  stage 1, text. Depends on nothing.* Mira's calendar's name is longer
+  than its 113.98 px box, which is `white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis`: Chrome ends the visible run in "…" ("Mira's
+  calendar…"), and this engine cuts it mid-letter at the box's edge. The
+  box and the layout are already Chrome's; only what is drawn differs. An
+  agent reads the whole name, as it does now, because the page wrote it.
+  *Closes when:* the frozen name is drawn ending in an ellipsis that fits
+  inside its box, in pixels, and the agent's text is unchanged.
+
+- [ ] **443. A checkbox's user-agent margin.** *Found re-measuring
+  `alo-settings` for 440 (iteration 281). Feature: `docs/features.md`
+  stage 1, forms. Depends on nothing.* Chrome 154's user-agent sheet gives
+  a checkbox (and a radio) `margin: 3px 3px 3px 4px`; this engine gives it
+  none. Settings' "Send automatic replies" checkbox is at x 263 there and
+  259 here, its label at 287 and 280, and the row 19 tall where it is 16.3
+  here. Measured on the page, not yet against a hand-written case.
+  *Closes when:* a case pins a checkbox and a radio beside text where
+  Chrome puts them, and Settings' row agrees.
+
 - [ ] **432. A `<summary>` draws its disclosure triangle.** *Cut from 429
   by ADR 0048 § 5. Opened by `alo-sites-full-page`'s FAQ. Feature:
   `docs/features.md` stage 1, a list item's marker (ADR 0044). Depends on

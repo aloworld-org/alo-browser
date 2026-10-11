@@ -117,6 +117,9 @@ pub fn longhands(name: &str) -> Option<&'static [&'static str]> {
     if name == "list-style" {
         return Some(crate::list_style::LONGHANDS.as_slice());
     }
+    if name == "flex" {
+        return Some(crate::flex::LONGHANDS.as_slice());
+    }
     // A logical shorthand sets its logical longhands, as CSS Logical says,
     // and not the physical sides they are laid out as: removing
     // `padding-block` must not take a written `padding-top` with it.
@@ -160,6 +163,11 @@ mod tests {
             longhands("list-style"),
             Some(["list-style-position", "list-style-image", "list-style-type"].as_slice()),
             "split by kind as it is written (ADR 0044 § 2)",
+        );
+        assert_eq!(
+            longhands("flex"),
+            Some(["flex-grow", "flex-shrink", "flex-basis"].as_slice()),
+            "split by kind as it is written (queue item 440)",
         );
     }
 

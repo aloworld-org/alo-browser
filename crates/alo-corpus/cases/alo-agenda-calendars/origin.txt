@@ -1,0 +1,65 @@
+alo-workplace, web/src/agenda/AgendaModule.tsx — the calendar list in the
+sidebar of alo's Agenda (calendar) screen.
+
+Written out 2026-10-11 from the `alo-workplace` repository checked out beside
+this one, at its commit 738de61401d992c9b058c83237e16c90ecbd23ef. React
+renders the screen, so page.html is the markup it produces for the sidebar
+(AgendaModule.tsx, lines 283–381: `calendarRow` and the `<aside>` around it),
+in English (web/src/i18n/en.ts). The calendars are a fixture of four, in the
+shape the screen draws: two the viewer owns — "Personal", the personal
+calendar (no delete button), and "Work" — and two shared with them — "Team
+holidays", which they can edit and have hidden, and "Mira's calendar, shared
+from the design team", which they can view and whose name is longer than its
+row. Each one's colour is the one `calendarColorMap` (web/src/agenda/colors.ts)
+assigns by order, written as React writes `style={{"--cal": colour}}`. The
+icons are lucide-react 0.468.0's `CalendarPlus`, `Plus`, `Check`, `Share2`,
+`Trash2` and `Clock` at the sizes the screen asks for, written out as the
+`<svg>` that library renders (its `defaultAttributes.js` and `Icon.js`, and
+each icon's own shapes).
+style.css is the rules of web/src/agenda/AgendaModule.module.css those
+elements match, web/src/ds/global.css's reset, `body`, `button` and `svg`
+rules, and the tokens they read from web/src/ds/tokens.css. `:hover` rules
+and `body`'s font-smoothing hints are left out; nothing else is changed.
+`alo-workplace` is read-only reference; nothing was written back to it.
+
+The month navigator between the "New event" button and the lists is its own
+case, `alo-agenda-mini-month`, and is not here.
+
+Rendered at 280 × 340.
+
+Why this page. The workspace's own screens are where the next real pages come
+from (iteration 274), and this is the list a person ticks every day to choose
+which calendars they see: rows that grow by `flex: 1`, a name cut short by
+`text-overflow`, headings and badges set by `text-transform`, and a colour
+handed to each row through a custom property in its `style` attribute.
+
+## What it found
+
+Measured against headless Chrome 154 on the same bytes, given the corpus's
+DejaVu Sans through `@font-face`:
+
+- Each row's toggle grows by `flex: 1`, and nothing split or read the `flex`
+  shorthand, so each toggle was as wide as its name (79.26 for "Personal",
+  where Chrome's is 178) and the share and delete buttons stood against it
+  rather than at the row's end — item 440. alo Settings, already in the
+  corpus, had the same fault unseen.
+  **Fixed by item 440 (iteration 281):** `flex` is split into its three
+  longhands as it is written. The toggles are 178 and 157 wide, the
+  buttons at 206, 185 and 206, every box but the two below Chrome's.
+- The two list headings are `text-transform: uppercase` and the two access
+  badges `lowercase`; this engine draws the text as written. "My calendars"
+  is 95.46 wide where Chrome's "MY CALENDARS" is 111.69, and "Can edit"
+  50.19 where "can edit" is 48.42, which moves the toggle beside it by
+  1.77 — item 441, which needs an ADR for what an agent reads.
+- Mira's calendar's name ends in "…" in Chrome (`text-overflow:
+  ellipsis`) and is cut mid-letter at its box's edge here — item 442.
+
+`tests/alo_agenda_calendars.rs` says it in numbers.
+
+What the agent reads is good: each calendar is a button named by the
+calendar, with `pressed` saying whether it is shown, and the share and
+delete buttons are named, though they are drawn at opacity 0 until the row
+is under a pointer.
+
+The issues list has only the two `::before` and `::after` selectors of
+global.css's `box-sizing` rule.

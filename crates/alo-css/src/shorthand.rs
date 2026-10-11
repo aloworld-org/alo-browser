@@ -20,8 +20,9 @@
 //!
 //! A shorthand whose parts are told apart by *kind* — `border`, `background`,
 //! `font` — is not here: that is parsing, and it is `alo_value::shorthand`'s.
-//! The one of those split as it is written, `list-style`, is split by
-//! [`crate::list_style`], and [`expand`] hands it there.
+//! The two of those split as they are written, `list-style` and `flex`, are
+//! split by [`crate::list_style`] and [`crate::flex`], and [`expand`] hands
+//! each there.
 
 use crate::declaration::Declaration;
 
@@ -118,6 +119,9 @@ pub(crate) fn expand(declaration: &Declaration) -> Vec<(String, String)> {
     }
     if name == "list-style" {
         return crate::list_style::split(value);
+    }
+    if name == "flex" {
+        return crate::flex::split(value);
     }
     Vec::new()
 }
@@ -758,6 +762,25 @@ mod tests {
         };
         assert_eq!(value("align-items").as_deref(), Some("center"));
         assert_eq!(value("justify-items").as_deref(), Some("start"));
+    }
+
+    /// `flex` is its three longhands in the block, and competes with each by
+    /// order: written after `flex-grow: 0` it grows, and a `flex-shrink`
+    /// after it still wins.
+    #[test]
+    fn flex_becomes_its_three_longhands_and_competes_by_order() {
+        let mut block = crate::DeclarationBlock::new();
+        for (name, value) in [("flex-grow", "0"), ("flex", "1"), ("flex-shrink", "0")] {
+            block.push(Declaration::new(name, value, Importance::Normal));
+        }
+        let value = |name: &str| {
+            block
+                .get(&crate::PropertyName::parse(name))
+                .map(|declaration| declaration.value.clone())
+        };
+        assert_eq!(value("flex-grow").as_deref(), Some("1"));
+        assert_eq!(value("flex-shrink").as_deref(), Some("0"));
+        assert_eq!(value("flex-basis").as_deref(), Some("0%"));
     }
 
     /// One value is both gaps; two are the row gap and then the column gap.

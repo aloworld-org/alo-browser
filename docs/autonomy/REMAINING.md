@@ -1594,3 +1594,16 @@ tall inside only when it holds something a line is made of
 and 439 (an empty `<button>` stands on its content box's bottom in Chrome);
 both wait for a page. 193 queue items are open (437 closed, 438 and 439
 added). The next unused queue number is 440 and the next unused ADR 0049.
+
+Iteration 281 froze the next workspace screen: alo Agenda's calendar list
+(`AgendaModule.tsx`'s sidebar), as the corpus case `alo-agenda-calendars`.
+Its rows grow by `flex: 1`, which opened and closed item 440: nothing split
+or read the `flex` shorthand. `alo-css`' `flex.rs` now splits it into its
+three longhands as it is written, every form measured against Chrome 154.
+alo Settings, stage 1's reference screen, had the same fault unseen (Cancel
+and Save at the footer's left, the content 115.5 px narrower); its widths
+now match Chrome's and its reference was redrawn. Found: 441
+(`text-transform`, needs ADR for what an agent reads), 442 (`text-overflow:
+ellipsis`, buildable), 443 (a checkbox's user-agent margin, buildable). 196
+queue items are open (440 closed, 441–443 added). The next unused queue
+number is 444 and the next unused ADR 0049.

@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **`flex: 1` grows.** The `flex` shorthand was read by nothing, so an
+  element written `flex: 1` did not grow at all. alo Agenda's calendar
+  rows left their share and delete buttons beside the name instead of at
+  the row's end, and alo Settings' Cancel and Save stood at the left of
+  its footer with its content 115.5 pixels narrower than browsers draw it.
+  `flex` is now its three longhands, every form measured against Chrome;
+  the Agenda's calendar list is a new reference page, and Settings'
+  reference was redrawn (queue item 440).
+
 - **A button holding an icon is the icon's size, not a line's.** A
   `<button>` was always at least one line of text tall inside, whatever it
   held, so alo Agenda's month arrows — each a 15 pixel icon in 2 pixels of

@@ -64,6 +64,9 @@ correctness, not before it.
 - [x] **Computed style**: the cascade, inheritance, and `var()` — alo's design system is custom properties throughout, so this is not optional decoration
 - [x] **The box tree**, and what each box *means* (ADR 0002) rather than only its rectangle
 - [x] **Layout**: flexbox and grid, on `taffy` to begin with, behind our own boundary
+      *The `flex` shorthand was read by nothing until queue item 440
+      (iteration 281), so `flex: 1` grew nothing; `alo-css`' `flex.rs` now
+      splits it into its three longhands, measured against Chrome 154.*
 - [x] **Text**: HarfBuzz shaping (via `rustybuzz`), the fallback chain and line breaking, with the awkward scripts working before the easy ones. Rasterisation is queue item 17, beside paint
 - [x] **Paint**: a display list, then a software raster to a PNG
 - [x] **Reference renders**: a committed corpus, diffed on every change
@@ -82,6 +85,11 @@ correctness, not before it.
       either: the corpus renders in DejaVu Sans and the app loads Inter, which
       is narrower, so alo's headline wraps one line more here. Web fonts are
       stage 2.*
+      *Settings was diffed against a reference that was itself wrong in one
+      way until queue item 440 (iteration 281): its `flex: 1` was ignored,
+      so its content column was 115.5 px narrower than Chrome draws it and
+      Cancel and Save stood at the footer's left. Its widths now agree with
+      Chrome 154's to its layout unit, and the reference was rewritten.*
 
 **Exit gate — met.** From this repository alone, on any machine: alo's sign-in
 screen and Settings render correctly from their own markup and `tokens.css`,

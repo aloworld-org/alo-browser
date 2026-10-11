@@ -27254,3 +27254,116 @@ Agenda's month navigator, the corpus count 66 → 67), `REMAINING.md` and
 193 queue items are open (437 closed, 438 and 439 added). The next unused
 queue number is **440** and the next ADR is **0049**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 281 — queue item 440, opened by a newly frozen alo page: the `flex` shorthand
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its head and stage 1, whose Layout and "A real alo screen" lines this
+item touched), iteration 280 and `REMAINING.md`'s continuation. No
+`AGENTS.md` exists in this repository or above it. For 440:
+`docs/features.md`' stage 1 Layout section, `alo-css`' `shorthand.rs`,
+`longhand.rs` and `list_style.rs` (the one shorthand already split by
+kind, which this follows), and `alo-layout`'s `style.rs`, which reads the
+three longhands. No ADR governs the `flex` shorthand; its grammar is CSS
+Flexbox 1 § 7.1, and every form was measured, so no ADR was needed.
+
+**Choosing.** Iteration 280 left no open item that depends on nothing and
+needs no page, so the eligible work was a real page that fails (LOOP.md
+stage 2 § 1). The source was again the workspace's React screens: alo
+Agenda's sidebar calendar list (`AgendaModule.tsx` lines 283–381,
+`alo-workplace` 738de61), which uses only module CSS, not the Tailwind
+utilities the `ds` components need written out.
+
+**What was frozen.** `crates/alo-corpus/cases/alo-agenda-calendars`
+(280 × 340): the "New event" button, both calendar lists with a fixture of
+four calendars (two owned, two shared; one hidden; one name too long for
+its row), and "Working hours", with the module's rules, `global.css` and
+the tokens, no substitutions (`:hover` and font-smoothing hints left out,
+and said). `origin.txt` gives the commit, lines, fixture and findings.
+
+**What it found.** Measured against headless Chrome 154 on the same bytes,
+given DejaVu Sans by `@font-face`: each row's toggle is 178 (and 157)
+wide there and was 79.26 (and 56.92) here, because nothing split or read
+`flex`, so `flex: 1` did nothing. alo Settings, stage 1's reference
+screen, had the same fault: its dialog title, content and footer message
+grow by `flex: 1`, so its content was 115.5 px narrower than Chrome's
+and Cancel and Save stood at the footer's left. Its committed reference
+had been wrong in that way since stage 1. Also found: `text-transform`
+(441) and `text-overflow: ellipsis` (442) on this page, and a
+checkbox's user-agent margin (443) while re-measuring Settings.
+
+**What was built.** `alo-css`' new `flex.rs` splits `flex` into
+`flex-grow`, `flex-shrink` and `flex-basis` as a declaration block is
+written, wired into `shorthand::expand` and `longhand::longhands` beside
+`list-style` (whose `parts` it reuses, now `pub(crate)`). Chrome 154's
+`getComputedStyle` was taken for thirty-two values first, and the split
+follows it: `1` is `1 1 0%`, `1 1 0` is `1 1 0px`, `none`, `auto`, a basis
+before or after the factors; `1 2 3`, `1 0px 2`, `30px 40px`, `-1` and
+`none 1` are refused and left whole, as is a value holding `var()`. After
+it the case's toggles are 178 and 157, its buttons at 206, 185 and 206,
+and Settings' title 812, content 658, date fields 282 at 259 and 553,
+footer buttons at 702.41 and 785.84, each Chrome's to its layout unit.
+**Only `alo-settings` moved** among the existing cases; its new render was
+looked at and its agent test (`an_agent_on_settings.rs`, 8 tests) passes.
+
+**Gate, mechanical.** `cargo fmt --all --check` and `cargo clippy
+--workspace --all-targets --all-features -- -D warnings` were clean
+(clippy's `unnecessary_wraps` on a test helper was fixed by changing the
+helper, not by silencing it). `cargo test -p alo-corpus` passed in full.
+`scripts/gate.sh` ran once in the foreground to a log; it passed 600 s and
+was moved to the background by the harness, and the next call waited on
+it in a foreground `until` loop: `exit 0`, "The gate is met", no `FAIL`
+or `panicked` in the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout assertion in numbers: `alo-corpus`' `tests/alo_agenda_calendars.rs`
+  pins each toggle's width, the names inside them, the buttons and badges
+  at the row's end, and that the long name does not widen its toggle;
+  `alo-css` unit tests pin the grammar (11 in `flex.rs`), the longhands
+  list, and a block where `flex` and its longhands compete by order.
+- Reference render: `alo-agenda-calendars/render.png`, looked at beside a
+  Chrome 154 screenshot of the same page (default path, not
+  `--disable-gpu`): the same picture except the two text items, 441 and
+  442. The test reads each calendar's colour from its `--cal` as pixels,
+  and the hidden one's empty box. `alo-settings/render.png` was rewritten
+  and looked at: Cancel and Save are at the footer's right.
+- Mutation check, from a scratchpad copy restored with `cp` and checked
+  with `cmp`: unhooking `flex` from `expand` fails two of the case's four
+  tests.
+- Hostile input: `flex.rs` reads page CSS; its test feeds unclosed
+  functions, lone signs, an exponent overflow, a 10 000-digit number, a
+  NUL and quotes, and nothing panics; refused values are left whole.
+- One file, one responsibility: the `flex` grammar is its own file, as
+  `list-style`'s is; the case's test is its own file.
+- No `unsafe`, no dependency. `alo-workplace` and `alo-os` were only
+  read.
+
+**Queue.** 440 added and ticked with its *Done* paragraph. Added 441
+(`text-transform`; **needs ADR**: what an agent reads, the transformed
+text or the page's own), 442 (`text-overflow: ellipsis`, depends on
+nothing) and 443 (a checkbox's and a radio's user-agent margin, depends on
+nothing).
+
+**Roadmap.** Stage 1's Layout line and its "A real alo screen renders
+correctly" line each gain an italic note saying the `flex` shorthand was
+read by nothing until 440, and that Settings' reference was itself wrong
+in that way until now. Both stay ticked: the lines are now true, and
+the note says what was not. Also updated: `docs/features.md` (a Layout
+line for `flex`, Text lines for 441 and 442), `docs/conformance.md` (a
+row for the calendar list, the Settings row corrected, corpus 67 → 68),
+`REMAINING.md` and `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 441 needs its ADR before code; 442 and 443 are buildable now and depend
+  on nothing, so the next iteration has eligible work without a new page.
+- The share and delete buttons are drawn at opacity 0 until the row is
+  under a pointer (alo's `:hover`), so an agent reads buttons a person
+  cannot see until they point. That is alo's design, not a fault here.
+- That the window draws this was not captured: the window capture is still
+  refused on this machine (296).
+- 438, 439, 431, 433, 434, 423–428, 411, 414 and 416–421 wait for pages;
+  432 depends on 404.
+
+196 queue items are open (440 closed, 441–443 added). The next unused
+queue number is **444** and the next ADR is **0049**. This is one
+iteration, not a finished queue or roadmap.

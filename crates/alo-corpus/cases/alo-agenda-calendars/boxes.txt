@@ -1,0 +1,58 @@
+block flow · document
+  block flow · generic
+    block flex · generic
+      block flex · complementary
+        inline flex · button
+          block flow · image
+          anonymous block
+            text "New event"
+        block flex · generic
+          block flex · generic
+            inline flow · generic
+              text "My calendars"
+            inline flex · button "New calendar"
+              block flow · image
+          block flex · generic
+            block flex · button "Personal" [pressed=true]
+              inline flex · generic
+                block flow · image
+              inline flow · generic
+                text "Personal"
+            inline flow-root · button "Share calendar"
+              anonymous block
+                block flow · image
+          block flex · generic
+            block flex · button "Work" [pressed=true]
+              inline flex · generic
+                block flow · image
+              inline flow · generic
+                text "Work"
+            inline flow-root · button "Share calendar"
+              anonymous block
+                block flow · image
+            inline flow-root · button "Delete calendar"
+              anonymous block
+                block flow · image
+        block flex · generic
+          block flex · generic
+            inline flow · generic
+              text "Other calendars"
+          block flex · generic
+            block flex · button "Team holidays" [pressed=false]
+              inline flex · generic
+              inline flow · generic
+                text "Team holidays"
+            inline flow · generic
+              text "Can edit"
+          block flex · generic
+            block flex · button "Mira's calendar" [pressed=true]
+              inline flex · generic
+                block flow · image
+              inline flow · generic
+                text "Mira's calendar, shared from the design team"
+            inline flow · generic
+              text "Can view"
+        inline flex · button
+          block flow · image
+          anonymous block
+            text "Working hours"

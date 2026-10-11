@@ -147,7 +147,8 @@ fn is_wide_keyword(value: &str) -> bool {
 
 /// The parts of a value, split on the spaces outside functions and
 /// strings, or [`None`] when a string or a function is never closed.
-fn parts(value: &str) -> Option<Vec<String>> {
+/// [`crate::flex`] splits by it too.
+pub(crate) fn parts(value: &str) -> Option<Vec<String>> {
     let mut parts = Vec::new();
     let mut current = String::new();
     let mut depth = 0usize;

@@ -1,0 +1,85 @@
+fill box#1 rgb(244 241 236) at (0, 0) 280×340
+fill box#3 rgb(244 241 236) at (0, 0) 280×340
+fill box#5 rgb(240 236 230) at (0, 0) 240×340
+fill box#5 rgb(222 215 205) at (239, 0) 1×340
+clip box#5 to (0, 0) 239×340
+shadow box#7 rgb(231 111 81 / 0.6) blur 8 at (19, 21) 139.79492×35
+fill box#7 rgb(231 111 81) at (16, 16) 145.79492×41
+clip box#8 to (34, 27.5) 18×18
+fill box#8 rgb(255 255 255) at (39.25, 28.25) 1.5×4.5
+fill box#8 rgb(255 255 255) at (45.25, 28.25) 1.5×4.5
+fill box#8 rgb(255 255 255) at (35.5, 29.75) 15×15
+fill box#8 rgb(255 255 255) at (35.5, 34.25) 15×1.5
+fill box#8 rgb(255 255 255) at (45.25, 41) 6×1.5
+fill box#8 rgb(255 255 255) at (47.5, 38.75) 1.5×6
+unclip
+text box#9 "New event" rgb(255 255 255) 14px at (60, 41.34668)
+text box#17 "My calendars" rgb(95 85 75) 12px at (16, 90.6543)
+clip box#20 to (206, 79) 15×15
+fill box#20 rgb(95 85 75) at (208.5, 85.875) 10×1.25
+fill box#20 rgb(95 85 75) at (212.875, 81.5) 1.25×10
+unclip
+fill box#26 rgb(231 111 81) at (20, 110.75) 16×16
+fill box#26 rgb(231 111 81) at (20, 110.75) 16×16
+clip box#27 to (22, 112.75) 12×12
+fill box#27 rgb(255 255 255) at (23.25, 115) 9.5×7
+unclip
+clip box#28 to (44, 109) 154×19.5
+text box#29 "Personal" rgb(16 42 67) 13px at (44, 123.25049)
+unclip
+group box#31 at opacity 0
+clip box#32 to (206, 112.25) 13×13
+fill box#32 rgb(122 111 98) at (213.58333, 112.791664) 4.3333435×4.333336
+fill box#32 rgb(122 111 98) at (207.08333, 116.583336) 4.3333435×4.3333282
+fill box#32 rgb(122 111 98) at (213.58333, 120.375) 4.3333435×4.333336
+fill box#32 rgb(122 111 98) at (210.07195, 118.986946) 4.8615265×3.317772
+fill box#32 rgb(122 111 98) at (210.072, 115.195335) 4.8559875×3.317665
+unclip
+ungroup
+fill box#39 rgb(75 131 196) at (20, 142.25) 16×16
+fill box#39 rgb(75 131 196) at (20, 142.25) 16×16
+clip box#40 to (22, 144.25) 12×12
+fill box#40 rgb(255 255 255) at (23.25, 146.5) 9.5×7
+unclip
+clip box#41 to (44, 140.5) 133×19.5
+text box#42 "Work" rgb(16 42 67) 13px at (44, 154.75049)
+unclip
+group box#44 at opacity 0
+clip box#45 to (185, 143.75) 13×13
+fill box#45 rgb(122 111 98) at (192.58333, 144.29167) 4.3333435×4.3333282
+fill box#45 rgb(122 111 98) at (186.08333, 148.08333) 4.3333435×4.3333435
+fill box#45 rgb(122 111 98) at (192.58333, 151.875) 4.3333435×4.3333282
+fill box#45 rgb(122 111 98) at (189.07195, 150.48695) 4.8615265×3.3177643
+fill box#45 rgb(122 111 98) at (189.072, 146.69533) 4.8559875×3.3176727
+unclip
+ungroup
+group box#48 at opacity 0
+clip box#49 to (206, 143.75) 13×13
+fill box#49 rgb(122 111 98) at (207.08333, 146.45833) 10.8333435×1.0833435
+fill box#49 rgb(122 111 98) at (208.16667, 146.45833) 8.6666565×9.75
+fill box#49 rgb(122 111 98) at (209.79167, 144.29167) 5.4166565×3.25
+fill box#49 rgb(122 111 98) at (210.875, 149.16667) 1.0833282×4.3333282
+fill box#49 rgb(122 111 98) at (213.04167, 149.16667) 1.0833282×4.3333282
+unclip
+ungroup
+text box#59 "Other calendars" rgb(95 85 75) 12px at (16, 198.1543)
+fill box#65 rgb(46 139 87) at (20, 217.75) 16×16
+clip box#66 to (44, 216) 116.80859×19.5
+text box#67 "Team holidays" rgb(16 42 67) 13px at (44, 230.25049)
+unclip
+text box#70 "Can edit" rgb(122 111 98) 12px at (168.8086, 229.9043)
+fill box#76 rgb(155 109 214) at (20, 249.25) 16×16
+fill box#76 rgb(155 109 214) at (20, 249.25) 16×16
+clip box#77 to (22, 251.25) 12×12
+fill box#77 rgb(255 255 255) at (23.25, 253.5) 9.5×7
+unclip
+clip box#78 to (44, 247.5) 112.21484×19.5
+text box#79 "Mira's calendar, shared from the design team" rgb(16 42 67) 13px at (44, 261.7505)
+unclip
+text box#82 "Can view" rgb(122 111 98) 12px at (164.21484, 261.4043)
+clip box#87 to (24, 300.25) 15×15
+fill box#87 rgb(95 85 75) at (24.625, 300.875) 13.75×13.75
+fill box#87 rgb(95 85 75) at (30.875, 303.375) 3.7997932×6.2998047
+unclip
+text box#88 "Working hours" rgb(95 85 75) 13px at (47, 312.2505)
+unclip
