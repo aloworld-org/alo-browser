@@ -7,9 +7,22 @@
 //! **This is the only file that names `tiny-skia`.** Filling a path with
 //! anti-aliasing is a scanline rasteriser with a great deal of care in it, and
 //! ADR 0001 says to rent that kind of thing — so we do, and one rented
-//! rasteriser draws every shape this engine has. A glyph and a rounded corner
-//! come out of the same code with the same anti-aliasing, which is what stops
-//! a letter and the box behind it disagreeing along their shared edge.
+//! rasteriser draws every shape this engine has.
+//!
+//! # Sampled finely where an edge is
+//!
+//! The rented rasteriser samples a pixel four by four, which under-covers a
+//! small curve and leans it to one side (queue item 459). A shape is filled
+//! by it once, and then every tile an edge passes through is filled again
+//! four times larger and averaged, sixteen samples a pixel each way
+//! ([`crate::refine`] says which tiles and why). That is within 3 of 255 of
+//! the exact area on a rounded corner and a dot, at the cost of only the
+//! pixels along the edge.
+//!
+//! **Letters are not**, yet: [`fill_letters`] keeps the rented sampling.
+//! Whether exact area brings text nearer Chrome's, whose letters come from a
+//! font rasteriser with its own treatment of thin strokes, is a measurement
+//! of its own (queue item 462), and every letter on every page would move.
 //!
 //! # Coverage, not colour
 //!
@@ -31,6 +44,7 @@
 use crate::coverage::Coverage;
 use crate::fill_rule::FillRule;
 use crate::path::{Path, Point, Segment};
+use crate::refine::{Plan, SCALE, Window};
 use crate::stroke::{LineCap, LineJoin, Stroke};
 
 /// Fill a path and report how much of each pixel it covers.
@@ -39,7 +53,15 @@ use crate::stroke::{LineCap, LineJoin, Stroke};
 /// CSS uses for everything it fills. Anti-aliased, because a letter with hard
 /// edges at these sizes is unreadable.
 pub fn fill(path: &Path) -> Coverage {
-    covered(path, FillRule::NonZero, None)
+    covered(path, FillRule::NonZero, None, Sampling::Fine)
+}
+
+/// Fill a run of letters, sampled as the rented rasteriser samples.
+///
+/// The same as [`fill`] but for where an edge is: see the module's
+/// documentation for why letters are not yet sampled finely.
+pub fn fill_letters(path: &Path) -> Coverage {
+    covered(path, FillRule::NonZero, None, Sampling::Rented)
 }
 
 /// Fill a path by a rule, keeping only the part that lands on a page of this
@@ -52,10 +74,19 @@ pub fn fill(path: &Path) -> Coverage {
 /// shape rasterised, because coverage is a property of each pixel and the
 /// shape around it, not of how large the mask is.
 pub fn fill_on_page(path: &Path, rule: FillRule, page: (u32, u32)) -> Coverage {
-    covered(path, rule, Some(page))
+    covered(path, rule, Some(page), Sampling::Fine)
 }
 
-fn covered(path: &Path, rule: FillRule, page: Option<(u32, u32)>) -> Coverage {
+/// How finely a pixel an edge passes through is sampled.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Sampling {
+    /// Four by four, as the rented rasteriser does.
+    Rented,
+    /// Sixteen by sixteen, where an edge is.
+    Fine,
+}
+
+fn covered(path: &Path, rule: FillRule, page: Option<(u32, u32)>, sampling: Sampling) -> Coverage {
     let Some((left, top, right, bottom)) = path.bounds() else {
         return Coverage::empty();
     };
@@ -91,13 +122,32 @@ fn covered(path: &Path, rule: FillRule, page: Option<(u32, u32)>) -> Coverage {
         FillRule::EvenOdd => tiny_skia::FillRule::EvenOdd,
     };
     mask.fill_path(&built, rule, true, tiny_skia::Transform::identity());
+    let mut data = mask.take();
+    if sampling == Sampling::Fine {
+        let plan = Plan::of(&data, width, height, path.segments().len());
+        for &window in plan.windows() {
+            if let Some(fine) = finely(&built, rule, window) {
+                plan.write(window, &fine, &mut data);
+            }
+        }
+    }
 
-    Coverage::new(
-        width,
-        height,
-        (to_whole(x0), to_whole(y0)),
-        mask.data().to_vec(),
-    )
+    Coverage::new(width, height, (to_whole(x0), to_whole(y0)), data)
+}
+
+/// One window of a shape, filled [`SCALE`] times larger: its samples, row by
+/// row, or [`None`] when no mask that size could be made.
+fn finely(built: &tiny_skia::Path, rule: tiny_skia::FillRule, window: Window) -> Option<Vec<u8>> {
+    let mut mask = tiny_skia::Mask::new(window.width * SCALE, window.height * SCALE)?;
+    let scale = f32::from(u16::try_from(SCALE).unwrap_or(1));
+    let (left, top) = (
+        f32::from(u16::try_from(window.left).unwrap_or(u16::MAX)),
+        f32::from(u16::try_from(window.top).unwrap_or(u16::MAX)),
+    );
+    let transform =
+        tiny_skia::Transform::from_row(scale, 0.0, 0.0, scale, -left * scale, -top * scale);
+    mask.fill_path(built, rule, true, transform);
+    Some(mask.take())
 }
 
 /// The shape a stroke along a path covers, to be filled by the non-zero rule.
@@ -259,6 +309,124 @@ mod tests {
             (120..=135).contains(&value),
             "expected about half coverage, got {value}",
         );
+    }
+
+    /// How much of pixel `(x, y)` the shape `inside` covers, out of 255,
+    /// sampled 256 by 256: its exact area to well within one of 255.
+    fn area(inside: impl Fn(f32, f32) -> bool, x: u32, y: u32) -> f32 {
+        let mut covered = 0_u32;
+        for j in 0..256_u16 {
+            for i in 0..256_u16 {
+                let at = |pixel: u32, sample: u16| {
+                    f32::from(u16::try_from(pixel).unwrap()) + (f32::from(sample) + 0.5) / 256.0
+                };
+                if inside(at(x, i), at(y, j)) {
+                    covered += 1;
+                }
+            }
+        }
+        f32::from(u16::try_from(covered / 257).unwrap())
+    }
+
+    fn within(found: u8, wanted: f32, bound: f32) -> bool {
+        (f32::from(found) - wanted).abs() <= bound
+    }
+
+    #[test]
+    fn a_small_dot_is_covered_as_its_area_says_and_alike_on_both_sides() {
+        // A radio's dot at twenty pixels: twelve across, centred on (10, 10).
+        let dot = crate::corner::rounded_rectangle(
+            alo_layout::Rect::new(4.0, 4.0, 12.0, 12.0),
+            crate::corner::Corners::all(6.0),
+        );
+        let coverage = fill(&dot);
+        assert_eq!(coverage.origin(), (4, 4));
+        let inside = |x: f32, y: f32| (x - 10.0).powi(2) + (y - 10.0).powi(2) < 36.0;
+        for y in 4..16 {
+            for x in 4..16 {
+                let found = coverage.at(x - 4, y - 4);
+                let mirrored = coverage.at(15 - x, y - 4);
+                assert!(
+                    found.abs_diff(mirrored) <= 2,
+                    "row {y}: {found} at {x}, {mirrored} across"
+                );
+            }
+        }
+        // The rows the rented sampling drew 111 left and 95 right, and lost a
+        // pixel's eighth beside.
+        for y in [4, 6] {
+            for x in 4..16 {
+                let (found, wanted) = (coverage.at(x - 4, y - 4), area(inside, x, y));
+                assert!(
+                    within(found, wanted, 4.0),
+                    "pixel {x},{y}: {found}, area {wanted}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_small_rounded_corners_pixels_are_covered_as_their_area_says() {
+        // A square rounded 2.5: the corner pixel's area is 0.137 of it, which
+        // the rented sampling covered 0.066.
+        let square = crate::corner::rounded_rectangle(
+            alo_layout::Rect::new(0.0, 0.0, 13.0, 13.0),
+            crate::corner::Corners::all(2.5),
+        );
+        let inside = |x: f32, y: f32| {
+            let reach = |along: f32| {
+                if along < 2.5 {
+                    2.5 - along
+                } else if along > 10.5 {
+                    along - 10.5
+                } else {
+                    0.0
+                }
+            };
+            reach(x).powi(2) + reach(y).powi(2) < 6.25
+        };
+        let coverage = fill(&square);
+        for (x, y) in [
+            (0, 0),
+            (1, 0),
+            (2, 0),
+            (0, 1),
+            (12, 0),
+            (11, 0),
+            (12, 12),
+            (0, 12),
+            (1, 1),
+        ] {
+            let (found, wanted) = (coverage.at(x, y), area(inside, x, y));
+            assert!(
+                within(found, wanted, 4.0),
+                "pixel {x},{y}: {found}, area {wanted}"
+            );
+        }
+        assert!(within(coverage.at(0, 0), 35.0, 4.0));
+        // Letters keep the rented sampling.
+        assert!(fill_letters(&square).at(0, 0) < 20);
+    }
+
+    #[test]
+    fn a_rectangle_on_whole_pixels_is_unchanged_by_fine_sampling() {
+        let rectangle = Path::rectangle(3.0, 2.0, 40.0, 20.0);
+        assert_eq!(fill(&rectangle), fill_letters(&rectangle));
+        assert!(fill(&rectangle).data().iter().all(|&value| value == 255));
+    }
+
+    #[test]
+    fn a_shape_wider_than_a_window_is_sampled_finely_all_along() {
+        // Two thousand pixels wide, its top edge a third of the way down the
+        // first row: every pixel of that row covered alike, across every
+        // window it is divided into, and within half a sixteenth of a row
+        // (eight of 255) of two thirds.
+        let coverage = fill(&Path::rectangle(0.0, 1.0 / 3.0, 2000.0, 3.0));
+        let first = coverage.at(0, 0);
+        assert!(within(first, 170.0, 8.0), "{first}");
+        for x in 0..2000 {
+            assert_eq!(coverage.at(x, 0), first, "pixel {x}");
+        }
     }
 
     #[test]

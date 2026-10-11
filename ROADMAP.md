@@ -92,6 +92,12 @@ correctness, not before it.
       spans two boxes back to an earlier break on its line (452), 450 and
       451.*
 - [x] **Paint**: a display list, then a software raster to a PNG
+      *A small curve was under-covered and leaned to one side until queue
+      item 459 (iteration 291): the rented rasteriser's four-by-four
+      sampling drew a radio's dot 159 on one edge and 191 on the other. A
+      shape's edge pixels are now sampled sixteen by sixteen, within 3 of
+      255 of their exact area. Owed: letters, which keep the rented
+      sampling until they are measured against Chrome's (462).*
 - [x] **Reference renders**: a committed corpus, diffed on every change
 - [x] ★ **The agent tree**: the layout tree read as roles, states and positions
 - [x] ★ **Typed verbs**: activate, type, scroll — and never a coordinate.

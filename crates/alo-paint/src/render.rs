@@ -17,7 +17,7 @@ use crate::drawn_picture::draw_picture;
 use crate::glyph::outline;
 use crate::paint::Paint;
 use crate::path::{Path, Point};
-use crate::raster::{fill, fill_on_page};
+use crate::raster::{fill, fill_letters, fill_on_page};
 use crate::synthesis::leaned;
 use alo_text::{Direction, Font, shape};
 use alo_value::{Matrix, Rgba};
@@ -121,7 +121,7 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 for shadow in shadows.iter().rev() {
                     let placed = outlined.translated(Point::new(shadow.offset.0, shadow.offset.1));
                     let soft = blurred(
-                        &fill(&moved(&placed, current)),
+                        &fill_letters(&moved(&placed, current)),
                         shadow.blur * current.scale_factor(),
                     );
                     draw_coverage(
@@ -134,7 +134,7 @@ pub fn render(list: &DisplayList, canvas: &mut Canvas) {
                 }
                 draw_coverage(
                     target,
-                    &fill(&moved(&outlined, current)),
+                    &fill_letters(&moved(&outlined, current)),
                     &Paint::Solid(*color),
                     current,
                     clips.last(),

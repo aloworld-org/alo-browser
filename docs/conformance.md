@@ -128,7 +128,14 @@ backgrounds, borders, and anti-aliased text. The first reference render is
 committed at `crates/alo-paint/tests/references/invoices.png` and is diffed on
 every run.
 
-Boxes can be round, and clip what is inside them to their own shape.
+Boxes can be round, and clip what is inside them to their own shape. **A
+curve's edge is covered as its area says** (item 459): the rented rasteriser
+samples a pixel four by four, which drew a dot twelve pixels across 111 on
+its left edge and 95 on its right and lost two thirds of a pixel of its area,
+so every tile a shape's edge passes through is sampled again sixteen by
+sixteen. A small curve is then within 3 of 255 of its exact area, and a
+straight edge within 8, the same on both sides. Letters are not yet (462):
+whether that brings them nearer Chrome's is unmeasured.
 
 An inline box broken around a block is read by an agent as **one thing**: one
 node, named by everything the element contains, positioned everywhere it was
@@ -180,7 +187,9 @@ greys over black, white and grey to separate colour from opacity.
 committed beside it: inside each shape the colour is Chrome's to a unit, and
 the edges differ only by how each smooths them — Chrome quantises an edge's
 coverage to quarters at one to one and this rasteriser does not — by at most
-64 of 255 and 3.0 on average. Where a control stands on a fraction of a pixel
+61 of 255 and 2.47 on average (64 and 3.0 before item 459). A disabled
+control's translucent pieces still let the page show through where they meet,
+up to 44 of 255 over black, which Chrome's do not (463). Where a control stands on a fraction of a pixel
 its picture is drawn on whole pixels, as Chrome's is (item 457): each edge of
 its box rounded to the nearest pixel, a half up, measured in Chrome 154.
 `checkbox-beside-text`'s controls differ from Chrome's committed screenshot

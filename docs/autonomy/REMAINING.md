@@ -1720,3 +1720,15 @@ plain background drawn on whole pixels; opened by the same case, needs
 measuring). 459, 460 and 461 depend on nothing. 206 queue items are open (457
 closed, 460–461 added). The next unused queue number is 462 and the next
 unused ADR 0050.
+
+Iteration 291 built item 459: a shape's edge pixels are sampled sixteen by
+sixteen. The rented rasteriser fills it, and `alo-paint`'s `refine.rs` plans
+which 16-pixel tiles an edge passes through, which `raster.rs` fills again
+four times larger and averages. A small curve is within 3 of 255 of its exact
+area and alike on both sides. `toggle-artwork`'s controls are nearer Chrome's
+(2.47 on average where they were 3.0). Letters keep the rented sampling.
+Found: 462 (letters' coverage against Chrome's; needs measuring) and 463 (a
+disabled control's translucent pieces leave a seam; needs measuring). 460,
+461, 462 and 463 depend on nothing. 207 queue items are open (459 closed,
+462–463 added). The next unused queue number is 464 and the next unused ADR
+0050.

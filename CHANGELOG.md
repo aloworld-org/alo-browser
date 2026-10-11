@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Rounded corners and circles are smoother and even on both sides.** The
+  drawing library the browser uses to fill shapes checked too few points
+  inside each pixel. A small curve came out thinner than it should, and
+  heavier on one side than the other: a radio button's dot was darker on
+  its right edge than on its left. Pixels along a shape's edge are now
+  checked sixteen times more finely, only where an edge is, so a curve
+  covers each pixel as much as its area says. The radio buttons on a test
+  page are now as even as Chrome's, and its controls are closer to
+  Chrome's screenshot overall. Text is unchanged for now (queue item 459).
+
 - **A checkbox or radio button between two lines of text is drawn crisp.**
   When the line it sat on put it part way through a pixel, its edges were
   smeared across two rows of pixels. Like Chrome, the browser now draws it

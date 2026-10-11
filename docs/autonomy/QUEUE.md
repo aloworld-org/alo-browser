@@ -6540,7 +6540,7 @@ The long pole, and the thing most of section E is unreachable without.
   was not measured. *Closes when:* a frozen page's light-accented checkbox
   is ticked in Chrome's colour, from the threshold measured.
 
-- [ ] **459. A small curve's edge pixels are covered as much as its area
+- [x] **459. A small curve's edge pixels are covered as much as its area
   says.** *Found building 454 (iteration 288). Feature: `docs/features.md`
   stage 1, a rounded border. Opened by `toggle-artwork`. Needs measuring.*
   A radio's dot, symmetric about its pixel column, is drawn 159 on its
@@ -6553,6 +6553,51 @@ The long pole, and the thing most of section E is unreachable without.
   (`alo-paint`'s `raster.rs` or the rented crate). *Closes when:* a dot's
   two edges are drawn alike and a rounded corner's pixel is covered within
   a stated bound of its exact area.
+  **Done (iteration 291).** Measured first, against areas sampled 256 by
+  256 per pixel: the rented rasteriser (`tiny-skia` 0.12) samples a pixel
+  four rows by four and snaps where an edge crosses a row to a quarter of
+  a pixel. Both causes are real and separable. Flattening the curve into
+  chords inside it loses area: a dot 12 across loses 0.64 of a pixel, and
+  0.20 when the same curve is first cut into 64 lines a quarter. The snap
+  leans it: rounded alike on both sides, it draws 111 on the dot's left
+  edge and 95 on its right, and the corner pixel of a square rounded 2.5
+  at 16 where its area is 35. Filling the shape four times larger and
+  averaging each four-by-four block (sixteen samples a pixel each way)
+  is within 3 of 255 of the exact area on both and draws the two sides
+  alike. It also costs sixteen times the pixels, 32 ms in release for one
+  page-sized fill. So `alo-paint`'s new `refine.rs` plans, from the rented
+  coverage alone, which 16-pixel tiles an edge passes through: a partly
+  covered pixel, or a pixel beside one covered differently, the outside
+  counting as empty. `raster.rs` fills only those tiles finely, in windows
+  at most 1,024 pixels wide, and writes back only the tiles' pixels, so
+  how the work was divided cannot change the answer. Every partly covered
+  pixel is sampled the same way, so no seam is left where the two
+  samplings meet. A path of many segments with edges everywhere is filled
+  in fewer, larger windows, under a budget of windows times segments.
+  Letters keep the rented sampling (`raster::fill_letters`, 462). A
+  straight edge between sample rows is now within half a sixteenth of a
+  row (8 of 255) of its area, where it could be missed: a 1-pixel
+  underline at y 19.88 was drawn not at all on row 19, and is now 223
+  where its area says 225. Evidence: `raster.rs`' tests (the dot within
+  4 of its area on its rows 4 and 6, and each pixel its mirror's to 2;
+  the 2.5 corner's pixels within 4 of their areas; a whole-pixel
+  rectangle unchanged; a row 2,000 pixels wide alike in every window);
+  `refine.rs`' tests of the plan. In `toggle-artwork` a radio's dot is
+  159 on both edges (Chrome: 153 and 153; it was 159 and 191), and every
+  radio is its own mirror image to 2 (`a_radio_is_drawn_alike_on_both_sides`).
+  27 of its 30 controls came nearer Chrome's screenshot: 2.47 on average
+  where it was 3.0, 61 at worst where it was 64. The three that moved
+  away, each disabled over black, did so on the seams where their
+  translucent shapes meet, by at most 0.51 (463). Two pixels the case
+  test read as "inside" a disabled checkbox are a fiftieth inside the
+  edge ring's inner curve, and were Chrome's colour only because the
+  rented sampling missed that. They are now read four rows up, clear of
+  every edge. Mutations: shapes sampled as the rented rasteriser
+  does fails three raster tests and two of the case's; marking only
+  partly covered pixels fails five plan tests and 18 corpus references;
+  writing a window's unmarked pixels fails the write-back test. 57 of 73
+  cases' renders and three window references moved, every changed pixel
+  on an edge but one row (461). Found: 462, 463.
 
 - [ ] **460. A line is as tall as Chrome's whole-pixel ascent and descent
   make it.** *Found building 457 (iteration 290). Feature:
@@ -6580,7 +6625,41 @@ The long pole, and the thing most of section E is unreachable without.
   Chrome's have none. Needs: whether borders, rounded corners, box shadows
   and a background image are snapped alike, and what happens under a
   transform. *Closes when:* `checkbox-beside-text`'s backgrounds are
-  Chrome's pixels exactly outside the controls and text.
+  Chrome's pixels exactly outside the controls and text. Since 459
+  samples an edge's pixels finely, two of the case's row backgrounds that
+  meet at y 157.x leave the page showing 2 levels through their seam,
+  which the rented sampling's snap had hidden; on whole pixels there is
+  no seam.
+
+- [ ] **462. A letter's edge pixels are covered as Chrome's are.** *Found
+  building 459 (iteration 291). Feature: `docs/features.md` stage 1,
+  glyph rasterisation. Needs measuring.* Letters are still filled with
+  the rented rasteriser's four-by-four sampling (`alo-paint`'s
+  `raster::fill_letters`), which leans a small curve to one side and
+  under-covers it. Shapes are now sampled sixteen by sixteen where an
+  edge is. Chrome's letters come from its own glyph rasteriser, which
+  may treat thin strokes differently from exact area. So whether fine
+  sampling brings this engine's letters nearer Chrome's is a measurement:
+  DejaVu Sans at 12, 13 and 16 px against Chrome 154's screenshot of the
+  same bytes, with the ink compared by coverage. It would move every
+  letter on every page. *Closes when:* a frozen case's letters are within
+  a stated, measured bound of Chrome's, and shapes and letters are
+  sampled alike or the reason they are not is written down.
+
+- [ ] **463. A disabled control's translucent shapes meet without a
+  seam.** *Found building 454 (iteration 288); filed building 459
+  (iteration 291). Feature: `docs/features.md` stage 1, a form control
+  draws its state. Opened by `toggle-artwork`. Needs measuring.* A
+  disabled checkbox's or radio's pieces are translucent and drawn beside
+  each other, each smoothed on its own and composited in turn. Where two
+  curves meet, a pixel covered part by each is composited twice, and the
+  page shows through: up to 44 of 255 over black, where Chrome's seam
+  pixels are the pieces' colours. `toggle-artwork`'s disabled radio over
+  black differs from Chrome's by 9.22 on average, nearly all of it on
+  its seams. Needs: whether Chrome draws the pieces as one layer faded
+  once, or opaque and then faded, measured over black, white and grey.
+  *Closes when:* a disabled control's seam pixels over black are
+  Chrome's within the bound its inside pixels meet.
 
 - [x] **455. A stopped HTTP/2 body is reported the same way whatever the
   timing.** *Found by the gate in iteration 287, which did not cause it.

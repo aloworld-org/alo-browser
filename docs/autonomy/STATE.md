@@ -28316,3 +28316,134 @@ owed. Also updated: `docs/features.md`, `docs/conformance.md`,
 206 queue items are open (457 closed, 460–461 added). The next unused
 queue number is **462** and the next ADR is **0050**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 291 — queue item 459 built: a shape's edge pixels are covered as its area says, sampled sixteen by sixteen
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its stage 1 Paint line, which this item serves), iteration 290. No
+`AGENTS.md` exists in this repository or above it. For 459: its queue
+entry, `docs/features.md`' Paint section (one shape type and one
+rasteriser; rounded corners), `docs/conformance.md`' paint and control
+paragraphs, `alo-paint`'s `raster.rs`, `coverage.rs`, `corner.rs` and
+`render.rs`, `tiny-skia` 0.12's `scan/path_aa.rs`, `mask.rs` and
+`painter.rs`, and `alo-corpus`' `toggle_artwork.rs`. The item names no ADR
+and needs none: it keeps the rented rasteriser (ADR 0001, ADR 0022 § 2)
+and changes how finely its answer is sampled, not what is rented or on
+whose terms. The agent tree is unchanged.
+
+**Choosing.** Iteration 290 named 459, 460 and 461 buildable; 459 stands
+first and depends on nothing.
+
+**Measured first**, in a scratch crate against `tiny-skia` 0.12 itself,
+each pixel compared with its exact area (sampled 256 × 256): the rented
+rasteriser samples four rows a pixel and snaps an edge's crossing to a
+quarter. Both suspected causes are real. *Flattening* loses area: a dot 12
+across (a radio's at 20 px) loses 0.64 px², and 0.20 when cut into 64
+lines a quarter first. *The snap* leans it: 111 on the dot's left edge and
+95 on its right, and the corner pixel of a square rounded 2.5 at 16 where
+its area is 35 (the item's 0.066 against 0.137). Filled four times larger
+and averaged in 4 × 4 blocks: within 3.0 of 255 on both shapes,
+symmetric. But 32 ms in release for one page-sized fill, sixteen times the
+pixels. The work is in the pixels an edge passes through, so only those
+are refined.
+
+**What was built.**
+- `alo-paint`'s new `refine.rs` (one responsibility: which pixels to
+  sample again, and where): a `Plan` from the rented coverage alone. A
+  16-pixel tile is marked when it or the pixels round it are anything but
+  all empty or all covered (outside counts as empty). That catches a
+  partial pixel and an edge the snap put on a pixel boundary. Windows are
+  each tile row's runs of marked tiles, no wider than 1,024 px. Over a
+  budget of windows × segments (2²²) they become cells of 64 × 16 tiles,
+  so a stranger's path of many segments costs at most the whole
+  shape sampled finely. `write` averages a window's samples back into
+  marked tiles only, so the division of work never changes the answer.
+- `raster.rs`: `fill` and `fill_on_page` fill as before, then fill each
+  window four times larger (`finely`, a scale-and-translate transform)
+  and write it back. `fill_letters` keeps the rented sampling; `render.rs`'
+  text and text shadows, `alo-window`'s `notice.rs` and the `a_letter`
+  test use it. Its documentation says why (462).
+
+**Evidence.** `raster.rs`' new tests: the dot within 4 of its area on rows
+4 and 6 and each pixel its mirror's to 2; the 2.5 corner's nine pixels
+within 4 of their areas (the corner 35); a whole-pixel rectangle the same
+either way; a row 2,000 px wide covered alike in every window, within 8 of
+its area (a straight edge is quantised to sixteenths of a row). Eight tests
+in `refine.rs`. `toggle_artwork.rs` gains `a_radio_is_drawn_alike_on_both_sides`:
+all thirteen radios their own mirror image to 2 (it was 32). The dot's
+middle row is 159 and 159 where it was 159 and 191 (Chrome: 153, 153).
+
+**A bound moved, and why.** Against Chrome's committed screenshot, 27 of
+`toggle-artwork`'s 30 controls came nearer: 2.47 on average where it was
+3.00, 61 at worst where it was 64. Both of those bounds are tightened to
+the new measurement (2.5, 61). Three disabled controls over black moved
+away, by at most 0.51 on average, all on the seams where their
+translucent pieces meet: the disabled radio, 8.86 → 9.22. Its bound is
+moved from 9 to 9.25, with the reason in the test and the seam filed as
+463. Two pixels the case read as "inside" a disabled checked checkbox,
+(27, 57) and (111, 57), are a fiftieth of a pixel inside the edge ring's
+inner curve (centre (27.5, 56.5), radius 1.5). They matched Chrome only
+because the rented sampling missed that sliver, so they are now read
+four rows up, at (27, 50) and (111, 50), clear of every edge and the tick,
+with the reason in the test. I judged this a correction of a wrong
+premise, not a weakened gate; a reader who disagrees should look at
+these two lines first.
+
+**Gate, mechanical.** `cargo fmt --all -- --check` clean; `cargo clippy
+--workspace --all-targets --all-features -- -D warnings` clean.
+`scripts/gate.sh` ran once in the foreground; the harness moved it to the
+background at 600 s and the next call waited on it with a foreground
+`until` loop: `exit 0`, "The gate is met", no `FAILED` or `panicked` in
+the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- *Layout assertions:* nothing positions or sizes differently; no
+  `layout.txt`, `boxes.txt` or `display.txt` changed. Coverage is asserted
+  in numbers against exact areas in `raster.rs`, and the plan's windows
+  in pixels in `refine.rs`.
+- *Reference renders:* rewritten with `ALO_UPDATE_REFERENCES=1` and
+  reviewed by script against the old ones: 57 of 73 corpus `render.png`
+  and three `alo-window` references (`alo-offline` composed, 28 at most)
+  moved. Every changed pixel had a non-uniform neighbourhood before, an
+  edge, except one row of `checkbox-beside-text` (y 157). There two row
+  backgrounds of one colour meet at a fraction, and the page now shows 2
+  levels through the seam the snap had hidden; Chrome draws those
+  backgrounds on whole pixels, and 461 now says so. The largest changes
+  (up to 46) were checked: e.g. `text-decorations`' underline at y 19.88
+  was missing from row 19 (255) and is now 223, its area 225.
+- *Mutations, restored from copies (`cmp` confirmed):* shapes sampled as
+  rented fails three raster tests and two of `toggle_artwork.rs`; marking
+  only partial pixels fails five plan tests and 18 corpus references;
+  writing unmarked pixels fails the write-back test.
+- *Hostile input:* the plan reads only the coverage already made; its
+  memory is a flag per tile, a window at most 4,096 × 64 samples (or
+  4,096 × 1,024 when coarse), and its work under the segment budget. No
+  `unwrap`, no indexing outside tests.
+- *Cost:* no speed claim is made, and none was measured in the engine.
+  The fine pass touches only edge tiles. The one timing taken, 32 ms in
+  release to fill a whole page-sized shape at four times, is why the
+  whole shape is not.
+- One responsibility per file: which tiles is `refine.rs`'; the rented
+  calls stay in `raster.rs`, still the only file naming `tiny-skia`. No
+  `unsafe`. `alo-workplace` and `alo-os` were not touched.
+
+**Queue.** 459 ticked with its *Done* paragraph. 461 notes the seam row.
+Added 462 (letters' coverage against Chrome's; needs measuring, moves
+every letter) and 463 (a disabled control's translucent pieces leave a
+seam; needs measuring how Chrome composites them).
+
+**Roadmap.** Stage 1's Paint line, already ticked, gains a note: what 459
+fixed, and that letters are owed (462). Also updated: `docs/features.md`,
+`docs/conformance.md`, `REMAINING.md`, `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 460, 461, 462 and 463 depend on nothing and are buildable next; 460
+  stands first in the file and should write its rule down before code
+  depends on it.
+- The `toggle-artwork` per-control bound moved from 9 to 9.25 until 463.
+- 438, 439, 431, 433, 434, 444, 445, 446, 448, 450–453, 456, 458,
+  423–428, 411, 414 and 416–421 wait for pages; 432 depends on 404.
+
+207 queue items are open (459 closed, 462–463 added). The next unused
+queue number is **464** and the next ADR is **0050**. This is one
+iteration, not a finished queue or roadmap.

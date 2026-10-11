@@ -16,8 +16,9 @@
 //! its tick's edge pixels are 0, 64, 128, 191 or 255 and nothing between —
 //! and this engine's rasteriser does not. So the pixels inside a shape are
 //! Chrome's to within a unit, and the pixels on an edge differ by the two
-//! ways of smoothing it: measured, by at most 64 of 255 and by 3.0 on
-//! average over all 6,264. The other bound is a seam: a disabled control's
+//! ways of smoothing it: measured, by at most 61 of 255 and by 2.47 on
+//! average over all 6,264 (64 and 3.0 before queue item 459 sampled an
+//! edge's pixels sixteen by sixteen). The other bound is a seam: a disabled control's
 //! translucent shapes meet without overlapping, and where two curves each
 //! smoothed on its own meet, a little of the page shows through; in
 //! Chrome's it does not. That is up to 44 of 255 on the pixels along a
@@ -26,7 +27,7 @@
 //! The two controls with `aria-checked="mixed"` are left out: this engine
 //! draws a bar across them and Chrome does not (queue item 456).
 
-use alo_box::Checked;
+use alo_box::{Checked, Toggle};
 use alo_corpus::{Case, Rendering, cases_directory};
 use alo_paint::Canvas;
 use alo_value::Rgba;
@@ -37,6 +38,8 @@ struct Pictures {
     ours: Canvas,
     chrome: Canvas,
     controls: Vec<(u32, u32, u32)>,
+    /// Which of the controls are radios: round, so the same either side.
+    radios: Vec<(u32, u32, u32)>,
 }
 
 fn pictures() -> Option<Pictures> {
@@ -46,7 +49,7 @@ fn pictures() -> Option<Pictures> {
     let drawing = rendering.drawing()?;
     let chrome = alo_paint::from_png(&std::fs::read(directory.join("chrome.png")).ok()?).ok()?;
     let boxes = &drawing.boxes;
-    let controls = boxes
+    let squares = boxes
         .ids()
         .filter(|id| boxes.toggle(*id).is_some())
         .filter(|id| {
@@ -61,13 +64,19 @@ fn pictures() -> Option<Pictures> {
             let top = rect.origin.y + (rect.size.height - side) / 2.0;
             // A square that starts half way through a pixel covers one more.
             let span = (left + side).ceil() - left.floor();
-            Some((pixel(left.floor()), pixel(top.floor()), pixel(span)))
+            let square = (pixel(left.floor()), pixel(top.floor()), pixel(span));
+            Some((square, boxes.toggle(id) == Some(Toggle::Radio)))
         })
-        .collect();
+        .collect::<Vec<_>>();
     Some(Pictures {
         ours: drawing.canvas.clone(),
         chrome,
-        controls,
+        controls: squares.iter().map(|(square, _)| *square).collect(),
+        radios: squares
+            .iter()
+            .filter(|(_, radio)| *radio)
+            .map(|(square, _)| *square)
+            .collect(),
     })
 }
 
@@ -112,26 +121,56 @@ fn every_control_is_chromes_picture_within_the_measured_bound() {
                 pixels += 1;
             }
         }
-        // Measured: 64 at worst, on a tick's edge.
+        // Measured: 61 at worst, on a tick's edge (64 before a curve's edge
+        // was sampled finely, queue item 459).
         assert!(
-            worst <= 64,
+            worst <= 61,
             "the control at ({left}, {top}) differs from Chrome's by {worst}"
         );
-        // Measured: 8.9 at worst, a disabled radio over black.
+        // Measured: 9.22 at worst, a disabled radio over black, all of it
+        // on the seams where its translucent shapes meet (queue item 463).
+        // It was 8.86 before item 459 sampled the seams' curves finely: 27
+        // of these 30 controls came nearer Chrome's and three, each disabled
+        // over black, moved away by at most 0.51.
         assert!(
-            sum <= 9 * pixels,
+            sum * 100 <= 925 * pixels,
             "the control at ({left}, {top}) differs from Chrome's by {} on average",
             f64::from(sum) / f64::from(pixels)
         );
         total += sum;
         counted += pixels;
     }
-    // Measured: 3.0.
+    // Measured: 2.47 (3.0 before queue item 459).
     assert!(
-        total * 10 <= 31 * counted,
+        total * 100 <= 250 * counted,
         "the controls differ from Chrome's by {} on average",
         f64::from(total) / f64::from(counted)
     );
+}
+
+#[test]
+fn a_radio_is_drawn_alike_on_both_sides() {
+    // Queue item 459: a dot's left edge was drawn 159 and its right 191,
+    // where Chrome draws both 153, because the rented rasteriser's sampling
+    // leans a small curve to one side. Every radio here is on whole pixels,
+    // so each pixel is its mirror image's across the middle; Chrome's are to
+    // within a unit.
+    let Some(pictures) = pictures() else {
+        panic!("the case renders and Chrome's screenshot reads");
+    };
+    assert_eq!(pictures.radios.len(), 13, "the case's thirteen radios");
+    for &(left, top, span) in &pictures.radios {
+        for y in top..top + span {
+            for x in left..left + span {
+                let mirrored = 2 * left + span - 1 - x;
+                let d = difference(pictures.ours.at(x, y), pictures.ours.at(mirrored, y));
+                assert!(
+                    d.is_some_and(|d| d <= 2),
+                    "the radio at ({left}, {top}): ({x}, {y}) and ({mirrored}, {y}) differ by {d:?}"
+                );
+            }
+        }
+    }
 }
 
 #[test]
@@ -141,6 +180,9 @@ fn inside_each_shape_the_colour_is_chromes() {
     };
     // A pixel inside each kind of shape, away from every edge, which Chrome
     // fills flat: what the colours in `alo_paint::toggle` were measured from.
+    // A disabled checked checkbox's is read four rows up from where it was
+    // first: two in and one up from its corner is a fiftieth inside the
+    // edge's inner curve, which the rented sampling used to miss (459).
     for (x, y, what) in [
         (10, 10, "a live checkbox's white inside"),
         (5, 10, "its #767676 edge"),
@@ -153,10 +195,10 @@ fn inside_each_shape_the_colour_is_chromes() {
         (111, 15, "a disabled fill over white"),
         (10, 52, "a disabled inside over black"),
         (4, 52, "a disabled edge over black"),
-        (27, 57, "a disabled fill over black"),
+        (27, 50, "a disabled fill over black"),
         (73, 52, "a disabled dot over black"),
         (90, 57, "a checked checkbox's `accent-color`"),
-        (111, 57, "a disabled one, whatever its accent"),
+        (111, 50, "a disabled one, whatever its accent"),
         (14, 77, "a 20-pixel checkbox's inside"),
     ] {
         let d = difference(pictures.ours.at(x, y), pictures.chrome.at(x, y));

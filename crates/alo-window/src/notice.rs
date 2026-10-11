@@ -25,7 +25,7 @@
 
 use crate::colours::{notice_ground, notice_ink, notice_rule};
 use crate::place::PixelRect;
-use alo_paint::{Canvas, fill, outlined_run};
+use alo_paint::{Canvas, fill_letters, outlined_run};
 use alo_text::{Direction, Font, Slant, Weight, shape};
 
 /// How big its letters are, in CSS pixels: alo's `--text-sm`.
@@ -133,7 +133,7 @@ impl Lettering {
             0.0,
             (whole(rect.x) + inset, baseline),
         );
-        let coverage = fill(&path);
+        let coverage = fill_letters(&path);
         let (origin_x, origin_y) = coverage.origin();
         for y in 0..coverage.height() {
             for x in 0..coverage.width() {
