@@ -373,7 +373,7 @@ fn ends_its_lines(boxes: &BoxTree, styles: &StyleTree, id: BoxId) -> bool {
 mod tests {
     use super::*;
     use crate::geometry::{Edges, Size};
-    use crate::inline::lay_out;
+    use crate::inline::{TextAlignment, lay_out, lay_out_aligned};
     use crate::measure::{BlockFont, ScaledFont};
     use crate::vertical_align::LineAlign;
     use alo_box::WhiteSpace;
@@ -411,10 +411,17 @@ mod tests {
         }
     }
 
-    /// Lay `items` out in `room` and end its lines, with the test font's
-    /// eight pixels a character: "…" is eight wide.
+    /// Lay `items` out in `room`, in a block that does not wrap as the text
+    /// in it does not, and end its lines, with the test font's eight pixels
+    /// a character: "…" is eight wide.
     fn ended(items: &[InlineItem], room: f32) -> Truncated {
-        let layout = lay_out(items, Some(room), &BlockFont);
+        let layout = lay_out_aligned(
+            items,
+            Some(room),
+            TextAlignment::Start,
+            &one_line(),
+            &BlockFont,
+        );
         truncate(items, &layout, room, &one_line(), &BlockFont)
     }
 

@@ -27820,3 +27820,112 @@ that a `nowrap` line broke before an atomic box until 447, and that 449,
 201 queue items are open (447 closed, 449–451 added). The next unused
 queue number is **452** and the next ADR is **0050**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 286 — queue item 449 built: where two boxes meet, the line breaks as Chrome breaks it
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its head and stage 1, whose Text line this item serves), iteration 285.
+No `AGENTS.md` exists in this repository or above it. For 449: its queue
+entry, `docs/features.md`' `white-space` entry, `docs/conformance.md`'
+`white-space` paragraph, `alo-layout`'s `soft_wrap.rs`, `inline.rs`,
+`ellipsis.rs` (its tests) and `measure.rs`, `alo-text`'s `measure.rs` and
+`linebreak.rs`, `alo-box`'s `whitespace.rs` and `tree.rs`, and
+`cases/atomic-in-nowrap-line` with its test for the corpus idiom. The item
+names no ADR and needs none: it is CSS Text 3 § 5.1 as Chrome applies it,
+with no policy, rental or agent-surface choice in it.
+
+**Choosing.** Iteration 285 named 443 and 449 buildable; 449 stands before
+443 in the queue file, and everything above both waits for a page.
+
+**Measured first.** Headless Chrome 154 with the corpus's `DejaVu Sans` by
+`@font-face`, 31 probe rows in boxes 80 wide, `getClientRects` in 1/64 px.
+The item said its second row (a break after an atomic box) contradicted
+CSS's nearest-common-box rule and needed a closer look; the probes found
+the rule that explains every row. After a space, the space's box decides,
+or the box of what came right before the space (Chrome breaks before a
+run of spaces too); a box closed between does not count either way.
+Otherwise the box of what came before decides, or any box it has closed
+into since; a box opened after does not count. Two rows need backtracking
+to an earlier break, which the builder cannot do: they are 452.
+
+**What was built.**
+- `alo-layout`'s `soft_wrap.rs` rewritten around the two rules: `letter`,
+  `atomic`, `space`, `closed` (now told whether the box closed into wraps)
+  and `allows`, plus `after_letter`. Nine unit tests, one per measured
+  distinction.
+- `inline.rs`: every text piece is asked through `may_break_before`, not
+  by its own `white-space`; before a run's first piece after a letter the
+  measurer is asked about the last piece's end (`TAIL`, 32 characters) and
+  the new piece together, so `abc<span>def</span>` is one word. A piece
+  that is only space is never broken before. `laid` reports letters and
+  then spaces; `SPACES` is what hangs, so a trailing no-break space takes
+  its room. The atomic path uses the same state, and
+  `may_break_before_atomic` is gone. Module docs say so; seven
+  `text_wrapping` unit tests and 447's tests share helpers.
+- `alo-box`: `WhiteSpace::apply` collapses only ASCII white space, and
+  `is_only_whitespace` does not count `&nbsp;`. Found because the case's
+  `#no-break-space` row could not pass while U+00A0 became a plain space.
+- `ellipsis.rs`' test helper now lays its `nowrap` items out in a `nowrap`
+  block. It used a `normal` block, which no page produces and which the new
+  rule (the atomic box's own box decides after it) read differently.
+
+**Evidence.** `cases/soft-wrap-between-boxes`, fourteen rows, against
+Chrome's numbers for the same bytes: every row's height, and the marked
+box's last piece across to 1/64 px and on Chrome's line. Its render beside
+Chrome's screenshot is identical row for row. A trailing no-break space
+was checked separately in Chrome: 40 tall where a space is 20.
+
+**Gate, mechanical.** `cargo fmt --all`; `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean. `scripts/gate.sh` ran
+in the foreground to a log; the harness moved it to the background at
+600 s and the next call waited on it with a foreground `until` loop:
+`exit 0`, "The gate is met", no failing test. Only this entry and the
+commit came after it.
+
+**Gate, manual.**
+- *Layout assertions in numbers:* `soft_wrap.rs`' nine tests; `inline.rs`'
+  `text_wrapping` (seven) and `atomic_wrapping` tests; `alo-box`'s
+  `a_no_break_space_is_not_white_space`; `alo-corpus`'
+  `tests/soft_wrap_between_boxes.rs` (Chrome's height and across for
+  fourteen rows).
+- *Reference renders:* `cases/soft-wrap-between-boxes` written with
+  `ALO_UPDATE_REFERENCES=1` after a run without it showed what moved:
+  only `alo-sites-full-page`'s three price texts, now `€\u{a0}…` in
+  `boxes.txt`, `layout.txt` and `display.txt` with the same numbers, and
+  its `render.png` unchanged. No other case moved.
+- *Mutations, restored from copies (`cmp` confirmed):* ignoring the box
+  closed into fails one unit test and `#closed-into`; ignoring what came
+  before a space fails three and `#before-space`; skipping the
+  place-to-break check fails one and `#word-wraps`; letting closed boxes
+  count after a space fails two and `#space-closed`; collapsing U+00A0
+  again fails `alo-box`'s test and `#no-break-space`; letting a trailing
+  no-break space hang survived at first, so a test was added, and it then
+  failed.
+- *Hostile input:* nothing new reads bytes from outside. The tail kept
+  for the place-to-break check is at most 32 characters, so a hostile
+  word costs one extra measurement of its first piece per run. Nothing
+  indexes or unwraps.
+- One responsibility per file: the rule stays in `soft_wrap.rs`, and the
+  builder reports to it. No `unsafe`. `alo-workplace` and `alo-os` were
+  not touched.
+
+**Queue.** 449 ticked with its *Done* paragraph. 447's no-break-space unit
+test pinned a break Chrome does not make (it was not among 447's measured
+rows), and was corrected to Chrome's row. Added 452: a word across two
+boxes, or text after a space that may not break, is not moved back to an
+earlier break on its line. Waits for a page.
+
+**Roadmap.** Stage 1's Text line gains an italic note that text broke by
+its own `white-space` where two boxes met until 449, and that 452, 450 and
+451 are owed. It stays ticked, as with 447's note. Also updated:
+`docs/features.md`, `docs/conformance.md`, `REMAINING.md`, `CHANGELOG.md`.
+
+**Unresolved obligations.**
+- 452, 450 and 451, above.
+- 443 is buildable next and depends on nothing.
+- 438, 439, 431, 433, 434, 444, 445, 446, 448, 450, 451, 452, 423–428,
+  411, 414 and 416–421 wait for pages; 432 depends on 404.
+
+201 queue items are open (449 closed, 452 added). The next unused queue
+number is **453** and the next ADR is **0050**. This is one iteration, not
+a finished queue or roadmap.

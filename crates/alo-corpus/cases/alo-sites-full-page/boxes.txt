@@ -199,7 +199,7 @@ block flow · document
               block flow · heading [level=4]
                 text "Filter brew"
               block flow · paragraph
-                text "€ 3.50 "
+                text "€\u{a0}3.50 "
                 inline flow · generic
                   text "per cup"
               block flow · paragraph
@@ -208,7 +208,7 @@ block flow · document
               block flow · heading [level=4]
                 text "Cold brew"
               block flow · paragraph
-                text "€ 42.50"
+                text "€\u{a0}42.50"
               inline flow-root · paragraph
                 text "Unavailable"
         block flow · generic
@@ -219,7 +219,7 @@ block flow · document
               block flow · heading [level=4]
                 text "Harbour blend, 1 kg"
               block flow · paragraph
-                text "€ 1,234.50"
+                text "€\u{a0}1,234.50"
         block flow · generic
           block grid · list
             block grid · listitem

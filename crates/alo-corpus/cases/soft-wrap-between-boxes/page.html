@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html><body>
+<div id=space-block>ab <span class="s nowrap">cdefghij</span></div>
+<div id=space-span class=nowrap>ab<span class="s wraps"> cdefghij</span></div>
+<div id=space-kept class=nowrap>ab <span class="s wraps">cdefghij</span></div>
+<div id=before-space class=nowrap><span class=wraps>abcd</span> <span class=s>efghij</span></div>
+<div id=space-closed><span class=nowrap>abcd</span><span class=nowrap> </span><span class=s>efghij</span></div>
+<div id=word class=nowrap>abc<span class="s wraps">defghijk</span></div>
+<div id=word-wraps>abc<span class=s>defghijk</span></div>
+<div id=no-break-space class=nowrap><span class=wraps>ab&nbsp;</span><span class=s>cdefghij</span></div>
+<div id=closed-into><span class=nowrap>abc-</span><span class=s>defghij</span></div>
+<div id=closed-from class=nowrap><span class=wraps>abc-</span><span class=s>defghij</span></div>
+<div id=opened-after class=nowrap>abc-<span class="s wraps">defghij</span></div>
+<div id=after-box class=nowrap>ab <span class=wraps>x<span class=ib></span></span><span class=s> cd</span></div>
+<div id=after-box-letter class=nowrap><span class=wraps>ab<span class=ib></span></span><span class=s>de</span></div>
+<div id=box-after-space class=nowrap><span class=wraps>ab&nbsp;</span><span class="s ib"></span></div>
+</body></html>

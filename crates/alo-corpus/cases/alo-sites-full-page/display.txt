@@ -99,14 +99,14 @@ text box#311 "Brews" rgb(23 33 43) 18px at (20, 4750.9463)
 fill box#315 rgb(221 227 233) at (20, 4932.455) 760×1
 clip box#315 to (20, 4771.515) 760×160.93994
 text box#318 "Filter brew" rgb(23 33 43) 18px at (20, 4840.0864)
-text box#321 "€ 3.50" rgb(23 33 43) 17px at (649.83545, 4815.0005)
+text box#321 "€\u{a0}3.50" rgb(23 33 43) 17px at (649.83545, 4815.0005)
 text box#323 "per cup" rgb(76 88 102) 17px at (715.4448, 4815.0005)
 text box#326 "Whatever came off the drum this morning." rgb(76 88 102) 17px at (20, 4883.7407)
 unclip
 fill box#329 rgb(221 227 233) at (20, 5091.1953) 760×1
 clip box#329 to (20, 4933.455) 760×157.74023
 text box#332 "Cold brew" rgb(23 33 43) 18px at (20, 5002.0264)
-text box#335 "€ 42.50" rgb(23 33 43) 17px at (708.48047, 4976.9404)
+text box#335 "€\u{a0}42.50" rgb(23 33 43) 17px at (708.48047, 4976.9404)
 fill box#337 rgb(221 227 233) at (20, 5022.1953) 664.48047×30
 text box#338 "Unavailable" rgb(76 88 102) 15px at (29, 5042.388)
 unclip
@@ -114,7 +114,7 @@ text box#346 "Beans" rgb(23 33 43) 18px at (20, 5149.226)
 fill box#350 rgb(221 227 233) at (20, 5274.535) 760×1
 clip box#350 to (20, 5169.795) 760×104.740234
 text box#354 "Harbour blend, 1 kg" rgb(23 33 43) 18px at (20, 5238.366)
-text box#357 "€ 1,234.50" rgb(23 33 43) 17px at (678.36523, 5213.2803)
+text box#357 "€\u{a0}1,234.50" rgb(23 33 43) 17px at (678.36523, 5213.2803)
 unclip
 fill box#366 rgb(221 227 233) at (20, 5420.2754) 760×1
 clip box#366 to (20, 5315.535) 760×104.740234

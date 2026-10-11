@@ -1,0 +1,71 @@
+block flow · document
+  block flow · generic
+    block flow · generic
+      text "ab "
+      inline flow · generic
+        text "cdefghij"
+    block flow · generic
+      text "ab"
+      inline flow · generic
+        text " cdefghij"
+    block flow · generic
+      text "ab "
+      inline flow · generic
+        text "cdefghij"
+    block flow · generic
+      inline flow · generic
+        text "abcd"
+      text " "
+      inline flow · generic
+        text "efghij"
+    block flow · generic
+      inline flow · generic
+        text "abcd"
+      inline flow · generic
+        text " "
+      inline flow · generic
+        text "efghij"
+    block flow · generic
+      text "abc"
+      inline flow · generic
+        text "defghijk"
+    block flow · generic
+      text "abc"
+      inline flow · generic
+        text "defghijk"
+    block flow · generic
+      inline flow · generic
+        text "ab\u{a0}"
+      inline flow · generic
+        text "cdefghij"
+    block flow · generic
+      inline flow · generic
+        text "abc-"
+      inline flow · generic
+        text "defghij"
+    block flow · generic
+      inline flow · generic
+        text "abc-"
+      inline flow · generic
+        text "defghij"
+    block flow · generic
+      text "abc-"
+      inline flow · generic
+        text "defghij"
+    block flow · generic
+      text "ab "
+      inline flow · generic
+        text "x"
+        inline flow-root · generic
+      inline flow · generic
+        text " cd"
+    block flow · generic
+      inline flow · generic
+        text "ab"
+        inline flow-root · generic
+      inline flow · generic
+        text "de"
+    block flow · generic
+      inline flow · generic
+        text "ab\u{a0}"
+      inline flow-root · generic

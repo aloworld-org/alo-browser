@@ -1,0 +1,46 @@
+fill box#1 rgb(255 255 255) at (8, 8) 184×512
+fill box#3 rgb(221 226 238) at (8, 8) 80×40
+text box#4 "ab" rgb(0 0 0) 16px at (8, 23.539063)
+text box#6 "cdefghij" rgb(29 78 216) 16px at (8, 43.539063)
+fill box#8 rgb(221 226 238) at (8, 52) 80×40
+text box#9 "ab" rgb(0 0 0) 16px at (8, 67.53906)
+text box#11 "cdefghij" rgb(29 78 216) 16px at (8, 87.53906)
+fill box#13 rgb(221 226 238) at (8, 96) 80×20
+text box#14 "ab" rgb(0 0 0) 16px at (8, 111.53906)
+text box#16 "cdefghij" rgb(29 78 216) 16px at (33.046875, 111.53906)
+fill box#18 rgb(221 226 238) at (8, 120) 80×40
+text box#20 "abcd" rgb(0 0 0) 16px at (8, 135.53906)
+text box#23 "efghij" rgb(29 78 216) 16px at (8, 155.53906)
+fill box#25 rgb(221 226 238) at (8, 164) 80×20
+text box#27 "abcd" rgb(0 0 0) 16px at (8, 179.53906)
+text box#31 "efghij" rgb(29 78 216) 16px at (52, 179.53906)
+fill box#33 rgb(221 226 238) at (8, 188) 80×20
+text box#34 "abc" rgb(0 0 0) 16px at (8, 203.53906)
+text box#36 "defghijk" rgb(29 78 216) 16px at (36.757813, 203.53906)
+fill box#38 rgb(221 226 238) at (8, 212) 80×20
+text box#39 "abc" rgb(0 0 0) 16px at (8, 227.53906)
+text box#41 "defghijk" rgb(29 78 216) 16px at (36.757813, 227.53906)
+fill box#43 rgb(221 226 238) at (8, 236) 80×20
+text box#45 "ab" rgb(0 0 0) 16px at (8, 251.53906)
+text box#47 "cdefghij" rgb(29 78 216) 16px at (33.046875, 251.53906)
+fill box#49 rgb(221 226 238) at (8, 260) 80×40
+text box#51 "abc-" rgb(0 0 0) 16px at (8, 275.53906)
+text box#53 "defghij" rgb(29 78 216) 16px at (8, 295.53906)
+fill box#55 rgb(221 226 238) at (8, 304) 80×40
+text box#57 "abc-" rgb(0 0 0) 16px at (8, 319.53906)
+text box#59 "defghij" rgb(29 78 216) 16px at (8, 339.53906)
+fill box#61 rgb(221 226 238) at (8, 348) 80×20
+text box#62 "abc-" rgb(0 0 0) 16px at (8, 363.53906)
+text box#64 "defghij" rgb(29 78 216) 16px at (42.53125, 363.53906)
+fill box#66 rgb(221 226 238) at (8, 372) 80×60
+text box#67 "ab" rgb(0 0 0) 16px at (8, 387.53906)
+text box#69 "x" rgb(0 0 0) 16px at (33.046875, 387.53906)
+fill box#70 rgb(200 30 30) at (8, 397.53906) 60×10
+text box#72 "cd" rgb(29 78 216) 16px at (8, 427.53906)
+fill box#74 rgb(221 226 238) at (8, 436) 80×40
+text box#76 "ab" rgb(0 0 0) 16px at (8, 451.53906)
+fill box#77 rgb(200 30 30) at (27.960938, 441.53906) 60×10
+text box#79 "de" rgb(29 78 216) 16px at (8, 471.53906)
+fill box#81 rgb(221 226 238) at (8, 480) 80×40
+text box#83 "ab" rgb(0 0 0) 16px at (8, 495.53906)
+fill box#84 rgb(200 30 30) at (8, 505.53906) 60×10

@@ -311,10 +311,19 @@ decided by the space before it, or else by the box holding both it and what
 came before, never by the box's own `white-space`. Chrome 154 agrees on
 every row of `crates/alo-corpus/cases/atomic-in-nowrap-line`, to its layout
 unit across, line for line. Until then every such box that did not fit
-started a new line. Three differences from Chrome are known, each in the
-queue: a line here breaks before text by the text's own `white-space` and
-not by the space before it (449), and Chrome breaks after an atomic box
-where this engine does not (449 too); an inline box's trailing space at the
+started a new line. **Text follows the same rule** (queue item 449): where
+two boxes meet, a break is the space's box's to allow, or the box of what
+came before it, or a box that closed since; never the next box's own. So
+`ab <span nowrap>…` in a `normal` block breaks at the space, and Chrome's
+break after an atomic box in a `normal` span is made here too. Between two
+letters there is no break at all, whichever boxes they are in, and a
+no-break space is no longer collapsed into an ordinary space, nor left out
+of the width that has to fit. Chrome 154 agrees on all fourteen rows of
+`crates/alo-corpus/cases/soft-wrap-between-boxes`, and the render matches
+its screenshot row for row. Three differences from Chrome are known, each in
+the queue: a word that runs across two boxes and does not fit overflows
+where it stands, where Chrome moves it whole to the next line if there was
+an earlier break on its line (452); an inline box's trailing space at the
 end of a line still widens the box (450); and an inline box that opens just
 before a break keeps an empty piece on the line before (451).
 

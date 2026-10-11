@@ -110,7 +110,11 @@ impl WhiteSpace {
                 in_whitespace = true;
                 continue;
             }
-            if character.is_whitespace() {
+            // Only document white space collapses — spaces, tabs and line
+            // breaks (CSS Text 3 § 4.1). `char::is_whitespace` would take a
+            // no-break space too, and `€&nbsp;3.50` would become a space a
+            // line may break at (queue item 449).
+            if character.is_ascii_whitespace() {
                 if !in_whitespace {
                     out.push(' ');
                     in_whitespace = true;
@@ -139,6 +143,20 @@ impl fmt::Display for WhiteSpace {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_no_break_space_is_not_white_space() {
+        assert_eq!(
+            WhiteSpace::Normal.apply("ab\u{a0}\u{a0} cd"),
+            "ab\u{a0}\u{a0} cd"
+        );
+        assert_eq!(WhiteSpace::Normal.apply("\u{a0}"), "\u{a0}");
+        assert_eq!(
+            WhiteSpace::PreLine.apply("a \u{2003} b"),
+            "a \u{2003} b",
+            "an em space is not collapsed either",
+        );
+    }
 
     #[test]
     fn normal_squeezes_every_kind_of_whitespace_into_one_space() {

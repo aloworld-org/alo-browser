@@ -82,8 +82,15 @@ correctness, not before it.
       did not fit until queue item 447 (iteration 285). A line now breaks
       before an atomic box only where the space before it or the box
       holding both allows it, measured row by row against Chrome 154.
-      Breaking before text by the same rule is still owed (449), and so
-      are 450 and 451.*
+      *Text broke by its own `white-space` wherever two boxes met until
+      queue item 449 (iteration 286): a `nowrap` span after a space that
+      wraps stayed on its line, and `abc<span>def</span>` broke between
+      the "c" and the "d". A break where two boxes meet is now decided by
+      the space before it or the box before it, between two letters there
+      is none, and a no-break space is no longer collapsed as white space,
+      each rule measured against Chrome 154. Owed: moving a word that
+      spans two boxes back to an earlier break on its line (452), 450 and
+      451.*
 - [x] **Paint**: a display list, then a software raster to a PNG
 - [x] **Reference renders**: a committed corpus, diffed on every change
 - [x] ★ **The agent tree**: the layout tree read as roles, states and positions

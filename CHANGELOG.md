@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Lines break where two elements meet as browsers break them.** A
+  `nowrap` label after an ordinary space now goes to the next line whole
+  rather than overflowing; a word written across two elements, like
+  `abc<span>def</span>`, is no longer split between them; and text after
+  a button in a wrapping span may start a new line. A no-break space
+  (`&nbsp;`) stays a no-break space: it is no longer squeezed into an
+  ordinary space a line can break at, and it takes its room at the end
+  of a line. Each rule was measured in Chrome (queue item 449).
+
 - **A line that may not wrap keeps its inline blocks.** A button, a badge or
   a picture in a `white-space: nowrap` line stays on that line and
   overflows it, as browsers do, where it used to drop to a line of its own

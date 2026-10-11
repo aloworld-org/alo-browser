@@ -1659,3 +1659,14 @@ keeps an empty piece on the line before; waits for a page). 443 and 449 are
 buildable next and depend on nothing. 201 queue items are open (447 closed,
 449–451 added). The next unused queue number is 452 and the next unused ADR
 0050.
+
+Iteration 286 built item 449: where two boxes meet, whether a line may break
+is decided by the space before it or what came before, never by the next
+box's own `white-space` (`alo-layout`'s `soft_wrap.rs`, Chrome 154's rule
+measured over 31 probe rows). Between two letters there is no break; a
+no-break space is no longer collapsed as white space (`alo-box`). Chrome
+agrees on all fourteen rows of `cases/soft-wrap-between-boxes`. Found: 452
+(a word across two boxes that does not fit is not moved back to an earlier
+break; waits for a page). 443 is buildable next and depends on nothing. 201
+queue items are open (449 closed, 452 added). The next unused queue number is
+453 and the next unused ADR 0050.

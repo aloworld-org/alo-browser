@@ -6318,7 +6318,7 @@ The long pole, and the thing most of section E is unreachable without.
   whole by its "…" as in Chrome's screenshot. No committed case moved.
   Found: 449, 450, 451.
 
-- [ ] **449. A line breaks before text where the space before it allows.**
+- [x] **449. A line breaks before text where the space before it allows.**
   *Found building 447 (iteration 285). Feature: `docs/features.md` stage
   1, inline formatting. Depends on nothing.* `alo-layout`'s `add_run`
   decides a break before a run's first piece by that run's own
@@ -6333,6 +6333,35 @@ The long pole, and the thing most of section E is unreachable without.
   so it needs a closer look before it is built. *Closes when:* a case pins
   both rows with Chrome's numbers. `soft_wrap.rs` is where the rule
   already lives.
+  **Done (iteration 286).** Measured first: 31 probe rows in Chrome 154
+  with the corpus's font, in boxes 80 wide. Chrome's rule is two rules.
+  After a space, the space's box decides, or the box of what came right
+  before the space, because Chrome breaks before a run of spaces too
+  (`<span normal>abcd</span> efghij` in `nowrap` breaks; a box closed
+  between does not count, `<span nowrap>abcd</span><span nowrap>
+  </span>efghij` in `normal` does not). Otherwise the box of what came
+  before decides, or any box it has closed into since
+  (`<span nowrap>abc-</span>defghij` in `normal` breaks, `abc-<span
+  normal>defghij` in `nowrap` does not). That is CSS Text 3 § 5.1's
+  nearest-common-box rule except where an atomic box's own box or a box
+  closed between lets Chrome break, which is the second row this item
+  named: Chrome breaks after an atomic box in a `normal` span by the span.
+  `alo-layout`'s `soft_wrap.rs` now holds both rules, for text and atomic
+  boxes alike, and the line builder asks it before every piece. Before a
+  run's first piece after a letter, the measurer is asked whether the two
+  texts together have a place to break there (`abc<span>defghijk</span>`
+  is one word); beside an atomic box there always is, after a no-break
+  space too (CSS Text 3 § 5.1). A piece that is only space is never broken
+  before; the break comes after it. Found and fixed because the case's
+  `#no-break-space` row needed it: `alo-box` collapsed U+00A0 as white
+  space (`char::is_whitespace`), so `&nbsp;` became a space a line could
+  break at, and a run of only `&nbsp;` was dropped; and a trailing no-break
+  space hung like a space, which Chrome does not do (measured: 40 tall to
+  a space's 20). `cases/soft-wrap-between-boxes` pins fourteen rows with
+  Chrome's row heights and its across to 1/64 px, and its render matches
+  Chrome's screenshot row for row. `alo-sites-full-page`'s three prices
+  now hold `€\u{a0}`, the same numbers and pixels. 447's no-break-space
+  test was corrected to Chrome's measured break. Found: 452.
 
 - [ ] **450. A space that ends a line does not widen its inline box.**
   *Found building 447 (iteration 285). Feature: `docs/features.md` stage
@@ -6355,6 +6384,22 @@ The long pole, and the thing most of section E is unreachable without.
   span with padding or a border would draw a sliver at the end of line 1,
   and its bounds are what an agent reads. *Closes when:* a frozen page's
   inline box opened before such a break has no piece on the line before.
+
+- [ ] **452. A word across two boxes moves whole to an earlier break.**
+  *Found building 449 (iteration 286). Feature: `docs/features.md` stage
+  1, inline formatting. Waits for a page.* The line builder places a
+  piece at a time and never takes one back. When a word written across two
+  boxes does not fit (`xx abc<span>defghijk</span>`), there is no place
+  to break between "abc" and "defghijk", so "defghijk" overflows beside
+  "abc"; Chrome 154 moves "abcdefghijk" to the next line, breaking at the
+  space before it. The same holds for a space that may not break followed
+  by text that does not fit: `ab <span nowrap>x </span>cdefghij` in an 80
+  px `normal` block puts "x " on line 2 with "cdefghij" in Chrome (its
+  `cdefghij` at 14.5625), and keeps "x " on line 1 here. Before item 449
+  the first case broke mid-word between the two boxes instead. *Closes
+  when:* a frozen page's word across two boxes, or text after an unbreakable
+  space, starts the next line where Chrome's does, which needs the builder
+  to return to the last allowed break on its line.
 
 - [ ] **448. An ellipsis after a space that is a text box of its own.**
   *Cut from 442. Feature: `docs/features.md` stage 1, text. Waits for a

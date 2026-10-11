@@ -1524,11 +1524,14 @@ fn close_piece(tree: &mut BoxTree, piece: BoxId, run: &mut Vec<BoxId>, out: &mut
     out.push(piece);
 }
 
-/// Whether a box is a text box holding nothing but whitespace.
+/// Whether a box is a text box holding nothing but whitespace — document
+/// white space, which a no-break space is not: `&nbsp;` alone is something
+/// to draw.
 fn is_only_whitespace(tree: &BoxTree, id: BoxId) -> bool {
-    tree.get(id)
-        .and_then(BoxNode::text)
-        .is_some_and(|text| text.trim().is_empty())
+    tree.get(id).and_then(BoxNode::text).is_some_and(|text| {
+        text.trim_matches(|c: char| c.is_ascii_whitespace())
+            .is_empty()
+    })
 }
 
 /// Wrap a run of inline-level boxes in one anonymous block box.

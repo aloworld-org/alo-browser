@@ -90,14 +90,21 @@
 //! line at all, which is why a paragraph ending in a `<br>` is no taller for
 //! it. That is the rule a kept newline in `white-space: pre` follows too.
 //!
-//! # An atomic box breaks a line only where the line may break
+//! # Where two boxes meet, what came before decides
 //!
-//! An atomic box that does not fit starts a new line only if a line may break
-//! before it. Its own `white-space` does not decide that, because it applies
-//! to what is inside the box. The space before it decides, or else the
-//! nearest box holding both it and what came before it
-//! ([`crate::soft_wrap`]). So a `nowrap` line keeps an `inline-block` and
-//! overflows, as it does with text (queue item 447).
+//! Something that does not fit — a word, an atomic box — starts a new line
+//! only if a line may break before it. Its own `white-space` does not decide
+//! that: an atomic box's applies to what is inside it, and a `nowrap` span
+//! after `ab ` in a `normal` block still goes to the next line whole. The
+//! space before it decides, or else the box holding what came before it
+//! ([`crate::soft_wrap`], queue items 447 and 449). So a `nowrap` line keeps
+//! an `inline-block` and overflows, as it does with text.
+//!
+//! Between two letters there is no place to break at all, whichever boxes
+//! they are in: `abc<span>defgh</span>` is one word, and the measurer is
+//! asked about the end of the one and the start of the other together. What
+//! is not done yet is moving such a word back whole to a break earlier on
+//! its line (queue item 452); it overflows where it stands instead.
 //!
 //! # A box out of flow takes no room
 //!
@@ -460,12 +467,25 @@ struct Builder<'a, M: MeasureText> {
     /// The anchors of the lines already finished.
     anchors: Vec<Anchor>,
     /// Whether the block's `white-space` lets its lines wrap: what decides
-    /// a break before an atomic box when nothing nearer does.
+    /// a break when nothing nearer does.
     strut_wraps: bool,
-    /// What was laid down last, for whether a line may break before an
-    /// atomic box ([`crate::soft_wrap`]).
+    /// What was laid down last, for whether a line may break before what
+    /// comes next ([`crate::soft_wrap`]).
     wrap: SoftWrap,
+    /// The end of the last piece of text laid down, for whether there is a
+    /// place to break between it and the text after it.
+    tail: String,
 }
+
+/// The white space a piece of text may end in, after which a line may break
+/// and which hangs at the end of a line: what collapsing leaves of document
+/// white space. A no-break space is not among it.
+const SPACES: [char; 3] = [' ', '\t', '\n'];
+
+/// How many characters of the last piece of text are kept to ask whether a
+/// line may break after it: enough for UAX #14's context, few enough that a
+/// hostile word of a hundred thousand letters is not copied once per run.
+const TAIL: usize = 32;
 
 /// How far something takes room above and below its baseline on a line: its
 /// font's ascent and descent with half its leading added to each.
@@ -556,7 +576,8 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             waiting: Vec::new(),
             anchors: Vec::new(),
             strut_wraps,
-            wrap: SoftWrap::START,
+            wrap: SoftWrap::start(strut_wraps),
+            tail: String::new(),
         }
     }
 
@@ -734,10 +755,15 @@ impl<'a, M: MeasureText> Builder<'a, M> {
             };
             // The trailing space of a piece does not count towards the width
             // that has to fit: a line may end in a space, and counting it
-            // would break a line one word early.
-            let visible = piece.trim_end();
+            // would break a line one word early. A no-break space is not one:
+            // it does not hang, and it is drawn.
+            let visible = piece.trim_end_matches(SPACES);
             let width = self.measurer.measure(visible, style, None).width;
-            if Self::may_wrap(style) && !self.fits(width) {
+            // Nothing breaks before a piece that is only space: a line does
+            // not begin with one it could end with, and the break comes after
+            // it instead, where the space hangs.
+            if !visible.is_empty() && !self.fits(width) && self.may_break_before(start == 0, piece)
+            {
                 self.end_line();
             }
             if visible.is_empty() {
@@ -764,14 +790,42 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         }
     }
 
-    /// Say what a piece of text left at the end of the line so far: a space,
-    /// after which its own box decides whether a line may break, or a letter.
-    /// A no-break space is a letter here, because no line breaks after it.
+    /// Whether a line may break before a piece of text that does not fit
+    /// ([`crate::soft_wrap`]). Between two pieces of one run there is a
+    /// place to break by construction. Before a run's first piece, after a
+    /// letter, there is one only if the text on both sides says so:
+    /// `abc<span>def</span>` is one word.
+    fn may_break_before(&self, first: bool, piece: &str) -> bool {
+        if !self.wrap.allows() {
+            return false;
+        }
+        if !first || !self.wrap.after_letter() {
+            return true;
+        }
+        let joined = format!("{}{piece}", self.tail);
+        self.measurer
+            .break_opportunities(&joined)
+            .contains(&self.tail.len())
+    }
+
+    /// Say what a piece of text left at the end of the line so far: letters,
+    /// spaces after them, or both, each in the box the piece is in. A
+    /// no-break space is a letter here, because no line breaks after it.
     fn laid(&mut self, piece: &str, style: &TextStyle) {
-        if piece.ends_with([' ', '\t', '\n']) {
-            self.wrap.space(self.open.len(), Self::may_wrap(style));
-        } else {
-            self.wrap.content(self.open.len());
+        let (depth, wraps) = (self.open.len(), Self::may_wrap(style));
+        let letters = piece.trim_end_matches(SPACES);
+        if !letters.is_empty() {
+            self.wrap.letter(depth, wraps);
+            let kept = letters
+                .char_indices()
+                .rev()
+                .nth(TAIL - 1)
+                .map_or(0, |(at, _)| at);
+            self.tail.clear();
+            self.tail.push_str(letters.get(kept..).unwrap_or(letters));
+        }
+        if letters.len() < piece.len() {
+            self.wrap.space(depth, wraps);
         }
     }
 
@@ -857,7 +911,11 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         };
         self.pen += edge;
         let held = self.open.remove(index);
-        self.wrap.closed(self.open.len());
+        let wraps = self
+            .open
+            .last()
+            .map_or(self.strut_wraps, |outer| outer.wraps);
+        self.wrap.closed(self.open.len(), wraps);
         // Mid-line the pen is the right answer: the end edge comes after
         // whatever the box held, trailing space included, because that space
         // is inside the box.
@@ -897,20 +955,6 @@ impl<'a, M: MeasureText> Builder<'a, M> {
         });
     }
 
-    /// Whether the line may break before an atomic box laid down now: not
-    /// by the box's own `white-space`, which is about what is inside it, but
-    /// by the space before it or the box holding both it and what came
-    /// before ([`crate::soft_wrap`]). In a `nowrap` line it stays on the
-    /// line and overflows, as text would.
-    fn may_break_before_atomic(&self) -> bool {
-        self.wrap.allows(|depth| {
-            depth
-                .checked_sub(1)
-                .and_then(|above| self.open.get(above))
-                .map_or(self.strut_wraps, |held| held.wraps)
-        })
-    }
-
     /// Place an atomic box, margins and all.
     ///
     /// The margin box is what fits or does not, what moves the pen and what
@@ -925,10 +969,16 @@ impl<'a, M: MeasureText> Builder<'a, M> {
     ) {
         let width = margin.left + size.width + margin.right;
         let height = margin.top + size.height + margin.bottom;
-        if self.may_break_before_atomic() && !self.fits(width) {
+        // Beside an atomic box there is always a place to break (CSS Text 3
+        // § 5.1); whether a break is allowed there is not the box's own
+        // `white-space`, which is about what is inside it, but what came
+        // before ([`crate::soft_wrap`]). In a `nowrap` line it stays on the
+        // line and overflows, as text would.
+        if self.wrap.allows() && !self.fits(width) {
             self.end_line();
         }
-        self.wrap.content(self.open.len());
+        let wraps = self.open.last().map_or(self.strut_wraps, |held| held.wraps);
+        self.wrap.atomic(self.open.len(), wraps);
         self.content = true;
         // Placed only once it is known which line it is on: a `top` box's
         // group belongs to the line.
@@ -2096,14 +2146,14 @@ mod tests {
         use super::*;
         use alo_box::WhiteSpace;
 
-        fn styled(white_space: WhiteSpace) -> TextStyle {
+        pub(super) fn styled(white_space: WhiteSpace) -> TextStyle {
             TextStyle {
                 white_space,
                 ..TextStyle::default()
             }
         }
 
-        fn words(index: usize, text: &str, white_space: WhiteSpace) -> InlineItem {
+        pub(super) fn words(index: usize, text: &str, white_space: WhiteSpace) -> InlineItem {
             InlineItem::Text {
                 box_id: box_id(index),
                 text: text.to_owned(),
@@ -2111,7 +2161,7 @@ mod tests {
             }
         }
 
-        fn span(index: usize, white_space: WhiteSpace) -> InlineItem {
+        pub(super) fn span(index: usize, white_space: WhiteSpace) -> InlineItem {
             InlineItem::Open {
                 box_id: box_id(index),
                 edge: 0.0,
@@ -2122,7 +2172,7 @@ mod tests {
             }
         }
 
-        fn shut(index: usize) -> InlineItem {
+        pub(super) fn shut(index: usize) -> InlineItem {
             InlineItem::Close {
                 box_id: box_id(index),
                 edge: 0.0,
@@ -2131,7 +2181,11 @@ mod tests {
 
         /// Which line the box numbered `index` is on, in a block whose
         /// `white-space` is `block`.
-        fn line_of(items: &[InlineItem], block: WhiteSpace, index: usize) -> Option<usize> {
+        pub(super) fn line_of(
+            items: &[InlineItem],
+            block: WhiteSpace,
+            index: usize,
+        ) -> Option<usize> {
             let layout = lay_out_aligned(
                 items,
                 Some(80.0),
@@ -2246,25 +2300,182 @@ mod tests {
         }
 
         #[test]
-        fn a_no_break_space_is_not_a_place_to_break() {
-            // `<span normal>ab&nbsp;</span><ib>` in `nowrap`: were the
-            // no-break space a space, the span would let the line break
-            // after it. It is a letter, so the block decides, and keeps it.
+        fn a_no_break_space_before_an_atomic_box_still_lets_a_line_break() {
+            // `<span normal>ab&nbsp;</span><ib>` in `nowrap`: beside an
+            // atomic box there is always a place to break (CSS Text 3
+            // § 5.1), and the span the "ab&nbsp;" is in wraps, so Chrome 154
+            // breaks (measured, queue item 449).
             let items = [
                 span(1, Normal),
                 words(2, "ab\u{a0}", Normal),
                 shut(1),
                 atomic(3, 60.0, 10.0),
             ];
-            assert_eq!(line_of(&items, NoWrap, 3), Some(0));
-            // The same with an ordinary space breaks.
+            assert_eq!(line_of(&items, NoWrap, 3), Some(1));
+            // In a `nowrap` span it does not.
             let items = [
-                span(1, Normal),
-                words(2, "ab ", Normal),
+                span(1, NoWrap),
+                words(2, "ab\u{a0}", NoWrap),
                 shut(1),
                 atomic(3, 60.0, 10.0),
             ];
+            assert_eq!(line_of(&items, NoWrap, 3), Some(0));
+        }
+    }
+    /// The rows Chrome 154 was measured on for queue item 449, in the test
+    /// font (eight wide a letter, breaking only after spaces): a block 80
+    /// wide, `white-space` given to the block and to each span.
+    mod text_wrapping {
+        use super::atomic_wrapping::{line_of, shut, span, words};
+        use super::*;
+        use alo_box::WhiteSpace::{NoWrap, Normal};
+
+        #[test]
+        fn a_nowrap_span_after_a_space_that_wraps_goes_to_the_next_line() {
+            // `ab <span nowrap>cdefghij</span>` in `normal`: the space is the
+            // block's, so the line breaks there though the span is `nowrap`.
+            let items = [
+                words(1, "ab ", Normal),
+                span(2, NoWrap),
+                words(3, "cdefghij", NoWrap),
+                shut(2),
+            ];
+            assert_eq!(line_of(&items, Normal, 3), Some(1));
+        }
+
+        #[test]
+        fn a_wrapping_span_after_a_space_that_does_not_stays() {
+            // `ab <span normal>cdefghij</span>` in `nowrap`.
+            let items = [
+                words(1, "ab ", NoWrap),
+                span(2, Normal),
+                words(3, "cdefghij", Normal),
+                shut(2),
+            ];
+            assert_eq!(line_of(&items, NoWrap, 3), Some(0));
+            // `ab<span normal> cdefghij</span>` in `nowrap`: now the space is
+            // the span's, and it breaks.
+            let items = [
+                words(1, "ab", NoWrap),
+                span(2, Normal),
+                words(3, " cdefghij", Normal),
+                shut(2),
+            ];
             assert_eq!(line_of(&items, NoWrap, 3), Some(1));
+        }
+
+        #[test]
+        fn a_space_does_not_wrap_by_a_box_closed_before_it() {
+            // `<span nowrap>abcd</span><span nowrap> </span>efghij` in
+            // `normal`: the space is a `nowrap` span's, and "abcd" is in
+            // another; the block both closed into wraps, but a break at a
+            // space is the space's and what was right before it. One line.
+            let items = [
+                span(1, NoWrap),
+                words(2, "abcd", NoWrap),
+                shut(1),
+                span(3, NoWrap),
+                words(4, " ", NoWrap),
+                shut(3),
+                words(5, "efghij", Normal),
+            ];
+            assert_eq!(line_of(&items, Normal, 5), Some(0));
+            // `<span normal>abcd</span> efghij` in `nowrap`: what was right
+            // before the space wraps, and the line breaks.
+            let items = [
+                span(1, Normal),
+                words(2, "abcd", Normal),
+                shut(1),
+                words(3, " efghij", NoWrap),
+            ];
+            assert_eq!(line_of(&items, NoWrap, 3), Some(1));
+        }
+
+        #[test]
+        fn text_after_an_atomic_box_breaks_by_the_box_it_is_in() {
+            // `ab <span normal>x<ib></span> cd` in `nowrap`: three lines,
+            // the box on the second and "cd" on the third.
+            let items = [
+                words(1, "ab ", NoWrap),
+                span(2, Normal),
+                words(3, "x", Normal),
+                atomic(4, 60.0, 10.0),
+                shut(2),
+                words(5, " cd", NoWrap),
+            ];
+            assert_eq!(line_of(&items, NoWrap, 4), Some(1));
+            assert_eq!(line_of(&items, NoWrap, 5), Some(2));
+            // `ab <span nowrap>x<ib></span> cd` in `nowrap`: one line.
+            let items = [
+                words(1, "ab ", NoWrap),
+                span(2, NoWrap),
+                words(3, "x", NoWrap),
+                atomic(4, 60.0, 10.0),
+                shut(2),
+                words(5, " cd", NoWrap),
+            ];
+            assert_eq!(line_of(&items, NoWrap, 5), Some(0));
+        }
+
+        #[test]
+        fn two_letters_in_two_boxes_are_one_word() {
+            // `abc<span>defghijk</span>` in `normal`: no place to break
+            // between "c" and "d", so it overflows on its line.
+            let items = [
+                words(1, "abc", Normal),
+                span(2, Normal),
+                words(3, "defghijk", Normal),
+                shut(2),
+            ];
+            assert_eq!(line_of(&items, Normal, 3), Some(0));
+            // `abc<span>defghijk lm</span>`: "lm" still wraps.
+            let items = [
+                words(1, "abc", Normal),
+                span(2, Normal),
+                words(3, "defghijk lm", Normal),
+                shut(2),
+            ];
+            let layout = lay_out(&items, Some(80.0), &BlockFont);
+            assert_eq!(lines_of(&layout).len(), 2);
+            // `<span normal>ab&nbsp;</span>cdefghij` in `nowrap`: a no-break
+            // space is no place to break either.
+            let items = [
+                span(1, Normal),
+                words(2, "ab\u{a0}", Normal),
+                shut(1),
+                words(3, "cdefghij", NoWrap),
+            ];
+            assert_eq!(line_of(&items, NoWrap, 3), Some(0));
+        }
+
+        #[test]
+        fn a_no_break_space_at_the_end_of_a_word_takes_its_room() {
+            // "aaaa bbbbb&nbsp;" in 80: "bbbbb" would fit at 40, and with the
+            // no-break space it is 48, which does not; a no-break space does
+            // not hang as a space does, so the word goes to the next line.
+            let items = [words(1, "aaaa bbbbb\u{a0}", Normal)];
+            let layout = lay_out(&items, Some(80.0), &BlockFont);
+            assert_eq!(lines_of(&layout), vec![vec!["1@0"], vec!["1@0"]]);
+            // With a space it hangs, and the line holds both.
+            let items = [words(1, "aaaa bbbbb ", Normal)];
+            let layout = lay_out(&items, Some(80.0), &BlockFont);
+            assert_eq!(lines_of(&layout).len(), 1);
+        }
+
+        #[test]
+        fn a_space_alone_is_not_broken_before() {
+            // `abcdefghij<span> </span>kl` in `normal`: the line overflows
+            // before the space; the break comes after it, and the next line
+            // starts at "kl".
+            let items = [
+                words(1, "abcdefghij", Normal),
+                span(2, Normal),
+                words(3, " ", Normal),
+                shut(2),
+                words(4, "kl", Normal),
+            ];
+            let layout = lay_out(&items, Some(80.0), &BlockFont);
+            assert_eq!(lines_of(&layout), vec![vec!["1@0", "2@80"], vec!["4@0"]]);
         }
     }
 }
