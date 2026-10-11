@@ -674,13 +674,20 @@ fn fields_for(request: &Request) -> Vec<Field> {
     fields
 }
 
+/// Write, and say the connection ended when that is why the write failed.
+///
+/// A peer that closed is reported the same way whether a read or a write found
+/// out first ([`frame::ended_under_a_write`]); only a write that failed for
+/// some other reason is a write failing.
 fn write_all(wire: &mut impl Write, bytes: &[u8]) -> Result<(), Broken> {
     wire.write_all(bytes)
         .and_then(|()| wire.flush())
-        .map_err(|why| Broken {
-            why: format!("could not write to the connection: {why}"),
-            error: ErrorCode::InternalError,
-            fatal: true,
+        .map_err(|why| {
+            frame::ended_under_a_write(&why).unwrap_or_else(|| Broken {
+                why: format!("could not write to the connection: {why}"),
+                error: ErrorCode::InternalError,
+                fatal: true,
+            })
         })
 }
 

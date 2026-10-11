@@ -28148,3 +28148,79 @@ Chrome's are both 153; opened by `toggle-artwork`, needs measuring).
 206 queue items are open (454 closed, 456–459 added). The next unused
 queue number is **460** and the next ADR is **0050**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 289 — queue item 455 built: a server that closed is the connection ending, whichever of read and write finds out
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md`, `ROADMAP.md`
+(its stage 2 line "HTTP/1.1, then HTTP/2", which this item serves),
+iteration 288. No `AGENTS.md` exists in this repository or above it. For
+455: its queue entry, `docs/features.md`' entry on a connection that ended
+told apart from a peer that misbehaved (queue item 185, which this item
+completes), `alo-net`'s `h2/client.rs`, `h2/frame.rs` and `pool.rs`, and
+`tests/a_download_that_stops_over_http_2.rs`. The item names no ADR and
+needs none: it changes the words of one error, not a policy.
+
+**Choosing.** Iteration 288 named 455, 457 and 459 buildable; 455 stands
+first in the file and depends on nothing.
+
+**The cause.** A read that finds the peer gone (reset, aborted, broken pipe,
+an unexpected end) says "the connection ended" (`frame.rs`'
+`is_the_connection_going`); a write that found the same thing said "could
+not write to the connection: Broken pipe". The client writes window updates
+for the body it has just read, so under load a server's close was found by
+the write first.
+
+**What was built.** `h2/frame.rs`' `ended_under_a_write`: a write failing
+for one of the reasons a read counts as the connection going is said as a
+read finding it gone between frames says it; any other failure (a timeout,
+which is a peer that stopped reading, not one that went) is `None`.
+`h2/client.rs`' `write_all` uses it. Nothing reads a write failure's error
+code, and the pool already drops a connection whose exchange came back
+short. HTTP/1.1 writes nothing while it reads a body, so it has no such
+race.
+
+**Evidence.** `a_download_that_stops_over_http_2.rs` gains `Gone`, a wire
+whose reads hand out a scripted server and then time out — so a read can
+never be what finds the end — and whose writes fail from a chosen one on.
+Four tests: half a page refused, reading exactly "the connection ended";
+the preface, request and settings-acknowledgement writes each giving the
+same no-response error; a download resuming from the bytes before the
+failed write; a write that timed out still a write failing. The file ran
+30 times alone, all passing.
+
+**Gate, mechanical.** `cargo fmt --all`; `cargo clippy -p alo-net
+--all-targets --all-features -- -D warnings` clean. `scripts/gate.sh` ran
+once, in the foreground; the harness moved it to the background at 600 s
+and the next call waited on it with a foreground `until` loop: `exit 0`,
+"The gate is met", no `FAILED` in the log. Only this entry, `REMAINING.md`
+and the commit came after it.
+
+**Gate, manual.**
+- *Layout assertions and reference renders:* nothing positions, sizes or
+  draws; no `layout.txt`, `boxes.txt` or reference PNG changed.
+- *Mutations, restored from a copy (`cmp` confirmed):* `ended_under_a_write`
+  returning `None` fails the page and no-response tests; returning an
+  ending for every write failure fails the stalled-write test.
+- *Hostile input:* this is the path a hostile server's close takes; the new
+  code only classifies an `io::Error` and allocates nothing from the peer.
+  No `unwrap`, no indexing, no panics in the test helpers.
+- One responsibility per file: how a connection ending is said stays
+  `frame.rs`'; `client.rs` only uses it. No `unsafe`. `alo-workplace` and
+  `alo-os` were not touched.
+
+**Queue.** 455 ticked with its *Done* paragraph. Nothing added.
+
+**Roadmap.** Stage 2's "HTTP/1.1, then HTTP/2" line's *Built* clause for
+queue item 185 now names 455. It stays unticked: it still owes 187. Also
+updated: `docs/features.md`, `REMAINING.md`, `CHANGELOG.md`;
+`docs/conformance.md` has no networking entry this touches.
+
+**Unresolved obligations.**
+- 457 and 459 depend on nothing and are buildable next; 457 stands first
+  in the file.
+- 438, 439, 431, 433, 434, 444, 445, 446, 448, 450–453, 456, 458,
+  423–428, 411, 414 and 416–421 wait for pages; 432 depends on 404.
+
+205 queue items are open (455 closed). The next unused queue number is
+**460** and the next ADR is **0050**. This is one iteration, not a
+finished queue or roadmap.

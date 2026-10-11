@@ -1698,3 +1698,12 @@ and 459 (the rasteriser under-covers a small curve, and to one side; opened
 by `toggle-artwork`, needs measuring). 206 queue items are open (454 closed,
 456–459 added). The next unused queue number is 460 and the next unused ADR
 0050.
+
+Iteration 289 built item 455: an HTTP/2 server that closed is reported as
+"the connection ended" whether a read or a write is the first to find it
+gone (`alo-net`'s `h2/frame.rs` `ended_under_a_write`, used by
+`h2/client.rs`), so the gate's one-off "Broken pipe" cannot recur; a write
+that stalls is still a write failing. A scripted wire forces the write-first
+order in `a_download_that_stops_over_http_2.rs`. 457 and 459 are buildable
+next. 205 queue items are open (455 closed). The next unused queue number is
+460 and the next unused ADR 0050.

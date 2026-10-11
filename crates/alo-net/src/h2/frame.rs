@@ -637,6 +637,22 @@ fn is_the_connection_going(why: &std::io::Error) -> bool {
     )
 }
 
+/// A write that failed because the peer has gone, said as a read would say it.
+///
+/// A server that stops is one event, and which of read and write notices it
+/// first is timing: a client still sending window updates for the body it has
+/// just taken writes into a closed connection before it reads the end of it.
+/// The reason given must not depend on that race (queue item 455), so a write
+/// that finds the connection gone says what a read finding it gone between
+/// frames says.
+///
+/// `None` for a write that failed any other way. A write that timed out is a
+/// peer that has stopped reading, which is not a peer that has gone — the
+/// same line [`is_the_connection_going`] draws for a read.
+pub(crate) fn ended_under_a_write(why: &std::io::Error) -> Option<Broken> {
+    is_the_connection_going(why).then(|| ended_after(0))
+}
+
 /// The connection ending, said the way the two ways of ending differ.
 fn ended_after(bytes: usize) -> Broken {
     if bytes == 0 {

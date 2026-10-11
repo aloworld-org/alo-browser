@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A server that hangs up over HTTP/2 is reported the same way every
+  time.** When a server stopped part way through a page, the reason given
+  was usually "the connection ended" but, on a busy machine, sometimes
+  "Broken pipe" — whichever the browser happened to notice first, reading
+  or writing. Both now say the connection ended; a write that merely
+  stalls is still reported as a write failing (queue item 455).
+
 - **Checkboxes and radio buttons look like Chrome's.** An unchecked one is
   white inside a rounded grey edge rather than a grey square over whatever
   is behind it; a checked checkbox is filled blue with a white tick, and a

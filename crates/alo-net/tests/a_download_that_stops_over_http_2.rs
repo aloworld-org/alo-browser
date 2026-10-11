@@ -224,9 +224,14 @@ fn over_http_2(port: u16, request: &Request) -> Result<Answered, String> {
         .set_read_timeout(Some(PATIENCE))
         .and_then(|()| socket.set_write_timeout(Some(PATIENCE)))
         .map_err(|why| format!("a timeout: {why}"))?;
+    on(&mut socket, request)
+}
+
+/// One exchange over HTTP/2, on whatever wire it is handed.
+fn on(wire: &mut (impl Read + Write), request: &Request) -> Result<Answered, String> {
     let mut speaking = client::Speaking::new();
-    let ended = client::exchange_however_it_ends(&mut socket, &mut speaking, request)
-        .map_err(|why| why.why)?;
+    let ended =
+        client::exchange_however_it_ends(wire, &mut speaking, request).map_err(|why| why.why)?;
     Ok(Answered {
         response: ended.response,
         short: ended.short.is_some(),
@@ -585,4 +590,188 @@ fn nothing_a_server_can_stop_in_the_middle_of_makes_this_splice() {
             );
         }
     }
+}
+
+// --- A server that stopped, found out by a write -----------------------------
+//
+// Queue item 455. A loopback server that stops cannot choose whether the
+// client's next read or its next write is the first to find out: that is
+// decided by how busy the machine is, and under the gate's load it once went
+// the other way and the page was refused for "Broken pipe" rather than for the
+// connection ending. So the order is forced here with a wire that is not a
+// socket: its bytes are scripted, and its writes fail where the test says.
+
+/// A connection whose peer has said everything it will say and then gone.
+///
+/// Reads hand out `said` and then **time out** rather than end, so the only way
+/// the client can learn the peer has gone is a write — which fails with
+/// `going` from the write numbered `writes_before_it_went` on.
+struct Gone {
+    said: std::io::Cursor<Vec<u8>>,
+    writes_before_it_went: usize,
+    going: std::io::ErrorKind,
+}
+
+impl Gone {
+    fn after(said: Vec<u8>, writes_before_it_went: usize) -> Self {
+        Self {
+            said: std::io::Cursor::new(said),
+            writes_before_it_went,
+            going: std::io::ErrorKind::BrokenPipe,
+        }
+    }
+}
+
+impl Read for Gone {
+    fn read(&mut self, into: &mut [u8]) -> std::io::Result<usize> {
+        match self.said.read(into)? {
+            0 => Err(std::io::ErrorKind::TimedOut.into()),
+            got => Ok(got),
+        }
+    }
+}
+
+impl Write for Gone {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if self.writes_before_it_went == 0 {
+            return Err(self.going.into());
+        }
+        self.writes_before_it_went -= 1;
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// The client's own writes before it reads anything: the preface with its
+/// settings, then the request's header block. The third is the acknowledgement
+/// of the server's settings, and the fourth the window update for the body.
+const PREFACE_AND_REQUEST: usize = 2;
+
+/// What a server says before it stops: its settings, an acknowledgement of
+/// ours, a head, and a body — the whole of it only when `whole` says so.
+fn said(head: &[Field], body: &[u8], whole: bool) -> Vec<u8> {
+    let mut writing = Table::new(4096);
+    let mut out = frame::write(&Frame::Settings {
+        ack: false,
+        values: vec![(Setting::MAX_CONCURRENT_STREAMS, 100)],
+    });
+    out.extend(frame::write(&Frame::Settings {
+        ack: true,
+        values: Vec::new(),
+    }));
+    out.extend(frame::write(&Frame::Headers {
+        stream: THEIRS,
+        block: hpack::encode(head, &mut writing),
+        end_stream: false,
+        end_headers: true,
+        priority: None,
+    }));
+    out.extend(frame::write(&Frame::Data {
+        stream: THEIRS,
+        data: body.to_vec(),
+        end_stream: whole,
+    }));
+    out
+}
+
+/// Half a page, after which the window update for it is what finds the
+/// connection gone.
+fn half_a_page_then_gone() -> Gone {
+    Gone::after(
+        said(
+            &whole_head(),
+            FILE.get(..STOPS_AT).unwrap_or_default(),
+            false,
+        ),
+        PREFACE_AND_REQUEST + 1,
+    )
+}
+
+#[test]
+fn a_page_is_refused_for_the_connection_ending_when_a_write_finds_out_first() {
+    let mut wire = half_a_page_then_gone();
+    let refused = client::exchange(
+        &mut wire,
+        &mut client::Speaking::new(),
+        &Request::get(url(0, "/page.html"), a_person()),
+    );
+    let Err(why) = refused else {
+        panic!("half a page was handed up as a page");
+    };
+    assert_eq!(
+        why.why, "the connection ended",
+        "the same words a read finding it gone between frames says"
+    );
+}
+
+#[test]
+fn a_download_keeps_what_arrived_when_a_write_finds_the_connection_gone() {
+    // The bytes before the failed write were read whole and checked; a resume
+    // from them is the same resume as after a read that found the end.
+    let exchanges = AtomicUsize::new(0);
+    let downloaded = alo_net::whole_of(&Request::get(url(0, "/big.bin"), a_person()), |asking| {
+        if exchanges.fetch_add(1, Ordering::SeqCst) == 0 {
+            return on(&mut half_a_page_then_gone(), asking);
+        }
+        let from = asking
+            .headers
+            .get("range")
+            .and_then(|range| range.strip_prefix("bytes="))
+            .and_then(|range| range.strip_suffix('-'))
+            .and_then(|from| from.parse::<usize>().ok())
+            .unwrap_or(usize::MAX);
+        let rest = said(
+            &range_head(from),
+            FILE.get(from..).unwrap_or_default(),
+            true,
+        );
+        on(&mut Gone::after(rest, usize::MAX), asking)
+    })
+    .unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!(downloaded.body, FILE);
+    assert_eq!(
+        exchanges.load(Ordering::SeqCst),
+        2,
+        "resumed, not restarted"
+    );
+}
+
+#[test]
+fn a_server_gone_before_its_headers_is_no_response_whichever_write_finds_out() {
+    // The preface, the request, and the acknowledgement of the server's
+    // settings: each is a write that can be the first to meet a closed
+    // connection, and each is the same "no response at all" the read-side test
+    // above gets.
+    for writes in 0..=PREFACE_AND_REQUEST {
+        let mut wire = Gone::after(said(&whole_head(), &[], false), writes);
+        let why = on(&mut wire, &Request::get(url(0, "/big.bin"), a_person()))
+            .err()
+            .unwrap_or_else(|| format!("after {writes} writes it produced a response"));
+        assert_eq!(why, "the connection ended", "after {writes} writes");
+    }
+}
+
+#[test]
+fn a_write_that_stalls_is_not_the_connection_ending() {
+    // The line a read draws too: a peer that has stopped reading may still be
+    // there, so a write that timed out is a write failing, not an ending — and
+    // it says so rather than claiming a close nobody saw.
+    let mut wire = half_a_page_then_gone();
+    wire.going = std::io::ErrorKind::TimedOut;
+    let refused = client::exchange(
+        &mut wire,
+        &mut client::Speaking::new(),
+        &Request::get(url(0, "/page.html"), a_person()),
+    );
+    let Err(why) = refused else {
+        panic!("half a page was handed up as a page");
+    };
+    assert!(
+        why.why.starts_with("could not write to the connection"),
+        "{:?}",
+        why.why
+    );
 }

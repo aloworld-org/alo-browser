@@ -6532,7 +6532,7 @@ The long pole, and the thing most of section E is unreachable without.
   two edges are drawn alike and a rounded corner's pixel is covered within
   a stated bound of its exact area.
 
-- [ ] **455. A stopped HTTP/2 body is reported the same way whatever the
+- [x] **455. A stopped HTTP/2 body is reported the same way whatever the
   timing.** *Found by the gate in iteration 287, which did not cause it.
   Feature: `docs/features.md` stage 2, networking. Depends on nothing.*
   `alo-net`'s `a_download_that_stops_over_http_2.rs`,
@@ -6547,6 +6547,21 @@ The long pole, and the thing most of section E is unreachable without.
   that closed mid-body as the connection ending whichever way it finds
   out, and a test forces the write-first order rather than waiting for
   it.
+  **Done (iteration 289).** A write that fails because the peer has gone
+  (the error kinds a read already counted as the connection going: reset,
+  aborted, broken pipe, an unexpected end) now says "the connection ended",
+  exactly what a read finding it gone between frames says
+  (`h2/frame.rs`' `ended_under_a_write`, used by `h2/client.rs`'
+  `write_all`); a write that timed out, or failed any other way, still says
+  "could not write to the connection". `a_download_that_stops_over_http_2.rs`
+  gains a scripted wire whose reads time out after the server's last frame
+  and whose writes fail from a chosen one on, so only a write can find out:
+  half a page is refused for the connection ending; the preface, request and
+  settings-acknowledgement writes each give the same "no response at all";
+  a download resumes from the bytes before the failed write; a stalled write
+  is not an ending. Removing the mapping fails two of these, mapping every
+  write failure fails the third. HTTP/1.1 writes nothing while it reads a
+  body, so has no such race.
 
 - [ ] **432. A `<summary>` draws its disclosure triangle.** *Cut from 429
   by ADR 0048 § 5. Opened by `alo-sites-full-page`'s FAQ. Feature:

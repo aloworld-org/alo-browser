@@ -315,7 +315,9 @@ unreachable without it.
       cannot undo, and a compressed body the connection closing is the only end
       of are each refused by name. **A connection that ended told apart from a
       peer that misbehaved** (queue item 185), so a stream the server gave up
-      on keeps the bytes that arrived on it. **A request that sends something**
+      on keeps the bytes that arrived on it, and a server that closed is the
+      connection ending whether a read or a write is first to find it gone
+      (queue item 455). **A request that sends something**
       (queue item 163) — a body after the blank line in HTTP/1.1 and in `DATA`
       frames in HTTP/2, cut to the frame size the peer allows, with a window
       that closes part way through waited on rather than overrun and the stream

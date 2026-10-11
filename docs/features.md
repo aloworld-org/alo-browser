@@ -473,7 +473,9 @@ The reason this exists rather than a faster fork of somebody else's engine.
   spliced
 - [2] **A connection that ended is told apart from a peer that misbehaved**, in
   HTTP/2, so bytes that arrived on a stream the server gave up on are kept
-  rather than thrown away with an error
+  rather than thrown away with an error — and a server that closed is reported
+  as the connection ending whether a read or a write is first to find it gone,
+  so the reason never depends on timing (queue item 455)
 - [2] **A decompression bomb is refused** — the bound is on what comes out,
   because every other bound in a loader watches what comes in
 - [2] **Connections kept between requests**, with the retry that has to come with them: a reuse that fails before a byte arrives is tried again, and a request that must not happen twice never is
