@@ -11,8 +11,8 @@
 //!
 //! What ADR 0054 measured and this engine does not yet give is not asserted
 //! here as if it did: flexible items' exact shares and a grid that sizes its
-//! columns twice are queue item 499's, and the only thing said about them
-//! below is that their edges are on the grid.
+//! columns twice wait for a hook in `taffy` (ADR 0056, queue item 502), and
+//! the only thing said about them below is that their edges are on the grid.
 
 use alo_box::{BoxId, BoxTree, build};
 use alo_css::{MediaContext, parse_stylesheet};
@@ -214,7 +214,7 @@ fn a_grids_distribution_truncates_the_share_in_front() {
     // its exact shares added up, 749.8, 2,889.5 and 5,029.2, and truncates
     // that: 749, 2,889 and 5,029. The first share is Chrome's, and every
     // later track is within a unit for each share before it, on the grid.
-    // Building it exactly needs `taffy`'s own numbers, which is item 499's.
+    // Building it exactly needs `taffy`'s own numbers (ADR 0056, item 502).
     let html = "<div id=g><div id=a></div><div id=b></div><div id=c></div></div>";
     let grid = |distribution: &str| {
         format!(
@@ -333,8 +333,8 @@ fn a_length_past_the_grids_range_saturates() {
 
 #[test]
 fn every_edge_of_a_page_of_shares_is_on_the_grid() {
-    // Flexible items' exact shares are queue item 499's; what this engine
-    // already promises is that every edge it hands back is on the grid.
+    // Flexible items' exact shares wait for ADR 0056's hook (502); what this
+    // engine already promises is that every edge it hands back is on the grid.
     let html = "<div id=f><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>\
                 <div id=c><b>x</b></div>";
     let css = "#f { display: flex; width: 201px; gap: 0.3px } i { flex: 1; height: 7.7px } \

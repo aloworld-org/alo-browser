@@ -132,7 +132,8 @@ fn the_grid_starts_under_the_titles_line_and_its_days_are_square() {
     // floored, so the columns are 1,837 and 1,838 units wide in turn, and
     // the rows the same. Chrome's are every one 1,838, because it sizes the
     // columns a second time once the ratio has made the rows 1,838 tall;
-    // that second pass is inside `taffy` and is queue item 499's.
+    // that second pass is inside `taffy`, and waits for a hook in it (ADR
+    // 0056, queue item 502).
     let side = (207.0 - 6.0) / 7.0;
     let weekdays = 952.0 / 64.0 + 2.0;
     let floored = |pixels: f32| (pixels * 64.0).floor() / 64.0;

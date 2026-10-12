@@ -30100,3 +30100,94 @@ The *Text* line's note no longer owes 466. Also updated:
 232 queue items are open (466 closed). The next unused queue number is
 **501** and the next ADR is **0056**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 306 — queue item 499 decided: ADR 0056, `taffy`'s own shares are put on the grid by a hook offered upstream
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 305's entry, `REMAINING.md` and the queue. No
+`AGENTS.md` exists in this checkout. Iteration 305 found every open item
+before 466 blocked, waiting for a page, or waiting on a dependency, and
+nothing since has changed that. 465 waits for a page. 499 comes next in
+the file. Its one dependency, 466, is done, and it is marked **needs ADR,
+as its own iteration** (LOOP.md § 4), so this iteration is that ADR and
+writes no engine code. **For the item:** ADRs 0001, 0004, 0047 and 0054
+(with its addendum), `docs/features.md` stage 1, *Layout*, and `taffy`
+0.14.0's grid and flexbox sources and tree traits.
+
+**Decided: ADR 0056, accepted.** The engine does not take the sharing of
+flexible space over from `taffy`. That would mean owning grid track sizing
+(`track_sizing.rs`, 1,513 lines) and flexbox's flexible lengths for 1/64 px
+a share. A fork, a `[patch]` and a vendored copy stay refused. The fix is a
+hook on `LayoutPartialTree`, with a default that changes nothing, called at
+the end of `expand_flexible_tracks`, at the end of
+`resolve_flexible_lengths`, and on each content-distribution offset. A
+person offers it upstream (501). The engine builds on it from the first
+release that has it and #1227 (502). Until then the numbers stay as
+iteration 305 left them, pinned by the same tests.
+
+**Evidence, gathered for the decision and thrown away.**
+- `taffy` 0.14.0 was copied into the scratchpad. A scratch `git worktree`
+  pointed at the copy with a `[patch]`, and used its own target directory.
+- `alo-layout`'s and `alo-corpus`'s tests were run with:
+  - a snap at the end of `expand_flexible_tracks`;
+  - the grid re-run check's `.any` replaced by a `fold`;
+  - both together.
+- With both, every mini-month column is 1,838 units, the last ending 2
+  past the grid, as Chrome's is. Either alone is not enough. With the snap
+  alone, only the first item's contribution is refreshed, so the columns
+  come out mixed. With the `fold` alone, nothing moves.
+- A running-sum snap made `grid-of-three` 184 px. Chrome's carried
+  remainder keeps it at Chrome's 183.984375.
+- `alo-sites-full-page`'s `h3` moved by one unit. Nobody measured which
+  width is Chrome's, and 502 owes that.
+- `taffy`'s pull request #1227 was merged upstream on 2026-10-04 and is
+  unreleased. It already makes the re-run check whole. `main`'s
+  `tree/traits.rs` has no hook that reaches a share. 0.14.0 is the latest
+  release on crates.io.
+- The worktree, the copy and its target directory were deleted before
+  the ADR was finished. `git worktree list` shows only the checkout, and no
+  `[patch]` is in the committed `Cargo.toml`.
+
+**Changed.**
+- The ADR.
+- The queue: 499 ticked with its *Decided* paragraph. **501**, **502** and
+  **503** added.
+- Five comments that said "item 499" now name ADR 0056 and item 502:
+  `arena.rs`'s module comment, three in `on_the_grid.rs`, and one in
+  `alo_agenda_mini_month.rs`. No code, assertion or reference changed.
+- `ROADMAP.md`, `docs/features.md`, `docs/conformance.md`, `CHANGELOG.md`
+  and `REMAINING.md`.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. The harness moved it to the background at 600 s, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, with no `FAILED`, `panicked` or
+`^error` in the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- No layout or picture changed, so no layout assertion or reference render
+  is owed. The prototype's numbers are evidence in the ADR, not tests.
+- No file gained a responsibility.
+- The feature is already in `docs/features.md`, and its line now names the
+  ADR.
+- No `unsafe`. No verb takes a coordinate.
+- `alo-os` and `alo-workplace` were not touched. `taffy`'s registry
+  source was read, not changed; only a copy in the scratchpad was edited.
+- Nothing was published. GitHub was read through its public API, and no
+  pull request was opened. That is 501's, and a person's.
+
+**Roadmap.** Nothing ticked. The stage 1 *Layout* line's note now says
+what was decided and that its *Owed* waits on 501, 502 and 503.
+
+**Unresolved obligations.**
+- 501 is blocked on a person, who has to offer the hook upstream.
+- 502 needs 501 and a `taffy` release.
+- 503 needs measuring.
+- If `taffy` refuses the hook, ADR 0056's last section reopens the
+  decision.
+- Upgrading `taffy` to a release with #1227 alone is ordinary work, not
+  gated on this ADR. The prototype shows it moves nothing in the corpus.
+
+234 queue items are open (499 closed, 501–503 added). The next unused
+queue number is **504** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

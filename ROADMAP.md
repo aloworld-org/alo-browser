@@ -141,12 +141,19 @@ correctness, not before it.
       box's edges are placed on the grid against where its parent was
       placed. 707 of the corpus's 1,260 element boxes are now Chrome's
       exactly, where 514 were, and `alo-sites-booking`'s all are except
-      what its date field's line moves (467). · Owed: what `taffy` decides
-      inside its own algorithms, which needs its own ADR (499). That is a
+      what its date field's line moves (467). Decided (iteration 306,
+      queue item 499, ADR 0056): this engine does not take the sharing of
+      flexible space over from `taffy`; a hook on `taffy`'s tree trait,
+      offered upstream by a person, puts its shares on the grid. A
+      throwaway prototype of it, with upstream's unreleased fix to its
+      re-run check, made the mini-month's columns Chrome's.
+      · Owed: what `taffy` decides inside its own algorithms. That is a
       grid's second column pass, so the mini-month's columns are still
       1,837 and 1,838 units where Chrome's are all 1,838. It is also
       flexible items' exact shares and a grid's `justify-content` after
-      its first share.*
+      its first share. They wait for the hook to be offered (501) and
+      released, then built on (502); flex `justify-content` needs
+      measuring first (503).*
 - [x] **Text**: HarfBuzz shaping (via `rustybuzz`), the fallback chain and line breaking, with the awkward scripts working before the easy ones. Rasterisation is queue item 17, beside paint
       *`text-transform` was read by nothing until queue item 441
       (iteration 283, ADR 0049): uppercased headings were drawn, measured

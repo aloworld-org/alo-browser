@@ -1918,3 +1918,19 @@ where 514 were. `alo-sites-booking` is Chrome's except what its date
 field's line moves (467). The mini-month's columns wait for 499. 232 queue
 items are open (466 closed). The next unused queue number is 501 and the
 next unused ADR 0056.
+
+Iteration 306 decided queue item 499: ADR 0056. This engine does not take
+the sharing of flexible space over from `taffy`, which would mean owning
+grid track sizing and flexbox's flexible lengths for 1/64 px. A fork, a
+`[patch]` and a vendored copy stay refused. The fix is a hook on `taffy`'s
+tree trait, with a default that changes nothing, called at three places
+where `taffy` fixes a share. A throwaway prototype in the scratchpad tested
+it. With the snap and `taffy`'s re-run check refreshing every item,
+`alo-agenda-mini-month`'s columns are every one 1,838 units, as Chrome's
+are. Either change alone is not enough. Upstream's #1227 (merged
+2026-10-04, unreleased) already fixes the re-run check. No engine code
+changed. Found: **501** (a person offers the hook upstream; blocked: a
+person), **502** (building on it; depends on 501 and a release) and
+**503** (flex `justify-content`'s rule; needs measuring). 234 queue items
+are open (499 closed, 501–503 added). The next unused queue number is 504
+and the next unused ADR 0057.

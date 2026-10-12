@@ -43,7 +43,8 @@
 //! was placed and that is known only once the parent is.
 //!
 //! What `taffy` computes between its own passes, before it hands anything
-//! back, is out of reach here; that is queue item 499.
+//! back, is out of reach here: it waits for a hook in `taffy` (ADR 0056,
+//! queue item 502).
 
 use crate::auto_repeat::{self, Axis};
 use crate::layout_unit;

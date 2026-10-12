@@ -6,6 +6,17 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Decided: the last sixty-fourths of a pixel are fixed inside the layout
+  library, not by rewriting it.** Where flexible columns or items share out
+  space, this engine can still be up to 1/64 px a share from Chrome. alo
+  Agenda's month grid is the clearest case: its columns are 2/64 px off in
+  all. Those numbers are decided inside `taffy`, the rented flexbox and grid
+  library. A throwaway prototype showed that a small hook inside `taffy`,
+  plus a fix `taffy` has already merged, makes the month grid exactly
+  Chrome's. So the decision (ADR 0056) is to offer that hook upstream, which
+  a person has to do, and not to rewrite grid and flexbox here for a 64th
+  of a pixel. Nothing changes on screen yet.
+
 - **Every box now sits where Chrome puts it, to a sixty-fourth of a
   pixel.** Chrome lays out on a grid of 1/64 px, and this engine now does
   too. A padding, a margin, a width or a percentage is cut down onto the

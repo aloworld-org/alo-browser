@@ -7518,7 +7518,7 @@ The long pole, and the thing most of section E is unreachable without.
   other device pixel ratios, other operating systems, writing modes.
   Found: 499.
 
-- [ ] **499. `taffy`'s flexible shares on the grid.** *Found deciding 498
+- [x] **499. `taffy`'s flexible shares on the grid.** *Found deciding 498
   (iteration 303), ADR 0054 § 6. Feature: `docs/features.md` stage 1,
   flexbox and grid. **Needs ADR**, as its own iteration, because it would
   revise ADR 0004's line between our tree and `taffy`'s algorithms. Depends
@@ -7547,6 +7547,64 @@ The long pole, and the thing most of section E is unreachable without.
   units, where Chrome's are 749, 2,888 and 5,027 (ADR 0054's addendum,
   § 3; `alo-layout`'s `tests/on_the_grid.rs` holds both). Its closing
   condition gains a grid distributed that way and Chrome's to the unit.
+  **Decided (iteration 306): ADR 0056, accepted. It decides not to build
+  in this engine.** The engine does not take the sharing over from
+  `taffy`. That would mean owning grid track sizing and flexbox's
+  flexible lengths for 1/64 px, which ADR 0001 refuses. A fork, a
+  `[patch]` or a vendored copy stay refused (ADRs 0004, 0047). The fix
+  is a hook on `taffy`'s tree trait, with a default that changes nothing,
+  called at three places: the end of `expand_flexible_tracks`, the end
+  of `resolve_flexible_lengths`, and each content-distribution offset.
+  A throwaway prototype was tested and deleted: a copy of `taffy` 0.14.0
+  in the scratchpad, used through a scratch worktree's `[patch]`. It
+  showed the mini-month needs two changes. One is the snap, with Chrome's
+  carried remainder. The other is `taffy`'s re-run check no longer
+  stopping at the first changed item (its `.any`). With both, every
+  column is 1,838, as Chrome's is. Either alone is not enough.
+  `grid-of-three` stays Chrome's only with the carry, not with a floored
+  running sum. `alo-sites-full-page`'s `h3` moved a unit, and nobody
+  measured which width is Chrome's. Upstream's #1227, merged 2026-10-04,
+  already fixes the re-run check. It is unreleased, and 0.14.0 is the
+  latest release. Found: **501**, a person offers the hook; **502**,
+  building on it; **503**, flex `justify-content`'s rule.
+
+- [ ] **501. Offer `taffy` the hook that puts its shares on a caller's
+  unit.** *Cut from 499 (iteration 306), ADR 0056 § 3. Feature:
+  `docs/features.md` stage 1, flexbox and grid. **Blocked: a person.**
+  Opening a pull request upstream is publishing, and the loop does not
+  publish (`LOOP.md`).* The hook is one method on `LayoutPartialTree`,
+  with a default body that leaves every share as `taffy` computed it. It
+  is called at the three places in ADR 0056 § 3, and at each it hands
+  over enough to apply ADR 0054 § 3. Its name and type are for the person
+  and `taffy`'s maintainers to settle. *Closes when:* the pull request is
+  open, and its link and what the maintainers said are written here. If
+  they refuse it, ADR 0056's decision is open again, as its last section
+  says.
+
+- [ ] **502. `taffy`'s shares on the grid, through its hook.** *Cut from
+  499 (iteration 306), ADR 0056 § 5. Feature: `docs/features.md` stage 1,
+  flexbox and grid. Depends on 501, and on a `taffy` release that has the
+  hook and #1227.* Implement the hook in `arena.rs`, with ADR 0054 § 3's
+  rules in `layout_unit.rs`: flexible tracks floored with the carried
+  remainder, flexible items from the last to the first rounded half away
+  from zero, and each distribution share truncated. Keep the read-back
+  placement. *Closes when:* every one of `alo-agenda-mini-month`'s
+  columns is 1,838 units; `on_the_grid.rs`'s grid distribution is all
+  of Chrome's (749, 2,888 and 5,027 for `space-around`); seven `flex: 1`
+  items in 201 px are 1,837, 1,838, 1,837, 1,838, 1,838, 1,838 and 1,838;
+  and every corpus box that moves has been measured against Chrome 154,
+  `alo-sites-full-page`'s `h3` included.
+
+- [ ] **503. Flex `justify-content`'s shares on the grid.** *Cut from 499
+  (iteration 306), ADR 0056 § 5. Feature: `docs/features.md` stage 1,
+  flexbox. **Needs measuring**, then code through 502's hook.* In 100.3 px
+  with three 10 px items, Chrome 154's `space-between` puts 2,250 then
+  2,249 between them. `space-evenly` gives 1,124, 1,125, 1,125 and 1,125,
+  and `space-around` 749 in front, then 1,500 and 1,499. Each fills the
+  line exactly, and no single rule fitted all three (ADR 0054 § 3). This
+  engine truncates the edges `taffy` hands back. *Closes when:* a rule
+  fits enough measured lines that a line it was not fitted to confirms
+  it, and a frozen line of each distribution is Chrome's to the unit.
 
 - [ ] **467. A control's own line at `normal` is its font's whole pixels.**
   *Found building 460 (iteration 293). Feature: `docs/features.md` stage
