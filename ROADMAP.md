@@ -36,8 +36,27 @@ roadmap starts lying slowly.
 
 ## Where it runs
 
-**Built on macOS, destined for alo OS.** Both halves of that matter, and until
-2026-10-12 this file said neither.
+**For every operating system.** alo OS is the first that asked, not the one
+this is for.
+
+This file said nothing about where it runs until 2026-10-12, and then said it
+wrongly twice in one day — first *destined for alo OS*, then *built on macOS* —
+and the owner corrected both. Each put a **machine** where a **purpose**
+belongs. It happens to be developed and verified on a Mac today; that is where
+the work is being done, not what the work is, and other machines will join.
+
+The difference is not pedantry. **The agent surface is ours** — a page read as
+a tree, actions by name, no screenshot and no coordinate (ADR 0002) — and it
+belongs on macOS, Windows and Linux alike rather than to whichever system
+integrates it first. So it is built as our own interface, documented, and an
+operating system's adapter *wraps* it.
+
+That ordering matters because of what it un-blocks. alo OS's own letter named
+three gaps on their side — no argument kind for a web address, no kind for
+model-written text containing a slash, and no grant narrower than a whole
+application. Written the other way round, those gaps block this browser.
+Written this way they block one wrapper around it, and everything else here
+proceeds.
 
 alo OS is an operating system in the sibling repository `alo-os`: an unmodified
 Linux kernel, a native shell, Wayland through Smithay, x86-64. Its premise is

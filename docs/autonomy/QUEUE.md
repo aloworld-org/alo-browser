@@ -12117,7 +12117,14 @@ person unblocks this stage or does not.
   and the reverse-DNS identifier its source knows it by, so alo OS can name it
   in `crates/alo-software/shipped.toml` for `Role::WebBrowser` the way it names
   any application: `role`, `identifier`, `source`, `version`, `licence` — ours
-  is MPL-2.0 already (ADR 0009), which is what that file wants. It must work
+  is MPL-2.0 already (ADR 0009), which is what that file wants. **The
+  identifier is `org.aloworld.Browser`**, chosen by the owner on 2026-10-12 —
+  the `org` form rather than a `world` one. It assumes the owner holds
+  `aloworld.org`, which is what the GitHub organisation `aloworld-org`
+  implies and what nothing in either repository records; if the domain is
+  another, the middle segment changes and nothing else does. An identifier
+  has to be a domain its holder controls, because it is the one name no two
+  applications may both claim. It must work
   **arriving granted nothing**, which is their words and a real constraint on a
   browser that wants a sandbox of its own. *Whether the source is Flathub or a
   remote alo OS hosts is theirs to choose; so is the pin itself, since one

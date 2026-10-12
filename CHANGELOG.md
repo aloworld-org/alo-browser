@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **This browser is for every operating system, not one.** The roadmap had
+  started saying *destined for alo OS*, which was wrong: the agent surface is
+  ours and belongs everywhere, so it is built as our own interface and an
+  operating system's adapter wraps it. The practical effect is that three gaps
+  in alo OS's argument and grant models block their wrapper rather than this
+  browser.
+
 - **A gate run that stops early can no longer read as one that passed.** It
   declares how many steps it has, counts them as they run, refuses a run where
   the count does not match, and prints the count beside its verdict. The cure
