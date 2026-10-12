@@ -19,7 +19,8 @@
 //!   and the anonymous boxes a container needs so that its children are all of
 //!   one kind. This is what layout walks.
 //! - **Meaning**, in [`semantics`] — [`role`] and [`state`] — read from what
-//!   the author declared and never from how a box looks. ADR 0002: guessing a
+//!   the author declared and never from how a box looks; [`invalid`] reads
+//!   a control's validity as its form would judge it. ADR 0002: guessing a
 //!   role from appearance is what screen-scraping already does badly, and
 //!   owning the engine is exactly what lets us not.
 //!
@@ -38,6 +39,7 @@
 
 pub mod case;
 mod details;
+pub mod invalid;
 pub mod line_break;
 pub mod natural;
 pub mod picture;
@@ -54,6 +56,7 @@ pub mod whitespace;
 /// list item decides whether it makes a `::marker` there (ADR 0044 § 1); the
 /// box tree reads the same reading.
 pub use alo_style::display::{self, Display, Inside, Outside};
+pub use invalid::Invalid;
 pub use natural::NaturalSize;
 pub use picture::Shown;
 pub use role::{KnownRole, Role};

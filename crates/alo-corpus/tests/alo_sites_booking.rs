@@ -290,9 +290,9 @@ fn an_agent_reads_the_day_field_as_a_date_with_nothing_in_it() {
     let lines: Vec<&str> = outline.lines().map(str::trim_start).collect();
     let Some(day) = lines
         .iter()
-        .position(|line| line.starts_with("date \"Choose a day\" [required] at"))
+        .position(|line| line.starts_with("date \"Choose a day\" [required invalid] at"))
     else {
-        panic!("the field is a date, named and required:\n{outline}");
+        panic!("the field is a date, named, required and empty:\n{outline}");
     };
     // No value beneath it: the format is how a date is written, not one.
     assert!(

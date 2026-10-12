@@ -10,6 +10,6 @@ document at (0, 0) 800×324.75
     paragraph at (25, 255.5625) 343×27.1875
       text "Where: Second floor, ring the bell" at (25, 258.5625) 286.20264×20
     paragraph at (432, 89.38125) 343×79.5875
-      date "Choose a day" [required] at (432, 120.56875) 343×48.4
+      date "Choose a day" [required invalid] at (432, 120.56875) 343×48.4
     paragraph at (432, 185.96875) 343×48.4
       button "See free times" at (432, 185.96875) 179.6954×48.4

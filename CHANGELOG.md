@@ -6,6 +6,16 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent can see which fields a form would refuse before pressing.**
+  A field now reads as `invalid` in the agent tree exactly when Chrome's
+  accessibility tree says so: alo Sites' booking page's empty day field
+  from the moment the page loads, and no longer once a day is in it; an
+  email field holding something that is not an address. An empty text
+  field is left alone, as Chrome leaves it, so a form nobody has started is
+  not read as a list of errors. An author's `aria-invalid` still wins, and
+  a field this browser cannot check yet says `invalid=unknown` instead of
+  guessing.
+
 - **A page can send its own form, and alo Sites' contact form now does.**
   `FormData` reads a form's fields exactly as a submission would send them,
   and `URLSearchParams` builds names and values from text, from an object,

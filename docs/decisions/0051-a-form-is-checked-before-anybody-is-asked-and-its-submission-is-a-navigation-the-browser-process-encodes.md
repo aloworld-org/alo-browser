@@ -487,3 +487,44 @@ element pointer.
 
 **If an agent is ever found to have sent a file a person did not choose**, § 8
 was not followed, and that is a security bug, not a design question.
+
+## Amendment — 2026-10-12: what the agent tree says of validity, measured
+
+Made by the change that built queue item 476 (iteration 301), which § 6
+asked to measure Chrome 154's accessibility tree before building. It was
+read over the `DevTools` protocol on the frozen `alo-sites-booking` and
+`alo-sites-contact-form` pages and on probe pages; Chrome's source was not
+read. Two of its findings change § 6's last paragraph.
+
+- **A field reads as invalid from the moment it is, and a press changes
+  nothing.** The booking page's empty required date field is `invalid` as
+  it loads, still `invalid` after *See free times* is pressed and refused,
+  and not `invalid` once a day is in it. The tree reads the value, not the
+  history of who touched it.
+- **Except an empty text field.** A required `text`, `search`, `email`,
+  `password`, `tel`, `url` or `number` field, or a `<textarea>`, whose only
+  fault is that nothing is in it is not `invalid` — at load, after typing
+  and erasing, and after a press Chrome refused because of it. A required
+  date, time, checkbox, radio group, list or file is; so is a text field
+  failing anything else. This is what answers § 6's worry: the fields a
+  person has plainly not reached yet are exactly the ones Chrome leaves
+  alone.
+- **`aria-invalid` wins either way**: `false` in any case makes a failing
+  control valid; an empty value is no declaration; any other word,
+  `grammar`, `spelling` and unknown ones included, is `invalid`.
+  Disabled, read-only and `datalist` controls are never invalid;
+  `novalidate` changes nothing.
+- **The message is not in the tree.** Chrome gives the field no
+  description; after a refused press it may show its bubble as an
+  `assertive` alert, which is the bubble this ADR already leaves to a
+  window. So the tree carries `invalid` and no message, and the message
+  stays where § 6 already put it, in `NotSubmitted`. "With its
+  `validationMessage`" in § 6 is withdrawn.
+- **A constraint not built is said as such.** A control that could fail a
+  constraint this engine does not check (§ 3) reads `invalid=unknown`
+  rather than either guess, as pressing it is refused by name rather than
+  answered.
+
+The rule is `alo-box`'s `invalid.rs`, over `alo-dom`'s `constraint.rs`, so
+the tree and the press cannot disagree about a control.
+

@@ -114,11 +114,13 @@ fn an_empty_date_field_is_a_date_with_no_value() {
             .unwrap_or_else(|| panic!("no {name} in {outline:#?}"))
     };
     // The booking field: a date, named by its label, required, and nothing
-    // beneath it — the `yyyy-mm-dd` it draws is not read as its text.
+    // beneath it — the `yyyy-mm-dd` it draws is not read as its text. Empty,
+    // its form would refuse it, which Chrome 154's tree says from the start
+    // (queue item 476); filled, below, it is not.
     let day = at("date \"Choose a day\"");
     assert_eq!(
         outline[day].trim_start(),
-        "date \"Choose a day\" [required]"
+        "date \"Choose a day\" [required invalid]"
     );
     assert!(
         !outline[day + 1].trim_start().starts_with("text"),

@@ -1849,3 +1849,14 @@ Chrome boxes it (`sent.png`). The `formdata` event is cut into **491** and a
 `FormData` body into **492**; offline, the page's `form.submit()` fallback
 waits on 471. 227 queue items are open (472 closed, 491 and 492 added). The
 next unused queue number is 493 and the next unused ADR 0053.
+
+Iteration 301 built item 476: the agent tree reads a control's validity.
+Measured first in Chrome 154's accessibility tree over DevTools, on the
+frozen booking and contact pages and on probe pages: a control is `invalid`
+from load and a press changes nothing; an empty required text field is
+never `invalid` for being empty; `aria-invalid` wins; the tree carries no
+message. ADR 0051 gains an amendment saying so. `alo-box`' `invalid.rs`
+reads it from `constraint.rs`, and a constraint not built reads
+`invalid=unknown`. The booking page's day field now reads
+`[required invalid]`. 226 queue items are open (476 closed). The next
+unused queue number is 493 and the next unused ADR 0053.

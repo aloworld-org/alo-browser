@@ -40,6 +40,7 @@ use crate::snapshot::{Snapshot, SnapshotNode};
 use crate::violations::{MOST_OBJECTIONS, Objection};
 use alo_agent::verb::{Outcome, Refusal, ScrollBy, Target, Verb};
 use alo_bindings::Visibility;
+use alo_box::invalid::Invalid;
 use alo_box::role::{KnownRole, Role};
 use alo_box::state::{Checked, Current, States};
 use alo_box::tree::BoxId;
@@ -189,7 +190,11 @@ impl Writer {
         self.bool(states.required);
         self.bool(states.read_only);
         self.bool(states.busy);
-        self.bool(states.invalid);
+        match states.invalid {
+            None => self.tag(0),
+            Some(Invalid::Yes) => self.tag(1),
+            Some(Invalid::Unknown) => self.tag(2),
+        }
         self.bool(states.hidden);
         match states.level {
             Some(level) => {
@@ -793,7 +798,12 @@ impl<'a> Reader<'a> {
             required: self.bool()?,
             read_only: self.bool()?,
             busy: self.bool()?,
-            invalid: self.bool()?,
+            invalid: match self.tag()? {
+                0 => None,
+                1 => Some(Invalid::Yes),
+                2 => Some(Invalid::Unknown),
+                other => return Err(unreadable(format!("an invalid state tagged {other}"))),
+            },
             hidden: self.bool()?,
             level: if self.bool()? {
                 Some(self.tag()?)

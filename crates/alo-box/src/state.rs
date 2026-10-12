@@ -18,6 +18,7 @@
 //! would eventually disagree — which is the same argument ADR 0002 makes about
 //! two trees.
 
+use crate::invalid::{self, Invalid};
 use alo_dom::{Document, Element, NodeId};
 use core::fmt;
 
@@ -111,8 +112,9 @@ pub struct States {
     pub read_only: bool,
     /// The box is being updated and what it says may be stale.
     pub busy: bool,
-    /// The value in the box is not acceptable.
-    pub invalid: bool,
+    /// The value in the box is not acceptable, if it is in question: the
+    /// author says so, or its form would refuse it ([`crate::invalid`]).
+    pub invalid: Option<Invalid>,
     /// `aria-hidden`: the author asking that this box be read through, even
     /// though it is on screen.
     pub hidden: bool,
@@ -161,7 +163,7 @@ impl States {
                     && !alo_css::state::is_read_write(document, id, element)
             }),
             busy: aria_flag(element, "aria-busy").unwrap_or(false),
-            invalid: aria_flag(element, "aria-invalid").unwrap_or(false),
+            invalid: invalid::of(document, id, element),
             hidden: aria_flag(element, "aria-hidden").unwrap_or(false),
             level: heading_level(element),
             current: current(element),
@@ -220,8 +222,8 @@ impl fmt::Display for States {
         if self.busy {
             write_one(f, "busy")?;
         }
-        if self.invalid {
-            write_one(f, "invalid")?;
+        if let Some(invalid) = self.invalid {
+            write_one(f, &invalid.to_string())?;
         }
         if self.hidden {
             write_one(f, "hidden")?;

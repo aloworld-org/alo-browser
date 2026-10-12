@@ -19,7 +19,7 @@ block flow · document
             block flow · generic
               text "Choose a day"
             anonymous block
-              inline flow-root · date [required]
+              inline flow-root · date [required invalid]
                 anonymous block
                   text "yyyy-mm-dd"
           block flow · paragraph

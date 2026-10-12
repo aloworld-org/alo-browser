@@ -14,6 +14,7 @@
 use alo_agent::verb::{Invalid, Outcome, Refusal, ScrollBy, Target, Verb};
 use alo_bindings::Visibility;
 use alo_bindings::navigating::Submission;
+use alo_box::invalid;
 use alo_box::role::{KnownRole, Role};
 use alo_box::state::{Checked, Current, States};
 use alo_box::tree::BoxId;
@@ -62,7 +63,8 @@ fn a_node(children: Vec<SnapshotNode>) -> SnapshotNode {
             required: true,
             read_only: false,
             busy: true,
-            invalid: false,
+            // A value nobody here can judge crosses as such (ADR 0051 § 6).
+            invalid: Some(invalid::Invalid::Unknown),
             hidden: false,
             level: Some(3),
             current: Some(Current::Page),
@@ -613,6 +615,33 @@ fn a_tag_nobody_knows_is_refused_rather_than_ignored() {
         .map(|why| why.why)
         .unwrap_or_default();
     assert!(why.contains("tagged 99"), "{why:?}");
+}
+
+/// Whether a value is in question is one of three answers (ADR 0051 § 6);
+/// a fourth is refused by name rather than read as one of them.
+#[test]
+fn an_invalid_state_nobody_knows_is_refused() {
+    let tree = |invalid| {
+        let mut node = a_node(Vec::new());
+        node.states.invalid = invalid;
+        write_from_renderer(&FromRenderer::Tree(Box::new(Snapshot { root: Some(node) })))
+    };
+    let unknown = tree(Some(invalid::Invalid::Unknown));
+    let valid = tree(None);
+    // The two differ in the one byte that says it.
+    let at: Vec<usize> = (0..unknown.len())
+        .filter(|at| unknown.get(*at) != valid.get(*at))
+        .collect();
+    assert_eq!((at.len(), unknown.len()), (1, valid.len()), "{at:?}");
+    let mut wrong = unknown;
+    if let Some(byte) = at.first().and_then(|at| wrong.get_mut(*at)) {
+        *byte = 3;
+    }
+    let why = read_from_renderer(&wrong)
+        .err()
+        .map(|why| why.why)
+        .unwrap_or_default();
+    assert!(why.contains("an invalid state tagged 3"), "{why:?}");
 }
 
 /// Whether a page can be seen is one of two states, on its own and with a

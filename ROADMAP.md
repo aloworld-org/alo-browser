@@ -1333,7 +1333,13 @@ unreachable without it.
       `replaceWith`. `alo-sites-contact-form`'s listener posts Chrome's
       exact body and, answered from the case's first frozen response, puts
       its thanks where the form was, boxed where Chrome boxes it
-      (`sent.png`) ·
+      (`sent.png`). **The agent tree reads a control's validity** (queue
+      item 476, iteration 301): `invalid` when `constraint.rs` says the
+      form would refuse it, as Chrome 154's accessibility tree was measured
+      to say it — from load, a press changing nothing, an empty text field
+      never — an author's `aria-invalid` winning, and `invalid=unknown`
+      where a constraint is not built (`alo-box`' `invalid.rs`; ADR 0051's
+      amendment) ·
       Decided (ADR 0051, iteration 294): a control's state is held apart
       from its attributes; its form owner is worked out when asked for;
       each constraint is a rule in `alo-dom`, and a constraint not built yet
@@ -1341,7 +1347,7 @@ unreachable without it.
       in ADR 0020's ask with a method and an entry list that the browser
       process encodes and decides; an agent submits by activating the submit
       button; and a file is chosen only by a person · Owed:
-      the rest of what a control **does** (queue items 469, 471–476, 486
+      the rest of what a control **does** (queue items 469, 471–475, 486
       and 487: a script's own `click()` on a submit button, 487; the state apart
       from its attributes, 469; a `<meta>` policy's `form-action` and its
       violations reported, 486; script's form members, 471, whose
@@ -1349,7 +1355,7 @@ unreachable without it.
       `formdata` event, 491; a `FormData` as a body, 492; the rest of the
       constraints,
       473; multipart and plain-text bodies, 474; a file chosen by a person,
-      475; validity in the agent tree, 476) — constraint validation,
+      475) — constraint validation,
       submission, file inputs — the
       focus ring, which needs something to have focus (queue item 43); a
       date field's calendar (386), the person's region (387), the other
@@ -1666,10 +1672,12 @@ items where being right and being unusable are the same outcome.
       exact body (queue item 470, `a_form_is_decided.rs`).
       · Owed: loading what was decided, which is item 85's for every
       navigation; `time`, `month`, `week` and `datetime-local` fields
-      (388); validity in the tree (476); and a stranger's page that runs
+      (388); and a stranger's page that runs
       script, which neither frozen web page does — though alo Sites' frozen
       booking page now runs its own script through the agent's press and
-      submission (queue item 485, iteration 298)
+      submission (queue item 485, iteration 298), and an agent reads which
+      of its fields would be refused before pressing, as Chrome's
+      accessibility tree says it (queue item 476, iteration 301)
 - [ ] Across frames, without becoming a way around the same-origin policy
 - [ ] Under grants, and recorded: what it read, what it did, on whose approval — `alo-os` ADR 0001's model reaching the web
 - [ ] Agent-driven navigation, and a page that changes underneath an agent mid-action

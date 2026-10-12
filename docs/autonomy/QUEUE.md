@@ -5355,6 +5355,12 @@ The long pole, and the thing most of section E is unreachable without.
   (`a_form_on_somebody_elses_page_is_sent.rs`'
   `the_contact_form_offline_is_left_as_it_was` pins it). Chrome would post
   the form as a navigation.
+  *Since 476 (iteration 301):* `setCustomValidity()` must reach the agent
+  tree too. `alo-box`' `invalid.rs` leaves an empty text field's
+  `valueMissing` out of the tree, as Chrome does, and reads only the first
+  problem `constraint::problem` gives; an empty required text field with a
+  custom error is `invalid` in Chrome (measured), so the custom error must
+  not hide behind the missing value there.
 
 - [x] **472. `FormData` and `URLSearchParams`.** *Cut from 82 (ADR 0051
   § 7). Depends on 468 and 335.* `new FormData(form)` built from 468's
@@ -5492,7 +5498,7 @@ The long pole, and the thing most of section E is unreachable without.
   its bytes crossing to the renderer, and an agent's verb on the field is
   refused.
 
-- [ ] **476. The agent tree reads a control's validity.** *Cut from 82
+- [x] **476. The agent tree reads a control's validity.** *Cut from 82
   (ADR 0051 § 6). Depends on 468.* A control that fails a constraint reads
   as `invalid`, with its `validationMessage`, beside an author's
   `aria-invalid`. Chrome 154's accessibility tree is measured first, to
@@ -5504,6 +5510,39 @@ The long pole, and the thing most of section E is unreachable without.
   *Since 485:* the press on the frozen booking page is built, answering
   `NotSubmitted` with the date field and firing `invalid` at it, so *after
   the press* is now a state this engine reaches.
+  ***Done (iteration 301).*** Measured first: Chrome 154's accessibility
+  tree over the `DevTools` protocol, on the frozen booking and contact
+  pages served at their address and on probe pages (ADR 0051's amendment
+  of 2026-10-12 has every finding). A control is `invalid` from load, a
+  press changes nothing, and only its value does; an empty required text
+  field (`text`, `search`, `email`, `password`, `tel`, `url`, `number`,
+  `<textarea>`) is never `invalid` for being empty; `aria-invalid` wins,
+  `false` in any case making a failing control valid, empty being no
+  declaration, any other word `invalid`; the tree carries no message.
+  What was built:
+  - `alo-box`' `invalid.rs`: `Invalid::Yes` or `Invalid::Unknown`, read
+    from `aria-invalid` and then `alo-dom`'s `constraint::problem`, so the
+    tree and the press judge a control by one rule. A control that could
+    fail a constraint not built reads `invalid=unknown`, as the press
+    refuses it by name, rather than either guess.
+  - `States::invalid` is `Option<Invalid>` and crosses the boundary as a
+    tag of three (`wire.rs`), a fourth refused by name.
+  - The message stays in `NotSubmitted`, where ADR 0051 § 6 put it; its
+    "with its `validationMessage`" is withdrawn by the amendment, because
+    Chrome's tree has none.
+  *Closed by* `alo-corpus`' `what_an_agent_reads_of_a_field_its_form_would_refuse.rs`
+  on both frozen pages whole, script and all: the booking day field is
+  `[required invalid]` at load and after the refused press, `[required]`
+  after `PutText` of `2026-10-20`; the contact form's three empty required
+  fields are not invalid before or after a refused press, and its email
+  holding `nope` is. The booking case's `agent.txt` (and its box and
+  layout outlines) now say `[required invalid]`. Unit tests in
+  `invalid.rs` pin every measured case; `messages_across_a_boundary.rs`
+  carries `Unknown` across and refuses a fourth tag.
+  *Found, not changed:* Chrome's tree gives the date field, checkboxes,
+  radios and lists no `required` property over `DevTools`, where text
+  fields have one. Whether that is the tree or only the protocol's report
+  was not settled, so this engine's `[required]` stands.
 
 - [x] **485. A form's submission on a page that runs script.** *Cut from 468
   (iteration 296; ADR 0051 §§ 4, 6 and 7). Depends on 468, done, and

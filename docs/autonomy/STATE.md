@@ -29532,3 +29532,110 @@ reached fallback, 491 and 492 in place of 472.
 227 queue items are open by the journal's running count (472 closed, 491
 and 492 added). The next unused queue number is **493** and the next ADR is
 **0053**. This is one iteration, not a finished queue or roadmap.
+
+## Iteration 301 — queue item 476 built: the agent tree reads a control's validity
+
+**Read.** `CLAUDE.md`, `docs/autonomy/LOOP.md` in full, `ROADMAP.md` (its
+state rules, the stage 2 Forms line and the agent-on-other-pages line), and
+iteration 300's entry. No `AGENTS.md` exists in this repository or above
+it. For 476: its queue entry and those of 471, 473–475, 485, 486 and 487;
+ADR 0051 (§§ 3 and 6, *What this does not decide*), ADR 0002 and ADR 0013
+§ 3; `docs/features.md`' Forms line. `alo-box`' `state.rs`, `semantics.rs`
+and `lib.rs`, `alo-dom`'s `constraint.rs` and `kind.rs`, `alo-css`'
+`state.rs`, `alo-renderer`'s `wire.rs` and `snapshot.rs`, and the corpus
+tests that read the booking and contact pages were read before changing or
+leaning on them.
+
+**Choosing.** Iteration 300 closed 472, and with it the last open item
+ahead of 476 in file order that was not waiting: 473 and 474 wait for a
+page, 475 on a picker, 471 depends on 262. 476 depends on 468, done, and
+is opened by `alo-sites-booking`, which 485 made pressable.
+
+**Measured first**, as 476 and ADR 0051 § 6 require: Chrome 154's
+accessibility tree over the `DevTools` protocol (`Accessibility.getFullAXTree`,
+presses by `Input.dispatchMouseEvent`, typing by `Input.insertText` and key
+events, every request intercepted), on the frozen booking and contact
+pages served at their address and on four probe pages (scratchpad). The
+findings are ADR 0051's new amendment: invalid from load, a press changing
+nothing; an empty required text field (text, search, email, password, tel,
+url, number, textarea) never invalid for being empty, even after a refused
+press; `aria-invalid` winning (`false` in any case valid, empty no
+declaration, anything else invalid); barred controls never invalid,
+`novalidate` irrelevant; no message on the field.
+
+**What was built.** In 476's *Done* paragraph. In short: `alo-box`'
+`invalid.rs` (`Invalid::Yes`/`Unknown`, from `aria-invalid` then
+`constraint::problem`), `States::invalid: Option<Invalid>`, its wire tag.
+
+**Design choices.**
+- **`invalid=unknown`** for a control that could fail a constraint not
+  built (`Problem::Unchecked`): either other answer would be a guess, and
+  the press already refuses such a form by name.
+- **No message in the tree**, withdrawing § 6's "with its
+  `validationMessage`" by amendment, because Chrome's tree has none and the
+  agent is told the message by `NotSubmitted`.
+- One rule for the tree and the press: the tree reads `constraint.rs`
+  rather than judging again.
+
+**Tests.**
+- `alo-box`' `invalid.rs`: six unit tests covering every measured case.
+- `alo-corpus`' `what_an_agent_reads_of_a_field_its_form_would_refuse.rs`:
+  both frozen pages whole, before and after a refused press, and after
+  `PutText`.
+- `alo-renderer`'s `messages_across_a_boundary.rs`: `Unknown` round trips,
+  and a fourth tag is refused by name (hostile-input clause for the wire).
+- Pins moved, not weakened: the booking case's `agent.txt`, `boxes.txt`
+  and `layout.txt` (`[required invalid]`), `alo-agent`'s `a_date_field.rs`
+  and `alo-corpus`' `alo_sites_booking.rs`, each to the empty required day
+  field reading invalid as Chrome's does.
+
+**Mutation checks**, each file copied to the scratchpad, restored with `cp`
+and confirmed with `cmp`, `alo-render` rebuilt after: all seven caught —
+no text-field exception, a case-sensitive `false`, an empty `aria-invalid`
+taken as a declaration, unknown read as invalid, `number` and `textarea`
+each left out of the text fields, and `Unknown` written with `Yes`'s tag.
+
+**Gate, mechanical.** `cargo fmt` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` clean. The first gate run, in
+the foreground, failed on `alo-agent`'s `a_date_field.rs`, which pinned the
+empty required day field as `[required]`; it and `alo_sites_booking.rs`
+were moved to `[required invalid]`. Then `cargo test --workspace
+--all-features --no-fail-fast` passed (exit 0, nothing `FAILED`), and
+`scripts/gate.sh` ran again in the foreground; the harness moved it to the
+background at 600 s and the next call waited on its log with a foreground
+`until` loop: `exit 0`, "The gate is met", no `FAIL`, `panicked` or
+`^error`. Only this entry was written after it.
+
+**Gate, manual.**
+- **Layout assertion:** nothing positions or sizes differently; every
+  committed layout passed, and the booking case's numbers are unchanged
+  (only the state word moved in its outlines).
+- **Reference render:** nothing visual changed; every committed picture
+  matched, and no `render.png` changed under `ALO_UPDATE_REFERENCES=1`.
+- **One responsibility per file:** what the tree says of validity is its
+  own file, beside `state.rs`.
+- **Hostile input:** the wire's new tag is refused by name when unknown.
+- **Docs:** ADR 0051's amendment, `docs/features.md`, `docs/conformance.md`,
+  `REMAINING.md`, `CHANGELOG.md`, module documentation.
+- **Other rules:** no `unsafe`, no verb takes a coordinate, `alo-workplace`
+  and `alo-os` untouched.
+
+**Found, not changed.** Over `DevTools`, Chrome gives the date field,
+checkboxes, radios and lists no `required` property where text fields have
+one; whether that is the tree or the protocol's report was not settled, so
+`[required]` stands. 476's *Done* says so.
+
+**Queue.** 476 ticked with its *Done* paragraph; 471 notes that a custom
+error on an empty text field must reach the tree when it is built.
+
+**Roadmap.** Not ticked: the stage 2 Forms line's Built clause gains the
+tree reading validity and its Owed clause drops 476; the agent-on-other-
+pages line's Built clause gains it and its Owed clause drops 476.
+
+**Unresolved obligations.**
+- `setCustomValidity` and the tree (471).
+- Nothing loads a decided navigation (item 85).
+
+226 queue items are open (476 closed). The next unused queue number is
+**493** and the next ADR is **0053**. This is one iteration, not a finished
+queue or roadmap.
