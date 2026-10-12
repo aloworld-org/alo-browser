@@ -6,6 +6,14 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Stage 2 now has two exit gates instead of one.** An agent completing a real
+  task on somebody else's page needs a page's structure read correctly; a
+  person using this as their browser for a week needs pixel fidelity across the
+  open web. Those are years apart, and written as one sentence the nearer one
+  was invisible. Counting the difference also moved where the remaining work
+  is: against real pages the CSS gap is about ten properties, and what actually
+  stops a person are ES modules, Shadow DOM and CSSOM.
+
 - **An agent can press a form's button and be told what came of it.** On
   a page that runs no script, pressing a submit button now checks the form
   first, as Chrome does: a required field, box, radio group, list or file

@@ -1636,10 +1636,25 @@ items where being right and being unusable are the same outcome.
 - [ ] Under grants, and recorded: what it read, what it did, on whose approval — `alo-os` ADR 0001's model reaching the web
 - [ ] Agent-driven navigation, and a page that changes underneath an agent mid-action
 
-**Exit gate.** A person uses it as their browser for a week and reaches for
-another one only for a site they can name. An agent completes a real task on a
-site nobody wrote for us, and the record afterwards says what it read and what
-it changed.
+**Exit gate — two gates, met separately and dated separately** (ADR 0052). It
+was one sentence with a semicolon in it, and read as one gate the smaller half
+disappeared behind the larger.
+
+- [ ] **The agent's gate.** An agent completes a real task on a site nobody
+      wrote for us, and the record afterwards says what it read and what it
+      changed. This needs a page's *structure* read correctly and its controls
+      nameable — not pixel fidelity — and queue item 131 already does it. What
+      it waits on is not in this repository: alo OS's argument model has no
+      kind for a web address and no grant narrower than an application
+      (item 484).
+- [ ] **The person's gate.** A person uses it as their browser for a week and
+      reaches for another one only for a site they can name. This is the one
+      that is years away, and ADR 0052 § 5 measures where those years are: not
+      in CSS, where the gap against real pages is about ten properties, but in
+      ES modules, Shadow DOM and CSSOM — items 77, 87 and 89, all awaiting a
+      decision rather than work.
+
+Neither gate may be ticked by the loop. Both are judgements a person makes.
 
 ---
 
