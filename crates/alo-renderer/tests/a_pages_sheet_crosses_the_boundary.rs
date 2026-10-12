@@ -68,6 +68,7 @@ fn answers() -> Vec<FromRenderer> {
             fetches: Vec::new(),
             sheets: asks(),
             left: Vec::new(),
+            title: String::new(),
         },
         FromRenderer::Acted {
             outcome: Outcome::Activated {

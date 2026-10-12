@@ -68,6 +68,8 @@
 //!   why it is not one ([`XmlRefusal`]) — `quick-xml`'s pull reader, held
 //!   to SVG only and refusing on any error (ADR 0027; [`xml`]). It is not an
 //!   XML parser for the engine.
+//! - [`Document::title`] is HTML's document title, what a tab is called
+//!   and what `document.title` reads ([`title`]).
 //! - [`Document::footprint`] is what the document owns, kept as a sum as
 //!   nodes change, so the heap a scripted page's document moves into can
 //!   count it at no cost per change (ADR 0017 § 2; [`footprint`]).
@@ -131,6 +133,7 @@ pub mod scripts;
 pub mod serialize;
 pub mod sheets;
 pub mod submission;
+pub mod title;
 pub mod validity;
 pub mod value;
 pub mod xml;

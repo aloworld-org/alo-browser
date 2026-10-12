@@ -8,21 +8,29 @@
 //! reference render, so a change that moves a pixel of the window's layout
 //! says so."* Item 296 names three: a frozen alo page, a resize before its new
 //! frame, and a gone tab's sentence. A fourth is the sentence for a tab that
-//! never painted at all.
+//! never painted at all. Item 528 adds the strip across the top: a window
+//! composed with a strip of one tab and of three, and a strip whose renderer
+//! has gone, keeping its last frame and saying so.
 //!
 //! The frame in each is a frozen alo page **as the corpus committed it** —
 //! `alo-corpus/cases/alo-offline/render.png` — so what is pinned here is the
 //! window's arrangement of a page, not the page; the page's own reference is
-//! the corpus's to keep.
+//! the corpus's to keep. A strip's frame is drawn here by the engine, from
+//! `alo-renderer`'s own template and stylesheet, with the corpus's fonts; the
+//! strip's own references are `alo-renderer`'s.
 //!
 //! `ALO_UPDATE_REFERENCES=1 cargo test -p alo-window` rewrites them, as it
 //! does the corpus's. A rewritten reference is a diff somebody reads.
 
+use alo_layout::Size;
 use alo_paint::{Canvas, from_png, to_png};
-use alo_renderer::Frame;
 use alo_renderer::host::Gone;
+use alo_renderer::strip::{Condition, Strip, StripTab};
+use alo_renderer::{Frame, FromRenderer, Renderer, ToRenderer};
+use alo_text::{Font, FontDatabase, Slant, Weight};
 use alo_window::compose::{Scene, compose};
 use alo_window::notice::Lettering;
+use alo_window::place::{STRIP_HEIGHT, strip_viewport, viewport};
 use std::path::{Path, PathBuf};
 
 /// The frozen page: alo's offline screen, as the corpus rendered it.
@@ -33,6 +41,45 @@ fn frozen_page() -> Result<Frame, String> {
         .map_err(|why| format!("{} could not be read: {why}", path.display()))?;
     let canvas = from_png(&bytes).map_err(|why| format!("not a picture: {why}"))?;
     Ok(Frame::from_canvas(&canvas))
+}
+
+/// The corpus's sans-serif, and what `system-ui` and `sans-serif` mean: the
+/// strip's stylesheet asks for them in that order.
+fn fonts() -> FontDatabase {
+    let mut database = FontDatabase::new();
+    for (weight, bytes) in [
+        (Weight::NORMAL, dejavu::sans::regular()),
+        (Weight::BOLD, dejavu::sans::bold()),
+    ] {
+        if let Some(font) = Font::load("DejaVu Sans", weight, Slant::Normal, bytes.to_vec()) {
+            database.add(font);
+        }
+    }
+    database.map_generic("system-ui", "DejaVu Sans");
+    database.map_generic("sans-serif", "DejaVu Sans");
+    database
+}
+
+/// `tabs` as the engine draws them in a strip above a page `width` wide.
+fn strip_of(tabs: Vec<StripTab>, width: f32) -> Result<Frame, String> {
+    let mut renderer = Renderer::new(fonts());
+    let strip = Strip {
+        tabs,
+        viewport: strip_viewport(Size::new(width, 400.0)),
+    };
+    match renderer.handle(ToRenderer::Strip(Box::new(strip))) {
+        FromRenderer::Loaded { .. } => {}
+        other => return Err(format!("the strip was not built: {other:?}")),
+    }
+    match renderer.handle(ToRenderer::Paint) {
+        FromRenderer::Painted(frame) => Ok(frame),
+        other => Err(format!("the strip was not painted: {other:?}")),
+    }
+}
+
+/// The frozen page's own tab, selected: it is called "alo".
+fn the_pages_tab() -> StripTab {
+    StripTab::new("alo", "file:///alo-offline/page.html").selected()
 }
 
 fn lettering() -> Result<Lettering, String> {
@@ -108,8 +155,10 @@ fn a_frozen_alo_page_in_a_window_at_scale_two() {
     );
     let canvas = compose(
         &Scene {
-            window: (960, 800),
+            window: (960, 800 + 2 * STRIP_HEIGHT),
             replication: 2,
+            strip: None,
+            strip_sentence: None,
             frame: Some(&page),
             sentence: None,
         },
@@ -123,8 +172,10 @@ fn a_window_grown_before_its_new_frame_shows_the_old_one_at_its_old_size() {
     let page = frozen_page().unwrap_or_else(|why| panic!("{why}"));
     let canvas = compose(
         &Scene {
-            window: (560, 460),
+            window: (560, 460 + STRIP_HEIGHT),
             replication: 1,
+            strip: None,
+            strip_sentence: None,
             frame: Some(&page),
             sentence: None,
         },
@@ -139,8 +190,10 @@ fn a_gone_tab_keeps_its_frame_and_says_what_happened() {
     let sentence = silent_sentence();
     let canvas = compose(
         &Scene {
-            window: (480, 400),
+            window: (480, 400 + STRIP_HEIGHT),
             replication: 1,
+            strip: None,
+            strip_sentence: None,
             frame: Some(&page),
             sentence: Some(&sentence),
         },
@@ -154,12 +207,85 @@ fn a_tab_gone_before_it_ever_painted_is_its_sentence_on_the_background() {
     let sentence = silent_sentence();
     let canvas = compose(
         &Scene {
-            window: (480, 120),
+            window: (480, 120 + 2 * STRIP_HEIGHT),
             replication: 2,
+            strip: None,
+            strip_sentence: None,
             frame: None,
             sentence: Some(&sentence),
         },
         &lettering().unwrap_or_else(|why| panic!("{why}")),
     );
     assert_eq!(holds("a-gone-tab-that-never-painted.png", &canvas), Ok(()));
+}
+
+#[test]
+fn a_window_with_a_strip_of_one_tab_at_scale_two() {
+    let page = frozen_page().unwrap_or_else(|why| panic!("{why}"));
+    let window = (960, 800 + 2 * STRIP_HEIGHT);
+    // The page is laid out at what the window leaves it below the strip.
+    assert_eq!(viewport(window, 2), Size::new(480.0, 400.0));
+    let strip = strip_of(vec![the_pages_tab()], 480.0).unwrap_or_else(|why| panic!("{why}"));
+    assert_eq!((strip.width, strip.height), (480, STRIP_HEIGHT));
+    let canvas = compose(
+        &Scene {
+            window,
+            replication: 2,
+            strip: Some(&strip),
+            strip_sentence: None,
+            frame: Some(&page),
+            sentence: None,
+        },
+        &lettering().unwrap_or_else(|why| panic!("{why}")),
+    );
+    assert_eq!(holds("a-strip-of-one-tab.png", &canvas), Ok(()));
+}
+
+#[test]
+fn a_window_with_a_strip_of_three_tabs() {
+    let page = frozen_page().unwrap_or_else(|why| panic!("{why}"));
+    let strip = strip_of(
+        vec![
+            StripTab::new("Invoices", "https://books.example/invoices"),
+            the_pages_tab(),
+            StripTab::new("", "https://notes.example/today").in_condition(Condition::Loading),
+        ],
+        480.0,
+    )
+    .unwrap_or_else(|why| panic!("{why}"));
+    let canvas = compose(
+        &Scene {
+            window: (480, 400 + STRIP_HEIGHT),
+            replication: 1,
+            strip: Some(&strip),
+            strip_sentence: None,
+            frame: Some(&page),
+            sentence: None,
+        },
+        &lettering().unwrap_or_else(|why| panic!("{why}")),
+    );
+    assert_eq!(holds("a-strip-of-three-tabs.png", &canvas), Ok(()));
+}
+
+#[test]
+fn a_strip_whose_renderer_has_gone_keeps_its_frame_and_says_so() {
+    let page = frozen_page().unwrap_or_else(|why| panic!("{why}"));
+    let strip = strip_of(vec![the_pages_tab()], 480.0).unwrap_or_else(|why| panic!("{why}"));
+    let sentence = Gone {
+        site: "alo:(1)".to_owned(),
+        why: "it said nothing for 10s, so it was stopped".to_owned(),
+    }
+    .to_string();
+    let canvas = compose(
+        &Scene {
+            window: (480, 400 + STRIP_HEIGHT),
+            replication: 1,
+            strip: Some(&strip),
+            strip_sentence: Some(&sentence),
+            frame: Some(&page),
+            sentence: None,
+        },
+        &lettering().unwrap_or_else(|why| panic!("{why}")),
+    );
+    assert_eq!(holds("a-gone-strip.png", &canvas), Ok(()));
 }

@@ -129,10 +129,19 @@ impl StripTab {
         } else {
             &self.title
         };
-        match whole.char_indices().nth(LONGEST_TITLE) {
-            Some((at, _)) => whole.get(..at).unwrap_or(whole),
-            None => whole,
-        }
+        longest(whole)
+    }
+}
+
+/// At most [`LONGEST_TITLE`] characters of `text`, cut at a character.
+///
+/// What a renderer sends of a page's title, what the browser process keeps of
+/// one, and what the strip draws: the same bound at every step, so a title
+/// is never cut in two different places.
+pub fn longest(text: &str) -> &str {
+    match text.char_indices().nth(LONGEST_TITLE) {
+        Some((at, _)) => text.get(..at).unwrap_or(text),
+        None => text,
     }
 }
 

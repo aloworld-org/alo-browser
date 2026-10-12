@@ -2095,3 +2095,22 @@ A title is drawn to 1,024 characters, because 100,000 took 15 s. Cut:
 browser's keys). Found: **530** (a flex item's name runs into its
 neighbour's). 249 queue items are open (297 closed, 528–530 added). The
 next unused queue number is 531 and the next unused ADR 0057.
+
+Iteration 319 built queue item 528. The tab strip is in the window: a
+36 px band across the top, the selected tab below it. `alo-dom`'s
+`title.rs` reads a document's title as HTML does, and a load's answer
+carries it, bounded on the wire. `Tabs` keeps a selected tab, each tab's
+title and the strip's renderer (`tab/strip_of.rs`), and the conductor
+redraws the strip when it changes and as a load starts. Pinned:
+- three new window reference renders, the four earlier ones rewritten
+  with the band;
+- a hostile and a 100,000-character title through the real renderers;
+- a strip renderer stopped with `kill -STOP` leaving the window composing
+  and the tabs working;
+- `alo` captured on this Mac, every composed colour one captured colour.
+
+Cut: **531** (the agent reading the strip, which needs design: the strip
+shows every site's titles, and an agent kept to some sites must not see
+them) and choosing a tab, into **529**. Found: **532** (a title changed
+after load). 250 queue items are open (528 closed, 531 and 532 added). The
+next unused queue number is 533 and the next unused ADR 0057.

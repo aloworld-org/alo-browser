@@ -15,13 +15,14 @@
 //! renderer already sent — so a renderer that has stopped answering cannot
 //! make a redraw wait, because nothing here could wait for it.
 //!
-//! The tab strip is a renderer's frame of its own (item 297) and is not
-//! composed here yet. Item 528 places it, a second frame at the top of the
-//! window, here.
+//! The tab strip is a renderer's frame of its own (item 297), placed by
+//! item 528 in a band across the top of the window, with the selected tab's
+//! frame below it. A strip whose renderer has gone keeps its last frame there
+//! and says so in a line of its own, as a tab does.
 
-use crate::colours::background;
+use crate::colours::{background, rail};
 use crate::notice::Lettering;
-use crate::place::{PixelRect, Placement};
+use crate::place::{Contents, PixelRect, Placement};
 use alo_paint::Canvas;
 use alo_renderer::Frame;
 use alo_value::Rgba;
@@ -34,6 +35,10 @@ pub struct Scene<'a> {
     /// How many device pixels each CSS pixel of a frame becomes
     /// ([`crate::place::replication`]).
     pub replication: u32,
+    /// The tab strip's last frame, if it ever painted one.
+    pub strip: Option<&'a Frame>,
+    /// What to tell a person about the strip, if anything.
+    pub strip_sentence: Option<&'a str>,
     /// The selected tab's last frame, if it ever painted one.
     pub frame: Option<&'a Frame>,
     /// What to tell a person about that tab, if anything.
@@ -42,22 +47,40 @@ pub struct Scene<'a> {
 
 /// The window's pixels.
 ///
-/// The background, then the frame replicated into the top-left corner, then
-/// the sentence along the bottom. A window of no size is a canvas of no size.
+/// The background, then the band across the top in the rail's colour and
+/// the strip replicated into it, then the tab's frame replicated below the
+/// band, then the lines along the bottom — the tab's, and the strip's above
+/// it. A window of no size is a canvas of no size.
 pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
     let (width, height) = scene.window;
     let mut canvas = Canvas::new(width, height, background());
+    let replication = scene.replication.max(1);
+    let size = |frame: &Frame| (frame.width, frame.height);
     let placed = Placement::of(
         scene.window,
-        scene.replication,
-        scene.frame.map(|frame| (frame.width, frame.height)),
-        scene.sentence.is_some(),
+        replication,
+        Contents {
+            strip: scene.strip.map(size),
+            frame: scene.frame.map(size),
+            tab_saying: scene.sentence.is_some(),
+            strip_saying: scene.strip_sentence.is_some(),
+        },
     );
-    if let Some(frame) = scene.frame {
-        replicate(&mut canvas, frame, placed.frame, scene.replication.max(1));
+    let band = placed.band;
+    canvas.fill_rect(0, 0, band.width, band.height, rail());
+    if let Some(strip) = scene.strip {
+        replicate(&mut canvas, strip, placed.strip, replication);
     }
-    if let (Some(sentence), Some(rect)) = (scene.sentence, placed.notice) {
-        lettering.draw(&mut canvas, rect, sentence, scene.replication.max(1));
+    if let Some(frame) = scene.frame {
+        replicate(&mut canvas, frame, placed.frame, replication);
+    }
+    for (sentence, rect) in [
+        (scene.sentence, placed.notice),
+        (scene.strip_sentence, placed.strip_notice),
+    ] {
+        if let (Some(sentence), Some(rect)) = (sentence, rect) {
+            lettering.draw(&mut canvas, rect, sentence, replication);
+        }
     }
     canvas
 }
@@ -65,7 +88,7 @@ pub fn compose(scene: &Scene<'_>, lettering: &Lettering) -> Canvas {
 /// Copy `frame` into `rect` of `canvas`, each of its pixels covering a square
 /// of `replication` device pixels.
 ///
-/// Blended over the background rather than written, so a frame with a
+/// Blended over what is there rather than written, so a frame with a
 /// transparent pixel shows the window's colour there instead of black.
 fn replicate(canvas: &mut Canvas, frame: &Frame, rect: PixelRect, replication: u32) {
     for y in rect.y..rect.y + rect.height {
@@ -83,6 +106,7 @@ fn replicate(canvas: &mut Canvas, frame: &Frame, rect: PixelRect, replication: u
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::place::STRIP_HEIGHT;
 
     fn lettering() -> Lettering {
         Lettering::compiled_in().expect("DejaVu Sans is compiled in")
@@ -101,48 +125,55 @@ mod tests {
         canvas.at(x, y).map(Rgba::to_rgba8)
     }
 
-    #[test]
-    fn a_window_with_nothing_sent_is_its_background() {
-        let canvas = compose(
-            &Scene {
-                window: (4, 3),
-                replication: 1,
-                frame: None,
-                sentence: None,
-            },
-            &lettering(),
-        );
-        assert_eq!((canvas.width(), canvas.height()), (4, 3));
-        assert!(
-            canvas
-                .pixels()
-                .iter()
-                .all(|pixel| pixel.to_rgba8() == background().to_rgba8())
-        );
+    /// A window of `window` with a tab's `frame` and nothing else.
+    fn tab_only(window: (u32, u32), replication: u32, frame: Option<&Frame>) -> Scene<'_> {
+        Scene {
+            window,
+            replication,
+            strip: None,
+            strip_sentence: None,
+            frame,
+            sentence: None,
+        }
     }
 
     #[test]
-    fn each_pixel_of_a_frame_covers_a_square_of_the_replication() {
+    fn a_window_with_nothing_sent_is_the_rail_above_its_background() {
+        let canvas = compose(&tab_only((4, 40), 1, None), &lettering());
+        assert_eq!((canvas.width(), canvas.height()), (4, 40));
+        for y in 0..40 {
+            let expected = if y < STRIP_HEIGHT {
+                rail()
+            } else {
+                background()
+            };
+            assert_eq!(rgba8(&canvas, 3, y), Some(expected.to_rgba8()), "at y {y}");
+        }
+    }
+
+    #[test]
+    fn each_pixel_of_a_frame_covers_a_square_of_the_replication_below_the_band() {
         let frame = two_pixels();
-        let canvas = compose(
-            &Scene {
-                window: (5, 3),
-                replication: 2,
-                frame: Some(&frame),
-                sentence: None,
-            },
-            &lettering(),
-        );
+        let top = STRIP_HEIGHT * 2;
+        let canvas = compose(&tab_only((5, top + 3), 2, Some(&frame)), &lettering());
         for (x, y) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-            assert_eq!(rgba8(&canvas, x, y), Some((255, 0, 0, 255)), "at {x},{y}");
+            assert_eq!(
+                rgba8(&canvas, x, top + y),
+                Some((255, 0, 0, 255)),
+                "at {x},{y}"
+            );
         }
         for (x, y) in [(2, 0), (3, 0), (2, 1), (3, 1)] {
-            assert_eq!(rgba8(&canvas, x, y), Some((0, 0, 255, 255)), "at {x},{y}");
+            assert_eq!(
+                rgba8(&canvas, x, top + y),
+                Some((0, 0, 255, 255)),
+                "at {x},{y}"
+            );
         }
         // The odd column and row are background, never half a pixel.
         for (x, y) in [(4, 0), (4, 1), (0, 2), (3, 2)] {
             assert_eq!(
-                rgba8(&canvas, x, y),
+                rgba8(&canvas, x, top + y),
                 Some(background().to_rgba8()),
                 "at {x},{y}"
             );
@@ -150,22 +181,47 @@ mod tests {
     }
 
     #[test]
-    fn a_transparent_pixel_shows_the_background() {
-        let frame = Frame {
+    fn the_strip_is_drawn_in_the_band_and_the_tab_below_it() {
+        let strip = Frame {
+            width: 1,
+            height: 1,
+            pixels: vec![0, 255, 0, 255],
+        };
+        let frame = two_pixels();
+        let canvas = compose(
+            &Scene {
+                strip: Some(&strip),
+                ..tab_only((3, STRIP_HEIGHT + 2), 1, Some(&frame))
+            },
+            &lettering(),
+        );
+        assert_eq!(rgba8(&canvas, 0, 0), Some((0, 255, 0, 255)));
+        // Where the strip's frame does not reach is the rail.
+        assert_eq!(rgba8(&canvas, 1, 0), Some(rail().to_rgba8()));
+        assert_eq!(rgba8(&canvas, 0, 1), Some(rail().to_rgba8()));
+        assert_eq!(rgba8(&canvas, 0, STRIP_HEIGHT), Some((255, 0, 0, 255)));
+        assert_eq!(rgba8(&canvas, 1, STRIP_HEIGHT), Some((0, 0, 255, 255)));
+    }
+
+    #[test]
+    fn a_transparent_pixel_shows_what_is_behind_it() {
+        let clear = Frame {
             width: 1,
             height: 1,
             pixels: vec![0, 0, 0, 0],
         };
         let canvas = compose(
             &Scene {
-                window: (1, 1),
-                replication: 1,
-                frame: Some(&frame),
-                sentence: None,
+                strip: Some(&clear),
+                ..tab_only((1, STRIP_HEIGHT + 1), 1, Some(&clear))
             },
             &lettering(),
         );
-        assert_eq!(rgba8(&canvas, 0, 0), Some(background().to_rgba8()));
+        assert_eq!(rgba8(&canvas, 0, 0), Some(rail().to_rgba8()));
+        assert_eq!(
+            rgba8(&canvas, 0, STRIP_HEIGHT),
+            Some(background().to_rgba8())
+        );
     }
 
     #[test]
@@ -175,6 +231,8 @@ mod tests {
             &Scene {
                 window: (0, 0),
                 replication: 2,
+                strip: Some(&frame),
+                strip_sentence: Some("gone"),
                 frame: Some(&frame),
                 sentence: Some("gone"),
             },

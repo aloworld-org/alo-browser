@@ -31648,3 +31648,137 @@ before 298–300.
 249 queue items are open (297 closed, 528–530 added). The next unused
 queue number is **531** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 319 — queue item 528 built: the strip in the window
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md`, iteration 318's
+entry and the queue. No `AGENTS.md` exists in this repository. For 528: its
+own text, ADR 0024 in full (§ 2 composition, § 4 the strip, § 6 what a tab
+is), ADR 0039 § 1 for choosing a tab, ADR 0005's boundary through
+`alo-renderer`'s `tab.rs`, `host.rs`, `strip.rs`, `renderer.rs` and
+`wire.rs`, `alo-window`'s conductor, placement and composition, and the
+feature line *A window, tabs, and a tab strip*. HTML's `document.title`
+getter and Infra's *strip and collapse ASCII whitespace* for the title.
+
+**Why 528.** Iteration 318 cut it from 297, whose closing made it eligible;
+its one dependency is done. The open items earlier in the file wait for a
+page, a person, a design or an unfinished dependency, as 318 recorded.
+
+**Scope cut, not depth.**
+- *The agent reading the window's tabs from the strip* is cut to **531**,
+  marked **needs design**. The strip shows every site's titles, and an agent
+  kept to some sites (497, ADR 0055 § 8) must not learn what else is open.
+  So reading the whole strip leaks under `--agent-site`, and a filtered strip
+  is not what a person sees. That is a decision for ADR 0055's record before
+  code, not one to make inside this commit.
+- *Choosing a tab tells the one left before the one chosen* moved to **529**.
+  Nothing chooses a tab before 529's keys. `Tabs::close` now selects a
+  neighbour, but only closing everything reaches it today.
+
+**Built.**
+- `alo-dom/src/title.rs`: `Document::title`, as HTML's getter reads it.
+- `FromRenderer::Loaded` gains `title`. The renderer sends at most
+  `strip::LONGEST_TITLE` characters (`strip::longest`, now shared with the
+  strip's label), and the wire refuses a longer one rather than cutting it.
+- `alo-renderer/src/tab/strip_of.rs`, a child of `tab.rs` for one reason to
+  change (the tabs as the strip shows them):
+  - `Tabs::select` and `selected`; closing the selected tab selects the one
+    after it, or the one before.
+  - `Tabs::strip(viewport, loading)` makes the strip from the tabs.
+  - `StripRenderer` keeps the strip's site, last frame and `Gone`.
+  - `draw_strip` builds and paints. A gone strip is never asked again.
+  - The strip's site is wanted while any tab is open, so it is reaped only
+    with the last tab.
+- `Tab::title`, set in `Tab::loaded`, bounded again.
+- `alo-window`:
+  - `place.rs`: `STRIP_HEIGHT` (36), `strip_viewport`, and `Placement::of`
+    taking `Contents`, which gives a band, the strip's rect, the frame below
+    the band, and the two notices.
+  - `compose.rs`: the band in `colours::rail()` (`--bg-rail`), the strip,
+    the tab, and then the notices.
+  - `showing.rs` keeps the strip's frame and sentence apart from the tab's.
+  - `message.rs`: `News::Strip`, `News::StripSaid` and `News::is_strip`.
+  - `conductor.rs`: the selection lives in `Tabs`. `draw_strip` runs after
+    every turn and sends only a changed strip, and once more as a load starts.
+    `is_loading` covers waiting, asked and held.
+- The existing window tests listen to the tab and skip the strip's news.
+  Counts of renderers include the strip's. `a_renderer_that_never_answers`
+  stops the newest renderer, the page's.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. At 600 s the harness moved it to the background, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, and no `FAILED`, `panicked` or
+`^error` line in the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout assertions in numbers (`place.rs`):
+  - band 960×72 at scale 2, with the page's frame 960×800 at y 72;
+  - page viewport 480×400 in 960×872;
+  - a strip painted larger than the band is cut to it;
+  - notices 32 CSS px, the strip's above the tab's;
+  - a window shorter than its notices, and one shorter than the band.
+- Reference renders, looked at:
+  - `a-strip-of-one-tab.png` (scale 2);
+  - `a-strip-of-three-tabs.png`;
+  - `a-gone-strip.png`.
+  - The four earlier window references were rewritten with the band above
+    the page; the earlier set was backed up to the scratchpad first.
+- Through the real confined renderers (`the_strip_in_the_window.rs`):
+  - a hostile title reaches the strip as text;
+  - the loading strip comes first;
+  - a 100,000-character title is drawn as the strip would cut it.
+  - Each frame equals the same strip drawn in-process.
+- `a_strip_that_never_answers.rs`:
+  - with `kill -STOP` on the strip's renderer, the window composes its last
+    strip at once;
+  - at the 4 s bound the strip says it is gone and keeps its frame;
+  - the lifecycle stopped that renderer;
+  - a page then loads and paints with only its own renderer running.
+- Hostile bytes: the wire refuses a title over 1,024 characters and a load
+  cut at any byte. Markup, a NUL and an override cross whole.
+- On screen: `alo --frozen-fonts` on `alo-offline` was started and its
+  window (4685, 1000×732 points) captured with `screencapture -l`. The strip
+  reads "alo" above the page. It was compared with `compose` of the same
+  window (2000×1400 at 2) through the real conductor, by the scratch
+  composer from iteration 316, adapted to wait for the strip.
+  - This capture carried no colour profile, so the comparison is raw.
+  - Of 2,799,416 opaque pixels, every one of the 245 composed colours maps
+    to exactly one captured colour (35 of them in the band). Most are one
+    level off; terracotta is the widest at 15, a fixed per-colour shift.
+  - 584 pixels are translucent: the window's rounded corners.
+  - Weaker than 316's per-pixel bound, which needed the profile; it shows
+    the geometry is the composition.
+  - Both PNGs are in the scratchpad only (SHA-256 `dd8f797a…` and
+    `c51ff9e4…`). `kill -TERM` left no `alo` or `alo-render` running.
+- Mutations: a tab keeping no title, and a strip never loading, each failed
+  `the_strip_in_the_window.rs`. Both were restored from copies and the
+  workspace rebuilt.
+- One file, one responsibility: the title, the strip's state in `Tabs`, the
+  placement and the composition are each their own file. `tab.rs` gained
+  fields and a child module rather than a second reason to change.
+- `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`,
+  `REMAINING.md` and the queue are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace` were
+  read only. Nothing was pushed.
+
+**Queue.** 528 is ticked with its *Done* paragraph. Added: 531 (the agent
+reading the strip, needs design) and 532 (a title changed after load). 529
+now also owns choosing a tab and telling its pages.
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause adds the strip in the window. Owed lists 529, 531, 532 and 298–300.
+
+**Unresolved obligations.**
+- Nothing chooses another tab yet, so the hidden-before-visible order of
+  ADR 0039 § 1 is untested (529).
+- The agent's verbs on the strip are not refused by name, because no path
+  reaches the strip. An agent's `tabs` still answers with addresses (531).
+- A strip whose renderer has gone stays gone for the session. Restarting it
+  is a person's act that does not exist yet.
+- The strip is drawn once more per load, which is one more renderer round
+  trip. No claim about speed is made.
+
+250 queue items are open (528 closed, 531 and 532 added). The next unused
+queue number is **533** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

@@ -30,6 +30,7 @@ use alo_renderer::generic::{Generics, MOST_PAIRS};
 use alo_renderer::message::{Failure, FromRenderer, ToRenderer};
 use alo_renderer::page::Page;
 use alo_renderer::snapshot::{Snapshot, SnapshotNode};
+use alo_renderer::strip::LONGEST_TITLE;
 use alo_renderer::violations::{MOST_OBJECTIONS, Objection};
 use alo_renderer::wire::{
     DEEPEST_TREE, read_from_renderer, read_to_renderer, write_from_renderer, write_to_renderer,
@@ -189,6 +190,7 @@ fn every_message_from_a_renderer_survives_the_crossing() {
             fetches: Vec::new(),
             sheets: Vec::new(),
             left: Vec::new(),
+            title: String::new(),
         },
         FromRenderer::Painted(Frame {
             width: 2,
@@ -453,6 +455,7 @@ fn where_a_page_asked_to_go_survives_the_crossing() {
                 fetches: Vec::new(),
                 sheets: Vec::new(),
                 left: Vec::new(),
+                title: String::new(),
             },
             FromRenderer::Acted {
                 outcome: Outcome::Followed {
@@ -501,6 +504,7 @@ fn a_load_that_stops_part_way_through_is_refused() {
         fetches: Vec::new(),
         sheets: Vec::new(),
         left: Vec::new(),
+        title: String::new(),
     });
     for cut in 1..whole.len() {
         assert!(
@@ -705,6 +709,7 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
         fetches: Vec::new(),
         sheets: Vec::new(),
         left: Vec::new(),
+        title: String::new(),
     };
     assert_eq!(
         read_from_renderer(&write_from_renderer(&honest)).as_ref(),
@@ -725,6 +730,7 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
         fetches: Vec::new(),
         sheets: Vec::new(),
         left: Vec::new(),
+        title: String::new(),
     };
     let refused = read_from_renderer(&write_from_renderer(&flood));
     assert!(
@@ -733,6 +739,52 @@ fn a_load_claiming_more_objections_than_one_may_carry_is_refused() {
             .is_err_and(|why| why.why.contains("objections")),
         "{refused:?}"
     );
+}
+
+/// Queue item 528: a load's title crosses whole, markup and all, up to what
+/// the strip draws, and a renderer claiming a longer one is refused rather
+/// than cut — an honest renderer never sends one.
+#[test]
+fn a_loads_title_crosses_as_text_and_no_longer_than_the_strip_draws() {
+    let loaded = |title: String| FromRenderer::Loaded {
+        issues: Vec::new(),
+        wanted: Vec::new(),
+        objections: Vec::new(),
+        navigation: None,
+        fetches: Vec::new(),
+        sheets: Vec::new(),
+        left: Vec::new(),
+        title,
+    };
+    for title in [
+        String::new(),
+        "<b>bold</b> & </style><script>steal()</script>".to_owned(),
+        "a\0b".to_owned(),
+        "\u{202e}gnp.exe".to_owned(),
+        "é".repeat(LONGEST_TITLE),
+    ] {
+        let honest = loaded(title);
+        assert_eq!(
+            read_from_renderer(&write_from_renderer(&honest)).as_ref(),
+            Ok(&honest)
+        );
+    }
+    let flood = write_from_renderer(&loaded("x".repeat(LONGEST_TITLE + 1)));
+    let refused = read_from_renderer(&flood);
+    assert!(
+        refused.as_ref().is_err_and(|why| why.why.contains("title")),
+        "{refused:?}"
+    );
+    // Cut anywhere, it is refused too, as every message is.
+    let whole = write_from_renderer(&loaded("Invoices".to_owned()));
+    for at in 0..whole.len() {
+        assert!(
+            whole
+                .get(..at)
+                .is_some_and(|cut| read_from_renderer(cut).is_err()),
+            "cut at {at}"
+        );
+    }
 }
 
 /// Queue item 346: an act and a delivery carry what a later draw objected
@@ -816,12 +868,14 @@ fn an_objection_that_is_not_one_is_refused() {
         fetches: Vec::new(),
         sheets: Vec::new(),
         left: Vec::new(),
+        title: String::new(),
     });
-    // From the end: eight bytes counting no fetches by a page left, eight
-    // counting no style sheets, eight counting no fetches, one saying there
-    // is no navigation, and before them the placement's tag and the kind's.
+    // From the end: eight bytes saying the title is empty, eight counting no
+    // fetches by a page left, eight counting no style sheets, eight counting
+    // no fetches, one saying there is no navigation, and before them the
+    // placement's tag and the kind's.
     let mut strange = one.clone();
-    let at = strange.len() - 27;
+    let at = strange.len() - 35;
     if let Some(kind) = strange.get_mut(at) {
         *kind = 9;
     }
@@ -833,7 +887,7 @@ fn an_objection_that_is_not_one_is_refused() {
         "{refused:?}"
     );
     let mut misplaced = one.clone();
-    let at = misplaced.len() - 26;
+    let at = misplaced.len() - 34;
     if let Some(placement) = misplaced.get_mut(at) {
         *placement = 7;
     }

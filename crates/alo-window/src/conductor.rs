@@ -58,8 +58,30 @@
 //! `visibilitychange` if that changed it — and loads every page after it in
 //! the state the window is in. What the page's listeners ask for is made as
 //! a delivery's is, and the page is painted again afterwards, since they may
-//! have changed it. Choosing among tabs is item 528's, and tells the tab it
-//! leaves before the one it chooses.
+//! have changed it. Choosing among tabs is item 529's, where a person's key
+//! first chooses one, and tells the tab it leaves before the one it chooses.
+//!
+//! # The tab strip
+//!
+//! ADR 0024 § 4, queue item 528. The strip is drawn by a renderer of its own,
+//! which the [`Tabs`] keep at a site no page can name and reap only with the
+//! last tab. After everything that arrived has been carried out, the
+//! conductor makes the strip as the tabs now are — each tab's title, its address, which one is
+//! selected, which is loading or gone — and sends it only when it differs
+//! from the last one sent: a tab opened, closed or selected, a load started
+//! or answered, a renderer gone, a title come in, the window resized. A load
+//! sends it once more as it starts, so the tab says it is loading while its
+//! renderer works.
+//!
+//! A tab is loading from the moment its load is asked for — or, opened before
+//! the window had a size, from the moment it was opened — until its first
+//! frame may be painted: the load answered and, when it is held, its hold
+//! ended.
+//!
+//! The strip's renderer is asked as every renderer is, on this thread, so the
+//! window never waits on it. One that stops answering is given up on at the
+//! same bound as a page's, after which the window keeps its last frame of the
+//! strip and says what happened, and it is not asked again.
 //!
 //! # A page left
 //!
@@ -92,12 +114,14 @@ use crate::hold::{Holds, SHOWN_BEFORE_STYLE};
 use crate::inbox::{self, Arrival, Orders, arrivals};
 use crate::message::{News, Order};
 use crate::network::{Job, Networking};
+use crate::place::strip_viewport;
 use crate::serving::{Served, serve};
 use alo_layout::Size;
 use alo_net::Cause;
 use alo_renderer::fetch_answering::{Answered, Answering, Turn};
 use alo_renderer::fetch_exchange::{Exchange, Exchanged, Record};
 use alo_renderer::fetch_make::Network;
+use alo_renderer::strip::Strip;
 use alo_renderer::{FromRenderer, Lost, Page, Tab, TabId, Tabs, ToRenderer, Visibility};
 use std::sync::mpsc::Receiver;
 use std::thread::JoinHandle;
@@ -213,12 +237,16 @@ impl Conductor {
     }
 }
 
-/// The conductor's state: the tabs, which one is selected, and the size a
-/// page is laid out at.
+/// The conductor's state: the tabs, which keep which one is selected, and
+/// the size a page is laid out at.
 struct Conducting {
     tabs: Tabs,
     fonts: Fonts,
-    selected: Option<TabId>,
+    /// The tab whose load is being asked for, between asking and the answer.
+    loading: Option<TabId>,
+    /// The strip as it was last sent to its renderer, so it is sent again
+    /// only when it has changed.
+    strip: Option<Strip>,
     /// The window's size in CSS pixels, once it has said one.
     viewport: Option<Size>,
     /// Whether the window can be seen: `visible` until it says otherwise,
@@ -255,7 +283,8 @@ fn conduct(
     let mut conducting = Conducting {
         tabs,
         fonts,
-        selected: None,
+        loading: None,
+        strip: None,
         viewport: None,
         visibility: Visibility::Visible,
         waiting: None,
@@ -347,6 +376,10 @@ impl Conducting {
             if !told(self, news, tell) {
                 return;
             }
+            let news = self.draw_strip();
+            if !told(self, news, tell) {
+                return;
+            }
         }
     }
 
@@ -355,7 +388,7 @@ impl Conducting {
         match order {
             Order::Open { url, page } => {
                 let id = self.tabs.open(url);
-                self.selected = Some(id);
+                self.tabs.select(id);
                 match (page, self.viewport) {
                     (Some(page), Some(viewport)) => self.load(id, *page, viewport),
                     (Some(page), None) => {
@@ -396,7 +429,7 @@ impl Conducting {
     /// have changed it.
     fn acted(&mut self, id: TabId) -> Vec<News> {
         self.fetches.take_from(&mut self.tabs, id);
-        if self.selected != Some(id) {
+        if self.tabs.selected() != Some(id) {
             return Vec::new();
         }
         self.paint(id)
@@ -405,7 +438,7 @@ impl Conducting {
     /// Tell the selected tab's page whether it can be seen, if it is showing
     /// anything, and paint it again: its listeners may have changed it.
     fn shown(&mut self, to: Visibility) -> Vec<News> {
-        let Some(id) = self.selected else {
+        let Some(id) = self.tabs.selected() else {
             return Vec::new();
         };
         if self.tabs.tab(id).and_then(Tab::document).is_none() {
@@ -429,7 +462,11 @@ impl Conducting {
         // The tab loading is the selected one, so it is as visible as the
         // window.
         page.visibility = self.visibility;
+        // The strip says the tab is loading while its renderer works.
+        self.loading = Some(id);
+        let mut news = self.draw_strip();
         let loaded = self.tabs.load(id, page, Cause::Person { tab: id });
+        self.loading = None;
         self.fetches.take_from(&mut self.tabs, id);
         if matches!(loaded, Ok(FromRenderer::Loaded { .. }))
             && let Some(document) = self.tabs.tab(id).and_then(Tab::document)
@@ -439,6 +476,18 @@ impl Conducting {
             self.holds.loaded(id, document, owed, Instant::now());
         }
         self.record_left();
+        news.extend(self.after_load(id, viewport, loaded));
+        news
+    }
+
+    /// Paint tab `id` after its load answered `loaded`, sending the fonts its
+    /// page asked for first when it asked for any this browser sends.
+    fn after_load(
+        &mut self,
+        id: TabId,
+        viewport: Size,
+        loaded: Result<FromRenderer, Lost>,
+    ) -> Vec<News> {
         match loaded {
             Ok(FromRenderer::Loaded { wanted, .. }) => {
                 if !wanted.is_empty() && self.fonts == Fonts::AsAsked {
@@ -458,7 +507,7 @@ impl Conducting {
 
     /// The selected tab at a new size, if it is showing anything.
     fn resize(&mut self, viewport: Size) -> Vec<News> {
-        let Some(id) = self.selected else {
+        let Some(id) = self.tabs.selected() else {
             return Vec::new();
         };
         if self.tabs.tab(id).and_then(Tab::document).is_none() {
@@ -583,7 +632,7 @@ impl Conducting {
             said,
         } = answered;
         let released = sheet.and_then(|sheet| self.holds.answered(tab, sheet));
-        if self.selected != Some(tab) {
+        if self.tabs.selected() != Some(tab) {
             return Vec::new();
         }
         let mut news = match delivered {
@@ -613,7 +662,7 @@ impl Conducting {
             .keep_showing(|id| tabs.tab(id).and_then(Tab::document));
         let mut news = Vec::new();
         for (id, deferred) in self.holds.passed(now) {
-            if self.selected != Some(id) {
+            if self.tabs.selected() != Some(id) {
                 continue;
             }
             news.extend(self.paint(id));
@@ -636,8 +685,61 @@ impl Conducting {
             self.send(Job::Record(record));
         }
         self.holds.clear();
-        self.selected = None;
         self.waiting = None;
+        self.loading = None;
+        self.strip = None;
+    }
+
+    /// Whether tab `id` is loading: its load asked for and not yet answered,
+    /// waiting for the window's size to be asked for at all, or answered and
+    /// held for its style.
+    fn is_loading(&self, id: TabId) -> bool {
+        self.loading == Some(id)
+            || self
+                .waiting
+                .as_ref()
+                .is_some_and(|(waiting, _)| *waiting == id)
+            || self.is_held(id)
+    }
+
+    /// Send the strip to its renderer if it differs from the last one sent,
+    /// and say what it painted — or, when its renderer has gone, what
+    /// happened, once.
+    ///
+    /// Nothing is drawn before the window has said its size, nor with no tab
+    /// open: the window is closing.
+    fn draw_strip(&mut self) -> Vec<News> {
+        let Some(viewport) = self.viewport else {
+            return Vec::new();
+        };
+        if self.tabs.is_empty() || self.tabs.strip_renderer().gone().is_some() {
+            return Vec::new();
+        }
+        let strip = self
+            .tabs
+            .strip(strip_viewport(viewport), |id| self.is_loading(id));
+        if self.strip.as_ref() == Some(&strip) {
+            return Vec::new();
+        }
+        let drawn = self.tabs.draw_strip(&strip);
+        // Kept whatever came of it: a strip that could not be drawn is not
+        // asked again until it is a different strip.
+        self.strip = Some(strip);
+        match drawn {
+            Ok(FromRenderer::Painted(frame)) => vec![News::Strip(frame)],
+            Ok(FromRenderer::Failed(failure)) => vec![News::StripSaid(format!(
+                "the tab strip could not be drawn: {failure}"
+            ))],
+            Ok(_) => vec![News::StripSaid(
+                "the tab strip's renderer answered something it was not asked".to_owned(),
+            )],
+            Err(lost) => vec![News::StripSaid(
+                self.tabs
+                    .strip_renderer()
+                    .what_happened()
+                    .unwrap_or_else(|| lost.to_string()),
+            )],
+        }
     }
 
     /// Write every fetch a page asked for as it was left, and was refused,

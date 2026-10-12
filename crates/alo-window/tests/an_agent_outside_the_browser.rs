@@ -65,7 +65,8 @@ fn browsing() -> Result<(Conductor, Receiver<News>), String> {
         Tabs::over(Renderers::running(renderer, &[]).with_machine(alo_window::fonts::frozen())),
         Fonts::AsStarted,
         network,
-        move |said| tell.send(said).is_ok(),
+        // This test listens to the tab; the strip is `the_strip_in_the_window.rs`.
+        move |said| said.is_strip() || tell.send(said).is_ok(),
     )
     .map_err(|why| format!("no conductor: {why}"))?;
     for order in [

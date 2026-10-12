@@ -93,6 +93,7 @@ fn answers() -> Vec<FromRenderer> {
             // What the page it replaced asked for as it was left (queue item
             // 373), apart from its own.
             left: asks(),
+            title: "<b>Fetches</b> \u{202e}gnp.exe".to_owned(),
         },
         FromRenderer::Acted {
             outcome: Outcome::Activated {

@@ -96,6 +96,17 @@
 //! ([`Lost::HoldsAnotherPage`]) rather than answering with somebody else's.
 //! The displaced tab still shows its own last frame, which is what a person is
 //! looking at anyway.
+//!
+//! # Which tab is selected, and the strip that shows them all
+//!
+//! ADR 0024 § 6: a tab is this file's [`Tab`], and [`Tabs`] gains a
+//! selected tab beside its order. The strip that shows them is drawn by a
+//! renderer of its own at a site no page can name (§ 4), which these tabs
+//! keep for as long as any tab is open ([`strip_of`], queue item 528).
+
+mod strip_of;
+
+pub use strip_of::StripRenderer;
 
 use crate::fetch::{FetchAsk, Fetched};
 use crate::fetch_decide::{self, Asker, Fetch};
@@ -161,6 +172,10 @@ pub struct Tab {
     sheets: Vec<sheet_decide::Decided>,
     painted: Option<Frame>,
     gone: Option<Gone>,
+    /// What the document it shows is called, as its renderer said — at most
+    /// [`crate::strip::LONGEST_TITLE`] characters, and empty until a page has
+    /// loaded or for one with no `<title>`.
+    title: String,
 }
 
 impl Tab {
@@ -230,6 +245,13 @@ impl Tab {
     pub fn what_happened(&self) -> Option<String> {
         self.gone.as_ref().map(ToString::to_string)
     }
+
+    /// What the document it shows is called: its `<title>` as HTML reads
+    /// it, as its renderer said at the load. A stranger's string, kept as
+    /// text, which the strip shows as text.
+    pub fn title(&self) -> &str {
+        &self.title
+    }
 }
 
 impl Tab {
@@ -250,12 +272,17 @@ impl Tab {
             fetches,
             sheets,
             issues,
+            title,
             ..
         } = answer
         else {
             return;
         };
         self.document = Some(document);
+        // Bounded again on this side: a renderer is the process that parsed
+        // a hostile page, and the wire's bound is one it was held to, not one
+        // this process takes on trust twice.
+        crate::strip::longest(title).clone_into(&mut self.title);
         let cause = Cause::Document { document };
         self.decided = navigation
             .as_ref()
@@ -506,6 +533,10 @@ pub struct Tabs {
     /// flight, as this process decided them (ADR 0040 § 4): kept here
     /// rather than on a tab because a page's beacons outlive it.
     kept: KeptAlive,
+    /// The tab a person is looking at (ADR 0024 § 6).
+    selected: Option<TabId>,
+    /// The tab strip's renderer, at its own site (ADR 0024 § 4).
+    strip: StripRenderer,
 }
 
 /// A page left, as the browser process heard it (ADR 0039 §§ 2–4, ADR 0040
@@ -542,6 +573,8 @@ impl Tabs {
             documents: Documents::default(),
             leavings: Vec::new(),
             kept: KeptAlive::default(),
+            selected: None,
+            strip: StripRenderer::new(),
         }
     }
 
@@ -572,6 +605,7 @@ impl Tabs {
             sheets: Vec::new(),
             painted: None,
             gone: None,
+            title: String::new(),
         });
         id
     }
@@ -588,6 +622,10 @@ impl Tabs {
     /// Closing one of two tabs on a site stops nothing, because the other tab
     /// is still showing a page out of that process.
     ///
+    /// **Closing the selected tab selects its neighbour** — the one after it,
+    /// or the one before when it was the last — and closing the last tab
+    /// leaves none selected.
+    ///
     /// **The page it shows is left first** (ADR 0039 § 2): if its site's
     /// renderer is holding it, the renderer is sent `Leave` and waited for
     /// as for any answer, and what the page said and asked to fetch as it
@@ -595,11 +633,11 @@ impl Tabs {
     /// another tab's page, runs nothing for this one.
     pub fn close(&mut self, id: TabId) -> bool {
         self.leave(id);
-        let before = self.list.len();
-        self.list.retain(|tab| tab.id != id);
-        if self.list.len() == before {
+        let Some(at) = self.list.iter().position(|tab| tab.id == id) else {
             return false;
-        }
+        };
+        self.list.remove(at);
+        self.closed_at(id, at);
         let wanted = self.sites_open();
         for stopped in self.renderers.reap(&wanted) {
             // The page went with the process, so nothing is holding it now —
@@ -719,8 +757,18 @@ impl Tabs {
     /// that a tab whose renderer has **gone** still names its site: the tab is
     /// open, a person may reload it, and there is no renderer held for a dead
     /// site to stop anyway.
+    ///
+    /// The strip's site is among them while any tab is: the strip is wanted
+    /// for as long as there are tabs to show, so closing one tab never reaps
+    /// its renderer (ADR 0024 § 4), and closing the last one does — closing
+    /// every tab is closing the window (§ 6).
     fn sites_open(&self) -> HashSet<Site> {
-        self.list.iter().map(|tab| tab.site.clone()).collect()
+        let strip = (!self.list.is_empty()).then(|| self.strip.site().clone());
+        self.list
+            .iter()
+            .map(|tab| tab.site.clone())
+            .chain(strip)
+            .collect()
     }
 
     /// Every tab, in the order they were opened.
@@ -1201,9 +1249,10 @@ mod tests {
 
         assert!(first.is_alone() && second.is_alone());
         assert_ne!(first, second, "two opaque origins were given one process");
+        // Two, and the strip's, which is wanted while any tab is open.
         assert_eq!(
             tabs.sites_open().len(),
-            2,
+            3,
             "two documents that share no origin wanted one process",
         );
 
@@ -1685,6 +1734,7 @@ mod tests {
             fetches,
             sheets: Vec::new(),
             left: Vec::new(),
+            title: String::new(),
         }
     }
 

@@ -45,7 +45,8 @@ fn closing_the_window_leaves_the_page_and_records_what_it_asked_for() {
         Tabs::over(Renderers::running(renderer, &[])),
         Fonts::AsStarted,
         Network::over(Pool::with_trust(trust)),
-        move |said| tell.send(said).is_ok(),
+        // This test listens to the tab; the strip is `the_strip_in_the_window.rs`.
+        move |said| said.is_strip() || tell.send(said).is_ok(),
     ) else {
         panic!("no conductor");
     };

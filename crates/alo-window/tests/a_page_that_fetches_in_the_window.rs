@@ -88,7 +88,8 @@ fn conducting(origin: &str, script: &str) -> Result<(Conductor, Receiver<News>),
         Tabs::over(Renderers::running(renderer, &[])),
         Fonts::AsStarted,
         network,
-        move |said| tell.send(said).is_ok(),
+        // This test listens to the tab; the strip is `the_strip_in_the_window.rs`.
+        move |said| said.is_strip() || tell.send(said).is_ok(),
     )
     .map_err(|why| format!("no conductor: {why}"))?;
     let url = alo_url::parse(&format!("{origin}/page")).map_err(|why| format!("{why:?}"))?;

@@ -66,7 +66,8 @@ fn two_tabs_painted() -> Result<(Conductor, std::sync::mpsc::Receiver<News>), St
         Tabs::over(Renderers::running(renderer, &[])),
         Fonts::AsStarted,
         offline()?,
-        move |said| tell.send(said).is_ok(),
+        // This test listens to the tab; the strip is `the_strip_in_the_window.rs`.
+        move |said| said.is_strip() || tell.send(said).is_ok(),
     )
     .map_err(|why| format!("no conductor: {why}"))?;
     let orders = conductor.orders();
@@ -91,7 +92,11 @@ fn two_tabs_painted() -> Result<(Conductor, std::sync::mpsc::Receiver<News>), St
 #[test]
 fn closing_the_window_closes_every_tab_and_stops_every_renderer() {
     let (conductor, news) = two_tabs_painted().unwrap_or_else(|why| panic!("{why}"));
-    assert_eq!(renderers_running(), Ok(2), "two sites, two renderers");
+    assert_eq!(
+        renderers_running(),
+        Ok(3),
+        "two sites, two renderers, and the strip's"
+    );
 
     conductor
         .orders()
@@ -104,7 +109,7 @@ fn closing_the_window_closes_every_tab_and_stops_every_renderer() {
     // And a window that went without saying so — every sender of orders
     // gone — is closed the same way.
     let (conductor, _news) = two_tabs_painted().unwrap_or_else(|why| panic!("{why}"));
-    assert_eq!(renderers_running(), Ok(2));
+    assert_eq!(renderers_running(), Ok(3));
     assert!(conductor.finish(), "the conductor did not finish");
     assert_eq!(renderers_running(), Ok(0), "a renderer outlived its window");
 }

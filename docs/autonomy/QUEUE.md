@@ -12633,7 +12633,7 @@ What stage 2's exit gate actually measures: a person using it.
   (530). The strip works round it by putting the space inside the word's own
   box.
 
-- [ ] **528. The strip in the window.** *Cut from 297 (iteration 318; ADR
+- [x] **528. The strip in the window.** *Cut from 297 (iteration 318; ADR
   0024 §§ 2, 4, 6). Feature: `docs/features.md` stage 2, a window, tabs and
   a tab strip. Depends on 297.* `Tabs` gains a selected tab, kept beside
   its order, and makes a `Strip` from what it holds. A load's answer
@@ -12653,16 +12653,113 @@ What stage 2's exit gate actually measures: a person using it.
   -STOP` leaves the window composing; and the agent reading the window's
   tabs from the strip.
 
+  ***Done (iteration 319), with the agent's reading cut to 531 and choosing
+  a tab to 529.*** The window shows the strip across its top and the
+  selected tab below it:
+  - **The title.** `alo-dom`'s `title.rs` reads a document's title as
+    HTML's `document.title` does: the first HTML `title` in tree order, its
+    child text joined, ASCII white space stripped and collapsed (an SVG
+    root's own `title` child for an SVG document). `FromRenderer::Loaded`
+    carries it, at most `strip::LONGEST_TITLE` characters
+    (`strip::longest`), and the wire refuses a longer one from a renderer
+    rather than cutting it. `Tab::title` keeps it, bounded again.
+  - **The tabs.** `alo-renderer`'s `tab/strip_of.rs`: `Tabs` keeps a
+    selected tab beside its order (`select`, `selected`); closing the
+    selected one selects the one after it, or before when it was last.
+    `Tabs::strip` makes a `Strip` from what the tabs hold, each tab gone
+    when its renderer has, loading when the caller says. The strip's
+    renderer is kept at one `strip::site()`, which `Tabs::close` reaps only
+    with the last tab; `draw_strip` builds and paints it and keeps the
+    frame, and once its renderer has gone it is not asked again.
+  - **The conductor.** After everything that arrived is carried out, it
+    sends the strip when it differs from the last one sent, and once more
+    as a load starts, so the tab says it is loading. A tab is loading from
+    its load's ask, or from being opened before the window had a size,
+    until its first frame may be painted. `News::Strip` and
+    `News::StripSaid` reach the window; `Showing` keeps them apart from the
+    tab's.
+  - **The window.** `place.rs` gives the strip a band of `STRIP_HEIGHT`
+    (36 CSS px) across the top and lays the page out below it;
+    `compose.rs` fills the band with the rail's colour (`--bg-rail`), puts
+    the strip's frame in it and the tab's under it, and the strip's
+    sentence above the tab's along the bottom.
+
+  *Closed by:*
+  - `alo-window`'s `tests/the_window_composed.rs`: reference renders
+    `a-strip-of-one-tab.png` (scale 2) and `a-strip-of-three-tabs.png`,
+    and `a-gone-strip.png` for a strip whose renderer has gone. The four
+    earlier references were rewritten with the band above the page.
+  - `place.rs`'s tests, in numbers: at scale 2 in 960×872 the band is
+    960×72 at the top and the page's frame 960×800 at y 72; the page is
+    laid out at 480×400; a notice is 32 CSS px along the bottom, the
+    strip's above the tab's.
+  - `tests/the_strip_in_the_window.rs`, over the real confined renderers:
+    a page titled `<b>Invoices</b> &lt;/title&gt;` with a right-to-left
+    override and white space to collapse reaches the strip as
+    `<b>Invoices</b> </title> \u{202e}gnp.exe`; the strip as the load
+    starts is the tab by its address, loading; a second tab titled with
+    100,000 x's is drawn as the first 1,024, the same frame as the whole
+    title cut by the strip. Each frame is compared with the same strip
+    drawn in the test's process.
+  - `tests/a_strip_that_never_answers.rs`: the strip's renderer stopped
+    with `kill -STOP`; the window composes at once with its last strip
+    while the conductor waits; at the bound the strip says it is gone and
+    keeps its frame; the lifecycle stopped it; and a page loads and
+    paints afterwards with no strip renderer started behind it.
+  - `alo-renderer`'s wire test: a title crosses whole, markup, NUL and
+    override included, up to 1,024 characters, and a longer one or a cut
+    message is refused.
+  - `alo --frozen-fonts` on the frozen offline page, captured with
+    `screencapture -l` on this Mac: the strip reads "alo" above the page,
+    and each of the 245 composed colours maps to exactly one captured
+    colour over every opaque pixel.
+
+  Mutations: a tab that keeps no title, and a strip that never says
+  loading, each fail `the_strip_in_the_window.rs`; both were restored from
+  copies.
+
+- [ ] **531. The agent reads the window's tabs from the strip.** *Cut from
+  528 (iteration 319; ADR 0024 § 4; ADR 0055). Feature: `docs/features.md`
+  stage 2, a window, tabs and a tab strip. Depends on 528. **Needs
+  design.*** ADR 0024 § 4 has the agent read *"which tabs are open"* from
+  the strip's tree and refuses its verbs on the strip by name until item
+  133's grants. The socket (ADR 0055) answers `tabs` with addresses today.
+  What is undecided: the strip shows **every** site's titles, and an
+  agent kept to some sites (item 497, ADR 0055 § 8) must not learn what
+  else is open — so reading the whole strip is a leak under `--agent-site`,
+  and a filtered strip is not the strip a person sees. Which one an agent
+  reads, how a request names the strip, and the refusal's kind are a
+  decision for ADR 0055's record before any code. *Closes when:* that is
+  decided; an agent over the socket reads the strip's `tablist` with each
+  tab by title and the selected one marked; a verb on the strip is refused
+  by its own kind; and an agent kept to one site learns nothing of another
+  site's tab.
+
+- [ ] **532. A title a page changes after its load.** *Found building 528
+  (iteration 319). Feature: `docs/features.md` stage 2, a window, tabs and a
+  tab strip. Depends on 528.* The strip shows the title a page had when its
+  load answered. A page whose script sets `document.title`, or changes its
+  `<title>`, later keeps the old one in the strip, and `document.title` is
+  not a member of the bindings at all. *Opened by* a frozen page that sets
+  its title after loading; none is frozen yet. *Closes when:* that page's
+  strip shows the new title, carried by the answer whose task changed it
+  and bounded as a load's is.
+
 - [ ] **529. The browser's own keys.** *Cut from 297 (iteration 318; ADR
   0024 § 5). Feature: `docs/features.md` stage 2, a window, tabs and a tab
   strip. Depends on 528.* A new tab (⌘T), close this one (⌘W), and the next
   and previous (⌃Tab, ⌃⇧Tab), read by the window from `winit`'s keyboard
   events before any page could see them, and sent to the conductor as
   orders. A new tab opens `about:blank` and is selected. Closing the last
-  tab closes the window (§ 6). *Closes when:* each key, sent as a synthetic
-  key event to the window's handler, changes the strip's state as it says;
-  and no key reaches a renderer, there being no keyboard in a page yet
-  (258).
+  tab closes the window (§ 6). **Choosing a tab** — by these keys, or by
+  closing the selected one, which `Tabs::close` answers by selecting its
+  neighbour since 528 — tells the tab left that it is hidden before the one
+  chosen that it is visible (ADR 0039 § 1), and paints the one chosen; cut
+  here from 528, because nothing chose a tab before these keys. *Closes
+  when:* each key, sent as a synthetic key event to the window's handler,
+  changes the strip's state as it says; choosing a tab tells the two pages
+  in that order; and no key reaches a renderer, there being no keyboard in a
+  page yet (258).
 
 - [ ] **530. A flex item's name is separated from its neighbour's.**
   *Found building 297 (iteration 318). Feature: `docs/features.md` stage 1,

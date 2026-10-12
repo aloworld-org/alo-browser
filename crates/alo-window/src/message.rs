@@ -62,9 +62,23 @@ pub enum Order {
 pub enum News {
     /// The selected tab painted this.
     Painted(Frame),
+    /// The tab strip painted this (ADR 0024 § 4, queue item 528).
+    Strip(Frame),
+    /// The tab strip has something to tell a person, in words — that its
+    /// renderer is gone, or that it could not be drawn. It keeps the last
+    /// frame it painted.
+    StripSaid(String),
     /// The selected tab has something to tell a person, in words — that its
     /// renderer is gone, or that what it was given could not be shown.
     Said(String),
     /// Every tab is closed, and every renderer under them stopped.
     Closed,
+}
+
+impl News {
+    /// Whether this is about the tab strip rather than the selected tab: for
+    /// whoever listens to only one of them.
+    pub fn is_strip(&self) -> bool {
+        matches!(self, News::Strip(_) | News::StripSaid(_))
+    }
 }

@@ -19,6 +19,13 @@ pub fn background() -> Rgba {
     Rgba::from_rgba8(0xf4, 0xf1, 0xec, 0xff)
 }
 
+/// Behind the tab strip until its renderer has painted, and wherever its
+/// frame does not reach: `--bg-rail`, the strip's own ground, so the band
+/// is the strip's colour from the window's first moment.
+pub fn rail() -> Rgba {
+    Rgba::from_rgba8(0x1f, 0x25, 0x29, 0xff)
+}
+
 /// The ground of the line saying what happened to a tab: `--warning-tint`.
 pub fn notice_ground() -> Rgba {
     Rgba::from_rgba8(0xfd, 0xf0, 0xd8, 0xff)
@@ -40,7 +47,13 @@ mod tests {
 
     #[test]
     fn every_colour_is_solid() {
-        for colour in [background(), notice_ground(), notice_ink(), notice_rule()] {
+        for colour in [
+            background(),
+            rail(),
+            notice_ground(),
+            notice_ink(),
+            notice_rule(),
+        ] {
             assert!((colour.alpha - 1.0).abs() < f32::EPSILON);
         }
     }

@@ -99,6 +99,26 @@ fn renderers_running() -> Result<Vec<String>, String> {
         .collect())
 }
 
+/// The renderer this test process started last: the page's, since the strip's
+/// is started first, to say the page is loading.
+fn newest_renderer() -> Result<String, String> {
+    let found = std::process::Command::new("pgrep")
+        .args([
+            "-n",
+            "-P",
+            &std::process::id().to_string(),
+            "-x",
+            "alo-render",
+        ])
+        .output()
+        .map_err(|why| format!("pgrep could not be run: {why}"))?;
+    String::from_utf8_lossy(&found.stdout)
+        .lines()
+        .next()
+        .map(str::to_owned)
+        .ok_or_else(|| "no renderer is running".to_owned())
+}
+
 /// Send `process` a signal. Whether it was sent.
 fn signal(what: &str, process: &str) -> bool {
     std::process::Command::new("kill")
@@ -122,8 +142,9 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
     );
     let (tell, news) = channel();
     let network = offline().unwrap_or_else(|why| panic!("no network: {why}"));
+    // This test listens to the tab; the strip is `the_strip_in_the_window.rs`.
     let conductor = Conductor::start(tabs, Fonts::AsStarted, network, move |said| {
-        tell.send(said).is_ok()
+        said.is_strip() || tell.send(said).is_ok()
     })
     .unwrap_or_else(|why| panic!("no conductor: {why}"));
     let orders = conductor.orders();
@@ -152,11 +173,18 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
     showing.hear(painted.clone());
 
     // Stop the renderer: alive, its pipe open, and never answering again.
+    // Two are running: the strip's and the page's, which is the newer.
     let running = renderers_running().unwrap_or_else(|why| panic!("{why}"));
-    let [silent] = running.as_slice() else {
-        panic!("expected one renderer, found {running:?}");
-    };
-    assert!(signal("-STOP", silent), "the renderer could not be stopped");
+    assert_eq!(
+        running.len(),
+        2,
+        "expected the strip's and the page's: {running:?}"
+    );
+    let silent = newest_renderer().unwrap_or_else(|why| panic!("{why}"));
+    assert!(
+        signal("-STOP", &silent),
+        "the renderer could not be stopped"
+    );
 
     // The window grows. The conductor is sent the size and is now stuck
     // waiting on a renderer that will not answer…
@@ -177,6 +205,8 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
         &Scene {
             window: (560, 460),
             replication: 1,
+            strip: None,
+            strip_sentence: None,
             frame: Some(&committed().unwrap_or_else(|why| panic!("{why}"))),
             sentence: None,
         },
@@ -211,12 +241,10 @@ fn a_renderer_that_never_answers_leaves_the_window_answering_with_its_last_frame
     );
     assert_eq!(told.at(240, 150), before.at(240, 150));
 
-    // The renderer was stopped by the lifecycle, not left behind.
-    assert_eq!(
-        renderers_running().map(|running| running.len()),
-        Ok(0),
-        "the silent renderer was left running"
-    );
+    // The renderer was stopped by the lifecycle, not left behind; the
+    // strip's is still there.
+    let left = renderers_running().unwrap_or_else(|why| panic!("{why}"));
+    assert!(left.len() == 1 && !left.contains(&silent), "{left:?}");
 
     orders
         .send(Order::CloseEverything)

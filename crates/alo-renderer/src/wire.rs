@@ -398,6 +398,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             fetches,
             sheets,
             left,
+            title,
         } => {
             writer.tag(0);
             writer.texts(issues);
@@ -407,6 +408,7 @@ pub fn write_from_renderer(message: &FromRenderer) -> Vec<u8> {
             writer.fetches(fetches);
             writer.sheets(sheets);
             writer.fetches(left);
+            writer.text(title);
         }
         FromRenderer::Painted(frame) => {
             writer.tag(1);
@@ -1123,6 +1125,16 @@ impl<'a> Reader<'a> {
         let fetches = self.fetches()?;
         let sheets = self.sheets()?;
         let left = self.fetches()?;
+        let title = self.text()?;
+        // A renderer sends at most what the strip draws; more is a renderer
+        // that is not speaking this protocol, and is refused rather than cut.
+        let characters = title.chars().count();
+        if characters > crate::strip::LONGEST_TITLE {
+            return Err(unreadable(format!(
+                "a title of {characters} characters, more than the {} a renderer sends",
+                crate::strip::LONGEST_TITLE
+            )));
+        }
         Ok(FromRenderer::Loaded {
             issues,
             wanted,
@@ -1131,6 +1143,7 @@ impl<'a> Reader<'a> {
             fetches,
             sheets,
             left,
+            title,
         })
     }
 

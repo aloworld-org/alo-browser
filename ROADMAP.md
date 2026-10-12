@@ -1740,9 +1740,19 @@ items where being right and being unusable are the same outcome.
       stylesheet after alo's tokens. Three reference renders, each tab's
       box in numbers, the agent reading four tabs with the second
       selected, and five hostile titles kept as text in the tree and the
-      render. · Owed: the strip in the window, with titles from pages
-      (528); the browser's keys (529); a person's pointer (298); device
-      pixels (299); a link opening a tab (300)
+      render. The strip is in the window (528, done): `Tabs` keeps a
+      selected tab, each tab's `<title>` from its load (`alo-dom`'s
+      `title.rs`, bounded on the wire) and the strip's renderer; the
+      conductor redraws the strip when it changes and as a load starts;
+      the window composes it in a 36 px band above the page, with reference
+      renders of one, three and a stopped strip; a hostile and a
+      100,000-character title reach the strip through the real renderers;
+      a strip renderer stopped with `kill -STOP` leaves the window composing
+      and the tabs working; captured on this Mac, every composed colour maps
+      to one captured colour. · Owed: the browser's keys and choosing a tab
+      (529); the agent reading the strip, which needs design (531); a title
+      changed after load (532); a person's pointer (298); device pixels
+      (299); a link opening a tab (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads
 - [ ] Find in page, zoom, and per-site settings that stick

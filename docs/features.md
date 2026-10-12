@@ -685,13 +685,22 @@ The reason this exists rather than a faster fork of somebody else's engine.
   (and to its first 1,024 characters before that). An agent reads it as
   *"tab list 'Tabs', four tabs, the second selected"*, each by its title; a
   tab with no title shows its address, and a stopped one says "Stopped".
-  Still to come: the strip shown at the top of the window, kept up to date as
-  tabs open, close, load and are chosen, with each page's own `<title>`
-  (528); the browser's own keys for a new tab, closing one and moving between
-  them (529); a click on a page or a tab handled by the page's own
-  process and decided by the browser (298); painting at the screen's density
-  (299); and a new tab opened by a link with `target="_blank"` that a person
-  clicked (300)
+  **The strip is in the window** (queue item 528): a band across the top, the
+  selected tab's page below it, laid out in what the strip leaves. Each tab is
+  called by its page's own `<title>`, read as HTML reads it, and the strip is
+  drawn again whenever a tab opens, closes, starts or finishes loading, stops,
+  or the window is resized — a tab says it is loading while its page is being
+  drawn. A strip whose renderer stops answering keeps its last picture and
+  says so along the bottom, and every tab goes on working. Started on a Mac
+  and captured, the window on screen is the strip and the page the browser
+  composed. Still to come: the browser's own keys for a new tab, closing one
+  and moving between them, and a page told when it is chosen or left (529);
+  an agent reading the open tabs from the strip, which first needs deciding
+  what an agent kept to some sites may see of it (531); a title a page
+  changes after it has loaded (532); a click on a page or a tab handled by
+  the page's own process and decided by the browser (298); painting at the
+  screen's density (299); and a new tab opened by a link with
+  `target="_blank"` that a person clicked (300)
 - [2] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [2] History, bookmarks, downloads
 - [2] Find in page, zoom, and per-site settings that stick

@@ -9,19 +9,22 @@
 //! the window's background, until the new one arrives. … Nothing is drawn as
 //! though it were current that is not."*
 //!
-//! So this holds a frame and a sentence and changes only when [`News`]
+//! So this holds a frame and a sentence for the selected tab, and the same
+//! for the tab strip (queue item 528), and changes only when [`News`]
 //! arrives. A resize changes nothing here: the window's size is the window's,
-//! and the frame stays the size it was painted until a new one replaces it.
+//! and each frame stays the size it was painted until a new one replaces it.
 
 use crate::compose::Scene;
 use crate::message::News;
 use alo_renderer::Frame;
 
-/// The selected tab, as far as the window has been told.
+/// The selected tab and the strip, as far as the window has been told.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Showing {
     frame: Option<Frame>,
     sentence: Option<String>,
+    strip: Option<Frame>,
+    strip_sentence: Option<String>,
 }
 
 impl Showing {
@@ -30,7 +33,8 @@ impl Showing {
     ///
     /// A new frame clears the sentence, because a renderer that painted has
     /// answered; a sentence leaves the frame, because a tab keeps the last
-    /// frame it painted (ADR 0005).
+    /// frame it painted (ADR 0005). The strip's are kept apart from the
+    /// tab's, by the same rules.
     pub fn hear(&mut self, news: News) -> bool {
         match news {
             News::Painted(frame) => {
@@ -40,6 +44,15 @@ impl Showing {
             }
             News::Said(sentence) => {
                 self.sentence = Some(sentence);
+                true
+            }
+            News::Strip(frame) => {
+                self.strip = Some(frame);
+                self.strip_sentence = None;
+                true
+            }
+            News::StripSaid(sentence) => {
+                self.strip_sentence = Some(sentence);
                 true
             }
             News::Closed => false,
@@ -56,11 +69,23 @@ impl Showing {
         self.sentence.as_deref()
     }
 
+    /// The strip's last frame, if one has arrived.
+    pub fn strip(&self) -> Option<&Frame> {
+        self.strip.as_ref()
+    }
+
+    /// What the window is saying about the strip, if anything.
+    pub fn strip_sentence(&self) -> Option<&str> {
+        self.strip_sentence.as_deref()
+    }
+
     /// What to compose a window of `window` device pixels from.
     pub fn scene(&self, window: (u32, u32), replication: u32) -> Scene<'_> {
         Scene {
             window,
             replication,
+            strip: self.strip(),
+            strip_sentence: self.strip_sentence(),
             frame: self.frame(),
             sentence: self.sentence(),
         }
@@ -106,6 +131,25 @@ mod tests {
     }
 
     #[test]
+    fn the_strip_is_kept_apart_from_the_tab() {
+        let mut showing = Showing::default();
+        showing.hear(News::Painted(a_frame(1)));
+        assert!(showing.hear(News::Strip(a_frame(2))));
+        assert_eq!(showing.frame(), Some(&a_frame(1)));
+        assert_eq!(showing.strip(), Some(&a_frame(2)));
+        // The strip's sentence leaves its frame, and the tab's alone.
+        assert!(showing.hear(News::StripSaid("gone".to_owned())));
+        assert_eq!(showing.strip(), Some(&a_frame(2)));
+        assert_eq!(showing.strip_sentence(), Some("gone"));
+        assert_eq!(showing.sentence(), None);
+        // A new strip frame clears its sentence and nothing of the tab's.
+        showing.hear(News::Said("tab".to_owned()));
+        showing.hear(News::Strip(a_frame(3)));
+        assert_eq!(showing.strip_sentence(), None);
+        assert_eq!(showing.sentence(), Some("tab"));
+    }
+
+    #[test]
     fn closing_changes_nothing_on_the_screen() {
         let mut showing = Showing::default();
         showing.hear(News::Painted(a_frame(1)));
@@ -122,5 +166,6 @@ mod tests {
         assert_eq!(scene.replication, 2);
         assert_eq!(scene.frame, Some(&a_frame(1)));
         assert_eq!(scene.sentence, None);
+        assert_eq!((scene.strip, scene.strip_sentence), (None, None));
     }
 }

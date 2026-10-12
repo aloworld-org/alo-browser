@@ -644,6 +644,7 @@ impl Renderer {
             FromRenderer::Loaded {
                 issues: mut markup,
                 wanted,
+                title,
                 ..
             } => {
                 let mut issues = left.said;
@@ -657,6 +658,7 @@ impl Renderer {
                     fetches,
                     sheets,
                     left: left.fetches,
+                    title,
                 }
             }
             other => other,
@@ -692,6 +694,7 @@ impl Renderer {
             FromRenderer::Loaded {
                 issues: mut drawn,
                 wanted,
+                title,
                 ..
             } => {
                 let mut issues = left.said;
@@ -704,6 +707,7 @@ impl Renderer {
                     fetches: Vec::new(),
                     sheets: Vec::new(),
                     left: left.fetches,
+                    title,
                 }
             }
             other => other,
@@ -738,9 +742,13 @@ impl Renderer {
         // about one — and the browser process, which may look, is exactly who
         // is listening.
         let wanted = drawing.wanted.families.clone();
+        // What the tab is called (queue item 528), as long as the strip
+        // would draw it and no longer.
+        let title = crate::strip::longest(&document.title()).to_owned();
         FromRenderer::Loaded {
             issues,
             wanted,
+            title,
             // Nothing runs in a drawing, so nothing can have been objected
             // to, or asked for; a load adds what its scripts did and what its
             // document links.

@@ -6,6 +6,15 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The tabs are in the window.** The window now shows its row of tabs
+  across the top, with the page below it, and each tab is called by the
+  page's own title. The row is redrawn as tabs open, close and load, and
+  a tab shows it is loading while its page is drawn. If the process
+  drawing the row stops answering, the window keeps the last row it had,
+  says so along the bottom, and every page goes on working. A page's
+  title is shown exactly as written, however it is written, and only its
+  first 1,024 characters are sent to the row at all.
+
 - **The tab strip is drawn by the engine.** The row of tabs is a small
   page of alo's own, drawn in a locked-down process of its own from a
   list the browser hands it, never from markup. A page's title can only

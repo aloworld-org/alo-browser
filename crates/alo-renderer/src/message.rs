@@ -199,6 +199,15 @@ pub enum FromRenderer {
         /// page said is at the front of [`FromRenderer::Loaded::issues`],
         /// each line marked as said by the page that was left.
         left: Vec<FetchAsk>,
+        /// The document's title, as HTML reads it (`alo-dom`'s
+        /// `Document::title`): what the tab is called in the strip (queue
+        /// item 528). At most [`crate::strip::LONGEST_TITLE`] characters, and
+        /// empty for a page with none.
+        ///
+        /// **A stranger's string**, and a renderer's claim about it: the
+        /// browser process keeps it as text and sends it to the strip's
+        /// renderer as data, where it becomes a text node (ADR 0024 § 4).
+        title: String,
     },
     /// A picture.
     Painted(Frame),

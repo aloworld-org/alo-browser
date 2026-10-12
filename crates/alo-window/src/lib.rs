@@ -33,12 +33,13 @@
 //!
 //! # What it is not yet
 //!
-//! One window and one tab. The tab strip is drawn by a renderer of its own
-//! (`alo-renderer`'s `strip`, item 297) but not yet in the window, which is
-//! item 528; a person's pointer is item
-//! 298, painting at the window's scale factor item 299 — until then a CSS
-//! pixel is replicated to the scale's whole part (§ 3) — and a link opening a
-//! tab item 300.
+//! One window. The tab strip is drawn by a renderer of its own (`alo-renderer`'s
+//! `strip`, item 297) and shown across the top of the window, the selected
+//! tab below it (item 528), but nothing chooses another tab yet: the
+//! browser's own keys are item 529, a person's pointer item 298, an agent
+//! reading the strip item 531, painting at the window's scale factor item
+//! 299 — until then a CSS pixel is replicated to the scale's whole part
+//! (§ 3) — and a link opening a tab item 300.
 
 pub mod agent_record;
 pub mod agent_sites;
