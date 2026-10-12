@@ -6,6 +6,13 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The thing this browser justifies itself by had no way in.** An agent can
+  read a page as a tree and drive it by name — and only from inside the
+  process. Nothing outside could send a verb. That interface is now named as
+  work, to be designed as a contract because other people build against it,
+  and to be the same on every operating system rather than shaped for the one
+  that asked first.
+
 - **How `XMLHttpRequest` will work is decided** (ADR 0053), measured first in
   Chrome 154. It asks for exactly what a `fetch` would and is judged by the
   same rules, so nothing new crosses between the page and the browser. A page

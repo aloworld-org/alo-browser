@@ -11988,9 +11988,63 @@ What stage 2's exit gate actually measures: a person using it.
     built small and shipped**, and it is not a fault in item 131's shape:
     their letter says the shape is right and their models are short of it.
 
+  ***Answered, and this item shrank (2026-10-12).*** Two of their answers
+  change it. `Takes` and `Reaches` are **not scheduled** — no task in their
+  repository carries a web-address argument kind or a narrower `Reaches` — so
+  this adapter is thin **by decision rather than by waiting**: `read()` and
+  `activate(name)`, and not `open(address)`. And they asked us **not** to speak
+  D-Bus natively: nothing of theirs carries out an adapter verb at all
+  (`Delivers`, `Driving` and the session bus are reached only from tests), so
+  D-Bus would buy no verifiability and a shape adopted for one system would be
+  carried for years. Their words: *build the right interface for every system;
+  we will write the wrapper, and that is our debt rather than your delay.* So
+  item 496 is the real work and this is a wrapper they may write themselves.
+  *Depends on 496.*
+
   *Closes when:* the declarable subset above loads on a real alo OS machine,
-  each verb's refusals asserted, and the three gaps recorded as theirs with
-  whatever they have answered by then.
+  each verb's refusals asserted, and the three gaps recorded as theirs.
+
+- [ ] **496. ★ The interface an agent outside this browser speaks.** *Needs
+  ADR, as its own iteration.* Item 131 built the capability — a page nobody
+  wrote for us read as a tree and driven by name — and **nothing outside the
+  process can reach it.** `alo-agent`'s `Verb`, `Outcome`, `Target` and
+  `Refusal` cross into the renderer (`alo-renderer/src/message.rs:85`), and no
+  binary accepts a verb: `grep Verb crates/alo-window/src` is empty. So the
+  one thing this project justifies itself by has no consumer.
+
+  **The ADR decides what a contract decides, because outsiders build against
+  it and contracts outlive code** — alo OS's warning, earned on their own
+  adapter format. It must settle: how an agent outside the process reaches a
+  running browser; how a verb, a target and a refusal are encoded; how a tab
+  is named when several are open; what the record of an action is and who
+  writes it; and what a refusal says, since every refusal in `verb.rs` —
+  `NotFound`, `Ambiguous`, `NotOperable`, `Disabled`, `ReadOnly`, `NotADate`,
+  `TooLong` and the rest — has to survive the crossing without becoming a
+  string.
+
+  **It is ours and the same everywhere.** macOS, Windows and Linux alike
+  (`ROADMAP.md`, *Where it runs*), and **not D-Bus**: ADR 0052's addendum
+  records why, and alo OS asked for this shape rather than theirs.
+
+  *Depends on 131. Closes when:* an agent in a **separate process** reads a
+  frozen real page as a tree, completes a task on it by name, and the record
+  says what was read and what changed — asserted in a test, with every refusal
+  reachable by name and none of them a string a caller has to parse.
+
+- [ ] **497. ★ A grant per site, refused by us and recorded.** An agent granted
+  one site may not reach another, and the site is named in every record. *This
+  is a refusal, not a grant, and the distinction is alo OS's and binding.*
+  Their ADR 0001 requires a grant to be enumerated, visible, revocable and
+  expiring and their ADR 0013 puts enforcement in the kernel, so a grant their
+  kernel cannot see is none of those. They sanctioned this on two conditions
+  that hold wherever this runs: **it only ever narrows** — a grant over the
+  application is the ceiling and nothing here may widen it — and **it is never
+  presented to a person as that system's grant**, nor may any approval
+  sentence claim a narrowness this browser alone enforces.
+  *Depends on 496. Closes when:* an agent granted one site is refused another
+  by name, the refusal is not a string, the site appears in the record of every
+  action, and a test shows the refusal holds for a redirect and for a page that
+  navigates itself.
 
 ## K. ★ The agent, on somebody else's pages
 
@@ -12190,8 +12244,20 @@ person unblocks this stage or does not.
   and the reverse-DNS identifier its source knows it by, so alo OS can name it
   in `crates/alo-software/shipped.toml` for `Role::WebBrowser` the way it names
   any application: `role`, `identifier`, `source`, `version`, `licence` — ours
-  is MPL-2.0 already (ADR 0009), which is what that file wants. **The
-  identifier is `org.aloworld.Browser`**, chosen by the owner on 2026-10-12 —
+  is MPL-2.0 already (ADR 0009), which is what that file wants.
+
+  ***A role is not needed for any of this (2026-10-12).*** alo OS answered
+  from their own `browsing.rs`: a person's chosen browser is returned **before**
+  `shipped.toml` is consulted, on two conditions — that it is not one of the
+  seven terminal identifiers their ADR 0043 reserves, and that it is installed.
+  This browser meets both. **No `Role`, no pin, and no change to their
+  repository.** So `Role::AgentBrowser`, which this repository proposed to them
+  twice, is a convenience and never was a gate; it may sit undecided with their
+  owner indefinitely. Verify it here when this is installable rather than take
+  it on their word — they asked for that explicitly, because the list their
+  check reads was populated by nothing at all until the day they answered.
+
+  **The identifier is `org.aloworld.Browser`**, chosen by the owner on 2026-10-12 —
   the `org` form rather than a `world` one. It assumes the owner holds
   `aloworld.org`, which is what the GitHub organisation `aloworld-org`
   implies and what nothing in either repository records; if the domain is

@@ -155,3 +155,77 @@ browser, only a different opaque one.
   `Reaches` are theirs; this repository reads that tree and never writes to it.
 - The identifier, the source, or whether packaging is pulled out of stage 4.
 - Which forty sites. That is the owner's list and nobody else's.
+
+---
+
+## Addendum, 2026-10-12 — alo OS answered, and two of the consequences above are wrong
+
+Kept as an addendum rather than an edit, because a decision record that hides
+where it was wrong is worth less than one that shows it.
+
+**The consequence this ADR was most careful about is the one that was
+mistaken.** It said the agent's gate *"is not reachable without alo OS
+extending two models of theirs"*. It is reachable without them changing
+anything at all.
+
+**Their answer to our first question, from their code rather than a reading of
+it.** `browsing.rs` returns a person's chosen browser **before**
+`shipped.toml` is consulted:
+
+```rust
+Some(chosen) => match self.installed.knows(chosen) {
+    Some(application) => return Ok(TheBrowser {
+        application: application.clone(),
+        because: Because::ThePersonChoseIt,
+    }),
+```
+
+Two conditions, both of which this browser meets: it must not be one of the
+seven terminal identifiers a person's own shell is reserved to (their ADR
+0043), and it must be installed. **No `Role`. No pin. No change to their
+repository.** So `Role::AgentBrowser` — which this repository proposed twice —
+is a convenience and never was a gate, and the proposal can sit undecided with
+their owner without blocking anybody.
+
+It would have failed silently yesterday, which is worth recording. That second
+condition reads `alo_applications::Installed`, and **nothing populated that
+list on any machine until the same day they answered** — every production
+reference to building one was a test. A person choosing any browser would have
+been refused with `ThisMachineShipsItAndTheChoiceIsNotInstalled`: a refusal
+naming their choice as absent when the truth was that nothing had ever looked.
+They volunteered that, and told us to verify it ourselves rather than take
+their word.
+
+**The transport decision in § 1 is reversed, and the reasoning that reversed it
+is better than the reasoning that made it.** This repository chose D-Bus
+because *an adapter answering `NotCarriedOutHere` cannot be gated at all* —
+true, and incomplete. Nothing of theirs carries out an adapter verb at all:
+`Delivers`, `Driving` and the session bus are reached only from tests. So
+D-Bus bought no verifiability either, and a shape adopted for one system would
+have been carried for years as a contract. **Our own protocol, documented, the
+same on every operating system; their adapter translates it when they can
+execute anything.** Their words: *that is our debt rather than your delay.*
+
+**A site-level grant is sanctioned, as a refusal and not as a grant**, and the
+distinction is the answer rather than pedantry. Their ADR 0001 requires grants
+to be enumerated, visible, revocable and expiring, and their ADR 0013 puts
+enforcement in the kernel; a grant their kernel cannot see is none of those.
+So this browser may hold a grant per site, refuse by name an agent asking for
+a site it was not granted, and put the site in every record it produces — on
+two conditions, which bind us:
+
+1. **It only ever narrows.** Their grant over the application is the ceiling
+   and nothing we hold may widen it.
+2. **It is never shown to a person as an alo grant**, and their approval
+   sentence must not claim a site-level narrowness they cannot enforce. What a
+   person approves is still the browser; ours is defence in depth on top.
+
+**And `Takes` and `Reaches` are not scheduled.** No task in their repository
+carries a web-address argument kind or a narrower `Reaches`. So the adapter is
+thin **by decision rather than by waiting**: `read()` and `activate(name)`,
+not `open(address)`.
+
+**What this leaves true of the gate split.** The split stands and § 5's
+measurement stands. What changes is that the agent's gate no longer waits on
+anybody else's roadmap — it waits on our own interface, which is work we can
+do, on a machine a person can already choose us on.
