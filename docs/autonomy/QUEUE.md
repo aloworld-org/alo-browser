@@ -12460,6 +12460,23 @@ What stage 2's exit gate actually measures: a person using it.
   A locked screen shows nothing, and only a person can unlock it. So this
   is taken again when the machine is unlocked, not worked around.
 
+  ***Unlocked, and next by the owner's choice (2026-10-12 20:25).*** The owner unlocked
+  the machine, and three things were checked rather than assumed before this
+  was marked: `CGSSessionScreenIsLocked` is **false**,
+  `CGPreflightScreenCaptureAccess` is **true**, and a whole-display capture
+  returned **5 116 201 bytes** — a real frame, where a locked screen returns
+  black that compresses to almost nothing.
+
+  It will **stay** unlocked: the display was set to sleep after two minutes of
+  no input, which is what kept re-locking it, and `caffeinate -dis` is running
+  to hold display, idle and system sleep off. So the window this item has to
+  photograph can actually be photographed now.
+
+  **Taken first because five items wait behind it** — 297 the tab strip, 298 a
+  person's pointer, 299 device pixels, 300 a link opening a tab, and 477 the
+  application somebody can run, which the owner opened as an exception to
+  stage 4's gate and which cannot be built until this is.
+
 - [ ] **297. The tab strip.** *Cut from 118 (ADR 0024 §§ 4, 6).* Its own
   renderer at an internal site no page can name, under the renderer's
   sandbox profile; a typed message of the strip's state (tabs in order,
