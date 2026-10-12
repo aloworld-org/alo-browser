@@ -12078,6 +12078,23 @@ What stage 2's exit gate actually measures: a person using it.
   binary accepts a verb: `grep Verb crates/alo-window/src` is empty. So the
   one thing this project justifies itself by has no consumer.
 
+  ***The ADR is written: ADR 0055 (2026-10-12), and this is next by the owner's
+  choice.*** It is numbered 0055 and not 0053 because the loop committed its
+  own 0053 first and 0054 was already in flight. So this item is **not** a
+  decision iteration any more — the decision is made and this is its code.
+  ADR 0055 settles: a Unix domain socket the browser process holds and
+  **never a port**, because a page's own script can reach `localhost` and a
+  port would let any page read every tab and type into every field with no
+  grant consulted; the browser process answering and never a renderer, so
+  ADR 0005 survives; **a refusal crossing as a kind with its own fields**, so
+  our English never becomes a caller's dependency; **a tab named by its
+  address** rather than numbered, because an index is the coordinate ADR 0002
+  refuses; the grant checked **before any tab is looked at**, so a refusal
+  cannot reveal what a person has open; and the record written by the browser
+  process, because a renderer that could write it could lie. macOS and Linux
+  use `std::os::unix::net`; **Windows is undecided** in that ADR and is not
+  this item's problem.
+
   **The ADR decides what a contract decides, because outsiders build against
   it and contracts outlive code** — alo OS's warning, earned on their own
   adapter format. It must settle: how an agent outside the process reaches a

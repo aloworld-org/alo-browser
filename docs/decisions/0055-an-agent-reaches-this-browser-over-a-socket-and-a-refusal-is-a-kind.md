@@ -1,4 +1,15 @@
-# ADR 0053 — An agent reaches this browser over a socket, and a refusal is a kind
+# ADR 0055 — An agent reaches this browser over a socket, and a refusal is a kind
+
+> **Renumbered from 0053 on 2026-10-12, and the commit that added it says 0053.**
+> The build loop committed its own ADR 0053 — `XMLHttpRequest` — at 08:41, and
+> this one landed at 09:15 with the same number. The loop had it first, so this
+> moved. 0054 was already claimed by an iteration in flight.
+>
+> It happened because this was written in the same window the loop was writing
+> in, having been careful about that for `loop.sh` and `gate.sh` all day and not
+> about the one thing with a shared counter. ADR 0003's rule — identity
+> allocated once and never reused — is about nodes and reads the same for ADR
+> numbers, which is why the number moved rather than being shared.
 
 **Status:** accepted
 **Date:** 2026-10-12
