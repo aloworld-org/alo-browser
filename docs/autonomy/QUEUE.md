@@ -12395,7 +12395,7 @@ What stage 2's exit gate actually measures: a person using it.
   a week"* — which nobody can begin without a window; the frozen alo pages
   in the corpus are what it shows first.
 
-- [ ] **296. The window shows a tab.** *Cut from 118 (ADR 0024 §§ 1–3).* A new
+- [x] **296. The window shows a tab.** *Cut from 118 (ADR 0024 §§ 1–3).* A new
   crate, `alo-window`, binary `alo`: `winit` named only in `window.rs`,
   `softbuffer` only in `present.rs`, both added to `gate.sh`'s boundary list;
   the safety of every function called checked in the crates' source first
@@ -12476,6 +12476,41 @@ What stage 2's exit gate actually measures: a person using it.
   person's pointer, 299 device pixels, 300 a link opening a tab, and 477 the
   application somebody can run, which the owner opened as an exception to
   stage 4's gate and which cannot be built until this is.
+
+  ***Done (iteration 316).*** The capture was taken and compared, the one
+  clause owed.
+  1. `target/debug/alo --frozen-fonts
+     crates/alo-corpus/cases/alo-offline/page.html` started. The window server
+     listed its window, id 3545, 1000×732 points. One `alo-render` ran under
+     it. The session had no `CGSSessionScreenIsLocked` key, and
+     `CGPreflightScreenCaptureAccess` answered true.
+  2. `screencapture -l 3545 -o -x` exited 0 with a 2000×1464 picture: the
+     page, under a 64-pixel title bar. Its colour profile is the display's
+     own ("Display").
+  3. The composed reference was made the way the window makes it. A scratch
+     program, outside the repository, drove the real `Conductor` and the
+     same `alo-render` binary with `fonts::frozen()`. It opened the page
+     and sent `place::viewport((2000, 1400), 2)`, which is 1000×700. Then it
+     composed `Showing::scene((2000, 1400), 2)` from the frame painted.
+  4. Compared over the content area (the capture's bottom 1,400 rows).
+     softbuffer hands the window server Device RGB (`cg.rs`'
+     `CGColorSpace::new_device_rgb`), and macOS colour-matches it to the
+     display. So the composition was put through the capture's own profile
+     from sRGB with LittleCMS, and then compared:
+     - Of the 2,799,416 opaque pixels, **2,795,468 are exact** and **every
+       one is within one level**. Each of the 186 colours sampled from the
+       composition maps to one captured colour, except one.
+     - The other 584 pixels are the window server's rounded bottom corners.
+       It made them translucent (alpha below 255), and those are the only
+       pixels more than one level apart.
+     - Without the colour conversion, 2,758,756 pixels are one level apart.
+       That is the colour matching, not the picture.
+  5. On `kill -TERM`, neither `alo` nor `alo-render` was left running.
+
+  So `alo` shows on the screen the window `compose` says, to within the
+  display's colour matching. The capture and the program are not committed:
+  the capture is the display's picture, and only this machine's profile
+  makes it comparable. This is measured on this Mac only.
 
 - [ ] **297. The tab strip.** *Cut from 118 (ADR 0024 §§ 4, 6).* Its own
   renderer at an internal site no page can name, under the renderer's

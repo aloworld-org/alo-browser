@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **The window has been seen on a real screen.** `alo` was started on a
+  Mac and its window photographed by the system's own screen capture. It
+  is the picture the browser meant to show, pixel for pixel, apart from
+  the display's colour matching (one level at most) and the corners macOS
+  rounds. Until now that had only been tested without a screen.
+
 - **A text field is as wide as Chrome's.** A field with no width of its
   own was twenty widths of the digit zero here, a little wider than
   Chrome's, and its `size` attribute was ignored. It is now as many

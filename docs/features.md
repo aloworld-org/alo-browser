@@ -669,8 +669,10 @@ The reason this exists rather than a faster fork of somebody else's engine.
   are right and text is coarse. Closing the window closes every tab and stops
   every renderer. `--frozen-fonts` draws with the reference corpus's fonts, so
   a frozen alo page in the window is the corpus's picture of it, pixel for
-  pixel. Not yet checked: that the picture reaches the screen, because this
-  machine has not let the build capture a window (see the queue). Still to
+  pixel. The picture reaches the screen: started on a Mac and captured with
+  the system's own screen capture, the window is the picture the browser
+  composed, every pixel within one level once the display's colour matching
+  is allowed for, except the corners macOS rounds. Still to
   come: the tab strip drawn by the engine from the browser's own list of tabs,
   so an agent can read which tabs are open and a page's title can only ever
   appear as text (297); a click on a page or a tab handled by the page's own

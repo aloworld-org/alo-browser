@@ -1720,10 +1720,11 @@ items where being right and being unusable are the same outcome.
       sentence. Pixels are replicated to the scale factor's whole part.
       Closing the window stops every renderer. `--frozen-fonts` makes a
       renderer process paint a frozen alo page identical to the corpus's
-      committed render. · Owed: 296's capture of the window on this machine
-      with `screencapture -l`, refused because this machine has not granted
-      the build Screen Recording; the strip (297); a person's pointer (298);
-      device pixels (299); a link opening a tab (300)
+      committed render. Started on this Mac and captured with
+      `screencapture -l`, the window is its composition: every opaque pixel
+      within one level once put through the display's colour profile, and
+      99.86% exact (296, done). · Owed: the strip (297); a person's pointer
+      (298); device pixels (299); a link opening a tab (300)
 - [ ] The address bar: what somebody typed, what it means, and a search that phones nobody by default
 - [ ] History, bookmarks, downloads
 - [ ] Find in page, zoom, and per-site settings that stick

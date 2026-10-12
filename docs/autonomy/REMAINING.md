@@ -2056,3 +2056,14 @@ and within 9 levels of Chrome's screenshot. Found: **526** (a face with
 no `x`), and a lead on 514: Chrome seems to set a face at its size cut to
 hundredths. 248 queue items are open (511 closed, 526 added). The next
 unused queue number is 527 and the next unused ADR 0057.
+
+Iteration 316 closed queue item 296, the window. The screen was unlocked,
+so its one owed clause could be met. `alo --frozen-fonts` on the frozen
+`alo-offline` page was captured with `screencapture -l` and compared with
+`compose` of the same page at the window's size and scale. The frame came
+from the real conductor and `alo-render`. Once the composition is put
+through the display's colour profile, every opaque pixel is within one
+level and 99.86% are exact. The only others are the translucent rounded
+corners the window server adds. 297, the tab strip, is now eligible.
+247 queue items are open (296 closed). The next unused queue number is
+527 and the next unused ADR 0057.

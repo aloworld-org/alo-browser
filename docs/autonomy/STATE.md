@@ -31314,3 +31314,105 @@ still owed.
 248 queue items are open (511 closed, 526 added). The next unused queue
 number is **527** and the next ADR is **0057**. This is one iteration,
 not a finished queue or roadmap.
+
+---
+
+## Iteration 316 — queue item 296 closed: the window, captured on this Mac
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md`, iteration 315's
+entry and the owner's commit 0211467, which marked 296 next once the screen
+was unlocked. No `AGENTS.md` exists in this repository. For 296: ADR 0024
+§§ 1–3 (§ 2 names this check), and `docs/features.md`' stage 2 line *A
+window, tabs, and a tab strip*.
+
+**Why 296.** It was the first open item with its dependencies done (63, 64),
+and its one owed clause had waited only on an unlocked screen. Checked
+before taking it, not assumed: the session dictionary had no
+`CGSSessionScreenIsLocked` key, `CGPreflightScreenCaptureAccess` answered
+true, and a whole-display `screencapture` gave a 5,103,410-byte real frame.
+`caffeinate -dis` (pid 79686) was still holding sleep off.
+
+**The check, clause 3 of 296's *Closes when*.**
+1. `target/debug/alo --frozen-fonts
+   crates/alo-corpus/cases/alo-offline/page.html` started (binaries built
+   from 0211467). A CGWindowList lister in the scratchpad found its window:
+   id 3545, 1000×732 points at (355, 120). One `alo-render` (pid 55348) ran
+   under `alo` (pid 55305).
+2. `screencapture -l 3545 -o -x` exited 0 with a 2000×1464 PNG tagged with
+   the display's profile ("Display"). Looked at: the frozen offline screen,
+   under a 64-pixel title bar.
+3. The composed reference at the window's size and scale was made by a
+   scratch program, outside the repository and not committed. Through the
+   library's own types it did what `window.rs` does:
+   - it ran the real `Conductor` with `Fonts::AsStarted` over
+     `Renderers::running(target/debug/alo-render)` and `fonts::frozen()`;
+   - it sent `Order::Open` with the page, then
+     `Order::Resize(place::viewport((2000, 1400), 2))`, which is 1000×700;
+   - it heard the painted 1000×700 frame into a `Showing`;
+   - it wrote `compose(&showing.scene((2000, 1400), 2), …)`.
+4. The two were compared over the capture's bottom 1,400 rows, in Python
+   with Pillow and LittleCMS (`python3 -I`).
+   - Raw values: 2,758,756 pixels are one level off, because softbuffer
+     hands the window server Device RGB (`softbuffer-0.4.8/src/backends/cg.rs`,
+     `CGColorSpace::new_device_rgb`) and macOS colour-matches it to the
+     display.
+   - So the composition was converted from sRGB through the capture's own
+     embedded profile. Of 2,799,416 opaque pixels, **2,795,468 are exact
+     and all are within one level**. Each of 186 composed colours sampled
+     maps to one captured colour, except one: rounding in the conversion.
+   - The other 584 pixels have alpha below 255. They are the window
+     server's rounded bottom corners, and the only pixels more than one
+     level apart (up to 244).
+   - Converting the capture to sRGB instead is coarser: 2,768,348 pixels
+     one level off and 31,120 exact, because two 8-bit conversions round
+     twice. Away from the bottom corners' 30-pixel squares, 4 were more than
+     two levels off (at most 5), all beside those corners.
+5. `kill -TERM` on `alo` left neither `alo` nor `alo-render` running.
+
+So `alo` puts on the screen what `compose` says, to within the display's
+colour matching and the window's own corners. Capture SHA-256 `89f8d5f1…`,
+composition `2d7167d9…`, both in the scratchpad only. The capture is the
+display's picture and comparable only through this machine's profile, so
+it is not committed as a reference.
+
+**Built.** No code. 296's two earlier clauses (four committed reference
+renders; `a_renderer_that_never_answers.rs`) were met in iteration 182 and
+still pass in the gate.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. At 600 s the harness moved it to the background, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, and no `FAILED`, `panicked` or
+`^error` line in the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout assertions in numbers: no layout changed. The window's placement
+  is asserted in `place.rs`'s tests, unchanged.
+- Reference renders: unchanged and passing. This iteration's evidence is
+  the capture compared with the composition, as ADR 0024 § 2 asks.
+- One file, one responsibility: no source file touched.
+- `docs/features.md` (the screen is no longer unchecked), `ROADMAP.md`,
+  `REMAINING.md`, `CHANGELOG.md` and the queue are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Queue.** 296 is ticked with its *Done* paragraph. 297 (the tab strip) is
+now eligible, and 298, 299, 300, 386 and 477 wait on 297 or on 296 alone.
+
+**Roadmap.** *A window, tabs, and a tab strip* stays unticked. Its Built
+clause now says the window was captured and matched its composition. 296's
+capture is gone from Owed, which still lists 297–300.
+
+**Unresolved obligations.**
+- Exact equality on screen is not claimed. The display's colour matching
+  moves values by up to a level, and one comparison stands in for the
+  window server's conversion.
+- Measured on this Mac only, at scale 2. Integer replication at other
+  factors is covered by `place.rs`'s tests, not by a screen.
+- The capture is not repeatable from the repository without a person's
+  unlocked screen and Screen Recording grant. That is ADR 0024 § 2's
+  stated limit for this one check.
+
+247 queue items are open (296 closed). The next unused queue number is
+**527** and the next ADR is **0057**. This is one iteration, not a finished
+queue or roadmap.
