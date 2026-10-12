@@ -22,7 +22,8 @@
 //! `font` — is not here: that is parsing, and it is `alo_value::shorthand`'s.
 //! The two of those split as they are written, `list-style` and `flex`, are
 //! split by [`crate::list_style`] and [`crate::flex`], and [`expand`] hands
-//! each there.
+//! each there. So is `font` when it is a CSS-wide keyword alone, by
+//! [`crate::font`], and only then.
 
 use crate::declaration::Declaration;
 
@@ -122,6 +123,9 @@ pub(crate) fn expand(declaration: &Declaration) -> Vec<(String, String)> {
     }
     if name == "flex" {
         return crate::flex::split(value);
+    }
+    if name == "font" {
+        return crate::font::split(value);
     }
     Vec::new()
 }

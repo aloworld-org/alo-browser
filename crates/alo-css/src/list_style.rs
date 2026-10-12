@@ -139,7 +139,8 @@ fn is_image(part: &str) -> bool {
 }
 
 /// Whether a value is one of the keywords every property takes.
-fn is_wide_keyword(value: &str) -> bool {
+/// [`crate::font`] asks it too.
+pub(crate) fn is_wide_keyword(value: &str) -> bool {
     ["inherit", "initial", "unset", "revert", "revert-layer"]
         .iter()
         .any(|keyword| value.eq_ignore_ascii_case(keyword))

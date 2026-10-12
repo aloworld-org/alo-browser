@@ -7702,7 +7702,7 @@ The long pole, and the thing most of section E is unreachable without.
   from Chrome's, because a field above it was too tall. *Found:* 508, 509
   and 510.
 
-- [ ] **506. A control's own font is Chrome's 13.33 px.** *Found building
+- [x] **506. A control's own font is Chrome's 13.33 px.** *Found building
   467 (iteration 308). Feature: `docs/features.md` stage 1, forms. Needs
   measuring.* Chrome 154 computes a `font-size` of 13.3333px for an
   `<input>`, a `<button>`, a `<textarea>` and a `<select>`, whatever the
@@ -7713,6 +7713,47 @@ The long pole, and the thing most of section E is unreachable without.
   here (`system-ui` maps to `DejaVu Sans` in the corpus), and whether the
   size is 13.3333 or 40/3 on the 1/64 grid. *Closes when:* `web-a-form`'s
   fields are Chrome's height and width to 1/64 px.
+  ***Done (iteration 310), with the field's width cut to 511.*** *Measured
+  in headless Chrome 154:* every `<input>`, `<button>`, `<select>` and
+  `<textarea>` computes `13.3333px`, weight 400, `normal` style and
+  `line-height: normal` inside a bold, italic, 20 px paragraph with a line
+  of 3. Its family is Arial, and `monospace` for a `<textarea>` and for
+  `date`, `time`, `datetime-local`, `month` and `week`. A label, a fieldset,
+  an output and a meter keep the page's. `font: inherit` gives a field the
+  paragraph's whole font, its 60 px line included, and `font-size:
+  inherit` its size alone. *Built:* the user-agent sheet's control font
+  (`alo-style`), as `Arial, sans-serif` so that a machine without Arial
+  uses its own `sans-serif`, which the corpus answers with `DejaVu Sans`.
+  The size is written `13.333333px`, the same `f32` as 40/3. And
+  `alo-css`'s `font.rs`: `font` as a CSS-wide keyword alone is split into
+  every longhand it covers, `line-height` included, as `list-style` and
+  `flex` are split, because alo's screens take their controls' font back
+  with `font: inherit` and a whole `font` never met the sheet's
+  `font-size` in the cascade. Any other `font` value is left whole, as
+  before (513). *Closed:* `web-a-form`'s three text fields are Chrome's 21
+  tall at Chrome's 16, 53 and 90, and its radios, checkboxes and
+  fieldsets stand at Chrome's y to the unit; its button is Chrome's
+  103.078125 by 21 within one unit across (514)
+  (`a_controls_own_font.rs`). *Not closed, and cut:* the fields' width.
+  Chrome's is 172, not `20ch`: 20 of the font's zeros at 13.33 px are
+  169.66 inside the padding and border, so the field is 177.66 here, where
+  it was 211.59. That rule is 511. *Measured over the whole corpus* with
+  each element's computed family standing for a corpus font (`monospace`
+  for `DejaVu Sans Mono`, `serif` for `DejaVu Serif`, anything else
+  `DejaVu Sans`): 886 of 1,261 element boxes are Chrome's exactly, where
+  865 were, 45 came nearer and none went further. Only `web-a-form` moved.
+  `a-filled-form`'s field text is 13.33 px now, its boxes unchanged,
+  because its 13 px line was already 15. Against Chrome's screenshot with
+  the same fonts, `a-filled-form`'s render is 2.01 off on average where it
+  was 5.39, and `web-a-form`'s 2.63 where it was 8.61. *Evidence:* two
+  `alo-style` unit tests (the measured font inside a paragraph that says
+  otherwise, and `font: inherit` against `font-size: inherit`), three
+  `alo-css` unit tests of the split, the corpus test, and five references
+  rewritten. Two mutations were caught: with the split off, the unit test
+  and six alo corpus cases fail (their `font: inherit` buttons shrink); with
+  the sheet's size back to `inherit`, both corpus tests fail. Tests outside
+  the corpus that assumed a control in the page's font were moved to the
+  rule, each with its reason. *Found:* 511, 512, 513 and 514.
 
 - [ ] **507. A date field's line is 2 px taller than a text field's.**
   *Found building 467 (iteration 308). Feature: `docs/features.md` stage
@@ -7759,6 +7800,59 @@ The long pole, and the thing most of section E is unreachable without.
   disabled, and what a page's own border does. *Closes when:* the
   `textarea` in `web-a-form` is drawn within a measured bound of Chrome's
   screenshot.
+
+- [ ] **511. A text field's width is Chrome's, not `20ch`.** *Cut from 506
+  (iteration 310). Feature: `docs/features.md` stage 1, a form control
+  holds what it shows. Needs measuring.* Chrome 154's field is as wide as
+  its `size` attribute (20 when it has none) in characters, and the
+  character is not the font's `0`. Measured with `DejaVu Sans`, padding and
+  border off: at 13.33 px a field of size 1, 2, 5, 10 and 20 is 12, 20, 44,
+  84 and 164, so 8 a character and 4 more. At 10, 20 and 32 px it is 6, 12
+  and 19 a character. At 16 px it is 15, 25, 53, 101 and 195, which no whole
+  width fits. The font's `x` is 0.5918 em, which is 7.89 at 13.33 and 9.47
+  at 16, so Chrome's character looks like the `x`'s advance, rounded at
+  some sizes, plus a term that may be the font's widest character's. Here
+  it is `20ch`, so `web-a-form`'s fields are 177.66 where Chrome's are
+  172, and `size` is not read. In `DejaVu Sans Mono` it differs again: a 16 px
+  field of size 20 is 205 there and 195 in `DejaVu Sans`. *Closes when:* a rule fits enough sizes
+  and fonts that one it was not fitted to confirms it, and `web-a-form`'s
+  fields are Chrome's 172 to 1/64 px.
+
+- [ ] **512. The rest of a control's text is reset as Chrome's is.** *Found
+  building 506 (iteration 310). Feature: `docs/features.md` stage 1, forms.
+  Blocked: no page yet.* Measured in Chrome 154 inside a paragraph that
+  sets each of them: a control computes `letter-spacing: normal`,
+  `word-spacing: 0px`, `text-transform: none`, `text-indent: 0px`,
+  `text-shadow: none`, `color: rgb(0, 0, 0)`, and `text-align: start`
+  (`center` for a button and a submit). Here a control inherits them, so
+  an uppercase paragraph's field would show its value in capitals. No
+  corpus page puts a control in such text yet. *Closes when:* a frozen
+  page whose control sits in such text is Chrome's in numbers.
+
+- [ ] **513. The `font` shorthand, read by kind.** *Found building 506
+  (iteration 310). Feature: `docs/features.md` stage 1, text. Blocked: no
+  page yet.* Only a CSS-wide keyword alone is split (`alo_css::font`).
+  `font: 12px/1.5 serif`, `bold 14px system-ui` or a system font such as
+  `caption` is left whole and read by nothing. Since 506 that matters more:
+  a button with `font: 14px sans-serif` is 13.33 px here and 14 in Chrome,
+  where it used to take the page's size. No corpus page writes one. Needs:
+  CSS Fonts 4's grammar (up to four `normal`s, a style, a variant, a weight
+  and a width before the size, a `/` line height after it, then the family
+  list) and the resets it implies, measured against Chrome 154's computed
+  longhands. *Closes when:* a frozen page that sets a font that way is
+  Chrome's in numbers.
+
+- [ ] **514. A run of text at a fractional size is a unit wider than
+  Chrome's.** *Found building 506 (iteration 310). Feature:
+  `docs/features.md` stage 1, text. Needs measuring.* "Submit order" in
+  13.333333 px `DejaVu Sans` shapes, kerning included, to 5,573.75 units of
+  1/64 px. Chrome 154 lays it out 5,573 wide and this engine 5,574, which
+  rounds a run's width up (ADR 0054). So `web-a-form`'s button is 103.09375
+  wide where Chrome's is 103.078125. At whole sizes the corpus agrees to
+  the unit, so it may be how Chrome scales a font's advances at a
+  fractional size rather than how it rounds a sum. *Closes when:* a rule
+  measured over fractional sizes puts that button at Chrome's 6,597 units,
+  with every case that moves measured.
 
 - [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage

@@ -131,6 +131,28 @@ button, input, select, textarea, output, optgroup, option, datalist {
 label { display: inline }
 datalist, optgroup, option { display: none }
 
+/* A control is set in a font of its own, not the page's: Chrome 154's
+ * computed values, measured (queue item 506). Every `<input>`, `<button>`,
+ * `<select>` and `<textarea>` is 13.3333px, weight 400, upright, with a
+ * `normal` line, whatever the paragraph around it says — so a field in
+ * bold 20 px text with a line of 3 is none of those. The family is Arial,
+ * and `monospace` for a `<textarea>` and the five fields that write a date
+ * or a time. A machine without Arial gets its own `sans-serif`, which is
+ * what the corpus's `DejaVu Sans` answers. A page that wants its own font
+ * on a control says so, and alo's screens do: `font: inherit`, which is
+ * every one of these longhands (`alo_css::font`). */
+button, input, select, textarea {
+  font-family: Arial, sans-serif;
+  font-size: 13.333333px;
+  font-weight: normal;
+  font-style: normal;
+  line-height: normal;
+}
+textarea, input[type="date"], input[type="time"], input[type="datetime-local"],
+input[type="month"], input[type="week"] {
+  font-family: monospace;
+}
+
 /* Form controls have a size of their own.
  *
  * A bare `<input>` is not empty — it is a box a person types into, and it is
@@ -444,6 +466,107 @@ mod tests {
                 "{id}"
             );
         }
+    }
+
+    /// What the engine's sheet and then `author`'s give the element whose
+    /// `id` is `wanted`, for the property `name`.
+    fn computed_with(html: &str, author: &str, wanted: &str, name: &str) -> Option<String> {
+        let document = alo_dom::parse_document(html);
+        let engine = parse_stylesheet(USER_AGENT_STYLE_SHEET);
+        let page = parse_stylesheet(author);
+        let sheets = [
+            crate::SourcedSheet::new(crate::Origin::UserAgent, &engine),
+            crate::SourcedSheet::new(crate::Origin::Author, &page),
+        ];
+        let styles = crate::resolve(&document, &sheets, &alo_css::MediaContext::default());
+        let id = document
+            .descendants(document.root())
+            .find(|id| document.element(*id).and_then(|e| e.attr("id")) == Some(wanted))?;
+        Some(styles.get(id)?.get(name)?.to_owned())
+    }
+
+    #[test]
+    fn a_control_is_set_in_chromes_font_and_not_the_pages() {
+        // Chrome 154's computed values, measured (queue item 506), inside a
+        // paragraph whose own font says otherwise in every longhand.
+        let html = "<p id=p><input id=text><button id=button>b</button>\
+                    <select id=list></select><input id=box type=checkbox>\
+                    <textarea id=area></textarea><input id=date type=date>\
+                    <input id=time type=time><input id=local type=datetime-local>\
+                    <input id=month type=month><input id=week type=week>\
+                    <input id=number type=number><span id=span>s</span></p>";
+        let page = "p { font-family: serif; font-size: 20px; font-weight: bold; \
+                    font-style: italic; line-height: 3 }";
+        for id in [
+            "text", "button", "list", "box", "area", "date", "time", "local", "month", "week",
+            "number",
+        ] {
+            for (name, value) in [
+                ("font-size", "13.333333px"),
+                ("font-weight", "normal"),
+                ("font-style", "normal"),
+                ("line-height", "normal"),
+            ] {
+                assert_eq!(
+                    computed_with(html, page, id, name).as_deref(),
+                    Some(value),
+                    "{id} {name}"
+                );
+            }
+        }
+        for (id, family) in [
+            ("text", "Arial, sans-serif"),
+            ("button", "Arial, sans-serif"),
+            ("list", "Arial, sans-serif"),
+            ("number", "Arial, sans-serif"),
+            ("area", "monospace"),
+            ("date", "monospace"),
+            ("time", "monospace"),
+            ("local", "monospace"),
+            ("month", "monospace"),
+            ("week", "monospace"),
+        ] {
+            assert_eq!(
+                computed_with(html, page, id, "font-family").as_deref(),
+                Some(family),
+                "{id}"
+            );
+        }
+        // Text that is not a control keeps the paragraph's.
+        assert_eq!(
+            computed_with(html, page, "span", "font-size").as_deref(),
+            Some("20px")
+        );
+    }
+
+    #[test]
+    fn a_page_takes_a_controls_font_back_with_font_inherit() {
+        // alo's screens write `font: inherit` on their controls. Chrome then
+        // computes the paragraph's whole font, its line included.
+        let html = "<p><button id=button>b</button><input id=text></p>";
+        let page = "p { font-family: serif; font-size: 20px; font-weight: bold; \
+                    line-height: 3 } button { font: inherit } input { font-size: inherit }";
+        for (name, value) in [
+            ("font-size", "20px"),
+            ("font-family", "serif"),
+            ("font-weight", "bold"),
+            ("line-height", "3"),
+        ] {
+            assert_eq!(
+                computed_with(html, page, "button", name).as_deref(),
+                Some(value),
+                "button {name}"
+            );
+        }
+        // One longhand takes back only itself.
+        assert_eq!(
+            computed_with(html, page, "text", "font-size").as_deref(),
+            Some("20px")
+        );
+        assert_eq!(
+            computed_with(html, page, "text", "line-height").as_deref(),
+            Some("normal")
+        );
     }
 
     #[test]

@@ -30584,3 +30584,146 @@ a clause: what 505 built, and what it owes (508, 509 and 510).
 238 queue items are open (505 closed, 508–510 added). The next unused
 queue number is **511** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 310 — queue item 506 built: a control is set in Chrome's own font
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 309's entry, `REMAINING.md` and the queue. No
+`AGENTS.md` exists in this checkout. Iteration 309 left every open item
+up to 503 blocked, waiting for a page, a person or a dependency, and
+closed 505. **506 is the first open item after it**, nothing blocks it,
+and it can be measured here with Chrome 154. **For the item:** item 506's
+own text, items 467 and 505's records, `docs/features.md` stage 1 (*a
+form control holds what it shows*), the user-agent sheet, `alo-css`'s
+`shorthand.rs`, `longhand.rs`, `list_style.rs` and `flex.rs`, and
+`alo-style`'s `settle_font`. It names no ADR, and none decides this.
+
+**Measured, in headless Chrome 154**, in scratchpad probes kept nowhere:
+- *Computed,* inside a paragraph set in bold italic 20 px Georgia with a
+  line of 3, letter-spacing and the rest: every `<input>`, `<button>`,
+  `<select>` and `<textarea>` is `13.3333px`, weight 400, `normal` style,
+  `line-height: normal`. Its family is Arial, and `monospace` for a
+  `<textarea>` and for `date`, `time`, `datetime-local`, `month` and
+  `week`. A label, fieldset, legend, output, meter and progress keep the
+  page's. `font: inherit` gives a field the paragraph's whole font, its
+  60 px line included, and `font-size: inherit` its size alone. Its
+  letter and word spacing, transform, indent, colour and alignment are
+  reset too (cut to 512).
+- *A field's width* is not `20ch`. With `DejaVu Sans` and no padding or
+  border, a 13.33 px field of `size` 1, 2, 5, 10 and 20 is 12, 20, 44, 84
+  and 164. At 16 px no whole character width fits (cut to 511).
+- *`web-a-form`*, with each element's computed family standing for a
+  corpus font: fields 172 by 21 at 16, 53 and 90, a button 103.078125 by
+  21.
+
+**Built:**
+- `alo-style` `user_agent.rs`: `button, input, select, textarea` get
+  `font-family: Arial, sans-serif`, `font-size: 13.333333px`, weight and
+  style `normal` and `line-height: normal`. The textarea and the five date
+  and time fields get `monospace`. Arial is Chrome's computed family, and
+  `sans-serif` after it is what a machine without Arial uses. The corpus
+  answers it with `DejaVu Sans`, as Chrome's probe did.
+- `alo-css` `font.rs` (new): `font` as a CSS-wide keyword alone is split
+  into every longhand `longhand.rs` lists for it, `line-height` included,
+  at the declaration's position, as `list-style` and `flex` are.
+  `shorthand::expand` hands it there. Any other `font` value is left whole,
+  as every `font` was before (513). This was needed, not tidy: alo's
+  screens write `button { font: inherit }`, a whole `font` never met the
+  sheet's `font-size` in the cascade, and six alo corpus cases' buttons
+  would have shrunk to 13.33 px. `list_style::is_wide_keyword` is
+  `pub(crate)` for it.
+
+**Tests.**
+- `alo-css` `font.rs`: 3 unit tests (every longhand with `line-height`,
+  every keyword as written, any other value left whole).
+- `alo-style` `user_agent.rs`: `a_control_is_set_in_chromes_font_and_not_the_pages`
+  (eleven controls inside a paragraph that says otherwise in every
+  longhand) and `a_page_takes_a_controls_font_back_with_font_inherit`.
+- `alo-corpus/tests/a_controls_own_font.rs` (new, 2 tests):
+  `web-a-form`'s three fields are 21 at Chrome's 16, 53 and 90, its seven
+  toggles and two fieldsets at Chrome's y to the unit. Its button is
+  Chrome's 103.078125 within one unit across, 21 tall. The unit is 514's.
+  The fields are asserted at 177.65625 wide, with Chrome's 172 named as
+  511.
+- **Mutations:** with the `font` split off, the `font: inherit` unit test
+  and six alo corpus cases (`alo-agenda-calendars`,
+  `alo-agenda-mini-month`, `alo-offline`, `alo-sites-booking`,
+  `alo-sites-contact-form`, `alo-sites-full-page`) fail. With the sheet's
+  `font-size` put back to `inherit`, both corpus tests fail. Each file
+  was restored from a scratchpad copy.
+- **Reference renders**, every committed PNG backed up first, rewritten
+  with `ALO_UPDATE_REFERENCES=1`: `a-filled-form` (its field text is now
+  13.33 px and its boxes are unchanged, because its 13 px line was already
+  15) and `web-a-form` (with `filled.png`). Against Chrome's screenshot
+  with the same fonts, `a-filled-form` is 2.01 off on average where it was
+  5.39, and `web-a-form` 2.63 where it was 8.61.
+- Rewritten to the rule, each with its reason:
+  `an_agent_on_somebody_elses_page.rs` (the typed text is 13.33 px, and
+  the textarea's is `DejaVu Sans Mono`), `reading_an_interface.rs` (the
+  field is 141.33 by 21, a pixel under the checkbox's line top),
+  `an_agents_text.rs`, `what_a_script_left.rs`,
+  `an_agent_outside_the_browser.rs` (the "Large" radio at Chrome's
+  242.59375). `numbers.rs`' two line-height and baseline tests give the
+  control 16 px, so they still test what they were written for.
+  `what_a_listener_hears.rs`' font database now maps `sans-serif` as the
+  corpus does. Without it the load rightly reported that neither Arial nor
+  `sans-serif` was there, and that file asks about listeners.
+
+**Whole corpus against Chrome.** Each element's computed family stood
+for a corpus font (`monospace` for `DejaVu Sans Mono`, `serif` for
+`DejaVu Serif`, anything else `DejaVu Sans`). This is more faithful than
+iteration 308's probe, which forced `DejaVu Sans` on everything, so these
+counts are not comparable with its 855. Before (HEAD in a worktree) and
+after, by the same probe: 886 of 1,261 element boxes are Chrome's
+exactly, where 865 were. 45 came nearer and **none went further**. Only
+`web-a-form` moved.
+
+**Gate, mechanical.** `cargo fmt --all` and then `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean, with the
+temporary `alo-corpus/examples/boxes.rs` moved out first. The touched
+crates' tests ran with `--no-fail-fast`: `alo-css`, `alo-style`,
+`alo-layout`, `alo-paint`, `alo-agent`, `alo-box` and `alo-text` in the
+foreground, and `alo-renderer`, `alo-window` and `alo-bindings` detached.
+Nine tests failed there, and each was rewritten as above and passes. Then
+`scripts/gate.sh` ran in the foreground into a scratchpad log. The
+harness moved it to the background at 600 s, and the next call waited on
+it with a foreground `until` loop. **Result: `exit 0`, "The gate is met.
+(10 of 10 steps)"**, with no `FAILED`, `panicked` or `^error` in the
+log. Only this entry was written after it.
+
+**Gate, manual.**
+- Layout assertions in numbers: yes, against Chrome's measured numbers.
+- Reference renders: yes, rewritten and compared with Chrome's
+  screenshots as above.
+- One file, one responsibility: what a control computes is the user-agent
+  sheet's. Splitting `font` is `font.rs`'s, beside `list_style.rs` and
+  `flex.rs`, and `shorthand::expand` only hands it there.
+- `docs/features.md` has the line, under *a form control holds what it
+  shows*. `conformance.md`, `ROADMAP.md`, `REMAINING.md` and
+  `CHANGELOG.md` are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched.
+- Hostile bytes: nothing new reads outside bytes. A `font` value is
+  compared as text against five keywords and otherwise left alone.
+
+**Queue.** 506 is ticked with its *Done* paragraph, which says the
+field's width is cut to 511. **511** (a field's width by Chrome's rule),
+**512** (the rest of a control's text reset), **513** (the `font`
+shorthand's grammar) and **514** (a unit of text width at a fractional
+size) are added after 510.
+
+**Roadmap.** Nothing ticked. Stage 1's *Text* line, which is ticked, gains
+a clause: what 506 built, and what it owes (511–514).
+
+**Unresolved obligations.**
+- 511: `web-a-form`'s fields are 177.66 wide where Chrome's are 172.
+- 514: its button is one 1/64 unit wider than Chrome's.
+- 512 and 513, as written in the queue. 513 now matters more: a button
+  with `font: 14px sans-serif` is 13.33 px here and 14 in Chrome, where it
+  used to take the page's size. No corpus page writes one.
+- The control family was measured in headless Chrome only. A headed
+  Chrome on macOS was not checked.
+
+241 queue items are open (506 closed, 511–514 added). The next unused
+queue number is **515** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

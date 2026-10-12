@@ -50,6 +50,7 @@
 
 pub mod declaration;
 mod flex;
+mod font;
 pub mod ident;
 pub mod inline;
 pub mod issue;

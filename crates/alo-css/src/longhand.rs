@@ -9,7 +9,9 @@
 //! **counting**, and its tables say which longhands each one becomes. The
 //! shorthands whose parts are told apart by **kind** — `background`,
 //! `border`, `font` — are never split: a block holds them whole and the
-//! stage that uses them reads them, longhand first. Their longhands are
+//! stage that uses them reads them, longhand first. (`font` as a CSS-wide
+//! keyword alone is the one exception, split into this list by
+//! [`crate::font`].) Their longhands are
 //! listed here, because CSSOM still asks for them (ADR 0033 § 5): setting
 //! `background` must take a written `background-color` out of the block, or
 //! `alo-paint`, which lets `background-color` beat the shorthand's colour,

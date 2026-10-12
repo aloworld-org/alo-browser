@@ -41,9 +41,13 @@ its `0`, in the first font the element's `font-family` finds, at its weight
 and size — which is why a form field, 20 `ch` wide by the user-agent sheet, is
 now as wide as twenty of the page's zeros. A font size written in them is
 the parent's; a face with no `x` or no `0`, or a page drawn with no fonts at
-all, is half an em for that unit, as CSS says. The `font` shorthand is not
-expanded, so a page that sets its font only through it keeps the inherited
-one.
+all, is half an em for that unit, as CSS says. The `font` shorthand is
+expanded only when it is a CSS-wide keyword alone (`font: inherit` is every
+font longhand and `line-height` inherited); any other value is not, so a
+page that sets its font only through it keeps whatever else set it (queue
+item 513). A form control is set in Chrome's own 13.33 px Arial, or
+`monospace` for a textarea and a date or time field, whatever the page's
+text is, as Chrome 154 computes it (queue item 506).
 
 Lines are real too: text wraps between words across inline boxes, everything on
 a line sits on one baseline, and a link broken over two lines is two rectangles.
@@ -75,10 +79,11 @@ Chrome's is, so `a-filled-form` and alo Settings are Chrome's to the unit.
 A button's and a field's border are Chrome's 2 px (505), drawn as Chrome's
 own picture of the control while the page leaves the border and background
 alone, so `a-script-hears-an-event` is Chrome's box for box. A control's
-font is the page's here and 13.33 px in Chrome (506): with the right border,
-`web-a-form`'s 16 px fields are 25 tall where Chrome's are 21, and 23 before
-505, so every box below its first field is 2 px further from Chrome's per
-field above it until 506. A date field's line is 2 px shorter than
+font is Chrome's own 13.33 px (506), so `web-a-form`'s fields are Chrome's
+21 tall, where the page's 16 px made them 25, and every box down to its
+fieldsets stands where Chrome's does. Its fields are still 177.66 wide
+where Chrome's are 172, since Chrome's field width is a rule of its own
+and not `20ch` (511). A date field's line is 2 px shorter than
 Chrome's (507). **Every box is on Chrome's grid of 1/64 px** (ADR 0054, item 466): a
 length, a percentage and a `calc()` are each truncated toward zero onto it,
 a run of text's width is rounded up, and a box's edges are placed on it as

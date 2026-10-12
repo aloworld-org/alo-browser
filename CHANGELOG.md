@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Form controls are set in Chrome's own small font.** Chrome writes every
+  field, button, list and text area in 13.33 px, whatever size the page
+  around it uses, and in a fixed-width face for a text area and a date or
+  time field. Here a control took the page's font, so on a page with no
+  style of its own every field was 4 px taller than Chrome's and
+  everything below it slid further down. Now they match: across the test
+  pages 886 of 1,261 boxes are Chrome's to a sixty-fourth of a pixel, where
+  865 were, and none moved away. A page that wants its own font on a
+  control writes `font: inherit`, as alo's screens do, and that now works.
+  A field's width is still about 6 px wider than Chrome's, because Chrome
+  measures it by a rule of its own, which is queued.
+
 - **Buttons and text fields look like Chrome's.** A button or a field had
   a square one-pixel grey border. Chrome gives each a two-pixel border and
   draws its own picture in that space: a thin grey edge with rounded

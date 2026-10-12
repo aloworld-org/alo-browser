@@ -36,6 +36,11 @@ fn fonts() -> FontDatabase {
         database.add(font);
     }
     database.map_generic("system-ui", "DejaVu Sans");
+    // The button is set in a control's own family, `Arial, sans-serif`
+    // (queue item 506), and this machine's `sans-serif` is said as the
+    // corpus says it. Without it the load would rightly report that neither
+    // was here, and this file asks about listeners.
+    database.map_generic("sans-serif", "DejaVu Sans");
     database
 }
 

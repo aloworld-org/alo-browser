@@ -212,18 +212,20 @@ fn an_agent_in_its_own_process_fills_and_sends_a_form_nobody_wrote_for_us() {
     );
 
     // The form as a tree, by the words on it, its boxes where the frozen
-    // case's `agent.txt` has them.
+    // case's `agent.txt` has them. Since queue item 506 a field is set in a
+    // control's own 13.33 px, 21 tall as Chrome's is, and the "Large" radio
+    // is Chrome's 242.59375 down.
     let tree = answer(1);
     assert!(tree.starts_with(r#"{"answer":"tree","id":2,"#), "{tree}");
     assert!(
         tree.contains(
-            r#""name":"Customer name:","node":10,"rect":{"height":25.0,"width":211.59375,"x":146.65625,"y":16.0},"role":"textbox""#
+            r#""name":"Customer name:","node":10,"rect":{"height":21.0,"width":177.65625,"x":146.65625,"y":16.0},"role":"textbox""#
         ),
         "{tree}"
     );
     assert!(
         tree.contains(
-            r#""name":"Large","node":45,"rect":{"height":13.0,"width":13.0,"x":29.0,"y":254.59375},"role":"radio","states":{"checked":"false"}"#
+            r#""name":"Large","node":45,"rect":{"height":13.0,"width":13.0,"x":29.0,"y":242.59375},"role":"radio","states":{"checked":"false"}"#
         ),
         "{tree}"
     );
@@ -256,7 +258,7 @@ fn an_agent_in_its_own_process_fills_and_sends_a_form_nobody_wrote_for_us() {
         r#"{"children":[],"name":"+44 20 7946 0000","#,
         // By where it is rather than its id: the text put in above is in the
         // tree now, and the ids of the boxes after it have moved.
-        r#""rect":{"height":13.0,"width":13.0,"x":29.0,"y":254.59375},"role":"radio","states":{"checked":"true"}"#,
+        r#""rect":{"height":13.0,"width":13.0,"x":29.0,"y":242.59375},"role":"radio","states":{"checked":"true"}"#,
     ] {
         assert!(filled.contains(read_back), "{read_back} in {filled}");
     }

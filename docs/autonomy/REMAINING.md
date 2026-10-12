@@ -1977,3 +1977,17 @@ tones), **509** (a disabled control's computed colours) and **510** (a
 `<select>`'s and a `<textarea>`'s pictures). 238 queue items are open
 (505 closed, 508–510 added). The next unused queue number is 511 and the
 next unused ADR 0057.
+
+Iteration 310 built queue item 506. Every form control is set in Chrome
+154's own font, 13.33 px, weight 400, upright, with a `normal` line, in
+Arial (the machine's `sans-serif` where it has none) or `monospace` for a
+textarea and the five date and time fields. `font` as a CSS-wide keyword
+alone is now split into its longhands (`alo-css` `font.rs`), so an alo
+screen's `font: inherit` still takes the page's font back. `web-a-form`'s
+fields are Chrome's 21 and every box down to its fieldsets is Chrome's; of
+1,261 corpus boxes 886 are Chrome's exactly, where 865 were, and none
+moved away. Found: **511** (a field's width by Chrome's rule, not `20ch`),
+**512** (the rest of a control's text reset), **513** (the `font`
+shorthand's grammar) and **514** (a unit of text width at a fractional
+size). 241 queue items are open (506 closed, 511–514 added). The next
+unused queue number is 515 and the next unused ADR 0057.

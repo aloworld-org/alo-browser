@@ -193,6 +193,16 @@ correctness, not before it.
       and is now the line its text would be, so alo Settings' boxes are
       all Chrome's. Owed: a fallback font's own room on a `normal` line
       (465).*
+      *A form control took the page's font until queue item 506
+      (iteration 310), where Chrome 154 sets every control in 13.33 px, in
+      Arial or, for a textarea and a date or time field, `monospace`. Both
+      are now Chrome's, and `font` as a CSS-wide keyword alone is split
+      into its longhands, so an alo screen's `font: inherit` still takes
+      the page's font back. `web-a-form`'s fields are Chrome's 21, and of
+      1,261 corpus boxes 886 are Chrome's to 1/64 px, where 865 were, with
+      none further. Owed: a field's width by Chrome's rule (511), the rest
+      of a control's text reset (512), the `font` shorthand's own grammar
+      (513), and a unit of text width at a fractional size (514).*
 - [x] **Paint**: a display list, then a software raster to a PNG
       *A small curve was under-covered and leaned to one side until queue
       item 459 (iteration 291): the rented rasteriser's four-by-four

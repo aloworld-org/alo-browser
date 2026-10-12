@@ -1400,11 +1400,13 @@ fn a_fields_line_is_the_line_height_it_set() {
     // text's is (ADR 0050 § 3): 1.23 at 16 px is 19.671875, floored. Smaller
     // than the font, it is smaller still, as Chrome 154's field is. Around
     // it, a pixel of padding and 2 of border on each side (queue item 505).
+    // The field is given 16 px, since a control's own is 13.33 (queue item
+    // 506) and the line heights here are a 16 px font's.
     for (line_height, line) in [("1.5", 24.0), ("1.23", 19.671_875), ("10px", 10.0)] {
         let html = "<body><input id=a></body>";
         let (boxes, layout) = lay_out(
             html,
-            &format!("#a {{ line-height: {line_height} }}"),
+            &format!("#a {{ line-height: {line_height}; font-size: 16px }}"),
             Size::new(400.0, 300.0),
         );
         let field = rect_of(&boxes, &layout, "a", html);
@@ -2392,7 +2394,9 @@ fn a_button_stands_on_its_labels_baseline() {
     // Its label is in a block nobody wrote, so this is also the search for a
     // line going down through a block, as it is for an author's
     // `inline-block` holding blocks (queue item 286, the test after this).
-    let css = "#b { padding: 0; border: 0; margin: 0 }";
+    // It is set in the text's 16 px rather than a control's own 13.33
+    // (queue item 506), so that the two lines are the same font's.
+    let css = "#b { padding: 0; border: 0; margin: 0; font-size: 16px }";
     let html = "<body><div id=w><span id=t>ab </span><button id=b>Go</button></div></body>";
     let (boxes, layout) = lay_out_measured(html, css, Size::new(400.0, 300.0), &ScaledFont);
     // The button is one `normal` line tall: the test font's 12 above and 4
