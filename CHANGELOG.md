@@ -6,6 +6,12 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Names have their spaces.** A button, link or tab named by what is
+  written inside it is now read with a space between parts that are laid
+  out apart, as Chrome reads it: a tab built as a flexible row of "Notes"
+  and "Stopped" is "Notes Stopped", not "NotesStopped". Words that sit
+  side by side in one line still run together, as they do on screen.
+
 - **Tabs answer to the keyboard.** ⌘T opens a new, empty tab, ⌘W closes
   the one in front, and ⌃Tab and ⌃⇧Tab move to the next and previous tab
   (Ctrl in place of ⌘ off a Mac). Closing the last tab closes the window.

@@ -12821,7 +12821,7 @@ What stage 2's exit gate actually measures: a person using it.
   test; never saying `Chosen` fails the key test. Both were restored from
   copies. No key reaches a renderer: there is no message that carries one.
 
-- [ ] **530. A flex item's name is separated from its neighbour's.**
+- [x] **530. A flex item's name is separated from its neighbour's.**
   *Found building 297 (iteration 318). Feature: `docs/features.md` stage 1,
   the agent reads the interface. Needs measuring.* A box's name is gathered
   from its boxes, with a space only where a box is block-level outside
@@ -12833,6 +12833,39 @@ What stage 2's exit gate actually measures: a person using it.
   instead. *Closes when:* Chrome's names for flex and grid items with inline
   children are measured from its accessibility tree, and this engine gives
   the same.
+
+  ***Done (iteration 321).*** Measured in headless Chrome 154.0.8037.98
+  over CDP (`Accessibility.getFullAXTree`), the source not read: 39
+  arrangements. Chrome puts a space at both edges of every box that is not
+  an inline box in its parent's lines — a block, a flex or grid item
+  (however it was written), an `inline-block`, `inline-flex` or
+  `inline-grid`, and an absolute box — and none between two `<span>`s
+  side by side in one line, nor inside one item. `name.rs`'s `gather` now
+  asks that of each box, knowing whether its parent lays it out in lines.
+  The strip's workaround (a space inside its "Stopped" span) is gone, and
+  its reference render and agent reading are unchanged.
+
+  *Closed by:* `alo-agent/tests/a_name_across_its_items.rs`, 27 bodies
+  each with Chrome's name: flex, grid, `inline-flex`, `inline-grid`, a
+  column, `display: inline` items, a nested flex row, bare text as an
+  item, inline boxes inside one item, `inline-block`s with text around
+  and inside them, absolutes, hidden and white-space items, and a
+  `<button>` and `<a>` laid out as flex. Mutations: dropping the
+  flex-item clause fails five tests, dropping the atomic-box clause two.
+  Found: a `<br>` and a picture drawn as its `alt` in a line (534).
+
+- [ ] **534. A `<br>`, and a picture drawn as its `alt`, in a name.**
+  *Found building 530 (iteration 321). Feature: `docs/features.md` stage 1,
+  the agent surface. Waits for a page.* Chrome 154's accessibility tree
+  names `<div role=tab>a<br>b</div>` "a b" and `<div
+  role=tab><span>Notes</span><img alt=pic><span>Stopped</span></div>`
+  "Notes pic Stopped"; this engine reads "ab" and "NotespicStopped",
+  because a `<br>`'s box has no text and a broken picture's box is an
+  inline box holding its `alt`. Both were measured beside 530's rule and
+  are not that rule: a line break and a replaced element are each their
+  own kind of box. *Closes when:* a frozen page with either in a name
+  reads as Chrome reads it, with a picture shown (not broken) measured
+  too.
 
 - [ ] **298. A person's pointer.** *Cut from 118 (ADR 0024 § 5; ADR 0018
   § 3).* The browser process decides which frame a point falls in from its

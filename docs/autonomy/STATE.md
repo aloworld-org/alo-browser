@@ -31890,3 +31890,85 @@ clause adds the keys. Owed: 531, 532, 298, 299 and 300.
 250 queue items are open (529 closed, 533 added). The next unused queue
 number is **534** and the next ADR is **0057**. This is one iteration, not
 a finished queue or roadmap.
+
+## Iteration 321 — queue item 530 closed: a name's spaces, as Chrome reads them
+
+**Contracts read:** `CLAUDE.md`, `LOOP.md`, `ROADMAP.md`, iteration 320's
+entry and the queue. No `AGENTS.md` exists in this repository. For 530:
+its own text; ADR 0002 in full (one tree, two readers; the same tree is
+the accessibility tree); `alo-agent`'s `name.rs` and `tree.rs`;
+`alo-box`'s `BoxKind`, `outside`/`inside` and blockifying; the strip's
+`strip_document.rs`, where iteration 318 worked around this; the feature
+section *The agent surface*.
+
+**Why 530.** The items in iteration 320's neighbourhood: 531 needs design
+and 532 waits on a frozen page. 530 depends on nothing open and needs only
+measuring, which this Mac does. The open items earlier in the file wait
+for a page, a person, a design or an unfinished dependency, as 318–320
+recorded.
+
+**Measured**, in headless Chrome 154.0.8037.98 over CDP
+(`Accessibility.getFullAXTree`, Node 26), the source not read, 39
+arrangements in two scratchpad probe pages, kept nowhere. Chrome puts a
+space at both edges of every box that is not an inline box in its parent's
+lines: a block; a flex or grid item, whatever it was written as
+(`display: inline` items included); an `inline-block`, `inline-flex` or
+`inline-grid`; an absolute box. Two `<span>`s side by side in a line are
+one word ("NotesStopped"), and so are inline boxes inside one item.
+
+**Built.**
+- `name.rs`: `gather` became `gather_in`, which knows whether its parent
+  lays it out in lines (`Inside::Flow` or `FlowRoot`). A box stands apart
+  when its parent does not, when it is block-level, or when its own inside
+  is not `Flow`. Absolutes were already apart, being blockified.
+- The strip's workaround, a space inside its "Stopped" span, is removed;
+  the tab still reads "Reports Stopped" and `strip-a-gone-tab.png` is
+  unchanged (the space was collapsed at its line's start, so took no
+  room). `strip_document.rs`' unit test now expects the document's text
+  without it, and says the name is asserted through the agent.
+
+**Gate, mechanical.** `scripts/gate.sh` ran in the foreground into a
+scratchpad log. At 600 s the harness moved it to the background, and the
+next call waited on it with a foreground `until` loop. **Result: `exit 0`,
+"The gate is met. (10 of 10 steps)"**, and no `FAILED`, `panicked` or
+`^error` line in the log. Only this entry and the commit came after it.
+
+**Gate, manual.**
+- Layout: nothing positions or sizes a box. The one drawn change, the
+  strip's span text, is held by the committed `strip-a-gone-tab.png` and
+  the tabs' boxes in numbers in `the_tab_strip.rs`, both unchanged.
+- No new reference render: nothing new is drawn.
+- `alo-agent/tests/a_name_across_its_items.rs`: 27 bodies, each asserted
+  against Chrome's measured name. All five new failing tests failed before
+  the change with this engine's "NotesStopped"-style names.
+- `alo-corpus`' tests all pass with no `agent.txt` changed: no frozen page
+  had a flex item or atomic box named by content beside another.
+- Mutations, each restored from a copy (`cmp` confirmed): dropping the
+  flex-item clause (`!in_lines`) fails five tests; dropping the atomic-box
+  clause (`inside != Flow`) fails two.
+- One file, one responsibility: what a thing is called stays in
+  `name.rs`; the new test file is about one rule.
+- `docs/features.md`, `docs/conformance.md`, `ROADMAP.md`, `CHANGELOG.md`,
+  `REMAINING.md` and the queue are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched. Nothing was pushed.
+
+**Found.** Chrome reads `a<br>b` as "a b" and a broken `<img alt=pic>`
+between two spans as "Notes pic Stopped"; this engine reads "ab" and
+"NotespicStopped". Each is its own kind of box (a forced break; a
+replaced element shown as its `alt`), not 530's rule, so they are filed as
+**534**, waiting for a page.
+
+**Queue.** 530 is ticked with its *Done* paragraph. Added: 534.
+
+**Roadmap.** 530 served the stage 1 line *The agent tree*, which was
+already ticked and stays so. A dated remark under it now says names have
+Chrome's spaces and what is still owed (534). It is not a new tick.
+
+**Unresolved obligations.**
+- 534 (a `<br>` and a picture's `alt` in a name).
+- No claim about speed is made.
+
+250 queue items are open (530 closed, 534 added). The next unused queue
+number is **535** and the next ADR is **0057**. This is one iteration, not
+a finished queue or roadmap.

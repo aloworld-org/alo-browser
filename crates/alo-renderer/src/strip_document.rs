@@ -106,12 +106,10 @@ fn make_tab(document: &mut Document, tab: &StripTab) -> Result<NodeId, Unbuilt> 
     if tab.condition == Condition::Gone {
         let said = element(document, "span")?;
         attribute(document, said, "class", "gone")?;
-        // A space before the word, inside its own box: the two flex items
-        // would otherwise be read as one word ("NotesStopped"), since a name
-        // is gathered from the boxes and a white-space text node between
-        // flex items has none (queue item 530). At the start of its line the
-        // space is collapsed away, so it takes no room on screen.
-        let text = document.create_text_node(&format!(" {GONE}"));
+        // A flex item of its own, so the tab is read as "Notes Stopped":
+        // a flex item stands apart from its neighbour in a name, as Chrome
+        // reads one (queue item 530).
+        let text = document.create_text_node(GONE);
         append(document, said, text)?;
         append(document, made, said)?;
     }
@@ -198,7 +196,10 @@ mod tests {
         let tabs = tabs_of(&document);
         assert_eq!(tabs.len(), 3);
         let said: Vec<String> = tabs.iter().map(|&tab| document.text_content(tab)).collect();
-        assert_eq!(said, vec!["Inbox", "Invoices", "Calendar Stopped"]);
+        // The document's text has no space between the title and the word:
+        // the tab is *read* with one, from its two flex items (queue item
+        // 530), which `tests/the_tab_strip.rs` asserts through the agent.
+        assert_eq!(said, vec!["Inbox", "Invoices", "CalendarStopped"]);
         let selected: Vec<Option<&str>> = tabs
             .iter()
             .map(|&tab| document.attribute_by_name(tab, "aria-selected"))

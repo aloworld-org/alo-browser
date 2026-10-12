@@ -2132,3 +2132,14 @@ Found: **533** (an IPv6 literal host is looked up with its brackets, so no
 `http://[::1]/` request is ever made). 250 queue items are open (529 closed,
 533 added). The next unused queue number is 534 and the next unused ADR
 0057.
+
+Iteration 321 built queue item 530. A name read from what is inside a
+thing has its spaces where Chrome 154's accessibility tree has them: a
+space at both edges of every box that is not an inline box in its parent's
+lines — a flex or grid item however it was written, an `inline-block`,
+`inline-flex` or `inline-grid` — measured over 39 arrangements and pinned
+by `alo-agent/tests/a_name_across_its_items.rs`. The tab strip's own
+workaround for it is gone. Found: **534** (a `<br>`, and a picture drawn
+as its `alt`, run into their neighbours in a name). 250 queue items are
+open (530 closed, 534 added). The next unused queue number is 535 and the
+next unused ADR 0057.

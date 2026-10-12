@@ -258,6 +258,10 @@ correctness, not before it.
       pixel (524), and a restyled field's white (525).*
 - [x] **Reference renders**: a committed corpus, diffed on every change
 - [x] ★ **The agent tree**: the layout tree read as roles, states and positions
+      *A name read from content now has its spaces where Chrome 154's
+      accessibility tree has them: a flex or grid item, and an atomic box
+      on a line, stands apart from its neighbour (queue item 530). A `<br>`
+      and a picture drawn as its `alt` in a line still run together (534).*
 - [x] ★ **Typed verbs**: activate, type, scroll — and never a coordinate.
       A verb **changes the page**: text put into a field is in it, a checkbox
       ticks, a radio un-chooses its group, and the page is rendered again from

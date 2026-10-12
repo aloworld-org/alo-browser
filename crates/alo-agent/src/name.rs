@@ -232,8 +232,8 @@ pub fn text_of(boxes: &BoxTree, id: BoxId) -> String {
     out
 }
 
-/// The text of a box and everything under it, with a space wherever a block
-/// begins or ends.
+/// The text of a box and everything under it, with a space wherever a box
+/// that stands apart begins or ends.
 ///
 /// Without the space, `<a>Read the<div>docs</div></a>` is called "Read thedocs".
 /// A block-level box is a line of its own on the screen, and a name read out
@@ -242,6 +242,25 @@ pub fn text_of(boxes: &BoxTree, id: BoxId) -> String {
 /// The boxes of `leaving_out`, an element, are not gathered, nor anything
 /// under them.
 fn gather(boxes: &BoxTree, id: BoxId, leaving_out: Option<NodeId>, out: &mut String) {
+    gather_in(boxes, id, true, leaving_out, out);
+}
+
+/// [`gather`], for a box whose parent lays it out `in_lines` or not.
+///
+/// **What stands apart** is every box that is not an inline box in its
+/// parent's lines, as Chrome 154's accessibility tree reads it (queue item
+/// 530): a block; a flex or grid item, which CSS blockifies even when it was
+/// written `inline` — and whose box here keeps what was written; and an
+/// `inline-block`, `inline-flex` or `inline-grid`, which sits in a line but
+/// as one box of its own. Two `<span>`s side by side are one word, as they
+/// are on the screen.
+fn gather_in(
+    boxes: &BoxTree,
+    id: BoxId,
+    in_lines: bool,
+    leaving_out: Option<NodeId>,
+    out: &mut String,
+) {
     let Some(node) = boxes.get(id) else {
         return;
     };
@@ -253,17 +272,24 @@ fn gather(boxes: &BoxTree, id: BoxId, leaving_out: Option<NodeId>, out: &mut Str
     if boxes.is_placeholder(id) || boxes.is_marker(id) {
         return;
     }
-    let is_block = node.kind.outside() == alo_box::Outside::Block;
-    if is_block {
+    let kind = &node.kind;
+    let apart = !in_lines
+        || kind.outside() == alo_box::Outside::Block
+        || kind.inside() != alo_box::Inside::Flow;
+    if apart {
         separate(out);
     }
     if let Some(text) = node.text() {
         out.push_str(text);
     }
+    let lines = matches!(
+        kind.inside(),
+        alo_box::Inside::Flow | alo_box::Inside::FlowRoot
+    );
     for child in boxes.children(id) {
-        gather(boxes, child, leaving_out, out);
+        gather_in(boxes, child, lines, leaving_out, out);
     }
-    if is_block {
+    if apart {
         separate(out);
     }
 }

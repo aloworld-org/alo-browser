@@ -207,6 +207,14 @@ states and positions, with no screenshot involved — **and aim a verb at it by
 name**: activate, put text, scroll, with no verb taking a coordinate. Every
 corpus case pins that tree beside its picture.
 
+**A name read from content has Chrome's spaces** (queue item 530): a flex
+or grid item, an `inline-block`, `inline-flex` or `inline-grid` stands
+apart from its neighbour, and two inline boxes in one line run together,
+as Chrome 154's accessibility tree reads 27 such bodies
+(`crates/alo-agent/tests/a_name_across_its_items.rs`). A `<br>` and a
+picture drawn as its `alt` in a line still run into their neighbours
+(534).
+
 **A verb changes the page.** Text put into a field is in it, a checkbox ticks,
 and choosing a radio un-chooses the rest of its group. The page is rendered
 again from the **same document**, so every id an agent read a moment ago still
