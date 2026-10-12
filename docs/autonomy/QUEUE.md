@@ -5254,6 +5254,11 @@ The long pole, and the thing most of section E is unreachable without.
   its POST with the values as they stand and no `submit` event.
   *Since 468:* `alo-bindings`' `click()` on a submit button is refused by
   name (`SUBMITTING`, naming 485), which 485 replaces.
+  *Since 485:* an agent's press is built and the refusal names **487**
+  instead; `requestSubmit()` is a press without a click, so it reuses
+  `event_loop/submitted.rs`' steps from a native, as 487 does. The contact
+  form's fallback cannot run while its analytics script stops the page on
+  item 73 (see 485's *Found*).
 
 - [ ] **472. `FormData` and `URLSearchParams`.** *Cut from 82 (ADR 0051
   § 7). Depends on 468 and 335.* `new FormData(form)` built from 468's
@@ -5266,6 +5271,14 @@ The long pole, and the thing most of section E is unreachable without.
   *Closes when:* that listener's fetch is asked for with the body Chrome
   sends, and with the case's frozen answer the form is replaced by
   *Thanks — talk soon.*
+  *Since 485:* an agent's press fires `submit` on a page that runs script,
+  so the listener is reachable, and `formdata` (HTML fires it after
+  `submit`, with the *constructing entry list* guard) belongs here. But the
+  frozen contact form's second script stops the page as it loads, on a
+  property of a primitive (queue item 73's), so today nobody hears the
+  press and the form is sent as a scriptless page's is
+  (`a_form_on_somebody_elses_page_is_sent.rs` pins it). That stop has to be
+  gone before this can close on that page.
 
 - [ ] **473. The rest of the constraints.** *Cut from 82 (ADR 0051 § 3).
   Depends on 468.*
@@ -5322,8 +5335,11 @@ The long pole, and the thing most of section E is unreachable without.
   agent reads before pressing. *Closes when:* that case's `agent.txt` says
   what Chrome's accessibility tree says for the field, before and after
   the press.
+  *Since 485:* the press on the frozen booking page is built, answering
+  `NotSubmitted` with the date field and firing `invalid` at it, so *after
+  the press* is now a state this engine reaches.
 
-- [ ] **485. A form's submission on a page that runs script.** *Cut from 468
+- [x] **485. A form's submission on a page that runs script.** *Cut from 468
   (iteration 296; ADR 0051 §§ 4, 6 and 7). Depends on 468, done, and
   nothing open.* *Renumbered from 484 in iteration 297: iteration 296 gave
   it the number commit 2dfc8e1 had already given `@browser`, which ADR 0052
@@ -5358,6 +5374,78 @@ The long pole, and the thing most of section E is unreachable without.
     `date` = `2026-10-20`;
   - a scripted page's `submit` listener reads `submitter` and `isTrusted`,
     and its `preventDefault` answers `Activated` with no ask.
+  ***Done (iteration 298).*** What was built:
+  - `alo-bindings`: `SubmitEvent` (`interface/submit_event.rs`), an event
+    cell holding its `submitter` as a traced edge, with `submitter` read
+    through a brand check and no constructor on the global (ADR 0013 § 3);
+    `Firing::INVALID` and `Firing::submit`; `submitting.rs`, HTML's
+    *firing submission events* flag kept in the document cell, the one
+    place both drivers reach; `navigating::start_submission`, the ask kept
+    in the cell as a link's is.
+  - `alo-renderer`'s `event_loop/submitted.rs`: inside the click's own
+    task, the flag set, `invalid` at each failing control in tree order
+    and nothing more, or a trusted `SubmitEvent` at the form; then the
+    form still in its document (HTML's *cannot navigate*), the plan built
+    **after** the listeners, and the ask. `Clicked` carries what it came
+    to (`Submitted`).
+  - A press on a scripted page is **refused before the click is queued**
+    when the form could fail a constraint not built or says something this
+    engine does not send (`submit::refused`), so a refusal still means
+    nothing happened. What a listener made true after that look is said by
+    the same words, with `Activated`.
+  - `submit::told`: `NotSubmitted`, `Submitted`, or `Activated` with a
+    line saying why the form was not sent (cancelled, taken out of its
+    document, already being submitted).
+  - A page whose script has stopped is pressed as a scriptless page is
+    (`press.rs`' `submits_without_script`).
+  - A script's own `click()` on a submit button stays refused by name, now
+    naming **487** — except inside its form's submission, where HTML's guard
+    makes it do nothing, as it would whoever pressed.
+  *Closed by* `alo-corpus`' `a_form_on_somebody_elses_page_is_sent.rs` on
+  the frozen booking page, with an observing script appended that only
+  listens: no date answers `NotSubmitted` naming the date field,
+  `valueMissing` and Chrome's sentence, one trusted, cancelable,
+  non-bubbling `invalid` at it, and no ask; with `2026-10-20` it answers
+  `Submitted`, asks `GET` `…/b/studio-consultation` with `date=2026-10-20`,
+  after a trusted, bubbling, cancelable `submit` whose submitter is *See
+  free times*. Through real tabs, `a_form_is_decided.rs` now decides the
+  frozen page whole, script and all, as Chrome's `GET`. `alo-renderer`'s
+  `a_form_sent_on_a_page_that_runs_script.rs` (12 tests) has the
+  listener's `submitter`, `isTrusted` and `preventDefault`, the order of
+  `invalid`, `novalidate`, the guard, entries built after the listeners, a
+  form taken away, both refusals before anybody hears, a stopped page, and
+  `click()`'s refusal naming 487; the two that carry a submitter run with
+  the collector at every allocation too.
+  *Not this item's:* `formdata`, which needs `FormData` (472); the second
+  guard, *constructing entry list*, which only `formdata` can reach.
+  *Found:* `alo-sites-contact-form`'s analytics script stops the page as
+  it loads on a property of a primitive (queue item 73), after its first
+  script added the `submit` listener. So on this engine nobody hears its
+  press and its form is sent as a scriptless page's is: a `POST` of its
+  four fields to its action, where Chrome's listener would have sent the
+  same body by `fetch`. That test pins it, and 472 notes it.
+
+- [ ] **487. A script's `click()` on a submit button submits its form.**
+  *Cut from 485 (iteration 298; ADR 0051 §§ 4 and 7). Depends on 485,
+  done, and nothing open.* The second driver of the submission 485 built
+  for an agent's press: a native in the middle of the page's script,
+  driven as `click()`'s `input` and `change` are (`scripted.rs`), so each
+  `invalid` and the `submit` are dispatches of their own with base steps,
+  no microtask between listeners, and what it makes held by the clicked
+  element's wrapper (`clicking.rs`).
+  - `invalid` at each failing control, or `submit` at the form, untrusted
+    click but **trusted** `submit` (ADR 0051, measured);
+  - the flag in `submitting.rs` set around them, so the guard holds for
+    both drivers;
+  - the ask kept in the document cell, the last in the task winning, as
+    measured: `submit()` then a button's `click()` asks for the button's
+    `GET`;
+  - `html_element.rs`' `SUBMITTING` refusal goes.
+  *Opened by a page* whose script clicks a submit button. alo Sites'
+  widget (`serve/widget.rs`) calls `requestSubmit()`, which is 471's and
+  is a press without a click.
+  *Closes when:* that page's form is checked and asked for as Chrome does
+  it, and a listener reading `isTrusted` on its `submit` reads `true`.
 
 - [ ] **486. A `<meta>` policy's `form-action`, and its violations
   reported.** *Cut from 470 (ADR 0051 § 5). Depends on 470, done.*

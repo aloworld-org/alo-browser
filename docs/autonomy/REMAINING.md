@@ -1808,3 +1808,17 @@ and reports of a violation are cut into 486. The scripted half of 468,
 numbered 484 by iteration 296, is renumbered **485**, because 2dfc8e1 had
 already given 484 to `@browser`. 225 queue items are open (470 closed, 486
 added). The next unused queue number is 487 and the next unused ADR 0053.
+
+Iteration 298 built item 485, a form's submission on a page that runs
+script, for an agent's press: inside the click's task, a trusted `invalid`
+at each failing control in tree order and nothing more, or a trusted
+`SubmitEvent` naming its submitter, which a listener may cancel; HTML's
+*firing submission events* guard in the document cell; and the ask built
+after the listeners. The frozen `alo-sites-booking`, script and all, is
+checked and asked for as Chrome does it, and decided through real tabs. A
+form this engine cannot check is refused before the click is queued. A
+script's own `click()` on a submit button is cut into **487** (depends on
+nothing open). Found: `alo-sites-contact-form`'s analytics script stops the
+page as it loads (queue item 73), so its `submit` listener never hears the
+press, which 472 now notes. 225 queue items are open (485 closed, 487
+added). The next unused queue number is 488 and the next unused ADR 0053.

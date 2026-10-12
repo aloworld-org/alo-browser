@@ -6,6 +6,20 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent can send a form on a page that runs script.** Pressing a
+  submit button there is a click the page hears, and the form is then
+  checked and sent as Chrome does it, with the page told at each step: a
+  field that fails is sent an `invalid` event, and nothing goes; otherwise
+  the form is sent a `submit` event naming the button that was pressed,
+  which the page may cancel to send the form its own way. Only after that
+  are the fields read, so what the page changed is what is sent, and a page
+  that presses the button again while it is being sent does not send it
+  twice. alo Sites' booking page, which runs an analytics script, now asks
+  for exactly the request Chrome made. A form this browser cannot check yet
+  is refused before the page hears the press, so a refusal still means
+  nothing happened. A script pressing a submit button itself is still
+  refused by name (487).
+
 - **A form an agent sends is now decided and written as Chrome writes it.**
   The browser process turns a form's fields into the request Chrome makes:
   for a `GET` form, the fields replace whatever query its address had; for a

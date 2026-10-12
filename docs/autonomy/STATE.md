@@ -29106,3 +29106,136 @@ the agent's, and owes loading it (item 85) and 485. Neither is ticked.
 225 queue items are open (470 closed, 486 added). The next unused queue
 number is **487** and the next ADR is **0053**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 298 — queue item 485 built: a form on a page that runs script is checked and sent by an agent's press
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md` in full,
+`ROADMAP.md` (its state rules and the stage 2 lines "Forms" and "The agent
+reads and acts on ordinary web pages"), and iteration 297. No `AGENTS.md`
+exists in this repository or above it. For 485: its queue entry and those
+of 468, 471, 472 and 476, ADR 0051 in full (§§ 4, 6 and 7 are this item),
+ADR 0018 §§ 3–7 through `activated.rs`, `press.rs` and `html_element.rs`,
+ADR 0016 § 7 (a stopped page), ADR 0013 § 3, and `docs/features.md`'
+forms line. `alo-bindings`' `event.rs`, `interface.rs`, `navigating.rs`,
+`document_cell.rs`, `clicking.rs` and `input_event.rs`, and the renderer's
+`renderer.rs` (`act`), `submit.rs`, `run_to.rs` and `event_loop/task.rs`,
+`typed.rs` and `dispatched.rs` were read before changing or leaning on them.
+
+**Choosing.** After 470, in file order: 471 depends on 262, open. 472's
+listed dependencies are done, but its opener, the contact form's `submit`
+listener, is only reached once a press fires `submit` on a page that runs
+script, which is 485. 476's closing condition reads the booking field
+"after the press", which on that scripted page is 485's too. So 485 was the
+first item whose dependencies were really done. 472 and 476 now say so.
+
+**Cut, not shallowed.** 485 names two drivers: the agent's press and a
+script's `click()`. The closing conditions are all the agent's. A script's
+`click()` is a native that would need each `invalid` and the `submit` as
+dispatches of their own, with base steps and state held by the wrapper.
+That is **487**, with its own opener and closing condition. Its refusal by
+name stays, now naming 487, except inside the form's own submission, where
+HTML's guard makes it do nothing.
+
+**What was built.** It is listed in 485's *Done* paragraph. In short:
+- `alo-bindings`: the `SubmitEvent` interface and its traced `submitter`;
+  `Firing::INVALID` and `Firing::submit`; `submitting.rs`, the guard flag
+  in the document cell; `navigating::start_submission`.
+- `alo-renderer`: `event_loop/submitted.rs`, the steps inside the click's
+  task; `submit.rs` split into the scriptless press, `refused` (the
+  pre-check) and `told`; `press.rs` carrying what the submission came to,
+  and running the scriptless steps on a stopped page; `act` refusing
+  before the click is queued.
+
+**One design choice the ADR did not spell out.** ADR 0051 § 6 says an
+unbuilt constraint or form refuses the press by name. On a page that runs
+script the click's listeners would already have run by the time the
+submission looks, and a `Refused` answer would drop what they asked for.
+So the renderer checks before queueing the click, on the document as the
+agent read it, and a refusal still means nothing happened. Only what a
+listener made true after that look is said in the refusal's words beside
+`Activated`. That is in `submitted.rs`' module documentation.
+
+**Tests.**
+- `alo-corpus`' `a_form_on_somebody_elses_page_is_sent.rs`. The frozen
+  booking page with an observing script appended that only listens: one
+  trusted, cancelable, non-bubbling `invalid` at `booking-0-date`, then
+  `submit` trusted, bubbling and cancelable with *See free times* as its
+  submitter, and Chrome's `GET`. Also the contact form, below.
+- `alo-renderer`'s `a_form_is_decided.rs` decides the frozen booking page
+  whole, script included, through real tabs.
+- `alo-renderer`'s `a_form_sent_on_a_page_that_runs_script.rs`, 12 tests.
+  The two carrying a submitter also run with the collector at every
+  allocation.
+- `submitting.rs`' unit tests: the flag and a non-cell.
+
+**Found, and pinned rather than hidden.** `alo-sites-contact-form`'s second
+script (analytics) stops the page as it loads: "a property of a primitive
+needs a wrapper object, which is queue item 73". Its first script had
+already added the `submit` listener. So nobody hears the press, and by the
+queue's rule for a stopped page (ADR 0016 § 7) its form is sent as a
+scriptless page's is: a `POST` of `website=`, name, email and message to
+its action. Chrome's listener would cancel and send the same body by
+`fetch`. A test pins this and 472 notes it, since 472 cannot close on that
+page until the stop is gone.
+
+**Mutation checks**, each restored from a scratchpad copy (`cmp`
+confirmed). Each failed the tests named:
+- the guard disabled in `click()`: the re-press test;
+- no `invalid` fired: two renderer tests and the frozen booking test;
+- the plan built before the listeners: the changed-entries test;
+- no submitter on the event: the `SubmitEvent` test;
+- the pre-check disabled: both refusal tests;
+- a stopped page not running the scriptless steps: the stopped-page test.
+
+**Gate, mechanical.** `cargo fmt` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean first. Clippy had
+asked for `act` under 100 lines (the verb's run moved to `run` and
+`press::told`) and a boxed error in the test. `scripts/gate.sh` ran once in
+the foreground. The harness moved it to the background at 600 s, and the
+next call waited on it with a foreground `until` loop. Result: `exit 0`,
+"The gate is met", and no `FAILED`, `panicked` or `^error` in its log.
+Only this entry was written after it, then the commit.
+
+**Gate, manual.**
+- **Layout assertion:** none is owed. Nothing positions or sizes anything,
+  and every committed layout passed.
+- **Reference render:** none is owed. Nothing visual changed, and every
+  committed picture still matched.
+- **One responsibility per file.** `submitted.rs` is the submission inside
+  a click's task. `submitting.rs` is one flag. `submit_event.rs` is one
+  interface. `submit.rs` still answers one question, what an agent's press
+  on a submit button comes to.
+- **Hostile input:** nothing new reads bytes from outside. The new events
+  carry only what the engine made.
+- **Docs:** `docs/features.md`' forms line, `docs/conformance.md`' row,
+  `REMAINING.md` and `CHANGELOG.md`.
+- **Other rules:** no `unsafe`, and no verb takes a coordinate.
+  `alo-workplace` and `alo-os` were not touched.
+- Chrome was not measured this iteration. Every expectation is ADR 0051's
+  measured behaviour: `invalid` trusted, cancelable and not bubbling, in
+  tree order; `submit` trusted, bubbling and cancelable with its
+  submitter; the booking `GET`. `composed` being `false` on `submit` is
+  HTML's text and was not in the measurement.
+
+**Queue.** 485 is ticked. Its closing conditions are met on the frozen
+booking page and in the renderer's tests. **487** is added: a script's
+`click()` on a submit button, which depends on nothing open. Notes were
+added to 471, 472 and 476.
+
+**Roadmap.** Both stage 2 lines move, and neither is ticked.
+- "Forms": the Built clause gains the scripted submission, and the Owed
+  clause names 469, 471–476, 486 and 487.
+- "The agent reads and acts on ordinary web pages": 485 leaves its Owed
+  clause, which notes that the frozen booking page now runs its own script
+  through the press.
+
+**Unresolved obligations.**
+- A script's `click()` and `requestSubmit()` (487, 471).
+- `formdata` and its guard (472).
+- The contact form's stop on item 73, which keeps its listener deaf.
+- Nothing loads a decided navigation (item 85).
+- `composed: false` on `submit` was taken from HTML, not measured.
+
+225 queue items are open (485 closed, 487 added). The next unused queue
+number is **488** and the next ADR is **0053**. This is one iteration, not a
+finished queue or roadmap.

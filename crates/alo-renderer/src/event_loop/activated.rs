@@ -22,7 +22,10 @@
 //!    has them; for a link, the link is followed — which is the browser
 //!    process's to do, so it is **asked**: kept in the document cell beside
 //!    any ask a listener's `click()` made before it (ADR 0020 §§ 1 and 5),
-//!    and said in the answer.
+//!    and said in the answer; for a submit button, its form is submitted
+//!    ([`super::submitted`], ADR 0051 § 4): `invalid` at each control that
+//!    fails, or `submit` at the form, and the ask kept in the document cell
+//!    as a link's is.
 //!
 //! All of it is one task (ADR 0016 § 6), so no other task runs between the
 //! box changing and its listeners hearing about it, and the agent's answer
@@ -40,6 +43,7 @@ use alo_bindings::{Firing, change_document, node_of};
 use alo_dom::activation::{self, Follows};
 use alo_js::{Escape, Fault, Root};
 
+use super::submitted::Submitted;
 use super::task;
 use super::{EventLoop, Turn};
 
@@ -55,8 +59,11 @@ pub struct Clicked {
     /// Whether following the link started a navigation: kept in the
     /// document cell as the page's ongoing one. `false` for a link that was
     /// not followed — a download, another window, an `href` that goes
-    /// nowhere — which the cell says why of.
+    /// nowhere — which the cell says why of, and for anything else.
     pub navigated: bool,
+    /// What submitting the form came to, when a submit button was clicked
+    /// and nobody cancelled the click.
+    pub submitted: Option<Submitted>,
 }
 
 impl EventLoop {
@@ -81,6 +88,7 @@ impl EventLoop {
                 canceled,
                 follows: Follows::Nothing,
                 navigated: false,
+                submitted: None,
             });
         }
 
@@ -96,25 +104,25 @@ impl EventLoop {
                 self.dispatch_event(event, target, turn)?;
             }
         }
+        let mut submitted = None;
         let navigated = match &follows {
             Follows::Link { node, .. } => {
                 navigating::start(self.engine.objects(), cell, *node, By::Browser)
                     .ok_or(Escape::fault(Fault::NotAnObject))?
             }
+            Follows::Submit { form, submitter } => {
+                submitted = Some(self.submit(list, cell, (*form, *submitter), turn)?);
+                false
+            }
             // A `details` opened or closed changed the document, which is
             // drawn again; its `toggle` event is script's (queue item 434).
-            // A form's submission on a page that runs script fires `invalid`
-            // and `submit` first, which is queue item 485's; nothing is
-            // asked, and whoever ran the task says so.
-            Follows::Nothing
-            | Follows::InputAndChange(_)
-            | Follows::Toggled { .. }
-            | Follows::Submit { .. } => false,
+            Follows::Nothing | Follows::InputAndChange(_) | Follows::Toggled { .. } => false,
         };
         Ok(Clicked {
             canceled,
             follows,
             navigated,
+            submitted,
         })
     }
 }

@@ -50,6 +50,17 @@
 //! script's click on an `<a download>` is refused by name after its
 //! listeners, rather than navigating to what was meant to be saved.
 //!
+//! # A submit button's form is not submitted from here yet
+//!
+//! A click nobody cancelled on a submit button submits its form (ADR 0051
+//! § 4). An agent's press does that ([`crate::submitting`]'s first driver,
+//! queue item 485), and a script's `click()` is the second, which is queue
+//! item 487: until it is built, the submission it would start is refused by
+//! name after the click's listeners. Except when the form is **already
+//! firing its submission events** — a `submit` listener pressing the button
+//! again — where HTML's submission does nothing at all, and so does this:
+//! that is the guard, and it is the same whoever pressed.
+//!
 //! # What is not here
 //!
 //! `HTMLElement`'s other members — `title`, `lang`, `dir`,
@@ -74,6 +85,7 @@ use crate::idl::{self, Brand, This};
 use crate::interface;
 use crate::navigating::{self, By};
 use crate::scripted::{self, Driven, STEPS};
+use crate::submitting;
 use crate::wrapper::Wrapper;
 
 /// `HTMLElement.prototype`'s members.
@@ -100,9 +112,9 @@ const DOWNLOADING: &str = "a script's click() on a link's download is queue item
 
 /// What a submit button's click from script is refused as: the click ran,
 /// and the submission it starts — `invalid`, `submit` and the ask — is not
-/// built on a page that runs script (ADR 0051 § 4).
+/// built for a script's click (ADR 0051 § 4).
 const SUBMITTING: &str =
-    "a script's click() on a form's submit button submits the form, which is queue item 485";
+    "a script's click() on a form's submit button submits the form, which is queue item 487";
 
 /// `click()`.
 fn click(call: &mut Call<'_>) -> Result<Answer, Escape> {
@@ -188,8 +200,13 @@ fn finished(
                     let target = wrap(call, this.owner, at)?;
                     fire(call, this, wrapper, target, INPUT)
                 }
-                Follows::Submit { .. } => {
+                Follows::Submit { form, .. } => {
                     end(call, wrapper)?;
+                    // HTML's first guard: a form firing its submission
+                    // events is not submitted again.
+                    if submitting::is_firing(call.seen(), this.owner, form) {
+                        return Ok(Answer::Value(Value::Undefined));
+                    }
                     Err(Escape::NotBuiltYet(Missing::InTheEmbedder(SUBMITTING)))
                 }
                 Follows::Link { node, .. } => {

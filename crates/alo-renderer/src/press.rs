@@ -22,25 +22,37 @@
 //! is still ticked, a link still followed — because that is `alo-dom`'s rule,
 //! not the page's script; nobody hears it, and the answer says so. It does
 //! not change ARIA state either: that promise was the page's (ADR 0018 § 7).
+//! A submit button's form on it is submitted as on a page that never ran
+//! script ([`crate::submit`]), since nobody is left to cancel anything.
 //!
 //! # A submit button, on a page that runs script
 //!
-//! Its click runs, and its form is **not submitted**: on such a page a
-//! submission fires `invalid` at each failing control and a `SubmitEvent`
-//! the page may cancel before anything is asked (ADR 0051 § 4), and that is
-//! queue item 485. The answer says so rather than leaving an agent to think
-//! the form went.
+//! Its click's task submits its form, with `invalid` at each failing control
+//! or a `SubmitEvent` the page may cancel before anything is asked (ADR 0051
+//! § 4, queue item 485), and what that came to is answered here for the
+//! renderer to tell the agent ([`crate::submit`]'s `told`).
 
-use alo_dom::NodeId;
+use alo_agent::verb::{Outcome, Refusal};
+use alo_bindings::navigating::Ongoing;
 use alo_dom::activation::{self, Follows};
+use alo_dom::{Document, NodeId};
+use alo_url::Url;
 
-use crate::event_loop::Unqueued;
+use crate::event_loop::{Submitted, Unqueued};
 use crate::held::Held;
 use crate::run_to::{Said, run_to};
+use crate::said;
+use crate::submit;
 
-/// What a press on a submit button on a page that runs script is said as.
-const NOT_SUBMITTED: &str = "the button submits a form, and submitting one on a page that \
-                             runs script is queue item 485, so nothing was sent";
+/// What an agent's verb came to on a page that runs script, before the
+/// page's navigation is taken.
+#[derive(Debug)]
+pub(crate) enum Ran {
+    /// A press, told once what the page asked for is known ([`told`]).
+    Pressed(Pressed),
+    /// Anything else, already told, and what the page's script said.
+    Told(Outcome, Vec<String>),
+}
 
 /// What pressing a node on a page that runs script came to.
 #[derive(Debug, Default)]
@@ -51,6 +63,12 @@ pub(crate) struct Pressed {
     pub(crate) follow: Option<String>,
     /// What the page's script said while the click ran.
     pub(crate) issues: Vec<String>,
+    /// What submitting a form came to, if the click submitted one.
+    pub(crate) submitted: Option<Submitted>,
+    /// Whether the click was on a submit button of a page whose script has
+    /// stopped, whose form is then submitted as a page that never ran
+    /// script submits it.
+    pub(crate) submits_without_script: bool,
 }
 
 /// Press `node` on a page whose document is in its heap: queue the click's
@@ -59,18 +77,15 @@ pub(crate) struct Pressed {
 pub(crate) fn press(held: &mut Held, node: NodeId) -> Option<Pressed> {
     let mut said = Said::about("the click");
     let mut follow = None;
+    let mut submitted = None;
+    let mut submits_without_script = false;
     match held.activate(node) {
         Ok(Some(seq)) => {
-            if let Some(turn) = run_to(held, seq, &mut said) {
-                if let Some(clicked) = &turn.clicked
-                    && matches!(clicked.follows, Follows::Submit { .. })
-                {
-                    said.say(&NOT_SUBMITTED);
+            if let Some(clicked) = run_to(held, seq, &mut said).and_then(|turn| turn.clicked) {
+                submitted = clicked.submitted;
+                if clicked.navigated {
+                    follow = href(clicked.follows);
                 }
-                follow = turn
-                    .clicked
-                    .filter(|clicked| clicked.navigated)
-                    .and_then(|clicked| href(clicked.follows));
             }
         }
         Ok(None) => return None,
@@ -83,7 +98,7 @@ pub(crate) fn press(held: &mut Held, node: NodeId) -> Option<Pressed> {
                 Some(Follows::Link { node: link, href }) if held.follow(link) == Some(true) => {
                     follow = Some(href);
                 }
-                Some(Follows::Submit { .. }) => said.say(&NOT_SUBMITTED),
+                Some(Follows::Submit { .. }) => submits_without_script = true,
                 _ => {}
             }
             said.say(&format_args!("nobody heard it: {why}"));
@@ -93,7 +108,53 @@ pub(crate) fn press(held: &mut Held, node: NodeId) -> Option<Pressed> {
     Some(Pressed {
         follow,
         issues: said.lines(),
+        submitted,
+        submits_without_script,
     })
+}
+
+/// What the agent is told of `pressed`, a press on `on` in the page at
+/// `url` whose document is now `document`, with what the page asked for
+/// in `ongoing`: a link followed, a form's submission as it came out
+/// ([`submit::told`]), or the press it was — and on a page whose script has
+/// stopped, its form pressed as a scriptless page's is ([`submit::press`]).
+///
+/// # Errors
+///
+/// That form's refusal, by name.
+pub(crate) fn told(
+    pressed: Pressed,
+    on: &submit::Pressed<'_>,
+    document: Option<&Document>,
+    url: &Url,
+    ongoing: &mut Ongoing,
+) -> Result<(Outcome, Vec<String>), Refusal> {
+    let mut issues = pressed.issues;
+    if let Some(to) = pressed.follow {
+        return Ok((
+            Outcome::Followed {
+                node: on.button,
+                to,
+            },
+            issues,
+        ));
+    }
+    let activated = Outcome::Activated {
+        node: on.button,
+        name: on.name.clone(),
+    };
+    if let Some(submitted) = pressed.submitted {
+        let (outcome, line) = submit::told(submitted, on, ongoing);
+        issues.extend(line.map(|line| said::line(&line)));
+        return Ok((outcome, issues));
+    }
+    if pressed.submits_without_script
+        && let Some(answer) =
+            document.and_then(|document| submit::press(document, url, on, ongoing))
+    {
+        return answer.map(|outcome| (outcome, issues));
+    }
+    Ok((activated, issues))
 }
 
 /// The `href` of the link `follows` says to follow, if it says one.

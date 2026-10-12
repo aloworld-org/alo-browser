@@ -1308,7 +1308,14 @@ unreachable without it.
       and recorded under the form's method (`navigate.rs`); and the jar
       keeps a `SameSite=Lax` cookie off a `POST` from another site
       (`header_for_navigation`). On the same two frozen pages through real
-      tabs, in `alo-renderer`'s `a_form_is_decided.rs` ·
+      tabs, in `alo-renderer`'s `a_form_is_decided.rs`; and a form on a
+      page that runs script is submitted by an agent's press (queue item
+      485, iteration 298): inside the click's task, a trusted `invalid` at
+      each failing control or a trusted `SubmitEvent` naming its submitter
+      (`alo-bindings`' `submit_event.rs`), HTML's guard against a second
+      submission (`submitting.rs`), and the ask built after the listeners
+      (`alo-renderer`'s `event_loop/submitted.rs`), on the frozen
+      `alo-sites-booking` whole and decided through real tabs ·
       Decided (ADR 0051, iteration 294): a control's state is held apart
       from its attributes; its form owner is worked out when asked for;
       each constraint is a rule in `alo-dom`, and a constraint not built yet
@@ -1316,8 +1323,8 @@ unreachable without it.
       in ADR 0020's ask with a method and an entry list that the browser
       process encodes and decides; an agent submits by activating the submit
       button; and a file is chosen only by a person · Owed:
-      the rest of what a control **does** (queue items 469, 471–476, 485 and
-      486: a submission on a page that runs script, 485; the state apart
+      the rest of what a control **does** (queue items 469, 471–476, 486
+      and 487: a script's own `click()` on a submit button, 487; the state apart
       from its attributes, 469; a `<meta>` policy's `form-action` and its
       violations reported, 486; script's form members, 471;
       `FormData` and `URLSearchParams`, 472; the rest of the constraints,
@@ -1638,11 +1645,11 @@ items where being right and being unusable are the same outcome.
       The browser process then decides it as the agent's, with Chrome's
       exact body (queue item 470, `a_form_is_decided.rs`).
       · Owed: loading what was decided, which is item 85's for every
-      navigation; a submission on a page that runs script (485); `time`,
-      `month`, `week` and `datetime-local` fields (388); validity in the
-      tree (476); and a stranger's page that runs script, which neither
-      frozen page does — `Activate` and `PutText` through a page's own
-      listeners are tested only on alo's screens
+      navigation; `time`, `month`, `week` and `datetime-local` fields
+      (388); validity in the tree (476); and a stranger's page that runs
+      script, which neither frozen web page does — though alo Sites' frozen
+      booking page now runs its own script through the agent's press and
+      submission (queue item 485, iteration 298)
 - [ ] Across frames, without becoming a way around the same-origin policy
 - [ ] Under grants, and recorded: what it read, what it did, on whose approval — `alo-os` ADR 0001's model reaching the web
 - [ ] Agent-driven navigation, and a page that changes underneath an agent mid-action

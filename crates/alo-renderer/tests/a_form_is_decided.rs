@@ -161,22 +161,18 @@ fn the_pizza_form_is_sent_by_post_with_chromes_body_as_the_agents() {
 
 #[test]
 fn the_booking_form_is_sent_by_get_with_the_day_as_its_query() {
+    // The frozen page whole, its analytics script running: the submission
+    // is the click's task's, with `submit` fired first (queue item 485), and
+    // what it asks for is decided as any page's.
     let html = frozen("alo-sites-booking", "page.html");
-    // The same markup without its analytics script: a page that runs script
-    // submits by queue item 485, and this is the form's own submission.
-    let Some((before, rest)) = html.split_once("<script>") else {
-        panic!("the frozen page has lost its script");
-    };
-    let Some((_, after)) = rest.split_once("</script>") else {
-        panic!("and its end");
-    };
+    assert!(
+        html.contains("<script>"),
+        "the frozen page has lost its script"
+    );
     let address = frozen("alo-sites-booking", "address.txt");
     let at = url(address.lines().next().unwrap_or_default().trim());
     let mut tabs = tabs();
-    let tab = showing(
-        &mut tabs,
-        Page::new(format!("{before}{after}"), size("alo-sites-booking")).at(at),
-    );
+    let tab = showing(&mut tabs, Page::new(html, size("alo-sites-booking")).at(at));
     let put = act(
         &mut tabs,
         tab,

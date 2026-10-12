@@ -8,8 +8,9 @@
 //! state — its type, its three init flags, its phase, its target and current
 //! target, the flags its listeners set — and an ordinary object's part for
 //! whatever a page hangs off it. A `CustomEvent` is the same cell with its
-//! `detail`, a `PointerEvent` the same cell with its [`Shape`] saying so, and
-//! an `InputEvent` the same cell with its `inputType` and `data`.
+//! `detail`, a `PointerEvent` the same cell with its [`Shape`] saying so, an
+//! `InputEvent` the same cell with its `inputType` and `data`, and a
+//! `SubmitEvent` the same cell with its `submitter`.
 //!
 //! # A dispatch's state lives here
 //!
@@ -27,7 +28,8 @@
 //! with [`create`], the standard's *create an event*: an `Event` — or a
 //! `PointerEvent`, for a click (queue item 256), an `InputEvent`, for text
 //! an agent put into a field (queue item 257), or a `PageTransitionEvent`, for
-//! a page shown or left (queue item 373) — inheriting from the
+//! a page shown or left (queue item 373), or a `SubmitEvent`, for a form an
+//! agent's press submits (queue item 485) — inheriting from the
 //! prototype the page's document cell holds, its type and init flags as the
 //! browser gives them ([`Firing`]), and nothing else. Its dispatch is
 //! the event loop's (queue item 255), and is trusted (ADR 0018 § 4).
@@ -123,6 +125,9 @@ pub enum Shape {
     /// `false` on every one, since nothing keeps a page once it is left
     /// (§ 5), and so is not held.
     PageTransition,
+    /// A `SubmitEvent` (ADR 0051 § 4): what the browser fires at a form as
+    /// it is submitted, whose `submitter` is the button that submitted it.
+    Submit,
 }
 
 /// What an `InputEvent` says was typed: its `inputType` and its `data`.
@@ -164,6 +169,8 @@ pub struct Event {
     current_target: Field,
     detail: Stored,
     typing: Typing,
+    /// A `SubmitEvent`'s `submitter`, as its wrapper; empty on any other.
+    submitter: Field,
     progress: Option<Progress>,
 }
 
@@ -186,6 +193,7 @@ impl Event {
             // A `CustomEvent`'s `detail` defaults to `null`.
             detail: Stored::holding(Value::Null),
             typing: Typing::default(),
+            submitter: Field::empty(),
             progress: None,
         }
     }
@@ -209,6 +217,17 @@ impl Event {
     /// Whether it is a `PageTransitionEvent`.
     pub fn is_page_transition(&self) -> bool {
         self.shape == Shape::PageTransition
+    }
+
+    /// Whether it is a `SubmitEvent`.
+    pub fn is_submit(&self) -> bool {
+        self.shape == Shape::Submit
+    }
+
+    /// A `SubmitEvent`'s `submitter`, as its wrapper: [`None`] for `null`,
+    /// which is what any other event has.
+    pub const fn submitter(&self) -> Option<Ref> {
+        self.submitter.get()
     }
 
     /// An `InputEvent`'s `inputType`, as code units: empty on any other.
@@ -406,6 +425,7 @@ impl Trace for Event {
         self.target.trace(tracer);
         self.current_target.trace(tracer);
         self.detail.trace(tracer);
+        self.submitter.trace(tracer);
         if let Some(progress) = &self.progress {
             progress.trace(tracer);
         }
@@ -434,6 +454,7 @@ impl Exotic for Event {
             Shape::Pointer => "a PointerEvent",
             Shape::Input => "an InputEvent",
             Shape::PageTransition => "a PageTransitionEvent",
+            Shape::Submit => "a SubmitEvent",
         }
     }
 }
@@ -465,6 +486,12 @@ pub enum Fired<'a> {
     },
     /// `PageTransitionEvent`: `pageshow` and `pagehide` (ADR 0039 § 2).
     PageTransitionEvent,
+    /// `SubmitEvent`: `submit`, at a form (ADR 0051 § 4).
+    SubmitEvent {
+        /// Its `submitter`: the wrapper of the button that submitted the
+        /// form, which the caller holds.
+        submitter: Ref,
+    },
 }
 
 impl Fired<'_> {
@@ -475,6 +502,7 @@ impl Fired<'_> {
             Self::PointerEvent => (Interface::PointerEvent, Shape::Pointer),
             Self::InputEvent { .. } => (Interface::InputEvent, Shape::Input),
             Self::PageTransitionEvent => (Interface::PageTransitionEvent, Shape::PageTransition),
+            Self::SubmitEvent { .. } => (Interface::SubmitEvent, Shape::Submit),
         }
     }
 }
@@ -526,6 +554,18 @@ impl Firing<'static> {
         composed: false,
     };
 
+    /// The `invalid` fired at a control that fails a constraint as its form
+    /// is checked (HTML's *statically validate the constraints*): an
+    /// `Event`, cancelable and nothing more — trusted, cancelable and not
+    /// bubbling, as Chrome 154 fires it (ADR 0051, measured).
+    pub const INVALID: Self = Self {
+        interface: Fired::Event,
+        kind: "invalid",
+        bubbles: false,
+        cancelable: true,
+        composed: false,
+    };
+
     /// The `visibilitychange` fired at a document whose visibility state
     /// has changed (ADR 0039 § 1): an `Event`, bubbling and nothing more —
     /// HTML's *update the visibility state*.
@@ -569,6 +609,23 @@ impl Firing<'static> {
         cancelable: false,
         composed: false,
     };
+}
+
+impl Firing<'static> {
+    /// The `submit` fired at a form as it is submitted from the button
+    /// `submitter`, a wrapper the caller holds (HTML's *form submission
+    /// algorithm*): a `SubmitEvent`, bubbling and cancelable, as Chrome 154
+    /// fires it (ADR 0051, measured). Cancelling it is how a page keeps the
+    /// form from being sent.
+    pub const fn submit(submitter: Ref) -> Self {
+        Self {
+            interface: Fired::SubmitEvent { submitter },
+            kind: "submit",
+            bubbles: true,
+            cancelable: true,
+            composed: false,
+        }
+    }
 }
 
 impl<'a> Firing<'a> {
@@ -642,9 +699,22 @@ pub fn create(objects: &mut Objects, cell: Ref, firing: &Firing<'_>) -> Result<R
             data: data.map(|data| data.encode_utf16().collect()),
         };
     }
+    let submitter = match firing.interface {
+        Fired::SubmitEvent { submitter } => Some(submitter),
+        _ => None,
+    };
     let made = objects
         .foreign(Box::new(event))
         .map_err(|why| Escape::refused(why, 0))?;
+    // The submitter is held by the caller until here, and by the event from
+    // here on; setting it allocates nothing.
+    if let Some(submitter) = submitter {
+        objects
+            .write_embedded::<Event, _>(made, |event, barrier| {
+                event.submitter.set(barrier, Some(submitter));
+            })
+            .ok_or(Escape::fault(Fault::Gone))?;
+    }
     // Copying allocates nothing, so the event nothing holds yet survives it.
     unforgeable::copy(objects, cell, made, interface)?;
     Ok(made)

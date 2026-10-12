@@ -126,7 +126,7 @@ use crate::held::Held;
 use crate::message::{Failure, FromRenderer, ToRenderer};
 use crate::page::Page;
 use crate::pipeline::Drawing;
-use crate::press::press;
+use crate::press::{Ran, press, told};
 use crate::put::put;
 use crate::said;
 use crate::scripts;
@@ -140,7 +140,7 @@ use alo_agent::{AgentTree, apply, perform};
 use alo_agent::{Outcome, Target, Verb};
 use alo_bindings::Visibility;
 use alo_bindings::navigating::{self, By};
-use alo_dom::{Document, Parsing};
+use alo_dom::{Document, NodeId, Parsing};
 use alo_layout::Size;
 use alo_text::Font;
 use alo_text::FontDatabase;
@@ -329,7 +329,11 @@ impl Renderer {
     /// On a page that runs script, `Activate` is a `click` the page's
     /// listeners hear, as one task run to its end before this answers
     /// ([`crate::press`], ADR 0018 §§ 3–7): what the document becomes is the
-    /// page's, and a link is followed only if nobody cancelled the click.
+    /// page's, and a link is followed only if nobody cancelled the click. A
+    /// submit button's form is submitted inside that task, with `invalid`
+    /// and `submit` the page may hear (ADR 0051 § 4) — unless this engine
+    /// cannot check or send the form, which refuses the press before the
+    /// click is queued ([`crate::submit`]).
     /// `PutText` is likewise one task ([`crate::put`], § 5) — a
     /// `beforeinput` the page may cancel, which answers
     /// [`Outcome::TextCanceled`], or else the text, `input` and `change`. On
@@ -372,35 +376,37 @@ impl Renderer {
             .boxes
             .get(outcome.node())
             .and_then(|held| held.kind.node());
-        let ran = match (&outcome, node) {
-            (Outcome::Activated { .. } | Outcome::Followed { .. }, Some(node)) => press(held, node)
-                .map(|pressed| {
-                    let outcome = match pressed.follow {
-                        Some(to) => Outcome::Followed {
-                            node: outcome.node(),
-                            to,
-                        },
-                        None => Outcome::Activated {
-                            node: outcome.node(),
-                            name: name.clone(),
-                        },
-                    };
-                    (outcome, pressed.issues)
-                }),
-            (Outcome::TextPut { node: id, text }, Some(node)) => put(held, node, text).map(|put| {
-                let (node, text) = (*id, text.clone());
-                let outcome = if put.canceled {
-                    Outcome::TextCanceled { node, text }
-                } else {
-                    Outcome::TextPut { node, text }
-                };
-                (outcome, put.issues)
-            }),
-            _ => None,
-        };
+        let pressed_one = node.map(|node| submit::Pressed {
+            button: outcome.node(),
+            node,
+            name: name.clone(),
+            boxes: &drawing.boxes,
+        });
+        // A form this engine cannot check or send is refused before a page
+        // that runs script hears anything (ADR 0051 §§ 3 and 6).
+        if let (Outcome::Activated { .. }, Some(on), Some(_)) =
+            (&outcome, &pressed_one, held.event_loop())
+            && let Some(refusal) = held
+                .document()
+                .and_then(|document| submit::refused(document, on))
+        {
+            return FromRenderer::Refused(refusal);
+        }
+        let ran = pressed_one
+            .as_ref()
+            .and_then(|on| run(held, &outcome, on.node));
         let mut ongoing = held.take_navigation();
         let (outcome, mut issues) = if let Some(ran) = ran {
-            ran
+            match (ran, &pressed_one) {
+                (Ran::Pressed(pressed), Some(on)) => {
+                    match told(pressed, on, held.document(), &page.url, &mut ongoing) {
+                        Ok(told) => told,
+                        Err(refusal) => return FromRenderer::Refused(refusal),
+                    }
+                }
+                (Ran::Told(outcome, issues), _) => (outcome, issues),
+                (Ran::Pressed(pressed), None) => (outcome, pressed.issues),
+            }
         } else {
             // From the **same document**: working out what a changed
             // attribute could possibly have affected is a cache, and a wrong
@@ -408,9 +414,9 @@ impl Renderer {
             // worse than slow — it would mint new node ids and break every
             // snapshot anybody was holding.
             held.change(|document| apply(document, &drawing.boxes, &outcome));
-            let outcome = match (outcome, node, held.document()) {
+            let outcome = match (outcome, pressed_one, held.document()) {
                 (Outcome::Followed { node: id, to }, Some(link), Some(document)) => {
-                    let followed = navigating::follow(document, &page.url, link, By::Browser);
+                    let followed = navigating::follow(document, &page.url, link.node, By::Browser);
                     if ongoing.start(followed) {
                         Outcome::Followed { node: id, to }
                     } else {
@@ -419,13 +425,7 @@ impl Renderer {
                 }
                 // A submit button's form is checked and asked for here, as
                 // a link is followed (ADR 0051 § 6).
-                (Outcome::Activated { node: id, name }, Some(pressed), Some(document)) => {
-                    let pressed_one = submit::Pressed {
-                        button: id,
-                        node: pressed,
-                        name: name.clone(),
-                        boxes: &drawing.boxes,
-                    };
+                (Outcome::Activated { node: id, name }, Some(pressed_one), Some(document)) => {
                     match submit::press(document, &page.url, &pressed_one, &mut ongoing) {
                         Some(Ok(outcome)) => outcome,
                         Some(Err(refusal)) => return FromRenderer::Refused(refusal),
@@ -729,6 +729,25 @@ impl Renderer {
     /// How big the page it holds is, if it holds one.
     pub fn viewport(&self) -> Option<Size> {
         self.page.as_ref().map(|page| page.viewport)
+    }
+}
+
+/// Run `outcome`, the verb decided on `node`, as a task on a page that runs
+/// script: a press ([`crate::press`]) or text put in ([`crate::put`]).
+/// [`None`] for a page that never ran script, or a verb that is not a task.
+fn run(held: &mut Held, outcome: &Outcome, node: NodeId) -> Option<Ran> {
+    match outcome {
+        Outcome::Activated { .. } | Outcome::Followed { .. } => press(held, node).map(Ran::Pressed),
+        Outcome::TextPut { node: id, text } => put(held, node, text).map(|put| {
+            let (node, text) = (*id, text.clone());
+            let outcome = if put.canceled {
+                Outcome::TextCanceled { node, text }
+            } else {
+                Outcome::TextPut { node, text }
+            };
+            Ran::Told(outcome, put.issues)
+        }),
+        _ => None,
     }
 }
 

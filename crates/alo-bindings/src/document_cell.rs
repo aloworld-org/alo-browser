@@ -43,6 +43,10 @@
 //! by the task that fires `visibilitychange` (ADR 0039 § 1,
 //! [`crate::visibility`]).
 //!
+//! And the forms **firing their submission events** now, HTML's guard
+//! against a listener that submits its form again ([`crate::submitting`],
+//! ADR 0051 § 4).
+//!
 //! And it holds an edge to the page's **`Window`**, the realm's global
 //! object, set by [`crate::install`] as the window is given an edge back
 //! (ADR 0037 § 2): a dispatch that starts at a node of this document ends at
@@ -106,6 +110,9 @@ pub struct DocumentCell {
     /// Whether the page can be seen: `hidden`, HTML's initial state, until
     /// the renderer states otherwise ([`crate::visibility`]).
     pub(crate) visibility: Visibility,
+    /// The forms whose *firing submission events* flag is set
+    /// ([`crate::submitting`]).
+    pub(crate) submitting: Vec<NodeId>,
 }
 
 /// What collections have let go of, counted.
@@ -134,6 +141,7 @@ impl DocumentCell {
             ongoing: Ongoing::default(),
             fetches: Fetches::default(),
             visibility: Visibility::Hidden,
+            submitting: Vec::new(),
         }
     }
 

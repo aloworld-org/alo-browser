@@ -361,6 +361,16 @@ pub fn start(objects: &mut Objects, cell: Ref, link: NodeId, by: By) -> Option<b
     })
 }
 
+/// Submit the [`Plan`] `alo-dom` made, in the document `cell` holds, and
+/// keep what came of it in the cell (ADR 0051 § 4, step 6): whether a
+/// navigation started, or [`None`] if `cell` is not a document cell.
+pub fn start_submission(objects: &mut Objects, cell: Ref, plan: Plan, by: By) -> Option<bool> {
+    objects.write_embedded::<DocumentCell, _>(cell, |held, _| {
+        let submitted = submit(&held.document, &held.url, plan, by);
+        held.ongoing.start(submitted)
+    })
+}
+
 /// Take what the page has asked since this was last taken, leaving nothing
 /// — [`None`] if `cell` is not a document cell.
 pub fn take(objects: &mut Objects, cell: Ref) -> Option<Ongoing> {

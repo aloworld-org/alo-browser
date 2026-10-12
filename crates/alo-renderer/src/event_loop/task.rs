@@ -354,6 +354,26 @@ pub(super) fn fill(
     node: NodeId,
     firing: &Firing<'_>,
 ) -> Result<(), Unmade> {
+    hold(objects, list, cell, node)?;
+    let made = event::create(objects, cell, firing)?;
+    push(objects, list, made)?;
+    Ok(())
+}
+
+/// Put `node`'s wrapper, in the document `cell` holds, at the end of the
+/// rooted `list`, made if it has none, and answer it — for an event that
+/// carries a node it is not dispatched at, as a `submit` carries its
+/// submitter.
+///
+/// # Errors
+///
+/// [`Unmade`]: no such node, no document, or a heap too full to hold it.
+pub(super) fn hold(
+    objects: &mut Objects,
+    list: &Root,
+    cell: Ref,
+    node: NodeId,
+) -> Result<Ref, Unmade> {
     let prototype = prototype_of(objects, cell, node);
     let target = match wrap(objects, cell, node, prototype) {
         Ok(target) => target,
@@ -363,9 +383,7 @@ pub(super) fn fill(
     };
     // Nothing allocates between making the wrapper and the list holding it.
     push(objects, list, target)?;
-    let made = event::create(objects, cell, firing)?;
-    push(objects, list, made)?;
-    Ok(())
+    Ok(target)
 }
 
 /// Add `value` to the end of the rooted `list`, which allocates nothing.

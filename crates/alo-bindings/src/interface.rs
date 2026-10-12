@@ -52,7 +52,9 @@
 //! one of these, for an agent's verb, so none has an interface object yet.
 //! `PageTransitionEvent`, inheriting `Event`, is what the browser fires at
 //! the window as a page is shown and left (ADR 0039 § 2, queue item 373), and
-//! has no interface object either.
+//! has no interface object either. `SubmitEvent`, inheriting `Event`, is
+//! what the browser fires at a form as it is submitted (ADR 0051 § 4, queue
+//! item 485), and has none either.
 //! Their prototypes are the document cell's like every other, so the
 //! browser's own dispatch (queue item 255) finds them where a node's native
 //! finds `Element.prototype`.
@@ -169,6 +171,7 @@ pub mod page_transition_event;
 pub mod parent_node;
 pub mod pointer_event;
 pub mod response;
+pub mod submit_event;
 pub mod ui_event;
 pub mod window;
 pub mod window_cssom_view;
@@ -244,6 +247,9 @@ pub enum Interface {
     /// What a page shown or left is told with: `pageshow` and `pagehide`
     /// (ADR 0039 § 2, queue item 373).
     PageTransitionEvent,
+    /// What a form is submitted with: `submit` (ADR 0051 § 4, queue item
+    /// 485).
+    SubmitEvent,
 }
 
 /// What an interface's prototype inherits from.
@@ -260,7 +266,7 @@ pub enum Inherits {
 impl Interface {
     /// Every interface, each after the one it inherits from — the order
     /// their prototypes are made in.
-    pub const ALL: [Self; 28] = [
+    pub const ALL: [Self; 29] = [
         Self::EventTarget,
         Self::Node,
         Self::CharacterData,
@@ -289,6 +295,7 @@ impl Interface {
         Self::Location,
         Self::Window,
         Self::PageTransitionEvent,
+        Self::SubmitEvent,
     ];
 
     /// Its name, as the standard spells it.
@@ -322,6 +329,7 @@ impl Interface {
             Self::Location => "Location",
             Self::Window => "Window",
             Self::PageTransitionEvent => "PageTransitionEvent",
+            Self::SubmitEvent => "SubmitEvent",
         }
     }
 
@@ -338,7 +346,7 @@ impl Interface {
             | Self::CssStyleDeclaration
             | Self::Location => Inherits::Object,
             Self::Node | Self::Window => Inherits::Interface(Self::EventTarget),
-            Self::CustomEvent | Self::UiEvent | Self::PageTransitionEvent => {
+            Self::CustomEvent | Self::UiEvent | Self::PageTransitionEvent | Self::SubmitEvent => {
                 Inherits::Interface(Self::Event)
             }
             Self::MouseEvent | Self::InputEvent => Inherits::Interface(Self::UiEvent),
@@ -406,6 +414,7 @@ impl Interface {
             Self::Location => 25,
             Self::Window => 26,
             Self::PageTransitionEvent => 27,
+            Self::SubmitEvent => 28,
         }
     }
 
@@ -480,6 +489,7 @@ impl Interface {
             Self::PageTransitionEvent => {
                 page_transition_event::furnish(objects, prototype, function_prototype)
             }
+            Self::SubmitEvent => submit_event::furnish(objects, prototype, function_prototype),
             Self::Navigator => navigator::furnish(objects, prototype, function_prototype),
             Self::DomTokenList => dom_token_list::furnish(objects, prototype, function_prototype),
             Self::NodeList => node_list::furnish(objects, prototype, function_prototype),
