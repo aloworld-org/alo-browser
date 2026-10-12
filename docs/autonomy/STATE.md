@@ -30858,3 +30858,115 @@ are.
 243 queue items are open (507 closed, 515–517 added). The next unused
 queue number is **518** and the next ADR is **0057**. This is one
 iteration, not a finished queue or roadmap.
+
+## Iteration 312 — queue item 508 built: black's two tones are Chrome's
+
+**Read before choosing:** `CLAUDE.md`, `docs/autonomy/LOOP.md`,
+`ROADMAP.md`, iteration 311's entry and the queue. No `AGENTS.md` exists
+in this checkout. 501 waits on a person (publishing upstream), and 502 and
+503 on 501's hook. **508 is the first open item after them**, nothing
+blocks it, and it can be measured here with Chrome 154. **For the item:**
+item 508's own text, items 190, 267 and 505's records, `docs/features.md`
+(stage 2's *two-toned borders*, stage 1's form-control line, which named
+508), `alo-paint`'s `tone.rs` and the user-agent sheet's control borders.
+No ADR governs the tones: CSS leaves them to the browser, and item 190
+chose ours. Matching Chrome's measured ones is a correction under the
+standing rule that Chrome is measured, not a new decision.
+
+**Measured, in headless Chrome 154**, in scratchpad probes kept nowhere,
+screenshots at 1× without `--disable-gpu`, the source not read:
+- 4 px `outset`, `inset`, `groove` and `ridge` borders on whole pixels in
+  all 256 greys, 400 random colours and 13 chosen ones: 16,056 side
+  samples (outer and inner half of the top and bottom, and the left and
+  right). `inset` is `outset` mirrored, and a groove's and a ridge's halves
+  are the same two tones.
+- Fitted rule, none off: Chrome's `Dark`/`Light` (0.33 off or on the
+  brightest channel of `c / 255`, the others scaled, each truncated to a
+  byte by `nextafterf(256, 0)`), with a colour whose WCAG relative
+  luminance is ≤ `rgb(32, 32, 32)`'s drawn as (lightened, lightened
+  twice), and one > `rgb(235, 235, 235)`'s as (darkened, itself).
+  Truncating by 256 instead left 4 samples off, all on a byte's edge, and
+  rounding by 255 left about 450. A red of 40 is in the dark branch and a
+  grey of 33 is not, which is why the measure is luminance.
+- **Confirmed on a probe it was not fitted to:** 150 colours within reach
+  of either luminance edge and 250 more at random, 9,600 samples, none
+  off. 38 translucent colours over black and over white were each within
+  half a level of the rule's tones composited, so alpha takes no part.
+
+**Built:** `alo-paint`'s `tone.rs`: `tones` is Chrome's rule, by
+`lightened`, `darkened`, `truncated` and `relative_luminance` (f64, as
+fitted). Its module comment says what was measured. Nothing else in the
+engine changed. A temporary test (removed before the gate) ran the Rust
+over all 1,067 distinct measured colours and got both of Chrome's tones
+for every one.
+
+**Tests.**
+- `tone.rs`: four new unit tests pinned to Chrome's measured tones
+  (`the_tones_are_chromes_and_keep_the_hue`,
+  `a_channel_on_a_bytes_edge_is_the_byte_below`,
+  `a_colour_too_dark_to_darken_is_drawn_lighter`,
+  `a_colour_too_light_to_lighten_is_its_own_lighter_tone`). The old
+  third-either-way and black tests were replaced; never-equal, alpha kept,
+  which side is which and no two styles alike are kept, and pass.
+- New corpus case **`a-button-with-its-own-background`** (128×160): a
+  `<button>` and an `<input type=submit>` with `background: #dbeafe`, a
+  text field with `#fefce8`, a 4 px black `groove` and a 4 px
+  `rgb(30, 30, 30)` `ridge`. `chrome.png` is Chrome's screenshot with the
+  corpus's font. `a_button_with_its_own_background.rs`: every box is
+  Chrome's `getBoundingClientRect()` to the unit; every pixel of every
+  side and one outside it is Chrome's **exactly** (0 off over 2,762
+  pixels); the corners are within 49, the measured bound, which is only
+  the mitre's diagonal pixel (518).
+- `a_border_a_legend_breaks.rs`: the fieldset's darker tone is 108,
+  Chrome's for `#c0c0c0`, where it was 107.
+- **Mutation:** with the old `tone.rs` copied back, two of the corpus
+  test's three tests fail, at 84 off. Restored from a scratchpad copy and
+  the test re-run green.
+- **References**, every case backed up first, rewritten with
+  `ALO_UPDATE_REFERENCES=1`: the new case, and `border-styles`,
+  `fieldset-group` and `web-a-form` (`display.txt`, `render.png`, and
+  `filled.png`). Every pixel that moved in those three moved by one level,
+  towards Chrome's measured tone. No box moved; layout is not touched.
+
+**Gate, mechanical.** `cargo fmt --all` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean. `alo-paint` and
+`alo-corpus` passed with `--no-fail-fast`. Then `scripts/gate.sh` ran in
+the foreground into a scratchpad log. The harness moved it to the
+background at 600 s, and the next call waited on it with a foreground
+`until` loop. **Result: `exit 0`, "The gate is met. (10 of 10 steps)"**,
+with no `FAILED`, `panicked` or `^error` in the log. Only this entry and
+the commit came after it.
+
+**Gate, manual.**
+- Layout assertions in numbers: the new case's five boxes against
+  Chrome's units. Nothing in layout changed.
+- Reference renders: yes, a new case with Chrome's screenshot committed
+  beside it, and three rewritten, compared pixel by pixel with their
+  backups.
+- One file, one responsibility: the tones are `tone.rs`'s, as before;
+  which side gets which is unchanged. The corpus test is the case's own.
+- `docs/features.md` (stage 2's two-toned borders, and 508 off stage 1's
+  form-control "not yet"), `conformance.md`, `ROADMAP.md`, `REMAINING.md`
+  and `CHANGELOG.md` are updated.
+- No `unsafe`. No verb takes a coordinate. `alo-os` and `alo-workplace`
+  were not touched.
+- Hostile bytes: nothing new reads outside bytes. A colour's channels
+  are clamped before a byte is made of them.
+
+**Queue.** 508 is ticked with its *Done* paragraph. **518** (a mitred
+corner's diagonal pixel is Chrome's average) and **519** (a button-like
+`<input>` shows its `value`; the new case's submit is blank here where
+Chrome's says "Send") are added after 517.
+
+**Roadmap.** Nothing ticked. Stage 1's form-control clause gains 508's
+built and owes 518 and 519 where it owed 508.
+
+**Unresolved obligations.**
+- 518: each corner's diagonal pixel, 49 off at worst in the new case.
+- 519: the submit's label is not drawn, in this case and on any page with
+  an `<input type=submit|button|reset>`.
+- The tones were measured in headless Chrome on this Mac only.
+
+244 queue items are open (508 closed, 518–519 added). The next unused
+queue number is **520** and the next ADR is **0057**. This is one
+iteration, not a finished queue or roadmap.

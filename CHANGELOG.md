@@ -6,6 +6,18 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **Bevelled borders are drawn in Chrome's colours.** An `inset`,
+  `outset`, `groove` or `ridge` border is two shades of its colour, and
+  CSS leaves the shades to the browser. These were this browser's own,
+  close to Chrome's for mid greys but far off for black: a button whose
+  page gives it a background gets a black `outset` border, which Chrome
+  draws in two light greys and this browser drew in black and a dark grey.
+  The shades are now Chrome's, measured over every grey and hundreds of
+  colours with none off, and such a button matches Chrome's screenshot on
+  every side. The single pixel where two shades meet in a corner is still
+  drawn a little differently, and a submit button made with `<input>` does
+  not show its label yet; both are queued.
+
 - **Date and time fields are Chrome's height.** Chrome holds a date or a
   time inside a field with a pixel of room above and below the text, so
   such a field is 2 px taller than a text field, and it pads the field

@@ -2002,3 +2002,16 @@ calendar indicator's height as a floor, needs design against ADR 0042 §
 5), **516** (a text field's line never below `normal`) and **517** (a date
 or time field's own width). 243 queue items are open (507 closed, 515–517
 added). The next unused queue number is 518 and the next unused ADR 0057.
+
+Iteration 312 built queue item 508. The two tones of an `inset`, `outset`,
+`groove` and `ridge` border are Chrome 154's, measured over every grey and
+650 colours with not one channel off (`alo-paint`'s `tone.rs`): 0.33 off or
+on the brightest channel with the hue kept, each channel truncated to a
+byte; a colour whose luminance is no more than `rgb(32, 32, 32)`'s drawn
+lighter instead, so black is 84 and 168; and one brighter than
+`rgb(235, 235, 235)` its own lighter tone. Corpus case
+`a-button-with-its-own-background` is Chrome's screenshot on every side to
+the level. Found: **518** (a mitre's diagonal pixel) and **519** (a
+button-like `<input>`'s value is not drawn). 244 queue items are open (508
+closed, 518–519 added). The next unused queue number is 520 and the next
+unused ADR 0057.

@@ -308,6 +308,7 @@ fn a_legend_wider_than_the_box_leaves_the_far_corner_drawn() {
 fn the_user_agent_sheet_gives_a_fieldset_a_groove() {
     // `2px groove #c0c0c0`: two tones of that grey, and never the grey itself,
     // which is what the border was drawn in while it was a stand-in `solid`.
+    // The tones are Chrome 154's for that grey, 108 and 255 (queue item 508).
     let outline = draw_with(
         "<body><fieldset><legend>Size</legend><p>one</p></fieldset></body>",
         "",
@@ -319,7 +320,7 @@ fn the_user_agent_sheet_gives_a_fieldset_a_groove() {
         .filter(|line| line.starts_with("fill "))
         .collect();
     assert!(
-        fills.iter().any(|line| line.contains("rgb(107 107 107)")),
+        fills.iter().any(|line| line.contains("rgb(108 108 108)")),
         "the darker tone: {fills:?}",
     );
     assert!(

@@ -1,0 +1,5 @@
+document at (0, 0) 128×159
+  button "Save" at (8, 8) 96×21
+  button at (8, 37) 96×21
+  textbox at (8, 66) 96×21
+    text "Ada" at (12, 69) 25.520832×15

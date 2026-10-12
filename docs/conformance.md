@@ -268,9 +268,15 @@ corner on a fieldset showing a legend is still drawn square.
 darker and a lighter tone of the border's colour, lit from the top left, with
 each side mitred so a corner splits where the tones change and a groove's
 halves follow a rounded corner's curve (corpus case `border-styles`). The
-exact tones are ours, which CSS allows.
+tones are Chrome 154's, measured over every grey and 650 colours with none
+off (queue item 508): 0.33 off or on the brightest channel with the hue kept,
+a colour too dark to darken drawn lighter (black is 84 and 168), and one too
+light to lighten its own lighter tone. A button with an author's background,
+drawn in the user-agent sheet's `2px outset black`, is Chrome's screenshot on
+every side to the level (corpus case `a-button-with-its-own-background`).
 Where two different tones meet on a corner's diagonal, the page shows faintly
-through that one line of anti-aliased pixels.
+through that one line of anti-aliased pixels, which Chrome draws as the two
+tones' average: 49 off at worst there (518).
 
 **Patterned borders.** `dashed`, `dotted` and `double` are drawn (corpus case
 `border-patterns`): dashes about three widths long with equal gaps, and round

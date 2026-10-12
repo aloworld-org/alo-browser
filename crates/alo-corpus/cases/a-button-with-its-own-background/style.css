@@ -1,0 +1,17 @@
+/* A button and a field whose page gave them a background (queue item 508).
+   Writing a background takes a control's own picture away, so what is drawn
+   is the user-agent sheet's border: `2px outset black` for the button and the
+   submit, `2px inset #767676` for the field. Black cannot be darkened, so
+   its two tones are lighter greys, 168 and 84. Then black in a `groove` and
+   a grey of 30 in a `ridge`, both too dark to darken, and four pixels wide
+   so that their halves show. Each box is on whole pixels. The submit's value
+   is not drawn yet, where Chrome draws "Send" (queue item 519). */
+body { margin: 0; padding: 8px; background: #ffffff; display: flex;
+  flex-direction: column; align-items: flex-start; gap: 8px;
+  font-family: system-ui; font-size: 14px }
+button, input { box-sizing: border-box; width: 96px }
+button, .send { background: #dbeafe }
+input { background: #fefce8 }
+div { width: 24px; height: 16px; border-width: 4px }
+.black { border-style: groove; border-color: black }
+.dark { border-style: ridge; border-color: rgb(30, 30, 30) }

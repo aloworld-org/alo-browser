@@ -226,8 +226,11 @@ correctness, not before it.
       at eight device pixels to one, and a page that writes any border or
       background on the control gets its CSS instead, as in Chrome.
       `a-script-hears-an-event`'s button is Chrome's 22 and its edge is
-      Chrome's screenshot's within 7 levels. Owed: black's two tones for an
-      author's `outset` (508), a disabled control's computed colours (509),
+      Chrome's screenshot's within 7 levels. A control whose page sets a
+      background draws the sheet's border in Chrome's two tones (508,
+      iteration 312): black's `outset` is 168 and 84, every side to the
+      level of Chrome's screenshot. Owed: a mitre's diagonal pixel (518),
+      a button-like `<input>`'s value (519), a disabled control's computed colours (509),
       and whether a `<select>` and a `<textarea>` draw a picture too
       (510).*
 - [x] **Reference renders**: a committed corpus, diffed on every change

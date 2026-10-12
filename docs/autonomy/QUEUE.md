@@ -7798,7 +7798,7 @@ The long pole, and the thing most of section E is unreachable without.
   516 (a text field's line is never less than `normal`) and 517 (a date or
   time field's own width).
 
-- [ ] **508. Black's two tones in an `inset`, `outset`, `groove` or
+- [x] **508. Black's two tones in an `inset`, `outset`, `groove` or
   `ridge` border are Chrome's.** *Found building 505 (iteration 309).
   Feature: `docs/features.md` stage 1, borders. Needs measuring.* Chrome
   154 draws a 4 px `outset` black border 168 on its top and left and 84 on
@@ -7810,6 +7810,43 @@ The long pole, and the thing most of section E is unreachable without.
   several dark greys and one dark hue. *Closes when:* a frozen button with
   an author's background is drawn within a measured bound of Chrome's
   screenshot, bevel included.
+  ***Done (iteration 312).*** *Measured in Chrome 154's screenshots*, at
+  one device pixel to one and without `--disable-gpu`: 4 px `inset`,
+  `outset`, `groove` and `ridge` borders in every grey and 400 random
+  colours (16,056 side samples), the source not read. *The rule:* the
+  darker tone takes 0.33 off the brightest channel and the lighter adds
+  0.33 up to 1, the others scaled with it, each channel truncated to a
+  byte by 255.99998, the float below 256. A colour whose WCAG relative
+  luminance is no more than `rgb(32, 32, 32)`'s is too dark to darken: its
+  darker tone is the colour lightened and its lighter tone that lightened
+  again, so black is 84 and 168, and so is a red of 40, which is why the
+  measure is luminance and not the brightest channel. A colour brighter
+  than `rgb(235, 235, 235)` is its own lighter tone. Alpha is kept and
+  takes no part. *Confirmed* on a second probe it was not fitted to: 150
+  colours chosen near both luminance edges and 250 more at random, 9,600
+  samples, none off; and 38 translucent colours over black and white,
+  each within half a level of the rule composited. *Built:* `alo-paint`'s
+  `tone.rs` (`tones`, `lightened`, `darkened`, `relative_luminance`).
+  The Rust gives every one of the 1,067 distinct measured colours both of
+  Chrome's tones exactly (a temporary test, removed). *Closed:* corpus
+  case `a-button-with-its-own-background` (a button and a submit with an
+  author's background, so `2px outset black`; a field with one, so `2px
+  inset #767676`; a black `groove` and a grey-30 `ridge`, 4 px) has every
+  box at Chrome's `getBoundingClientRect()` to the unit, and every pixel
+  of every side, with one outside it, is Chrome's committed screenshot's
+  exactly: 0 off over 2,762 pixels, where the button's were 84 off before
+  (`a_button_with_its_own_background.rs`). In the corners the tones are
+  Chrome's too, but the one pixel on each mitre's diagonal is 49 off at
+  worst (518). *Moved:* `border-styles`, `fieldset-group` and
+  `web-a-form` (`render.png`, `filled.png`, `display.txt`), each pixel
+  that moved by one level, to Chrome's (`#c0c0c0`'s darker tone is 108,
+  Chrome's, where it was 107; `#808080`'s 44, where it was 43).
+  *Evidence:* four new `tone.rs` unit tests pinned to Chrome's measured
+  tones (a byte's edge, too dark, too light, the hue kept), the existing
+  ones kept, `a_border_a_legend_breaks.rs` moved to 108, and the corpus
+  test. With the old `tone.rs` put back, two of its three tests fail at
+  84. *Found:* 518 (a mitre's diagonal pixel) and 519 (a button-like
+  `<input>`'s value is not drawn).
 
 - [ ] **509. A disabled control's computed colours are Chrome's.** *Found
   building 505 (iteration 309). Feature: `docs/features.md` stage 1, a
@@ -7926,6 +7963,33 @@ The long pole, and the thing most of section E is unreachable without.
   draws `yyyy-mm-dd` where Chrome draws `mm/dd/yyyy`), and 515's answer on
   the indicator's room. *Closes when:* `web-a-form`'s time field is
   Chrome's width to 1/64 px, or the difference is the format's and said.
+
+- [ ] **518. A mitred corner's diagonal is Chrome's.** *Found building 508
+  (iteration 312). Feature: `docs/features.md` stage 2, two-toned
+  borders. Needs measuring.* Where two tones meet on a corner's mitre,
+  Chrome 154 draws the pixel on the diagonal as their average: 126 for a
+  black `outset` button's 168 and 84. This engine draws each side's wedge
+  anti-aliased on its own, one over the other, so that pixel is 141, and
+  a `#767676` `inset` field's is 49 off Chrome's
+  (`a_button_with_its_own_background.rs`'s bound). The same seam is what
+  `docs/conformance.md` says lets the page show faintly through a
+  corner. Needs: Chrome's corner at eight device pixels to one, square and
+  rounded, at even and uneven widths. *Closes when:* that case's corners
+  are Chrome's within a bound measured at those scales, and the bound in
+  its test is tightened to it.
+
+- [ ] **519. A button-like `<input>` shows its value.** *Found building
+  508 (iteration 312). Feature: `docs/features.md` stage 1, a form control
+  holds what it shows. Needs measuring.* An `<input type=submit>`,
+  `button` or `reset` is laid out with an empty line inside: `alo-box`'s
+  `field_text` gives text only to the text-like types. Chrome 154 draws
+  its `value`, centred: `a-button-with-its-own-background`'s submit is
+  blank here where Chrome's screenshot says "Send". alo's own pages use
+  `<button>`, which is why no case showed it. Needs: what Chrome draws
+  with no `value` (a default label, not measured yet), and what an agent
+  reads of the label (ADR 0002). *Closes when:* that case's
+  submit draws "Send" where Chrome does, within the bound letters are
+  compared at (462), and its box is still Chrome's.
 
 - [ ] **461. A box's background is drawn on whole pixels as Chrome's is.**
   *Found building 457 (iteration 290). Feature: `docs/features.md` stage

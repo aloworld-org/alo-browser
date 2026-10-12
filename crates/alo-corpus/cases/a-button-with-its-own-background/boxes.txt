@@ -1,0 +1,12 @@
+block flow · document
+  block flex · generic
+    inline flow-root · button
+      anonymous block
+        text "Save"
+    inline flow-root · button
+      anonymous block
+    inline flow-root · textbox
+      anonymous block
+        text "Ada"
+    block flow · generic
+    block flow · generic
