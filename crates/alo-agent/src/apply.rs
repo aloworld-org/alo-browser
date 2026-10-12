@@ -52,7 +52,10 @@
 //!
 //! **Activating a plain button changes nothing** on a page without script,
 //! and that is correct rather than missing: what a button does is run a
-//! script, and there is none. **Following a link changes nothing here**
+//! script, and there is none. **Activating a submit button changes nothing
+//! here either**: submitting its form changes no node, and is asked of the
+//! browser process by the host, which checks the form first (ADR 0051
+//! §§ 4 and 6). **Following a link changes nothing here**
 //! either — where a page goes is the browser process's, and the outcome says
 //! where.
 
@@ -133,9 +136,14 @@ pub fn apply(document: &mut Document, boxes: &BoxTree, outcome: &Outcome) -> Vec
         // about the view rather than about the document.
         // And text a page cancelled is text it did not take; only a page
         // with script, which this is never asked about, can cancel it.
-        Outcome::Followed { .. } | Outcome::Scrolled { .. } | Outcome::TextCanceled { .. } => {
-            vec![Change::Nothing]
-        }
+        // A submission is asked of the browser process and changes nothing
+        // here; the host makes these outcomes after `Activated`, never asks
+        // this to carry one.
+        Outcome::Followed { .. }
+        | Outcome::Scrolled { .. }
+        | Outcome::TextCanceled { .. }
+        | Outcome::Submitted { .. }
+        | Outcome::NotSubmitted { .. } => vec![Change::Nothing],
     }
 }
 

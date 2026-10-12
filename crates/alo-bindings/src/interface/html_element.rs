@@ -98,6 +98,12 @@ const CHANGE: u32 = 2 * STEPS;
 /// What a link's download from script is refused as.
 const DOWNLOADING: &str = "a script's click() on a link's download is queue item 264";
 
+/// What a submit button's click from script is refused as: the click ran,
+/// and the submission it starts — `invalid`, `submit` and the ask — is not
+/// built on a page that runs script (ADR 0051 § 4).
+const SUBMITTING: &str =
+    "a script's click() on a form's submit button submits the form, which is queue item 484";
+
 /// `click()`.
 fn click(call: &mut Call<'_>) -> Result<Answer, Escape> {
     let this = idl::this(call, Brand::HtmlElement, "click")?;
@@ -181,6 +187,10 @@ fn finished(
                 Follows::InputAndChange(at) => {
                     let target = wrap(call, this.owner, at)?;
                     fire(call, this, wrapper, target, INPUT)
+                }
+                Follows::Submit { .. } => {
+                    end(call, wrapper)?;
+                    Err(Escape::NotBuiltYet(Missing::InTheEmbedder(SUBMITTING)))
                 }
                 Follows::Link { node, .. } => {
                     end(call, wrapper)?;

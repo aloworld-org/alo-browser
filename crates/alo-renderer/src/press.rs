@@ -22,6 +22,14 @@
 //! is still ticked, a link still followed — because that is `alo-dom`'s rule,
 //! not the page's script; nobody hears it, and the answer says so. It does
 //! not change ARIA state either: that promise was the page's (ADR 0018 § 7).
+//!
+//! # A submit button, on a page that runs script
+//!
+//! Its click runs, and its form is **not submitted**: on such a page a
+//! submission fires `invalid` at each failing control and a `SubmitEvent`
+//! the page may cancel before anything is asked (ADR 0051 § 4), and that is
+//! queue item 484. The answer says so rather than leaving an agent to think
+//! the form went.
 
 use alo_dom::NodeId;
 use alo_dom::activation::{self, Follows};
@@ -29,6 +37,10 @@ use alo_dom::activation::{self, Follows};
 use crate::event_loop::Unqueued;
 use crate::held::Held;
 use crate::run_to::{Said, run_to};
+
+/// What a press on a submit button on a page that runs script is said as.
+const NOT_SUBMITTED: &str = "the button submits a form, and submitting one on a page that \
+                             runs script is queue item 484, so nothing was sent";
 
 /// What pressing a node on a page that runs script came to.
 #[derive(Debug, Default)]
@@ -50,6 +62,11 @@ pub(crate) fn press(held: &mut Held, node: NodeId) -> Option<Pressed> {
     match held.activate(node) {
         Ok(Some(seq)) => {
             if let Some(turn) = run_to(held, seq, &mut said) {
+                if let Some(clicked) = &turn.clicked
+                    && matches!(clicked.follows, Follows::Submit { .. })
+                {
+                    said.say(&NOT_SUBMITTED);
+                }
                 follow = turn
                     .clicked
                     .filter(|clicked| clicked.navigated)
@@ -62,10 +79,12 @@ pub(crate) fn press(held: &mut Held, node: NodeId) -> Option<Pressed> {
                 let done = activation::before(document, node);
                 activation::after(document, &done)
             });
-            if let Some(Follows::Link { node: link, href }) = follows
-                && held.follow(link) == Some(true)
-            {
-                follow = Some(href);
+            match follows {
+                Some(Follows::Link { node: link, href }) if held.follow(link) == Some(true) => {
+                    follow = Some(href);
+                }
+                Some(Follows::Submit { .. }) => said.say(&NOT_SUBMITTED),
+                _ => {}
             }
             said.say(&format_args!("nobody heard it: {why}"));
         }
@@ -81,6 +100,9 @@ pub(crate) fn press(held: &mut Held, node: NodeId) -> Option<Pressed> {
 fn href(follows: Follows) -> Option<String> {
     match follows {
         Follows::Link { href, .. } => Some(href),
-        Follows::Nothing | Follows::InputAndChange(_) | Follows::Toggled { .. } => None,
+        Follows::Nothing
+        | Follows::InputAndChange(_)
+        | Follows::Toggled { .. }
+        | Follows::Submit { .. } => None,
     }
 }

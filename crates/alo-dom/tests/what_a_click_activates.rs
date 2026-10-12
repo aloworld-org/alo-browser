@@ -5,7 +5,9 @@
 //! Queue item 256, ADR 0018 § 6: what a click does to the element it
 //! activates — before its listeners, when one cancels it, and after. And
 //! queue item 429, ADR 0048 § 4: a `<details>`' summary toggles its `open`
-//! after a click nobody cancelled.
+//! after a click nobody cancelled. And queue item 468, ADR 0051 §§ 2 and 4:
+//! a submit button submits its form owner, and a radio's group is its form
+//! owner's.
 
 use alo_dom::activation::{Activation, Follows, activation_target, after, before, cancelled};
 use alo_dom::{Document, NodeId, parse_document};
@@ -271,8 +273,72 @@ fn a_button_inside_a_link_is_what_a_click_inside_it_activates() {
     assert_eq!(
         after(&mut document, &done),
         Follows::Nothing,
-        "forms are item 82"
+        "a button of type button does nothing itself"
     );
+}
+
+#[test]
+fn a_submit_button_submits_its_form_owner_from_itself() {
+    let mut document = parse_document(
+        r"<form id=f><button id=plain><span id=s>Go</span></button>
+          <input type=submit id=input><input type=image id=image>
+          <button type=reset id=reset>r</button><button id=off disabled>d</button></form>
+          <form id=g></form><button id=away form=g>away</button>
+          <button id=loose>loose</button>",
+    );
+    let f = by_id(&document, "f").expect("an element with that id");
+    let g = by_id(&document, "g").expect("an element with that id");
+    for (clicked, button, form) in [
+        ("s", "plain", Some(f)),
+        ("input", "input", Some(f)),
+        ("image", "image", Some(f)),
+        ("away", "away", Some(g)),
+        ("reset", "reset", None),
+        ("off", "off", None),
+        ("loose", "loose", None),
+    ] {
+        let clicked = by_id(&document, clicked).expect("an element with that id");
+        let button = by_id(&document, button).expect("an element with that id");
+        let count = document.change_count();
+        let done = before(&mut document, clicked);
+        assert_eq!(done, Activation::Button { node: button });
+        let follows = after(&mut document, &done);
+        let expected = form.map_or(Follows::Nothing, |form| Follows::Submit {
+            form,
+            submitter: button,
+        });
+        assert_eq!(follows, expected);
+        assert_eq!(
+            document.change_count(),
+            count,
+            "nothing in the document changed"
+        );
+    }
+}
+
+#[test]
+fn a_submit_button_taken_out_of_the_page_submits_nothing() {
+    let mut document = parse_document(r"<form><button id=b>Go</button></form>");
+    let button = by_id(&document, "b").expect("an element with that id");
+    let done = before(&mut document, button);
+    assert!(document.remove(button));
+    assert_eq!(after(&mut document, &done), Follows::Nothing);
+}
+
+#[test]
+fn radios_sharing_a_name_in_two_forms_are_two_groups() {
+    let mut document = parse_document(
+        r"<form><input type=radio name=size id=a checked></form>
+          <form><input type=radio name=size id=b checked>
+          <input type=radio name=size id=c></form>
+          <input type=radio name=size id=d checked>",
+    );
+    let c = by_id(&document, "c").expect("an element with that id");
+    before(&mut document, c);
+    assert!(checked(&document, "a"), "another form's radio");
+    assert!(!checked(&document, "b"), "the same form's radio");
+    assert!(checked(&document, "c"));
+    assert!(checked(&document, "d"), "a radio with no form");
 }
 
 #[test]

@@ -28850,3 +28850,128 @@ that runs script, which neither frozen page does. Also updated:
 220 queue items are open (131 closed). The next unused queue number is
 **480** and the next ADR is **0052**. This is one iteration, not a finished
 queue or roadmap.
+
+## Iteration 296 — queue item 468 built: a form is checked and asked for, on a page that runs no script
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md` in full,
+`ROADMAP.md` (its state rules, *Where it runs*, and the stage 2 lines
+"Forms" and "The agent reads and acts on ordinary web pages"), iteration
+295, and the owner's commits 4965a65 and 337b39b. No `AGENTS.md` exists in
+this repository or above it. For 468: its queue entry and item 82's, ADR
+0051 in full, ADR 0020 § 1 (the ask) through `ask.rs` and `navigate.rs`, and
+`docs/features.md`' forms line. `alo-dom`'s `activation.rs` and `field.rs`,
+`alo-agent`'s `verb.rs` and `apply.rs`, `alo-bindings`' `navigating.rs`,
+and the renderer's `act`, `press.rs`, `event_loop/activated.rs` and
+`wire.rs` were read before changing them.
+
+**Choosing.** Iteration 294 recorded every open item above 82 as blocked,
+waiting for a page, or needing design only the owner can promote, and 295
+named 468 buildable. 468 is cut from 82 and stands right after it, with its
+dependency (263) done. 481 is newer and its answers are now recorded, but
+nothing marks it next and it stands further down the file, so the file's
+order decided.
+
+**Measured first**, in Chrome 154 headless with `--dump-dom`, on probe pages
+kept in the scratchpad (Chrome's source was not read):
+`validationMessage` for every kind of required control and for 60 email
+and URL values, and `new FormData(form, submitter)` for a probe form. Then
+`web-a-form` filled as the test fills it. Found and followed, against
+HTML's text:
+- Chrome sends a control inside a `datalist`.
+- It bars a read-only checkbox from validation.
+- It sends `Submit` for a submit input with no `value`.
+- It judges `https://a b` a valid URL.
+- It punycodes an email domain before judging it.
+
+**Cut, not shallowed.** `alo-sites-booking` runs an analytics script, so
+its press is a scripted page's: `invalid` and a `SubmitEvent` from the
+event loop and from a script's `click()`, which needs a `SubmitEvent`
+interface and new states in the native click's state machine. That is
+**484**, with booking's two closing conditions and the listener's. Until it
+lands, the press on such a page answers `Activated` with a line naming 484.
+A script's `click()` on a submit button is refused by name, as a download's
+is.
+
+**What was built.** It is listed in 468's entry. In short:
+- `alo-dom` gains `owner.rs`, `kind.rs`, `value.rs`, `disabled.rs` (moved
+  from `alo-css`, which now asks it), `constraint.rs`, `email.rs` and
+  `submission.rs`. `alo-dom` now depends on `alo-url`, for whether a URL
+  parses.
+- `activation.rs`: a submit button answers `Follows::Submit`, and a radio's
+  group is its form owner's.
+- `alo-bindings`: `Navigation` carries a `Submission`.
+- `alo-agent`: `Submitted`, `NotSubmitted`, `TooLong`, `Unchecked` and
+  `NotSubmittable`.
+- `alo-renderer`: `submit.rs`, `wire/form.rs`, and `navigate`'s
+  `Rule::Submission`. That refusal is recorded under the submission's own
+  method, because recording a `POST` as a `GET` would be a false record.
+
+**Tests.**
+- `alo-corpus`' `a_form_on_somebody_elses_page_is_sent.rs` (6 tests):
+  - `web-a-form` untouched-but-named and filled, each entry list Chrome's.
+    The filled order was measured too.
+  - `nope` in its email field gives Chrome's sentence.
+  - Booking's markup without its script gives `valueMissing`, then `GET`
+    with `date=2026-10-20`.
+  - The frozen booking page says 484.
+  - The contact form refuses 301 characters as `TooLong`.
+- Unit tests in each new `alo-dom` module, carrying Chrome's measured
+  answers. Three activation tests. `navigate`'s refusal and record.
+- Boundary tests: round trips, hostile tags for the method, enctype, entry
+  value and constraint, a count past the message, and every truncation.
+
+**Mutation checks**, each restored from a scratchpad copy, with
+`alo-render` rebuilt after the renderer one:
+- The radio group ignoring its form owner: the activation test fails.
+- Unpressed buttons sent: `alo-dom`'s probe tests fail. The corpus tests do
+  not, because no frozen page names a button. That is said here rather
+  than hidden.
+- The renderer skipping the checks: two corpus tests fail.
+
+**Gate, mechanical.** `cargo fmt` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean first. Clippy had
+asked for unwrapped returns, merged arms, a borrowed argument and three
+tests under 100 lines. `scripts/gate.sh` ran once in the foreground. The
+harness moved it to the background at 600 s, and the next call waited on
+it with a foreground `until` loop. Result: `exit 0`, "The gate is met", and
+no `FAILED`, `panicked` or `error` in the log. Only this entry was written
+after it, then the commit.
+
+**Gate, manual.**
+- **Layout assertion:** none is owed. Nothing here positions or sizes
+  anything. No box moved, and every committed layout passed.
+- **Reference render:** none is owed. Nothing visual changed, and every
+  committed picture still matches.
+- **One responsibility per file:** each new file answers one question. The
+  disabled rule moved to where its second asker made it belong. The form's
+  wire encoding is its own file beside `fetch.rs` and `sheet.rs`.
+- **Docs:** `docs/features.md`' forms line says what is built and what is
+  not. `docs/conformance.md` gains a row and corrects 131's.
+- **Other rules:** no `unsafe`, and no verb takes a coordinate (the agent
+  submits by `Activate`, as ADR 0051 § 6 has it). `alo-workplace` and
+  `alo-os` were not touched.
+
+**Queue.** 468 is ticked, because the conditions left after the cut are met
+on frozen pages. 484 is added and buildable. Notes are added to:
+- 469: `value.rs` is what moves, and `tooShort` and `stepMismatch` lean on
+  the attribute being the value.
+- 470: it replaces `Rule::Submission`.
+- 471: it replaces the `click()` refusal.
+- 473: two `typeMismatch` cases and the unread kinds join it.
+
+**Roadmap.** Both stage 2 lines move:
+- "Forms" gains a Built clause, and its Owed clause names 469–476 and 484.
+- "The agent reads and acts on ordinary web pages" gains the form sent by
+  its button, and owes 470 and 484.
+Neither is ticked. `CHANGELOG.md` and `REMAINING.md` are updated.
+
+**Unresolved obligations.**
+- The browser process sends no form until 470. Today an agent is told
+  `Submitted`, and the tab's decision is a refusal by name.
+- A scripted page's form is 484. Booking's frozen page is its opener.
+- No frozen page has a named submit button, so the submitter's entry is
+  pinned only by `alo-dom`'s probe test.
+
+225 queue items are open (468 closed, 484 added). The next unused queue
+number is **485** and the next ADR is **0052**. This is one iteration, not a
+finished queue or roadmap.

@@ -1783,3 +1783,16 @@ took text it never draws, so it is now refused as `Unbuilt` until 388.
 Owed clause names 468, 470, 388, 476 and a stranger's scripted page. 220
 queue items are open (131 closed). The next unused queue number is 480
 and the next unused ADR 0052.
+
+Iteration 296 built item 468, the renderer's half of a form's submission,
+with its scope cut and not its depth: on a page that runs no script an
+agent's press on a submit button is checked (`valueMissing` and
+`typeMismatch` in Chrome 154's words, every other constraint refused by
+name where it could fail), planned (Chrome's entry list, method, action
+and enctype) and asked for as the page's navigation, answering
+`Submitted` or `NotSubmitted`. `web-a-form` asks to `POST` httpbin with
+Chrome's entries. The browser process refuses every submission by name
+until 470, and the scripted half, which `alo-sites-booking` needs, is cut
+into 484 (depends on nothing open). 225 queue items are open (468 closed,
+484 added). The next unused queue number is 485 and the next unused ADR
+0052.

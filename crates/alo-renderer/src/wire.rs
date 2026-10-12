@@ -50,6 +50,7 @@ use alo_net::referrer::Policy;
 use alo_text::{Slant, Weight};
 
 mod fetch;
+mod form;
 mod sheet;
 
 pub use fetch::fetched_size;
@@ -500,6 +501,7 @@ impl Writer {
             .and_then(|at| u8::try_from(at + 1).ok());
         self.tag(policy.unwrap_or(0));
         self.number(u64::from(asked.replaced));
+        self.submission(asked.submission.as_ref());
     }
 
     fn outcome(&mut self, outcome: &Outcome) {
@@ -530,6 +532,7 @@ impl Writer {
                 writer.id(*node);
                 writer.text(text);
             }
+            Outcome::Submitted { .. } | Outcome::NotSubmitted { .. } => writer.submitted(outcome),
         }
     }
 
@@ -579,6 +582,11 @@ impl Writer {
                 writer.tag(8);
                 writer.id(*node);
                 writer.text(kind);
+            }
+            Refusal::TooLong { .. }
+            | Refusal::Unchecked { .. }
+            | Refusal::NotSubmittable { .. } => {
+                writer.form_refusal(refusal);
             }
         }
     }
@@ -851,7 +859,7 @@ impl<'a> Reader<'a> {
                 node: self.id()?,
                 text: self.text()?,
             }),
-            other => Err(unreadable(format!("an outcome tagged {other}"))),
+            other => self.submitted(other),
         }
     }
 
@@ -888,7 +896,7 @@ impl<'a> Reader<'a> {
                 node: self.id()?,
                 kind: self.text()?,
             }),
-            other => Err(unreadable(format!("a refusal tagged {other}"))),
+            other => self.form_refusal(other),
         }
     }
 
@@ -999,11 +1007,13 @@ impl<'a> Reader<'a> {
         };
         let replaced = u32::try_from(self.number()?)
             .map_err(|_| unreadable("more replaced navigations than any task makes"))?;
+        let submission = self.submission()?;
         Ok(Some(Asked {
             url,
             by,
             referrer,
             replaced,
+            submission,
         }))
     }
 

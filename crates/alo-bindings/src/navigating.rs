@@ -33,7 +33,18 @@
 //! What the ask carries is *what*, never *who* (ADR 0020 § 2): the URL, how
 //! the click arose ([`By`]), and the link's own referrer policy. The cause
 //! is the browser process's, from which message it was answering.
+//!
+//! # A form's submission is a navigation too
+//!
+//! ADR 0051 § 4: a submission is recorded here as the page's ongoing
+//! navigation, the one a link records, so a task that submits and then
+//! follows a link asks for the last of them. It carries what a link's does
+//! not ([`Submission`]): a method, an enctype and the **entry list as names
+//! and values**, never as bytes — the browser process encodes them (§ 5).
+//! Its action is resolved here as a link's `href` is, against the base URL,
+//! and an empty action is the document's own URL ([`submit`]).
 
+use alo_dom::submission::{Enctype, Entry, Method, Plan};
 use alo_dom::{Document, NodeId};
 use alo_js::heap::Ref;
 use alo_js::object::Objects;
@@ -82,6 +93,21 @@ pub struct Navigation {
     pub referrer_policy: Option<String>,
     /// Whether the link's `rel` says `noreferrer`.
     pub no_referrer: bool,
+    /// What a form's submission sends, when this is one; [`None`] for a
+    /// link.
+    pub submission: Option<Submission>,
+}
+
+/// What a navigation that is a form's submission carries beside its URL
+/// (ADR 0051 § 5).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Submission {
+    /// How.
+    pub method: Method,
+    /// How the entries are to be written.
+    pub enctype: Enctype,
+    /// The entries, in tree order, as names and values.
+    pub entries: Vec<Entry>,
 }
 
 /// Why a link was not followed.
@@ -108,6 +134,13 @@ pub enum NotFollowed {
     },
     /// The node is not a link any more: not an element, or no `href`.
     NotALink,
+    /// A form's action does not resolve against the document's base URL.
+    ActionUnresolved {
+        /// The action, as written.
+        action: String,
+        /// Why, in words.
+        why: String,
+    },
 }
 
 impl fmt::Display for NotFollowed {
@@ -127,6 +160,9 @@ impl fmt::Display for NotFollowed {
                 write!(f, "a link to {href:?} goes nowhere: {why}")
             }
             NotFollowed::NotALink => f.write_str("what was clicked is no longer a link"),
+            NotFollowed::ActionUnresolved { action, why } => {
+                write!(f, "a form sent to {action:?} goes nowhere: {why}")
+            }
         }
     }
 }
@@ -237,6 +273,44 @@ pub fn follow(
         by,
         referrer_policy: element.attr("referrerpolicy").map(ToOwned::to_owned),
         no_referrer,
+        submission: None,
+    })
+}
+
+/// The navigation submitting a form in `document`, whose own URL is `url`,
+/// starts: the [`Plan`] `alo-dom` made, its action resolved against the
+/// document's base URL, or the document's own URL when it is empty, as HTML
+/// says.
+///
+/// # Errors
+///
+/// [`NotFollowed::ActionUnresolved`], when the action does not resolve.
+pub fn submit(
+    document: &Document,
+    url: &Url,
+    plan: Plan,
+    by: By,
+) -> Result<Navigation, NotFollowed> {
+    let to = if plan.action.is_empty() {
+        url.clone()
+    } else {
+        alo_url::join(&base(document, url), &plan.action).map_err(|why| {
+            NotFollowed::ActionUnresolved {
+                action: plan.action.clone(),
+                why: why.why,
+            }
+        })?
+    };
+    Ok(Navigation {
+        url: to,
+        by,
+        referrer_policy: None,
+        no_referrer: plan.no_referrer,
+        submission: Some(Submission {
+            method: plan.method,
+            enctype: plan.enctype,
+            entries: plan.entries,
+        }),
     })
 }
 
@@ -426,6 +500,66 @@ mod tests {
             Some("https://example.com/two"),
         );
         assert_eq!(ongoing.not_followed(), &[NotFollowed::NotALink]);
+    }
+
+    fn submitted(markup: &str, from: &str) -> Result<Navigation, NotFollowed> {
+        let document = parse_document(markup);
+        let form = document
+            .descendants(document.root())
+            .find(|node| {
+                document
+                    .element(*node)
+                    .is_some_and(|element| element.name.is_html("form"))
+            })
+            .unwrap();
+        let plan = alo_dom::submission::plan(&document, form, None).unwrap();
+        submit(&document, &at(from), plan, By::Browser)
+    }
+
+    #[test]
+    fn a_forms_action_resolves_against_the_base_and_an_empty_one_is_the_documents_url() {
+        let gone = submitted(
+            "<base href=/docs/><form action=send method=post><input name=a value=1></form>",
+            "https://example.com/a/b?q#f",
+        )
+        .unwrap();
+        assert_eq!(gone.url.serialised, "https://example.com/docs/send");
+        let Some(submission) = gone.submission else {
+            panic!("a submission");
+        };
+        assert_eq!(submission.method, Method::Post);
+        assert_eq!(submission.enctype, Enctype::UrlEncoded);
+        assert_eq!(submission.entries.len(), 1);
+
+        let gone = submitted(
+            "<base href=/docs/><form><input name=a value=1></form>",
+            "https://example.com/a/b?q#f",
+        )
+        .unwrap();
+        assert_eq!(
+            gone.url.serialised, "https://example.com/a/b?q#f",
+            "the document's own URL, not its base"
+        );
+        assert!(!gone.no_referrer);
+        assert!(
+            submitted("<form rel=noreferrer></form>", "https://example.com/")
+                .unwrap()
+                .no_referrer
+        );
+    }
+
+    #[test]
+    fn a_forms_action_that_does_not_resolve_goes_nowhere_and_says_why() {
+        let refused = submitted("<form action=send></form>", "about:blank").unwrap_err();
+        assert!(
+            matches!(&refused, NotFollowed::ActionUnresolved { action, .. } if action == "send"),
+            "{refused:?}"
+        );
+        assert!(
+            refused
+                .to_string()
+                .contains("a form sent to \"send\" goes nowhere")
+        );
     }
 
     #[test]

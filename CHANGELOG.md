@@ -6,6 +6,24 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **An agent can press a form's button and be told what came of it.** On
+  a page that runs no script, pressing a submit button now checks the form
+  first, as Chrome does: a required field, box, radio group, list or file
+  left empty, or an email address or URL that is not one, stops it, and the
+  agent is told which fields failed in Chrome's own words — `Please include
+  an '@' in the email address. 'nope' is missing an '@'.` Otherwise the
+  agent is told how and where the form asked to go, and the request carries
+  exactly what Chrome sends, in Chrome's order: on the HTML specification's
+  pizza form, a `POST` to httpbin with the name, phone, email, delivery time
+  and instructions. A check this browser does not make yet, a form meant
+  for another window, or a field whose value it does not read yet stops the
+  form and says which, rather than letting a server receive what its own
+  form promised it never would. Text longer than a field's `maxlength` is
+  refused rather than cut. **Two halves are not built yet:** the browser
+  process still refuses to send any form, by name, until it can encode one
+  (queue item 470), and on a page that runs script the press says nothing
+  was sent (484).
+
 - **The gate says what it is a verdict about.** It now prints the checkout, the
   commit and whether the tree is clean before it checks anything. Taken from
   alo OS, who landed the same lesson after five measurements of the wrong

@@ -18,8 +18,13 @@
 //! process assigns from which message it was answering
 //! ([`crate::navigate`]), and never anything it must believe: the URL is
 //! parsed again there, as bytes a stranger chose.
+//!
+//! **A form's submission is the same ask with more in it** (ADR 0051 § 5):
+//! a method, an enctype and the entry list as names and values. The entries
+//! are never encoded here — the browser process does that, so that a file a
+//! person chose is put into a body by the process that holds the disk.
 
-use alo_bindings::navigating::Ongoing;
+use alo_bindings::navigating::{Ongoing, Submission};
 use alo_net::referrer::Policy;
 
 use crate::said;
@@ -41,6 +46,9 @@ pub struct Asked {
     /// How many navigations the same work asked for before this one, which
     /// this one replaced (§ 5).
     pub replaced: u32,
+    /// What a form's submission sends, when this is one; [`None`] for a
+    /// link. Every part a claim, as the URL is.
+    pub submission: Option<Submission>,
 }
 
 /// What the page asked for since the renderer last answered, as an answer
@@ -72,6 +80,7 @@ pub(crate) fn answer(ongoing: &Ongoing) -> (Option<Asked>, Vec<String>) {
                 .and_then(Policy::named)
         },
         replaced: ongoing.replaced(),
+        submission: navigation.submission.clone(),
     });
     if let Some(asked) = &asked
         && asked.replaced > 0
@@ -97,6 +106,7 @@ mod tests {
             by,
             referrer_policy: None,
             no_referrer: false,
+            submission: None,
         }
     }
 
@@ -121,6 +131,7 @@ mod tests {
                 by: By::Script,
                 referrer: None,
                 replaced: 1,
+                submission: None,
             })
         );
         assert_eq!(lines.len(), 2, "{lines:?}");

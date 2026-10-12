@@ -5055,7 +5055,7 @@ The long pole, and the thing most of section E is unreachable without.
   **No code is built and this item is not done.** It is cut into 468–476.
   It closes when they have.
 
-- [ ] **468. A form's submission, in the renderer.** *Cut from 82 (ADR 0051
+- [x] **468. A form's submission, in the renderer.** *Cut from 82 (ADR 0051
   §§ 2–4 and 6). Depends on 263 (the ask's shape), done, and nothing open.*
   Opened by `alo-sites-booking`, where pressing *See free times* does
   nothing today and nothing says so.
@@ -5105,6 +5105,50 @@ The long pole, and the thing most of section E is unreachable without.
   - A scripted page's `submit` listener reads `submitter` and
     `isTrusted`, and its `preventDefault` answers `Activated` with no ask.
 
+  ***Done (iteration 296), its scope cut, not its depth.*** The scripted
+  half — `invalid` and `SubmitEvent` from an agent's press and from a
+  script's `click()` — is **cut into 484**, with the frozen booking page's
+  two conditions and the listener's. `alo-sites-booking` runs an analytics
+  script, so its press is that half. What was built:
+  - `alo-dom`: `owner.rs` (§ 2's form owner), `kind.rs` (an input's state),
+    `value.rs` (what a control holds, read from its markup with Chrome's
+    sanitisation until 469), `disabled.rs` (moved from `alo-css`, which asks
+    it), `constraint.rs` and `email.rs` (barring; `valueMissing` for every
+    kind and `typeMismatch` for `email` and `url`, each in Chrome 154's
+    words; the rest `Unchecked` where it could fail), `submission.rs` (the
+    entry list, method, action, enctype and target, and every refusal by
+    name). `activation.rs`: a submit button, `<input type=submit|image>`
+    included, answers `Follows::Submit` when in its document, enabled and
+    owned; a radio's group gains its form owner.
+  - `alo-bindings`' `navigating.rs`: `Navigation` carries a `Submission`
+    (method, enctype, entries), and `submit` resolves the action as a link's
+    `href` is, an empty one being the document's URL.
+  - `alo-agent`: `Outcome::Submitted`, `Outcome::NotSubmitted` (each
+    control, its constraint and Chrome's message), `Refusal::TooLong`,
+    `Refusal::Unchecked` and `Refusal::NotSubmittable`.
+  - `alo-renderer`: `submit.rs` runs the press on a page that never ran
+    script; `Asked` carries the submission and `wire/form.rs` the new
+    outcomes, refusals and entries, every tag a closed list and every count
+    checked; `navigate::decide` refuses a submission by name
+    (`Rule::Submission`, recorded under its own method) until 470; on a page
+    that runs script the press says it sent nothing (484), and a script's
+    `click()` on a submit button is refused by name.
+  *Closed by* `alo-corpus`' `a_form_on_somebody_elses_page_is_sent.rs`:
+  `web-a-form` asks to `POST` `https://httpbin.org/post` with Chrome's
+  entries, untouched and filled (both measured in Chrome 154); an address
+  that is not one answers `NotSubmitted` in Chrome's words; the booking
+  form's own markup, without its script, answers `NotSubmitted` naming the
+  date field, `valueMissing` and `Please fill out this field.`, and after
+  `2026-10-20` asks to `GET` `https://nordwind.alosites.com/b/studio-consultation`
+  with `date=2026-10-20`; the frozen booking page says 484; and text past
+  the contact form's `maxlength` is refused as `TooLong`.
+  *Measured while building, and followed:* Chrome sends a control inside a
+  `datalist` (HTML says not to), bars a read-only checkbox from validation
+  (HTML gives `readonly` no meaning there), sends `Submit` for a submit
+  input with no `value`, and judges `https://a b` a valid URL — so a URL
+  with a scheme that does not parse is `Unchecked` rather than said to be
+  invalid.
+
 - [ ] **469. A control's state apart from its attributes.** *Cut from 82
   (ADR 0051 § 1). Depends on 468.*
   - `alo-dom`'s `control.rs`: value and dirty value flag, checkedness and
@@ -5123,6 +5167,12 @@ The long pole, and the thing most of section E is unreachable without.
     that sees the typed text, which Chrome would not show.
   *Opened by a page* whose `[value]` selector, reset button or script
   tells a control's state from its attribute.
+  *Since 468:* `alo-dom`'s `value.rs` is the one place a value, a
+  checkedness and a selectedness are read, and its functions are what
+  moves. Two things 468 leaned on change with it: `tooShort` is
+  `Unchecked` because nothing tells a user's edit from the markup's value,
+  and `stepMismatch` cannot fail because its base, the `value` attribute,
+  *is* the value. Both are to be checked when this lands.
   *Closes when:* that page renders and acts as Chrome measures it, and a
   `value` attribute set after `PutText` leaves the field's text as the
   agent put it.
@@ -5143,6 +5193,8 @@ The long pole, and the thing most of section E is unreachable without.
   - A method, enctype or file number no form could make, refused as a
     renderer that broke the boundary.
   - `Navigation` carries the method and body to whoever drives `Tabs`.
+  *Since 468:* `navigate::decide` refuses every submission as
+  `Rule::Submission`; this replaces that refusal.
   *Closes when:* `web-a-form`'s ask from 468 is decided as `Cause::Agent`
   with Chrome's exact body,
   `custname=Ada+Lovelace&custtel=&custemail=&delivery=&comments=`, and
@@ -5168,6 +5220,8 @@ The long pole, and the thing most of section E is unreachable without.
   `requestSubmit()`.
   *Closes when:* the contact form's fallback, given a failed fetch, asks for
   its POST with the values as they stand and no `submit` event.
+  *Since 468:* `alo-bindings`' `click()` on a submit button is refused by
+  name (`SUBMITTING`, naming 484), which 484 replaces.
 
 - [ ] **472. `FormData` and `URLSearchParams`.** *Cut from 82 (ADR 0051
   § 7). Depends on 468 and 335.* `new FormData(form)` built from 468's
@@ -5194,6 +5248,13 @@ The long pole, and the thing most of section E is unreachable without.
   *Closes when:* that page's submission is checked as Chrome checks it,
   and the refusal 468 gives for an unbuilt constraint names nothing still
   missing.
+  *Since 468,* the refusal also covers two `typeMismatch` cases this item
+  should take with the rest: an email address whose domain is not ASCII,
+  which Chrome turns into punycode first (`a@é` is `a@xn--9ca`), and a URL
+  with a scheme that does not parse, where Chrome's rule is its own
+  (`https://a b` is valid there). And `range`, `month`, `week`, `time` and
+  `datetime-local` values are not read (`value.rs`' `is_unheld`), so a
+  form holding one with a value refuses as `NotSubmittable`.
 
 - [ ] **474. `multipart/form-data` and `text/plain` without files.** *Cut
   from 82 (ADR 0051 § 5). Depends on 470.* Encoded in the browser process,
@@ -5229,6 +5290,39 @@ The long pole, and the thing most of section E is unreachable without.
   agent reads before pressing. *Closes when:* that case's `agent.txt` says
   what Chrome's accessibility tree says for the field, before and after
   the press.
+
+- [ ] **484. A form's submission on a page that runs script.** *Cut from 468
+  (iteration 296; ADR 0051 §§ 4, 6 and 7). Depends on 468, done, and
+  nothing open.* On a page whose document is in its heap, a submit button's
+  click nobody cancelled runs the steps `alo-renderer`'s `submit.rs` runs
+  on a scriptless page, with the events between them:
+  - `invalid` (trusted, cancelable, not bubbling) at each failing control
+    in tree order, and nothing else when any failed;
+  - a `SubmitEvent` at the form (trusted even for a script's click,
+    bubbling, cancelable, `submitter` the button), which needs the
+    `SubmitEvent` interface;
+  - if nobody cancelled it, the ask kept in the document cell
+    (`navigating::submit`), so a later link or submission in the same task
+    replaces it;
+  - HTML's two guards, so a listener that presses the button again does not
+    recurse;
+  - from the agent's press (`event_loop/activated.rs`, `press.rs`) and from
+    a script's `click()` (`alo-bindings`' `html_element.rs`, whose
+    `SUBMITTING` refusal goes).
+  A page whose script has stopped runs the scriptless steps.
+  *Opened by `alo-sites-booking`*, which runs an analytics script, so
+  pressing *See free times* says this item and sends nothing.
+  *Closes when:*
+  - on the frozen `alo-sites-booking`, `Activate` on *See free times* with
+    no date answers `NotSubmitted` naming the date field, `valueMissing`
+    and `Please fill out this field.`, fires one `invalid` at it, and asks
+    for no navigation;
+  - after `PutText` of `2026-10-20`, the same press answers `Submitted`,
+    and `Acted` carries an ask for `GET` to
+    `https://nordwind.alosites.com/b/studio-consultation` with the entry
+    `date` = `2026-10-20`;
+  - a scripted page's `submit` listener reads `submitter` and `isTrusted`,
+    and its `preventDefault` answers `Activated` with no ask.
 
 - [ ] **83. `fetch()` and `XMLHttpRequest`**, over the same stack as everything
   else rather than beside it.

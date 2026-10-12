@@ -133,6 +133,7 @@ use crate::scripts;
 use crate::sheet::{SheetAnswer, SheetAsk};
 use crate::show;
 use crate::snapshot::Snapshot;
+use crate::submit;
 use crate::transition::{self, Left};
 use crate::view::PageView;
 use alo_agent::{AgentTree, apply, perform};
@@ -333,8 +334,9 @@ impl Renderer {
     /// `beforeinput` the page may cancel, which answers
     /// [`Outcome::TextCanceled`], or else the text, `input` and `change`. On
     /// a page that never ran script, `alo-agent`'s `apply` carries the
-    /// decision in, as it did in stage 1 — and a link it follows is asked
-    /// for here, since such a page has no cell to ask in.
+    /// decision in, as it did in stage 1 — and a link it follows, or a form
+    /// a submit button sends ([`crate::submit`]), is asked for here, since
+    /// such a page has no cell to ask in.
     ///
     /// A link answers [`Outcome::Followed`] only when following it started
     /// a navigation; one that asks for a download, names another window or
@@ -413,6 +415,21 @@ impl Renderer {
                         Outcome::Followed { node: id, to }
                     } else {
                         Outcome::Activated { node: id, name }
+                    }
+                }
+                // A submit button's form is checked and asked for here, as
+                // a link is followed (ADR 0051 § 6).
+                (Outcome::Activated { node: id, name }, Some(pressed), Some(document)) => {
+                    let pressed_one = submit::Pressed {
+                        button: id,
+                        node: pressed,
+                        name: name.clone(),
+                        boxes: &drawing.boxes,
+                    };
+                    match submit::press(document, &page.url, &pressed_one, &mut ongoing) {
+                        Some(Ok(outcome)) => outcome,
+                        Some(Err(refusal)) => return FromRenderer::Refused(refusal),
+                        None => Outcome::Activated { node: id, name },
                     }
                 }
                 (outcome, ..) => outcome,

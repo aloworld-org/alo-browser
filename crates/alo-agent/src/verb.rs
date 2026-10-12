@@ -35,9 +35,21 @@
 //! what was asked for, which is the guarantee `alo-os` rests on. A page that
 //! runs script may cancel text it is offered, and the host then answers
 //! [`Outcome::TextCanceled`] instead.
+//!
+//! # Submitting a form
+//!
+//! There is no verb for it (ADR 0051 § 6). An agent submits as a keyboard
+//! user does, by activating the form's submit button, and the host says
+//! what came of it: [`Outcome::Submitted`] with where it asked to go,
+//! [`Outcome::NotSubmitted`] with each control that failed and the
+//! browser's words for why, or [`Refusal::Unchecked`] and
+//! [`Refusal::NotSubmittable`] when what stopped it is something this
+//! engine does not build yet.
 
 use crate::tree::{AgentNode, AgentTree};
 use alo_box::{BoxId, KnownRole, Role};
+use alo_dom::constraint::Constraint;
+use alo_dom::submission::Method;
 use core::fmt;
 
 /// What a verb is aimed at.
@@ -151,6 +163,53 @@ pub enum Outcome {
         /// How far.
         by: ScrollBy,
     },
+    /// A submit button was pressed and its form asked to be sent (ADR 0051
+    /// § 6). Where the tab then goes is the browser process's to decide.
+    Submitted {
+        /// The button.
+        node: BoxId,
+        /// How the form is sent.
+        method: Method,
+        /// Where to, resolved against the document.
+        to: String,
+    },
+    /// A submit button was pressed and its form was not sent, because these
+    /// controls failed its checks.
+    ///
+    /// Not a [`Refusal`]: the verb was carried out — the button was pressed,
+    /// as a person presses it — and the form said no, in the browser's
+    /// words.
+    NotSubmitted {
+        /// The button.
+        node: BoxId,
+        /// Each control that failed, in tree order.
+        invalid: Vec<Invalid>,
+    },
+}
+
+/// A control that failed a form's checks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Invalid {
+    /// Its box, or [`None`] for a control nothing draws, which an agent
+    /// cannot name but which stopped the form all the same.
+    pub control: Option<BoxId>,
+    /// Which constraint.
+    pub constraint: Constraint,
+    /// What the browser says about it, word for word as Chrome does.
+    pub message: String,
+}
+
+impl fmt::Display for Invalid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.control {
+            Some(control) => write!(f, "{control} {}: {:?}", self.constraint, self.message),
+            None => write!(
+                f,
+                "a control nothing draws {}: {:?}",
+                self.constraint, self.message
+            ),
+        }
+    }
 }
 
 impl Outcome {
@@ -161,7 +220,9 @@ impl Outcome {
             | Outcome::Followed { node, .. }
             | Outcome::TextPut { node, .. }
             | Outcome::TextCanceled { node, .. }
-            | Outcome::Scrolled { node, .. } => *node,
+            | Outcome::Scrolled { node, .. }
+            | Outcome::Submitted { node, .. }
+            | Outcome::NotSubmitted { node, .. } => *node,
         }
     }
 }
@@ -179,6 +240,21 @@ impl fmt::Display for Outcome {
                 write!(f, "the page cancelled putting {text:?} into {node}")
             }
             Outcome::Scrolled { node, by } => write!(f, "scrolled {node} {by}"),
+            Outcome::Submitted { node, method, to } => {
+                write!(
+                    f,
+                    "pressed {node}, and its form asked to {} {to:?}",
+                    method.name()
+                )
+            }
+            Outcome::NotSubmitted { node, invalid } => {
+                write!(f, "pressed {node}, and its form was not sent:")?;
+                for (at, one) in invalid.iter().enumerate() {
+                    let joint = if at == 0 { " " } else { "; " };
+                    write!(f, "{joint}{one}")?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -251,6 +327,37 @@ pub enum Refusal {
         /// Which node.
         node: BoxId,
     },
+    /// The text is longer than the field's `maxlength`.
+    ///
+    /// Refused rather than cut short: a person cannot type past it, and an
+    /// agent told its text went in when part of it did not would hold a
+    /// false record (ADR 0051 § 3).
+    TooLong {
+        /// Which node.
+        node: BoxId,
+        /// The most the field takes, in UTF-16 code units as HTML counts.
+        most: usize,
+        /// How long the text is, counted the same way.
+        length: usize,
+    },
+    /// The button's form was not sent: a control in it could fail a
+    /// constraint this engine does not check yet (ADR 0051 § 3).
+    Unchecked {
+        /// The button.
+        node: BoxId,
+        /// The control, or [`None`] for one nothing draws.
+        control: Option<BoxId>,
+        /// Which constraint.
+        constraint: Constraint,
+    },
+    /// The button's form was not sent, for a reason this engine does not
+    /// build yet, in words (ADR 0051 § 4).
+    NotSubmittable {
+        /// The button.
+        node: BoxId,
+        /// Why.
+        why: String,
+    },
 }
 
 impl fmt::Display for Refusal {
@@ -279,6 +386,28 @@ impl fmt::Display for Refusal {
                 "{node} is a {kind} field, and this engine does not hold what one holds yet",
             ),
             Refusal::DoesNotScroll { node } => write!(f, "{node} has nothing to scroll"),
+            Refusal::TooLong { node, most, length } => write!(
+                f,
+                "{node} takes at most {most} characters, and the text is {length} long",
+            ),
+            Refusal::Unchecked {
+                node,
+                control,
+                constraint,
+            } => {
+                let control = control.map_or_else(
+                    || "a control nothing draws".to_owned(),
+                    |control| control.to_string(),
+                );
+                write!(
+                    f,
+                    "{node}'s form was not sent: {control} could fail {constraint}, which this \
+                     engine does not check yet",
+                )
+            }
+            Refusal::NotSubmittable { node, why } => {
+                write!(f, "{node}'s form was not sent: {why}")
+            }
         }
     }
 }
@@ -427,10 +556,31 @@ fn put_text(tree: &AgentTree<'_>, node: &AgentNode<'_>, text: &str) -> Result<Ou
             text: text.to_owned(),
         });
     }
+    // A person cannot type past `maxlength`, and an agent is not let past
+    // it either, rather than told it put in text that was cut (ADR 0051 § 3).
+    if let Some(most) = tree.max_length(node.id()) {
+        let length = length_in_a_field(text);
+        if length > most {
+            return Err(Refusal::TooLong {
+                node: node.id(),
+                most,
+                length,
+            });
+        }
+    }
     Ok(Outcome::TextPut {
         node: node.id(),
         text: text.to_owned(),
     })
+}
+
+/// How long `text` is as `maxlength` counts it: in UTF-16 code units, a
+/// line break of CR LF or a lone CR counting as one, as a field holds it.
+fn length_in_a_field(text: &str) -> usize {
+    text.replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .encode_utf16()
+        .count()
 }
 
 fn scroll(node: &AgentNode<'_>, by: ScrollBy) -> Result<Outcome, Refusal> {
@@ -568,6 +718,70 @@ mod tests {
             not_a_date.to_string(),
             "\"12/10/2026\" is not a date box#2 can hold; a date is written yyyy-mm-dd",
         );
+    }
+
+    #[test]
+    fn a_submission_reads_as_a_record_of_what_came_of_the_press() {
+        let node = BoxId::from_index_for_tests(9);
+        assert_eq!(
+            Outcome::Submitted {
+                node,
+                method: Method::Post,
+                to: "https://httpbin.org/post".to_owned(),
+            }
+            .to_string(),
+            "pressed box#9, and its form asked to POST \"https://httpbin.org/post\"",
+        );
+        let invalid = Outcome::NotSubmitted {
+            node,
+            invalid: vec![
+                Invalid {
+                    control: Some(BoxId::from_index_for_tests(4)),
+                    constraint: Constraint::ValueMissing,
+                    message: "Please fill out this field.".to_owned(),
+                },
+                Invalid {
+                    control: None,
+                    constraint: Constraint::TypeMismatch,
+                    message: "Please enter a URL.".to_owned(),
+                },
+            ],
+        };
+        assert_eq!(
+            invalid.to_string(),
+            "pressed box#9, and its form was not sent: box#4 valueMissing: \
+             \"Please fill out this field.\"; a control nothing draws typeMismatch: \
+             \"Please enter a URL.\"",
+        );
+        assert_eq!(invalid.node(), node);
+        assert_eq!(
+            Refusal::TooLong {
+                node,
+                most: 3,
+                length: 6
+            }
+            .to_string(),
+            "box#9 takes at most 3 characters, and the text is 6 long",
+        );
+        assert_eq!(
+            Refusal::Unchecked {
+                node,
+                control: Some(BoxId::from_index_for_tests(2)),
+                constraint: Constraint::PatternMismatch,
+            }
+            .to_string(),
+            "box#9's form was not sent: box#2 could fail patternMismatch, which this engine \
+             does not check yet",
+        );
+    }
+
+    #[test]
+    fn a_fields_length_is_counted_as_maxlength_counts_it() {
+        assert_eq!(length_in_a_field("abc"), 3);
+        assert_eq!(length_in_a_field("a\r\nb"), 3);
+        assert_eq!(length_in_a_field("a\rb"), 3);
+        assert_eq!(length_in_a_field("é"), 1);
+        assert_eq!(length_in_a_field("😀"), 2, "two UTF-16 code units");
     }
 
     #[test]

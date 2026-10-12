@@ -1287,16 +1287,28 @@ unreachable without it.
       screenshot beside it pixel by pixel within a measured bound. **Drawn
       on whole pixels** where it stands on fractions (queue item 457,
       `alo-paint`'s `snap.rs`), each edge rounded as Chrome 154 rounds it;
-      `checkbox-beside-text` compared with Chrome's screenshot · Decided
-      (ADR 0051, iteration 294), not built: a control's state is held apart
+      `checkbox-beside-text` compared with Chrome's screenshot. **A form
+      is checked and asked for** (queue item 468, iteration 296): a submit
+      button submits its form owner (`alo-dom`'s `activation.rs`,
+      `owner.rs`); its controls are checked by `valueMissing` and
+      `typeMismatch` in Chrome 154's words, and a constraint not built
+      refuses by name where it could fail (`constraint.rs`, `email.rs`);
+      the entry list, method, action and enctype are Chrome's
+      (`submission.rs`, `value.rs`); and on a page that never ran script an
+      agent's press answers `Submitted`, `NotSubmitted` or a refusal, the
+      ask crossing the boundary as names and values (`alo-renderer`'s
+      `submit.rs`, `wire/form.rs`). Corpus cases `web-a-form` and
+      `alo-sites-booking`, in `a_form_on_somebody_elses_page_is_sent.rs` ·
+      Decided (ADR 0051, iteration 294): a control's state is held apart
       from its attributes; its form owner is worked out when asked for;
       each constraint is a rule in `alo-dom`, and a constraint not built yet
       refuses the submission by name; submission is HTML's algorithm, ending
       in ADR 0020's ask with a method and an entry list that the browser
       process encodes and decides; an agent submits by activating the submit
       button; and a file is chosen only by a person · Owed:
-      everything a control **does** (queue items 468–476: the submission in
-      the renderer, 468; the state apart from its attributes, 469; the
+      the rest of what a control **does** (queue items 469–476 and 484: a
+      submission on a page that runs script, 484; the state apart from its
+      attributes, 469; the
       browser process's decision, 470; script's form members, 471;
       `FormData` and `URLSearchParams`, 472; the rest of the constraints,
       473; multipart and plain-text bodies, 474; a file chosen by a person,
@@ -1608,7 +1620,14 @@ items where being right and being unusable are the same outcome.
       - text put into a `<textarea>` is held, drawn and read, which it was
         not;
       - a `time` field refuses text by name rather than taking it unseen.
-      · Owed: submitting what was filled (468, then 470); `time`,
+      **And the form is sent by its button** (queue item 468, iteration
+      296): pressing *Submit order* checks it and asks to `POST` to
+      `https://httpbin.org/post` with the entries Chrome 154 sends, in its
+      order; an address that is not one stops it with Chrome's words
+      (`a_form_on_somebody_elses_page_is_sent.rs`).
+      · Owed: the browser process deciding and encoding it (470), which
+      refuses it by name until then; a submission on a page that runs
+      script (484); `time`,
       `month`, `week` and `datetime-local` fields (388); validity in the
       tree (476); and a stranger's page that runs script, which neither
       frozen page does — `Activate` and `PutText` through a page's own

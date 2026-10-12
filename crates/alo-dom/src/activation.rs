@@ -31,30 +31,33 @@
 //! # Checkedness is the `checked` attribute, for now
 //!
 //! The standard keeps a box's *checkedness* apart from its `checked`
-//! attribute, which only sets its default. That split is item 82's (forms);
-//! until it lands the attribute is the state, as it has been since stage 1,
-//! and only where it is read and written changes when it does — not this
-//! sequence. *Indeterminateness* is not held at all yet: nothing can set it
-//! without the `indeterminate` property, which is item 82's too.
+//! attribute, which only sets its default. That split is item 469's (ADR
+//! 0051 § 1); until it lands the attribute is the state, as it has been
+//! since stage 1, read through [`crate::value::checked`], and only where it
+//! is read and written changes when it does — not this sequence.
+//! *Indeterminateness* is not held at all yet: nothing can set it without
+//! the `indeterminate` property.
 //!
-//! # A radio button group, without a form
+//! # A radio button group
 //!
 //! A radio's group is the radios in the same tree with the same non-empty
-//! `name` **and the same form owner**. Form owners are item 82's, so the
-//! group here is the same tree and the same name; on a page whose radios
-//! sharing a name are split across two forms, choosing one unchecks the
-//! other, and item 82 is where that stops.
+//! `name` **and the same form owner** ([`crate::owner`], ADR 0051 § 2), so
+//! radios sharing a name in two forms are two groups.
 //!
 //! # What has an activation behaviour
 //!
 //! An `input` that is a checkbox or a radio, an `a` or `area` with an
 //! `href` (following it), a `summary` that is its `details`' summary
-//! (toggling the `details`' `open`, ADR 0048 § 4), and a `button`, whose
-//! activation behaviour —
-//! submitting or resetting its form — is item 82's, and which so does
-//! nothing yet. A `button` still counts for the search in step 1: a click
-//! on a `<span>` inside a button inside a link is the button's, not the
-//! link's, as in every browser.
+//! (toggling the `details`' `open`, ADR 0048 § 4), and a button — a
+//! `button`, or an `input` of type `submit`, `image` or `reset`. A **submit
+//! button** that is in its document, is not disabled and has a form owner
+//! submits that form ([`Follows::Submit`], ADR 0051 § 4); submitting is
+//! [`crate::submission`]'s, run by whoever ran the click. A **reset
+//! button**'s activation behaviour puts back each control's default, which
+//! is item 469's, since until then the defaults are the state; and a
+//! `button` of type `button` has none. Any button still counts for the
+//! search in step 1: a click on a `<span>` inside a button inside a link is
+//! the button's, not the link's, as in every browser.
 
 use crate::document::Document;
 use crate::node::NodeId;
@@ -90,7 +93,7 @@ pub enum Activation {
         /// The `a` or `area`.
         node: NodeId,
     },
-    /// A button, whose activation behaviour is its form's (item 82).
+    /// A button, whose activation behaviour is its form's.
     Button {
         /// The button.
         node: NodeId,
@@ -133,6 +136,15 @@ pub enum Follows {
         /// Its `href`, as written.
         href: String,
     },
+    /// A submit button was activated: submit its form owner from it (ADR
+    /// 0051 § 4), which [`crate::submission`] and [`crate::constraint`]
+    /// say how to do.
+    Submit {
+        /// The form.
+        form: NodeId,
+        /// The button that submits it.
+        submitter: NodeId,
+    },
     /// A `details` was opened or closed by its summary. HTML queues a
     /// `toggle` event at it, which is script's and queue item 434's; the
     /// page is to be drawn again either way.
@@ -163,6 +175,9 @@ fn behaviour(document: &Document, node: NodeId) -> Option<Behaviour> {
         }
         if kind.eq_ignore_ascii_case("radio") {
             return Some(Behaviour::Radio);
+        }
+        if crate::kind::of(element).is_some_and(crate::kind::Kind::is_button) {
+            return Some(Behaviour::Button);
         }
         return None;
     }
@@ -278,6 +293,9 @@ pub fn cancelled(document: &mut Document, activation: &Activation) {
 /// document** (the standard's *connected*): a box a listener took out of
 /// the page changes, and nobody is told. A link is followed wherever it is.
 ///
+/// A submit button that is in its document, is not disabled and has a form
+/// owner says to submit that form.
+///
 /// A summary toggles its `details`' `open` attribute — **if it is still the
 /// summary for its parent `details`**, which HTML asks now rather than when
 /// the click began, so a listener that moved it decides.
@@ -307,16 +325,32 @@ pub fn after(document: &mut Document, activation: &Activation) -> Follows {
                 None => Follows::Nothing,
             }
         }
-        Activation::None | Activation::Button { .. } => Follows::Nothing,
+        Activation::Button { node } => {
+            submits(document, *node).map_or(Follows::Nothing, |(form, submitter)| Follows::Submit {
+                form,
+                submitter,
+            })
+        }
+        Activation::None => Follows::Nothing,
     }
 }
 
-/// Whether a box is checked: its `checked` attribute, until item 82 holds
-/// checkedness apart from it.
+/// The form a press on the button `node` submits, and the button: when it
+/// is a submit button, in its document, not disabled, with a form owner.
+pub fn submits(document: &Document, node: NodeId) -> Option<(NodeId, NodeId)> {
+    let element = document.element(node)?;
+    if !crate::kind::is_submit_button(element)
+        || !document.is_attached(node)
+        || crate::disabled::is_disabled(document, node, element)
+    {
+        return None;
+    }
+    crate::owner::form_owner(document, node).map(|form| (form, node))
+}
+
+/// Whether a box is checked ([`crate::value::checked`]).
 fn checked(document: &Document, node: NodeId) -> bool {
-    document
-        .element(node)
-        .is_some_and(|element| element.attr("checked").is_some())
+    crate::value::checked(document, node)
 }
 
 /// Check or uncheck a box. Setting it to what it already is changes
@@ -332,18 +366,10 @@ fn set_checked(document: &mut Document, node: NodeId, to: bool) {
     }
 }
 
-/// The root of the tree `node` is in.
-fn root_of(document: &Document, node: NodeId) -> NodeId {
-    let mut at = node;
-    while let Some(parent) = document.parent(at) {
-        at = parent;
-    }
-    at
-}
-
 /// The radio button group `node` is in, itself included, in tree order —
-/// empty if it has no group: no `name`, or an empty one.
-fn group(document: &Document, node: NodeId) -> Vec<NodeId> {
+/// empty if it has no group: no `name`, or an empty one. The same tree, the
+/// same name and the same form owner.
+pub(crate) fn group(document: &Document, node: NodeId) -> Vec<NodeId> {
     let Some(name) = document
         .element(node)
         .and_then(|element| element.attr("name"))
@@ -352,7 +378,8 @@ fn group(document: &Document, node: NodeId) -> Vec<NodeId> {
     else {
         return Vec::new();
     };
-    let root = root_of(document, node);
+    let root = crate::owner::root_of(document, node);
+    let owner = crate::owner::form_owner(document, node);
     core::iter::once(root)
         .chain(document.descendants(root))
         .filter(|other| {
@@ -362,7 +389,7 @@ fn group(document: &Document, node: NodeId) -> Vec<NodeId> {
                         .attr("type")
                         .is_some_and(|kind| kind.eq_ignore_ascii_case("radio"))
                     && element.attr("name") == Some(name.as_str())
-            })
+            }) && crate::owner::form_owner(document, *other) == owner
         })
         .collect()
 }

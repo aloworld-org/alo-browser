@@ -9,6 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+alo-url = { path = "../alo-url" }
 html5ever.workspace = true
 quick-xml.workspace = true
 

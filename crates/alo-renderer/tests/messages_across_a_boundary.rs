@@ -11,12 +11,15 @@
 //! renderer is treated as bytes a stranger chose, because if a page found a way
 //! to steer that process, the stranger is the page.
 
-use alo_agent::verb::{Outcome, Refusal, ScrollBy, Target, Verb};
+use alo_agent::verb::{Invalid, Outcome, Refusal, ScrollBy, Target, Verb};
 use alo_bindings::Visibility;
+use alo_bindings::navigating::Submission;
 use alo_box::role::{KnownRole, Role};
 use alo_box::state::{Checked, Current, States};
 use alo_box::tree::BoxId;
 use alo_css::media::ColorScheme;
+use alo_dom::constraint::Constraint;
+use alo_dom::submission::{Enctype, Entry, Method, Value};
 use alo_layout::geometry::{Point, Rect, Size};
 use alo_net::csp::{Inline, Placement};
 use alo_net::referrer::Policy;
@@ -271,6 +274,25 @@ fn every_refusal_survives_the_crossing() {
             node: id(14),
             kind: "time".to_owned(),
         }),
+        FromRenderer::Refused(Refusal::TooLong {
+            node: id(15),
+            most: 3,
+            length: 6,
+        }),
+        FromRenderer::Refused(Refusal::Unchecked {
+            node: id(16),
+            control: Some(id(2)),
+            constraint: Constraint::PatternMismatch,
+        }),
+        FromRenderer::Refused(Refusal::Unchecked {
+            node: id(16),
+            control: None,
+            constraint: Constraint::TooShort,
+        }),
+        FromRenderer::Refused(Refusal::NotSubmittable {
+            node: id(17),
+            why: "the form closes a dialog, and dialogs are not built".to_owned(),
+        }),
     ];
     for original in refusals {
         let bytes = write_from_renderer(&original);
@@ -415,6 +437,7 @@ fn where_a_page_asked_to_go_survives_the_crossing() {
             by: if at % 2 == 0 { By::Script } else { By::Browser },
             referrer,
             replaced: u32::MAX - 1,
+            submission: None,
         });
         for original in [
             FromRenderer::Loaded {
@@ -468,6 +491,7 @@ fn a_load_that_stops_part_way_through_is_refused() {
             by: By::Script,
             referrer: Some(Policy::Origin),
             replaced: 1,
+            submission: None,
         }),
         fetches: Vec::new(),
         sheets: Vec::new(),
@@ -563,6 +587,7 @@ fn a_message_that_stops_in_the_middle_is_refused() {
             by: By::Browser,
             referrer: None,
             replaced: 0,
+            submission: None,
         }),
         fetches: Vec::new(),
         sheets: Vec::new(),
@@ -813,6 +838,7 @@ fn a_navigation_that_is_not_one_is_refused() {
             by: By::Script,
             referrer: Some(Policy::SameOrigin),
             replaced: 0,
+            submission: None,
         }),
         fetches: Vec::new(),
         sheets: Vec::new(),
@@ -826,8 +852,9 @@ fn a_navigation_that_is_not_one_is_refused() {
 
     let whole = write_from_renderer(&asked("https://example.com/"));
     // From the end: eight bytes counting no style sheets, eight counting no
-    // fetches, then eight bytes of count, one of policy, one of cause.
-    let (count, policy, cause) = (whole.len() - 24, whole.len() - 25, whole.len() - 26);
+    // fetches, one saying it is no form's submission, then eight bytes of
+    // count, one of policy, one of cause.
+    let (count, policy, cause) = (whole.len() - 25, whole.len() - 26, whole.len() - 27);
     for (at, value, said) in [
         (cause, 2u8, "cause tagged 2"),
         (policy, 9, "policy tagged 9"),
@@ -865,6 +892,152 @@ fn a_page_whose_address_is_not_a_url_is_refused() {
         refused
             .as_ref()
             .is_err_and(|why| why.why.contains("address")),
+        "{refused:?}"
+    );
+}
+
+/// ADR 0051 § 5: a form's submission crosses as names and values, and every
+/// part of it is a stranger's. A method or an enctype no form could make is a
+/// renderer that broke the boundary, so is an entry of a kind nobody has, and
+/// a count of entries the message has no room for is not believed.
+#[test]
+fn a_forms_submission_crosses_as_names_and_values_and_a_strange_one_is_refused() {
+    let submitted = FromRenderer::Acted {
+        outcome: Outcome::Submitted {
+            node: id(1),
+            method: Method::Post,
+            to: "https://httpbin.org/post".to_owned(),
+        },
+        issues: Vec::new(),
+        objections: Vec::new(),
+        navigation: Some(Asked {
+            url: "https://httpbin.org/post".to_owned(),
+            by: By::Browser,
+            referrer: None,
+            replaced: 0,
+            submission: Some(Submission {
+                method: Method::Post,
+                enctype: Enctype::UrlEncoded,
+                entries: vec![
+                    Entry {
+                        name: "custname".to_owned(),
+                        value: Value::Text("Ada Lovelace".to_owned()),
+                    },
+                    Entry {
+                        name: "file".to_owned(),
+                        value: Value::NoFile,
+                    },
+                ],
+            }),
+        }),
+        fetches: Vec::new(),
+        sheets: Vec::new(),
+    };
+    let whole = write_from_renderer(&submitted);
+    assert_eq!(read_from_renderer(&whole).as_ref(), Ok(&submitted));
+
+    // From the end: eight bytes counting no style sheets and eight counting
+    // no fetches; before them the file entry's tag, its name ("file", eight
+    // bytes of length and four of text) and so on back to the count, the
+    // enctype and the method.
+    let file_tag = whole.len() - 17;
+    let after_custname = file_tag - 12;
+    let text_tag = after_custname - (8 + 12) - 1;
+    let count = text_tag - (8 + 8) - 8;
+    let (enctype, method) = (count - 1, count - 2);
+    for (at, value, said) in [
+        (method, 2u8, "method tagged 2"),
+        (enctype, 3, "enctype tagged 3"),
+        (file_tag, 2, "value tagged 2"),
+        (text_tag, 7, "value tagged 7"),
+    ] {
+        let mut strange = whole.clone();
+        if let Some(byte) = strange.get_mut(at) {
+            *byte = value;
+        }
+        let refused = read_from_renderer(&strange);
+        assert!(
+            refused.as_ref().is_err_and(|why| why.why.contains(said)),
+            "{said}: {refused:?}"
+        );
+    }
+    let mut too_many = whole.clone();
+    if let Some(high) = too_many.get_mut(count) {
+        *high = 0x7f;
+    }
+    assert!(
+        read_from_renderer(&too_many).is_err(),
+        "a count of entries no message could hold was read"
+    );
+    for cut in 1..whole.len() {
+        assert!(
+            read_from_renderer(&whole[..cut]).is_err(),
+            "{cut} bytes of a submission were read as a whole one"
+        );
+    }
+}
+
+/// What a press on a submit button came to, each said to an agent by name
+/// (ADR 0051 § 6).
+#[test]
+fn what_came_of_a_submission_survives_the_crossing() {
+    let acted = |outcome| FromRenderer::Acted {
+        outcome,
+        issues: Vec::new(),
+        objections: Vec::new(),
+        navigation: None,
+        fetches: Vec::new(),
+        sheets: Vec::new(),
+    };
+    let messages = vec![
+        acted(Outcome::Submitted {
+            node: id(8),
+            method: Method::Get,
+            to: "https://nordwind.alosites.com/b/studio-consultation".to_owned(),
+        }),
+        acted(Outcome::NotSubmitted {
+            node: id(9),
+            invalid: vec![
+                Invalid {
+                    control: Some(id(4)),
+                    constraint: Constraint::ValueMissing,
+                    message: "Please fill out this field.".to_owned(),
+                },
+                Invalid {
+                    control: None,
+                    constraint: Constraint::CustomError,
+                    message: "mine".to_owned(),
+                },
+            ],
+        }),
+    ];
+    for original in messages {
+        let bytes = write_from_renderer(&original);
+        let back = read_from_renderer(&bytes)
+            .unwrap_or_else(|why| panic!("{original:?} did not survive: {why}"));
+        assert_eq!(back, original, "{original:?} changed on the way across");
+    }
+    let mut strange = write_from_renderer(&acted(Outcome::NotSubmitted {
+        node: id(9),
+        invalid: vec![Invalid {
+            control: None,
+            constraint: Constraint::TooLong,
+            message: String::new(),
+        }],
+    }));
+    // From the end: eight bytes counting no style sheets, eight counting no
+    // fetches, one saying there is no navigation, eight counting no
+    // objections, eight counting no issues, then the message's eight bytes
+    // of length and the constraint's tag.
+    let at = strange.len() - 42;
+    if let Some(tag) = strange.get_mut(at) {
+        *tag = 10;
+    }
+    let refused = read_from_renderer(&strange);
+    assert!(
+        refused
+            .as_ref()
+            .is_err_and(|why| why.why.contains("constraint tagged 10")),
         "{refused:?}"
     );
 }

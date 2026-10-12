@@ -387,6 +387,25 @@ impl<'a> AgentTree<'a> {
             .and_then(alo_dom::field::unbuilt)
     }
 
+    /// The most text the field the box `id` is takes, when it says: its
+    /// `maxlength`, on a `<textarea>` or an `<input>` a person types text
+    /// into, as HTML reads a non-negative integer.
+    pub(crate) fn max_length(&self, id: BoxId) -> Option<usize> {
+        let element = self
+            .boxes
+            .get(id)
+            .and_then(|node| node.kind.node())
+            .and_then(|source| self.document.element(source))?;
+        let typed = element.name.is_html("textarea")
+            || alo_dom::kind::of(element).is_some_and(alo_dom::kind::Kind::is_typed_text);
+        if !typed {
+            return None;
+        }
+        element
+            .attr("maxlength")
+            .and_then(alo_dom::constraint::non_negative)
+    }
+
     /// Whether this box is inside a `<label>` that names a control, and is
     /// not inside a field there.
     ///

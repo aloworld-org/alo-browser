@@ -50,6 +50,14 @@
 //!   agent's own `apply` on a page that never ran script, and the
 //!   renderer's task, between the `beforeinput` and the `input`, on one
 //!   that has.
+//! - A form, as ADR 0051 has it: [`owner`] works out a control's form
+//!   owner when it is asked; [`value`] reads what a control holds (from its
+//!   markup, until item 469); [`constraint`] says whether a control may be
+//!   submitted, in Chrome's words ([`email`] for an address), and refuses a
+//!   constraint it does not build rather than skipping it; [`submission`]
+//!   builds the entry list and the method, action and enctype a submission
+//!   sends. [`kind`] is an `<input>`'s type as a state, and [`disabled`]
+//!   whether a control is disabled, which `alo-css`' `:disabled` asks too.
 //! - [`Document::body`] and [`Document::set_body`] are HTML's *the body
 //!   element*, read and replaced as `document.body` does ([`body`]).
 //! - [`Parsing`] parses a document a step at a time, stopping at each
@@ -101,23 +109,30 @@
 pub mod activation;
 pub mod body;
 pub mod by_name;
+pub mod constraint;
 pub mod date;
 pub mod declared;
 pub mod details;
+pub mod disabled;
 pub mod document;
+pub mod email;
 pub mod field;
 pub mod footprint;
+pub mod kind;
 pub mod mutation;
 pub mod name;
 pub mod node;
 pub mod nonce;
+pub mod owner;
 pub mod parse;
 pub mod placeholder;
 pub mod release;
 pub mod scripts;
 pub mod serialize;
 pub mod sheets;
+pub mod submission;
 pub mod validity;
+pub mod value;
 pub mod xml;
 
 pub use document::{Children, Descendants, Document, QuirksSignal};

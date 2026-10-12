@@ -141,6 +141,7 @@ fn going(to: &str, by: By, replaced: u32) -> Asked {
         by,
         referrer: None,
         replaced,
+        submission: None,
     }
 }
 
@@ -372,6 +373,7 @@ fn a_page_that_never_ran_script_asks_for_the_agents_link_itself() {
             by: By::Browser,
             referrer: Some(alo_net::referrer::Policy::Origin),
             replaced: 0,
+            submission: None,
         })
     );
     for (name, said) in [("New", "queue item 118"), ("Save", "queue item 264")] {

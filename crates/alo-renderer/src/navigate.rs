@@ -19,6 +19,13 @@
 //! | `file` | only from a `file:` document |
 //! | `data`, `javascript`, `blob`, every other | refused |
 //!
+//! **A form's submission is refused, by name, until queue item 470** (ADR
+//! 0051 § 5). Deciding one is a link's decision and three more checks —
+//! `form-action`, mixed content and the jar's rule for a cross-site `POST`
+//! — and encoding its entries into a query or a body, and none of that is
+//! built. Going there as a link would send a `POST` as a `GET` without its
+//! body, so it is refused and said, and recorded under its own method.
+//!
 //! A refusal is said ([`Refusal`]'s words) and recorded under ADR 0012 by
 //! whoever holds the record ([`Refusal::record`]); the page is told nothing,
 //! as in every browser. Loading what was decided — session history, what
@@ -32,6 +39,8 @@ use alo_net::request::{Purpose, Request};
 use alo_url::Url;
 use core::fmt;
 use std::time::SystemTime;
+
+use alo_dom::submission::Method;
 
 use crate::ask::{Asked, By};
 
@@ -85,6 +94,11 @@ pub enum Rule {
     },
     /// A `file:` URL, asked for by a document that is not a file.
     FileFromElsewhere,
+    /// A form's submission, which is not decided yet.
+    Submission {
+        /// How it was to be sent.
+        method: Method,
+    },
 }
 
 impl fmt::Display for Rule {
@@ -116,6 +130,12 @@ impl fmt::Display for Rule {
             Rule::FileFromElsewhere => {
                 f.write_str("a page that is not a file may not send its tab to a file")
             }
+            Rule::Submission { method } => write!(
+                f,
+                "it is a form sent by {}, and deciding and encoding one is queue item 470, so \
+                 nothing was sent",
+                method.name()
+            ),
         }
     }
 }
@@ -144,7 +164,11 @@ impl Refusal {
         let Some(url) = &self.url else {
             return false;
         };
-        let request = Request::get(url.clone(), self.cause.clone()).for_purpose(Purpose::Document);
+        let mut request =
+            Request::get(url.clone(), self.cause.clone()).for_purpose(Purpose::Document);
+        if let Rule::Submission { method } = &self.rule {
+            method.name().clone_into(&mut request.method);
+        }
         activity.happened(
             &request,
             at,
@@ -225,6 +249,14 @@ pub fn decide(asked: &Asked, from: &Url, cause: Cause) -> Decided {
     if let Err(rule) = allowed {
         return refuse(Some(url), rule);
     }
+    if let Some(submission) = &asked.submission {
+        return refuse(
+            Some(url),
+            Rule::Submission {
+                method: submission.method,
+            },
+        );
+    }
     // The link's policy, or the engine's default,
     // `strict-origin-when-cross-origin`.
     let policy: Policy = asked.referrer.unwrap_or_default();
@@ -254,6 +286,7 @@ mod tests {
             by: By::Script,
             referrer: None,
             replaced: 0,
+            submission: None,
         }
     }
 
@@ -444,5 +477,51 @@ mod tests {
         };
         assert!(!unparsed.record(&mut activity, SystemTime::UNIX_EPOCH));
         assert_eq!(activity.len(), 1);
+    }
+
+    #[test]
+    fn a_forms_submission_is_refused_by_name_and_recorded_under_its_method() {
+        use alo_bindings::navigating::Submission;
+        use alo_dom::submission::{Enctype, Entry, Value};
+
+        let cause = Cause::Document {
+            document: document(),
+        };
+        for method in [Method::Get, Method::Post] {
+            let mut asked = asking("https://httpbin.org/post");
+            asked.submission = Some(Submission {
+                method,
+                enctype: Enctype::UrlEncoded,
+                entries: vec![Entry {
+                    name: "custname".to_owned(),
+                    value: Value::Text("Ada Lovelace".to_owned()),
+                }],
+            });
+            let Decided::Refused(refusal) = decide(
+                &asked,
+                &from("https://httpbin.org/forms/post"),
+                cause.clone(),
+            ) else {
+                panic!("a submission was navigated as a link");
+            };
+            assert_eq!(refusal.rule, Rule::Submission { method });
+            assert!(refusal.to_string().contains("queue item 470"), "{refusal}");
+            let mut activity = Activity::new();
+            assert!(refusal.record(&mut activity, SystemTime::UNIX_EPOCH));
+            let line = activity.latest().unwrap();
+            assert_eq!(line.method(), method.name());
+            assert_eq!(line.url().serialised, "https://httpbin.org/post");
+        }
+
+        // The scheme table still comes first: a submission to a `data:` URL
+        // is refused for where it goes.
+        let mut asked = asking("data:text/html,hi");
+        asked.submission = Some(Submission {
+            method: Method::Get,
+            enctype: Enctype::UrlEncoded,
+            entries: Vec::new(),
+        });
+        let decided = decide(&asked, &from("https://example.com/"), cause);
+        assert!(matches!(refused_by(&decided), Some(Rule::Scheme { .. })));
     }
 }

@@ -122,6 +122,7 @@ dependencies = [
 name = "alo-dom"
 version = "0.0.0"
 dependencies = [
+ "alo-url",
  "html5ever",
  "quick-xml",
 ]
