@@ -28,6 +28,10 @@
 //! ages; [`snapshot`] is what says how old it is and complains when the answer
 //! stops being one anybody should decide a boundary with.
 //!
+//! **The form encoding is ours** ([`form`]): the URL Standard's
+//! `application/x-www-form-urlencoded` serializer is a byte table and a loop,
+//! and writing it keeps the rented parser in its one file.
+//!
 //! **The types are ours.** `url::Url` is a string with indices into it; our
 //! [`Url`] is the parts, and our [`Origin`] is a value other code compares. The
 //! rented crate parses; we hold what came out — the same shape as
@@ -41,6 +45,7 @@
 //! Getting that backwards is a same-origin bypass, which is why it is a type
 //! here rather than a convention.
 
+pub mod form;
 pub mod origin;
 pub mod parse;
 pub mod parts;
@@ -49,5 +54,5 @@ pub mod site;
 pub mod snapshot;
 
 pub use origin::{Opaque, Origin};
-pub use parse::{ParseError, includes_credentials, join, parse};
+pub use parse::{ParseError, includes_credentials, join, parse, with_query};
 pub use parts::{Host, Url};

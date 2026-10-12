@@ -197,6 +197,9 @@ enum Name {
     Image,
     /// `connect-src`.
     Connect,
+    /// `form-action`: where a form may be sent. It has no fallback to
+    /// `default-src`, which is CSP's rule: a navigation is not a load.
+    FormAction,
     /// `report-uri`: where to post a violation. Governs no load of its own.
     ReportUri,
     /// `report-to`: which group to post a violation to. Governs no load of its
@@ -216,6 +219,7 @@ impl Name {
             "style-src" => Name::Style,
             "img-src" => Name::Image,
             "connect-src" => Name::Connect,
+            "form-action" => Name::FormAction,
             "report-uri" => Name::ReportUri,
             "report-to" => Name::ReportTo,
             _ => Name::Other,
@@ -232,6 +236,7 @@ impl Name {
             Name::Style => "style-src",
             Name::Image => "img-src",
             Name::Connect => "connect-src",
+            Name::FormAction => "form-action",
             Name::ReportUri => "report-uri",
             Name::ReportTo => "report-to",
             // Never reached from a report: a directive nobody acts on never
@@ -530,6 +535,30 @@ impl Policy {
         ))
     }
 
+    /// What this policy objects to about a form sent to `url` by a page at
+    /// `page`, when it objects: only its own `form-action`, never
+    /// `default-src`.
+    fn objects_to_form_action(&self, url: &alo_url::Url, page: &Origin) -> Option<Refusal> {
+        let directive = self
+            .directives
+            .iter()
+            .find(|held| held.name == Name::FormAction)?;
+        let load = Load {
+            purpose: &Purpose::Document,
+            url,
+            page,
+            redirected: false,
+        };
+        if directive.permits(&load, None, false) {
+            return None;
+        }
+        Some(Refusal::FormAction {
+            url: url.to_string(),
+            allows: directive.as_written(),
+            unreadable: directive.unreadable(),
+        })
+    }
+
     /// Whether this policy permits a request.
     ///
     /// # Errors
@@ -716,6 +745,30 @@ impl Policies {
         Ok(())
     }
 
+    /// Whether every enforced policy permits a form to be sent to `url` by a
+    /// page at `page` (queue item 470, ADR 0051 § 5).
+    ///
+    /// For the browser process deciding a submission from its own copy of
+    /// the document's header policy. Only a policy that says `form-action`
+    /// can refuse one: CSP gives that directive no fallback, so a page with
+    /// `default-src 'none'` can still send its forms anywhere unless it says
+    /// otherwise. What is matched is where the form goes, before any
+    /// redirect.
+    ///
+    /// # Errors
+    ///
+    /// The first [`Refusal::FormAction`].
+    pub fn allows_form_action(&self, url: &alo_url::Url, page: &Origin) -> Result<(), Refusal> {
+        for policy in &self.held {
+            if policy.disposition == Disposition::Enforce
+                && let Some(refusal) = policy.objects_to_form_action(url, page)
+            {
+                return Err(refusal);
+            }
+        }
+        Ok(())
+    }
+
     /// Whether every enforced policy permits this request.
     ///
     /// `nonce` is the one on the element that asked — a `<script nonce=…>`, a
@@ -895,6 +948,15 @@ pub enum Refusal {
         /// The sources in it this engine could not read.
         unreadable: Vec<String>,
     },
+    /// A form sent somewhere the policy's `form-action` does not permit.
+    FormAction {
+        /// Where the form was to go.
+        url: String,
+        /// What `form-action` does allow, as written.
+        allows: Vec<String>,
+        /// The sources in it this engine could not read.
+        unreadable: Vec<String>,
+    },
     /// Inline content the policy does not permit.
     Inline {
         /// Which kind: script or style.
@@ -974,6 +1036,31 @@ impl fmt::Display for Refusal {
                         ". This engine could not read {} of that directive, and kept it as \
                          something that matches nothing — a policy is never widened by our not \
                          understanding a word of it",
+                        unreadable.join(" and ")
+                    )?;
+                }
+                Ok(())
+            }
+            Refusal::FormAction {
+                url,
+                allows,
+                unreadable,
+            } => {
+                write!(
+                    f,
+                    "this page's content security policy does not allow a form to be sent to \
+                     {url}: form-action allows {}",
+                    if allows.is_empty() {
+                        "nothing".to_owned()
+                    } else {
+                        allows.join(" ")
+                    }
+                )?;
+                if !unreadable.is_empty() {
+                    write!(
+                        f,
+                        ". This engine could not read {} of that directive, and kept it as \
+                         something that matches nothing",
                         unreadable.join(" and ")
                     )?;
                 }

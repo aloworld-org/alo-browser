@@ -19,12 +19,29 @@
 //! | `file` | only from a `file:` document |
 //! | `data`, `javascript`, `blob`, every other | refused |
 //!
-//! **A form's submission is refused, by name, until queue item 470** (ADR
-//! 0051 § 5). Deciding one is a link's decision and three more checks —
-//! `form-action`, mixed content and the jar's rule for a cross-site `POST`
-//! — and encoding its entries into a query or a body, and none of that is
-//! built. Going there as a link would send a `POST` as a `GET` without its
-//! body, so it is refused and said, and recorded under its own method.
+//! # A form's submission is a link's decision and three more checks
+//!
+//! (ADR 0051 § 5, queue item 470.) Its action passes the table above, and
+//! then, in this order:
+//!
+//! 1. **`form-action`**, from this process's own copy of the document's
+//!    header policy ([`alo_net::Policies::allows_form_action`]). A `<meta>`
+//!    policy is the renderer's to apply before it asks, and it does not yet:
+//!    queue item 486.
+//! 2. **The entries written** ([`crate::form_body`]): a `GET`'s query
+//!    replacing the action's, a `POST`'s urlencoded body. The 2 MiB bound is
+//!    applied again to the URL once its query is in it, and the body is
+//!    bounded by [`alo_net::body::LARGEST_BODY`].
+//! 3. **Mixed content.** A secure document sending a form to an insecure
+//!    address is refused and said. Chrome warns the person and lets them
+//!    send it anyway; sending anyway is the person's choice and never an
+//!    agent's, and it waits for a window that can ask.
+//!
+//! The cause is assigned as for a link, and which cookies go is the jar's
+//! ([`alo_net::jar::Jar::header_for_navigation`]): a `POST` from another
+//! site carries no `SameSite=Lax` cookie. A renderer cannot ask for a method
+//! or an enctype no form could make, because the wire's lists of them are
+//! closed ([`crate::wire`]), and it cannot name a file at all until item 475.
 //!
 //! A refusal is said ([`Refusal`]'s words) and recorded under ADR 0012 by
 //! whoever holds the record ([`Refusal::record`]); the page is told nothing,
@@ -33,16 +50,20 @@
 //! decision is handed to whoever drove [`crate::Tabs`].
 
 use alo_net::activity::{Activity, Happened};
+use alo_net::body::LARGEST_BODY;
 use alo_net::cause::Cause;
+use alo_net::csp::Policies;
+use alo_net::mixed::{self, Verdict};
 use alo_net::referrer::{self, Policy};
 use alo_net::request::{Purpose, Request};
-use alo_url::Url;
+use alo_url::{Origin, Url};
 use core::fmt;
 use std::time::SystemTime;
 
-use alo_dom::submission::Method;
+use alo_dom::submission::{Enctype, Method};
 
 use crate::ask::{Asked, By};
+use crate::form_body::{self, Body, Unwritten};
 
 /// The longest URL a page may ask to go to, in bytes: 2 MiB.
 ///
@@ -58,8 +79,13 @@ pub const LONGEST_SAID: usize = 200;
 /// A navigation the browser process has decided a page may make.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Navigation {
-    /// Where to, as this process parsed it.
+    /// Where to, as this process parsed it — a form sent by `GET` with its
+    /// entries as the query.
     pub url: Url,
+    /// How: `GET` for a link, and a form's own method.
+    pub method: Method,
+    /// What to send: a form's body when it is sent by `POST`.
+    pub body: Option<Body>,
     /// Who caused it, by ADR 0012 § 4: the agent's action in an `Act`'s
     /// answer, the document otherwise.
     pub cause: Cause,
@@ -94,10 +120,27 @@ pub enum Rule {
     },
     /// A `file:` URL, asked for by a document that is not a file.
     FileFromElsewhere,
-    /// A form's submission, which is not decided yet.
-    Submission {
-        /// How it was to be sent.
-        method: Method,
+    /// A form in an enctype whose writing is not built (queue item 474).
+    Enctype {
+        /// Which.
+        enctype: Enctype,
+    },
+    /// A form sent to an address HTML gives a form no meaning at.
+    FormScheme {
+        /// Its scheme.
+        scheme: String,
+    },
+    /// The document's policy does not let its forms go there.
+    FormAction {
+        /// The policy's refusal, in words.
+        said: String,
+    },
+    /// A form a secure document would send insecurely.
+    Insecure,
+    /// A form's body larger than any request may send.
+    BodyTooLarge {
+        /// How large it was, in bytes.
+        bytes: usize,
     },
 }
 
@@ -130,11 +173,23 @@ impl fmt::Display for Rule {
             Rule::FileFromElsewhere => {
                 f.write_str("a page that is not a file may not send its tab to a file")
             }
-            Rule::Submission { method } => write!(
+            Rule::Enctype { enctype } => {
+                write!(f, "{}, so nothing was sent", Unwritten::Enctype(*enctype))
+            }
+            Rule::FormScheme { scheme } => write!(
                 f,
-                "it is a form sent by {}, and deciding and encoding one is queue item 470, so \
-                 nothing was sent",
-                method.name()
+                "{}, so nothing was sent",
+                Unwritten::Scheme(scheme.clone())
+            ),
+            Rule::FormAction { said } => f.write_str(said),
+            Rule::Insecure => f.write_str(
+                "a page reached securely may not send a form where anybody on the network can \
+                 read it, and sending it anyway is the person's choice, which needs a window \
+                 to ask in",
+            ),
+            Rule::BodyTooLarge { bytes } => write!(
+                f,
+                "the form's body is {bytes} bytes, and a request may send at most {LARGEST_BODY}"
             ),
         }
     }
@@ -149,6 +204,8 @@ pub struct Refusal {
     pub url: Option<Url>,
     /// Which rule refused it.
     pub rule: Rule,
+    /// How it was to go: `GET` for a link, and a form's own method.
+    pub method: Method,
     /// Who caused the ask, as for a [`Navigation`].
     pub cause: Cause,
     /// How the renderer says it arose.
@@ -166,9 +223,7 @@ impl Refusal {
         };
         let mut request =
             Request::get(url.clone(), self.cause.clone()).for_purpose(Purpose::Document);
-        if let Rule::Submission { method } = &self.rule {
-            method.name().clone_into(&mut request.method);
-        }
+        self.method.name().clone_into(&mut request.method);
         activity.happened(
             &request,
             at,
@@ -202,6 +257,13 @@ pub enum Decided {
 impl fmt::Display for Decided {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Decided::Go(navigation) if navigation.body.is_some() => write!(
+                f,
+                "the page asked, by {}, to send a form by {} to {}",
+                navigation.by,
+                navigation.method.name(),
+                navigation.url
+            ),
             Decided::Go(navigation) => write!(
                 f,
                 "the page asked, by {}, to go to {}",
@@ -213,14 +275,20 @@ impl fmt::Display for Decided {
 }
 
 /// Decide `asked`, a renderer's ask from the document at `from` — this
-/// process's own copy of its URL — under `cause`, which the caller assigned
-/// from the message the ask answered.
-pub fn decide(asked: &Asked, from: &Url, cause: Cause) -> Decided {
+/// process's own copy of its URL, and of the policies its response's headers
+/// stated — under `cause`, which the caller assigned from the message the
+/// ask answered.
+pub fn decide(asked: &Asked, from: &Url, policies: &Policies, cause: Cause) -> Decided {
+    let method = asked
+        .submission
+        .as_ref()
+        .map_or(Method::Get, |submission| submission.method);
     let refuse = |url: Option<Url>, rule: Rule| {
         Decided::Refused(Refusal {
             asked: asked.url.chars().take(LONGEST_SAID).collect(),
             url,
             rule,
+            method,
             cause: cause.clone(),
             by: asked.by,
         })
@@ -249,20 +317,54 @@ pub fn decide(asked: &Asked, from: &Url, cause: Cause) -> Decided {
     if let Err(rule) = allowed {
         return refuse(Some(url), rule);
     }
-    if let Some(submission) = &asked.submission {
-        return refuse(
-            Some(url),
-            Rule::Submission {
-                method: submission.method,
-            },
-        );
-    }
+    let (to, body) = match &asked.submission {
+        None => (url, None),
+        Some(submission) => {
+            let page = Origin::of(from);
+            if let Err(refusal) = policies.allows_form_action(&url, &page) {
+                return refuse(
+                    Some(url),
+                    Rule::FormAction {
+                        said: refusal.to_string(),
+                    },
+                );
+            }
+            let written = match form_body::write(&url, submission) {
+                Ok(written) => written,
+                Err(unwritten) => {
+                    let rule = match unwritten {
+                        Unwritten::Enctype(enctype) => Rule::Enctype { enctype },
+                        Unwritten::Scheme(scheme) => Rule::FormScheme { scheme },
+                        Unwritten::Unparsed(why) => Rule::Unparsed { why },
+                    };
+                    return refuse(Some(url), rule);
+                }
+            };
+            let bytes = written.url.serialised.len();
+            if bytes > LONGEST_URL {
+                return refuse(Some(url), Rule::TooLong { bytes });
+            }
+            let sent = written.body.as_ref().map_or(0, |body| body.bytes.len());
+            if !u64::try_from(sent).is_ok_and(|sent| sent <= LARGEST_BODY) {
+                return refuse(Some(url), Rule::BodyTooLarge { bytes: sent });
+            }
+            let request = Request::get(written.url.clone(), cause.clone())
+                .for_purpose(Purpose::Document)
+                .asked_by(page);
+            if matches!(mixed::what_to_do(&request), Verdict::Refused { .. }) {
+                return refuse(Some(url), Rule::Insecure);
+            }
+            (written.url, written.body)
+        }
+    };
     // The link's policy, or the engine's default,
     // `strict-origin-when-cross-origin`.
     let policy: Policy = asked.referrer.unwrap_or_default();
-    let referrer = referrer::for_request(policy, from, &url);
+    let referrer = referrer::for_request(policy, from, &to);
     Decided::Go(Navigation {
-        url,
+        url: to,
+        method,
+        body,
         cause,
         by: asked.by,
         referrer,
@@ -272,6 +374,8 @@ pub fn decide(asked: &Asked, from: &Url, cause: Cause) -> Decided {
 
 #[cfg(test)]
 mod tests {
+    use alo_bindings::navigating::Submission;
+    use alo_dom::submission::{Entry, Value};
     use alo_net::cause::{DocumentId, Identities};
 
     use super::*;
@@ -298,6 +402,7 @@ mod tests {
         decide(
             &asking(url),
             &from(at),
+            &Policies::none(),
             Cause::Document {
                 document: document(),
             },
@@ -398,6 +503,7 @@ mod tests {
             decide(
                 &asking(&exactly),
                 &from("https://example.com/"),
+                &Policies::none(),
                 Cause::Document {
                     document: document()
                 }
@@ -414,8 +520,12 @@ mod tests {
         let mut asked = asking("https://example.com/next");
         asked.by = By::Browser;
         let cause = Cause::Agent { action, document };
-        let Decided::Go(navigation) = decide(&asked, &from("https://example.com/"), cause.clone())
-        else {
+        let Decided::Go(navigation) = decide(
+            &asked,
+            &from("https://example.com/"),
+            &Policies::none(),
+            cause.clone(),
+        ) else {
             panic!("an https navigation was refused");
         };
         assert_eq!(navigation.cause, cause);
@@ -430,6 +540,7 @@ mod tests {
             match decide(
                 &asked,
                 &from("https://example.com/private/path?q=1"),
+                &Policies::none(),
                 Cause::Document {
                     document: document(),
                 },
@@ -459,6 +570,7 @@ mod tests {
         let Decided::Refused(refusal) = decide(
             &asking("data:text/html,hi"),
             &from("https://example.com/"),
+            &Policies::none(),
             cause.clone(),
         ) else {
             panic!("a data: URL was navigated");
@@ -470,58 +582,277 @@ mod tests {
         assert_eq!(line.url().serialised, "data:text/html,hi");
         assert!(matches!(line.happened(), Happened::Refused { rule } if rule.contains("data:")));
 
-        let Decided::Refused(unparsed) =
-            decide(&asking("::"), &from("https://example.com/"), cause)
-        else {
+        let Decided::Refused(unparsed) = decide(
+            &asking("::"),
+            &from("https://example.com/"),
+            &Policies::none(),
+            cause,
+        ) else {
             panic!("nonsense was navigated");
         };
         assert!(!unparsed.record(&mut activity, SystemTime::UNIX_EPOCH));
         assert_eq!(activity.len(), 1);
     }
 
-    #[test]
-    fn a_forms_submission_is_refused_by_name_and_recorded_under_its_method() {
-        use alo_bindings::navigating::Submission;
-        use alo_dom::submission::{Enctype, Entry, Value};
+    fn submitting(to: &str, method: Method, enctype: Enctype, entries: &[(&str, &str)]) -> Asked {
+        let mut asked = asking(to);
+        asked.by = By::Browser;
+        asked.submission = Some(Submission {
+            method,
+            enctype,
+            entries: entries
+                .iter()
+                .map(|(name, value)| Entry {
+                    name: (*name).to_owned(),
+                    value: Value::Text((*value).to_owned()),
+                })
+                .collect(),
+        });
+        asked
+    }
 
-        let cause = Cause::Document {
-            document: document(),
+    fn sent(asked: &Asked, at: &str, policies: &Policies) -> Decided {
+        decide(
+            asked,
+            &from(at),
+            policies,
+            Cause::Document {
+                document: document(),
+            },
+        )
+    }
+
+    fn header_policy(text: &str) -> Policies {
+        let mut headers = alo_net::headers::Headers::new();
+        headers.add("Content-Security-Policy", text);
+        Policies::stated_by(&headers)
+    }
+
+    #[test]
+    fn a_form_sent_by_post_carries_chromes_body() {
+        let asked = submitting(
+            "https://httpbin.org/post",
+            Method::Post,
+            Enctype::UrlEncoded,
+            &[("custname", "Ada Lovelace"), ("custtel", "")],
+        );
+        let Decided::Go(navigation) =
+            sent(&asked, "https://httpbin.org/forms/post", &Policies::none())
+        else {
+            panic!("the form was refused");
         };
-        for method in [Method::Get, Method::Post] {
-            let mut asked = asking("https://httpbin.org/post");
-            asked.submission = Some(Submission {
-                method,
-                enctype: Enctype::UrlEncoded,
-                entries: vec![Entry {
-                    name: "custname".to_owned(),
-                    value: Value::Text("Ada Lovelace".to_owned()),
-                }],
-            });
-            let Decided::Refused(refusal) = decide(
-                &asked,
-                &from("https://httpbin.org/forms/post"),
-                cause.clone(),
-            ) else {
-                panic!("a submission was navigated as a link");
+        assert_eq!(navigation.url.serialised, "https://httpbin.org/post");
+        assert_eq!(navigation.method, Method::Post);
+        let body = navigation.body.as_ref().expect("a body");
+        assert_eq!(body.content_type, "application/x-www-form-urlencoded");
+        assert_eq!(body.bytes, b"custname=Ada+Lovelace&custtel=");
+        assert_eq!(
+            navigation.referrer.as_deref(),
+            Some("https://httpbin.org/forms/post")
+        );
+        assert!(
+            Decided::Go(navigation)
+                .to_string()
+                .contains("to send a form by POST to https://httpbin.org/post")
+        );
+    }
+
+    #[test]
+    fn a_form_sent_by_get_goes_to_its_query_and_sends_nothing() {
+        let asked = submitting(
+            "https://example.test/get?q=9",
+            Method::Get,
+            Enctype::Multipart,
+            &[("a", "1")],
+        );
+        let Decided::Go(navigation) = sent(&asked, "https://example.test/", &Policies::none())
+        else {
+            panic!("the form was refused");
+        };
+        assert_eq!(navigation.url.serialised, "https://example.test/get?a=1");
+        assert_eq!(navigation.method, Method::Get);
+        assert_eq!(navigation.body, None);
+    }
+
+    #[test]
+    fn what_is_not_written_yet_is_refused_by_name_and_recorded_under_its_method() {
+        for (enctype, words) in [
+            (Enctype::Multipart, "multipart/form-data"),
+            (Enctype::TextPlain, "text/plain"),
+        ] {
+            let asked = submitting("https://httpbin.org/post", Method::Post, enctype, &[]);
+            let Decided::Refused(refusal) =
+                sent(&asked, "https://httpbin.org/forms/post", &Policies::none())
+            else {
+                panic!("{words} was sent");
             };
-            assert_eq!(refusal.rule, Rule::Submission { method });
-            assert!(refusal.to_string().contains("queue item 470"), "{refusal}");
+            assert_eq!(refusal.rule, Rule::Enctype { enctype });
+            let said = refusal.to_string();
+            assert!(
+                said.contains(words) && said.contains("queue item 474"),
+                "{said}"
+            );
             let mut activity = Activity::new();
             assert!(refusal.record(&mut activity, SystemTime::UNIX_EPOCH));
             let line = activity.latest().unwrap();
-            assert_eq!(line.method(), method.name());
+            assert_eq!(line.method(), "POST");
             assert_eq!(line.url().serialised, "https://httpbin.org/post");
         }
+        let asked = submitting("about:blank", Method::Get, Enctype::UrlEncoded, &[]);
+        assert_eq!(
+            refused_by(&sent(&asked, "https://example.com/", &Policies::none())),
+            Some(&Rule::FormScheme {
+                scheme: "about".to_owned()
+            })
+        );
+    }
 
-        // The scheme table still comes first: a submission to a `data:` URL
-        // is refused for where it goes.
-        let mut asked = asking("data:text/html,hi");
-        asked.submission = Some(Submission {
-            method: Method::Get,
-            enctype: Enctype::UrlEncoded,
-            entries: Vec::new(),
-        });
-        let decided = decide(&asked, &from("https://example.com/"), cause);
+    #[test]
+    fn a_form_goes_only_where_the_header_policy_lets_it() {
+        let policies = header_policy("default-src 'none'; form-action 'self'");
+        let away = submitting(
+            "https://evil.example/steal",
+            Method::Post,
+            Enctype::UrlEncoded,
+            &[("card", "4111")],
+        );
+        let decided = sent(&away, "https://shop.example/pay", &policies);
+        let Some(Rule::FormAction { said }) = refused_by(&decided) else {
+            panic!("the form went where form-action forbids: {decided}");
+        };
+        assert!(said.contains("form-action allows 'self'"), "{said}");
+        let home = submitting(
+            "https://shop.example/pay",
+            Method::Post,
+            Enctype::UrlEncoded,
+            &[],
+        );
+        assert!(matches!(
+            sent(&home, "https://shop.example/pay", &policies),
+            Decided::Go(_)
+        ));
+        // A link is not a form, and `form-action` is not about it.
+        assert!(matches!(
+            sent(
+                &asking("https://evil.example/"),
+                "https://shop.example/",
+                &policies
+            ),
+            Decided::Go(_)
+        ));
+    }
+
+    #[test]
+    fn a_secure_page_does_not_send_a_form_in_the_clear() {
+        let asked = submitting(
+            "http://example.com/post",
+            Method::Post,
+            Enctype::UrlEncoded,
+            &[("password", "hunter2")],
+        );
+        let decided = sent(&asked, "https://example.com/", &Policies::none());
+        assert_eq!(refused_by(&decided), Some(&Rule::Insecure));
+        let Decided::Refused(refusal) = decided else {
+            panic!("sent in the clear");
+        };
+        let mut activity = Activity::new();
+        assert!(refusal.record(&mut activity, SystemTime::UNIX_EPOCH));
+        assert_eq!(activity.latest().unwrap().method(), "POST");
+        // An insecure page's form is its own business, and nothing travels
+        // in the clear from localhost.
+        assert!(matches!(
+            sent(&asked, "http://example.com/", &Policies::none()),
+            Decided::Go(_)
+        ));
+        let local = submitting(
+            "http://localhost:8080/post",
+            Method::Post,
+            Enctype::UrlEncoded,
+            &[],
+        );
+        assert!(matches!(
+            sent(&local, "https://example.com/", &Policies::none()),
+            Decided::Go(_)
+        ));
+    }
+
+    #[test]
+    fn a_query_that_makes_the_url_too_long_is_refused() {
+        let long = "a".repeat(LONGEST_URL);
+        let asked = submitting(
+            "https://example.com/get",
+            Method::Get,
+            Enctype::UrlEncoded,
+            &[("q", long.as_str())],
+        );
+        let decided = sent(&asked, "https://example.com/", &Policies::none());
+        assert!(
+            matches!(refused_by(&decided), Some(Rule::TooLong { bytes }) if *bytes > LONGEST_URL),
+            "{decided}"
+        );
+        // The same entries in a body are not a URL.
+        let posted = submitting(
+            "https://example.com/post",
+            Method::Post,
+            Enctype::UrlEncoded,
+            &[("q", long.as_str())],
+        );
+        assert!(matches!(
+            sent(&posted, "https://example.com/", &Policies::none()),
+            Decided::Go(_)
+        ));
+    }
+
+    #[test]
+    fn a_cross_site_post_carries_no_lax_cookie() {
+        use alo_net::cookie::{Cookie, Partition};
+        use alo_net::jar::Jar;
+
+        let bank = from("https://bank.example/");
+        let mut jar = Jar::new();
+        for header in [
+            "lax=1; Secure; SameSite=Lax",
+            "none=1; Secure; SameSite=None",
+        ] {
+            jar.keep(
+                Cookie::parse(header, &bank, &Partition::of(&bank)).unwrap(),
+                SystemTime::UNIX_EPOCH,
+            );
+        }
+        let at = "https://evil.example/";
+        for (method, carried) in [(Method::Post, "none=1"), (Method::Get, "lax=1; none=1")] {
+            let asked = submitting(
+                "https://bank.example/transfer",
+                method,
+                Enctype::UrlEncoded,
+                &[("to", "evil")],
+            );
+            let Decided::Go(navigation) = sent(&asked, at, &Policies::none()) else {
+                panic!("the form was refused");
+            };
+            assert_eq!(
+                jar.header_for_navigation(
+                    &navigation.url,
+                    Some(&from(at)),
+                    navigation.method.name(),
+                    SystemTime::UNIX_EPOCH
+                )
+                .as_deref(),
+                Some(carried),
+                "{}",
+                navigation.method.name()
+            );
+        }
+    }
+
+    #[test]
+    fn the_scheme_table_comes_before_the_form() {
+        let asked = submitting("data:text/html,hi", Method::Get, Enctype::UrlEncoded, &[]);
+        let decided = sent(
+            &asked,
+            "https://example.com/",
+            &header_policy("form-action 'none'"),
+        );
         assert!(matches!(refused_by(&decided), Some(Rule::Scheme { .. })));
     }
 }

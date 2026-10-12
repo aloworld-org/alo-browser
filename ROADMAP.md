@@ -1298,7 +1298,17 @@ unreachable without it.
       agent's press answers `Submitted`, `NotSubmitted` or a refusal, the
       ask crossing the boundary as names and values (`alo-renderer`'s
       `submit.rs`, `wire/form.rs`). Corpus cases `web-a-form` and
-      `alo-sites-booking`, in `a_form_on_somebody_elses_page_is_sent.rs` ·
+      `alo-sites-booking`, in `a_form_on_somebody_elses_page_is_sent.rs`;
+      and the browser process decides what was asked (queue item 470,
+      iteration 297): a `GET`'s entries replace the action's query, a
+      `POST`'s are an urlencoded body with no charset parameter, each
+      Chrome 154's bytes (`alo-url`'s `form.rs`, `alo-renderer`'s
+      `form_body.rs`); the header policy's `form-action`, a secure page's
+      form to `http` and multipart and plain-text bodies are refused by name
+      and recorded under the form's method (`navigate.rs`); and the jar
+      keeps a `SameSite=Lax` cookie off a `POST` from another site
+      (`header_for_navigation`). On the same two frozen pages through real
+      tabs, in `alo-renderer`'s `a_form_is_decided.rs` ·
       Decided (ADR 0051, iteration 294): a control's state is held apart
       from its attributes; its form owner is worked out when asked for;
       each constraint is a rule in `alo-dom`, and a constraint not built yet
@@ -1306,10 +1316,10 @@ unreachable without it.
       in ADR 0020's ask with a method and an entry list that the browser
       process encodes and decides; an agent submits by activating the submit
       button; and a file is chosen only by a person · Owed:
-      the rest of what a control **does** (queue items 469–476 and 484: a
-      submission on a page that runs script, 484; the state apart from its
-      attributes, 469; the
-      browser process's decision, 470; script's form members, 471;
+      the rest of what a control **does** (queue items 469, 471–476, 485 and
+      486: a submission on a page that runs script, 485; the state apart
+      from its attributes, 469; a `<meta>` policy's `form-action` and its
+      violations reported, 486; script's form members, 471;
       `FormData` and `URLSearchParams`, 472; the rest of the constraints,
       473; multipart and plain-text bodies, 474; a file chosen by a person,
       475; validity in the agent tree, 476) — constraint validation,
@@ -1625,9 +1635,10 @@ items where being right and being unusable are the same outcome.
       `https://httpbin.org/post` with the entries Chrome 154 sends, in its
       order; an address that is not one stops it with Chrome's words
       (`a_form_on_somebody_elses_page_is_sent.rs`).
-      · Owed: the browser process deciding and encoding it (470), which
-      refuses it by name until then; a submission on a page that runs
-      script (484); `time`,
+      The browser process then decides it as the agent's, with Chrome's
+      exact body (queue item 470, `a_form_is_decided.rs`).
+      · Owed: loading what was decided, which is item 85's for every
+      navigation; a submission on a page that runs script (485); `time`,
       `month`, `week` and `datetime-local` fields (388); validity in the
       tree (476); and a stranger's page that runs script, which neither
       frozen page does — `Activate` and `PutText` through a page's own

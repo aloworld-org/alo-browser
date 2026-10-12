@@ -28,7 +28,7 @@
 //! Its click runs, and its form is **not submitted**: on such a page a
 //! submission fires `invalid` at each failing control and a `SubmitEvent`
 //! the page may cancel before anything is asked (ADR 0051 § 4), and that is
-//! queue item 484. The answer says so rather than leaving an agent to think
+//! queue item 485. The answer says so rather than leaving an agent to think
 //! the form went.
 
 use alo_dom::NodeId;
@@ -40,7 +40,7 @@ use crate::run_to::{Said, run_to};
 
 /// What a press on a submit button on a page that runs script is said as.
 const NOT_SUBMITTED: &str = "the button submits a form, and submitting one on a page that \
-                             runs script is queue item 484, so nothing was sent";
+                             runs script is queue item 485, so nothing was sent";
 
 /// What pressing a node on a page that runs script came to.
 #[derive(Debug, Default)]

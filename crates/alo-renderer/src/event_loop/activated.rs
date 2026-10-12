@@ -104,7 +104,7 @@ impl EventLoop {
             // A `details` opened or closed changed the document, which is
             // drawn again; its `toggle` event is script's (queue item 434).
             // A form's submission on a page that runs script fires `invalid`
-            // and `submit` first, which is queue item 484's; nothing is
+            // and `submit` first, which is queue item 485's; nothing is
             // asked, and whoever ran the task says so.
             Follows::Nothing
             | Follows::InputAndChange(_)

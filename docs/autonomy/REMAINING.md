@@ -1796,3 +1796,15 @@ until 470, and the scripted half, which `alo-sites-booking` needs, is cut
 into 484 (depends on nothing open). 225 queue items are open (468 closed,
 484 added). The next unused queue number is 485 and the next unused ADR
 0052.
+
+Iteration 297 built item 470, the browser process's half of a form's
+submission: the entries are written as Chrome 154 writes them (a `GET`'s
+query replacing the action's, an urlencoded `POST` body with no charset),
+and decided as a link is plus the header policy's `form-action`, a secure
+page's form to `http` refused, and the jar keeping a `SameSite=Lax` cookie
+off a cross-site `POST`. `web-a-form` and the booking markup are decided
+through real tabs with Chrome's bytes. A `<meta>` policy's `form-action`
+and reports of a violation are cut into 486. The scripted half of 468,
+numbered 484 by iteration 296, is renumbered **485**, because 2dfc8e1 had
+already given 484 to `@browser`. 225 queue items are open (470 closed, 486
+added). The next unused queue number is 487 and the next unused ADR 0053.

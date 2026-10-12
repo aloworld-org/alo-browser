@@ -8,15 +8,16 @@
 //! An agent submits as a keyboard user does, by activating the form's
 //! submit button, and is told what came of it: the form was checked and
 //! asked to go somewhere, or it was checked and said no, in Chrome's own
-//! words. Nothing here encodes a body — that is the browser process's, and
-//! queue item 470's — so what is asserted is the ask a renderer makes: a
-//! method, a URL resolved against where the page was served, and the entry
-//! list as names and values in Chrome's order.
+//! words. Nothing here encodes a body — that is the browser process's
+//! (queue item 470, asserted on these same frozen pages in `alo-renderer`'s
+//! `a_form_is_decided.rs`) — so what is asserted is the ask a renderer
+//! makes: a method, a URL resolved against where the page was served, and
+//! the entry list as names and values in Chrome's order.
 //!
 //! `web-a-form` runs no script, so its press is the whole algorithm.
 //! `alo-sites-booking` runs an analytics script, and a submission on a page
 //! that runs script fires `invalid` and `submit` first, which is queue item
-//! 484: the frozen page is pressed to show it says so, and its form's rules
+//! 485: the frozen page is pressed to show it says so, and its form's rules
 //! are checked on the same markup with that script taken out.
 
 use alo_agent::{Outcome, Refusal, Target, Verb};
@@ -202,7 +203,7 @@ fn the_booking_form_is_checked_and_sent_as_chrome_sends_it() {
     let directory = cases_directory().join("alo-sites-booking");
     let case = Case::read(&directory).expect("alo-sites-booking is a case");
     // The same markup without its analytics script: a page that runs
-    // script submits by item 484, and these are the form's own rules.
+    // script submits by item 485, and these are the form's own rules.
     let (before, rest) = case
         .html
         .split_once("<script>")
@@ -259,7 +260,7 @@ fn the_frozen_booking_page_runs_script_and_says_its_form_was_not_sent() {
     );
     assert_eq!(asked, None, "nothing was asked for");
     assert!(
-        issues.iter().any(|line| line.contains("queue item 484")),
+        issues.iter().any(|line| line.contains("queue item 485")),
         "and the answer says why: {issues:?}"
     );
 }

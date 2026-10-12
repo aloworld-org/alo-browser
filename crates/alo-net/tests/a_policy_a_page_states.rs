@@ -316,6 +316,9 @@ fn strict_dynamic_means_the_listed_cdn_is_not_a_way_in() {
 /// A policy full of directives this engine does not act on is a policy that
 /// protects less than it says. That is a thing to print, not a thing to leave
 /// somebody to discover.
+///
+/// `form-action` left the list with queue item 470, when the browser process
+/// began deciding a form's submission under it.
 #[test]
 fn a_page_protected_in_four_respects_and_not_a_fifth_says_which() {
     let policies = enforcing(
@@ -325,11 +328,7 @@ fn a_page_protected_in_four_respects_and_not_a_fifth_says_which() {
 
     assert_eq!(
         policies.not_enforced(),
-        vec![
-            "base-uri".to_owned(),
-            "form-action".to_owned(),
-            "frame-ancestors".to_owned(),
-        ],
+        vec!["base-uri".to_owned(), "frame-ancestors".to_owned()],
         "a gap nobody prints is a false sense of security",
     );
     assert!(
@@ -407,5 +406,48 @@ fn a_policy_no_server_should_have_sent_is_read_rather_than_believed() {
         }
         let _ = policies.not_enforced();
         let _ = policies.allows_inline(Inline::Style, None, Content::element("a { color: red }"));
+        let _ = policies.allows_form_action(&url("https://evil.test/"), &Origin::of(&url(PAGE)));
     }
+}
+
+/// Where a form may be sent (queue item 470). `form-action` is the only
+/// directive that says, and CSP gives it no fallback: `default-src 'none'`
+/// is a page saying what it loads, not where its forms go.
+#[test]
+fn a_form_goes_only_where_form_action_allows() {
+    let page = Origin::of(&url(PAGE));
+    let sent = |policies: &Policies, to: &str| policies.allows_form_action(&url(to), &page);
+
+    let policies = enforcing("default-src 'none'; form-action 'self' https://pay.example");
+    assert!(sent(&policies, "https://shop.example.com/order").is_ok());
+    assert!(sent(&policies, "https://pay.example/charge?x=1").is_ok());
+    let refused = sent(&policies, "https://evil.test/steal")
+        .expect_err("a form was sent where form-action does not allow");
+    let said = refused.to_string();
+    assert!(
+        said.contains("https://evil.test/steal") && said.contains("form-action allows 'self'"),
+        "{said}"
+    );
+
+    assert!(
+        sent(&enforcing("default-src 'none'"), "https://evil.test/").is_ok(),
+        "default-src reached a form"
+    );
+    assert!(
+        sent(&enforcing("form-action 'none'"), PAGE).is_err(),
+        "'none' let a form go to its own page"
+    );
+
+    // Two policies are an intersection, and one that only watches refuses
+    // nothing.
+    let mut headers = Headers::new();
+    headers.add("Content-Security-Policy", "form-action https:");
+    headers.add("Content-Security-Policy", "form-action 'self'");
+    headers.add("Content-Security-Policy-Report-Only", "form-action 'none'");
+    let both = Policies::stated_by(&headers);
+    assert!(sent(&both, "https://shop.example.com/order").is_ok());
+    assert!(sent(&both, "https://pay.example/").is_err());
+
+    // A source nobody could read matches nothing.
+    assert!(sent(&enforcing("form-action 'sefl'"), PAGE).is_err());
 }

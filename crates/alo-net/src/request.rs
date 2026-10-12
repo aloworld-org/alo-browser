@@ -102,7 +102,8 @@ impl fmt::Display for Purpose {
 pub struct Request {
     /// What to fetch.
     pub url: Url,
-    /// The method. `GET` until there is a form to submit.
+    /// The method: `GET` for what a page merely reads, and a form's or a
+    /// script's own when it sends something.
     pub method: String,
     /// What is being asked, and by what.
     pub purpose: Purpose,

@@ -6,6 +6,19 @@ What changed, in words a person outside this repository can read. Newest first.
 
 ## Unreleased
 
+- **A form an agent sends is now decided and written as Chrome writes it.**
+  The browser process turns a form's fields into the request Chrome makes:
+  for a `GET` form, the fields replace whatever query its address had; for a
+  `POST` form, they are the body, as `application/x-www-form-urlencoded`
+  with no charset. The pizza form on httpbin and alo Sites' booking form
+  each come out byte for byte as Chrome 154 sent them. Three checks a link
+  does not need come with it: a page's own `form-action` policy is obeyed, a
+  form a secure page would send over plain `http` is refused and recorded
+  rather than sent where anybody can read it, and a `SameSite=Lax` cookie
+  stays off a form posted from another site, which is the forgery that
+  setting exists to stop. Loading the page the form goes to is still to
+  come, as it is for every navigation.
+
 - **Stage 2 now has two exit gates instead of one.** An agent completing a real
   task on somebody else's page needs a page's structure read correctly; a
   person using this as their browser for a week needs pixel fidelity across the
@@ -30,7 +43,7 @@ What changed, in words a person outside this repository can read. Newest first.
   refused rather than cut. **Two halves are not built yet:** the browser
   process still refuses to send any form, by name, until it can encode one
   (queue item 470), and on a page that runs script the press says nothing
-  was sent (484).
+  was sent (485).
 
 - **The gate says what it is a verdict about.** It now prints the checkout, the
   commit and whether the tree is clean before it checks anything. Taken from

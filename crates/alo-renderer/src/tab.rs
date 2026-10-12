@@ -259,7 +259,7 @@ impl Tab {
         let cause = Cause::Document { document };
         self.decided = navigation
             .as_ref()
-            .map(|asked| navigate::decide(asked, &address, cause.clone()));
+            .map(|asked| navigate::decide(asked, &address, &policies, cause.clone()));
         self.address = Some(address);
         self.policies = policies;
         // A new document is owed nothing the last one asked for, and its
@@ -293,7 +293,12 @@ impl Tab {
         };
         let cause = Cause::Agent { action, document };
         self.decided = match (navigation.as_ref(), &self.address) {
-            (Some(asked), Some(address)) => Some(navigate::decide(asked, address, cause.clone())),
+            (Some(asked), Some(address)) => Some(navigate::decide(
+                asked,
+                address,
+                &self.policies,
+                cause.clone(),
+            )),
             _ => None,
         };
         issues.extend(self.fetching(fetches, sheets, &cause, kept));
@@ -318,7 +323,12 @@ impl Tab {
         };
         let cause = Cause::Document { document };
         self.decided = match (navigation.as_ref(), &self.address) {
-            (Some(asked), Some(address)) => Some(navigate::decide(asked, address, cause.clone())),
+            (Some(asked), Some(address)) => Some(navigate::decide(
+                asked,
+                address,
+                &self.policies,
+                cause.clone(),
+            )),
             _ => None,
         };
         issues.extend(self.fetching(fetches, sheets, &cause, kept));

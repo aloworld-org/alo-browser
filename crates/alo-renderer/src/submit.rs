@@ -24,7 +24,7 @@
 //! What the browser process then decides is its own (`crate::navigate`).
 //!
 //! On a page that runs script the same press fires `invalid` and `submit`
-//! around these steps, which is queue item 484 ([`crate::press`]).
+//! around these steps, which is queue item 485 ([`crate::press`]).
 
 use alo_agent::verb::{Invalid, Outcome, Refusal};
 use alo_bindings::navigating::{self, By, Ongoing};

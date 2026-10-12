@@ -48,6 +48,15 @@ pub enum How {
     Navigated,
     /// A page asked for it — an image, a stylesheet, a script, a fetch.
     Embedded,
+    /// A page navigated here **sending something**: a form's `POST`, the
+    /// unsafe method RFC 6265bis § 5.6.7.1 keeps a `Lax` cookie off when it
+    /// crosses a site boundary (queue item 470).
+    ///
+    /// A navigation still, so what its answer sets is kept as a
+    /// navigation's is. What it carries is not: another site's page posting
+    /// a form to your bank is the cross-site request forgery `Lax` exists to
+    /// stop, and a link to the same bank is not.
+    Sent,
 }
 
 /// What is kept.
@@ -152,17 +161,35 @@ impl Jar {
         how: How,
         now: SystemTime,
     ) -> Option<String> {
-        let sending = self.for_request(target, within, how, now);
-        if sending.is_empty() {
-            return None;
-        }
-        Some(
-            sending
-                .iter()
-                .map(|cookie| format!("{}={}", cookie.name, cookie.value))
-                .collect::<Vec<_>>()
-                .join("; "),
-        )
+        header(&self.for_request(target, within, how, now))
+    }
+
+    /// The `Cookie` header for a top-level navigation to `target` by
+    /// `method`, asked by the document at `from` — [`None`] when nobody's
+    /// page asked, because the person typed the address or chose it.
+    ///
+    /// A top-level navigation is **in the partition of where it goes**: the
+    /// page it makes is the top-level site from then on. The site boundary
+    /// `SameSite` is about is the one between the page that asked and
+    /// `target` (RFC 6265bis § 5.2), so a `Strict` cookie stays behind on
+    /// any navigation from another site, and a `Lax` one goes only by a safe
+    /// method — `GET` or `HEAD` — and never by a `POST` ([`How::Sent`]).
+    /// Same site is [`Partition::of`] each end, the registrable domain.
+    pub fn header_for_navigation(
+        &self,
+        target: &Url,
+        from: Option<&Url>,
+        method: &str,
+        now: SystemTime,
+    ) -> Option<String> {
+        let within = Partition::of(target);
+        let same_site = from.is_none_or(|from| Partition::of(from) == within);
+        let how = if matches!(method, "GET" | "HEAD") {
+            How::Navigated
+        } else {
+            How::Sent
+        };
+        header(&self.sendable(target, &within, same_site, how, now))
     }
 
     /// Which cookies this request may carry.
@@ -176,14 +203,27 @@ impl Jar {
         how: How,
         now: SystemTime,
     ) -> Vec<&Cookie> {
-        let Some(host) = target.host.as_ref().map(ToString::to_string) else {
-            return Vec::new();
-        };
-        let secure = target.scheme == "https";
         // The site boundary. `Partition::of` is the host today, which is
         // stricter than the registrable domain a public suffix list would give
         // (queue item 156) — and stricter is the safe direction.
         let same_site = Partition::of(target) == *within;
+        self.sendable(target, within, same_site, how, now)
+    }
+
+    /// The cookies in `within` that a request to `target` may carry, given
+    /// whether it is `same_site` and `how` it came to be made.
+    fn sendable(
+        &self,
+        target: &Url,
+        within: &Partition,
+        same_site: bool,
+        how: How,
+        now: SystemTime,
+    ) -> Vec<&Cookie> {
+        let Some(host) = target.host.as_ref().map(ToString::to_string) else {
+            return Vec::new();
+        };
+        let secure = target.scheme == "https";
 
         let mut sending: Vec<&Cookie> = self
             .held
@@ -282,13 +322,28 @@ impl Jar {
     }
 }
 
+/// The cookies as one `Cookie` header, or [`None`] when there are none.
+fn header(sending: &[&Cookie]) -> Option<String> {
+    if sending.is_empty() {
+        return None;
+    }
+    Some(
+        sending
+            .iter()
+            .map(|cookie| format!("{}={}", cookie.name, cookie.value))
+            .collect::<Vec<_>>()
+            .join("; "),
+    )
+}
+
 /// Whether a cookie may go on a request that crosses a site boundary.
 ///
 /// The whole of `SameSite` in five lines, and the middle case is the one that
 /// removes a class of CSRF: a `Lax` cookie goes on a **navigation** from
 /// another site — clicking a link to your bank — but not on anything a page
-/// *embedded*, which is what a form post or an image request from an attacker's
-/// page would be.
+/// *embedded*, such as an image request from an attacker's page, nor on a
+/// navigation that *sends* something, which is what a form posted from one
+/// would be ([`How::Sent`]).
 fn may_cross(rule: SameSite, same_site: bool, how: How) -> bool {
     if same_site {
         return true;

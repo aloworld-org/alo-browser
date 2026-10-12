@@ -28975,3 +28975,134 @@ Neither is ticked. `CHANGELOG.md` and `REMAINING.md` are updated.
 225 queue items are open (468 closed, 484 added). The next unused queue
 number is **485** and the next ADR is **0052**. This is one iteration, not a
 finished queue or roadmap.
+
+## Iteration 297 — queue item 470 built: the browser process decides a form's submission and writes it as Chrome does
+
+**Contracts read:** `CLAUDE.md`, `docs/autonomy/LOOP.md` in full,
+`ROADMAP.md` (its state rules, the stage 2 lines "Forms" and "The agent
+reads and acts on ordinary web pages", and the exit gate ADR 0052 split),
+iteration 296, and the owner's ADR 0052. No `AGENTS.md` exists in this
+repository or above it. For 470: its queue entry and item 82's, ADR 0051
+in full (§ 5 is this item), ADR 0020 §§ 3–4 through `navigate.rs` and
+`tab.rs`, ADR 0012 § 4, and `docs/features.md`' forms line. `alo-net`'s
+`csp.rs`, `mixed.rs`, `jar.rs` and `request.rs`, `alo-url`'s `parse.rs`,
+and the renderer's `wire/form.rs`, `submit.rs` and `fetch_decide.rs` were
+read before changing or leaning on them.
+
+**The checkout at the start.** It held uncommitted work that was not this
+iteration's: ADR 0052 and its `ROADMAP.md` and `CHANGELOG.md` lines,
+written at 02:20 after iteration 296's commit. It was preserved untouched,
+and the owner committed it as 825fb92 at 02:37, before anything here was
+staged, so this commit carries none of it.
+
+**Choosing.** In file order after 82, 469 waits for a page that tells a
+control's state from its attribute (no frozen case has a reset button or a
+`[value]` selector), and 470 depends only on 468, done. So 470.
+
+**A numbering collision, found and fixed.** Commit 2dfc8e1 (the owner's,
+01:49) added **484 ★ `@browser`**; iteration 296 (02:19) then added **484, a
+form's submission on a page that runs script**. ADR 0052 cites 484 meaning
+`@browser`, which had it first, so the scripted-form item is renumbered
+**485** in the queue, the roadmap, features, conformance, `REMAINING.md`,
+the unreleased changelog line and the five source files and one test that
+named it. Iteration 296's entry above says 484 and means 485; it is not
+edited, because the journal is appended to, not rewritten.
+
+**What was built.**
+- `alo-url`: `form.rs`, the URL Standard's urlencoded serializer, written
+  rather than taken from `url` so the rented parser stays in its one file;
+  `parse.rs`' `with_query`, HTML's *mutate action URL*.
+- `alo-renderer`'s `form_body.rs`: HTML's table by scheme and method; line
+  breaks as CR LF; an empty file field as `name=`; `multipart/form-data`
+  and `text/plain` refused by name (474); a form to `about:blank` or a
+  `file:` page's `file:` refused by name, since HTML leaves those to each
+  browser and no page has needed one.
+- `navigate::decide` takes the tab's copy of the header policy. After the
+  scheme table: `form-action`, the entries written, the 2 MiB bound again
+  on the URL with its query, `LARGEST_BODY` on the body, and mixed content
+  (`Rule::Insecure`). `Navigation` gains `method` and `body`; `Refusal`
+  gains the method it is recorded under; `Rule::Submission` is gone.
+- `alo-net`: `csp.rs` acts on `form-action`, with no `default-src`
+  fallback, as CSP says (`allows_form_action`), so it leaves
+  `not_enforced`, whose test now says so. `jar.rs` gains `How::Sent` and
+  `header_for_navigation`, whose site boundary is between the asking page
+  and the target, in the target's partition.
+- The wire's method and enctype lists were already closed (468's boundary
+  tests), and no file number exists until 475, so "a renderer that sends
+  what no form could make" has nothing new to send.
+
+**Tests.**
+- `alo-renderer`'s `a_form_is_decided.rs` (5), through real `Tabs` over the
+  confined binary, reading the two frozen cases where they were frozen:
+  - `web-a-form` filled and pressed: `Cause::Agent` with the press's
+    action and the tab's document, `POST`, Chrome's exact body and type,
+    and the page as referrer;
+  - the booking markup without its script: Chrome's `GET` with
+    `?date=2026-10-20`;
+  - `?q=9` on the action replaced, with Chrome's bytes for
+    `hello world&=é`;
+  - an `http` action from an `https` page refused, said without the typed
+    text, and recorded under `POST` with the agent's cause;
+  - a header `form-action` refusing, then allowing.
+- Unit tests in `form.rs` (4), `parse.rs` (1), `form_body.rs` (5, hostile
+  entries included) and `navigate.rs` (7 new, replacing the refusal test);
+  `a_policy_a_page_states.rs` (one new, the hostile-policy loop extended);
+  `cookies_that_cannot_be_joined.rs` (one new).
+
+**Mutation checks**, each restored from a scratchpad copy, with `alo-render`
+rebuilt by the gate afterwards. Each failed the tests named:
+- mixed content skipped: `navigate`'s and the integration test's;
+- a `GET` keeping the action's query: `form_body`'s, `navigate`'s and the
+  integration test's;
+- `How::Sent` carrying `Lax`: the jar test and `navigate`'s;
+- `form-action` falling back to `default-src`: the policy test,
+  `navigate`'s and the integration test's.
+
+**Gate, mechanical.** `cargo fmt` and `cargo clippy --workspace
+--all-targets --all-features -- -D warnings` were clean first, after the
+integration test's helpers were reshaped to return values rather than
+panic. `scripts/gate.sh` ran once in the foreground. The harness moved it to
+the background at 600 s, and the next call waited on it with a foreground
+`until` loop. Result: `exit 0`, "The gate is met", and no `FAILED`,
+`panicked` or `^error` in its log. Only this entry was written after it,
+then the commit.
+
+**Gate, manual.**
+- **Layout assertion:** none is owed. Nothing positions or sizes anything.
+- **Reference render:** none is owed. Nothing visual changed, and every
+  committed picture still matched.
+- **One responsibility per file:** `navigate.rs` decides; `form_body.rs`
+  writes the entries; `form.rs` is one serializer. The jar's new function
+  is the same question as `header_for` with a navigation's site boundary.
+- **Hostile input:** `form_body`'s test feeds NULs, `#`, ten thousand
+  lone CRs and non-characters; `navigate`'s feeds a query past 2 MiB; the
+  policy loop calls `allows_form_action` on every hostile policy.
+- **Docs:** `docs/features.md`' forms line, `docs/conformance.md`' row,
+  `REMAINING.md` and `CHANGELOG.md`.
+- **Other rules:** no `unsafe`, no verb takes a coordinate, and `alo-os`
+  and `alo-workplace` were not touched.
+
+**Queue.** 470 is ticked: every closing condition is met on frozen pages
+through real tabs. **486** is added: a `<meta>` policy's `form-action` and
+reports of a violation, cut from 470 and waiting for a page. 485 carries
+the renumbering note.
+
+**Roadmap.** Both stage 2 lines move. "Forms" gains the browser process's
+half in its Built clause, and its Owed clause names 469, 471–476, 485 and
+486. "The agent reads and acts on ordinary web pages" gains the decision as
+the agent's, and owes loading it (item 85) and 485. Neither is ticked.
+
+**Unresolved obligations.**
+- Nothing loads a decided navigation, a submission included. Its body,
+  cookies (`header_for_navigation` is shown, not yet called) and `Origin`
+  header are item 85's.
+- A `<meta>` policy's `form-action` is not applied, and no `form-action`
+  violation is reported (486).
+- A scripted page's submission is 485. The frozen booking page still says
+  so.
+- Chrome's behaviour for a form sent to `about:blank` or a `file:` URL
+  was not measured; both are refused by name until a page needs one.
+
+225 queue items are open (470 closed, 486 added). The next unused queue
+number is **487** and the next ADR is **0053**. This is one iteration, not a
+finished queue or roadmap.

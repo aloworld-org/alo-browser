@@ -81,6 +81,29 @@ pub fn join(base: &Url, reference: &str) -> Result<Url, ParseError> {
     })
 }
 
+/// `url` with its query replaced by `query`, its fragment kept: HTML's
+/// *mutate action URL*, which is what a form sent by `GET` goes to.
+///
+/// An empty `query` is a query, not its absence: a form with nothing to send
+/// goes to `…/search?`, as browsers write it.
+///
+/// # Errors
+///
+/// [`ParseError`] when `url` is not one this engine can represent once its
+/// query has been replaced, which the rented parser does not produce from a
+/// URL it parsed itself — kept as an answer rather than an assumption.
+pub fn with_query(url: &Url, query: &str) -> Result<Url, ParseError> {
+    let mut parsed = url::Url::parse(&url.serialised).map_err(|why| ParseError {
+        input: url.serialised.clone(),
+        why: why.to_string(),
+    })?;
+    parsed.set_query(Some(query));
+    ours(&parsed).ok_or_else(|| ParseError {
+        input: url.serialised.clone(),
+        why: "the host is not one this engine can represent".to_owned(),
+    })
+}
+
 /// Whether `url` names a user or a password before its host —
 /// `https://user:secret@example.com/`.
 ///
@@ -125,6 +148,20 @@ fn ours(parsed: &url::Url) -> Option<Url> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_query_is_replaced_and_the_fragment_kept() {
+        let action = parse("https://example.test/get?q=9#top").unwrap();
+        let sent = with_query(&action, "a=1&b=two+words").unwrap();
+        assert_eq!(
+            sent.serialised,
+            "https://example.test/get?a=1&b=two+words#top"
+        );
+        assert_eq!(sent.query.as_deref(), Some("a=1&b=two+words"));
+        let empty = with_query(&parse("https://example.test/get").unwrap(), "").unwrap();
+        assert_eq!(empty.serialised, "https://example.test/get?");
+        assert_eq!(empty.query.as_deref(), Some(""));
+    }
 
     #[test]
     fn a_user_or_a_password_is_credentials_and_an_empty_one_is_not() {

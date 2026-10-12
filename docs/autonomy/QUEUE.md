@@ -5107,7 +5107,7 @@ The long pole, and the thing most of section E is unreachable without.
 
   ***Done (iteration 296), its scope cut, not its depth.*** The scripted
   half — `invalid` and `SubmitEvent` from an agent's press and from a
-  script's `click()` — is **cut into 484**, with the frozen booking page's
+  script's `click()` — is **cut into 485**, with the frozen booking page's
   two conditions and the listener's. `alo-sites-booking` runs an analytics
   script, so its press is that half. What was built:
   - `alo-dom`: `owner.rs` (§ 2's form owner), `kind.rs` (an input's state),
@@ -5131,7 +5131,7 @@ The long pole, and the thing most of section E is unreachable without.
     outcomes, refusals and entries, every tag a closed list and every count
     checked; `navigate::decide` refuses a submission by name
     (`Rule::Submission`, recorded under its own method) until 470; on a page
-    that runs script the press says it sent nothing (484), and a script's
+    that runs script the press says it sent nothing (485), and a script's
     `click()` on a submit button is refused by name.
   *Closed by* `alo-corpus`' `a_form_on_somebody_elses_page_is_sent.rs`:
   `web-a-form` asks to `POST` `https://httpbin.org/post` with Chrome's
@@ -5140,7 +5140,7 @@ The long pole, and the thing most of section E is unreachable without.
   form's own markup, without its script, answers `NotSubmitted` naming the
   date field, `valueMissing` and `Please fill out this field.`, and after
   `2026-10-20` asks to `GET` `https://nordwind.alosites.com/b/studio-consultation`
-  with `date=2026-10-20`; the frozen booking page says 484; and text past
+  with `date=2026-10-20`; the frozen booking page says 485; and text past
   the contact form's `maxlength` is refused as `TooLong`.
   *Measured while building, and followed:* Chrome sends a control inside a
   `datalist` (HTML says not to), bars a read-only checkbox from validation
@@ -5177,7 +5177,7 @@ The long pole, and the thing most of section E is unreachable without.
   `value` attribute set after `PutText` leaves the field's text as the
   agent put it.
 
-- [ ] **470. A browser process decision for a submission.** *Cut from 82
+- [x] **470. A browser process decision for a submission.** *Cut from 82
   (ADR 0051 § 5). Depends on 468.*
   - The entry list encoded in the browser process: a GET's query replacing
     the action's, and an urlencoded POST body with no charset parameter.
@@ -5203,6 +5203,38 @@ The long pole, and the thing most of section E is unreachable without.
   `https://nordwind.alosites.com/b/studio-consultation?date=2026-10-20`.
   A query on the action is replaced, as measured. An `http` action from an
   `https` page is refused and recorded.
+  ***Done (iteration 297).*** What was built:
+  - `alo-url`: `form.rs`, the URL Standard's urlencoded serializer, ours
+    rather than the rented crate's so `url` stays in its one file; and
+    `with_query`, HTML's *mutate action URL*, in `parse.rs`.
+  - `alo-renderer`'s `form_body.rs`: HTML's table by scheme and method,
+    each line break CR LF, an empty file field as its name and nothing,
+    `multipart/form-data` and `text/plain` refused by name (474), and a
+    form sent to `about:blank` or a `file:` page's `file:` refused by name,
+    since HTML leaves those to each browser and no page has needed one.
+  - `navigate::decide` takes the tab's copy of the header policy and,
+    after the scheme table, checks `form-action`, writes the entries, bounds
+    the URL again and the body by `LARGEST_BODY`, and refuses a secure
+    page's form to an insecure address (`Rule::Insecure`). `Navigation`
+    carries `method` and `body`; `Refusal` carries the method it is
+    recorded under. `Rule::Submission` is gone.
+  - `alo-net`: `csp.rs`' `form-action`, with no fallback to `default-src`,
+    as CSP says, and `Policies::allows_form_action`; `jar.rs`'
+    `How::Sent` and `header_for_navigation`, whose site boundary is the
+    asking page's and the target's.
+  - The renderer cannot ask for a method or an enctype outside the closed
+    lists the wire reads (468's boundary tests), and it names no file
+    until 475, so a broken boundary has nothing new to send.
+  *Closed by* `alo-renderer`'s `a_form_is_decided.rs`, through real tabs
+  over the confined binary: the frozen `web-a-form` filled and pressed is
+  decided as the agent's action with Chrome's body and type, the frozen
+  booking markup as the `GET` Chrome made, `?q=9` replaced as measured, an
+  `http` action from an `https` page refused, said and recorded under
+  `POST`, and a header `form-action` obeyed both ways. Unit tests for each
+  piece, the jar's in `cookies_that_cannot_be_joined.rs`. *Cut:* a
+  `<meta>` policy's `form-action`, and reports of a `form-action`
+  violation, into **486**. *Not this item's:* loading the decision —
+  sending it with its body, its cookies and an `Origin` — is item 85's.
 
 - [ ] **471. A form from script: `submit()`, `requestSubmit()`, `reset()`
   and validity.** *Cut from 82 (ADR 0051 § 7). Depends on 468 and 262
@@ -5221,7 +5253,7 @@ The long pole, and the thing most of section E is unreachable without.
   *Closes when:* the contact form's fallback, given a failed fetch, asks for
   its POST with the values as they stand and no `submit` event.
   *Since 468:* `alo-bindings`' `click()` on a submit button is refused by
-  name (`SUBMITTING`, naming 484), which 484 replaces.
+  name (`SUBMITTING`, naming 485), which 485 replaces.
 
 - [ ] **472. `FormData` and `URLSearchParams`.** *Cut from 82 (ADR 0051
   § 7). Depends on 468 and 335.* `new FormData(form)` built from 468's
@@ -5291,11 +5323,14 @@ The long pole, and the thing most of section E is unreachable without.
   what Chrome's accessibility tree says for the field, before and after
   the press.
 
-- [ ] **484. A form's submission on a page that runs script.** *Cut from 468
+- [ ] **485. A form's submission on a page that runs script.** *Cut from 468
   (iteration 296; ADR 0051 §§ 4, 6 and 7). Depends on 468, done, and
-  nothing open.* On a page whose document is in its heap, a submit button's
-  click nobody cancelled runs the steps `alo-renderer`'s `submit.rs` runs
-  on a scriptless page, with the events between them:
+  nothing open.* *Renumbered from 484 in iteration 297: iteration 296 gave
+  it the number commit 2dfc8e1 had already given `@browser`, which ADR 0052
+  cites as 484. Its journal entry says 484 and means this item.* On a page
+  whose document is in its heap, a submit button's click nobody cancelled
+  runs the steps `alo-renderer`'s `submit.rs` runs on a scriptless page,
+  with the events between them:
   - `invalid` (trusted, cancelable, not bubbling) at each failing control
     in tree order, and nothing else when any failed;
   - a `SubmitEvent` at the form (trusted even for a script's click,
@@ -5323,6 +5358,21 @@ The long pole, and the thing most of section E is unreachable without.
     `date` = `2026-10-20`;
   - a scripted page's `submit` listener reads `submitter` and `isTrusted`,
     and its `preventDefault` answers `Activated` with no ask.
+
+- [ ] **486. A `<meta>` policy's `form-action`, and its violations
+  reported.** *Cut from 470 (ADR 0051 § 5). Depends on 470, done.*
+  - The renderer asks its `<meta>` policies (`Renderer`'s `metas`) before
+    it records a submission, as it does before asking for a linked sheet
+    (ADR 0035 § 1), and the press answers by name rather than asking.
+  - A `form-action` violation is reported as other violations are, by
+    every policy that objected, the report-only ones included
+    (`csp_report.rs`), from the browser process for a header policy.
+  *Opened by a page* whose `<meta>` policy says `form-action`, or whose
+  header policy asks to be told of one. `alo-sites-full-page`'s embedded
+  timer says `form-action 'none'` in a `srcdoc` frame's `<meta>` and has no
+  form, so it opens nothing yet.
+  *Closes when:* that page's form is refused as Chrome refuses it, and the
+  report it asked for is the one Chrome sends.
 
 - [ ] **83. `fetch()` and `XMLHttpRequest`**, over the same stack as everything
   else rather than beside it.

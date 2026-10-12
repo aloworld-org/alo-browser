@@ -214,6 +214,50 @@ fn a_strict_cookie_does_not_even_survive_a_link() {
     );
 }
 
+/// A form another site's page posts to the bank is the forgery `Lax` exists
+/// to stop; a link from the same page is not (queue item 470, RFC 6265bis
+/// § 5.6.7.1). A top-level navigation is in the partition of where it goes,
+/// and its site boundary is the one between the page that asked and there.
+#[test]
+fn a_form_posted_from_another_site_carries_no_lax_cookie() {
+    let mut jar = Jar::new();
+    for header in [
+        "lax=1; Secure; SameSite=Lax",
+        "strict=1; Secure; SameSite=Strict",
+        "none=1; Secure; SameSite=None",
+    ] {
+        let cookie = set(header, "https://bank.example/", "https://bank.example/")
+            .unwrap_or_else(|why| panic!("{why}"));
+        jar.keep(cookie, now());
+    }
+    let to = url("https://bank.example/transfer");
+    let navigated = |from: Option<&str>, method: &str| {
+        jar.header_for_navigation(&to, from.map(url).as_ref(), method, now())
+            .unwrap_or_default()
+    };
+
+    assert_eq!(
+        navigated(Some("https://evil.example/"), "POST"),
+        "none=1",
+        "another site's form carried the session"
+    );
+    assert_eq!(
+        navigated(Some("https://evil.example/"), "GET"),
+        "lax=1; none=1"
+    );
+    // The bank's own page, another of its hosts included, is the same site.
+    assert_eq!(
+        navigated(Some("https://www.bank.example/pay"), "POST"),
+        "lax=1; none=1; strict=1"
+    );
+    // Nobody's page asked: the person went there.
+    assert_eq!(navigated(None, "GET"), "lax=1; none=1; strict=1");
+    assert_eq!(
+        jar.header_for_navigation(&url("https://elsewhere.example/"), None, "GET", now()),
+        None
+    );
+}
+
 /// A cross-site cookie sent in the clear is one any network can read and replay.
 #[test]
 fn same_site_none_without_secure_is_refused() {

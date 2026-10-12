@@ -102,7 +102,7 @@ const DOWNLOADING: &str = "a script's click() on a link's download is queue item
 /// and the submission it starts — `invalid`, `submit` and the ask — is not
 /// built on a page that runs script (ADR 0051 § 4).
 const SUBMITTING: &str =
-    "a script's click() on a form's submit button submits the form, which is queue item 484";
+    "a script's click() on a form's submit button submits the form, which is queue item 485";
 
 /// `click()`.
 fn click(call: &mut Call<'_>) -> Result<Answer, Escape> {
